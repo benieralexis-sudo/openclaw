@@ -1,14 +1,19 @@
 const FlowFastWorkflow = require('./flowfast-workflow.js');
+const ClaudeClient = require('./claude-client.js');
+const SendGridClient = require('./sendgrid-client.js');
 const storage = require('./storage.js');
 const https = require('https');
 
 class FlowFastTelegramHandler {
-  constructor(apolloKey, hubspotKey, openaiKey) {
+  constructor(apolloKey, hubspotKey, openaiKey, claudeKey, sendgridKey, senderEmail) {
     this.workflow = new FlowFastWorkflow(apolloKey, hubspotKey, openaiKey);
     this.hubspotKey = hubspotKey;
     this.openaiKey = openaiKey;
+    this.claude = claudeKey ? new ClaudeClient(claudeKey) : null;
+    this.sendgrid = sendgridKey ? new SendGridClient(sendgridKey, senderEmail) : null;
     // Stockage temporaire des resultats en attente de confirmation par user
     this.pendingResults = {};  // chatId -> { leads, searchParams, searchId }
+    this.pendingEmails = {};   // chatId -> { lead, email: { subject, body } }
   }
 
   // --- NLP ---
@@ -61,7 +66,8 @@ class FlowFastTelegramHandler {
         ).join('\n')
       : '';
 
-    const hasPending = !!this.pendingResults[String(chatId)];
+    const hasPendingResults = !!this.pendingResults[String(chatId)];
+    const hasPendingEmail = !!this.pendingEmails[String(chatId)];
 
     const systemPrompt = `Tu es le cerveau du bot Telegram FlowFast, un outil de prospection B2B.
 Classifie le message de l'utilisateur en une action.
@@ -74,6 +80,14 @@ Actions disponibles :
 - "confirm_no" : l'utilisateur refuse/annule (ex: "non", "annule", "stop", "pas maintenant")
 - "refine" : l'utilisateur veut affiner la recherche precedente (ex: "seulement les CEO", "filtre par Paris", "plus de resultats")
 
+- "write_email" : l'utilisateur veut ecrire/envoyer un email a un ou plusieurs leads.
+  Exemples : "ecris un mail au dernier lead", "envoie un email a tous les leads", "mail de prospection", "contacte-le par email"
+  Params : "target" peut etre "last" (dernier lead), "all" (tous les leads recents), ou une adresse email specifique.
+  Optionnel : "context" = instructions supplementaires pour le mail.
+- "edit_email" : l'utilisateur veut modifier l'email en cours (ex: "plus court", "plus formel", "change l'objet", "ajoute une reference a...")
+  Params : "instruction" = ce qu'il faut modifier
+- "email_history" : voir l'historique des emails envoyes
+
 - "set_score" : changer le score minimum, value = nombre 1-10
 - "show_score" : voir le score actuel
 - "leads" : voir les contacts HubSpot
@@ -83,7 +97,8 @@ Actions disponibles :
 - "help" : aide
 - "chat" : bavardage, questions generales
 
-${hasPending ? 'IMPORTANT: L\'utilisateur a des resultats en attente de confirmation. Si son message ressemble a un oui/non/modification, classifie en confirm_yes, confirm_no ou refine.' : ''}
+${hasPendingResults ? 'IMPORTANT: L\'utilisateur a des resultats de RECHERCHE en attente de confirmation. Si son message ressemble a un oui/non, classifie en confirm_yes ou confirm_no.' : ''}
+${hasPendingEmail ? 'IMPORTANT: L\'utilisateur a un EMAIL en attente de confirmation. "oui/envoie/go" = confirm_yes, "non/annule" = confirm_no, toute modification = edit_email.' : ''}
 
 REGLES POUR "search" - extraire dans "params" :
 - "titles" : tableau de titres EN ANGLAIS pour Apollo. Traduis le francais.
@@ -103,6 +118,8 @@ Preferences utilisateur: score minimum = ${user.scoreMinimum}/10, limite par def
 JSON strict :
 Pour search: {"action":"search","params":{"titles":[...],"locations":[...],"seniorities":null,"keywords":null,"limit":10}}
 Pour set_score: {"action":"set_score","value":8}
+Pour write_email: {"action":"write_email","params":{"target":"last","context":null}}
+Pour edit_email: {"action":"edit_email","params":{"instruction":"plus court"}}
 Pour autres: {"action":"..."}`;
 
     try {
@@ -201,6 +218,11 @@ Pour autres: {"action":"..."}`;
       '  _"trouve des CEO fintech a Paris"_',
       '  _"10 developpeurs Java a Berlin"_',
       '',
+      '✉️ *Emails :*',
+      '  _"ecris un mail au dernier lead"_',
+      '  _"envoie un email a tous les leads"_',
+      '  _"historique emails"_',
+      '',
       '📊 *Suivi :*',
       '  _"mes stats"_ — tes statistiques',
       '  _"historique"_ — tes recherches precedentes',
@@ -211,7 +233,7 @@ Pour autres: {"action":"..."}`;
       '  _"mets le score a 8"_ — changer le seuil',
       '',
       '━━━━━━━━━━━━━━━━━━',
-      '🦀 Apollo → IA → HubSpot'
+      '🦀 Apollo → Claude → HubSpot → SendGrid'
     ].join('\n');
   }
 
@@ -351,6 +373,12 @@ Pour autres: {"action":"..."}`;
 
       // --- CONFIRMATION ---
       case 'confirm_yes': {
+        // Priorite : email en attente > resultats de recherche
+        const pendingEmail = this.pendingEmails[String(chatId)];
+        if (pendingEmail) {
+          return await this._sendPendingEmail(chatId, sendReply);
+        }
+
         const pending = this.pendingResults[String(chatId)];
         if (!pending) {
           return { type: 'text', content: 'Pas de resultats en attente. Fais une recherche d\'abord !' };
@@ -386,6 +414,11 @@ Pour autres: {"action":"..."}`;
       }
 
       case 'confirm_no': {
+        const pendingEmail = this.pendingEmails[String(chatId)];
+        if (pendingEmail) {
+          delete this.pendingEmails[String(chatId)];
+          return { type: 'text', content: '👌 Email annule.' };
+        }
         const pending = this.pendingResults[String(chatId)];
         if (pending) {
           delete this.pendingResults[String(chatId)];
@@ -445,6 +478,115 @@ Pour autres: {"action":"..."}`;
       case 'test':
         return { type: 'text', content: '✅ Mister Krabs operationnel ! 🦀' };
 
+      // --- EMAILS ---
+      case 'write_email': {
+        if (!this.claude) {
+          return { type: 'text', content: '❌ La cle API Claude n\'est pas configuree. Ajoute CLAUDE_API_KEY dans le .env.' };
+        }
+        if (!this.sendgrid) {
+          return { type: 'text', content: '❌ La cle API SendGrid n\'est pas configuree. Ajoute SENDGRID_API_KEY dans le .env.' };
+        }
+
+        const params = command.params || {};
+        const target = params.target || 'last';
+        const context = params.context || null;
+
+        // Trouver le lead cible
+        let lead = null;
+        if (target === 'last') {
+          const allLeads = storage.getAllLeads();
+          lead = allLeads.length > 0 ? allLeads[allLeads.length - 1] : null;
+        } else if (target.includes('@')) {
+          lead = storage.data.leads[target] || null;
+        } else {
+          const allLeads = storage.getAllLeads();
+          lead = allLeads.length > 0 ? allLeads[allLeads.length - 1] : null;
+        }
+
+        if (!lead) {
+          return { type: 'text', content: '📭 Aucun lead trouve. Fais d\'abord une recherche !' };
+        }
+        if (!lead.email || lead.email === 'Non disponible') {
+          return { type: 'text', content: '❌ Ce lead n\'a pas d\'adresse email : *' + lead.nom + '*' };
+        }
+
+        if (sendReply) await sendReply({ type: 'text', content: '✍️ _Claude redige un email pour ' + lead.nom + '..._' });
+
+        try {
+          const email = await this.claude.generateEmail(lead, context);
+
+          // Stocker en attente de confirmation
+          this.pendingEmails[String(chatId)] = { lead: lead, email: email };
+
+          const lines = [
+            '✉️ *MAIL PROPOSE*',
+            '━━━━━━━━━━━━━━━━━━',
+            '',
+            '📧 *A :* ' + lead.email,
+            '📌 *Objet :* ' + email.subject,
+            '',
+            email.body,
+            '',
+            '━━━━━━━━━━━━━━━━━━',
+            '👉 _"envoie"_ pour envoyer',
+            '👉 _"plus court"_ / _"plus formel"_ pour modifier',
+            '👉 _"reecris"_ pour un nouveau mail',
+            '👉 _"annule"_ pour annuler'
+          ];
+
+          return { type: 'text', content: lines.join('\n') };
+        } catch (error) {
+          console.error('[email] Erreur generation:', error.message);
+          return { type: 'text', content: '❌ Erreur generation email : ' + error.message };
+        }
+      }
+
+      case 'edit_email': {
+        const pendingEmail = this.pendingEmails[String(chatId)];
+        if (!pendingEmail) {
+          return { type: 'text', content: 'Pas d\'email en cours. Dis _"ecris un mail au dernier lead"_ d\'abord.' };
+        }
+
+        const instruction = (command.params && command.params.instruction) || text;
+        if (sendReply) await sendReply({ type: 'text', content: '✍️ _Modification en cours..._' });
+
+        try {
+          const newEmail = await this.claude.editEmail(pendingEmail.email, instruction);
+          pendingEmail.email = newEmail;
+
+          const lines = [
+            '✉️ *MAIL MODIFIE*',
+            '━━━━━━━━━━━━━━━━━━',
+            '',
+            '📧 *A :* ' + pendingEmail.lead.email,
+            '📌 *Objet :* ' + newEmail.subject,
+            '',
+            newEmail.body,
+            '',
+            '━━━━━━━━━━━━━━━━━━',
+            '👉 _"envoie"_ ou _"annule"_'
+          ];
+
+          return { type: 'text', content: lines.join('\n') };
+        } catch (error) {
+          return { type: 'text', content: '❌ Erreur modification : ' + error.message };
+        }
+      }
+
+      case 'email_history': {
+        const emails = storage.getRecentEmails(chatId, 10);
+        if (emails.length === 0) return { type: 'text', content: '📭 Aucun email envoye pour l\'instant.' };
+        const lines = ['✉️ *HISTORIQUE EMAILS*', '━━━━━━━━━━━━━━━━━━', ''];
+        emails.reverse().forEach((e, i) => {
+          const date = new Date(e.createdAt).toLocaleDateString('fr-FR');
+          const statusIcon = e.status === 'sent' ? '✅' : '❌';
+          lines.push(statusIcon + ' ' + (i + 1) + '. ' + date + ' — ' + e.leadEmail);
+          lines.push('   📌 ' + e.subject);
+          lines.push('');
+        });
+        return { type: 'text', content: lines.join('\n') };
+      }
+
       // --- CONVERSATION ---
       case 'chat': {
         const response = await this.generateChatResponse(text);
@@ -453,6 +595,35 @@ Pour autres: {"action":"..."}`;
 
       default:
         return { type: 'text', content: this.getHelp() };
+    }
+  }
+
+  // --- Envoi email en attente ---
+
+  async _sendPendingEmail(chatId, sendReply) {
+    const pending = this.pendingEmails[String(chatId)];
+    if (!pending) return { type: 'text', content: 'Pas d\'email en attente.' };
+
+    if (sendReply) await sendReply({ type: 'text', content: '📤 _Envoi en cours vers ' + pending.lead.email + '..._' });
+
+    try {
+      const result = await this.sendgrid.sendEmail(
+        pending.lead.email,
+        pending.email.subject,
+        pending.email.body
+      );
+
+      const status = result.success ? 'sent' : 'failed';
+      storage.addEmail(chatId, pending.lead.email, pending.email.subject, pending.email.body, status);
+      delete this.pendingEmails[String(chatId)];
+
+      if (result.success) {
+        return { type: 'text', content: '✅ *Email envoye !*\n\n📧 ' + pending.lead.email + '\n📌 ' + pending.email.subject };
+      } else {
+        return { type: 'text', content: '❌ Echec de l\'envoi : ' + (result.error || 'erreur inconnue') };
+      }
+    } catch (error) {
+      return { type: 'text', content: '❌ Erreur envoi : ' + error.message };
     }
   }
 }

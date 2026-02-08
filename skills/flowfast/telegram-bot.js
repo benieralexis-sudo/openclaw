@@ -7,13 +7,16 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const HUBSPOT_KEY = process.env.HUBSPOT_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const APOLLO_KEY = process.env.APOLLO_API_KEY || '';
+const CLAUDE_KEY = process.env.CLAUDE_API_KEY || '';
+const SENDGRID_KEY = process.env.SENDGRID_API_KEY || '';
+const SENDER_EMAIL = process.env.SENDER_EMAIL || '';
 
 if (!TOKEN) {
   console.error('TELEGRAM_BOT_TOKEN manquant !');
   process.exit(1);
 }
 
-const handler = new FlowFastTelegramHandler(APOLLO_KEY, HUBSPOT_KEY, OPENAI_KEY);
+const handler = new FlowFastTelegramHandler(APOLLO_KEY, HUBSPOT_KEY, OPENAI_KEY, CLAUDE_KEY, SENDGRID_KEY, SENDER_EMAIL);
 let offset = 0;
 
 // --- API Telegram ---

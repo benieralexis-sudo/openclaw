@@ -11,11 +11,14 @@ class Storage {
       users: {},       // Par chat_id : preferences, historique
       searches: [],    // Historique global des recherches
       leads: {},       // Leads traites (par email = cle unique)
+      emails: [],      // Historique des emails envoyes
       stats: {         // Stats globales
         totalSearches: 0,
         totalLeadsFound: 0,
         totalLeadsQualified: 0,
         totalLeadsPushed: 0,
+        totalEmailsSent: 0,
+        totalEmailsDrafted: 0,
         createdAt: new Date().toISOString()
       }
     };
@@ -189,6 +192,48 @@ class Storage {
     this._save();
   }
 
+  // --- Emails ---
+
+  addEmail(chatId, leadEmail, subject, body, status) {
+    if (!this.data.emails) this.data.emails = [];
+    const record = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      chatId: String(chatId),
+      leadEmail: leadEmail,
+      subject: subject,
+      body: body,
+      status: status, // 'sent', 'failed', 'drafted'
+      sentAt: status === 'sent' ? new Date().toISOString() : null,
+      createdAt: new Date().toISOString()
+    };
+    this.data.emails.push(record);
+    // Garder max 500 emails
+    if (this.data.emails.length > 500) {
+      this.data.emails = this.data.emails.slice(-500);
+    }
+    if (status === 'sent') this.data.stats.totalEmailsSent = (this.data.stats.totalEmailsSent || 0) + 1;
+    if (status === 'drafted') this.data.stats.totalEmailsDrafted = (this.data.stats.totalEmailsDrafted || 0) + 1;
+    this._save();
+    return record;
+  }
+
+  getEmailsByLead(leadEmail) {
+    if (!this.data.emails) return [];
+    return this.data.emails.filter(e => e.leadEmail === leadEmail);
+  }
+
+  getRecentEmails(chatId, limit) {
+    limit = limit || 10;
+    if (!this.data.emails) return [];
+    return this.data.emails
+      .filter(e => e.chatId === String(chatId))
+      .slice(-limit);
+  }
+
+  getAllEmails() {
+    return this.data.emails || [];
+  }
+
   // --- Stats dashboard ---
 
   getGlobalStats() {
@@ -202,6 +247,8 @@ class Storage {
       positiveFeedbacks: leads.filter(l => l.feedback === 'positive').length,
       negativeFeedbacks: leads.filter(l => l.feedback === 'negative').length,
       leadsPushedToHubspot: leads.filter(l => l.pushedToHubspot).length,
+      totalEmailsSent: this.data.stats.totalEmailsSent || 0,
+      totalEmailsDrafted: this.data.stats.totalEmailsDrafted || 0,
       recentSearches: this.data.searches.slice(-20),
       topUsers: users
         .sort((a, b) => b.searchCount - a.searchCount)
