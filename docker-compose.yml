@@ -60,6 +60,7 @@ services:
     user: "root"
     environment:
       DASHBOARD_PORT: "3000"
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-flowfast}
       FLOWFAST_DATA_DIR: /data/flowfast
     volumes:
       - ./skills/flowfast:/app/skills/flowfast
