@@ -1,111 +1,54 @@
 ---
 name: flowfast
-description: Automatisation prospection B2B - Recherche Apollo, qualification IA, export HubSpot.
+description: Prospection B2B - Recherche de leads par langage naturel via Apollo, qualification IA, export HubSpot.
 metadata: { "openclaw": { "emoji": "🚀" } }
 ---
 
-# FlowFast - Automatisation Prospection B2B
+# FlowFast - Prospection B2B
 
-Bot de prospection intelligent qui qualifie automatiquement les leads et les ajoute dans HubSpot.
+Recherche de leads B2B en langage naturel. L'utilisateur dit ce qu'il cherche et le bot execute.
 
-## Execution
+## IMPORTANT - Execution directe
 
-Toutes les commandes FlowFast s'executent via le script Node.js handler.
-Le repertoire du skill est `/app/skills/flowfast/` (ou `/home/node/.openclaw/skills/flowfast/`).
+**Ne jamais expliquer les commandes a l'utilisateur.** Toujours executer directement le handler avec le message EXACT de l'utilisateur.
 
-### Commande generique
-
-Pour toute commande FlowFast, executer :
+Pour TOUT message de l'utilisateur lie a FlowFast (recherche de leads, prospection, score, stats, leads, help), executer :
 
 ```bash
 node -e "
 const H = require('/app/skills/flowfast/telegram-handler.js');
 const h = new H(process.env.APOLLO_API_KEY, process.env.HUBSPOT_API_KEY, process.env.OPENAI_API_KEY);
-h.handleMessage('COMMANDE_ICI').then(r => { if(r && r.content) console.log(r.content); else console.log('Pas de reponse.'); }).catch(e => console.error('Erreur:', e.message));
-"
+h.handleMessage(process.argv[1]).then(r => { if(r && r.content) console.log(r.content); else console.log('Pas de reponse.'); }).catch(e => console.error('Erreur:', e.message));
+" "MESSAGE_UTILISATEUR_ICI"
 ```
 
-Remplacer `COMMANDE_ICI` par la commande souhaitee.
+Remplacer `MESSAGE_UTILISATEUR_ICI` par le message exact de l'utilisateur, tel quel.
 
-### Exemples concrets
+## Exemples
 
-**Lancer le workflow de prospection :**
+Si l'utilisateur dit : "cherche 5 agents immobiliers a Amsterdam"
+→ Executer avec `"cherche 5 agents immobiliers a Amsterdam"`
 
-```bash
-node -e "
-const H = require('/app/skills/flowfast/telegram-handler.js');
-const h = new H(process.env.APOLLO_API_KEY, process.env.HUBSPOT_API_KEY, process.env.OPENAI_API_KEY);
-h.handleMessage('run').then(r => console.log(r.content)).catch(e => console.error(e.message));
-"
-```
+Si l'utilisateur dit : "trouve 20 CEO fintech a Paris"
+→ Executer avec `"trouve 20 CEO fintech a Paris"`
 
-**Voir le score minimum :**
+Si l'utilisateur dit : "score 8"
+→ Executer avec `"score 8"`
 
-```bash
-node -e "
-const H = require('/app/skills/flowfast/telegram-handler.js');
-const h = new H(process.env.APOLLO_API_KEY, process.env.HUBSPOT_API_KEY, process.env.OPENAI_API_KEY);
-h.handleMessage('score').then(r => console.log(r.content));
-"
-```
+Si l'utilisateur dit : "leads"
+→ Executer avec `"leads"`
 
-**Changer le score minimum a 8 :**
+## Ce que le handler comprend
 
-```bash
-node -e "
-const H = require('/app/skills/flowfast/telegram-handler.js');
-const h = new H(process.env.APOLLO_API_KEY, process.env.HUBSPOT_API_KEY, process.env.OPENAI_API_KEY);
-h.handleMessage('score 8').then(r => console.log(r.content));
-"
-```
+- **Recherche en langage naturel** : "cherche 10 developpeurs Java a Berlin", "trouve des CEO dans la tech a Paris", "20 agents immobiliers a Londres"
+- **Score** : `score` (voir), `score 8` (changer)
+- **Donnees** : `leads` (contacts HubSpot), `stats` (derniers resultats)
+- **Autres** : `test`, `help`
 
-**Voir les criteres actuels :**
-
-```bash
-node -e "
-const H = require('/app/skills/flowfast/telegram-handler.js');
-const h = new H(process.env.APOLLO_API_KEY, process.env.HUBSPOT_API_KEY, process.env.OPENAI_API_KEY);
-h.handleMessage('criteres').then(r => console.log(r.content));
-"
-```
-
-**Voir les contacts HubSpot :**
-
-```bash
-node -e "
-const H = require('/app/skills/flowfast/telegram-handler.js');
-const h = new H(process.env.APOLLO_API_KEY, process.env.HUBSPOT_API_KEY, process.env.OPENAI_API_KEY);
-h.handleMessage('leads').then(r => console.log(r.content));
-"
-```
-
-## Commandes disponibles
-
-| Commande | Description |
-|----------|-------------|
-| `run` | Lance le workflow complet (Apollo → IA → HubSpot) |
-| `stats` | Derniers resultats du workflow |
-| `test` | Verifier la connexion aux APIs |
-| `score` | Voir le score minimum actuel |
-| `score N` | Changer le score minimum (1-10) |
-| `criteres` | Voir la configuration (postes, secteurs, villes) |
-| `poste CEO, CTO` | Modifier les postes cibles |
-| `secteur SaaS, Tech` | Modifier les secteurs cibles |
-| `ville Paris, Lyon` | Modifier les villes cibles |
-| `reset` | Reinitialiser la configuration |
-| `leads` | Voir les contacts HubSpot |
-| `help` | Afficher l'aide |
-
-## Langage naturel
-
-Le handler comprend aussi le francais via OpenAI (classification d'intent) :
-- "lance la prospection" → `run`
-- "quel est le score ?" → `score`
-- "mets le score a 9" → `score 9`
-- "ajoute Toulouse aux villes" → `ville ... Toulouse`
+Le handler utilise OpenAI pour extraire automatiquement les parametres de recherche (postes, ville, nombre, secteur) depuis le message en langage naturel, puis interroge Apollo et qualifie les leads par IA.
 
 ## Variables d'environnement requises
 
-- `OPENAI_API_KEY` - Pour la qualification IA des leads
-- `HUBSPOT_API_KEY` - Pour l'export vers HubSpot CRM
-- `APOLLO_API_KEY` - Pour la recherche de leads (optionnel, donnees demo sinon)
+- `OPENAI_API_KEY` - Extraction de parametres NLP + qualification IA
+- `HUBSPOT_API_KEY` - Export vers HubSpot CRM
+- `APOLLO_API_KEY` - Recherche de leads

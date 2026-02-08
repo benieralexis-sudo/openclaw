@@ -39,6 +39,37 @@ services:
         "18789",
       ]
 
+  flowfast-bot:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    user: "root"
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      HUBSPOT_API_KEY: ${HUBSPOT_API_KEY}
+      APOLLO_API_KEY: ${APOLLO_API_KEY}
+      FLOWFAST_DATA_DIR: /data/flowfast
+    volumes:
+      - ./skills/flowfast:/app/skills/flowfast
+      - flowfast-data:/data/flowfast
+    init: true
+    restart: unless-stopped
+    entrypoint: ["sh", "-c", "chown -R node:node /data/flowfast && exec runuser -u node -- node /app/skills/flowfast/telegram-bot.js"]
+
+  flowfast-dashboard:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    user: "root"
+    environment:
+      DASHBOARD_PORT: "3000"
+      FLOWFAST_DATA_DIR: /data/flowfast
+    volumes:
+      - ./skills/flowfast:/app/skills/flowfast
+      - flowfast-data:/data/flowfast
+    ports:
+      - "3000:3000"
+    init: true
+    restart: unless-stopped
+    entrypoint: ["sh", "-c", "chown -R node:node /data/flowfast && exec runuser -u node -- node /app/skills/flowfast/dashboard.js"]
+
   openclaw-cli:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
     environment:
@@ -59,3 +90,6 @@ services:
     entrypoint: ["node", "dist/index.js"]
     profiles:
       - cli
+
+volumes:
+  flowfast-data:

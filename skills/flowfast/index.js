@@ -56,10 +56,9 @@ module.exports = {
 
   // Commandes disponibles
   commands: {
-    'flowfast run': 'Lance le workflow de prospection',
+    'flowfast [recherche]': 'Recherche en langage naturel (ex: flowfast cherche 20 CEO tech a Paris)',
     'flowfast stats': 'Affiche les statistiques',
     'flowfast score': 'Voir ou changer le score minimum (ex: flowfast score 8)',
-    'flowfast criteres': 'Voir la configuration actuelle',
     'flowfast leads': 'Voir les contacts HubSpot',
     'flowfast help': 'Affiche l\'aide',
     'flowfast test': 'Test de connexion'

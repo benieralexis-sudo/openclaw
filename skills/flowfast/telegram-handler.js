@@ -1,4 +1,5 @@
 const FlowFastWorkflow = require('./flowfast-workflow.js');
+const storage = require('./storage.js');
 const https = require('https');
 
 class FlowFastTelegramHandler {
@@ -6,298 +7,14 @@ class FlowFastTelegramHandler {
     this.workflow = new FlowFastWorkflow(apolloKey, hubspotKey, openaiKey);
     this.hubspotKey = hubspotKey;
     this.openaiKey = openaiKey;
-    this.lastResults = null;
-    this.scoreMinimum = 6;
-    this.criteres = {
-      postes: ['CEO', 'CTO', 'VP Sales', 'Directeur Commercial', 'Head of Sales'],
-      secteurs: ['SaaS', 'Tech', 'Fintech', 'E-commerce'],
-      villes: ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Nice']
-    };
+    // Stockage temporaire des resultats en attente de confirmation par user
+    this.pendingResults = {};  // chatId -> { leads, searchParams, searchId }
   }
 
-  parseCommand(message) {
-    const text = message.toLowerCase().trim();
+  // --- NLP ---
 
-    // Run workflow
-    if (text === 'run' || text === 'lance' || text === 'go' || text === 'start' || text === 'demarre') {
-      return { action: 'run' };
-    }
-
-    // Score minimum
-    if (text.startsWith('score ')) {
-      const num = parseInt(text.replace('score ', ''));
-      if (num >= 1 && num <= 10) {
-        return { action: 'set_score', value: num };
-      }
-      return { action: 'score_error' };
-    }
-    if (text === 'score') {
-      return { action: 'show_score' };
-    }
-
-    // Criteres - postes
-    if (text.startsWith('poste ') || text.startsWith('postes ')) {
-      const val = message.replace(/^postes?\s+/i, '').trim();
-      return { action: 'set_postes', value: val };
-    }
-
-    // Criteres - secteurs
-    if (text.startsWith('secteur ') || text.startsWith('secteurs ')) {
-      const val = message.replace(/^secteurs?\s+/i, '').trim();
-      return { action: 'set_secteurs', value: val };
-    }
-
-    // Criteres - villes
-    if (text.startsWith('ville ') || text.startsWith('villes ')) {
-      const val = message.replace(/^villes?\s+/i, '').trim();
-      return { action: 'set_villes', value: val };
-    }
-
-    // Voir criteres
-    if (text === 'criteres' || text === 'critere' || text === 'config') {
-      return { action: 'show_criteres' };
-    }
-
-    // Reset criteres
-    if (text === 'reset') {
-      return { action: 'reset' };
-    }
-
-    // Leads HubSpot
-    if (text === 'leads' || text === 'hubspot' || text === 'contacts') {
-      return { action: 'leads' };
-    }
-
-    // Stats
-    if (text === 'stats' || text === 'status' || text.includes('resultats') || text.includes('résultats')) {
-      return { action: 'stats' };
-    }
-
-    // Test
-    if (text === 'test') {
-      return { action: 'test' };
-    }
-
-    // Help
-    if (text === 'help' || text === 'aide' || text === 'menu') {
-      return { action: 'help' };
-    }
-
-    return null;
-  }
-
-  formatResults(results) {
-    return [
-      '🎯 *WORKFLOW FLOWFAST TERMINE*',
-      '',
-      '📊 *Resultats :*',
-      '━━━━━━━━━━━━━━━━━━',
-      '✅ Total traites : ' + results.total,
-      '🔥 Qualifies : ' + results.qualified,
-      '   • Prioritaires (≥8) : ' + results.priority,
-      '   • Qualifies (6-7) : ' + (results.qualified - results.priority),
-      '📝 Crees HubSpot : ' + results.created,
-      '⏭️ Skippes : ' + results.skipped,
-      '❌ Erreurs : ' + results.errors,
-      '',
-      '⚙️ Score minimum utilise : ' + this.scoreMinimum + '/10',
-      '',
-      '✨ Workflow termine avec succes !'
-    ].join('\n');
-  }
-
-  getHelp() {
-    return [
-      '🤖 *FLOWFAST - COMMANDES*',
-      '',
-      '*▶️ Lancer le workflow :*',
-      '`run` `lance` `go`',
-      '',
-      '*⚙️ Score minimum :*',
-      '`score` - Voir le score actuel',
-      '`score 8` - Changer le score (1-10)',
-      '',
-      '*🎯 Criteres de recherche :*',
-      '`criteres` - Voir les criteres actuels',
-      '`poste CEO, CTO, VP` - Modifier les postes',
-      '`secteur SaaS, Tech` - Modifier les secteurs',
-      '`ville Paris, Lyon` - Modifier les villes',
-      '`reset` - Reinitialiser les criteres',
-      '',
-      '*📊 Donnees :*',
-      '`leads` - Voir les leads HubSpot',
-      '`stats` - Derniers resultats',
-      '',
-      '*🔧 Autres :*',
-      '`test` - Verifier que le bot fonctionne',
-      '`help` - Afficher ce menu',
-      '',
-      '━━━━━━━━━━━━━━━━━━',
-      '💡 FlowFast - Prospection B2B automatisee',
-      '🎯 Apollo → IA → HubSpot'
-    ].join('\n');
-  }
-
-  getStats() {
-    if (!this.lastResults) {
-      return '📊 Aucun workflow execute recemment.\n\nUtilise `run` pour lancer !';
-    }
-    return [
-      '📊 *DERNIERS RESULTATS*',
-      '',
-      '• Total : ' + this.lastResults.total,
-      '• Qualifies : ' + this.lastResults.qualified,
-      '• Crees : ' + this.lastResults.created,
-      '• Skippes : ' + this.lastResults.skipped,
-      '',
-      '🔥 Prioritaires : ' + this.lastResults.priority,
-      '✅ Qualifies : ' + (this.lastResults.qualified - this.lastResults.priority)
-    ].join('\n');
-  }
-
-  showCriteres() {
-    return [
-      '⚙️ *CONFIGURATION ACTUELLE*',
-      '',
-      '📌 *Score minimum :* ' + this.scoreMinimum + '/10',
-      '',
-      '👔 *Postes cibles :*',
-      this.criteres.postes.map(p => '  • ' + p).join('\n'),
-      '',
-      '🏢 *Secteurs :*',
-      this.criteres.secteurs.map(s => '  • ' + s).join('\n'),
-      '',
-      '📍 *Villes :*',
-      this.criteres.villes.map(v => '  • ' + v).join('\n'),
-      '',
-      '━━━━━━━━━━━━━━━━━━',
-      '💡 Modifie avec : `poste ...` `secteur ...` `ville ...` `score N`'
-    ].join('\n');
-  }
-
-  async getLeadsFromHubspot() {
-    try {
-      const apiKey = this.hubspotKey;
-
-      const contacts = await new Promise((resolve, reject) => {
-        const req = https.request({
-          hostname: 'api.hubapi.com',
-          path: '/crm/v3/objects/contacts?limit=100&properties=firstname,lastname,company,jobtitle,email',
-          method: 'GET',
-          headers: { 'Authorization': 'Bearer ' + apiKey }
-        }, (res) => {
-          let data = '';
-          res.on('data', (chunk) => { data += chunk; });
-          res.on('end', () => {
-            try {
-              resolve(JSON.parse(data).results || []);
-            } catch (e) {
-              reject(new Error('Reponse HubSpot invalide'));
-            }
-          });
-        });
-
-        req.on('error', (e) => reject(e));
-        req.setTimeout(15000, () => {
-          req.destroy();
-          reject(new Error('Timeout HubSpot (15s)'));
-        });
-        req.end();
-      });
-
-      if (!contacts || contacts.length === 0) {
-        return '📭 Aucun contact trouve dans HubSpot.';
-      }
-
-      const lines = [
-        '📋 *LEADS HUBSPOT* (' + contacts.length + ' contacts)',
-        '━━━━━━━━━━━━━━━━━━',
-        ''
-      ];
-
-      const max = Math.min(contacts.length, 10);
-      for (let i = 0; i < max; i++) {
-        const c = contacts[i];
-        const props = c.properties || {};
-        const nom = (props.firstname || '') + ' ' + (props.lastname || '');
-        const entreprise = props.company || 'N/A';
-        const email = props.email || 'N/A';
-        const titre = props.jobtitle || 'N/A';
-        lines.push((i + 1) + '. *' + nom.trim() + '*');
-        lines.push('   🏢 ' + entreprise + ' | ' + titre);
-        lines.push('   ✉️ ' + email);
-        lines.push('');
-      }
-
-      if (contacts.length > 10) {
-        lines.push('... et ' + (contacts.length - 10) + ' autres contacts');
-      }
-
-      lines.push('━━━━━━━━━━━━━━━━━━');
-      lines.push('🔗 https://app-eu1.hubspot.com/contacts/147742541');
-
-      return lines.join('\n');
-    } catch (error) {
-      return '❌ Erreur HubSpot : ' + error.message;
-    }
-  }
-
-  async executeWorkflow() {
-    let leads;
-
-    // Rechercher des leads via Apollo avec les criteres configures
-    try {
-      const apolloResult = await this.workflow.apollo.searchLeads({
-        titles: this.criteres.postes,
-        limit: 20
-      });
-
-      if (apolloResult.success && apolloResult.leads.length > 0) {
-        leads = apolloResult.leads.map(lead => ({
-          nom: ((lead.first_name || '') + ' ' + (lead.last_name || '')).trim(),
-          prenom: lead.first_name || '',
-          nom_famille: lead.last_name || '',
-          titre: lead.title || 'Non specifie',
-          entreprise: (lead.organization && lead.organization.name) || 'Non specifie',
-          email: lead.email || 'Non disponible',
-          localisation: lead.city || 'Non specifie'
-        }));
-
-        // Filtrer par villes si configurees
-        if (this.criteres.villes.length > 0) {
-          const villesLower = this.criteres.villes.map(v => v.toLowerCase());
-          const filtered = leads.filter(l =>
-            villesLower.some(v => l.localisation.toLowerCase().includes(v))
-          );
-          if (filtered.length > 0) {
-            leads = filtered;
-          }
-        }
-
-        console.log('🔍 ' + leads.length + ' leads trouves via Apollo');
-      }
-    } catch (error) {
-      console.log('⚠️ Recherche Apollo echouee (' + error.message + '), utilisation des leads demo');
-    }
-
-    // Fallback : leads demo si Apollo n'a rien retourne
-    if (!leads || leads.length === 0) {
-      console.log('📋 Utilisation des leads de demonstration');
-      leads = [
-        { nom: 'Marie Dubois', prenom: 'Marie', nom_famille: 'Dubois', titre: 'CEO', entreprise: 'TechStart Paris', email: 'marie.dubois@techstart.fr', localisation: 'Paris, France' },
-        { nom: 'Jean Martin', prenom: 'Jean', nom_famille: 'Martin', titre: 'Junior Developer', entreprise: 'SmallCorp', email: 'jean.martin@smallcorp.fr', localisation: 'Lyon, France' },
-        { nom: 'Sophie Laurent', prenom: 'Sophie', nom_famille: 'Laurent', titre: 'CTO', entreprise: 'InnovateTech', email: 'sophie.laurent@innovatetech.fr', localisation: 'Marseille, France' },
-        { nom: 'Pierre Durand', prenom: 'Pierre', nom_famille: 'Durand', titre: 'VP Sales', entreprise: 'SalesTech Pro', email: 'pierre.durand@salestech.fr', localisation: 'Nice, France' },
-        { nom: 'Julie Bernard', prenom: 'Julie', nom_famille: 'Bernard', titre: 'Sales Manager', entreprise: 'BizDev Corp', email: 'julie.bernard@bizdev.fr', localisation: 'Bordeaux, France' }
-      ];
-    }
-
-    const results = await this.workflow.processLeads(leads, this.scoreMinimum);
-    this.lastResults = results;
-    return results;
-  }
-
-  callOpenAI(messages, maxTokens = 200) {
+  callOpenAI(messages, maxTokens) {
+    maxTokens = maxTokens || 200;
     return new Promise((resolve, reject) => {
       const postData = JSON.stringify({
         model: 'gpt-4o-mini',
@@ -305,7 +22,6 @@ class FlowFastTelegramHandler {
         temperature: 0.3,
         max_tokens: maxTokens
       });
-
       const req = https.request({
         hostname: 'api.openai.com',
         path: '/v1/chat/completions',
@@ -326,188 +42,419 @@ class FlowFastTelegramHandler {
             } else {
               reject(new Error('Reponse OpenAI invalide'));
             }
-          } catch (e) {
-            reject(e);
-          }
+          } catch (e) { reject(e); }
         });
       });
-
       req.on('error', reject);
-      req.setTimeout(10000, () => {
-        req.destroy();
-        reject(new Error('Timeout OpenAI (10s)'));
-      });
+      req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout OpenAI')); });
       req.write(postData);
       req.end();
     });
   }
 
-  async classifyIntent(message) {
-    const systemPrompt = `Tu es l'assistant du bot Telegram FlowFast, un outil de prospection B2B.
-Tu dois classifier le message de l'utilisateur en une action.
+  async classifyIntent(message, chatId) {
+    const user = storage.getUser(chatId);
+    const recentSearches = storage.getRecentSearches(chatId, 3);
+    const recentContext = recentSearches.length > 0
+      ? '\nRecherches recentes de cet utilisateur:\n' + recentSearches.map(s =>
+          '- ' + (s.params.titles || []).join(', ') + ' a ' + (s.params.locations || []).join(', ') + ' (' + (s.results?.total || 0) + ' resultats)'
+        ).join('\n')
+      : '';
+
+    const hasPending = !!this.pendingResults[String(chatId)];
+
+    const systemPrompt = `Tu es le cerveau du bot Telegram FlowFast, un outil de prospection B2B.
+Classifie le message de l'utilisateur en une action.
 
 Actions disponibles :
-- "run" : lancer le workflow de prospection (ex: "lance la prospection", "demarre le workflow", "go", "c'est parti")
-- "show_score" : voir le score minimum actuel (ex: "quel est le score ?", "montre le score")
-- "set_score" : changer le score minimum, value = le nombre entre 1 et 10 (ex: "mets le score a 8", "change le score pour 9")
-- "show_criteres" : voir la configuration actuelle (ex: "montre les criteres", "c'est quoi la config ?")
-- "set_postes" : modifier les postes cibles, value = liste separee par des virgules (ex: "cible les CEO et CTO", "ajoute VP Marketing aux postes")
-- "set_secteurs" : modifier les secteurs, value = liste separee par des virgules (ex: "change les secteurs pour Fintech, Healthtech")
-- "set_villes" : modifier les villes, value = liste separee par des virgules (ex: "ajoute Toulouse aux villes", "prospection sur Nantes et Rennes")
-- "reset" : reinitialiser la configuration par defaut (ex: "reinitialise tout", "remet les parametres par defaut")
-- "leads" : voir les contacts HubSpot (ex: "montre les leads", "quels contacts on a ?")
-- "stats" : voir les derniers resultats (ex: "quels sont les resultats ?", "combien de leads qualifies ?")
-- "test" : verifier que le bot fonctionne (ex: "ca marche ?", "t'es la ?")
-- "help" : afficher l'aide (ex: "comment ca marche ?", "que peux-tu faire ?", "quelles commandes ?")
-- "chat" : conversation generale, bavardage, questions hors-sujet (ex: "salut", "merci", "c'est quoi flowfast ?")
+- "search" : recherche de leads/contacts/prospects. L'utilisateur decrit QUI, OU, COMBIEN.
+  Exemples : "cherche 20 agents immobiliers a Londres", "trouve des CEO tech a Paris", "10 devs Berlin"
 
-Configuration actuelle :
-- Score minimum : ${this.scoreMinimum}/10
-- Postes : ${this.criteres.postes.join(', ')}
-- Secteurs : ${this.criteres.secteurs.join(', ')}
-- Villes : ${this.criteres.villes.join(', ')}
+- "confirm_yes" : l'utilisateur confirme/accepte (ex: "oui", "ok", "go", "envoie", "valide", "c'est bon", "pousse-les")
+- "confirm_no" : l'utilisateur refuse/annule (ex: "non", "annule", "stop", "pas maintenant")
+- "refine" : l'utilisateur veut affiner la recherche precedente (ex: "seulement les CEO", "filtre par Paris", "plus de resultats")
 
-IMPORTANT pour set_postes, set_secteurs, set_villes : si l'utilisateur dit "ajoute X", la value doit contenir les elements actuels + le nouvel element.
+- "set_score" : changer le score minimum, value = nombre 1-10
+- "show_score" : voir le score actuel
+- "leads" : voir les contacts HubSpot
+- "stats" : voir les statistiques
+- "history" : voir les recherches precedentes
+- "test" : verifier le bot
+- "help" : aide
+- "chat" : bavardage, questions generales
 
-Reponds UNIQUEMENT avec un objet JSON strict, rien d'autre :
-{"action":"...","value":"..."}
+${hasPending ? 'IMPORTANT: L\'utilisateur a des resultats en attente de confirmation. Si son message ressemble a un oui/non/modification, classifie en confirm_yes, confirm_no ou refine.' : ''}
 
-Si pas de value, mets null.`;
+REGLES POUR "search" - extraire dans "params" :
+- "titles" : tableau de titres EN ANGLAIS pour Apollo. Traduis le francais.
+  "agent immobilier" → ["Real Estate Agent", "Realtor", "Property Agent"]
+  "developpeur" → ["Software Developer", "Software Engineer"]
+  "directeur commercial" → ["Sales Director", "VP Sales", "Head of Sales"]
+- "locations" : tableau "City, CODE_PAYS".
+  "Londres" → ["London, GB"], "Paris" → ["Paris, FR"]
+  Si pays entier ("en France"), utilise grandes villes: ["Paris, FR", "Lyon, FR", "Marseille, FR", "Bordeaux, FR", "Toulouse, FR"]
+- "seniorities" : niveaux si mentionnes: "c_suite", "vp", "director", "manager", "senior", "entry". Null sinon.
+- "keywords" : mots-cles supplementaires (secteur, competence). Null sinon.
+- "limit" : nombre de leads (defaut 10, max 100).
+${recentContext}
+
+Preferences utilisateur: score minimum = ${user.scoreMinimum}/10, limite par defaut = ${user.preferences.defaultLimit}
+
+JSON strict :
+Pour search: {"action":"search","params":{"titles":[...],"locations":[...],"seniorities":null,"keywords":null,"limit":10}}
+Pour set_score: {"action":"set_score","value":8}
+Pour autres: {"action":"..."}`;
 
     try {
       const response = await this.callOpenAI([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
-      ], 150);
+      ], 300);
 
-      let cleaned = response.trim()
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-
+      let cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned);
-
       if (!result.action) return null;
 
-      // Convertir le score en nombre si necessaire
       if (result.action === 'set_score' && result.value !== null) {
         const num = parseInt(result.value);
-        if (num >= 1 && num <= 10) {
-          return { action: 'set_score', value: num };
-        }
+        if (num >= 1 && num <= 10) return { action: 'set_score', value: num };
         return { action: 'score_error' };
       }
-
       return result;
     } catch (error) {
-      console.log('⚠️ classifyIntent error: ' + error.message);
+      console.log('[NLP] Erreur classifyIntent:', error.message);
       return null;
     }
   }
 
   async generateChatResponse(message) {
-    const systemPrompt = `Tu es FlowFast Bot, un assistant de prospection B2B sur Telegram.
-Tu es amical, concis et tu reponds en francais.
-Tu aides l'utilisateur a prospecter via Apollo, qualifier les leads avec l'IA, et les enregistrer dans HubSpot.
-
-Commandes principales : run (lancer), score (voir/changer le score), criteres (voir config), leads (contacts HubSpot), stats (resultats), help (aide).
-
-Reponds en 1-3 phrases maximum. Utilise le formatage Markdown compatible Telegram (*gras*, \`code\`).
-Si l'utilisateur semble perdu, suggere une commande utile.`;
-
     try {
       const response = await this.callOpenAI([
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: 'Tu es Mister Krabs 🦀, assistant de prospection B2B. Reponds en francais, 1-3 phrases max. Si l\'utilisateur semble perdu, donne un exemple: "cherche 10 CEO tech a Paris". Sois decontracte et chaleureux.' },
         { role: 'user', content: message }
       ], 200);
-
       return response.trim();
     } catch (error) {
-      return 'Desole, je n\'ai pas compris. Tape `help` pour voir les commandes disponibles.';
+      return 'Dis-moi ce que tu cherches ! Par exemple: _"cherche 10 CEO tech a Paris"_';
     }
   }
 
-  async handleMessage(message, sendReply = null) {
-    let command = this.parseCommand(message);
+  // --- Recherche ---
 
-    // Fallback NLP si la commande exacte n'est pas reconnue
-    if (!command && this.openaiKey) {
-      command = await this.classifyIntent(message);
+  async executeSearch(searchParams, chatId) {
+    const apolloCriteria = { limit: searchParams.limit || 10 };
+    if (searchParams.titles && searchParams.titles.length > 0) apolloCriteria.titles = searchParams.titles;
+    if (searchParams.locations && searchParams.locations.length > 0) apolloCriteria.locations = searchParams.locations;
+    if (searchParams.seniorities && searchParams.seniorities.length > 0) apolloCriteria.seniorities = searchParams.seniorities;
+    if (searchParams.keywords) apolloCriteria.keywords = searchParams.keywords;
+
+    const apolloResult = await this.workflow.apollo.searchLeads(apolloCriteria);
+    if (!apolloResult.success || apolloResult.leads.length === 0) return null;
+
+    const leads = apolloResult.leads.map(lead => ({
+      nom: ((lead.first_name || '') + ' ' + (lead.last_name || '')).trim(),
+      prenom: lead.first_name || '',
+      nom_famille: lead.last_name || '',
+      titre: lead.title || 'Non specifie',
+      entreprise: (lead.organization && lead.organization.name) || 'Non specifie',
+      email: lead.email || 'Non disponible',
+      localisation: lead.city || lead.state || 'Non specifie',
+      linkedin: lead.linkedin_url || null
+    }));
+
+    return leads;
+  }
+
+  async scoreLeads(leads, minScore) {
+    const scored = [];
+    for (const lead of leads) {
+      const qualification = await this.workflow.qualifyLead(lead);
+      scored.push({ ...lead, score: qualification.score, raison: qualification.raison, recommandation: qualification.recommandation });
+    }
+    return scored;
+  }
+
+  // --- Formatage ---
+
+  formatLeadsList(leads, showActions) {
+    const lines = [];
+    leads.forEach((lead, i) => {
+      const emoji = lead.score >= 8 ? '🔥' : lead.score >= 6 ? '✅' : '⚪';
+      lines.push(emoji + ' *' + (i + 1) + '. ' + lead.nom + '* — ' + lead.score + '/10');
+      lines.push('   👔 ' + lead.titre);
+      lines.push('   🏢 ' + lead.entreprise);
+      lines.push('   📍 ' + lead.localisation);
+      if (lead.email && lead.email !== 'Non disponible') {
+        lines.push('   ✉️ ' + lead.email);
+      }
+      lines.push('');
+    });
+    return lines.join('\n');
+  }
+
+  getHelp() {
+    return [
+      '🦀 *MISTER KRABS - PROSPECTION B2B*',
+      '',
+      '🔍 *Recherche* — parle-moi naturellement :',
+      '  _"cherche 20 agents immobiliers a Londres"_',
+      '  _"trouve des CEO fintech a Paris"_',
+      '  _"10 developpeurs Java a Berlin"_',
+      '',
+      '📊 *Suivi :*',
+      '  _"mes stats"_ — tes statistiques',
+      '  _"historique"_ — tes recherches precedentes',
+      '  _"leads"_ — contacts HubSpot',
+      '',
+      '⚙️ *Reglages :*',
+      '  _"score"_ — voir le score minimum',
+      '  _"mets le score a 8"_ — changer le seuil',
+      '',
+      '━━━━━━━━━━━━━━━━━━',
+      '🦀 Apollo → IA → HubSpot'
+    ].join('\n');
+  }
+
+  // --- HubSpot ---
+
+  async getLeadsFromHubspot() {
+    try {
+      const contacts = await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: 'api.hubapi.com',
+          path: '/crm/v3/objects/contacts?limit=100&properties=firstname,lastname,company,jobtitle,email',
+          method: 'GET',
+          headers: { 'Authorization': 'Bearer ' + this.hubspotKey }
+        }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => { data += chunk; });
+          res.on('end', () => { try { resolve(JSON.parse(data).results || []); } catch (e) { reject(e); } });
+        });
+        req.on('error', reject);
+        req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout')); });
+        req.end();
+      });
+
+      if (!contacts || contacts.length === 0) return '📭 Aucun contact dans HubSpot.';
+
+      const lines = ['📋 *LEADS HUBSPOT* (' + contacts.length + ' contacts)', '━━━━━━━━━━━━━━━━━━', ''];
+      const max = Math.min(contacts.length, 10);
+      for (let i = 0; i < max; i++) {
+        const p = contacts[i].properties || {};
+        lines.push((i + 1) + '. *' + ((p.firstname || '') + ' ' + (p.lastname || '')).trim() + '*');
+        lines.push('   🏢 ' + (p.company || 'N/A') + ' | ' + (p.jobtitle || 'N/A'));
+        lines.push('   ✉️ ' + (p.email || 'N/A'));
+        lines.push('');
+      }
+      if (contacts.length > 10) lines.push('... et ' + (contacts.length - 10) + ' autres');
+      return lines.join('\n');
+    } catch (error) {
+      return '❌ Erreur HubSpot : ' + error.message;
+    }
+  }
+
+  // --- Handler principal ---
+
+  async handleMessage(message, chatId, sendReply) {
+    const user = storage.getUser(chatId);
+    const text = message.trim();
+    const textLower = text.toLowerCase();
+
+    // Commandes rapides (sans NLP)
+    if (textLower === 'help' || textLower === 'aide' || textLower === '/start') {
+      return { type: 'text', content: this.getHelp() };
+    }
+    if (textLower === 'test') {
+      return { type: 'text', content: '✅ Mister Krabs est operationnel ! 🦀\n\nScore : ' + user.scoreMinimum + '/10\nRecherches : ' + user.searchCount + '\n\nDis-moi ce que tu cherches !' };
     }
 
-    if (!command) {
-      return null;
-    }
-
-    // Intent conversationnel : reponse via IA
-    if (command.action === 'chat') {
-      const response = await this.generateChatResponse(message);
-      return { type: 'text', content: response };
-    }
+    // Classification NLP
+    const command = await this.classifyIntent(text, chatId);
+    if (!command) return null;
 
     switch (command.action) {
-      case 'help':
-        return { type: 'text', content: this.getHelp() };
 
-      case 'stats':
-        return { type: 'text', content: this.getStats() };
+      // --- RECHERCHE ---
+      case 'search': {
+        const params = command.params || {};
+        const scoreMin = user.scoreMinimum;
 
-      case 'test':
-        return { type: 'text', content: '✅ FlowFast est operationnel !\n\n⚙️ Score : ' + this.scoreMinimum + '/10\nUtilise `help` pour voir les commandes.' };
+        // Message de confirmation
+        const confirmLines = ['🔍 *Recherche en cours...*', ''];
+        if (params.titles && params.titles.length > 0) confirmLines.push('👔 Postes : ' + params.titles.join(', '));
+        if (params.locations && params.locations.length > 0) confirmLines.push('📍 Lieu : ' + params.locations.join(', '));
+        if (params.keywords) confirmLines.push('🔑 Mots-cles : ' + params.keywords);
+        confirmLines.push('📋 Limite : ' + (params.limit || 10) + ' leads');
+        confirmLines.push('⚙️ Score minimum : ' + scoreMin + '/10');
 
-      case 'show_score':
-        return { type: 'text', content: '📌 Score minimum actuel : *' + this.scoreMinimum + '/10*\n\nModifie avec `score N` (ex: `score 8`)' };
+        if (sendReply) await sendReply({ type: 'text', content: confirmLines.join('\n') });
 
-      case 'set_score':
-        this.scoreMinimum = command.value;
-        return { type: 'text', content: '✅ Score minimum mis a jour : *' + this.scoreMinimum + '/10*\n\nLes prochains leads devront avoir au moins ' + this.scoreMinimum + '/10 pour etre qualifies.' };
-
-      case 'score_error':
-        return { type: 'text', content: '❌ Score invalide. Utilise un nombre entre 1 et 10.\nExemple : `score 8`' };
-
-      case 'show_criteres':
-        return { type: 'text', content: this.showCriteres() };
-
-      case 'set_postes':
-        this.criteres.postes = command.value.split(',').map(s => s.trim()).filter(s => s);
-        return { type: 'text', content: '✅ Postes mis a jour :\n' + this.criteres.postes.map(p => '  • ' + p).join('\n') };
-
-      case 'set_secteurs':
-        this.criteres.secteurs = command.value.split(',').map(s => s.trim()).filter(s => s);
-        return { type: 'text', content: '✅ Secteurs mis a jour :\n' + this.criteres.secteurs.map(s => '  • ' + s).join('\n') };
-
-      case 'set_villes':
-        this.criteres.villes = command.value.split(',').map(s => s.trim()).filter(s => s);
-        return { type: 'text', content: '✅ Villes mises a jour :\n' + this.criteres.villes.map(v => '  • ' + v).join('\n') };
-
-      case 'reset':
-        this.criteres = {
-          postes: ['CEO', 'CTO', 'VP Sales', 'Directeur Commercial', 'Head of Sales'],
-          secteurs: ['SaaS', 'Tech', 'Fintech', 'E-commerce'],
-          villes: ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Nice']
-        };
-        this.scoreMinimum = 6;
-        return { type: 'text', content: '🔄 Configuration reintialisee par defaut.\n\nUtilise `criteres` pour voir.' };
-
-      case 'leads':
-        return { type: 'text', content: await this.getLeadsFromHubspot() };
-
-      case 'run':
         try {
-          if (sendReply) {
-            await sendReply({ type: 'text', content: '⏳ Workflow FlowFast en cours...\n\n⚙️ Score minimum : ' + this.scoreMinimum + '/10\n🎯 Postes : ' + this.criteres.postes.join(', ') });
+          const leads = await this.executeSearch(params, chatId);
+
+          if (!leads || leads.length === 0) {
+            storage.addSearch(chatId, params, { total: 0, qualified: 0, created: 0 });
+            return { type: 'text', content: '📭 Aucun lead trouve pour cette recherche.\n\nEssaie avec des criteres differents !' };
           }
-          const results = await this.executeWorkflow();
-          return { type: 'text', content: this.formatResults(results) };
+
+          // Scorer les leads
+          if (sendReply) await sendReply({ type: 'text', content: '🤖 _Qualification IA de ' + leads.length + ' leads..._' });
+          const scoredLeads = await this.scoreLeads(leads, scoreMin);
+
+          // Filtrer par score
+          const qualified = scoredLeads.filter(l => l.score >= scoreMin);
+          const priority = qualified.filter(l => l.score >= 8);
+
+          // Sauvegarder la recherche
+          const searchRecord = storage.addSearch(chatId, params, {
+            total: leads.length,
+            qualified: qualified.length,
+            priority: priority.length,
+            created: 0,
+            skipped: leads.length - qualified.length
+          });
+
+          // Sauvegarder les leads
+          scoredLeads.forEach(l => storage.addLead(l, l.score, searchRecord.id));
+
+          if (qualified.length === 0) {
+            return { type: 'text', content: '📊 *' + leads.length + ' leads trouves* mais aucun ne depasse le score de ' + scoreMin + '/10.\n\nBaisse le score avec _"mets le score a 4"_ ou affine ta recherche.' };
+          }
+
+          // Stocker en attente de confirmation
+          this.pendingResults[String(chatId)] = {
+            leads: qualified,
+            searchParams: params,
+            searchId: searchRecord.id
+          };
+
+          const lines = [
+            '🎯 *RESULTATS* — ' + qualified.length + '/' + leads.length + ' qualifies',
+            '━━━━━━━━━━━━━━━━━━',
+            '',
+            this.formatLeadsList(qualified.slice(0, 10)),
+            qualified.length > 10 ? '... et ' + (qualified.length - 10) + ' autres\n' : '',
+            '━━━━━━━━━━━━━━━━━━',
+            '🔥 Prioritaires (≥8) : ' + priority.length,
+            '✅ Qualifies (≥' + scoreMin + ') : ' + qualified.length,
+            '',
+            '👉 *Tu veux que je les pousse dans HubSpot ?*',
+            'Reponds _"oui"_ ou _"non"_'
+          ];
+
+          return { type: 'text', content: lines.join('\n') };
+
         } catch (error) {
           return { type: 'text', content: '❌ Erreur : ' + error.message };
         }
+      }
+
+      // --- CONFIRMATION ---
+      case 'confirm_yes': {
+        const pending = this.pendingResults[String(chatId)];
+        if (!pending) {
+          return { type: 'text', content: 'Pas de resultats en attente. Fais une recherche d\'abord !' };
+        }
+
+        if (sendReply) await sendReply({ type: 'text', content: '📤 _Envoi de ' + pending.leads.length + ' leads vers HubSpot..._' });
+
+        let created = 0;
+        let errors = 0;
+        for (const lead of pending.leads) {
+          const result = await this.workflow.hubspot.upsertContact({
+            prenom: lead.prenom,
+            nom: lead.nom_famille,
+            email: lead.email,
+            titre: lead.titre,
+            entreprise: lead.entreprise,
+            ville: lead.localisation
+          });
+          if (result.success) {
+            created++;
+            storage.setLeadPushed(lead.email);
+          } else {
+            errors++;
+          }
+          await new Promise(r => setTimeout(r, 500));
+        }
+
+        delete this.pendingResults[String(chatId)];
+        storage.data.stats.totalLeadsPushed += created;
+        storage._save();
+
+        return { type: 'text', content: '✅ *Fait !*\n\n📝 ' + created + ' leads crees dans HubSpot\n' + (errors > 0 ? '❌ ' + errors + ' erreurs\n' : '') + '\n🔗 https://app-eu1.hubspot.com/contacts/147742541' };
+      }
+
+      case 'confirm_no': {
+        const pending = this.pendingResults[String(chatId)];
+        if (pending) {
+          delete this.pendingResults[String(chatId)];
+          return { type: 'text', content: '👌 Resultats annules. Dis-moi si tu veux affiner la recherche !' };
+        }
+        return { type: 'text', content: '👌 OK ! Dis-moi ce que tu cherches.' };
+      }
+
+      // --- SCORE ---
+      case 'show_score':
+        return { type: 'text', content: '📌 Ton score minimum : *' + user.scoreMinimum + '/10*\n\nDis _"mets le score a 8"_ pour changer.' };
+
+      case 'set_score':
+        storage.setUserScore(chatId, command.value);
+        return { type: 'text', content: '✅ Score mis a jour : *' + command.value + '/10*\n\nLes prochains leads devront avoir au moins ' + command.value + '/10.' };
+
+      case 'score_error':
+        return { type: 'text', content: '❌ Score invalide (entre 1 et 10).' };
+
+      // --- DONNEES ---
+      case 'leads':
+        return { type: 'text', content: await this.getLeadsFromHubspot() };
+
+      case 'stats': {
+        const searches = storage.getRecentSearches(chatId);
+        const totalLeads = storage.getAllLeads().filter(l => l.searchId && storage.data.searches.find(s => s.id === l.searchId && s.chatId === String(chatId)));
+        return { type: 'text', content: [
+          '📊 *TES STATISTIQUES*',
+          '━━━━━━━━━━━━━━━━━━',
+          '🔍 Recherches : ' + user.searchCount,
+          '⚙️ Score minimum : ' + user.scoreMinimum + '/10',
+          '👤 Membre depuis : ' + new Date(user.joinedAt).toLocaleDateString('fr-FR'),
+          '',
+          searches.length > 0 ? '*Dernieres recherches :*\n' + searches.map(s =>
+            '• ' + (s.params.titles || []).join(', ') + ' a ' + (s.params.locations || []).join(', ') + ' → ' + (s.results?.qualified || 0) + ' qualifies'
+          ).join('\n') : 'Aucune recherche recente.'
+        ].join('\n') };
+      }
+
+      case 'history': {
+        const searches = storage.getRecentSearches(chatId, 10);
+        if (searches.length === 0) return { type: 'text', content: 'Aucune recherche dans l\'historique.' };
+        const lines = ['📜 *HISTORIQUE*', '━━━━━━━━━━━━━━━━━━', ''];
+        searches.reverse().forEach((s, i) => {
+          const date = new Date(s.createdAt).toLocaleDateString('fr-FR');
+          lines.push((i + 1) + '. ' + date + ' — ' + (s.params.titles || []).join(', '));
+          lines.push('   📍 ' + (s.params.locations || []).join(', ') + ' | ' + (s.results?.total || 0) + ' trouves, ' + (s.results?.qualified || 0) + ' qualifies');
+          lines.push('');
+        });
+        return { type: 'text', content: lines.join('\n') };
+      }
+
+      // --- AIDE ---
+      case 'help':
+        return { type: 'text', content: this.getHelp() };
+
+      case 'test':
+        return { type: 'text', content: '✅ Mister Krabs operationnel ! 🦀' };
+
+      // --- CONVERSATION ---
+      case 'chat': {
+        const response = await this.generateChatResponse(text);
+        return { type: 'text', content: response };
+      }
 
       default:
         return { type: 'text', content: this.getHelp() };
     }
   }
-
 }
 
 module.exports = FlowFastTelegramHandler;

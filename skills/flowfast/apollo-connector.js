@@ -18,7 +18,7 @@ class ApolloConnector {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Content-Length': postData.length,
+          'Content-Length': Buffer.byteLength(postData),
           'X-Api-Key': this.apiKey
         }
       };
@@ -52,26 +52,60 @@ class ApolloConnector {
   // Rechercher des leads sur Apollo
   async searchLeads(criteria = {}) {
     console.log('🔍 Recherche de leads sur Apollo...');
-    
+
     const searchData = {
       page: 1,
-      per_page: criteria.limit || 10,
-      person_titles: criteria.titles || [],
-      q_organization_domains: criteria.domain || null,
-      organization_num_employees_ranges: criteria.companySize || []
+      per_page: Math.min(criteria.limit || 10, 100)
     };
+
+    // Postes / titres
+    if (criteria.titles && criteria.titles.length > 0) {
+      searchData.person_titles = criteria.titles;
+    }
+
+    // Localisation des personnes (format "City, CC")
+    if (criteria.locations && criteria.locations.length > 0) {
+      searchData.person_locations = criteria.locations;
+    }
+
+    // Niveau hiérarchique
+    if (criteria.seniorities && criteria.seniorities.length > 0) {
+      searchData.person_seniorities = criteria.seniorities;
+    }
+
+    // Mots-clés libres
+    if (criteria.keywords) {
+      searchData.q_keywords = criteria.keywords;
+    }
+
+    // Domaine d'entreprise
+    if (criteria.domain) {
+      searchData.q_organization_domains = criteria.domain;
+    }
+
+    // Taille d'entreprise
+    if (criteria.companySize && criteria.companySize.length > 0) {
+      searchData.organization_num_employees_ranges = criteria.companySize;
+    }
+
+    // Emails vérifiés uniquement
+    if (criteria.verifiedEmails) {
+      searchData.contact_email_status = ['verified'];
+    }
+
+    console.log('📋 Paramètres Apollo:', JSON.stringify(searchData, null, 2));
 
     try {
       const result = await this.makeRequest('/v1/people/search', searchData);
-      
+
       console.log(`✅ Trouvé ${result.people ? result.people.length : 0} leads`);
-      
+
       return {
         success: true,
         count: result.people ? result.people.length : 0,
         leads: result.people || []
       };
-      
+
     } catch (error) {
       console.error('❌ Erreur Apollo:', error.message);
       return {
