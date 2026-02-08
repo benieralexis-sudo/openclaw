@@ -1,0 +1,9 @@
+# Ignorer tout sauf flowfast
+*
+!.gitignore
+!flowfast/
+!flowfast/**
+
+# Ignorer les fichiers temporaires
+*.save
+*.backup

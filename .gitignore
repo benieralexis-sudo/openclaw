@@ -68,6 +68,13 @@ IDENTITY.md
 USER.md
 .tgz
 
+# Local deployment files
+config/
+workspace/
+backups/
+backup.sh
+healthcheck.sh
+
 # local tooling
 .serena/
 
