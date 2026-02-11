@@ -1,0 +1,7 @@
+{
+  "name": "crm-pilot",
+  "version": "1.0.0",
+  "description": "CRM Pilot - Pilotage HubSpot CRM depuis Telegram",
+  "main": "index.js",
+  "type": "commonjs"
+}

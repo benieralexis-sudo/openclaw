@@ -1,0 +1,7 @@
+{
+  "name": "automailer",
+  "version": "1.0.0",
+  "description": "AutoMailer - Campagnes email automatisees avec IA",
+  "main": "index.js",
+  "type": "commonjs"
+}

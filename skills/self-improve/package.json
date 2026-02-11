@@ -1,0 +1,7 @@
+{
+  "name": "self-improve",
+  "version": "1.0.0",
+  "description": "Boucle d'amelioration continue du bot - analyse, recommandations, feedback loop",
+  "main": "index.js",
+  "type": "commonjs"
+}

@@ -69,33 +69,43 @@ class FlowFastTelegramHandler {
     const hasPendingResults = !!this.pendingResults[String(chatId)];
     const hasPendingEmail = !!this.pendingEmails[String(chatId)];
 
-    const systemPrompt = `Tu es le cerveau du bot Telegram FlowFast, un outil de prospection B2B.
-Classifie le message de l'utilisateur en une action.
+    const systemPrompt = `Tu es l'assistant de prospection B2B d'un bot Telegram. L'utilisateur parle en francais naturel, souvent de facon informelle ou avec des fautes.
+Tu dois comprendre son INTENTION meme s'il ne dit pas les mots exacts.
 
-Actions disponibles :
+Classifie le message en une action JSON.
+
+Actions :
 - "search" : recherche de leads/contacts/prospects. L'utilisateur decrit QUI, OU, COMBIEN.
-  Exemples : "cherche 20 agents immobiliers a Londres", "trouve des CEO tech a Paris", "10 devs Berlin"
+  Ex: "cherche 20 agents immobiliers a Londres", "trouve des CEO tech a Paris", "10 devs Berlin"
+  Ex naturel: "tu peux me trouver des directeurs commerciaux sur Lyon ?", "j'ai besoin de leads dans la restauration a Marseille"
 
-- "confirm_yes" : l'utilisateur confirme/accepte (ex: "oui", "ok", "go", "envoie", "valide", "c'est bon", "pousse-les")
-- "confirm_no" : l'utilisateur refuse/annule (ex: "non", "annule", "stop", "pas maintenant")
-- "refine" : l'utilisateur veut affiner la recherche precedente (ex: "seulement les CEO", "filtre par Paris", "plus de resultats")
+- "confirm_yes" : confirmation positive
+  Ex: "oui", "ok", "go", "envoie", "valide", "c'est bon", "pousse-les", "parfait"
+- "confirm_no" : refus / annulation
+  Ex: "non", "annule", "stop", "pas maintenant", "laisse tomber"
+- "refine" : affiner la recherche precedente
+  Ex: "seulement les CEO", "filtre par Paris", "plus de resultats", "et pour Lyon ?", "uniquement les seniors"
 
-- "write_email" : l'utilisateur veut ecrire/envoyer un email a un ou plusieurs leads.
-  Exemples : "ecris un mail au dernier lead", "envoie un email a tous les leads", "mail de prospection", "contacte-le par email"
-  Params : "target" peut etre "last" (dernier lead), "all" (tous les leads recents), ou une adresse email specifique.
-  Optionnel : "context" = instructions supplementaires pour le mail.
-- "edit_email" : l'utilisateur veut modifier l'email en cours (ex: "plus court", "plus formel", "change l'objet", "ajoute une reference a...")
+- "write_email" : ecrire/envoyer un email a un ou plusieurs leads
+  Ex: "ecris un mail au dernier lead", "envoie un email a tous", "mail de prospection", "contacte-le", "envoie-leur un truc"
+  Params : "target" = "last", "all", ou une adresse email. "context" = instructions optionnelles.
+- "edit_email" : modifier l'email en cours avant envoi
+  Ex: "plus court", "plus formel", "change l'objet", "ajoute un CTA"
   Params : "instruction" = ce qu'il faut modifier
-- "email_history" : voir l'historique des emails envoyes
+- "email_history" : historique des emails envoyes
+  Ex: "historique", "qu'est-ce que j'ai envoye ?", "derniers mails"
 
-- "set_score" : changer le score minimum, value = nombre 1-10
+- "set_score" : changer le score minimum (1-10)
 - "show_score" : voir le score actuel
 - "leads" : voir les contacts HubSpot
-- "stats" : voir les statistiques
-- "history" : voir les recherches precedentes
+  Ex: "mes leads", "les contacts trouves", "qu'est-ce qu'on a ?"
+- "stats" : statistiques
+  Ex: "stats", "mes chiffres", "resume"
+- "history" : recherches precedentes
+  Ex: "historique recherches", "qu'est-ce que j'ai cherche ?"
 - "test" : verifier le bot
-- "help" : aide
-- "chat" : bavardage, questions generales
+- "help" : demande d'aide explicite
+- "chat" : UNIQUEMENT si ca ne correspond a aucune action ci-dessus
 
 ${hasPendingResults ? 'IMPORTANT: L\'utilisateur a des resultats de RECHERCHE en attente de confirmation. Si son message ressemble a un oui/non, classifie en confirm_yes ou confirm_no.' : ''}
 ${hasPendingEmail ? 'IMPORTANT: L\'utilisateur a un EMAIL en attente de confirmation. "oui/envoie/go" = confirm_yes, "non/annule" = confirm_no, toute modification = edit_email.' : ''}
@@ -211,7 +221,7 @@ Pour autres: {"action":"..."}`;
 
   getHelp() {
     return [
-      '🦀 *MISTER KRABS - PROSPECTION B2B*',
+      '🦀 *PROSPECTION B2B*',
       '',
       '🔍 *Recherche* — parle-moi naturellement :',
       '  _"cherche 20 agents immobiliers a Londres"_',
@@ -233,7 +243,7 @@ Pour autres: {"action":"..."}`;
       '  _"mets le score a 8"_ — changer le seuil',
       '',
       '━━━━━━━━━━━━━━━━━━',
-      '🦀 Apollo → Claude → HubSpot → SendGrid'
+      '🦀 Apollo → IA → HubSpot'
     ].join('\n');
   }
 

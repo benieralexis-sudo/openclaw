@@ -1,0 +1,7 @@
+{
+  "name": "web-intelligence",
+  "version": "1.0.0",
+  "description": "Veille web - surveillance prospects, concurrents et secteur",
+  "main": "index.js",
+  "type": "commonjs"
+}

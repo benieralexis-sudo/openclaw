@@ -39,7 +39,7 @@ services:
         "18789",
       ]
 
-  flowfast-bot:
+  telegram-router:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
     user: "root"
     environment:
@@ -49,30 +49,88 @@ services:
       APOLLO_API_KEY: ${APOLLO_API_KEY}
       CLAUDE_API_KEY: ${CLAUDE_API_KEY}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
-      SENDER_EMAIL: ${SENDER_EMAIL}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      SENDER_EMAIL: ${SENDER_EMAIL:-onboarding@resend.dev}
       FLOWFAST_DATA_DIR: /data/flowfast
+      AUTOMAILER_DATA_DIR: /data/automailer
+      CRM_PILOT_DATA_DIR: /data/crm-pilot
+      LEAD_ENRICH_DATA_DIR: /data/lead-enrich
+      CONTENT_GEN_DATA_DIR: /data/content-gen
+      INVOICE_BOT_DATA_DIR: /data/invoice-bot
+      PROACTIVE_DATA_DIR: /data/proactive-agent
+      SELF_IMPROVE_DATA_DIR: /data/self-improve
+      WEB_INTEL_DATA_DIR: /data/web-intelligence
+      SYSTEM_ADVISOR_DATA_DIR: /data/system-advisor
+      MOLTBOT_CONFIG_DIR: /data/moltbot-config
+      API_DAILY_BUDGET: ${API_DAILY_BUDGET:-5}
     volumes:
+      - ./gateway:/app/gateway
       - ./skills/flowfast:/app/skills/flowfast
+      - ./skills/automailer:/app/skills/automailer
+      - ./skills/crm-pilot:/app/skills/crm-pilot
+      - ./skills/lead-enrich:/app/skills/lead-enrich
+      - ./skills/content-gen:/app/skills/content-gen
+      - ./skills/invoice-bot:/app/skills/invoice-bot
+      - ./skills/proactive-agent:/app/skills/proactive-agent
+      - ./skills/self-improve:/app/skills/self-improve
+      - ./skills/web-intelligence:/app/skills/web-intelligence
+      - ./skills/system-advisor:/app/skills/system-advisor
       - flowfast-data:/data/flowfast
+      - automailer-data:/data/automailer
+      - crm-pilot-data:/data/crm-pilot
+      - lead-enrich-data:/data/lead-enrich
+      - content-gen-data:/data/content-gen
+      - invoice-bot-data:/data/invoice-bot
+      - proactive-agent-data:/data/proactive-agent
+      - self-improve-data:/data/self-improve
+      - web-intelligence-data:/data/web-intelligence
+      - system-advisor-data:/data/system-advisor
+      - moltbot-config-data:/data/moltbot-config
     init: true
     restart: unless-stopped
-    entrypoint: ["sh", "-c", "chown -R node:node /data/flowfast && exec runuser -u node -- node /app/skills/flowfast/telegram-bot.js"]
+    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/moltbot-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/moltbot-config && exec runuser -u node -- node /app/gateway/telegram-router.js"]
 
-  flowfast-dashboard:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
-    user: "root"
+  mission-control:
+    image: node:20-alpine
+    working_dir: /app
     environment:
       DASHBOARD_PORT: "3000"
-      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-flowfast}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-MoltBot2026!}
       FLOWFAST_DATA_DIR: /data/flowfast
+      AUTOMAILER_DATA_DIR: /data/automailer
+      CRM_PILOT_DATA_DIR: /data/crm-pilot
+      LEAD_ENRICH_DATA_DIR: /data/lead-enrich
+      CONTENT_GEN_DATA_DIR: /data/content-gen
+      INVOICE_BOT_DATA_DIR: /data/invoice-bot
+      PROACTIVE_DATA_DIR: /data/proactive-agent
+      SELF_IMPROVE_DATA_DIR: /data/self-improve
+      WEB_INTEL_DATA_DIR: /data/web-intelligence
+      SYSTEM_ADVISOR_DATA_DIR: /data/system-advisor
+      MOLTBOT_CONFIG_DIR: /data/moltbot-config
     volumes:
-      - ./skills/flowfast:/app/skills/flowfast
-      - flowfast-data:/data/flowfast
+      - ./dashboard:/app
+      - flowfast-data:/data/flowfast:ro
+      - automailer-data:/data/automailer:ro
+      - crm-pilot-data:/data/crm-pilot:ro
+      - lead-enrich-data:/data/lead-enrich:ro
+      - content-gen-data:/data/content-gen:ro
+      - invoice-bot-data:/data/invoice-bot:ro
+      - proactive-agent-data:/data/proactive-agent:ro
+      - self-improve-data:/data/self-improve:ro
+      - web-intelligence-data:/data/web-intelligence:ro
+      - system-advisor-data:/data/system-advisor:ro
+      - moltbot-config-data:/data/moltbot-config:ro
     ports:
       - "3000:3000"
     init: true
     restart: unless-stopped
-    entrypoint: ["sh", "-c", "chown -R node:node /data/flowfast && exec runuser -u node -- node /app/skills/flowfast/dashboard.js"]
+    entrypoint: ["sh", "-c", "cd /app && npm install --production 2>/dev/null; node server.js"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:3000/login',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   openclaw-cli:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
@@ -97,3 +155,13 @@ services:
 
 volumes:
   flowfast-data:
+  automailer-data:
+  crm-pilot-data:
+  lead-enrich-data:
+  content-gen-data:
+  invoice-bot-data:
+  proactive-agent-data:
+  self-improve-data:
+  web-intelligence-data:
+  system-advisor-data:
+  moltbot-config-data:

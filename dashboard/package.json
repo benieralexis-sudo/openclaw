@@ -1,0 +1,10 @@
+{
+  "name": "moltbot-dashboard",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cookie-parser": "^1.4.6",
+    "express-rate-limit": "^7.1.5"
+  }
+}

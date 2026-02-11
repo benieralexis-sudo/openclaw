@@ -1,0 +1,340 @@
+// Web Intelligence - Stockage JSON persistant
+const fs = require('fs');
+const path = require('path');
+
+const DATA_DIR = process.env.WEB_INTEL_DATA_DIR || path.join(__dirname, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'web-intelligence.json');
+
+let _data = null;
+
+function _defaultData() {
+  return {
+    config: {
+      enabled: true,
+      adminChatId: '1409505520',
+      checkIntervalHours: 6,
+      maxArticlesPerWatch: 50,
+      maxArticlesTotal: 500,
+      notifications: {
+        digestEnabled: true,
+        digestHour: 9,
+        instantAlerts: true,
+        weeklyDigest: true,
+        weeklyDigestDay: 1,
+        weeklyDigestHour: 9
+      }
+    },
+    watches: {},
+    articles: [],
+    analyses: [],
+    stats: {
+      totalArticlesFetched: 0,
+      totalAnalysesGenerated: 0,
+      totalAlertsSent: 0,
+      lastScanAt: null,
+      lastDigestAt: null,
+      lastWeeklyDigestAt: null,
+      watchesCreated: 0,
+      createdAt: new Date().toISOString()
+    }
+  };
+}
+
+function _ensureDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+function _load() {
+  if (_data) return _data;
+  _ensureDir();
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, 'utf8');
+      _data = JSON.parse(raw);
+      // Merge avec defaults pour les nouvelles proprietes
+      const def = _defaultData();
+      if (!_data.config) _data.config = def.config;
+      if (!_data.watches) _data.watches = {};
+      if (!_data.articles) _data.articles = [];
+      if (!_data.analyses) _data.analyses = [];
+      if (!_data.stats) _data.stats = def.stats;
+      if (!_data.config.notifications) _data.config.notifications = def.config.notifications;
+      console.log('[web-intel-storage] Donnees chargees (' + Object.keys(_data.watches).length + ' veilles, ' + _data.articles.length + ' articles)');
+    } else {
+      _data = _defaultData();
+      _save();
+      console.log('[web-intel-storage] Nouvelle base creee');
+    }
+  } catch (e) {
+    console.log('[web-intel-storage] Erreur lecture, reset:', e.message);
+    _data = _defaultData();
+    _save();
+  }
+  return _data;
+}
+
+function _save() {
+  _ensureDir();
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(_data, null, 2), 'utf8');
+  } catch (e) {
+    console.log('[web-intel-storage] Erreur ecriture:', e.message);
+  }
+}
+
+function _generateId(prefix) {
+  return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+}
+
+// --- Config ---
+
+function getConfig() {
+  return _load().config;
+}
+
+function updateConfig(updates) {
+  const data = _load();
+  Object.assign(data.config, updates);
+  _save();
+  return data.config;
+}
+
+// --- Watches ---
+
+function addWatch(watch) {
+  const data = _load();
+  const id = _generateId('watch');
+  const fullWatch = {
+    id: id,
+    name: watch.name || 'Sans nom',
+    type: watch.type || 'sector',
+    keywords: watch.keywords || [],
+    rssUrls: watch.rssUrls || [],
+    scrapeUrls: watch.scrapeUrls || [],
+    googleNewsEnabled: watch.googleNewsEnabled !== false,
+    frequency: watch.frequency || 6,
+    enabled: true,
+    createdAt: new Date().toISOString(),
+    lastCheckedAt: null,
+    articleCount: 0
+  };
+  data.watches[id] = fullWatch;
+  data.stats.watchesCreated++;
+  _save();
+  return fullWatch;
+}
+
+function getWatch(id) {
+  return _load().watches[id] || null;
+}
+
+function getWatchByName(name) {
+  const data = _load();
+  const nameLower = name.toLowerCase();
+  for (const id of Object.keys(data.watches)) {
+    if (data.watches[id].name.toLowerCase().includes(nameLower)) {
+      return data.watches[id];
+    }
+  }
+  return null;
+}
+
+function updateWatch(id, updates) {
+  const data = _load();
+  if (!data.watches[id]) return null;
+  Object.assign(data.watches[id], updates);
+  _save();
+  return data.watches[id];
+}
+
+function deleteWatch(id) {
+  const data = _load();
+  if (!data.watches[id]) return false;
+  delete data.watches[id];
+  // Supprimer les articles associes
+  data.articles = data.articles.filter(a => a.watchId !== id);
+  data.analyses = data.analyses.filter(a => a.watchId !== id);
+  _save();
+  return true;
+}
+
+function getWatches() {
+  return _load().watches;
+}
+
+function getEnabledWatches() {
+  const data = _load();
+  const result = [];
+  for (const id of Object.keys(data.watches)) {
+    if (data.watches[id].enabled) {
+      result.push(data.watches[id]);
+    }
+  }
+  return result;
+}
+
+function getWatchesByType(type) {
+  const data = _load();
+  const result = [];
+  for (const id of Object.keys(data.watches)) {
+    if (data.watches[id].type === type) {
+      result.push(data.watches[id]);
+    }
+  }
+  return result;
+}
+
+// --- Articles ---
+
+function hasArticle(link) {
+  const data = _load();
+  return data.articles.some(a => a.link === link);
+}
+
+function addArticles(articles) {
+  const data = _load();
+  let added = 0;
+  for (const article of articles) {
+    // Deduplication par URL
+    if (hasArticle(article.link)) continue;
+
+    const fullArticle = {
+      id: _generateId('art'),
+      watchId: article.watchId || null,
+      title: article.title || '',
+      link: article.link || '',
+      source: article.source || '',
+      pubDate: article.pubDate || null,
+      snippet: (article.snippet || '').substring(0, 300),
+      relevanceScore: article.relevanceScore || 5,
+      summary: article.summary || '',
+      matchedKeywords: article.matchedKeywords || [],
+      crmMatch: article.crmMatch || null,
+      isUrgent: article.isUrgent || false,
+      notifiedAt: null,
+      fetchedAt: new Date().toISOString()
+    };
+    data.articles.push(fullArticle);
+    added++;
+  }
+
+  // Limiter le nombre total d'articles
+  if (data.articles.length > data.config.maxArticlesTotal) {
+    data.articles = data.articles.slice(-data.config.maxArticlesTotal);
+  }
+
+  data.stats.totalArticlesFetched += added;
+  _save();
+  return added;
+}
+
+function getArticlesForWatch(watchId, limit) {
+  limit = limit || 10;
+  const data = _load();
+  return data.articles
+    .filter(a => a.watchId === watchId)
+    .sort((a, b) => new Date(b.fetchedAt) - new Date(a.fetchedAt))
+    .slice(0, limit);
+}
+
+function getRecentArticles(limit) {
+  limit = limit || 20;
+  const data = _load();
+  return data.articles
+    .sort((a, b) => new Date(b.fetchedAt) - new Date(a.fetchedAt))
+    .slice(0, limit);
+}
+
+function getUnnotifiedArticles() {
+  const data = _load();
+  return data.articles.filter(a => !a.notifiedAt && a.isUrgent);
+}
+
+function markArticleNotified(id) {
+  const data = _load();
+  const article = data.articles.find(a => a.id === id);
+  if (article) {
+    article.notifiedAt = new Date().toISOString();
+    _save();
+  }
+}
+
+function getArticlesByDateRange(startDate, endDate) {
+  const data = _load();
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  return data.articles.filter(a => {
+    const t = new Date(a.fetchedAt).getTime();
+    return t >= start && t <= end;
+  });
+}
+
+function getArticlesLast24h() {
+  const now = Date.now();
+  return getArticlesByDateRange(new Date(now - 24 * 60 * 60 * 1000).toISOString(), new Date(now).toISOString());
+}
+
+function getArticlesLastWeek() {
+  const now = Date.now();
+  return getArticlesByDateRange(new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(), new Date(now).toISOString());
+}
+
+// --- Analyses ---
+
+function saveAnalysis(analysis) {
+  const data = _load();
+  const fullAnalysis = {
+    id: _generateId('ana'),
+    watchId: analysis.watchId || null,
+    type: analysis.type || 'digest',
+    content: analysis.content || '',
+    generatedAt: new Date().toISOString()
+  };
+  data.analyses.push(fullAnalysis);
+  // Garder max 50 analyses
+  if (data.analyses.length > 50) {
+    data.analyses = data.analyses.slice(-50);
+  }
+  data.stats.totalAnalysesGenerated++;
+  _save();
+  return fullAnalysis;
+}
+
+function getRecentAnalyses(limit) {
+  limit = limit || 5;
+  const data = _load();
+  return data.analyses
+    .sort((a, b) => new Date(b.generatedAt) - new Date(a.generatedAt))
+    .slice(0, limit);
+}
+
+// --- Stats ---
+
+function getStats() {
+  return _load().stats;
+}
+
+function updateStat(key, value) {
+  const data = _load();
+  data.stats[key] = value;
+  _save();
+}
+
+function incrementStat(key) {
+  const data = _load();
+  data.stats[key] = (data.stats[key] || 0) + 1;
+  _save();
+}
+
+module.exports = {
+  getConfig, updateConfig,
+  addWatch, getWatch, getWatchByName, updateWatch, deleteWatch,
+  getWatches, getEnabledWatches, getWatchesByType,
+  hasArticle, addArticles, getArticlesForWatch, getRecentArticles,
+  getUnnotifiedArticles, markArticleNotified,
+  getArticlesByDateRange, getArticlesLast24h, getArticlesLastWeek,
+  saveAnalysis, getRecentAnalyses,
+  getStats, updateStat, incrementStat
+};

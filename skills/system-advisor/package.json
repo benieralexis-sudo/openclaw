@@ -1,0 +1,7 @@
+{
+  "name": "system-advisor",
+  "version": "1.0.0",
+  "description": "Monitoring systeme, sante du bot, alertes et rapports",
+  "main": "index.js",
+  "type": "commonjs"
+}

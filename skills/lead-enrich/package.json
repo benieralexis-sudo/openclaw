@@ -1,0 +1,7 @@
+{
+  "name": "lead-enrich",
+  "version": "1.0.0",
+  "description": "Lead Enrich - Enrichissement et scoring de leads B2B",
+  "main": "index.js",
+  "type": "commonjs"
+}
