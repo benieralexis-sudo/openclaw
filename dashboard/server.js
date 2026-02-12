@@ -74,8 +74,10 @@ app.post('/login', loginLimiter, (req, res) => {
     const sid = crypto.randomBytes(32).toString('hex');
     sessions.set(sid, { createdAt: Date.now() });
     res.cookie('sid', sid, { httpOnly: true, maxAge: SESSION_TTL, sameSite: 'lax' });
+    console.log('[dashboard] Login OK from ' + (req.ip || 'unknown'));
     return res.redirect('/');
   }
+  console.log('[dashboard] Login FAIL from ' + (req.ip || 'unknown'));
   res.send(loginPage('Mot de passe incorrect'));
 });
 

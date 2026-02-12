@@ -1,6 +1,7 @@
 // MoltBot - Configuration globale persistante (mode standby/production + budget API)
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('./utils.js');
 
 const CONFIG_DIR = process.env.MOLTBOT_CONFIG_DIR || '/data/moltbot-config';
 const CONFIG_FILE = path.join(CONFIG_DIR, 'moltbot-config.json');
@@ -54,7 +55,7 @@ function load() {
 function save() {
   try {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(_config, null, 2));
+    atomicWriteSync(CONFIG_FILE, _config);
   } catch (e) {
     console.log('[moltbot-config] Erreur ecriture config:', e.message);
   }

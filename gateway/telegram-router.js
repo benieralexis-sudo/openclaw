@@ -1,5 +1,6 @@
-// MoltBot - Routeur Telegram central (dispatch FlowFast + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor)
+// MoltBot - Routeur Telegram central (dispatch FlowFast + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot)
 const https = require('https');
+const { retryAsync, truncateInput } = require('./utils.js');
 const FlowFastTelegramHandler = require('../skills/flowfast/telegram-handler.js');
 const AutoMailerHandler = require('../skills/automailer/automailer-handler.js');
 const CRMPilotHandler = require('../skills/crm-pilot/crm-handler.js');
@@ -11,6 +12,8 @@ const ProactiveHandler = require('../skills/proactive-agent/proactive-handler.js
 const SelfImproveHandler = require('../skills/self-improve/self-improve-handler.js');
 const WebIntelligenceHandler = require('../skills/web-intelligence/web-intelligence-handler.js');
 const SystemAdvisorHandler = require('../skills/system-advisor/system-advisor-handler.js');
+const AutonomousHandler = require('../skills/autonomous-pilot/autonomous-handler.js');
+const BrainEngine = require('../skills/autonomous-pilot/brain-engine.js');
 const flowfastStorage = require('../skills/flowfast/storage.js');
 const moltbotConfig = require('./moltbot-config.js');
 
@@ -52,6 +55,7 @@ const CLAUDE_KEY = process.env.CLAUDE_API_KEY || '';
 const SENDGRID_KEY = process.env.SENDGRID_API_KEY || '';
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
 
 if (!TOKEN) {
   console.error('TELEGRAM_BOT_TOKEN manquant !');
@@ -136,9 +140,54 @@ async function sendTyping(chatId) {
   await telegramAPI('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
 }
 
+async function sendMessageWithButtons(chatId, text, buttons) {
+  const result = await telegramAPI('sendMessage', {
+    chat_id: chatId,
+    text: text,
+    parse_mode: 'Markdown',
+    reply_markup: JSON.stringify({ inline_keyboard: buttons })
+  });
+  if (!result.ok) {
+    // Fallback sans Markdown
+    return telegramAPI('sendMessage', {
+      chat_id: chatId,
+      text: text,
+      reply_markup: JSON.stringify({ inline_keyboard: buttons })
+    });
+  }
+  return result;
+}
+
 // --- Memoire conversationnelle ---
 // Stocke les 15 derniers echanges par utilisateur pour le contexte
 const conversationHistory = {};
+
+// Nettoyage des conversations inactives toutes les heures (anti-fuite memoire)
+setInterval(() => {
+  const now = Date.now();
+  const TTL = 24 * 60 * 60 * 1000; // 24h
+  let cleaned = 0;
+  for (const id of Object.keys(conversationHistory)) {
+    const entries = conversationHistory[id];
+    if (!entries || entries.length === 0 || now - entries[entries.length - 1].ts > TTL) {
+      delete conversationHistory[id];
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) console.log('[router] Nettoyage memoire: ' + cleaned + ' conversation(s) expiree(s)');
+}, 60 * 60 * 1000);
+
+// --- Rate limiting messages (anti-spam) ---
+const messageRates = {};
+function isRateLimited(chatId) {
+  const id = String(chatId);
+  const now = Date.now();
+  if (!messageRates[id]) messageRates[id] = [];
+  messageRates[id] = messageRates[id].filter(t => now - t < 30000);
+  if (messageRates[id].length >= 10) return true;
+  messageRates[id].push(now);
+  return false;
+}
 
 function addToHistory(chatId, role, text, skill) {
   const id = String(chatId);
@@ -172,7 +221,7 @@ function getHistoryContext(chatId) {
 // Sonnet 4.5   : Redaction, conversation, humanisation
 // Opus 4.6     : Rapports strategiques (hebdo/mensuel)
 
-function callOpenAINLP(systemPrompt, userMessage, maxTokens) {
+function _callOpenAINLPOnce(systemPrompt, userMessage, maxTokens) {
   maxTokens = maxTokens || 30;
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
@@ -219,7 +268,11 @@ function callOpenAINLP(systemPrompt, userMessage, maxTokens) {
   });
 }
 
-function callClaude(systemPrompt, userMessage, maxTokens, model) {
+function callOpenAINLP(systemPrompt, userMessage, maxTokens) {
+  return retryAsync(() => _callOpenAINLPOnce(systemPrompt, userMessage, maxTokens), 2, 1000);
+}
+
+function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
   maxTokens = maxTokens || 800;
   model = model || 'claude-sonnet-4-5-20250929';
   return new Promise((resolve, reject) => {
@@ -265,6 +318,10 @@ function callClaude(systemPrompt, userMessage, maxTokens, model) {
   });
 }
 
+function callClaude(systemPrompt, userMessage, maxTokens, model) {
+  return retryAsync(() => _callClaudeOnce(systemPrompt, userMessage, maxTokens, model), 2, 2000);
+}
+
 // --- Proactive Agent ---
 
 function callClaudeOpus(systemPrompt, userMessage, maxTokens) {
@@ -303,26 +360,47 @@ const systemAdvisorHandler = new SystemAdvisorHandler(OPENAI_KEY, CLAUDE_KEY, as
   addToHistory(chatId, 'bot', message.substring(0, 200), 'system-advisor');
 });
 
-// --- Controle centralise des crons (14 crons au total) ---
+// Autonomous Pilot handler + brain engine
+const autoPilotHandler = new AutonomousHandler(OPENAI_KEY, CLAUDE_KEY);
+const autoPilotEngine = new BrainEngine({
+  sendTelegram: async (chatId, message) => {
+    await sendMessage(chatId, message, 'Markdown');
+    addToHistory(chatId, 'bot', message.substring(0, 200), 'autonomous-pilot');
+  },
+  sendTelegramButtons: sendMessageWithButtons,
+  callClaude: callClaude,
+  callClaudeOpus: callClaudeOpus,
+  hubspotKey: HUBSPOT_KEY,
+  apolloKey: APOLLO_KEY,
+  openaiKey: OPENAI_KEY,
+  claudeKey: CLAUDE_KEY,
+  resendKey: RESEND_KEY,
+  senderEmail: SENDER_EMAIL
+});
+
+// --- Controle centralise des crons (17 crons au total) ---
 
 // Storages des skills a crons (pour toggle config.enabled)
 const proactiveAgentStorage = require('../skills/proactive-agent/storage.js');
 const selfImproveStorage = require('../skills/self-improve/storage.js');
 const webIntelStorage = require('../skills/web-intelligence/storage.js');
 const systemAdvisorStorage = require('../skills/system-advisor/storage.js');
+const autonomousPilotStorage = require('../skills/autonomous-pilot/storage.js');
 
 function startAllCrons() {
   // Activer les configs internes (chaque start() verifie config.enabled)
-  try { proactiveAgentStorage.updateConfig({ enabled: true }); } catch (e) {}
-  try { selfImproveStorage.updateConfig({ enabled: true }); } catch (e) {}
-  try { webIntelStorage.updateConfig({ enabled: true }); } catch (e) {}
-  try { systemAdvisorStorage.updateConfig({ enabled: true }); } catch (e) {}
+  try { proactiveAgentStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron proactive:', e.message); }
+  try { selfImproveStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron self-improve:', e.message); }
+  try { webIntelStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron web-intel:', e.message); }
+  try { systemAdvisorStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron system-advisor:', e.message); }
+  try { autonomousPilotStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron autonomous-pilot:', e.message); }
 
   proactiveEngine.start();
   if (selfImproveHandler) selfImproveHandler.start();
   webIntelHandler.start();
   systemAdvisorHandler.start();
-  console.log('[router] 14 crons demarres (production)');
+  autoPilotEngine.start();
+  console.log('[router] 17 crons demarres (production)');
 }
 
 function stopAllCrons() {
@@ -330,12 +408,14 @@ function stopAllCrons() {
   if (selfImproveHandler) selfImproveHandler.stop();
   webIntelHandler.stop();
   systemAdvisorHandler.stop();
+  autoPilotEngine.stop();
 
   // Desactiver les configs internes (double securite)
-  try { proactiveAgentStorage.updateConfig({ enabled: false }); } catch (e) {}
-  try { selfImproveStorage.updateConfig({ enabled: false }); } catch (e) {}
-  try { webIntelStorage.updateConfig({ enabled: false }); } catch (e) {}
-  try { systemAdvisorStorage.updateConfig({ enabled: false }); } catch (e) {}
+  try { proactiveAgentStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron proactive:', e.message); }
+  try { selfImproveStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron self-improve:', e.message); }
+  try { webIntelStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron web-intel:', e.message); }
+  try { systemAdvisorStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron system-advisor:', e.message); }
+  try { autonomousPilotStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron autonomous-pilot:', e.message); }
   console.log('[router] Tous les crons stoppes (standby)');
 }
 
@@ -352,7 +432,11 @@ moltbotConfig.onBudgetExceeded(async (budget) => {
     'Limite : $' + budget.dailyLimit.toFixed(2) + '\n' +
     'Depense : $' + budget.todaySpent.toFixed(4) + '\n\n' +
     'Actions automatiques suspendues. Les commandes manuelles restent actives.';
-  await sendMessage('1409505520', msg, 'Markdown');
+  try {
+    await sendMessage(ADMIN_CHAT_ID, msg, 'Markdown');
+  } catch (e) {
+    console.error('[router] Erreur notification budget:', e.message);
+  }
   stopAllCrons();
   moltbotConfig.deactivateAll();
 });
@@ -381,7 +465,8 @@ function buildSystemStatus() {
     'Proactive Agent': proactiveEngine.crons ? proactiveEngine.crons.length : 0,
     'Web Intelligence': webIntelHandler.crons ? webIntelHandler.crons.length : 0,
     'System Advisor': systemAdvisorHandler.crons ? systemAdvisorHandler.crons.length : 0,
-    'Self-Improve': selfImproveHandler && selfImproveHandler.crons ? selfImproveHandler.crons.length : 0
+    'Self-Improve': selfImproveHandler && selfImproveHandler.crons ? selfImproveHandler.crons.length : 0,
+    'Autonomous Pilot': autoPilotEngine.crons ? autoPilotEngine.crons.length : 0
   };
 
   const totalCrons = Object.values(cronCounts).reduce((a, b) => a + b, 0);
@@ -393,7 +478,7 @@ function buildSystemStatus() {
   ];
 
   // Crons
-  lines.push('*Crons (' + totalCrons + '/14 actifs) :*');
+  lines.push('*Crons (' + totalCrons + '/17 actifs) :*');
   for (const [name, count] of Object.entries(cronCounts)) {
     const emoji = count > 0 ? '🟢' : '⏸️';
     lines.push('  ' + emoji + ' ' + name + ' : ' + count + ' cron(s)');
@@ -480,6 +565,7 @@ SKILLS DISPONIBLES :
 - "self-improve" : amelioration automatique du bot, optimisation des performances, recommandations IA, feedback loop — "tes recommandations", "analyse maintenant", "applique les ameliorations", "metriques", "historique des ameliorations", "rollback", "status self-improve", "comment ca performe ?". Tout ce qui concerne l'optimisation du bot, l'amelioration continue, et les suggestions d'amelioration.
 - "web-intelligence" : veille web, surveillance de prospects/concurrents/secteur, news, articles, tendances, RSS, Google News — "surveille un concurrent", "mes veilles", "quoi de neuf ?", "articles", "tendances", "stats veille", "ajoute un flux RSS", "scan maintenant", "des nouvelles ?". Tout ce qui concerne la surveillance web, les actualites, la veille concurrentielle ou sectorielle.
 - "system-advisor" : monitoring technique du bot, sante du systeme, RAM, CPU, disque, uptime, erreurs, health check, alertes systeme, performances, temps de reponse des skills — "status systeme", "comment va le bot ?", "utilisation memoire", "espace disque", "erreurs recentes", "check sante", "rapport systeme", "uptime", "alertes systeme", "temps de reponse", "performances". ATTENTION : distinct de proactive-agent qui gere les rapports BUSINESS (pipeline, campagnes). System-advisor gere le monitoring TECHNIQUE (serveur, memoire, CPU).
+- "autonomous-pilot" : pilotage autonome du bot, objectifs hebdomadaires de prospection, criteres de recherche automatique, checklist diagnostic, historique des actions automatiques, forcer un cycle brain, pause/reprise du pilot, apprentissages — "statut pilot", "objectifs", "criteres", "mon business c'est...", "checklist", "historique pilot", "lance le brain", "pause pilot", "reprends pilot", "apprentissages", "qu'est-ce que t'as fait ?". Tout ce qui concerne l'autonomie du bot, ses objectifs, et ses actions automatiques. ATTENTION : distinct de proactive-agent qui gere les rapports et alertes. Autonomous-pilot gere la STRATEGIE et les ACTIONS autonomes.
 - "general" : salutations, aide globale, bavardage sans rapport avec les skills ci-dessus.
 
 REGLES CRITIQUES :
@@ -488,7 +574,7 @@ REGLES CRITIQUES :
 3. TRES IMPORTANT : Si le bot vient d'envoyer des messages automatiques (alertes veille, rapports, alertes systeme, etc.) et que l'utilisateur REAGIT a ces messages (demande un resume, commente, critique le format, dit "trop de messages", "fais un resume", "regroupe", etc.), route vers le skill qui a envoye ces messages. Par exemple : le bot envoie des alertes veille -> l'utilisateur dit "fais-moi un resume" -> c'est web-intelligence. Le bot envoie un rapport proactif -> l'utilisateur dit "c'est quoi ce truc ?" -> c'est proactive-agent.
 4. "aide" ou "help" SEUL = general. Mais "aide sur mes factures" = invoice-bot.
 5. En cas de doute entre deux skills, choisis celui qui correspond le mieux au contexte recent.
-6. Reponds UNIQUEMENT par un seul mot : flowfast, automailer, crm-pilot, lead-enrich, content-gen, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor ou general.`;
+6. Reponds UNIQUEMENT par un seul mot : flowfast, automailer, crm-pilot, lead-enrich, content-gen, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot ou general.`;
 
   const userContent = (historyContext
     ? 'HISTORIQUE RECENT :\n' + historyContext + '\n\nDernier skill utilise : ' + lastSkill + '\n\nNOUVEAU MESSAGE : '
@@ -500,6 +586,7 @@ REGLES CRITIQUES :
     const skill = raw.toLowerCase();
 
     // Parser la reponse
+    if (skill.includes('autonomous-pilot') || skill.includes('autonomous') || skill.includes('pilot') || skill.includes('brain')) return 'autonomous-pilot';
     if (skill.includes('system-advisor') || skill.includes('system') || skill.includes('advisor') || skill.includes('monitoring') || skill.includes('sante')) return 'system-advisor';
     if (skill.includes('web-intelligence') || skill.includes('web-intel') || skill.includes('veille') || skill.includes('intelligence')) return 'web-intelligence';
     if (skill.includes('self-improve') || skill.includes('improve') || skill.includes('amelior')) return 'self-improve';
@@ -573,6 +660,7 @@ async function generateBusinessResponse(userMessage, chatId) {
       '🧠 *Optimisation* — _"tes recommandations"_',
       '🌐 *Veille web* — _"surveille un concurrent"_',
       '⚙️ *Systeme* — _"status systeme"_',
+      '🧠 *Pilot autonome* — _"statut pilot" ou "objectifs"_',
       '\nMais tu peux aussi me poser n\'importe quelle question business — strategie, conseils, idees. Parle-moi naturellement !'
     ].join('\n');
   }
@@ -630,6 +718,9 @@ async function handleUpdate(update) {
   const text = msg.text.trim();
   const userName = msg.from.first_name || 'Utilisateur';
 
+  // Rate limiting : max 10 messages / 30s par utilisateur
+  if (isRateLimited(chatId)) return;
+
   // Enregistrer l'utilisateur dans les deux storages
   flowfastStorage.setUserName(chatId, userName);
 
@@ -661,6 +752,7 @@ async function handleUpdate(update) {
       '  - Web Intelligence : 3 crons',
       '  - System Advisor : 4 crons',
       '  - Self-Improve : 1 cron',
+      '  - Autonomous Pilot : 3 crons',
       '',
       'Le bot travaille maintenant en autonomie.',
       '_Dis "statut systeme" pour voir le detail._'
@@ -696,8 +788,9 @@ async function handleUpdate(update) {
   // ========== FIN COMMANDES DE CONTROLE ==========
 
   try {
-    // Determiner le skill via NLP contextuel
-    const skill = await classifySkill(text, chatId);
+    // Determiner le skill via NLP contextuel (tronquer pour eviter de surcharger l'API)
+    const textForNLP = truncateInput(text, 2000);
+    let skill = await classifySkill(textForNLP, chatId);
     console.log('[router] Skill: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
     userActiveSkill[String(chatId)] = skill;
 
@@ -751,6 +844,7 @@ async function handleUpdate(update) {
       'self-improve': selfImproveHandler,
       'web-intelligence': webIntelHandler,
       'system-advisor': systemAdvisorHandler,
+      'autonomous-pilot': autoPilotHandler,
       'flowfast': flowfastHandler
     };
 
@@ -761,6 +855,11 @@ async function handleUpdate(update) {
         response = await handler.handleMessage(text, chatId, sendReply);
         recordSkillUsage(skill);
         recordResponseTime(skill, Date.now() - startTime);
+
+        // Autonomous Pilot : trigger brain cycle si demande
+        if (skill === 'autonomous-pilot' && response && response._triggerBrainCycle) {
+          autoPilotEngine._brainCycle().catch(e => console.error('[router] Erreur brain cycle force:', e.message));
+        }
       } catch (handlerError) {
         recordSkillUsage(skill);
         recordSkillError(skill, handlerError.message);
@@ -768,15 +867,34 @@ async function handleUpdate(update) {
         throw handlerError;
       }
     } else {
-      // General : reponse IA conversationnelle business
-      const generalResponse = await generateBusinessResponse(text, chatId);
-      response = { type: 'text', content: generalResponse };
+      // General : si Autonomous Pilot est actif, router vers lui pour une experience unifiee
+      const apConfig = autoPilotHandler.claudeKey ? require('../skills/autonomous-pilot/storage.js').getConfig() : null;
+      if (apConfig && apConfig.enabled && apConfig.businessContext) {
+        skill = 'autonomous-pilot';
+        console.log('[router] Redirection general -> autonomous-pilot');
+        const startTime = Date.now();
+        try {
+          response = await autoPilotHandler.handleMessage(text, chatId, sendReply);
+          console.log('[router] AP reponse recue (' + (response?.content?.length || 0) + ' chars)');
+        } catch (apError) {
+          console.error('[router] Erreur AP handler:', apError.message);
+          response = { type: 'text', content: '⚠️ Petit souci, reessaie !' };
+        }
+        recordSkillUsage(skill);
+        recordResponseTime(skill, Date.now() - startTime);
+        if (response && response._triggerBrainCycle) {
+          autoPilotEngine._brainCycle().catch(e => console.error('[router] Erreur brain cycle force:', e.message));
+        }
+      } else {
+        const generalResponse = await generateBusinessResponse(text, chatId);
+        response = { type: 'text', content: generalResponse };
+      }
     }
 
     if (response && response.content) {
       let finalText = response.content;
-      // Humaniser seulement les reponses de skills (pas "general" qui est deja conversationnel)
-      if (skill !== 'general') {
+      // Humaniser seulement les reponses de skills (pas "general" ni "autonomous-pilot" qui sont deja conversationnels)
+      if (skill !== 'general' && skill !== 'autonomous-pilot') {
         finalText = await humanizeResponse(response.content, text, skill);
       }
       // Sauvegarder la reponse dans l'historique
@@ -801,7 +919,19 @@ async function handleCallback(update) {
   await telegramAPI('answerCallbackQuery', { callback_query_id: cb.id }).catch(() => {});
 
   // Router les callbacks par prefixe
-  if (data.startsWith('feedback_')) {
+  if (data.startsWith('ap_')) {
+    // Autonomous Pilot callbacks (ap_approve_xxx, ap_reject_xxx)
+    try {
+      const result = await autoPilotEngine.handleConfirmation(data, chatId);
+      if (result && result.content) {
+        await sendMessage(chatId, result.content, 'Markdown');
+        addToHistory(chatId, 'bot', result.content.substring(0, 200), 'autonomous-pilot');
+      }
+    } catch (e) {
+      console.error('[router] Erreur callback autonomous-pilot:', e.message);
+      await sendMessage(chatId, '❌ Erreur traitement confirmation: ' + e.message);
+    }
+  } else if (data.startsWith('feedback_')) {
     const parts = data.split('_');
     const type = parts[1];
     const email = parts.slice(2).join('_');
@@ -851,7 +981,7 @@ telegramAPI('getMe').then(result => {
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(() => {});
-    console.log('🤖 Skills actives : Prospection + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor');
+    console.log('🤖 Skills actives : Prospection + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot');
     console.log('🤖 En attente de messages...');
     poll();
   } else {
@@ -863,30 +993,14 @@ telegramAPI('getMe').then(result => {
   process.exit(1);
 });
 
-// Cleanup
-process.on('SIGTERM', () => {
+// Cleanup — graceful shutdown (attend 2s pour les operations en cours)
+function gracefulShutdown() {
   console.log('🤖 Arret MoltBot Router...');
-  automailerHandler.stop();
-  crmPilotHandler.stop();
-  leadEnrichHandler.stop();
-  contentHandler.stop();
-  invoiceBotHandler.stop();
-  proactiveEngine.stop();
-  if (selfImproveHandler) selfImproveHandler.stop();
-  webIntelHandler.stop();
-  systemAdvisorHandler.stop();
-  process.exit(0);
-});
-process.on('SIGINT', () => {
-  console.log('🤖 Arret MoltBot Router...');
-  automailerHandler.stop();
-  crmPilotHandler.stop();
-  leadEnrichHandler.stop();
-  contentHandler.stop();
-  invoiceBotHandler.stop();
-  proactiveEngine.stop();
-  if (selfImproveHandler) selfImproveHandler.stop();
-  webIntelHandler.stop();
-  systemAdvisorHandler.stop();
-  process.exit(0);
-});
+  [automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
+   invoiceBotHandler, proactiveEngine, webIntelHandler, systemAdvisorHandler, autoPilotEngine]
+    .forEach(h => { try { h.stop(); } catch (e) { console.error('[router] Erreur stop handler:', e.message); } });
+  if (selfImproveHandler) try { selfImproveHandler.stop(); } catch (e) { console.error('[router] Erreur stop self-improve:', e.message); }
+  setTimeout(() => process.exit(0), 2000);
+}
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
