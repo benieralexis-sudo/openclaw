@@ -1,6 +1,7 @@
 // Lead Enrich - Stockage persistant JSON
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.LEAD_ENRICH_DATA_DIR || '/data/lead-enrich';
 const DB_FILE = path.join(DATA_DIR, 'lead-enrich-db.json');
@@ -54,7 +55,7 @@ class LeadEnrichStorage {
 
   _save() {
     try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
+      atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[lead-enrich-storage] Erreur sauvegarde:', e.message);
     }

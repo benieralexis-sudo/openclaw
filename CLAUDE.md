@@ -32,9 +32,10 @@
 | 10 | System Advisor (monitoring) | `skills/system-advisor/` | Claude Sonnet 4.5 + GPT-4o-mini |
 
 ## Dashboard Mission Control
-- URL : http://76.13.137.130:3000
-- Container : `mission-control` (node:20-alpine)
-- Auth : cookie httpOnly (24h), rate limit login (5/min)
+- URL : https://srv1319748.hstgr.cloud (HTTPS, nginx reverse proxy)
+- Container : `mission-control` (node:20-alpine), port 127.0.0.1:3000
+- Auth : cookie httpOnly+secure (24h), bcrypt hash, rate limit login (5/min Express + 5/min nginx)
+- Securite : helmet.js (CSP strict), HSTS, fail2ban, certificat Let's Encrypt
 - 11 pages : Overview, Prospection, Emails, CRM, Enrichissement, Contenu, Facturation, Proactif, Auto-Amelioration, Web Intelligence, Systeme
 - Lecture seule des volumes data de chaque skill
 

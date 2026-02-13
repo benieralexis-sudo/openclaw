@@ -1,6 +1,7 @@
 // Web Intelligence - Stockage JSON persistant
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.WEB_INTEL_DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'web-intelligence.json');
@@ -78,7 +79,7 @@ function _load() {
 function _save() {
   _ensureDir();
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(_data, null, 2), 'utf8');
+    atomicWriteSync(DATA_FILE, _data);
   } catch (e) {
     console.log('[web-intel-storage] Erreur ecriture:', e.message);
   }
@@ -188,17 +189,31 @@ function getWatchesByType(type) {
 
 // --- Articles ---
 
+function _normalizeTitle(title) {
+  if (!title) return '';
+  return title.toLowerCase().replace(/[^a-z0-9\u00C0-\u024F]/g, '').substring(0, 80);
+}
+
 function hasArticle(link) {
   const data = _load();
   return data.articles.some(a => a.link === link);
+}
+
+function hasArticleByTitle(title) {
+  if (!title) return false;
+  const norm = _normalizeTitle(title);
+  if (norm.length < 10) return false; // titre trop court = pas fiable
+  const data = _load();
+  return data.articles.some(a => _normalizeTitle(a.title) === norm);
 }
 
 function addArticles(articles) {
   const data = _load();
   let added = 0;
   for (const article of articles) {
-    // Deduplication par URL
+    // Deduplication par URL + titre (articles syndiques avec URLs differentes)
     if (hasArticle(article.link)) continue;
+    if (hasArticleByTitle(article.title)) continue;
 
     const fullArticle = {
       id: _generateId('art'),
@@ -332,7 +347,7 @@ module.exports = {
   getConfig, updateConfig,
   addWatch, getWatch, getWatchByName, updateWatch, deleteWatch,
   getWatches, getEnabledWatches, getWatchesByType,
-  hasArticle, addArticles, getArticlesForWatch, getRecentArticles,
+  hasArticle, hasArticleByTitle, addArticles, getArticlesForWatch, getRecentArticles,
   getUnnotifiedArticles, markArticleNotified,
   getArticlesByDateRange, getArticlesLast24h, getArticlesLastWeek,
   saveAnalysis, getRecentAnalyses,

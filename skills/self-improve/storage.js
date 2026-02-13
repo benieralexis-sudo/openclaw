@@ -1,6 +1,7 @@
 // Self-Improve - Stockage persistant JSON
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.SELF_IMPROVE_DATA_DIR || '/data/self-improve';
 const DB_FILE = path.join(DATA_DIR, 'self-improve-db.json');
@@ -32,7 +33,7 @@ class SelfImproveStorage {
 
   _save() {
     try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf8');
+      atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[self-improve-storage] Erreur sauvegarde:', e.message);
     }

@@ -8,6 +8,32 @@ const DATA_FILE = path.join(DATA_DIR, 'autonomous-pilot.json');
 
 let _data = null;
 
+// --- State machine : etats et transitions valides du Pilot ---
+const PILOT_STATES = {
+  IDLE: 'idle',           // Brief pas encore defini
+  ACTIVE: 'active',       // En fonctionnement normal
+  PAUSED: 'paused',       // Mis en pause par le user
+  ERROR: 'error'          // Erreur critique (config manquante)
+};
+
+const VALID_TRANSITIONS = {
+  'idle':   ['active'],              // brief defini → actif
+  'active': ['paused', 'error'],     // pause ou erreur
+  'paused': ['active'],              // reprise
+  'error':  ['active', 'idle']       // correction → actif ou reset
+};
+
+function _getPilotState(config) {
+  if (!config.businessContext) return PILOT_STATES.IDLE;
+  if (!config.enabled) return PILOT_STATES.PAUSED;
+  return PILOT_STATES.ACTIVE;
+}
+
+function _canTransition(fromState, toState) {
+  const allowed = VALID_TRANSITIONS[fromState];
+  return allowed && allowed.includes(toState);
+}
+
 function _defaultData() {
   return {
     config: {
@@ -166,7 +192,22 @@ function getConfig() {
 
 function updateConfig(updates) {
   const data = _load();
+  const oldState = _getPilotState(data.config);
+
   Object.assign(data.config, updates);
+
+  // Valider la transition d'etat
+  const newState = _getPilotState(data.config);
+  if (oldState !== newState) {
+    if (_canTransition(oldState, newState)) {
+      console.log('[autonomous-pilot] Transition: ' + oldState + ' → ' + newState);
+    } else {
+      console.warn('[autonomous-pilot] Transition invalide: ' + oldState + ' → ' + newState + ' (forcee)');
+    }
+    data.config._state = newState;
+    data.config._stateChangedAt = new Date().toISOString();
+  }
+
   _save();
   return data.config;
 }
@@ -458,6 +499,7 @@ function incrementStat(key) {
 }
 
 module.exports = {
+  PILOT_STATES, getPilotState: () => _getPilotState(_load().config),
   getConfig, updateConfig, updateEmailPreferences, updateOffer,
   getGoals, updateWeeklyGoals, updateSearchCriteria,
   getProgress, incrementProgress, resetWeeklyProgress,

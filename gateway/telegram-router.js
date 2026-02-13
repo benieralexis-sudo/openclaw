@@ -1,6 +1,9 @@
 // MoltBot - Routeur Telegram central (dispatch FlowFast + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot)
 const https = require('https');
 const { retryAsync, truncateInput } = require('./utils.js');
+const { callOpenAI } = require('./shared-nlp.js');
+const { getBreaker, getAllStatus: getAllBreakerStatus } = require('./circuit-breaker.js');
+const log = require('./logger.js');
 const FlowFastTelegramHandler = require('../skills/flowfast/telegram-handler.js');
 const AutoMailerHandler = require('../skills/automailer/automailer-handler.js');
 const CRMPilotHandler = require('../skills/crm-pilot/crm-handler.js');
@@ -16,6 +19,7 @@ const AutonomousHandler = require('../skills/autonomous-pilot/autonomous-handler
 const BrainEngine = require('../skills/autonomous-pilot/brain-engine.js');
 const flowfastStorage = require('../skills/flowfast/storage.js');
 const moltbotConfig = require('./moltbot-config.js');
+const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
 // --- Metriques globales (partage memoire pour System Advisor) ---
 global.__moltbotMetrics = {
@@ -62,6 +66,17 @@ if (!TOKEN) {
   process.exit(1);
 }
 
+// Validation des variables critiques au demarrage
+if (!SENDER_EMAIL || SENDER_EMAIL === 'onboarding@resend.dev' || SENDER_EMAIL.trim() === '') {
+  log.warn('router', 'SENDER_EMAIL non configure — envoi email desactive (test only: onboarding@resend.dev)');
+}
+if (!APOLLO_KEY || APOLLO_KEY.trim() === '') {
+  log.warn('router', 'APOLLO_API_KEY absent — enrichissement de leads desactive');
+}
+if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
+  log.warn('router', 'CLAUDE_API_KEY absent — redaction IA desactivee');
+}
+
 // --- Handlers ---
 
 const flowfastHandler = new FlowFastTelegramHandler(APOLLO_KEY, HUBSPOT_KEY, OPENAI_KEY, CLAUDE_KEY, SENDGRID_KEY, SENDER_EMAIL);
@@ -79,6 +94,19 @@ crmPilotHandler.start();
 leadEnrichHandler.start();
 contentHandler.start();
 invoiceBotHandler.start();
+
+// Report Workflow (prospection personnalisee depuis la landing page)
+const reportWorkflow = new ReportWorkflow({
+  apolloKey: APOLLO_KEY,
+  openaiKey: OPENAI_KEY,
+  claudeKey: CLAUDE_KEY,
+  resendKey: RESEND_KEY,
+  senderEmail: SENDER_EMAIL,
+  adminChatId: ADMIN_CHAT_ID,
+  sendTelegram: async (chatId, text) => {
+    await sendMessage(chatId, text, 'Markdown');
+  }
+});
 
 // Self-Improve (instancie apres les autres pour le sendTelegram callback)
 let selfImproveHandler = null;
@@ -137,7 +165,7 @@ async function sendMessage(chatId, text, parseMode) {
 }
 
 async function sendTyping(chatId) {
-  await telegramAPI('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
+  await telegramAPI('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(e => log.warn('router', 'sendTyping echoue:', e.message));
 }
 
 async function sendMessageWithButtons(chatId, text, buttons) {
@@ -162,29 +190,81 @@ async function sendMessageWithButtons(chatId, text, buttons) {
 // Stocke les 15 derniers echanges par utilisateur pour le contexte
 const conversationHistory = {};
 
-// Nettoyage des conversations inactives toutes les heures (anti-fuite memoire)
-setInterval(() => {
+// Nettoyage des conversations inactives + pending states toutes les heures
+const _cleanupInterval = setInterval(() => {
   const now = Date.now();
-  const TTL = 24 * 60 * 60 * 1000; // 24h
+  const HISTORY_TTL = 24 * 60 * 60 * 1000; // 24h pour l'historique
+  const PENDING_TTL = 30 * 60 * 1000; // 30min pour les workflows abandonnes
   let cleaned = 0;
+
+  // 1. Historique de conversation
   for (const id of Object.keys(conversationHistory)) {
     const entries = conversationHistory[id];
-    if (!entries || entries.length === 0 || now - entries[entries.length - 1].ts > TTL) {
+    if (!entries || entries.length === 0 || now - entries[entries.length - 1].ts > HISTORY_TTL) {
       delete conversationHistory[id];
       cleaned++;
     }
   }
-  if (cleaned > 0) console.log('[router] Nettoyage memoire: ' + cleaned + ' conversation(s) expiree(s)');
+
+  // 2. Pending states des handlers (conversations et confirmations abandonnees)
+  const handlersWithPending = [
+    automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
+    invoiceBotHandler, proactiveHandler, webIntelHandler, systemAdvisorHandler
+  ];
+  const pendingMaps = ['pendingConversations', 'pendingConfirmations', 'pendingImports', 'pendingEmails'];
+  for (const handler of handlersWithPending) {
+    for (const mapName of pendingMaps) {
+      const obj = handler[mapName];
+      if (!obj || typeof obj !== 'object') continue;
+      for (const id of Object.keys(obj)) {
+        const entry = obj[id];
+        if (!entry) continue;
+        if (!entry._ts) { entry._ts = now; continue; } // Premier passage : horodater
+        if (now - entry._ts > PENDING_TTL) {
+          delete obj[id];
+          cleaned++;
+        }
+      }
+    }
+  }
+
+  // 3. Bans expires
+  for (const id of Object.keys(_bans)) {
+    if (now > _bans[id].until + 60 * 60 * 1000) delete _bans[id]; // +1h apres expiration
+  }
+
+  // 4. Rate limits mortes
+  for (const id of Object.keys(messageRates)) {
+    if (messageRates[id].length === 0 || now - messageRates[id][messageRates[id].length - 1] > 60000) {
+      delete messageRates[id];
+    }
+  }
+
+  if (cleaned > 0) log.info('router', 'Nettoyage memoire: ' + cleaned + ' entree(s) expiree(s)');
 }, 60 * 60 * 1000);
 
-// --- Rate limiting messages (anti-spam) ---
+// --- Rate limiting messages (anti-spam, progressif) ---
 const messageRates = {};
+const _bans = {}; // chatId -> { until: timestamp, violations: count }
+
 function isRateLimited(chatId) {
   const id = String(chatId);
   const now = Date.now();
+
+  // Check ban actif
+  if (_bans[id] && now < _bans[id].until) return true;
+
   if (!messageRates[id]) messageRates[id] = [];
   messageRates[id] = messageRates[id].filter(t => now - t < 30000);
-  if (messageRates[id].length >= 10) return true;
+  if (messageRates[id].length >= 10) {
+    // Ban progressif : 5min, 15min, 1h
+    const violations = (_bans[id] ? _bans[id].violations : 0) + 1;
+    const banDurations = [5 * 60000, 15 * 60000, 60 * 60000]; // 5min, 15min, 1h
+    const banMs = banDurations[Math.min(violations - 1, banDurations.length - 1)];
+    _bans[id] = { until: now + banMs, violations: violations };
+    log.warn('router', 'Ban user ' + id + ' pour ' + (banMs / 60000) + 'min (violation #' + violations + ')');
+    return true;
+  }
   messageRates[id].push(now);
   return false;
 }
@@ -221,55 +301,17 @@ function getHistoryContext(chatId) {
 // Sonnet 4.5   : Redaction, conversation, humanisation
 // Opus 4.6     : Rapports strategiques (hebdo/mensuel)
 
-function _callOpenAINLPOnce(systemPrompt, userMessage, maxTokens) {
-  maxTokens = maxTokens || 30;
-  return new Promise((resolve, reject) => {
-    const postData = JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage }
-      ],
-      temperature: 0.2,
-      max_tokens: maxTokens
-    });
-    const req = https.request({
-      hostname: 'api.openai.com',
-      path: '/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + OPENAI_KEY,
-        'Content-Length': Buffer.byteLength(postData)
-      }
-    }, (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => {
-        try {
-          const response = JSON.parse(body);
-          if (response.choices && response.choices[0]) {
-            // Budget tracking
-            if (response.usage) {
-              const t = (response.usage.prompt_tokens || 0) + (response.usage.completion_tokens || 0);
-              moltbotConfig.recordApiSpend('gpt-4o-mini', t);
-            }
-            resolve(response.choices[0].message.content.trim());
-          } else {
-            reject(new Error('Reponse OpenAI invalide: ' + JSON.stringify(response).substring(0, 200)));
-          }
-        } catch (e) { reject(e); }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout OpenAI NLP')); });
-    req.write(postData);
-    req.end();
-  });
-}
-
-function callOpenAINLP(systemPrompt, userMessage, maxTokens) {
-  return retryAsync(() => _callOpenAINLPOnce(systemPrompt, userMessage, maxTokens), 2, 1000);
+async function callOpenAINLP(systemPrompt, userMessage, maxTokens) {
+  const result = await callOpenAI(OPENAI_KEY, [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage }
+  ], { maxTokens: maxTokens || 30 });
+  // Budget tracking
+  if (result.usage) {
+    const t = (result.usage.prompt_tokens || 0) + (result.usage.completion_tokens || 0);
+    moltbotConfig.recordApiSpend('gpt-4o-mini', t);
+  }
+  return result.content;
 }
 
 function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
@@ -279,7 +321,7 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
     const postData = JSON.stringify({
       model: model,
       max_tokens: maxTokens,
-      system: systemPrompt,
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: userMessage }]
     });
     const req = https.request({
@@ -290,6 +332,7 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
         'Content-Type': 'application/json',
         'x-api-key': CLAUDE_KEY,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31',
         'Content-Length': Buffer.byteLength(postData)
       }
     }, (res) => {
@@ -299,9 +342,11 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
         try {
           const response = JSON.parse(body);
           if (response.content && response.content[0]) {
-            // Budget tracking
+            // Budget tracking (inclut cache hits)
             if (response.usage) {
               const t = (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0);
+              const cached = response.usage.cache_read_input_tokens || 0;
+              if (cached > 0) console.log('[claude] Cache hit: ' + cached + ' tokens caches (' + model + ')');
               moltbotConfig.recordApiSpend(model, t);
             }
             resolve(response.content[0].text.trim());
@@ -319,7 +364,9 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
 }
 
 function callClaude(systemPrompt, userMessage, maxTokens, model) {
-  return retryAsync(() => _callClaudeOnce(systemPrompt, userMessage, maxTokens, model), 2, 2000);
+  const breakerName = model === 'claude-opus-4-6' ? 'claude-opus' : 'claude-sonnet';
+  const breaker = getBreaker(breakerName, { failureThreshold: 3, cooldownMs: 60000 });
+  return breaker.call(() => retryAsync(() => _callClaudeOnce(systemPrompt, userMessage, maxTokens, model), 2, 2000));
 }
 
 // --- Proactive Agent ---
@@ -916,7 +963,7 @@ async function handleCallback(update) {
   const chatId = cb.message.chat.id;
   const data = cb.data;
 
-  await telegramAPI('answerCallbackQuery', { callback_query_id: cb.id }).catch(() => {});
+  await telegramAPI('answerCallbackQuery', { callback_query_id: cb.id }).catch(e => log.warn('router', 'answerCallbackQuery echoue:', e.message));
 
   // Router les callbacks par prefixe
   if (data.startsWith('ap_')) {
@@ -931,6 +978,27 @@ async function handleCallback(update) {
       console.error('[router] Erreur callback autonomous-pilot:', e.message);
       await sendMessage(chatId, '❌ Erreur traitement confirmation: ' + e.message);
     }
+  } else if (data.startsWith('rpt_')) {
+    // Report workflow callback (landing page prospect report)
+    const prospectId = data.replace('rpt_', '');
+    await sendMessage(chatId, '⏳ _Generation du rapport en cours... (1-2 min)_', 'Markdown');
+
+    try {
+      const prospectData = await fetchProspectData(prospectId);
+      const result = await reportWorkflow.generateReport(prospectData);
+
+      if (result.success) {
+        const summary = '✅ *Rapport termine pour ' + prospectData.prenom + '*\n\n' +
+          '📊 ' + (result.leads ? result.leads.length : 0) + ' leads trouves et scores\n' +
+          (result.sent && result.sent.method === 'email'
+            ? '📧 Envoye par email a ' + prospectData.email
+            : '💾 Sauvegarde en fichier (domaine email non configure)');
+        await sendMessage(chatId, summary, 'Markdown');
+      }
+    } catch (e) {
+      console.error('[router] Erreur report workflow:', e.message);
+      await sendMessage(chatId, '❌ Erreur rapport: ' + e.message);
+    }
   } else if (data.startsWith('feedback_')) {
     const parts = data.split('_');
     const type = parts[1];
@@ -941,10 +1009,32 @@ async function handleCallback(update) {
   }
 }
 
+// --- Per-user queue (serialisation des messages, anti race condition) ---
+
+const _userQueues = {};
+
+function enqueueUpdate(update) {
+  const chatId = update.message?.chat?.id || update.callback_query?.message?.chat?.id;
+  if (!chatId) return;
+
+  const id = String(chatId);
+  const task = update.callback_query
+    ? () => handleCallback(update)
+    : () => handleUpdate(update);
+
+  // Chainer les promesses par user : le message N+1 attend la fin du message N
+  if (!_userQueues[id]) _userQueues[id] = Promise.resolve();
+  _userQueues[id] = _userQueues[id]
+    .then(task)
+    .catch(e => log.error('router', 'Erreur message user ' + id + ':', e.message));
+}
+
 // --- Long polling ---
 
+let _polling = true;
+
 async function poll() {
-  while (true) {
+  while (_polling) {
     try {
       const result = await telegramAPI('getUpdates', {
         offset: offset,
@@ -955,16 +1045,12 @@ async function poll() {
       if (result.ok && result.result && result.result.length > 0) {
         for (const update of result.result) {
           offset = update.update_id + 1;
-          if (update.callback_query) {
-            handleCallback(update).catch(e => console.error('Erreur callback:', e.message));
-          } else {
-            handleUpdate(update).catch(e => console.error('Erreur handleUpdate:', e.message));
-          }
+          enqueueUpdate(update);
         }
       }
     } catch (error) {
-      console.error('[' + new Date().toISOString() + '] Erreur polling:', error.message);
-      await new Promise(r => setTimeout(r, 3000));
+      log.error('router', 'Erreur polling:', error.message);
+      if (_polling) await new Promise(r => setTimeout(r, 3000));
     }
   }
 }
@@ -980,7 +1066,7 @@ telegramAPI('getMe').then(result => {
         { command: 'start', description: '🤖 Demarrer MoltBot' },
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
-    }).catch(() => {});
+    }).catch(e => log.warn('router', 'setMyCommands echoue:', e.message));
     console.log('🤖 Skills actives : Prospection + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot');
     console.log('🤖 En attente de messages...');
     poll();
@@ -996,6 +1082,8 @@ telegramAPI('getMe').then(result => {
 // Cleanup — graceful shutdown (attend 2s pour les operations en cours)
 function gracefulShutdown() {
   console.log('🤖 Arret MoltBot Router...');
+  _polling = false;
+  clearInterval(_cleanupInterval);
   [automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
    invoiceBotHandler, proactiveEngine, webIntelHandler, systemAdvisorHandler, autoPilotEngine]
     .forEach(h => { try { h.stop(); } catch (e) { console.error('[router] Erreur stop handler:', e.message); } });

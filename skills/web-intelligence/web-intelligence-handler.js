@@ -1,18 +1,12 @@
 // Web Intelligence - Handler NLP Telegram + crons de veille web
-const https = require('https');
 const { Cron } = require('croner');
 const storage = require('./storage.js');
 const WebFetcher = require('./web-fetcher.js');
 const IntelligenceAnalyzer = require('./intelligence-analyzer.js');
+const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
+const { getModule } = require('../../gateway/skill-loader.js');
 
-// Cross-skill imports (dual-path pour Docker)
-function getHubSpotClient() {
-  try { return require('../crm-pilot/hubspot-client.js'); }
-  catch (e) {
-    try { return require('/app/skills/crm-pilot/hubspot-client.js'); }
-    catch (e2) { return null; }
-  }
-}
+function getHubSpotClient() { return getModule('hubspot-client'); }
 
 class WebIntelligenceHandler {
   constructor(openaiKey, claudeKey, sendTelegramFn) {
@@ -70,45 +64,15 @@ class WebIntelligenceHandler {
     this.crons = [];
   }
 
-  // --- NLP ---
+  // --- NLP (via module partage) ---
 
-  callOpenAI(messages, maxTokens) {
-    maxTokens = maxTokens || 300;
-    return new Promise((resolve, reject) => {
-      const postData = JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: messages,
-        temperature: 0.3,
-        max_tokens: maxTokens
-      });
-      const req = https.request({
-        hostname: 'api.openai.com',
-        path: '/v1/chat/completions',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + this.openaiKey,
-          'Content-Length': Buffer.byteLength(postData)
-        }
-      }, (res) => {
-        let body = '';
-        res.on('data', (chunk) => { body += chunk; });
-        res.on('end', () => {
-          try {
-            const response = JSON.parse(body);
-            if (response.choices && response.choices[0]) {
-              resolve(response.choices[0].message.content);
-            } else {
-              reject(new Error('Reponse OpenAI invalide'));
-            }
-          } catch (e) { reject(e); }
-        });
-      });
-      req.on('error', reject);
-      req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout OpenAI')); });
-      req.write(postData);
-      req.end();
+  async callOpenAI(messages, maxTokens) {
+    const result = await sharedCallOpenAI(this.openaiKey, messages, {
+      maxTokens: maxTokens || 300,
+      temperature: 0.3,
+      timeout: 20000
     });
+    return result.content;
   }
 
   async classifyIntent(message, chatId) {

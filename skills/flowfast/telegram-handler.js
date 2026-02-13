@@ -2,7 +2,7 @@ const FlowFastWorkflow = require('./flowfast-workflow.js');
 const ClaudeClient = require('./claude-client.js');
 const SendGridClient = require('./sendgrid-client.js');
 const storage = require('./storage.js');
-const https = require('https');
+const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
 
 class FlowFastTelegramHandler {
   constructor(apolloKey, hubspotKey, openaiKey, claudeKey, sendgridKey, senderEmail) {
@@ -16,45 +16,15 @@ class FlowFastTelegramHandler {
     this.pendingEmails = {};   // chatId -> { lead, email: { subject, body } }
   }
 
-  // --- NLP ---
+  // --- NLP (via module partage) ---
 
-  callOpenAI(messages, maxTokens) {
-    maxTokens = maxTokens || 200;
-    return new Promise((resolve, reject) => {
-      const postData = JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: messages,
-        temperature: 0.3,
-        max_tokens: maxTokens
-      });
-      const req = https.request({
-        hostname: 'api.openai.com',
-        path: '/v1/chat/completions',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + this.openaiKey,
-          'Content-Length': Buffer.byteLength(postData)
-        }
-      }, (res) => {
-        let body = '';
-        res.on('data', (chunk) => { body += chunk; });
-        res.on('end', () => {
-          try {
-            const response = JSON.parse(body);
-            if (response.choices && response.choices[0]) {
-              resolve(response.choices[0].message.content);
-            } else {
-              reject(new Error('Reponse OpenAI invalide'));
-            }
-          } catch (e) { reject(e); }
-        });
-      });
-      req.on('error', reject);
-      req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout OpenAI')); });
-      req.write(postData);
-      req.end();
+  async callOpenAI(messages, maxTokens) {
+    const result = await sharedCallOpenAI(this.openaiKey, messages, {
+      maxTokens: maxTokens || 200,
+      temperature: 0.3,
+      timeout: 20000
     });
+    return result.content;
   }
 
   async classifyIntent(message, chatId) {

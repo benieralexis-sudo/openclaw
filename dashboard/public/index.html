@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission Control — Krest</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M9 16l5 5 9-9' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='32' y2='32'%3E%3Cstop stop-color='%233b82f6'/%3E%3Cstop offset='1' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/public/css/style.css">
+<link rel="stylesheet" href="/public/css/animations.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo-mark">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="url(#logo-grad)"/><path d="M7 12l3 3 7-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="logo-grad" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#3b82f6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+    </div>
+    <div class="logo-text">MISSION CONTROL</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="#overview" class="nav-item active" data-page="overview">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#home"/></svg>
+      <span>Vue d'ensemble</span>
+    </a>
+    <a href="#prospection" class="nav-item" data-page="prospection">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#target"/></svg>
+      <span>Prospection</span>
+    </a>
+    <a href="#emails" class="nav-item" data-page="emails">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#mail"/></svg>
+      <span>Emails</span>
+      <span class="nav-badge" id="badge-emails" style="display:none">0</span>
+    </a>
+    <a href="#crm" class="nav-item" data-page="crm">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#bar-chart"/></svg>
+      <span>CRM</span>
+    </a>
+    <a href="#enrichment" class="nav-item" data-page="enrichment">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#search"/></svg>
+      <span>Enrichissement</span>
+    </a>
+    <a href="#content" class="nav-item" data-page="content">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#pen-tool"/></svg>
+      <span>Contenu</span>
+    </a>
+    <a href="#invoices" class="nav-item" data-page="invoices">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#file-text"/></svg>
+      <span>Facturation</span>
+    </a>
+
+    <div class="nav-separator"></div>
+
+    <a href="#proactive" class="nav-item" data-page="proactive">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#bot"/></svg>
+      <span>Agent Proactif</span>
+      <span class="nav-badge" id="badge-proactive" style="display:none">0</span>
+    </a>
+    <a href="#self-improve" class="nav-item" data-page="self-improve">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#brain"/></svg>
+      <span>Auto-Amélioration</span>
+    </a>
+    <a href="#web-intel" class="nav-item" data-page="web-intel">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#globe"/></svg>
+      <span>Web Intelligence</span>
+    </a>
+    <a href="#system" class="nav-item" data-page="system">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#settings"/></svg>
+      <span>Système</span>
+      <span class="nav-badge badge-warning" id="badge-system" style="display:none">!</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="client-selector">
+      <svg class="nav-icon" style="width:16px;height:16px"><use href="/public/assets/icons.svg#user"/></svg>
+      <span>Alexis Bénier</span>
+    </div>
+    <a href="/logout" class="logout-link">
+      <svg class="nav-icon" style="width:16px;height:16px"><use href="/public/assets/icons.svg#log-out"/></svg>
+      <span>Déconnexion</span>
+    </a>
+  </div>
+</aside>
+
+<!-- Mobile header -->
+<header class="mobile-header" id="mobile-header">
+  <button class="hamburger" id="hamburger" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="logo-text">MISSION CONTROL</div>
+  <div style="width:32px"></div>
+</header>
+
+<!-- Overlay mobile -->
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<!-- Main content -->
+<main class="main-content" id="main-content">
+  <div class="page-container" id="page-container">
+    <!-- Pages rendered dynamically by app.js -->
+  </div>
+</main>
+
+<script src="/public/js/utils.js"></script>
+<script src="/public/js/api.js"></script>
+<script src="/public/js/charts.js"></script>
+<script src="/public/js/app.js"></script>
+
+</body>
+</html>

@@ -67,8 +67,8 @@ class BrainEngine {
     this.running = true;
     const tz = 'Europe/Paris';
 
-    // Brain cycle : 8h, 12h, 16h, 20h
-    this.crons.push(new Cron('0 8,12,16,20 * * *', { timezone: tz }, async () => {
+    // Brain cycle : 9h et 18h (optimise cout — 2 cycles/jour suffisent)
+    this.crons.push(new Cron('0 9,18 * * *', { timezone: tz }, async () => {
       try { await this._brainCycle(); }
       catch (e) { console.error('[brain] Erreur cycle:', e.message); }
     }));

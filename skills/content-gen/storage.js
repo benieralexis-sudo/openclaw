@@ -1,6 +1,7 @@
 // Content Gen - Stockage persistant JSON
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.CONTENT_GEN_DATA_DIR || '/data/content-gen';
 const DB_FILE = path.join(DATA_DIR, 'content-gen-db.json');
@@ -54,7 +55,7 @@ class ContentGenStorage {
 
   _save() {
     try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
+      atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[content-gen-storage] Erreur sauvegarde:', e.message);
     }

@@ -1,6 +1,7 @@
 // FlowFast - Stockage persistant JSON
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.FLOWFAST_DATA_DIR || '/data/flowfast';
 const DB_FILE = path.join(DATA_DIR, 'flowfast-db.json');
@@ -54,7 +55,7 @@ class Storage {
 
   _save() {
     try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf8');
+      atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[storage] Erreur sauvegarde:', e.message);
     }

@@ -1,7 +1,7 @@
 // FlowFast - Workflow complet Apollo → IA → HubSpot
 const ApolloConnector = require('./apollo-connector.js');
 const HubSpotConnector = require('./hubspot-connector.js');
-const https = require('https');
+const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
 
 class FlowFastWorkflow {
   constructor(apolloKey, hubspotKey, openaiKey) {
@@ -81,48 +81,12 @@ Réponds UNIQUEMENT le JSON, rien d'autre :`;
     }
   }
 
-  // Appeler l'API OpenAI
-  callOpenAI(prompt) {
-    return new Promise((resolve, reject) => {
-      const postData = JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        max_tokens: 200
-      });
-
-      const options = {
-        hostname: 'api.openai.com',
-        path: '/v1/chat/completions',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.openaiKey}`,
-          'Content-Length': Buffer.byteLength(postData)
-        }
-      };
-
-      const req = https.request(options, (res) => {
-        let body = '';
-        res.on('data', (chunk) => { body += chunk; });
-        res.on('end', () => {
-          try {
-            const response = JSON.parse(body);
-            if (response.choices && response.choices[0]) {
-              resolve(response.choices[0].message.content);
-            } else {
-              reject(new Error('Invalid OpenAI response'));
-            }
-          } catch (e) {
-            reject(e);
-          }
-        });
-      });
-
-      req.on('error', reject);
-      req.write(postData);
-      req.end();
-    });
+  // Appeler l'API OpenAI (via module partage)
+  async callOpenAI(prompt) {
+    const result = await sharedCallOpenAI(this.openaiKey, [
+      { role: 'user', content: prompt }
+    ], { maxTokens: 200, temperature: 0.3 });
+    return result.content;
   }
 
   // Ajouter des contacts à une liste HubSpot

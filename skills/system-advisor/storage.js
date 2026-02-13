@@ -1,6 +1,7 @@
 // System Advisor - Stockage JSON persistant
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.SYSTEM_ADVISOR_DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'system-advisor.json');
@@ -99,7 +100,7 @@ function _load() {
 function _save() {
   _ensureDir();
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(_data, null, 2), 'utf8');
+    atomicWriteSync(DATA_FILE, _data);
   } catch (e) {
     console.log('[system-advisor-storage] Erreur ecriture:', e.message);
   }

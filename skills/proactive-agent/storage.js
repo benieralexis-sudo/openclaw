@@ -1,6 +1,7 @@
 // Proactive Agent - Stockage persistant JSON
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.PROACTIVE_DATA_DIR || '/data/proactive-agent';
 const DB_FILE = path.join(DATA_DIR, 'proactive-agent-db.json');
@@ -30,7 +31,7 @@ class ProactiveStorage {
 
   _save() {
     try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf8');
+      atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[proactive-storage] Erreur sauvegarde:', e.message);
     }

@@ -1,6 +1,7 @@
 // Invoice Bot - Stockage persistant JSON
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.INVOICE_BOT_DATA_DIR || '/data/invoice-bot';
 const DB_FILE = path.join(DATA_DIR, 'invoice-bot-db.json');
@@ -51,7 +52,7 @@ class InvoiceBotStorage {
 
   _save() {
     try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
+      atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[invoice-bot-storage] Erreur sauvegarde:', e.message);
     }

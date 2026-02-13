@@ -99,34 +99,38 @@ class ApolloEnricher {
   }
 
   _formatSearchResult(result) {
-    if (!result || !result.people || result.people.length === 0) {
+    if (!result || typeof result !== 'object') {
+      return { success: false, error: 'Reponse Apollo invalide (pas un objet)' };
+    }
+    if (!Array.isArray(result.people) || result.people.length === 0) {
       return { success: false, error: 'Contact non trouve sur Apollo' };
     }
-    const p = result.people[0];
-    const o = p.organization || {};
+    const p = result.people[0] || {};
+    const o = (p && typeof p === 'object' && p.organization) || {};
+    const phones = Array.isArray(p.phone_numbers) ? p.phone_numbers : [];
     return {
       success: true,
       person: {
-        firstName: p.first_name || '',
-        lastName: p.last_name || '',
+        firstName: String(p.first_name || ''),
+        lastName: String(p.last_name || ''),
         fullName: ((p.first_name || '') + ' ' + (p.last_name || '')).trim(),
-        title: p.title || '',
-        email: p.email || '',
-        phone: (p.phone_numbers && p.phone_numbers[0] && p.phone_numbers[0].sanitized_number) || '',
-        linkedinUrl: p.linkedin_url || '',
-        city: p.city || '',
-        state: p.state || '',
-        country: p.country || ''
+        title: String(p.title || ''),
+        email: String(p.email || ''),
+        phone: (phones[0] && phones[0].sanitized_number) || '',
+        linkedinUrl: String(p.linkedin_url || ''),
+        city: String(p.city || ''),
+        state: String(p.state || ''),
+        country: String(p.country || '')
       },
       organization: {
-        name: o.name || '',
-        industry: o.industry || '',
-        website: o.website_url || '',
-        employeeCount: o.estimated_num_employees || 0,
+        name: String(o.name || ''),
+        industry: String(o.industry || ''),
+        website: String(o.website_url || ''),
+        employeeCount: Number(o.estimated_num_employees) || 0,
         foundedYear: o.founded_year || null,
-        city: o.city || '',
-        state: o.state || '',
-        country: o.country || ''
+        city: String(o.city || ''),
+        state: String(o.state || ''),
+        country: String(o.country || '')
       }
     };
   }

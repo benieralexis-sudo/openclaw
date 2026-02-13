@@ -1,6 +1,8 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -8,6 +10,12 @@ const path = require('path');
 const app = express();
 const PORT = process.env.DASHBOARD_PORT || 3000;
 const PASSWORD = process.env.DASHBOARD_PASSWORD || 'MoltBot2026!';
+
+// Hash du mot de passe au démarrage
+const PASSWORD_HASH = bcrypt.hashSync(PASSWORD, 12);
+
+// Trust nginx proxy
+app.set('trust proxy', 1);
 
 // Sessions en mémoire
 const sessions = new Map();
@@ -34,6 +42,24 @@ const DATA_PATHS = {
 const MOLTBOT_CONFIG_PATH = process.env.MOLTBOT_CONFIG_DIR
   ? `${process.env.MOLTBOT_CONFIG_DIR}/moltbot-config.json`
   : '/data/moltbot-config/moltbot-config.json';
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -69,11 +95,12 @@ app.get('/login', (req, res) => {
   res.send(loginPage());
 });
 
-app.post('/login', loginLimiter, (req, res) => {
-  if (req.body.password === PASSWORD) {
+app.post('/login', loginLimiter, async (req, res) => {
+  const match = await bcrypt.compare(req.body.password || '', PASSWORD_HASH);
+  if (match) {
     const sid = crypto.randomBytes(32).toString('hex');
     sessions.set(sid, { createdAt: Date.now() });
-    res.cookie('sid', sid, { httpOnly: true, maxAge: SESSION_TTL, sameSite: 'lax' });
+    res.cookie('sid', sid, { httpOnly: true, maxAge: SESSION_TTL, sameSite: 'lax', secure: true });
     console.log('[dashboard] Login OK from ' + (req.ip || 'unknown'));
     return res.redirect('/');
   }
@@ -176,6 +203,7 @@ app.get('/api/overview', authRequired, (req, res) => {
   } catch (e) {}
 
   res.json({
+    ownerName: process.env.DASHBOARD_OWNER || '',
     moltbotStatus,
     kpis: {
       leads: { value: leadsInPeriod, total: leads.length, change: calcChange(leadsInPeriod, leadsPrev) },
@@ -597,40 +625,69 @@ function loginPage(error = null) {
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#09090b;color:#fafafa;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
-.login-container{width:100%;max-width:400px;padding:40px}
-.login-card{background:rgba(17,17,19,0.8);backdrop-filter:blur(20px);border:1px solid #1c1c1e;border-radius:16px;padding:48px 40px;text-align:center}
-.logo{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#71717a;margin-bottom:8px}
-.title{font-family:'DM Sans',sans-serif;font-size:28px;font-weight:700;margin-bottom:8px}
+body{background:#09090b;color:#fafafa;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+
+/* Animated gradient orbs */
+.orb{position:fixed;border-radius:50%;filter:blur(100px);opacity:.4;pointer-events:none;z-index:0}
+.orb-1{width:500px;height:500px;background:rgba(59,130,246,0.15);top:-150px;right:-100px;animation:orbMove 8s ease-in-out infinite}
+.orb-2{width:400px;height:400px;background:rgba(139,92,246,0.12);bottom:-100px;left:-100px;animation:orbMove 10s ease-in-out infinite reverse}
+.orb-3{width:300px;height:300px;background:rgba(6,182,212,0.08);top:50%;left:60%;animation:orbMove 12s ease-in-out infinite 2s}
+@keyframes orbMove{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,-40px)}}
+
+.login-container{width:100%;max-width:420px;padding:40px;position:relative;z-index:1;animation:loginFade .6s ease-out}
+@keyframes loginFade{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+.login-card{background:rgba(17,17,19,0.7);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:52px 44px;text-align:center;position:relative;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.4)}
+.login-card::before{content:'';position:absolute;inset:-1px;border-radius:20px;background:linear-gradient(135deg,rgba(59,130,246,0.15),transparent 50%,rgba(139,92,246,0.1));z-index:-1;pointer-events:none}
+
+.logo-mark{margin-bottom:20px}
+.logo{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;background:linear-gradient(135deg,#a1a1aa,#fafafa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+.title{font-family:'DM Sans',sans-serif;font-size:28px;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,#fafafa,#d4d4d8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .subtitle{color:#71717a;font-size:14px;margin-bottom:36px}
+
 .input-group{margin-bottom:24px;text-align:left}
 .input-group label{display:block;font-size:13px;font-weight:500;color:#71717a;margin-bottom:8px}
-.input-group input{width:100%;padding:12px 16px;background:#09090b;border:1px solid #1c1c1e;border-radius:8px;color:#fafafa;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color 0.2s}
-.input-group input:focus{border-color:#3b82f6}
-.btn{width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:opacity 0.2s}
-.btn:hover{opacity:0.9}
-.error{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;font-size:13px;padding:10px 16px;border-radius:8px;margin-bottom:20px}
-.glow{position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(59,130,246,0.08) 0%,transparent 70%);pointer-events:none}
-.login-wrapper{position:relative}
+.input-group input{width:100%;padding:14px 18px;background:rgba(9,9,11,0.6);border:1.5px solid rgba(255,255,255,0.06);border-radius:10px;color:#fafafa;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:all 0.25s}
+.input-group input:focus{border-color:rgba(59,130,246,0.5);box-shadow:0 0 0 4px rgba(59,130,246,0.08)}
+.input-group input::placeholder{color:#52525b}
+
+.btn{width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#7c3aed);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(59,130,246,0.3)}
+.btn::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.1) 45%,rgba(255,255,255,0.1) 55%,transparent 60%);transform:translateX(-100%)}
+.btn:hover::after{transform:translateX(100%);transition:transform .6s ease}
+
+.error{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#ef4444;font-size:13px;padding:12px 16px;border-radius:10px;margin-bottom:20px}
+
+.footer-text{margin-top:32px;font-size:11px;color:#3f3f46;letter-spacing:0.5px}
 </style>
 </head>
 <body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
 <div class="login-container">
-<div class="login-wrapper">
-<div class="glow"></div>
 <div class="login-card">
+  <div class="logo-mark">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="url(#lg)"/><path d="M7 12l3 3 7-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="lg" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#3b82f6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+  </div>
   <div class="logo">Mission Control</div>
   <h1 class="title">Connexion</h1>
-  <p class="subtitle">Accédez au tableau de bord MoltBot</p>
-  ${error ? `<div class="error">${error}</div>` : ''}
+  <p class="subtitle">Acc&eacute;dez &agrave; votre tableau de bord</p>
+  ${error ? '<div class="error">' + error + '</div>' : ''}
   <form method="POST" action="/login">
     <div class="input-group">
       <label for="password">Mot de passe</label>
-      <input type="password" id="password" name="password" placeholder="Entrez votre mot de passe" autofocus required>
+      <div style="position:relative">
+        <input type="password" id="password" name="password" placeholder="Entrez votre mot de passe" autofocus required style="padding-right:44px">
+        <button type="button" onclick="const p=document.getElementById('password');const t=p.type==='password'?'text':'password';p.type=t;this.innerHTML=t==='password'?eyeOff:eyeOn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#71717a;cursor:pointer;padding:4px" aria-label="Afficher le mot de passe">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
+      </div>
     </div>
+    <script>const eyeOff='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';const eyeOn='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';</script>
     <button type="submit" class="btn">Se connecter</button>
   </form>
-</div>
+  <div class="footer-text">Propuls&eacute; par Krest</div>
 </div>
 </div>
 </body>

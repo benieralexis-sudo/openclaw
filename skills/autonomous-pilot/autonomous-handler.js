@@ -24,18 +24,26 @@ class AutonomousHandler {
 
       // Executer les actions en backstage
       let triggerBrain = false;
+      const failedActions = [];
       for (const action of parsed.actions) {
         try {
           await this._executeAction(action);
           if (action.type === 'force_brain_cycle') triggerBrain = true;
         } catch (e) {
-          console.error('[autonomous-handler] Action silencieuse echouee:', action.type, e.message);
+          console.error('[autonomous-handler] Action echouee:', action.type, e.message);
+          failedActions.push(action.type);
         }
+      }
+
+      // Si des actions ont echoue, ajouter une note discrete a la reponse
+      let reply = parsed.reply;
+      if (failedActions.length > 0) {
+        reply += '\n\n_⚠️ Actions echouees en backstage : ' + failedActions.join(', ') + ' — je retenterai au prochain cycle._';
       }
 
       return {
         type: 'text',
-        content: parsed.reply,
+        content: reply,
         _triggerBrainCycle: triggerBrain
       };
     } catch (e) {

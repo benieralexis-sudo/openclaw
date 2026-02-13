@@ -1,43 +1,6 @@
 services:
-  openclaw-gateway:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
-    environment:
-      HOME: /home/node
-      TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      HUBSPOT_API_KEY: ${HUBSPOT_API_KEY}
-      APOLLO_API_KEY: ${APOLLO_API_KEY}
-      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
-      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
-      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
-    volumes:
-      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
-      - ./skills/flowfast:/home/node/.openclaw/skills/flowfast
-      - ./skills/flowfast:/app/skills/flowfast
-    ports:
-      - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
-      - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
-    init: true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:18789',r=>{process.exit(r.statusCode?0:1)}).on('error',()=>process.exit(1))"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    command:
-      [
-        "node",
-        "dist/index.js",
-        "gateway",
-        "--bind",
-        "${OPENCLAW_GATEWAY_BIND:-lan}",
-        "--port",
-        "18789",
-      ]
+  # openclaw-gateway: DESACTIVE — non utilise par MoltBot, cause restart loop
+  # Pour reactiver, decommentez et corrigez les permissions
 
   telegram-router:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
@@ -92,14 +55,35 @@ services:
       - moltbot-config-data:/data/moltbot-config
     init: true
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
     entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/moltbot-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/moltbot-config && exec runuser -u node -- node /app/gateway/telegram-router.js"]
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -q '[t]elegram-router' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   mission-control:
     image: node:20-alpine
     working_dir: /app
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
     environment:
       DASHBOARD_PORT: "3000"
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-MoltBot2026!}
+      DASHBOARD_OWNER: ${DASHBOARD_OWNER:-}
       FLOWFAST_DATA_DIR: /data/flowfast
       AUTOMAILER_DATA_DIR: /data/automailer
       CRM_PILOT_DATA_DIR: /data/crm-pilot
@@ -127,12 +111,40 @@ services:
       - autonomous-pilot-data:/data/autonomous-pilot:ro
       - moltbot-config-data:/data/moltbot-config:ro
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     init: true
     restart: unless-stopped
     entrypoint: ["sh", "-c", "cd /app && npm install --production 2>/dev/null; node server.js"]
     healthcheck:
       test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:3000/login',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  landing-page:
+    image: node:20-alpine
+    working_dir: /app
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    environment:
+      LANDING_PORT: "3080"
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      ADMIN_CHAT_ID: ${ADMIN_CHAT_ID:-1409505520}
+    volumes:
+      - ./landing:/app
+    ports:
+      - "127.0.0.1:3080:3080"
+    init: true
+    restart: unless-stopped
+    entrypoint: ["sh", "-c", "cd /app && npm install --production 2>/dev/null; node server.js"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:3080',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3

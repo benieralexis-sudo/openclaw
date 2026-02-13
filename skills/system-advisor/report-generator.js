@@ -6,15 +6,18 @@ class ReportGenerator {
     this.claudeKey = claudeKey;
   }
 
-  callClaude(messages, systemPrompt, maxTokens) {
+  callClaude(messages, systemPrompt, maxTokens, model) {
     maxTokens = maxTokens || 1500;
+    model = model || 'claude-sonnet-4-5-20250929';
     return new Promise((resolve, reject) => {
       const body = {
-        model: 'claude-opus-4-6',
+        model: model,
         max_tokens: maxTokens,
         messages: messages
       };
-      if (systemPrompt) body.system = systemPrompt;
+      if (systemPrompt) {
+        body.system = [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }];
+      }
 
       const postData = JSON.stringify(body);
       const req = https.request({
@@ -25,6 +28,7 @@ class ReportGenerator {
           'Content-Type': 'application/json',
           'x-api-key': this.claudeKey,
           'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31',
           'Content-Length': Buffer.byteLength(postData)
         }
       }, (res) => {
@@ -34,6 +38,8 @@ class ReportGenerator {
           try {
             const response = JSON.parse(data);
             if (response.content && response.content[0]) {
+              const cached = response.usage ? (response.usage.cache_read_input_tokens || 0) : 0;
+              if (cached > 0) console.log('[system-advisor] Cache hit: ' + cached + ' tokens caches');
               resolve(response.content[0].text);
             } else if (response.error) {
               reject(new Error('Claude API: ' + (response.error.message || JSON.stringify(response.error))));
@@ -185,7 +191,8 @@ REGLES :
       const response = await this.callClaude(
         [{ role: 'user', content: dataStr }],
         systemPrompt,
-        1500
+        1500,
+        'claude-opus-4-6'
       );
       return response;
     } catch (e) {

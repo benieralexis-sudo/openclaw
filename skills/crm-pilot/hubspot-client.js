@@ -15,6 +15,33 @@ const ASSOCIATION_TYPES = {
   deal_to_contact: 3
 };
 
+// Cache TTL simple en memoire
+const _cache = {};
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function _cacheGet(key) {
+  const entry = _cache[key];
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL) { delete _cache[key]; return null; }
+  return entry.data;
+}
+
+function _cacheSet(key, data) {
+  _cache[key] = { data: data, ts: Date.now() };
+}
+
+function _cacheInvalidate(prefix) {
+  for (const key of Object.keys(_cache)) {
+    if (key.startsWith(prefix)) delete _cache[key];
+  }
+}
+
+// Circuit breaker pour HubSpot
+let _cbFailures = 0;
+let _cbLastFailure = 0;
+const CB_THRESHOLD = 3;
+const CB_COOLDOWN = 60000;
+
 class HubSpotClient {
   constructor(apiKey) {
     this.apiKey = apiKey;
@@ -24,6 +51,14 @@ class HubSpotClient {
   // --- Base HTTP ---
 
   async makeRequest(path, method, data) {
+    // Circuit breaker : fail-fast si HubSpot est down
+    if (_cbFailures >= CB_THRESHOLD) {
+      if (Date.now() - _cbLastFailure < CB_COOLDOWN) {
+        throw new Error('HubSpot temporairement indisponible (circuit breaker)');
+      }
+      _cbFailures = 0; // cooldown expire, retenter
+    }
+
     // Rate limiting simple : 100ms entre chaque requete
     const now = Date.now();
     const elapsed = now - this._lastRequestTime;
@@ -58,8 +93,10 @@ class HubSpotClient {
             }
             const response = JSON.parse(body);
             if (res.statusCode >= 200 && res.statusCode < 300) {
+              _cbFailures = 0; // succes = reset circuit breaker
               resolve(response);
             } else {
+              if (res.statusCode >= 500) { _cbFailures++; _cbLastFailure = Date.now(); }
               const msg = response.message || response.errors?.[0]?.message || JSON.stringify(response);
               reject(new Error('HubSpot ' + res.statusCode + ': ' + msg));
             }
@@ -68,8 +105,8 @@ class HubSpotClient {
           }
         });
       });
-      req.on('error', reject);
-      req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout HubSpot API')); });
+      req.on('error', (e) => { _cbFailures++; _cbLastFailure = Date.now(); reject(e); });
+      req.setTimeout(15000, () => { req.destroy(); _cbFailures++; _cbLastFailure = Date.now(); reject(new Error('Timeout HubSpot API')); });
       if (postData && (method === 'POST' || method === 'PATCH' || method === 'PUT')) {
         req.write(postData);
       }
@@ -81,15 +118,21 @@ class HubSpotClient {
 
   async listContacts(limit, after) {
     limit = limit || 10;
+    const cacheKey = 'contacts_' + limit + '_' + (after || '');
+    const cached = _cacheGet(cacheKey);
+    if (cached) return cached;
+
     let path = '/crm/v3/objects/contacts?limit=' + limit + '&properties=' + CONTACT_PROPERTIES;
     if (after) path += '&after=' + after;
     const result = await this.makeRequest(path, 'GET');
-    return {
+    const formatted = {
       contacts: (result.results || []).map(c => this._formatContactResult(c)),
       hasMore: !!(result.paging && result.paging.next),
       nextCursor: result.paging?.next?.after || null,
       total: result.total || 0
     };
+    _cacheSet(cacheKey, formatted);
+    return formatted;
   }
 
   async getContact(contactId) {
@@ -101,6 +144,7 @@ class HubSpotClient {
   }
 
   async createContact(properties) {
+    _cacheInvalidate('contacts_');
     const result = await this.makeRequest('/crm/v3/objects/contacts', 'POST', {
       properties: {
         firstname: properties.firstname || '',
@@ -117,6 +161,7 @@ class HubSpotClient {
   }
 
   async updateContact(contactId, properties) {
+    _cacheInvalidate('contacts_');
     const result = await this.makeRequest(
       '/crm/v3/objects/contacts/' + contactId,
       'PATCH',
@@ -155,8 +200,8 @@ class HubSpotClient {
   }
 
   _formatContactResult(result) {
-    if (!result || !result.properties) return null;
-    const p = result.properties;
+    if (!result || typeof result !== 'object' || !result.properties) return null;
+    const p = result.properties || {};
     return {
       id: result.id,
       firstname: p.firstname || '',
@@ -178,15 +223,21 @@ class HubSpotClient {
 
   async listDeals(limit, after) {
     limit = limit || 10;
+    const cacheKey = 'deals_' + limit + '_' + (after || '');
+    const cached = _cacheGet(cacheKey);
+    if (cached) return cached;
+
     let path = '/crm/v3/objects/deals?limit=' + limit + '&properties=' + DEAL_PROPERTIES;
     if (after) path += '&after=' + after;
     const result = await this.makeRequest(path, 'GET');
-    return {
+    const formatted = {
       deals: (result.results || []).map(d => this._formatDealResult(d)),
       hasMore: !!(result.paging && result.paging.next),
       nextCursor: result.paging?.next?.after || null,
       total: result.total || 0
     };
+    _cacheSet(cacheKey, formatted);
+    return formatted;
   }
 
   async getDeal(dealId) {
@@ -198,6 +249,7 @@ class HubSpotClient {
   }
 
   async createDeal(properties) {
+    _cacheInvalidate('deals_');
     const result = await this.makeRequest('/crm/v3/objects/deals', 'POST', {
       properties: {
         dealname: properties.dealname,
@@ -211,6 +263,7 @@ class HubSpotClient {
   }
 
   async updateDeal(dealId, properties) {
+    _cacheInvalidate('deals_');
     const result = await this.makeRequest(
       '/crm/v3/objects/deals/' + dealId,
       'PATCH',
@@ -231,8 +284,8 @@ class HubSpotClient {
   }
 
   _formatDealResult(result) {
-    if (!result || !result.properties) return null;
-    const p = result.properties;
+    if (!result || typeof result !== 'object' || !result.properties) return null;
+    const p = result.properties || {};
     return {
       id: result.id,
       name: p.dealname || '',

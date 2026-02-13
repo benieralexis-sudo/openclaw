@@ -2,42 +2,10 @@
 // Collecte cross-skill + generation de texte via Claude
 
 const storage = require('./storage.js');
+const { getStorage, getModule } = require('../../gateway/skill-loader.js');
 
-// --- Cross-skill imports (dual-path pattern) ---
-
-function getStorage(skillName) {
-  const paths = {
-    'flowfast': ['../flowfast/storage.js', '/app/skills/flowfast/storage.js'],
-    'automailer': ['../automailer/storage.js', '/app/skills/automailer/storage.js'],
-    'crm-pilot': ['../crm-pilot/storage.js', '/app/skills/crm-pilot/storage.js'],
-    'lead-enrich': ['../lead-enrich/storage.js', '/app/skills/lead-enrich/storage.js'],
-    'content-gen': ['../content-gen/storage.js', '/app/skills/content-gen/storage.js'],
-    'invoice-bot': ['../invoice-bot/storage.js', '/app/skills/invoice-bot/storage.js']
-  };
-  const p = paths[skillName];
-  if (!p) return null;
-  try { return require(p[0]); }
-  catch (e) {
-    try { return require(p[1]); }
-    catch (e2) { return null; }
-  }
-}
-
-function getHubSpotClient() {
-  try { return require('../crm-pilot/hubspot-client.js'); }
-  catch (e) {
-    try { return require('/app/skills/crm-pilot/hubspot-client.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getResendClient() {
-  try { return require('../automailer/resend-client.js'); }
-  catch (e) {
-    try { return require('/app/skills/automailer/resend-client.js'); }
-    catch (e2) { return null; }
-  }
-}
+function getHubSpotClient() { return getModule('hubspot-client'); }
+function getResendClient() { return getModule('resend-client'); }
 
 class ReportGenerator {
   constructor(options) {

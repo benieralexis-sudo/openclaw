@@ -1,6 +1,7 @@
 // AutoMailer - Stockage persistant JSON
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.AUTOMAILER_DATA_DIR || '/data/automailer';
 const DB_FILE = path.join(DATA_DIR, 'automailer-db.json');
@@ -59,7 +60,7 @@ class AutoMailerStorage {
 
   _save() {
     try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf8');
+      atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[automailer-storage] Erreur sauvegarde:', e.message);
     }
