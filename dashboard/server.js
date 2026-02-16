@@ -5,11 +5,13 @@ const helmet = require('helmet');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
+const fsp = require('fs').promises;
 const path = require('path');
+const log = require('../gateway/logger.js');
 
 const app = express();
 const PORT = process.env.DASHBOARD_PORT || 3000;
-const PASSWORD = process.env.DASHBOARD_PASSWORD || 'MoltBot2026!';
+const PASSWORD = process.env.DASHBOARD_PASSWORD || 'iFIND2026!';
 
 // Hash du mot de passe au démarrage
 const PASSWORD_HASH = bcrypt.hashSync(PASSWORD, 12);
@@ -17,9 +19,56 @@ const PASSWORD_HASH = bcrypt.hashSync(PASSWORD, 12);
 // Trust nginx proxy
 app.set('trust proxy', 1);
 
-// Sessions en mémoire
+// Hide X-Powered-By
+app.disable('x-powered-by');
+
+// Sessions persistantes
 const sessions = new Map();
 const SESSION_TTL = 24 * 60 * 60 * 1000; // 24h
+const SESSIONS_FILE = process.env.DASHBOARD_DATA_DIR
+  ? `${process.env.DASHBOARD_DATA_DIR}/sessions.json`
+  : '/data/dashboard/sessions.json';
+
+function atomicWriteSync(filePath, data) {
+  const tmp = filePath + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data));
+  fs.renameSync(tmp, filePath);
+}
+
+function saveSessions() {
+  try {
+    const obj = {};
+    for (const [sid, s] of sessions) obj[sid] = s;
+    const tmp = SESSIONS_FILE + '.tmp';
+    fs.writeFileSync(tmp, encryptSessions(obj));
+    fs.renameSync(tmp, SESSIONS_FILE);
+  } catch (err) {
+    // /data/dashboard might not exist yet
+  }
+}
+
+// Load sessions from disk (try encrypted first, fallback to plain JSON for migration)
+try {
+  const raw = fs.readFileSync(SESSIONS_FILE, 'utf8');
+  let parsed;
+  try {
+    parsed = decryptSessions(raw);
+  } catch (e) {
+    // Fallback: old unencrypted format — migrate on next save
+    parsed = JSON.parse(raw);
+    log.info('dashboard', 'Migration sessions vers format chiffré');
+  }
+  const now = Date.now();
+  for (const [sid, s] of Object.entries(parsed)) {
+    if (now - s.createdAt < SESSION_TTL) sessions.set(sid, s);
+  }
+  if (sessions.size > 0) {
+    log.info('dashboard', `${sessions.size} sessions restaurées`);
+    saveSessions(); // Re-save encrypted if migrated
+  }
+} catch (err) {
+  // No sessions file yet
+}
 
 // Cache données (5s TTL)
 const dataCache = new Map();
@@ -39,11 +88,13 @@ const DATA_PATHS = {
   'system-advisor': process.env.SYSTEM_ADVISOR_DATA_DIR ? `${process.env.SYSTEM_ADVISOR_DATA_DIR}/system-advisor.json` : '/data/system-advisor/system-advisor.json'
 };
 
-const MOLTBOT_CONFIG_PATH = process.env.MOLTBOT_CONFIG_DIR
-  ? `${process.env.MOLTBOT_CONFIG_DIR}/moltbot-config.json`
-  : '/data/moltbot-config/moltbot-config.json';
+const APP_CONFIG_PATH = process.env.APP_CONFIG_DIR
+  ? `${process.env.APP_CONFIG_DIR}/app-config.json`
+  : process.env.MOLTBOT_CONFIG_DIR
+    ? `${process.env.MOLTBOT_CONFIG_DIR}/app-config.json`
+    : '/data/app-config/app-config.json';
 
-// Security headers
+// Security headers (HSTS, X-Frame-Options, X-Content-Type-Options handled by nginx)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -58,12 +109,84 @@ app.use(helmet({
       baseUri: ["'self'"]
     }
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  // Handled by nginx to avoid duplicates
+  strictTransportSecurity: false,
+  xFrameOptions: false,
+  xContentTypeOptions: false,
+  referrerPolicy: false
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// --- CSRF tokens ---
+const csrfTokens = new Map();
+const CSRF_TTL = 600000; // 10 min
+
+function generateCsrfToken() {
+  const token = crypto.randomBytes(32).toString('hex');
+  csrfTokens.set(token, Date.now());
+  return token;
+}
+
+function validateCsrfToken(token) {
+  if (!token || !csrfTokens.has(token)) return false;
+  const created = csrfTokens.get(token);
+  csrfTokens.delete(token); // One-time use
+  return (Date.now() - created) < CSRF_TTL;
+}
+
+// Cleanup expired CSRF tokens every 10 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [t, ts] of csrfTokens) {
+    if (now - ts > CSRF_TTL) csrfTokens.delete(t);
+  }
+}, 600000);
+
+// --- Rate limiting global /api/* ---
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Trop de requêtes. Réessayez dans 1 minute.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/', apiLimiter);
+
+// --- Session encryption ---
+const SESSION_KEY = crypto.createHash('sha256')
+  .update(PASSWORD + (process.env.SESSION_SECRET || 'moltbot-session-2026'))
+  .digest();
+
+function encryptSessions(data) {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', SESSION_KEY, iv);
+  let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return JSON.stringify({ iv: iv.toString('hex'), data: encrypted, tag: authTag });
+}
+
+function decryptSessions(raw) {
+  const { iv, data, tag } = JSON.parse(raw);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', SESSION_KEY, Buffer.from(iv, 'hex'));
+  decipher.setAuthTag(Buffer.from(tag, 'hex'));
+  let decrypted = decipher.update(data, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return JSON.parse(decrypted);
+}
+
+// --- Audit log ---
+const auditLog = [];
+const MAX_AUDIT_ENTRIES = 500;
+
+function logAudit(action, ip, details) {
+  auditLog.push({ action, ip, details, at: new Date().toISOString() });
+  if (auditLog.length > MAX_AUDIT_ENTRIES) auditLog.splice(0, auditLog.length - MAX_AUDIT_ENTRIES);
+}
 
 // --- Auth middleware ---
 function authRequired(req, res, next) {
@@ -77,6 +200,10 @@ function authRequired(req, res, next) {
     sessions.delete(sid);
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session expirée' });
     return res.redirect('/login');
+  }
+  // Audit log pour les requêtes API
+  if (req.path.startsWith('/api/')) {
+    logAudit('api_request', req.ip || 'unknown', req.path);
   }
   next();
 }
@@ -92,34 +219,49 @@ const loginLimiter = rateLimit({
 
 // --- Login routes ---
 app.get('/login', (req, res) => {
-  res.send(loginPage());
+  const csrfToken = generateCsrfToken();
+  res.send(loginPage(null, csrfToken));
 });
 
 app.post('/login', loginLimiter, async (req, res) => {
+  if (!validateCsrfToken(req.body._csrf)) {
+    log.warn('dashboard', 'CSRF invalide from ' + (req.ip || 'unknown'));
+    const csrfToken = generateCsrfToken();
+    return res.send(loginPage('Session expirée, veuillez réessayer.', csrfToken));
+  }
   const match = await bcrypt.compare(req.body.password || '', PASSWORD_HASH);
   if (match) {
     const sid = crypto.randomBytes(32).toString('hex');
     sessions.set(sid, { createdAt: Date.now() });
+    saveSessions();
     res.cookie('sid', sid, { httpOnly: true, maxAge: SESSION_TTL, sameSite: 'lax', secure: true });
-    console.log('[dashboard] Login OK from ' + (req.ip || 'unknown'));
+    logAudit('login_success', req.ip || 'unknown', 'Login OK');
+    log.info('dashboard', 'Login OK from ' + (req.ip || 'unknown'));
     return res.redirect('/');
   }
-  console.log('[dashboard] Login FAIL from ' + (req.ip || 'unknown'));
-  res.send(loginPage('Mot de passe incorrect'));
+  logAudit('login_failed', req.ip || 'unknown', 'Mot de passe incorrect');
+  log.warn('dashboard', 'Login FAIL from ' + (req.ip || 'unknown'));
+  const csrfToken = generateCsrfToken();
+  res.send(loginPage('Mot de passe incorrect', csrfToken));
 });
 
 app.get('/logout', (req, res) => {
   const sid = req.cookies.sid;
-  if (sid) sessions.delete(sid);
+  if (sid) { sessions.delete(sid); saveSessions(); }
   res.clearCookie('sid');
   res.redirect('/login');
+});
+
+// --- Public static (no auth needed) ---
+app.get('/public/js/login.js', (req, res) => {
+  res.type('application/javascript').send(`document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('toggle-pw'),p=document.getElementById('password');if(!b||!p)return;b.addEventListener('click',function(){var show=p.type==='password';p.type=show?'text':'password';b.innerHTML=show?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';});});`);
 });
 
 // --- Static files ---
 app.use('/public', authRequired, express.static(path.join(__dirname, 'public')));
 
-// --- Data reading helper ---
-function readData(skill) {
+// --- Data reading helper (async I/O) ---
+async function readData(skill) {
   const cached = dataCache.get(skill);
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
@@ -127,7 +269,7 @@ function readData(skill) {
   if (!filePath) return null;
 
   try {
-    const raw = fs.readFileSync(filePath, 'utf8');
+    const raw = await fsp.readFile(filePath, 'utf8');
     const data = JSON.parse(raw);
     dataCache.set(skill, { data, ts: Date.now() });
     return data;
@@ -136,19 +278,31 @@ function readData(skill) {
   }
 }
 
-function readAllData() {
+async function readAllData() {
+  const skills = Object.keys(DATA_PATHS);
+  const results = await Promise.all(skills.map(skill => readData(skill)));
   const result = {};
-  for (const skill of Object.keys(DATA_PATHS)) {
-    result[skill] = readData(skill);
-  }
+  skills.forEach((skill, i) => { result[skill] = results[i]; });
   return result;
+}
+
+// --- Pagination helper ---
+function paginate(arr, req) {
+  if (!Array.isArray(arr)) return { items: arr, total: 0 };
+  const total = arr.length;
+  const limit = req.query.limit != null ? Math.min(parseInt(req.query.limit) || 50, 500) : null;
+  const offset = parseInt(req.query.offset) || 0;
+  if (limit != null) {
+    return { items: arr.slice(offset, offset + limit), total };
+  }
+  return { items: arr, total };
 }
 
 // --- API Routes ---
 
 // Overview / KPIs globaux
-app.get('/api/overview', authRequired, (req, res) => {
-  const all = readAllData();
+app.get('/api/overview', authRequired, async (req, res) => {
+  const all = await readAllData();
   const period = req.query.period || '30d';
   const now = Date.now();
   const periodMs = period === '1d' ? 86400000 : period === '7d' ? 604800000 : 2592000000;
@@ -195,16 +349,16 @@ app.get('/api/overview', authRequired, (req, res) => {
   // Next actions
   const nextActions = buildNextActions(all);
 
-  // MoltBot status
-  let moltbotStatus = { mode: 'unknown', cronsActive: false };
+  // iFIND status
+  let appStatus = { mode: 'unknown', cronsActive: false };
   try {
-    const raw = fs.readFileSync(MOLTBOT_CONFIG_PATH, 'utf8');
-    moltbotStatus = JSON.parse(raw);
+    const raw = await fsp.readFile(APP_CONFIG_PATH, 'utf8');
+    appStatus = JSON.parse(raw);
   } catch (e) {}
 
   res.json({
     ownerName: process.env.DASHBOARD_OWNER || '',
-    moltbotStatus,
+    appStatus,
     kpis: {
       leads: { value: leadsInPeriod, total: leads.length, change: calcChange(leadsInPeriod, leadsPrev) },
       emails: { value: emailsInPeriod, total: emails.length, change: calcChange(emailsInPeriod, emailsPrev) },
@@ -219,11 +373,12 @@ app.get('/api/overview', authRequired, (req, res) => {
 });
 
 // FlowFast / Prospection
-app.get('/api/prospection', authRequired, (req, res) => {
-  const ff = readData('flowfast') || {};
-  const le = readData('lead-enrich') || {};
-  const leads = ff.leads ? Object.values(ff.leads) : [];
-  const enriched = le.enrichedLeads || {};
+app.get('/api/prospection', authRequired, async (req, res) => {
+  const [ff, le] = await Promise.all([readData('flowfast'), readData('lead-enrich')]);
+  const ffData = ff || {};
+  const leData = le || {};
+  const leads = ffData.leads ? Object.values(ffData.leads) : [];
+  const enriched = leData.enrichedLeads || {};
 
   // Enrichir les leads avec les données lead-enrich
   const enrichedLeads = leads.map(l => {
@@ -235,14 +390,18 @@ app.get('/api/prospection', authRequired, (req, res) => {
     };
   });
 
-  const searches = ff.searches || [];
-  const stats = ff.stats || {};
+  const searches = ffData.searches || [];
+  const stats = ffData.stats || {};
 
   // Leads par jour (30 jours)
   const dailyLeads = buildDailyCount(leads, 'createdAt', 30);
 
+  // Pagination optionnelle sur les leads enrichis
+  const { items: paginatedLeads, total: totalLeads } = paginate(enrichedLeads, req);
+
   res.json({
-    leads: enrichedLeads,
+    leads: paginatedLeads,
+    total: totalLeads,
     searches,
     stats: {
       total: leads.length,
@@ -256,8 +415,8 @@ app.get('/api/prospection', authRequired, (req, res) => {
 });
 
 // AutoMailer / Emails
-app.get('/api/emails', authRequired, (req, res) => {
-  const am = readData('automailer') || {};
+app.get('/api/emails', authRequired, async (req, res) => {
+  const am = await readData('automailer') || {};
   const emails = am.emails || [];
   const campaigns = am.campaigns ? Object.values(am.campaigns) : [];
   const contactLists = am.contactLists ? Object.values(am.contactLists) : [];
@@ -276,6 +435,9 @@ app.get('/api/emails', authRequired, (req, res) => {
     .sort((a, b) => (b.openedAt || '').localeCompare(a.openedAt || ''))
     .slice(0, 5);
 
+  // Pagination optionnelle sur les emails
+  const { items: paginatedEmails, total: totalEmails } = paginate(emails.slice(-200), req);
+
   res.json({
     stats: {
       sent,
@@ -289,15 +451,16 @@ app.get('/api/emails', authRequired, (req, res) => {
     },
     campaigns,
     contactLists,
-    emails: emails.slice(-200),
+    emails: paginatedEmails,
+    totalEmails,
     dailyOpenRate,
     topEmails
   });
 });
 
 // CRM Pilot
-app.get('/api/crm', authRequired, (req, res) => {
-  const crm = readData('crm-pilot') || {};
+app.get('/api/crm', authRequired, async (req, res) => {
+  const crm = await readData('crm-pilot') || {};
   const activityLog = (crm.activityLog || []).slice(-100);
   const stats = crm.stats || {};
   const users = crm.users ? Object.values(crm.users) : [];
@@ -306,6 +469,10 @@ app.get('/api/crm', authRequired, (req, res) => {
   const pipeline = crm.cache?.pipeline?.data || null;
   const deals = crm.cache?.deals ? Object.values(crm.cache.deals).flatMap(c => c.data || []) : [];
   const contacts = crm.cache?.contacts ? Object.values(crm.cache.contacts).flatMap(c => c.data || []) : [];
+
+  // Pagination optionnelle sur contacts et deals
+  const { items: paginatedContacts, total: totalContacts } = paginate(contacts, req);
+  const { items: paginatedDeals, total: totalDeals } = paginate(deals, req);
 
   res.json({
     stats: {
@@ -316,19 +483,24 @@ app.get('/api/crm', authRequired, (req, res) => {
       tasksCreated: stats.totalTasksCreated || 0
     },
     pipeline,
-    deals,
-    contacts,
+    deals: paginatedDeals,
+    totalDeals,
+    contacts: paginatedContacts,
+    totalContacts,
     activityLog
   });
 });
 
 // Lead Enrich
-app.get('/api/enrichment', authRequired, (req, res) => {
-  const le = readData('lead-enrich') || {};
+app.get('/api/enrichment', authRequired, async (req, res) => {
+  const le = await readData('lead-enrich') || {};
   const enriched = le.enrichedLeads ? Object.values(le.enrichedLeads) : [];
-  const apollo = le.apolloUsage || { creditsUsed: 0, creditsLimit: 100 };
+  const apollo = le.enrichUsage || le.apolloUsage || { creditsUsed: 0, provider: 'fullenrich' };
   const stats = le.stats || {};
   const activityLog = (le.activityLog || []).slice(-50);
+
+  // Pagination optionnelle sur les leads enrichis
+  const { items: paginatedEnriched, total: totalEnriched } = paginate(enriched.slice(-100), req);
 
   res.json({
     stats: {
@@ -337,16 +509,20 @@ app.get('/api/enrichment', authRequired, (req, res) => {
       ...stats
     },
     apollo,
-    enriched: enriched.slice(-100),
+    enriched: paginatedEnriched,
+    totalEnriched,
     activityLog
   });
 });
 
 // Content Gen
-app.get('/api/content', authRequired, (req, res) => {
-  const cg = readData('content-gen') || {};
+app.get('/api/content', authRequired, async (req, res) => {
+  const cg = await readData('content-gen') || {};
   const allContents = cg.generatedContents ? Object.values(cg.generatedContents).flat() : [];
   const stats = cg.stats || {};
+
+  const sortedContents = allContents.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 50);
+  const { items: paginatedContents, total: totalContents } = paginate(sortedContents, req);
 
   res.json({
     stats: {
@@ -354,13 +530,14 @@ app.get('/api/content', authRequired, (req, res) => {
       byType: stats.byType || {},
       ...stats
     },
-    contents: allContents.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 50)
+    contents: paginatedContents,
+    totalContents
   });
 });
 
 // Invoice Bot
-app.get('/api/invoices', authRequired, (req, res) => {
-  const inv = readData('invoice-bot') || {};
+app.get('/api/invoices', authRequired, async (req, res) => {
+  const inv = await readData('invoice-bot') || {};
   const invoices = inv.invoices ? Object.values(inv.invoices) : [];
   const clients = inv.clients ? Object.values(inv.clients) : [];
   const stats = inv.stats || {};
@@ -378,6 +555,9 @@ app.get('/api/invoices', authRequired, (req, res) => {
   const pending = invoices.filter(i => ['draft', 'sent'].includes(i.status)).reduce((s, i) => s + (i.total || 0), 0);
   const overdue = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + (i.total || 0), 0);
 
+  const sortedInvoices = invoices.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const { items: paginatedInvoices, total: totalInvoices } = paginate(sortedInvoices, req);
+
   res.json({
     stats: {
       totalInvoices: invoices.length,
@@ -387,15 +567,16 @@ app.get('/api/invoices', authRequired, (req, res) => {
       totalClients: clients.length,
       ...stats
     },
-    invoices: invoices.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')),
+    invoices: paginatedInvoices,
+    totalInvoices,
     clients,
     monthlyRevenue
   });
 });
 
 // Proactive Agent
-app.get('/api/proactive', authRequired, (req, res) => {
-  const pa = readData('proactive-agent') || {};
+app.get('/api/proactive', authRequired, async (req, res) => {
+  const pa = await readData('proactive-agent') || {};
   const config = pa.config || {};
   const alerts = (pa.alertHistory || []).slice(-50);
   const hotLeads = pa.hotLeads ? Object.entries(pa.hotLeads).map(([email, d]) => ({ email, ...d })) : [];
@@ -414,8 +595,8 @@ app.get('/api/proactive', authRequired, (req, res) => {
 });
 
 // Self-Improve
-app.get('/api/self-improve', authRequired, (req, res) => {
-  const si = readData('self-improve') || {};
+app.get('/api/self-improve', authRequired, async (req, res) => {
+  const si = await readData('self-improve') || {};
   const config = si.config || {};
   const analysis = si.analysis || {};
   const feedback = si.feedback || {};
@@ -435,25 +616,29 @@ app.get('/api/self-improve', authRequired, (req, res) => {
 });
 
 // Web Intelligence
-app.get('/api/web-intelligence', authRequired, (req, res) => {
-  const wi = readData('web-intelligence') || {};
+app.get('/api/web-intelligence', authRequired, async (req, res) => {
+  const wi = await readData('web-intelligence') || {};
   const watches = wi.watches ? Object.values(wi.watches) : [];
   const articles = (wi.articles || []).slice(-100);
   const analyses = (wi.analyses || []).slice(-20);
   const stats = wi.stats || {};
 
+  const sortedArticles = articles.sort((a, b) => (b.fetchedAt || '').localeCompare(a.fetchedAt || ''));
+  const { items: paginatedArticles, total: totalArticles } = paginate(sortedArticles, req);
+
   res.json({
     config: wi.config || {},
     stats,
     watches,
-    articles: articles.sort((a, b) => (b.fetchedAt || '').localeCompare(a.fetchedAt || '')),
+    articles: paginatedArticles,
+    totalArticles,
     analyses
   });
 });
 
 // System Advisor
-app.get('/api/system', authRequired, (req, res) => {
-  const sa = readData('system-advisor') || {};
+app.get('/api/system', authRequired, async (req, res) => {
+  const sa = await readData('system-advisor') || {};
   const config = sa.config || {};
   const systemMetrics = sa.systemMetrics || {};
   const skillMetrics = sa.skillMetrics || {};
@@ -614,7 +799,7 @@ function buildNextActions(all) {
 }
 
 // --- Login page ---
-function loginPage(error = null) {
+function loginPage(error = null, csrfToken = '') {
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -656,9 +841,12 @@ body{background:#09090b;color:#fafafa;font-family:'Inter',sans-serif;min-height:
 .btn::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.1) 45%,rgba(255,255,255,0.1) 55%,transparent 60%);transform:translateX(-100%)}
 .btn:hover::after{transform:translateX(100%);transition:transform .6s ease}
 
-.error{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#ef4444;font-size:13px;padding:12px 16px;border-radius:10px;margin-bottom:20px}
+.error{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#ef4444;font-size:13px;padding:12px 16px;border-radius:10px;margin-bottom:20px;animation:shake .4s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}15%,45%,75%{transform:translateX(-4px)}30%,60%{transform:translateX(4px)}}
+.btn:active{transform:scale(0.97)}
 
 .footer-text{margin-top:32px;font-size:11px;color:#3f3f46;letter-spacing:0.5px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -668,27 +856,28 @@ body{background:#09090b;color:#fafafa;font-family:'Inter',sans-serif;min-height:
 <div class="login-container">
 <div class="login-card">
   <div class="logo-mark">
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="url(#lg)"/><path d="M7 12l3 3 7-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="lg" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#3b82f6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+    <div style="display:inline-flex;align-items:center;gap:5px"><div style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:linear-gradient(135deg,#2563EB,#1e40af);border-radius:9px;box-shadow:0 1px 3px rgba(29,78,216,0.3)"><span style="color:#fff;font-family:Inter,system-ui,sans-serif;font-weight:600;font-size:22px;line-height:1">i</span></div><span style="font-family:Inter,system-ui,sans-serif;font-weight:500;font-size:24px;letter-spacing:-0.01em;background:linear-gradient(135deg,#fafafa,#d4d4d8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">find</span></div>
   </div>
   <div class="logo">Mission Control</div>
   <h1 class="title">Connexion</h1>
   <p class="subtitle">Acc&eacute;dez &agrave; votre tableau de bord</p>
-  ${error ? '<div class="error">' + error + '</div>' : ''}
+  ${error ? '<div class="error" role="alert">' + error.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') + '</div>' : ''}
   <form method="POST" action="/login">
+    <input type="hidden" name="_csrf" value="${csrfToken}">
     <div class="input-group">
       <label for="password">Mot de passe</label>
       <div style="position:relative">
         <input type="password" id="password" name="password" placeholder="Entrez votre mot de passe" autofocus required style="padding-right:44px">
-        <button type="button" onclick="const p=document.getElementById('password');const t=p.type==='password'?'text':'password';p.type=t;this.innerHTML=t==='password'?eyeOff:eyeOn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#71717a;cursor:pointer;padding:4px" aria-label="Afficher le mot de passe">
+        <button type="button" id="toggle-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#71717a;cursor:pointer;padding:4px" aria-label="Afficher le mot de passe">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
         </button>
       </div>
     </div>
-    <script>const eyeOff='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';const eyeOn='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';</script>
     <button type="submit" class="btn">Se connecter</button>
   </form>
-  <div class="footer-text">Propuls&eacute; par Krest</div>
+  <div class="footer-text">Propuls&eacute; par iFIND</div>
 </div>
+<script src="/public/js/login.js"></script>
 </div>
 </body>
 </html>`;
@@ -710,11 +899,13 @@ app.get('*', authRequired, (req, res) => {
 // Nettoyage des sessions expirées
 setInterval(() => {
   const now = Date.now();
+  let cleaned = false;
   for (const [sid, session] of sessions) {
-    if (now - session.createdAt > SESSION_TTL) sessions.delete(sid);
+    if (now - session.createdAt > SESSION_TTL) { sessions.delete(sid); cleaned = true; }
   }
+  if (cleaned) saveSessions();
 }, 3600000);
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Mission Control] Dashboard démarré sur le port ${PORT}`);
+  log.info('dashboard', `Dashboard démarré sur le port ${PORT}`);
 });

@@ -1,5 +1,5 @@
 services:
-  # openclaw-gateway: DESACTIVE — non utilise par MoltBot, cause restart loop
+  # openclaw-gateway: DESACTIVE — non utilise par iFIND, cause restart loop
   # Pour reactiver, decommentez et corrigez les permissions
 
   telegram-router:
@@ -10,6 +10,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       HUBSPOT_API_KEY: ${HUBSPOT_API_KEY}
       APOLLO_API_KEY: ${APOLLO_API_KEY}
+      FULLENRICH_API_KEY: ${FULLENRICH_API_KEY}
       CLAUDE_API_KEY: ${CLAUDE_API_KEY}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       RESEND_API_KEY: ${RESEND_API_KEY}
@@ -25,7 +26,7 @@ services:
       WEB_INTEL_DATA_DIR: /data/web-intelligence
       SYSTEM_ADVISOR_DATA_DIR: /data/system-advisor
       AUTONOMOUS_PILOT_DATA_DIR: /data/autonomous-pilot
-      MOLTBOT_CONFIG_DIR: /data/moltbot-config
+      APP_CONFIG_DIR: /data/app-config
       API_DAILY_BUDGET: ${API_DAILY_BUDGET:-5}
       ADMIN_CHAT_ID: ${ADMIN_CHAT_ID:-1409505520}
     volumes:
@@ -52,7 +53,7 @@ services:
       - web-intelligence-data:/data/web-intelligence
       - system-advisor-data:/data/system-advisor
       - autonomous-pilot-data:/data/autonomous-pilot
-      - moltbot-config-data:/data/moltbot-config
+      - app-config-data:/data/app-config
     init: true
     restart: unless-stopped
     security_opt:
@@ -62,9 +63,14 @@ services:
         limits:
           memory: 512M
           cpus: '1.0'
-    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/moltbot-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/moltbot-config && exec runuser -u node -- node /app/gateway/telegram-router.js"]
+    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/app-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/app-config && exec runuser -u node -- node /app/gateway/telegram-router.js"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
-      test: ["CMD-SHELL", "ps aux | grep -q '[t]elegram-router' || exit 1"]
+      test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:9090/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -73,6 +79,11 @@ services:
   mission-control:
     image: node:20-alpine
     working_dir: /app
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
     deploy:
@@ -82,7 +93,7 @@ services:
           cpus: '0.5'
     environment:
       DASHBOARD_PORT: "3000"
-      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-MoltBot2026!}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
       DASHBOARD_OWNER: ${DASHBOARD_OWNER:-}
       FLOWFAST_DATA_DIR: /data/flowfast
       AUTOMAILER_DATA_DIR: /data/automailer
@@ -95,9 +106,12 @@ services:
       WEB_INTEL_DATA_DIR: /data/web-intelligence
       SYSTEM_ADVISOR_DATA_DIR: /data/system-advisor
       AUTONOMOUS_PILOT_DATA_DIR: /data/autonomous-pilot
-      MOLTBOT_CONFIG_DIR: /data/moltbot-config
+      APP_CONFIG_DIR: /data/app-config
+      DASHBOARD_DATA_DIR: /data/dashboard
     volumes:
       - ./dashboard:/app
+      - ./gateway/logger.js:/gateway/logger.js:ro
+      - dashboard-data:/data/dashboard
       - flowfast-data:/data/flowfast:ro
       - automailer-data:/data/automailer:ro
       - crm-pilot-data:/data/crm-pilot:ro
@@ -109,7 +123,7 @@ services:
       - web-intelligence-data:/data/web-intelligence:ro
       - system-advisor-data:/data/system-advisor:ro
       - autonomous-pilot-data:/data/autonomous-pilot:ro
-      - moltbot-config-data:/data/moltbot-config:ro
+      - app-config-data:/data/app-config:ro
     ports:
       - "127.0.0.1:3000:3000"
     init: true
@@ -125,6 +139,11 @@ services:
   landing-page:
     image: node:20-alpine
     working_dir: /app
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     security_opt:
       - no-new-privileges:true
     deploy:
@@ -155,14 +174,14 @@ services:
     environment:
       HOME: /home/node
       TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
       BROWSER: echo
-      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
-      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
-      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
+      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
+      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
     volumes:
-      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_CONFIG_DIR:-/tmp}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR:-/tmp}:/home/node/.openclaw/workspace
       - ./skills/flowfast:/home/node/.openclaw/skills/flowfast
     stdin_open: true
     tty: true
@@ -172,6 +191,7 @@ services:
       - cli
 
 volumes:
+  dashboard-data:
   flowfast-data:
   automailer-data:
   crm-pilot-data:
@@ -183,4 +203,6 @@ volumes:
   web-intelligence-data:
   system-advisor-data:
   autonomous-pilot-data:
-  moltbot-config-data:
+  app-config-data:
+    name: moltbot_app-config-data
+    external: true

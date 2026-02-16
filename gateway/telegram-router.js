@@ -59,6 +59,7 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const HUBSPOT_KEY = process.env.HUBSPOT_API_KEY;
 const APOLLO_KEY = process.env.APOLLO_API_KEY || '';
+const FULLENRICH_KEY = process.env.FULLENRICH_API_KEY || '';
 const CLAUDE_KEY = process.env.CLAUDE_API_KEY || '';
 const SENDGRID_KEY = process.env.SENDGRID_API_KEY || '';
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
@@ -74,8 +75,8 @@ if (!TOKEN) {
 if (!SENDER_EMAIL || SENDER_EMAIL === 'onboarding@resend.dev' || SENDER_EMAIL.trim() === '') {
   log.warn('router', 'SENDER_EMAIL non configure — envoi email desactive (test only: onboarding@resend.dev)');
 }
-if (!APOLLO_KEY || APOLLO_KEY.trim() === '') {
-  log.warn('router', 'APOLLO_API_KEY absent — enrichissement de leads desactive');
+if (!FULLENRICH_KEY || FULLENRICH_KEY.trim() === '') {
+  log.warn('router', 'FULLENRICH_API_KEY absent — enrichissement de leads desactive');
 }
 if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
   log.warn('router', 'CLAUDE_API_KEY absent — redaction IA desactivee');
@@ -86,9 +87,7 @@ if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
 const flowfastHandler = new FlowFastTelegramHandler(APOLLO_KEY, HUBSPOT_KEY, OPENAI_KEY, CLAUDE_KEY, SENDGRID_KEY, SENDER_EMAIL);
 const automailerHandler = new AutoMailerHandler(OPENAI_KEY, CLAUDE_KEY, RESEND_KEY, SENDER_EMAIL);
 const crmPilotHandler = new CRMPilotHandler(OPENAI_KEY, HUBSPOT_KEY);
-// Apollo desactive temporairement (free plan ne permet plus l'acces API)
-// Remettre APOLLO_KEY quand le plan sera upgrade
-const leadEnrichHandler = new LeadEnrichHandler(OPENAI_KEY, '', HUBSPOT_KEY);
+const leadEnrichHandler = new LeadEnrichHandler(OPENAI_KEY, FULLENRICH_KEY, HUBSPOT_KEY);
 const contentHandler = new ContentHandler(OPENAI_KEY, CLAUDE_KEY);
 const invoiceBotHandler = new InvoiceBotHandler(OPENAI_KEY, RESEND_KEY, SENDER_EMAIL);
 
@@ -525,11 +524,13 @@ function buildSystemStatus() {
     { name: 'OpenAI (NLP)', key: OPENAI_KEY },
     { name: 'Claude (Anthropic)', key: CLAUDE_KEY },
     { name: 'HubSpot (CRM)', key: HUBSPOT_KEY },
-    { name: 'Apollo (Enrichissement)', key: APOLLO_KEY },
+    { name: 'FullEnrich (Enrichissement)', key: FULLENRICH_KEY },
+    { name: 'Apollo (Recherche leads)', key: APOLLO_KEY },
     { name: 'Resend (Emails)', key: RESEND_KEY }
   ];
 
   const emailSafe = SENDER_EMAIL && SENDER_EMAIL !== 'onboarding@resend.dev' && SENDER_EMAIL.trim() !== '';
+  const fullenrichOk = FULLENRICH_KEY && FULLENRICH_KEY.trim() !== '';
   const apolloOk = APOLLO_KEY && APOLLO_KEY.trim() !== '';
 
   const cronCounts = {
@@ -575,7 +576,8 @@ function buildSystemStatus() {
   lines.push('');
   lines.push('*Securites :*');
   lines.push('  Email : ' + (emailSafe ? '✅ Configure' : '⚠️ Non configure (test only)'));
-  lines.push('  Apollo : ' + (apolloOk ? '✅ Active' : '⚠️ Cle absente ou invalide'));
+  lines.push('  FullEnrich : ' + (fullenrichOk ? '✅ Active' : '⚠️ Cle absente'));
+  lines.push('  Apollo : ' + (apolloOk ? '✅ Active (recherche)' : '⚠️ Cle absente'));
 
   // Budget
   const budget = appConfig.getBudgetStatus();
@@ -764,7 +766,7 @@ TES OUTILS (mentionne-les naturellement si pertinent) :
 - Prospection de leads B2B (recherche par poste, secteur, ville)
 - Campagnes email automatisees (envoi, suivi ouvertures, relances)
 - CRM HubSpot (pipeline, deals, contacts, notes)
-- Enrichissement de leads (Apollo, scoring IA)
+- Enrichissement de leads (FullEnrich waterfall, scoring IA)
 - Generation de contenu (LinkedIn, pitch, email, bio, script)
 - Facturation (creation, envoi, suivi paiements)
 - Veille web (surveillance concurrents, prospects, actualites secteur)
@@ -903,17 +905,17 @@ async function handleUpdate(update) {
       }
     }
 
-    // Apollo : bloquer enrichissement si cle absente
-    if (skill === 'lead-enrich' || skill === 'flowfast') {
+    // FullEnrich : bloquer enrichissement si cle absente
+    if (skill === 'lead-enrich') {
       const enrichAction = textLower.match(/enrichi|profil|score|cherche|trouve|prospect/);
-      if (enrichAction && (!APOLLO_KEY || APOLLO_KEY.trim() === '')) {
+      if (enrichAction && (!FULLENRICH_KEY || FULLENRICH_KEY.trim() === '')) {
         const warning = [
           '⚠️ *Enrichissement non disponible*',
           '',
-          'La cle API Apollo n\'est pas configuree.',
-          'Configure APOLLO_API_KEY dans .env pour activer.',
+          'La cle API FullEnrich n\'est pas configuree.',
+          'Configure FULLENRICH_API_KEY dans .env pour activer.',
         ].join('\n');
-        addToHistory(chatId, 'bot', 'Apollo bloque - cle manquante', skill);
+        addToHistory(chatId, 'bot', 'FullEnrich bloque - cle manquante', skill);
         await sendMessage(chatId, warning, 'Markdown');
         return;
       }

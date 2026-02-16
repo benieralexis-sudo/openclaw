@@ -11,9 +11,9 @@ class LeadEnrichStorage {
     this.data = {
       users: {},
       enrichedLeads: {},
-      apolloUsage: {
+      enrichUsage: {
         creditsUsed: 0,
-        creditsLimit: 100,
+        provider: 'fullenrich',
         lastResetAt: new Date().toISOString(),
         history: []
       },
@@ -42,7 +42,12 @@ class LeadEnrichStorage {
         const loaded = JSON.parse(raw);
         this.data = { ...this.data, ...loaded };
         if (!this.data.enrichedLeads) this.data.enrichedLeads = {};
-        if (!this.data.apolloUsage) this.data.apolloUsage = { creditsUsed: 0, creditsLimit: 100, lastResetAt: new Date().toISOString(), history: [] };
+        // Migration apolloUsage → enrichUsage
+        if (this.data.apolloUsage && !this.data.enrichUsage) {
+          this.data.enrichUsage = { ...this.data.apolloUsage, provider: 'fullenrich' };
+          delete this.data.apolloUsage;
+        }
+        if (!this.data.enrichUsage) this.data.enrichUsage = { creditsUsed: 0, provider: 'fullenrich', lastResetAt: new Date().toISOString(), history: [] };
         console.log('[lead-enrich-storage] Base chargee (' + Object.keys(this.data.enrichedLeads).length + ' leads enrichis)');
       } else {
         console.log('[lead-enrich-storage] Nouvelle base creee');
@@ -103,11 +108,13 @@ class LeadEnrichStorage {
     return !!this.data.enrichedLeads[email.toLowerCase()];
   }
 
-  saveEnrichedLead(email, apolloData, aiClassification, source, chatId) {
+  saveEnrichedLead(email, enrichData, aiClassification, source, chatId) {
     const key = email.toLowerCase();
     this.data.enrichedLeads[key] = {
       email: key,
-      apolloData: apolloData,
+      enrichData: enrichData,
+      // Backward compat : les anciens leads utilisaient apolloData
+      apolloData: enrichData,
       aiClassification: aiClassification,
       enrichedAt: new Date().toISOString(),
       source: source,
@@ -135,33 +142,21 @@ class LeadEnrichStorage {
       .slice(0, limit);
   }
 
-  // --- Credits Apollo ---
+  // --- Credits enrichissement (FullEnrich) ---
 
-  trackApolloCredit() {
-    this.resetApolloUsageIfNewMonth();
-    this.data.apolloUsage.creditsUsed++;
+  trackEnrichCredit(amount) {
+    this.data.enrichUsage.creditsUsed += (amount || 1);
     this._save();
   }
 
-  getApolloCreditsRemaining() {
-    this.resetApolloUsageIfNewMonth();
-    return Math.max(0, this.data.apolloUsage.creditsLimit - this.data.apolloUsage.creditsUsed);
+  getEnrichCreditsUsed() {
+    return this.data.enrichUsage.creditsUsed;
   }
 
-  getApolloCreditsUsed() {
-    this.resetApolloUsageIfNewMonth();
-    return this.data.apolloUsage.creditsUsed;
-  }
-
-  resetApolloUsageIfNewMonth() {
-    const now = new Date();
-    const lastReset = new Date(this.data.apolloUsage.lastResetAt);
-    if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
-      this.data.apolloUsage.creditsUsed = 0;
-      this.data.apolloUsage.lastResetAt = now.toISOString();
-      this._save();
-    }
-  }
+  // Backward compat (cross-skill references)
+  trackApolloCredit() { this.trackEnrichCredit(1); }
+  getApolloCreditsRemaining() { return 999; }
+  getApolloCreditsUsed() { return this.getEnrichCreditsUsed(); }
 
   // --- Journal d'activite ---
 

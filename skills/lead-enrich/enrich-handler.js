@@ -1,8 +1,11 @@
-// Lead Enrich - Handler NLP Telegram
-const ApolloEnricher = require('./apollo-enricher.js');
+// Lead Enrich - Handler NLP Telegram (FullEnrich waterfall enrichment)
+const FullEnrichEnricher = require('./fullenrich-enricher.js');
 const AIClassifier = require('./ai-classifier.js');
 const storage = require('./storage.js');
 const https = require('https');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 // Cross-skill imports (avec fallback pour Docker)
 function getHubSpotClient() {
@@ -22,9 +25,9 @@ function getAutomailerStorage() {
 }
 
 class LeadEnrichHandler {
-  constructor(openaiKey, apolloKey, hubspotKey) {
+  constructor(openaiKey, fullenrichKey, hubspotKey) {
     this.openaiKey = openaiKey;
-    this.apollo = apolloKey ? new ApolloEnricher(apolloKey) : null;
+    this.enricher = fullenrichKey ? new FullEnrichEnricher(fullenrichKey) : null;
     this.classifier = new AIClassifier(openaiKey);
     this.hubspotKey = hubspotKey;
 
@@ -104,8 +107,8 @@ Actions :
 - "top_leads" : voir les meilleurs leads
   Params: {"limit": 10}
   Ex: "mes meilleurs leads", "top prospects", "les leads les mieux notes", "t'as trouve des trucs interessants ?"
-- "apollo_credits" : credits Apollo restants
-  Ex: "combien de credits ?", "credits Apollo", "il me reste combien ?"
+- "enrich_credits" : credits enrichissement restants
+  Ex: "combien de credits ?", "credits", "il me reste combien ?"
 - "confirm_yes" : confirmation positive
   Ex: "oui", "ok", "go", "lance", "c'est bon", "parfait"
 - "confirm_no" : refus / annulation
@@ -125,17 +128,18 @@ Reponds UNIQUEMENT en JSON strict :
 {"action":"help"}`;
 
     try {
-      const response = await this.callOpenAI([
+      const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
-      ], 300);
+      ], 300), 2, 2000));
 
       let cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned);
       if (!result.action) return null;
       return result;
     } catch (error) {
-      console.log('[lead-enrich-NLP] Erreur classifyIntent:', error.message);
+      log.error('lead-enrich', 'Erreur classifyIntent:', error.message);
       return null;
     }
   }
@@ -187,8 +191,8 @@ Reponds UNIQUEMENT en JSON strict :
       case 'top_leads':
         return await this._handleTopLeads(chatId, command.params || {}, sendReply);
 
-      case 'apollo_credits':
-        return await this._handleApolloCredits(chatId);
+      case 'enrich_credits':
+        return await this._handleEnrichCredits(chatId);
 
       case 'confirm_yes': {
         const pending = this.pendingConfirmations[String(chatId)];
@@ -209,10 +213,11 @@ Reponds UNIQUEMENT en JSON strict :
 
       case 'chat': {
         try {
-          const response = await this.callOpenAI([
+          const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+          const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
             { role: 'system', content: 'Tu es l\'assistant Lead Enrich du bot Telegram. Tu aides a enrichir des leads B2B. Reponds en francais, 1-3 phrases max.' },
             { role: 'user', content: text }
-          ], 200);
+          ], 200), 2, 2000));
           return { type: 'text', content: response.trim() };
         } catch (e) {
           return { type: 'text', content: this.getHelp() };
@@ -229,14 +234,8 @@ Reponds UNIQUEMENT en JSON strict :
   // ============================================================
 
   async _handleEnrichSingle(chatId, params, sendReply) {
-    if (!this.apollo) {
-      return { type: 'text', content: '❌ L\'enrichissement Apollo n\'est pas disponible actuellement.\n💡 Un plan Apollo payant est requis pour l\'acces API.\n\n👉 En attendant, tu peux utiliser les autres fonctions : _"leads prioritaires"_, _"rapport enrichissement"_' };
-    }
-
-    // Verifier credits
-    const credits = storage.getApolloCreditsRemaining();
-    if (credits <= 0) {
-      return { type: 'text', content: '⚠️ Credits Apollo epuises pour ce mois (' + storage.getApolloCreditsUsed() + '/' + storage.data.apolloUsage.creditsLimit + ').\nLes credits se resetent le 1er du mois.' };
+    if (!this.enricher) {
+      return { type: 'text', content: '❌ L\'enrichissement n\'est pas disponible actuellement.\n💡 Cle API FullEnrich non configuree.\n\n👉 En attendant, tu peux utiliser les autres fonctions : _"leads prioritaires"_, _"rapport enrichissement"_' };
     }
 
     let enrichResult = null;
@@ -249,44 +248,47 @@ Reponds UNIQUEMENT en JSON strict :
         return { type: 'text', content: this._formatEnrichedProfile(cached) + '\n\n_Enrichi le ' + new Date(cached.enrichedAt).toLocaleDateString('fr-FR') + ' (cache)_' };
       }
 
-      if (sendReply) await sendReply({ type: 'text', content: '🔍 _Enrichissement de ' + params.email + '..._' });
-      enrichResult = await this.apollo.enrichByEmail(params.email);
+      if (sendReply) await sendReply({ type: 'text', content: '🔍 _Enrichissement de ' + params.email + ' via FullEnrich (15+ sources)..._\n⏳ _~60 secondes_' });
+      const feBreaker = getBreaker('fullenrich', { failureThreshold: 3, cooldownMs: 60000 });
+      enrichResult = await feBreaker.call(() => this.enricher.enrichByEmail(params.email));
     }
     // Par nom + entreprise
     else if (params.name && params.company) {
       const nameParts = params.name.trim().split(/\s+/);
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
-      if (sendReply) await sendReply({ type: 'text', content: '🔍 _Recherche de ' + params.name + ' chez ' + params.company + '..._' });
-      enrichResult = await this.apollo.enrichByNameAndCompany(firstName, lastName, params.company);
+      if (sendReply) await sendReply({ type: 'text', content: '🔍 _Recherche de ' + params.name + ' chez ' + params.company + ' via FullEnrich (15+ sources)..._\n⏳ _~60 secondes_' });
+      const feBreaker = getBreaker('fullenrich', { failureThreshold: 3, cooldownMs: 60000 });
+      enrichResult = await feBreaker.call(() => this.enricher.enrichByNameAndCompany(firstName, lastName, params.company));
     }
     // Par LinkedIn
     else if (params.linkedin) {
-      if (sendReply) await sendReply({ type: 'text', content: '🔍 _Enrichissement via LinkedIn..._' });
-      enrichResult = await this.apollo.enrichByLinkedIn(params.linkedin);
+      if (sendReply) await sendReply({ type: 'text', content: '🔍 _Enrichissement via LinkedIn + FullEnrich (15+ sources)..._\n⏳ _~60 secondes_' });
+      const feBreaker = getBreaker('fullenrich', { failureThreshold: 3, cooldownMs: 60000 });
+      enrichResult = await feBreaker.call(() => this.enricher.enrichByLinkedIn(params.linkedin));
     }
     else {
       return { type: 'text', content: '❌ Donne-moi un email, un nom+entreprise, ou un lien LinkedIn.\nExemple : _"enrichis jean@example.com"_' };
     }
 
     if (!enrichResult || !enrichResult.success) {
-      return { type: 'text', content: '📭 Contact non trouve sur Apollo.\n' + (enrichResult && enrichResult.error ? '💡 ' + enrichResult.error : '') };
+      return { type: 'text', content: '📭 Contact non trouve.\n' + (enrichResult && enrichResult.error ? '💡 ' + enrichResult.error : '') };
     }
 
     // Classification IA
     if (sendReply) await sendReply({ type: 'text', content: '🤖 _Analyse du profil..._' });
-    const classification = await this.classifier.classifyLead(enrichResult);
+    const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+    const classification = await openaiBreaker.call(() => retryAsync(() => this.classifier.classifyLead(enrichResult), 2, 2000));
 
     // Sauvegarder
     const email = enrichResult.person.email || params.email || '';
     storage.saveEnrichedLead(email, enrichResult, classification, 'telegram', chatId);
-    storage.trackApolloCredit();
+    storage.trackEnrichCredit();
     storage.logActivity(chatId, 'enrich_single', { email: email });
 
     const lead = storage.getEnrichedLead(email);
-    const creditsLeft = storage.getApolloCreditsRemaining();
 
-    return { type: 'text', content: this._formatEnrichedProfile(lead) + '\n\n📊 Credits Apollo : ' + creditsLeft + '/' + storage.data.apolloUsage.creditsLimit };
+    return { type: 'text', content: this._formatEnrichedProfile(lead) };
   }
 
   // ============================================================
@@ -294,8 +296,8 @@ Reponds UNIQUEMENT en JSON strict :
   // ============================================================
 
   async _handleEnrichHubSpot(chatId, params, sendReply) {
-    if (!this.apollo) {
-      return { type: 'text', content: '❌ Cle API Apollo non configuree.' };
+    if (!this.enricher) {
+      return { type: 'text', content: '❌ Cle API FullEnrich non configuree.' };
     }
     const HubSpotClient = getHubSpotClient();
     if (!HubSpotClient || !this.hubspotKey) {
@@ -306,14 +308,14 @@ Reponds UNIQUEMENT en JSON strict :
 
     try {
       const hubspot = new HubSpotClient(this.hubspotKey);
-      const result = await hubspot.listContacts(100);
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const result = await hsBreaker.call(() => retryAsync(() => hubspot.listContacts(100), 2, 2000));
       const contacts = result.contacts || [];
 
       // Filtrer ceux qui ont des donnees manquantes et pas encore enrichis
       const toEnrich = contacts.filter(c => {
         if (!c.email) return false;
         if (storage.isAlreadyEnriched(c.email)) return false;
-        // Considerer comme "incomplet" si pas de poste OU pas d'entreprise OU pas de telephone
         return !c.jobtitle || !c.company || !c.phone;
       });
 
@@ -321,8 +323,7 @@ Reponds UNIQUEMENT en JSON strict :
         return { type: 'text', content: '✅ Tous les contacts HubSpot sont deja enrichis ou complets !' };
       }
 
-      const credits = storage.getApolloCreditsRemaining();
-      const enrichCount = Math.min(toEnrich.length, credits);
+      const enrichCount = Math.min(toEnrich.length, 100); // FullEnrich max 100/batch
 
       this.pendingConfirmations[String(chatId)] = {
         action: 'enrich_hubspot',
@@ -336,9 +337,9 @@ Reponds UNIQUEMENT en JSON strict :
         '👥 ' + contacts.length + ' contacts dans HubSpot',
         '❓ ' + toEnrich.length + ' avec donnees manquantes',
         '',
-        '➡️ ' + enrichCount + ' contacts a enrichir',
-        '💰 Cout : ~' + enrichCount + ' credits Apollo (reste ' + credits + ')',
-        toEnrich.length > credits ? '\n⚠️ Seulement ' + credits + ' credits dispo, on enrichit les ' + enrichCount + ' premiers' : '',
+        '➡️ ' + enrichCount + ' contacts a enrichir (FullEnrich waterfall)',
+        '💰 Cout : ~' + enrichCount + ' credits FullEnrich',
+        '⏳ Duree estimee : ~' + Math.ceil(enrichCount * 1.5) + ' min',
         '',
         '👉 _"go"_ pour lancer | _"annule"_ pour annuler'
       ].join('\n') };
@@ -352,8 +353,8 @@ Reponds UNIQUEMENT en JSON strict :
   // ============================================================
 
   async _handleEnrichAutomailerList(chatId, params, sendReply) {
-    if (!this.apollo) {
-      return { type: 'text', content: '❌ Cle API Apollo non configuree.' };
+    if (!this.enricher) {
+      return { type: 'text', content: '❌ Cle API FullEnrich non configuree.' };
     }
     const automailerStorage = getAutomailerStorage();
     if (!automailerStorage) {
@@ -395,8 +396,7 @@ Reponds UNIQUEMENT en JSON strict :
       return { type: 'text', content: '✅ Tous les contacts de "' + list.name + '" sont deja enrichis !' };
     }
 
-    const credits = storage.getApolloCreditsRemaining();
-    const enrichCount = Math.min(toEnrich.length, credits);
+    const enrichCount = Math.min(toEnrich.length, 100); // FullEnrich max 100/batch
 
     this.pendingConfirmations[String(chatId)] = {
       action: 'enrich_automailer_list',
@@ -410,8 +410,9 @@ Reponds UNIQUEMENT en JSON strict :
       '📧 ' + list.contacts.length + ' contacts dans la liste',
       '✅ ' + (list.contacts.length - toEnrich.length) + ' deja enrichis',
       '',
-      '➡️ ' + enrichCount + ' contacts a enrichir',
-      '💰 Cout : ~' + enrichCount + ' credits Apollo (reste ' + credits + ')',
+      '➡️ ' + enrichCount + ' contacts a enrichir (FullEnrich waterfall)',
+      '💰 Cout : ~' + enrichCount + ' credits FullEnrich',
+      '⏳ Duree estimee : ~' + Math.ceil(enrichCount * 1.5) + ' min',
       '',
       '👉 _"go"_ pour lancer | _"annule"_ pour annuler'
     ].join('\n') };
@@ -440,25 +441,54 @@ Reponds UNIQUEMENT en JSON strict :
     const HubSpotClient = getHubSpotClient();
     const hubspot = HubSpotClient ? new HubSpotClient(this.hubspotKey) : null;
 
-    if (sendReply) await sendReply({ type: 'text', content: '🚀 _Lancement de l\'enrichissement de ' + contacts.length + ' contacts..._' });
+    if (sendReply) await sendReply({ type: 'text', content: '🚀 _Lancement FullEnrich pour ' + contacts.length + ' contacts (waterfall 15+ sources)..._\n⏳ _Duree estimee : ~' + Math.ceil(contacts.length * 1.5) + ' min_' });
+
+    // Preparer les contacts pour le bulk FullEnrich
+    const batchContacts = contacts.map(c => ({
+      email: c.email,
+      firstName: c.firstname || '',
+      lastName: c.lastname || '',
+      company: c.company || ''
+    }));
+
+    const feBreaker = getBreaker('fullenrich', { failureThreshold: 3, cooldownMs: 60000 });
+    const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+    const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+
+    // Soumettre en bulk via FullEnrich
+    let batchResult;
+    try {
+      batchResult = await feBreaker.call(() => this.enricher.enrichBatch(batchContacts));
+    } catch (e) {
+      return { type: 'text', content: '❌ Erreur FullEnrich batch : ' + e.message };
+    }
+
+    if (!batchResult || !batchResult.success) {
+      return { type: 'text', content: '❌ Echec enrichissement : ' + (batchResult ? batchResult.error : 'erreur inconnue') };
+    }
+
+    if (sendReply) await sendReply({ type: 'text', content: '🤖 _Classification IA de ' + batchResult.results.length + ' resultats..._' });
 
     let done = 0;
     let errors = 0;
     let totalScore = 0;
     let highScoreCount = 0;
 
-    for (const contact of contacts) {
-      try {
-        const enrichResult = await this.apollo.enrichByEmail(contact.email);
-        if (!enrichResult || !enrichResult.success) {
-          errors++;
-          done++;
-          continue;
-        }
+    for (let i = 0; i < batchResult.results.length; i++) {
+      const enrichResult = batchResult.results[i];
+      const contact = contacts[i] || {};
 
-        const classification = await this.classifier.classifyLead(enrichResult);
-        storage.saveEnrichedLead(contact.email, enrichResult, classification, 'hubspot', chatId);
-        storage.trackApolloCredit();
+      if (!enrichResult || !enrichResult.success) {
+        errors++;
+        done++;
+        continue;
+      }
+
+      try {
+        const classification = await openaiBreaker.call(() => retryAsync(() => this.classifier.classifyLead(enrichResult), 2, 2000));
+        const email = enrichResult.person.email || contact.email || '';
+        storage.saveEnrichedLead(email, enrichResult, classification, 'hubspot', chatId);
+        storage.trackEnrichCredit();
 
         totalScore += classification.score || 0;
         if ((classification.score || 0) >= 8) highScoreCount++;
@@ -471,35 +501,27 @@ Reponds UNIQUEMENT en JSON strict :
           if (!contact.phone && enrichResult.person.phone) updates.phone = enrichResult.person.phone;
           if (!contact.city && enrichResult.person.city) updates.city = enrichResult.person.city;
           if (Object.keys(updates).length > 0) {
-            try { await hubspot.updateContact(contact.id, updates); } catch (e) {}
+            try { await hsBreaker.call(() => retryAsync(() => hubspot.updateContact(contact.id, updates), 2, 2000)); } catch (e) {}
           }
         }
-
-        done++;
-      } catch (error) {
+      } catch (e) {
         errors++;
-        done++;
       }
-
-      // Progression tous les 5 contacts
-      if (done % 5 === 0 && done < contacts.length && sendReply) {
-        await sendReply({ type: 'text', content: '📊 ' + done + '/' + contacts.length + ' contacts enrichis...' });
-      }
+      done++;
     }
 
-    storage.logActivity(chatId, 'enrich_hubspot_batch', { total: contacts.length, done: done, errors: errors });
+    storage.logActivity(chatId, 'enrich_hubspot_batch', { total: contacts.length, done: done, errors: errors, creditsUsed: batchResult.creditsUsed || 0 });
     const avgScore = done > errors ? (totalScore / (done - errors)).toFixed(1) : 0;
-    const creditsLeft = storage.getApolloCreditsRemaining();
 
     return { type: 'text', content: [
       '✅ *ENRICHISSEMENT TERMINE*',
       '━━━━━━━━━━━━━━━━━━',
       '',
-      '✅ ' + (done - errors) + ' contacts enrichis',
-      errors > 0 ? '❌ ' + errors + ' erreur' + (errors > 1 ? 's' : '') : '',
+      '✅ ' + (done - errors) + ' contacts enrichis (FullEnrich)',
+      errors > 0 ? '❌ ' + errors + ' non trouve' + (errors > 1 ? 's' : '') : '',
       '📊 Score moyen : ' + avgScore + '/10',
       '🔥 ' + highScoreCount + ' lead' + (highScoreCount > 1 ? 's' : '') + ' prioritaire' + (highScoreCount > 1 ? 's' : '') + ' (8+/10)',
-      '💰 Credits restants : ' + creditsLeft + '/' + storage.data.apolloUsage.creditsLimit,
+      batchResult.creditsUsed ? '💰 Credits utilises : ' + batchResult.creditsUsed : '',
       '',
       '👉 _"leads prioritaires"_ pour voir les meilleurs'
     ].join('\n') };
@@ -508,53 +530,74 @@ Reponds UNIQUEMENT en JSON strict :
   async _executeBatchAutomailer(chatId, data, sendReply) {
     const contacts = data.contacts;
 
-    if (sendReply) await sendReply({ type: 'text', content: '🚀 _Enrichissement de ' + contacts.length + ' contacts de "' + data.listName + '"..._' });
+    if (sendReply) await sendReply({ type: 'text', content: '🚀 _FullEnrich pour ' + contacts.length + ' contacts de "' + data.listName + '" (waterfall 15+ sources)..._\n⏳ _Duree estimee : ~' + Math.ceil(contacts.length * 1.5) + ' min_' });
+
+    // Preparer les contacts pour le bulk FullEnrich
+    const batchContacts = contacts.map(c => ({
+      email: c.email,
+      firstName: c.firstName || c.firstname || '',
+      lastName: c.lastName || c.lastname || '',
+      company: c.company || ''
+    }));
+
+    const feBreaker = getBreaker('fullenrich', { failureThreshold: 3, cooldownMs: 60000 });
+    const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+
+    let batchResult;
+    try {
+      batchResult = await feBreaker.call(() => this.enricher.enrichBatch(batchContacts));
+    } catch (e) {
+      return { type: 'text', content: '❌ Erreur FullEnrich batch : ' + e.message };
+    }
+
+    if (!batchResult || !batchResult.success) {
+      return { type: 'text', content: '❌ Echec enrichissement : ' + (batchResult ? batchResult.error : 'erreur inconnue') };
+    }
+
+    if (sendReply) await sendReply({ type: 'text', content: '🤖 _Classification IA de ' + batchResult.results.length + ' resultats..._' });
 
     let done = 0;
     let errors = 0;
     let totalScore = 0;
     let highScoreCount = 0;
 
-    for (const contact of contacts) {
-      try {
-        const enrichResult = await this.apollo.enrichByEmail(contact.email);
-        if (!enrichResult || !enrichResult.success) {
-          errors++;
-          done++;
-          continue;
-        }
+    for (let i = 0; i < batchResult.results.length; i++) {
+      const enrichResult = batchResult.results[i];
+      const contact = contacts[i] || {};
 
-        const classification = await this.classifier.classifyLead(enrichResult);
-        storage.saveEnrichedLead(contact.email, enrichResult, classification, 'automailer', chatId);
-        storage.trackApolloCredit();
+      if (!enrichResult || !enrichResult.success) {
+        errors++;
+        done++;
+        continue;
+      }
+
+      try {
+        const classification = await openaiBreaker.call(() => retryAsync(() => this.classifier.classifyLead(enrichResult), 2, 2000));
+        const email = enrichResult.person.email || contact.email || '';
+        storage.saveEnrichedLead(email, enrichResult, classification, 'automailer', chatId);
+        storage.trackEnrichCredit();
 
         totalScore += classification.score || 0;
         if ((classification.score || 0) >= 8) highScoreCount++;
-        done++;
-      } catch (error) {
+      } catch (e) {
         errors++;
-        done++;
       }
-
-      if (done % 5 === 0 && done < contacts.length && sendReply) {
-        await sendReply({ type: 'text', content: '📊 ' + done + '/' + contacts.length + ' contacts enrichis...' });
-      }
+      done++;
     }
 
-    storage.logActivity(chatId, 'enrich_automailer_batch', { listName: data.listName, total: contacts.length, done: done, errors: errors });
+    storage.logActivity(chatId, 'enrich_automailer_batch', { listName: data.listName, total: contacts.length, done: done, errors: errors, creditsUsed: batchResult.creditsUsed || 0 });
     const avgScore = done > errors ? (totalScore / (done - errors)).toFixed(1) : 0;
-    const creditsLeft = storage.getApolloCreditsRemaining();
 
     return { type: 'text', content: [
       '✅ *ENRICHISSEMENT TERMINE*',
       '━━━━━━━━━━━━━━━━━━',
       '',
       '📧 Liste : *' + data.listName + '*',
-      '✅ ' + (done - errors) + ' contacts enrichis',
-      errors > 0 ? '❌ ' + errors + ' erreur' + (errors > 1 ? 's' : '') : '',
+      '✅ ' + (done - errors) + ' contacts enrichis (FullEnrich)',
+      errors > 0 ? '❌ ' + errors + ' non trouve' + (errors > 1 ? 's' : '') : '',
       '📊 Score moyen : ' + avgScore + '/10',
       '🔥 ' + highScoreCount + ' lead' + (highScoreCount > 1 ? 's' : '') + ' prioritaire' + (highScoreCount > 1 ? 's' : '') + ' (8+/10)',
-      '💰 Credits restants : ' + creditsLeft + '/' + storage.data.apolloUsage.creditsLimit,
+      batchResult.creditsUsed ? '💰 Credits utilises : ' + batchResult.creditsUsed : '',
       '',
       '👉 _"leads prioritaires"_ pour voir les meilleurs'
     ].join('\n') };
@@ -589,8 +632,9 @@ Reponds UNIQUEMENT en JSON strict :
 
     const lines = ['🔥 *LEADS PRIORITAIRES*', '━━━━━━━━━━━━━━━━━━', ''];
     topLeads.forEach((lead, i) => {
-      const p = lead.apolloData && lead.apolloData.person ? lead.apolloData.person : {};
-      const o = lead.apolloData && lead.apolloData.organization ? lead.apolloData.organization : {};
+      const src = lead.enrichData || lead.apolloData || {};
+      const p = src.person || {};
+      const o = src.organization || {};
       const c = lead.aiClassification || {};
 
       const scoreIcon = (c.score || 0) >= 8 ? '🔥' : (c.score || 0) >= 6 ? '✅' : '⚪';
@@ -607,8 +651,7 @@ Reponds UNIQUEMENT en JSON strict :
   async _handleEnrichReport(chatId, sendReply) {
     const stats = storage.getGlobalStats();
     const allLeads = storage.getAllEnrichedLeads(chatId);
-    const credits = storage.getApolloCreditsRemaining();
-    const creditsUsed = storage.getApolloCreditsUsed();
+    const creditsUsed = storage.getEnrichCreditsUsed();
 
     // Distribution des scores
     let high = 0, medium = 0, low = 0;
@@ -636,7 +679,7 @@ Reponds UNIQUEMENT en JSON strict :
       '━━━━━━━━━━━━━━━━━━',
       '',
       '🔢 Total enrichis : ' + allLeads.length,
-      '💰 Credits Apollo : ' + creditsUsed + '/' + storage.data.apolloUsage.creditsLimit + ' utilises',
+      '💰 Credits FullEnrich utilises : ' + creditsUsed,
       '',
       '📊 *Distribution scores :*',
       '   🔥 8-10 : ' + high + ' leads (' + Math.round(high / total * 100) + '%)',
@@ -659,32 +702,48 @@ Reponds UNIQUEMENT en JSON strict :
     lines.push('   AutoMailer : ' + stats.totalAutomailerEnrichments);
     lines.push('');
     lines.push('━━━━━━━━━━━━━━━━━━');
-    lines.push('🔍 Lead Enrich');
+    lines.push('🔍 Lead Enrich | FullEnrich');
 
     return { type: 'text', content: lines.join('\n') };
   }
 
-  _handleApolloCredits(chatId) {
-    const credits = storage.getApolloCreditsRemaining();
-    const used = storage.getApolloCreditsUsed();
-    const limit = storage.data.apolloUsage.creditsLimit;
+  async _handleEnrichCredits(chatId) {
+    const used = storage.getEnrichCreditsUsed();
 
-    const bar = '█'.repeat(Math.round(used / limit * 20)) + '░'.repeat(20 - Math.round(used / limit * 20));
+    // Tenter de recuperer le solde reel depuis FullEnrich
+    let realBalance = null;
+    if (this.enricher) {
+      try {
+        realBalance = await this.enricher.getCreditsBalance();
+      } catch (e) {
+        log.warn('lead-enrich', 'Erreur recuperation solde FullEnrich:', e.message);
+      }
+    }
 
-    return { type: 'text', content: [
-      '💰 *CREDITS APOLLO*',
+    const lines = [
+      '💰 *CREDITS FULLENRICH*',
       '━━━━━━━━━━━━━━━━━━',
-      '',
-      '📊 ' + used + ' / ' + limit + ' utilises',
-      '   [' + bar + ']',
-      '',
-      '✅ ' + credits + ' credits restants ce mois',
-      '',
-      '📅 Reset le 1er du mois prochain',
-      '',
-      '━━━━━━━━━━━━━━━━━━',
-      '🔍 Lead Enrich | Apollo'
-    ].join('\n') };
+      ''
+    ];
+
+    if (realBalance !== null && realBalance >= 0) {
+      const total = realBalance + used;
+      const pct = total > 0 ? Math.round(used / total * 20) : 0;
+      const bar = '█'.repeat(pct) + '░'.repeat(20 - pct);
+      lines.push('📊 ' + used + ' utilises | ' + realBalance + ' restants');
+      lines.push('   [' + bar + ']');
+    } else {
+      lines.push('📊 ' + used + ' credits utilises (total local)');
+      lines.push('⚠️ Solde FullEnrich non disponible');
+    }
+
+    lines.push('');
+    lines.push('💡 1 credit = 1 email pro | 10 credits = 1 telephone');
+    lines.push('');
+    lines.push('━━━━━━━━━━━━━━━━━━');
+    lines.push('🔍 Lead Enrich | FullEnrich');
+
+    return { type: 'text', content: lines.join('\n') };
   }
 
   // ============================================================
@@ -730,8 +789,9 @@ Reponds UNIQUEMENT en JSON strict :
   // ============================================================
 
   _formatEnrichedProfile(lead) {
-    const p = lead.apolloData && lead.apolloData.person ? lead.apolloData.person : {};
-    const o = lead.apolloData && lead.apolloData.organization ? lead.apolloData.organization : {};
+    const src = lead.enrichData || lead.apolloData || {};
+    const p = src.person || {};
+    const o = src.organization || {};
     const c = lead.aiClassification || {};
 
     const scoreIcon = (c.score || 0) >= 8 ? '🔥' : (c.score || 0) >= 6 ? '✅' : '⚪';
@@ -784,10 +844,10 @@ Reponds UNIQUEMENT en JSON strict :
       '📊 *Rapports :*',
       '  _"leads prioritaires"_',
       '  _"rapport enrichissement"_',
-      '  _"credits apollo"_',
+      '  _"credits"_',
       '',
       '━━━━━━━━━━━━━━━━━━',
-      '🔍 Lead Enrich | Apollo + IA'
+      '🔍 Lead Enrich | FullEnrich + IA'
     ].join('\n');
   }
 }
