@@ -4,6 +4,13 @@
 const https = require('https');
 const storage = require('./storage.js');
 const diagnostic = require('./diagnostic.js');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const appConfig = require('../../gateway/app-config.js');
+const log = require('../../gateway/logger.js');
+
+// Limite d'actions par message (evite un emballement si Claude retourne trop d'actions)
+const MAX_ACTIONS_PER_MESSAGE = 5;
 
 class AutonomousHandler {
   constructor(openaiKey, claudeKey) {
@@ -19,18 +26,23 @@ class AutonomousHandler {
 
     try {
       const systemPrompt = this._buildSystemPrompt();
-      const response = await this._callClaude(systemPrompt, text, 2000);
+      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this._callClaude(systemPrompt, text, 2000), 2, 3000));
       const parsed = this._parseResponse(response);
 
-      // Executer les actions en backstage
+      // Executer les actions en backstage (max MAX_ACTIONS_PER_MESSAGE)
       let triggerBrain = false;
       const failedActions = [];
-      for (const action of parsed.actions) {
+      const actionsToRun = parsed.actions.slice(0, MAX_ACTIONS_PER_MESSAGE);
+      if (parsed.actions.length > MAX_ACTIONS_PER_MESSAGE) {
+        log.warn('autonomous', 'Actions tronquees: ' + parsed.actions.length + ' -> ' + MAX_ACTIONS_PER_MESSAGE + ' (limite de securite)');
+      }
+      for (const action of actionsToRun) {
         try {
           await this._executeAction(action);
           if (action.type === 'force_brain_cycle') triggerBrain = true;
         } catch (e) {
-          console.error('[autonomous-handler] Action echouee:', action.type, e.message);
+          log.error('autonomous', 'Action echouee:', action.type, e.message);
           failedActions.push(action.type);
         }
       }
@@ -47,7 +59,7 @@ class AutonomousHandler {
         _triggerBrainCycle: triggerBrain
       };
     } catch (e) {
-      console.error('[autonomous-handler] Erreur chat:', e.message);
+      log.error('autonomous', 'Erreur chat:', e.message);
       // Fallback : reponse simple si Claude est indisponible
       return {
         type: 'text',
@@ -70,7 +82,7 @@ class AutonomousHandler {
     const g = goals.weekly;
     const sc = goals.searchCriteria;
 
-    return `Tu es un assistant business IA sur Telegram. Tu t'appelles Mr.Krabs et tu geres la prospection commerciale de ton client.
+    return `Tu es un assistant business IA sur Telegram. Tu t'appelles iFIND et tu geres la prospection commerciale de ton client.
 
 TON STYLE:
 - Tu parles naturellement, comme un collegue/associe
@@ -149,6 +161,13 @@ Client: "lance une recherche" → Tu reponds "C'est parti !" + <actions>[{"type"
 Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}}]</actions>`;
   }
 
+  // Actions autorisees (whitelist)
+  static ALLOWED_ACTIONS = new Set([
+    'update_goals', 'update_criteria', 'update_email_prefs',
+    'update_business', 'update_offer', 'update_autonomy',
+    'pause', 'resume', 'force_brain_cycle', 'run_diagnostic'
+  ]);
+
   // --- Parser la reponse Claude : texte + actions ---
   _parseResponse(response) {
     let reply = response;
@@ -160,10 +179,30 @@ Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}
       // Retirer le bloc actions de la reponse visible
       reply = response.replace(/<actions>[\s\S]*?<\/actions>/, '').trim();
       try {
-        actions = JSON.parse(actionsMatch[1]);
-        if (!Array.isArray(actions)) actions = [actions];
+        const rawParsed = JSON.parse(actionsMatch[1]);
+        actions = Array.isArray(rawParsed) ? rawParsed : [rawParsed];
+        // Valider chaque action : type obligatoire + whitelist + params object
+        actions = actions.filter(a => {
+          if (!a || typeof a !== 'object') {
+            log.warn('autonomous', 'Action ignoree (pas un objet)');
+            return false;
+          }
+          if (!a.type || typeof a.type !== 'string') {
+            log.warn('autonomous', 'Action ignoree (type manquant ou invalide):', JSON.stringify(a).substring(0, 100));
+            return false;
+          }
+          if (!AutonomousHandler.ALLOWED_ACTIONS.has(a.type)) {
+            log.warn('autonomous', 'Action refusee (hors whitelist):', a.type);
+            return false;
+          }
+          if (a.params && typeof a.params !== 'object') {
+            log.warn('autonomous', 'Params invalides pour:', a.type);
+            return false;
+          }
+          return true;
+        });
       } catch (e) {
-        console.error('[autonomous-handler] Erreur parse actions:', e.message);
+        log.warn('autonomous', 'Erreur parse actions JSON, continue sans actions:', e.message);
         actions = [];
       }
     }
@@ -176,7 +215,7 @@ Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}
     const type = action.type;
     const params = action.params || {};
 
-    console.log('[autonomous-handler] Action backstage:', type, JSON.stringify(params).substring(0, 150));
+    log.info('autonomous', 'Action backstage:', type, JSON.stringify(params).substring(0, 150));
 
     switch (type) {
       case 'update_goals':
@@ -224,12 +263,15 @@ Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}
         break;
 
       default:
-        console.log('[autonomous-handler] Action inconnue:', type);
+        log.warn('autonomous', 'Action inconnue:', type);
     }
   }
 
   // --- Appel Claude API ---
   _callClaude(systemPrompt, userMessage, maxTokens) {
+    // Budget guard
+    appConfig.assertBudgetAvailable();
+
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({
         model: 'claude-sonnet-4-5-20250929',
@@ -257,6 +299,10 @@ Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}
           try {
             const json = JSON.parse(data);
             if (json.content && json.content[0]) {
+              // Budget tracking — input/output separes
+              if (json.usage) {
+                appConfig.recordApiSpend('claude-sonnet-4-5-20250929', json.usage.input_tokens || 0, json.usage.output_tokens || 0);
+              }
               resolve(json.content[0].text);
             } else {
               reject(new Error('Reponse Claude invalide: ' + data.substring(0, 200)));

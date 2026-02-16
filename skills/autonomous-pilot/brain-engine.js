@@ -3,6 +3,9 @@ const { Cron } = require('croner');
 const storage = require('./storage.js');
 const ActionExecutor = require('./action-executor.js');
 const diagnostic = require('./diagnostic.js');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 // --- Cross-skill imports (dual-path) ---
 
@@ -70,22 +73,22 @@ class BrainEngine {
     // Brain cycle : 9h et 18h (optimise cout — 2 cycles/jour suffisent)
     this.crons.push(new Cron('0 9,18 * * *', { timezone: tz }, async () => {
       try { await this._brainCycle(); }
-      catch (e) { console.error('[brain] Erreur cycle:', e.message); }
+      catch (e) { log.error('brain', 'Erreur cycle:', e.message); }
     }));
 
     // Daily briefing : 7h30
     this.crons.push(new Cron('30 7 * * *', { timezone: tz }, async () => {
       try { await this._dailyBriefing(); }
-      catch (e) { console.error('[brain] Erreur briefing:', e.message); }
+      catch (e) { log.error('brain', 'Erreur briefing:', e.message); }
     }));
 
     // Weekly reset + learning : lundi 0h
     this.crons.push(new Cron('0 0 * * 1', { timezone: tz }, async () => {
       try { await this._weeklyReset(); }
-      catch (e) { console.error('[brain] Erreur reset hebdo:', e.message); }
+      catch (e) { log.error('brain', 'Erreur reset hebdo:', e.message); }
     }));
 
-    console.log('[brain] Cerveau autonome demarre (3 crons)');
+    log.info('brain', 'Cerveau autonome demarre (3 crons)');
   }
 
   stop() {
@@ -94,7 +97,7 @@ class BrainEngine {
       try { cron.stop(); } catch (e) {}
     }
     this.crons = [];
-    console.log('[brain] Cerveau autonome arrete');
+    log.info('brain', 'Cerveau autonome arrete');
   }
 
   // --- Collecte de l'etat global ---
@@ -214,7 +217,7 @@ class BrainEngine {
     const config = storage.getConfig();
     const chatId = config.adminChatId;
 
-    console.log('[brain] Cycle brain demarre...');
+    log.info('brain', 'Cycle brain demarre...');
     storage.incrementStat('totalBrainCycles');
     storage.updateStat('lastBrainCycleAt', new Date().toISOString());
 
@@ -230,19 +233,27 @@ class BrainEngine {
 
     let plan;
     try {
-      const response = await this.callClaudeOpus(systemPrompt, userMessage, 4000);
+      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaudeOpus(systemPrompt, userMessage, 4000), 2, 3000));
       plan = this._parseJsonResponse(response);
     } catch (e) {
-      console.error('[brain] Erreur Claude:', e.message);
+      log.error('brain', 'Erreur Claude:', e.message);
       plan = this._fallbackPlan(state);
     }
 
     if (!plan || !plan.actions) {
-      console.log('[brain] Pas de plan valide, skip');
+      log.warn('brain', 'Pas de plan valide, skip');
       return;
     }
 
-    console.log('[brain] Plan: ' + plan.actions.length + ' actions, assessment: ' + (plan.weeklyAssessment || '?'));
+    // Limiter a 10 actions par cycle (securite anti-emballement)
+    const MAX_BRAIN_ACTIONS = 10;
+    if (plan.actions.length > MAX_BRAIN_ACTIONS) {
+      log.warn('brain', 'Actions tronquees: ' + plan.actions.length + ' -> ' + MAX_BRAIN_ACTIONS + ' (limite de securite)');
+      plan.actions = plan.actions.slice(0, MAX_BRAIN_ACTIONS);
+    }
+
+    log.info('brain', 'Plan: ' + plan.actions.length + ' actions, assessment: ' + (plan.weeklyAssessment || '?'));
 
     // 4. Executer les actions
     for (const action of plan.actions) {
@@ -257,10 +268,10 @@ class BrainEngine {
           });
 
           if (result.success && result.summary) {
-            console.log('[brain] Action auto: ' + result.summary);
+            log.info('brain', 'Action auto: ' + result.summary);
           }
         } catch (e) {
-          console.error('[brain] Erreur action auto ' + action.type + ':', e.message);
+          log.error('brain', 'Erreur action auto ' + action.type + ':', e.message);
         }
       } else {
         const queued = storage.addToQueue(action);
@@ -278,7 +289,7 @@ class BrainEngine {
           variants: exp.variants || [],
           metric: exp.metric || 'open_rate'
         });
-        console.log('[brain] Nouvelle experience: ' + (exp.description || exp.type));
+        log.info('brain', 'Nouvelle experience: ' + (exp.description || exp.type));
       }
     }
 
@@ -333,7 +344,7 @@ class BrainEngine {
       try {
         await this.sendTelegram(chatId, summary, 'Markdown');
       } catch (e) {
-        console.error('[brain] Erreur envoi resume:', e.message);
+        log.error('brain', 'Erreur envoi resume:', e.message);
       }
     }
   }
@@ -364,7 +375,7 @@ class BrainEngine {
     try {
       await this.sendTelegramButtons(chatId, text, buttons);
     } catch (e) {
-      console.error('[brain] Erreur envoi confirmation:', e.message);
+      log.error('brain', 'Erreur envoi confirmation:', e.message);
       try {
         await this.sendTelegram(chatId, text + '\n(Reponds "approuve" ou "rejette")', 'Markdown');
       } catch (e2) {}
@@ -377,7 +388,7 @@ class BrainEngine {
       const actionId = data.replace('ap_approve_', '');
       const action = storage.confirmAction(actionId);
       if (!action) {
-        return 'Action introuvable ou deja traitee.';
+        return { content: 'Action introuvable ou deja traitee.' };
       }
 
       try {
@@ -385,12 +396,12 @@ class BrainEngine {
         storage.completeAction(actionId, result);
 
         if (result.success) {
-          return '✅ ' + (result.summary || 'Action executee avec succes');
+          return { content: (result.summary || 'Action executee avec succes') };
         } else {
-          return '❌ Erreur: ' + (result.error || 'Echec de l\'action');
+          return { content: 'Erreur: ' + (result.error || 'Echec de l\'action') };
         }
       } catch (e) {
-        return '❌ Erreur execution: ' + e.message;
+        return { content: 'Erreur execution: ' + e.message };
       }
     }
 
@@ -398,9 +409,9 @@ class BrainEngine {
       const actionId = data.replace('ap_reject_', '');
       const rejected = storage.rejectAction(actionId);
       if (rejected) {
-        return '🚫 Action rejetee.';
+        return { content: 'Action rejetee.' };
       }
-      return 'Action introuvable ou deja traitee.';
+      return { content: 'Action introuvable ou deja traitee.' };
     }
 
     return null;
@@ -482,7 +493,7 @@ class BrainEngine {
     try {
       await this.sendTelegram(chatId, msg, 'Markdown');
     } catch (e) {
-      console.error('[brain] Erreur envoi briefing:', e.message);
+      log.error('brain', 'Erreur envoi briefing:', e.message);
     }
   }
 
@@ -526,7 +537,7 @@ class BrainEngine {
     try {
       await this.sendTelegram(chatId, msg, 'Markdown');
     } catch (e) {
-      console.error('[brain] Erreur envoi bilan hebdo:', e.message);
+      log.error('brain', 'Erreur envoi bilan hebdo:', e.message);
     }
   }
 
@@ -537,7 +548,7 @@ class BrainEngine {
       const learnings = storage.getLearnings();
       const history = storage.getRecentActions(50);
 
-      const analysisPrompt = `Tu es l'analyste IA de MoltBot. Analyse les performances de la semaine et propose des ajustements.
+      const analysisPrompt = `Tu es l'analyste IA de iFIND. Analyse les performances de la semaine et propose des ajustements.
 
 PERFORMANCES DE LA SEMAINE:
 ${JSON.stringify(weekProgress, null, 2)}
@@ -565,7 +576,8 @@ Analyse et reponds en JSON:
   "newExperiments": [{"type": "ab_test", "description": "...", "hypothesis": "...", "metric": "..."}]
 }`;
 
-      const response = await this.callClaudeOpus(analysisPrompt, 'Analyse et propose des ajustements.', 2000);
+      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaudeOpus(analysisPrompt, 'Analyse et propose des ajustements.', 2000), 2, 3000));
       const analysis = this._parseJsonResponse(response);
 
       if (!analysis) return;
@@ -591,7 +603,7 @@ Analyse et reponds en JSON:
         if (changes.industries && changes.industries.length > 0) updates.industries = changes.industries;
         if (Object.keys(updates).length > 0) {
           storage.updateSearchCriteria(updates);
-          console.log('[brain] Criteres auto-ajustes:', JSON.stringify(updates).substring(0, 200));
+          log.info('brain', 'Criteres auto-ajustes:', JSON.stringify(updates).substring(0, 200));
         }
       }
 
@@ -602,9 +614,9 @@ Analyse et reponds en JSON:
         }
       }
 
-      console.log('[brain] Analyse hebdo terminee: ' + (analysis.weekSummary || '?'));
+      log.info('brain', 'Analyse hebdo terminee: ' + (analysis.weekSummary || '?'));
     } catch (e) {
-      console.error('[brain] Erreur analyse hebdo:', e.message);
+      log.error('brain', 'Erreur analyse hebdo:', e.message);
     }
   }
 
@@ -615,7 +627,7 @@ Analyse et reponds en JSON:
     const sc = state.goals.searchCriteria;
     const config = state.config;
 
-    let prompt = 'Tu es le cerveau autonome de MoltBot, un agent de prospection commerciale B2B.';
+    let prompt = 'Tu es le cerveau autonome de iFIND, un agent de prospection commerciale B2B.';
     if (config.businessContext) {
       prompt += '\n\nCONTEXTE BUSINESS DU CLIENT:\n' + config.businessContext;
     }
@@ -754,16 +766,36 @@ Analyse et reponds en JSON:
     return prompt;
   }
 
-  // --- Parse JSON response from Claude ---
+  // --- Parse JSON response from Claude (robuste) ---
   _parseJsonResponse(text) {
     if (!text) return null;
     try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      // 1. Strip markdown code blocks
+      let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+
+      // 2. Essai parse direct
+      try { return JSON.parse(cleaned); } catch (_) {}
+
+      // 3. Trouver le premier objet JSON balance (accolades equilibrees)
+      let depth = 0, start = -1;
+      for (let i = 0; i < cleaned.length; i++) {
+        if (cleaned[i] === '{') {
+          if (depth === 0) start = i;
+          depth++;
+        } else if (cleaned[i] === '}') {
+          depth--;
+          if (depth === 0 && start !== -1) {
+            try {
+              return JSON.parse(cleaned.substring(start, i + 1));
+            } catch (_) {
+              // Ce bloc n'etait pas du JSON valide, continuer
+              start = -1;
+            }
+          }
+        }
       }
     } catch (e) {
-      console.log('[brain] Erreur parse JSON:', e.message);
+      log.warn('brain', 'Erreur parse JSON:', e.message);
     }
     return null;
   }

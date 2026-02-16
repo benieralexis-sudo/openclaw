@@ -1,6 +1,10 @@
-// MoltBot - Routeur Telegram central (dispatch FlowFast + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot)
+// iFIND - Routeur Telegram central (dispatch FlowFast + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot)
+const http = require('http');
 const https = require('https');
 const { retryAsync, truncateInput } = require('./utils.js');
+
+// --- HTTPS Agent avec keepAlive (connection pooling) ---
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10, timeout: 60000 });
 const { callOpenAI } = require('./shared-nlp.js');
 const { getBreaker, getAllStatus: getAllBreakerStatus } = require('./circuit-breaker.js');
 const log = require('./logger.js');
@@ -18,11 +22,11 @@ const SystemAdvisorHandler = require('../skills/system-advisor/system-advisor-ha
 const AutonomousHandler = require('../skills/autonomous-pilot/autonomous-handler.js');
 const BrainEngine = require('../skills/autonomous-pilot/brain-engine.js');
 const flowfastStorage = require('../skills/flowfast/storage.js');
-const moltbotConfig = require('./moltbot-config.js');
+const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
 // --- Metriques globales (partage memoire pour System Advisor) ---
-global.__moltbotMetrics = {
+global.__ifindMetrics = {
   skillUsage: {},
   responseTimes: {},
   errors: {},
@@ -30,21 +34,21 @@ global.__moltbotMetrics = {
 };
 
 function recordSkillUsage(skill) {
-  const m = global.__moltbotMetrics.skillUsage;
+  const m = global.__ifindMetrics.skillUsage;
   if (!m[skill]) m[skill] = { count: 0, lastUsedAt: null };
   m[skill].count++;
   m[skill].lastUsedAt = new Date().toISOString();
 }
 
 function recordResponseTime(skill, ms) {
-  const m = global.__moltbotMetrics.responseTimes;
+  const m = global.__ifindMetrics.responseTimes;
   if (!m[skill]) m[skill] = { times: [] };
   m[skill].times.push(ms);
   if (m[skill].times.length > 100) m[skill].times = m[skill].times.slice(-100);
 }
 
 function recordSkillError(skill, errMsg) {
-  const m = global.__moltbotMetrics.errors;
+  const m = global.__ifindMetrics.errors;
   if (!m[skill]) m[skill] = { count: 0, recent: [] };
   m[skill].count++;
   m[skill].recent.push({ message: (errMsg || '').substring(0, 200), at: new Date().toISOString() });
@@ -122,6 +126,7 @@ function telegramAPI(method, body) {
       hostname: 'api.telegram.org',
       path: '/bot' + TOKEN + '/' + method,
       method: 'POST',
+      agent: httpsAgent,
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(postData)
@@ -209,9 +214,10 @@ const _cleanupInterval = setInterval(() => {
   // 2. Pending states des handlers (conversations et confirmations abandonnees)
   const handlersWithPending = [
     automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
-    invoiceBotHandler, proactiveHandler, webIntelHandler, systemAdvisorHandler
+    invoiceBotHandler, proactiveHandler, webIntelHandler, systemAdvisorHandler,
+    flowfastHandler
   ];
-  const pendingMaps = ['pendingConversations', 'pendingConfirmations', 'pendingImports', 'pendingEmails'];
+  const pendingMaps = ['pendingConversations', 'pendingConfirmations', 'pendingImports', 'pendingEmails', 'pendingResults'];
   for (const handler of handlersWithPending) {
     for (const mapName of pendingMaps) {
       const obj = handler[mapName];
@@ -237,6 +243,22 @@ const _cleanupInterval = setInterval(() => {
   for (const id of Object.keys(messageRates)) {
     if (messageRates[id].length === 0 || now - messageRates[id][messageRates[id].length - 1] > 60000) {
       delete messageRates[id];
+    }
+  }
+
+  // 5. User queues orphelines (pas d'historique = utilisateur inactif)
+  for (const id of Object.keys(_userQueues)) {
+    if (!conversationHistory[id]) {
+      delete _userQueues[id];
+      cleaned++;
+    }
+  }
+
+  // 6. userActiveSkill orphelines
+  for (const id of Object.keys(userActiveSkill)) {
+    if (!conversationHistory[id]) {
+      delete userActiveSkill[id];
+      cleaned++;
     }
   }
 
@@ -306,10 +328,9 @@ async function callOpenAINLP(systemPrompt, userMessage, maxTokens) {
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userMessage }
   ], { maxTokens: maxTokens || 30 });
-  // Budget tracking
+  // Budget tracking (input/output separes)
   if (result.usage) {
-    const t = (result.usage.prompt_tokens || 0) + (result.usage.completion_tokens || 0);
-    moltbotConfig.recordApiSpend('gpt-4o-mini', t);
+    appConfig.recordApiSpend('gpt-4o-mini', result.usage.prompt_tokens || 0, result.usage.completion_tokens || 0);
   }
   return result.content;
 }
@@ -342,12 +363,13 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
         try {
           const response = JSON.parse(body);
           if (response.content && response.content[0]) {
-            // Budget tracking (inclut cache hits)
+            // Budget tracking — input/output separes (inclut cache hits)
             if (response.usage) {
-              const t = (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0);
+              const inputTokens = (response.usage.input_tokens || 0);
+              const outputTokens = (response.usage.output_tokens || 0);
               const cached = response.usage.cache_read_input_tokens || 0;
               if (cached > 0) console.log('[claude] Cache hit: ' + cached + ' tokens caches (' + model + ')');
-              moltbotConfig.recordApiSpend(model, t);
+              appConfig.recordApiSpend(model, inputTokens, outputTokens);
             }
             resolve(response.content[0].text.trim());
           } else {
@@ -364,6 +386,8 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
 }
 
 function callClaude(systemPrompt, userMessage, maxTokens, model) {
+  // Budget guard : bloquer si budget depasse
+  appConfig.assertBudgetAvailable();
   const breakerName = model === 'claude-opus-4-6' ? 'claude-opus' : 'claude-sonnet';
   const breaker = getBreaker(breakerName, { failureThreshold: 3, cooldownMs: 60000 });
   return breaker.call(() => retryAsync(() => _callClaudeOnce(systemPrompt, userMessage, maxTokens, model), 2, 2000));
@@ -467,14 +491,14 @@ function stopAllCrons() {
 }
 
 // Demarrage conditionnel selon le mode persiste
-if (moltbotConfig.isProduction()) {
+if (appConfig.isProduction()) {
   startAllCrons();
 } else {
   console.log('[router] Mode STANDBY — crons desactives, zero token auto');
 }
 
 // Budget : notification + arret crons si depasse
-moltbotConfig.onBudgetExceeded(async (budget) => {
+appConfig.onBudgetExceeded(async (budget) => {
   const msg = '⚠️ *Budget API journalier depasse*\n\n' +
     'Limite : $' + budget.dailyLimit.toFixed(2) + '\n' +
     'Depense : $' + budget.todaySpent.toFixed(4) + '\n\n' +
@@ -485,13 +509,13 @@ moltbotConfig.onBudgetExceeded(async (budget) => {
     console.error('[router] Erreur notification budget:', e.message);
   }
   stopAllCrons();
-  moltbotConfig.deactivateAll();
+  appConfig.deactivateAll();
 });
 
 // --- Statut systeme ---
 
 function buildSystemStatus() {
-  const config = moltbotConfig.getConfig();
+  const config = appConfig.getConfig();
   const mode = config.mode;
   const modeEmoji = mode === 'production' ? '🟢' : '🔴';
   const modeLabel = mode === 'production' ? 'PRODUCTION' : 'STAND-BY';
@@ -519,7 +543,7 @@ function buildSystemStatus() {
   const totalCrons = Object.values(cronCounts).reduce((a, b) => a + b, 0);
 
   const lines = [
-    modeEmoji + ' *MOLTBOT — ' + modeLabel + '*',
+    modeEmoji + ' *iFIND — ' + modeLabel + '*',
     '_Derniere bascule : ' + new Date(config.lastModeChange).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }) + '_',
     ''
   ];
@@ -550,16 +574,16 @@ function buildSystemStatus() {
   // Securites
   lines.push('');
   lines.push('*Securites :*');
-  lines.push('  Email : ' + (emailSafe ? '✅ ' + SENDER_EMAIL : '⚠️ Non configure (test only)'));
+  lines.push('  Email : ' + (emailSafe ? '✅ Configure' : '⚠️ Non configure (test only)'));
   lines.push('  Apollo : ' + (apolloOk ? '✅ Active' : '⚠️ Cle absente ou invalide'));
 
   // Budget
-  const budget = moltbotConfig.getBudgetStatus();
+  const budget = appConfig.getBudgetStatus();
   const budgetPct = budget.dailyLimit > 0 ? Math.round((budget.todaySpent / budget.dailyLimit) * 100) : 0;
   lines.push('');
   lines.push('*Budget API ($' + budget.dailyLimit.toFixed(2) + '/jour) :*');
   lines.push('  Aujourd\'hui : $' + budget.todaySpent.toFixed(4) + ' (' + budgetPct + '%)');
-  if (moltbotConfig.isBudgetExceeded()) {
+  if (appConfig.isBudgetExceeded()) {
     lines.push('  ⚠️ *BUDGET DEPASSE — actions auto suspendues*');
   }
 
@@ -599,7 +623,7 @@ async function classifySkill(message, chatId) {
   const historyContext = getHistoryContext(chatId);
   const lastSkill = userActiveSkill[id] || 'aucun';
 
-  const systemPrompt = `Tu es le cerveau d'un bot Telegram appele MoltBot. Tu dois comprendre l'INTENTION de l'utilisateur pour router son message vers le bon skill.
+  const systemPrompt = `Tu es le cerveau d'un bot Telegram appele iFIND. Tu dois comprendre l'INTENTION de l'utilisateur pour router son message vers le bon skill.
 
 SKILLS DISPONIBLES :
 - "flowfast" : lancer une NOUVELLE recherche de prospects B2B — "cherche des CEO a Paris", "trouve-moi des directeurs commerciaux a Lyon". Uniquement pour CHERCHER de nouveaux leads, pas pour voir les resultats existants.
@@ -630,13 +654,23 @@ REGLES CRITIQUES :
 
   try {
     const raw = await callOpenAINLP(systemPrompt, userContent, 15);
-    const skill = raw.toLowerCase();
+    const skill = raw.toLowerCase().trim().replace(/[^a-z-]/g, '');
 
-    // Parser la reponse
-    if (skill.includes('autonomous-pilot') || skill.includes('autonomous') || skill.includes('pilot') || skill.includes('brain')) return 'autonomous-pilot';
-    if (skill.includes('system-advisor') || skill.includes('system') || skill.includes('advisor') || skill.includes('monitoring') || skill.includes('sante')) return 'system-advisor';
-    if (skill.includes('web-intelligence') || skill.includes('web-intel') || skill.includes('veille') || skill.includes('intelligence')) return 'web-intelligence';
-    if (skill.includes('self-improve') || skill.includes('improve') || skill.includes('amelior')) return 'self-improve';
+    // Exact matches d'abord (prioritaire)
+    const exactSkills = [
+      'autonomous-pilot', 'system-advisor', 'web-intelligence', 'self-improve',
+      'proactive-agent', 'invoice-bot', 'content-gen', 'lead-enrich',
+      'crm-pilot', 'automailer', 'flowfast', 'general'
+    ];
+    for (const s of exactSkills) {
+      if (skill === s) return s;
+    }
+
+    // Fallback : partial matching (du plus specifique au plus generique)
+    if (skill.includes('autonomous-pilot') || skill.includes('autonomous')) return 'autonomous-pilot';
+    if (skill.includes('system-advisor') || skill.includes('monitoring') || skill.includes('sante')) return 'system-advisor';
+    if (skill.includes('web-intelligence') || skill.includes('web-intel') || skill.includes('veille')) return 'web-intelligence';
+    if (skill.includes('self-improve') || skill.includes('amelior')) return 'self-improve';
     if (skill.includes('proactive-agent') || skill.includes('proactive') || skill.includes('proactif')) return 'proactive-agent';
     if (skill.includes('invoice-bot') || skill.includes('invoice')) return 'invoice-bot';
     if (skill.includes('content-gen') || skill.includes('content')) return 'content-gen';
@@ -646,7 +680,7 @@ REGLES CRITIQUES :
     if (skill.includes('flowfast') || skill.includes('flow')) return 'flowfast';
     return 'general';
   } catch (e) {
-    console.log('[router] Erreur classification Claude:', e.message);
+    log.warn('router', 'Erreur classification NLP:', e.message);
     return 'general';
   }
 }
@@ -660,7 +694,7 @@ async function humanizeResponse(rawContent, userMessage, skill) {
   // Ne pas humaniser les messages de chargement intermediaires
   if (rawContent.startsWith('🔍 _') || rawContent.startsWith('✍️ _') || rawContent.startsWith('📧 _') || rawContent.startsWith('🚀 _')) return rawContent;
 
-  const systemPrompt = `Tu es MoltBot, un assistant Telegram sympa et decontracte qui parle comme un pote professionnel.
+  const systemPrompt = `Tu es iFIND, un assistant Telegram sympa et decontracte qui parle comme un pote professionnel.
 On te donne une reponse brute generee par un de tes modules. Reformule-la en langage naturel et conversationnel.
 
 REGLES STRICTES :
@@ -713,7 +747,7 @@ async function generateBusinessResponse(userMessage, chatId) {
   }
 
   // Appel Claude pour une vraie reponse conversationnelle
-  const systemPrompt = `Tu es MoltBot, l'assistant business IA personnel d'Alexis (il t'appelle Jojo). Tu es un expert en strategie commerciale B2B, marketing digital, vente et entrepreneuriat.
+  const systemPrompt = `Tu es iFIND, l'assistant business IA personnel de ${process.env.DASHBOARD_OWNER || 'ton client'}. Tu es un expert en strategie commerciale B2B, marketing digital, vente et entrepreneuriat.
 
 TON STYLE :
 - Tu parles comme un pote entrepreneur qui s'y connait — decontracte, direct, bienveillant
@@ -786,10 +820,14 @@ async function handleUpdate(update) {
 
   const activateAliases = ['active tout', 'lance la machine', 'mode production', 'demarre tout'];
   const deactivateAliases = ['desactive tout', 'mode stand by', 'mode standby', 'stoppe tout', 'arrete tout'];
-  const statusAliases = ['statut systeme', 'statut système', 'status systeme', 'status système', 'status moltbot', 'etat du systeme'];
+  const statusAliases = ['statut systeme', 'statut système', 'status systeme', 'status système', 'status moltbot', 'status ifind', 'etat du systeme'];
 
   if (activateAliases.some(a => textLower === a)) {
-    moltbotConfig.activateAll();
+    if (String(chatId) !== String(ADMIN_CHAT_ID)) {
+      await sendMessage(chatId, '⛔ Seul l\'administrateur peut utiliser cette commande.');
+      return;
+    }
+    appConfig.activateAll();
     startAllCrons();
     const reply = [
       '🟢 *Mode PRODUCTION active !*',
@@ -810,7 +848,11 @@ async function handleUpdate(update) {
   }
 
   if (deactivateAliases.some(a => textLower === a)) {
-    moltbotConfig.deactivateAll();
+    if (String(chatId) !== String(ADMIN_CHAT_ID)) {
+      await sendMessage(chatId, '⛔ Seul l\'administrateur peut utiliser cette commande.');
+      return;
+    }
+    appConfig.deactivateAll();
     stopAllCrons();
     const reply = [
       '🔴 *Mode STAND-BY active*',
@@ -898,8 +940,12 @@ async function handleUpdate(update) {
     const handler = handlers[skill];
     if (handler) {
       const startTime = Date.now();
+      const HANDLER_TIMEOUT = 60000; // 60s max par handler
       try {
-        response = await handler.handleMessage(text, chatId, sendReply);
+        response = await Promise.race([
+          handler.handleMessage(text, chatId, sendReply),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Handler timeout (' + skill + ') apres ' + (HANDLER_TIMEOUT / 1000) + 's')), HANDLER_TIMEOUT))
+        ]);
         recordSkillUsage(skill);
         recordResponseTime(skill, Date.now() - startTime);
 
@@ -1050,25 +1096,54 @@ async function poll() {
       }
     } catch (error) {
       log.error('router', 'Erreur polling:', error.message);
-      if (_polling) await new Promise(r => setTimeout(r, 3000));
+      if (_polling) {
+        const jitter = 2000 + Math.floor(Math.random() * 3000); // 2-5s random
+        await new Promise(r => setTimeout(r, jitter));
+      }
     }
   }
 }
 
 // --- Demarrage ---
 
-console.log('🤖 MoltBot Router demarre...');
+// --- Healthcheck HTTP (pour Docker) ---
+const HEALTH_PORT = process.env.HEALTH_PORT || 9090;
+let _botReady = false;
+
+const healthServer = http.createServer((req, res) => {
+  if (req.url === '/health' && req.method === 'GET') {
+    if (_botReady && _polling) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), skills: 10, polling: _polling }));
+    } else {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'starting', ready: _botReady, polling: _polling }));
+    }
+  } else {
+    res.writeHead(404);
+    res.end();
+  }
+});
+healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
+  log.info('router', 'Healthcheck HTTP sur port ' + HEALTH_PORT);
+});
+
+// --- Exporter l'agent HTTPS pour les skills ---
+global.__ifindHttpsAgent = httpsAgent;
+
+console.log('[iFIND] Router demarre...');
 telegramAPI('getMe').then(result => {
   if (result.ok) {
     console.log('🤖 Bot connecte : @' + result.result.username + ' (' + result.result.first_name + ')');
     telegramAPI('setMyCommands', {
       commands: [
-        { command: 'start', description: '🤖 Demarrer MoltBot' },
+        { command: 'start', description: 'Demarrer iFIND' },
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(e => log.warn('router', 'setMyCommands echoue:', e.message));
-    console.log('🤖 Skills actives : Prospection + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot');
-    console.log('🤖 En attente de messages...');
+    console.log('[iFIND] 10 skills actives');
+    console.log('[iFIND] En attente de messages...');
+    _botReady = true;
     poll();
   } else {
     console.error('Erreur Telegram:', JSON.stringify(result));
@@ -1081,9 +1156,12 @@ telegramAPI('getMe').then(result => {
 
 // Cleanup — graceful shutdown (attend 2s pour les operations en cours)
 function gracefulShutdown() {
-  console.log('🤖 Arret MoltBot Router...');
+  console.log('[iFIND] Arret Router...');
   _polling = false;
+  _botReady = false;
   clearInterval(_cleanupInterval);
+  healthServer.close();
+  httpsAgent.destroy();
   [automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
    invoiceBotHandler, proactiveEngine, webIntelHandler, systemAdvisorHandler, autoPilotEngine]
     .forEach(h => { try { h.stop(); } catch (e) { console.error('[router] Erreur stop handler:', e.message); } });
@@ -1092,3 +1170,11 @@ function gracefulShutdown() {
 }
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
+process.on('uncaughtException', (err) => {
+  log.error('router', 'UNCAUGHT EXCEPTION:', err.message);
+  console.error(err.stack);
+  gracefulShutdown();
+});
+process.on('unhandledRejection', (reason) => {
+  log.error('router', 'UNHANDLED REJECTION:', reason?.message || String(reason));
+});

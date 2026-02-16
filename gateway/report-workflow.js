@@ -1,4 +1,4 @@
-// Krest - Workflow de generation de rapport de prospection personnalise
+// iFIND - Workflow de generation de rapport de prospection personnalise
 // Chaine : parse cible → search Apollo → score IA → generate emails → HTML report → send/fallback
 const https = require('https');
 const http = require('http');
@@ -9,6 +9,17 @@ const ApolloConnector = require('../skills/flowfast/apollo-connector.js');
 const AIClassifier = require('../skills/lead-enrich/ai-classifier.js');
 const ClaudeEmailWriter = require('../skills/automailer/claude-email-writer.js');
 const ResendClient = require('../skills/automailer/resend-client.js');
+
+// --- Echappement HTML pour prevenir les injections XSS ---
+function escapeHtml(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 class ReportWorkflow {
   constructor(options) {
@@ -231,8 +242,15 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
     const leadsHtml = leads.map((lead, i) => {
       const score = lead.classification ? lead.classification.score : 5;
       const scoreColor = score >= 7 ? '#16A34A' : score >= 5 ? '#D97706' : '#DC2626';
-      const industry = lead.classification ? lead.classification.industry : '';
-      const companySize = lead.classification ? lead.classification.companySize : '';
+      const industry = lead.classification ? escapeHtml(lead.classification.industry) : '';
+      const companySize = lead.classification ? escapeHtml(lead.classification.companySize) : '';
+      const safeName = escapeHtml(lead.fullName);
+      const safeTitle = escapeHtml(lead.title);
+      const safeOrg = escapeHtml(lead.organization.name);
+      const safeEmail = escapeHtml(lead.email);
+      const safeCity = escapeHtml(lead.city);
+      const safeSubject = escapeHtml(lead.generatedEmail.subject);
+      const safeBody = escapeHtml(lead.generatedEmail.body);
 
       return `
     <tr><td style="padding:0 32px 24px;">
@@ -241,9 +259,9 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td>
-                <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:18px;font-weight:700;color:#1C1917;">${lead.fullName}</span><br>
-                <span style="font-size:14px;color:#57534E;">${lead.title} chez ${lead.organization.name}</span><br>
-                <span style="font-size:13px;color:#A8A29E;">${lead.email}${lead.city ? ' &bull; ' + lead.city : ''}${industry ? ' &bull; ' + industry : ''}</span>
+                <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:18px;font-weight:700;color:#1C1917;">${safeName}</span><br>
+                <span style="font-size:14px;color:#57534E;">${safeTitle} chez ${safeOrg}</span><br>
+                <span style="font-size:13px;color:#A8A29E;">${safeEmail}${safeCity ? ' &bull; ' + safeCity : ''}${industry ? ' &bull; ' + industry : ''}</span>
               </td>
               <td style="text-align:right;vertical-align:top;">
                 <span style="display:inline-block;padding:4px 12px;background:${scoreColor}15;color:${scoreColor};font-size:14px;font-weight:700;border-radius:20px;">${score}/10</span>
@@ -253,8 +271,8 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;background:#F5F5F4;border-radius:8px;">
             <tr><td style="padding:20px;">
               <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:13px;font-weight:600;color:#57534E;text-transform:uppercase;letter-spacing:0.05em;">Email pret a envoyer</span>
-              <p style="margin:8px 0 4px;font-size:14px;font-weight:600;color:#1C1917;">Objet : ${lead.generatedEmail.subject}</p>
-              <p style="margin:0;font-size:14px;color:#57534E;line-height:1.7;white-space:pre-line;">${lead.generatedEmail.body}</p>
+              <p style="margin:8px 0 4px;font-size:14px;font-weight:600;color:#1C1917;">Objet : ${safeSubject}</p>
+              <p style="margin:0;font-size:14px;color:#57534E;line-height:1.7;white-space:pre-line;">${safeBody}</p>
             </td></tr>
           </table>
         </td></tr>
@@ -262,12 +280,16 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
     </td></tr>`;
     }).join('\n');
 
+    const safeProspectPrenom = escapeHtml(prospect.prenom);
+    const safeProspectCible = escapeHtml(prospect.cible);
+    const safeProspectActivite = escapeHtml(prospect.activite);
+
     return `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rapport Krest — ${prospect.prenom}</title>
+<title>Rapport iFIND — ${safeProspectPrenom}</title>
 </head>
 <body style="margin:0;padding:0;background:#F5F5F4;font-family:'Outfit',Arial,Helvetica,sans-serif;color:#1C1917;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F5F4;padding:32px 16px;">
@@ -276,15 +298,15 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
 
   <!-- Header -->
   <tr><td style="padding:40px 32px;background:#1D4ED8;text-align:center;">
-    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:28px;font-weight:800;color:#FFFFFF;letter-spacing:-0.03em;">Krest</span>
+    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:28px;font-weight:800;color:#FFFFFF;letter-spacing:-0.03em;">iFIND</span>
     <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:15px;">Votre rapport de prospection personnalise</p>
   </td></tr>
 
   <!-- Intro -->
   <tr><td style="padding:40px 32px 32px;">
-    <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#1C1917;">Bonjour ${prospect.prenom},</p>
+    <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#1C1917;">Bonjour ${safeProspectPrenom},</p>
     <p style="margin:0 0 12px;font-size:15px;color:#57534E;line-height:1.75;">Nous avons identifie <strong style="color:#1C1917;">${leads.length} prospects</strong> qui correspondent a votre cible :</p>
-    <p style="margin:0 0 12px;padding:12px 16px;background:#F5F5F4;border-radius:8px;font-size:14px;color:#57534E;font-style:italic;">&laquo; ${prospect.cible} &raquo;</p>
+    <p style="margin:0 0 12px;padding:12px 16px;background:#F5F5F4;border-radius:8px;font-size:14px;color:#57534E;font-style:italic;">&laquo; ${safeProspectCible} &raquo;</p>
     <p style="margin:0;font-size:15px;color:#57534E;line-height:1.75;">Pour chacun, nous avons redige un email de prospection personnalise, pret a envoyer. Il vous suffit de copier-coller.</p>
   </td></tr>
 
@@ -303,12 +325,12 @@ ${leadsHtml}
   <tr><td style="padding:32px;text-align:center;border-top:1px solid #E7E5E4;">
     <p style="margin:0 0 8px;font-family:'Space Grotesk',Arial,sans-serif;font-size:20px;font-weight:700;color:#1C1917;">Interesse(e) ?</p>
     <p style="margin:0 0 24px;font-size:15px;color:#57534E;">Nous pouvons automatiser l'envoi de ces emails et la gestion des reponses.</p>
-    <a href="mailto:benieralexis@gmail.com?subject=Krest — Interesse par l'offre&body=Bonjour Alexis,%0A%0AJ'ai recu mon rapport de prospection et je suis interesse(e).%0A%0AMerci de me recontacter.%0A%0A${prospect.prenom}" style="display:inline-block;padding:16px 32px;background:#1D4ED8;color:#FFFFFF;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;">Discutons de vos objectifs</a>
+    <a href="mailto:hello@ifind.fr?subject=iFIND — Interesse par l'offre&body=Bonjour Alexis,%0A%0AJ'ai recu mon rapport de prospection et je suis interesse(e).%0A%0AMerci de me recontacter.%0A%0A${encodeURIComponent(prospect.prenom)}" style="display:inline-block;padding:16px 32px;background:#1D4ED8;color:#FFFFFF;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;">Discutons de vos objectifs</a>
   </td></tr>
 
   <!-- Footer -->
   <tr><td style="padding:24px 32px;text-align:center;background:#FAFAF9;border-top:1px solid #E7E5E4;">
-    <p style="margin:0;font-size:12px;color:#A8A29E;">Krest &mdash; Prospection B2B intelligente &bull; ${date}</p>
+    <p style="margin:0;font-size:12px;color:#A8A29E;">iFIND &mdash; Prospection B2B intelligente &bull; ${date}</p>
   </td></tr>
 
 </table>
@@ -332,9 +354,9 @@ ${leadsHtml}
         const resend = new ResendClient(this.resendKey, this.senderEmail);
         const result = await resend.sendEmail(
           prospect.email,
-          'Votre rapport de prospection Krest — ' + prospect.prenom,
+          'Votre rapport de prospection iFIND — ' + prospect.prenom,
           htmlReport,
-          { fromName: 'Krest', replyTo: 'benieralexis@gmail.com' }
+          { fromName: 'iFIND', replyTo: 'hello@ifind.fr' }
         );
         if (result.success) {
           await this.sendTelegram(chatId, '📧 *Rapport envoye par email a ' + prospect.email + '*');
