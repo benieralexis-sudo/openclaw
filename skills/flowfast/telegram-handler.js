@@ -127,7 +127,7 @@ Pour autres: {"action":"..."}`;
   async generateChatResponse(message) {
     try {
       const response = await this.callOpenAI([
-        { role: 'system', content: 'Tu es Mister Krabs 🦀, assistant de prospection B2B. Reponds en francais, 1-3 phrases max. Si l\'utilisateur semble perdu, donne un exemple: "cherche 10 CEO tech a Paris". Sois decontracte et chaleureux.' },
+        { role: 'system', content: 'Tu es iFIND 🦀, assistant de prospection B2B. Reponds en francais, 1-3 phrases max. Si l\'utilisateur semble perdu, donne un exemple: "cherche 10 CEO tech a Paris". Sois decontracte et chaleureux.' },
         { role: 'user', content: message }
       ], 200);
       return response.trim();
@@ -267,7 +267,7 @@ Pour autres: {"action":"..."}`;
       return { type: 'text', content: this.getHelp() };
     }
     if (textLower === 'test') {
-      return { type: 'text', content: '✅ Mister Krabs est operationnel ! 🦀\n\nScore : ' + user.scoreMinimum + '/10\nRecherches : ' + user.searchCount + '\n\nDis-moi ce que tu cherches !' };
+      return { type: 'text', content: '✅ iFIND est operationnel ! 🦀\n\nScore : ' + user.scoreMinimum + '/10\nRecherches : ' + user.searchCount + '\n\nDis-moi ce que tu cherches !' };
     }
 
     // Classification NLP
@@ -456,7 +456,7 @@ Pour autres: {"action":"..."}`;
         return { type: 'text', content: this.getHelp() };
 
       case 'test':
-        return { type: 'text', content: '✅ Mister Krabs operationnel ! 🦀' };
+        return { type: 'text', content: '✅ iFIND operationnel ! 🦀' };
 
       // --- EMAILS ---
       case 'write_email': {

@@ -5,6 +5,7 @@ const WebFetcher = require('./web-fetcher.js');
 const IntelligenceAnalyzer = require('./intelligence-analyzer.js');
 const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
 const { getModule } = require('../../gateway/skill-loader.js');
+const log = require('../../gateway/logger.js');
 
 function getHubSpotClient() { return getModule('hubspot-client'); }
 
@@ -27,7 +28,7 @@ class WebIntelligenceHandler {
     this.stop();
     const config = storage.getConfig();
     if (!config.enabled) {
-      console.log('[web-intelligence] Desactive, pas de crons');
+      log.info('web-intel', 'Desactive, pas de crons');
       return;
     }
 
@@ -35,26 +36,26 @@ class WebIntelligenceHandler {
 
     // Scan automatique toutes les 6h
     this.crons.push(new Cron('0 */6 * * *', { timezone: tz }, () => {
-      console.log('[web-intelligence] Cron: scan auto');
-      this._scheduledScan().catch(e => console.log('[web-intelligence] Erreur scan auto:', e.message));
+      log.info('web-intel', 'Cron: scan auto');
+      this._scheduledScan().catch(e => log.error('web-intel', 'Erreur scan auto:', e.message));
     }));
-    console.log('[web-intelligence] Cron: scan auto toutes les 6h');
+    log.info('web-intel', 'Cron: scan auto toutes les 6h');
 
     // Digest quotidien 9h
     this.crons.push(new Cron('0 9 * * *', { timezone: tz }, () => {
-      console.log('[web-intelligence] Cron: digest quotidien');
-      this._dailyDigest().catch(e => console.log('[web-intelligence] Erreur digest:', e.message));
+      log.info('web-intel', 'Cron: digest quotidien');
+      this._dailyDigest().catch(e => log.error('web-intel', 'Erreur digest:', e.message));
     }));
-    console.log('[web-intelligence] Cron: digest quotidien 9h');
+    log.info('web-intel', 'Cron: digest quotidien 9h');
 
     // Digest hebdo lundi 9h
     this.crons.push(new Cron('0 9 * * 1', { timezone: tz }, () => {
-      console.log('[web-intelligence] Cron: digest hebdo');
-      this._weeklyDigest().catch(e => console.log('[web-intelligence] Erreur digest hebdo:', e.message));
+      log.info('web-intel', 'Cron: digest hebdo');
+      this._weeklyDigest().catch(e => log.error('web-intel', 'Erreur digest hebdo:', e.message));
     }));
-    console.log('[web-intelligence] Cron: digest hebdo lundi 9h');
+    log.info('web-intel', 'Cron: digest hebdo lundi 9h');
 
-    console.log('[web-intelligence] Demarre avec ' + this.crons.length + ' cron(s)');
+    log.info('web-intel', 'Demarre avec ' + this.crons.length + ' cron(s)');
   }
 
   stop() {
@@ -116,6 +117,13 @@ Actions :
 - "configure" : configurer
   Params: {"frequency":6, "digestEnabled":true}
   Ex: "scanne toutes les 2h", "desactive le digest", "configure"
+- "competitive_digest" : analyse concurrentielle
+  Ex: "digest concurrents", "analyse concurrentielle", "que font mes concurrents ?", "veille concurrentielle"
+- "detect_trends" : detection des tendances montantes/descendantes
+  Ex: "tendances montantes", "sujets en hausse", "quels sont les sujets qui montent ?", "trending"
+- "news_for_company" : chercher les news d'une entreprise specifique pour la prospection
+  Params: {"company":"..."}
+  Ex: "news sur Microsoft", "articles sur HubSpot", "news de Salesforce"
 - "show_stats" : statistiques
   Ex: "stats veille", "combien d'articles ?", "status"
 - "confirm_yes" : oui, ok, go, parfait, c'est bon
@@ -140,7 +148,7 @@ Reponds UNIQUEMENT en JSON strict :
       if (!result.action) return null;
       return result;
     } catch (error) {
-      console.log('[web-intel-NLP] Erreur classifyIntent:', error.message);
+      log.error('web-intel', 'Erreur classifyIntent:', error.message);
       return null;
     }
   }
@@ -217,6 +225,15 @@ Reponds UNIQUEMENT en JSON strict :
 
       case 'configure':
         return this._handleConfigure(params);
+
+      case 'competitive_digest':
+        return this._handleCompetitiveDigest(chatId, sendReply);
+
+      case 'detect_trends':
+        return this._handleDetectTrends(chatId, sendReply);
+
+      case 'news_for_company':
+        return this._handleNewsForCompany(params);
 
       case 'show_stats':
         return this._handleShowStats();
@@ -633,6 +650,122 @@ Reponds UNIQUEMENT en JSON strict :
     return { type: 'text', content: lines.join('\n') };
   }
 
+  // --- Competitive Digest (8b) ---
+
+  async _handleCompetitiveDigest(chatId, sendReply) {
+    const watches = storage.getWatches();
+    const competitorWatchIds = Object.keys(watches).filter(id => watches[id].type === 'competitor');
+
+    if (competitorWatchIds.length === 0) {
+      return { type: 'text', content: 'Aucune veille concurrentielle configuree. Cree une veille de type _"concurrent"_ d\'abord.' };
+    }
+
+    if (sendReply) await sendReply({ type: 'text', content: '_Analyse concurrentielle en cours..._' });
+
+    // Recuperer les articles des 7 derniers jours pour les veilles "competitor"
+    const weekArticles = storage.getArticlesLastWeek();
+    const competitorArticles = weekArticles.filter(a => competitorWatchIds.includes(a.watchId));
+
+    if (competitorArticles.length === 0) {
+      return { type: 'text', content: 'Aucun article concurrent trouve cette semaine. Lance un _"check maintenant"_ d\'abord.' };
+    }
+
+    // Construire le mapping watchId -> watchName
+    const watchNames = {};
+    for (const id of competitorWatchIds) {
+      watchNames[id] = watches[id].name;
+    }
+
+    const digest = await this.analyzer.generateCompetitiveDigest(competitorArticles, watchNames);
+
+    // Sauvegarder le digest
+    storage.saveCompetitiveDigest(digest);
+
+    // Formater la reponse
+    let response = digest.text || '*Analyse concurrentielle*\n\nAucun resultat.';
+    if (digest.opportunities && digest.opportunities.length > 0) {
+      response += '\n\n*Opportunites :*\n' + digest.opportunities.map(o => '- ' + o).join('\n');
+    }
+    if (digest.threats && digest.threats.length > 0) {
+      response += '\n\n*Menaces :*\n' + digest.threats.map(t => '- ' + t).join('\n');
+    }
+
+    storage.saveAnalysis({ type: 'competitive_digest', content: response });
+    return { type: 'text', content: response };
+  }
+
+  // --- Trend Detection (8c) ---
+
+  async _handleDetectTrends(chatId, sendReply) {
+    if (sendReply) await sendReply({ type: 'text', content: '_Detection des tendances en cours..._' });
+
+    const articles = storage.getRecentArticles(100); // Plus d'articles pour une meilleure analyse
+    if (articles.length < 5) {
+      return { type: 'text', content: 'Pas assez d\'articles pour une analyse de tendances. Continue la veille pendant quelques jours.' };
+    }
+
+    const trends = this.analyzer.detectTrends(articles);
+
+    // Sauvegarder les tendances
+    storage.saveTrends(trends);
+
+    // Formater la reponse
+    const lines = ['*Detection de tendances* (30 derniers jours)', ''];
+
+    if (trends.rising.length > 0) {
+      lines.push('*Sujets en hausse :*');
+      for (const t of trends.rising.slice(0, 7)) {
+        lines.push('  ↗️ *' + t.keyword + '* (+' + t.change + '%, ' + t.recentMentions + ' mentions recentes)');
+      }
+      lines.push('');
+    }
+
+    if (trends.falling.length > 0) {
+      lines.push('*Sujets en baisse :*');
+      for (const t of trends.falling.slice(0, 7)) {
+        lines.push('  ↘️ _' + t.keyword + '_ (' + t.change + '%, ' + t.recentMentions + ' mentions recentes)');
+      }
+      lines.push('');
+    }
+
+    if (trends.stable.length > 0) {
+      lines.push('*Sujets stables :*');
+      lines.push('  ' + trends.stable.slice(0, 5).map(t => t.keyword + ' (' + t.mentions + ')').join(', '));
+    }
+
+    if (trends.rising.length === 0 && trends.falling.length === 0 && trends.stable.length === 0) {
+      lines.push('Pas assez de donnees pour detecter des tendances. Continue la veille !');
+    }
+
+    storage.saveAnalysis({ type: 'trend_detection', content: lines.join('\n') });
+    return { type: 'text', content: lines.join('\n') };
+  }
+
+  // --- News for Company (8a) ---
+
+  _handleNewsForCompany(params) {
+    const company = params.company;
+    if (!company) {
+      return { type: 'text', content: 'Quelle entreprise ? Dis _"news sur [nom]"_.' };
+    }
+
+    const news = storage.getRelevantNewsForContact(company);
+    if (news.length === 0) {
+      return { type: 'text', content: 'Aucune news trouvee pour *' + company + '*. Lance un scan ou ajoute une veille sur cette entreprise.' };
+    }
+
+    const lines = ['*News pour ' + company + '* (' + news.length + ')', ''];
+    for (const n of news) {
+      const date = n.date ? new Date(n.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '';
+      lines.push('- *' + n.headline + '* [' + (n.relevance || '?') + '/10]');
+      if (date) lines.push('  ' + date + (n.usedInEmail ? ' (deja utilise)' : ''));
+      lines.push('');
+    }
+    lines.push('_Ces news peuvent etre utilisees pour personnaliser tes emails de prospection._');
+
+    return { type: 'text', content: lines.join('\n') };
+  }
+
   // --- Conversations multi-etapes ---
 
   async _continueConversation(chatId, text, sendReply) {
@@ -735,7 +868,7 @@ Reponds UNIQUEMENT en JSON strict :
         totalNew += count;
         results.push('*' + watch.name + '* : ' + count + ' nouveau(x) article(s)');
       } catch (e) {
-        console.log('[web-intelligence] Erreur scan ' + watch.name + ':', e.message);
+        log.error('web-intel', 'Erreur scan ' + watch.name + ':', e.message);
         results.push('*' + watch.name + '* : erreur (' + e.message + ')');
       }
       // Espacement entre les requetes pour eviter le rate limiting
@@ -761,14 +894,14 @@ Reponds UNIQUEMENT en JSON strict :
     if (watch.googleNewsEnabled && watch.keywords.length > 0) {
       const googleArticles = await this.fetcher.fetchGoogleNews(watch.keywords);
       allArticles = allArticles.concat(googleArticles);
-      console.log('[web-intelligence] Google News "' + watch.name + '": ' + googleArticles.length + ' articles');
+      log.info('web-intel', 'Google News "' + watch.name + '": ' + googleArticles.length + ' articles');
     }
 
     // 2. RSS custom
     for (const rssUrl of (watch.rssUrls || [])) {
       const rssArticles = await this.fetcher.fetchRss(rssUrl);
       allArticles = allArticles.concat(rssArticles);
-      console.log('[web-intelligence] RSS ' + rssUrl + ': ' + rssArticles.length + ' articles');
+      log.info('web-intel', 'RSS ' + rssUrl + ': ' + rssArticles.length + ' articles');
       await new Promise(r => setTimeout(r, 1000));
     }
 
@@ -822,7 +955,21 @@ Reponds UNIQUEMENT en JSON strict :
         }
       }
     } catch (e) {
-      console.log('[web-intelligence] Cross-ref CRM skip:', e.message);
+      log.warn('web-intel', 'Cross-ref CRM skip:', e.message);
+    }
+
+    // 8.5. News-to-Outreach Bridge : stocker les articles mentionnant une entreprise
+    for (const article of analyzed) {
+      if (article.crmMatch && article.crmMatch.company) {
+        storage.saveNewsOutreach({
+          company: article.crmMatch.company,
+          headline: article.title,
+          url: article.link,
+          date: article.pubDate || new Date().toISOString(),
+          relevance: article.relevanceScore || 5,
+          watchId: article.watchId
+        });
+      }
     }
 
     // 9. Sauvegarder
@@ -869,7 +1016,7 @@ Reponds UNIQUEMENT en JSON strict :
       }
       storage.incrementStat('totalAlertsSent');
     } catch (e) {
-      console.log('[web-intelligence] Erreur envoi alerte groupee:', e.message);
+      log.error('web-intel', 'Erreur envoi alerte groupee:', e.message);
     }
   }
 
@@ -880,9 +1027,12 @@ Reponds UNIQUEMENT en JSON strict :
     if (!config.enabled) return;
 
     const watches = storage.getEnabledWatches();
-    if (watches.length === 0) return;
+    if (watches.length === 0) {
+      log.info('web-intel', 'Scan auto skip — aucune veille active');
+      return;
+    }
 
-    console.log('[web-intelligence] Scan planifie de ' + watches.length + ' veille(s)');
+    log.info('web-intel', 'Scan planifie de ' + watches.length + ' veille(s) active(s)');
     await this._scanAllWatches();
   }
 
@@ -895,7 +1045,7 @@ Reponds UNIQUEMENT en JSON strict :
     const articles = storage.getArticlesLast24h();
 
     if (articles.length === 0) {
-      console.log('[web-intelligence] Digest quotidien: aucun article');
+      log.info('web-intel', 'Digest quotidien: aucun article');
       return;
     }
 
@@ -933,9 +1083,9 @@ Reponds UNIQUEMENT en JSON strict :
       await this.sendTelegram(chatId, message);
       storage.updateStat('lastDigestAt', new Date().toISOString());
       storage.incrementStat('totalAlertsSent');
-      console.log('[web-intelligence] Digest quotidien envoye');
+      log.info('web-intel', 'Digest quotidien envoye');
     } catch (e) {
-      console.log('[web-intelligence] Erreur envoi digest:', e.message);
+      log.error('web-intel', 'Erreur envoi digest:', e.message);
     }
   }
 
@@ -948,7 +1098,7 @@ Reponds UNIQUEMENT en JSON strict :
     const articles = storage.getArticlesLastWeek();
 
     if (articles.length === 0) {
-      console.log('[web-intelligence] Digest hebdo: aucun article');
+      log.info('web-intel', 'Digest hebdo: aucun article');
       return;
     }
 
@@ -969,9 +1119,9 @@ Reponds UNIQUEMENT en JSON strict :
       storage.updateStat('lastWeeklyDigestAt', new Date().toISOString());
       storage.incrementStat('totalAlertsSent');
       storage.saveAnalysis({ type: 'weekly', content: report });
-      console.log('[web-intelligence] Digest hebdo envoye');
+      log.info('web-intel', 'Digest hebdo envoye');
     } catch (e) {
-      console.log('[web-intelligence] Erreur envoi digest hebdo:', e.message);
+      log.error('web-intel', 'Erreur envoi digest hebdo:', e.message);
     }
   }
 
@@ -1005,6 +1155,9 @@ Reponds UNIQUEMENT en JSON strict :
       '  _"quoi de neuf ?"_ — scan immediat',
       '  _"articles HubSpot"_ — derniers articles',
       '  _"tendances"_ — analyse IA',
+      '  _"tendances montantes"_ — sujets en hausse/baisse',
+      '  _"digest concurrents"_ — analyse concurrentielle',
+      '  _"news sur [entreprise]"_ — news pour prospection',
       '',
       '*Config :*',
       '  _"scanne toutes les 2h"_',

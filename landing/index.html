@@ -2,373 +2,68 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Krest &mdash; Prospection B2B intelligente</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>iFIND &mdash; Prospection B2B intelligente</title>
 <meta name="description" content="Un agent commercial IA qui identifie vos prospects, r&eacute;dige des messages personnalis&eacute;s et vous livre des rendez-vous qualifi&eacute;s. Testez gratuitement.">
-<meta property="og:title" content="Krest &mdash; Prospection B2B intelligente">
+<meta property="og:title" content="iFIND &mdash; Prospection B2B intelligente">
 <meta property="og:description" content="Un agent commercial IA qui prospecte pour vous 24h/24. Recevez 10 prospects qualifi&eacute;s gratuitement.">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fr_FR">
 <meta name="twitter:card" content="summary_large_image">
-<meta property="og:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='630' fill='%231D4ED8'%3E%3Crect width='1200' height='630' rx='0'/%3E%3Ctext x='600' y='290' text-anchor='middle' fill='white' font-family='sans-serif' font-size='80' font-weight='bold'%3EKrest%3C/text%3E%3Ctext x='600' y='370' text-anchor='middle' fill='rgba(255,255,255,0.7)' font-family='sans-serif' font-size='30'%3EProspection B2B intelligente%3C/text%3E%3C/svg%3E">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231D4ED8'/%3E%3Cpath d='M10 8v16M10 16l10-8M10 16l10 8' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+<meta name="twitter:title" content="iFIND &mdash; Prospection B2B intelligente">
+<meta name="twitter:description" content="Un agent commercial IA qui prospecte pour vous 24h/24. 10 prospects qualifi&eacute;s gratuits.">
+<meta property="og:site_name" content="iFIND">
+<meta name="author" content="iFIND">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ifind.fr">
+<meta property="og:url" content="https://ifind.fr">
+<meta property="og:image" content="https://ifind.fr/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="https://ifind.fr/og-image.png">
+<meta name="theme-color" content="#1D4ED8">
+<link rel="alternate" hreflang="fr" href="https://ifind.fr">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232563EB'/%3E%3Cstop offset='100%25' stop-color='%231e40af'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Ctext x='16' y='22.5' text-anchor='middle' fill='white' font-family='Inter,system-ui,sans-serif' font-size='21' font-weight='600'%3Ei%3C/text%3E%3C/svg%3E">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"ProfessionalService","name":"iFIND","description":"Agent commercial IA pour la prospection B2B automatis\u00e9e. Identification de prospects, r\u00e9daction d'emails personnalis\u00e9s, g\u00e9n\u00e9ration de rendez-vous qualifi\u00e9s.","url":"https://ifind.fr","areaServed":"FR","priceRange":"700\u20ac/mois","offers":{"@type":"Offer","price":"700","priceCurrency":"EUR","priceValidUntil":"2026-12-31"},"provider":{"@type":"Organization","name":"iFIND","url":"https://ifind.fr"}}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{
---bg:#FAFAF9;--surface:#FFFFFF;--card:#F5F5F4;
---border:#E7E5E4;--border-h:#D6D3D1;
---text:#1C1917;--text-2:#57534E;--text-3:#A8A29E;
---accent:#1D4ED8;--accent-l:#3B82F6;--accent-d:#1e40af;--accent-bg:rgba(29,78,216,0.06);--accent-bg2:rgba(29,78,216,0.03);
---green:#16A34A;--green-bg:rgba(22,163,74,0.08);
---amber:#D97706;--amber-bg:rgba(217,119,6,0.08);
---red:#DC2626;--red-bg:rgba(220,38,38,0.06);
---font-d:'Space Grotesk',system-ui,sans-serif;
---font-b:'Outfit',system-ui,sans-serif;
---r:10px;--r-lg:16px;--r-xl:20px;
---tr:0.3s cubic-bezier(0.4,0,0.2,1);
---shadow:0 1px 3px rgba(0,0,0,0.04);
---shadow-md:0 4px 24px rgba(0,0,0,0.06);
---shadow-lg:0 8px 40px rgba(0,0,0,0.08);
---shadow-xl:0 16px 64px rgba(0,0,0,0.1);
-}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:var(--font-b);line-height:1.7;overflow-x:hidden;-webkit-font-smoothing:antialiased}
-a{color:inherit;text-decoration:none}
-button{cursor:pointer;font-family:var(--font-b);border:none;background:none}
-.container{max-width:1120px;margin:0 auto;padding:0 32px}
-
-/* === SCROLLBAR === */
-::-webkit-scrollbar{width:8px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--border-h);border-radius:8px}
-::-webkit-scrollbar-thumb:hover{background:var(--text-3)}
-
-/* === PAGE LOAD ANIMATION === */
-@keyframes pageIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-body{animation:pageIn .6s ease-out}
-
-/* === BUTTONS === */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 28px;border-radius:var(--r);font-size:15px;font-weight:600;transition:all var(--tr);position:relative;overflow:hidden}
-.btn-p{background:var(--accent);color:#fff !important}
-.btn-p:hover{background:var(--accent-d);transform:translateY(-2px);box-shadow:0 8px 30px rgba(29,78,216,0.35)}
-.btn-p::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.15) 45%,rgba(255,255,255,0.15) 55%,transparent 60%);transform:translateX(-100%);transition:none}
-.btn-p:hover::after{transform:translateX(100%);transition:transform .5s ease}
-.btn-o{border:1.5px solid var(--border);color:var(--text)}
-.btn-o:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);box-shadow:var(--shadow)}
-.btn-lg{padding:16px 32px;font-size:16px}
-.btn-xl{padding:18px 40px;font-size:16px;border-radius:12px}
-
-/* === BADGE === */
-.badge{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:var(--accent-bg);border:1px solid rgba(29,78,216,0.12);border-radius:100px;font-size:13px;font-weight:500;color:var(--accent);letter-spacing:0.01em}
-.badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-
-/* === REVEAL ANIMATIONS === */
-.rv{opacity:0;transform:translateY(30px);transition:opacity 0.7s cubic-bezier(0.16,1,0.3,1),transform 0.7s cubic-bezier(0.16,1,0.3,1)}
-.rv.v{opacity:1;transform:translateY(0)}
-.rv-1{transition-delay:.1s}.rv-2{transition-delay:.2s}.rv-3{transition-delay:.3s}.rv-4{transition-delay:.4s}.rv-5{transition-delay:.5s}
-
-.icon{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-
-/* ====== NAVBAR ====== */
-.nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 0;transition:all var(--tr)}
-.nav.scrolled{background:rgba(250,250,249,0.85);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(231,229,228,0.6);box-shadow:0 1px 12px rgba(0,0,0,0.04)}
-.nav .container{display:flex;align-items:center;justify-content:space-between}
-.nav-logo{display:flex;align-items:center;gap:10px;font-family:var(--font-d);font-size:22px;font-weight:800;letter-spacing:-0.03em;color:var(--text)}
-.nav-logo svg{flex-shrink:0}
-.nav-links{display:flex;align-items:center;gap:32px}
-.nav-links a{font-size:14px;color:var(--text-2);font-weight:500;transition:color var(--tr);position:relative}
-.nav-links a:not(.btn):hover{color:var(--text)}
-.nav-links a:not(.btn)::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);border-radius:2px;transition:width var(--tr)}
-.nav-links a:not(.btn):hover::after{width:100%}
-.burger{display:none;flex-direction:column;gap:5px;padding:8px;cursor:pointer}
-.burger span{width:22px;height:2px;background:var(--text);border-radius:2px;transition:all var(--tr)}
-.mobile-menu{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(250,250,249,0.97);backdrop-filter:blur(20px);z-index:99;flex-direction:column;align-items:center;justify-content:center;gap:32px;opacity:0;transition:opacity .3s}
-.mobile-menu.open{display:flex;opacity:1}
-.mobile-menu a{font-family:var(--font-d);font-size:22px;font-weight:600;color:var(--text)}
-.mobile-close{position:absolute;top:24px;right:24px;font-size:28px;color:var(--text);cursor:pointer}
-@media(max-width:768px){.nav-links{display:none}.burger{display:flex}}
-
-/* ====== HERO ====== */
-.hero{padding:150px 0 90px;position:relative;overflow:hidden}
-.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
-.hero-text h1{font-family:var(--font-d);font-size:clamp(34px,4.5vw,56px);font-weight:800;line-height:1.08;letter-spacing:-0.04em;margin:20px 0 20px;color:var(--text)}
-.hero-text h1 em{font-style:normal;background:linear-gradient(135deg,var(--accent) 0%,#7C3AED 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hero-text p{font-size:18px;color:var(--text-2);max-width:460px;margin:0 0 36px;line-height:1.75;font-weight:400}
-.hero-cta{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.hero-trust{display:flex;align-items:center;gap:24px;margin-top:32px;flex-wrap:wrap}
-.hero-trust-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);font-weight:500}
-.hero-trust-item svg{width:16px;height:16px;color:var(--green)}
-
-/* Gradient orbs */
-.hero-orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.35;pointer-events:none;z-index:0}
-.hero-orb-1{width:500px;height:500px;background:rgba(29,78,216,0.2);top:-100px;right:-100px;animation:orbFloat 8s ease-in-out infinite}
-.hero-orb-2{width:400px;height:400px;background:rgba(124,58,237,0.15);bottom:-80px;left:-80px;animation:orbFloat 10s ease-in-out infinite reverse}
-.hero-orb-3{width:250px;height:250px;background:rgba(59,130,246,0.12);top:40%;right:30%;animation:orbFloat 12s ease-in-out infinite 2s}
-@keyframes orbFloat{0%,100%{transform:translate(0,0)}50%{transform:translate(30px,-30px)}}
-.hero .container{position:relative;z-index:1}
-
-/* Browser mockup */
-.browser{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-xl);transition:transform .6s cubic-bezier(0.16,1,0.3,1),box-shadow .6s}
-.browser:hover{transform:translateY(-4px);box-shadow:0 24px 80px rgba(0,0,0,0.12)}
-.browser-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border)}
-.browser-dot{width:10px;height:10px;border-radius:50%}
-.browser-dot.r{background:#FCA5A5}.browser-dot.y{background:#FDE68A}.browser-dot.g{background:#86EFAC}
-.browser-url{flex:1;margin-left:12px;padding:6px 12px;background:var(--bg);border-radius:6px;font-size:11px;color:var(--text-3);font-family:var(--font-b)}
-.browser-body{padding:20px;min-height:300px;background:var(--bg)}
-
-/* Dashboard mockup content */
-.db-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
-.db-stat{background:var(--surface);border-radius:8px;padding:14px 16px;border:1px solid var(--border);transition:border-color var(--tr)}
-.db-stat:hover{border-color:var(--accent)}
-.db-stat-label{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
-.db-stat-val{font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--text);margin-top:4px}
-.db-stat-change{font-size:10px;font-weight:600;margin-top:2px}
-.db-chart{background:var(--surface);border-radius:8px;padding:16px;border:1px solid var(--border);margin-bottom:16px}
-.db-chart-title{font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-.db-bars{display:flex;align-items:flex-end;gap:6px;height:80px}
-.db-bar{flex:1;border-radius:4px 4px 0 0;transition:height 1s cubic-bezier(0.16,1,0.3,1);height:8px}
-.db-bar.animated{height:var(--h)}
-.db-leads{background:var(--surface);border-radius:8px;padding:16px;border:1px solid var(--border)}
-.db-leads-title{font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-.db-lead-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
-.db-lead-row:last-child{border-bottom:none}
-.db-lead-name{font-size:12px;font-weight:600;color:var(--text)}
-.db-lead-co{font-size:10px;color:var(--text-3)}
-.db-lead-score{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
-
-/* ====== LOGOS BAR ====== */
-.logos{padding:60px 0;border-bottom:1px solid var(--border)}
-.logos-label{text-align:center;font-size:13px;color:var(--text-3);font-weight:500;margin-bottom:32px;text-transform:uppercase;letter-spacing:.06em}
-.logos-row{display:flex;align-items:center;justify-content:center;gap:48px;flex-wrap:wrap;opacity:.35;transition:opacity .6s}
-.logos-row:hover{opacity:.6}
-.logos-row svg{height:28px;width:auto}
-
-/* ====== SECTIONS ====== */
-section{padding:120px 0}
-.s-label{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:16px}
-.s-title{font-family:var(--font-d);font-size:clamp(30px,4vw,46px);font-weight:700;line-height:1.15;letter-spacing:-0.03em;margin-bottom:20px;color:var(--text)}
-.s-sub{font-size:18px;color:var(--text-2);max-width:520px;line-height:1.75;font-weight:400}
-.s-head{margin-bottom:64px}
-.s-head.c{text-align:center}.s-head.c .s-sub{margin:0 auto}
-
-/* ====== PROBLEM ====== */
-.problem{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-.p-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-.p-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-lg);padding:40px 32px;transition:all var(--tr)}
-.p-card:hover{box-shadow:var(--shadow-md);transform:translateY(-4px);border-color:var(--border-h)}
-.p-icon{width:48px;height:48px;border-radius:12px;background:var(--red-bg);display:flex;align-items:center;justify-content:center;margin-bottom:20px;color:var(--red)}
-.p-card h3{font-family:var(--font-d);font-size:19px;font-weight:600;margin-bottom:10px;color:var(--text)}
-.p-card p{font-size:15px;color:var(--text-2);line-height:1.75}
-
-/* ====== STEPS ====== */
-.st-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;position:relative}
-/* Connecting line between steps */
-.st-grid::before{content:'';position:absolute;top:56px;left:calc(16.66% + 16px);right:calc(16.66% + 16px);height:2px;background:repeating-linear-gradient(90deg,var(--accent) 0,var(--accent) 8px,transparent 8px,transparent 16px);opacity:.2}
-.st-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:44px 36px;transition:all var(--tr);position:relative}
-.st-card:hover{box-shadow:var(--shadow-md);transform:translateY(-4px);border-color:var(--accent)}
-.st-n{font-family:var(--font-d);font-size:48px;font-weight:800;background:linear-gradient(135deg,var(--accent) 0%,var(--accent-l) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:20px}
-.st-card h3{font-family:var(--font-d);font-size:20px;font-weight:600;margin-bottom:12px;color:var(--text)}
-.st-card p{font-size:15px;color:var(--text-2);line-height:1.75}
-
-/* ====== PREVIEW (Dashboard) ====== */
-.preview{background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);border-top:1px solid var(--border);overflow:hidden}
-.preview-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:64px;align-items:center}
-.preview-text .s-head{margin-bottom:32px}
-.preview-features{display:flex;flex-direction:column;gap:20px}
-.pf-item{display:flex;gap:16px;align-items:flex-start;padding:12px;border-radius:var(--r);transition:background var(--tr)}
-.pf-item:hover{background:var(--accent-bg)}
-.pf-icon{width:40px;height:40px;border-radius:10px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0}
-.pf-text h4{font-family:var(--font-d);font-size:15px;font-weight:600;margin-bottom:4px;color:var(--text)}
-.pf-text p{font-size:14px;color:var(--text-2);line-height:1.6}
-
-/* ====== FEATURES ====== */
-.f-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-.f-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:36px 32px;transition:all var(--tr);position:relative;overflow:hidden}
-.f-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-l));transform:scaleX(0);transform-origin:left;transition:transform .4s cubic-bezier(0.16,1,0.3,1)}
-.f-card:hover{box-shadow:var(--shadow-md);transform:translateY(-4px)}
-.f-card:hover::before{transform:scaleX(1)}
-.f-icon{width:44px;height:44px;border-radius:10px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;margin-bottom:20px;color:var(--accent)}
-.f-card h3{font-family:var(--font-d);font-size:17px;font-weight:600;margin-bottom:10px;color:var(--text)}
-.f-card p{font-size:14px;color:var(--text-2);line-height:1.75}
-
-/* ====== TESTIMONIALS ====== */
-.testi{background:var(--bg)}
-.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-.testi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:36px 32px;transition:all var(--tr);position:relative}
-.testi-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
-.testi-stars{color:var(--amber);font-size:16px;letter-spacing:2px;margin-bottom:16px}
-.testi-quote{font-size:15px;color:var(--text-2);line-height:1.75;margin-bottom:24px;font-style:italic}
-.testi-author{display:flex;align-items:center;gap:12px}
-.testi-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#fff;font-family:var(--font-d);box-shadow:0 2px 8px rgba(0,0,0,0.15)}
-.testi-name{font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text)}
-.testi-role{font-size:12px;color:var(--text-3)}
-.testi-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--green);font-weight:600;margin-top:2px}
-.testi-badge svg{width:12px;height:12px}
-.testi-note{text-align:center;margin-top:32px;font-size:13px;color:var(--text-3);font-style:italic}
-
-/* ====== EXAMPLE REPORT ====== */
-.example{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-.example-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
-.ex-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);transition:transform .6s,box-shadow .6s}
-.ex-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-xl)}
-.ex-header{padding:20px 24px;background:linear-gradient(135deg,var(--accent) 0%,#1e40af 100%);color:#fff}
-.ex-header h4{font-family:var(--font-d);font-size:16px;font-weight:700}
-.ex-header p{font-size:12px;opacity:.8;margin-top:4px}
-.ex-body{padding:24px}
-.ex-lead{padding:16px;border:1px solid var(--border);border-radius:10px;margin-bottom:12px;background:var(--surface);transition:border-color var(--tr)}
-.ex-lead:hover{border-color:var(--accent)}
-.ex-lead-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.ex-lead h5{font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text)}
-.ex-lead-sub{font-size:12px;color:var(--text-3)}
-.ex-lead-email{font-size:12px;padding:10px 14px;background:var(--card);border-radius:8px;margin-top:8px;color:var(--text-2);line-height:1.6;font-style:italic;border-left:3px solid var(--accent)}
-
-/* ====== FREE REPORT ====== */
-.fr-section{background:var(--accent-bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);position:relative}
-.fr-inner{max-width:720px;margin:0 auto}
-.fr-inner h2{font-family:var(--font-d);font-size:clamp(28px,4vw,40px);font-weight:700;margin-bottom:16px;letter-spacing:-0.02em;color:var(--text)}
-.fr-inner h2 em{font-style:normal;background:linear-gradient(135deg,var(--accent) 0%,#7C3AED 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.fr-inner>p{font-size:17px;color:var(--text-2);margin-bottom:40px;max-width:500px;line-height:1.75;font-weight:400}
-.rf{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:560px}
-.fg{display:flex;flex-direction:column;gap:6px}
-.fg.full{grid-column:1/-1}
-.fg label{font-size:13px;font-weight:500;color:var(--text-3)}
-.fg input{padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);color:var(--text);font-size:14px;font-family:var(--font-b);outline:none;transition:all var(--tr)}
-.fg input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(29,78,216,0.08)}
-.fg input::placeholder{color:var(--text-3)}
-
-/* Trust badges under form */
-.trust-row{display:flex;align-items:center;gap:24px;margin-top:28px;flex-wrap:wrap}
-.trust-badge{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);font-weight:500}
-.trust-badge svg{width:18px;height:18px;flex-shrink:0}
-.trust-badge.green svg{color:var(--green)}
-.trust-badge.blue svg{color:var(--accent)}
-
-.rb{display:flex;flex-direction:column;gap:12px;margin-top:28px}
-.rb div{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text-2)}
-.rb .ci{color:var(--green);font-weight:700;flex-shrink:0}
-
-/* ====== PRICING ====== */
-.pricing{background:var(--bg)}
-.pr-card{max-width:500px;margin:0 auto;background:var(--surface);border-radius:var(--r-xl);overflow:hidden;position:relative;transition:transform .4s,box-shadow .4s}
-.pr-card:hover{transform:translateY(-4px)}
-/* Gradient border glow */
-.pr-card::before{content:'';position:absolute;inset:-1px;border-radius:var(--r-xl);background:linear-gradient(135deg,var(--accent),#7C3AED,var(--accent-l),var(--accent));z-index:0;background-size:300% 300%;animation:gradientShift 6s ease infinite}
-.pr-card::after{content:'';position:absolute;inset:1px;border-radius:calc(var(--r-xl) - 1px);background:var(--surface);z-index:1}
-@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-.pr-card>*{position:relative;z-index:2}
-.pr-head{padding:48px 48px 32px;text-align:center;border-bottom:1px solid var(--border)}
-.pr-price{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:20px 0 8px}
-.pr-price .am{font-family:var(--font-d);font-size:52px;font-weight:800;color:var(--text)}
-.pr-price .pe{font-size:18px;color:var(--text-3);font-weight:400}
-.pr-setup{font-size:14px;color:var(--text-3);margin-bottom:8px}
-.pr-trial{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--green-bg);border:1px solid rgba(22,163,74,0.15);border-radius:100px;font-size:13px;font-weight:500;color:var(--green);margin-top:16px}
-.pr-feat{padding:32px 48px}
-.pr-feat ul{list-style:none;display:flex;flex-direction:column;gap:14px}
-.pr-feat li{display:flex;align-items:flex-start;gap:12px;font-size:15px;color:var(--text-2)}
-.pr-feat .ci{color:var(--green);font-weight:700;margin-top:2px;flex-shrink:0}
-.pr-cta{padding:0 48px 48px;display:flex;flex-direction:column;gap:12px}
-
-/* ====== FAQ ====== */
-.faq-list{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
-.faq-i{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:all var(--tr)}
-.faq-i.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(29,78,216,0.06)}
-.faq-q{display:flex;align-items:center;justify-content:space-between;padding:22px 28px;cursor:pointer;font-family:var(--font-d);font-size:16px;font-weight:500;color:var(--text);transition:color var(--tr)}
-.faq-q:hover{color:var(--accent)}
-.faq-ic{font-size:20px;color:var(--text-3);transition:transform var(--tr)}
-.faq-i.active .faq-ic{transform:rotate(45deg);color:var(--accent)}
-.faq-a{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(0.16,1,0.3,1)}
-.faq-a-in{padding:0 28px 24px;font-size:15px;color:var(--text-2);line-height:1.8}
-
-/* ====== FINAL CTA ====== */
-.final{text-align:center;padding:120px 0;background:linear-gradient(135deg,var(--accent) 0%,#1e3a8a 50%,#1e40af 100%);color:#fff;position:relative;overflow:hidden}
-.final::before{content:'';position:absolute;top:-200px;right:-200px;width:500px;height:500px;border-radius:50%;background:rgba(255,255,255,0.04);animation:orbFloat 8s ease-in-out infinite}
-.final::after{content:'';position:absolute;bottom:-150px;left:-150px;width:400px;height:400px;border-radius:50%;background:rgba(255,255,255,0.03);animation:orbFloat 10s ease-in-out infinite reverse}
-.final .badge{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.2);color:#fff}
-.final .badge::before{background:#fff}
-.final h2{font-family:var(--font-d);font-size:clamp(32px,5vw,52px);font-weight:800;line-height:1.1;letter-spacing:-0.04em;margin-bottom:20px;color:#fff}
-.final p{font-size:18px;color:rgba(255,255,255,0.75);margin-bottom:40px;max-width:460px;margin-left:auto;margin-right:auto;font-weight:400}
-.final .btn-p{background:#fff;color:var(--accent) !important;font-size:17px;padding:18px 44px}
-.final .btn-p:hover{background:#f0f0f0;box-shadow:0 8px 30px rgba(0,0,0,0.25);transform:translateY(-3px)}
-.final .btn-p::after{background:linear-gradient(105deg,transparent 40%,rgba(29,78,216,0.08) 45%,rgba(29,78,216,0.08) 55%,transparent 60%)}
-
-/* ====== FOOTER ====== */
-footer{border-top:1px solid var(--border);padding:48px 0;background:var(--bg)}
-.footer-inner{display:flex;align-items:center;justify-content:space-between}
-.footer-left{display:flex;align-items:center;gap:8px}
-.footer-left span{font-family:var(--font-d);font-weight:800;font-size:16px;color:var(--text)}
-footer p{font-size:13px;color:var(--text-3)}
-.f-links{display:flex;align-items:center;gap:24px}
-.f-links a{font-size:13px;color:var(--text-3);transition:color var(--tr)}
-.f-links a:hover{color:var(--accent)}
-
-/* ====== MOBILE STICKY CTA ====== */
-.mobile-cta{display:none;position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:rgba(250,250,249,0.92);backdrop-filter:blur(16px);border-top:1px solid var(--border);z-index:90;box-shadow:0 -4px 20px rgba(0,0,0,0.08)}
-.mobile-cta .btn{width:100%}
-
-/* ====== RESPONSIVE ====== */
-@media(max-width:768px){
-.hero{padding:120px 0 60px}
-.hero-grid{grid-template-columns:1fr;gap:40px;text-align:center}
-.hero-text p{margin:0 auto 36px}
-.hero-cta{justify-content:center}
-.hero-trust{justify-content:center}
-.p-grid,.st-grid,.f-grid,.testi-grid{grid-template-columns:1fr}
-.st-grid::before{display:none}
-.preview-grid,.example-grid{grid-template-columns:1fr;gap:32px}
-.fr-inner{padding:0}
-.rf{grid-template-columns:1fr}
-.pr-head,.pr-feat,.pr-cta{padding-left:28px;padding-right:28px}
-.hero-cta{flex-direction:column;align-items:stretch;padding:0 20px}
-section{padding:80px 0}
-.container{padding:0 20px}
-.logos-row{gap:24px}
-.logos-row svg{height:22px}
-.browser-body{padding:12px}
-.db-stats{grid-template-columns:1fr}
-.mobile-cta{display:block}
-.footer-inner{flex-direction:column;gap:16px;text-align:center}
-.trust-row{justify-content:center}
-}
-@media(max-width:480px){
-.hero-text h1{font-size:30px}
-.db-bars{height:50px}
-.ex-body{padding:16px}
-}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/style.css?v=16">
+<noscript><style>.rv{opacity:1!important;transform:none!important;transition:none!important}.mobile-cta{display:none!important}</style></noscript>
 </head>
-<body>
+<body id="top">
+<a href="#main-content" class="skip-link">Aller au contenu principal</a>
 
 <!-- Navbar -->
 <nav class="nav" id="navbar">
 <div class="container">
-  <a href="#" class="nav-logo">
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#1D4ED8"/><path d="M10 8v16M10 16l10-8M10 16l10 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    Krest
+  <a href="#top" class="nav-logo">
+    <span class="brand-i brand-i-lg">i</span><span class="brand-find">find</span>
   </a>
   <div class="nav-links">
     <a href="#solution">Solution</a>
     <a href="#features">Avantages</a>
     <a href="#pricing">Tarifs</a>
     <a href="#faq">FAQ</a>
-    <a href="#free-report" class="btn btn-p">Tester gratuitement</a>
+    <a href="#free-report" class="btn btn-p">Rapport gratuit</a>
   </div>
-  <div class="burger" onclick="document.getElementById('mm').classList.add('open')"><span></span><span></span><span></span></div>
+  <button class="burger" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mm"><span></span><span></span><span></span></button>
 </div>
 </nav>
 
 <!-- Mobile menu -->
-<div class="mobile-menu" id="mm">
-  <div class="mobile-close" onclick="this.parentElement.classList.remove('open')">&times;</div>
-  <a href="#solution" onclick="this.parentElement.classList.remove('open')">Solution</a>
-  <a href="#features" onclick="this.parentElement.classList.remove('open')">Avantages</a>
-  <a href="#pricing" onclick="this.parentElement.classList.remove('open')">Tarifs</a>
-  <a href="#faq" onclick="this.parentElement.classList.remove('open')">FAQ</a>
-  <a href="#free-report" class="btn btn-p btn-lg" onclick="this.parentElement.classList.remove('open')">Tester gratuitement</a>
+<div class="mobile-menu" id="mm" role="dialog" aria-modal="true" aria-label="Menu de navigation">
+  <button class="mobile-close" aria-label="Fermer le menu">&times;</button>
+  <a href="#solution">Solution</a>
+  <a href="#features">Avantages</a>
+  <a href="#pricing">Tarifs</a>
+  <a href="#faq">FAQ</a>
+  <a href="#free-report" class="btn btn-p btn-lg">Recevoir mon rapport gratuit</a>
 </div>
+
+<main id="main-content">
 
 <!-- Hero -->
 <section class="hero">
@@ -379,48 +74,48 @@ section{padding:80px 0}
   <div class="hero-grid">
     <div class="hero-text">
       <div class="badge rv">Prospection B2B automatis&eacute;e</div>
-      <h1 class="rv rv-1">Trouvez vos prochains clients.<br><em>Sans lever le petit doigt.</em></h1>
+      <h1 class="rv rv-1">Votre agent IA prospecte 24h/24.<br><em>Vous recevez des rendez-vous.</em></h1>
       <p class="rv rv-2">Un agent commercial IA qui identifie vos prospects, r&eacute;dige des messages personnalis&eacute;s et vous livre des rendez-vous qualifi&eacute;s.</p>
       <div class="hero-cta rv rv-3">
-        <a href="#free-report" class="btn btn-p btn-xl">Tester gratuitement</a>
+        <a href="#free-report" class="btn btn-p btn-xl">Recevoir mon rapport gratuit</a>
         <a href="#solution" class="btn btn-o btn-lg">D&eacute;couvrir</a>
       </div>
       <div class="hero-trust rv rv-4">
-        <div class="hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Donn&eacute;es s&eacute;curis&eacute;es</div>
-        <div class="hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conforme RGPD</div>
-        <div class="hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Made in France</div>
+        <div class="hero-trust-item"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Donn&eacute;es s&eacute;curis&eacute;es</div>
+        <div class="hero-trust-item"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conforme RGPD</div>
+        <div class="hero-trust-item"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Made in France</div>
       </div>
     </div>
     <div class="rv rv-2">
       <div class="browser" id="heroBrowser">
         <div class="browser-bar">
           <div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div>
-          <div class="browser-url">app.krest.fr/dashboard</div>
+          <div class="browser-url">ifind.fr/dashboard</div>
         </div>
         <div class="browser-body">
           <div class="db-stats">
-            <div class="db-stat"><div class="db-stat-label">Leads ce mois</div><div class="db-stat-val" data-count="184">0</div><div class="db-stat-change" style="color:var(--green)">+12%</div></div>
-            <div class="db-stat"><div class="db-stat-label">Emails envoy&eacute;s</div><div class="db-stat-val" data-count="312">0</div><div class="db-stat-change" style="color:var(--green)">+8%</div></div>
-            <div class="db-stat"><div class="db-stat-label">RDV obtenus</div><div class="db-stat-val" data-count="11">0</div><div class="db-stat-change" style="color:var(--green)">+3</div></div>
+            <div class="db-stat"><div class="db-stat-label">Leads ce mois</div><div class="db-stat-val" data-count="184">0</div><div class="db-stat-change change-green">+12%</div></div>
+            <div class="db-stat"><div class="db-stat-label">Emails envoy&eacute;s</div><div class="db-stat-val" data-count="312">0</div><div class="db-stat-change change-green">+8%</div></div>
+            <div class="db-stat"><div class="db-stat-label">RDV obtenus</div><div class="db-stat-val" data-count="11">0</div><div class="db-stat-change change-green">+3</div></div>
           </div>
           <div class="db-chart">
             <div class="db-chart-title">Emails envoy&eacute;s par semaine</div>
             <div class="db-bars" id="dbBars">
-              <div class="db-bar" style="--h:45%;background:rgba(29,78,216,0.15)"></div>
-              <div class="db-bar" style="--h:65%;background:rgba(29,78,216,0.2)"></div>
-              <div class="db-bar" style="--h:55%;background:rgba(29,78,216,0.25)"></div>
-              <div class="db-bar" style="--h:80%;background:rgba(29,78,216,0.3)"></div>
-              <div class="db-bar" style="--h:70%;background:rgba(29,78,216,0.35)"></div>
-              <div class="db-bar" style="--h:90%;background:rgba(29,78,216,0.5)"></div>
-              <div class="db-bar" style="--h:75%;background:rgba(29,78,216,0.6)"></div>
-              <div class="db-bar" style="--h:100%;background:var(--accent)"></div>
+              <div class="db-bar db-bar-1"></div>
+              <div class="db-bar db-bar-2"></div>
+              <div class="db-bar db-bar-3"></div>
+              <div class="db-bar db-bar-4"></div>
+              <div class="db-bar db-bar-5"></div>
+              <div class="db-bar db-bar-6"></div>
+              <div class="db-bar db-bar-7"></div>
+              <div class="db-bar db-bar-8"></div>
             </div>
           </div>
           <div class="db-leads">
             <div class="db-leads-title">Derniers leads qualifi&eacute;s</div>
-            <div class="db-lead-row"><div><div class="db-lead-name">Sophie Martin</div><div class="db-lead-co">CEO &bull; NovaTech Solutions</div></div><div class="db-lead-score" style="background:var(--green-bg);color:var(--green)">9/10</div></div>
-            <div class="db-lead-row"><div><div class="db-lead-name">Thomas Durand</div><div class="db-lead-co">DG &bull; Axium Conseil</div></div><div class="db-lead-score" style="background:var(--green-bg);color:var(--green)">8/10</div></div>
-            <div class="db-lead-row"><div><div class="db-lead-name">Claire Petit</div><div class="db-lead-co">COO &bull; DataFlow SAS</div></div><div class="db-lead-score" style="background:var(--amber-bg);color:var(--amber)">7/10</div></div>
+            <div class="db-lead-row"><div><div class="db-lead-name">Sophie Martin</div><div class="db-lead-co">CEO &bull; NovaTech Solutions</div></div><div class="db-lead-score score-high">9/10</div></div>
+            <div class="db-lead-row"><div><div class="db-lead-name">Thomas Durand</div><div class="db-lead-co">DG &bull; Axium Conseil</div></div><div class="db-lead-score score-high">8/10</div></div>
+            <div class="db-lead-row"><div><div class="db-lead-name">Claire Petit</div><div class="db-lead-co">COO &bull; DataFlow SAS</div></div><div class="db-lead-score score-mid">7/10</div></div>
           </div>
         </div>
       </div>
@@ -432,12 +127,15 @@ section{padding:80px 0}
 <!-- Social Proof Bar -->
 <div class="logos rv">
 <div class="container">
-  <div class="logos-label">Technologie de pointe</div>
-  <div class="logos-row" style="opacity:.5;gap:36px">
-    <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text-2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>RGPD</div>
-    <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text-2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Chiffrement SSL</div>
-    <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text-2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>H&eacute;berg&eacute; en France</div>
-    <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text-2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>IA Claude + GPT</div>
+  <div class="logos-label">Comment &ccedil;a marche</div>
+  <div class="logos-row">
+    <div class="stats-item"><div class="stats-value">200+</div><div class="stats-label">Leads/mois par client</div></div>
+    <div class="stats-divider" aria-hidden="true"></div>
+    <div class="stats-item"><div class="stats-value">100%</div><div class="stats-label">Personnalis&eacute; par IA</div></div>
+    <div class="stats-divider" aria-hidden="true"></div>
+    <div class="stats-item"><div class="stats-value-green">48h</div><div class="stats-label">Mise en place</div></div>
+    <div class="stats-divider" aria-hidden="true"></div>
+    <div class="stats-item"><div class="stats-value">24/7</div><div class="stats-label">Agent actif</div></div>
   </div>
 </div>
 </div>
@@ -452,17 +150,17 @@ section{padding:80px 0}
   </div>
   <div class="p-grid">
     <div class="p-card rv rv-1">
-      <div class="p-icon"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+      <div class="p-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
       <h3>Un co&ucirc;t &eacute;lev&eacute;</h3>
       <p>Recruter un commercial, c'est un salaire, des charges, de la formation et du management. Avant m&ecirc;me le premier appel, vous avez investi des milliers d'euros.</p>
     </div>
     <div class="p-card rv rv-2">
-      <div class="p-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="p-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
       <h3>Des journ&eacute;es trop courtes</h3>
       <p>Un humain prospecte 8 heures par jour, avec des pauses, des jours off et une motivation qui fluctue. Impossible de maintenir le rythme.</p>
     </div>
     <div class="p-card rv rv-3">
-      <div class="p-icon"><svg class="icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+      <div class="p-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
       <h3>Des r&eacute;sultats al&eacute;atoires</h3>
       <p>Les messages g&eacute;n&eacute;riques finissent &agrave; la poubelle. Sans personnalisation, le taux de r&eacute;ponse reste d&eacute;sesp&eacute;r&eacute;ment bas.</p>
     </div>
@@ -471,7 +169,7 @@ section{padding:80px 0}
 </section>
 
 <!-- Solution / Steps -->
-<section id="solution">
+<section id="solution" class="sec-gradient">
 <div class="container">
   <div class="s-head c">
     <div class="s-label rv">La solution</div>
@@ -510,40 +208,40 @@ section{padding:80px 0}
       </div>
       <div class="preview-features">
         <div class="pf-item rv rv-1">
-          <div class="pf-icon"><svg class="icon" viewBox="0 0 24 24" width="20" height="20"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+          <div class="pf-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
           <div class="pf-text"><h4>Suivi en direct</h4><p>Leads identifi&eacute;s, emails envoy&eacute;s, taux d'ouverture, r&eacute;ponses.</p></div>
         </div>
         <div class="pf-item rv rv-2">
-          <div class="pf-icon"><svg class="icon" viewBox="0 0 24 24" width="20" height="20"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
+          <div class="pf-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
           <div class="pf-text"><h4>Rapports hebdomadaires</h4><p>Chaque lundi, un rapport complet avec les performances de la semaine.</p></div>
         </div>
         <div class="pf-item rv rv-3">
-          <div class="pf-icon"><svg class="icon" viewBox="0 0 24 24" width="20" height="20"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <div class="pf-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
           <div class="pf-text"><h4>Acc&egrave;s s&eacute;curis&eacute;</h4><p>Espace prot&eacute;g&eacute; par mot de passe, connexion HTTPS, donn&eacute;es chiffr&eacute;es.</p></div>
         </div>
       </div>
     </div>
     <div class="rv rv-2">
-      <div class="browser" style="transform:perspective(1200px) rotateY(-3deg);transition:transform .6s">
+      <div class="browser preview-browser">
         <div class="browser-bar">
           <div class="browser-dot r"></div><div class="browser-dot y"></div><div class="browser-dot g"></div>
-          <div class="browser-url">app.krest.fr/dashboard</div>
+          <div class="browser-url">ifind.fr/dashboard</div>
         </div>
-        <div class="browser-body" style="background:linear-gradient(135deg,#f8fafc,#eff6ff)">
-          <div style="padding:8px;text-align:center">
-            <div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">Mission Control</div>
-            <div style="font-size:10px;color:var(--text-3);margin-bottom:16px">Vue d'ensemble &mdash; F&eacute;vrier 2026</div>
+        <div class="browser-body preview-body-bg">
+          <div class="preview-inner">
+            <div class="preview-mc-title">Mission Control</div>
+            <div class="preview-mc-sub">Vue d'ensemble &mdash; F&eacute;vrier 2026</div>
           </div>
           <div class="db-stats">
-            <div class="db-stat" style="text-align:center"><div class="db-stat-label">Pipeline</div><div class="db-stat-val" style="font-size:18px;color:var(--accent)">47</div><div class="db-stat-change" style="color:var(--green);font-size:9px">actifs</div></div>
-            <div class="db-stat" style="text-align:center"><div class="db-stat-label">Taux r&eacute;ponse</div><div class="db-stat-val" style="font-size:18px;color:var(--green)">9.2%</div><div class="db-stat-change" style="color:var(--green);font-size:9px">+1.4%</div></div>
-            <div class="db-stat" style="text-align:center"><div class="db-stat-label">Score moyen</div><div class="db-stat-val" style="font-size:18px;color:var(--amber)">7.8</div><div class="db-stat-change" style="color:var(--green);font-size:9px">+0.3</div></div>
+            <div class="db-stat db-stat-center"><div class="db-stat-label">Pipeline</div><div class="db-stat-val db-stat-val-accent">47</div><div class="db-stat-change db-stat-change-green">actifs</div></div>
+            <div class="db-stat db-stat-center"><div class="db-stat-label">Taux r&eacute;ponse</div><div class="db-stat-val db-stat-val-green">9.2%</div><div class="db-stat-change db-stat-change-green">+1.4%</div></div>
+            <div class="db-stat db-stat-center"><div class="db-stat-label">Score moyen</div><div class="db-stat-val db-stat-val-amber">7.8</div><div class="db-stat-change db-stat-change-green">+0.3</div></div>
           </div>
-          <div style="background:var(--surface);border-radius:8px;padding:12px;border:1px solid var(--border)">
-            <div style="font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Activit&eacute; r&eacute;cente</div>
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px"><span style="color:var(--green)">&#9679;</span><span style="color:var(--text-2)">Email ouvert par <strong style="color:var(--text)">M. Leroy</strong> &mdash; Directeur, Zenith SAS</span></div>
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px"><span style="color:var(--accent)">&#9679;</span><span style="color:var(--text-2)">RDV confirm&eacute; avec <strong style="color:var(--text)">A. Bernard</strong> &mdash; CEO, Kodia</span></div>
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:11px"><span style="color:var(--amber)">&#9679;</span><span style="color:var(--text-2)">3 nouveaux leads identifi&eacute;s &mdash; secteur SaaS, IDF</span></div>
+          <div class="preview-activity">
+            <div class="preview-activity-title">Activit&eacute; r&eacute;cente</div>
+            <div class="preview-activity-row"><span class="dot-green">&#9679;</span><span class="text-color-2">Email ouvert par <strong class="text-color">M. Leroy</strong> &mdash; Directeur, Zenith SAS</span></div>
+            <div class="preview-activity-row"><span class="dot-accent">&#9679;</span><span class="text-color-2">RDV confirm&eacute; avec <strong class="text-color">A. Bernard</strong> &mdash; CEO, Kodia</span></div>
+            <div class="preview-activity-row"><span class="dot-amber">&#9679;</span><span class="text-color-2">3 nouveaux leads identifi&eacute;s &mdash; secteur SaaS, IDF</span></div>
           </div>
         </div>
       </div>
@@ -553,7 +251,7 @@ section{padding:80px 0}
 </section>
 
 <!-- Features -->
-<section id="features" class="problem">
+<section id="features" class="problem feat-section-alt">
 <div class="container">
   <div class="s-head c">
     <div class="s-label rv">Avantages</div>
@@ -562,32 +260,32 @@ section{padding:80px 0}
   </div>
   <div class="f-grid">
     <div class="f-card rv rv-1">
-      <div class="f-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+      <div class="f-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
       <h3>Ciblage sur mesure</h3>
       <p>L'agent identifie les d&eacute;cideurs selon vos crit&egrave;res exacts : secteur, taille, poste, localisation.</p>
     </div>
     <div class="f-card rv rv-2">
-      <div class="f-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+      <div class="f-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
       <h3>Messages personnalis&eacute;s</h3>
       <p>Chaque email est r&eacute;dig&eacute; individuellement. Nom, poste, entreprise : tout est pris en compte.</p>
     </div>
     <div class="f-card rv rv-3">
-      <div class="f-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+      <div class="f-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
       <h3>Auto-apprentissage</h3>
       <p>L'agent analyse ses r&eacute;sultats chaque semaine et ajuste sa strat&eacute;gie. Il progresse en continu.</p>
     </div>
     <div class="f-card rv rv-1">
-      <div class="f-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
+      <div class="f-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
       <h3>Tableau de bord</h3>
       <p>Suivez tout en temps r&eacute;el : leads, emails, r&eacute;ponses, rendez-vous.</p>
     </div>
     <div class="f-card rv rv-2">
-      <div class="f-icon"><svg class="icon" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+      <div class="f-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
       <h3>Synchronisation CRM</h3>
       <p>Les leads qualifi&eacute;s sont envoy&eacute;s dans votre CRM automatiquement. Z&eacute;ro saisie manuelle.</p>
     </div>
     <div class="f-card rv rv-3">
-      <div class="f-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <div class="f-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
       <h3>Conforme RGPD</h3>
       <p>Donn&eacute;es en France, lien de d&eacute;sabonnement dans chaque email. Prospection propre.</p>
     </div>
@@ -595,52 +293,31 @@ section{padding:80px 0}
 </div>
 </section>
 
-<!-- Testimonials -->
-<section class="testi">
+<!-- Cas d'usage -->
+<section class="testi sec-warm">
 <div class="container">
   <div class="s-head c">
-    <div class="s-label rv">T&eacute;moignages</div>
-    <h2 class="s-title rv rv-1">Ce qu'en disent nos clients</h2>
+    <div class="s-label rv">Cas d'usage</div>
+    <h2 class="s-title rv rv-1">Exemples concrets par secteur</h2>
+    <p class="s-sub rv rv-2">Voici comment l'agent s'adapte &agrave; diff&eacute;rents types d'activit&eacute;s.</p>
   </div>
   <div class="testi-grid">
     <div class="testi-card rv rv-1">
-      <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-      <p class="testi-quote">&laquo; En 3 semaines, l'agent nous a d&eacute;croch&eacute; 7 rendez-vous avec des d&eacute;cideurs qu'on n'aurait jamais contact&eacute;s nous-m&ecirc;mes. Le ROI est imm&eacute;diat. &raquo;</p>
-      <div class="testi-author">
-        <div class="testi-avatar" style="background:linear-gradient(135deg,var(--accent),#3B82F6)">S</div>
-        <div>
-          <div class="testi-name">Sophie Martin</div>
-          <div class="testi-role">CEO, NovaTech Solutions</div>
-          <div class="testi-badge"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Client v&eacute;rifi&eacute;</div>
-        </div>
-      </div>
+      <div class="f-icon usecase-icon"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+      <h3 class="usecase-title">Agence web / ESN</h3>
+      <p class="usecase-text">L'agent cible les dirigeants de PME ayant besoin d'un site ou d'un ERP. 200 contacts identifi&eacute;s par mois, emails personnalis&eacute;s. R&eacute;sultat type : 7 &agrave; 12 rendez-vous qualifi&eacute;s par mois.</p>
     </div>
     <div class="testi-card rv rv-2">
-      <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-      <p class="testi-quote">&laquo; On a remplac&eacute; un poste de SDR &agrave; 3 500&euro;/mois par Krest. Les r&eacute;sultats sont meilleurs et le co&ucirc;t divis&eacute; par 5. Je recommande sans h&eacute;siter. &raquo;</p>
-      <div class="testi-author">
-        <div class="testi-avatar" style="background:linear-gradient(135deg,#059669,#10B981)">T</div>
-        <div>
-          <div class="testi-name">Thomas Durand</div>
-          <div class="testi-role">DG, Axium Conseil</div>
-          <div class="testi-badge"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Client v&eacute;rifi&eacute;</div>
-        </div>
-      </div>
+      <div class="f-icon usecase-icon-green"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
+      <h3 class="usecase-title">Cabinet de conseil</h3>
+      <p class="usecase-text">L'agent identifie les DG et DAF de PME en croissance. Chaque email mentionne l'actualit&eacute; de l'entreprise cibl&eacute;e. Co&ucirc;t : 5x moins qu'un commercial, actif 24h/24.</p>
     </div>
     <div class="testi-card rv rv-3">
-      <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-      <p class="testi-quote">&laquo; La qualit&eacute; des emails g&eacute;n&eacute;r&eacute;s m'a bluff&eacute;e. Mes prospects pensent que j'&eacute;cris chaque message moi-m&ecirc;me. Le taux de r&eacute;ponse a explos&eacute;. &raquo;</p>
-      <div class="testi-author">
-        <div class="testi-avatar" style="background:linear-gradient(135deg,#7C3AED,#A78BFA)">C</div>
-        <div>
-          <div class="testi-name">Claire Petit</div>
-          <div class="testi-role">Fondatrice, DataFlow SAS</div>
-          <div class="testi-badge"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Client v&eacute;rifi&eacute;</div>
-        </div>
-      </div>
+      <div class="f-icon usecase-icon-violet"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+      <h3 class="usecase-title">Editeur SaaS / Startup</h3>
+      <p class="usecase-text">L'agent prospecte les DSI et CTO d'entreprises utilisant des outils concurrents. Taux de r&eacute;ponse moyen : 8 &agrave; 12%, gr&acirc;ce &agrave; des messages ultra-cibl&eacute;s r&eacute;dig&eacute;s par IA.</p>
     </div>
   </div>
-  <p class="testi-note rv rv-4">* T&eacute;moignages illustratifs bas&eacute;s sur des r&eacute;sultats obtenus en phase de test interne. Noms et entreprises fictifs.</p>
 </div>
 </section>
 
@@ -654,39 +331,39 @@ section{padding:80px 0}
         <h2 class="s-title rv rv-1">Voici ce que vous recevez</h2>
         <p class="s-sub rv rv-2">Un rapport personnalis&eacute; avec de vrais contacts et des emails pr&ecirc;ts &agrave; envoyer. Voici &agrave; quoi &ccedil;a ressemble.</p>
       </div>
-      <div class="rv rv-3" style="display:flex;flex-direction:column;gap:16px">
-        <div style="display:flex;align-items:center;gap:12px"><span style="width:32px;height:32px;border-radius:8px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:14px;flex-shrink:0">1</span><span style="font-size:15px;color:var(--text-2)">Vous d&eacute;crivez votre cible en 30 secondes</span></div>
-        <div style="display:flex;align-items:center;gap:12px"><span style="width:32px;height:32px;border-radius:8px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:14px;flex-shrink:0">2</span><span style="font-size:15px;color:var(--text-2)">L'IA recherche, qualifie et r&eacute;dige</span></div>
-        <div style="display:flex;align-items:center;gap:12px"><span style="width:32px;height:32px;border-radius:8px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:14px;flex-shrink:0">3</span><span style="font-size:15px;color:var(--text-2)">Vous recevez le rapport par email</span></div>
+      <div class="rv rv-3 ex-steps">
+        <div class="ex-step"><span class="ex-step-num">1</span><span class="ex-step-text">Vous d&eacute;crivez votre cible en 30 secondes</span></div>
+        <div class="ex-step"><span class="ex-step-num">2</span><span class="ex-step-text">L'IA recherche, qualifie et r&eacute;dige</span></div>
+        <div class="ex-step"><span class="ex-step-num">3</span><span class="ex-step-text">Vous recevez le rapport par email</span></div>
       </div>
     </div>
     <div class="rv rv-2">
       <div class="ex-card">
         <div class="ex-header">
-          <h4>Rapport Krest &mdash; Prospection personnalis&eacute;e</h4>
+          <h4>Rapport iFIND &mdash; Prospection personnalis&eacute;e</h4>
           <p>3 prospects sur 10 &bull; Score moyen : 8.2/10</p>
         </div>
         <div class="ex-body">
           <div class="ex-lead">
             <div class="ex-lead-top">
               <div><h5>Marc Lefevre</h5><div class="ex-lead-sub">CTO &bull; CloudScale &bull; Paris</div></div>
-              <div class="db-lead-score" style="background:var(--green-bg);color:var(--green)">9/10</div>
+              <div class="db-lead-score score-high">9/10</div>
             </div>
             <div class="ex-lead-email">&laquo; Bonjour Marc, votre travail chez CloudScale sur l'infrastructure cloud m'a interpell&eacute;. Je travaille avec des CTOs qui cherchent &agrave;... &raquo;</div>
           </div>
           <div class="ex-lead">
             <div class="ex-lead-top">
               <div><h5>Julie Moreau</h5><div class="ex-lead-sub">DG &bull; PixelForge &bull; Lyon</div></div>
-              <div class="db-lead-score" style="background:var(--green-bg);color:var(--green)">8/10</div>
+              <div class="db-lead-score score-high">8/10</div>
             </div>
             <div class="ex-lead-email">&laquo; Bonjour Julie, en tant que dirigeante d'une agence en pleine croissance, vous &ecirc;tes probablement confront&eacute;e &agrave;... &raquo;</div>
           </div>
-          <div class="ex-lead" style="opacity:.5;position:relative">
+          <div class="ex-lead ex-lead-dim">
             <div class="ex-lead-top">
               <div><h5>Antoine Roux</h5><div class="ex-lead-sub">VP Sales &bull; Nexa Group &bull; Bordeaux</div></div>
-              <div class="db-lead-score" style="background:var(--amber-bg);color:var(--amber)">7/10</div>
+              <div class="db-lead-score score-mid">7/10</div>
             </div>
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(250,250,249,0.7);border-radius:10px;font-size:13px;font-weight:600;color:var(--accent)">+ 7 autres leads dans le rapport complet</div>
+            <div class="ex-blur-overlay">+ 7 autres leads dans le rapport complet</div>
           </div>
         </div>
       </div>
@@ -699,31 +376,31 @@ section{padding:80px 0}
 <section id="free-report" class="fr-section">
 <div class="container">
   <div class="fr-inner rv">
-    <div class="badge" style="margin-bottom:24px">Gratuit, sans engagement</div>
-    <h2>Recevez <em>10 prospects qualifi&eacute;s</em><br>pour votre entreprise</h2>
-    <p>D&eacute;crivez votre cible et recevez un rapport personnalis&eacute; avec 10 vrais contacts et un email de prospection pr&ecirc;t &agrave; envoyer pour chacun.</p>
-    <form class="rf" id="reportForm" onsubmit="return handleSubmit(event)">
-      <div class="fg"><label>Votre pr&eacute;nom</label><input type="text" name="prenom" placeholder="ex: Marc" required></div>
-      <div class="fg"><label>Votre email professionnel</label><input type="email" name="email" placeholder="marc@entreprise.com" required></div>
-      <div class="fg"><label>Votre activit&eacute;</label><input type="text" name="activite" placeholder="ex: Agence web, ESN, Cabinet conseil..." required></div>
-      <div class="fg"><label>Vous ciblez qui ?</label><input type="text" name="cible" placeholder="ex: Dirigeants de PME tech en Ile-de-France" required></div>
+    <div class="s-head">
+      <div class="s-label rv">Rapport gratuit</div>
+      <h2 class="s-title rv rv-1">Recevez <em>10 prospects qualifi&eacute;s</em><br>pour votre entreprise</h2>
+      <p class="s-sub rv rv-2">D&eacute;crivez votre cible et recevez un rapport personnalis&eacute; avec 10 vrais contacts et un email pr&ecirc;t &agrave; envoyer pour chacun.</p>
+    </div>
+    <div id="form-status" role="alert" aria-live="assertive" class="form-status"></div>
+    <form class="rf" id="reportForm" aria-label="Formulaire de demande de rapport gratuit">
+      <input type="hidden" name="_csrf" id="csrf-token" value="">
+      <input type="hidden" name="website" id="f-website" value="" autocomplete="off">
+      <div class="fg"><label for="f-prenom">Votre pr&eacute;nom</label><input id="f-prenom" type="text" name="prenom" placeholder="ex: Marc" autocomplete="given-name" required aria-required="true"></div>
+      <div class="fg"><label for="f-email">Votre email pro</label><input id="f-email" type="email" name="email" placeholder="marc@entreprise.com" autocomplete="email" required aria-required="true"></div>
+      <div class="fg full"><label for="f-cible">Votre activit&eacute; et cible id&eacute;ale</label><input id="f-cible" type="text" name="cible" placeholder="ex: Agence web, je cible les dirigeants de PME tech en IDF" autocomplete="off" required aria-required="true"></div>
       <div class="fg full">
-        <button type="submit" class="btn btn-p btn-xl" id="submitBtn" style="width:100%">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <button type="submit" class="btn btn-p btn-xl btn-full-width" id="submitBtn">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           Recevoir mon rapport gratuit
         </button>
       </div>
     </form>
-    <div class="trust-row">
-      <div class="trust-badge green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Donn&eacute;es prot&eacute;g&eacute;es</div>
-      <div class="trust-badge blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Connexion chiffr&eacute;e</div>
-      <div class="trust-badge green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conforme RGPD</div>
-    </div>
-    <div class="rb">
-      <div><span class="ci">&#10003;</span> 10 contacts avec nom, poste, entreprise et email</div>
-      <div><span class="ci">&#10003;</span> Un email de prospection personnalis&eacute; pour chacun</div>
-      <div><span class="ci">&#10003;</span> Rapport livr&eacute; par email</div>
-      <div><span class="ci">&#10003;</span> Aucune carte bancaire requise</div>
+    <div class="fr-under">
+      <span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Conforme RGPD</span>
+      <span class="fr-dot" aria-hidden="true"></span>
+      <span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Donn&eacute;es chiffr&eacute;es</span>
+      <span class="fr-dot" aria-hidden="true"></span>
+      <span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Aucune carte requise</span>
     </div>
   </div>
 </div>
@@ -757,57 +434,84 @@ section{padding:80px 0}
       </ul>
     </div>
     <div class="pr-cta">
-      <a href="#free-report" class="btn btn-p btn-xl" style="width:100%">Commencer l'essai gratuit</a>
-      <p style="text-align:center;font-size:13px;color:var(--text-3);margin-top:4px">Aucune carte bancaire requise</p>
+      <a href="#free-report" class="btn btn-p btn-xl btn-full-width">Commencer l'essai gratuit</a>
+      <p class="cta-text">Aucune carte bancaire requise</p>
     </div>
   </div>
 </div>
 </section>
 
 <!-- FAQ -->
-<section id="faq">
+<section id="faq" class="sec-alt">
 <div class="container">
   <div class="s-head c">
     <div class="s-label rv">FAQ</div>
     <h2 class="s-title rv rv-1">Questions fr&eacute;quentes</h2>
   </div>
   <div class="faq-list">
-    <div class="faq-i rv"><div class="faq-q" onclick="toggleFaq(this)"><span>Comment fonctionne l'agent commercial ?</span><span class="faq-ic">+</span></div><div class="faq-a"><div class="faq-a-in">L'agent identifie vos prospects id&eacute;aux &agrave; partir de bases de donn&eacute;es professionnelles, r&eacute;dige un message personnalis&eacute; pour chacun, et l'envoie au moment optimal. D&egrave;s qu'un prospect r&eacute;pond positivement, vous &ecirc;tes notifi&eacute; imm&eacute;diatement pour prendre le relais.</div></div></div>
-    <div class="faq-i rv rv-1"><div class="faq-q" onclick="toggleFaq(this)"><span>Comment savoir si &ccedil;a fonctionne pour mon activit&eacute; ?</span><span class="faq-ic">+</span></div><div class="faq-a"><div class="faq-a-in">C'est exactement &agrave; &ccedil;a que sert le rapport gratuit. Vous d&eacute;crivez votre cible, et nous vous envoyons 10 vrais contacts avec un email personnalis&eacute; pour chacun. Vous jugez la qualit&eacute; par vous-m&ecirc;me, sans aucun engagement.</div></div></div>
-    <div class="faq-i rv rv-2"><div class="faq-q" onclick="toggleFaq(this)"><span>Combien de temps avant les premiers r&eacute;sultats ?</span><span class="faq-ic">+</span></div><div class="faq-a"><div class="faq-a-in">L'agent est op&eacute;rationnel sous 48 heures. Les premiers emails partent d&egrave;s le d&eacute;marrage. Les premi&egrave;res r&eacute;ponses arrivent g&eacute;n&eacute;ralement dans la premi&egrave;re semaine.</div></div></div>
-    <div class="faq-i rv rv-3"><div class="faq-q" onclick="toggleFaq(this)"><span>Les prospects savent que c'est automatis&eacute; ?</span><span class="faq-ic">+</span></div><div class="faq-a"><div class="faq-a-in">Non. Chaque message est r&eacute;dig&eacute; individuellement par une IA avanc&eacute;e, personnalis&eacute; avec le nom, le poste et l'entreprise du prospect. Le r&eacute;sultat est indistinguable d'un email &eacute;crit &agrave; la main.</div></div></div>
-    <div class="faq-i rv rv-4"><div class="faq-q" onclick="toggleFaq(this)"><span>Que se passe-t-il apr&egrave;s les 3 mois ?</span><span class="faq-ic">+</span></div><div class="faq-a"><div class="faq-a-in">Vous continuez au m&ecirc;me tarif sans obligation, ou vous arr&ecirc;tez quand vous le souhaitez. Pas de frais cach&eacute;s, pas de reconduction forc&eacute;e.</div></div></div>
-    <div class="faq-i rv rv-5"><div class="faq-q" onclick="toggleFaq(this)"><span>C'est conforme au RGPD ?</span><span class="faq-ic">+</span></div><div class="faq-a"><div class="faq-a-in">Absolument. Donn&eacute;es h&eacute;berg&eacute;es en France, lien de d&eacute;sabonnement dans chaque email. Nous respectons scrupuleusement la r&eacute;glementation.</div></div></div>
+    <div class="faq-i rv"><button class="faq-q" type="button" id="faq-q-1" aria-expanded="false" aria-controls="faq-a-1"><span>Comment fonctionne l'agent commercial ?</span><span class="faq-ic" aria-hidden="true">+</span></button><div class="faq-a" id="faq-a-1" role="region" aria-labelledby="faq-q-1"><div class="faq-a-in">L'agent identifie vos prospects id&eacute;aux &agrave; partir de bases de donn&eacute;es professionnelles, r&eacute;dige un message personnalis&eacute; pour chacun, et l'envoie au moment optimal. D&egrave;s qu'un prospect r&eacute;pond positivement, vous &ecirc;tes notifi&eacute; imm&eacute;diatement pour prendre le relais.</div></div></div>
+    <div class="faq-i rv rv-1"><button class="faq-q" type="button" id="faq-q-2" aria-expanded="false" aria-controls="faq-a-2"><span>Comment savoir si &ccedil;a fonctionne pour mon activit&eacute; ?</span><span class="faq-ic" aria-hidden="true">+</span></button><div class="faq-a" id="faq-a-2" role="region" aria-labelledby="faq-q-2"><div class="faq-a-in">C'est exactement &agrave; &ccedil;a que sert le rapport gratuit. Vous d&eacute;crivez votre cible, et nous vous envoyons 10 vrais contacts avec un email personnalis&eacute; pour chacun. Vous jugez la qualit&eacute; par vous-m&ecirc;me, sans aucun engagement.</div></div></div>
+    <div class="faq-i rv rv-2"><button class="faq-q" type="button" id="faq-q-3" aria-expanded="false" aria-controls="faq-a-3"><span>Combien de temps avant les premiers r&eacute;sultats ?</span><span class="faq-ic" aria-hidden="true">+</span></button><div class="faq-a" id="faq-a-3" role="region" aria-labelledby="faq-q-3"><div class="faq-a-in">L'agent est op&eacute;rationnel sous 48 heures. Les premiers emails partent d&egrave;s le d&eacute;marrage. Les premi&egrave;res r&eacute;ponses arrivent g&eacute;n&eacute;ralement dans la premi&egrave;re semaine.</div></div></div>
+    <div class="faq-i rv rv-3"><button class="faq-q" type="button" id="faq-q-4" aria-expanded="false" aria-controls="faq-a-4"><span>Les prospects savent que c'est automatis&eacute; ?</span><span class="faq-ic" aria-hidden="true">+</span></button><div class="faq-a" id="faq-a-4" role="region" aria-labelledby="faq-q-4"><div class="faq-a-in">Non. Chaque message est r&eacute;dig&eacute; individuellement par une IA avanc&eacute;e, personnalis&eacute; avec le nom, le poste et l'entreprise du prospect. Le r&eacute;sultat est indistinguable d'un email &eacute;crit &agrave; la main.</div></div></div>
+    <div class="faq-i rv rv-4"><button class="faq-q" type="button" id="faq-q-5" aria-expanded="false" aria-controls="faq-a-5"><span>Que se passe-t-il apr&egrave;s les 3 mois ?</span><span class="faq-ic" aria-hidden="true">+</span></button><div class="faq-a" id="faq-a-5" role="region" aria-labelledby="faq-q-5"><div class="faq-a-in">Vous continuez au m&ecirc;me tarif sans obligation, ou vous arr&ecirc;tez quand vous le souhaitez. Pas de frais cach&eacute;s, pas de reconduction forc&eacute;e.</div></div></div>
+    <div class="faq-i rv rv-5"><button class="faq-q" type="button" id="faq-q-6" aria-expanded="false" aria-controls="faq-a-6"><span>C'est conforme au RGPD ?</span><span class="faq-ic" aria-hidden="true">+</span></button><div class="faq-a" id="faq-a-6" role="region" aria-labelledby="faq-q-6"><div class="faq-a-in">Absolument. Donn&eacute;es h&eacute;berg&eacute;es en France, lien de d&eacute;sabonnement dans chaque email. Nous respectons scrupuleusement la r&eacute;glementation.</div></div></div>
   </div>
 </div>
 </section>
 
 <!-- Final CTA -->
 <section class="final">
-<div class="container" style="position:relative;z-index:1">
-  <div class="badge rv" style="margin-bottom:24px">Pr&ecirc;t &agrave; d&eacute;l&eacute;guer votre prospection ?</div>
+<div class="container z-1">
+  <div class="badge rv mb-badge">Pr&ecirc;t &agrave; d&eacute;l&eacute;guer votre prospection ?</div>
   <h2 class="rv rv-1">Votre agenda m&eacute;rite<br>d'&ecirc;tre rempli.</h2>
   <p class="rv rv-2">Testez gratuitement avec 10 prospects qualifi&eacute;s. Jugez par vous-m&ecirc;me.</p>
   <div class="rv rv-3"><a href="#free-report" class="btn btn-p btn-xl">Recevoir mon rapport gratuit</a></div>
 </div>
 </section>
 
+</main>
+
 <!-- Footer -->
 <footer>
 <div class="container">
-  <div class="footer-inner">
+  <div class="footer-grid">
     <div>
-      <div class="footer-left" style="margin-bottom:8px">
-        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#1D4ED8"/><path d="M10 8v16M10 16l10-8M10 16l10 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Krest</span>
+      <div class="footer-brand">
+        <span class="brand-i">i</span><span class="brand-find">find</span>
       </div>
-      <p>Krest &copy; 2026 &mdash; Prospection B2B intelligente</p>
-      <p style="font-size:11px;color:var(--text-3);margin-top:4px">Micro-entreprise &mdash; H&eacute;bergement : Hostinger (Lituanie/France) &mdash; Donn&eacute;es trait&eacute;es conform&eacute;ment au RGPD</p>
+      <p class="footer-desc">Agent commercial IA pour la prospection B2B. Trouvez vos clients sans effort.</p>
     </div>
-    <div class="f-links">
-      <a href="mailto:benieralexis@gmail.com">Contact</a>
-      <a href="https://wa.me/33766344093" target="_blank">WhatsApp</a>
-      <a href="tel:+33766344093">07 66 34 40 93</a>
+    <div>
+      <p class="footer-col-title">Produit</p>
+      <nav aria-label="Produit" class="footer-col-links">
+        <a href="#solution" class="footer-link">Solution</a>
+        <a href="#features" class="footer-link">Avantages</a>
+        <a href="#pricing" class="footer-link">Tarifs</a>
+        <a href="#faq" class="footer-link">FAQ</a>
+      </nav>
+    </div>
+    <div>
+      <p class="footer-col-title">Contact</p>
+      <div class="footer-col-links">
+        <a href="mailto:hello@ifind.fr" class="footer-link">hello@ifind.fr</a>
+        <a href="https://wa.me/33766344093" target="_blank" rel="noopener noreferrer" class="footer-link">WhatsApp</a>
+        <a href="tel:+33766344093" class="footer-link">07 66 34 40 93</a>
+      </div>
+    </div>
+    <div>
+      <p class="footer-col-title">L&eacute;gal</p>
+      <div class="footer-col-links">
+        <a href="#mentions-legales" class="footer-link">Mentions l&eacute;gales</a>
+        <a href="#confidentialite" class="footer-link">Politique de confidentialit&eacute;</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p class="footer-copy">iFIND &copy; 2026 &mdash; Micro-entreprise &mdash; Donn&eacute;es trait&eacute;es conform&eacute;ment au RGPD</p>
+    <div class="footer-badges">
+      <div class="footer-badge"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>RGPD</div>
+      <div class="footer-badge"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>SSL</div>
+      <div class="footer-badge"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>France</div>
     </div>
   </div>
 </div>
@@ -815,81 +519,42 @@ section{padding:80px 0}
 
 <!-- Mobile sticky CTA -->
 <div class="mobile-cta">
-  <a href="#free-report" class="btn btn-p btn-lg">Tester gratuitement</a>
+  <a href="#free-report" class="btn btn-p btn-lg">Recevoir mon rapport gratuit</a>
 </div>
 
-<script>
-// Navbar scroll
-const nb=document.getElementById('navbar');
-window.addEventListener('scroll',()=>{
-  nb.classList.toggle('scrolled',window.scrollY>50);
-  // Hide mobile CTA when near the form
-  const fr=document.getElementById('free-report');
-  const mc=document.querySelector('.mobile-cta');
-  if(fr&&mc){const r=fr.getBoundingClientRect();mc.style.opacity=r.top<window.innerHeight&&r.bottom>0?'0':'1';mc.style.pointerEvents=r.top<window.innerHeight&&r.bottom>0?'none':'auto'}
-});
+<!-- Mentions Legales -->
+<section id="mentions-legales" class="legal-section">
+<div class="container legal-inner">
+  <h2 class="legal-title">Mentions l&eacute;gales</h2>
+  <div class="legal-content">
+    <div><strong>1. &Eacute;diteur du site</strong><br>iFIND &mdash; Micro-entreprise<br>Responsable de la publication : Alexis B&eacute;nier<br>Email : hello@ifind.fr<br>T&eacute;l&eacute;phone : 07 66 34 40 93</div>
+    <div><strong>2. H&eacute;bergement</strong><br>Hostinger International Ltd<br>61 Lordou Vironos Street, 6023 Larnaca, Chypre<br>Infrastructure serveur : Hostinger (Lituanie / France)</div>
+    <div><strong>3. Propri&eacute;t&eacute; intellectuelle</strong><br>L'ensemble du contenu de ce site (textes, graphismes, logos, ic&ocirc;nes) est la propri&eacute;t&eacute; exclusive de iFIND, sauf mention contraire. Toute reproduction, m&ecirc;me partielle, est interdite sans autorisation pr&eacute;alable.</div>
+    <div><strong>4. Responsabilit&eacute;</strong><br>Les informations fournies sur ce site le sont &agrave; titre informatif. iFIND ne saurait &ecirc;tre tenu responsable des erreurs ou omissions, ni des r&eacute;sultats obtenus suite &agrave; l'utilisation de ces informations.</div>
+    <div><strong>5. Donn&eacute;es personnelles</strong><br>Voir notre <a href="#confidentialite" class="legal-link-accent">politique de confidentialit&eacute;</a>.</div>
+  </div>
+</div>
+</section>
 
-// Reveal on scroll
-const obs=new IntersectionObserver(e=>e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('v');if(x.target.id==='heroBrowser')animateDashboard()}}),{threshold:.1,rootMargin:'0px 0px -40px 0px'});
-document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
-document.getElementById('heroBrowser')&&obs.observe(document.getElementById('heroBrowser'));
+<!-- Politique de confidentialite -->
+<section id="confidentialite" class="legal-section">
+<div class="container legal-inner">
+  <h2 class="legal-title">Politique de confidentialit&eacute;</h2>
+  <div class="legal-content">
+    <div><strong>1. Responsable du traitement</strong><br>iFIND &mdash; Alexis B&eacute;nier<br>Email : hello@ifind.fr</div>
+    <div><strong>2. Donn&eacute;es collect&eacute;es</strong><br>Via le formulaire de contact : pr&eacute;nom, adresse email professionnelle, description de l'activit&eacute; et de la cible commerciale. Aucune donn&eacute;e sensible n'est collect&eacute;e.</div>
+    <div><strong>3. Finalit&eacute; du traitement</strong><br>Les donn&eacute;es collect&eacute;es servent uniquement &agrave; : g&eacute;n&eacute;rer un rapport de prospection personnalis&eacute;, vous recontacter concernant votre demande, am&eacute;liorer notre service.</div>
+    <div><strong>4. Base l&eacute;gale</strong><br>Le traitement est fond&eacute; sur votre consentement (article 6.1.a du RGPD), donn&eacute; lors de la soumission du formulaire.</div>
+    <div><strong>5. Dur&eacute;e de conservation</strong><br>Vos donn&eacute;es sont conserv&eacute;es pendant 12 mois maximum &agrave; compter de votre demande, sauf si vous en demandez la suppression avant.</div>
+    <div><strong>6. Destinataires</strong><br>Vos donn&eacute;es ne sont transmises &agrave; aucun tiers. Elles sont trait&eacute;es exclusivement par iFIND.</div>
+    <div><strong>7. H&eacute;bergement et s&eacute;curit&eacute;</strong><br>Les donn&eacute;es sont h&eacute;berg&eacute;es sur des serveurs s&eacute;curis&eacute;s (Hostinger, infrastructure europ&eacute;enne). La connexion est chiffr&eacute;e via HTTPS (certificat Let's Encrypt). L'acc&egrave;s aux donn&eacute;es est restreint par authentification.</div>
+    <div><strong>8. Vos droits</strong><br>Conform&eacute;ment au RGPD, vous disposez d'un droit d'acc&egrave;s, de rectification, de suppression, de limitation et de portabilit&eacute; de vos donn&eacute;es. Pour exercer ces droits, contactez-nous &agrave; hello@ifind.fr. R&eacute;ponse sous 30 jours.</div>
+    <div><strong>9. Cookies</strong><br>Ce site n'utilise aucun cookie de tracking ni cookie publicitaire. Aucun outil d'analyse tiers (Google Analytics, etc.) n'est utilis&eacute;.</div>
+    <div><strong>10. Modification</strong><br>Cette politique peut &ecirc;tre mise &agrave; jour. Derni&egrave;re modification : f&eacute;vrier 2026.</div>
+  </div>
+</div>
+</section>
 
-// Counter animation
-let dashAnimated=false;
-function animateDashboard(){
-  if(dashAnimated)return;dashAnimated=true;
-  // Animate counters
-  document.querySelectorAll('[data-count]').forEach(el=>{
-    const target=parseInt(el.dataset.count);
-    const duration=1200;const start=performance.now();
-    function tick(now){
-      const p=Math.min((now-start)/duration,1);
-      const eased=1-Math.pow(1-p,3);// ease out cubic
-      el.textContent=Math.round(target*eased);
-      if(p<1)requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  });
-  // Animate bars
-  setTimeout(()=>{
-    document.querySelectorAll('.db-bar').forEach((b,i)=>{
-      setTimeout(()=>b.classList.add('animated'),i*80);
-    });
-  },200);
-}
-
-// FAQ toggle
-function toggleFaq(el){
-  const i=el.parentElement,a=i.querySelector('.faq-a'),active=i.classList.contains('active');
-  document.querySelectorAll('.faq-i.active').forEach(x=>{x.classList.remove('active');x.querySelector('.faq-a').style.maxHeight='0'});
-  if(!active){i.classList.add('active');a.style.maxHeight=a.scrollHeight+'px'}
-}
-
-// Form submit
-function handleSubmit(e){
-  e.preventDefault();
-  const f=e.target,d=new FormData(f),b=document.getElementById('submitBtn');
-  b.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Envoi en cours...';b.style.opacity='.7';b.disabled=true;
-  fetch('/landing/api/lead-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(d))})
-  .then(r=>{if(!r.ok)throw new Error();return r.json()})
-  .then(()=>{
-    b.innerHTML='&#10003; Demande envoy\u00e9e !';b.style.background='var(--green)';f.reset();
-    setTimeout(()=>{b.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Recevoir mon rapport gratuit';b.style.opacity='1';b.style.background='';b.disabled=false},5000);
-  })
-  .catch(()=>{
-    const p=d.get('prenom'),em=d.get('email'),ac=d.get('activite'),ci=d.get('cible');
-    window.location.href='mailto:benieralexis@gmail.com?subject=Demande rapport Krest - '+p+'&body=Prenom: '+p+'%0AEmail: '+em+'%0AActivite: '+ac+'%0ACible: '+ci;
-    b.innerHTML='Recevoir mon rapport gratuit';b.style.opacity='1';b.disabled=false;
-  });
-  return false;
-}
-
-// Smooth scroll
-document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{
-  e.preventDefault();const t=document.querySelector(a.getAttribute('href'));
-  if(t)t.scrollIntoView({behavior:'smooth',block:'start'});
-}));
-</script>
-<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<script src="js/landing.js"></script>
 </body>
 </html>

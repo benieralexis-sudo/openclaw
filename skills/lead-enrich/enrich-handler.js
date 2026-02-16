@@ -107,6 +107,9 @@ Actions :
 - "top_leads" : voir les meilleurs leads
   Params: {"limit": 10}
   Ex: "mes meilleurs leads", "top prospects", "les leads les mieux notes", "t'as trouve des trucs interessants ?"
+- "hot_leads" : leads chauds / engages (basé sur comportement email)
+  Params: {"limit": 10}
+  Ex: "mes hot leads", "leads chauds", "leads engages", "qui est interesse ?", "qui a repondu ?", "leads les plus reactifs"
 - "enrich_credits" : credits enrichissement restants
   Ex: "combien de credits ?", "credits", "il me reste combien ?"
 - "confirm_yes" : confirmation positive
@@ -125,6 +128,7 @@ Reponds UNIQUEMENT en JSON strict :
 {"action":"enrich_single","params":{"name":"Jean Dupont","company":"Acme"}}
 {"action":"enrich_hubspot","params":{"limit":20}}
 {"action":"top_leads","params":{"limit":10}}
+{"action":"hot_leads","params":{"limit":10}}
 {"action":"help"}`;
 
     try {
@@ -191,6 +195,9 @@ Reponds UNIQUEMENT en JSON strict :
       case 'top_leads':
         return await this._handleTopLeads(chatId, command.params || {}, sendReply);
 
+      case 'hot_leads':
+        return await this._handleHotLeads(chatId, command.params || {}, sendReply);
+
       case 'enrich_credits':
         return await this._handleEnrichCredits(chatId);
 
@@ -242,10 +249,15 @@ Reponds UNIQUEMENT en JSON strict :
 
     // Par email
     if (params.email && params.email.includes('@')) {
-      // Verifier cache
+      // Verifier cache (90 jours)
       const cached = storage.getEnrichedLead(params.email);
-      if (cached) {
-        return { type: 'text', content: this._formatEnrichedProfile(cached) + '\n\n_Enrichi le ' + new Date(cached.enrichedAt).toLocaleDateString('fr-FR') + ' (cache)_' };
+      if (cached && cached.enrichedAt) {
+        const ageMs = Date.now() - new Date(cached.enrichedAt).getTime();
+        const MAX_CACHE_AGE = 90 * 24 * 60 * 60 * 1000; // 90 jours
+        if (ageMs < MAX_CACHE_AGE) {
+          const ageDays = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+          return { type: 'text', content: this._formatEnrichedProfile(cached) + '\n\n_Donnees du cache (enrichi il y a ' + ageDays + ' jour' + (ageDays > 1 ? 's' : '') + ')_' };
+        }
       }
 
       if (sendReply) await sendReply({ type: 'text', content: '🔍 _Enrichissement de ' + params.email + ' via FullEnrich (15+ sources)..._\n⏳ _~60 secondes_' });
@@ -286,6 +298,16 @@ Reponds UNIQUEMENT en JSON strict :
     storage.trackEnrichCredit();
     storage.logActivity(chatId, 'enrich_single', { email: email });
 
+    // UPGRADE 1 : Calculer le behavior score si des events email existent
+    try {
+      const behaviorData = this.classifier.calculateBehaviorScore(email);
+      if (behaviorData.behaviorScore !== 0 || behaviorData.signals.length > 0) {
+        storage.updateLeadScore(email, behaviorData);
+      }
+    } catch (e) {
+      log.warn('lead-enrich', 'Erreur calcul behavior score:', e.message);
+    }
+
     const lead = storage.getEnrichedLead(email);
 
     return { type: 'text', content: this._formatEnrichedProfile(lead) };
@@ -312,10 +334,15 @@ Reponds UNIQUEMENT en JSON strict :
       const result = await hsBreaker.call(() => retryAsync(() => hubspot.listContacts(100), 2, 2000));
       const contacts = result.contacts || [];
 
-      // Filtrer ceux qui ont des donnees manquantes et pas encore enrichis
+      // Filtrer ceux qui ont des donnees manquantes et pas encore enrichis (ou cache expire > 90 jours)
+      const MAX_CACHE_AGE = 90 * 24 * 60 * 60 * 1000; // 90 jours
       const toEnrich = contacts.filter(c => {
         if (!c.email) return false;
-        if (storage.isAlreadyEnriched(c.email)) return false;
+        const existingLead = storage.getEnrichedLead(c.email);
+        if (existingLead && existingLead.enrichedAt) {
+          const ageMs = Date.now() - new Date(existingLead.enrichedAt).getTime();
+          if (ageMs < MAX_CACHE_AGE) return false; // Deja enrichi recemment
+        }
         return !c.jobtitle || !c.company || !c.phone;
       });
 
@@ -387,9 +414,15 @@ Reponds UNIQUEMENT en JSON strict :
   }
 
   _prepareAutomailerBatch(chatId, list) {
+    const MAX_CACHE_AGE = 90 * 24 * 60 * 60 * 1000; // 90 jours
     const toEnrich = list.contacts.filter(c => {
       if (!c.email) return false;
-      return !storage.isAlreadyEnriched(c.email);
+      const existingLead = storage.getEnrichedLead(c.email);
+      if (existingLead && existingLead.enrichedAt) {
+        const ageMs = Date.now() - new Date(existingLead.enrichedAt).getTime();
+        if (ageMs < MAX_CACHE_AGE) return false; // Deja enrichi recemment
+      }
+      return true;
     });
 
     if (toEnrich.length === 0) {
@@ -615,7 +648,18 @@ Reponds UNIQUEMENT en JSON strict :
 
     const lead = storage.getEnrichedLead(email);
     if (lead) {
-      return { type: 'text', content: this._formatEnrichedProfile(lead) };
+      // UPGRADE 1 : Recalculer le behavior score a chaque consultation
+      try {
+        const behaviorData = this.classifier.calculateBehaviorScore(email);
+        if (behaviorData.behaviorScore !== 0 || behaviorData.signals.length > 0) {
+          storage.updateLeadScore(email, behaviorData);
+        }
+      } catch (e) {
+        log.warn('lead-enrich', 'Erreur calcul behavior score:', e.message);
+      }
+
+      const updatedLead = storage.getEnrichedLead(email);
+      return { type: 'text', content: this._formatEnrichedProfile(updatedLead) };
     }
 
     // Pas encore enrichi -> lancer l'enrichissement
@@ -644,6 +688,112 @@ Reponds UNIQUEMENT en JSON strict :
       if (c.persona) lines.push('   👤 ' + c.persona + ' | ' + (c.companySize || ''));
       lines.push('');
     });
+
+    return { type: 'text', content: lines.join('\n') };
+  }
+
+  async _handleHotLeads(chatId, params, sendReply) {
+    const limit = params.limit || 10;
+
+    // Methode 1 : Leads enrichis avec behaviorScore >= 5
+    const hotFromEnrich = storage.getHotLeads(limit);
+
+    // Methode 2 : Hot leads depuis AutoMailer (cross-skill)
+    let hotFromAutomailer = [];
+    try {
+      const automailerStorage = getAutomailerStorage();
+      if (automailerStorage && automailerStorage.getHotLeads) {
+        hotFromAutomailer = automailerStorage.getHotLeads();
+      }
+    } catch (e) {
+      log.warn('lead-enrich', 'Erreur lecture hot leads automailer:', e.message);
+    }
+
+    // Fusionner et deduper par email
+    const seen = new Set();
+    const allHotLeads = [];
+
+    // D'abord les leads enrichis avec behavior score
+    for (const lead of hotFromEnrich) {
+      const key = (lead.email || '').toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        allHotLeads.push({
+          email: key,
+          name: lead.enrichData ? (lead.enrichData.person || {}).fullName : null,
+          title: lead.enrichData ? (lead.enrichData.person || {}).title : null,
+          company: lead.enrichData ? (lead.enrichData.organization || {}).name : null,
+          staticScore: lead.aiClassification ? lead.aiClassification.score : null,
+          behaviorScore: lead.behaviorScore || 0,
+          combinedScore: lead.combinedScore || 0,
+          signals: lead.behaviorSignals || [],
+          hotLead: true,
+          source: 'enrichi'
+        });
+      }
+    }
+
+    // Ensuite les hot leads automailer non enrichis
+    for (const hl of hotFromAutomailer) {
+      const key = (hl.email || '').toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        // Calculer le behavior score pour ce lead
+        let behaviorData = { behaviorScore: 0, signals: [], hotLead: false };
+        try {
+          behaviorData = this.classifier.calculateBehaviorScore(key);
+        } catch (e) {}
+
+        allHotLeads.push({
+          email: key,
+          name: null,
+          title: null,
+          company: null,
+          staticScore: null,
+          behaviorScore: behaviorData.behaviorScore,
+          combinedScore: behaviorData.behaviorScore,
+          signals: behaviorData.signals,
+          hotLead: true,
+          source: 'automailer',
+          opens: hl.opens || 0,
+          clicks: hl.clicks || 0,
+          replied: hl.replied || false
+        });
+      }
+    }
+
+    if (allHotLeads.length === 0) {
+      return { type: 'text', content: '📭 Aucun lead chaud pour l\'instant.\n\n💡 Les leads deviennent "chauds" quand ils ouvrent tes emails 3+ fois, cliquent, ou repondent.\n\n👉 _"enrichis jean@example.com"_ pour enrichir un lead' };
+    }
+
+    // Trier par score combine decroissant
+    allHotLeads.sort((a, b) => (b.combinedScore || b.behaviorScore) - (a.combinedScore || a.behaviorScore));
+    const display = allHotLeads.slice(0, limit);
+
+    const lines = ['🔥 *LEADS CHAUDS* (engagement email)', '━━━━━━━━━━━━━━━━━━', ''];
+
+    display.forEach((lead, i) => {
+      const name = lead.name || lead.email;
+      const scoreDisplay = lead.staticScore ? lead.staticScore + '/10' : '-';
+      const behaviorDisplay = lead.behaviorScore > 0 ? '+' + lead.behaviorScore : String(lead.behaviorScore);
+
+      lines.push('🔥 *' + (i + 1) + '. ' + name + '*');
+      if (lead.title || lead.company) {
+        lines.push('   💼 ' + (lead.title || '?') + (lead.company ? ' @ ' + lead.company : ''));
+      }
+      lines.push('   📧 ' + lead.email);
+      lines.push('   📊 Score statique: ' + scoreDisplay + ' | Comportement: ' + behaviorDisplay);
+      if (lead.signals && lead.signals.length > 0) {
+        lines.push('   ⚡ ' + lead.signals.slice(0, 3).join(' | '));
+      }
+      if (lead.replied) {
+        lines.push('   ✉️ *A REPONDU*');
+      }
+      lines.push('');
+    });
+
+    lines.push('━━━━━━━━━━━━━━━━━━');
+    lines.push('💡 _Un lead est "chaud" si son score comportemental >= 5_');
 
     return { type: 'text', content: lines.join('\n') };
   }
@@ -814,7 +964,9 @@ Reponds UNIQUEMENT en JSON strict :
     if (location) lines.push('📍 ' + location + (o.foundedYear ? ' | Fondee en ' + o.foundedYear : ''));
 
     lines.push('');
-    if (p.email || lead.email) lines.push('📧 ' + (p.email || lead.email));
+    const fe = src._fullenrich || {};
+    const emailStatusIcon = fe.emailStatus === 'DELIVERABLE' ? ' ✅' : fe.emailStatus === 'HIGH_PROBABILITY' ? ' 🟡' : fe.emailStatus === 'CATCH_ALL' ? ' ⚠️' : '';
+    if (p.email || lead.email) lines.push('📧 ' + (p.email || lead.email) + emailStatusIcon);
     if (p.phone) lines.push('📞 ' + p.phone);
     if (p.linkedinUrl) lines.push('🔗 ' + p.linkedinUrl);
     if (o.website) lines.push('🌐 ' + o.website);
@@ -824,6 +976,23 @@ Reponds UNIQUEMENT en JSON strict :
     lines.push(scoreIcon + ' *Score : ' + (c.score || '?') + '/10*');
     if (c.persona) lines.push('👤 ' + c.persona);
     if (c.scoreExplanation) lines.push('💡 _"' + c.scoreExplanation + '"_');
+
+    // UPGRADE 1 : Afficher le behavior score si disponible
+    if (lead.behaviorScore !== undefined && lead.behaviorScore !== 0) {
+      lines.push('');
+      lines.push('⚡ *Engagement email :* ' + (lead.behaviorScore > 0 ? '+' : '') + lead.behaviorScore + ' pts');
+      if (lead.hotLead) {
+        lines.push('🔥 *HOT LEAD*');
+      }
+      if (lead.behaviorSignals && lead.behaviorSignals.length > 0) {
+        lead.behaviorSignals.forEach(function(signal) {
+          lines.push('   • ' + signal);
+        });
+      }
+      if (lead.combinedScore) {
+        lines.push('📊 Score combine : ' + lead.combinedScore + '/10');
+      }
+    }
 
     return lines.join('\n');
   }
@@ -843,6 +1012,7 @@ Reponds UNIQUEMENT en JSON strict :
       '',
       '📊 *Rapports :*',
       '  _"leads prioritaires"_',
+      '  _"leads chauds"_ / _"hot leads"_',
       '  _"rapport enrichissement"_',
       '  _"credits"_',
       '',

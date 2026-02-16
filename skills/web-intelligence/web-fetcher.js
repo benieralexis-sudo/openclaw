@@ -1,15 +1,37 @@
 // Web Intelligence - Collecte HTTP + parsing regex RSS/HTML
 const https = require('https');
 const http = require('http');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class WebFetcher {
   constructor() {
-    this.userAgent = 'Mozilla/5.0 (compatible; MoltBot/1.0; +https://moltbot.io)';
+    this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     this.timeout = 15000;
     this.maxRedirects = 3;
+    this.maxResponseSize = 5 * 1024 * 1024; // 5 MB max
   }
 
   // --- Fetch HTTP generique ---
+
+  // SSRF protection: bloquer les IPs privees/locales
+  _isPrivateHost(hostname) {
+    // Bloquer localhost
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0') return true;
+    // Bloquer les plages privees
+    const parts = hostname.split('.');
+    if (parts.length === 4 && parts.every(p => /^\d+$/.test(p))) {
+      const a = parseInt(parts[0]);
+      const b = parseInt(parts[1]);
+      if (a === 10) return true;                          // 10.0.0.0/8
+      if (a === 172 && b >= 16 && b <= 31) return true;   // 172.16.0.0/12
+      if (a === 192 && b === 168) return true;             // 192.168.0.0/16
+      if (a === 169 && b === 254) return true;             // 169.254.0.0/16 (link-local)
+      if (a === 127) return true;                          // 127.0.0.0/8
+    }
+    return false;
+  }
 
   fetchUrl(url, redirectCount) {
     redirectCount = redirectCount || 0;
@@ -28,6 +50,16 @@ class WebFetcher {
         return reject(new Error('URL invalide: ' + url));
       }
 
+      // SSRF protection
+      if (this._isPrivateHost(parsedUrl.hostname)) {
+        return reject(new Error('Acces bloque: adresse privee/locale'));
+      }
+
+      const isRss = /rss|feed|atom|xml/i.test(parsedUrl.pathname + parsedUrl.search);
+      const acceptHeader = isRss
+        ? 'application/rss+xml,application/xml;q=0.9,*/*;q=0.8'
+        : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+
       const options = {
         hostname: parsedUrl.hostname,
         port: parsedUrl.port || (isHttps ? 443 : 80),
@@ -35,7 +67,7 @@ class WebFetcher {
         method: 'GET',
         headers: {
           'User-Agent': this.userAgent,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept': acceptHeader,
           'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.5'
         }
       };
@@ -51,8 +83,17 @@ class WebFetcher {
         }
 
         let data = '';
+        let truncated = false;
         res.setEncoding('utf8');
-        res.on('data', (chunk) => { data += chunk; });
+        res.on('data', (chunk) => {
+          if (truncated) return;
+          data += chunk;
+          if (data.length > this.maxResponseSize) {
+            truncated = true;
+            data = data.substring(0, this.maxResponseSize);
+            req.destroy();
+          }
+        });
         res.on('end', () => {
           resolve({
             statusCode: res.statusCode,
@@ -80,18 +121,52 @@ class WebFetcher {
     const url = 'https://news.google.com/rss/search?q=' + query + '&hl=fr&gl=FR&ceid=FR:fr';
 
     try {
-      const result = await this.fetchUrl(url);
+      const breaker = getBreaker('web-fetch', { failureThreshold: 5, cooldownMs: 30000 });
+      const result = await breaker.call(() => retryAsync(() => this.fetchUrl(url), 2, 2000));
+      if (result.statusCode === 403) {
+        log.warn('web-fetcher', 'Google News 403 — fallback Bing News pour: ' + keywords.join(', '));
+        return this._fetchBingNews(keywords);
+      }
       if (result.statusCode !== 200) {
-        console.log('[web-fetcher] Google News HTTP ' + result.statusCode + ' pour: ' + keywords.join(', '));
-        return [];
+        log.warn('web-fetcher', 'Google News HTTP ' + result.statusCode + ' pour: ' + keywords.join(', '));
+        return this._fetchBingNews(keywords);
       }
       const articles = this.parseRssXml(result.body);
+      if (articles.length === 0) {
+        log.warn('web-fetcher', 'Google News 0 articles — fallback Bing News pour: ' + keywords.join(', '));
+        return this._fetchBingNews(keywords);
+      }
       return articles.map(a => {
         a.source = a.source || 'Google News';
         return a;
       });
     } catch (e) {
-      console.log('[web-fetcher] Erreur Google News:', e.message);
+      log.error('web-fetcher', 'Erreur Google News:', e.message, '— fallback Bing News');
+      return this._fetchBingNews(keywords);
+    }
+  }
+
+  // Fallback Bing News RSS quand Google News echoue (403 etc.)
+  async _fetchBingNews(keywords) {
+    if (!keywords || keywords.length === 0) return [];
+
+    const query = encodeURIComponent(keywords.join(' '));
+    const bingUrl = 'https://www.bing.com/news/search?q=' + query + '&format=rss';
+
+    try {
+      const breaker = getBreaker('web-fetch', { failureThreshold: 5, cooldownMs: 30000 });
+      const result = await breaker.call(() => retryAsync(() => this.fetchUrl(bingUrl), 2, 2000));
+      if (result.statusCode !== 200) {
+        log.warn('web-fetcher', 'Bing News HTTP ' + result.statusCode + ' pour: ' + keywords.join(', '));
+        return [];
+      }
+      const articles = this.parseRssXml(result.body);
+      return articles.map(a => {
+        a.source = a.source || 'Bing News';
+        return a;
+      });
+    } catch (e) {
+      log.error('web-fetcher', 'Erreur Bing News:', e.message);
       return [];
     }
   }
@@ -100,9 +175,10 @@ class WebFetcher {
 
   async fetchRss(url) {
     try {
-      const result = await this.fetchUrl(url);
+      const breaker = getBreaker('web-fetch', { failureThreshold: 5, cooldownMs: 30000 });
+      const result = await breaker.call(() => retryAsync(() => this.fetchUrl(url), 2, 2000));
       if (result.statusCode !== 200) {
-        console.log('[web-fetcher] RSS HTTP ' + result.statusCode + ' pour: ' + url);
+        log.warn('web-fetcher', 'RSS HTTP ' + result.statusCode + ' pour: ' + url);
         return [];
       }
       const articles = this.parseRssXml(result.body);
@@ -112,7 +188,7 @@ class WebFetcher {
         return a;
       });
     } catch (e) {
-      console.log('[web-fetcher] Erreur RSS ' + url + ':', e.message);
+      log.error('web-fetcher', 'Erreur RSS ' + url + ':', e.message);
       return [];
     }
   }
@@ -121,9 +197,10 @@ class WebFetcher {
 
   async scrapeWebPage(url) {
     try {
-      const result = await this.fetchUrl(url);
+      const breaker = getBreaker('web-fetch', { failureThreshold: 5, cooldownMs: 30000 });
+      const result = await breaker.call(() => retryAsync(() => this.fetchUrl(url), 2, 2000));
       if (result.statusCode !== 200) {
-        console.log('[web-fetcher] Scrape HTTP ' + result.statusCode + ' pour: ' + url);
+        log.warn('web-fetcher', 'Scrape HTTP ' + result.statusCode + ' pour: ' + url);
         return null;
       }
       const parsed = this.parseHtml(result.body);
@@ -131,7 +208,7 @@ class WebFetcher {
       parsed.source = 'Web: ' + this._extractDomain(url);
       return parsed;
     } catch (e) {
-      console.log('[web-fetcher] Erreur scrape ' + url + ':', e.message);
+      log.error('web-fetcher', 'Erreur scrape ' + url + ':', e.message);
       return null;
     }
   }

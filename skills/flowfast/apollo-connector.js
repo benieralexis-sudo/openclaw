@@ -43,6 +43,10 @@ class ApolloConnector {
       req.on('error', (e) => {
         reject(e);
       });
+      req.setTimeout(15000, () => {
+        req.destroy();
+        reject(new Error('Timeout Apollo (15s)'));
+      });
 
       req.write(postData);
       req.end();
@@ -93,7 +97,7 @@ class ApolloConnector {
       searchData.contact_email_status = ['verified'];
     }
 
-    console.log('📋 Paramètres Apollo:', JSON.stringify(searchData, null, 2));
+    console.log('[apollo] Recherche avec ' + Object.keys(searchData).length + ' criteres, limit=' + searchData.per_page);
 
     try {
       const result = await this.makeRequest('/v1/people/search', searchData);

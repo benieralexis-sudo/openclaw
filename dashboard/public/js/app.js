@@ -1,5 +1,8 @@
 /* ===== APP — MISSION CONTROL SPA ===== */
 
+// XSS escape shortcut
+const e = (s) => Utils.escapeHtml(s);
+
 const App = {
   currentPage: null,
   currentPeriod: '30d',
@@ -14,8 +17,8 @@ const App = {
 
   bindNav() {
     document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.preventDefault();
+      item.addEventListener('click', (ev) => {
+        ev.preventDefault();
         const page = item.dataset.page;
         window.location.hash = page;
       });
@@ -27,30 +30,41 @@ const App = {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
 
+    const closeSidebar = () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('visible');
+      document.body.style.overflow = '';
+      if (hamburger) hamburger.focus();
+    };
+
     if (hamburger) {
       hamburger.addEventListener('click', () => {
-        sidebar.classList.toggle('open');
+        const isOpen = sidebar.classList.toggle('open');
         overlay.classList.toggle('visible');
+        document.body.style.overflow = isOpen ? 'hidden' : '';
       });
     }
     if (overlay) {
-      overlay.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('visible');
-      });
+      overlay.addEventListener('click', closeSidebar);
     }
     // Close sidebar on nav click (mobile)
     document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('visible');
-      });
+      item.addEventListener('click', closeSidebar);
+    });
+    // Escape key closes sidebar + modals
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') {
+        if (sidebar.classList.contains('open')) closeSidebar();
+      }
     });
   },
 
   routeFromHash() {
     const hash = (window.location.hash || '#overview').replace('#', '');
     this.loadPage(hash);
+    // Reset global search
+    const gs = document.getElementById('global-search');
+    if (gs) { gs.value = ''; document.querySelectorAll('.nav-item').forEach(n => n.style.display = ''); }
   },
 
   setActiveNav(page) {
@@ -103,7 +117,7 @@ const App = {
     } catch (err) {
       if (loadId !== this._loadId) return;
       console.error('[app] Erreur page ' + page + ':', err);
-      container.innerHTML = '<div class="empty-state"><p>Erreur de chargement. <a href="#' + page + '" onclick="App.loadPage(\'' + page + '\')">Reessayer</a></p></div>';
+      container.innerHTML = '<div class="empty-state"><p>Erreur de chargement. <button class="btn-retry" data-action="retry">Réessayer</button></p></div>';
     }
   },
 
@@ -126,25 +140,25 @@ const App = {
     <div class="page-enter stagger">
       <div class="page-header">
         <div class="page-greeting">
-          <h1>Bonjour${data.ownerName ? ' ' + data.ownerName : ''}</h1>
+          <h1>Bonjour${data.ownerName ? ' ' + e(data.ownerName) : ''}</h1>
           <div class="date">${Utils.todayString()}</div>
         </div>
         <div class="page-actions">
           <div class="period-selector">
-            <button class="period-btn ${this.currentPeriod === '1d' ? 'active' : ''}" onclick="App.setPeriod('1d')">Aujourd'hui</button>
-            <button class="period-btn ${this.currentPeriod === '7d' ? 'active' : ''}" onclick="App.setPeriod('7d')">7 jours</button>
-            <button class="period-btn ${this.currentPeriod === '30d' ? 'active' : ''}" onclick="App.setPeriod('30d')">30 jours</button>
+            <button class="period-btn ${this.currentPeriod === '1d' ? 'active' : ''}" data-action="set-period" data-param="1d">Aujourd'hui</button>
+            <button class="period-btn ${this.currentPeriod === '7d' ? 'active' : ''}" data-action="set-period" data-param="7d">7 jours</button>
+            <button class="period-btn ${this.currentPeriod === '30d' ? 'active' : ''}" data-action="set-period" data-param="30d">30 jours</button>
           </div>
         </div>
       </div>
 
-      ${data.moltbotStatus && data.moltbotStatus.mode === 'standby' ? `
+      ${data.appStatus && data.appStatus.mode === 'standby' ? `
       <div class="standby-banner">
-        &#9208;&#65039; MoltBot est en <strong>mode stand-by</strong> &mdash; crons d&eacute;sactiv&eacute;s, z&eacute;ro consommation automatique. Dis <em>&laquo; active tout &raquo;</em> sur Telegram pour lancer.
+        iFIND est en <strong>mode stand-by</strong> &mdash; crons d&eacute;sactiv&eacute;s, z&eacute;ro consommation automatique. Dis <em>&laquo; active tout &raquo;</em> sur Telegram pour lancer.
       </div>
-      ` : data.moltbotStatus && data.moltbotStatus.mode === 'production' ? `
+      ` : data.appStatus && data.appStatus.mode === 'production' ? `
       <div class="production-banner">
-        &#9989; MoltBot en <strong>production</strong> &mdash; ${data.moltbotStatus.cronsActive ? '14 crons actifs' : 'crons en pause'}
+        iFIND en <strong>production</strong> &mdash; ${data.appStatus.cronsActive ? '14 crons actifs' : 'crons en pause'}
       </div>
       ` : ''}
 
@@ -194,10 +208,10 @@ const App = {
             ${data.hotLeads.map(l => `
               <div class="hot-lead-item">
                 <div class="hot-lead-info">
-                  <div class="hot-lead-avatar">${Utils.initials(l.apolloData?.name || l.email)}</div>
+                  <div class="hot-lead-avatar">${e(Utils.initials(l.apolloData?.name || l.email))}</div>
                   <div>
-                    <div class="hot-lead-name">${l.apolloData?.name || l.email}</div>
-                    <div class="hot-lead-company">${l.apolloData?.organization?.name || '—'} · ${l.opens || 0} ouvertures</div>
+                    <div class="hot-lead-name">${e(l.apolloData?.name || l.email)}</div>
+                    <div class="hot-lead-company">${e(l.apolloData?.organization?.name || '—')} · ${l.opens || 0} ouvertures</div>
                   </div>
                 </div>
                 <div class="hot-lead-actions">
@@ -217,7 +231,7 @@ const App = {
           </div>
           <div class="card-body">
             <div class="chart-container">
-              <canvas id="chart-overview"></canvas>
+              <canvas id="chart-overview" role="img" aria-label="Graphique activité 30 jours : leads, emails envoyés, emails ouverts"></canvas>
             </div>
           </div>
         </div>
@@ -229,8 +243,8 @@ const App = {
             <div class="card-body">
               ${data.nextActions.length > 0 ? data.nextActions.map(a => `
                 <div class="next-action-item">
-                  <div class="next-action-label">${a.label}</div>
-                  <div class="next-action-time">${a.time}</div>
+                  <div class="next-action-label">${e(a.label)}</div>
+                  <div class="next-action-time">${e(a.time)}</div>
                 </div>
               `).join('') : '<p style="color:var(--text-muted);font-size:13px">Aucune action programmée</p>'}
             </div>
@@ -247,7 +261,7 @@ const App = {
                     <li class="feed-item">
                       <div class="feed-dot ${f.skill}"></div>
                       <div>
-                        <div class="feed-text">${f.text}</div>
+                        <div class="feed-text">${e(f.text)}</div>
                         <div class="feed-time">${Utils.timeAgo(f.time)}</div>
                       </div>
                     </li>
@@ -271,6 +285,16 @@ const App = {
     this.loadPage('overview');
   },
 
+  setEmailPeriod(p) {
+    this._emailPeriod = p;
+    this.loadPage('emails');
+  },
+
+  setEnrichPeriod(p) {
+    this._enrichPeriod = p;
+    this.loadPage('enrichment');
+  },
+
   // ========================================
   // PAGE: Prospection (FlowFast)
   // ========================================
@@ -288,7 +312,7 @@ const App = {
         <div class="page-actions">
           <div class="search-bar">
             ${Utils.icon('search', 16)}
-            <input type="text" placeholder="Rechercher un lead..." id="search-leads" oninput="App.filterLeads()">
+            <input type="text" placeholder="Rechercher un lead..." id="search-leads">
           </div>
         </div>
       </div>
@@ -322,7 +346,7 @@ const App = {
             <div class="card-title">Leads par jour</div>
           </div>
           <div class="card-body">
-            <div class="chart-container-sm"><canvas id="chart-leads-daily"></canvas></div>
+            <div class="chart-container-sm"><canvas id="chart-leads-daily" role="img" aria-label="Graphique leads par jour sur 30 jours"></canvas></div>
           </div>
         </div>
       </div>
@@ -333,7 +357,7 @@ const App = {
             <div class="card-title">Tous les leads</div>
             <div style="display:flex;align-items:center;gap:8px">
               <span class="badge badge-blue">${leads.length}</span>
-              ${leads.length > 0 ? `<button class="btn-export" onclick="App.exportLeads()" title="Exporter CSV">${Utils.icon('download', 14)} CSV</button>` : ''}
+              ${leads.length > 0 ? `<button class="btn-export" data-action="export-leads" title="Exporter CSV">${Utils.icon('download', 14)} CSV</button>` : ''}
             </div>
           </div>
           <div class="card-body no-pad">
@@ -351,10 +375,10 @@ const App = {
                 </thead>
                 <tbody>
                   ${leads.slice(0, App._leadsPageSize || 50).map(l => `
-                    <tr class="lead-row" data-search="${(l.nom || '').toLowerCase()} ${(l.entreprise || '').toLowerCase()} ${(l.email || '').toLowerCase()}">
-                      <td style="color:var(--text-primary);font-weight:500">${l.nom || '—'}</td>
-                      <td>${l.entreprise || '—'}</td>
-                      <td>${l.email || '—'}</td>
+                    <tr class="lead-row" data-search="${e((l.nom || '').toLowerCase())} ${e((l.entreprise || '').toLowerCase())} ${e((l.email || '').toLowerCase())}">
+                      <td style="color:var(--text-primary);font-weight:500">${e(l.nom || '—')}</td>
+                      <td>${e(l.entreprise || '—')}</td>
+                      <td>${e(l.email || '—')}</td>
                       <td>${l.score ? `<span class="score-badge ${Utils.scoreClass(l.score)}">${l.score}</span>` : '—'}</td>
                       <td>${l.pushedToHubspot ? '<span class="status-dot green"></span>Oui' : '<span class="status-dot red"></span>Non'}</td>
                       <td>${Utils.formatDate(l.createdAt)}</td>
@@ -363,7 +387,7 @@ const App = {
                 </tbody>
               </table>
             </div>
-            ${leads.length > (App._leadsPageSize || 50) ? `<div style="padding:16px;text-align:center"><button class="btn-export" onclick="App.showMoreLeads()" style="padding:10px 24px">Voir plus (${leads.length - (App._leadsPageSize || 50)} restants)</button></div>` : ''}
+            ${leads.length > (App._leadsPageSize || 50) ? `<div style="padding:16px;text-align:center"><button class="btn-export" data-action="show-more-leads" style="padding:10px 24px">Voir plus (${leads.length - (App._leadsPageSize || 50)} restants)</button></div>` : ''}
             ${leads.length === 0 ? '<div class="empty-state"><p>Aucun lead trouvé</p></div>' : ''}
           </div>
         </div>
@@ -381,6 +405,7 @@ const App = {
 
   _leadsPageSize: 50,
   _leadsCache: null,
+  _debouncedFilter: Utils.debounce(() => App.filterLeads(), 200),
 
   filterLeads() {
     const q = (document.getElementById('search-leads')?.value || '').toLowerCase();
@@ -403,23 +428,79 @@ const App = {
       l.score || '', l.pushedToHubspot ? 'Oui' : 'Non',
       l.createdAt ? new Date(l.createdAt).toLocaleDateString('fr-FR') : ''
     ]);
-    Utils.exportCSV(headers, rows, 'leads-krest-' + new Date().toISOString().slice(0, 10) + '.csv');
+    Utils.exportCSV(headers, rows, 'leads-ifind-' + new Date().toISOString().slice(0, 10) + '.csv');
+  },
+
+  async exportEmails() {
+    const data = await API.emails();
+    if (!data || !data.emails) return;
+    const headers = ['Destinataire', 'Objet', 'Statut', 'Campagne', 'Date'];
+    const rows = data.emails.map(em => [
+      em.to || '', em.subject || '', em.status || '',
+      em.campaignName || '', em.createdAt ? new Date(em.createdAt).toLocaleDateString('fr-FR') : ''
+    ]);
+    Utils.exportCSV(headers, rows, 'emails-ifind-' + new Date().toISOString().slice(0, 10) + '.csv');
+  },
+
+  async exportInvoices() {
+    const data = await API.invoices();
+    if (!data || !data.invoices) return;
+    const headers = ['Numéro', 'Client', 'Montant', 'Statut', 'Date'];
+    const rows = data.invoices.map(i => {
+      const client = (data.clients || []).find(c => c.id === i.clientId);
+      return [
+        i.number || i.id || '', client?.name || client?.company || '',
+        i.total || 0, i.status || '',
+        i.createdAt ? new Date(i.createdAt).toLocaleDateString('fr-FR') : ''
+      ];
+    });
+    Utils.exportCSV(headers, rows, 'factures-ifind-' + new Date().toISOString().slice(0, 10) + '.csv');
   },
 
   // ========================================
   // PAGE: Emails (AutoMailer)
   // ========================================
+  _emailPeriod: 'all',
+
   async renderEmails(container) {
     const data = await API.emails();
     if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
 
-    const s = data.stats;
     const campaigns = data.campaigns || [];
+
+    // Filtre par période
+    const allEmails = data.emails || [];
+    const now = Date.now();
+    const periodMs = { '1d': 86400000, '7d': 604800000, '30d': 2592000000 };
+    const cutoff = this._emailPeriod !== 'all' ? now - (periodMs[this._emailPeriod] || 0) : 0;
+    const emails = cutoff ? allEmails.filter(em => new Date(em.createdAt).getTime() > cutoff) : allEmails;
+
+    const sent = emails.filter(em => ['sent', 'delivered', 'opened'].includes(em.status)).length;
+    const delivered = emails.filter(em => ['delivered', 'opened'].includes(em.status)).length;
+    const opened = emails.filter(em => em.status === 'opened').length;
+    const bounced = emails.filter(em => em.status === 'bounced').length;
+    const s = { sent, delivered, opened, bounced, openRate: sent > 0 ? Math.round((opened / sent) * 100) : 0, totalCampaigns: campaigns.length, totalContacts: (data.contactLists || []).reduce((a, cl) => a + (cl.contacts?.length || 0), 0) };
+
+    // Filtrer campagnes et top emails par période
+    const filteredCampaigns = cutoff ? campaigns.filter(c => new Date(c.createdAt || 0).getTime() > cutoff) : campaigns;
+    const topEmails = emails
+      .filter(em => em.status === 'opened')
+      .sort((a, b) => (b.openedAt || '').localeCompare(a.openedAt || ''))
+      .slice(0, 5);
 
     container.innerHTML = `
     <div class="page-enter stagger">
       <div class="page-header">
         <h1 class="page-title">${Utils.icon('mail')} Emails</h1>
+        <div class="page-actions">
+          <div class="period-selector">
+            <button class="period-btn ${this._emailPeriod === '1d' ? 'active' : ''}" data-action="set-email-period" data-param="1d">Aujourd'hui</button>
+            <button class="period-btn ${this._emailPeriod === '7d' ? 'active' : ''}" data-action="set-email-period" data-param="7d">7 jours</button>
+            <button class="period-btn ${this._emailPeriod === '30d' ? 'active' : ''}" data-action="set-email-period" data-param="30d">30 jours</button>
+            <button class="period-btn ${this._emailPeriod === 'all' ? 'active' : ''}" data-action="set-email-period" data-param="all">Tout</button>
+          </div>
+          ${s.sent > 0 ? `<button class="btn-export" data-action="export-emails" title="Exporter CSV">${Utils.icon('download', 14)} CSV</button>` : ''}
+        </div>
       </div>
 
       <div class="kpi-grid">
@@ -448,10 +529,10 @@ const App = {
       <div class="grid-full">
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Taux d'ouverture — 30 jours</div>
+            <div class="card-title">Taux d'ouverture${this._emailPeriod === '1d' ? " — aujourd'hui" : this._emailPeriod === '7d' ? ' — 7 jours' : this._emailPeriod === '30d' ? ' — 30 jours' : ''}</div>
           </div>
           <div class="card-body">
-            <div class="chart-container-sm"><canvas id="chart-open-rate"></canvas></div>
+            <div class="chart-container-sm"><canvas id="chart-open-rate" role="img" aria-label="Graphique taux d'ouverture emails sur 30 jours"></canvas></div>
           </div>
         </div>
       </div>
@@ -460,16 +541,16 @@ const App = {
         <div class="card">
           <div class="card-header">
             <div class="card-title">Campagnes</div>
-            <span class="badge badge-purple">${campaigns.length}</span>
+            <span class="badge badge-purple">${filteredCampaigns.length}</span>
           </div>
           <div class="card-body no-pad">
             <div class="table-wrapper">
               <table class="data-table">
                 <thead><tr><th>Nom</th><th>Statut</th><th>Contacts</th><th>Date</th></tr></thead>
                 <tbody>
-                  ${campaigns.map(c => `
+                  ${filteredCampaigns.map(c => `
                     <tr>
-                      <td style="color:var(--text-primary);font-weight:500">${c.name || 'Sans nom'}</td>
+                      <td style="color:var(--text-primary);font-weight:500">${e(c.name || 'Sans nom')}</td>
                       <td>${Utils.statusBadge(c.status)}</td>
                       <td>${c.totalContacts || 0}</td>
                       <td>${Utils.formatDate(c.createdAt)}</td>
@@ -478,7 +559,7 @@ const App = {
                 </tbody>
               </table>
             </div>
-            ${campaigns.length === 0 ? '<div class="empty-state"><p>Aucune campagne</p></div>' : ''}
+            ${filteredCampaigns.length === 0 ? '<div class="empty-state"><p>Aucune campagne</p></div>' : ''}
           </div>
         </div>
 
@@ -491,28 +572,31 @@ const App = {
               <table class="data-table">
                 <thead><tr><th>Destinataire</th><th>Objet</th><th>Statut</th></tr></thead>
                 <tbody>
-                  ${(data.topEmails || []).map(e => `
+                  ${topEmails.map(em => `
                     <tr>
-                      <td>${e.to || '—'}</td>
-                      <td style="color:var(--text-primary)">${Utils.truncate(e.subject, 40)}</td>
-                      <td>${Utils.statusBadge(e.status)}</td>
+                      <td>${e(em.to || '—')}</td>
+                      <td style="color:var(--text-primary)">${e(Utils.truncate(em.subject, 40))}</td>
+                      <td>${Utils.statusBadge(em.status)}</td>
                     </tr>
                   `).join('')}
                 </tbody>
               </table>
             </div>
-            ${(data.topEmails || []).length === 0 ? '<div class="empty-state"><p>Aucun email ouvert</p></div>' : ''}
+            ${topEmails.length === 0 ? '<div class="empty-state"><p>Aucun email ouvert</p></div>' : ''}
           </div>
         </div>
       </div>
     </div>`;
 
+    // Filtrer les données du graphique selon la période
     if (data.dailyOpenRate) {
-      const labels = data.dailyOpenRate.map(d => {
+      const chartDays = this._emailPeriod === '1d' ? 1 : this._emailPeriod === '7d' ? 7 : this._emailPeriod === '30d' ? 30 : data.dailyOpenRate.length;
+      const chartData = data.dailyOpenRate.slice(-chartDays);
+      const labels = chartData.map(d => {
         const date = new Date(d.date);
         return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
       });
-      Charts.areaChart('chart-open-rate', labels, data.dailyOpenRate.map(d => d.rate), '#8b5cf6', "Taux d'ouverture %");
+      Charts.areaChart('chart-open-rate', labels, chartData.map(d => d.rate), '#8b5cf6', "Taux d'ouverture %");
     }
   },
 
@@ -574,20 +658,20 @@ const App = {
             <div class="card-title">Pipeline</div>
           </div>
           <div class="card-body">
-            <div class="pipeline-board">
+            <div class="pipeline-board" role="list" aria-label="Pipeline CRM">
               ${stages.map(stage => `
-                <div class="pipeline-column">
+                <div class="pipeline-column" role="listitem" aria-label="${e(stage)} (${dealsByStage[stage].length})">
                   <div class="pipeline-column-header">
-                    ${stage}
+                    ${e(stage)}
                     <span class="pipeline-count">${dealsByStage[stage].length}</span>
                   </div>
                   ${dealsByStage[stage].map(d => {
                     const props = d.properties || d;
                     const daysSince = props.createdAt ? Math.floor((Date.now() - new Date(props.createdAt).getTime()) / 86400000) : 0;
                     return `
-                    <div class="pipeline-card ${daysSince > 7 ? 'stagnant' : ''}">
-                      <div class="pipeline-card-name">${props.dealname || props.name || '—'}</div>
-                      <div class="pipeline-card-company">${props.company || '—'}</div>
+                    <div class="pipeline-card ${daysSince > 7 ? 'stagnant' : ''}" role="article">
+                      <div class="pipeline-card-name">${e(props.dealname || props.name || '—')}</div>
+                      <div class="pipeline-card-company">${e(props.company || '—')}</div>
                       <div class="pipeline-card-footer">
                         <div class="pipeline-card-amount">${props.amount ? Utils.formatCurrency(props.amount) : '—'}</div>
                         <div class="pipeline-card-days">${daysSince}j</div>
@@ -614,8 +698,8 @@ const App = {
                 <tbody>
                   ${log.slice(-20).reverse().map(l => `
                     <tr>
-                      <td style="color:var(--text-primary);font-weight:500">${l.action || '—'}</td>
-                      <td>${Utils.truncate(JSON.stringify(l.details || {}), 60)}</td>
+                      <td style="color:var(--text-primary);font-weight:500">${e(l.action || '—')}</td>
+                      <td>${e(Utils.truncate(JSON.stringify(l.details || {}), 60))}</td>
                       <td>${Utils.formatDateTime(l.createdAt)}</td>
                     </tr>
                   `).join('')}
@@ -632,19 +716,38 @@ const App = {
   // ========================================
   // PAGE: Enrichissement (Lead Enrich)
   // ========================================
+  _enrichPeriod: 'all',
+
   async renderEnrichment(container) {
     const data = await API.enrichment();
     if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
 
-    const s = data.stats;
     const apollo = data.apollo || {};
-    const enriched = (data.enriched || []).sort((a, b) => (b.enrichedAt || '').localeCompare(a.enrichedAt || ''));
+
+    // Filtre par période
+    const allEnriched = (data.enriched || []).sort((a, b) => (b.enrichedAt || '').localeCompare(a.enrichedAt || ''));
+    const now = Date.now();
+    const periodMs = { '1d': 86400000, '7d': 604800000, '30d': 2592000000 };
+    const cutoff = this._enrichPeriod !== 'all' ? now - (periodMs[this._enrichPeriod] || 0) : 0;
+    const enriched = cutoff ? allEnriched.filter(en => new Date(en.enrichedAt).getTime() > cutoff) : allEnriched;
+
+    const s = {
+      total: enriched.length,
+      avgScore: enriched.length > 0 ? Math.round(enriched.reduce((a, en) => a + (en.aiClassification?.score || 0), 0) / enriched.length * 10) / 10 : 0
+    };
     const creditPercent = apollo.creditsLimit ? Math.round((apollo.creditsUsed / apollo.creditsLimit) * 100) : 0;
 
     container.innerHTML = `
     <div class="page-enter stagger">
       <div class="page-header">
         <h1 class="page-title">${Utils.icon('search')} Enrichissement</h1>
+        <div class="page-actions">
+          <div class="period-selector">
+            <button class="period-btn ${this._enrichPeriod === '7d' ? 'active' : ''}" data-action="set-enrich-period" data-param="7d">7 jours</button>
+            <button class="period-btn ${this._enrichPeriod === '30d' ? 'active' : ''}" data-action="set-enrich-period" data-param="30d">30 jours</button>
+            <button class="period-btn ${this._enrichPeriod === 'all' ? 'active' : ''}" data-action="set-enrich-period" data-param="all">Tout</button>
+          </div>
+        </div>
       </div>
 
       <div class="kpi-grid">
@@ -685,13 +788,13 @@ const App = {
               <table class="data-table">
                 <thead><tr><th>Email</th><th>Source</th><th>Industrie</th><th>Score</th><th>Date</th></tr></thead>
                 <tbody>
-                  ${enriched.slice(0, 30).map(e => `
+                  ${enriched.slice(0, 30).map(en => `
                     <tr>
-                      <td style="color:var(--text-primary);font-weight:500">${e.email || '—'}</td>
-                      <td>${Utils.statusBadge(e.source || 'telegram')}</td>
-                      <td>${e.aiClassification?.industry || '—'}</td>
-                      <td>${e.aiClassification?.score ? `<span class="score-badge ${Utils.scoreClass(e.aiClassification.score)}">${e.aiClassification.score}</span>` : '—'}</td>
-                      <td>${Utils.formatDate(e.enrichedAt)}</td>
+                      <td style="color:var(--text-primary);font-weight:500">${e(en.email || '—')}</td>
+                      <td>${Utils.statusBadge(en.source || 'telegram')}</td>
+                      <td>${e(en.aiClassification?.industry || '—')}</td>
+                      <td>${en.aiClassification?.score ? `<span class="score-badge ${Utils.scoreClass(en.aiClassification.score)}">${en.aiClassification.score}</span>` : '—'}</td>
+                      <td>${Utils.formatDate(en.enrichedAt)}</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -750,9 +853,9 @@ const App = {
                 <tbody>
                   ${contents.slice(0, 30).map(c => `
                     <tr>
-                      <td><span class="badge badge-${typeColors[c.type] || 'gray'}">${typeLabels[c.type] || c.type}</span></td>
-                      <td style="color:var(--text-primary);font-weight:500">${Utils.truncate(c.topic, 40)}</td>
-                      <td>${Utils.truncate(c.content, 60)}</td>
+                      <td><span class="badge badge-${typeColors[c.type] || 'gray'}">${typeLabels[c.type] || e(c.type)}</span></td>
+                      <td style="color:var(--text-primary);font-weight:500">${e(Utils.truncate(c.topic, 40))}</td>
+                      <td>${e(Utils.truncate(c.content, 60))}</td>
                       <td>${Utils.formatDate(c.createdAt)}</td>
                     </tr>
                   `).join('')}
@@ -781,6 +884,9 @@ const App = {
     <div class="page-enter stagger">
       <div class="page-header">
         <h1 class="page-title">${Utils.icon('file-text')} Facturation</h1>
+        <div class="page-actions">
+          ${invoices.length > 0 ? `<button class="btn-export" data-action="export-invoices" title="Exporter CSV">${Utils.icon('download', 14)} CSV</button>` : ''}
+        </div>
       </div>
 
       <div class="kpi-grid">
@@ -810,7 +916,7 @@ const App = {
         <div class="card">
           <div class="card-header"><div class="card-title">Revenus par mois</div></div>
           <div class="card-body">
-            <div class="chart-container-sm"><canvas id="chart-revenue"></canvas></div>
+            <div class="chart-container-sm"><canvas id="chart-revenue" role="img" aria-label="Graphique revenus mensuels"></canvas></div>
           </div>
         </div>
       </div>
@@ -830,8 +936,8 @@ const App = {
                     const client = clients.find(c => c.id === i.clientId);
                     return `
                     <tr>
-                      <td style="color:var(--text-primary);font-weight:600">${i.number || i.id}</td>
-                      <td>${client?.name || client?.company || '—'}</td>
+                      <td style="color:var(--text-primary);font-weight:600">${e(i.number || i.id)}</td>
+                      <td>${e(client?.name || client?.company || '—')}</td>
                       <td style="font-weight:600">${Utils.formatCurrency(i.total)}</td>
                       <td>${Utils.statusBadge(i.status)}</td>
                       <td>${Utils.formatDate(i.createdAt)}</td>
@@ -868,8 +974,7 @@ const App = {
       <div class="page-header">
         <h1 class="page-title">${Utils.icon('bot')} Agent Proactif</h1>
         <div class="page-actions">
-          <span style="font-size:13px;color:var(--text-muted);margin-right:8px">Mode proactif</span>
-          <div class="toggle-switch ${config.enabled !== false ? 'active' : ''}" title="Activé/Désactivé"></div>
+          <span class="badge ${config.enabled !== false ? 'badge-green' : 'badge-gray'}">${config.enabled !== false ? 'Actif' : 'Inactif'}</span>
         </div>
       </div>
 
@@ -913,7 +1018,7 @@ const App = {
           <div class="card-body">
             ${hotLeads.length > 0 ? hotLeads.slice(0, 10).map(l => `
               <div class="stat-row">
-                <span class="stat-label">${l.email}</span>
+                <span class="stat-label">${e(l.email)}</span>
                 <span class="stat-value">${l.opens || 0} ouvertures</span>
               </div>
             `).join('') : '<p style="color:var(--text-muted);font-size:13px">Aucun hot lead</p>'}
@@ -934,7 +1039,7 @@ const App = {
                   ${alerts.slice(0, 20).map(a => `
                     <tr>
                       <td><span class="badge badge-blue">${a.type || '—'}</span></td>
-                      <td>${Utils.truncate(a.message, 80)}</td>
+                      <td>${e(Utils.truncate(a.message, 80))}</td>
                       <td>${Utils.formatDateTime(a.sentAt)}</td>
                     </tr>
                   `).join('')}
@@ -954,7 +1059,7 @@ const App = {
             <span style="font-size:12px;color:var(--text-muted)">${Utils.formatDateTime(data.briefing.generatedAt)}</span>
           </div>
           <div class="card-body">
-            <div class="content-preview">${data.briefing.text || 'Aucun briefing'}</div>
+            <div class="content-preview">${e(data.briefing.text || 'Aucun briefing')}</div>
           </div>
         </div>
       </div>
@@ -1011,7 +1116,7 @@ const App = {
           <div class="card-body" style="display:flex;align-items:center;justify-content:center;padding:32px">
             <div class="gauge-container">
               <div class="gauge-wrapper">
-                <canvas id="chart-health-score" width="120" height="120"></canvas>
+                <canvas id="chart-health-score" width="120" height="120" role="img" aria-label="Jauge score de santé système"></canvas>
                 <div class="gauge-value">${lastAccuracy}%</div>
               </div>
               <div class="gauge-label">Précision globale</div>
@@ -1034,9 +1139,9 @@ const App = {
                 <tbody>
                   ${pending.map(r => `
                     <tr>
-                      <td style="color:var(--text-primary);font-weight:500">${r.title}</td>
-                      <td>${r.targetSkill || '—'}</td>
-                      <td><span class="badge badge-${r.priority === 'high' ? 'red' : r.priority === 'medium' ? 'orange' : 'gray'}">${r.priority || 'normal'}</span></td>
+                      <td style="color:var(--text-primary);font-weight:500">${e(r.title)}</td>
+                      <td>${e(r.targetSkill || '—')}</td>
+                      <td><span class="badge badge-${r.priority === 'high' ? 'red' : r.priority === 'medium' ? 'orange' : 'gray'}">${e(r.priority || 'normal')}</span></td>
                       <td>${Utils.formatDate(r.createdAt)}</td>
                     </tr>
                   `).join('')}
@@ -1059,7 +1164,7 @@ const App = {
                 <tbody>
                   ${applied.slice(-15).reverse().map(r => `
                     <tr>
-                      <td style="color:var(--text-primary)">${r.title}</td>
+                      <td style="color:var(--text-primary)">${e(r.title)}</td>
                       <td>${Utils.statusBadge(r.status)}</td>
                       <td>${Utils.formatDate(r.appliedAt)}</td>
                     </tr>
@@ -1134,9 +1239,9 @@ const App = {
                 <tbody>
                   ${watches.map(w => `
                     <tr>
-                      <td style="color:var(--text-primary);font-weight:500">${w.name}</td>
-                      <td><span class="badge badge-${typeColors[w.type] || 'gray'}">${typeLabels[w.type] || w.type}</span></td>
-                      <td>${(w.keywords || []).slice(0, 3).join(', ')}</td>
+                      <td style="color:var(--text-primary);font-weight:500">${e(w.name)}</td>
+                      <td><span class="badge badge-${typeColors[w.type] || 'gray'}">${typeLabels[w.type] || e(w.type)}</span></td>
+                      <td>${e((w.keywords || []).slice(0, 3).join(', '))}</td>
                       <td>${w.articleCount || 0}</td>
                       <td>${Utils.timeAgo(w.lastCheckedAt)}</td>
                     </tr>
@@ -1156,7 +1261,7 @@ const App = {
             ${analyses.slice(-5).reverse().map(a => `
               <div class="stat-row" style="flex-direction:column;align-items:flex-start;gap:4px">
                 <span class="stat-label">${Utils.formatDateTime(a.generatedAt)}</span>
-                <div class="content-preview" style="width:100%;max-height:80px">${Utils.truncate(a.content, 200)}</div>
+                <div class="content-preview" style="width:100%;max-height:80px">${e(Utils.truncate(a.content, 200))}</div>
               </div>
             `).join('')}
             ${analyses.length === 0 ? '<p style="color:var(--text-muted);font-size:13px">Aucun digest</p>' : ''}
@@ -1176,8 +1281,8 @@ const App = {
                 <tbody>
                   ${articles.slice(0, 25).map(a => `
                     <tr>
-                      <td style="color:var(--text-primary);font-weight:500;white-space:normal;max-width:300px">${Utils.truncate(a.title, 60)}</td>
-                      <td>${a.source || '—'}</td>
+                      <td style="color:var(--text-primary);font-weight:500;white-space:normal;max-width:300px">${e(Utils.truncate(a.title, 60))}</td>
+                      <td>${e(a.source || '—')}</td>
                       <td>${a.relevanceScore ? `<span class="score-badge ${Utils.scoreClass(a.relevanceScore)}">${a.relevanceScore}</span>` : '—'}</td>
                       <td>${a.isUrgent ? '<span class="status-dot orange"></span>Oui' : '—'}</td>
                       <td>${Utils.formatDate(a.fetchedAt)}</td>
@@ -1263,7 +1368,7 @@ const App = {
                   ${activeAlerts.map(a => `
                     <tr>
                       <td>${Utils.statusBadge(a.level)}</td>
-                      <td>${a.message}</td>
+                      <td>${e(a.message)}</td>
                       <td>${a.value != null ? a.value + '%' : '—'}</td>
                       <td>${a.threshold != null ? a.threshold + '%' : '—'}</td>
                       <td>${Utils.formatDateTime(a.createdAt)}</td>
@@ -1281,7 +1386,7 @@ const App = {
         <div class="card">
           <div class="card-header"><div class="card-title">Métriques système — 24h</div></div>
           <div class="card-body">
-            <div class="chart-container"><canvas id="chart-system"></canvas></div>
+            <div class="chart-container"><canvas id="chart-system" role="img" aria-label="Graphique monitoring système : RAM, CPU, disque sur 24h"></canvas></div>
           </div>
         </div>
       </div>
@@ -1295,7 +1400,7 @@ const App = {
             ${Object.entries(usage).map(([skill, u]) => `
               <div class="stat-row">
                 <div>
-                  <span class="stat-label">${skill}</span>
+                  <span class="stat-label">${e(skill)}</span>
                 </div>
                 <div style="text-align:right">
                   <span class="stat-value">${u.total || 0}</span>
@@ -1314,7 +1419,7 @@ const App = {
           <div class="card-body">
             ${Object.entries(responseTimes).map(([skill, rt]) => `
               <div class="stat-row">
-                <span class="stat-label">${skill}</span>
+                <span class="stat-label">${e(skill)}</span>
                 <span class="stat-value">${rt.avg ? Math.round(rt.avg) : 0} ms</span>
               </div>
             `).join('')}
@@ -1333,19 +1438,19 @@ const App = {
               <table class="data-table">
                 <thead><tr><th>Skill</th><th>Erreur</th><th>Aujourd'hui</th><th>Semaine</th><th>Total</th></tr></thead>
                 <tbody>
-                  ${Object.entries(errors).filter(([, e]) => e.total > 0).map(([skill, e]) => `
+                  ${Object.entries(errors).filter(([, errs]) => errs.total > 0).map(([skill, errs]) => `
                     <tr>
-                      <td style="color:var(--text-primary);font-weight:500">${skill}</td>
-                      <td style="color:var(--accent-red)">${e.recentErrors?.[0]?.message ? Utils.truncate(e.recentErrors[0].message, 50) : '—'}</td>
-                      <td>${e.today || 0}</td>
-                      <td>${e.week || 0}</td>
-                      <td>${e.total || 0}</td>
+                      <td style="color:var(--text-primary);font-weight:500">${e(skill)}</td>
+                      <td style="color:var(--accent-red)">${errs.recentErrors?.[0]?.message ? e(Utils.truncate(errs.recentErrors[0].message, 50)) : '—'}</td>
+                      <td>${errs.today || 0}</td>
+                      <td>${errs.week || 0}</td>
+                      <td>${errs.total || 0}</td>
                     </tr>
                   `).join('')}
                 </tbody>
               </table>
             </div>
-            ${Object.entries(errors).filter(([, e]) => e.total > 0).length === 0 ? '<div class="empty-state"><p>Aucune erreur</p></div>' : ''}
+            ${Object.entries(errors).filter(([, errs]) => errs.total > 0).length === 0 ? '<div class="empty-state"><p>Aucune erreur</p></div>' : ''}
           </div>
         </div>
       </div>
@@ -1385,6 +1490,61 @@ function formatUptime(seconds) {
   if (h > 0) return `${h}h ${m}min`;
   return `${m}min`;
 }
+
+// ===== Global search =====
+document.addEventListener('input', (ev) => {
+  if (ev.target.id === 'global-search') {
+    const q = ev.target.value.trim().toLowerCase();
+    if (!q) {
+      document.querySelectorAll('.nav-item').forEach(n => n.style.display = '');
+      return;
+    }
+    const pageKeywords = {
+      'overview': 'vue ensemble accueil dashboard kpi',
+      'prospection': 'leads prospects recherche flowfast apollo',
+      'emails': 'email campagne automailer envoi ouverture',
+      'crm': 'crm hubspot pipeline deals contacts',
+      'enrichment': 'enrichissement scoring apollo credits',
+      'content': 'contenu linkedin pitch email bio script',
+      'invoices': 'factures facturation clients paiement revenus',
+      'proactive': 'proactif alertes cron rapports hot leads',
+      'self-improve': 'amelioration optimisation recommandations',
+      'web-intel': 'veille intelligence articles tendances',
+      'system': 'systeme ram cpu disque erreurs uptime'
+    };
+    document.querySelectorAll('.nav-item').forEach(n => {
+      const page = n.dataset.page;
+      if (!page) return;
+      const label = (n.textContent || '').toLowerCase();
+      const kw = pageKeywords[page] || '';
+      const match = label.includes(q) || kw.includes(q);
+      n.style.display = match ? '' : 'none';
+    });
+  }
+});
+
+// ===== Event delegation (CSP-compliant — no inline handlers) =====
+document.addEventListener('click', (ev) => {
+  const target = ev.target.closest('[data-action]');
+  if (!target) return;
+  const action = target.dataset.action;
+  const param = target.dataset.param;
+
+  switch (action) {
+    case 'set-period': App.setPeriod(param); break;
+    case 'set-email-period': App.setEmailPeriod(param); break;
+    case 'set-enrich-period': App.setEnrichPeriod(param); break;
+    case 'retry': App.loadPage(App.currentPage); break;
+    case 'export-leads': App.exportLeads(); break;
+    case 'export-emails': App.exportEmails(); break;
+    case 'export-invoices': App.exportInvoices(); break;
+    case 'show-more-leads': App.showMoreLeads(); break;
+  }
+});
+
+document.addEventListener('input', (ev) => {
+  if (ev.target.id === 'search-leads') App._debouncedFilter();
+});
 
 // ===== Init =====
 document.addEventListener('DOMContentLoaded', () => App.init());

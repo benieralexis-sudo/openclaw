@@ -54,6 +54,10 @@ class HubSpotConnector {
       req.on('error', (e) => {
         reject(e);
       });
+      req.setTimeout(15000, () => {
+        req.destroy();
+        reject(new Error('Timeout HubSpot (15s)'));
+      });
 
       if (postData) {
         req.write(postData);

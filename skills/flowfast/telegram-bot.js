@@ -170,7 +170,7 @@ telegramAPI('getMe').then(result => {
     // Enregistrer les commandes du menu Telegram
     telegramAPI('setMyCommands', {
       commands: [
-        { command: 'start', description: '🦀 Demarrer Mister Krabs' },
+        { command: 'start', description: 'Demarrer iFIND' },
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(() => {});

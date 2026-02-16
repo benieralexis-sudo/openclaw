@@ -5,6 +5,9 @@ const ContactManager = require('./contact-manager.js');
 const CampaignEngine = require('./campaign-engine.js');
 const storage = require('./storage.js');
 const https = require('https');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class AutoMailerHandler {
   constructor(openaiKey, claudeKey, resendKey, senderEmail) {
@@ -156,17 +159,18 @@ JSON strict, exemples :
 {"action":"help"}`;
 
     try {
-      const response = await this.callOpenAI([
+      const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
-      ], 300);
+      ], 300), 2, 2000));
 
       let cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned);
       if (!result.action) return null;
       return result;
     } catch (error) {
-      console.log('[automailer-NLP] Erreur classifyIntent:', error.message);
+      log.error('automailer', 'Erreur classifyIntent:', error.message);
       return null;
     }
   }
@@ -259,7 +263,8 @@ JSON strict, exemples :
             }
           }
 
-          const email = await this.claude.generateSingleEmail(contact, context);
+          const claudeBreaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+          const email = await claudeBreaker.call(() => retryAsync(() => this.claude.generateSingleEmail(contact, context), 2, 2000));
           this.pendingEmails[String(chatId)] = { to: to, email: email };
 
           return { type: 'text', content: [
@@ -312,7 +317,8 @@ JSON strict, exemples :
         if (sendReply) await sendReply({ type: 'text', content: '✍️ _Modification en cours..._' });
 
         try {
-          const newEmail = await this.claude.editEmail(pendingEmail.email, instruction);
+          const claudeBreaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+          const newEmail = await claudeBreaker.call(() => retryAsync(() => this.claude.editEmail(pendingEmail.email, instruction), 2, 2000));
           pendingEmail.email = newEmail;
 
           return { type: 'text', content: [
@@ -580,10 +586,11 @@ JSON strict, exemples :
 
       case 'chat': {
         try {
-          const response = await this.callOpenAI([
+          const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+          const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
             { role: 'system', content: 'Tu es l\'assistant AutoMailer du bot Telegram. Tu aides a envoyer des emails et gerer des campagnes. Reponds en francais, 1-3 phrases max. Si perdu, donne un exemple.' },
             { role: 'user', content: text }
-          ], 200);
+          ], 200), 2, 2000));
           return { type: 'text', content: response.trim() };
         } catch (e) {
           return { type: 'text', content: 'Dis-moi ce que tu veux faire ! Exemples :\n_"envoie un email a jean@example.com"_\n_"cree une campagne"_\n_"importe des contacts"_' };
@@ -818,11 +825,12 @@ JSON strict, exemples :
     if (sendReply) await sendReply({ type: 'text', content: '📤 _Envoi en cours vers ' + pending.to + '..._' });
 
     try {
-      const result = await this.resend.sendEmail(
+      const resendBreaker = getBreaker('resend', { failureThreshold: 3, cooldownMs: 60000 });
+      const result = await resendBreaker.call(() => retryAsync(() => this.resend.sendEmail(
         pending.to,
         pending.email.subject,
         pending.email.body
-      );
+      ), 2, 2000));
 
       storage.addEmail({
         chatId: chatId,
@@ -891,7 +899,7 @@ JSON strict, exemples :
       '  _"historique emails"_ — emails envoyes',
       '',
       '━━━━━━━━━━━━━━━━━━',
-      '📧 MoltBot AutoMailer'
+      '📧 iFIND AutoMailer'
     ].join('\n');
   }
 }

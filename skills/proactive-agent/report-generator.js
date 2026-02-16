@@ -3,6 +3,7 @@
 
 const storage = require('./storage.js');
 const { getStorage, getModule } = require('../../gateway/skill-loader.js');
+const log = require('../../gateway/logger.js');
 
 function getHubSpotClient() { return getModule('hubspot-client'); }
 function getResendClient() { return getModule('resend-client'); }
@@ -14,6 +15,7 @@ class ReportGenerator {
     this.hubspotKey = options.hubspotKey;
     this.resendKey = options.resendKey;
     this.senderEmail = options.senderEmail;
+    this.ownerName = process.env.DASHBOARD_OWNER || 'le client';
   }
 
   // --- Collecte de donnees cross-skill ---
@@ -21,11 +23,13 @@ class ReportGenerator {
   async collectDailyData() {
     const data = {
       date: new Date().toISOString().split('T')[0],
-      hubspot: { contacts: 0, deals: [], pipeline: 0, stagnantDeals: [], urgentDeals: [] },
-      emails: { sent: 0, delivered: 0, opened: 0, campaigns: 0, activeCampaigns: 0 },
-      leads: { total: 0, enriched: 0, topScore: 0, recentSearches: 0 },
-      content: { generated: 0 },
-      invoices: { total: 0, draft: 0, sent: 0, paid: 0, overdue: 0, totalBilled: 0 }
+      hubspot: { contacts: 0, deals: [], pipeline: 0, stagnantDeals: [], urgentDeals: [], dealsAdvanced: [] },
+      emails: { sent: 0, delivered: 0, opened: 0, campaigns: 0, activeCampaigns: 0, opensByDay: {}, bestHour: null, topOpened: [], bounced: 0 },
+      leads: { total: 0, enriched: 0, topScore: 0, recentSearches: 0, enrichedThisWeek: 0, topLeads: [], coldLeads: [] },
+      content: { generated: 0, thisWeek: 0, byType: {} },
+      invoices: { total: 0, draft: 0, sent: 0, paid: 0, overdue: 0, totalBilled: 0 },
+      webIntel: { articlesThisWeek: 0, competitorAlerts: 0, relevantArticles: [] },
+      budget: { todaySpent: 0, weekSpent: 0, dailyLimit: 5, projection: 0 }
     };
 
     // HubSpot
@@ -75,10 +79,10 @@ class ReportGenerator {
         }
       }
     } catch (e) {
-      console.log('[report-gen] Erreur HubSpot:', e.message);
+      log.info('proactive-report', 'Erreur HubSpot:', e.message);
     }
 
-    // AutoMailer
+    // AutoMailer — Email Intelligence enrichie
     try {
       const automailerStorage = getStorage('automailer');
       if (automailerStorage) {
@@ -91,9 +95,64 @@ class ReportGenerator {
         data.emails.sent = allEmails.length;
         data.emails.delivered = allEmails.filter(e => e.status === 'delivered' || e.status === 'opened').length;
         data.emails.opened = allEmails.filter(e => e.status === 'opened').length;
+        data.emails.bounced = allEmails.filter(e => e.status === 'bounced').length;
+
+        // Taux d'ouverture par jour de la semaine
+        const dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+        const opensByDay = {};
+        const sentByDay = {};
+        for (const email of allEmails) {
+          if (email.sentAt) {
+            const day = dayNames[new Date(email.sentAt).getDay()];
+            sentByDay[day] = (sentByDay[day] || 0) + 1;
+            if (email.status === 'opened' || email.openedAt) {
+              opensByDay[day] = (opensByDay[day] || 0) + 1;
+            }
+          }
+        }
+        for (const day of dayNames) {
+          if (sentByDay[day]) {
+            data.emails.opensByDay[day] = {
+              sent: sentByDay[day] || 0,
+              opened: opensByDay[day] || 0,
+              rate: sentByDay[day] > 0 ? Math.round(((opensByDay[day] || 0) / sentByDay[day]) * 100) : 0
+            };
+          }
+        }
+
+        // Meilleure heure d'envoi (basee sur les ouvertures)
+        const opensByHour = {};
+        for (const email of allEmails) {
+          if ((email.status === 'opened' || email.openedAt) && email.sentAt) {
+            const hour = new Date(email.sentAt).getHours();
+            opensByHour[hour] = (opensByHour[hour] || 0) + 1;
+          }
+        }
+        let bestHour = null;
+        let bestHourCount = 0;
+        for (const [hour, count] of Object.entries(opensByHour)) {
+          if (count > bestHourCount) {
+            bestHour = parseInt(hour);
+            bestHourCount = count;
+          }
+        }
+        data.emails.bestHour = bestHour;
+
+        // Emails les plus ouverts (par destinataire)
+        const recipientOpens = {};
+        for (const email of allEmails) {
+          if (email.status === 'opened' || email.openedAt) {
+            const to = (email.to || '').toLowerCase();
+            if (!recipientOpens[to]) recipientOpens[to] = { email: to, subject: email.subject, opens: 0 };
+            recipientOpens[to].opens++;
+          }
+        }
+        data.emails.topOpened = Object.values(recipientOpens)
+          .sort((a, b) => b.opens - a.opens)
+          .slice(0, 5);
       }
     } catch (e) {
-      console.log('[report-gen] Erreur AutoMailer:', e.message);
+      log.info('proactive-report', 'Erreur AutoMailer:', e.message);
     }
 
     // FlowFast
@@ -108,29 +167,102 @@ class ReportGenerator {
         data.leads.topScore = scores.length > 0 ? Math.max(...scores) : 0;
       }
     } catch (e) {
-      console.log('[report-gen] Erreur FlowFast:', e.message);
+      log.info('proactive-report', 'Erreur FlowFast:', e.message);
     }
 
-    // Lead Enrich
+    // Lead Enrich — Lead Intelligence enrichie
     try {
       const leStorage = getStorage('lead-enrich');
       if (leStorage && leStorage.data) {
-        const leads = leStorage.data.leads || {};
+        const leads = leStorage.data.enrichedLeads || leStorage.data.leads || {};
         data.leads.enriched = Object.keys(leads).length;
+
+        // Leads enrichis cette semaine
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const enrichedThisWeek = Object.values(leads).filter(l => {
+          const enrichedAt = l.enrichedAt ? new Date(l.enrichedAt).getTime() : 0;
+          return enrichedAt > weekAgo;
+        });
+        data.leads.enrichedThisWeek = enrichedThisWeek.length;
+
+        // Top 5 leads par score
+        const scoredLeads = Object.values(leads)
+          .filter(l => l.aiClassification && l.aiClassification.score)
+          .sort((a, b) => (b.combinedScore || b.aiClassification.score || 0) - (a.combinedScore || a.aiClassification.score || 0))
+          .slice(0, 5);
+        data.leads.topLeads = scoredLeads.map(l => {
+          const p = (l.enrichData && l.enrichData.person) || (l.apolloData && l.apolloData.person) || {};
+          const o = (l.enrichData && l.enrichData.organization) || (l.apolloData && l.apolloData.organization) || {};
+          return {
+            email: l.email,
+            name: p.fullName || p.name || l.email,
+            company: o.name || '',
+            score: l.combinedScore || (l.aiClassification && l.aiClassification.score) || 0,
+            hotLead: l.hotLead || false
+          };
+        });
+
+        // Leads "refroidis" : pas d'ouverture email depuis 7j
+        try {
+          const automailerStorage = getStorage('automailer');
+          if (automailerStorage && automailerStorage.data) {
+            const allEmails = automailerStorage.data.emails || [];
+            const now = Date.now();
+            for (const lead of Object.values(leads)) {
+              if (!lead.aiClassification || (lead.aiClassification.score || 0) < 5) continue;
+              const recipientEmails = allEmails.filter(e => (e.to || '').toLowerCase() === lead.email);
+              if (recipientEmails.length === 0) continue;
+              const lastOpen = recipientEmails
+                .filter(e => e.openedAt)
+                .sort((a, b) => new Date(b.openedAt) - new Date(a.openedAt))[0];
+              const lastSent = recipientEmails.sort((a, b) => new Date(b.sentAt || b.createdAt) - new Date(a.sentAt || a.createdAt))[0];
+              const lastActivity = lastOpen ? new Date(lastOpen.openedAt).getTime() : (lastSent ? new Date(lastSent.sentAt || lastSent.createdAt).getTime() : 0);
+              if (lastActivity > 0 && (now - lastActivity) > 7 * 24 * 60 * 60 * 1000) {
+                const p = (lead.enrichData && lead.enrichData.person) || (lead.apolloData && lead.apolloData.person) || {};
+                data.leads.coldLeads.push({
+                  email: lead.email,
+                  name: p.fullName || p.name || lead.email,
+                  score: (lead.aiClassification && lead.aiClassification.score) || 0,
+                  daysSinceActivity: Math.round((now - lastActivity) / (1000 * 60 * 60 * 24))
+                });
+              }
+            }
+            data.leads.coldLeads = data.leads.coldLeads.slice(0, 10);
+          }
+        } catch (coldErr) {
+          log.info('proactive-report', 'Cold leads check skip:', coldErr.message);
+        }
       }
     } catch (e) {
-      console.log('[report-gen] Erreur Lead Enrich:', e.message);
+      log.info('proactive-report', 'Erreur Lead Enrich:', e.message);
     }
 
-    // Content Gen
+    // Content Gen — Content Intelligence enrichie
     try {
       const cgStorage = getStorage('content-gen');
       if (cgStorage && cgStorage.data) {
-        const contents = cgStorage.data.contents || [];
-        data.content.generated = contents.length;
+        // generatedContents est un objet { chatId: [contents] }
+        const allContents = [];
+        const contentsMap = cgStorage.data.generatedContents || {};
+        for (const chatContents of Object.values(contentsMap)) {
+          if (Array.isArray(chatContents)) allContents.push(...chatContents);
+        }
+        data.content.generated = allContents.length;
+
+        // Contenus generes cette semaine
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const thisWeek = allContents.filter(c => c.createdAt && new Date(c.createdAt).getTime() > weekAgo);
+        data.content.thisWeek = thisWeek.length;
+
+        // Types les plus demandes
+        const byType = {};
+        for (const c of allContents) {
+          byType[c.type] = (byType[c.type] || 0) + 1;
+        }
+        data.content.byType = byType;
       }
     } catch (e) {
-      console.log('[report-gen] Erreur Content Gen:', e.message);
+      log.info('proactive-report', 'Erreur Content Gen:', e.message);
     }
 
     // Invoice Bot
@@ -146,7 +278,50 @@ class ReportGenerator {
         data.invoices.totalBilled = invoices.reduce((sum, i) => sum + (i.total || 0), 0);
       }
     } catch (e) {
-      console.log('[report-gen] Erreur Invoice Bot:', e.message);
+      log.info('proactive-report', 'Erreur Invoice Bot:', e.message);
+    }
+
+    // Web Intelligence — Articles pertinents et alertes concurrents
+    try {
+      const wiStorage = getStorage('web-intelligence');
+      if (wiStorage) {
+        const weekArticles = wiStorage.getArticlesLastWeek ? wiStorage.getArticlesLastWeek() : [];
+        data.webIntel.articlesThisWeek = weekArticles.length;
+
+        // Alertes concurrents
+        const watches = wiStorage.getWatches ? wiStorage.getWatches() : {};
+        const competitorWatchIds = Object.keys(watches).filter(id => watches[id].type === 'competitor');
+        const competitorArticles = weekArticles.filter(a => competitorWatchIds.includes(a.watchId));
+        data.webIntel.competitorAlerts = competitorArticles.length;
+
+        // Articles les plus pertinents (score >= 7)
+        data.webIntel.relevantArticles = weekArticles
+          .filter(a => (a.relevanceScore || 0) >= 7)
+          .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0))
+          .slice(0, 5)
+          .map(a => ({ title: a.title, score: a.relevanceScore, source: a.source, isUrgent: a.isUrgent, crmMatch: !!a.crmMatch }));
+      }
+    } catch (e) {
+      log.info('proactive-report', 'Erreur Web Intelligence:', e.message);
+    }
+
+    // Budget Intelligence — Depenses API
+    try {
+      const appConfig = require('../../gateway/app-config.js');
+      const budgetStatus = appConfig.getBudgetStatus();
+      data.budget.todaySpent = Math.round((budgetStatus.todaySpent || 0) * 100) / 100;
+      data.budget.dailyLimit = budgetStatus.dailyLimit || 5;
+
+      // Depense semaine (historique)
+      const history = budgetStatus.history || [];
+      const weekHistory = history.slice(-7);
+      data.budget.weekSpent = Math.round(weekHistory.reduce((sum, d) => sum + (d.spent || 0), 0) * 100) / 100;
+
+      // Projection mensuelle basee sur la moyenne des 7 derniers jours
+      const avgDailySpend = weekHistory.length > 0 ? weekHistory.reduce((sum, d) => sum + (d.spent || 0), 0) / weekHistory.length : data.budget.todaySpent;
+      data.budget.projection = Math.round(avgDailySpend * 30 * 100) / 100;
+    } catch (e) {
+      log.info('proactive-report', 'Erreur Budget:', e.message);
     }
 
     return data;
@@ -181,21 +356,44 @@ class ReportGenerator {
       ? '\nHOT LEADS (3+ ouvertures) : ' + Object.entries(hotLeads).map(([email, d]) => email + ' (' + d.opens + ' ouvertures)').join(', ')
       : '';
 
+    // Email Intelligence
+    const emailOpenRate = data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0;
+    const bestDayEntry = Object.entries(data.emails.opensByDay || {}).sort((a, b) => (b[1].rate || 0) - (a[1].rate || 0))[0];
+    const bestDayStr = bestDayEntry ? bestDayEntry[0] + ' (' + bestDayEntry[1].rate + '% ouverture)' : 'N/A';
+    const bestHourStr = data.emails.bestHour !== null ? data.emails.bestHour + 'h' : 'N/A';
+    const topOpenedStr = (data.emails.topOpened || []).slice(0, 3).map(t => t.email + ' (' + t.opens + ' ouvertures)').join(', ') || 'Aucun';
+
+    // Lead Intelligence
+    const topLeadsStr = (data.leads.topLeads || []).slice(0, 3).map(l => l.name + ' (' + l.company + ', score ' + l.score + ')').join(', ') || 'Aucun';
+    const coldLeadsStr = (data.leads.coldLeads || []).slice(0, 3).map(l => l.name + ' (' + l.daysSinceActivity + 'j sans activite)').join(', ') || 'Aucun';
+
+    // Content Intelligence
+    const contentTypes = Object.entries(data.content.byType || {}).sort((a, b) => b[1] - a[1]).map(([t, c]) => t + ': ' + c).join(', ') || 'Aucun';
+
+    // Web Intelligence
+    const webArticlesStr = (data.webIntel.relevantArticles || []).slice(0, 3).map(a => a.title + ' (score ' + a.score + ')').join(', ') || 'Aucun';
+
     const prompt = `DONNEES DU JOUR :
 - Contacts HubSpot : ${data.hubspot.contacts}
 - Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.deals.filter(d => d.stage !== 'closedwon' && d.stage !== 'closedlost').length} deals)
-- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened}
+- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${emailOpenRate}%), bounced : ${data.emails.bounced}
 - Campagnes actives : ${data.emails.activeCampaigns}
-- Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched}
-- Contenus generes : ${data.content.generated}
+- Meilleur jour d'envoi : ${bestDayStr} | Meilleure heure : ${bestHourStr}
+- Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched} (+${data.leads.enrichedThisWeek} cette semaine)
+- Top leads : ${topLeadsStr}
+- Leads refroidis (7j+ sans ouverture) : ${coldLeadsStr}
+- Contenus generes : ${data.content.generated} (cette semaine: ${data.content.thisWeek}) — Types: ${contentTypes}
 - Factures : ${data.invoices.total} (${data.invoices.paid} payees, ${data.invoices.overdue} en retard)
+- Veille web : ${data.webIntel.articlesThisWeek} articles cette semaine, ${data.webIntel.competitorAlerts} alertes concurrents
+- Articles pertinents : ${webArticlesStr}
+- Budget API : ${data.budget.todaySpent}$ aujourd'hui / ${data.budget.dailyLimit}$ limite | Semaine: ${data.budget.weekSpent}$ | Projection mois: ${data.budget.projection}$
 ${hotLeadList}
 ${briefingText}`;
 
-    const systemPrompt = `Tu es MoltBot, l'assistant IA de Jojo. Tu envoies un rapport matinal.
+    const systemPrompt = `Tu es iFIND, l'assistant IA de ${this.ownerName}. Tu envoies un rapport matinal.
 
 REGLES :
-- Parle comme un assistant pro mais decontracte. Tutoie Jojo.
+- Parle comme un assistant pro mais decontracte. Tutoie ${this.ownerName}.
 - Commence par un "Bonjour" ou "Salut" naturel et varie
 - Donne les chiffres importants de facon conversationnelle, pas en tableau
 - Si hot leads ou deals urgents, mets-les en avant
@@ -208,7 +406,7 @@ REGLES :
     try {
       return await this.callClaude(systemPrompt, prompt, 800);
     } catch (e) {
-      console.log('[report-gen] Erreur generation morning report:', e.message);
+      log.info('proactive-report', 'Erreur generation morning report:', e.message);
       return this._fallbackMorningReport(data);
     }
   }
@@ -222,7 +420,7 @@ ${stagnantDeals.length > 0 ? stagnantDeals.map(d => '- ' + d.name + ' (' + d.amo
 DEALS URGENTS (date de cloture proche) :
 ${urgentDeals.length > 0 ? urgentDeals.map(d => '- ' + d.name + ' (' + d.amount + ' EUR) — cloture dans ' + d.daysLeft + ' jour(s)').join('\n') : 'Aucun'}`;
 
-    const systemPrompt = `Tu es MoltBot. Tu alertes Jojo sur les deals qui necessitent son attention.
+    const systemPrompt = `Tu es iFIND. Tu alertes ${this.ownerName} sur les deals qui necessitent son attention.
 
 REGLES :
 - Sois direct et actionnable. Pas de blabla.
@@ -236,7 +434,7 @@ REGLES :
     try {
       return await this.callClaude(systemPrompt, prompt, 500);
     } catch (e) {
-      console.log('[report-gen] Erreur generation pipeline alerts:', e.message);
+      log.info('proactive-report', 'Erreur generation pipeline alerts:', e.message);
       return null;
     }
   }
@@ -250,25 +448,42 @@ REGLES :
 - Emails ouverts : ${prev.emails ? (data.emails.opened - (prev.emails.opened || 0)) : '?'}`
       : '\nPas de donnees de la semaine precedente.';
 
+    // Enrichissements hebdo
+    const weekOpenRate = data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0;
+    const weekBestDay = Object.entries(data.emails.opensByDay || {}).sort((a, b) => (b[1].rate || 0) - (a[1].rate || 0))[0];
+    const weekTopLeads = (data.leads.topLeads || []).slice(0, 5).map(l => '  - ' + l.name + ' (' + l.company + ', score ' + l.score + (l.hotLead ? ', HOT' : '') + ')').join('\n') || '  Aucun';
+    const weekColdLeads = (data.leads.coldLeads || []).slice(0, 5).map(l => '  - ' + l.name + ' (' + l.daysSinceActivity + 'j inactif)').join('\n') || '  Aucun';
+    const weekContentTypes = Object.entries(data.content.byType || {}).sort((a, b) => b[1] - a[1]).map(([t, c]) => t + ': ' + c).join(', ') || 'Aucun';
+    const weekArticles = (data.webIntel.relevantArticles || []).slice(0, 3).map(a => '  - ' + a.title + ' (score ' + a.score + (a.isUrgent ? ' URGENT' : '') + ')').join('\n') || '  Aucun';
+
     const prompt = `BILAN HEBDOMADAIRE :
 - Contacts HubSpot : ${data.hubspot.contacts}
 - Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.deals.filter(d => d.stage !== 'closedwon' && d.stage !== 'closedlost').length} deals)
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
-- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened}
+- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${weekOpenRate}%), bounced : ${data.emails.bounced}
+- Meilleur jour d'envoi : ${weekBestDay ? weekBestDay[0] + ' (' + weekBestDay[1].rate + '%)' : 'N/A'}
 - Campagnes : ${data.emails.campaigns} (${data.emails.activeCampaigns} actives)
-- Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched}
-- Contenus generes : ${data.content.generated}
+- Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched} (+${data.leads.enrichedThisWeek} cette semaine)
+- TOP 5 LEADS :
+${weekTopLeads}
+- LEADS REFROIDIS (7j+ sans activite) :
+${weekColdLeads}
+- Contenus generes : ${data.content.generated} (cette semaine: ${data.content.thisWeek}) — ${weekContentTypes}
 - Factures : ${data.invoices.total} (CA facture : ${data.invoices.totalBilled} EUR)
+- VEILLE WEB : ${data.webIntel.articlesThisWeek} articles, ${data.webIntel.competitorAlerts} alertes concurrents
+- ARTICLES PERTINENTS :
+${weekArticles}
+- BUDGET API : ${data.budget.weekSpent}$ cette semaine | Projection mois: ${data.budget.projection}$
 ${deltaInfo}`;
 
-    const systemPrompt = `Tu es MoltBot. Tu envoies le rapport hebdomadaire du lundi matin a Jojo.
+    const systemPrompt = `Tu es iFIND. Tu envoies le rapport hebdomadaire du lundi matin a ${this.ownerName}.
 
 REGLES :
 - Structure par categories mais de facon naturelle et conversationnelle
 - Compare avec la semaine precedente si dispo
 - Mets en avant les points positifs ET les points d'attention
 - Termine par 2-3 priorites pour la semaine
-- Tutoie, ton motive et pro
+- Tutoie ${this.ownerName}, ton motive et pro
 - Format Telegram Markdown : *gras*, _italique_
 - Maximum 25 lignes
 - JAMAIS mentionner Claude, OpenAI, GPT ou IA`;
@@ -276,7 +491,7 @@ REGLES :
     try {
       return await this.callClaudeOpus(systemPrompt, prompt, 1500);
     } catch (e) {
-      console.log('[report-gen] Erreur generation weekly report:', e.message);
+      log.info('proactive-report', 'Erreur generation weekly report:', e.message);
       return this._fallbackWeeklyReport(data);
     }
   }
@@ -290,26 +505,37 @@ REGLES :
 - Emails : ${prev.emails ? '+' + (data.emails.sent - (prev.emails.sent || 0)) + ' envoyes' : '?'}`
       : '\nPas de donnees du mois precedent.';
 
+    const monthOpenRate = data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0;
+    const monthBestDay = Object.entries(data.emails.opensByDay || {}).sort((a, b) => (b[1].rate || 0) - (a[1].rate || 0))[0];
+    const monthTopLeads = (data.leads.topLeads || []).slice(0, 5).map(l => '  - ' + l.name + ' (' + l.company + ', score ' + l.score + ')').join('\n') || '  Aucun';
+    const monthContentTypes = Object.entries(data.content.byType || {}).sort((a, b) => b[1] - a[1]).map(([t, c]) => t + ': ' + c).join(', ') || 'Aucun';
+
     const prompt = `BILAN MENSUEL :
 - Contacts HubSpot : ${data.hubspot.contacts}
 - Pipeline actif : ${data.hubspot.pipeline} EUR
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
 - Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened}
-- Taux ouverture : ${data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0}%
+- Taux ouverture : ${monthOpenRate}% | Bounced : ${data.emails.bounced}
+- Meilleur jour : ${monthBestDay ? monthBestDay[0] + ' (' + monthBestDay[1].rate + '%)' : 'N/A'} | Meilleure heure : ${data.emails.bestHour !== null ? data.emails.bestHour + 'h' : 'N/A'}
 - Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched}
-- Contenus generes : ${data.content.generated}
+- TOP LEADS :
+${monthTopLeads}
+- Leads refroidis : ${(data.leads.coldLeads || []).length}
+- Contenus generes : ${data.content.generated} — ${monthContentTypes}
 - Factures : ${data.invoices.total}, CA facture : ${data.invoices.totalBilled} EUR
 - Factures payees : ${data.invoices.paid}, en retard : ${data.invoices.overdue}
+- Veille web : ${data.webIntel.articlesThisWeek} articles pertinents, ${data.webIntel.competitorAlerts} alertes concurrents
+- Budget API : ${data.budget.weekSpent}$ semaine | Projection mois: ${data.budget.projection}$
 ${deltaInfo}`;
 
-    const systemPrompt = `Tu es MoltBot. Tu envoies le bilan mensuel a Jojo.
+    const systemPrompt = `Tu es iFIND. Tu envoies le bilan mensuel a ${this.ownerName}.
 
 REGLES :
 - Fais un vrai bilan : points forts, points faibles, tendances
 - Compare avec le mois precedent si dispo
 - Propose 3-5 objectifs pour le mois prochain
 - Ton pro et motive, comme un associe
-- Tutoie Jojo
+- Tutoie ${this.ownerName}
 - Format Telegram Markdown : *gras*, _italique_
 - Maximum 30 lignes
 - JAMAIS mentionner Claude, OpenAI, GPT ou IA`;
@@ -317,7 +543,7 @@ REGLES :
     try {
       return await this.callClaudeOpus(systemPrompt, prompt, 2000);
     } catch (e) {
-      console.log('[report-gen] Erreur generation monthly report:', e.message);
+      log.info('proactive-report', 'Erreur generation monthly report:', e.message);
       return this._fallbackMonthlyReport(data);
     }
   }
@@ -328,7 +554,7 @@ REGLES :
 - Ouvertures : ${opens} fois
 - Info lead : ${leadInfo || 'Pas de details supplementaires'}`;
 
-    const systemPrompt = `Tu es MoltBot. Tu alertes Jojo qu'un lead est tres actif (a ouvert son email plusieurs fois).
+    const systemPrompt = `Tu es iFIND. Tu alertes ${this.ownerName} qu'un lead est tres actif (a ouvert son email plusieurs fois).
 
 REGLES :
 - Sois direct et enthousiaste mais pas exagere
@@ -367,7 +593,7 @@ REGLES :
     try {
       return await this.callClaude(systemPrompt, prompt, 500);
     } catch (e) {
-      console.log('[report-gen] Erreur generation nightly briefing:', e.message);
+      log.info('proactive-report', 'Erreur generation nightly briefing:', e.message);
       return null;
     }
   }

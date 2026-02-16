@@ -70,13 +70,14 @@ class FullEnrichEnricher {
   }
 
   // --- Soumettre un enrichissement bulk (1 a 100 contacts) ---
+  // Par defaut : emails seulement (1 credit). Phones = 10 credits en plus.
   async _submitEnrichment(contacts, enrichFields) {
     await this._rateLimit();
     const payload = {
       name: 'ifind-' + Date.now(),
       data: contacts.map(c => ({
         ...c,
-        enrich_fields: enrichFields || ['contact.emails', 'contact.phones']
+        enrich_fields: enrichFields || ['contact.emails']
       }))
     };
     return await this._makeRequest('POST', '/contact/enrich/bulk', payload);
@@ -165,14 +166,15 @@ class FullEnrichEnricher {
     }
   }
 
-  async enrichByNameAndCompany(firstName, lastName, company) {
+  async enrichByNameAndCompany(firstName, lastName, company, options) {
     try {
       const contact = {
         first_name: firstName,
         last_name: lastName,
         company_name: company
       };
-      const submitResult = await this._submitEnrichment([contact]);
+      const fields = (options && options.includePhone) ? ['contact.emails', 'contact.phones'] : undefined;
+      const submitResult = await this._submitEnrichment([contact], fields);
 
       if (!submitResult.enrichment_id) {
         return { success: false, error: 'Pas de enrichment_id retourne' };
@@ -189,11 +191,12 @@ class FullEnrichEnricher {
     }
   }
 
-  async enrichByLinkedIn(linkedinUrl) {
+  async enrichByLinkedIn(linkedinUrl, options) {
     try {
+      const fields = (options && options.includePhone) ? ['contact.emails', 'contact.phones'] : undefined;
       const submitResult = await this._submitEnrichment([{
         linkedin_url: linkedinUrl
-      }]);
+      }], fields);
 
       if (!submitResult.enrichment_id) {
         return { success: false, error: 'Pas de enrichment_id retourne' };
@@ -250,14 +253,26 @@ class FullEnrichEnricher {
         return { success: false, results: [], error: 'Pas de enrichment_id' };
       }
 
-      const maxWait = Math.min(BATCH_MAX_POLL_MS, feData.length * 90000 + 60000);
+      const maxWait = Math.min(BATCH_MAX_POLL_MS, Math.max(60000, feData.length * 15000 + 60000));
       const result = await this._pollResults(submitResult.enrichment_id, maxWait);
 
       if (result._error) {
         return { success: false, results: [], error: result._error };
       }
 
-      const formatted = (result.data || []).map(d => this._formatSingleResult(d));
+      // Matcher les resultats par custom.idx (FullEnrich ne garantit pas l'ordre)
+      const resultMap = {};
+      for (const d of (result.data || [])) {
+        const idx = (d.custom && d.custom.idx) ? parseInt(d.custom.idx) : -1;
+        if (idx >= 0) {
+          resultMap[idx] = this._formatSingleResult(d);
+        }
+      }
+      // Reconstruire dans l'ordre original
+      const formatted = [];
+      for (let i = 0; i < contacts.length; i++) {
+        formatted.push(resultMap[i] || { success: false, error: 'Contact non trouve' });
+      }
       return {
         success: true,
         results: formatted,
@@ -292,10 +307,20 @@ class FullEnrichEnricher {
     const location = profile.location || {};
     const socialProfiles = profile.social_profiles || {};
 
-    // Meilleur email pro
-    const workEmail = (contactInfo.most_probable_work_email && contactInfo.most_probable_work_email.email) ||
-                      (contactInfo.work_emails && contactInfo.work_emails[0] && contactInfo.work_emails[0].email) || '';
-    const emailStatus = (contactInfo.most_probable_work_email && contactInfo.most_probable_work_email.status) || '';
+    // Meilleur email pro — filtrer les emails INVALID
+    let workEmail = '';
+    let emailStatus = '';
+    if (contactInfo.most_probable_work_email && contactInfo.most_probable_work_email.email) {
+      workEmail = contactInfo.most_probable_work_email.email;
+      emailStatus = contactInfo.most_probable_work_email.status || '';
+    } else if (contactInfo.work_emails && contactInfo.work_emails.length > 0) {
+      // Prendre le premier email non-INVALID
+      const valid = contactInfo.work_emails.find(e => e.status !== 'INVALID' && e.status !== 'INVALID_DOMAIN');
+      if (valid) {
+        workEmail = valid.email;
+        emailStatus = valid.status || '';
+      }
+    }
 
     // Meilleur telephone
     const phone = (contactInfo.most_probable_phone && contactInfo.most_probable_phone.number) ||

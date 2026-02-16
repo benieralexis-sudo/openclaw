@@ -44,6 +44,10 @@ class HubSpotLists {
       });
 
       req.on('error', reject);
+      req.setTimeout(15000, () => {
+        req.destroy();
+        reject(new Error('Timeout HubSpot Lists (15s)'));
+      });
       if (postData) req.write(postData);
       req.end();
     });

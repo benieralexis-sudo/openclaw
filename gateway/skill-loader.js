@@ -1,8 +1,9 @@
-// MoltBot - Chargeur de modules cross-skill centralise
+// iFIND - Chargeur de modules cross-skill centralise
 // Remplace le pattern fragile try { require(relative) } catch { require(absolute) }
 'use strict';
 
 const path = require('path');
+const log = require('./logger.js');
 
 // Chemins des storages par skill
 const SKILL_STORAGES = {
@@ -40,7 +41,7 @@ function getStorage(skillName) {
   try {
     return require(path.join(SKILLS_ROOT, relPath));
   } catch (e) {
-    console.log('[skill-loader] Impossible de charger storage ' + skillName + ':', e.message);
+    log.warn('skill-loader', 'Impossible de charger storage ' + skillName + ':', e.message);
     return null;
   }
 }
@@ -56,7 +57,7 @@ function getModule(moduleName) {
   try {
     return require(path.join(SKILLS_ROOT, relPath));
   } catch (e) {
-    console.log('[skill-loader] Impossible de charger module ' + moduleName + ':', e.message);
+    log.warn('skill-loader', 'Impossible de charger module ' + moduleName + ':', e.message);
     return null;
   }
 }

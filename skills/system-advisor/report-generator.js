@@ -1,5 +1,8 @@
 // System Advisor - Generation de rapports IA via Claude Sonnet 4.5
 const https = require('https');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class ReportGenerator {
   constructor(claudeKey) {
@@ -39,7 +42,7 @@ class ReportGenerator {
             const response = JSON.parse(data);
             if (response.content && response.content[0]) {
               const cached = response.usage ? (response.usage.cache_read_input_tokens || 0) : 0;
-              if (cached > 0) console.log('[system-advisor] Cache hit: ' + cached + ' tokens caches');
+              if (cached > 0) log.info('system-advisor', 'Cache hit: ' + cached + ' tokens caches');
               resolve(response.content[0].text);
             } else if (response.error) {
               reject(new Error('Claude API: ' + (response.error.message || JSON.stringify(response.error))));
@@ -80,7 +83,7 @@ ${Object.entries(skillMetrics.errors || {}).filter(([k, v]) => v.today > 0).map(
 ALERTES ACTIVES : ${activeAlerts.length}
 ${activeAlerts.map(a => '- [' + a.level + '] ' + a.message).join('\n') || 'Aucune'}`;
 
-    const systemPrompt = `Tu es un ingenieur DevOps qui surveille un bot Telegram (MoltBot) avec 10 skills B2B.
+    const systemPrompt = `Tu es un ingenieur DevOps qui surveille un bot Telegram (iFIND) avec 10 skills B2B.
 Genere un rapport de sante systeme concis en francais.
 
 REGLES :
@@ -92,14 +95,15 @@ REGLES :
 - Termine par une recommandation si necessaire`;
 
     try {
-      const response = await this.callClaude(
+      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaude(
         [{ role: 'user', content: dataStr }],
         systemPrompt,
         1000
-      );
+      ), 2, 3000));
       return response;
     } catch (e) {
-      console.log('[report-gen] Erreur rapport quotidien Claude:', e.message);
+      log.error('system-advisor', 'Erreur rapport quotidien Claude:', e.message);
       return this._fallbackDailyReport(snapshot, skillMetrics, healthCheck, activeAlerts);
     }
   }
@@ -177,7 +181,7 @@ ${errStr}
 
 ALERTES CETTE SEMAINE : ${alertCount}`;
 
-    const systemPrompt = `Tu es un ingenieur DevOps. Genere un rapport hebdomadaire de MoltBot en francais.
+    const systemPrompt = `Tu es un ingenieur DevOps. Genere un rapport hebdomadaire de iFIND en francais.
 
 REGLES :
 - Format Telegram Markdown
@@ -188,15 +192,16 @@ REGLES :
 - Max 20 lignes, concis et actionnable`;
 
     try {
-      const response = await this.callClaude(
+      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaude(
         [{ role: 'user', content: dataStr }],
         systemPrompt,
         1500,
         'claude-opus-4-6'
-      );
+      ), 2, 3000));
       return response;
     } catch (e) {
-      console.log('[report-gen] Erreur rapport hebdo Claude:', e.message);
+      log.error('system-advisor', 'Erreur rapport hebdo Claude:', e.message);
       return this._fallbackWeeklyReport(weeklyAggregates, skillMetrics, alertHistory);
     }
   }

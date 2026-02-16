@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { atomicWriteSync } = require('./utils.js');
+const log = require('./logger.js');
 
 const CONFIG_DIR = process.env.APP_CONFIG_DIR || process.env.MOLTBOT_CONFIG_DIR || '/data/app-config';
 const CONFIG_FILE = path.join(CONFIG_DIR, 'app-config.json');
@@ -45,7 +46,7 @@ function load() {
       save();
     }
   } catch (e) {
-    console.log('[app-config] Erreur lecture config:', e.message);
+    log.warn('app-config', 'Erreur lecture config:', e.message);
     _config = _defaultConfig();
     save();
   }
@@ -57,7 +58,7 @@ function save() {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
     atomicWriteSync(CONFIG_FILE, _config);
   } catch (e) {
-    console.log('[app-config] Erreur ecriture config:', e.message);
+    log.warn('app-config', 'Erreur ecriture config:', e.message);
   }
 }
 
@@ -87,7 +88,7 @@ function activateAll() {
   _config.cronsActive = true;
   _config.lastModeChange = new Date().toISOString();
   save();
-  console.log('[app-config] Mode PRODUCTION active');
+  log.info('app-config', 'Mode PRODUCTION active');
 }
 
 function deactivateAll() {
@@ -96,7 +97,7 @@ function deactivateAll() {
   _config.cronsActive = false;
   _config.lastModeChange = new Date().toISOString();
   save();
-  console.log('[app-config] Mode STANDBY active');
+  log.info('app-config', 'Mode STANDBY active');
 }
 
 // --- Budget API ---

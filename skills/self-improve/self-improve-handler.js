@@ -5,6 +5,9 @@ const storage = require('./storage.js');
 const MetricsCollector = require('./metrics-collector.js');
 const Analyzer = require('./analyzer.js');
 const Optimizer = require('./optimizer.js');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class SelfImproveHandler {
   constructor(openaiKey, claudeKey, sendTelegramFn) {
@@ -26,7 +29,7 @@ class SelfImproveHandler {
   start() {
     const config = storage.getConfig();
     if (!config.enabled) {
-      console.log('[self-improve] Mode desactive');
+      log.info('self-improve', 'Mode desactive');
       return;
     }
 
@@ -35,9 +38,9 @@ class SelfImproveHandler {
 
     // Cron hebdomadaire : dimanche 21h
     this.crons.push(new Cron('0 21 * * 0', { timezone: tz }, () => this._weeklyAnalysis()));
-    console.log('[self-improve] Cron: analyse hebdo dimanche 21h');
+    log.info('self-improve', 'Cron: analyse hebdo dimanche 21h');
 
-    console.log('[self-improve] Demarre avec ' + this.crons.length + ' cron(s)');
+    log.info('self-improve', 'Demarre avec ' + this.crons.length + ' cron(s)');
   }
 
   stop() {
@@ -121,6 +124,9 @@ Actions :
 - "dismiss" : rejeter une recommandation
   Params: {"index": 2}
   Ex: "ignore 2", "rejette la 3", "non pour la 1"
+- "toggle_auto_apply" : activer/desactiver l'application automatique
+  Params: {"enabled": true/false}
+  Ex: "active auto-apply", "desactive auto-apply", "mode automatique", "mode manuel"
 - "confirm_yes" : confirmation positive
   Ex: "oui", "ok", "go", "c'est bon"
 - "confirm_no" : refus
@@ -138,17 +144,18 @@ Reponds UNIQUEMENT en JSON strict :
 {"action":"show_recommendations"}`;
 
     try {
-      const response = await this.callOpenAI([
+      const breaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callOpenAI([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
-      ], 300);
+      ], 300), 2, 2000));
 
       let cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned);
       if (!result.action) return null;
       return result;
     } catch (error) {
-      console.log('[self-improve-NLP] Erreur:', error.message);
+      log.error('self-improve', 'Erreur classifyIntent:', error.message);
       return null;
     }
   }
@@ -218,6 +225,16 @@ Reponds UNIQUEMENT en JSON strict :
         } else {
           this.stop();
           return { type: 'text', content: 'Self-Improve desactive. Dis _"active self-improve"_ pour reactiver.' };
+        }
+      }
+
+      case 'toggle_auto_apply': {
+        const autoApply = params.enabled !== undefined ? params.enabled : !storage.getConfig().autoApply;
+        storage.updateConfig({ autoApply: autoApply });
+        if (autoApply) {
+          return { type: 'text', content: 'Auto-Apply active ! Les recommandations a haute confiance (>= 70%) seront appliquees automatiquement apres chaque analyse.\nDis _"desactive auto-apply"_ pour revenir en mode manuel.' };
+        } else {
+          return { type: 'text', content: 'Auto-Apply desactive. Les recommandations resteront en attente pour validation manuelle.\nDis _"active auto-apply"_ pour reactiver.' };
         }
       }
 
@@ -413,9 +430,60 @@ Reponds UNIQUEMENT en JSON strict :
 
       // 5. Generer le rapport
       const report = this.analyzer.generateReport(snapshot, analysis, accuracyRecord);
-      return { type: 'text', content: report };
+
+      // FIX 16 : Auto-application si autoApply est active
+      const config = storage.getConfig();
+      let autoApplyMsg = '';
+      if (config.autoApply && analysis.recommendations && analysis.recommendations.length > 0) {
+        const autoApplyResult = this._autoApplyRecommendations(analysis.recommendations);
+        if (autoApplyResult.applied > 0) {
+          autoApplyMsg = '\n\nAuto-Improve : ' + autoApplyResult.applied + '/' +
+            autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
+            ' (confiance >= 70%). Dis _"rollback"_ pour annuler.';
+        }
+      }
+
+      // 6. Analyses avancees Self-Improve v2 (timing + frequency + email perf)
+      let advancedMsg = '';
+      try {
+        const timingData = this._analyzeTimingOptimization();
+        const frequencyData = this._analyzeFrequencyOptimization();
+        const emailPerfAnalysis = this.analyzer.analyzeEmailPerformance();
+
+        if (emailPerfAnalysis.available && emailPerfAnalysis.recommendations.length > 0) {
+          const extraRecos = emailPerfAnalysis.recommendations.map(r => ({
+            ...r,
+            id: storage._generateId(),
+            source: 'email_performance_analysis'
+          }));
+          const existingPending = storage.getPendingRecommendations();
+          storage.savePendingRecommendations([...existingPending, ...extraRecos]);
+        }
+
+        if ((emailPerfAnalysis.available && emailPerfAnalysis.insights.length > 0) || timingData || (frequencyData && frequencyData.recommendation)) {
+          advancedMsg += '\n\n🔬 *Analyse avancee :*\n';
+
+          if (emailPerfAnalysis.available && emailPerfAnalysis.insights.length > 0) {
+            for (const insight of emailPerfAnalysis.insights) {
+              advancedMsg += '• ' + insight + '\n';
+            }
+          }
+
+          if (timingData) {
+            advancedMsg += '• Meilleure heure d\'envoi : ' + timingData.bestHour + 'h (' + timingData.bestHourRate + '% open rate)\n';
+          }
+
+          if (frequencyData && frequencyData.recommendation) {
+            advancedMsg += '• ' + frequencyData.recommendation.description + '\n';
+          }
+        }
+      } catch (e2) {
+        log.error('self-improve', 'Erreur analyses avancees (force):', e2.message);
+      }
+
+      return { type: 'text', content: report + autoApplyMsg + advancedMsg };
     } catch (error) {
-      console.error('[self-improve] Erreur analyse forcee:', error.message);
+      log.error('self-improve', 'Erreur analyse forcee:', error.message);
       return { type: 'text', content: 'Erreur lors de l\'analyse : ' + error.message };
     }
   }
@@ -428,6 +496,7 @@ Reponds UNIQUEMENT en JSON strict :
 
     const lines = [
       '*Self-Improve :* ' + (config.enabled ? 'ACTIF' : 'DESACTIF'),
+      '*Auto-Apply :* ' + (config.autoApply ? 'ACTIF (confiance >= 70%)' : 'DESACTIF (mode manuel)'),
       '*Crons :* ' + this.crons.length + ' actif(s)',
       ''
     ];
@@ -478,7 +547,7 @@ Reponds UNIQUEMENT en JSON strict :
     const config = storage.getConfig();
     if (!config.enabled) return;
 
-    console.log('[self-improve] Analyse hebdomadaire en cours...');
+    log.info('self-improve', 'Analyse hebdomadaire en cours...');
 
     try {
       // 1. Collecter les metriques
@@ -502,16 +571,251 @@ Reponds UNIQUEMENT en JSON strict :
 
       if (this.sendTelegram) {
         await this.sendTelegram(config.adminChatId, report);
-        console.log('[self-improve] Rapport hebdomadaire envoye a ' + config.adminChatId);
+        log.info('self-improve', 'Rapport hebdomadaire envoye a ' + config.adminChatId);
+      }
+
+      // FIX 16 : Auto-application des recommandations a haute confiance
+      if (config.autoApply && analysis.recommendations && analysis.recommendations.length > 0) {
+        const autoApplyResult = this._autoApplyRecommendations(analysis.recommendations);
+        if (autoApplyResult.applied > 0 && this.sendTelegram) {
+          const autoMsg = 'Auto-Improve : ' + autoApplyResult.applied + '/' +
+            autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
+            ' (confiance >= 70%).\nDis _"rollback"_ pour annuler.';
+          await this.sendTelegram(config.adminChatId, autoMsg);
+        }
       }
 
       // 6. Enregistrer des predictions pour la feedback loop
       this._createPredictions(snapshot);
 
-      console.log('[self-improve] Analyse hebdomadaire terminee (' +
+      // 7. Timing Optimization (4b) + Frequency Optimization (4c)
+      try {
+        const timingData = this._analyzeTimingOptimization();
+        const frequencyData = this._analyzeFrequencyOptimization();
+
+        // 8. Email Performance Analysis (4a) — enrichir les recommandations
+        const emailPerfAnalysis = this.analyzer.analyzeEmailPerformance();
+        if (emailPerfAnalysis.available && emailPerfAnalysis.recommendations.length > 0) {
+          // Ajouter les recommandations email perf aux pending
+          const extraRecos = emailPerfAnalysis.recommendations.map(r => ({
+            ...r,
+            id: storage._generateId(),
+            source: 'email_performance_analysis'
+          }));
+          const existingPending = storage.getPendingRecommendations();
+          storage.savePendingRecommendations([...existingPending, ...extraRecos]);
+
+          log.info('self-improve', 'Email perf analysis: ' + emailPerfAnalysis.insights.length + ' insights, ' + extraRecos.length + ' recos ajoutees');
+        }
+
+        // Envoyer un complement de rapport si des optimisations timing/frequency
+        if (this.sendTelegram && (timingData || frequencyData || (emailPerfAnalysis.available && emailPerfAnalysis.insights.length > 0))) {
+          let addMsg = '🔬 *Analyse avancee Self-Improve v2*\n\n';
+
+          if (emailPerfAnalysis.available && emailPerfAnalysis.insights.length > 0) {
+            addMsg += '📧 *Performance Email :*\n';
+            for (const insight of emailPerfAnalysis.insights) {
+              addMsg += '• ' + insight + '\n';
+            }
+            addMsg += '\n';
+          }
+
+          if (timingData) {
+            addMsg += '⏰ *Timing Optimal :*\n';
+            addMsg += '• Meilleure heure : ' + timingData.bestHour + 'h (' + timingData.bestHourRate + '% open rate)\n';
+            addMsg += '• Pire heure : ' + timingData.worstHour + 'h (' + timingData.worstHourRate + '% open rate)\n\n';
+          }
+
+          if (frequencyData && frequencyData.recommendation) {
+            addMsg += '🔄 *Frequence Follow-ups :*\n';
+            addMsg += '• ' + frequencyData.recommendation.description + '\n\n';
+          }
+
+          await this.sendTelegram(config.adminChatId, addMsg);
+        }
+      } catch (e2) {
+        log.error('self-improve', 'Erreur analyses avancees:', e2.message);
+      }
+
+      log.info('self-improve', 'Analyse hebdomadaire terminee (' +
         (analysis.recommendations ? analysis.recommendations.length : 0) + ' recos)');
     } catch (error) {
-      console.error('[self-improve] Erreur analyse hebdomadaire:', error.message);
+      log.error('self-improve', 'Erreur analyse hebdomadaire:', error.message);
+    }
+  }
+
+  // FIX 16 : Auto-appliquer les recommandations a haute confiance (>= 0.7)
+  _autoApplyRecommendations(recommendations) {
+    const MIN_CONFIDENCE = 0.7;
+    const pending = storage.getPendingRecommendations();
+    if (pending.length === 0) return { applied: 0, total: 0, results: [] };
+
+    // Filtrer les recommandations a haute confiance
+    const highConfidence = pending.filter(r => (r.confidence || 0) >= MIN_CONFIDENCE);
+    if (highConfidence.length === 0) {
+      log.info('self-improve', 'Auto-apply: aucune recommandation avec confiance >= ' + (MIN_CONFIDENCE * 100) + '%');
+      return { applied: 0, total: pending.length, results: [] };
+    }
+
+    // Creer un backup avant toute modification
+    const ids = highConfidence.map(r => r.id);
+    const results = this.optimizer.applyMultiple(ids);
+    const applied = results.filter(r => r.success).length;
+
+    log.info('self-improve', 'Auto-apply: ' + applied + '/' + highConfidence.length +
+      ' recommandation(s) appliquee(s) (confiance >= ' + (MIN_CONFIDENCE * 100) + '%)');
+
+    return { applied: applied, total: pending.length, results: results };
+  }
+
+  // --- 4b. Timing Optimization : analyse les heures d'envoi et stocke la meilleure plage ---
+  _analyzeTimingOptimization() {
+    try {
+      const automailerStorage = getAutomailerStorageSafe();
+      if (!automailerStorage || !automailerStorage.data) return null;
+
+      const emails = automailerStorage.data.emails || [];
+      const sentEmails = emails.filter(e => e.sentAt && e.to);
+
+      if (sentEmails.length < 5) {
+        log.info('self-improve', 'Timing optim: pas assez d\'emails (' + sentEmails.length + ')');
+        return null;
+      }
+
+      // Calculer le taux d'ouverture par creneau horaire
+      const byHour = {};
+      for (const email of sentEmails) {
+        const sentDate = new Date(email.sentAt);
+        const hour = sentDate.getHours();
+        if (!byHour[hour]) byHour[hour] = { sent: 0, opened: 0 };
+        byHour[hour].sent++;
+        if (email.openedAt) byHour[hour].opened++;
+      }
+
+      // Calculer les taux et trier
+      const hourRates = Object.entries(byHour)
+        .filter(([, d]) => d.sent >= 2)
+        .map(([hour, d]) => ({
+          hour: parseInt(hour),
+          sent: d.sent,
+          opened: d.opened,
+          openRate: Math.round((d.opened / d.sent) * 100)
+        }))
+        .sort((a, b) => b.openRate - a.openRate || b.sent - a.sent);
+
+      if (hourRates.length === 0) return null;
+
+      const best = hourRates[0];
+      const worst = hourRates[hourRates.length - 1];
+
+      // Stocker la meilleure plage horaire dans le storage self-improve
+      const timingData = {
+        bestHour: best.hour,
+        bestHourRate: best.openRate,
+        bestHourEmails: best.sent,
+        worstHour: worst.hour,
+        worstHourRate: worst.openRate,
+        allHourRates: hourRates,
+        analyzedEmails: sentEmails.length,
+        analyzedAt: new Date().toISOString()
+      };
+
+      // Ecrire la preference dans le storage pour que campaign-engine la lise
+      storage.setEmailPreferences({
+        preferredSendHour: best.hour,
+        bestHourOpenRate: best.openRate
+      });
+
+      log.info('self-improve', 'Timing optim: meilleure heure=' + best.hour + 'h (' +
+        best.openRate + '% sur ' + best.sent + ' emails), pire=' + worst.hour + 'h (' +
+        worst.openRate + '%)');
+
+      return timingData;
+    } catch (e) {
+      log.error('self-improve', 'Erreur timing optimization:', e.message);
+      return null;
+    }
+  }
+
+  // --- 4c. Frequency Optimization : analyse le taux de reponse par nombre de follow-ups ---
+  _analyzeFrequencyOptimization() {
+    try {
+      const automailerStorage = getAutomailerStorageSafe();
+      if (!automailerStorage || !automailerStorage.data) return null;
+
+      const campaigns = Object.values(automailerStorage.data.campaigns || {});
+      const emails = automailerStorage.data.emails || [];
+
+      if (campaigns.length === 0 || emails.length < 5) {
+        log.info('self-improve', 'Frequency optim: pas assez de donnees');
+        return null;
+      }
+
+      // Analyser le taux de reponse (ouverture) par step de campagne
+      const byStep = {};
+      for (const email of emails) {
+        if (!email.campaignId || email.stepNumber === null || email.stepNumber === undefined) continue;
+        const step = email.stepNumber;
+        if (!byStep[step]) byStep[step] = { sent: 0, opened: 0 };
+        byStep[step].sent++;
+        if (email.openedAt) byStep[step].opened++;
+      }
+
+      const stepRates = Object.entries(byStep)
+        .map(([step, d]) => ({
+          step: parseInt(step),
+          sent: d.sent,
+          opened: d.opened,
+          openRate: d.sent > 0 ? Math.round((d.opened / d.sent) * 100) : 0
+        }))
+        .sort((a, b) => a.step - b.step);
+
+      if (stepRates.length === 0) {
+        log.info('self-improve', 'Frequency optim: pas de donnees par step');
+        return null;
+      }
+
+      // Detecter a partir de quel step le taux chute sous 2%
+      const POOR_THRESHOLD = 2; // %
+      let recommendedMaxSteps = null;
+      let recommendation = null;
+
+      for (const sr of stepRates) {
+        if (sr.step >= 3 && sr.sent >= 5 && sr.openRate < POOR_THRESHOLD) {
+          recommendedMaxSteps = sr.step;
+          recommendation = {
+            type: 'frequency',
+            description: 'Limiter les follow-ups a ' + (sr.step - 1) + ' steps — le step ' + sr.step + ' n\'a que ' + sr.openRate + '% de reponse sur ' + sr.sent + ' emails',
+            action: 'set_max_steps',
+            params: { maxSteps: sr.step - 1 },
+            confidence: Math.min(0.8, 0.4 + (sr.sent / 30))
+          };
+          break;
+        }
+      }
+
+      const frequencyData = {
+        stepRates: stepRates,
+        recommendedMaxSteps: recommendedMaxSteps,
+        recommendation: recommendation,
+        analyzedCampaigns: campaigns.length,
+        analyzedAt: new Date().toISOString()
+      };
+
+      // Sauvegarder la recommandation si elle existe
+      if (recommendation) {
+        storage.setEmailPreferences({
+          recommendedMaxSteps: recommendedMaxSteps ? recommendedMaxSteps - 1 : null
+        });
+        log.info('self-improve', 'Frequency optim: recommande max ' + (recommendedMaxSteps - 1) + ' steps (step ' + recommendedMaxSteps + ' a < ' + POOR_THRESHOLD + '% reponse)');
+      } else {
+        log.info('self-improve', 'Frequency optim: pas de limite recommandee (' + stepRates.length + ' steps analyses)');
+      }
+
+      return frequencyData;
+    } catch (e) {
+      log.error('self-improve', 'Erreur frequency optimization:', e.message);
+      return null;
     }
   }
 
@@ -548,7 +852,7 @@ Reponds UNIQUEMENT en JSON strict :
         });
       }
     } catch (e) {
-      console.log('[self-improve] Erreur creation predictions:', e.message);
+      log.warn('self-improve', 'Erreur creation predictions:', e.message);
     }
   }
 
@@ -573,6 +877,7 @@ Reponds UNIQUEMENT en JSON strict :
       '',
       '*Config :*',
       '  _"active/desactive self-improve"_',
+      '  _"active/desactive auto-apply"_ — application auto des recos a haute confiance',
       '',
       'Analyse auto chaque dimanche a 21h.'
     ].join('\n');

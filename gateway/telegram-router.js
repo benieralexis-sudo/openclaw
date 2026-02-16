@@ -30,6 +30,10 @@ global.__ifindMetrics = {
   skillUsage: {},
   responseTimes: {},
   errors: {},
+  fastClassifyHits: 0,
+  nlpFallbacks: 0,
+  humanizationSkipped: 0,
+  humanizationApplied: 0,
   startedAt: new Date().toISOString()
 };
 
@@ -67,7 +71,7 @@ const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
 
 if (!TOKEN) {
-  console.error('TELEGRAM_BOT_TOKEN manquant !');
+  log.error('router', 'TELEGRAM_BOT_TOKEN manquant !');
   process.exit(1);
 }
 
@@ -367,7 +371,7 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
               const inputTokens = (response.usage.input_tokens || 0);
               const outputTokens = (response.usage.output_tokens || 0);
               const cached = response.usage.cache_read_input_tokens || 0;
-              if (cached > 0) console.log('[claude] Cache hit: ' + cached + ' tokens caches (' + model + ')');
+              if (cached > 0) log.info('claude', 'Cache hit: ' + cached + ' tokens caches (' + model + ')');
               appConfig.recordApiSpend(model, inputTokens, outputTokens);
             }
             resolve(response.content[0].text.trim());
@@ -388,7 +392,7 @@ function callClaude(systemPrompt, userMessage, maxTokens, model) {
   // Budget guard : bloquer si budget depasse
   appConfig.assertBudgetAvailable();
   const breakerName = model === 'claude-opus-4-6' ? 'claude-opus' : 'claude-sonnet';
-  const breaker = getBreaker(breakerName, { failureThreshold: 3, cooldownMs: 60000 });
+  const breaker = getBreaker(breakerName, { failureThreshold: 5, cooldownMs: 30000 });
   return breaker.call(() => retryAsync(() => _callClaudeOnce(systemPrompt, userMessage, maxTokens, model), 2, 2000));
 }
 
@@ -442,6 +446,7 @@ const autoPilotEngine = new BrainEngine({
   callClaudeOpus: callClaudeOpus,
   hubspotKey: HUBSPOT_KEY,
   apolloKey: APOLLO_KEY,
+  fullenrichKey: FULLENRICH_KEY,
   openaiKey: OPENAI_KEY,
   claudeKey: CLAUDE_KEY,
   resendKey: RESEND_KEY,
@@ -459,18 +464,18 @@ const autonomousPilotStorage = require('../skills/autonomous-pilot/storage.js');
 
 function startAllCrons() {
   // Activer les configs internes (chaque start() verifie config.enabled)
-  try { proactiveAgentStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron proactive:', e.message); }
-  try { selfImproveStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron self-improve:', e.message); }
-  try { webIntelStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron web-intel:', e.message); }
-  try { systemAdvisorStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron system-advisor:', e.message); }
-  try { autonomousPilotStorage.updateConfig({ enabled: true }); } catch (e) { console.error('[router] Erreur toggle cron autonomous-pilot:', e.message); }
+  try { proactiveAgentStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron proactive:', e.message); }
+  try { selfImproveStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron self-improve:', e.message); }
+  try { webIntelStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron web-intel:', e.message); }
+  try { systemAdvisorStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron system-advisor:', e.message); }
+  try { autonomousPilotStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron autonomous-pilot:', e.message); }
 
   proactiveEngine.start();
   if (selfImproveHandler) selfImproveHandler.start();
   webIntelHandler.start();
   systemAdvisorHandler.start();
   autoPilotEngine.start();
-  console.log('[router] 17 crons demarres (production)');
+  log.info('router', '17 crons demarres (production)');
 }
 
 function stopAllCrons() {
@@ -481,19 +486,19 @@ function stopAllCrons() {
   autoPilotEngine.stop();
 
   // Desactiver les configs internes (double securite)
-  try { proactiveAgentStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron proactive:', e.message); }
-  try { selfImproveStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron self-improve:', e.message); }
-  try { webIntelStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron web-intel:', e.message); }
-  try { systemAdvisorStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron system-advisor:', e.message); }
-  try { autonomousPilotStorage.updateConfig({ enabled: false }); } catch (e) { console.error('[router] Erreur toggle cron autonomous-pilot:', e.message); }
-  console.log('[router] Tous les crons stoppes (standby)');
+  try { proactiveAgentStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron proactive:', e.message); }
+  try { selfImproveStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron self-improve:', e.message); }
+  try { webIntelStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron web-intel:', e.message); }
+  try { systemAdvisorStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron system-advisor:', e.message); }
+  try { autonomousPilotStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron autonomous-pilot:', e.message); }
+  log.info('router', 'Tous les crons stoppes (standby)');
 }
 
 // Demarrage conditionnel selon le mode persiste
 if (appConfig.isProduction()) {
   startAllCrons();
 } else {
-  console.log('[router] Mode STANDBY — crons desactives, zero token auto');
+  log.info('router', 'Mode STANDBY — crons desactives, zero token auto');
 }
 
 // Budget : notification + arret crons si depasse
@@ -505,7 +510,7 @@ appConfig.onBudgetExceeded(async (budget) => {
   try {
     await sendMessage(ADMIN_CHAT_ID, msg, 'Markdown');
   } catch (e) {
-    console.error('[router] Erreur notification budget:', e.message);
+    log.error('router', 'Erreur notification budget:', e.message);
   }
   stopAllCrons();
   appConfig.deactivateAll();
@@ -601,6 +606,32 @@ function buildSystemStatus() {
 
 // Etat par utilisateur : quel skill est actif
 const userActiveSkill = {};
+
+// --- UPGRADE 5 : Smart Router — Pre-filtre par mots-cles (zero token) ---
+
+function fastClassify(text) {
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // Patterns exacts — zero ambiguite
+  const patterns = {
+    'flowfast': /\b(cherche|trouve|recherche|prospecte?|prospect)\b.*(lead|prospect|client|ceo|directeur|contact|entreprise|pme|startup)/,
+    'automailer': /\b(campagne|email|mail|envoi|template|newsletter|liste.*contact|import.*csv|stats.*email|taux.*ouverture)\b/,
+    'crm-pilot': /\b(crm|hubspot|pipeline|deal|offre|fiche.*contact|note|tache|rappel|commercial)\b/,
+    'lead-enrich': /\b(enrichi|scorer?|profil.*complet|hot.*lead|lead.*chaud|fullenrich|apollo)\b/,
+    'content-gen': /\b(redige|ecri[st]|post.*linkedin|pitch|bio|script|reformule|contenu)\b/,
+    'invoice-bot': /\b(factur|devis|paiement|rib|siret|client.*factur)\b/,
+    'proactive-agent': /\b(rapport|resume|recap|hebdo|mensuel|alertes?.*pipeline|mode.*proactif)\b/,
+    'self-improve': /\b(amelior|optimis|recommandation|performance|metriques?|rollback|auto.?apply)\b/,
+    'web-intelligence': /\b(veille|surveill|concurrent|news|article|tendance|rss|scan.*web|google.*news)\b/,
+    'system-advisor': /\b(systeme|memoire|ram|cpu|disque|uptime|health|sante.*bot|erreurs?.*recente)\b/,
+    'autonomous-pilot': /\b(pilot|autonome?|brain|objectif|critere|checklist|diagnostic|cycle)\b/
+  };
+
+  for (const [skill, regex] of Object.entries(patterns)) {
+    if (regex.test(t)) return skill;
+  }
+  return null; // null = fallback vers NLP
+}
 
 async function classifySkill(message, chatId) {
   const id = String(chatId);
@@ -718,7 +749,7 @@ REGLES STRICTES :
       1500);
     return result || rawContent;
   } catch (e) {
-    console.log('[router] Erreur humanisation:', e.message);
+    log.warn('router', 'Erreur humanisation:', e.message);
     return rawContent;
   }
 }
@@ -786,7 +817,7 @@ NE FAIS PAS :
     const result = await callClaude(systemPrompt, userContent, 800);
     return result || 'Hmm, j\'ai eu un souci. Reformule ta question ?';
   } catch (e) {
-    console.log('[router] Erreur reponse business:', e.message);
+    log.warn('router', 'Erreur reponse business:', e.message);
     return 'Oups, petit bug de mon cote. Reessaie !';
   }
 }
@@ -798,8 +829,17 @@ async function handleUpdate(update) {
   if (!msg || !msg.text) return;
 
   const chatId = msg.chat.id;
-  const text = msg.text.trim();
+  let text = (msg.text || '').trim();
   const userName = msg.from.first_name || 'Utilisateur';
+
+  // FIX 19 : Validation messages vides ou undefined
+  if (!text || text.length === 0) return;
+
+  // FIX 19 : Tronquer les messages tres longs (> 4000 chars) avant traitement NLP
+  if (text.length > 4000) {
+    log.warn('router', 'Message tronque de ' + text.length + ' a 4000 chars (user ' + chatId + ')');
+    text = text.substring(0, 4000);
+  }
 
   // Rate limiting : max 10 messages / 30s par utilisateur
   if (isRateLimited(chatId)) return;
@@ -807,7 +847,7 @@ async function handleUpdate(update) {
   // Enregistrer l'utilisateur dans les deux storages
   flowfastStorage.setUserName(chatId, userName);
 
-  console.log('[' + new Date().toISOString() + '] ' + userName + ' (' + chatId + '): ' + text);
+  log.info('router', userName + ' (' + chatId + '): ' + text.substring(0, 100));
   await sendTyping(chatId);
 
   // Sauvegarder le message dans l'historique
@@ -879,10 +919,18 @@ async function handleUpdate(update) {
   // ========== FIN COMMANDES DE CONTROLE ==========
 
   try {
-    // Determiner le skill via NLP contextuel (tronquer pour eviter de surcharger l'API)
+    // Determiner le skill : fast classify d'abord (zero token), puis NLP fallback
     const textForNLP = truncateInput(text, 2000);
-    let skill = await classifySkill(textForNLP, chatId);
-    console.log('[router] Skill: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
+    let skill = fastClassify(textForNLP);
+    if (skill) {
+      global.__ifindMetrics.fastClassifyHits++;
+      log.info('router', 'FastClassify: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
+    } else {
+      // Fallback NLP seulement si le fast classify ne trouve rien
+      skill = await classifySkill(textForNLP, chatId);
+      global.__ifindMetrics.nlpFallbacks++;
+      log.info('router', 'NLP classify: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
+    }
     userActiveSkill[String(chatId)] = skill;
 
     // ===== GARDES DE SECURITE =====
@@ -942,7 +990,8 @@ async function handleUpdate(update) {
     const handler = handlers[skill];
     if (handler) {
       const startTime = Date.now();
-      const HANDLER_TIMEOUT = 60000; // 60s max par handler
+      // FullEnrich est async (45-90s/contact) → timeout etendu pour lead-enrich
+      const HANDLER_TIMEOUT = (skill === 'lead-enrich') ? 240000 : 60000;
       try {
         response = await Promise.race([
           handler.handleMessage(text, chatId, sendReply),
@@ -953,7 +1002,7 @@ async function handleUpdate(update) {
 
         // Autonomous Pilot : trigger brain cycle si demande
         if (skill === 'autonomous-pilot' && response && response._triggerBrainCycle) {
-          autoPilotEngine._brainCycle().catch(e => console.error('[router] Erreur brain cycle force:', e.message));
+          autoPilotEngine._brainCycle().catch(e => log.error('router', 'Erreur brain cycle force:', e.message));
         }
       } catch (handlerError) {
         recordSkillUsage(skill);
@@ -966,19 +1015,19 @@ async function handleUpdate(update) {
       const apConfig = autoPilotHandler.claudeKey ? require('../skills/autonomous-pilot/storage.js').getConfig() : null;
       if (apConfig && apConfig.enabled && apConfig.businessContext) {
         skill = 'autonomous-pilot';
-        console.log('[router] Redirection general -> autonomous-pilot');
+        log.info('router', 'Redirection general -> autonomous-pilot');
         const startTime = Date.now();
         try {
           response = await autoPilotHandler.handleMessage(text, chatId, sendReply);
-          console.log('[router] AP reponse recue (' + (response?.content?.length || 0) + ' chars)');
+          log.info('router', 'AP reponse recue (' + (response?.content?.length || 0) + ' chars)');
         } catch (apError) {
-          console.error('[router] Erreur AP handler:', apError.message);
+          log.error('router', 'Erreur AP handler:', apError.message);
           response = { type: 'text', content: '⚠️ Petit souci, reessaie !' };
         }
         recordSkillUsage(skill);
         recordResponseTime(skill, Date.now() - startTime);
         if (response && response._triggerBrainCycle) {
-          autoPilotEngine._brainCycle().catch(e => console.error('[router] Erreur brain cycle force:', e.message));
+          autoPilotEngine._brainCycle().catch(e => log.error('router', 'Erreur brain cycle force:', e.message));
         }
       } else {
         const generalResponse = await generateBusinessResponse(text, chatId);
@@ -988,16 +1037,42 @@ async function handleUpdate(update) {
 
     if (response && response.content) {
       let finalText = response.content;
-      // Humaniser seulement les reponses de skills (pas "general" ni "autonomous-pilot" qui sont deja conversationnels)
-      if (skill !== 'general' && skill !== 'autonomous-pilot') {
-        finalText = await humanizeResponse(response.content, text, skill);
+      // --- UPGRADE 6 : Humanisation selective (economie de tokens) ---
+      // Skills deja exclues : general, autonomous-pilot
+      const skipHumanizationSkills = ['general', 'autonomous-pilot', 'content-gen', 'system-advisor', 'proactive-agent'];
+      let shouldHumanize = !skipHumanizationSkills.includes(skill);
+
+      if (shouldHumanize) {
+        // Skip si reponse courte (< 200 chars) — pas besoin d'humaniser
+        if (finalText.length < 200) {
+          shouldHumanize = false;
+          log.info('router', 'Humanisation skip: reponse courte (' + finalText.length + ' chars)');
+        }
       }
+
+      if (shouldHumanize) {
+        // Skip si deja conversationnel : contient des emojis ET du tutoiement (tu/te/ton/ta/tes)
+        const hasEmojis = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(finalText);
+        const hasTutoiement = /\b(tu |te |ton |ta |tes |t')\b/i.test(finalText);
+        if (hasEmojis && hasTutoiement) {
+          shouldHumanize = false;
+          log.info('router', 'Humanisation skip: deja conversationnel (' + skill + ')');
+        }
+      }
+
+      if (shouldHumanize) {
+        global.__ifindMetrics.humanizationApplied++;
+        finalText = await humanizeResponse(response.content, text, skill);
+      } else {
+        global.__ifindMetrics.humanizationSkipped++;
+      }
+
       // Sauvegarder la reponse dans l'historique
       addToHistory(chatId, 'bot', finalText.substring(0, 200), skill);
       await sendMessage(chatId, finalText, 'Markdown');
     }
   } catch (error) {
-    console.error('[' + new Date().toISOString() + '] Erreur:', error.message);
+    log.error('router', 'Erreur handleUpdate:', error.message);
     await sendMessage(chatId, '❌ Oups, une erreur est survenue. Reessaie !');
   }
 }
@@ -1023,7 +1098,7 @@ async function handleCallback(update) {
         addToHistory(chatId, 'bot', result.content.substring(0, 200), 'autonomous-pilot');
       }
     } catch (e) {
-      console.error('[router] Erreur callback autonomous-pilot:', e.message);
+      log.error('router', 'Erreur callback autonomous-pilot:', e.message);
       await sendMessage(chatId, '❌ Erreur traitement confirmation: ' + e.message);
     }
   } else if (data.startsWith('rpt_')) {
@@ -1044,7 +1119,7 @@ async function handleCallback(update) {
         await sendMessage(chatId, summary, 'Markdown');
       }
     } catch (e) {
-      console.error('[router] Erreur report workflow:', e.message);
+      log.error('router', 'Erreur report workflow:', e.message);
       await sendMessage(chatId, '❌ Erreur rapport: ' + e.message);
     }
   } else if (data.startsWith('feedback_')) {
@@ -1108,11 +1183,94 @@ async function poll() {
 
 // --- Demarrage ---
 
-// --- Healthcheck HTTP (pour Docker) ---
+// --- Healthcheck HTTP + Webhook Resend (pour Docker) ---
 const HEALTH_PORT = process.env.HEALTH_PORT || 9090;
+const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || '';
 let _botReady = false;
 
+// --- FIX 23 : Webhook Resend — reception temps reel des evenements email ---
+const automailerStorage = require('../skills/automailer/storage.js');
+
+const RESEND_EVENT_MAP = {
+  'email.sent': 'sent',
+  'email.delivered': 'delivered',
+  'email.delivery_delayed': 'delivery_delayed',
+  'email.bounced': 'bounced',
+  'email.complained': 'complained',
+  'email.opened': 'opened',
+  'email.clicked': 'clicked'
+};
+
+async function handleResendWebhook(body) {
+  const eventType = body.type;
+  const data = body.data;
+  if (!eventType || !data || !data.email_id) {
+    return { processed: false, reason: 'payload invalide' };
+  }
+
+  const status = RESEND_EVENT_MAP[eventType];
+  if (!status) {
+    return { processed: false, reason: 'event type inconnu: ' + eventType };
+  }
+
+  // Trouver l'email par resendId
+  const email = automailerStorage.findEmailByResendId(data.email_id);
+  if (!email) {
+    return { processed: false, reason: 'email_id inconnu: ' + data.email_id };
+  }
+
+  // Ne pas "downgrader" le statut (opened > delivered > sent)
+  const STATUS_PRIORITY = { queued: 0, sent: 1, delivered: 2, delivery_delayed: 2, opened: 3, clicked: 4, bounced: 5, complained: 5 };
+  const currentPriority = STATUS_PRIORITY[email.status] || 0;
+  const newPriority = STATUS_PRIORITY[status] || 0;
+  if (newPriority <= currentPriority && status !== 'bounced' && status !== 'complained') {
+    return { processed: false, reason: 'statut deja plus avance (' + email.status + ')' };
+  }
+
+  // Mettre a jour le statut
+  automailerStorage.updateEmailStatus(email.id, status);
+  log.info('webhook', eventType + ' pour ' + email.to + ' (resend: ' + data.email_id + ')');
+
+  // Bounce → blacklist automatique
+  if (status === 'bounced') {
+    automailerStorage.addToBlacklist(email.to, 'hard_bounce_webhook');
+    log.info('webhook', 'Bounce: ' + email.to + ' ajoute au blacklist');
+  }
+
+  // Complained (spam report) → blacklist automatique
+  if (status === 'complained') {
+    automailerStorage.addToBlacklist(email.to, 'spam_complaint');
+    log.info('webhook', 'Spam complaint: ' + email.to + ' ajoute au blacklist');
+  }
+
+  // Sync CRM pour les evenements importants
+  if (['opened', 'bounced', 'clicked'].includes(status)) {
+    try {
+      const hubspot = _getHubSpotClient();
+      if (hubspot) {
+        const contact = await hubspot.findContactByEmail(email.to);
+        if (contact && contact.id) {
+          const STATUS_LABELS = { opened: 'Ouvert', bounced: 'Bounce', clicked: 'Clique' };
+          const noteBody = 'Email "' + (email.subject || '(sans sujet)') + '" — ' + (STATUS_LABELS[status] || status) + '\n' +
+            'Destinataire : ' + email.to + '\n' +
+            'Date : ' + new Date().toLocaleDateString('fr-FR') + '\n' +
+            '[Webhook Resend — sync auto]';
+          const note = await hubspot.createNote(noteBody);
+          if (note && note.id) {
+            await hubspot.associateNoteToContact(note.id, contact.id);
+          }
+        }
+      }
+    } catch (crmErr) {
+      log.warn('webhook', 'CRM sync echoue: ' + crmErr.message);
+    }
+  }
+
+  return { processed: true, status: status, email: email.to };
+}
+
 const healthServer = http.createServer((req, res) => {
+  // Healthcheck
   if (req.url === '/health' && req.method === 'GET') {
     if (_botReady && _polling) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1121,10 +1279,39 @@ const healthServer = http.createServer((req, res) => {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'starting', ready: _botReady, polling: _polling }));
     }
-  } else {
-    res.writeHead(404);
-    res.end();
+    return;
   }
+
+  // Webhook Resend
+  if (req.url && req.url.startsWith('/webhook/resend') && req.method === 'POST') {
+    // Verification du secret (query param)
+    const urlObj = new URL(req.url, 'http://localhost');
+    const secret = urlObj.searchParams.get('secret');
+    if (WEBHOOK_SECRET && secret !== WEBHOOK_SECRET) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'unauthorized' }));
+      return;
+    }
+
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const parsed = JSON.parse(body);
+        const result = await handleResendWebhook(parsed);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (e) {
+        log.error('webhook', 'Erreur traitement webhook:', e.message);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
+  res.writeHead(404);
+  res.end();
 });
 healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
   log.info('router', 'Healthcheck HTTP sur port ' + HEALTH_PORT);
@@ -1133,32 +1320,32 @@ healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
 // --- Exporter l'agent HTTPS pour les skills ---
 global.__ifindHttpsAgent = httpsAgent;
 
-console.log('[iFIND] Router demarre...');
+log.info('router', 'iFIND Router demarre...');
 telegramAPI('getMe').then(result => {
   if (result.ok) {
-    console.log('🤖 Bot connecte : @' + result.result.username + ' (' + result.result.first_name + ')');
+    log.info('router', 'Bot connecte : @' + result.result.username + ' (' + result.result.first_name + ')');
     telegramAPI('setMyCommands', {
       commands: [
         { command: 'start', description: 'Demarrer iFIND' },
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(e => log.warn('router', 'setMyCommands echoue:', e.message));
-    console.log('[iFIND] 10 skills actives');
-    console.log('[iFIND] En attente de messages...');
+    log.info('router', '10 skills actives');
+    log.info('router', 'En attente de messages...');
     _botReady = true;
     poll();
   } else {
-    console.error('Erreur Telegram:', JSON.stringify(result));
+    log.error('router', 'Erreur Telegram:', JSON.stringify(result).substring(0, 200));
     process.exit(1);
   }
 }).catch(e => {
-  console.error('Erreur fatale:', e.message);
+  log.error('router', 'Erreur fatale:', e.message);
   process.exit(1);
 });
 
 // Cleanup — graceful shutdown (attend 2s pour les operations en cours)
 function gracefulShutdown() {
-  console.log('[iFIND] Arret Router...');
+  log.info('router', 'Arret Router...');
   _polling = false;
   _botReady = false;
   clearInterval(_cleanupInterval);
@@ -1166,15 +1353,15 @@ function gracefulShutdown() {
   httpsAgent.destroy();
   [automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
    invoiceBotHandler, proactiveEngine, webIntelHandler, systemAdvisorHandler, autoPilotEngine]
-    .forEach(h => { try { h.stop(); } catch (e) { console.error('[router] Erreur stop handler:', e.message); } });
-  if (selfImproveHandler) try { selfImproveHandler.stop(); } catch (e) { console.error('[router] Erreur stop self-improve:', e.message); }
+    .forEach(h => { try { h.stop(); } catch (e) { log.error('router', 'Erreur stop handler:', e.message); } });
+  if (selfImproveHandler) try { selfImproveHandler.stop(); } catch (e) { log.error('router', 'Erreur stop self-improve:', e.message); }
   setTimeout(() => process.exit(0), 2000);
 }
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 process.on('uncaughtException', (err) => {
   log.error('router', 'UNCAUGHT EXCEPTION:', err.message);
-  console.error(err.stack);
+  log.error('router', err.stack ? err.stack.substring(0, 500) : 'no stack');
   gracefulShutdown();
 });
 process.on('unhandledRejection', (reason) => {

@@ -54,6 +54,7 @@ class BrainEngine {
 
     this.executor = new ActionExecutor({
       apolloKey: options.apolloKey,
+      fullenrichKey: options.fullenrichKey,
       hubspotKey: options.hubspotKey,
       openaiKey: options.openaiKey,
       claudeKey: options.claudeKey,
@@ -305,7 +306,17 @@ class BrainEngine {
       }
     }
 
-    // 7. Envoyer resume
+    // 7. Analyse des patterns + auto-ajustement (Brain v3)
+    try {
+      const detectedPatterns = this._analyzePatterns();
+      if (detectedPatterns) {
+        this._autoAdjustCriteria();
+      }
+    } catch (e) {
+      log.error('brain', 'Erreur pattern/adjust:', e.message);
+    }
+
+    // 8. Envoyer resume
     const autoActions = plan.actions.filter(a => a.autoExecute);
     const confirmActions = plan.actions.filter(a => !a.autoExecute);
 
@@ -731,6 +742,63 @@ Analyse et reponds en JSON:
       }
     }
 
+    // --- APPRENTISSAGES RECENTS (Brain v3 - patterns detectes) ---
+    const patterns = storage.getPatterns();
+    if (patterns && patterns.totalEmailsAnalyzed > 0) {
+      prompt += '\nAPPRENTISSAGES RECENTS (base sur ' + patterns.totalEmailsAnalyzed + ' emails, open rate global: ' + patterns.globalOpenRate + '%):\n';
+
+      if (patterns.topTitles && patterns.topTitles.length > 0) {
+        prompt += '\n  TOP TITRES DE POSTE (par taux d\'ouverture):\n';
+        for (const t of patterns.topTitles.slice(0, 5)) {
+          prompt += '  - ' + t.label + ': ' + t.openRate + '% open rate (' + t.sent + ' emails)\n';
+        }
+      }
+
+      if (patterns.topIndustries && patterns.topIndustries.length > 0) {
+        prompt += '\n  TOP INDUSTRIES:\n';
+        for (const ind of patterns.topIndustries.slice(0, 5)) {
+          prompt += '  - ' + ind.label + ': ' + ind.openRate + '% open rate (' + ind.sent + ' emails)\n';
+        }
+      }
+
+      if (patterns.topCities && patterns.topCities.length > 0) {
+        prompt += '\n  TOP VILLES:\n';
+        for (const city of patterns.topCities.slice(0, 5)) {
+          prompt += '  - ' + city.label + ': ' + city.openRate + '% open rate (' + city.sent + ' emails)\n';
+        }
+      }
+
+      if (patterns.bestSubjectStyle) {
+        prompt += '\n  MEILLEUR STYLE DE SUJET: ' + patterns.bestSubjectStyle + '\n';
+        if (patterns.subjectStyles && patterns.subjectStyles.length > 0) {
+          for (const s of patterns.subjectStyles.slice(0, 3)) {
+            prompt += '  - ' + s.key + ': ' + s.openRate + '% open rate (' + s.sent + ' emails)\n';
+          }
+        }
+      }
+
+      if (patterns.bestSendHour !== null && patterns.bestSendHour !== undefined) {
+        prompt += '\n  MEILLEURE HEURE D\'ENVOI: ' + patterns.bestSendHour + 'h\n';
+        if (patterns.hourStats && patterns.hourStats.length > 0) {
+          for (const h of patterns.hourStats.slice(0, 3)) {
+            prompt += '  - ' + h.key + 'h: ' + h.openRate + '% open rate (' + h.sent + ' emails)\n';
+          }
+        }
+      }
+
+      prompt += '\n  → Utilise ces patterns pour prioriser les recherches et personnaliser les emails.\n';
+      prompt += '  → Concentre-toi sur les titres/industries/villes qui performent le mieux.\n';
+    }
+
+    // --- Historique des ajustements de criteres (Brain v3) ---
+    const criteriaHistory = storage.getCriteriaHistory();
+    if (criteriaHistory.length > 0) {
+      prompt += '\nDERNIERS AJUSTEMENTS DE CRITERES (' + criteriaHistory.length + ' total):\n';
+      for (const adj of criteriaHistory.slice(0, 5)) {
+        prompt += '- [' + (adj.adjustedAt || '?').substring(0, 10) + '] ' + adj.action + ': ' + adj.value + ' — ' + adj.reason + '\n';
+      }
+    }
+
     prompt += '\nACTIONS DISPONIBLES:\n';
     prompt += '1. search_leads — Rechercher des leads via Apollo (params.criteria)\n';
     prompt += '2. enrich_leads — Enrichir des leads (params.emails: [])\n';
@@ -778,6 +846,7 @@ Analyse et reponds en JSON:
 
       // 3. Trouver le premier objet JSON balance (accolades equilibrees)
       let depth = 0, start = -1;
+      let parsed = null;
       for (let i = 0; i < cleaned.length; i++) {
         if (cleaned[i] === '{') {
           if (depth === 0) start = i;
@@ -786,18 +855,359 @@ Analyse et reponds en JSON:
           depth--;
           if (depth === 0 && start !== -1) {
             try {
-              return JSON.parse(cleaned.substring(start, i + 1));
+              parsed = JSON.parse(cleaned.substring(start, i + 1));
+              break;
             } catch (_) {
-              // Ce bloc n'etait pas du JSON valide, continuer
               start = -1;
             }
           }
         }
       }
+
+      // Validation du schema : s'assurer que les champs attendus sont des arrays
+      if (parsed && typeof parsed === 'object') {
+        if (!Array.isArray(parsed.actions)) parsed.actions = [];
+        if (!Array.isArray(parsed.experiments)) parsed.experiments = [];
+        if (!Array.isArray(parsed.learnings)) parsed.learnings = [];
+        if (!Array.isArray(parsed.diagnosticItems)) parsed.diagnosticItems = [];
+        if (!parsed.reasoning) parsed.reasoning = '(raison non fournie)';
+        return parsed;
+      }
     } catch (e) {
       log.warn('brain', 'Erreur parse JSON:', e.message);
     }
     return null;
+  }
+
+  // --- 3a. Pattern Detection : analyse les donnees email pour detecter des patterns ---
+  _analyzePatterns() {
+    try {
+      const am = getAutomailerStorage();
+      if (!am || !am.data) {
+        log.info('brain', 'Pattern detection: automailer non disponible');
+        return null;
+      }
+
+      const emails = am.data.emails || [];
+      const le = getLeadEnrichStorage();
+      const enrichedLeads = (le && le.data) ? le.data.enrichedLeads || {} : {};
+
+      // Filtrer les emails envoyes (pas queued)
+      const sentEmails = emails.filter(e => e.sentAt && e.to);
+      if (sentEmails.length < 3) {
+        log.info('brain', 'Pattern detection: pas assez de donnees (' + sentEmails.length + ' emails)');
+        return null;
+      }
+
+      // --- Collecter les donnees par dimension ---
+      const byTitle = {};    // titre de poste → { sent, opened }
+      const byIndustry = {}; // industrie → { sent, opened }
+      const byCity = {};     // ville → { sent, opened }
+      const bySubject = {};  // style de sujet → { sent, opened }
+      const byHour = {};     // heure d'envoi → { sent, opened }
+      const days = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+
+      for (const email of sentEmails) {
+        const lead = enrichedLeads[email.to.toLowerCase()] || null;
+        const cls = (lead && lead.aiClassification) ? lead.aiClassification : {};
+        const person = (lead && lead.apolloData && lead.apolloData.person) ? lead.apolloData.person : {};
+        const opened = !!email.openedAt;
+        const sentDate = new Date(email.sentAt);
+
+        // Par titre de poste
+        const title = person.title || cls.persona || null;
+        if (title) {
+          const titleKey = title.toLowerCase().trim();
+          if (!byTitle[titleKey]) byTitle[titleKey] = { sent: 0, opened: 0, label: title };
+          byTitle[titleKey].sent++;
+          if (opened) byTitle[titleKey].opened++;
+        }
+
+        // Par industrie
+        const industry = cls.industry || null;
+        if (industry) {
+          const indKey = industry.toLowerCase().trim();
+          if (!byIndustry[indKey]) byIndustry[indKey] = { sent: 0, opened: 0, label: industry };
+          byIndustry[indKey].sent++;
+          if (opened) byIndustry[indKey].opened++;
+        }
+
+        // Par ville
+        const city = person.city || null;
+        if (city) {
+          const cityKey = city.toLowerCase().trim();
+          if (!byCity[cityKey]) byCity[cityKey] = { sent: 0, opened: 0, label: city };
+          byCity[cityKey].sent++;
+          if (opened) byCity[cityKey].opened++;
+        }
+
+        // Par style de sujet d'email
+        const subject = (email.subject || '').trim();
+        if (subject) {
+          let subjectStyle = 'statement';
+          if (subject.endsWith('?')) subjectStyle = 'question';
+          else if (subject.length < 30) subjectStyle = 'court';
+          else if (subject.length > 60) subjectStyle = 'long';
+          else if (/^\d/.test(subject) || /\d+/.test(subject)) subjectStyle = 'chiffres';
+          else if (subject.toLowerCase().includes('re:') || subject.toLowerCase().includes('fwd:')) subjectStyle = 'reply_style';
+
+          if (!bySubject[subjectStyle]) bySubject[subjectStyle] = { sent: 0, opened: 0 };
+          bySubject[subjectStyle].sent++;
+          if (opened) bySubject[subjectStyle].opened++;
+        }
+
+        // Par heure d'envoi
+        const hour = sentDate.getHours();
+        const hourKey = String(hour);
+        if (!byHour[hourKey]) byHour[hourKey] = { sent: 0, opened: 0 };
+        byHour[hourKey].sent++;
+        if (opened) byHour[hourKey].opened++;
+      }
+
+      // --- Trier et extraire les top performers ---
+      const sortByRate = (obj, minSent) => {
+        minSent = minSent || 2;
+        return Object.entries(obj)
+          .filter(([, d]) => d.sent >= minSent)
+          .map(([key, d]) => ({
+            key: key,
+            label: d.label || key,
+            sent: d.sent,
+            opened: d.opened,
+            openRate: Math.round((d.opened / d.sent) * 100)
+          }))
+          .sort((a, b) => b.openRate - a.openRate || b.sent - a.sent);
+      };
+
+      const topTitles = sortByRate(byTitle, 2).slice(0, 10);
+      const topIndustries = sortByRate(byIndustry, 2).slice(0, 10);
+      const topCities = sortByRate(byCity, 2).slice(0, 10);
+      const subjectStyles = sortByRate(bySubject, 2);
+      const hourStats = sortByRate(byHour, 2);
+
+      const bestSubjectStyle = subjectStyles.length > 0 ? subjectStyles[0].key : null;
+      const bestSendHour = hourStats.length > 0 ? parseInt(hourStats[0].key) : null;
+
+      const patterns = {
+        topTitles: topTitles,
+        topIndustries: topIndustries,
+        topCities: topCities,
+        subjectStyles: subjectStyles,
+        bestSubjectStyle: bestSubjectStyle,
+        hourStats: hourStats,
+        bestSendHour: bestSendHour,
+        totalEmailsAnalyzed: sentEmails.length,
+        totalOpened: sentEmails.filter(e => !!e.openedAt).length,
+        globalOpenRate: sentEmails.length > 0
+          ? Math.round((sentEmails.filter(e => !!e.openedAt).length / sentEmails.length) * 100) : 0
+      };
+
+      storage.savePatterns(patterns);
+      log.info('brain', 'Patterns detectes: ' + topTitles.length + ' titres, ' +
+        topIndustries.length + ' industries, ' + topCities.length + ' villes, ' +
+        'best hour=' + bestSendHour + ', best subject=' + bestSubjectStyle);
+
+      return patterns;
+    } catch (e) {
+      log.error('brain', 'Erreur analyse patterns:', e.message);
+      return null;
+    }
+  }
+
+  // --- 3b. Auto-adjustment des criteres basé sur les patterns ---
+  _autoAdjustCriteria() {
+    try {
+      const patterns = storage.getPatterns();
+      if (!patterns || !patterns.totalEmailsAnalyzed) {
+        log.info('brain', 'Auto-adjust: pas de patterns disponibles');
+        return;
+      }
+
+      const config = storage.getConfig();
+      if (config.autonomyLevel !== 'full') {
+        log.info('brain', 'Auto-adjust: autonomie non-full, skip');
+        return;
+      }
+
+      const currentCriteria = storage.getGoals().searchCriteria;
+      const MIN_DATA_POINTS = 5;
+      const POOR_OPEN_RATE = 5;   // % — seuil de mauvaise performance
+      const MIN_EMAILS_POOR = 20; // nb minimum d'emails pour juger "mauvaise performance"
+      const adjustments = [];
+
+      // --- Ajouter des titres performants non encore dans les criteres ---
+      if (patterns.topTitles && patterns.topTitles.length > 0) {
+        const currentTitlesLower = (currentCriteria.titles || []).map(t => t.toLowerCase());
+        for (const t of patterns.topTitles) {
+          if (t.sent >= MIN_DATA_POINTS && t.openRate >= 20) {
+            // Verifier si ce titre n'est pas deja dans les criteres
+            const isIncluded = currentTitlesLower.some(ct =>
+              t.label.toLowerCase().includes(ct) || ct.includes(t.label.toLowerCase())
+            );
+            if (!isIncluded) {
+              adjustments.push({
+                action: 'add_title',
+                value: t.label,
+                reason: 'Titre "' + t.label + '" a ' + t.openRate + '% open rate sur ' + t.sent + ' emails',
+                dataPoints: t.sent
+              });
+            }
+          }
+        }
+      }
+
+      // --- Ajouter des industries performantes ---
+      if (patterns.topIndustries && patterns.topIndustries.length > 0) {
+        const currentIndustriesLower = (currentCriteria.industries || []).map(i => i.toLowerCase());
+        for (const ind of patterns.topIndustries) {
+          if (ind.sent >= MIN_DATA_POINTS && ind.openRate >= 20) {
+            const isIncluded = currentIndustriesLower.some(ci =>
+              ind.label.toLowerCase().includes(ci) || ci.includes(ind.label.toLowerCase())
+            );
+            if (!isIncluded) {
+              adjustments.push({
+                action: 'add_industry',
+                value: ind.label,
+                reason: 'Industrie "' + ind.label + '" a ' + ind.openRate + '% open rate sur ' + ind.sent + ' emails',
+                dataPoints: ind.sent
+              });
+            }
+          }
+        }
+      }
+
+      // --- Ajouter des villes performantes ---
+      if (patterns.topCities && patterns.topCities.length > 0) {
+        const currentLocationsLower = (currentCriteria.locations || []).map(l => l.toLowerCase());
+        for (const city of patterns.topCities) {
+          if (city.sent >= MIN_DATA_POINTS && city.openRate >= 20) {
+            const isIncluded = currentLocationsLower.some(cl =>
+              city.label.toLowerCase().includes(cl) || cl.includes(city.label.toLowerCase())
+            );
+            if (!isIncluded) {
+              adjustments.push({
+                action: 'add_location',
+                value: city.label,
+                reason: 'Ville "' + city.label + '" a ' + city.openRate + '% open rate sur ' + city.sent + ' emails',
+                dataPoints: city.sent
+              });
+            }
+          }
+        }
+      }
+
+      // --- Retirer les titres qui performent mal ---
+      if (patterns.topTitles && patterns.topTitles.length > 0) {
+        const allTitleStats = {};
+        for (const t of patterns.topTitles) {
+          allTitleStats[t.label.toLowerCase()] = t;
+        }
+        for (const currentTitle of (currentCriteria.titles || [])) {
+          const matchingPattern = Object.entries(allTitleStats).find(([key]) =>
+            key.includes(currentTitle.toLowerCase()) || currentTitle.toLowerCase().includes(key)
+          );
+          if (matchingPattern) {
+            const [, data] = matchingPattern;
+            if (data.sent >= MIN_EMAILS_POOR && data.openRate < POOR_OPEN_RATE) {
+              adjustments.push({
+                action: 'remove_title',
+                value: currentTitle,
+                reason: 'Titre "' + currentTitle + '" a seulement ' + data.openRate + '% open rate sur ' + data.sent + ' emails (< ' + POOR_OPEN_RATE + '%)',
+                dataPoints: data.sent
+              });
+            }
+          }
+        }
+      }
+
+      // --- Retirer les industries qui performent mal ---
+      if (patterns.topIndustries && patterns.topIndustries.length > 0) {
+        const allIndStats = {};
+        for (const ind of patterns.topIndustries) {
+          allIndStats[ind.label.toLowerCase()] = ind;
+        }
+        for (const currentInd of (currentCriteria.industries || [])) {
+          const matchingPattern = Object.entries(allIndStats).find(([key]) =>
+            key.includes(currentInd.toLowerCase()) || currentInd.toLowerCase().includes(key)
+          );
+          if (matchingPattern) {
+            const [, data] = matchingPattern;
+            if (data.sent >= MIN_EMAILS_POOR && data.openRate < POOR_OPEN_RATE) {
+              adjustments.push({
+                action: 'remove_industry',
+                value: currentInd,
+                reason: 'Industrie "' + currentInd + '" a seulement ' + data.openRate + '% open rate sur ' + data.sent + ' emails (< ' + POOR_OPEN_RATE + '%)',
+                dataPoints: data.sent
+              });
+            }
+          }
+        }
+      }
+
+      // --- Appliquer les ajustements ---
+      if (adjustments.length === 0) {
+        log.info('brain', 'Auto-adjust: aucun ajustement necessaire');
+        return;
+      }
+
+      const updates = {};
+      let titlesToAdd = [];
+      let titlesToRemove = [];
+      let industriesToAdd = [];
+      let industriesToRemove = [];
+      let locationsToAdd = [];
+
+      for (const adj of adjustments) {
+        if (adj.action === 'add_title') titlesToAdd.push(adj.value);
+        if (adj.action === 'remove_title') titlesToRemove.push(adj.value);
+        if (adj.action === 'add_industry') industriesToAdd.push(adj.value);
+        if (adj.action === 'remove_industry') industriesToRemove.push(adj.value);
+        if (adj.action === 'add_location') locationsToAdd.push(adj.value);
+
+        log.info('brain', 'Auto-adjust: ' + adj.action + ' "' + adj.value + '" — ' + adj.reason);
+        storage.addCriteriaAdjustment(adj);
+      }
+
+      // Appliquer les modifications
+      if (titlesToAdd.length > 0 || titlesToRemove.length > 0) {
+        let newTitles = [...(currentCriteria.titles || [])];
+        for (const t of titlesToAdd) {
+          if (!newTitles.some(nt => nt.toLowerCase() === t.toLowerCase())) {
+            newTitles.push(t);
+          }
+        }
+        newTitles = newTitles.filter(t => !titlesToRemove.some(r => r.toLowerCase() === t.toLowerCase()));
+        if (newTitles.length > 0) updates.titles = newTitles;
+      }
+
+      if (industriesToAdd.length > 0 || industriesToRemove.length > 0) {
+        let newIndustries = [...(currentCriteria.industries || [])];
+        for (const i of industriesToAdd) {
+          if (!newIndustries.some(ni => ni.toLowerCase() === i.toLowerCase())) {
+            newIndustries.push(i);
+          }
+        }
+        newIndustries = newIndustries.filter(i => !industriesToRemove.some(r => r.toLowerCase() === i.toLowerCase()));
+        updates.industries = newIndustries;
+      }
+
+      if (locationsToAdd.length > 0) {
+        let newLocations = [...(currentCriteria.locations || [])];
+        for (const l of locationsToAdd) {
+          if (!newLocations.some(nl => nl.toLowerCase() === l.toLowerCase())) {
+            newLocations.push(l);
+          }
+        }
+        updates.locations = newLocations;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        storage.updateSearchCriteria(updates);
+        log.info('brain', 'Auto-adjust: criteres mis a jour — ' + JSON.stringify(updates).substring(0, 300));
+      }
+    } catch (e) {
+      log.error('brain', 'Erreur auto-adjust criteres:', e.message);
+    }
   }
 
   // --- Fallback plan si Claude echoue ---

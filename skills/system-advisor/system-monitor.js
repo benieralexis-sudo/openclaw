@@ -299,7 +299,7 @@ class SystemMonitor {
   // --- Metriques du routeur (via global) ---
 
   collectSkillUsageFromRouter() {
-    const metrics = global.__moltbotMetrics;
+    const metrics = global.__ifindMetrics;
     if (!metrics) return { available: false };
     return {
       available: true,

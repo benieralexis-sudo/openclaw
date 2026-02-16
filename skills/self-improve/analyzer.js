@@ -1,6 +1,9 @@
 // Self-Improve - Moteur d'analyse IA + feedback loop
 const https = require('https');
 const storage = require('./storage.js');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class Analyzer {
   constructor(claudeKey) {
@@ -97,7 +100,8 @@ Reponds UNIQUEMENT en JSON strict :
       overrideContext;
 
     try {
-      const response = await this.callClaude(systemPrompt, userMessage, 2000);
+      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaude(systemPrompt, userMessage, 2000), 2, 3000));
       const cleaned = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const analysis = JSON.parse(cleaned);
 
@@ -112,7 +116,7 @@ Reponds UNIQUEMENT en JSON strict :
 
       return analysis;
     } catch (error) {
-      console.error('[analyzer] Erreur analyse Claude:', error.message);
+      log.error('self-improve', 'Erreur analyse Claude:', error.message);
       return this._fallbackAnalysis(snapshot);
     }
   }
@@ -231,6 +235,133 @@ Reponds UNIQUEMENT en JSON strict :
     };
   }
 
+  // 4a. Analyse detaillee des performances email — genere des recommandations concretes
+  analyzeEmailPerformance() {
+    const automailerStorage = getAutomailerStorageSafe();
+    if (!automailerStorage || !automailerStorage.data) {
+      return { available: false, insights: [], recommendations: [] };
+    }
+
+    const emails = automailerStorage.data.emails || [];
+    const sentEmails = emails.filter(e => e.sentAt && e.to);
+
+    if (sentEmails.length < 5) {
+      return { available: false, insights: ['Pas assez d\'emails envoyes (' + sentEmails.length + ') pour une analyse significative'], recommendations: [] };
+    }
+
+    const insights = [];
+    const recommendations = [];
+
+    // --- Analyse longueur des emails ---
+    const shortEmails = sentEmails.filter(e => (e.body || '').split(/\s+/).length < 100);
+    const longEmails = sentEmails.filter(e => (e.body || '').split(/\s+/).length >= 100);
+
+    if (shortEmails.length >= 3 && longEmails.length >= 3) {
+      const shortOpenRate = shortEmails.length > 0
+        ? Math.round((shortEmails.filter(e => !!e.openedAt).length / shortEmails.length) * 100) : 0;
+      const longOpenRate = longEmails.length > 0
+        ? Math.round((longEmails.filter(e => !!e.openedAt).length / longEmails.length) * 100) : 0;
+
+      if (shortOpenRate > longOpenRate + 10) {
+        const diff = shortOpenRate - longOpenRate;
+        insights.push('Les emails courts (< 100 mots) ont ' + diff + '% plus d\'ouvertures que les longs (' + shortOpenRate + '% vs ' + longOpenRate + '%)');
+        recommendations.push({
+          type: 'email_length',
+          description: 'Privilegier les emails courts (< 100 mots) — ' + diff + '% de meilleures ouvertures',
+          action: 'prefer_short_emails',
+          params: { maxWords: 100 },
+          confidence: Math.min(0.9, 0.5 + (shortEmails.length + longEmails.length) / 100)
+        });
+      } else if (longOpenRate > shortOpenRate + 10) {
+        insights.push('Les emails longs (100+ mots) performent mieux : ' + longOpenRate + '% vs ' + shortOpenRate + '% pour les courts');
+      }
+    }
+
+    // --- Analyse sujets avec question ---
+    const questionSubjects = sentEmails.filter(e => (e.subject || '').trim().endsWith('?'));
+    const statementSubjects = sentEmails.filter(e => !(e.subject || '').trim().endsWith('?'));
+
+    if (questionSubjects.length >= 3 && statementSubjects.length >= 3) {
+      const questionRate = Math.round((questionSubjects.filter(e => !!e.openedAt).length / questionSubjects.length) * 100);
+      const statementRate = Math.round((statementSubjects.filter(e => !!e.openedAt).length / statementSubjects.length) * 100);
+
+      if (questionRate > statementRate + 5) {
+        const diff = questionRate - statementRate;
+        insights.push('Les sujets avec question ont ' + diff + '% plus d\'ouvertures (' + questionRate + '% vs ' + statementRate + '%)');
+        recommendations.push({
+          type: 'email_style',
+          description: 'Utiliser des questions dans les sujets d\'email — +' + diff + '% d\'ouvertures',
+          action: 'prefer_question_subjects',
+          params: { subjectStyle: 'question' },
+          confidence: Math.min(0.85, 0.5 + (questionSubjects.length + statementSubjects.length) / 100)
+        });
+      }
+    }
+
+    // --- Analyse heure d'envoi ---
+    const byHour = {};
+    for (const email of sentEmails) {
+      const hour = new Date(email.sentAt).getHours();
+      if (!byHour[hour]) byHour[hour] = { sent: 0, opened: 0 };
+      byHour[hour].sent++;
+      if (email.openedAt) byHour[hour].opened++;
+    }
+
+    // Trouver la meilleure plage horaire
+    let bestSlot = null;
+    let bestSlotRate = 0;
+    let worstSlot = null;
+    let worstSlotRate = 100;
+    const globalOpenRate = sentEmails.length > 0
+      ? Math.round((sentEmails.filter(e => !!e.openedAt).length / sentEmails.length) * 100) : 0;
+
+    for (const [hour, data] of Object.entries(byHour)) {
+      if (data.sent >= 3) {
+        const rate = Math.round((data.opened / data.sent) * 100);
+        if (rate > bestSlotRate) { bestSlotRate = rate; bestSlot = parseInt(hour); }
+        if (rate < worstSlotRate) { worstSlotRate = rate; worstSlot = parseInt(hour); }
+      }
+    }
+
+    if (bestSlot !== null && bestSlotRate > globalOpenRate + 10) {
+      const multiplier = globalOpenRate > 0 ? (bestSlotRate / globalOpenRate).toFixed(1) : '?';
+      insights.push('Les emails envoyes entre ' + bestSlot + 'h-' + (bestSlot + 1) + 'h performent ' + multiplier + 'x mieux (' + bestSlotRate + '% vs ' + globalOpenRate + '% global)');
+      recommendations.push({
+        type: 'send_timing',
+        description: 'Envoyer les emails vers ' + bestSlot + 'h — ' + bestSlotRate + '% open rate (vs ' + globalOpenRate + '% global)',
+        action: 'set_preferred_hour',
+        params: { hour: bestSlot },
+        confidence: Math.min(0.85, 0.5 + (byHour[bestSlot].sent / 20))
+      });
+    }
+
+    // --- Analyse longueur du sujet ---
+    const shortSubjects = sentEmails.filter(e => (e.subject || '').length < 40);
+    const longSubjects = sentEmails.filter(e => (e.subject || '').length >= 40);
+
+    if (shortSubjects.length >= 3 && longSubjects.length >= 3) {
+      const shortRate = Math.round((shortSubjects.filter(e => !!e.openedAt).length / shortSubjects.length) * 100);
+      const longRate = Math.round((longSubjects.filter(e => !!e.openedAt).length / longSubjects.length) * 100);
+
+      if (Math.abs(shortRate - longRate) > 10) {
+        const better = shortRate > longRate ? 'courts' : 'longs';
+        const betterRate = shortRate > longRate ? shortRate : longRate;
+        const worseRate = shortRate > longRate ? longRate : shortRate;
+        insights.push('Les sujets ' + better + ' ont ' + (betterRate - worseRate) + '% plus d\'ouvertures (' + betterRate + '% vs ' + worseRate + '%)');
+      }
+    }
+
+    return {
+      available: true,
+      totalAnalyzed: sentEmails.length,
+      globalOpenRate: globalOpenRate,
+      bestSendHour: bestSlot,
+      bestSendHourRate: bestSlotRate,
+      insights: insights,
+      recommendations: recommendations
+    };
+  }
+
   // Boucle de feedback : comparer predictions vs resultats
   comparePredictions() {
     const unverified = storage.getUnverifiedPredictions();
@@ -272,7 +403,7 @@ Reponds UNIQUEMENT en JSON strict :
     };
 
     storage.saveAccuracyRecord(record);
-    console.log('[analyzer] Feedback loop: ' + accuracy + '% accuracy (' + correct + '/' + verified + ')');
+    log.info('self-improve', 'Feedback loop: ' + accuracy + '% accuracy (' + correct + '/' + verified + ')');
 
     return record;
   }

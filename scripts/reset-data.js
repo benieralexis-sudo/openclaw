@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// MoltBot - Reset toutes les donnees de test (one-shot)
+// iFIND - Reset toutes les donnees de test (one-shot)
 // Usage: docker compose exec telegram-router node /app/scripts/reset-data.js
 
 const fs = require('fs');
@@ -272,7 +272,7 @@ const dataSets = [
   }
 ];
 
-console.log('=== MoltBot Reset Data ===\n');
+console.log('=== iFIND Reset Data ===\n');
 
 let success = 0;
 let errors = 0;

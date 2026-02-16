@@ -2,6 +2,9 @@
 const HubSpotClient = require('./hubspot-client.js');
 const storage = require('./storage.js');
 const https = require('https');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class CRMPilotHandler {
   constructor(openaiKey, hubspotKey) {
@@ -136,17 +139,18 @@ Reponds UNIQUEMENT en JSON strict :
 {"action":"help"}`;
 
     try {
-      const response = await this.callOpenAI([
+      const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
-      ], 300);
+      ], 300), 2, 2000));
 
       let cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned);
       if (!result.action) return null;
       return result;
     } catch (error) {
-      console.log('[crm-pilot-NLP] Erreur classifyIntent:', error.message);
+      log.error('crm-pilot', 'Erreur classifyIntent:', error.message);
       return null;
     }
   }
@@ -261,10 +265,11 @@ Reponds UNIQUEMENT en JSON strict :
 
       case 'chat': {
         try {
-          const response = await this.callOpenAI([
+          const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+          const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
             { role: 'system', content: 'Tu es l\'assistant CRM Pilot du bot Telegram. Tu aides a gerer le CRM HubSpot. Reponds en francais, 1-3 phrases max.' },
             { role: 'user', content: text }
-          ], 200);
+          ], 200), 2, 2000));
           return { type: 'text', content: response.trim() };
         } catch (e) {
           return { type: 'text', content: 'Dis-moi ce que tu veux faire ! Exemples :\n_"mes contacts hubspot"_\n_"mon pipeline"_\n_"cree une offre"_' };
@@ -284,7 +289,8 @@ Reponds UNIQUEMENT en JSON strict :
     if (sendReply) await sendReply({ type: 'text', content: '🔍 _Chargement des contacts HubSpot..._' });
     try {
       const limit = params.limit || 10;
-      const result = await this.hubspot.listContacts(limit);
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const result = await hsBreaker.call(() => retryAsync(() => this.hubspot.listContacts(limit), 2, 2000));
       storage.incrementStat(chatId, 'contactsViewed');
 
       if (result.contacts.length === 0) {
@@ -325,7 +331,8 @@ Reponds UNIQUEMENT en JSON strict :
     if (sendReply) await sendReply({ type: 'text', content: '🔍 _Recherche de "' + query + '"..._' });
 
     try {
-      const contacts = await this.hubspot.searchContacts(query, by);
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const contacts = await hsBreaker.call(() => retryAsync(() => this.hubspot.searchContacts(query, by), 2, 2000));
       storage.incrementStat(chatId, 'searchesPerformed');
 
       if (contacts.length === 0) {
@@ -352,11 +359,12 @@ Reponds UNIQUEMENT en JSON strict :
   async _handleShowContact(chatId, params, sendReply) {
     if (sendReply) await sendReply({ type: 'text', content: '🔍 _Chargement..._' });
     try {
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
       let contact = null;
       if (params.contact_id) {
-        contact = await this.hubspot.getContact(params.contact_id);
+        contact = await hsBreaker.call(() => retryAsync(() => this.hubspot.getContact(params.contact_id), 2, 2000));
       } else if (params.email) {
-        contact = await this.hubspot.findContactByEmail(params.email);
+        contact = await hsBreaker.call(() => retryAsync(() => this.hubspot.findContactByEmail(params.email), 2, 2000));
       }
       if (!contact) {
         return { type: 'text', content: '📭 Contact introuvable.' };
@@ -399,7 +407,8 @@ Reponds UNIQUEMENT en JSON strict :
     if (sendReply) await sendReply({ type: 'text', content: '🔍 _Recherche du contact..._' });
 
     try {
-      const contact = await this.hubspot.findContactByEmail(email);
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const contact = await hsBreaker.call(() => retryAsync(() => this.hubspot.findContactByEmail(email), 2, 2000));
       if (!contact) {
         return { type: 'text', content: '📭 Contact "' + email + '" introuvable.' };
       }
@@ -415,7 +424,7 @@ Reponds UNIQUEMENT en JSON strict :
       }
 
       // Appliquer les modifications
-      const updated = await this.hubspot.updateContact(contact.id, updates);
+      const updated = await hsBreaker.call(() => retryAsync(() => this.hubspot.updateContact(contact.id, updates), 2, 2000));
       storage.incrementStat(chatId, 'contactsUpdated');
       storage.logActivity(chatId, 'update_contact', { email: email, updates: updates });
       storage.invalidateContactCache(chatId);
@@ -435,7 +444,8 @@ Reponds UNIQUEMENT en JSON strict :
     if (sendReply) await sendReply({ type: 'text', content: '🔍 _Recherche contacts de "' + company + '"..._' });
 
     try {
-      const contacts = await this.hubspot.searchContacts(company, 'company');
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const contacts = await hsBreaker.call(() => retryAsync(() => this.hubspot.searchContacts(company, 'company'), 2, 2000));
       storage.incrementStat(chatId, 'searchesPerformed');
 
       if (contacts.length === 0) {
@@ -463,7 +473,8 @@ Reponds UNIQUEMENT en JSON strict :
     if (sendReply) await sendReply({ type: 'text', content: '🔍 _Chargement des offres..._' });
     try {
       const limit = params.limit || 10;
-      const result = await this.hubspot.listDeals(limit);
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const result = await hsBreaker.call(() => retryAsync(() => this.hubspot.listDeals(limit), 2, 2000));
       const pipeline = await this._getPipeline();
 
       if (result.deals.length === 0) {
@@ -489,11 +500,12 @@ Reponds UNIQUEMENT en JSON strict :
   async _handleShowDeal(chatId, params, sendReply) {
     if (sendReply) await sendReply({ type: 'text', content: '🔍 _Chargement..._' });
     try {
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
       let deal = null;
       if (params.deal_id) {
-        deal = await this.hubspot.getDeal(params.deal_id);
+        deal = await hsBreaker.call(() => retryAsync(() => this.hubspot.getDeal(params.deal_id), 2, 2000));
       } else if (params.name) {
-        const deals = await this.hubspot.searchDeals(params.name);
+        const deals = await hsBreaker.call(() => retryAsync(() => this.hubspot.searchDeals(params.name), 2, 2000));
         deal = deals.length > 0 ? deals[0] : null;
       }
       if (!deal) {
@@ -540,11 +552,12 @@ Reponds UNIQUEMENT en JSON strict :
     if (sendReply) await sendReply({ type: 'text', content: '🔍 _Recherche de l\'offre..._' });
 
     try {
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
       let deal = null;
       if (params.deal_id) {
-        deal = await this.hubspot.getDeal(params.deal_id);
+        deal = await hsBreaker.call(() => retryAsync(() => this.hubspot.getDeal(params.deal_id), 2, 2000));
       } else {
-        const deals = await this.hubspot.searchDeals(params.name);
+        const deals = await hsBreaker.call(() => retryAsync(() => this.hubspot.searchDeals(params.name), 2, 2000));
         deal = deals.length > 0 ? deals[0] : null;
       }
       if (!deal) {
@@ -567,7 +580,7 @@ Reponds UNIQUEMENT en JSON strict :
       }
 
       // Appliquer les modifications
-      const updated = await this.hubspot.updateDeal(deal.id, updates);
+      const updated = await hsBreaker.call(() => retryAsync(() => this.hubspot.updateDeal(deal.id, updates), 2, 2000));
       storage.incrementStat(chatId, 'dealsUpdated');
       storage.logActivity(chatId, 'update_deal', { dealId: deal.id, updates: updates });
       storage.invalidateDealCache(chatId);
@@ -585,8 +598,9 @@ Reponds UNIQUEMENT en JSON strict :
   async _handlePipelineSummary(chatId, sendReply) {
     if (sendReply) await sendReply({ type: 'text', content: '📊 _Chargement du pipeline..._' });
     try {
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
       const pipeline = await this._getPipeline();
-      const result = await this.hubspot.listDeals(100);
+      const result = await hsBreaker.call(() => retryAsync(() => this.hubspot.listDeals(100), 2, 2000));
       storage.incrementStat(chatId, 'pipelineViewed');
 
       // Grouper les deals par stage
@@ -664,13 +678,14 @@ Reponds UNIQUEMENT en JSON strict :
   async _executeAddNote(chatId, email, noteText, sendReply) {
     if (sendReply) await sendReply({ type: 'text', content: '📝 _Ajout de la note..._' });
     try {
-      const contact = await this.hubspot.findContactByEmail(email);
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const contact = await hsBreaker.call(() => retryAsync(() => this.hubspot.findContactByEmail(email), 2, 2000));
       if (!contact) {
         return { type: 'text', content: '📭 Contact "' + email + '" introuvable dans HubSpot.' };
       }
 
-      const note = await this.hubspot.createNote(noteText);
-      await this.hubspot.associateNoteToContact(note.id, contact.id);
+      const note = await hsBreaker.call(() => retryAsync(() => this.hubspot.createNote(noteText), 2, 2000));
+      await hsBreaker.call(() => retryAsync(() => this.hubspot.associateNoteToContact(note.id, contact.id), 2, 2000));
 
       storage.incrementStat(chatId, 'notesAdded');
       storage.incrementGlobalStat('totalNotesAdded');
@@ -721,19 +736,20 @@ Reponds UNIQUEMENT en JSON strict :
   async _executeCreateTask(chatId, data, sendReply) {
     if (sendReply) await sendReply({ type: 'text', content: '✅ _Creation de la tache..._' });
     try {
-      const task = await this.hubspot.createTask({
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const task = await hsBreaker.call(() => retryAsync(() => this.hubspot.createTask({
         subject: data.subject,
         body: data.subject,
         status: 'NOT_STARTED',
         priority: data.priority,
         dueDate: data.dueDate
-      });
+      }), 2, 2000));
 
       // Associer a un contact si specifie
       if (data.targetEmail) {
-        const contact = await this.hubspot.findContactByEmail(data.targetEmail);
+        const contact = await hsBreaker.call(() => retryAsync(() => this.hubspot.findContactByEmail(data.targetEmail), 2, 2000));
         if (contact) {
-          await this.hubspot.associateTaskToContact(task.id, contact.id);
+          await hsBreaker.call(() => retryAsync(() => this.hubspot.associateTaskToContact(task.id, contact.id), 2, 2000));
         }
       }
 
@@ -750,7 +766,8 @@ Reponds UNIQUEMENT en JSON strict :
   async _handleListTasks(chatId, sendReply) {
     if (sendReply) await sendReply({ type: 'text', content: '🔍 _Chargement des taches..._' });
     try {
-      const tasks = await this.hubspot.listTasks(15);
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const tasks = await hsBreaker.call(() => retryAsync(() => this.hubspot.listTasks(15), 2, 2000));
 
       if (tasks.length === 0) {
         return { type: 'text', content: '📭 Aucune tache.\n👉 _"cree une tache pour rappeler..."_' };
@@ -782,8 +799,9 @@ Reponds UNIQUEMENT en JSON strict :
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
       // Recuperer contacts et deals recents
-      const contactsResult = await this.hubspot.listContacts(100);
-      const dealsResult = await this.hubspot.listDeals(100);
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const contactsResult = await hsBreaker.call(() => retryAsync(() => this.hubspot.listContacts(100), 2, 2000));
+      const dealsResult = await hsBreaker.call(() => retryAsync(() => this.hubspot.listDeals(100), 2, 2000));
       const pipeline = await this._getPipeline();
 
       // Filtrer par date de creation (cette semaine)
@@ -839,8 +857,9 @@ Reponds UNIQUEMENT en JSON strict :
   async _handleCRMStats(chatId, sendReply) {
     if (sendReply) await sendReply({ type: 'text', content: '📊 _Chargement des stats..._' });
     try {
-      const contactsResult = await this.hubspot.listContacts(1);
-      const dealsResult = await this.hubspot.listDeals(100);
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const contactsResult = await hsBreaker.call(() => retryAsync(() => this.hubspot.listContacts(1), 2, 2000));
+      const dealsResult = await hsBreaker.call(() => retryAsync(() => this.hubspot.listDeals(100), 2, 2000));
       const userStats = storage.getUser(chatId).stats;
 
       const activeDeals = dealsResult.deals.filter(d => !d.stage.includes('closed') && !d.stage.includes('lost'));
@@ -1038,7 +1057,8 @@ Reponds UNIQUEMENT en JSON strict :
       delete this.pendingConversations[String(chatId)];
 
       try {
-        const updated = await this.hubspot.updateContact(conv.data.contactId, updates);
+        const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+        const updated = await hsBreaker.call(() => retryAsync(() => this.hubspot.updateContact(conv.data.contactId, updates), 2, 2000));
         storage.incrementStat(chatId, 'contactsUpdated');
         storage.logActivity(chatId, 'update_contact', { email: conv.data.email, updates: updates });
         storage.invalidateContactCache(chatId);
@@ -1094,7 +1114,8 @@ Reponds UNIQUEMENT en JSON strict :
       delete this.pendingConversations[String(chatId)];
 
       try {
-        const updated = await this.hubspot.updateDeal(conv.data.dealId, updates);
+        const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+        const updated = await hsBreaker.call(() => retryAsync(() => this.hubspot.updateDeal(conv.data.dealId, updates), 2, 2000));
         storage.incrementStat(chatId, 'dealsUpdated');
         storage.logActivity(chatId, 'update_deal', { dealId: conv.data.dealId, updates: updates });
         storage.invalidateDealCache(chatId);
@@ -1121,7 +1142,8 @@ Reponds UNIQUEMENT en JSON strict :
     if (pending.action === 'create_contact') {
       if (sendReply) await sendReply({ type: 'text', content: '👤 _Creation du contact..._' });
       try {
-        const contact = await this.hubspot.createContact(pending.data);
+        const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+        const contact = await hsBreaker.call(() => retryAsync(() => this.hubspot.createContact(pending.data), 2, 2000));
         storage.incrementStat(chatId, 'contactsCreated');
         storage.incrementGlobalStat('totalContactsCreated');
         storage.logActivity(chatId, 'create_contact', { email: pending.data.email, hubspotId: contact.id });
@@ -1135,13 +1157,14 @@ Reponds UNIQUEMENT en JSON strict :
     if (pending.action === 'create_deal') {
       if (sendReply) await sendReply({ type: 'text', content: '💼 _Creation de l\'offre..._' });
       try {
-        const deal = await this.hubspot.createDeal(pending.data);
+        const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+        const deal = await hsBreaker.call(() => retryAsync(() => this.hubspot.createDeal(pending.data), 2, 2000));
 
         // Associer a un contact si specifie
         if (pending.data.contact_email) {
-          const contact = await this.hubspot.findContactByEmail(pending.data.contact_email);
+          const contact = await hsBreaker.call(() => retryAsync(() => this.hubspot.findContactByEmail(pending.data.contact_email), 2, 2000));
           if (contact) {
-            await this.hubspot.associateDealToContact(deal.id, contact.id);
+            await hsBreaker.call(() => retryAsync(() => this.hubspot.associateDealToContact(deal.id, contact.id), 2, 2000));
           }
         }
 
@@ -1172,7 +1195,8 @@ Reponds UNIQUEMENT en JSON strict :
       return cached;
     }
     try {
-      const pipeline = await this.hubspot.getDealPipeline('default');
+      const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+      const pipeline = await hsBreaker.call(() => retryAsync(() => this.hubspot.getDealPipeline('default'), 2, 2000));
       storage.cachePipeline(pipeline);
       this._pipelineCache = pipeline;
       return pipeline;

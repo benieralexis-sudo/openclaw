@@ -2,6 +2,9 @@
 const ClaudeContentWriter = require('./claude-content-writer.js');
 const storage = require('./storage.js');
 const https = require('https');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class ContentHandler {
   constructor(openaiKey, claudeKey) {
@@ -91,17 +94,18 @@ REGLE CRITIQUE : Si l'utilisateur demande de generer/creer/ecrire/rediger N'IMPO
 JSON strict. Reponds UNIQUEMENT par le JSON.`;
 
     try {
-      const response = await this.callOpenAI([
+      const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
-      ], 400);
+      ], 400), 2, 2000));
 
       let cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned);
       if (!result.action) return null;
       return result;
     } catch (error) {
-      console.log('[content-gen-NLP] Erreur classifyIntent:', error.message);
+      log.error('content-gen', 'Erreur classifyIntent:', error.message);
       return null;
     }
   }
@@ -178,10 +182,11 @@ JSON strict. Reponds UNIQUEMENT par le JSON.`;
 
       case 'chat': {
         try {
-          const response = await this.callOpenAI([
+          const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+          const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
             { role: 'system', content: 'Tu es l\'assistant Content Gen du bot Telegram. Tu aides a generer du contenu B2B. Reponds en francais, 1-3 phrases max.' },
             { role: 'user', content: text }
-          ], 200);
+          ], 200), 2, 2000));
           return { type: 'text', content: response.trim() };
         } catch (e) {
           return { type: 'text', content: this.getHelp() };
@@ -223,25 +228,26 @@ JSON strict. Reponds UNIQUEMENT par le JSON.`;
 
     try {
       let content = null;
+      const claudeBreaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
 
       switch (type) {
         case 'linkedin':
-          content = await this.writer.generateLinkedInPost(topicField, params.tone, params.context);
+          content = await claudeBreaker.call(() => retryAsync(() => this.writer.generateLinkedInPost(topicField, params.tone, params.context), 2, 2000));
           break;
         case 'pitch':
-          content = await this.writer.generatePitch(topicField, params.target, params.context);
+          content = await claudeBreaker.call(() => retryAsync(() => this.writer.generatePitch(topicField, params.target, params.context), 2, 2000));
           break;
         case 'description':
-          content = await this.writer.generateProductDescription(topicField, params.context);
+          content = await claudeBreaker.call(() => retryAsync(() => this.writer.generateProductDescription(topicField, params.context), 2, 2000));
           break;
         case 'script':
-          content = await this.writer.generateProspectionScript(params.target, topicField, params.context);
+          content = await claudeBreaker.call(() => retryAsync(() => this.writer.generateProspectionScript(params.target, topicField, params.context), 2, 2000));
           break;
         case 'email':
-          content = await this.writer.generateMarketingEmail(topicField, params.context);
+          content = await claudeBreaker.call(() => retryAsync(() => this.writer.generateMarketingEmail(topicField, params.context), 2, 2000));
           break;
         case 'bio':
-          content = await this.writer.generateBio(topicField, params.context);
+          content = await claudeBreaker.call(() => retryAsync(() => this.writer.generateBio(topicField, params.context), 2, 2000));
           break;
       }
 
@@ -276,7 +282,7 @@ JSON strict. Reponds UNIQUEMENT par le JSON.`;
       ].join('\n') };
 
     } catch (error) {
-      console.log('[content-gen] Erreur generation ' + type + ':', error.message);
+      log.error('content-gen', 'Erreur generation ' + type + ':', error.message);
       return { type: 'text', content: '❌ Erreur : ' + error.message };
     }
   }
@@ -393,7 +399,8 @@ JSON strict. Reponds UNIQUEMENT par le JSON.`;
     if (sendReply) await sendReply({ type: 'text', content: '✍️ _Ajustement en cours..._' });
 
     try {
-      const refined = await this.writer.refineContent(last.content, instruction);
+      const claudeBreaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const refined = await claudeBreaker.call(() => retryAsync(() => this.writer.refineContent(last.content, instruction), 2, 2000));
 
       // Mettre a jour le dernier contenu
       this.lastGenerated[String(chatId)].content = refined;
@@ -440,7 +447,8 @@ JSON strict. Reponds UNIQUEMENT par le JSON.`;
     if (sendReply) await sendReply({ type: 'text', content: '✍️ _Reformulation en cours..._' });
 
     try {
-      const refined = await this.writer.refineContent(textToRefine, instruction);
+      const claudeBreaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const refined = await claudeBreaker.call(() => retryAsync(() => this.writer.refineContent(textToRefine, instruction), 2, 2000));
 
       this.lastGenerated[String(chatId)] = { type: 'refine', topic: 'reformulation', content: refined, tone: '' };
       storage.saveContent(chatId, 'refine', 'reformulation', refined);

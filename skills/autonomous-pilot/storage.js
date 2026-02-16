@@ -498,6 +498,45 @@ function incrementStat(key) {
   _save();
 }
 
+// --- Patterns (apprentissage brain v3) ---
+
+function getPatterns() {
+  const data = _load();
+  if (!data.patterns) data.patterns = null;
+  return data.patterns;
+}
+
+function savePatterns(patterns) {
+  const data = _load();
+  data.patterns = {
+    ...patterns,
+    updatedAt: new Date().toISOString()
+  };
+  _save();
+  return data.patterns;
+}
+
+// --- Criteria adjustment history (brain v3) ---
+
+function getCriteriaHistory() {
+  const data = _load();
+  if (!data.criteriaHistory) data.criteriaHistory = [];
+  return data.criteriaHistory;
+}
+
+function addCriteriaAdjustment(adjustment) {
+  const data = _load();
+  if (!data.criteriaHistory) data.criteriaHistory = [];
+  data.criteriaHistory.unshift({
+    ...adjustment,
+    adjustedAt: new Date().toISOString()
+  });
+  if (data.criteriaHistory.length > 100) {
+    data.criteriaHistory = data.criteriaHistory.slice(0, 100);
+  }
+  _save();
+}
+
 module.exports = {
   PILOT_STATES, getPilotState: () => _getPilotState(_load().config),
   getConfig, updateConfig, updateEmailPreferences, updateOffer,
@@ -507,5 +546,6 @@ module.exports = {
   recordAction, getRecentActions,
   addDiagnosticItem, resolveDiagnosticItem, getOpenDiagnostics, getAllDiagnostics, updateDiagnosticCheck,
   getLearnings, addLearning, addExperiment, completeExperiment, getActiveExperiments,
+  getPatterns, savePatterns, getCriteriaHistory, addCriteriaAdjustment,
   getStats, updateStat, incrementStat
 };

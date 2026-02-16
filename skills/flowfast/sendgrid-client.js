@@ -49,8 +49,15 @@ class SendGridClient {
           }
         });
       });
-      req.on('error', (e) => resolve({ success: false, error: e.message }));
-      req.setTimeout(15000, () => { req.destroy(); resolve({ success: false, error: 'Timeout SendGrid' }); });
+      req.on('error', (e) => {
+        console.error('[sendgrid] Erreur reseau:', e.message);
+        resolve({ success: false, error: e.message });
+      });
+      req.setTimeout(15000, () => {
+        req.destroy();
+        console.error('[sendgrid] Timeout API (15s)');
+        resolve({ success: false, error: 'Timeout SendGrid' });
+      });
       req.write(postData);
       req.end();
     });

@@ -2,6 +2,9 @@
 const storage = require('./storage.js');
 const invoiceGen = require('./invoice-generator.js');
 const https = require('https');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class InvoiceBotHandler {
   constructor(openaiKey, resendKey, senderEmail) {
@@ -115,17 +118,18 @@ Reponds UNIQUEMENT en JSON strict :
 {"action":"edit_business","params":{"field":"rib","value":"FR76 3000 4028 3700 0100 0123 456"}}`;
 
     try {
-      const response = await this.callOpenAI([
+      const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
-      ], 400);
+      ], 400), 2, 2000));
 
       let cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned);
       if (!result.action) return null;
       return result;
     } catch (error) {
-      console.log('[invoice-bot-NLP] Erreur classifyIntent:', error.message);
+      log.error('invoice-bot', 'Erreur classifyIntent:', error.message);
       return null;
     }
   }
@@ -264,10 +268,11 @@ Reponds UNIQUEMENT en JSON strict :
         return { type: 'text', content: this.getHelp() };
       case 'chat': {
         try {
-          const response = await this.callOpenAI([
+          const openaiBreaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+          const response = await openaiBreaker.call(() => retryAsync(() => this.callOpenAI([
             { role: 'system', content: 'Tu es l\'assistant Invoice Bot du bot Telegram. Tu aides a gerer les factures. Reponds en francais, 1-3 phrases max.' },
-            { role: 'user', content: '' }
-          ], 200);
+            { role: 'user', content: text }
+          ], 200), 2, 2000));
           return { type: 'text', content: response.trim() };
         } catch (e) {
           return { type: 'text', content: this.getHelp() };
@@ -638,7 +643,8 @@ Reponds UNIQUEMENT en JSON strict :
     const html = invoiceGen.generateHTML(invoice, chatId);
     const subject = invoiceGen.generateEmailSubject(invoice);
 
-    const result = await this._sendResendEmail(client.email, subject, html);
+    const resendBreaker = getBreaker('resend', { failureThreshold: 3, cooldownMs: 60000 });
+    const result = await resendBreaker.call(() => retryAsync(() => this._sendResendEmail(client.email, subject, html), 2, 2000));
 
     if (result.success) {
       storage.markInvoiceSent(invoice.id);
@@ -921,7 +927,7 @@ Reponds UNIQUEMENT en JSON strict :
   _sendResendEmail(to, subject, html) {
     return new Promise((resolve) => {
       const postData = JSON.stringify({
-        from: 'Invoice Bot <' + this.senderEmail + '>',
+        from: 'ifind <' + this.senderEmail + '>',
         to: [to],
         subject: subject,
         html: html

@@ -29,6 +29,9 @@ services:
       APP_CONFIG_DIR: /data/app-config
       API_DAILY_BUDGET: ${API_DAILY_BUDGET:-5}
       ADMIN_CHAT_ID: ${ADMIN_CHAT_ID:-1409505520}
+      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+    ports:
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./gateway:/app/gateway
       - ./skills/flowfast:/app/skills/flowfast

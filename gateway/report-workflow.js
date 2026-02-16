@@ -9,6 +9,7 @@ const ApolloConnector = require('../skills/flowfast/apollo-connector.js');
 const AIClassifier = require('../skills/lead-enrich/ai-classifier.js');
 const ClaudeEmailWriter = require('../skills/automailer/claude-email-writer.js');
 const ResendClient = require('../skills/automailer/resend-client.js');
+const log = require('./logger.js');
 
 // --- Echappement HTML pour prevenir les injections XSS ---
 function escapeHtml(str) {
@@ -75,7 +76,7 @@ class ReportWorkflow {
       return { success: true, leads: leadsWithEmails, html: htmlReport, sent: sendResult, steps };
 
     } catch (error) {
-      console.error('[report-workflow] Erreur:', error.message);
+      log.error('report-workflow', 'Erreur:', error.message);
       await this.sendTelegram(chatId, '❌ Erreur generation rapport: ' + error.message);
       return { success: false, error: error.message, steps };
     }
@@ -110,10 +111,10 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
       const response = await this._callOpenAI(prompt);
       const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const criteria = JSON.parse(cleaned);
-      console.log('[report-workflow] Criteres parses:', JSON.stringify(criteria));
+      log.info('report-workflow', 'Criteres parses:', JSON.stringify(criteria).substring(0, 200));
       return criteria;
     } catch (error) {
-      console.log('[report-workflow] Fallback criteres pour:', cible);
+      log.info('report-workflow', 'Fallback criteres pour: ' + String(cible).substring(0, 100));
       // Fallback basique
       return {
         titles: ['CEO', 'Directeur General', 'Founder', 'Gerant', 'President'],
@@ -180,7 +181,7 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
         });
         scored.push({ ...lead, classification });
       } catch (e) {
-        console.log('[report-workflow] Scoring echoue pour', lead.fullName, ':', e.message);
+        log.warn('report-workflow', 'Scoring echoue pour ' + lead.fullName + ':', e.message);
         scored.push({
           ...lead,
           classification: {
@@ -218,7 +219,7 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
         }, context);
         results.push({ ...lead, generatedEmail: email });
       } catch (e) {
-        console.log('[report-workflow] Email echoue pour', lead.fullName, ':', e.message);
+        log.warn('report-workflow', 'Email echoue pour ' + lead.fullName + ':', e.message);
         results.push({
           ...lead,
           generatedEmail: {
@@ -362,9 +363,9 @@ ${leadsHtml}
           await this.sendTelegram(chatId, '📧 *Rapport envoye par email a ' + prospect.email + '*');
           return { success: true, method: 'email', id: result.id };
         }
-        console.log('[report-workflow] Erreur Resend, fallback fichier:', result.error);
+        log.warn('report-workflow', 'Erreur Resend, fallback fichier:', result.error);
       } catch (e) {
-        console.log('[report-workflow] Erreur envoi email, fallback fichier:', e.message);
+        log.warn('report-workflow', 'Erreur envoi email, fallback fichier:', e.message);
       }
     }
 
@@ -373,7 +374,7 @@ ${leadsHtml}
     try {
       if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
     } catch (e) {
-      console.log('[report-workflow] Impossible de creer', reportsDir, ':', e.message);
+      log.warn('report-workflow', 'Impossible de creer ' + reportsDir + ':', e.message);
     }
 
     const filename = 'rapport-' + prospect.id + '.html';

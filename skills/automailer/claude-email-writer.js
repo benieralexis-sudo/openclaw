@@ -187,6 +187,66 @@ Instruction de modification : ${instruction}`;
     return this._parseJSON(response);
   }
 
+  async personalizeEmail(subject, body, contactData) {
+    const systemPrompt = `Tu es un expert cold email B2B. Voici un template d'email et les données du contact. Personnalise subtilement l'email pour ce contact spécifique. Garde le même ton et la même structure, mais adapte les références au secteur, au poste, à l'entreprise. Ne change PAS le sens du message. Retourne le résultat en JSON {subject, body}.
+
+REGLES :
+- Garde la même longueur approximative
+- Ne change pas le call-to-action
+- Adapte les références concrètes au contexte du contact (secteur, taille, défis typiques du poste)
+- Ton naturel, pas sur-personnalisé
+- Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks :
+{"subject":"Objet personnalisé","body":"Corps personnalisé en texte brut"}`;
+
+    const contactInfo = [];
+    if (contactData.firstName) contactInfo.push('Prénom : ' + contactData.firstName);
+    if (contactData.lastName) contactInfo.push('Nom : ' + contactData.lastName);
+    if (contactData.name) contactInfo.push('Nom complet : ' + contactData.name);
+    if (contactData.title) contactInfo.push('Poste : ' + contactData.title);
+    if (contactData.company) contactInfo.push('Entreprise : ' + contactData.company);
+    if (contactData.industry) contactInfo.push('Secteur : ' + contactData.industry);
+    if (contactData.companySize) contactInfo.push('Taille entreprise : ' + contactData.companySize);
+    if (contactData.city) contactInfo.push('Ville : ' + contactData.city);
+    if (contactData.country) contactInfo.push('Pays : ' + contactData.country);
+    if (contactData.linkedinUrl) contactInfo.push('LinkedIn : ' + contactData.linkedinUrl);
+
+    const userMessage = `Voici le template d'email à personnaliser :
+
+Objet : ${subject}
+
+Corps :
+${body}
+
+Données du contact :
+${contactInfo.join('\n')}
+
+Personnalise cet email pour ce contact spécifique.`;
+
+    const response = await this.callClaude(
+      [{ role: 'user', content: userMessage }],
+      systemPrompt,
+      1500
+    );
+    return this._parseJSON(response);
+  }
+
+  async generateSubjectVariant(originalSubject) {
+    const systemPrompt = `Tu es un expert en cold email B2B et A/B testing. On te donne un objet d'email. Génère une variante alternative qui a le même sens mais une formulation différente. L'objectif est de tester quel objet obtient le meilleur taux d'ouverture.
+
+REGLES :
+- Même sens, même longueur approximative
+- Formulation différente (angle, structure, mots-clés)
+- Garde le ton professionnel
+- Retourne UNIQUEMENT le texte de l'objet alternatif, rien d'autre (pas de JSON, pas de guillemets, pas d'explication)`;
+
+    const response = await this.callClaude(
+      [{ role: 'user', content: 'Objet original : ' + originalSubject + '\n\nGénère une variante alternative.' }],
+      systemPrompt,
+      200
+    );
+    return response.trim().replace(/^["']|["']$/g, '');
+  }
+
   async generateFromTemplate(template, contact) {
     // Remplace les variables {{...}} par les valeurs du contact
     let subject = template.subject;

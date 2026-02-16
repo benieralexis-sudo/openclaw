@@ -1,5 +1,8 @@
 // Web Intelligence - Analyse IA des articles via Claude Sonnet 4.5
 const https = require('https');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class IntelligenceAnalyzer {
   constructor(claudeKey) {
@@ -77,11 +80,12 @@ Reponds UNIQUEMENT en JSON valide, sans markdown :
 [{"index":1,"relevanceScore":7,"summary":"...","isUrgent":false,"matchedKeywords":["mot"]}]`;
 
     try {
-      const response = await this.callClaude(
+      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaude(
         [{ role: 'user', content: 'Articles a analyser :\n\n' + articlesList }],
         systemPrompt,
         2000
-      );
+      ), 2, 3000));
 
       const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const results = JSON.parse(cleaned);
@@ -107,7 +111,7 @@ Reponds UNIQUEMENT en JSON valide, sans markdown :
 
       return batch;
     } catch (e) {
-      console.log('[intelligence-analyzer] Erreur analyse Claude, fallback:', e.message);
+      log.error('web-intel', 'Erreur analyse Claude, fallback:', e.message);
       return this._fallbackAnalysis(batch, watch);
     }
   }
@@ -204,14 +208,15 @@ REGLES :
 - Termine par 1-2 recommandations concretes`;
 
     try {
-      const response = await this.callClaude(
+      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaude(
         [{ role: 'user', content: 'Veille "' + watchName + '" (type: ' + watchType + ')\n\nArticles :\n' + articlesList }],
         systemPrompt,
         1500
-      );
+      ), 2, 3000));
       return response;
     } catch (e) {
-      console.log('[intelligence-analyzer] Erreur digest Claude:', e.message);
+      log.error('web-intel', 'Erreur digest Claude:', e.message);
       return this._fallbackDigest(articles, watchName);
     }
   }
@@ -260,14 +265,15 @@ REGLES :
 - Commence par un titre avec un emoji calendrier`;
 
     try {
-      const response = await this.callClaude(
+      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaude(
         [{ role: 'user', content: 'Stats semaine : ' + (stats.totalArticlesFetched || 0) + ' articles collectes\n\n' + watchSummaries }],
         systemPrompt,
         2000
-      );
+      ), 2, 3000));
       return response;
     } catch (e) {
-      console.log('[intelligence-analyzer] Erreur rapport hebdo:', e.message);
+      log.error('web-intel', 'Erreur rapport hebdo:', e.message);
       return this._fallbackWeeklyReport(articlesByWatch, stats);
     }
   }
@@ -283,6 +289,159 @@ REGLES :
       lines.push('- *' + name + '* : ' + count + ' article(s)');
     }
     return lines.join('\n');
+  }
+
+  // --- 8b. Competitive Intelligence Digest ---
+
+  async generateCompetitiveDigest(competitorArticles, watchNames) {
+    if (!competitorArticles || competitorArticles.length === 0) {
+      return { text: 'Aucune news concurrente cette semaine.', articles: 0, opportunities: [], threats: [] };
+    }
+
+    if (!this.claudeKey) return this._fallbackCompetitiveDigest(competitorArticles, watchNames);
+
+    const articlesList = competitorArticles.slice(0, 15).map((a, i) => {
+      const watch = watchNames[a.watchId] || 'Inconnu';
+      return (i + 1) + '. [' + watch + '] ' + a.title + '\n   ' + (a.summary || a.snippet || '').substring(0, 150);
+    }).join('\n\n');
+
+    const systemPrompt = `Tu es un analyste de veille concurrentielle pour une agence de prospection B2B.
+
+REGLES :
+- Analyse les articles sur les concurrents et genere un digest actionnable
+- Identifie clairement : mouvements concurrents, opportunites business, menaces
+- Reponds en JSON valide UNIQUEMENT, sans markdown :
+{
+  "text": "Resume en francais (max 15 lignes, markdown Telegram *gras* _italique_)",
+  "opportunities": ["opportunite 1", "opportunite 2"],
+  "threats": ["menace 1"],
+  "keyMoves": ["mouvement 1", "mouvement 2"]
+}`;
+
+    try {
+      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaude(
+        [{ role: 'user', content: 'Articles concurrents des 7 derniers jours :\n\n' + articlesList }],
+        systemPrompt,
+        2000
+      ), 2, 3000));
+
+      const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const result = JSON.parse(cleaned);
+      result.articles = competitorArticles.length;
+      return result;
+    } catch (e) {
+      log.error('web-intel', 'Erreur competitive digest Claude:', e.message);
+      return this._fallbackCompetitiveDigest(competitorArticles, watchNames);
+    }
+  }
+
+  _fallbackCompetitiveDigest(articles, watchNames) {
+    const text = '*Veille concurrentielle* — ' + articles.length + ' article(s)\n\n' +
+      articles.slice(0, 5).map(a => {
+        const watch = watchNames[a.watchId] || '';
+        return '- *' + a.title + '*' + (watch ? ' (' + watch + ')' : '') + '\n  ' + (a.summary || a.snippet || '').substring(0, 100);
+      }).join('\n');
+    return { text, articles: articles.length, opportunities: [], threats: [], keyMoves: [] };
+  }
+
+  // --- 8c. Trend Detection ---
+
+  detectTrends(articles) {
+    if (!articles || articles.length === 0) {
+      return { rising: [], falling: [], stable: [] };
+    }
+
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const fifteenDaysAgo = now - 15 * 24 * 60 * 60 * 1000;
+
+    // Filtrer les articles des 30 derniers jours
+    const recentArticles = articles.filter(a => {
+      const t = a.fetchedAt ? new Date(a.fetchedAt).getTime() : (a.pubDate ? new Date(a.pubDate).getTime() : 0);
+      return t > thirtyDaysAgo;
+    });
+
+    if (recentArticles.length < 3) {
+      return { rising: [], falling: [], stable: [] };
+    }
+
+    // Extraire les mots-cles significatifs de chaque article
+    const stopWords = new Set([
+      'le', 'la', 'les', 'un', 'une', 'des', 'de', 'du', 'et', 'en', 'est', 'a', 'au', 'aux',
+      'pour', 'par', 'sur', 'dans', 'avec', 'son', 'ses', 'ce', 'cette', 'qui', 'que', 'ne',
+      'pas', 'plus', 'se', 'sa', 'il', 'elle', 'nous', 'vous', 'ils', 'elles', 'ou', 'mais',
+      'the', 'of', 'and', 'to', 'in', 'is', 'for', 'on', 'with', 'at', 'by', 'from', 'an',
+      'has', 'its', 'was', 'are', 'been', 'will', 'can', 'all', 'new', 'more', 'also', 'their',
+      'this', 'that', 'how', 'what', 'which', 'when', 'where', 'who', 'why', 'not', 'been',
+      'comme', 'avoir', 'etre', 'faire', 'dit', 'selon', 'entre', 'apres', 'avant', 'aussi',
+      'peut', 'tout', 'tous', 'bien', 'tres', 'dont', 'deja', 'encore', 'cet', 'ces', 'autre'
+    ]);
+
+    function extractKeywords(text) {
+      if (!text) return [];
+      return text
+        .toLowerCase()
+        .replace(/[^a-z0-9\u00C0-\u024Fà-ÿ\s-]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length >= 3 && !stopWords.has(w));
+    }
+
+    // Compter les mots-cles par periode (premiere moitie vs deuxieme moitie du mois)
+    const firstHalf = {}; // 30j a 15j
+    const secondHalf = {}; // 15j a maintenant
+    let firstHalfCount = 0;
+    let secondHalfCount = 0;
+
+    for (const article of recentArticles) {
+      const t = article.fetchedAt ? new Date(article.fetchedAt).getTime() : (article.pubDate ? new Date(article.pubDate).getTime() : 0);
+      const text = (article.title || '') + ' ' + (article.snippet || '') + ' ' + (article.summary || '');
+      const keywords = extractKeywords(text);
+      const uniqueKw = [...new Set(keywords)];
+
+      if (t < fifteenDaysAgo) {
+        firstHalfCount++;
+        for (const kw of uniqueKw) firstHalf[kw] = (firstHalf[kw] || 0) + 1;
+      } else {
+        secondHalfCount++;
+        for (const kw of uniqueKw) secondHalf[kw] = (secondHalf[kw] || 0) + 1;
+      }
+    }
+
+    // Normaliser les frequences
+    const allKeywords = new Set([...Object.keys(firstHalf), ...Object.keys(secondHalf)]);
+    const trends = { rising: [], falling: [], stable: [] };
+
+    for (const kw of allKeywords) {
+      const fFreq = firstHalfCount > 0 ? (firstHalf[kw] || 0) / firstHalfCount : 0;
+      const sFreq = secondHalfCount > 0 ? (secondHalf[kw] || 0) / secondHalfCount : 0;
+      const totalMentions = (firstHalf[kw] || 0) + (secondHalf[kw] || 0);
+
+      // Ignorer les mots-cles rares (moins de 2 mentions au total)
+      if (totalMentions < 2) continue;
+
+      const change = fFreq > 0 ? (sFreq - fFreq) / fFreq : (sFreq > 0 ? 1 : 0);
+
+      if (change > 0.3) {
+        trends.rising.push({ keyword: kw, change: Math.round(change * 100), mentions: totalMentions, recentMentions: secondHalf[kw] || 0 });
+      } else if (change < -0.3) {
+        trends.falling.push({ keyword: kw, change: Math.round(change * 100), mentions: totalMentions, recentMentions: secondHalf[kw] || 0 });
+      } else {
+        trends.stable.push({ keyword: kw, mentions: totalMentions });
+      }
+    }
+
+    // Trier par intensite du changement
+    trends.rising.sort((a, b) => b.change - a.change);
+    trends.falling.sort((a, b) => a.change - b.change);
+    trends.stable.sort((a, b) => b.mentions - a.mentions);
+
+    // Limiter les resultats
+    trends.rising = trends.rising.slice(0, 10);
+    trends.falling = trends.falling.slice(0, 10);
+    trends.stable = trends.stable.slice(0, 10);
+
+    return trends;
   }
 
   // --- Detection d'urgence ---

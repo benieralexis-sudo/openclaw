@@ -4,6 +4,9 @@ const { Cron } = require('croner');
 const storage = require('./storage.js');
 const SystemMonitor = require('./system-monitor.js');
 const ReportGenerator = require('./report-generator.js');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class SystemAdvisorHandler {
   constructor(openaiKey, claudeKey, sendTelegramFn) {
@@ -24,7 +27,7 @@ class SystemAdvisorHandler {
     this.stop();
     const config = storage.getConfig();
     if (!config.enabled) {
-      console.log('[system-advisor] Desactive, pas de crons');
+      log.info('system-advisor', 'Desactive, pas de crons');
       return;
     }
 
@@ -32,29 +35,29 @@ class SystemAdvisorHandler {
 
     // Snapshot toutes les 5 min
     this.crons.push(new Cron('*/5 * * * *', { timezone: tz }, () => {
-      this._collectSnapshot().catch(e => console.log('[system-advisor] Erreur snapshot:', e.message));
+      this._collectSnapshot().catch(e => log.error('system-advisor', 'Erreur snapshot:', e.message));
     }));
-    console.log('[system-advisor] Cron: snapshot toutes les 5 min');
+    log.info('system-advisor', 'Cron: snapshot toutes les 5 min');
 
     // Health check toutes les heures
     this.crons.push(new Cron('0 * * * *', { timezone: tz }, () => {
-      this._hourlyHealthCheck().catch(e => console.log('[system-advisor] Erreur health check:', e.message));
+      this._hourlyHealthCheck().catch(e => log.error('system-advisor', 'Erreur health check:', e.message));
     }));
-    console.log('[system-advisor] Cron: health check toutes les heures');
+    log.info('system-advisor', 'Cron: health check toutes les heures');
 
     // Rapport quotidien 7h
     this.crons.push(new Cron('0 7 * * *', { timezone: tz }, () => {
-      this._dailyReport().catch(e => console.log('[system-advisor] Erreur rapport quotidien:', e.message));
+      this._dailyReport().catch(e => log.error('system-advisor', 'Erreur rapport quotidien:', e.message));
     }));
-    console.log('[system-advisor] Cron: rapport quotidien 7h');
+    log.info('system-advisor', 'Cron: rapport quotidien 7h');
 
     // Rapport hebdo lundi 8h
     this.crons.push(new Cron('0 8 * * 1', { timezone: tz }, () => {
-      this._weeklyReport().catch(e => console.log('[system-advisor] Erreur rapport hebdo:', e.message));
+      this._weeklyReport().catch(e => log.error('system-advisor', 'Erreur rapport hebdo:', e.message));
     }));
-    console.log('[system-advisor] Cron: rapport hebdo lundi 8h');
+    log.info('system-advisor', 'Cron: rapport hebdo lundi 8h');
 
-    console.log('[system-advisor] Demarre avec ' + this.crons.length + ' cron(s)');
+    log.info('system-advisor', 'Demarre avec ' + this.crons.length + ' cron(s)');
   }
 
   stop() {
@@ -147,17 +150,18 @@ Reponds UNIQUEMENT en JSON strict :
 {"action":"system_status"}`;
 
     try {
-      const response = await this.callOpenAI([
+      const breaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callOpenAI([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
-      ], 200);
+      ], 200), 2, 2000));
 
       let cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned);
       if (!result.action) return null;
       return result;
     } catch (error) {
-      console.log('[system-advisor-NLP] Erreur classifyIntent:', error.message);
+      log.error('system-advisor', 'Erreur classifyIntent:', error.message);
       return null;
     }
   }
@@ -210,7 +214,7 @@ Reponds UNIQUEMENT en JSON strict :
     const diskBar = this._progressBar(snapshot.disk.usagePercent);
 
     const lines = [
-      '*Status Systeme MoltBot*',
+      '*Status Systeme iFIND*',
       '',
       '*RAM* ' + ramBar + ' ' + snapshot.ram.usagePercent + '%',
       '  ' + snapshot.ram.usedMB + ' / ' + snapshot.ram.totalMB + ' MB',
@@ -414,7 +418,7 @@ Reponds UNIQUEMENT en JSON strict :
     const stats = storage.getStats();
 
     const lines = [
-      '*Uptime MoltBot*',
+      '*Uptime iFIND*',
       '',
       'Process Node.js : *' + uptime.processHuman + '*',
       'Systeme (container) : *' + uptime.osHuman + '*',
@@ -593,7 +597,7 @@ Reponds UNIQUEMENT en JSON strict :
         });
         if (this.sendTelegram) {
           const msg = this.reportGen.generateAlertMessage(alert);
-          await this.sendTelegram(config.adminChatId, msg).catch(e => console.log('[system-advisor] Erreur envoi alerte:', e.message));
+          await this.sendTelegram(config.adminChatId, msg).catch(e => log.error('system-advisor', 'Erreur envoi alerte:', e.message));
         }
       }
     } else if (snapshot.ram.usagePercent >= thresholds.ramWarning) {
@@ -626,7 +630,7 @@ Reponds UNIQUEMENT en JSON strict :
         });
         if (this.sendTelegram) {
           const msg = this.reportGen.generateAlertMessage(alert);
-          await this.sendTelegram(config.adminChatId, msg).catch(e => console.log('[system-advisor] Erreur envoi alerte:', e.message));
+          await this.sendTelegram(config.adminChatId, msg).catch(e => log.error('system-advisor', 'Erreur envoi alerte:', e.message));
         }
       }
     } else {
@@ -646,7 +650,7 @@ Reponds UNIQUEMENT en JSON strict :
     const config = storage.getConfig();
     if (!config.enabled) return;
 
-    console.log('[system-advisor] Health check horaire');
+    log.info('system-advisor', 'Health check horaire');
     const result = this.monitor.runHealthChecks();
     storage.saveHealthCheck(result);
 
@@ -655,7 +659,7 @@ Reponds UNIQUEMENT en JSON strict :
       const criticalChecks = result.checks.filter(c => c.status === 'critical');
       const msg = '🔴 *HEALTH CHECK CRITIQUE*\n\n' +
         criticalChecks.map(c => '❌ *' + c.name + '* : ' + c.value + '\n  ' + c.detail).join('\n\n');
-      await this.sendTelegram(config.adminChatId, msg).catch(e => console.log('[system-advisor] Erreur envoi alerte:', e.message));
+      await this.sendTelegram(config.adminChatId, msg).catch(e => log.error('system-advisor', 'Erreur envoi alerte:', e.message));
       storage.logAlert('health_check_critical', msg);
     }
   }
@@ -665,7 +669,7 @@ Reponds UNIQUEMENT en JSON strict :
     if (!config.enabled || !config.alerts.dailyReport.enabled) return;
     if (!this.sendTelegram) return;
 
-    console.log('[system-advisor] Rapport quotidien');
+    log.info('system-advisor', 'Rapport quotidien');
 
     const snapshot = this.monitor.collectSystemSnapshot();
     const healthCheck = this.monitor.runHealthChecks();
@@ -674,7 +678,7 @@ Reponds UNIQUEMENT en JSON strict :
 
     const report = await this.reportGen.generateDailyReport(snapshot, skillMetrics, healthCheck, activeAlerts);
 
-    await this.sendTelegram(config.adminChatId, report).catch(e => console.log('[system-advisor] Erreur rapport:', e.message));
+    await this.sendTelegram(config.adminChatId, report).catch(e => log.error('system-advisor', 'Erreur rapport:', e.message));
     storage.updateStat('lastDailyReportAt', new Date().toISOString());
     storage.updateStat('totalReportsSent', (storage.getStats().totalReportsSent || 0) + 1);
     storage.logAlert('daily_report', report);
@@ -688,7 +692,7 @@ Reponds UNIQUEMENT en JSON strict :
     if (!config.enabled || !config.alerts.weeklyReport.enabled) return;
     if (!this.sendTelegram) return;
 
-    console.log('[system-advisor] Rapport hebdomadaire');
+    log.info('system-advisor', 'Rapport hebdomadaire');
 
     const snapshots = storage.getRecentSnapshots(2016);
     const aggregate = this.monitor.aggregateSnapshots(snapshots);
@@ -697,7 +701,7 @@ Reponds UNIQUEMENT en JSON strict :
 
     const report = await this.reportGen.generateWeeklyReport(aggregate, skillMetrics, alertHistory);
 
-    await this.sendTelegram(config.adminChatId, report).catch(e => console.log('[system-advisor] Erreur rapport hebdo:', e.message));
+    await this.sendTelegram(config.adminChatId, report).catch(e => log.error('system-advisor', 'Erreur rapport hebdo:', e.message));
     storage.updateStat('lastWeeklyReportAt', new Date().toISOString());
     storage.updateStat('totalReportsSent', (storage.getStats().totalReportsSent || 0) + 1);
     storage.logAlert('weekly_report', report);

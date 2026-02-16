@@ -1,7 +1,7 @@
 {
   "name": "moltbot-gateway",
   "version": "1.0.0",
-  "description": "MoltBot - Routeur Telegram central",
+  "description": "iFIND - Routeur Telegram central",
   "main": "telegram-router.js",
   "type": "commonjs"
 }

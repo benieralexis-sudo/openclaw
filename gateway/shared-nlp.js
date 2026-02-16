@@ -1,4 +1,4 @@
-// MoltBot - Module NLP partage (callOpenAI centralise)
+// iFIND - Module NLP partage (callOpenAI centralise)
 // Evite la duplication du meme code HTTP dans chaque handler
 'use strict';
 
@@ -17,7 +17,7 @@ function _callOnce(apiKey, messages, opts) {
   opts = opts || {};
   const maxTokens = opts.maxTokens || 300;
   const temperature = opts.temperature || 0.2;
-  const timeout = opts.timeout || 15000;
+  const timeout = opts.timeout || 30000;
   const model = opts.model || 'gpt-4o-mini';
 
   return new Promise((resolve, reject) => {
@@ -70,7 +70,7 @@ function _callOnce(apiKey, messages, opts) {
  * @returns {Promise<{content: string, usage: Object|null}>}
  */
 function callOpenAI(apiKey, messages, opts) {
-  const breaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+  const breaker = getBreaker('openai', { failureThreshold: 5, cooldownMs: 30000 });
   return breaker.call(() => retryAsync(() => _callOnce(apiKey, messages, opts), 2, 1000));
 }
 

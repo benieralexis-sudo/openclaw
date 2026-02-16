@@ -1,6 +1,35 @@
 /* ===== UTILS — MISSION CONTROL ===== */
 
 const Utils = {
+  // HTML entity escaping (XSS prevention)
+  escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
+  // Focus trap for modals/dialogs
+  createFocusTrap(container) {
+    const sel = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    function getFocusable() { return [...container.querySelectorAll(sel)].filter(el => el.offsetParent !== null); }
+    function handleKey(ev) {
+      if (ev.key !== 'Tab') return;
+      const els = getFocusable();
+      if (!els.length) { ev.preventDefault(); return; }
+      const first = els[0], last = els[els.length - 1];
+      if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+      else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+    }
+    container.addEventListener('keydown', handleKey);
+    const els = getFocusable();
+    if (els.length) els[0].focus();
+    return () => container.removeEventListener('keydown', handleKey);
+  },
+
   // Format number with locale
   formatNumber(n) {
     if (n == null) return '0';
@@ -191,5 +220,19 @@ const Utils = {
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
+    Utils.toast(rows.length + ' lignes exportées');
+  },
+
+  // Toast notification
+  toast(message, duration = 3000) {
+    const el = document.createElement('div');
+    el.className = 'toast-notification';
+    el.textContent = message;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('visible'));
+    setTimeout(() => {
+      el.classList.remove('visible');
+      setTimeout(() => el.remove(), 300);
+    }, duration);
   }
 };

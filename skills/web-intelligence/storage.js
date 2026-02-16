@@ -296,6 +296,115 @@ function getArticlesLastWeek() {
   return getArticlesByDateRange(new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(), new Date(now).toISOString());
 }
 
+// --- News-to-Outreach Bridge (8a) ---
+
+function saveNewsOutreach(newsItem) {
+  const data = _load();
+  if (!data.newsOutreach) data.newsOutreach = [];
+  const entry = {
+    id: _generateId('nob'),
+    company: newsItem.company || '',
+    headline: newsItem.headline || newsItem.title || '',
+    url: newsItem.url || newsItem.link || '',
+    date: newsItem.date || new Date().toISOString(),
+    relevance: newsItem.relevance || newsItem.relevanceScore || 5,
+    watchId: newsItem.watchId || null,
+    usedInEmail: false,
+    savedAt: new Date().toISOString()
+  };
+  data.newsOutreach.push(entry);
+  // Limiter a 200 entrees
+  if (data.newsOutreach.length > 200) {
+    data.newsOutreach = data.newsOutreach.slice(-200);
+  }
+  _save();
+  return entry;
+}
+
+function getRelevantNewsForContact(companyName) {
+  const data = _load();
+  if (!companyName || !data.newsOutreach) return [];
+  const companyLower = companyName.toLowerCase().trim();
+  if (companyLower.length < 2) return [];
+  return data.newsOutreach
+    .filter(n => n.company && n.company.toLowerCase().includes(companyLower))
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5);
+}
+
+function getRecentNewsOutreach(limit) {
+  const data = _load();
+  limit = limit || 20;
+  return (data.newsOutreach || [])
+    .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt))
+    .slice(0, limit);
+}
+
+function markNewsUsedInEmail(newsId) {
+  const data = _load();
+  if (!data.newsOutreach) return;
+  const item = data.newsOutreach.find(n => n.id === newsId);
+  if (item) {
+    item.usedInEmail = true;
+    item.usedAt = new Date().toISOString();
+    _save();
+  }
+}
+
+// --- Competitive Digest Cache ---
+
+function saveCompetitiveDigest(digest) {
+  const data = _load();
+  if (!data.competitiveDigests) data.competitiveDigests = [];
+  const entry = {
+    id: _generateId('cdig'),
+    text: digest.text || '',
+    opportunities: digest.opportunities || [],
+    threats: digest.threats || [],
+    keyMoves: digest.keyMoves || [],
+    articles: digest.articles || 0,
+    generatedAt: new Date().toISOString()
+  };
+  data.competitiveDigests.push(entry);
+  if (data.competitiveDigests.length > 20) {
+    data.competitiveDigests = data.competitiveDigests.slice(-20);
+  }
+  _save();
+  return entry;
+}
+
+function getLatestCompetitiveDigest() {
+  const data = _load();
+  if (!data.competitiveDigests || data.competitiveDigests.length === 0) return null;
+  return data.competitiveDigests[data.competitiveDigests.length - 1];
+}
+
+// --- Trend Cache ---
+
+function saveTrends(trends) {
+  const data = _load();
+  if (!data.trendHistory) data.trendHistory = [];
+  const entry = {
+    id: _generateId('trend'),
+    rising: trends.rising || [],
+    falling: trends.falling || [],
+    stable: trends.stable || [],
+    generatedAt: new Date().toISOString()
+  };
+  data.trendHistory.push(entry);
+  if (data.trendHistory.length > 30) {
+    data.trendHistory = data.trendHistory.slice(-30);
+  }
+  _save();
+  return entry;
+}
+
+function getLatestTrends() {
+  const data = _load();
+  if (!data.trendHistory || data.trendHistory.length === 0) return null;
+  return data.trendHistory[data.trendHistory.length - 1];
+}
+
 // --- Analyses ---
 
 function saveAnalysis(analysis) {
@@ -350,6 +459,9 @@ module.exports = {
   hasArticle, hasArticleByTitle, addArticles, getArticlesForWatch, getRecentArticles,
   getUnnotifiedArticles, markArticleNotified,
   getArticlesByDateRange, getArticlesLast24h, getArticlesLastWeek,
+  saveNewsOutreach, getRelevantNewsForContact, getRecentNewsOutreach, markNewsUsedInEmail,
+  saveCompetitiveDigest, getLatestCompetitiveDigest,
+  saveTrends, getLatestTrends,
   saveAnalysis, getRecentAnalyses,
   getStats, updateStat, incrementStat
 };

@@ -142,6 +142,54 @@ class LeadEnrichStorage {
       .slice(0, limit);
   }
 
+  // --- Behavior scoring (cross-skill avec AutoMailer) ---
+
+  getLeadEmailEvents(email) {
+    const key = (email || '').toLowerCase();
+    if (!key) return [];
+
+    // Lire les events depuis le storage automailer (cross-skill)
+    try {
+      let automailerStorage = null;
+      try { automailerStorage = require('../automailer/storage.js'); }
+      catch (e) {
+        try { automailerStorage = require('/app/skills/automailer/storage.js'); }
+        catch (e2) { return []; }
+      }
+      if (!automailerStorage || !automailerStorage.getEmailEventsForRecipient) return [];
+      return automailerStorage.getEmailEventsForRecipient(key);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  updateLeadScore(email, behaviorData) {
+    const key = (email || '').toLowerCase();
+    if (!key) return null;
+    const lead = this.data.enrichedLeads[key];
+    if (!lead) return null;
+
+    lead.behaviorScore = behaviorData.behaviorScore || 0;
+    lead.behaviorSignals = behaviorData.signals || [];
+    lead.hotLead = behaviorData.hotLead || false;
+    lead.behaviorUpdatedAt = new Date().toISOString();
+
+    // Calculer le score combine (statique + dynamique)
+    const staticScore = (lead.aiClassification && lead.aiClassification.score) || 0;
+    lead.combinedScore = Math.min(10, staticScore + Math.round(behaviorData.behaviorScore / 3));
+
+    this._save();
+    return lead;
+  }
+
+  getHotLeads(limit) {
+    limit = limit || 20;
+    return Object.values(this.data.enrichedLeads)
+      .filter(l => l.hotLead === true)
+      .sort((a, b) => (b.behaviorScore || 0) - (a.behaviorScore || 0))
+      .slice(0, limit);
+  }
+
   // --- Credits enrichissement (FullEnrich) ---
 
   trackEnrichCredit(amount) {

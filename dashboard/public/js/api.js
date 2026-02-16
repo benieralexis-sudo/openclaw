@@ -10,8 +10,12 @@ const API = {
     const cached = this.getCache(cacheKey);
     if (cached) return cached;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
-      const res = await fetch('/api/' + endpoint);
+      const res = await fetch('/api/' + endpoint, { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (res.status === 401) {
         window.location.href = '/login';
         return null;
@@ -21,7 +25,18 @@ const API = {
       this.setCache(cacheKey, data);
       return data;
     } catch (err) {
-      console.error(`[API] Erreur ${endpoint}:`, err);
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        console.error(`[API] Timeout ${endpoint} (15s)`);
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast('Timeout : le serveur ne répond pas');
+        }
+      } else {
+        console.error(`[API] Erreur ${endpoint}:`, err);
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast('Erreur de chargement des données');
+        }
+      }
       return null;
     }
   },
@@ -81,14 +96,22 @@ const API = {
   system() { return this.fetch('system'); }
 };
 
-// Auto-refresh every 60s
+// Auto-refresh every 60s (pause when tab hidden)
 let _refreshInterval = null;
 function startAutoRefresh() {
   if (_refreshInterval) clearInterval(_refreshInterval);
   _refreshInterval = setInterval(() => {
+    if (document.visibilityState === 'hidden') return;
     API.invalidateAll();
     if (typeof App !== 'undefined' && App.currentPage) {
       App.loadPage(App.currentPage, true);
     }
   }, 60000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && typeof App !== 'undefined' && App.currentPage) {
+      API.invalidateAll();
+      App.loadPage(App.currentPage, true);
+    }
+  });
 }

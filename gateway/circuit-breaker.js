@@ -1,4 +1,4 @@
-// MoltBot - Circuit Breaker simple
+// iFIND - Circuit Breaker simple
 // Evite les cascades d'erreurs quand une API externe tombe
 'use strict';
 
@@ -14,8 +14,8 @@ class CircuitBreaker {
   constructor(name, opts) {
     opts = opts || {};
     this.name = name;
-    this.failureThreshold = opts.failureThreshold || 3;
-    this.cooldownMs = opts.cooldownMs || 60000;
+    this.failureThreshold = opts.failureThreshold || 5;
+    this.cooldownMs = opts.cooldownMs || 30000;
     this.failures = 0;
     this.lastFailureAt = 0;
     this.state = 'CLOSED'; // CLOSED, OPEN, HALF_OPEN

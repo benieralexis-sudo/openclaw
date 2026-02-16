@@ -14,6 +14,7 @@ class AutoMailerStorage {
       templates: {},
       campaigns: {},
       emails: [],
+      blacklist: {},
       stats: {
         totalCampaigns: 0,
         totalEmailsSent: 0,
@@ -64,6 +65,11 @@ class AutoMailerStorage {
     } catch (e) {
       console.error('[automailer-storage] Erreur sauvegarde:', e.message);
     }
+  }
+
+  // Public save (pour appel cross-skill)
+  save() {
+    this._save();
   }
 
   _generateId() {
@@ -271,6 +277,7 @@ class AutoMailerStorage {
       sentAt: record.status === 'sent' ? new Date().toISOString() : null,
       deliveredAt: null,
       openedAt: null,
+      abVariant: record.abVariant || null,
       createdAt: new Date().toISOString()
     };
     this.data.emails.push(entry);
@@ -319,6 +326,151 @@ class AutoMailerStorage {
     return this.data.emails
       .filter(e => e.chatId === String(chatId))
       .slice(-limit);
+  }
+
+  // --- Blacklist ---
+
+  addToBlacklist(email, reason) {
+    if (!this.data.blacklist) this.data.blacklist = {};
+    const key = email.toLowerCase().trim();
+    this.data.blacklist[key] = {
+      email: key,
+      reason: reason || 'unknown',
+      addedAt: new Date().toISOString()
+    };
+    this._save();
+    return this.data.blacklist[key];
+  }
+
+  isBlacklisted(email) {
+    if (!this.data.blacklist) return false;
+    return !!this.data.blacklist[email.toLowerCase().trim()];
+  }
+
+  getBlacklist() {
+    if (!this.data.blacklist) return [];
+    return Object.values(this.data.blacklist);
+  }
+
+  // --- Warmup tracking ---
+
+  getFirstSendDate() {
+    if (!this.data.stats || !this.data.stats.firstSendDate) return null;
+    return this.data.stats.firstSendDate;
+  }
+
+  setFirstSendDate() {
+    if (!this.data.stats.firstSendDate) {
+      this.data.stats.firstSendDate = new Date().toISOString();
+      this._save();
+    }
+  }
+
+  getTodaySendCount() {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    if (!this.data.stats.dailySends) this.data.stats.dailySends = {};
+    return this.data.stats.dailySends[today] || 0;
+  }
+
+  incrementTodaySendCount() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (!this.data.stats.dailySends) this.data.stats.dailySends = {};
+    this.data.stats.dailySends[today] = (this.data.stats.dailySends[today] || 0) + 1;
+    // Nettoyer les vieux jours (garder 30 derniers)
+    const keys = Object.keys(this.data.stats.dailySends).sort();
+    while (keys.length > 30) {
+      delete this.data.stats.dailySends[keys.shift()];
+    }
+    this._save();
+  }
+
+  // --- Reply tracking ---
+
+  markAsReplied(emailId) {
+    const email = this.data.emails.find(e => e.id === emailId);
+    if (!email) return null;
+    email.hasReplied = true;
+    email.repliedAt = new Date().toISOString();
+    email.status = 'replied';
+    email.lastEvent = 'replied';
+    this._save();
+    return email;
+  }
+
+  getRepliedEmails(campaignId) {
+    return this.data.emails.filter(e => {
+      if (campaignId && e.campaignId !== campaignId) return false;
+      return e.hasReplied === true || e.status === 'replied';
+    });
+  }
+
+  getHotLeads() {
+    // Aggreger les events par destinataire
+    const byRecipient = {};
+    for (const email of this.data.emails) {
+      const to = (email.to || '').toLowerCase();
+      if (!to) continue;
+      if (!byRecipient[to]) {
+        byRecipient[to] = { email: to, opens: 0, clicks: 0, replied: false, bounced: false, complained: false, sentAt: null, openedAt: null };
+      }
+      const r = byRecipient[to];
+      if (email.status === 'opened' || email.openedAt) r.opens++;
+      if (email.status === 'clicked' || email.clickedAt) r.clicks++;
+      if (email.hasReplied || email.status === 'replied') r.replied = true;
+      if (email.status === 'bounced') r.bounced = true;
+      if (email.status === 'complained') r.complained = true;
+      if (email.sentAt && (!r.sentAt || email.sentAt < r.sentAt)) r.sentAt = email.sentAt;
+      if (email.openedAt && (!r.openedAt || email.openedAt < r.openedAt)) r.openedAt = email.openedAt;
+    }
+
+    // Filtrer les hot leads : opens >= 3 OU clicks >= 1 OU replied
+    return Object.values(byRecipient).filter(r => {
+      if (r.bounced || r.complained) return false;
+      return r.opens >= 3 || r.clicks >= 1 || r.replied;
+    }).sort((a, b) => {
+      // Trier par engagement decroissant
+      const scoreA = (a.replied ? 10 : 0) + a.clicks * 3 + a.opens;
+      const scoreB = (b.replied ? 10 : 0) + b.clicks * 3 + b.opens;
+      return scoreB - scoreA;
+    });
+  }
+
+  // Obtenir les evenements email pour un destinataire specifique (cross-skill)
+  getEmailEventsForRecipient(recipientEmail) {
+    const email = (recipientEmail || '').toLowerCase();
+    if (!email) return [];
+    return this.data.emails.filter(e => (e.to || '').toLowerCase() === email);
+  }
+
+  // --- A/B Testing ---
+
+  recordABVariant(emailId, variant) {
+    const email = this.data.emails.find(e => e.id === emailId);
+    if (!email) return null;
+    email.abVariant = variant;
+    this._save();
+    return email;
+  }
+
+  getABTestResults(campaignId) {
+    const emails = this.getEmailsByCampaign(campaignId).filter(e => e.abVariant);
+    const results = { A: { sent: 0, delivered: 0, opened: 0, bounced: 0 }, B: { sent: 0, delivered: 0, opened: 0, bounced: 0 } };
+
+    for (const email of emails) {
+      const v = email.abVariant;
+      if (v !== 'A' && v !== 'B') continue;
+      results[v].sent++;
+      if (email.status === 'delivered' || email.status === 'opened') results[v].delivered++;
+      if (email.status === 'opened') results[v].opened++;
+      if (email.status === 'bounced') results[v].bounced++;
+    }
+
+    results.A.openRate = results.A.delivered > 0 ? Math.round((results.A.opened / results.A.delivered) * 100) : 0;
+    results.B.openRate = results.B.delivered > 0 ? Math.round((results.B.opened / results.B.delivered) * 100) : 0;
+    results.winner = results.A.openRate >= results.B.openRate ? 'A' : 'B';
+    results.totalEmails = emails.length;
+
+    return results;
   }
 
   // --- Stats dashboard ---

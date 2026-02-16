@@ -10,17 +10,28 @@ class FlowFastWorkflow {
     this.openaiKey = openaiKey;
   }
 
+  // Sanitize une valeur avant injection dans un prompt IA
+  _sanitizeForPrompt(val) {
+    if (!val || typeof val !== 'string') return 'N/A';
+    return val.replace(/[{}"\\`$]/g, '').substring(0, 200);
+  }
+
   // Qualifier un lead avec l'IA
   async qualifyLead(lead) {
     console.log(`🤖 Qualification IA de ${lead.nom}...`);
-    
+
+    const sNom = this._sanitizeForPrompt(lead.nom);
+    const sTitre = this._sanitizeForPrompt(lead.titre);
+    const sEntreprise = this._sanitizeForPrompt(lead.entreprise);
+    const sLocalisation = this._sanitizeForPrompt(lead.localisation);
+
     const prompt = `Évalue ce lead B2B et réponds UNIQUEMENT avec un objet JSON, sans texte avant ou après.
 
 Lead :
-- Nom : ${lead.nom}
-- Titre : ${lead.titre}
-- Entreprise : ${lead.entreprise}
-- Localisation : ${lead.localisation}
+- Nom : ${sNom}
+- Titre : ${sTitre}
+- Entreprise : ${sEntreprise}
+- Localisation : ${sLocalisation}
 
 Évalue sur 10 selon :
 1. Seniority (CEO/CTO = 10, Manager = 7, Junior = 3)

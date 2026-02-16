@@ -1,4 +1,4 @@
-// MoltBot - Utilitaires partages (atomic write, retry, validation)
+// iFIND - Utilitaires partages (atomic write, retry, validation)
 const fs = require('fs');
 const path = require('path');
 
@@ -29,7 +29,8 @@ async function retryAsync(fn, maxRetries, baseDelay) {
     } catch (err) {
       lastError = err;
       if (attempt < maxRetries) {
-        const delay = baseDelay * Math.pow(2, attempt);
+        const jitter = Math.floor(Math.random() * 500);
+        const delay = baseDelay * Math.pow(2, attempt) + jitter;
         await new Promise(r => setTimeout(r, delay));
       }
     }
@@ -46,4 +47,21 @@ function truncateInput(text, maxLen) {
   return text.substring(0, maxLen);
 }
 
-module.exports = { atomicWriteSync, retryAsync, truncateInput };
+/**
+ * Validation d'email basique mais robuste.
+ */
+function isValidEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  return re.test(email.trim()) && email.length <= 254;
+}
+
+/**
+ * Sanitize une string pour eviter les injections (HTML entities).
+ */
+function sanitize(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize };

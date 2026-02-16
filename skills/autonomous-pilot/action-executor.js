@@ -1,5 +1,6 @@
 // Autonomous Pilot - Executeur d'actions cross-skill
 const storage = require('./storage.js');
+const log = require('../../gateway/logger.js');
 
 // --- Cross-skill imports (dual-path) ---
 
@@ -23,8 +24,8 @@ function getFlowFastStorage() {
   return _require('../flowfast/storage.js', '/app/skills/flowfast/storage.js');
 }
 
-function getApolloEnricher() {
-  return _require('../lead-enrich/apollo-enricher.js', '/app/skills/lead-enrich/apollo-enricher.js');
+function getFullEnrichEnricher() {
+  return _require('../lead-enrich/fullenrich-enricher.js', '/app/skills/lead-enrich/fullenrich-enricher.js');
 }
 
 function getAIClassifier() {
@@ -54,6 +55,7 @@ function getAutomailerStorage() {
 class ActionExecutor {
   constructor(options) {
     this.apolloKey = options.apolloKey;
+    this.fullenrichKey = options.fullenrichKey;
     this.hubspotKey = options.hubspotKey;
     this.openaiKey = options.openaiKey;
     this.claudeKey = options.claudeKey;
@@ -87,7 +89,7 @@ class ActionExecutor {
           return { success: false, error: 'Action type inconnu: ' + type };
       }
     } catch (e) {
-      console.error('[action-executor] Erreur action ' + type + ':', e.message);
+      log.error('action-executor', 'Erreur action ' + type + ':', e.message);
       return { success: false, error: e.message };
     }
   }
@@ -106,7 +108,7 @@ class ActionExecutor {
     const apollo = new ApolloConnector(this.apolloKey);
     const criteria = params.criteria || storage.getGoals().searchCriteria;
 
-    console.log('[action-executor] Recherche leads:', JSON.stringify(criteria).substring(0, 200));
+    log.info('action-executor', 'Recherche leads:', JSON.stringify(criteria).substring(0, 200));
     const result = await apollo.searchLeads(criteria);
 
     if (!result.success) {
@@ -131,7 +133,7 @@ class ActionExecutor {
 
           if (ffStorage) {
             ffStorage.saveLead(lead.email, {
-              nom: lead.nom || (lead.first_name + ' ' + lead.last_name),
+              nom: lead.nom || ((lead.first_name || '') + ' ' + (lead.last_name || '')).trim() || 'Inconnu',
               titre: lead.titre || lead.title,
               entreprise: lead.entreprise || lead.organization?.name,
               email: lead.email,
@@ -144,7 +146,7 @@ class ActionExecutor {
             saved++;
           }
         } catch (e) {
-          console.log('[action-executor] Erreur qualification lead:', e.message);
+          log.info('action-executor', 'Erreur qualification lead:', e.message);
         }
       }
     }
@@ -160,44 +162,66 @@ class ActionExecutor {
     };
   }
 
-  // --- Enrichissement de leads ---
+  // --- Enrichissement de leads via FullEnrich (waterfall 15+ sources) ---
   async _enrichLeads(params) {
-    if (!this.apolloKey) {
-      return { success: false, error: 'Cle Apollo manquante' };
+    if (!this.fullenrichKey) {
+      return { success: false, error: 'Cle FullEnrich manquante' };
     }
 
-    const ApolloEnricher = getApolloEnricher();
+    const FullEnrichEnricher = getFullEnrichEnricher();
     const AIClassifier = getAIClassifier();
     const leStorage = getLeadEnrichStorage();
 
-    if (!ApolloEnricher) {
-      return { success: false, error: 'Module lead-enrich introuvable' };
+    if (!FullEnrichEnricher) {
+      return { success: false, error: 'Module fullenrich-enricher introuvable' };
     }
 
-    const enricher = new ApolloEnricher(this.apolloKey);
+    const enricher = new FullEnrichEnricher(this.fullenrichKey);
     const classifier = AIClassifier ? new AIClassifier(this.openaiKey) : null;
 
+    // Accepter emails OU contacts avec nom+entreprise
+    const contacts = params.contacts || [];
     const emails = params.emails || [];
     let enriched = 0;
     let classified = 0;
 
+    // Si on a des contacts avec nom+entreprise, utiliser le batch FullEnrich
+    if (contacts.length > 0) {
+      try {
+        const batchResult = await enricher.enrichBatch(contacts);
+        if (batchResult.success) {
+          for (const result of batchResult.results) {
+            if (!result.success) continue;
+            enriched++;
+            const email = result.person.email;
+            if (classifier && email) {
+              try {
+                const classification = await classifier.classifyLead(result);
+                classified++;
+                if (leStorage) leStorage.saveEnrichedLead(email, result, classification, 'autonomous-pilot');
+              } catch (e) { log.warn('action-executor', 'Classification echouee pour ' + email + ':', e.message); }
+            }
+          }
+        }
+      } catch (e) {
+        log.info('action-executor', 'Erreur enrichissement batch:', e.message);
+      }
+    }
+
+    // Enrichir les emails un par un (fallback)
     for (const email of emails) {
       try {
         const result = await enricher.enrichByEmail(email);
         if (result.success) {
           enriched++;
-
           if (classifier) {
             const classification = await classifier.classifyLead(result);
             classified++;
-
-            if (leStorage) {
-              leStorage.saveEnrichedLead(email, result, classification);
-            }
+            if (leStorage) leStorage.saveEnrichedLead(email, result, classification, 'autonomous-pilot');
           }
         }
       } catch (e) {
-        console.log('[action-executor] Erreur enrichissement ' + email + ':', e.message);
+        log.info('action-executor', 'Erreur enrichissement ' + email + ':', e.message);
       }
     }
 
@@ -205,10 +229,10 @@ class ActionExecutor {
 
     return {
       success: true,
-      total: emails.length,
+      total: contacts.length + emails.length,
       enriched: enriched,
       classified: classified,
-      summary: enriched + '/' + emails.length + ' leads enrichis'
+      summary: enriched + '/' + (contacts.length + emails.length) + ' leads enrichis (FullEnrich)'
     };
   }
 
@@ -256,11 +280,11 @@ class ActionExecutor {
               deals++;
             }
           } catch (e) {
-            console.log('[action-executor] Erreur creation deal:', e.message);
+            log.info('action-executor', 'Erreur creation deal:', e.message);
           }
         }
       } catch (e) {
-        console.log('[action-executor] Erreur push CRM ' + contact.email + ':', e.message);
+        log.info('action-executor', 'Erreur push CRM ' + contact.email + ':', e.message);
       }
     }
 
@@ -343,13 +367,13 @@ class ActionExecutor {
         { from: this.senderEmail }
       );
 
-      if (result.statusCode === 200 || result.statusCode === 201) {
+      if (result.success) {
         if (amStorage) {
           amStorage.saveEmail({
             to: params.to,
             subject: params.subject,
             body: params.body,
-            resendId: result.data?.id || null,
+            resendId: result.id || null,
             status: 'sent',
             source: 'autonomous-pilot',
             contactName: params.contactName || '',
@@ -363,14 +387,14 @@ class ActionExecutor {
 
         return {
           success: true,
-          resendId: result.data?.id,
+          resendId: result.id,
           summary: 'Email envoye a ' + params.to
         };
       }
 
       return {
         success: false,
-        error: 'Resend erreur: ' + JSON.stringify(result.data).substring(0, 200)
+        error: 'Resend erreur: ' + (result.error || 'Erreur inconnue')
       };
     } catch (e) {
       return { success: false, error: 'Envoi echoue: ' + e.message };
@@ -395,7 +419,7 @@ class ActionExecutor {
     const result = storage.updateSearchCriteria(updates);
     const changes = Object.keys(updates).map(k => k + ': ' + JSON.stringify(updates[k]).substring(0, 60)).join(', ');
 
-    console.log('[action-executor] Criteres mis a jour:', changes);
+    log.info('action-executor', 'Criteres mis a jour:', changes);
 
     return {
       success: true,
@@ -421,7 +445,7 @@ class ActionExecutor {
     const result = storage.updateWeeklyGoals(updates);
     const changes = Object.keys(updates).map(k => k + ': ' + updates[k]).join(', ');
 
-    console.log('[action-executor] Objectifs mis a jour:', changes);
+    log.info('action-executor', 'Objectifs mis a jour:', changes);
 
     return {
       success: true,
@@ -444,7 +468,7 @@ class ActionExecutor {
       source: 'brain_action'
     });
 
-    console.log('[action-executor] Learning enregistre [' + category + ']: ' + (params.summary || '').substring(0, 100));
+    log.info('action-executor', 'Learning enregistre [' + category + ']: ' + (params.summary || '').substring(0, 100));
 
     return {
       success: true,

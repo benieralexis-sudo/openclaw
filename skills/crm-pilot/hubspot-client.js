@@ -15,9 +15,10 @@ const ASSOCIATION_TYPES = {
   deal_to_contact: 3
 };
 
-// Cache TTL simple en memoire
+// Cache TTL simple en memoire (max 200 entrees)
 const _cache = {};
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_MAX_SIZE = 200;
 
 function _cacheGet(key) {
   const entry = _cache[key];
@@ -27,6 +28,13 @@ function _cacheGet(key) {
 }
 
 function _cacheSet(key, data) {
+  // Eviction si cache plein : supprimer les entrees les plus anciennes
+  const keys = Object.keys(_cache);
+  if (keys.length >= CACHE_MAX_SIZE) {
+    const sorted = keys.sort((a, b) => _cache[a].ts - _cache[b].ts);
+    const toRemove = sorted.slice(0, Math.floor(CACHE_MAX_SIZE / 4));
+    for (const k of toRemove) delete _cache[k];
+  }
   _cache[key] = { data: data, ts: Date.now() };
 }
 

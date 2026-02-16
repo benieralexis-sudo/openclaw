@@ -1,6 +1,9 @@
 // Proactive Agent - Handler NLP Telegram
 const storage = require('./storage.js');
 const https = require('https');
+const { retryAsync } = require('../../gateway/utils.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const log = require('../../gateway/logger.js');
 
 class ProactiveHandler {
   constructor(openaiKey, proactiveEngine) {
@@ -103,17 +106,18 @@ Reponds UNIQUEMENT en JSON strict :
 {"action":"list_alerts"}`;
 
     try {
-      const response = await this.callOpenAI([
+      const breaker = getBreaker('openai', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callOpenAI([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
-      ], 300);
+      ], 300), 2, 2000));
 
       let cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const result = JSON.parse(cleaned);
       if (!result.action) return null;
       return result;
     } catch (error) {
-      console.log('[proactive-NLP] Erreur classifyIntent:', error.message);
+      log.error('proactive', 'Erreur classifyIntent:', error.message);
       return null;
     }
   }
