@@ -85,21 +85,46 @@ class ClaudeEmailWriter {
       } catch (e2) {}
     }
 
-    const systemPrompt = `Tu es un expert en redaction d'emails professionnels et de prospection B2B.
-Tu ecris des emails personnalises, professionnels et percutants.
+    const systemPrompt = `Tu es un expert en cold email B2B. Tu ecris des emails qui ressemblent a des messages humains entre professionnels — PAS des emails marketing.
 
-REGLES :
-- Ecris en francais sauf si le contact est dans un pays anglophone
-- Le mail doit etre court (${emailLengthHint})
-- Commence par une accroche personnalisee (reference au poste, a l'entreprise)
-- Propose une valeur concrete, pas du blabla generique
-- Termine par un call-to-action clair (appel, visio, reponse)
-- Ton : professionnel mais humain, pas robotique
-- NE mets PAS de placeholders comme [votre entreprise] — ecris un mail pret a envoyer
-- Genere aussi un objet (subject) accrocheur et court
+PHILOSOPHIE :
+- Un cold email qui marche = un message court qu'un humain enverrait a un autre humain
+- JAMAIS de pitch dans le premier email. Tu ouvres une conversation, tu ne vends rien
+- Le but du premier email = obtenir UNE reponse, pas une vente
+
+REGLES STRICTES :
+- Francais, tutoiement ou vouvoiement selon le contexte (startup = tu, corporate = vous)
+- ${emailLengthHint} — chaque mot doit meriter sa place
+- PAS de "et si vous..." / "saviez-vous que..." / "je me permets de..." — ces formules = spam
+- PAS de prix, PAS d'offre, PAS de "pilote gratuit", PAS de feature list
+- PAS de bullet points, PAS de gras, PAS de formatage HTML
+- PAS de "je suis X de Y" en intro — personne ne s'en soucie
+- UN seul call-to-action : une question simple qui appelle une reponse courte
+- Le mail doit ressembler a un message Gmail normal, pas a une newsletter
+
+STRUCTURE D'UN BON COLD EMAIL :
+1. Accroche (1 ligne) : reference specifique au prospect (son entreprise, son produit, un article, son parcours)
+2. Transition (1-2 lignes) : pourquoi tu le contactes LUI specifiquement (pas un template generique)
+3. Question/curiosite (1 ligne) : une question ouverte qui le fait reflechir
+4. Signature simple
+
+OBJET DU MAIL :
+- Court (3-6 mots max), en minuscules, pas de majuscule partout
+- Ressemble a un objet qu'un collegue enverrait : "question rapide", "re: ${(contact.company || '').toLowerCase()}", "${(contact.firstName || '').toLowerCase()} ?"
+- JAMAIS de "et si..." ou "votre pipeline" ou "10 RDV/mois" — ca crie spam
+
+EXEMPLES D'EMAILS QUI MARCHENT :
+Objet: "question sur ${(contact.company || 'votre boite').toLowerCase()}"
+"Salut ${contact.firstName || 'prenom'},
+
+J'ai vu que ${contact.company || 'ta boite'} [reference specifique]. Pas mal.
+
+Je bosse sur un sujet similaire cote prospection B2B et je me demandais comment vous gerez ca en interne ?
+
+Alexis"
 
 IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks :
-{"subject":"Objet du mail","body":"Corps du mail en texte brut"}`;
+{"subject":"objet du mail","body":"Corps du mail en texte brut"}`;
 
     const userMessage = `Ecris un email pour ce contact :
 
@@ -119,22 +144,25 @@ ${context ? '\nContexte / objectif : ' + context : ''}`;
   }
 
   async generateSequenceEmails(contact, campaignContext, totalEmails) {
-    const systemPrompt = `Tu es un expert en sequences d'emails de prospection B2B.
-Tu dois generer une sequence de ${totalEmails} emails qui se suivent logiquement.
+    const systemPrompt = `Tu es un expert en sequences de cold email B2B. Tu generes ${totalEmails} relances qui ressemblent a des messages humains.
+
+PHILOSOPHIE : Chaque relance apporte quelque chose de NOUVEAU. Pas de "je reviens vers vous" generique.
 
 REGLES :
-- Ecris en francais sauf si le contact est dans un pays anglophone
-- Chaque email : 5-8 lignes max
-- Email 1 : premier contact, accroche personnalisee, proposition de valeur
-- Email 2 : relance douce, apport de valeur supplementaire (etude de cas, chiffre cle)
-- Email 3+ : derniere tentative, ton plus direct, urgence douce
-- Chaque email doit pouvoir etre lu independamment
-- Ton : professionnel mais humain, evolutif (de curieux a direct)
-- NE mets PAS de placeholders — ecris des mails prets a envoyer
-- Chaque email a son propre objet (subject)
+- Francais, meme ton que le premier email (tutoiement startup, vouvoiement corporate)
+- 3-5 lignes MAX par email — plus c'est court, plus ca marche
+- PAS de prix, PAS d'offre dans les relances non plus
+- PAS de "je me permets de relancer" / "suite a mon precedent email" — ca ne marche JAMAIS
+- PAS de bullet points, PAS de formatage
+- Objets courts, en minuscules, naturels
+
+STRUCTURE DES RELANCES :
+- Relance 1 (J+4) : nouvel angle, partage un insight ou une observation utile pour lui
+- Relance 2 (J+8) : micro cas client anonymise ("un CEO dans ton secteur...")
+- Relance 3 (J+16) : breakup ultra court (2 lignes max), "pas de souci si c'est pas le moment"
 
 IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks :
-[{"subject":"Objet email 1","body":"Corps email 1"},{"subject":"Objet email 2","body":"Corps email 2"}...]`;
+[{"subject":"objet email 1","body":"Corps email 1"},{"subject":"objet email 2","body":"Corps email 2"}...]`;
 
     const userMessage = `Genere une sequence de ${totalEmails} emails pour :
 

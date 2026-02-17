@@ -466,30 +466,25 @@ Format JSON strict :
       email: rawContact.email || params.to || ''
     };
 
-    // Construire un contexte enrichi avec les preferences email
-    let context = config.businessContext || 'prospection B2B';
+    // Construire un contexte enrichi — SANS pitch commercial (premier email = ouvrir une conversation)
+    let context = 'Tu contactes ce prospect pour la premiere fois. BUT: ouvrir une conversation, PAS vendre.';
+    context += '\nQUI TU ES: Alexis, fondateur d\'iFIND — on aide les boites B2B a automatiser leur prospection.';
+    context += '\nIMPORTANT: Ne mentionne PAS de prix, PAS d\'offre, PAS de "pilote gratuit". C\'est un PREMIER contact.';
+
     const ep = config.emailPreferences || {};
-    if (ep.maxLines) context += '\n\nREGLE: Email de ' + ep.maxLines + ' lignes MAXIMUM.';
+    if (ep.maxLines) context += '\nLONGUEUR: ' + ep.maxLines + ' lignes MAXIMUM.';
     if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
-      context += '\nMOTS INTERDITS: ' + ep.forbiddenWords.join(', ') + '. NE JAMAIS les utiliser.';
+      context += '\nMOTS INTERDITS: ' + ep.forbiddenWords.join(', ');
     }
-    if (ep.hookStyle) context += '\nSTYLE ACCROCHE: ' + ep.hookStyle;
     if (ep.tone) context += '\nTON: ' + ep.tone;
-    if (ep.language === 'fr') context += '\nLANGUE: francais obligatoire';
 
     // Injecter les informations de recherche prospect (Pilier 1 Intelligence Reelle)
     if (params._prospectIntel) {
-      context += '\n\nINFORMATIONS SUR LE PROSPECT (UTILISE-LES pour personnaliser l\'email):\n' + params._prospectIntel;
+      context += '\n\nINFOS SUR LE PROSPECT (utilise-les pour personnaliser — c\'est CA qui fait la difference):\n' + params._prospectIntel;
     }
 
-    // Signature expediteur
-    context += '\nSIGNATURE: Signe avec "Alexis — iFIND" (PAS de placeholder comme [Votre prenom])';
-
-    // Ajouter l'offre commerciale
-    const offer = config.offer || {};
-    if (offer.description) context += '\nOFFRE: ' + offer.description;
-    if (offer.monthly) context += ' (' + offer.monthly + ' EUR/mois)';
-    if (offer.trial) context += '\nESSAI GRATUIT: ' + offer.trial;
+    // Signature simple
+    context += '\nSIGNATURE: "Alexis" (court, pas de titre, pas de lien)';
 
     try {
       const email = await writer.generateSingleEmail(contact, context);
@@ -524,8 +519,29 @@ Format JSON strict :
     }
     ActionExecutor._lastSendTime = Date.now();
 
-    // Deduplication : verifier si un email a deja ete envoye a cette adresse
+    // Warm-up domaine : limiter les envois par jour (domaine neuf = max 5/jour semaine 1-2, puis 10, puis 20)
     const amStorage = getAutomailerStorage();
+    if (amStorage) {
+      const today = new Date().toISOString().substring(0, 10);
+      const sentToday = (amStorage.data.emails || []).filter(function(e) {
+        return e.sentAt && e.sentAt.substring(0, 10) === today && (e.status === 'sent' || e.status === 'delivered' || e.status === 'opened' || e.status === 'clicked');
+      }).length;
+
+      // Domaine cree le 15 fev 2026 — calculer l'age en jours
+      const domainAge = Math.floor((Date.now() - new Date('2026-02-15').getTime()) / (24 * 60 * 60 * 1000));
+      let dailyLimit = 5; // Semaine 1-2
+      if (domainAge > 14) dailyLimit = 10;
+      if (domainAge > 28) dailyLimit = 20;
+      if (domainAge > 56) dailyLimit = 50;
+
+      if (sentToday >= dailyLimit) {
+        log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails envoyes aujourd\'hui (domaine age: ' + domainAge + 'j) — limite atteinte');
+        return { success: false, error: 'Limite warm-up atteinte (' + dailyLimit + '/jour)', warmupLimited: true };
+      }
+      log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails aujourd\'hui (domaine age: ' + domainAge + 'j)');
+    }
+
+    // Deduplication : verifier si un email a deja ete envoye a cette adresse
     if (amStorage && params.to) {
       const existing = amStorage.getEmailEventsForRecipient(params.to);
       const alreadySent = existing.some(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened' || e.status === 'replied');
