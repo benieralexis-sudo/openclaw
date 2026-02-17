@@ -962,10 +962,11 @@ Analyse et reponds en JSON:
     prompt += '\nCRITERES DE RECHERCHE:\n';
     prompt += JSON.stringify(sc, null, 2) + '\n';
 
-    prompt += '\nNIVEAU D\'AUTONOMIE: ' + config.autonomyLevel + '\n';
+    prompt += '\nNIVEAU D\'AUTONOMIE: ' + config.autonomyLevel + ' (MODE MACHINE DE GUERRE)\n';
     if (config.autonomyLevel === 'full') {
-      prompt += '→ Tu es LIBRE de modifier les criteres de recherche, tester differents secteurs/postes/villes, ajuster le scoring et les templates email SANS demander confirmation.\n';
-      prompt += '→ SEULE exception: l\'envoi d\'emails a de vrais prospects necessite TOUJOURS confirmation (autoExecute=false).\n';
+      prompt += '→ Tu es en FULL AUTO. Tu peux rechercher, enrichir, envoyer des emails, creer des sequences de relance SANS demander confirmation.\n';
+      prompt += '→ Les emails sont generes automatiquement par ProspectResearcher + ClaudeEmailWriter. Tu n\'as qu\'a fournir le contact et _generateFirst:true.\n';
+      prompt += '→ Le warm-up domaine est gere automatiquement par le systeme (max 5/jour semaine 1-2, puis progressif).\n';
     }
 
     if (state.recentActions.length > 0) {
@@ -1133,25 +1134,27 @@ Analyse et reponds en JSON:
     prompt += '2. enrich_leads — Enrichir des leads (params.emails: [])\n';
     prompt += '3. push_to_crm — Pousser vers HubSpot (params.contacts: [])\n';
     prompt += '4. generate_email — Generer un email sans l\'envoyer (params.contact: {email,name,company,title}, params.context)\n';
-    prompt += '5. send_email — Envoyer un email (params: to, subject, body, contactName, company, score) — TOUJOURS autoExecute=false\n';
+    prompt += '5. send_email — Envoyer un email (params: to, contactName, company, score, contact: {email,nom,entreprise,titre}, _generateFirst: true) — autoExecute=true\n';
     prompt += '6. update_search_criteria — Modifier les criteres de recherche (params: {titles?, locations?, industries?, seniorities?, companySize?, keywords?, limit?})\n';
     prompt += '7. update_goals — Modifier les objectifs (params: {leadsToFind?, emailsToSend?, responsesTarget?, rdvTarget?, minLeadScore?})\n';
     prompt += '8. record_learning — Enregistrer un apprentissage (params: {category: "bestSearchCriteria|bestEmailStyles|bestSendTimes", summary: "...", data: {}})\n';
     prompt += '9. create_followup_sequence — Creer une sequence de 3 relances automatiques pour des leads deja contactes sans reponse (params: {contacts: [{email, nom, entreprise, titre}], totalSteps: 3, intervalDays: 4})\n';
 
-    prompt += '\nREGLES:\n';
-    prompt += '1. autoExecute=true pour: search_leads, enrich_leads, push_to_crm, generate_email, update_search_criteria, update_goals, record_learning, create_followup_sequence\n';
-    prompt += '2. autoExecute=false TOUJOURS pour: send_email\n';
-    prompt += '3. Sois strategique avec les credits Apollo (100/mois). Prefere des recherches ciblees.\n';
-    prompt += '4. Pour generate_email, RESPECTE les regles email du client (longueur, mots interdits, style d\'accroche).\n';
-    prompt += '5. Pour send_email, inclus TOUT le contenu (subject + body complet) pour que le client puisse valider.\n';
-    prompt += '6. ITERE: Si un secteur ou profil donne de meilleurs resultats, ajuste les criteres pour en faire plus.\n';
-    prompt += '7. TESTE: Lance des experiences A/B (differents objets d\'email, differents secteurs, differentes accroches).\n';
-    prompt += '8. APPRENDS: Apres chaque lot d\'emails, note ce qui a marche (open rate, reponses) via record_learning.\n';
-    prompt += '9. NE REPETE PAS les memes erreurs. Si une action echoue, essaie une approche differente.\n';
-    prompt += '10. Si les objectifs sont inatteignables, ajuste-les via update_goals plutot que de forcer.\n';
-    prompt += '11. UTILISE les articles Web Intelligence pour personnaliser les emails. Si une entreprise est dans l\'actualite, mentionne-le.\n';
-    prompt += '12. PRIORISE les leads dont l\'entreprise est dans l\'actualite (news recentes, signaux marche). C\'est un signal d\'opportunite fort.\n';
+    prompt += '\nREGLES (MODE MACHINE DE GUERRE):\n';
+    prompt += '1. autoExecute=true pour TOUTES les actions, y compris send_email. Tu es en FULL AUTO.\n';
+    prompt += '2. Pour send_email, mets TOUJOURS _generateFirst:true — la recherche prospect est OBLIGATOIRE avant chaque email.\n';
+    prompt += '3. NE FOURNIS PAS subject/body dans send_email — le ProspectResearcher + ClaudeEmailWriter les generent automatiquement avec des infos fraiches.\n';
+    prompt += '4. Envoie 3-5 emails PAR CYCLE. Priorise les leads score >= 8. RESPECTE la limite warm-up (le systeme bloque au-dela).\n';
+    prompt += '5. JAMAIS de prix, d\'offre, de feature, de "pilote gratuit" dans le premier email. Le but = OUVRIR UNE CONVERSATION.\n';
+    prompt += '6. Apres 3 jours sans reponse sur un lead contacte, cree automatiquement une sequence follow-up (create_followup_sequence).\n';
+    prompt += '7. Sois strategique avec les credits Apollo (100/mois). Prefere des recherches ciblees.\n';
+    prompt += '8. ITERE: Si un secteur ou profil donne de meilleurs resultats, ajuste les criteres pour en faire plus.\n';
+    prompt += '9. TESTE: Lance des experiences A/B (differents objets d\'email, differents secteurs, differentes accroches).\n';
+    prompt += '10. APPRENDS: Apres chaque lot d\'emails, note ce qui a marche (open rate, reponses) via record_learning.\n';
+    prompt += '11. NE REPETE PAS les memes erreurs. Si une action echoue, essaie une approche differente.\n';
+    prompt += '12. UTILISE les articles Web Intelligence pour personnaliser les emails. Si une entreprise est dans l\'actualite, mentionne-le.\n';
+    prompt += '13. PRIORISE les leads dont l\'entreprise est dans l\'actualite (news recentes, signaux marche). C\'est un signal d\'opportunite fort.\n';
+    prompt += '14. Si les objectifs sont inatteignables, ajuste-les via update_goals plutot que de forcer.\n';
 
     prompt += '\nReponds UNIQUEMENT en JSON avec cette structure:\n';
     prompt += '{\n';
@@ -1605,7 +1608,7 @@ Analyse et reponds en JSON:
                 entreprise: lead.entreprise
               }
             },
-            autoExecute: false, // JAMAIS auto-envoi — validation humaine obligatoire
+            autoExecute: true, // FULL AUTO — machine de guerre
             preview: 'Email pour ' + (lead.nom || lead.email) + ' (' + lead.entreprise + ')'
           });
         }

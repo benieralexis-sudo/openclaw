@@ -81,19 +81,18 @@ class ResendClient {
   async sendEmail(to, subject, body, options) {
     options = options || {};
     const toEmail = Array.isArray(to) ? to[0] : to;
-    const html = this._brandedHtml(body, toEmail);
+    const fromName = options.fromName || 'Alexis';
     const payload = {
-      from: options.fromName
-        ? options.fromName + ' <' + this.senderEmail + '>'
-        : 'ifind <' + this.senderEmail + '>',
+      from: fromName + ' <' + this.senderEmail + '>',
       to: Array.isArray(to) ? to : [to],
       subject: subject,
-      html: html,
       text: body,
       headers: {
         'List-Unsubscribe': '<https://ifind.fr/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
       }
     };
+    // Plain text uniquement — pas de HTML branding (meilleure delivrabilite + pas de look marketing)
+    if (options.html) payload.html = options.html; // Seulement si explicitement demande
     if (options.tags) payload.tags = options.tags;
     if (options.replyTo) payload.reply_to = options.replyTo;
 
@@ -110,16 +109,14 @@ class ResendClient {
     // emails = [{to, subject, body, options}, ...]
     const payload = emails.map(e => {
       const toEmail = Array.isArray(e.to) ? e.to[0] : e.to;
-      const html = this._brandedHtml(e.body, toEmail);
+      const fromName = e.fromName || 'Alexis';
       return {
-        from: e.fromName
-          ? e.fromName + ' <' + this.senderEmail + '>'
-          : 'ifind <' + this.senderEmail + '>',
+        from: fromName + ' <' + this.senderEmail + '>',
         to: Array.isArray(e.to) ? e.to : [e.to],
         subject: e.subject,
-        html: html,
         text: e.body,
         tags: e.tags || [],
+        reply_to: 'hello@ifind.fr',
         headers: {
           'List-Unsubscribe': '<https://ifind.fr/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
         }

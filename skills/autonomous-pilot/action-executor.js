@@ -604,7 +604,7 @@ Format JSON strict :
         params.to,
         params.subject,
         params.body,
-        {}
+        { replyTo: 'hello@ifind.fr', fromName: 'Alexis' }
       );
 
       if (result.success) {
