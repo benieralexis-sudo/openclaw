@@ -407,6 +407,21 @@ class ActionExecutor {
       return { success: false, error: 'Cle Resend manquante' };
     }
 
+    // Si _generateFirst est true, generer le contenu avant envoi
+    if (params._generateFirst && (!params.subject || !params.body)) {
+      log.info('action-executor', 'Generation email avant envoi pour ' + params.to);
+      const genResult = await this._generateEmail(params);
+      if (!genResult.success || !genResult.email) {
+        return { success: false, error: 'Generation email echouee: ' + (genResult.error || 'pas de contenu') };
+      }
+      params.subject = genResult.email.subject;
+      params.body = genResult.email.body || genResult.email.text || genResult.email.html || '';
+    }
+
+    if (!params.subject || !params.body) {
+      return { success: false, error: 'Subject et body requis pour envoyer un email' };
+    }
+
     const ResendClient = getResendClient();
     if (!ResendClient) {
       return { success: false, error: 'Module automailer/resend-client introuvable' };

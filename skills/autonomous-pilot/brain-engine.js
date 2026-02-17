@@ -1236,7 +1236,6 @@ Analyse et reponds en JSON:
           .slice(0, 5); // Max 5 emails par cycle (warmup progressif)
 
         for (const lead of leadsWithEmail) {
-          // Envoyer l'email (autoExecute: false → demande confirmation sur Telegram)
           actions.push({
             type: 'send_email',
             params: {
@@ -1244,7 +1243,6 @@ Analyse et reponds en JSON:
               contactName: lead.nom || '',
               company: lead.entreprise || '',
               score: lead.score || 0,
-              // Le subject et body seront generes par generate_email dans le handler
               _generateFirst: true,
               contact: {
                 email: lead.email,
@@ -1253,7 +1251,7 @@ Analyse et reponds en JSON:
                 entreprise: lead.entreprise
               }
             },
-            autoExecute: false, // Confirmation requise pendant le warmup
+            autoExecute: true, // Auto-envoi (contenu genere par _generateFirst)
             preview: 'Email pour ' + (lead.nom || lead.email) + ' (' + lead.entreprise + ')'
           });
         }
