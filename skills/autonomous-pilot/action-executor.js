@@ -52,6 +52,10 @@ function getAutomailerStorage() {
   return _require('../automailer/storage.js', '/app/skills/automailer/storage.js');
 }
 
+function getProspectResearcher() {
+  return _require('./prospect-researcher.js', '/app/skills/autonomous-pilot/prospect-researcher.js');
+}
+
 class ActionExecutor {
   constructor(options) {
     this.apolloKey = options.apolloKey;
@@ -164,7 +168,8 @@ class ActionExecutor {
                 source: 'autonomous-pilot',
                 raison: scored.raison || '',
                 recommandation: scored.recommandation || '',
-                searchCriteria: JSON.stringify(criteria).substring(0, 200)
+                searchCriteria: JSON.stringify(criteria).substring(0, 200),
+                organizationData: JSON.stringify(lead.organization || {}).substring(0, 2000)
               }, scored.score, 'brain-cycle');
               saved++;
             }
@@ -404,6 +409,11 @@ class ActionExecutor {
     if (ep.tone) context += '\nTON: ' + ep.tone;
     if (ep.language === 'fr') context += '\nLANGUE: francais obligatoire';
 
+    // Injecter les informations de recherche prospect (Pilier 1 Intelligence Reelle)
+    if (params._prospectIntel) {
+      context += '\n\nINFORMATIONS SUR LE PROSPECT (UTILISE-LES pour personnaliser l\'email):\n' + params._prospectIntel;
+    }
+
     // Signature expediteur
     context += '\nSIGNATURE: Signe avec "Alexis — iFIND" (PAS de placeholder comme [Votre prenom])';
 
@@ -464,6 +474,26 @@ class ActionExecutor {
 
     // Si _generateFirst est true, generer le contenu avant envoi
     if (params._generateFirst && (!params.subject || !params.body)) {
+      // Recherche pre-envoi sur le prospect (scrape site, news, Apollo data)
+      try {
+        const ProspectResearcher = getProspectResearcher();
+        if (ProspectResearcher) {
+          const researcher = new ProspectResearcher({ claudeKey: this.claudeKey });
+          const intel = await researcher.researchProspect({
+            email: params.to,
+            nom: params.contactName || (params.contact && params.contact.nom),
+            entreprise: params.company || (params.contact && params.contact.entreprise),
+            titre: params.contact && params.contact.titre,
+            organization: params.contact && params.contact.organization
+          });
+          if (intel && intel.brief) {
+            params._prospectIntel = intel.brief;
+          }
+        }
+      } catch (e) {
+        log.warn('action-executor', 'Recherche prospect echouee (non bloquant):', e.message);
+      }
+
       log.info('action-executor', 'Generation email avant envoi pour ' + params.to);
       const genResult = await this._generateEmail(params);
       if (!genResult.success || !genResult.email) {

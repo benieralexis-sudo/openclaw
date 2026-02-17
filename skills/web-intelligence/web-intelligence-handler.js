@@ -979,6 +979,32 @@ Reponds UNIQUEMENT en JSON strict :
       articleCount: (watch.articleCount || 0) + addedCount
     });
 
+    // 9.5. Detection de signaux marche (Intelligence Reelle v5)
+    try {
+      const signals = this.analyzer.classifyMarketSignals(analyzed);
+      if (signals.length > 0) {
+        storage.saveMarketSignals(signals);
+        log.info('web-intel', 'Signaux marche detectes: ' + signals.length + ' pour ' + watch.name);
+
+        // Alerter sur les signaux high priority
+        const highPriority = signals.filter(s => s.priority === 'high');
+        if (highPriority.length > 0 && this.sendTelegram) {
+          const config = storage.getConfig();
+          const chatId = config.adminChatId;
+          if (chatId) {
+            let alertMsg = '📡 *SIGNAL MARCHE* (' + highPriority.length + ')\n\n';
+            for (const s of highPriority.slice(0, 3)) {
+              alertMsg += '*' + s.type.toUpperCase() + '* : ' + s.article.title + '\n';
+              alertMsg += '→ _' + s.suggestedAction + '_\n\n';
+            }
+            try { await this.sendTelegram(chatId, alertMsg, 'Markdown'); } catch (e) {}
+          }
+        }
+      }
+    } catch (e) {
+      log.warn('web-intel', 'Erreur detection signaux:', e.message);
+    }
+
     // 10. Alertes instantanees pour articles urgents
     const urgentArticles = analyzed.filter(a => a.isUrgent);
     if (urgentArticles.length > 0) {

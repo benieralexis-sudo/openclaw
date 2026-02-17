@@ -537,6 +537,33 @@ function addCriteriaAdjustment(adjustment) {
   _save();
 }
 
+// --- Prospect Research Cache ---
+
+function getProspectResearch(email) {
+  const data = _load();
+  if (!data.prospectResearch) data.prospectResearch = {};
+  return data.prospectResearch[email.toLowerCase()] || null;
+}
+
+function saveProspectResearch(email, intel) {
+  const data = _load();
+  if (!data.prospectResearch) data.prospectResearch = {};
+  data.prospectResearch[email.toLowerCase()] = {
+    ...intel,
+    cachedAt: new Date().toISOString()
+  };
+  // Limiter a 500 entrees
+  const keys = Object.keys(data.prospectResearch);
+  if (keys.length > 500) {
+    const sorted = keys.sort((a, b) =>
+      new Date(data.prospectResearch[a].cachedAt || 0) - new Date(data.prospectResearch[b].cachedAt || 0)
+    );
+    const toRemove = sorted.slice(0, keys.length - 500);
+    for (const k of toRemove) delete data.prospectResearch[k];
+  }
+  _save();
+}
+
 module.exports = {
   PILOT_STATES, getPilotState: () => _getPilotState(_load().config),
   getConfig, updateConfig, updateEmailPreferences, updateOffer,
@@ -547,5 +574,6 @@ module.exports = {
   addDiagnosticItem, resolveDiagnosticItem, getOpenDiagnostics, getAllDiagnostics, updateDiagnosticCheck,
   getLearnings, addLearning, addExperiment, completeExperiment, getActiveExperiments,
   getPatterns, savePatterns, getCriteriaHistory, addCriteriaAdjustment,
+  getProspectResearch, saveProspectResearch,
   getStats, updateStat, incrementStat
 };

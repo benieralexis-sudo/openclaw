@@ -452,6 +452,39 @@ function incrementStat(key) {
   _save();
 }
 
+// --- Market Signals (Intelligence Reelle v5) ---
+
+function saveMarketSignals(signals) {
+  const data = _load();
+  if (!data.marketSignals) data.marketSignals = [];
+  for (const s of signals) {
+    s.id = _generateId('sig');
+    data.marketSignals.push(s);
+  }
+  // Limiter a 200 signaux
+  if (data.marketSignals.length > 200) {
+    data.marketSignals = data.marketSignals.slice(-200);
+  }
+  _save();
+  return signals;
+}
+
+function getRecentMarketSignals(limit) {
+  const data = _load();
+  limit = limit || 20;
+  return (data.marketSignals || [])
+    .sort((a, b) => new Date(b.detectedAt) - new Date(a.detectedAt))
+    .slice(0, limit);
+}
+
+function getHighPrioritySignals() {
+  const data = _load();
+  return (data.marketSignals || [])
+    .filter(s => s.priority === 'high')
+    .sort((a, b) => new Date(b.detectedAt) - new Date(a.detectedAt))
+    .slice(0, 10);
+}
+
 module.exports = {
   getConfig, updateConfig,
   addWatch, getWatch, getWatchByName, updateWatch, deleteWatch,
@@ -462,6 +495,7 @@ module.exports = {
   saveNewsOutreach, getRelevantNewsForContact, getRecentNewsOutreach, markNewsUsedInEmail,
   saveCompetitiveDigest, getLatestCompetitiveDigest,
   saveTrends, getLatestTrends,
+  saveMarketSignals, getRecentMarketSignals, getHighPrioritySignals,
   saveAnalysis, getRecentAnalyses,
   getStats, updateStat, incrementStat
 };

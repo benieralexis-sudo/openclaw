@@ -83,13 +83,19 @@ class BrainEngine {
       catch (e) { log.error('brain', 'Erreur briefing:', e.message); }
     }));
 
+    // Mini-cycle leger : 12h et 15h (Intelligence Reelle v5 — 0$ cout, pas d'appel Claude)
+    this.crons.push(new Cron('0 12,15 * * *', { timezone: tz }, async () => {
+      try { await this._lightCycle(); }
+      catch (e) { log.error('brain', 'Erreur mini-cycle:', e.message); }
+    }));
+
     // Weekly reset + learning : lundi 0h
     this.crons.push(new Cron('0 0 * * 1', { timezone: tz }, async () => {
       try { await this._weeklyReset(); }
       catch (e) { log.error('brain', 'Erreur reset hebdo:', e.message); }
     }));
 
-    log.info('brain', 'Cerveau autonome demarre (3 crons)');
+    log.info('brain', 'Cerveau autonome demarre (5 crons — 2 brain + 2 mini + 1 briefing)');
   }
 
   stop() {
@@ -184,14 +190,62 @@ class BrainEngine {
       }
     } catch (e) {}
 
-    // Web Intelligence
+    // Web Intelligence (enrichi — Intelligence Reelle v5)
     try {
       const wi = getWebIntelStorage();
       if (wi) {
         const stats = wi.getStats ? wi.getStats() : {};
+        const recentArticles = wi.getRecentArticles ? wi.getRecentArticles(20) : [];
+        const latestTrends = wi.getLatestTrends ? wi.getLatestTrends() : null;
+        const latestCompDigest = wi.getLatestCompetitiveDigest ? wi.getLatestCompetitiveDigest() : null;
+        const watches = wi.getWatches ? wi.getWatches() : {};
+        const newsOutreach = wi.getRecentNewsOutreach ? wi.getRecentNewsOutreach(10) : [];
+        const marketSignals = wi.getRecentMarketSignals ? wi.getRecentMarketSignals(10) : [];
+
         state.skills.webIntel = {
           totalArticles: stats.totalArticlesFetched || 0,
-          activeWatches: Object.keys(wi.getWatches ? wi.getWatches() : {}).length
+          activeWatches: Object.keys(watches).length,
+
+          // Articles recents pertinents (score >= 7)
+          highRelevanceArticles: recentArticles
+            .filter(a => (a.relevanceScore || 0) >= 7)
+            .slice(0, 10)
+            .map(a => ({
+              title: a.title,
+              summary: (a.summary || '').substring(0, 150),
+              score: a.relevanceScore,
+              isUrgent: a.isUrgent,
+              source: a.source,
+              company: a.crmMatch ? a.crmMatch.company : null,
+              fetchedAt: a.fetchedAt
+            })),
+
+          // Tendances montantes
+          risingTrends: latestTrends ? (latestTrends.rising || []).slice(0, 5) : [],
+
+          // Insights concurrentiels
+          competitiveInsights: latestCompDigest ? {
+            opportunities: (latestCompDigest.opportunities || []).slice(0, 3),
+            threats: (latestCompDigest.threats || []).slice(0, 3),
+            keyMoves: (latestCompDigest.keyMoves || []).slice(0, 3),
+            generatedAt: latestCompDigest.generatedAt
+          } : null,
+
+          // News utilisables pour l'outreach
+          newsForOutreach: newsOutreach.filter(n => !n.usedInEmail).slice(0, 5),
+
+          // Signaux marche detectes
+          marketSignals: marketSignals
+            .filter(s => s.priority === 'high' || s.priority === 'medium')
+            .slice(0, 5)
+            .map(s => ({
+              type: s.type,
+              priority: s.priority,
+              company: s.article ? s.article.company : null,
+              title: s.article ? s.article.title : '',
+              action: s.suggestedAction,
+              detectedAt: s.detectedAt
+            }))
         };
       }
     } catch (e) {}
@@ -315,6 +369,10 @@ class BrainEngine {
     } catch (e) {
       log.error('brain', 'Erreur pattern/adjust:', e.message);
     }
+
+    // 7.5. Sync watches Web Intel avec les criteres de recherche (Intelligence Reelle v5)
+    try { this._syncWatchesWithCriteria(); }
+    catch (e) { log.warn('brain', 'Erreur sync watches:', e.message); }
 
     // 8. Envoyer resume
     const autoActions = plan.actions.filter(a => a.autoExecute);
@@ -631,6 +689,108 @@ Analyse et reponds en JSON:
     }
   }
 
+  // --- Mini-cycle leger (Intelligence Reelle v5) ---
+  // Pas d'appel a Claude Opus — 0$ cout. Verifie signaux + hot leads + retard objectifs.
+  async _lightCycle() {
+    log.info('brain', 'Mini-cycle demarre...');
+    const config = storage.getConfig();
+    const chatId = config.adminChatId;
+    const state = this._collectState();
+    const actions = [];
+
+    // 1. Verifier les signaux marche high priority × leads existants
+    const wiSignals = (state.skills.webIntel && state.skills.webIntel.marketSignals) || [];
+    const highSignals = wiSignals.filter(s => s.priority === 'high');
+
+    if (highSignals.length > 0) {
+      const ffStorage = getFlowFastStorage();
+      if (ffStorage) {
+        const allLeads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : {};
+        for (const signal of highSignals) {
+          if (!signal.company) continue;
+          const matchingLeads = Object.values(allLeads).filter(l =>
+            l.entreprise && l.entreprise.toLowerCase().includes(signal.company.toLowerCase()) &&
+            l.email && !l._emailSent
+          );
+          if (matchingLeads.length > 0) {
+            try {
+              await this.sendTelegram(chatId,
+                '📡 *Opportunite detectee*\n\n' +
+                '*Signal:* ' + signal.type + ' — ' + signal.title + '\n' +
+                '*Lead concerne:* ' + matchingLeads[0].nom + ' (' + matchingLeads[0].entreprise + ')\n' +
+                '→ _' + signal.action + '_\n\n' +
+                'Ce lead devrait etre contacte en priorite !',
+                'Markdown'
+              );
+            } catch (e) {}
+          }
+        }
+      }
+    }
+
+    // 2. Verifier si objectifs hebdo sont en retard (mi-semaine)
+    const progress = state.progress;
+    const goals = state.goals.weekly;
+    const weekStart = new Date(progress.weekStart);
+    const daysElapsed = (Date.now() - weekStart.getTime()) / (24 * 60 * 60 * 1000);
+
+    if (daysElapsed >= 3 && daysElapsed <= 5) {
+      const leadsPct = goals.leadsToFind > 0 ? (progress.leadsFoundThisWeek / goals.leadsToFind) * 100 : 100;
+      const emailsPct = goals.emailsToSend > 0 ? (progress.emailsSentThisWeek / goals.emailsToSend) * 100 : 100;
+
+      if (leadsPct < 30 || emailsPct < 30) {
+        actions.push({
+          type: 'search_leads',
+          params: { criteria: state.goals.searchCriteria },
+          autoExecute: true,
+          preview: 'Recherche urgente (mini-cycle : objectifs en retard)'
+        });
+      }
+    }
+
+    // 3. Executer les actions
+    for (const action of actions) {
+      try {
+        const result = await this.executor.executeAction(action);
+        storage.recordAction({
+          type: action.type,
+          params: action.params,
+          preview: action.preview || result.summary || '',
+          result: result
+        });
+        log.info('brain', 'Mini-cycle action: ' + (result.summary || action.type));
+      } catch (e) {
+        log.error('brain', 'Mini-cycle erreur action:', e.message);
+      }
+    }
+
+    log.info('brain', 'Mini-cycle termine (' + actions.length + ' actions)');
+  }
+
+  // --- Auto-creation de watches Web Intel basee sur les criteres de recherche ---
+  _syncWatchesWithCriteria() {
+    const wiStorage = getWebIntelStorage();
+    if (!wiStorage || !wiStorage.addWatch) return;
+
+    const criteria = storage.getGoals().searchCriteria;
+    const existingWatches = wiStorage.getWatches ? wiStorage.getWatches() : {};
+    const existingNames = Object.values(existingWatches).map(w => w.name.toLowerCase());
+
+    // Creer une watch sectorielle pour chaque industrie dans les criteres
+    for (const industry of (criteria.industries || [])) {
+      const watchName = 'Secteur: ' + industry;
+      if (!existingNames.includes(watchName.toLowerCase())) {
+        wiStorage.addWatch({
+          name: watchName,
+          type: 'sector',
+          keywords: [industry.toLowerCase()],
+          googleNewsEnabled: true
+        });
+        log.info('brain', 'Watch auto-creee: ' + watchName);
+      }
+    }
+  }
+
   // --- Prompt du brain ---
   _buildBrainPrompt(state) {
     const p = state.progress;
@@ -799,6 +959,56 @@ Analyse et reponds en JSON:
       }
     }
 
+    // --- WEB INTELLIGENCE DATA (Intelligence Reelle v5) ---
+    if (state.skills.webIntel) {
+      const wi = state.skills.webIntel;
+
+      if (wi.highRelevanceArticles && wi.highRelevanceArticles.length > 0) {
+        prompt += '\nARTICLES WEB PERTINENTS (score >= 7/10):\n';
+        for (const a of wi.highRelevanceArticles.slice(0, 5)) {
+          prompt += '- ' + a.title + ' [' + a.score + '/10]';
+          if (a.isUrgent) prompt += ' URGENT';
+          if (a.company) prompt += ' (entreprise: ' + a.company + ')';
+          prompt += '\n  ' + a.summary + '\n';
+        }
+      }
+
+      if (wi.risingTrends && wi.risingTrends.length > 0) {
+        prompt += '\nTENDANCES MONTANTES (Web Intelligence):\n';
+        for (const t of wi.risingTrends.slice(0, 3)) {
+          prompt += '- ' + t.keyword + ' (+' + t.change + '%, ' + t.recentMentions + ' mentions)\n';
+        }
+      }
+
+      if (wi.competitiveInsights) {
+        prompt += '\nVEILLE CONCURRENTIELLE:\n';
+        if (wi.competitiveInsights.opportunities.length > 0) {
+          prompt += 'Opportunites: ' + wi.competitiveInsights.opportunities.join('; ') + '\n';
+        }
+        if (wi.competitiveInsights.threats.length > 0) {
+          prompt += 'Menaces: ' + wi.competitiveInsights.threats.join('; ') + '\n';
+        }
+      }
+
+      if (wi.newsForOutreach && wi.newsForOutreach.length > 0) {
+        prompt += '\nNEWS UTILISABLES POUR EMAILS (entreprises dans l\'actu):\n';
+        for (const n of wi.newsForOutreach) {
+          prompt += '- ' + n.company + ': "' + n.headline + '"\n';
+        }
+        prompt += '→ Privilegie ces entreprises pour les prochains emails (actualite = meilleure accroche).\n';
+      }
+
+      if (wi.marketSignals && wi.marketSignals.length > 0) {
+        prompt += '\nSIGNAUX MARCHE DETECTES:\n';
+        for (const s of wi.marketSignals) {
+          prompt += '- [' + s.priority.toUpperCase() + '] ' + s.type + ': ' + s.title + '\n';
+          prompt += '  → ' + s.action + '\n';
+          if (s.company) prompt += '  Entreprise: ' + s.company + '\n';
+        }
+        prompt += '→ PRIORISE les leads lies a ces signaux.\n';
+      }
+    }
+
     prompt += '\nACTIONS DISPONIBLES:\n';
     prompt += '1. search_leads — Rechercher des leads via Apollo (params.criteria)\n';
     prompt += '2. enrich_leads — Enrichir des leads (params.emails: [])\n';
@@ -821,6 +1031,8 @@ Analyse et reponds en JSON:
     prompt += '8. APPRENDS: Apres chaque lot d\'emails, note ce qui a marche (open rate, reponses) via record_learning.\n';
     prompt += '9. NE REPETE PAS les memes erreurs. Si une action echoue, essaie une approche differente.\n';
     prompt += '10. Si les objectifs sont inatteignables, ajuste-les via update_goals plutot que de forcer.\n';
+    prompt += '11. UTILISE les articles Web Intelligence pour personnaliser les emails. Si une entreprise est dans l\'actualite, mentionne-le.\n';
+    prompt += '12. PRIORISE les leads dont l\'entreprise est dans l\'actualite (news recentes, signaux marche). C\'est un signal d\'opportunite fort.\n';
 
     prompt += '\nReponds UNIQUEMENT en JSON avec cette structure:\n';
     prompt += '{\n';

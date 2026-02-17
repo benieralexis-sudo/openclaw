@@ -474,6 +474,83 @@ REGLES :
 
     return false;
   }
+
+  // --- Detection de signaux marche actionnables (Intelligence Reelle v5) ---
+
+  classifyMarketSignals(articles) {
+    if (!articles || articles.length === 0) return [];
+
+    const signals = [];
+
+    const SIGNAL_PATTERNS = {
+      funding: {
+        keywords: ['levee de fonds', 'levée de fonds', 'leve des fonds', 'serie a', 'serie b', 'serie c', 'seed',
+                   'financement', 'investissement', 'millions d\'euros', 'millions de dollars', 'funding', 'raised', 'round'],
+        priority: 'high',
+        action: 'Prospect chaud — vient de lever des fonds, budget disponible'
+      },
+      hiring: {
+        keywords: ['recrute', 'recrutement', 'embauche', 'hiring', 'postes ouverts', 'offres d\'emploi',
+                   'equipe grandit', 'croissance des effectifs', 'nouvelle equipe', 'CDI', 'rejoindre l\'equipe'],
+        priority: 'medium',
+        action: 'Entreprise en croissance — potentiel besoin de services'
+      },
+      product_launch: {
+        keywords: ['lance', 'lancement', 'nouveau produit', 'nouvelle offre', 'nouvelle version',
+                   'release', 'annonce', 'devoile', 'presente sa nouvelle', 'disponible'],
+        priority: 'medium',
+        action: 'Lancement produit — moment cle pour proposer des services complementaires'
+      },
+      leadership_change: {
+        keywords: ['nomme', 'nommé', 'nouveau ceo', 'nouveau pdg', 'nouveau directeur', 'nouvelle directrice',
+                   'prend la direction', 'rejoint', 'appointed', 'prend la tete'],
+        priority: 'high',
+        action: 'Changement de direction — nouveau decideur, fenetre d\'opportunite'
+      },
+      expansion: {
+        keywords: ['expansion', 'ouvre un bureau', 'nouveau bureau', 's\'implante', 'internationalisation',
+                   'entre sur le marche', 'partenariat strategique', 'partenariat stratégique', 'deploiement'],
+        priority: 'medium',
+        action: 'Expansion — entreprise ambitieuse, budget probable'
+      },
+      acquisition: {
+        keywords: ['acquisition', 'acquiert', 'rachete', 'rachat', 'fusion', 'merge', 'rapprochement'],
+        priority: 'high',
+        action: 'Acquisition — restructuration en cours, besoins potentiels'
+      }
+    };
+
+    for (const article of articles) {
+      const textLower = ((article.title || '') + ' ' + (article.snippet || '') + ' ' + (article.summary || '')).toLowerCase();
+
+      for (const [signalType, config] of Object.entries(SIGNAL_PATTERNS)) {
+        const matchedKeywords = config.keywords.filter(kw => textLower.includes(kw));
+        if (matchedKeywords.length > 0) {
+          signals.push({
+            type: signalType,
+            priority: config.priority,
+            suggestedAction: config.action,
+            article: {
+              title: article.title,
+              link: article.link,
+              source: article.source,
+              summary: article.summary || article.snippet,
+              company: article.crmMatch ? article.crmMatch.company : null
+            },
+            matchedKeywords: matchedKeywords,
+            detectedAt: new Date().toISOString()
+          });
+          break; // Un signal par article (le premier detecte)
+        }
+      }
+    }
+
+    // Trier par priorite
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    signals.sort((a, b) => (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2));
+
+    return signals;
+  }
 }
 
 module.exports = IntelligenceAnalyzer;
