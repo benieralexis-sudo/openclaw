@@ -123,15 +123,58 @@ class ApolloConnector {
     }
   }
 
-  // Formater un lead pour affichage
+  // Reveler les donnees completes d'un lead (nom, email, LinkedIn, ville)
+  // Coute 1 credit Apollo par appel
+  async revealLead(apolloId) {
+    try {
+      const result = await this.makeRequest('/v1/people/match', { id: apolloId });
+      if (result.person) {
+        const p = result.person;
+        return {
+          success: true,
+          lead: {
+            apolloId: p.id,
+            first_name: p.first_name || '',
+            last_name: p.last_name || '',
+            nom: ((p.first_name || '') + ' ' + (p.last_name || '')).trim(),
+            title: p.title || '',
+            email: p.email || '',
+            linkedin_url: p.linkedin_url || '',
+            city: p.city || '',
+            state: p.state || '',
+            country: p.country || '',
+            organization: p.organization || {}
+          }
+        };
+      }
+      return { success: false, error: 'Lead non trouve' };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  // Reveler un batch de leads (1 credit chacun)
+  async revealLeads(apolloIds) {
+    const results = [];
+    for (const id of apolloIds) {
+      const result = await this.revealLead(id);
+      results.push(result);
+      // Rate limit: 1 appel/seconde
+      await new Promise(r => setTimeout(r, 1100));
+    }
+    return results;
+  }
+
+  // Formater un lead pour affichage (compatible ancien et nouveau endpoint Apollo)
   formatLead(lead) {
     return {
-      nom: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
+      nom: `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Inconnu',
       titre: lead.title || 'Non spécifié',
       entreprise: lead.organization?.name || 'Non spécifié',
-      email: lead.email || 'Non disponible',
+      email: lead.email || (lead.has_email ? 'A enrichir' : 'Non disponible'),
       linkedin: lead.linkedin_url || 'Non disponible',
-      localisation: lead.city || 'Non spécifié'
+      localisation: lead.city || (lead.has_city ? 'Disponible' : 'Non spécifié'),
+      hasEmail: lead.has_email || !!lead.email
     };
   }
 }

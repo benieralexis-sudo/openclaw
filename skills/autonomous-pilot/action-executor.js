@@ -124,7 +124,24 @@ class ActionExecutor {
 
     if (FlowFastWorkflow && result.leads) {
       const workflow = new FlowFastWorkflow(this.apolloKey, this.hubspotKey, this.openaiKey);
-      for (const lead of result.leads) {
+
+      // Mapper les champs Apollo (nouveau endpoint mixed_people/api_search)
+      const mappedLeads = result.leads.map(l => ({
+        apolloId: l.id,
+        nom: (l.first_name || '') + (l.last_name ? ' ' + l.last_name : ''),
+        first_name: l.first_name || '',
+        last_name: l.last_name || '',
+        titre: l.title || '',
+        title: l.title || '',
+        entreprise: l.organization?.name || '',
+        organization: l.organization,
+        email: l.email || null,
+        linkedin_url: l.linkedin_url || null,
+        localisation: l.city || l.state || l.country || '',
+        hasEmail: l.has_email || false
+      }));
+
+      for (const lead of mappedLeads) {
         try {
           const scored = await workflow.qualifyLead(lead);
           lead.score = scored.score;
@@ -132,22 +149,57 @@ class ActionExecutor {
           if (scored.score >= minScore) qualified++;
 
           if (ffStorage) {
-            ffStorage.saveLead(lead.email, {
-              nom: lead.nom || ((lead.first_name || '') + ' ' + (lead.last_name || '')).trim() || 'Inconnu',
-              titre: lead.titre || lead.title,
-              entreprise: lead.entreprise || lead.organization?.name,
+            ffStorage.addLead({
+              nom: lead.nom || 'Inconnu',
+              titre: lead.titre,
+              entreprise: lead.entreprise,
               email: lead.email,
-              linkedin: lead.linkedin_url || lead.linkedin,
-              score: scored.score,
+              linkedin: lead.linkedin_url,
               source: 'autonomous-pilot',
-              searchCriteria: JSON.stringify(criteria).substring(0, 200),
-              createdAt: new Date().toISOString()
-            });
+              searchCriteria: JSON.stringify(criteria).substring(0, 200)
+            }, scored.score, 'brain-cycle');
             saved++;
           }
         } catch (e) {
           log.info('action-executor', 'Erreur qualification lead:', e.message);
         }
+      }
+
+      // Reveler les leads qualifies via Apollo people/match (1 credit chacun)
+      const toReveal = mappedLeads.filter(l => !l.email && l.score >= minScore && l.apolloId);
+      if (toReveal.length > 0) {
+        log.info('action-executor', toReveal.length + ' leads qualifies a reveler via Apollo (1 credit chacun)');
+        let revealed = 0;
+        for (const lead of toReveal) {
+          try {
+            const revealResult = await apollo.revealLead(lead.apolloId);
+            if (revealResult.success && revealResult.lead.email) {
+              lead.email = revealResult.lead.email;
+              lead.last_name = revealResult.lead.last_name;
+              lead.nom = revealResult.lead.nom;
+              lead.linkedin_url = revealResult.lead.linkedin_url;
+              lead.localisation = revealResult.lead.city;
+              revealed++;
+
+              // Mettre a jour le lead sauvegarde avec l'email
+              if (ffStorage) {
+                ffStorage.addLead({
+                  nom: lead.nom,
+                  titre: lead.titre,
+                  entreprise: lead.entreprise,
+                  email: lead.email,
+                  linkedin: lead.linkedin_url,
+                  source: 'autonomous-pilot',
+                  searchCriteria: JSON.stringify(criteria).substring(0, 200)
+                }, lead.score, 'brain-cycle-revealed');
+              }
+            }
+          } catch (e) {
+            log.warn('action-executor', 'Erreur reveal lead:', e.message);
+          }
+        }
+        log.info('action-executor', revealed + '/' + toReveal.length + ' leads reveles avec email');
+        storage.incrementProgress('leadsEnrichedThisWeek', revealed);
       }
     }
 
