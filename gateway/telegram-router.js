@@ -1345,6 +1345,10 @@ function _getHubSpotClient() {
   }
 }
 
+let ProspectResearcher;
+try { ProspectResearcher = require('../skills/autonomous-pilot/prospect-researcher.js'); }
+catch (e) { try { ProspectResearcher = require('/app/skills/autonomous-pilot/prospect-researcher.js'); } catch (e2) { ProspectResearcher = null; } }
+
 const RESEND_EVENT_MAP = {
   'email.sent': 'sent',
   'email.delivered': 'delivered',
@@ -1380,6 +1384,9 @@ async function handleResendWebhook(body) {
   if (newPriority <= currentPriority && status !== 'bounced' && status !== 'complained') {
     return { processed: false, reason: 'statut deja plus avance (' + email.status + ')' };
   }
+
+  // Sauvegarder l'etat avant mise a jour (pour detecter premiere ouverture)
+  const wasAlreadyOpened = email.openedAt || false;
 
   // Mettre a jour le statut
   automailerStorage.updateEmailStatus(email.id, status);
@@ -1417,6 +1424,32 @@ async function handleResendWebhook(body) {
       }
     } catch (crmErr) {
       log.warn('webhook', 'CRM sync echoue: ' + crmErr.message);
+    }
+  }
+
+  // Auto-research sur premiere ouverture email
+  if (status === 'opened' && !wasAlreadyOpened && ProspectResearcher) {
+    try {
+      const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
+      const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: '' };
+      researcher.researchProspect(contact).then(intel => {
+        if (intel && intel.brief) {
+          const msg = '👀 *Email ouvert !*\n\n' +
+            '*Qui :* ' + (email.contactName || email.to) + '\n' +
+            (email.company ? '*Entreprise :* ' + email.company + '\n' : '') +
+            '*Objet :* _' + (email.subject || '(sans objet)').substring(0, 60) + '_\n\n' +
+            '🔍 *Intel prospect :*\n' + intel.brief.substring(0, 500) + '\n\n' +
+            '➡️ _Suggestion : relancer avec un message personnalise_';
+          sendMessage(ADMIN_CHAT_ID, msg, 'Markdown').catch(() => {});
+        } else {
+          sendMessage(ADMIN_CHAT_ID, '👀 *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
+        }
+      }).catch(err => {
+        log.warn('webhook', 'Prospect research echoue pour open event: ' + err.message);
+        sendMessage(ADMIN_CHAT_ID, '👀 *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
+      });
+    } catch (e) {
+      log.warn('webhook', 'Erreur init prospect research: ' + e.message);
     }
   }
 

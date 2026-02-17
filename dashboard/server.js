@@ -87,7 +87,8 @@ const DATA_PATHS = {
   'web-intelligence': process.env.WEB_INTEL_DATA_DIR ? `${process.env.WEB_INTEL_DATA_DIR}/web-intelligence.json` : '/data/web-intelligence/web-intelligence.json',
   'system-advisor': process.env.SYSTEM_ADVISOR_DATA_DIR ? `${process.env.SYSTEM_ADVISOR_DATA_DIR}/system-advisor.json` : '/data/system-advisor/system-advisor.json',
   'inbox-manager': process.env.INBOX_MANAGER_DATA_DIR ? `${process.env.INBOX_MANAGER_DATA_DIR}/inbox-manager-db.json` : '/data/inbox-manager/inbox-manager-db.json',
-  'meeting-scheduler': process.env.MEETING_SCHEDULER_DATA_DIR ? `${process.env.MEETING_SCHEDULER_DATA_DIR}/meeting-scheduler-db.json` : '/data/meeting-scheduler/meeting-scheduler-db.json'
+  'meeting-scheduler': process.env.MEETING_SCHEDULER_DATA_DIR ? `${process.env.MEETING_SCHEDULER_DATA_DIR}/meeting-scheduler-db.json` : '/data/meeting-scheduler/meeting-scheduler-db.json',
+  'autonomous-pilot': process.env.AUTONOMOUS_PILOT_DATA_DIR ? `${process.env.AUTONOMOUS_PILOT_DATA_DIR}/autonomous-pilot.json` : '/data/autonomous-pilot/autonomous-pilot.json'
 };
 
 const APP_CONFIG_PATH = process.env.APP_CONFIG_DIR
@@ -374,17 +375,34 @@ app.get('/api/overview', authRequired, async (req, res) => {
   });
 });
 
-// FlowFast / Prospection
+// Prospection (FlowFast + Autonomous Pilot)
 app.get('/api/prospection', authRequired, async (req, res) => {
-  const [ff, le] = await Promise.all([readData('flowfast'), readData('lead-enrich')]);
+  const [ff, le, ap] = await Promise.all([readData('flowfast'), readData('lead-enrich'), readData('autonomous-pilot')]);
   const ffData = ff || {};
   const leData = le || {};
-  const leads = ffData.leads ? Object.values(ffData.leads) : [];
+  const apData = ap || {};
+  const leads = ffData.leads ? Object.values(ffData.leads).map(l => ({ ...l, source: l.source || 'flowfast' })) : [];
   const enriched = leData.enrichedLeads || {};
+
+  // Ajouter les leads du Autonomous Pilot (prospect research cache)
+  const knownEmails = new Set(leads.map(l => (l.email || '').toLowerCase()).filter(Boolean));
+  if (apData.prospectResearch) {
+    for (const [email, research] of Object.entries(apData.prospectResearch)) {
+      if (knownEmails.has(email.toLowerCase())) continue;
+      leads.push({
+        email: email,
+        nom: '',
+        entreprise: research.company || '',
+        score: research.leadEnrichData?.score || null,
+        source: 'brain',
+        createdAt: research.researchedAt || null
+      });
+    }
+  }
 
   // Enrichir les leads avec les données lead-enrich
   const enrichedLeads = leads.map(l => {
-    const e = enriched[l.email?.toLowerCase()] || {};
+    const e = enriched[(l.email || '').toLowerCase()] || {};
     return {
       ...l,
       aiClassification: e.aiClassification || null,
@@ -407,6 +425,7 @@ app.get('/api/prospection', authRequired, async (req, res) => {
     searches,
     stats: {
       total: leads.length,
+      fromBrain: leads.filter(l => l.source === 'brain').length,
       qualified: leads.filter(l => (l.score || 0) >= 6).length,
       avgScore: leads.length > 0 ? Math.round(leads.reduce((s, l) => s + (l.score || 0), 0) / leads.length * 10) / 10 : 0,
       pushedToHubspot: leads.filter(l => l.pushedToHubspot).length,

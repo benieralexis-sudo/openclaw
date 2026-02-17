@@ -195,6 +195,18 @@ class Storage {
     }
   }
 
+  updateLeadScore(key, newScore, reason) {
+    if (!this.data.leads[key]) return null;
+    const lead = this.data.leads[key];
+    const oldScore = lead.score || 0;
+    lead.score = Math.min(10, Math.max(0, newScore));
+    if (!lead.scoreHistory) lead.scoreHistory = [];
+    lead.scoreHistory.push({ from: oldScore, to: lead.score, reason: reason, at: new Date().toISOString() });
+    if (lead.scoreHistory.length > 20) lead.scoreHistory = lead.scoreHistory.slice(-20);
+    this._save();
+    return lead;
+  }
+
   getLeadsBySearch(searchId) {
     return Object.values(this.data.leads).filter(l => l.searchId === searchId);
   }

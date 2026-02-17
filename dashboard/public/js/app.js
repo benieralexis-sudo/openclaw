@@ -296,7 +296,7 @@ const App = {
   },
 
   // ========================================
-  // PAGE: Prospection (FlowFast)
+  // PAGE: Prospection
   // ========================================
   async renderProspection(container) {
     const data = await API.prospection();
@@ -338,6 +338,11 @@ const App = {
           <div class="kpi-value" data-count="${s.pushedToHubspot || 0}">${s.pushedToHubspot || 0}</div>
           <div class="kpi-label">Poussés vers HubSpot</div>
         </div>
+        ${s.fromBrain ? `<div class="kpi-card">
+          <div class="kpi-header"><div class="kpi-icon purple">${Utils.icon('zap')}</div></div>
+          <div class="kpi-value" data-count="${s.fromBrain}">${s.fromBrain}</div>
+          <div class="kpi-label">Trouvés par le Brain</div>
+        </div>` : ''}
       </div>
 
       <div class="grid-full">
@@ -369,6 +374,7 @@ const App = {
                     <th>Entreprise</th>
                     <th>Email</th>
                     <th>Score</th>
+                    <th>Source</th>
                     <th>HubSpot</th>
                     <th>Date</th>
                   </tr>
@@ -380,6 +386,7 @@ const App = {
                       <td>${e(l.entreprise || '—')}</td>
                       <td>${e(l.email || '—')}</td>
                       <td>${l.score ? `<span class="score-badge ${Utils.scoreClass(l.score)}">${l.score}</span>` : '—'}</td>
+                      <td><span class="badge ${l.source === 'brain' ? 'badge-purple' : 'badge-blue'}">${l.source === 'brain' ? 'Brain' : 'Search'}</span></td>
                       <td>${l.pushedToHubspot ? '<span class="status-dot green"></span>Oui' : '<span class="status-dot red"></span>Non'}</td>
                       <td>${Utils.formatDate(l.createdAt)}</td>
                     </tr>
@@ -422,10 +429,11 @@ const App = {
   async exportLeads() {
     const data = await API.prospection();
     if (!data || !data.leads) return;
-    const headers = ['Nom', 'Entreprise', 'Email', 'Score', 'HubSpot', 'Date'];
+    const headers = ['Nom', 'Entreprise', 'Email', 'Score', 'Source', 'HubSpot', 'Date'];
     const rows = data.leads.map(l => [
       l.nom || '', l.entreprise || '', l.email || '',
-      l.score || '', l.pushedToHubspot ? 'Oui' : 'Non',
+      l.score || '', l.source === 'brain' ? 'Brain' : 'Search',
+      l.pushedToHubspot ? 'Oui' : 'Non',
       l.createdAt ? new Date(l.createdAt).toLocaleDateString('fr-FR') : ''
     ]);
     Utils.exportCSV(headers, rows, 'leads-ifind-' + new Date().toISOString().slice(0, 10) + '.csv');

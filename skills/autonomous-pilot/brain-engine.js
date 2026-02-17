@@ -44,6 +44,14 @@ function getAppConfig() {
   return _require('../../gateway/app-config.js', '/app/gateway/app-config.js');
 }
 
+function getHubSpotClient() {
+  const apiKey = process.env.HUBSPOT_API_KEY;
+  if (!apiKey) return null;
+  const HubSpotClient = _require('../crm-pilot/hubspot-client.js', '/app/skills/crm-pilot/hubspot-client.js');
+  if (!HubSpotClient) return null;
+  try { return new HubSpotClient(apiKey); } catch (e) { return null; }
+}
+
 class BrainEngine {
   constructor(options) {
     this.sendTelegram = options.sendTelegram;
@@ -369,6 +377,10 @@ class BrainEngine {
     // 7.5. Sync watches Web Intel avec les criteres de recherche (Intelligence Reelle v5)
     try { this._syncWatchesWithCriteria(); }
     catch (e) { log.warn('brain', 'Erreur sync watches:', e.message); }
+
+    // 7.6. Sync watches Web Intel avec les deals CRM
+    try { await this._syncWatchesWithCRMDeals(); }
+    catch (e) { log.warn('brain', 'Erreur sync watches CRM:', e.message); }
 
     // 8. Envoyer resume
     const autoActions = plan.actions.filter(a => a.autoExecute);
@@ -698,24 +710,45 @@ Analyse et reponds en JSON:
     const wiSignals = (state.skills.webIntel && state.skills.webIntel.marketSignals) || [];
     const highSignals = wiSignals.filter(s => s.priority === 'high');
 
+    // Score boost map par type de signal
+    const SIGNAL_BOOSTS = { funding: 2, expansion: 1.5, acquisition: 2, product_launch: 1, hiring: 0.5, leadership_change: 1 };
+
     if (highSignals.length > 0) {
       const ffStorage = getFlowFastStorage();
       if (ffStorage) {
-        const allLeads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : {};
+        const allLeads = ffStorage.data && ffStorage.data.leads ? ffStorage.data.leads : {};
         for (const signal of highSignals) {
           if (!signal.company) continue;
-          const matchingLeads = Object.values(allLeads).filter(l =>
-            l.entreprise && l.entreprise.toLowerCase().includes(signal.company.toLowerCase()) &&
-            l.email && !l._emailSent
+          const matchingLeads = Object.entries(allLeads).filter(([key, l]) =>
+            l.entreprise && l.entreprise.toLowerCase().includes(signal.company.toLowerCase()) && l.email
           );
+
+          // Appliquer le boost de score sur chaque lead matche
+          for (const [key, lead] of matchingLeads) {
+            const signalId = (signal.detectedAt || '') + '_' + signal.type + '_' + signal.company;
+            if (!lead._processedSignals) lead._processedSignals = [];
+            if (!lead._processedSignals.includes(signalId)) {
+              const boost = SIGNAL_BOOSTS[signal.type] || 0.5;
+              const newScore = Math.min(10, (lead.score || 0) + boost);
+              const reason = 'Signal ' + signal.type + ': ' + (signal.title || '').substring(0, 80);
+              ffStorage.updateLeadScore(key, newScore, reason);
+              lead._processedSignals.push(signalId);
+              if (lead._processedSignals.length > 50) lead._processedSignals = lead._processedSignals.slice(-50);
+            }
+          }
+
+          // Notifier sur Telegram
           if (matchingLeads.length > 0) {
+            const [, firstLead] = matchingLeads[0];
+            const boost = SIGNAL_BOOSTS[signal.type] || 0.5;
             try {
               await this.sendTelegram(chatId,
                 '📡 *Opportunite detectee*\n\n' +
                 '*Signal:* ' + signal.type + ' — ' + signal.title + '\n' +
-                '*Lead concerne:* ' + matchingLeads[0].nom + ' (' + matchingLeads[0].entreprise + ')\n' +
+                '*Lead(s):* ' + matchingLeads.length + ' (' + firstLead.nom + ', ' + firstLead.entreprise + ')\n' +
+                '*Score boost:* +' + boost + '\n' +
                 '→ _' + signal.action + '_\n\n' +
-                'Ce lead devrait etre contacte en priorite !',
+                (firstLead._emailSent ? 'Lead deja contacte — relance recommandee !' : 'Ce lead devrait etre contacte en priorite !'),
                 'Markdown'
               );
             } catch (e) {}
@@ -784,6 +817,51 @@ Analyse et reponds en JSON:
         });
         log.info('brain', 'Watch auto-creee: ' + watchName);
       }
+    }
+  }
+
+  // --- Auto-creation de watches Web Intel pour les deals CRM ---
+  async _syncWatchesWithCRMDeals() {
+    const wiStorage = getWebIntelStorage();
+    if (!wiStorage || !wiStorage.addWatch) return;
+
+    const hubspot = getHubSpotClient();
+    if (!hubspot) return;
+
+    try {
+      const result = await hubspot.listDeals(50);
+      if (!result || !result.deals) return;
+
+      const existingWatches = wiStorage.getWatches ? wiStorage.getWatches() : {};
+      const existingNames = Object.values(existingWatches).map(w => w.name.toLowerCase());
+
+      let created = 0;
+      for (const deal of result.deals) {
+        if (!deal || !deal.name) continue;
+        const companyName = deal.name.trim();
+        if (companyName.length < 2) continue;
+
+        const watchName = 'Prospect: ' + companyName;
+        if (existingNames.includes(watchName.toLowerCase())) continue;
+
+        wiStorage.addWatch({
+          name: watchName,
+          type: 'prospect',
+          keywords: [companyName.toLowerCase()],
+          googleNewsEnabled: true
+        });
+        existingNames.push(watchName.toLowerCase());
+        created++;
+        log.info('brain', 'Watch CRM auto-creee: ' + watchName);
+
+        if (created >= 10) break;
+      }
+
+      if (created > 0) {
+        log.info('brain', created + ' watches CRM auto-creees');
+      }
+    } catch (e) {
+      log.warn('brain', 'Erreur sync watches CRM:', e.message);
     }
   }
 

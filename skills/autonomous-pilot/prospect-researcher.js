@@ -94,11 +94,13 @@ class ProspectResearcher {
     const domain = email ? email.split('@')[1] : null;
 
     // Executer toutes les recherches en parallele
-    const [websiteResult, newsResult, apolloData, webIntelArticles] = await Promise.allSettled([
+    const linkedinUrl = contact.linkedin_url || contact.linkedin || contact.linkedinUrl || '';
+    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
       Promise.resolve(this._extractApolloOrgData(contact.organization)),
-      Promise.resolve(this._checkExistingWebIntelArticles(company))
+      Promise.resolve(this._checkExistingWebIntelArticles(company)),
+      this._fetchLinkedInData(linkedinUrl, contact.nom || contact.name || '', company)
     ]);
 
     const intel = {
@@ -107,6 +109,7 @@ class ProspectResearcher {
       recentNews: newsResult.status === 'fulfilled' ? newsResult.value : [],
       apolloData: apolloData.status === 'fulfilled' ? apolloData.value : null,
       existingArticles: webIntelArticles.status === 'fulfilled' ? webIntelArticles.value : [],
+      linkedinData: linkedinResult.status === 'fulfilled' ? linkedinResult.value : null,
       leadEnrichData: leadEnrichData,
       researchedAt: new Date().toISOString()
     };
@@ -123,7 +126,8 @@ class ProspectResearcher {
       intel.websiteInsights ? 'site web' : null,
       intel.recentNews.length > 0 ? intel.recentNews.length + ' news' : null,
       intel.apolloData ? 'Apollo' : null,
-      intel.existingArticles.length > 0 ? intel.existingArticles.length + ' articles WI' : null
+      intel.existingArticles.length > 0 ? intel.existingArticles.length + ' articles WI' : null,
+      intel.linkedinData ? 'LinkedIn' : null
     ].filter(Boolean);
 
     log.info('prospect-research', 'Recherche terminee pour ' + company + ': ' + sources.join(', '));
@@ -221,8 +225,91 @@ class ProspectResearcher {
   }
 
   /**
+   * Tente de recuperer des donnees LinkedIn via Google Cache ou Google Search.
+   * Jamais d'appel direct a linkedin.com (bloque systematiquement).
+   */
+  async _fetchLinkedInData(linkedinUrl, name, company) {
+    if ((!linkedinUrl || !linkedinUrl.includes('linkedin.com/in/')) && !name) return null;
+    const fetcher = this._getFetcher();
+    if (!fetcher) return null;
+
+    // Strategie 1 : Google Cache de l'URL LinkedIn directe
+    if (linkedinUrl && linkedinUrl.includes('linkedin.com/in/')) {
+      try {
+        const cacheUrl = 'https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(linkedinUrl);
+        const result = await fetcher.fetchUrl(cacheUrl);
+        if (result && result.statusCode === 200 && result.body) {
+          const parsed = this._parseLinkedInPage(result.body);
+          if (parsed && parsed.headline) {
+            log.info('prospect-research', 'LinkedIn via Google Cache OK pour ' + name);
+            return parsed;
+          }
+        }
+      } catch (e) {
+        log.info('prospect-research', 'Google Cache LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    // Strategie 2 : Google Search pour trouver le snippet LinkedIn
+    if (name && company) {
+      try {
+        const query = 'site:linkedin.com/in/ "' + name + '" "' + company + '"';
+        const newsResult = await fetcher.fetchGoogleNews(query);
+        if (newsResult && newsResult.length > 0) {
+          const firstResult = newsResult[0];
+          if (firstResult.title && firstResult.title.includes('LinkedIn')) {
+            return { headline: firstResult.title.replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim().substring(0, 200), source: 'google_search' };
+          }
+        }
+      } catch (e) {
+        log.info('prospect-research', 'Google Search LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Parse le HTML d'une page LinkedIn (depuis le cache Google).
+   */
+  _parseLinkedInPage(html) {
+    if (!html || html.length < 100) return null;
+    const result = {};
+
+    // Meta description (souvent "Name - Title at Company | LinkedIn")
+    const metaMatch = html.match(/<meta[^>]+name="description"[^>]+content="([^"]+)"/i)
+      || html.match(/<meta[^>]+content="([^"]+)"[^>]+name="description"/i);
+    if (metaMatch) {
+      const desc = metaMatch[1].trim();
+      // Format typique: "Name - Title at Company. Location. Connections"
+      const parts = desc.split(/\s*[-·]\s*/);
+      if (parts.length >= 2) {
+        result.headline = parts.slice(0, 3).join(' - ').substring(0, 200);
+      } else {
+        result.headline = desc.substring(0, 200);
+      }
+    }
+
+    // Titre de page (fallback)
+    if (!result.headline) {
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      if (titleMatch && titleMatch[1].includes('LinkedIn')) {
+        result.headline = titleMatch[1].replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim().substring(0, 200);
+      }
+    }
+
+    // OG description
+    const ogMatch = html.match(/<meta[^>]+property="og:description"[^>]+content="([^"]+)"/i);
+    if (ogMatch) {
+      result.summary = ogMatch[1].trim().substring(0, 200);
+    }
+
+    return (result.headline) ? result : null;
+  }
+
+  /**
    * Compile toutes les donnees en un brief textuel structure.
-   * Max ~500 chars, pret a injecter dans le prompt de generation d'email.
+   * Max ~600 chars, pret a injecter dans le prompt de generation d'email.
    */
   _buildProspectBrief(intel, contact) {
     const lines = [];
@@ -268,6 +355,14 @@ class ProspectResearcher {
       for (const a of intel.existingArticles.slice(0, 2)) {
         lines.push('- "' + a.headline + '" [pertinence: ' + a.relevance + '/10]');
       }
+    }
+
+    // Profil LinkedIn
+    if (intel.linkedinData) {
+      let liLine = 'LINKEDIN: ';
+      if (intel.linkedinData.headline) liLine += intel.linkedinData.headline;
+      if (intel.linkedinData.summary) liLine += ' — ' + intel.linkedinData.summary.substring(0, 100);
+      lines.push(liLine);
     }
 
     // Donnees Lead Enrich (si deja enrichi)
