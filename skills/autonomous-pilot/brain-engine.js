@@ -731,9 +731,10 @@ Analyse et reponds en JSON:
               const boost = SIGNAL_BOOSTS[signal.type] || 0.5;
               const newScore = Math.min(10, (lead.score || 0) + boost);
               const reason = 'Signal ' + signal.type + ': ' + (signal.title || '').substring(0, 80);
-              ffStorage.updateLeadScore(key, newScore, reason);
+              // updateLeadScore persiste le score ET _processedSignals via _save()
               lead._processedSignals.push(signalId);
               if (lead._processedSignals.length > 50) lead._processedSignals = lead._processedSignals.slice(-50);
+              ffStorage.updateLeadScore(key, newScore, reason);
             }
           }
 

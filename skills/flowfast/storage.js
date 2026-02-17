@@ -215,23 +215,43 @@ class Storage {
     return this.data.leads[key];
   }
 
+  // Cherche la cle d'un lead par email (exact key OU valeur .email dans les leads)
+  _findLeadKeyByEmail(email) {
+    if (!email) return null;
+    const normalized = email.toLowerCase().trim();
+    // 1. Exact key match
+    if (this.data.leads[email]) return email;
+    if (this.data.leads[normalized]) return normalized;
+    // 2. Search by email value in all leads
+    for (const [key, lead] of Object.entries(this.data.leads)) {
+      if (lead.email && lead.email.toLowerCase().trim() === normalized) return key;
+    }
+    return null;
+  }
+
   setLeadFeedback(email, feedback) {
-    if (this.data.leads[email]) {
-      this.data.leads[email].feedback = feedback;
+    const key = this._findLeadKeyByEmail(email);
+    if (key) {
+      this.data.leads[key].feedback = feedback;
       this._save();
     }
   }
 
   setLeadPushed(email) {
-    if (this.data.leads[email]) {
-      this.data.leads[email].pushedToHubspot = true;
-      this.data.leads[email].pushedAt = new Date().toISOString();
+    const key = this._findLeadKeyByEmail(email);
+    if (key) {
+      this.data.leads[key].pushedToHubspot = true;
+      this.data.leads[key].pushedAt = new Date().toISOString();
       this._save();
+      console.log('[storage] Lead marque pushedToHubspot: ' + email + ' (cle: ' + key + ')');
+      return true;
     }
+    console.warn('[storage] setLeadPushed: lead non trouve pour ' + email);
+    return false;
   }
 
   isLeadKnown(email) {
-    return !!this.data.leads[email];
+    return !!this._findLeadKeyByEmail(email);
   }
 
   removeLead(key) {
@@ -242,11 +262,16 @@ class Storage {
   }
 
   markEmailSent(email) {
-    if (this.data.leads[email]) {
-      this.data.leads[email]._emailSent = true;
-      this.data.leads[email]._emailSentAt = new Date().toISOString();
+    const key = this._findLeadKeyByEmail(email);
+    if (key) {
+      this.data.leads[key]._emailSent = true;
+      this.data.leads[key]._emailSentAt = new Date().toISOString();
       this._save();
+      console.log('[storage] Lead marque emailSent: ' + email + ' (cle: ' + key + ')');
+      return true;
     }
+    console.warn('[storage] markEmailSent: lead non trouve pour ' + email);
+    return false;
   }
 
   updateLeadScore(key, newScore, reason) {
@@ -257,6 +282,10 @@ class Storage {
     if (!lead.scoreHistory) lead.scoreHistory = [];
     lead.scoreHistory.push({ from: oldScore, to: lead.score, reason: reason, at: new Date().toISOString() });
     if (lead.scoreHistory.length > 20) lead.scoreHistory = lead.scoreHistory.slice(-20);
+    // Persister _processedSignals si present (evite perte au restart)
+    if (lead._processedSignals) {
+      // deja sur l'objet lead, sera sauvegarde avec _save()
+    }
     this._save();
     return lead;
   }

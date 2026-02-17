@@ -381,7 +381,16 @@ Format JSON strict :
     for (const contact of contacts) {
       try {
         const existing = await hubspot.findContactByEmail(contact.email);
-        if (existing) continue;
+        if (existing) {
+          // Marquer comme pousse meme si deja dans HubSpot (evite re-push)
+          const ffS = getFlowFastStorage();
+          if (ffS && ffS.setLeadPushed) {
+            const pushed = ffS.setLeadPushed(contact.email);
+            if (!pushed) log.warn('action-executor', 'setLeadPushed: lead non trouve pour ' + contact.email);
+          }
+          log.info('action-executor', 'Contact ' + contact.email + ' deja dans HubSpot — marque comme pousse');
+          continue;
+        }
 
         const hsContact = await hubspot.createContact({
           firstname: contact.firstName || contact.nom?.split(' ')[0] || '',
@@ -392,6 +401,13 @@ Format JSON strict :
           phone: contact.phone || ''
         });
         created++;
+
+        // Marquer le lead comme pousse dans FlowFast storage
+        const ffStorage2 = getFlowFastStorage();
+        if (ffStorage2 && ffStorage2.setLeadPushed) {
+          const pushed = ffStorage2.setLeadPushed(contact.email);
+          if (!pushed) log.warn('action-executor', 'setLeadPushed apres creation: lead non trouve pour ' + contact.email);
+        }
 
         const minScore = storage.getGoals().weekly.pushToCrmAboveScore || 7;
         if ((contact.score || 0) >= minScore && hsContact && hsContact.id) {
@@ -599,12 +615,15 @@ Format JSON strict :
         storage.incrementProgress('emailsSentThisWeek', 1);
 
         // Marquer le lead comme _emailSent dans FlowFast pour eviter re-envoi
-        try {
-          const ffStorage = getFlowFastStorage();
-          if (ffStorage && ffStorage.markEmailSent) {
-            ffStorage.markEmailSent(params.to);
+        const ffStorage = getFlowFastStorage();
+        if (ffStorage && ffStorage.markEmailSent) {
+          const marked = ffStorage.markEmailSent(params.to);
+          if (!marked) {
+            log.warn('action-executor', 'markEmailSent: lead non trouve pour ' + params.to + ' — le lead pourrait etre re-contacte');
           }
-        } catch (e) { /* best effort */ }
+        } else {
+          log.warn('action-executor', 'FlowFast storage indisponible pour markEmailSent');
+        }
 
         return {
           success: true,
