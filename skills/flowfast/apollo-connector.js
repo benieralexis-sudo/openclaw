@@ -25,14 +25,18 @@ class ApolloConnector {
 
       const req = https.request(options, (res) => {
         let body = '';
-        
+
         res.on('data', (chunk) => {
           body += chunk;
         });
-        
+
         res.on('end', () => {
           try {
             const response = JSON.parse(body);
+            if (res.statusCode >= 400) {
+              reject(new Error('Apollo ' + res.statusCode + ': ' + (response.error || response.message || body.substring(0, 200))));
+              return;
+            }
             resolve(response);
           } catch (e) {
             reject(new Error('Invalid JSON response'));
@@ -100,7 +104,7 @@ class ApolloConnector {
     console.log('[apollo] Recherche avec ' + Object.keys(searchData).length + ' criteres, limit=' + searchData.per_page);
 
     try {
-      const result = await this.makeRequest('/v1/people/search', searchData);
+      const result = await this.makeRequest('/v1/mixed_people/api_search', searchData);
 
       console.log(`✅ Trouvé ${result.people ? result.people.length : 0} leads`);
 
