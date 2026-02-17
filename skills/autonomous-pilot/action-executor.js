@@ -61,6 +61,7 @@ class ActionExecutor {
     this.claudeKey = options.claudeKey;
     this.resendKey = options.resendKey;
     this.senderEmail = options.senderEmail;
+    this.campaignEngine = options.campaignEngine || null;
   }
 
   async executeAction(action) {
@@ -85,6 +86,8 @@ class ActionExecutor {
           return this._updateGoals(params);
         case 'record_learning':
           return this._recordLearning(params);
+        case 'create_followup_sequence':
+          return await this._createFollowUpSequence(params);
         default:
           return { success: false, error: 'Action type inconnu: ' + type };
       }
@@ -610,6 +613,95 @@ class ActionExecutor {
       success: true,
       summary: 'Apprentissage enregistre: ' + (params.summary || category)
     };
+  }
+
+  // --- Creation de sequence de follow-up via campaign-engine ---
+  async _createFollowUpSequence(params) {
+    if (!this.campaignEngine) {
+      return { success: false, error: 'Campaign engine non disponible' };
+    }
+
+    const contacts = params.contacts || [];
+    if (contacts.length === 0) {
+      return { success: false, error: 'Aucun contact pour la sequence' };
+    }
+
+    const amStorage = getAutomailerStorage();
+    if (!amStorage) {
+      return { success: false, error: 'Automailer storage non disponible' };
+    }
+
+    const apConfig = storage.getConfig();
+    const adminChatId = apConfig.adminChatId || '1409505520';
+    const totalSteps = params.totalSteps || 3;
+    const intervalDays = params.intervalDays || 4; // J+4, J+8, J+16
+
+    try {
+      // 1. Creer une liste de contacts pour la campagne
+      const listName = 'AP-Relance-' + new Date().toISOString().slice(0, 10);
+      const list = amStorage.createContactList(adminChatId, listName);
+
+      for (const contact of contacts) {
+        amStorage.addContactToList(list.id, {
+          email: contact.email,
+          name: contact.nom || contact.name || '',
+          firstName: (contact.nom || contact.name || '').split(' ')[0],
+          company: contact.entreprise || contact.company || '',
+          title: contact.titre || contact.title || ''
+        });
+      }
+
+      // 2. Creer la campagne
+      const campaign = await this.campaignEngine.createCampaign(adminChatId, {
+        name: 'Relance auto ' + new Date().toLocaleDateString('fr-FR'),
+        contactListId: list.id,
+        totalContacts: contacts.length
+      });
+
+      // 3. Construire le contexte pour la generation d'emails
+      let context = apConfig.businessContext || 'prospection B2B pour iFIND, agence d\'automatisation IA';
+      const ep = apConfig.emailPreferences || {};
+      if (ep.maxLines) context += '\nREGLE: Email de ' + ep.maxLines + ' lignes MAXIMUM.';
+      if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+        context += '\nMOTS INTERDITS: ' + ep.forbiddenWords.join(', ');
+      }
+      if (ep.tone) context += '\nTON: ' + ep.tone;
+      context += '\nSIGNATURE: Alexis — iFIND';
+      context += '\nCONTEXTE: Ce sont des RELANCES (le prospect a deja recu un premier email sans repondre).';
+      context += '\nRelance 1 (J+' + intervalDays + '): Nouvel angle de valeur, question ouverte courte.';
+      context += '\nRelance 2 (J+' + (intervalDays * 2) + '): Preuve sociale, cas client concret.';
+      context += '\nRelance 3 (J+' + (intervalDays * 4) + '): Breakup email, derniere chance, court et direct.';
+
+      const offer = apConfig.offer || {};
+      if (offer.description) context += '\nOFFRE: ' + offer.description;
+      if (offer.trial) context += '\nESSAI: ' + offer.trial;
+
+      // 4. Generer les emails de relance (3 steps)
+      const steps = await this.campaignEngine.generateCampaignEmails(
+        campaign.id,
+        context,
+        totalSteps,
+        intervalDays
+      );
+
+      // 5. Demarrer la campagne (le scheduler du campaign-engine gerera les envois)
+      await this.campaignEngine.startCampaign(campaign.id);
+
+      log.info('action-executor', 'Sequence follow-up creee: ' + campaign.id +
+        ' (' + contacts.length + ' contacts, ' + totalSteps + ' relances, intervalle ' + intervalDays + 'j)');
+
+      return {
+        success: true,
+        campaignId: campaign.id,
+        contacts: contacts.length,
+        steps: totalSteps,
+        summary: 'Sequence de ' + totalSteps + ' relances creee pour ' + contacts.length +
+          ' lead(s) (J+' + intervalDays + ', J+' + (intervalDays * 2) + ', J+' + (intervalDays * 4) + ')'
+      };
+    } catch (e) {
+      log.error('action-executor', 'Erreur creation sequence follow-up:', e.message);
+      return { success: false, error: 'Creation sequence echouee: ' + e.message };
+    }
   }
 }
 

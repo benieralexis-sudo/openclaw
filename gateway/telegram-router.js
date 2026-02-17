@@ -500,7 +500,8 @@ const autoPilotEngine = new BrainEngine({
   openaiKey: OPENAI_KEY,
   claudeKey: CLAUDE_KEY,
   resendKey: RESEND_KEY,
-  senderEmail: SENDER_EMAIL
+  senderEmail: SENDER_EMAIL,
+  campaignEngine: automailerHandler.campaignEngine
 });
 
 // Inbox Listener IMAP — initialisation avec callbacks
@@ -601,7 +602,18 @@ function startAllCrons() {
   webIntelHandler.start();
   systemAdvisorHandler.start();
   autoPilotEngine.start();
-  log.info('router', '17 crons demarres (production)');
+
+  // Polling statuts email Resend toutes les 30 min (backup du webhook)
+  if (automailerHandler.campaignEngine) {
+    setInterval(async () => {
+      try {
+        await automailerHandler.campaignEngine.checkEmailStatuses();
+      } catch (e) { log.error('router', 'Erreur check email statuses:', e.message); }
+    }, 30 * 60 * 1000);
+    log.info('router', 'Polling statuts email toutes les 30 min');
+  }
+
+  log.info('router', '18 crons demarres (production)');
 }
 
 function stopAllCrons() {

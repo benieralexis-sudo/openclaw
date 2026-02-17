@@ -58,7 +58,8 @@ class BrainEngine {
       openaiKey: options.openaiKey,
       claudeKey: options.claudeKey,
       resendKey: options.resendKey,
-      senderEmail: options.senderEmail
+      senderEmail: options.senderEmail,
+      campaignEngine: options.campaignEngine
     });
 
     this.crons = [];
@@ -807,9 +808,10 @@ Analyse et reponds en JSON:
     prompt += '6. update_search_criteria — Modifier les criteres de recherche (params: {titles?, locations?, industries?, seniorities?, companySize?, keywords?, limit?})\n';
     prompt += '7. update_goals — Modifier les objectifs (params: {leadsToFind?, emailsToSend?, responsesTarget?, rdvTarget?, minLeadScore?})\n';
     prompt += '8. record_learning — Enregistrer un apprentissage (params: {category: "bestSearchCriteria|bestEmailStyles|bestSendTimes", summary: "...", data: {}})\n';
+    prompt += '9. create_followup_sequence — Creer une sequence de 3 relances automatiques pour des leads deja contactes sans reponse (params: {contacts: [{email, nom, entreprise, titre}], totalSteps: 3, intervalDays: 4})\n';
 
     prompt += '\nREGLES:\n';
-    prompt += '1. autoExecute=true pour: search_leads, enrich_leads, push_to_crm, generate_email, update_search_criteria, update_goals, record_learning\n';
+    prompt += '1. autoExecute=true pour: search_leads, enrich_leads, push_to_crm, generate_email, update_search_criteria, update_goals, record_learning, create_followup_sequence\n';
     prompt += '2. autoExecute=false TOUJOURS pour: send_email\n';
     prompt += '3. Sois strategique avec les credits Apollo (100/mois). Prefere des recherches ciblees.\n';
     prompt += '4. Pour generate_email, RESPECTE les regles email du client (longueur, mots interdits, style d\'accroche).\n';
@@ -1257,11 +1259,61 @@ Analyse et reponds en JSON:
       }
     }
 
-    // 3. Pousser les leads qualifies vers HubSpot
+    // 3. Creer une sequence de follow-up pour les leads deja contactes sans reponse
+    const amStorage = getAutomailerStorage();
+    if (amStorage) {
+      const sentEmails = amStorage.data.emails.filter(e =>
+        e.source === 'autonomous-pilot' &&
+        (e.status === 'sent' || e.status === 'delivered') &&
+        !e.campaignId // Pas deja dans une campagne de relance
+      );
+
+      // Trouver les leads contactes il y a 3+ jours sans campagne de relance
+      const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+      const needsFollowUp = sentEmails.filter(e => {
+        if (!e.sentAt) return false;
+        const sentTime = new Date(e.sentAt).getTime();
+        if (sentTime > threeDaysAgo) return false; // Trop recent
+        // Verifier qu'il n'y a pas deja une campagne pour ce contact
+        const allCampaigns = amStorage.getAllCampaigns();
+        const hasSequence = allCampaigns.some(c =>
+          c.name && c.name.startsWith('Relance auto') &&
+          c.status !== 'completed' &&
+          amStorage.getEmailsByCampaign(c.id).some(ce => ce.to === e.to)
+        );
+        return !hasSequence;
+      });
+
+      if (needsFollowUp.length > 0) {
+        const ffStorage = getFlowFastStorage();
+        const contacts = needsFollowUp.map(e => {
+          const lead = ffStorage ? (ffStorage.getAllLeads ? ffStorage.getAllLeads() : {})[e.to] : null;
+          return {
+            email: e.to,
+            nom: e.contactName || (lead && lead.nom) || '',
+            entreprise: e.company || (lead && lead.entreprise) || '',
+            titre: (lead && lead.titre) || ''
+          };
+        }).slice(0, 10); // Max 10 contacts par sequence
+
+        actions.push({
+          type: 'create_followup_sequence',
+          params: {
+            contacts: contacts,
+            totalSteps: 3,
+            intervalDays: 4
+          },
+          autoExecute: true,
+          preview: 'Sequence relance pour ' + contacts.length + ' lead(s) sans reponse'
+        });
+      }
+    }
+
+    // 4. Pousser les leads qualifies vers HubSpot
     if (p.contactsPushedThisWeek < (p.leadsFoundThisWeek || 0)) {
-      const ffStorage = getFlowFastStorage();
-      if (ffStorage) {
-        const allLeads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : {};
+      const ffStorage2 = getFlowFastStorage();
+      if (ffStorage2) {
+        const allLeads = ffStorage2.getAllLeads ? ffStorage2.getAllLeads() : {};
         const toPush = Object.values(allLeads)
           .filter(l => l.email && (l.score || 0) >= (g.pushToCrmAboveScore || 8) && !l.pushedToHubspot)
           .slice(0, 10);
