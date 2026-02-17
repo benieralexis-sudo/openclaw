@@ -1,0 +1,7 @@
+{
+  "name": "inbox-manager",
+  "version": "1.0.0",
+  "description": "Inbox Manager - Detection des reponses email entrantes via IMAP",
+  "main": "index.js",
+  "type": "commonjs"
+}

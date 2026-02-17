@@ -1,0 +1,7 @@
+{
+  "name": "meeting-scheduler",
+  "version": "1.0.0",
+  "description": "Meeting Scheduler - Prise de RDV automatisee via Cal.com",
+  "main": "index.js",
+  "type": "commonjs"
+}

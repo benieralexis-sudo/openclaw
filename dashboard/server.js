@@ -85,7 +85,9 @@ const DATA_PATHS = {
   'proactive-agent': process.env.PROACTIVE_DATA_DIR ? `${process.env.PROACTIVE_DATA_DIR}/proactive-agent-db.json` : '/data/proactive-agent/proactive-agent-db.json',
   'self-improve': process.env.SELF_IMPROVE_DATA_DIR ? `${process.env.SELF_IMPROVE_DATA_DIR}/self-improve-db.json` : '/data/self-improve/self-improve-db.json',
   'web-intelligence': process.env.WEB_INTEL_DATA_DIR ? `${process.env.WEB_INTEL_DATA_DIR}/web-intelligence.json` : '/data/web-intelligence/web-intelligence.json',
-  'system-advisor': process.env.SYSTEM_ADVISOR_DATA_DIR ? `${process.env.SYSTEM_ADVISOR_DATA_DIR}/system-advisor.json` : '/data/system-advisor/system-advisor.json'
+  'system-advisor': process.env.SYSTEM_ADVISOR_DATA_DIR ? `${process.env.SYSTEM_ADVISOR_DATA_DIR}/system-advisor.json` : '/data/system-advisor/system-advisor.json',
+  'inbox-manager': process.env.INBOX_MANAGER_DATA_DIR ? `${process.env.INBOX_MANAGER_DATA_DIR}/inbox-manager-db.json` : '/data/inbox-manager/inbox-manager-db.json',
+  'meeting-scheduler': process.env.MEETING_SCHEDULER_DATA_DIR ? `${process.env.MEETING_SCHEDULER_DATA_DIR}/meeting-scheduler-db.json` : '/data/meeting-scheduler/meeting-scheduler-db.json'
 };
 
 const APP_CONFIG_PATH = process.env.APP_CONFIG_DIR
@@ -669,6 +671,52 @@ app.get('/api/system', authRequired, async (req, res) => {
     lastHealthCheck: healthChecks.lastCheck || null,
     activeAlerts,
     alertHistory
+  });
+});
+
+// Inbox Manager
+app.get('/api/inbox', authRequired, async (req, res) => {
+  const im = await readData('inbox-manager') || {};
+  const config = im.config || {};
+  const stats = im.stats || {};
+  const receivedEmails = (im.receivedEmails || []).slice(-100);
+  const matchedReplies = (im.matchedReplies || []).slice(-50);
+
+  const sortedEmails = receivedEmails.sort((a, b) => (b.processedAt || '').localeCompare(a.processedAt || ''));
+  const { items: paginatedEmails, total: totalEmails } = paginate(sortedEmails, req);
+
+  res.json({
+    config,
+    stats,
+    emails: paginatedEmails,
+    totalEmails,
+    replies: matchedReplies.reverse()
+  });
+});
+
+// Meeting Scheduler
+app.get('/api/meetings', authRequired, async (req, res) => {
+  const ms = await readData('meeting-scheduler') || {};
+  const config = ms.config || {};
+  const stats = ms.stats || {};
+  const meetings = ms.meetings || [];
+  const eventTypes = ms.eventTypes || [];
+
+  const now = new Date().toISOString();
+  const upcoming = meetings
+    .filter(m => m.status === 'booked' && m.scheduledAt && m.scheduledAt > now)
+    .sort((a, b) => (a.scheduledAt || '').localeCompare(b.scheduledAt || ''));
+
+  const sortedMeetings = meetings.sort((a, b) => (b.proposedAt || '').localeCompare(a.proposedAt || ''));
+  const { items: paginatedMeetings, total: totalMeetings } = paginate(sortedMeetings, req);
+
+  res.json({
+    config,
+    stats: { ...stats, upcoming: upcoming.length, totalMeetings: meetings.length },
+    meetings: paginatedMeetings,
+    totalMeetings,
+    upcoming,
+    eventTypes
   });
 });
 

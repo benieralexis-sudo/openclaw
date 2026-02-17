@@ -30,6 +30,13 @@ services:
       API_DAILY_BUDGET: ${API_DAILY_BUDGET:-5}
       ADMIN_CHAT_ID: ${ADMIN_CHAT_ID:-1409505520}
       RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+      IMAP_HOST: ${IMAP_HOST:-}
+      IMAP_PORT: ${IMAP_PORT:-993}
+      IMAP_USER: ${IMAP_USER:-}
+      IMAP_PASS: ${IMAP_PASS:-}
+      CALCOM_API_KEY: ${CALCOM_API_KEY:-}
+      INBOX_MANAGER_DATA_DIR: /data/inbox-manager
+      MEETING_SCHEDULER_DATA_DIR: /data/meeting-scheduler
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -45,6 +52,8 @@ services:
       - ./skills/web-intelligence:/app/skills/web-intelligence
       - ./skills/system-advisor:/app/skills/system-advisor
       - ./skills/autonomous-pilot:/app/skills/autonomous-pilot
+      - ./skills/inbox-manager:/app/skills/inbox-manager
+      - ./skills/meeting-scheduler:/app/skills/meeting-scheduler
       - flowfast-data:/data/flowfast
       - automailer-data:/data/automailer
       - crm-pilot-data:/data/crm-pilot
@@ -56,6 +65,8 @@ services:
       - web-intelligence-data:/data/web-intelligence
       - system-advisor-data:/data/system-advisor
       - autonomous-pilot-data:/data/autonomous-pilot
+      - inbox-manager-data:/data/inbox-manager
+      - meeting-scheduler-data:/data/meeting-scheduler
       - app-config-data:/data/app-config
     init: true
     restart: unless-stopped
@@ -66,7 +77,7 @@ services:
         limits:
           memory: 512M
           cpus: '1.0'
-    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/app-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/app-config && exec runuser -u node -- node /app/gateway/telegram-router.js"]
+    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && exec runuser -u node -- node /app/gateway/telegram-router.js"]
     logging:
       driver: json-file
       options:
@@ -109,6 +120,8 @@ services:
       WEB_INTEL_DATA_DIR: /data/web-intelligence
       SYSTEM_ADVISOR_DATA_DIR: /data/system-advisor
       AUTONOMOUS_PILOT_DATA_DIR: /data/autonomous-pilot
+      INBOX_MANAGER_DATA_DIR: /data/inbox-manager
+      MEETING_SCHEDULER_DATA_DIR: /data/meeting-scheduler
       APP_CONFIG_DIR: /data/app-config
       DASHBOARD_DATA_DIR: /data/dashboard
     volumes:
@@ -126,6 +139,8 @@ services:
       - web-intelligence-data:/data/web-intelligence:ro
       - system-advisor-data:/data/system-advisor:ro
       - autonomous-pilot-data:/data/autonomous-pilot:ro
+      - inbox-manager-data:/data/inbox-manager:ro
+      - meeting-scheduler-data:/data/meeting-scheduler:ro
       - app-config-data:/data/app-config:ro
     ports:
       - "127.0.0.1:3000:3000"
@@ -206,6 +221,8 @@ volumes:
   web-intelligence-data:
   system-advisor-data:
   autonomous-pilot-data:
+  inbox-manager-data:
+  meeting-scheduler-data:
   app-config-data:
     name: moltbot_app-config-data
     external: true

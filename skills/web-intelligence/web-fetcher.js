@@ -1,6 +1,7 @@
-// Web Intelligence - Collecte HTTP + parsing regex RSS/HTML
+// Web Intelligence - Collecte HTTP + parsing linkedom RSS/HTML
 const https = require('https');
 const http = require('http');
+const { parseHTML } = require('linkedom');
 const { retryAsync } = require('../../gateway/utils.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const log = require('../../gateway/logger.js');
@@ -267,44 +268,60 @@ class WebFetcher {
     return articles;
   }
 
-  // --- Parsing HTML basique (regex) ---
+  // --- Parsing HTML avec linkedom (DOM robuste) ---
 
   parseHtml(html) {
     if (!html) return { title: '', description: '', textContent: '' };
 
-    // Titre
-    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const title = titleMatch ? this._decodeHtmlEntities(titleMatch[1].trim()) : '';
+    try {
+      const { document } = parseHTML(html);
 
-    // Meta description
-    const metaMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([\s\S]*?)["']/i)
-      || html.match(/<meta[^>]*content=["']([\s\S]*?)["'][^>]*name=["']description["']/i);
-    const description = metaMatch ? this._decodeHtmlEntities(metaMatch[1].trim()) : '';
+      // Titre
+      const titleEl = document.querySelector('title');
+      const title = titleEl ? titleEl.textContent.trim() : '';
 
-    // OG description si pas de meta
-    let ogDesc = '';
-    if (!description) {
-      const ogMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([\s\S]*?)["']/i);
-      ogDesc = ogMatch ? this._decodeHtmlEntities(ogMatch[1].trim()) : '';
+      // Meta description
+      const metaDesc = document.querySelector('meta[name="description"]');
+      const description = metaDesc ? (metaDesc.getAttribute('content') || '').trim() : '';
+
+      // OG description si pas de meta
+      let ogDesc = '';
+      if (!description) {
+        const ogMeta = document.querySelector('meta[property="og:description"]');
+        ogDesc = ogMeta ? (ogMeta.getAttribute('content') || '').trim() : '';
+      }
+
+      // Supprimer script, style, nav, footer, header, aside
+      const removeSelectors = ['script', 'style', 'nav', 'footer', 'header', 'aside'];
+      for (const sel of removeSelectors) {
+        const els = document.querySelectorAll(sel);
+        for (const el of els) el.remove();
+      }
+
+      // Extraire le texte du body
+      const body = document.querySelector('body');
+      const text = (body ? body.textContent : document.documentElement.textContent || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      return {
+        title: title,
+        description: description || ogDesc,
+        textContent: text.substring(0, 3000)
+      };
+    } catch (e) {
+      log.warn('web-fetcher', 'linkedom parseHtml fallback regex:', e.message);
+      // Fallback regex si linkedom echoue
+      const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const title = titleMatch ? this._decodeHtmlEntities(titleMatch[1].trim()) : '';
+      let text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return { title: title, description: '', textContent: text.substring(0, 3000) };
     }
-
-    // Corps texte: supprimer scripts, styles, nav, footer, puis strip tags
-    let text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
-      .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
-      .replace(/<header[\s\S]*?<\/header>/gi, ' ')
-      .replace(/<aside[\s\S]*?<\/aside>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    return {
-      title: title,
-      description: description || ogDesc,
-      textContent: text.substring(0, 3000)
-    };
   }
 
   // --- Helpers ---

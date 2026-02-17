@@ -36,12 +36,12 @@ class ResendClient {
       });
       req.on('error', (e) => {
         log.error('resend', 'Erreur reseau:', e.message);
-        resolve({ statusCode: 0, data: { error: e.message } });
+        reject(new Error('Resend erreur reseau: ' + e.message));
       });
       req.setTimeout(15000, () => {
         req.destroy();
         log.error('resend', 'Timeout API (15s)');
-        resolve({ statusCode: 0, data: { error: 'Timeout Resend' } });
+        reject(new Error('Resend timeout (15s)'));
       });
       if (postData) req.write(postData);
       req.end();

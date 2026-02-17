@@ -1,7 +1,8 @@
 // iFIND - Routeur Telegram central (dispatch FlowFast + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot)
 const http = require('http');
 const https = require('https');
-const { retryAsync, truncateInput } = require('./utils.js');
+const fs = require('fs');
+const { retryAsync, truncateInput, atomicWriteSync } = require('./utils.js');
 
 // --- HTTPS Agent avec keepAlive (connection pooling) ---
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10, timeout: 60000 });
@@ -21,12 +22,44 @@ const WebIntelligenceHandler = require('../skills/web-intelligence/web-intellige
 const SystemAdvisorHandler = require('../skills/system-advisor/system-advisor-handler.js');
 const AutonomousHandler = require('../skills/autonomous-pilot/autonomous-handler.js');
 const BrainEngine = require('../skills/autonomous-pilot/brain-engine.js');
+const InboxHandler = require('../skills/inbox-manager/inbox-handler.js');
+let InboxListener;
+try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
+const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
 const flowfastStorage = require('../skills/flowfast/storage.js');
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
 // --- Metriques globales (partage memoire pour System Advisor) ---
-global.__ifindMetrics = {
+const METRICS_FILE = '/data/ifind-metrics.json';
+
+function _loadMetrics() {
+  try {
+    if (fs.existsSync(METRICS_FILE)) {
+      const raw = fs.readFileSync(METRICS_FILE, 'utf-8');
+      const saved = JSON.parse(raw);
+      log.info('router', 'Metriques restaurees depuis disque');
+      // Remettre startedAt a maintenant (nouveau process)
+      saved.startedAt = new Date().toISOString();
+      return saved;
+    }
+  } catch (e) {
+    log.warn('router', 'Impossible de charger metriques:', e.message);
+  }
+  return null;
+}
+
+function _saveMetrics() {
+  try {
+    const dir = require('path').dirname(METRICS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    atomicWriteSync(METRICS_FILE, global.__ifindMetrics);
+  } catch (e) {
+    log.warn('router', 'Impossible de sauvegarder metriques:', e.message);
+  }
+}
+
+global.__ifindMetrics = _loadMetrics() || {
   skillUsage: {},
   responseTimes: {},
   errors: {},
@@ -36,6 +69,9 @@ global.__ifindMetrics = {
   humanizationApplied: 0,
   startedAt: new Date().toISOString()
 };
+
+// Sauvegarde periodique des metriques toutes les 5 minutes
+const _metricsSaveInterval = setInterval(_saveMetrics, 5 * 60 * 1000);
 
 function recordSkillUsage(skill) {
   const m = global.__ifindMetrics.skillUsage;
@@ -68,6 +104,11 @@ const CLAUDE_KEY = process.env.CLAUDE_API_KEY || '';
 const SENDGRID_KEY = process.env.SENDGRID_API_KEY || '';
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
+const IMAP_HOST = process.env.IMAP_HOST || '';
+const IMAP_PORT = parseInt(process.env.IMAP_PORT || '993', 10);
+const IMAP_USER = process.env.IMAP_USER || '';
+const IMAP_PASS = process.env.IMAP_PASS || '';
+const CALCOM_KEY = process.env.CALCOM_API_KEY || '';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
 
 if (!TOKEN) {
@@ -114,6 +155,15 @@ const reportWorkflow = new ReportWorkflow({
     await sendMessage(chatId, text, 'Markdown');
   }
 });
+
+// Inbox Manager + Meeting Scheduler
+const inboxHandler = new InboxHandler(OPENAI_KEY);
+const meetingHandler = new MeetingHandler(OPENAI_KEY, CALCOM_KEY);
+inboxHandler.start();
+meetingHandler.start();
+
+// Inbox Listener (IMAP) — instancie apres les handlers pour le callback
+let inboxListener = null;
 
 // Self-Improve (instancie apres les autres pour le sendTelegram callback)
 let selfImproveHandler = null;
@@ -453,6 +503,82 @@ const autoPilotEngine = new BrainEngine({
   senderEmail: SENDER_EMAIL
 });
 
+// Inbox Listener IMAP — initialisation avec callbacks
+const automailerStorageForInbox = require('../skills/automailer/storage.js');
+if (!InboxListener) {
+  log.warn('router', 'inbox-listener non disponible (imapflow manquant). Installer avec: docker exec moltbot-telegram-router-1 pnpm add -w imapflow');
+}
+inboxListener = InboxListener ? new InboxListener({
+  imapHost: IMAP_HOST,
+  imapPort: IMAP_PORT,
+  imapUser: IMAP_USER,
+  imapPass: IMAP_PASS,
+  adminChatId: ADMIN_CHAT_ID,
+  sendTelegram: async (chatId, message) => {
+    await sendMessage(chatId, message, 'Markdown');
+    addToHistory(chatId, 'bot', message.substring(0, 200), 'inbox-manager');
+  },
+  getKnownLeads: () => {
+    // Recuperer les emails envoyes par automailer
+    try {
+      const amData = automailerStorageForInbox.data || {};
+      const emails = amData.emails || [];
+      return emails.map(e => ({ email: e.to, to: e.to, name: e.toName || '', campaignId: e.campaignId || null }));
+    } catch (e) { return []; }
+  },
+  onReplyDetected: async (replyData) => {
+    // Marquer comme replied dans automailer (chercher par email destinataire)
+    try {
+      const emails = (automailerStorageForInbox.data.emails || [])
+        .filter(e => e.to && e.to.toLowerCase() === replyData.from.toLowerCase() && e.status !== 'replied');
+      for (const em of emails) {
+        automailerStorageForInbox.markAsReplied(em.id);
+        log.info('inbox-manager', 'Email ' + em.id + ' marque replied (reponse de ' + replyData.from + ')');
+      }
+    } catch (e) {
+      log.warn('inbox-manager', 'markAsReplied echoue:', e.message);
+    }
+    // Update CRM si dispo
+    try {
+      const hubspot = _getHubSpotClient();
+      if (hubspot) {
+        const contact = await hubspot.findContactByEmail(replyData.from);
+        if (contact && contact.id) {
+          const noteBody = 'Reponse email recue de ' + replyData.from + '\n' +
+            'Sujet : ' + (replyData.subject || '(sans sujet)') + '\n' +
+            'Date : ' + new Date(replyData.date).toLocaleDateString('fr-FR') + '\n' +
+            '[Inbox Manager — detection automatique]';
+          const note = await hubspot.createNote(noteBody);
+          if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
+        }
+      }
+    } catch (e) {
+      log.warn('inbox-manager', 'CRM update echoue:', e.message);
+    }
+    // Proposer un meeting auto si meeting-scheduler est configure
+    try {
+      const meeting = await meetingHandler.proposeAutoMeeting(
+        replyData.from,
+        replyData.fromName || '',
+        ''
+      );
+      if (meeting) {
+        await sendMessage(ADMIN_CHAT_ID,
+          '📅 _Meeting auto-propose pour ' + replyData.from + ' :_\n' + meeting.bookingUrl,
+          'Markdown'
+        );
+      }
+    } catch (e) {
+      log.warn('inbox-manager', 'Auto-meeting echoue:', e.message);
+    }
+  }
+}) : null;
+
+// Demarrer le listener IMAP si configure
+if (inboxListener && inboxListener.isConfigured()) {
+  inboxListener.start().catch(e => log.error('router', 'Erreur demarrage IMAP:', e.message));
+}
+
 // --- Controle centralise des crons (17 crons au total) ---
 
 // Storages des skills a crons (pour toggle config.enabled)
@@ -619,6 +745,8 @@ function fastClassify(text) {
     'crm-pilot': /\b(crm|hubspot|pipeline|deal|offre|fiche.*contact|note|tache|rappel|commercial)\b/,
     'lead-enrich': /\b(enrichi|scorer?|profil.*complet|hot.*lead|lead.*chaud|fullenrich|apollo)\b/,
     'content-gen': /\b(redige|ecri[st]|post.*linkedin|pitch|bio|script|reformule|contenu)\b/,
+    'inbox-manager': /\b(inbox|boite.*reception|reponse.*email|email.*recu|imap|reponse.*lead|mail.*entrant)\b/,
+    'meeting-scheduler': /\b(rdv|rendez.?vous|meeting|booking|cale[rz]?|reserve[rz]?|planifi|cal\.?com|creneau)\b/,
     'invoice-bot': /\b(factur|devis|paiement|rib|siret|client.*factur)\b/,
     'proactive-agent': /\b(rapport|resume|recap|hebdo|mensuel|alertes?.*pipeline|mode.*proactif)\b/,
     'self-improve': /\b(amelior|optimis|recommandation|performance|metriques?|rollback|auto.?apply)\b/,
@@ -651,6 +779,8 @@ async function classifySkill(message, chatId) {
   if (selfImproveHandler && (selfImproveHandler.pendingConversations[id] || selfImproveHandler.pendingConfirmations[id])) return 'self-improve';
   if (webIntelHandler.pendingConversations[id] || webIntelHandler.pendingConfirmations[id]) return 'web-intelligence';
   if (systemAdvisorHandler.pendingConversations[id] || systemAdvisorHandler.pendingConfirmations[id]) return 'system-advisor';
+  if (inboxHandler.pendingConversations[id] || inboxHandler.pendingConfirmations[id]) return 'inbox-manager';
+  if (meetingHandler.pendingConversations[id] || meetingHandler.pendingConfirmations[id]) return 'meeting-scheduler';
 
   // Classification NLP avec contexte conversationnel
   const historyContext = getHistoryContext(chatId);
@@ -670,6 +800,8 @@ SKILLS DISPONIBLES :
 - "web-intelligence" : veille web, surveillance de prospects/concurrents/secteur, news, articles, tendances, RSS, Google News — "surveille un concurrent", "mes veilles", "quoi de neuf ?", "articles", "tendances", "stats veille", "ajoute un flux RSS", "scan maintenant", "des nouvelles ?". Tout ce qui concerne la surveillance web, les actualites, la veille concurrentielle ou sectorielle.
 - "system-advisor" : monitoring technique du bot, sante du systeme, RAM, CPU, disque, uptime, erreurs, health check, alertes systeme, performances, temps de reponse des skills — "status systeme", "comment va le bot ?", "utilisation memoire", "espace disque", "erreurs recentes", "check sante", "rapport systeme", "uptime", "alertes systeme", "temps de reponse", "performances". ATTENTION : distinct de proactive-agent qui gere les rapports BUSINESS (pipeline, campagnes). System-advisor gere le monitoring TECHNIQUE (serveur, memoire, CPU).
 - "autonomous-pilot" : pilotage autonome du bot, objectifs hebdomadaires de prospection, criteres de recherche automatique, checklist diagnostic, historique des actions automatiques, forcer un cycle brain, pause/reprise du pilot, apprentissages — "statut pilot", "objectifs", "criteres", "mon business c'est...", "checklist", "historique pilot", "lance le brain", "pause pilot", "reprends pilot", "apprentissages", "qu'est-ce que t'as fait ?". Tout ce qui concerne l'autonomie du bot, ses objectifs, et ses actions automatiques. ATTENTION : distinct de proactive-agent qui gere les rapports et alertes. Autonomous-pilot gere la STRATEGIE et les ACTIONS autonomes.
+- "inbox-manager" : surveillance de la boite email, detection des reponses de prospects, emails recus, emails entrants, IMAP, inbox — "reponses recues", "emails entrants", "inbox", "boite de reception", "qui a repondu ?", "statut inbox". Tout ce qui concerne les emails RECUS (pas les envoyes, ca c'est automailer).
+- "meeting-scheduler" : prise de RDV, rendez-vous, meetings, calendrier, Cal.com, creneaux, booking — "propose un rdv", "planifie un meeting", "rdv a venir", "lien de reservation", "cale un creneau". Tout ce qui concerne la planification de rendez-vous avec des prospects.
 - "general" : salutations, aide globale, bavardage sans rapport avec les skills ci-dessus.
 
 REGLES CRITIQUES :
@@ -678,7 +810,7 @@ REGLES CRITIQUES :
 3. TRES IMPORTANT : Si le bot vient d'envoyer des messages automatiques (alertes veille, rapports, alertes systeme, etc.) et que l'utilisateur REAGIT a ces messages (demande un resume, commente, critique le format, dit "trop de messages", "fais un resume", "regroupe", etc.), route vers le skill qui a envoye ces messages. Par exemple : le bot envoie des alertes veille -> l'utilisateur dit "fais-moi un resume" -> c'est web-intelligence. Le bot envoie un rapport proactif -> l'utilisateur dit "c'est quoi ce truc ?" -> c'est proactive-agent.
 4. "aide" ou "help" SEUL = general. Mais "aide sur mes factures" = invoice-bot.
 5. En cas de doute entre deux skills, choisis celui qui correspond le mieux au contexte recent.
-6. Reponds UNIQUEMENT par un seul mot : flowfast, automailer, crm-pilot, lead-enrich, content-gen, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot ou general.`;
+6. Reponds UNIQUEMENT par un seul mot : flowfast, automailer, crm-pilot, lead-enrich, content-gen, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot, inbox-manager, meeting-scheduler ou general.`;
 
   const userContent = (historyContext
     ? 'HISTORIQUE RECENT :\n' + historyContext + '\n\nDernier skill utilise : ' + lastSkill + '\n\nNOUVEAU MESSAGE : '
@@ -692,7 +824,8 @@ REGLES CRITIQUES :
     // Exact matches d'abord (prioritaire)
     const exactSkills = [
       'autonomous-pilot', 'system-advisor', 'web-intelligence', 'self-improve',
-      'proactive-agent', 'invoice-bot', 'content-gen', 'lead-enrich',
+      'proactive-agent', 'inbox-manager', 'meeting-scheduler',
+      'invoice-bot', 'content-gen', 'lead-enrich',
       'crm-pilot', 'automailer', 'flowfast', 'general'
     ];
     for (const s of exactSkills) {
@@ -701,6 +834,8 @@ REGLES CRITIQUES :
 
     // Fallback : partial matching (du plus specifique au plus generique)
     if (skill.includes('autonomous-pilot') || skill.includes('autonomous')) return 'autonomous-pilot';
+    if (skill.includes('inbox-manager') || skill.includes('inbox')) return 'inbox-manager';
+    if (skill.includes('meeting-scheduler') || skill.includes('meeting') || skill.includes('rdv')) return 'meeting-scheduler';
     if (skill.includes('system-advisor') || skill.includes('monitoring') || skill.includes('sante')) return 'system-advisor';
     if (skill.includes('web-intelligence') || skill.includes('web-intel') || skill.includes('veille')) return 'web-intelligence';
     if (skill.includes('self-improve') || skill.includes('amelior')) return 'self-improve';
@@ -775,6 +910,8 @@ async function generateBusinessResponse(userMessage, chatId) {
       '🌐 *Veille web* — _"surveille un concurrent"_',
       '⚙️ *Systeme* — _"status systeme"_',
       '🧠 *Pilot autonome* — _"statut pilot" ou "objectifs"_',
+      '📬 *Inbox* — _"reponses recues" ou "emails entrants"_',
+      '📅 *Meetings* — _"propose un rdv a jean@example.com"_',
       '\nMais tu peux aussi me poser n\'importe quelle question business — strategie, conseils, idees. Parle-moi naturellement !'
     ].join('\n');
   }
@@ -984,6 +1121,8 @@ async function handleUpdate(update) {
       'web-intelligence': webIntelHandler,
       'system-advisor': systemAdvisorHandler,
       'autonomous-pilot': autoPilotHandler,
+      'inbox-manager': inboxHandler,
+      'meeting-scheduler': meetingHandler,
       'flowfast': flowfastHandler
     };
 
@@ -1039,7 +1178,7 @@ async function handleUpdate(update) {
       let finalText = response.content;
       // --- UPGRADE 6 : Humanisation selective (economie de tokens) ---
       // Skills deja exclues : general, autonomous-pilot
-      const skipHumanizationSkills = ['general', 'autonomous-pilot', 'content-gen', 'system-advisor', 'proactive-agent'];
+      const skipHumanizationSkills = ['general', 'autonomous-pilot', 'content-gen', 'system-advisor', 'proactive-agent', 'inbox-manager', 'meeting-scheduler'];
       let shouldHumanize = !skipHumanizationSkills.includes(skill);
 
       if (shouldHumanize) {
@@ -1191,6 +1330,23 @@ let _botReady = false;
 // --- FIX 23 : Webhook Resend — reception temps reel des evenements email ---
 const automailerStorage = require('../skills/automailer/storage.js');
 
+// Cross-skill: acces au client HubSpot depuis le routeur (pour sync CRM webhook)
+function _getHubSpotClient() {
+  const apiKey = process.env.HUBSPOT_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const HubSpotClient = require('../skills/crm-pilot/hubspot-client.js');
+    return new HubSpotClient(apiKey);
+  } catch (e) {
+    try {
+      const HubSpotClient = require('/app/skills/crm-pilot/hubspot-client.js');
+      return new HubSpotClient(apiKey);
+    } catch (e2) {
+      return null;
+    }
+  }
+}
+
 const RESEND_EVENT_MAP = {
   'email.sent': 'sent',
   'email.delivered': 'delivered',
@@ -1274,7 +1430,7 @@ const healthServer = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
     if (_botReady && _polling) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), skills: 10, polling: _polling }));
+      res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), skills: 12, polling: _polling }));
     } else {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'starting', ready: _botReady, polling: _polling }));
@@ -1330,7 +1486,7 @@ telegramAPI('getMe').then(result => {
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(e => log.warn('router', 'setMyCommands echoue:', e.message));
-    log.info('router', '10 skills actives');
+    log.info('router', '12 skills actives');
     log.info('router', 'En attente de messages...');
     _botReady = true;
     poll();
@@ -1349,12 +1505,17 @@ function gracefulShutdown() {
   _polling = false;
   _botReady = false;
   clearInterval(_cleanupInterval);
+  clearInterval(_metricsSaveInterval);
+  _saveMetrics();
+  log.info('router', 'Metriques sauvegardees sur disque');
   healthServer.close();
   httpsAgent.destroy();
   [automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
-   invoiceBotHandler, proactiveEngine, webIntelHandler, systemAdvisorHandler, autoPilotEngine]
+   invoiceBotHandler, proactiveEngine, webIntelHandler, systemAdvisorHandler, autoPilotEngine,
+   inboxHandler, meetingHandler]
     .forEach(h => { try { h.stop(); } catch (e) { log.error('router', 'Erreur stop handler:', e.message); } });
   if (selfImproveHandler) try { selfImproveHandler.stop(); } catch (e) { log.error('router', 'Erreur stop self-improve:', e.message); }
+  if (inboxListener) try { inboxListener.stop(); } catch (e) { log.error('router', 'Erreur stop inbox-listener:', e.message); }
   setTimeout(() => process.exit(0), 2000);
 }
 process.on('SIGTERM', gracefulShutdown);

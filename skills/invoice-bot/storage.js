@@ -1,7 +1,88 @@
-// Invoice Bot - Stockage persistant JSON
+// Invoice Bot - Stockage persistant JSON avec chiffrement AES-256-GCM
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { atomicWriteSync } = require('../../gateway/utils.js');
+
+// --- Chiffrement AES-256-GCM pour donnees sensibles ---
+const ENCRYPTION_KEY_FILE = '/data/invoice-bot/.encryption-key';
+const CIPHER_ALGO = 'aes-256-gcm';
+
+function _getOrCreateKey() {
+  try {
+    if (fs.existsSync(ENCRYPTION_KEY_FILE)) {
+      return Buffer.from(fs.readFileSync(ENCRYPTION_KEY_FILE, 'utf-8').trim(), 'hex');
+    }
+    const key = crypto.randomBytes(32);
+    const dir = path.dirname(ENCRYPTION_KEY_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(ENCRYPTION_KEY_FILE, key.toString('hex'), { mode: 0o600 });
+    return key;
+  } catch (e) {
+    console.error('[invoice-bot-storage] Erreur gestion cle chiffrement:', e.message);
+    return null;
+  }
+}
+
+const _encryptionKey = _getOrCreateKey();
+
+function _encrypt(text) {
+  if (!_encryptionKey || !text) return text;
+  try {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv(CIPHER_ALGO, _encryptionKey, iv);
+    let encrypted = cipher.update(String(text), 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const tag = cipher.getAuthTag().toString('hex');
+    return 'ENC:' + iv.toString('hex') + ':' + tag + ':' + encrypted;
+  } catch (e) {
+    console.error('[invoice-bot-storage] Erreur chiffrement:', e.message);
+    return text;
+  }
+}
+
+function _decrypt(text) {
+  if (!_encryptionKey || !text || typeof text !== 'string' || !text.startsWith('ENC:')) return text;
+  try {
+    const parts = text.split(':');
+    if (parts.length !== 4) return text;
+    const iv = Buffer.from(parts[1], 'hex');
+    const tag = Buffer.from(parts[2], 'hex');
+    const encrypted = parts[3];
+    const decipher = crypto.createDecipheriv(CIPHER_ALGO, _encryptionKey, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (e) {
+    console.error('[invoice-bot-storage] Erreur dechiffrement:', e.message);
+    return text;
+  }
+}
+
+// Champs sensibles a chiffrer
+const SENSITIVE_BIZ_FIELDS = ['rib', 'siret', 'email', 'phone'];
+const SENSITIVE_CLIENT_FIELDS = ['email', 'address'];
+
+function _encryptObject(obj, fields) {
+  if (!obj || !_encryptionKey) return obj;
+  for (const field of fields) {
+    if (obj[field] && typeof obj[field] === 'string' && !obj[field].startsWith('ENC:')) {
+      obj[field] = _encrypt(obj[field]);
+    }
+  }
+  return obj;
+}
+
+function _decryptObject(obj, fields) {
+  if (!obj || !_encryptionKey) return obj;
+  for (const field of fields) {
+    if (obj[field] && typeof obj[field] === 'string' && obj[field].startsWith('ENC:')) {
+      obj[field] = _decrypt(obj[field]);
+    }
+  }
+  return obj;
+}
 
 const DATA_DIR = process.env.INVOICE_BOT_DATA_DIR || '/data/invoice-bot';
 const DB_FILE = path.join(DATA_DIR, 'invoice-bot-db.json');
@@ -89,7 +170,7 @@ class InvoiceBotStorage {
       this._save();
     }
     this.data.users[id].lastActiveAt = new Date().toISOString();
-    return this.data.users[id];
+    return this._decryptedUser(this.data.users[id]);
   }
 
   setUserName(chatId, name) {
@@ -101,6 +182,7 @@ class InvoiceBotStorage {
   updateBusinessInfo(chatId, info) {
     const user = this.getUser(chatId);
     Object.assign(user.businessInfo, info);
+    _encryptObject(user.businessInfo, SENSITIVE_BIZ_FIELDS);
     this._save();
   }
 
@@ -126,43 +208,65 @@ class InvoiceBotStorage {
       totalBilled: 0,
       createdAt: new Date().toISOString()
     };
+    _encryptObject(this.data.clients[id], SENSITIVE_CLIENT_FIELDS);
     this._save();
-    return this.data.clients[id];
+    return this._decryptedClient(this.data.clients[id]);
+  }
+
+  _decryptedClient(client) {
+    if (!client) return null;
+    const copy = { ...client };
+    _decryptObject(copy, SENSITIVE_CLIENT_FIELDS);
+    return copy;
+  }
+
+  _decryptedUser(user) {
+    if (!user) return null;
+    const copy = { ...user, businessInfo: { ...user.businessInfo } };
+    _decryptObject(copy.businessInfo, SENSITIVE_BIZ_FIELDS);
+    return copy;
   }
 
   getClient(clientId) {
-    return this.data.clients[clientId] || null;
+    return this._decryptedClient(this.data.clients[clientId]);
   }
 
   getClientByName(chatId, name) {
     const nameLower = name.toLowerCase();
-    return Object.values(this.data.clients).find(c =>
+    const found = Object.values(this.data.clients).find(c =>
       c.chatId === String(chatId) && (
         c.name.toLowerCase().includes(nameLower) ||
         c.company.toLowerCase().includes(nameLower)
       )
-    ) || null;
+    );
+    return this._decryptedClient(found);
   }
 
   getClientByEmail(chatId, email) {
     const emailLower = email.toLowerCase();
-    return Object.values(this.data.clients).find(c =>
-      c.chatId === String(chatId) && c.email.toLowerCase() === emailLower
-    ) || null;
+    // Dechiffrer les emails pour comparaison
+    const found = Object.values(this.data.clients).find(c => {
+      if (c.chatId !== String(chatId)) return false;
+      const decEmail = _decrypt(c.email);
+      return decEmail.toLowerCase() === emailLower;
+    });
+    return this._decryptedClient(found);
   }
 
   getClients(chatId) {
     return Object.values(this.data.clients)
       .filter(c => c.chatId === String(chatId))
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map(c => this._decryptedClient(c));
   }
 
   updateClient(clientId, updates) {
     const client = this.data.clients[clientId];
     if (!client) return null;
     Object.assign(client, updates);
+    _encryptObject(client, SENSITIVE_CLIENT_FIELDS);
     this._save();
-    return client;
+    return this._decryptedClient(client);
   }
 
   // --- Factures ---
