@@ -1,4 +1,4 @@
-// iFIND - Routeur Telegram central (dispatch 14 skills : FlowFast + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot + Inbox Manager + Meeting Scheduler)
+// iFIND - Routeur Telegram central (dispatch 13 skills : AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot + Inbox Manager + Meeting Scheduler)
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -9,7 +9,6 @@ const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10, timeout: 6
 const { callOpenAI } = require('./shared-nlp.js');
 const { getBreaker, getAllStatus: getAllBreakerStatus } = require('./circuit-breaker.js');
 const log = require('./logger.js');
-const FlowFastTelegramHandler = require('../skills/flowfast/telegram-handler.js');
 const AutoMailerHandler = require('../skills/automailer/automailer-handler.js');
 const CRMPilotHandler = require('../skills/crm-pilot/crm-handler.js');
 const LeadEnrichHandler = require('../skills/lead-enrich/enrich-handler.js');
@@ -26,7 +25,6 @@ const InboxHandler = require('../skills/inbox-manager/inbox-handler.js');
 let InboxListener;
 try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
 const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
-const flowfastStorage = require('../skills/flowfast/storage.js');
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
@@ -128,7 +126,6 @@ if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
 
 // --- Handlers ---
 
-const flowfastHandler = new FlowFastTelegramHandler(APOLLO_KEY, HUBSPOT_KEY, OPENAI_KEY, CLAUDE_KEY, '', SENDER_EMAIL);
 const automailerHandler = new AutoMailerHandler(OPENAI_KEY, CLAUDE_KEY, RESEND_KEY, SENDER_EMAIL);
 const crmPilotHandler = new CRMPilotHandler(OPENAI_KEY, HUBSPOT_KEY);
 const leadEnrichHandler = new LeadEnrichHandler(OPENAI_KEY, FULLENRICH_KEY, HUBSPOT_KEY);
@@ -266,8 +263,7 @@ const _cleanupInterval = setInterval(() => {
   // 2. Pending states des handlers (conversations et confirmations abandonnees)
   const handlersWithPending = [
     automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
-    invoiceBotHandler, proactiveHandler, webIntelHandler, systemAdvisorHandler,
-    flowfastHandler
+    invoiceBotHandler, proactiveHandler, webIntelHandler, systemAdvisorHandler
   ];
   const pendingMaps = ['pendingConversations', 'pendingConfirmations', 'pendingImports', 'pendingEmails', 'pendingResults'];
   for (const handler of handlersWithPending) {
@@ -701,7 +697,7 @@ function buildSystemStatus() {
   // Skills sans crons
   lines.push('');
   lines.push('*Skills manuelles :*');
-  const manualSkills = ['FlowFast', 'AutoMailer', 'CRM Pilot', 'Lead Enrich', 'Content Gen', 'Invoice Bot'];
+  const manualSkills = ['AutoMailer', 'CRM Pilot', 'Lead Enrich', 'Content Gen', 'Invoice Bot'];
   for (const name of manualSkills) {
     lines.push('  🟢 ' + name);
   }
@@ -751,7 +747,6 @@ function fastClassify(text) {
 
   // Patterns exacts — zero ambiguite
   const patterns = {
-    'flowfast': /\b(cherche|trouve|recherche|prospecte?|prospect)\b.*(lead|prospect|client|ceo|directeur|contact|entreprise|pme|startup)/,
     'automailer': /\b(campagne|email|mail|envoi|template|newsletter|liste.*contact|import.*csv|stats.*email|taux.*ouverture)\b/,
     'crm-pilot': /\b(crm|hubspot|pipeline|deal|offre|fiche.*contact|note|tache|rappel|commercial)\b/,
     'lead-enrich': /\b(enrichi|scorer?|profil.*complet|hot.*lead|lead.*chaud|fullenrich|apollo)\b/,
@@ -785,7 +780,6 @@ async function classifySkill(message, chatId) {
   if (leadEnrichHandler.pendingConversations[id] || leadEnrichHandler.pendingConfirmations[id]) return 'lead-enrich';
   if (contentHandler.pendingConversations[id]) return 'content-gen';
   if (invoiceBotHandler.pendingConversations[id] || invoiceBotHandler.pendingConfirmations[id]) return 'invoice-bot';
-  if (flowfastHandler.pendingResults[id] || flowfastHandler.pendingEmails[id]) return 'flowfast';
   if (proactiveHandler.pendingConversations[id] || proactiveHandler.pendingConfirmations[id]) return 'proactive-agent';
   if (selfImproveHandler && (selfImproveHandler.pendingConversations[id] || selfImproveHandler.pendingConfirmations[id])) return 'self-improve';
   if (webIntelHandler.pendingConversations[id] || webIntelHandler.pendingConfirmations[id]) return 'web-intelligence';
@@ -800,7 +794,6 @@ async function classifySkill(message, chatId) {
   const systemPrompt = `Tu es le cerveau d'un bot Telegram appele iFIND. Tu dois comprendre l'INTENTION de l'utilisateur pour router son message vers le bon skill.
 
 SKILLS DISPONIBLES :
-- "flowfast" : lancer une NOUVELLE recherche de prospects B2B — "cherche des CEO a Paris", "trouve-moi des directeurs commerciaux a Lyon". Uniquement pour CHERCHER de nouveaux leads, pas pour voir les resultats existants.
 - "automailer" : campagnes email automatisees — creer/gerer des campagnes, envoyer des emails, gerer des listes de contacts email, voir les stats d'envoi, templates email. "comment vont mes campagnes ?" = automailer.
 - "crm-pilot" : gestion CRM (HubSpot) — pipeline commercial, offres/deals, fiches contacts, notes, taches, rappels, rapports hebdo, suivi commercial.
 - "lead-enrich" : enrichissement et resultats de leads — enrichir un profil, scorer des leads, voir les meilleurs leads, les leads trouves, les resultats interessants. "t'as trouve des trucs interessants ?" = lead-enrich. "mes leads" = lead-enrich.
@@ -816,12 +809,12 @@ SKILLS DISPONIBLES :
 - "general" : salutations, aide globale, bavardage sans rapport avec les skills ci-dessus.
 
 REGLES CRITIQUES :
-1. Comprends le SENS, pas les mots exacts. "comment vont mes envois ?" = automailer. "t'as trouve des trucs ?" = flowfast. "ou en est mon business ?" = crm-pilot.
-2. Le CONTEXTE compte. Si la conversation recente parle de prospection et que l'utilisateur dit "et a Lyon ?", c'est flowfast (prospection a Lyon).
+1. Comprends le SENS, pas les mots exacts. "comment vont mes envois ?" = automailer. "t'as trouve des trucs ?" = lead-enrich. "ou en est mon business ?" = crm-pilot.
+2. Le CONTEXTE compte. Si la conversation recente parle de prospection et que l'utilisateur dit "et a Lyon ?", c'est autonomous-pilot (prospection automatique).
 3. TRES IMPORTANT : Si le bot vient d'envoyer des messages automatiques (alertes veille, rapports, alertes systeme, etc.) et que l'utilisateur REAGIT a ces messages (demande un resume, commente, critique le format, dit "trop de messages", "fais un resume", "regroupe", etc.), route vers le skill qui a envoye ces messages. Par exemple : le bot envoie des alertes veille -> l'utilisateur dit "fais-moi un resume" -> c'est web-intelligence. Le bot envoie un rapport proactif -> l'utilisateur dit "c'est quoi ce truc ?" -> c'est proactive-agent.
 4. "aide" ou "help" SEUL = general. Mais "aide sur mes factures" = invoice-bot.
 5. En cas de doute entre deux skills, choisis celui qui correspond le mieux au contexte recent.
-6. Reponds UNIQUEMENT par un seul mot : flowfast, automailer, crm-pilot, lead-enrich, content-gen, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot, inbox-manager, meeting-scheduler ou general.`;
+6. Reponds UNIQUEMENT par un seul mot : automailer, crm-pilot, lead-enrich, content-gen, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot, inbox-manager, meeting-scheduler ou general.`;
 
   const userContent = (historyContext
     ? 'HISTORIQUE RECENT :\n' + historyContext + '\n\nDernier skill utilise : ' + lastSkill + '\n\nNOUVEAU MESSAGE : '
@@ -837,7 +830,7 @@ REGLES CRITIQUES :
       'autonomous-pilot', 'system-advisor', 'web-intelligence', 'self-improve',
       'proactive-agent', 'inbox-manager', 'meeting-scheduler',
       'invoice-bot', 'content-gen', 'lead-enrich',
-      'crm-pilot', 'automailer', 'flowfast', 'general'
+      'crm-pilot', 'automailer', 'general'
     ];
     for (const s of exactSkills) {
       if (skill === s) return s;
@@ -856,7 +849,6 @@ REGLES CRITIQUES :
     if (skill.includes('lead-enrich') || skill.includes('enrich')) return 'lead-enrich';
     if (skill.includes('crm-pilot') || skill.includes('crm')) return 'crm-pilot';
     if (skill.includes('automailer') || skill.includes('mailer')) return 'automailer';
-    if (skill.includes('flowfast') || skill.includes('flow')) return 'flowfast';
     return 'general';
   } catch (e) {
     log.warn('router', 'Erreur classification NLP:', e.message);
@@ -993,8 +985,6 @@ async function handleUpdate(update) {
   if (isRateLimited(chatId)) return;
 
   // Enregistrer l'utilisateur dans les deux storages
-  flowfastStorage.setUserName(chatId, userName);
-
   log.info('router', userName + ' (' + chatId + '): ' + text.substring(0, 100));
   await sendTyping(chatId);
 
@@ -1133,8 +1123,7 @@ async function handleUpdate(update) {
       'system-advisor': systemAdvisorHandler,
       'autonomous-pilot': autoPilotHandler,
       'inbox-manager': inboxHandler,
-      'meeting-scheduler': meetingHandler,
-      'flowfast': flowfastHandler
+      'meeting-scheduler': meetingHandler
     };
 
     const handler = handlers[skill];
@@ -1276,8 +1265,6 @@ async function handleCallback(update) {
     const parts = data.split('_');
     const type = parts[1];
     const email = parts.slice(2).join('_');
-    flowfastStorage.setLeadFeedback(email, type);
-    flowfastStorage.addFeedback(chatId, type);
     await sendMessage(chatId, type === 'positive' ? '👍 Merci pour le feedback !' : '👎 Note, je ferai mieux la prochaine fois !');
   }
 }
@@ -1441,7 +1428,7 @@ const healthServer = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
     if (_botReady && _polling) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), skills: 14, polling: _polling }));
+      res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), skills: 13, polling: _polling }));
     } else {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'starting', ready: _botReady, polling: _polling }));
@@ -1497,7 +1484,7 @@ telegramAPI('getMe').then(result => {
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(e => log.warn('router', 'setMyCommands echoue:', e.message));
-    log.info('router', '14 skills actives');
+    log.info('router', '13 skills actives');
     log.info('router', 'En attente de messages...');
     _botReady = true;
     poll();

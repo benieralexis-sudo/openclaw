@@ -7,7 +7,6 @@ const log = require('./logger.js');
 
 // Chemins des storages par skill
 const SKILL_STORAGES = {
-  'flowfast': 'flowfast/storage.js',
   'automailer': 'automailer/storage.js',
   'crm-pilot': 'crm-pilot/storage.js',
   'lead-enrich': 'lead-enrich/storage.js',

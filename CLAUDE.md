@@ -21,23 +21,24 @@
 - `gateway/circuit-breaker.js` — Circuit breaker pour API externes
 - `gateway/logger.js` — Logger structure
 
-## Skills (14)
+## Skills (13)
 | # | Skill | Dossier | Modele IA |
 |---|-------|---------|-----------|
-| 1 | FlowFast (recherche leads manuelle) | `skills/flowfast/` | GPT-4o-mini |
-| 2 | AutoMailer (campagnes emails) | `skills/automailer/` | Claude Sonnet 4.5 + GPT-4o-mini |
-| 3 | CRM Pilot (HubSpot) | `skills/crm-pilot/` | GPT-4o-mini |
-| 4 | Lead Enrich (FullEnrich waterfall) | `skills/lead-enrich/` | GPT-4o-mini |
-| 5 | Content Gen (redaction multi-format) | `skills/content-gen/` | Claude Sonnet 4.5 + GPT-4o-mini |
-| 6 | Invoice Bot (facturation chiffree) | `skills/invoice-bot/` | GPT-4o-mini |
-| 7 | Proactive Agent (rapports + alertes) | `skills/proactive-agent/` | Claude Sonnet 4.5 |
-| 8 | Self-Improve (optimisation hebdo) | `skills/self-improve/` | Claude Opus 4.6 + GPT-4o-mini |
-| 9 | Web Intelligence (veille marche) | `skills/web-intelligence/` | Claude Sonnet 4.5 + GPT-4o-mini |
-| 10 | System Advisor (monitoring systeme) | `skills/system-advisor/` | Claude Sonnet 4.5 + GPT-4o-mini |
-| 11 | Autonomous Pilot (orchestration IA) | `skills/autonomous-pilot/` | Claude Opus 4.6 |
-| 12 | Inbox Manager (surveillance IMAP) | `skills/inbox-manager/` | GPT-4o-mini |
-| 13 | Meeting Scheduler (prise de RDV) | `skills/meeting-scheduler/` | GPT-4o-mini |
-| 14 | Routeur central | `gateway/telegram-router.js` | GPT-4o-mini |
+| 1 | AutoMailer (campagnes emails) | `skills/automailer/` | Claude Sonnet 4.5 + GPT-4o-mini |
+| 2 | CRM Pilot (HubSpot) | `skills/crm-pilot/` | GPT-4o-mini |
+| 3 | Lead Enrich (FullEnrich waterfall) | `skills/lead-enrich/` | GPT-4o-mini |
+| 4 | Content Gen (redaction multi-format) | `skills/content-gen/` | Claude Sonnet 4.5 + GPT-4o-mini |
+| 5 | Invoice Bot (facturation chiffree) | `skills/invoice-bot/` | GPT-4o-mini |
+| 6 | Proactive Agent (rapports + alertes) | `skills/proactive-agent/` | Claude Sonnet 4.5 |
+| 7 | Self-Improve (optimisation hebdo) | `skills/self-improve/` | Claude Opus 4.6 + GPT-4o-mini |
+| 8 | Web Intelligence (veille marche) | `skills/web-intelligence/` | Claude Sonnet 4.5 + GPT-4o-mini |
+| 9 | System Advisor (monitoring systeme) | `skills/system-advisor/` | Claude Sonnet 4.5 + GPT-4o-mini |
+| 10 | Autonomous Pilot (orchestration IA) | `skills/autonomous-pilot/` | Claude Opus 4.6 |
+| 11 | Inbox Manager (surveillance IMAP) | `skills/inbox-manager/` | GPT-4o-mini |
+| 12 | Meeting Scheduler (prise de RDV) | `skills/meeting-scheduler/` | GPT-4o-mini |
+| 13 | Routeur central | `gateway/telegram-router.js` | GPT-4o-mini |
+
+*Note : `skills/flowfast/apollo-connector.js` et `skills/flowfast/storage.js` sont conserves — utilises par Autonomous Pilot pour Apollo et le stockage leads.*
 
 ## Intelligence Reelle v5
 - **ProspectResearcher** : recherche pre-envoi (scrape site, Google News, Apollo org, Lead Enrich, Web Intel articles)

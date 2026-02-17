@@ -16,12 +16,13 @@ function getApolloConnector() {
   return _require('../flowfast/apollo-connector.js', '/app/skills/flowfast/apollo-connector.js');
 }
 
-function getFlowFastWorkflow() {
-  return _require('../flowfast/flowfast-workflow.js', '/app/skills/flowfast/flowfast-workflow.js');
-}
-
 function getFlowFastStorage() {
   return _require('../flowfast/storage.js', '/app/skills/flowfast/storage.js');
+}
+
+// NLP partage pour scoring leads (anciennement dans FlowFast workflow)
+function _getSharedNLP() {
+  return _require('../../gateway/shared-nlp.js', '/app/gateway/shared-nlp.js');
 }
 
 function getFullEnrichEnricher() {
@@ -101,6 +102,59 @@ class ActionExecutor {
     }
   }
 
+  // --- Qualification IA d'un lead (scoring GPT-4o-mini) ---
+  async _qualifyLead(lead) {
+    const sharedNLP = _getSharedNLP();
+    if (!sharedNLP || !this.openaiKey) {
+      // Fallback sans IA
+      return this._qualifyLeadFallback(lead);
+    }
+
+    const sanitize = (val) => (!val || typeof val !== 'string') ? 'N/A' : val.replace(/[{}"\\`$]/g, '').substring(0, 200);
+    const prompt = `Evalue ce lead B2B pour une agence d'automatisation IA (iFIND). Reponds UNIQUEMENT en JSON strict.
+
+Lead :
+- Nom : ${sanitize(lead.nom)}
+- Titre : ${sanitize(lead.titre)}
+- Entreprise : ${sanitize(lead.entreprise)}
+- Localisation : ${sanitize(lead.localisation)}
+
+Grille de scoring (sur 10, SOIS STRICT et DISCRIMINANT) :
+- Pouvoir de decision : decision-maker direct = 3pts, influence = 2pts, executant = 1pt
+- Taille entreprise estimee : PME 10-250 salaries = 3pts (cible ideale), startup <10 = 1pt, grand groupe >500 = 2pts
+- Besoin potentiel en automatisation IA : fort (tech/SaaS/ecommerce/marketing) = 2pts, moyen = 1pt, faible (artisan/asso) = 0pt
+- Localisation : France = 2pts, Europe = 1pt, autre = 0pt
+
+EXEMPLES de calibration :
+- CEO PME SaaS Paris = 10/10 (decision + PME + besoin fort + France)
+- CTO startup 3 personnes Lyon = 7/10 (decision + startup petite + besoin fort + France)
+- Marketing Manager grand groupe = 5/10 (influence seulement + grand groupe + besoin moyen + France)
+- Freelance consultant = 3/10 (pas de budget entreprise)
+
+Format JSON strict :
+{"score":7,"raison":"CTO startup tech Lyon, bon profil mais petite structure","recommandation":"contacter"}`;
+
+    try {
+      const result = await sharedNLP.callOpenAI(this.openaiKey, [{ role: 'user', content: prompt }], { maxTokens: 200, temperature: 0.3 });
+      let cleaned = (result.content || '').trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(cleaned);
+    } catch (e) {
+      log.info('action-executor', 'Scoring IA echoue (' + e.message + '), fallback');
+      return this._qualifyLeadFallback(lead);
+    }
+  }
+
+  _qualifyLeadFallback(lead) {
+    const titre = (lead.titre || '').toLowerCase();
+    let score = 5;
+    if (titre.includes('ceo') || titre.includes('founder') || titre.includes('president')) score = 9;
+    else if (titre.includes('cto') || titre.includes('cfo') || titre.includes('vp')) score = 8;
+    else if (titre.includes('director') || titre.includes('head')) score = 7;
+    else if (titre.includes('manager')) score = 6;
+    else if (titre.includes('junior') || titre.includes('intern')) score = 3;
+    return { score, raison: 'Scoring fallback titre: ' + (lead.titre || 'inconnu'), recommandation: score >= 6 ? 'contacter' : 'skip' };
+  }
+
   // --- Recherche de leads via Apollo ---
   async _searchLeads(params) {
     if (!this.apolloKey) {
@@ -122,15 +176,13 @@ class ActionExecutor {
       return { success: false, error: 'Recherche Apollo echouee', details: result };
     }
 
-    // Qualifier les leads avec AI
-    const FlowFastWorkflow = getFlowFastWorkflow();
+    // Qualifier les leads avec AI (scoring direct, sans FlowFast)
     const ffStorage = getFlowFastStorage();
     let qualified = 0;
     let saved = 0;
     const minScore = storage.getGoals().weekly.minLeadScore || 7;
 
-    if (FlowFastWorkflow && result.leads) {
-      const workflow = new FlowFastWorkflow(this.apolloKey, this.hubspotKey, this.openaiKey);
+    if (result.leads) {
 
       // Mapper les champs Apollo (nouveau endpoint mixed_people/api_search)
       const mappedLeads = result.leads.map(l => ({
@@ -150,7 +202,7 @@ class ActionExecutor {
 
       for (const lead of mappedLeads) {
         try {
-          const scored = await workflow.qualifyLead(lead);
+          const scored = await this._qualifyLead(lead);
           lead.score = scored.score;
           lead.raison = scored.raison;
           if (scored.score >= minScore) qualified++;

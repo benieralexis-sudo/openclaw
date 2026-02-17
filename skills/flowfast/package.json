@@ -1,10 +1,6 @@
 {
-  "name": "flowfast",
+  "name": "flowfast-legacy",
   "version": "1.0.0",
-  "description": "Automatisation prospection B2B - Apollo vers HubSpot",
-  "main": "index.js",
   "type": "commonjs",
-  "keywords": ["prospection", "b2b", "hubspot", "apollo", "ai"],
-  "author": "FlowFast",
-  "license": "MIT"
+  "description": "Apollo connector + storage — utilise par Autonomous Pilot"
 }
