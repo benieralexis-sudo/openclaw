@@ -368,8 +368,17 @@ class ActionExecutor {
     }
 
     const writer = new ClaudeEmailWriter(this.claudeKey);
-    const contact = params.contact || {};
+    const rawContact = params.contact || {};
     const config = storage.getConfig();
+
+    // Mapper les champs FR vers EN pour le writer
+    const contact = {
+      name: rawContact.nom || rawContact.name || '',
+      firstName: (rawContact.nom || rawContact.name || '').split(' ')[0],
+      title: rawContact.titre || rawContact.title || '',
+      company: rawContact.entreprise || rawContact.company || '',
+      email: rawContact.email || params.to || ''
+    };
 
     // Construire un contexte enrichi avec les preferences email
     let context = config.businessContext || 'prospection B2B';
@@ -381,6 +390,9 @@ class ActionExecutor {
     if (ep.hookStyle) context += '\nSTYLE ACCROCHE: ' + ep.hookStyle;
     if (ep.tone) context += '\nTON: ' + ep.tone;
     if (ep.language === 'fr') context += '\nLANGUE: francais obligatoire';
+
+    // Signature expediteur
+    context += '\nSIGNATURE: Signe avec "Alexis — iFIND" (PAS de placeholder comme [Votre prenom])';
 
     // Ajouter l'offre commerciale
     const offer = config.offer || {};
