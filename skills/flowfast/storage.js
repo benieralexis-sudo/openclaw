@@ -180,6 +180,13 @@ class Storage {
     return !!this.data.leads[email];
   }
 
+  removeLead(key) {
+    if (this.data.leads[key]) {
+      delete this.data.leads[key];
+      this._save();
+    }
+  }
+
   markEmailSent(email) {
     if (this.data.leads[email]) {
       this.data.leads[email]._emailSent = true;

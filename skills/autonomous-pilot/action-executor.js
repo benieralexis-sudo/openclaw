@@ -149,16 +149,22 @@ class ActionExecutor {
           if (scored.score >= minScore) qualified++;
 
           if (ffStorage) {
-            ffStorage.addLead({
-              nom: lead.nom || 'Inconnu',
-              titre: lead.titre,
-              entreprise: lead.entreprise,
-              email: lead.email,
-              linkedin: lead.linkedin_url,
-              source: 'autonomous-pilot',
-              searchCriteria: JSON.stringify(criteria).substring(0, 200)
-            }, scored.score, 'brain-cycle');
-            saved++;
+            // Ne sauvegarder que si le lead a un email OU un score suffisant
+            // (evite de creer des entrees orphelines nom_entreprise)
+            if (lead.email || scored.score >= minScore) {
+              ffStorage.addLead({
+                nom: lead.nom || 'Inconnu',
+                titre: lead.titre,
+                entreprise: lead.entreprise,
+                email: lead.email,
+                linkedin: lead.linkedin_url,
+                source: 'autonomous-pilot',
+                raison: scored.raison || '',
+                recommandation: scored.recommandation || '',
+                searchCriteria: JSON.stringify(criteria).substring(0, 200)
+              }, scored.score, 'brain-cycle');
+              saved++;
+            }
           }
         } catch (e) {
           log.info('action-executor', 'Erreur qualification lead:', e.message);
@@ -185,8 +191,11 @@ class ActionExecutor {
               // Tracker le credit Apollo utilise
               if (leStorage) leStorage.trackApolloCredit();
 
-              // Mettre a jour le lead sauvegarde avec l'email
+              // Supprimer l'ancienne entree sans email (cle nom_entreprise) pour eviter les doublons
               if (ffStorage) {
+                const oldKey = (lead.nom || '') + '_' + (lead.entreprise || '');
+                if (ffStorage.removeLead) ffStorage.removeLead(oldKey);
+
                 ffStorage.addLead({
                   nom: lead.nom,
                   titre: lead.titre,
@@ -194,6 +203,7 @@ class ActionExecutor {
                   email: lead.email,
                   linkedin: lead.linkedin_url,
                   source: 'autonomous-pilot',
+                  raison: lead.raison || '',
                   searchCriteria: JSON.stringify(criteria).substring(0, 200)
                 }, lead.score, 'brain-cycle-revealed');
               }

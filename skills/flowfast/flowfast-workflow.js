@@ -25,7 +25,7 @@ class FlowFastWorkflow {
     const sEntreprise = this._sanitizeForPrompt(lead.entreprise);
     const sLocalisation = this._sanitizeForPrompt(lead.localisation);
 
-    const prompt = `Évalue ce lead B2B et réponds UNIQUEMENT avec un objet JSON, sans texte avant ou après.
+    const prompt = `Evalue ce lead B2B pour une agence d'automatisation IA (iFIND). Reponds UNIQUEMENT en JSON strict.
 
 Lead :
 - Nom : ${sNom}
@@ -33,15 +33,23 @@ Lead :
 - Entreprise : ${sEntreprise}
 - Localisation : ${sLocalisation}
 
-Évalue sur 10 selon :
-1. Seniority (CEO/CTO = 10, Manager = 7, Junior = 3)
-2. Pertinence entreprise (Tech/SaaS = +2 bonus)
-3. Localisation (France = +1, Europe = +0.5)
+Grille de scoring (sur 10, SOIS STRICT et DISCRIMINANT) :
+- Pouvoir de decision : decision-maker direct = 3pts, influence = 2pts, executant = 1pt
+- Taille entreprise estimee : PME 10-250 salaries = 3pts (cible ideale), startup <10 = 1pt, grand groupe >500 = 2pts
+- Besoin potentiel en automatisation IA : fort (tech/SaaS/ecommerce/marketing) = 2pts, moyen = 1pt, faible (artisan/asso) = 0pt
+- Localisation : France = 2pts, Europe = 1pt, autre = 0pt
+
+EXEMPLES de calibration :
+- CEO PME SaaS Paris = 10/10 (decision + PME + besoin fort + France)
+- CTO startup 3 personnes Lyon = 7/10 (decision + startup petite + besoin fort + France)
+- Marketing Manager grand groupe = 5/10 (influence seulement + grand groupe + besoin moyen + France)
+- Freelance consultant = 3/10 (pas de budget entreprise)
+- Titre inconnu, entreprise inconnue = 4/10
 
 Format JSON strict :
-{"score":8,"raison":"CEO dans tech à Paris","recommandation":"contacter"}
+{"score":7,"raison":"CTO startup tech Lyon, bon profil mais petite structure","recommandation":"contacter"}
 
-Réponds UNIQUEMENT le JSON, rien d'autre :`;
+Reponds UNIQUEMENT le JSON :`;
 
     try {
       const response = await this.callOpenAI(prompt);
