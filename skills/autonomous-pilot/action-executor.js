@@ -419,6 +419,20 @@ class ActionExecutor {
       return { success: false, error: 'Cle Resend manquante' };
     }
 
+    // Validation format email
+    if (!params.to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(params.to)) {
+      return { success: false, error: 'Adresse email invalide: ' + (params.to || 'vide') };
+    }
+
+    // Rate limiting : 300ms min entre chaque envoi
+    if (ActionExecutor._lastSendTime) {
+      const elapsed = Date.now() - ActionExecutor._lastSendTime;
+      if (elapsed < 300) {
+        await new Promise(r => setTimeout(r, 300 - elapsed));
+      }
+    }
+    ActionExecutor._lastSendTime = Date.now();
+
     // Deduplication : verifier si un email a deja ete envoye a cette adresse
     const amStorage = getAutomailerStorage();
     if (amStorage && params.to) {
@@ -588,5 +602,8 @@ class ActionExecutor {
     };
   }
 }
+
+// Static pour le rate limiting email
+ActionExecutor._lastSendTime = 0;
 
 module.exports = ActionExecutor;
