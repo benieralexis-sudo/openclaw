@@ -82,3 +82,4 @@ healthcheck.sh
 memory/
 .agent/*.json
 !.agent/workflows/
+.env

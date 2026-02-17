@@ -427,7 +427,7 @@ class ActionExecutor {
       return { success: false, error: 'Module automailer/resend-client introuvable' };
     }
 
-    const resend = new ResendClient(this.resendKey);
+    const resend = new ResendClient(this.resendKey, this.senderEmail);
     const amStorage = getAutomailerStorage();
 
     try {
@@ -435,12 +435,12 @@ class ActionExecutor {
         params.to,
         params.subject,
         params.body,
-        { from: this.senderEmail }
+        {}
       );
 
       if (result.success) {
         if (amStorage) {
-          amStorage.saveEmail({
+          amStorage.addEmail({
             to: params.to,
             subject: params.subject,
             body: params.body,
