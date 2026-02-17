@@ -253,8 +253,8 @@ class ProspectResearcher {
     // Strategie 2 : Google Search pour trouver le snippet LinkedIn
     if (name && company) {
       try {
-        const query = 'site:linkedin.com/in/ "' + name + '" "' + company + '"';
-        const newsResult = await fetcher.fetchGoogleNews(query);
+        const queryKeywords = ['site:linkedin.com/in/', '"' + name + '"', '"' + company + '"'];
+        const newsResult = await fetcher.fetchGoogleNews(queryKeywords);
         if (newsResult && newsResult.length > 0) {
           const firstResult = newsResult[0];
           if (firstResult.title && firstResult.title.includes('LinkedIn')) {
