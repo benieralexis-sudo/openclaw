@@ -12,7 +12,6 @@ services:
       APOLLO_API_KEY: ${APOLLO_API_KEY}
       FULLENRICH_API_KEY: ${FULLENRICH_API_KEY}
       CLAUDE_API_KEY: ${CLAUDE_API_KEY}
-      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       RESEND_API_KEY: ${RESEND_API_KEY}
       SENDER_EMAIL: ${SENDER_EMAIL:-onboarding@resend.dev}
       FLOWFAST_DATA_DIR: /data/flowfast
@@ -186,27 +185,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
-
-  openclaw-cli:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
-    environment:
-      HOME: /home/node
-      TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
-      BROWSER: echo
-      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
-      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
-      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
-    volumes:
-      - ${OPENCLAW_CONFIG_DIR:-/tmp}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR:-/tmp}:/home/node/.openclaw/workspace
-      - ./skills/flowfast:/home/node/.openclaw/skills/flowfast
-    stdin_open: true
-    tty: true
-    init: true
-    entrypoint: ["node", "dist/index.js"]
-    profiles:
-      - cli
 
 volumes:
   dashboard-data:

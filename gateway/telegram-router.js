@@ -1,4 +1,4 @@
-// iFIND - Routeur Telegram central (dispatch FlowFast + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot)
+// iFIND - Routeur Telegram central (dispatch 14 skills : FlowFast + AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot + Inbox Manager + Meeting Scheduler)
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -101,7 +101,6 @@ const HUBSPOT_KEY = process.env.HUBSPOT_API_KEY;
 const APOLLO_KEY = process.env.APOLLO_API_KEY || '';
 const FULLENRICH_KEY = process.env.FULLENRICH_API_KEY || '';
 const CLAUDE_KEY = process.env.CLAUDE_API_KEY || '';
-const SENDGRID_KEY = process.env.SENDGRID_API_KEY || '';
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
 const IMAP_HOST = process.env.IMAP_HOST || '';
@@ -129,7 +128,7 @@ if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
 
 // --- Handlers ---
 
-const flowfastHandler = new FlowFastTelegramHandler(APOLLO_KEY, HUBSPOT_KEY, OPENAI_KEY, CLAUDE_KEY, SENDGRID_KEY, SENDER_EMAIL);
+const flowfastHandler = new FlowFastTelegramHandler(APOLLO_KEY, HUBSPOT_KEY, OPENAI_KEY, CLAUDE_KEY, '', SENDER_EMAIL);
 const automailerHandler = new AutoMailerHandler(OPENAI_KEY, CLAUDE_KEY, RESEND_KEY, SENDER_EMAIL);
 const crmPilotHandler = new CRMPilotHandler(OPENAI_KEY, HUBSPOT_KEY);
 const leadEnrichHandler = new LeadEnrichHandler(OPENAI_KEY, FULLENRICH_KEY, HUBSPOT_KEY);
@@ -1442,7 +1441,7 @@ const healthServer = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
     if (_botReady && _polling) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), skills: 12, polling: _polling }));
+      res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), skills: 14, polling: _polling }));
     } else {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'starting', ready: _botReady, polling: _polling }));
@@ -1498,7 +1497,7 @@ telegramAPI('getMe').then(result => {
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(e => log.warn('router', 'setMyCommands echoue:', e.message));
-    log.info('router', '12 skills actives');
+    log.info('router', '14 skills actives');
     log.info('router', 'En attente de messages...');
     _botReady = true;
     poll();

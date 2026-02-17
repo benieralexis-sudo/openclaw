@@ -45,17 +45,17 @@ class SystemAdvisorHandler {
     }));
     log.info('system-advisor', 'Cron: health check toutes les heures');
 
-    // Rapport quotidien 7h
-    this.crons.push(new Cron('0 7 * * *', { timezone: tz }, () => {
+    // Rapport quotidien 6h30 (avant le rapport matinal unifie de 8h)
+    this.crons.push(new Cron('30 6 * * *', { timezone: tz }, () => {
       this._dailyReport().catch(e => log.error('system-advisor', 'Erreur rapport quotidien:', e.message));
     }));
-    log.info('system-advisor', 'Cron: rapport quotidien 7h');
+    log.info('system-advisor', 'Cron: rapport quotidien 6h30');
 
-    // Rapport hebdo lundi 8h
-    this.crons.push(new Cron('0 8 * * 1', { timezone: tz }, () => {
+    // Rapport hebdo lundi 10h30 (decale pour eviter embouteillage matinal)
+    this.crons.push(new Cron('30 10 * * 1', { timezone: tz }, () => {
       this._weeklyReport().catch(e => log.error('system-advisor', 'Erreur rapport hebdo:', e.message));
     }));
-    log.info('system-advisor', 'Cron: rapport hebdo lundi 8h');
+    log.info('system-advisor', 'Cron: rapport hebdo lundi 10h30');
 
     log.info('system-advisor', 'Demarre avec ' + this.crons.length + ' cron(s)');
   }

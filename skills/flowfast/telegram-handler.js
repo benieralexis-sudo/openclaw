@@ -1,6 +1,4 @@
 const FlowFastWorkflow = require('./flowfast-workflow.js');
-const ClaudeClient = require('./claude-client.js');
-const SendGridClient = require('./sendgrid-client.js');
 const storage = require('./storage.js');
 const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
 
@@ -9,8 +7,8 @@ class FlowFastTelegramHandler {
     this.workflow = new FlowFastWorkflow(apolloKey, hubspotKey, openaiKey);
     this.hubspotKey = hubspotKey;
     this.openaiKey = openaiKey;
-    this.claude = claudeKey ? new ClaudeClient(claudeKey) : null;
-    this.sendgrid = sendgridKey ? new SendGridClient(sendgridKey, senderEmail) : null;
+    this.claude = null; // Emails geres par AutoMailer (SendGrid/Claude client FlowFast supprimes)
+    this.sendgrid = null; // Emails geres par AutoMailer (Resend remplace SendGrid)
     // Stockage temporaire des resultats en attente de confirmation par user
     this.pendingResults = {};  // chatId -> { leads, searchParams, searchId }
     this.pendingEmails = {};   // chatId -> { lead, email: { subject, body } }

@@ -88,18 +88,18 @@ class ProactiveEngine {
       log.info('proactive-engine', 'Cron: rapport matinal a ' + h + 'h' + (m > 0 ? String(m).padStart(2, '0') : ''));
     }
 
-    // Alertes pipeline — 9h
+    // Alertes pipeline — 9h30 (decale pour eviter embouteillage matinal)
     if (alerts.pipelineAlerts.enabled) {
       const h = alerts.pipelineAlerts.hour || 9;
-      const m = alerts.pipelineAlerts.minute || 0;
+      const m = alerts.pipelineAlerts.minute || 30;
       this.crons.push(new Cron(m + ' ' + h + ' * * *', { timezone: tz }, () => this._pipelineAlerts()));
       log.info('proactive-engine', 'Cron: alertes pipeline a ' + h + 'h' + (m > 0 ? String(m).padStart(2, '0') : ''));
     }
 
-    // Rapport hebdomadaire — lundi 9h
+    // Rapport hebdomadaire — lundi 11h (decale pour eviter surcharge matinale)
     if (alerts.weeklyReport.enabled) {
       const dow = alerts.weeklyReport.dayOfWeek || 1;
-      const h = alerts.weeklyReport.hour || 9;
+      const h = alerts.weeklyReport.hour || 11;
       const m = alerts.weeklyReport.minute || 0;
       this.crons.push(new Cron(m + ' ' + h + ' * * ' + dow, { timezone: tz }, () => this._weeklyReport()));
       log.info('proactive-engine', 'Cron: rapport hebdo (jour ' + dow + ' a ' + h + 'h)');
@@ -225,19 +225,66 @@ class ProactiveEngine {
     const config = storage.getConfig();
     if (!config.enabled || !config.alerts.morningReport.enabled) return;
 
-    log.info('proactive-engine', 'Generation rapport matinal...');
+    log.info('proactive-engine', 'Generation rapport matinal unifie (PA + AP)...');
     try {
       const data = await this.reportGenerator.collectDailyData();
       const nightlyBriefing = storage.getNightlyBriefing();
       const report = await this.reportGenerator.generateMorningReport(data, nightlyBriefing);
 
-      await this.sendTelegram(config.adminChatId, report);
-      storage.logAlert('morning_report', report, { date: data.date });
+      // --- Enrichir avec les donnees Autonomous Pilot (fusion briefing AP supprime) ---
+      let apSection = '';
+      try {
+        const apStorage = this._getAPStorage();
+        if (apStorage) {
+          const progress = apStorage.getProgress ? apStorage.getProgress() : {};
+          const goals = apStorage.getGoals ? apStorage.getGoals() : {};
+          const g = goals.weekly || {};
+          const queued = apStorage.getQueuedActions ? apStorage.getQueuedActions() : [];
+          const experiments = apStorage.getActiveExperiments ? apStorage.getActiveExperiments() : [];
+
+          apSection += '\n\n📊 *Autonomous Pilot — Progres semaine :*\n';
+          apSection += '• Leads: ' + (progress.leadsFoundThisWeek || 0) + '/' + (g.leadsToFind || 0);
+          apSection += (progress.leadsFoundThisWeek || 0) >= (g.leadsToFind || 1) ? ' ✅\n' : '\n';
+          apSection += '• Emails: ' + (progress.emailsSentThisWeek || 0) + '/' + (g.emailsToSend || 0);
+          apSection += (progress.emailsSentThisWeek || 0) >= (g.emailsToSend || 1) ? ' ✅\n' : '\n';
+          apSection += '• Reponses: ' + (progress.responsesThisWeek || 0) + '/' + (g.responsesTarget || 0) + '\n';
+
+          if (queued.length > 0) {
+            apSection += '⏳ ' + queued.length + ' action(s) AP en attente\n';
+          }
+          if (experiments.length > 0) {
+            apSection += '🧪 ' + experiments.length + ' experience(s) en cours\n';
+          }
+
+          // Plan du jour
+          const leadsNeeded = (g.leadsToFind || 0) - (progress.leadsFoundThisWeek || 0);
+          const emailsNeeded = (g.emailsToSend || 0) - (progress.emailsSentThisWeek || 0);
+          if (leadsNeeded > 0 || emailsNeeded > 0) {
+            apSection += '\n🎯 *Aujourd\'hui :*\n';
+            if (leadsNeeded > 0) apSection += '• Rechercher ~' + Math.min(leadsNeeded, 10) + ' leads\n';
+            if (emailsNeeded > 0) apSection += '• Preparer ~' + Math.min(emailsNeeded, 10) + ' emails\n';
+          }
+        }
+      } catch (e) {
+        log.info('proactive-engine', 'Enrichissement AP echoue (non bloquant):', e.message);
+      }
+
+      await this.sendTelegram(config.adminChatId, report + apSection);
+      storage.logAlert('morning_report', report + apSection, { date: data.date });
       storage.updateStat('lastMorningReport', new Date().toISOString());
 
-      log.info('proactive-engine', 'Rapport matinal envoye');
+      log.info('proactive-engine', 'Rapport matinal unifie envoye');
     } catch (e) {
       log.error('proactive-engine', 'Erreur rapport matinal:', e.message);
+    }
+  }
+
+  // --- Helper pour acceder au storage AP ---
+  _getAPStorage() {
+    try { return require('../autonomous-pilot/storage.js'); }
+    catch (e) {
+      try { return require('/app/skills/autonomous-pilot/storage.js'); }
+      catch (e2) { return null; }
     }
   }
 

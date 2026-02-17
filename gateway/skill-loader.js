@@ -17,7 +17,9 @@ const SKILL_STORAGES = {
   'self-improve': 'self-improve/storage.js',
   'web-intelligence': 'web-intelligence/storage.js',
   'system-advisor': 'system-advisor/storage.js',
-  'autonomous-pilot': 'autonomous-pilot/storage.js'
+  'autonomous-pilot': 'autonomous-pilot/storage.js',
+  'inbox-manager': 'inbox-manager/storage.js',
+  'meeting-scheduler': 'meeting-scheduler/storage.js'
 };
 
 // Chemins des modules specifiques

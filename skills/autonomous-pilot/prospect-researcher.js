@@ -25,6 +25,10 @@ function getAPStorage() {
   return _require('./storage.js', '/app/skills/autonomous-pilot/storage.js');
 }
 
+function getLeadEnrichStorage() {
+  return _require('../lead-enrich/storage.js', '/app/skills/lead-enrich/storage.js');
+}
+
 class ProspectResearcher {
   constructor(options) {
     this.claudeKey = options.claudeKey;
@@ -65,6 +69,25 @@ class ProspectResearcher {
       }
     }
 
+    // Verifier si Lead Enrich a deja des donnees sur ce prospect (evite double enrichissement)
+    let leadEnrichData = null;
+    try {
+      const leStorage = getLeadEnrichStorage();
+      if (leStorage && email) {
+        const enriched = leStorage.getEnrichedLead ? leStorage.getEnrichedLead(email) : null;
+        if (enriched) {
+          leadEnrichData = {
+            industry: enriched.aiClassification?.industry || null,
+            persona: enriched.aiClassification?.persona || null,
+            score: enriched.aiClassification?.score || null,
+            technologies: enriched.apolloData?.organization?.technologies || [],
+            description: enriched.apolloData?.organization?.short_description || ''
+          };
+          log.info('prospect-research', 'Donnees Lead Enrich trouvees pour ' + email);
+        }
+      }
+    } catch (e) {}
+
     log.info('prospect-research', 'Recherche pour ' + company + ' (' + (contact.nom || email) + ')');
 
     // Extraire le domaine depuis l'email
@@ -84,6 +107,7 @@ class ProspectResearcher {
       recentNews: newsResult.status === 'fulfilled' ? newsResult.value : [],
       apolloData: apolloData.status === 'fulfilled' ? apolloData.value : null,
       existingArticles: webIntelArticles.status === 'fulfilled' ? webIntelArticles.value : [],
+      leadEnrichData: leadEnrichData,
       researchedAt: new Date().toISOString()
     };
 
@@ -244,6 +268,16 @@ class ProspectResearcher {
       for (const a of intel.existingArticles.slice(0, 2)) {
         lines.push('- "' + a.headline + '" [pertinence: ' + a.relevance + '/10]');
       }
+    }
+
+    // Donnees Lead Enrich (si deja enrichi)
+    if (intel.leadEnrichData) {
+      const le = intel.leadEnrichData;
+      const leParts = [];
+      if (le.industry) leParts.push('industrie: ' + le.industry);
+      if (le.persona) leParts.push('persona: ' + le.persona);
+      if (le.score) leParts.push('score: ' + le.score + '/10');
+      if (leParts.length > 0) lines.push('ENRICHISSEMENT: ' + leParts.join(', '));
     }
 
     // Contact info

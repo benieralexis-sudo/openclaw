@@ -40,8 +40,8 @@ function getWebIntelStorage() {
   return _require('../web-intelligence/storage.js', '/app/skills/web-intelligence/storage.js');
 }
 
-function getMoltbotConfig() {
-  return _require('../../gateway/moltbot-config.js', '/app/gateway/moltbot-config.js');
+function getAppConfig() {
+  return _require('../../gateway/app-config.js', '/app/gateway/app-config.js');
 }
 
 class BrainEngine {
@@ -77,11 +77,7 @@ class BrainEngine {
       catch (e) { log.error('brain', 'Erreur cycle:', e.message); }
     }));
 
-    // Daily briefing : 7h30
-    this.crons.push(new Cron('30 7 * * *', { timezone: tz }, async () => {
-      try { await this._dailyBriefing(); }
-      catch (e) { log.error('brain', 'Erreur briefing:', e.message); }
-    }));
+    // Daily briefing supprime — fusionne avec Proactive Morning Report a 8h (voir proactive-engine.js)
 
     // Mini-cycle leger : 12h et 15h (Intelligence Reelle v5 — 0$ cout, pas d'appel Claude)
     this.crons.push(new Cron('0 12,15 * * *', { timezone: tz }, async () => {
@@ -95,7 +91,7 @@ class BrainEngine {
       catch (e) { log.error('brain', 'Erreur reset hebdo:', e.message); }
     }));
 
-    log.info('brain', 'Cerveau autonome demarre (5 crons — 2 brain + 2 mini + 1 briefing)');
+    log.info('brain', 'Cerveau autonome demarre (4 crons — 2 brain + 2 mini)');
   }
 
   stop() {
@@ -252,7 +248,7 @@ class BrainEngine {
 
     // Budget
     try {
-      const config = getMoltbotConfig();
+      const config = getAppConfig();
       if (config) {
         const budget = config.getBudgetStatus();
         state.budget = {
@@ -946,7 +942,26 @@ Analyse et reponds en JSON:
         }
       }
 
-      prompt += '\n  → Utilise ces patterns pour prioriser les recherches et personnaliser les emails.\n';
+      // Recommandations Self-Improve (evite double analyse IA)
+      if (patterns.selfImproveAnalysis) {
+        const sia = patterns.selfImproveAnalysis;
+        if (sia.bestSendHours) prompt += '\n  SELF-IMPROVE - MEILLEURE HEURE (analyse IA): ' + sia.bestSendHours + '\n';
+        if (sia.bestDays) prompt += '  SELF-IMPROVE - MEILLEURS JOURS: ' + sia.bestDays + '\n';
+        if (sia.recommendations && sia.recommendations.length > 0) {
+          prompt += '\n  RECOMMANDATIONS SELF-IMPROVE:\n';
+          for (const r of sia.recommendations.slice(0, 3)) {
+            prompt += '  - ' + (r.summary || r.description || r.type || '?') + '\n';
+          }
+        }
+      }
+      if (patterns.pendingSelfImproveRecos && patterns.pendingSelfImproveRecos.length > 0) {
+        prompt += '\n  RECOS EN ATTENTE D\'APPLICATION:\n';
+        for (const r of patterns.pendingSelfImproveRecos) {
+          prompt += '  - [' + r.type + '] ' + r.summary + '\n';
+        }
+      }
+
+      prompt += '\n  → Utilise ces patterns ET les recommandations Self-Improve pour prioriser.\n';
       prompt += '  → Concentre-toi sur les titres/industries/villes qui performent le mieux.\n';
     }
 
@@ -1214,6 +1229,28 @@ Analyse et reponds en JSON:
         globalOpenRate: sentEmails.length > 0
           ? Math.round((sentEmails.filter(e => !!e.openedAt).length / sentEmails.length) * 100) : 0
       };
+
+      // Enrichir avec les recommandations Self-Improve (evite double analyse IA)
+      try {
+        const siStorage = getSelfImproveStorage();
+        if (siStorage) {
+          const lastAnalysis = siStorage.getLastAnalysis ? siStorage.getLastAnalysis() : null;
+          if (lastAnalysis) {
+            patterns.selfImproveAnalysis = {
+              analyzedAt: lastAnalysis.analyzedAt || null,
+              bestSendHours: lastAnalysis.bestSendHours || null,
+              bestDays: lastAnalysis.bestDays || null,
+              recommendations: (lastAnalysis.recommendations || []).slice(0, 5)
+            };
+          }
+          const pendingRecos = siStorage.getPendingRecommendations ? siStorage.getPendingRecommendations() : [];
+          if (pendingRecos.length > 0) {
+            patterns.pendingSelfImproveRecos = pendingRecos.slice(0, 5).map(r => ({
+              type: r.type, summary: r.summary || r.description || ''
+            }));
+          }
+        }
+      } catch (e) {}
 
       storage.savePatterns(patterns);
       log.info('brain', 'Patterns detectes: ' + topTitles.length + ' titres, ' +

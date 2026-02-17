@@ -1,12 +1,45 @@
 // FlowFast - Workflow complet Apollo → IA → HubSpot
 const ApolloConnector = require('./apollo-connector.js');
-const HubSpotConnector = require('./hubspot-connector.js');
 const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
+
+// Utilise le HubSpotClient centralise de CRM Pilot
+function _getHubSpotClient() {
+  try { return require('../crm-pilot/hubspot-client.js'); }
+  catch (e) {
+    try { return require('/app/skills/crm-pilot/hubspot-client.js'); }
+    catch (e2) { return null; }
+  }
+}
+
+// Wrapper de compatibilite : interface FlowFast (prenom/nom/entreprise) → CRM Pilot (firstname/lastname/company)
+class HubSpotCompat {
+  constructor(apiKey) {
+    const HubSpotClient = _getHubSpotClient();
+    this.client = HubSpotClient ? new HubSpotClient(apiKey) : null;
+    this.apiKey = apiKey;
+  }
+
+  async upsertContact(contactData) {
+    if (!this.client) return { success: false, error: 'HubSpot client non disponible' };
+    const existing = await this.client.findContactByEmail(contactData.email);
+    if (existing) return { success: true, existed: true, contactId: existing.id };
+    const result = await this.client.createContact({
+      firstname: contactData.prenom || '',
+      lastname: contactData.nom || contactData.nom_famille || '',
+      email: contactData.email,
+      jobtitle: contactData.titre || '',
+      company: contactData.entreprise || '',
+      phone: contactData.telephone || '',
+      city: contactData.ville || ''
+    });
+    return result ? { success: true, contactId: result.id } : { success: false, error: 'Echec creation' };
+  }
+}
 
 class FlowFastWorkflow {
   constructor(apolloKey, hubspotKey, openaiKey) {
     this.apollo = new ApolloConnector(apolloKey);
-    this.hubspot = new HubSpotConnector(hubspotKey);
+    this.hubspot = new HubSpotCompat(hubspotKey);
     this.openaiKey = openaiKey;
   }
 
@@ -115,14 +148,17 @@ Reponds UNIQUEMENT le JSON :`;
     console.log(`📋 Ajout de ${contactIds.length} contacts à la liste ${listId}...`);
     
     try {
-      const HubSpotLists = require('./hubspot-lists.js');
-      const lists = new HubSpotLists(this.hubspot.apiKey);
-      
-      await lists.addContactsToList(listId, contactIds);
-      console.log(`   ✅ Contacts ajoutés !`);
-      
+      // HubSpot Lists API — appel direct via le client CRM Pilot
+      const HubSpotClient = _getHubSpotClient();
+      if (HubSpotClient) {
+        const client = new HubSpotClient(this.hubspot.apiKey);
+        if (client.addContactsToList) {
+          await client.addContactsToList(listId, contactIds);
+          console.log(`   Contacts ajoutes a la liste !`);
+        }
+      }
     } catch (error) {
-      console.log(`   ⚠️  Erreur ajout liste: ${error.message}`);
+      console.log(`   Erreur ajout liste: ${error.message}`);
     }
   }
 

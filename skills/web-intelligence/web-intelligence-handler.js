@@ -41,19 +41,19 @@ class WebIntelligenceHandler {
     }));
     log.info('web-intel', 'Cron: scan auto toutes les 6h');
 
-    // Digest quotidien 9h
-    this.crons.push(new Cron('0 9 * * *', { timezone: tz }, () => {
+    // Digest quotidien 10h (decale pour eviter embouteillage matinal)
+    this.crons.push(new Cron('0 10 * * *', { timezone: tz }, () => {
       log.info('web-intel', 'Cron: digest quotidien');
       this._dailyDigest().catch(e => log.error('web-intel', 'Erreur digest:', e.message));
     }));
-    log.info('web-intel', 'Cron: digest quotidien 9h');
+    log.info('web-intel', 'Cron: digest quotidien 10h');
 
-    // Digest hebdo lundi 9h
-    this.crons.push(new Cron('0 9 * * 1', { timezone: tz }, () => {
+    // Digest hebdo lundi 14h (decale pour eviter surcharge matinale du lundi)
+    this.crons.push(new Cron('0 14 * * 1', { timezone: tz }, () => {
       log.info('web-intel', 'Cron: digest hebdo');
       this._weeklyDigest().catch(e => log.error('web-intel', 'Erreur digest hebdo:', e.message));
     }));
-    log.info('web-intel', 'Cron: digest hebdo lundi 9h');
+    log.info('web-intel', 'Cron: digest hebdo lundi 14h');
 
     log.info('web-intel', 'Demarre avec ' + this.crons.length + ' cron(s)');
   }
