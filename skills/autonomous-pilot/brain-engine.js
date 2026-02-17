@@ -314,23 +314,48 @@ class BrainEngine {
 
     log.info('brain', 'Plan: ' + plan.actions.length + ' actions, assessment: ' + (plan.weeklyAssessment || '?'));
 
-    // 4. Executer les actions
+    // 4. Executer les actions (avec retry sur actions critiques)
+    const RETRYABLE_ACTIONS = ['send_email', 'push_to_crm', 'enrich_leads'];
+    const MAX_RETRIES = 2;
+
     for (const action of plan.actions) {
       if (action.autoExecute) {
-        try {
-          const result = await this.executor.executeAction(action);
-          storage.recordAction({
-            type: action.type,
-            params: action.params,
-            preview: action.preview || result.summary || '',
-            result: result
-          });
+        let result = null;
+        let attempts = 0;
+        const maxAttempts = RETRYABLE_ACTIONS.includes(action.type) ? MAX_RETRIES + 1 : 1;
 
-          if (result.success && result.summary) {
-            log.info('brain', 'Action auto: ' + result.summary);
+        while (attempts < maxAttempts) {
+          attempts++;
+          try {
+            result = await this.executor.executeAction(action);
+            if (result.success || result.deduplicated) break; // Succes ou dedup = pas de retry
+            // Echec non-exception : retry si retryable
+            if (attempts < maxAttempts) {
+              log.warn('brain', 'Action ' + action.type + ' echouee (tentative ' + attempts + '/' + maxAttempts + '): ' + (result.error || '?') + ' — retry dans 2s');
+              await new Promise(function(r) { setTimeout(r, 2000); });
+            }
+          } catch (e) {
+            log.error('brain', 'Erreur action auto ' + action.type + ' (tentative ' + attempts + '/' + maxAttempts + '):', e.message);
+            result = { success: false, error: e.message };
+            if (attempts < maxAttempts) {
+              await new Promise(function(r) { setTimeout(r, 2000); });
+            }
           }
-        } catch (e) {
-          log.error('brain', 'Erreur action auto ' + action.type + ':', e.message);
+        }
+
+        // Enregistrer le resultat (succes ou echec final)
+        storage.recordAction({
+          type: action.type,
+          params: action.params,
+          preview: action.preview || (result && result.summary) || '',
+          result: result || { success: false, error: 'no result' },
+          attempts: attempts
+        });
+
+        if (result && result.success && result.summary) {
+          log.info('brain', 'Action auto: ' + result.summary);
+        } else if (result && !result.success && attempts > 1) {
+          log.error('brain', 'Action ' + action.type + ' echouee apres ' + attempts + ' tentatives: ' + (result.error || '?'));
         }
       } else {
         const queued = storage.addToQueue(action);
