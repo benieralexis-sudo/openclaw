@@ -180,6 +180,14 @@ class Storage {
     return !!this.data.leads[email];
   }
 
+  markEmailSent(email) {
+    if (this.data.leads[email]) {
+      this.data.leads[email]._emailSent = true;
+      this.data.leads[email]._emailSentAt = new Date().toISOString();
+      this._save();
+    }
+  }
+
   getLeadsBySearch(searchId) {
     return Object.values(this.data.leads).filter(l => l.searchId === searchId);
   }

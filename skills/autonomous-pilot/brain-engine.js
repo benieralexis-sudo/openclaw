@@ -3,8 +3,7 @@ const { Cron } = require('croner');
 const storage = require('./storage.js');
 const ActionExecutor = require('./action-executor.js');
 const diagnostic = require('./diagnostic.js');
-const { retryAsync } = require('../../gateway/utils.js');
-const { getBreaker } = require('../../gateway/circuit-breaker.js');
+// retryAsync et getBreaker retires — callClaudeOpus fait deja breaker+retry en interne
 const log = require('../../gateway/logger.js');
 
 // --- Cross-skill imports (dual-path) ---
@@ -234,11 +233,11 @@ class BrainEngine {
 
     let plan;
     try {
-      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 60000 });
-      const response = await breaker.call(() => retryAsync(() => this.callClaudeOpus(systemPrompt, userMessage, 4000), 2, 3000));
+      // callClaudeOpus fait deja breaker+retry en interne — pas de double-wrap
+      const response = await this.callClaudeOpus(systemPrompt, userMessage, 4000);
       plan = this._parseJsonResponse(response);
     } catch (e) {
-      log.error('brain', 'Erreur Claude:', e.message);
+      log.error('brain', 'Erreur Claude Opus:', e.message);
       plan = this._fallbackPlan(state);
     }
 
@@ -587,8 +586,8 @@ Analyse et reponds en JSON:
   "newExperiments": [{"type": "ab_test", "description": "...", "hypothesis": "...", "metric": "..."}]
 }`;
 
-      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 60000 });
-      const response = await breaker.call(() => retryAsync(() => this.callClaudeOpus(analysisPrompt, 'Analyse et propose des ajustements.', 2000), 2, 3000));
+      // callClaudeOpus fait deja breaker+retry en interne — pas de double-wrap
+      const response = await this.callClaudeOpus(analysisPrompt, 'Analyse et propose des ajustements.', 2000);
       const analysis = this._parseJsonResponse(response);
 
       if (!analysis) return;

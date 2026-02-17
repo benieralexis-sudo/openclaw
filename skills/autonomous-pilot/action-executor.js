@@ -419,6 +419,22 @@ class ActionExecutor {
       return { success: false, error: 'Cle Resend manquante' };
     }
 
+    // Deduplication : verifier si un email a deja ete envoye a cette adresse
+    const amStorage = getAutomailerStorage();
+    if (amStorage && params.to) {
+      const existing = amStorage.getEmailEventsForRecipient(params.to);
+      const alreadySent = existing.some(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened' || e.status === 'replied');
+      if (alreadySent) {
+        log.info('action-executor', 'Email deja envoye a ' + params.to + ' — skip (deduplication)');
+        return { success: false, error: 'Email deja envoye a ' + params.to, deduplicated: true };
+      }
+      // Verifier la blacklist
+      if (amStorage.isBlacklisted(params.to)) {
+        log.info('action-executor', params.to + ' est blackliste — skip');
+        return { success: false, error: params.to + ' est blackliste' };
+      }
+    }
+
     // Si _generateFirst est true, generer le contenu avant envoi
     if (params._generateFirst && (!params.subject || !params.body)) {
       log.info('action-executor', 'Generation email avant envoi pour ' + params.to);
@@ -440,7 +456,7 @@ class ActionExecutor {
     }
 
     const resend = new ResendClient(this.resendKey, this.senderEmail);
-    const amStorage = getAutomailerStorage();
+    // amStorage deja obtenu en haut pour la deduplication
 
     try {
       const result = await resend.sendEmail(
@@ -451,8 +467,13 @@ class ActionExecutor {
       );
 
       if (result.success) {
+        // Recuperer le chatId admin depuis la config AP
+        const apConfig = storage.getConfig();
+        const adminChatId = apConfig.adminChatId || '1409505520';
+
         if (amStorage) {
           amStorage.addEmail({
+            chatId: adminChatId,
             to: params.to,
             subject: params.subject,
             body: params.body,
@@ -467,6 +488,14 @@ class ActionExecutor {
         }
 
         storage.incrementProgress('emailsSentThisWeek', 1);
+
+        // Marquer le lead comme _emailSent dans FlowFast pour eviter re-envoi
+        try {
+          const ffStorage = getFlowFastStorage();
+          if (ffStorage && ffStorage.markEmailSent) {
+            ffStorage.markEmailSent(params.to);
+          }
+        } catch (e) { /* best effort */ }
 
         return {
           success: true,
