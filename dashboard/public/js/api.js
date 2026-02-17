@@ -82,6 +82,32 @@ const API = {
     this.clearOldCache();
   },
 
+  async post(endpoint, body) {
+    try {
+      const res = await fetch('/api/' + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.status === 401) { window.location.href = '/login'; return null; }
+      return await res.json();
+    } catch (err) {
+      console.error('[API] POST ' + endpoint + ':', err);
+      return null;
+    }
+  },
+
+  async del(endpoint) {
+    try {
+      const res = await fetch('/api/' + endpoint, { method: 'DELETE' });
+      if (res.status === 401) { window.location.href = '/login'; return null; }
+      return await res.json();
+    } catch (err) {
+      console.error('[API] DELETE ' + endpoint + ':', err);
+      return null;
+    }
+  },
+
   // Shortcuts
   overview(period = '30d') { return this.fetch('overview?period=' + period); },
   prospection() { return this.fetch('prospection'); },
@@ -93,7 +119,11 @@ const API = {
   proactive() { return this.fetch('proactive'); },
   selfImprove() { return this.fetch('self-improve'); },
   webIntel() { return this.fetch('web-intelligence'); },
-  system() { return this.fetch('system'); }
+  system() { return this.fetch('system'); },
+  me() { return this.fetch('me'); },
+  users() { return this.fetch('users'); },
+  createUser(data) { return this.post('users', data); },
+  deleteUser(username) { return this.del('users/' + encodeURIComponent(username)); }
 };
 
 // Auto-refresh every 60s (pause when tab hidden)

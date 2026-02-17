@@ -13,8 +13,46 @@ const app = express();
 const PORT = process.env.DASHBOARD_PORT || 3000;
 const PASSWORD = process.env.DASHBOARD_PASSWORD || 'iFIND2026!';
 
-// Hash du mot de passe au démarrage
+// Hash du mot de passe au démarrage (fallback pour admin)
 const PASSWORD_HASH = bcrypt.hashSync(PASSWORD, 12);
+
+// --- Multi-users system ---
+const USERS_FILE = process.env.DASHBOARD_DATA_DIR
+  ? `${process.env.DASHBOARD_DATA_DIR}/users.json`
+  : '/data/dashboard/users.json';
+
+function loadUsers() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  // Creer l'admin par defaut
+  const defaultUsers = {
+    admin: {
+      username: 'admin',
+      passwordHash: PASSWORD_HASH,
+      role: 'admin',
+      company: null,
+      createdAt: new Date().toISOString()
+    }
+  };
+  saveUsers(defaultUsers);
+  return defaultUsers;
+}
+
+function saveUsers(users) {
+  try {
+    const dir = path.dirname(USERS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    atomicWriteSync(USERS_FILE, users);
+  } catch (e) {
+    log.warn('dashboard', 'Erreur sauvegarde users: ' + e.message);
+  }
+}
+
+const users = loadUsers();
+log.info('dashboard', Object.keys(users).length + ' utilisateur(s) charges');
 
 // Trust nginx proxy
 app.set('trust proxy', 1);
@@ -204,9 +242,22 @@ function authRequired(req, res, next) {
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session expirée' });
     return res.redirect('/login');
   }
+  // Attacher l'info utilisateur a la requete
+  req.user = {
+    username: session.username || 'admin',
+    role: session.role || 'admin',
+    company: session.company || null
+  };
   // Audit log pour les requêtes API
   if (req.path.startsWith('/api/')) {
-    logAudit('api_request', req.ip || 'unknown', req.path);
+    logAudit('api_request', req.ip || 'unknown', req.user.username + ' ' + req.path);
+  }
+  next();
+}
+
+function adminRequired(req, res, next) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
   }
   next();
 }
@@ -232,20 +283,40 @@ app.post('/login', loginLimiter, async (req, res) => {
     const csrfToken = generateCsrfToken();
     return res.send(loginPage('Session expirée, veuillez réessayer.', csrfToken));
   }
-  const match = await bcrypt.compare(req.body.password || '', PASSWORD_HASH);
+
+  const inputUser = (req.body.username || 'admin').trim().toLowerCase();
+  const inputPass = req.body.password || '';
+
+  // Chercher l'utilisateur
+  const user = users[inputUser];
+  let match = false;
+
+  if (user) {
+    match = await bcrypt.compare(inputPass, user.passwordHash);
+  } else if (inputUser === 'admin') {
+    // Fallback : ancien mot de passe unique (compatibilite)
+    match = await bcrypt.compare(inputPass, PASSWORD_HASH);
+  }
+
   if (match) {
     const sid = crypto.randomBytes(32).toString('hex');
-    sessions.set(sid, { createdAt: Date.now() });
+    sessions.set(sid, {
+      createdAt: Date.now(),
+      username: user ? user.username : 'admin',
+      role: user ? user.role : 'admin',
+      company: user ? user.company : null
+    });
     saveSessions();
     res.cookie('sid', sid, { httpOnly: true, maxAge: SESSION_TTL, sameSite: 'lax', secure: true });
-    logAudit('login_success', req.ip || 'unknown', 'Login OK');
-    log.info('dashboard', 'Login OK from ' + (req.ip || 'unknown'));
+    logAudit('login_success', req.ip || 'unknown', (user ? user.username : 'admin') + ' (' + (user ? user.role : 'admin') + ')');
+    log.info('dashboard', 'Login OK: ' + (user ? user.username : 'admin') + ' from ' + (req.ip || 'unknown'));
     return res.redirect('/');
   }
-  logAudit('login_failed', req.ip || 'unknown', 'Mot de passe incorrect');
-  log.warn('dashboard', 'Login FAIL from ' + (req.ip || 'unknown'));
+
+  logAudit('login_failed', req.ip || 'unknown', 'Utilisateur: ' + inputUser);
+  log.warn('dashboard', 'Login FAIL: ' + inputUser + ' from ' + (req.ip || 'unknown'));
   const csrfToken = generateCsrfToken();
-  res.send(loginPage('Mot de passe incorrect', csrfToken));
+  res.send(loginPage('Identifiants incorrects', csrfToken));
 });
 
 app.get('/logout', (req, res) => {
@@ -289,6 +360,16 @@ async function readAllData() {
   return result;
 }
 
+// --- Client data filter helper ---
+function filterByCompany(items, user, companyField) {
+  if (!user || user.role === 'admin' || !user.company) return items;
+  const company = user.company.toLowerCase();
+  return items.filter(item => {
+    const val = (item[companyField || 'company'] || item.entreprise || '').toLowerCase();
+    return val.includes(company) || company.includes(val);
+  });
+}
+
 // --- Pagination helper ---
 function paginate(arr, req) {
   if (!Array.isArray(arr)) return { items: arr, total: 0 };
@@ -303,6 +384,60 @@ function paginate(arr, req) {
 
 // --- API Routes ---
 
+// Info session courante
+app.get('/api/me', authRequired, (req, res) => {
+  res.json({ username: req.user.username, role: req.user.role, company: req.user.company });
+});
+
+// --- Gestion utilisateurs (admin only) ---
+app.get('/api/users', authRequired, adminRequired, (req, res) => {
+  const list = Object.values(users).map(u => ({
+    username: u.username,
+    role: u.role,
+    company: u.company,
+    createdAt: u.createdAt
+  }));
+  res.json({ users: list });
+});
+
+app.post('/api/users', authRequired, adminRequired, async (req, res) => {
+  const { username, password, role, company } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Username et password requis' });
+  const uname = username.trim().toLowerCase();
+  if (!/^[a-z0-9_-]{2,30}$/.test(uname)) return res.status(400).json({ error: 'Username invalide (2-30 chars, a-z0-9_-)' });
+  if (users[uname]) return res.status(409).json({ error: 'Utilisateur existe deja' });
+  if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (min 6 chars)' });
+  const validRole = (role === 'client') ? 'client' : 'admin';
+
+  users[uname] = {
+    username: uname,
+    passwordHash: await bcrypt.hash(password, 12),
+    role: validRole,
+    company: validRole === 'client' ? (company || null) : null,
+    createdAt: new Date().toISOString()
+  };
+  saveUsers(users);
+  logAudit('user_created', req.ip, uname + ' (' + validRole + ')');
+  log.info('dashboard', 'Utilisateur cree: ' + uname + ' (' + validRole + ')');
+  res.json({ success: true, username: uname, role: validRole });
+});
+
+app.delete('/api/users/:username', authRequired, adminRequired, (req, res) => {
+  const uname = req.params.username.toLowerCase();
+  if (uname === 'admin') return res.status(400).json({ error: 'Impossible de supprimer admin' });
+  if (!users[uname]) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  delete users[uname];
+  saveUsers(users);
+  // Invalider ses sessions
+  for (const [sid, s] of sessions) {
+    if (s.username === uname) sessions.delete(sid);
+  }
+  saveSessions();
+  logAudit('user_deleted', req.ip, uname);
+  log.info('dashboard', 'Utilisateur supprime: ' + uname);
+  res.json({ success: true });
+});
+
 // Overview / KPIs globaux
 app.get('/api/overview', authRequired, async (req, res) => {
   const all = await readAllData();
@@ -312,15 +447,15 @@ app.get('/api/overview', authRequired, async (req, res) => {
   const cutoff = new Date(now - periodMs).toISOString();
   const prevCutoff = new Date(now - periodMs * 2).toISOString();
 
-  // Leads
+  // Leads (filtre par entreprise pour les clients)
   const ff = all.flowfast || {};
-  const leads = ff.leads ? Object.values(ff.leads) : [];
+  const leads = filterByCompany(ff.leads ? Object.values(ff.leads) : [], req.user, 'entreprise');
   const leadsInPeriod = leads.filter(l => l.createdAt >= cutoff).length;
   const leadsPrev = leads.filter(l => l.createdAt >= prevCutoff && l.createdAt < cutoff).length;
 
-  // Emails
+  // Emails (filtre par entreprise pour les clients)
   const am = all.automailer || {};
-  const emails = am.emails || [];
+  const emails = filterByCompany(am.emails || [], req.user, 'company');
   const emailsInPeriod = emails.filter(e => e.createdAt >= cutoff).length;
   const emailsPrev = emails.filter(e => e.createdAt >= prevCutoff && e.createdAt < cutoff).length;
   const opened = emails.filter(e => e.createdAt >= cutoff && e.status === 'opened').length;
@@ -328,20 +463,22 @@ app.get('/api/overview', authRequired, async (req, res) => {
   const openedPrev = emails.filter(e => e.createdAt >= prevCutoff && e.createdAt < cutoff && e.status === 'opened').length;
   const openRatePrev = emailsPrev > 0 ? Math.round((openedPrev / emailsPrev) * 100) : 0;
 
-  // Revenue
+  // Revenue (admin only)
+  const isAdmin = req.user.role === 'admin';
   const inv = all['invoice-bot'] || {};
-  const invoices = inv.invoices ? Object.values(inv.invoices) : [];
+  const invoices = isAdmin ? (inv.invoices ? Object.values(inv.invoices) : []) : [];
   const paidInPeriod = invoices.filter(i => i.paidAt && i.paidAt >= cutoff).reduce((s, i) => s + (i.total || 0), 0);
   const paidPrev = invoices.filter(i => i.paidAt && i.paidAt >= prevCutoff && i.paidAt < cutoff).reduce((s, i) => s + (i.total || 0), 0);
 
   // Hot leads
   const pa = all['proactive-agent'] || {};
-  const hotLeads = pa.hotLeads ? Object.entries(pa.hotLeads).map(([email, data]) => ({
+  let hotLeads = pa.hotLeads ? Object.entries(pa.hotLeads).map(([email, data]) => ({
     email,
     ...data,
     // Enrich from lead-enrich
     ...(all['lead-enrich']?.enrichedLeads?.[email.toLowerCase()] || {})
   })).filter(l => l.opens >= 3).slice(0, 10) : [];
+  if (!isAdmin) hotLeads = []; // Clients ne voient pas les hot leads
 
   // Activity feed (48h)
   const feed = buildActivityFeed(all, now - 172800000);
@@ -556,8 +693,8 @@ app.get('/api/content', authRequired, async (req, res) => {
   });
 });
 
-// Invoice Bot
-app.get('/api/invoices', authRequired, async (req, res) => {
+// Invoice Bot (admin only)
+app.get('/api/invoices', authRequired, adminRequired, async (req, res) => {
   const inv = await readData('invoice-bot') || {};
   const invoices = inv.invoices ? Object.values(inv.invoices) : [];
   const clients = inv.clients ? Object.values(inv.clients) : [];
@@ -615,8 +752,8 @@ app.get('/api/proactive', authRequired, async (req, res) => {
   });
 });
 
-// Self-Improve
-app.get('/api/self-improve', authRequired, async (req, res) => {
+// Self-Improve (admin only)
+app.get('/api/self-improve', authRequired, adminRequired, async (req, res) => {
   const si = await readData('self-improve') || {};
   const config = si.config || {};
   const analysis = si.analysis || {};
@@ -657,8 +794,8 @@ app.get('/api/web-intelligence', authRequired, async (req, res) => {
   });
 });
 
-// System Advisor
-app.get('/api/system', authRequired, async (req, res) => {
+// System Advisor (admin only)
+app.get('/api/system', authRequired, adminRequired, async (req, res) => {
   const sa = await readData('system-advisor') || {};
   const config = sa.config || {};
   const systemMetrics = sa.systemMetrics || {};
@@ -932,9 +1069,13 @@ body{background:#09090b;color:#fafafa;font-family:'Inter',sans-serif;min-height:
   <form method="POST" action="/login">
     <input type="hidden" name="_csrf" value="${csrfToken}">
     <div class="input-group">
+      <label for="username">Identifiant</label>
+      <input type="text" id="username" name="username" placeholder="admin" value="admin" autocomplete="username" required>
+    </div>
+    <div class="input-group">
       <label for="password">Mot de passe</label>
       <div style="position:relative">
-        <input type="password" id="password" name="password" placeholder="Entrez votre mot de passe" autofocus required style="padding-right:44px">
+        <input type="password" id="password" name="password" placeholder="Entrez votre mot de passe" autofocus required autocomplete="current-password" style="padding-right:44px">
         <button type="button" id="toggle-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#71717a;cursor:pointer;padding:4px" aria-label="Afficher le mot de passe">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
         </button>

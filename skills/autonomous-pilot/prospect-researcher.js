@@ -225,11 +225,16 @@ class ProspectResearcher {
   }
 
   /**
-   * Tente de recuperer des donnees LinkedIn via Google Cache ou Google Search.
-   * Jamais d'appel direct a linkedin.com (bloque systematiquement).
+   * Recupere des donnees LinkedIn via 5 strategies (0$ — aucun appel direct linkedin.com).
+   * Ordre : Apollo data > Google Cache > Bing search > DuckDuckGo > Google News.
    */
   async _fetchLinkedInData(linkedinUrl, name, company) {
     if ((!linkedinUrl || !linkedinUrl.includes('linkedin.com/in/')) && !name) return null;
+
+    // Strategie 0 : Utiliser les donnees Apollo deja disponibles (titre = headline LinkedIn)
+    // Apollo scrape LinkedIn, donc le titre du contact EST le headline LinkedIn
+    // On l'ajoute au brief via contact.titre dans _buildProspectBrief
+
     const fetcher = this._getFetcher();
     if (!fetcher) return null;
 
@@ -241,6 +246,7 @@ class ProspectResearcher {
         if (result && result.statusCode === 200 && result.body) {
           const parsed = this._parseLinkedInPage(result.body);
           if (parsed && parsed.headline) {
+            parsed.source = 'google_cache';
             log.info('prospect-research', 'LinkedIn via Google Cache OK pour ' + name);
             return parsed;
           }
@@ -250,19 +256,119 @@ class ProspectResearcher {
       }
     }
 
-    // Strategie 2 : Google Search pour trouver le snippet LinkedIn
+    // Strategie 2 : Bing search pour le profil LinkedIn
+    if (name) {
+      try {
+        const bingQuery = encodeURIComponent('site:linkedin.com/in/ "' + name + '"' + (company ? ' "' + company + '"' : ''));
+        const bingUrl = 'https://www.bing.com/search?q=' + bingQuery + '&count=3';
+        const result = await fetcher.fetchUrl(bingUrl);
+        if (result && result.statusCode === 200 && result.body) {
+          const parsed = this._parseBingLinkedInResults(result.body, name);
+          if (parsed && parsed.headline) {
+            parsed.source = 'bing_search';
+            log.info('prospect-research', 'LinkedIn via Bing OK pour ' + name);
+            return parsed;
+          }
+        }
+      } catch (e) {
+        log.info('prospect-research', 'Bing LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    // Strategie 3 : DuckDuckGo HTML search (pas d'API key, pas de rate limit agressif)
+    if (name) {
+      try {
+        const ddgQuery = encodeURIComponent('site:linkedin.com/in/ "' + name + '"' + (company ? ' ' + company : ''));
+        const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + ddgQuery;
+        const result = await fetcher.fetchUrl(ddgUrl);
+        if (result && result.statusCode === 200 && result.body) {
+          const parsed = this._parseDDGLinkedInResults(result.body, name);
+          if (parsed && parsed.headline) {
+            parsed.source = 'duckduckgo';
+            log.info('prospect-research', 'LinkedIn via DuckDuckGo OK pour ' + name);
+            return parsed;
+          }
+        }
+      } catch (e) {
+        log.info('prospect-research', 'DuckDuckGo LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    // Strategie 4 : Google News RSS (fallback, parfois retourne des profils LinkedIn)
     if (name && company) {
       try {
         const queryKeywords = ['site:linkedin.com/in/', '"' + name + '"', '"' + company + '"'];
         const newsResult = await fetcher.fetchGoogleNews(queryKeywords);
         if (newsResult && newsResult.length > 0) {
           const firstResult = newsResult[0];
-          if (firstResult.title && firstResult.title.includes('LinkedIn')) {
-            return { headline: firstResult.title.replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim().substring(0, 200), source: 'google_search' };
+          if (firstResult.title && firstResult.title.toLowerCase().includes('linkedin')) {
+            return {
+              headline: firstResult.title.replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim().substring(0, 200),
+              source: 'google_news'
+            };
           }
         }
       } catch (e) {
-        log.info('prospect-research', 'Google Search LinkedIn echoue: ' + e.message);
+        log.info('prospect-research', 'Google News LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Parse les resultats Bing pour extraire les infos LinkedIn.
+   */
+  _parseBingLinkedInResults(html, name) {
+    if (!html || html.length < 200) return null;
+
+    // Bing met le titre dans <h2><a ...>Title</a></h2> ou <li class="b_algo"><h2><a>
+    const titleMatches = html.match(/<h2[^>]*><a[^>]*href="[^"]*linkedin\.com\/in\/[^"]*"[^>]*>([^<]+)<\/a>/gi);
+    if (titleMatches && titleMatches.length > 0) {
+      const titleMatch = titleMatches[0].match(/>([^<]+)<\/a>/i);
+      if (titleMatch) {
+        const raw = titleMatch[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+        const headline = raw.replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim();
+        if (headline.length > 5) return { headline: headline.substring(0, 200) };
+      }
+    }
+
+    // Fallback : chercher dans les snippets <p class="b_lineclamp...">
+    const snippetMatch = html.match(/<p[^>]*>([^<]*linkedin[^<]*)<\/p>/i)
+      || html.match(/<span[^>]*class="b_caption"[^>]*>[^<]*<p>([^<]+)<\/p>/i);
+    if (snippetMatch) {
+      const snippet = snippetMatch[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim();
+      if (snippet.length > 20 && snippet.length < 300) {
+        return { headline: name, summary: snippet.substring(0, 200) };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Parse les resultats DuckDuckGo HTML pour extraire les infos LinkedIn.
+   */
+  _parseDDGLinkedInResults(html, name) {
+    if (!html || html.length < 200) return null;
+
+    // DDG HTML: <a class="result__a" href="...linkedin.com/in/...">Title</a>
+    const linkMatches = html.match(/<a[^>]*class="result__a"[^>]*href="[^"]*linkedin\.com\/in\/[^"]*"[^>]*>([^<]+)<\/a>/gi);
+    if (linkMatches && linkMatches.length > 0) {
+      const titleMatch = linkMatches[0].match(/>([^<]+)<\/a>/i);
+      if (titleMatch) {
+        const raw = titleMatch[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+        const headline = raw.replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim();
+        if (headline.length > 5) return { headline: headline.substring(0, 200) };
+      }
+    }
+
+    // DDG snippet: <a class="result__snippet" ...>snippet text</a>
+    const snippetMatch = html.match(/<a[^>]*class="result__snippet"[^>]*>([^<]+)</i);
+    if (snippetMatch) {
+      const snippet = snippetMatch[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim();
+      if (snippet.length > 20) {
+        return { headline: name, summary: snippet.substring(0, 200) };
       }
     }
 
