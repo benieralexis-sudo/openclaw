@@ -261,10 +261,11 @@ const _cleanupInterval = setInterval(() => {
   }
 
   // 2. Pending states des handlers (conversations et confirmations abandonnees)
+  // Note: certains handlers sont definis plus bas — resolution lazy pour eviter ReferenceError
   const handlersWithPending = [
-    automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
-    invoiceBotHandler, proactiveHandler, webIntelHandler, systemAdvisorHandler
+    automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler, invoiceBotHandler
   ];
+  try { handlersWithPending.push(proactiveHandler, webIntelHandler, systemAdvisorHandler); } catch (e) {}
   const pendingMaps = ['pendingConversations', 'pendingConfirmations', 'pendingImports', 'pendingEmails', 'pendingResults'];
   for (const handler of handlersWithPending) {
     for (const mapName of pendingMaps) {
@@ -1427,12 +1428,16 @@ async function handleResendWebhook(body) {
     }
   }
 
-  // Auto-research sur premiere ouverture email
+  // Auto-research sur premiere ouverture email (avec timeout 30s)
   if (status === 'opened' && !wasAlreadyOpened && ProspectResearcher) {
     try {
       const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
       const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: '' };
-      researcher.researchProspect(contact).then(intel => {
+      const researchWithTimeout = Promise.race([
+        researcher.researchProspect(contact),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 30s')), 30000))
+      ]);
+      researchWithTimeout.then(intel => {
         if (intel && intel.brief) {
           const msg = '👀 *Email ouvert !*\n\n' +
             '*Qui :* ' + (email.contactName || email.to) + '\n' +
@@ -1471,18 +1476,31 @@ const healthServer = http.createServer((req, res) => {
 
   // Webhook Resend
   if (req.url && req.url.startsWith('/webhook/resend') && req.method === 'POST') {
-    // Verification du secret (query param)
+    // Verification du secret (query param) — obligatoire si configure
     const urlObj = new URL(req.url, 'http://localhost');
     const secret = urlObj.searchParams.get('secret');
-    if (WEBHOOK_SECRET && secret !== WEBHOOK_SECRET) {
+    if (!WEBHOOK_SECRET) {
+      log.warn('webhook', 'RESEND_WEBHOOK_SECRET non configure — webhook non securise');
+    } else if (secret !== WEBHOOK_SECRET) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'unauthorized' }));
       return;
     }
 
     let body = '';
-    req.on('data', (chunk) => { body += chunk; });
+    let bodySize = 0;
+    const MAX_BODY = 100 * 1024; // 100KB max
+    req.on('data', (chunk) => {
+      bodySize += chunk.length;
+      if (bodySize > MAX_BODY) { req.destroy(); return; }
+      body += chunk;
+    });
     req.on('end', async () => {
+      if (bodySize > MAX_BODY) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'payload too large' }));
+        return;
+      }
       try {
         const parsed = JSON.parse(body);
         const result = await handleResendWebhook(parsed);

@@ -43,7 +43,8 @@ class Storage {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
         const loaded = JSON.parse(raw);
         this.data = { ...this.data, ...loaded };
-        console.log('[storage] Base chargee (' + Object.keys(this.data.users).length + ' utilisateurs, ' + this.data.searches.length + ' recherches)');
+        this._deduplicateLeads();
+        console.log('[storage] Base chargee (' + Object.keys(this.data.users).length + ' utilisateurs, ' + this.data.searches.length + ' recherches, ' + Object.keys(this.data.leads || {}).length + ' leads)');
       } else {
         console.log('[storage] Nouvelle base creee');
         this._save();
@@ -58,6 +59,39 @@ class Storage {
       atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[storage] Erreur sauvegarde:', e.message);
+    }
+  }
+
+  // Supprime les doublons nom_entreprise quand une entree email existe
+  _deduplicateLeads() {
+    if (!this.data.leads) return;
+    const leads = this.data.leads;
+    const emailLeads = {}; // entreprise -> lead avec email
+    let removed = 0;
+
+    // Indexer les leads qui ont un email
+    for (const [key, lead] of Object.entries(leads)) {
+      if (lead.email && lead.entreprise) {
+        const ent = lead.entreprise.toLowerCase().trim();
+        if (!emailLeads[ent]) emailLeads[ent] = [];
+        emailLeads[ent].push(key);
+      }
+    }
+
+    // Supprimer les entrees nom_entreprise si une entree email existe pour la meme entreprise
+    for (const [key, lead] of Object.entries(leads)) {
+      if (!lead.email && lead.entreprise) {
+        const ent = lead.entreprise.toLowerCase().trim();
+        if (emailLeads[ent] && emailLeads[ent].length > 0) {
+          delete leads[key];
+          removed++;
+        }
+      }
+    }
+
+    if (removed > 0) {
+      console.log('[storage] Deduplication: ' + removed + ' doublons supprimes');
+      this._save();
     }
   }
 
@@ -149,13 +183,33 @@ class Storage {
 
   addLead(lead, score, searchId) {
     const key = lead.email || (lead.nom + '_' + lead.entreprise);
+
+    // Deduplication : si on ajoute avec email, supprimer l'ancienne entree nom_entreprise
+    if (lead.email && lead.nom && lead.entreprise) {
+      const oldKey = lead.nom + '_' + lead.entreprise;
+      if (this.data.leads[oldKey] && !this.data.leads[key]) {
+        // Merger les donnees de l'ancienne entree
+        const old = this.data.leads[oldKey];
+        lead = { ...old, ...lead }; // Nouvelles donnees prioritaires
+        if (old.feedback) lead.feedback = old.feedback;
+        if (old.pushedToHubspot) lead.pushedToHubspot = true;
+        if (old._emailSent) lead._emailSent = true;
+        delete this.data.leads[oldKey];
+      }
+    }
+
+    // Penalite score pour donnees manquantes
+    let adjustedScore = score;
+    if (!lead.email) adjustedScore = Math.min(adjustedScore, 7); // Pas d'email = max 7
+    if (!lead.linkedin && !lead.linkedinUrl && !lead.linkedin_url) adjustedScore = Math.max(0, adjustedScore - 0.5);
+
     this.data.leads[key] = {
       ...lead,
-      score: score,
+      score: adjustedScore,
       searchId: searchId,
-      feedback: null,
-      pushedToHubspot: false,
-      createdAt: new Date().toISOString()
+      feedback: (lead.feedback !== undefined) ? lead.feedback : null,
+      pushedToHubspot: lead.pushedToHubspot || false,
+      createdAt: lead.createdAt || new Date().toISOString()
     };
     this._save();
     return this.data.leads[key];

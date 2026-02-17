@@ -1579,7 +1579,7 @@ Analyse et reponds en JSON:
                 entreprise: lead.entreprise
               }
             },
-            autoExecute: true, // Auto-envoi (contenu genere par _generateFirst)
+            autoExecute: false, // JAMAIS auto-envoi — validation humaine obligatoire
             preview: 'Email pour ' + (lead.nom || lead.email) + ' (' + lead.entreprise + ')'
           });
         }
