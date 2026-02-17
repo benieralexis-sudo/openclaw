@@ -49,8 +49,9 @@ function getDailyLimit() {
   const firstSendDate = storage.getFirstSendDate();
   if (!firstSendDate) return 5; // Premier jour = 5 emails max
   const daysSinceFirst = Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000);
-  const schedule = [5, 10, 20, 35, 50, 75, 100, 150, 200, 300];
-  return schedule[Math.min(daysSinceFirst, schedule.length - 1)] || 300;
+  const schedule = [5, 10, 20, 35, 50, 75, 100];
+  const limit = schedule[Math.min(daysSinceFirst, schedule.length - 1)] || 100;
+  return Math.min(limit, 100); // Resend free tier = 100/jour max
 }
 
 class CampaignEngine {

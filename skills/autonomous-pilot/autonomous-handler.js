@@ -101,6 +101,15 @@ OFFRE:${config.offer?.description ? '\n' + config.offer.description : ''}${confi
 
 PREFERENCES EMAIL:${config.emailPreferences?.maxLines ? '\n- Max ' + config.emailPreferences.maxLines + ' lignes' : ''}${config.emailPreferences?.language ? ' | Langue: ' + config.emailPreferences.language : ''}${config.emailPreferences?.tone ? ' | Ton: ' + config.emailPreferences.tone : ''}${config.emailPreferences?.forbiddenWords?.length ? '\n- Mots interdits: ' + config.emailPreferences.forbiddenWords.join(', ') : ''}${config.emailPreferences?.hookStyle ? '\n- Accroche: ' + config.emailPreferences.hookStyle : ''}
 
+CONFIGURATION SYSTEME:
+- Email d'envoi: ${process.env.SENDER_EMAIL || 'non configure'}
+- Resend: ${process.env.RESEND_API_KEY ? 'OK (cle configuree)' : 'non configure'}
+- HubSpot: ${process.env.HUBSPOT_API_KEY ? 'OK' : 'non configure'}
+- Apollo: ${process.env.APOLLO_API_KEY ? 'OK' : 'non configure'}
+- FullEnrich: ${process.env.FULLENRICH_API_KEY ? 'OK' : 'non configure'}
+- IMAP: ${process.env.IMAP_HOST ? 'OK (' + process.env.IMAP_HOST + ')' : 'non configure (optionnel)'}
+- Cal.com: ${process.env.CALCOM_API_KEY ? 'OK' : 'non configure (optionnel)'}
+
 ETAT ACTUEL:
 - Mode: ${config.enabled ? 'Actif' : 'En pause'} | Autonomie: ${config.autonomyLevel}
 - Leads: ${progress.leadsFoundThisWeek}/${g.leadsToFind} | Emails: ${progress.emailsSentThisWeek}/${g.emailsToSend}

@@ -31,7 +31,7 @@ const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
 // --- Metriques globales (partage memoire pour System Advisor) ---
-const METRICS_FILE = '/data/ifind-metrics.json';
+const METRICS_FILE = (process.env.APP_CONFIG_DIR || '/data/app-config') + '/ifind-metrics.json';
 
 function _loadMetrics() {
   try {
