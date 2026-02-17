@@ -1216,6 +1216,7 @@ Analyse et reponds en JSON:
     const p = state.progress;
     const g = state.goals.weekly;
 
+    // 1. Chercher des leads si objectif non atteint
     if (p.leadsFoundThisWeek < g.leadsToFind) {
       actions.push({
         type: 'search_leads',
@@ -1223,6 +1224,69 @@ Analyse et reponds en JSON:
         autoExecute: true,
         preview: 'Recherche de leads (fallback)'
       });
+    }
+
+    // 2. Generer + envoyer des emails aux leads qualifies avec email
+    if (p.emailsSentThisWeek < g.emailsToSend) {
+      const ffStorage = getFlowFastStorage();
+      if (ffStorage) {
+        const allLeads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : {};
+        const leadsWithEmail = Object.values(allLeads)
+          .filter(l => l.email && (l.score || 0) >= (g.minLeadScore || 7) && !l._emailSent)
+          .slice(0, 5); // Max 5 emails par cycle (warmup progressif)
+
+        for (const lead of leadsWithEmail) {
+          // Envoyer l'email (autoExecute: false → demande confirmation sur Telegram)
+          actions.push({
+            type: 'send_email',
+            params: {
+              to: lead.email,
+              contactName: lead.nom || '',
+              company: lead.entreprise || '',
+              score: lead.score || 0,
+              // Le subject et body seront generes par generate_email dans le handler
+              _generateFirst: true,
+              contact: {
+                email: lead.email,
+                nom: lead.nom,
+                titre: lead.titre,
+                entreprise: lead.entreprise
+              }
+            },
+            autoExecute: false, // Confirmation requise pendant le warmup
+            preview: 'Email pour ' + (lead.nom || lead.email) + ' (' + lead.entreprise + ')'
+          });
+        }
+      }
+    }
+
+    // 3. Pousser les leads qualifies vers HubSpot
+    if (p.contactsPushedThisWeek < (p.leadsFoundThisWeek || 0)) {
+      const ffStorage = getFlowFastStorage();
+      if (ffStorage) {
+        const allLeads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : {};
+        const toPush = Object.values(allLeads)
+          .filter(l => l.email && (l.score || 0) >= (g.pushToCrmAboveScore || 8) && !l.pushedToHubspot)
+          .slice(0, 10);
+
+        if (toPush.length > 0) {
+          actions.push({
+            type: 'push_to_crm',
+            params: {
+              contacts: toPush.map(l => ({
+                email: l.email,
+                firstName: l.nom?.split(' ')[0] || '',
+                lastName: l.nom?.split(' ').slice(1).join(' ') || '',
+                title: l.titre,
+                company: l.entreprise,
+                score: l.score
+              }))
+            },
+            autoExecute: true,
+            preview: toPush.length + ' leads vers HubSpot'
+          });
+        }
+      }
     }
 
     return {
