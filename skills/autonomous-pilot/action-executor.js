@@ -167,6 +167,7 @@ class ActionExecutor {
 
       // Reveler les leads qualifies via Apollo people/match (1 credit chacun)
       const toReveal = mappedLeads.filter(l => !l.email && l.score >= minScore && l.apolloId);
+      const leStorage = getLeadEnrichStorage();
       if (toReveal.length > 0) {
         log.info('action-executor', toReveal.length + ' leads qualifies a reveler via Apollo (1 credit chacun)');
         let revealed = 0;
@@ -180,6 +181,9 @@ class ActionExecutor {
               lead.linkedin_url = revealResult.lead.linkedin_url;
               lead.localisation = revealResult.lead.city;
               revealed++;
+
+              // Tracker le credit Apollo utilise
+              if (leStorage) leStorage.trackApolloCredit();
 
               // Mettre a jour le lead sauvegarde avec l'email
               if (ffStorage) {
