@@ -747,8 +747,10 @@ function fastClassify(text) {
   const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   // Patterns exacts — zero ambiguite
+  // ORDRE IMPORTANT : autonomous-pilot AVANT automailer (evite que "envoie" match automailer)
   const patterns = {
-    'automailer': /\b(campagne|email|mail|envoi|template|newsletter|liste.*contact|import.*csv|stats.*email|taux.*ouverture)\b/,
+    'autonomous-pilot': /\b(pilot|autonome?|brain|objectif|critere|checklist|diagnostic|cycle|prochain.*email|quand.*envoi|prochaine?.*prospection|avancement|ou.*en.*es|lead.*trouve|resultat.*prospection)\b/,
+    'automailer': /\b(campagne|template|newsletter|liste.*contact|import.*csv|stats.*email|taux.*ouverture|creer?.*campagne|lance.*campagne)\b/,
     'crm-pilot': /\b(crm|hubspot|pipeline|deal|offre|fiche.*contact|note|tache|rappel|commercial)\b/,
     'lead-enrich': /\b(enrichi|scorer?|profil.*complet|hot.*lead|lead.*chaud|fullenrich|apollo)\b/,
     'content-gen': /\b(redige|ecri[st]|post.*linkedin|pitch|bio|script|reformule|contenu)\b/,
@@ -758,8 +760,7 @@ function fastClassify(text) {
     'proactive-agent': /\b(rapport|resume|recap|hebdo|mensuel|alertes?.*pipeline|mode.*proactif)\b/,
     'self-improve': /\b(amelior|optimis|recommandation|performance|metriques?|rollback|auto.?apply)\b/,
     'web-intelligence': /\b(veille|surveill|concurrent|news|article|tendance|rss|scan.*web|google.*news)\b/,
-    'system-advisor': /\b(systeme|memoire|ram|cpu|disque|uptime|health|sante.*bot|erreurs?.*recente)\b/,
-    'autonomous-pilot': /\b(pilot|autonome?|brain|objectif|critere|checklist|diagnostic|cycle)\b/
+    'system-advisor': /\b(systeme|memoire|ram|cpu|disque|uptime|health|sante.*bot|erreurs?.*recente)\b/
   };
 
   for (const [skill, regex] of Object.entries(patterns)) {

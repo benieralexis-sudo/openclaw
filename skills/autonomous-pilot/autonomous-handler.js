@@ -118,6 +118,12 @@ ETAT ACTUEL:
 - Brain cycles: ${stats.totalBrainCycles} | Actions: ${stats.totalActionsExecuted}
 ${stats.lastBrainCycleAt ? '- Dernier cycle: ' + new Date(stats.lastBrainCycleAt).toLocaleString('fr-FR') : ''}
 
+PLANNING AUTOMATIQUE (les emails sont envoyes par le brain, PAS par les campagnes):
+- Brain Cycle AM : tous les jours a 9h (recherche leads + envoi emails + push CRM)
+- Brain Cycle PM : tous les jours a 18h (idem)
+- Mini-cycles : 12h et 15h (check signaux marche, 0 cout)
+- Le brain decide automatiquement quels leads contacter et quand
+
 OBJECTIFS HEBDO:
 - ${g.leadsToFind} leads (score >= ${g.minLeadScore}) | ${g.emailsToSend} emails | ${g.responsesTarget} reponses | ${g.rdvTarget} RDV
 - Open rate min: ${g.minOpenRate}% | Push CRM si score >= ${g.pushToCrmAboveScore}
