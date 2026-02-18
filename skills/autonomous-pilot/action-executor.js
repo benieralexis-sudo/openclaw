@@ -483,8 +483,8 @@ Format JSON strict :
       context += '\n\nINFOS SUR LE PROSPECT (utilise-les pour personnaliser — c\'est CA qui fait la difference):\n' + params._prospectIntel;
     }
 
-    // Signature simple
-    context += '\nSIGNATURE: "Alexis" (court, pas de titre, pas de lien)';
+    // Signature ajoutee automatiquement par resend-client.js (HTML minimal)
+    context += '\nSIGNATURE: NE PAS ajouter de signature — elle est ajoutee automatiquement apres le corps du mail.';
 
     try {
       const email = await writer.generateSingleEmail(contact, context);
@@ -510,11 +510,16 @@ Format JSON strict :
       return { success: false, error: 'Adresse email invalide: ' + (params.to || 'vide') };
     }
 
-    // Rate limiting : 300ms min entre chaque envoi
+    // Rate limiting : delai aleatoire 2-5 min entre chaque envoi (pattern humain)
     if (ActionExecutor._lastSendTime) {
+      const minDelay = 2 * 60 * 1000; // 2 min
+      const maxDelay = 5 * 60 * 1000; // 5 min
+      const randomDelay = minDelay + Math.floor(Math.random() * (maxDelay - minDelay));
       const elapsed = Date.now() - ActionExecutor._lastSendTime;
-      if (elapsed < 300) {
-        await new Promise(r => setTimeout(r, 300 - elapsed));
+      if (elapsed < randomDelay) {
+        const waitMs = randomDelay - elapsed;
+        log.info('action-executor', 'Rate limiting humain: attente ' + Math.round(waitMs / 1000) + 's avant prochain envoi');
+        await new Promise(r => setTimeout(r, waitMs));
       }
     }
     ActionExecutor._lastSendTime = Date.now();
@@ -522,10 +527,8 @@ Format JSON strict :
     // Warm-up domaine : limiter les envois par jour (domaine neuf = max 5/jour semaine 1-2, puis 10, puis 20)
     const amStorage = getAutomailerStorage();
     if (amStorage) {
-      const today = new Date().toISOString().substring(0, 10);
-      const sentToday = (amStorage.data.emails || []).filter(function(e) {
-        return e.sentAt && e.sentAt.substring(0, 10) === today && (e.status === 'sent' || e.status === 'delivered' || e.status === 'opened' || e.status === 'clicked');
-      }).length;
+      // FIX 19 : Utiliser les compteurs persistants au lieu du filtre dynamique
+      const sentToday = amStorage.getTodaySendCount();
 
       // Domaine cree le 15 fev 2026 — calculer l'age en jours
       const domainAge = Math.floor((Date.now() - new Date('2026-02-15').getTime()) / (24 * 60 * 60 * 1000));
@@ -626,6 +629,10 @@ Format JSON strict :
             score: params.score || 0,
             sentAt: new Date().toISOString()
           });
+
+          // FIX 19 : Tracker warmup dans les compteurs persistants
+          amStorage.setFirstSendDate();
+          amStorage.incrementTodaySendCount();
         }
 
         storage.incrementProgress('emailsSentThisWeek', 1);
@@ -639,6 +646,29 @@ Format JSON strict :
           }
         } else {
           log.warn('action-executor', 'FlowFast storage indisponible pour markEmailSent');
+        }
+
+        // FIX 20 : Sauvegarder les donnees prospect dans Lead Enrich DB
+        if (params._prospectIntel) {
+          try {
+            const leStorage = getLeadEnrichStorage();
+            if (leStorage && leStorage.saveEnrichedLead) {
+              const existing = leStorage.getEnrichedLead ? leStorage.getEnrichedLead(params.to) : null;
+              if (!existing) {
+                leStorage.saveEnrichedLead(params.to, {
+                  person: { fullName: params.contactName || '', title: params.contact && params.contact.titre || '', email: params.to },
+                  organization: { name: params.company || '' }
+                }, {
+                  score: params.score || 5,
+                  reasoning: 'Enrichi via ProspectResearcher lors envoi email',
+                  prospectIntel: params._prospectIntel
+                }, 'prospect-researcher', adminChatId);
+                log.info('action-executor', 'Lead Enrich: donnees sauvegardees pour ' + params.to);
+              }
+            }
+          } catch (leErr) {
+            log.info('action-executor', 'Lead Enrich save skip:', leErr.message);
+          }
         }
 
         return {

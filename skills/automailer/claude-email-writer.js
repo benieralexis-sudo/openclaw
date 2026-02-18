@@ -106,7 +106,7 @@ STRUCTURE D'UN BON COLD EMAIL :
 1. Accroche (1 ligne) : reference specifique au prospect (son entreprise, son produit, un article, son parcours)
 2. Transition (1-2 lignes) : pourquoi tu le contactes LUI specifiquement (pas un template generique)
 3. Question/curiosite (1 ligne) : une question ouverte qui le fait reflechir
-4. Signature simple
+NE PAS ajouter de signature — elle est ajoutee automatiquement apres le corps du mail.
 
 OBJET DU MAIL :
 - Court (3-6 mots max), en minuscules, pas de majuscule partout
@@ -119,12 +119,11 @@ Objet: "question sur ${(contact.company || 'votre boite').toLowerCase()}"
 
 J'ai vu que ${contact.company || 'ta boite'} [reference specifique]. Pas mal.
 
-Je bosse sur un sujet similaire cote prospection B2B et je me demandais comment vous gerez ca en interne ?
+Je bosse sur un sujet similaire cote prospection B2B et je me demandais comment vous gerez ca en interne ?"
 
-Alexis"
-
-IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks :
-{"subject":"objet du mail","body":"Corps du mail en texte brut"}`;
+IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
+Le body NE DOIT PAS contenir de signature (pas de "Alexis", "Cordialement", etc.) — la signature est ajoutee automatiquement.
+{"subject":"objet du mail","body":"Corps du mail en texte brut SANS signature"}`;
 
     const userMessage = `Ecris un email pour ce contact :
 
@@ -161,8 +160,9 @@ STRUCTURE DES RELANCES :
 - Relance 2 (J+8) : micro cas client anonymise ("un CEO dans ton secteur...")
 - Relance 3 (J+16) : breakup ultra court (2 lignes max), "pas de souci si c'est pas le moment"
 
-IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks :
-[{"subject":"objet email 1","body":"Corps email 1"},{"subject":"objet email 2","body":"Corps email 2"}...]`;
+IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
+Le body NE DOIT PAS contenir de signature (pas de "Alexis", "Cordialement", etc.) — la signature est ajoutee automatiquement.
+[{"subject":"objet email 1","body":"Corps email 1 SANS signature"},{"subject":"objet email 2","body":"Corps email 2 SANS signature"}...]`;
 
     const userMessage = `Genere une sequence de ${totalEmails} emails pour :
 
