@@ -14,7 +14,7 @@ class Analyzer {
     maxTokens = maxTokens || 2000;
     return new Promise((resolve, reject) => {
       const postData = JSON.stringify({
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-opus-4-6',
         max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }]
