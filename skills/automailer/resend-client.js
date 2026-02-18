@@ -57,7 +57,15 @@ class ResendClient {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/\n/g, '<br>');
-    return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + '</div>';
+
+    // Signature pro texte — comme un vrai email de fondateur
+    const signature = '<br><span style="color:#666;font-size:13px">'
+      + '—<br>'
+      + 'Alexis B&eacute;nier<br>'
+      + 'Fondateur &mdash; ifind.fr'
+      + '</span>';
+
+    return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + '</div>';
   }
 
   async sendEmail(to, subject, body, options) {
