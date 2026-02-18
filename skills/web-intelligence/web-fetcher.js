@@ -34,8 +34,16 @@ class WebFetcher {
     return false;
   }
 
-  fetchUrl(url, redirectCount) {
-    redirectCount = redirectCount || 0;
+  fetchUrl(url, optionsOrRedirectCount) {
+    // Support ancien format (redirectCount number) et nouveau format ({userAgent, redirectCount})
+    let redirectCount = 0;
+    let customUA = null;
+    if (typeof optionsOrRedirectCount === 'number') {
+      redirectCount = optionsOrRedirectCount;
+    } else if (optionsOrRedirectCount && typeof optionsOrRedirectCount === 'object') {
+      redirectCount = optionsOrRedirectCount.redirectCount || 0;
+      customUA = optionsOrRedirectCount.userAgent || null;
+    }
     return new Promise((resolve, reject) => {
       if (redirectCount > this.maxRedirects) {
         return reject(new Error('Trop de redirections'));
@@ -67,7 +75,7 @@ class WebFetcher {
         path: parsedUrl.pathname + parsedUrl.search,
         method: 'GET',
         headers: {
-          'User-Agent': this.userAgent,
+          'User-Agent': customUA || this.userAgent,
           'Accept': acceptHeader,
           'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.5'
         }
@@ -80,7 +88,7 @@ class WebFetcher {
           if (redirectUrl.startsWith('/')) {
             redirectUrl = (isHttps ? 'https' : 'http') + '://' + parsedUrl.hostname + redirectUrl;
           }
-          return this.fetchUrl(redirectUrl, redirectCount + 1).then(resolve).catch(reject);
+          return this.fetchUrl(redirectUrl, { redirectCount: redirectCount + 1, userAgent: customUA }).then(resolve).catch(reject);
         }
 
         let data = '';

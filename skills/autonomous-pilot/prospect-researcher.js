@@ -29,10 +29,25 @@ function getLeadEnrichStorage() {
   return _require('../lead-enrich/storage.js', '/app/skills/lead-enrich/storage.js');
 }
 
+// User-agents rotatifs pour eviter les 403 Google Cache
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15'
+];
+
 class ProspectResearcher {
   constructor(options) {
     this.claudeKey = options.claudeKey;
     this._fetcher = null;
+    this._uaIndex = Math.floor(Math.random() * USER_AGENTS.length);
+  }
+
+  _nextUA() {
+    this._uaIndex = (this._uaIndex + 1) % USER_AGENTS.length;
+    return USER_AGENTS[this._uaIndex];
   }
 
   _getFetcher() {
@@ -225,62 +240,22 @@ class ProspectResearcher {
   }
 
   /**
-   * Recupere des donnees LinkedIn via 5 strategies (0$ — aucun appel direct linkedin.com).
-   * Ordre : Apollo data > Google Cache > Bing search > DuckDuckGo > Google News.
+   * Recupere des donnees LinkedIn via 4 strategies (0$ — aucun appel direct linkedin.com).
+   * Ordre optimise : DuckDuckGo (+ fiable) > Bing > Google Cache > Google search.
+   * Chaque requete utilise un user-agent different pour eviter les 403.
    */
   async _fetchLinkedInData(linkedinUrl, name, company) {
     if ((!linkedinUrl || !linkedinUrl.includes('linkedin.com/in/')) && !name) return null;
 
-    // Strategie 0 : Utiliser les donnees Apollo deja disponibles (titre = headline LinkedIn)
-    // Apollo scrape LinkedIn, donc le titre du contact EST le headline LinkedIn
-    // On l'ajoute au brief via contact.titre dans _buildProspectBrief
-
     const fetcher = this._getFetcher();
     if (!fetcher) return null;
 
-    // Strategie 1 : Google Cache de l'URL LinkedIn directe
-    if (linkedinUrl && linkedinUrl.includes('linkedin.com/in/')) {
-      try {
-        const cacheUrl = 'https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(linkedinUrl);
-        const result = await fetcher.fetchUrl(cacheUrl);
-        if (result && result.statusCode === 200 && result.body) {
-          const parsed = this._parseLinkedInPage(result.body);
-          if (parsed && parsed.headline) {
-            parsed.source = 'google_cache';
-            log.info('prospect-research', 'LinkedIn via Google Cache OK pour ' + name);
-            return parsed;
-          }
-        }
-      } catch (e) {
-        log.info('prospect-research', 'Google Cache LinkedIn echoue: ' + e.message);
-      }
-    }
-
-    // Strategie 2 : Bing search pour le profil LinkedIn
+    // Strategie 1 (PRIORITAIRE) : DuckDuckGo HTML — pas de rate limit agressif, le plus fiable
     if (name) {
       try {
-        const bingQuery = encodeURIComponent('site:linkedin.com/in/ "' + name + '"' + (company ? ' "' + company + '"' : ''));
-        const bingUrl = 'https://www.bing.com/search?q=' + bingQuery + '&count=3';
-        const result = await fetcher.fetchUrl(bingUrl);
-        if (result && result.statusCode === 200 && result.body) {
-          const parsed = this._parseBingLinkedInResults(result.body, name);
-          if (parsed && parsed.headline) {
-            parsed.source = 'bing_search';
-            log.info('prospect-research', 'LinkedIn via Bing OK pour ' + name);
-            return parsed;
-          }
-        }
-      } catch (e) {
-        log.info('prospect-research', 'Bing LinkedIn echoue: ' + e.message);
-      }
-    }
-
-    // Strategie 3 : DuckDuckGo HTML search (pas d'API key, pas de rate limit agressif)
-    if (name) {
-      try {
-        const ddgQuery = encodeURIComponent('site:linkedin.com/in/ "' + name + '"' + (company ? ' ' + company : ''));
+        const ddgQuery = encodeURIComponent('"' + name + '"' + (company ? ' "' + company + '"' : '') + ' site:linkedin.com/in/');
         const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + ddgQuery;
-        const result = await fetcher.fetchUrl(ddgUrl);
+        const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
         if (result && result.statusCode === 200 && result.body) {
           const parsed = this._parseDDGLinkedInResults(result.body, name);
           if (parsed && parsed.headline) {
@@ -294,22 +269,63 @@ class ProspectResearcher {
       }
     }
 
-    // Strategie 4 : Google News RSS (fallback, parfois retourne des profils LinkedIn)
-    if (name && company) {
+    // Strategie 2 : Bing search
+    if (name) {
       try {
-        const queryKeywords = ['site:linkedin.com/in/', '"' + name + '"', '"' + company + '"'];
-        const newsResult = await fetcher.fetchGoogleNews(queryKeywords);
-        if (newsResult && newsResult.length > 0) {
-          const firstResult = newsResult[0];
-          if (firstResult.title && firstResult.title.toLowerCase().includes('linkedin')) {
-            return {
-              headline: firstResult.title.replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim().substring(0, 200),
-              source: 'google_news'
-            };
+        const bingQuery = encodeURIComponent('site:linkedin.com/in/ "' + name + '"' + (company ? ' "' + company + '"' : ''));
+        const bingUrl = 'https://www.bing.com/search?q=' + bingQuery + '&count=3';
+        const result = await fetcher.fetchUrl(bingUrl, { userAgent: this._nextUA() });
+        if (result && result.statusCode === 200 && result.body) {
+          const parsed = this._parseBingLinkedInResults(result.body, name);
+          if (parsed && parsed.headline) {
+            parsed.source = 'bing_search';
+            log.info('prospect-research', 'LinkedIn via Bing OK pour ' + name);
+            return parsed;
           }
         }
       } catch (e) {
-        log.info('prospect-research', 'Google News LinkedIn echoue: ' + e.message);
+        log.info('prospect-research', 'Bing LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    // Strategie 3 : Google Cache de l'URL LinkedIn directe (souvent 403 mais on essaie)
+    if (linkedinUrl && linkedinUrl.includes('linkedin.com/in/')) {
+      try {
+        const cacheUrl = 'https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(linkedinUrl);
+        const result = await fetcher.fetchUrl(cacheUrl, { userAgent: this._nextUA() });
+        if (result && result.statusCode === 200 && result.body) {
+          const parsed = this._parseLinkedInPage(result.body);
+          if (parsed && parsed.headline) {
+            parsed.source = 'google_cache';
+            log.info('prospect-research', 'LinkedIn via Google Cache OK pour ' + name);
+            return parsed;
+          }
+        }
+      } catch (e) {
+        log.info('prospect-research', 'Google Cache LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    // Strategie 4 : Google search direct (pas News, search normal via DDG lite)
+    if (name && company) {
+      try {
+        const gQuery = encodeURIComponent(name + ' ' + company + ' linkedin');
+        const gUrl = 'https://lite.duckduckgo.com/lite/?q=' + gQuery;
+        const result = await fetcher.fetchUrl(gUrl, { userAgent: this._nextUA() });
+        if (result && result.statusCode === 200 && result.body) {
+          // Chercher un snippet qui ressemble a un profil LinkedIn
+          const snippetMatch = result.body.match(/([^<]*linkedin\.com\/in\/[^<]*)/i);
+          const titleMatch = result.body.match(/<a[^>]*href="[^"]*linkedin\.com\/in\/[^"]*"[^>]*>([^<]+)<\/a>/i);
+          if (titleMatch) {
+            const headline = titleMatch[1].replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim();
+            if (headline.length > 5) {
+              log.info('prospect-research', 'LinkedIn via DDG Lite OK pour ' + name);
+              return { headline: headline.substring(0, 200), source: 'ddg_lite' };
+            }
+          }
+        }
+      } catch (e) {
+        log.info('prospect-research', 'DDG Lite LinkedIn echoue: ' + e.message);
       }
     }
 
@@ -489,8 +505,8 @@ class ProspectResearcher {
     }
 
     const brief = lines.join('\n');
-    // Tronquer si trop long (garder ~600 chars max pour ne pas exploser le prompt)
-    return brief.substring(0, 600);
+    // Tronquer si trop long (garder ~800 chars max pour ne pas exploser le prompt)
+    return brief.substring(0, 800);
   }
 }
 

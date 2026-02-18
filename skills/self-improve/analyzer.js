@@ -14,7 +14,7 @@ class Analyzer {
     maxTokens = maxTokens || 2000;
     return new Promise((resolve, reject) => {
       const postData = JSON.stringify({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-4-5-20250929',
         max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }]
@@ -245,8 +245,8 @@ Reponds UNIQUEMENT en JSON strict :
     const emails = automailerStorage.data.emails || [];
     const sentEmails = emails.filter(e => e.sentAt && e.to);
 
-    if (sentEmails.length < 5) {
-      return { available: false, insights: ['Pas assez d\'emails envoyes (' + sentEmails.length + ') pour une analyse significative'], recommendations: [] };
+    if (sentEmails.length < 3) {
+      return { available: false, insights: ['Pas assez d\'emails envoyes (' + sentEmails.length + ') pour une analyse significative (min 3)'], recommendations: [] };
     }
 
     const insights = [];
@@ -256,7 +256,7 @@ Reponds UNIQUEMENT en JSON strict :
     const shortEmails = sentEmails.filter(e => (e.body || '').split(/\s+/).length < 100);
     const longEmails = sentEmails.filter(e => (e.body || '').split(/\s+/).length >= 100);
 
-    if (shortEmails.length >= 3 && longEmails.length >= 3) {
+    if (shortEmails.length >= 2 && longEmails.length >= 2) {
       const shortOpenRate = shortEmails.length > 0
         ? Math.round((shortEmails.filter(e => !!e.openedAt).length / shortEmails.length) * 100) : 0;
       const longOpenRate = longEmails.length > 0
@@ -281,7 +281,7 @@ Reponds UNIQUEMENT en JSON strict :
     const questionSubjects = sentEmails.filter(e => (e.subject || '').trim().endsWith('?'));
     const statementSubjects = sentEmails.filter(e => !(e.subject || '').trim().endsWith('?'));
 
-    if (questionSubjects.length >= 3 && statementSubjects.length >= 3) {
+    if (questionSubjects.length >= 2 && statementSubjects.length >= 2) {
       const questionRate = Math.round((questionSubjects.filter(e => !!e.openedAt).length / questionSubjects.length) * 100);
       const statementRate = Math.round((statementSubjects.filter(e => !!e.openedAt).length / statementSubjects.length) * 100);
 

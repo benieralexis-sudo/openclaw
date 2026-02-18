@@ -36,9 +36,12 @@ class SelfImproveHandler {
     this.stop();
     const tz = 'Europe/Paris';
 
-    // Cron hebdomadaire : dimanche 21h
+    // Cron bi-hebdomadaire : dimanche 21h + mercredi 21h
     this.crons.push(new Cron('0 21 * * 0', { timezone: tz }, () => this._weeklyAnalysis()));
-    log.info('self-improve', 'Cron: analyse hebdo dimanche 21h');
+    log.info('self-improve', 'Cron: analyse dimanche 21h');
+
+    this.crons.push(new Cron('0 21 * * 3', { timezone: tz }, () => this._weeklyAnalysis()));
+    log.info('self-improve', 'Cron: analyse mercredi 21h');
 
     log.info('self-improve', 'Demarre avec ' + this.crons.length + ' cron(s)');
   }
@@ -439,7 +442,7 @@ Reponds UNIQUEMENT en JSON strict :
         if (autoApplyResult.applied > 0) {
           autoApplyMsg = '\n\nAuto-Improve : ' + autoApplyResult.applied + '/' +
             autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
-            ' (confiance >= 70%). Dis _"rollback"_ pour annuler.';
+            ' (confiance >= 50%). Dis _"rollback"_ pour annuler.';
         }
       }
 
@@ -496,7 +499,7 @@ Reponds UNIQUEMENT en JSON strict :
 
     const lines = [
       '*Self-Improve :* ' + (config.enabled ? 'ACTIF' : 'DESACTIF'),
-      '*Auto-Apply :* ' + (config.autoApply ? 'ACTIF (confiance >= 70%)' : 'DESACTIF (mode manuel)'),
+      '*Auto-Apply :* ' + (config.autoApply ? 'ACTIF (confiance >= 50%)' : 'DESACTIF (mode manuel)'),
       '*Crons :* ' + this.crons.length + ' actif(s)',
       ''
     ];
@@ -580,7 +583,7 @@ Reponds UNIQUEMENT en JSON strict :
         if (autoApplyResult.applied > 0 && this.sendTelegram) {
           const autoMsg = 'Auto-Improve : ' + autoApplyResult.applied + '/' +
             autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
-            ' (confiance >= 70%).\nDis _"rollback"_ pour annuler.';
+            ' (confiance >= 50%).\nDis _"rollback"_ pour annuler.';
           await this.sendTelegram(config.adminChatId, autoMsg);
         }
       }
@@ -646,7 +649,7 @@ Reponds UNIQUEMENT en JSON strict :
 
   // FIX 16 : Auto-appliquer les recommandations a haute confiance (>= 0.7)
   _autoApplyRecommendations(recommendations) {
-    const MIN_CONFIDENCE = 0.7;
+    const MIN_CONFIDENCE = 0.5;
     const pending = storage.getPendingRecommendations();
     if (pending.length === 0) return { applied: 0, total: 0, results: [] };
 
@@ -677,7 +680,7 @@ Reponds UNIQUEMENT en JSON strict :
       const emails = automailerStorage.data.emails || [];
       const sentEmails = emails.filter(e => e.sentAt && e.to);
 
-      if (sentEmails.length < 5) {
+      if (sentEmails.length < 3) {
         log.info('self-improve', 'Timing optim: pas assez d\'emails (' + sentEmails.length + ')');
         return null;
       }
