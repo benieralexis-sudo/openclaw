@@ -475,6 +475,68 @@ REGLES :
     return false;
   }
 
+  // --- Filtre geographique (France/Europe cible) ---
+
+  _isRelevantGeography(article) {
+    const text = ((article.title || '') + ' ' + (article.snippet || '') + ' ' + (article.summary || '') + ' ' + (article.source || '')).toLowerCase();
+
+    // Pays/regions hors cible — si detectes, filtrer
+    const blockedGeoKeywords = [
+      // Asie
+      'indienne', 'indien', 'india', 'inde', 'mumbai', 'bangalore', 'delhi', 'hyderabad',
+      'chinoise', 'chinois', 'china', 'chine', 'beijing', 'shanghai', 'shenzhen',
+      'japonaise', 'japonais', 'japan', 'japon', 'tokyo',
+      'coréenne', 'coreenne', 'korea', 'coree', 'seoul',
+      'singapour', 'singapore', 'hong kong', 'taiwan',
+      'thaïlande', 'thailande', 'thailand', 'vietnam', 'indonesie', 'indonesia',
+      'malaisie', 'malaysia', 'philippines',
+      // Amerique latine
+      'brésilienne', 'bresilienne', 'bresilien', 'brazil', 'bresil', 'são paulo', 'sao paulo',
+      'mexicaine', 'mexicain', 'mexico', 'mexique',
+      'colombienne', 'colombie', 'colombia', 'argentine', 'argentina', 'buenos aires',
+      'chilienne', 'chili', 'chile', 'peruvienne', 'perou', 'peru',
+      // Moyen-Orient
+      'dubai', 'emirats', 'emirates', 'saudi', 'saoudite', 'arabie',
+      'qatar', 'bahrain', 'oman', 'koweït', 'koweit', 'kuwait',
+      // Afrique (hors francophonie proche)
+      'nigeria', 'nigeriane', 'kenya', 'south africa', 'afrique du sud',
+      'egypte', 'egypt', 'ghana',
+      // Oceanie
+      'australienne', 'australien', 'australia', 'australie', 'sydney', 'melbourne',
+      'new zealand', 'nouvelle-zelande'
+    ];
+
+    // Pays/regions cibles (prioritaires) — si detectes, garder
+    const targetGeoKeywords = [
+      'france', 'français', 'francais', 'française', 'francaise', 'paris', 'lyon', 'marseille',
+      'toulouse', 'bordeaux', 'nantes', 'lille', 'strasbourg', 'montpellier', 'nice',
+      'europe', 'européen', 'europeen', 'européenne', 'europeenne',
+      'allemagne', 'germany', 'berlin', 'munich',
+      'royaume-uni', 'uk', 'london', 'londres',
+      'espagne', 'spain', 'madrid', 'barcelone',
+      'italie', 'italy', 'milan', 'rome',
+      'pays-bas', 'netherlands', 'amsterdam',
+      'belgique', 'belgium', 'bruxelles',
+      'suisse', 'switzerland', 'zurich', 'geneve',
+      'luxembourg', 'portugal', 'lisbonne',
+      'scandinave', 'suede', 'sweden', 'stockholm', 'danemark', 'denmark', 'copenhague',
+      'norvege', 'norway', 'oslo', 'finlande', 'finland', 'helsinki'
+    ];
+
+    // Si un mot cible est present, garder
+    for (const kw of targetGeoKeywords) {
+      if (text.includes(kw)) return true;
+    }
+
+    // Si un mot bloque est present ET aucun mot cible, filtrer
+    for (const kw of blockedGeoKeywords) {
+      if (text.includes(kw)) return false;
+    }
+
+    // Pas d'indicateur geo clair : garder par defaut (neutre/generique)
+    return true;
+  }
+
   // --- Detection de signaux marche actionnables (Intelligence Reelle v5) ---
 
   classifyMarketSignals(articles) {
@@ -521,6 +583,12 @@ REGLES :
     };
 
     for (const article of articles) {
+      // FIX 17 : Filtre geographique — ne garder que France/Europe
+      if (!this._isRelevantGeography(article)) {
+        log.info('web-intel', 'Signal filtre (hors zone geo) : ' + (article.title || '').substring(0, 60));
+        continue;
+      }
+
       const textLower = ((article.title || '') + ' ' + (article.snippet || '') + ' ' + (article.summary || '')).toLowerCase();
 
       for (const [signalType, config] of Object.entries(SIGNAL_PATTERNS)) {

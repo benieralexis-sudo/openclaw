@@ -1,6 +1,35 @@
 // AutoMailer - Moteur de campagnes (sequences, scheduling, execution)
 const storage = require('./storage');
+const dns = require('dns');
 const log = require('../../gateway/logger.js');
+
+// --- Cache MX par domaine (1h TTL) ---
+const _mxCache = new Map();
+const MX_CACHE_TTL = 60 * 60 * 1000; // 1 heure
+
+function _checkMX(email) {
+  return new Promise((resolve) => {
+    const domain = (email || '').split('@')[1];
+    if (!domain) return resolve(false);
+
+    // Check cache
+    const cached = _mxCache.get(domain);
+    if (cached && Date.now() - cached.ts < MX_CACHE_TTL) {
+      return resolve(cached.valid);
+    }
+
+    dns.resolveMx(domain, (err, addresses) => {
+      const valid = !err && Array.isArray(addresses) && addresses.length > 0;
+      _mxCache.set(domain, { valid, ts: Date.now() });
+      // Limiter le cache a 500 domaines
+      if (_mxCache.size > 500) {
+        const firstKey = _mxCache.keys().next().value;
+        _mxCache.delete(firstKey);
+      }
+      resolve(valid);
+    });
+  });
+}
 
 // --- FIX 15 : Cross-skill HubSpot sync ---
 function _getHubSpotClient() {
@@ -171,6 +200,21 @@ class CampaignEngine {
         log.info('campaign-engine', 'Skip ' + contact.email + ' (blackliste)');
         skipped++;
         continue;
+      }
+
+      // FIX 16 : Verification MX du domaine avant envoi
+      try {
+        const hasMX = await _checkMX(contact.email);
+        if (!hasMX) {
+          const domain = (contact.email || '').split('@')[1];
+          log.info('campaign-engine', 'Skip ' + contact.email + ' (pas de MX pour ' + domain + ') — ajoute au blacklist');
+          storage.addToBlacklist(contact.email, 'no_mx_record');
+          skipped++;
+          continue;
+        }
+      } catch (mxErr) {
+        // En cas d'erreur DNS, on laisse passer (pas de blocage)
+        log.info('campaign-engine', 'MX check echoue pour ' + contact.email + ' (non bloquant): ' + mxErr.message);
       }
 
       // Verifier si l'email a deja ete envoye pour ce contact/step
@@ -584,4 +628,5 @@ class CampaignEngine {
   }
 }
 
+CampaignEngine.checkMX = _checkMX;
 module.exports = CampaignEngine;

@@ -356,7 +356,8 @@ class ReportGenerator {
       ? '\nHOT LEADS (3+ ouvertures) : ' + Object.entries(hotLeads).map(([email, d]) => email + ' (' + d.opens + ' ouvertures)').join(', ')
       : '';
 
-    // Email Intelligence
+    // Email Intelligence — plain text = pas de pixel tracking, ouvertures non fiables
+    const isPlainTextMode = true; // v5.3 Machine de Guerre : plain text uniquement
     const emailOpenRate = data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0;
     const bestDayEntry = Object.entries(data.emails.opensByDay || {}).sort((a, b) => (b[1].rate || 0) - (a[1].rate || 0))[0];
     const bestDayStr = bestDayEntry ? bestDayEntry[0] + ' (' + bestDayEntry[1].rate + '% ouverture)' : 'N/A';
@@ -373,21 +374,24 @@ class ReportGenerator {
     // Web Intelligence
     const webArticlesStr = (data.webIntel.relevantArticles || []).slice(0, 3).map(a => a.title + ' (score ' + a.score + ')').join(', ') || 'Aucun';
 
+    const plainTextNote = isPlainTextMode
+      ? '\n⚠️ IMPORTANT : Les emails sont envoyes en PLAIN TEXT (pas de HTML). Le taux d\'ouverture est NON MESURABLE car il n\'y a pas de pixel de tracking. Ne commente PAS le taux d\'ouverture et ne dis pas que c\'est un probleme. Concentre-toi sur les deliveries et les bounces.'
+      : '';
+
     const prompt = `DONNEES DU JOUR :
 - Contacts HubSpot : ${data.hubspot.contacts}
 - Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.deals.filter(d => d.stage !== 'closedwon' && d.stage !== 'closedlost').length} deals)
-- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${emailOpenRate}%), bounced : ${data.emails.bounced}
-- Campagnes actives : ${data.emails.activeCampaigns}
-- Meilleur jour d'envoi : ${bestDayStr} | Meilleure heure : ${bestHourStr}
+- Emails envoyes : ${data.emails.sent}, delivered : ${data.emails.delivered}, bounced : ${data.emails.bounced}${isPlainTextMode ? '' : ', ouverts : ' + data.emails.opened + ' (taux: ' + emailOpenRate + '%)'}
+- Campagnes actives : ${data.emails.activeCampaigns}${isPlainTextMode ? '' : '\n- Meilleur jour d\'envoi : ' + bestDayStr + ' | Meilleure heure : ' + bestHourStr}
 - Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched} (+${data.leads.enrichedThisWeek} cette semaine)
 - Top leads : ${topLeadsStr}
-- Leads refroidis (7j+ sans ouverture) : ${coldLeadsStr}
+- Leads refroidis (7j+ sans activite) : ${coldLeadsStr}
 - Contenus generes : ${data.content.generated} (cette semaine: ${data.content.thisWeek}) — Types: ${contentTypes}
 - Factures : ${data.invoices.total} (${data.invoices.paid} payees, ${data.invoices.overdue} en retard)
 - Veille web : ${data.webIntel.articlesThisWeek} articles cette semaine, ${data.webIntel.competitorAlerts} alertes concurrents
 - Articles pertinents : ${webArticlesStr}
 - Budget API : ${data.budget.todaySpent}$ aujourd'hui / ${data.budget.dailyLimit}$ limite | Semaine: ${data.budget.weekSpent}$ | Projection mois: ${data.budget.projection}$
-${hotLeadList}
+${hotLeadList}${plainTextNote}
 ${briefingText}`;
 
     const systemPrompt = `Tu es iFIND, l'assistant IA de ${this.ownerName}. Tu envoies un rapport matinal.
@@ -449,8 +453,6 @@ REGLES :
       : '\nPas de donnees de la semaine precedente.';
 
     // Enrichissements hebdo
-    const weekOpenRate = data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0;
-    const weekBestDay = Object.entries(data.emails.opensByDay || {}).sort((a, b) => (b[1].rate || 0) - (a[1].rate || 0))[0];
     const weekTopLeads = (data.leads.topLeads || []).slice(0, 5).map(l => '  - ' + l.name + ' (' + l.company + ', score ' + l.score + (l.hotLead ? ', HOT' : '') + ')').join('\n') || '  Aucun';
     const weekColdLeads = (data.leads.coldLeads || []).slice(0, 5).map(l => '  - ' + l.name + ' (' + l.daysSinceActivity + 'j inactif)').join('\n') || '  Aucun';
     const weekContentTypes = Object.entries(data.content.byType || {}).sort((a, b) => b[1] - a[1]).map(([t, c]) => t + ': ' + c).join(', ') || 'Aucun';
@@ -460,8 +462,8 @@ REGLES :
 - Contacts HubSpot : ${data.hubspot.contacts}
 - Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.deals.filter(d => d.stage !== 'closedwon' && d.stage !== 'closedlost').length} deals)
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
-- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${weekOpenRate}%), bounced : ${data.emails.bounced}
-- Meilleur jour d'envoi : ${weekBestDay ? weekBestDay[0] + ' (' + weekBestDay[1].rate + '%)' : 'N/A'}
+- Emails envoyes : ${data.emails.sent}, delivered : ${data.emails.delivered}, bounced : ${data.emails.bounced}
+- NOTE : emails en plain text, taux d'ouverture non mesurable (pas de pixel tracking)
 - Campagnes : ${data.emails.campaigns} (${data.emails.activeCampaigns} actives)
 - Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched} (+${data.leads.enrichedThisWeek} cette semaine)
 - TOP 5 LEADS :
@@ -505,8 +507,6 @@ REGLES :
 - Emails : ${prev.emails ? '+' + (data.emails.sent - (prev.emails.sent || 0)) + ' envoyes' : '?'}`
       : '\nPas de donnees du mois precedent.';
 
-    const monthOpenRate = data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0;
-    const monthBestDay = Object.entries(data.emails.opensByDay || {}).sort((a, b) => (b[1].rate || 0) - (a[1].rate || 0))[0];
     const monthTopLeads = (data.leads.topLeads || []).slice(0, 5).map(l => '  - ' + l.name + ' (' + l.company + ', score ' + l.score + ')').join('\n') || '  Aucun';
     const monthContentTypes = Object.entries(data.content.byType || {}).sort((a, b) => b[1] - a[1]).map(([t, c]) => t + ': ' + c).join(', ') || 'Aucun';
 
@@ -514,9 +514,9 @@ REGLES :
 - Contacts HubSpot : ${data.hubspot.contacts}
 - Pipeline actif : ${data.hubspot.pipeline} EUR
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
-- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened}
-- Taux ouverture : ${monthOpenRate}% | Bounced : ${data.emails.bounced}
-- Meilleur jour : ${monthBestDay ? monthBestDay[0] + ' (' + monthBestDay[1].rate + '%)' : 'N/A'} | Meilleure heure : ${data.emails.bestHour !== null ? data.emails.bestHour + 'h' : 'N/A'}
+- Emails envoyes : ${data.emails.sent}, delivered : ${data.emails.delivered}
+- Bounced : ${data.emails.bounced}
+- NOTE : emails en plain text, taux d'ouverture non mesurable (pas de pixel tracking)
 - Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched}
 - TOP LEADS :
 ${monthTopLeads}

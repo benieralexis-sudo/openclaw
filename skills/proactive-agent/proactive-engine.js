@@ -608,13 +608,13 @@ class ProactiveEngine {
                 // Recuperer les stats de la campagne
                 const campEmails = (automailerStorage.data.emails || []).filter(e => e.campaignId === camp.id);
                 const sent = campEmails.length;
-                const opened = campEmails.filter(e => e.status === 'opened' || e.openedAt).length;
+                const delivered = campEmails.filter(e => e.status === 'delivered' || e.status === 'opened').length;
                 const bounced = campEmails.filter(e => e.status === 'bounced').length;
-                const openRate = sent > 0 ? Math.round(opened / sent * 100) : 0;
 
+                // Plain text mode : pas de tracking ouvertures (pas de pixel)
                 const msg = '📧 *Campagne terminee* : *' + (camp.name || 'Sans nom') + '*\n\n' +
                   'Emails envoyes : ' + sent + '\n' +
-                  'Ouverts : ' + opened + ' (' + openRate + '%)\n' +
+                  'Delivres : ' + delivered + '\n' +
                   'Bounced : ' + bounced + '\n\n' +
                   '_Consulte le dashboard pour les details._';
                 await this.sendTelegram(config.adminChatId, msg);

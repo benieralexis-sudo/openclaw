@@ -206,13 +206,16 @@ class SystemMonitor {
     checks.push(diskCheck);
 
     // 3. Process memory (heap)
+    // FIX 18 : Ne pas alerter sur des petits heaps (<100MB) — le % est trompeur
     const heapPercent = ram.process.heapTotalMB > 0
       ? Math.round((ram.process.heapUsedMB / ram.process.heapTotalMB) * 100) : 0;
+    const heapIsSmall = ram.process.heapTotalMB < 100; // En dessous de 100MB, le heap est normal pour Node.js
+    const heapStatus = heapIsSmall ? 'ok' : (heapPercent > 90 ? 'warning' : 'ok');
     checks.push({
       name: 'Heap Node.js',
-      status: heapPercent > 90 ? 'warning' : 'ok',
-      value: heapPercent + '%',
-      detail: ram.process.heapUsedMB + 'MB / ' + ram.process.heapTotalMB + 'MB'
+      status: heapStatus,
+      value: ram.process.heapUsedMB + 'MB',
+      detail: ram.process.heapUsedMB + 'MB / ' + ram.process.heapTotalMB + 'MB (' + heapPercent + '%)'
     });
 
     // 4. Uptime

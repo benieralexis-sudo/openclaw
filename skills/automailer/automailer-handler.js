@@ -822,6 +822,19 @@ JSON strict, exemples :
     const pending = this.pendingEmails[String(chatId)];
     if (!pending) return { type: 'text', content: 'Pas d\'email en attente.' };
 
+    // FIX 16 : Verification MX avant envoi
+    try {
+      const hasMX = await CampaignEngine.checkMX(pending.to);
+      if (!hasMX) {
+        const domain = (pending.to || '').split('@')[1];
+        delete this.pendingEmails[String(chatId)];
+        return { type: 'text', content: '❌ *Domaine invalide* : le domaine ' + domain + ' n\'a pas d\'enregistrement MX (pas de serveur mail). Email annule.' };
+      }
+    } catch (mxErr) {
+      // Erreur DNS non bloquante
+      log.info('automailer', 'MX check echoue pour ' + pending.to + ' (non bloquant): ' + mxErr.message);
+    }
+
     if (sendReply) await sendReply({ type: 'text', content: '📤 _Envoi en cours vers ' + pending.to + '..._' });
 
     try {
