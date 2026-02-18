@@ -356,8 +356,8 @@ class ReportGenerator {
       ? '\nHOT LEADS (3+ ouvertures) : ' + Object.entries(hotLeads).map(([email, d]) => email + ' (' + d.opens + ' ouvertures)').join(', ')
       : '';
 
-    // Email Intelligence — plain text = pas de pixel tracking, ouvertures non fiables
-    const isPlainTextMode = true; // v5.3 Machine de Guerre : plain text uniquement
+    // Email Intelligence — HTML minimal active depuis v5.3.1 (tracking ouvertures OK)
+    const isPlainTextMode = false; // v5.3.1 : HTML minimal pour tracking ouvertures
     const emailOpenRate = data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0;
     const bestDayEntry = Object.entries(data.emails.opensByDay || {}).sort((a, b) => (b[1].rate || 0) - (a[1].rate || 0))[0];
     const bestDayStr = bestDayEntry ? bestDayEntry[0] + ' (' + bestDayEntry[1].rate + '% ouverture)' : 'N/A';
@@ -453,6 +453,8 @@ REGLES :
       : '\nPas de donnees de la semaine precedente.';
 
     // Enrichissements hebdo
+    const weekOpenRate = data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0;
+    const weekBestDay = Object.entries(data.emails.opensByDay || {}).sort((a, b) => (b[1].rate || 0) - (a[1].rate || 0))[0];
     const weekTopLeads = (data.leads.topLeads || []).slice(0, 5).map(l => '  - ' + l.name + ' (' + l.company + ', score ' + l.score + (l.hotLead ? ', HOT' : '') + ')').join('\n') || '  Aucun';
     const weekColdLeads = (data.leads.coldLeads || []).slice(0, 5).map(l => '  - ' + l.name + ' (' + l.daysSinceActivity + 'j inactif)').join('\n') || '  Aucun';
     const weekContentTypes = Object.entries(data.content.byType || {}).sort((a, b) => b[1] - a[1]).map(([t, c]) => t + ': ' + c).join(', ') || 'Aucun';
@@ -462,8 +464,8 @@ REGLES :
 - Contacts HubSpot : ${data.hubspot.contacts}
 - Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.deals.filter(d => d.stage !== 'closedwon' && d.stage !== 'closedlost').length} deals)
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
-- Emails envoyes : ${data.emails.sent}, delivered : ${data.emails.delivered}, bounced : ${data.emails.bounced}
-- NOTE : emails en plain text, taux d'ouverture non mesurable (pas de pixel tracking)
+- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${weekOpenRate}%), bounced : ${data.emails.bounced}
+- Meilleur jour d'envoi : ${weekBestDay ? weekBestDay[0] + ' (' + weekBestDay[1].rate + '%)' : 'N/A'}
 - Campagnes : ${data.emails.campaigns} (${data.emails.activeCampaigns} actives)
 - Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched} (+${data.leads.enrichedThisWeek} cette semaine)
 - TOP 5 LEADS :
@@ -507,6 +509,8 @@ REGLES :
 - Emails : ${prev.emails ? '+' + (data.emails.sent - (prev.emails.sent || 0)) + ' envoyes' : '?'}`
       : '\nPas de donnees du mois precedent.';
 
+    const monthOpenRate = data.emails.sent > 0 ? Math.round(data.emails.opened / data.emails.sent * 100) : 0;
+    const monthBestDay = Object.entries(data.emails.opensByDay || {}).sort((a, b) => (b[1].rate || 0) - (a[1].rate || 0))[0];
     const monthTopLeads = (data.leads.topLeads || []).slice(0, 5).map(l => '  - ' + l.name + ' (' + l.company + ', score ' + l.score + ')').join('\n') || '  Aucun';
     const monthContentTypes = Object.entries(data.content.byType || {}).sort((a, b) => b[1] - a[1]).map(([t, c]) => t + ': ' + c).join(', ') || 'Aucun';
 
@@ -514,9 +518,9 @@ REGLES :
 - Contacts HubSpot : ${data.hubspot.contacts}
 - Pipeline actif : ${data.hubspot.pipeline} EUR
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
-- Emails envoyes : ${data.emails.sent}, delivered : ${data.emails.delivered}
+- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${monthOpenRate}%)
 - Bounced : ${data.emails.bounced}
-- NOTE : emails en plain text, taux d'ouverture non mesurable (pas de pixel tracking)
+- Meilleur jour : ${monthBestDay ? monthBestDay[0] + ' (' + monthBestDay[1].rate + '%)' : 'N/A'} | Meilleure heure : ${data.emails.bestHour !== null ? data.emails.bestHour + 'h' : 'N/A'}
 - Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched}
 - TOP LEADS :
 ${monthTopLeads}
