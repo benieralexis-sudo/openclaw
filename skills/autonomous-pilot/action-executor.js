@@ -1,4 +1,5 @@
 // Autonomous Pilot - Executeur d'actions cross-skill
+const crypto = require('crypto');
 const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
 
@@ -658,12 +659,15 @@ Format JSON strict :
     const resend = new ResendClient(this.resendKey, this.senderEmail);
     // amStorage deja obtenu en haut pour la deduplication
 
+    // Generer un tracking ID unique pour le pixel d'ouverture
+    const trackingId = crypto.randomBytes(16).toString('hex');
+
     try {
       const result = await resend.sendEmail(
         params.to,
         params.subject,
         params.body,
-        { replyTo: 'hello@ifind.fr', fromName: 'Alexis' }
+        { replyTo: 'hello@ifind.fr', fromName: 'Alexis', trackingId: trackingId }
       );
 
       if (result.success) {
@@ -678,6 +682,7 @@ Format JSON strict :
             subject: params.subject,
             body: params.body,
             resendId: result.id || null,
+            trackingId: trackingId,
             status: 'sent',
             source: 'autonomous-pilot',
             contactName: params.contactName || '',

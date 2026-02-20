@@ -51,7 +51,7 @@ class ResendClient {
     // Construire le message MIME
     const boundary = 'boundary_' + crypto.randomBytes(8).toString('hex');
     const messageId = '<' + crypto.randomBytes(12).toString('hex') + '@getifind.fr>';
-    const htmlBody = options.html || this._minimalHtml(body);
+    const htmlBody = options.html || this._minimalHtml(body, options.trackingId);
 
     const mime = [
       'From: ' + fromName + ' <' + this.gmailUser + '>',
@@ -193,7 +193,7 @@ class ResendClient {
   }
 
   // HTML minimal — ressemble a un email tape dans Gmail, zero branding
-  _minimalHtml(body) {
+  _minimalHtml(body, trackingId) {
     const escaped = body
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -206,7 +206,12 @@ class ResendClient {
       + 'Fondateur &mdash; ifind.fr'
       + '</span>';
 
-    return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + '</div>';
+    // Pixel de tracking ouverture (invisible)
+    const pixel = trackingId
+      ? '<img src="https://ifind.fr/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">'
+      : '';
+
+    return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + '</div>' + pixel;
   }
 
   // --- Envoi principal (Gmail prioritaire, Resend fallback) ---
@@ -235,7 +240,7 @@ class ResendClient {
       to: Array.isArray(to) ? to : [to],
       subject: subject,
       text: body,
-      html: options.html || this._minimalHtml(body),
+      html: options.html || this._minimalHtml(body, options.trackingId),
       headers: {
         'List-Unsubscribe': '<https://ifind.fr/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
       }
@@ -261,7 +266,7 @@ class ResendClient {
       const results = [];
       for (const e of emails) {
         try {
-          const r = await this._sendViaGmail(e.to, e.subject, e.body, { fromName: e.fromName || 'Alexis' });
+          const r = await this._sendViaGmail(e.to, e.subject, e.body, { fromName: e.fromName || 'Alexis', trackingId: e.trackingId });
           results.push(r);
         } catch (err) {
           results.push({ success: false, error: err.message });
@@ -279,7 +284,7 @@ class ResendClient {
         to: Array.isArray(e.to) ? e.to : [e.to],
         subject: e.subject,
         text: e.body,
-        html: this._minimalHtml(e.body),
+        html: this._minimalHtml(e.body, e.trackingId),
         tags: e.tags || [],
         reply_to: 'alexis@getifind.fr',
         headers: {

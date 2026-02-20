@@ -1517,6 +1517,75 @@ const healthServer = http.createServer((req, res) => {
     return;
   }
 
+  // Tracking pixel ouverture email — GET /t/:trackingId.gif
+  if (req.method === 'GET' && req.url && req.url.startsWith('/t/')) {
+    // 1x1 transparent GIF (43 bytes)
+    const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+    // Extraire le trackingId (format: /t/abc123def456.gif)
+    const match = req.url.match(/^\/t\/([a-f0-9]{32})\.gif/);
+    if (!match) {
+      res.writeHead(200, { 'Content-Type': 'image/gif', 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' });
+      res.end(PIXEL);
+      return;
+    }
+    const trackingId = match[1];
+    // Toujours servir le pixel immediatement (ne pas bloquer le rendu email)
+    res.writeHead(200, { 'Content-Type': 'image/gif', 'Content-Length': PIXEL.length, 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' });
+    res.end(PIXEL);
+    // Traitement asynchrone de l'ouverture
+    try {
+      const email = automailerStorage.findEmailByTrackingId(trackingId);
+      if (!email) { return; }
+      const wasAlreadyOpened = !!email.openedAt;
+      if (!wasAlreadyOpened) {
+        automailerStorage.updateEmailStatus(email.id, 'opened');
+        log.info('tracking', 'Email ouvert (pixel) : ' + email.to + ' — ' + (email.subject || '').substring(0, 40));
+        // Notification Telegram + prospect research (meme logique que webhook Resend)
+        if (ProspectResearcher) {
+          try {
+            const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
+            const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: '' };
+            Promise.race([
+              researcher.researchProspect(contact),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout 30s')), 30000))
+            ]).then(intel => {
+              const msg = '\u{1f4e8} *Email ouvert !*\n\n' +
+                '*Qui :* ' + (email.contactName || email.to) + '\n' +
+                (email.company ? '*Entreprise :* ' + email.company + '\n' : '') +
+                '*Objet :* _' + (email.subject || '(sans objet)').substring(0, 60) + '_\n\n' +
+                (intel && intel.brief ? '\u{1f50d} *Intel :*\n' + intel.brief.substring(0, 500) + '\n\n' : '') +
+                '\u27a1\ufe0f _Suggestion : relancer avec un message personnalise_';
+              sendMessage(ADMIN_CHAT_ID, msg, 'Markdown').catch(() => {});
+            }).catch(() => {
+              sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
+            });
+          } catch (e) {
+            sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to), 'Markdown').catch(() => {});
+          }
+        } else {
+          sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
+        }
+        // Sync CRM (async, non-bloquant)
+        (async () => {
+          try {
+            const hubspot = _getHubSpotClient();
+            if (hubspot) {
+              const contact = await hubspot.findContactByEmail(email.to);
+              if (contact && contact.id) {
+                const noteBody = 'Email "' + (email.subject || '') + '" — Ouvert (pixel tracking)\nDate : ' + new Date().toLocaleDateString('fr-FR');
+                const note = await hubspot.createNote(noteBody);
+                if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
+              }
+            }
+          } catch (crmErr) { log.warn('tracking', 'CRM sync: ' + crmErr.message); }
+        })();
+      }
+    } catch (trackErr) {
+      log.warn('tracking', 'Erreur tracking pixel: ' + trackErr.message);
+    }
+    return;
+  }
+
   res.writeHead(404);
   res.end();
 });

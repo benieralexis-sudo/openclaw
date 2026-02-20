@@ -265,6 +265,7 @@ class AutoMailerStorage {
     const entry = {
       id: 'eml_' + this._generateId(),
       resendId: record.resendId || null,
+      trackingId: record.trackingId || null,
       chatId: String(record.chatId || ''),
       campaignId: record.campaignId || null,
       stepNumber: record.stepNumber || null,
@@ -319,6 +320,10 @@ class AutoMailerStorage {
 
   findEmailByResendId(resendId) {
     return this.data.emails.find(e => e.resendId === resendId) || null;
+  }
+
+  findEmailByTrackingId(trackingId) {
+    return this.data.emails.find(e => e.trackingId === trackingId) || null;
   }
 
   getEmailsByCampaign(campaignId) {
