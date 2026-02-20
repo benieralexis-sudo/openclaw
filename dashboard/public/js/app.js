@@ -511,16 +511,16 @@ const App = {
     const cutoff = this._emailPeriod !== 'all' ? now - (periodMs[this._emailPeriod] || 0) : 0;
     const emails = cutoff ? allEmails.filter(em => new Date(em.createdAt).getTime() > cutoff) : allEmails;
 
-    const sent = emails.filter(em => ['sent', 'delivered', 'opened'].includes(em.status)).length;
-    const delivered = emails.filter(em => ['delivered', 'opened'].includes(em.status)).length;
-    const opened = emails.filter(em => em.status === 'opened').length;
+    const sent = emails.filter(em => ['sent', 'delivered', 'opened', 'clicked'].includes(em.status) || em.openedAt).length;
+    const delivered = emails.filter(em => ['delivered', 'opened', 'clicked'].includes(em.status) || em.openedAt).length;
+    const opened = emails.filter(em => em.openedAt).length;
     const bounced = emails.filter(em => em.status === 'bounced').length;
     const s = { sent, delivered, opened, bounced, openRate: sent > 0 ? Math.round((opened / sent) * 100) : 0, totalCampaigns: campaigns.length, totalContacts: (data.contactLists || []).reduce((a, cl) => a + (cl.contacts?.length || 0), 0) };
 
     // Filtrer campagnes et top emails par période
     const filteredCampaigns = cutoff ? campaigns.filter(c => new Date(c.createdAt || 0).getTime() > cutoff) : campaigns;
     const topEmails = emails
-      .filter(em => em.status === 'opened')
+      .filter(em => em.openedAt)
       .sort((a, b) => (b.openedAt || '').localeCompare(a.openedAt || ''))
       .slice(0, 5);
 

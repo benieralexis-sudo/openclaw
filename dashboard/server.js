@@ -458,9 +458,9 @@ app.get('/api/overview', authRequired, async (req, res) => {
   const emails = filterByCompany(am.emails || [], req.user, 'company');
   const emailsInPeriod = emails.filter(e => e.createdAt >= cutoff).length;
   const emailsPrev = emails.filter(e => e.createdAt >= prevCutoff && e.createdAt < cutoff).length;
-  const opened = emails.filter(e => e.createdAt >= cutoff && e.status === 'opened').length;
+  const opened = emails.filter(e => e.createdAt >= cutoff && e.openedAt).length;
   const openRate = emailsInPeriod > 0 ? Math.round((opened / emailsInPeriod) * 100) : 0;
-  const openedPrev = emails.filter(e => e.createdAt >= prevCutoff && e.createdAt < cutoff && e.status === 'opened').length;
+  const openedPrev = emails.filter(e => e.createdAt >= prevCutoff && e.createdAt < cutoff && e.openedAt).length;
   const openRatePrev = emailsPrev > 0 ? Math.round((openedPrev / emailsPrev) * 100) : 0;
 
   // Revenue (admin only)
@@ -580,16 +580,16 @@ app.get('/api/emails', authRequired, async (req, res) => {
   const contactLists = am.contactLists ? Object.values(am.contactLists) : [];
   const stats = am.stats || {};
 
-  const sent = emails.filter(e => ['sent', 'delivered', 'opened'].includes(e.status)).length;
-  const delivered = emails.filter(e => ['delivered', 'opened'].includes(e.status)).length;
-  const opened = emails.filter(e => e.status === 'opened').length;
+  const sent = emails.filter(e => ['sent', 'delivered', 'opened', 'clicked'].includes(e.status) || e.openedAt).length;
+  const delivered = emails.filter(e => ['delivered', 'opened', 'clicked'].includes(e.status) || e.openedAt).length;
+  const opened = emails.filter(e => e.openedAt).length;
   const bounced = emails.filter(e => e.status === 'bounced').length;
 
   const dailyOpenRate = buildDailyRate(emails, 'createdAt', 'opened', 30);
 
   // Top emails par ouverture
   const topEmails = emails
-    .filter(e => e.status === 'opened')
+    .filter(e => e.openedAt)
     .sort((a, b) => (b.openedAt || '').localeCompare(a.openedAt || ''))
     .slice(0, 5);
 
@@ -1031,7 +1031,7 @@ function buildDailyRate(items, dateField, targetStatus, days) {
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().substring(0, 10);
     const dayItems = items.filter(item => (item[dateField] || '').substring(0, 10) === dateStr);
-    const opened = dayItems.filter(item => item.status === targetStatus).length;
+    const opened = targetStatus === 'opened' ? dayItems.filter(item => item.openedAt).length : dayItems.filter(item => item.status === targetStatus).length;
     const rate = dayItems.length > 0 ? Math.round((opened / dayItems.length) * 100) : 0;
     result.push({ date: dateStr, total: dayItems.length, opened, rate });
   }
@@ -1073,9 +1073,10 @@ function buildActivityFeed(all, since) {
   // Emails
   const emails = all.automailer?.emails || [];
   emails.filter(e => e.createdAt >= sinceStr).forEach(e => {
-    if (e.status === 'opened' && e.openedAt) {
+    if (e.openedAt) {
       feed.push({ time: e.openedAt, icon: 'eye', text: `Email ouvert par ${e.to}`, skill: 'automailer' });
-    } else if (e.status === 'sent' && e.sentAt) {
+    }
+    if (e.sentAt) {
       feed.push({ time: e.sentAt, icon: 'mail', text: `Email envoyé à ${e.to}`, skill: 'automailer' });
     }
   });
