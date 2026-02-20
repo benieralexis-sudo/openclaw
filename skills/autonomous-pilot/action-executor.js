@@ -415,6 +415,32 @@ Format JSON strict :
                 ffStorage2.save();
               }
             }
+          } else if (contact._email) {
+            // Fallback : valider l'email Apollo existant via reverse email
+            log.info('action-executor', 'Nom+entreprise echoue pour ' + contact.first_name + ' ' + contact.last_name + ', fallback verification email ' + contact._email);
+            try {
+              const fallback = await enricher.enrichByEmail(contact._email);
+              if (fallback.success) {
+                enriched++;
+                const status = fallback._fullenrich && fallback._fullenrich.emailStatus ? fallback._fullenrich.emailStatus : '?';
+                log.info('action-executor', 'Fallback email ' + contact._email + ' → ' + status);
+                if (leStorage) leStorage.saveEnrichedLead(contact._email, fallback, { score: 5, reasoning: 'Enrichi par fallback email (nom+entreprise introuvable)' }, 'autonomous-pilot');
+                const ffStorage3 = getFlowFastStorage();
+                if (ffStorage3 && ffStorage3.data) {
+                  const leadsObj3 = ffStorage3.data.leads || {};
+                  for (const lid of Object.keys(leadsObj3)) {
+                    if (leadsObj3[lid].email === contact._email) {
+                      leadsObj3[lid].enrichedAt = new Date().toISOString();
+                      leadsObj3[lid].emailStatus = status;
+                      break;
+                    }
+                  }
+                  ffStorage3.save();
+                }
+              } else {
+                log.info('action-executor', 'Fallback email aussi echoue pour ' + contact._email);
+              }
+            } catch (fe) { log.warn('action-executor', 'Erreur fallback email ' + contact._email + ':', fe.message); }
           } else {
             log.info('action-executor', 'Enrichissement echoue pour ' + contact.first_name + ' ' + contact.last_name + ' @ ' + contact.company_name + ': ' + (result.error || ''));
           }
