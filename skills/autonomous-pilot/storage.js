@@ -52,7 +52,14 @@ function _defaultData() {
         maxLines: 5,
         language: 'fr',
         tone: 'direct',
-        forbiddenWords: [],
+        forbiddenWords: [
+          'SDR', 'pipeline', 'pilote', 'automatisation', 'solution', 'offre', 'plateforme',
+          'outil', 'logiciel', 'SaaS', 'innovation', 'revolutionner', 'transformer',
+          'optimiser', 'booster', 'scaler', 'ROI', 'KPI', 'growth', 'hack',
+          'synergie', 'levier', 'disruptif', 'game-changer', 'next-gen',
+          'intelligence artificielle', 'machine learning', 'IA',
+          'demo', 'essai gratuit', 'pilote gratuit'
+        ],
         hookStyle: 'problem-first',
         signatureStyle: ''
       },
@@ -139,6 +146,11 @@ function _load() {
       if (!_data.config.brainSchedule) _data.config.brainSchedule = def.config.brainSchedule;
       if (!_data.config.offer) _data.config.offer = def.config.offer;
       if (!_data.config.emailPreferences) _data.config.emailPreferences = def.config.emailPreferences;
+      // Migration : injecter les 30 mots interdits si la liste est vide (ancien JSON sur disque)
+      if (!_data.config.emailPreferences.forbiddenWords || _data.config.emailPreferences.forbiddenWords.length === 0) {
+        _data.config.emailPreferences.forbiddenWords = def.config.emailPreferences.forbiddenWords;
+        console.log('[autonomous-pilot-storage] Migration: 30 mots interdits injectes');
+      }
       if (!_data.goals) _data.goals = def.goals;
       if (!_data.goals.weekly) _data.goals.weekly = def.goals.weekly;
       if (_data.goals.weekly.responsesTarget === undefined) _data.goals.weekly.responsesTarget = def.goals.weekly.responsesTarget;

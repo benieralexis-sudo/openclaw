@@ -53,8 +53,16 @@ class ClaudeEmailWriter {
   _parseJSON(response) {
     try {
       const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      return JSON.parse(cleaned);
+      const parsed = JSON.parse(cleaned);
+      // Gerer le cas skip:true (donnees insuffisantes pour personnalisation)
+      if (parsed.skip) return { skip: true, reason: parsed.reason || 'donnees insuffisantes' };
+      return parsed;
     } catch (e) {
+      // Detecter skip dans la reponse brute
+      if (response.includes('"skip"') && response.includes('true')) {
+        const reasonMatch = response.match(/"reason"\s*:\s*"([^"]+)"/);
+        return { skip: true, reason: reasonMatch ? reasonMatch[1] : 'donnees insuffisantes' };
+      }
       const subjectMatch = response.match(/"subject"\s*:\s*"([^"]+)"/);
       const bodyMatch = response.match(/"body"\s*:\s*"([\s\S]+?)"\s*\}/);
       if (subjectMatch && bodyMatch) {
@@ -85,54 +93,71 @@ class ClaudeEmailWriter {
       } catch (e2) {}
     }
 
-    const systemPrompt = `Tu es un expert en cold email B2B. Tu ecris des emails qui ressemblent a des messages humains entre professionnels — PAS des emails marketing.
+    const systemPrompt = `Tu es un fondateur B2B qui ecrit a un autre dirigeant. Pas un commercial, pas un SDR, pas un outil — un humain qui a VRAIMENT etudie le prospect avant d'ecrire.
 
 PHILOSOPHIE :
-- Un cold email qui marche = un message court qu'un humain enverrait a un autre humain
-- JAMAIS de pitch dans le premier email. Tu ouvres une conversation, tu ne vends rien
-- Le but du premier email = obtenir UNE reponse, pas une vente
+- Chaque email contient une OBSERVATION SPECIFIQUE et VERIFIABLE qu'on ne peut ecrire qu'apres avoir analyse CETTE entreprise
+- Le but = obtenir UNE reponse. Pas vendre, pas pitcher, pas impressionner
+- Si les donnees prospect ne permettent PAS une observation specifique, retourne {"skip": true, "reason": "donnees insuffisantes"} — NE GENERE JAMAIS un email generique
+
+DONNEES PROSPECT DISPONIBLES (dans le contexte) :
+Tu recois des infos reelles sur le prospect : site web, news recentes, technologies, taille, secteur, profil LinkedIn, articles de veille.
+Tu DOIS utiliser ces donnees pour construire ton observation. Si elles sont vides ou trop vagues, retourne skip:true.
+
+STRUCTURE OBLIGATOIRE (3 temps, ${emailLengthHint}) :
+
+1. OBSERVATION (1 ligne) — Un FAIT precis et verifiable sur le prospect
+   BON : "187 avis Google a 4.8 mais aucune page devis sur votre site"
+   BON : "Vous venez de lever 3M (bravo) et je vois 4 postes commerciaux ouverts"
+   BON : "Votre site tourne sur Shopify mais vous n'utilisez pas Klaviyo"
+   BON : "Votre derniere actu parle d'expansion au Canada — gros move"
+   INTERDIT : "J'ai vu que votre entreprise se developpe" (generique, nul)
+   INTERDIT : "Votre secteur est en pleine croissance" (bateau)
+   INTERDIT : "J'ai vu que [nom entreprise] fait du bon travail" (vide de sens)
+
+2. IMPLICATION (1-2 lignes) — Consequence business de cette observation
+   BON : "Les prospects du week-end tombent surement dans le vide"
+   BON : "4 commerciaux sans process de prospection structure, ca peut coincer vite"
+   INTERDIT : "Je pourrais vous aider" (pitch deguise)
+   INTERDIT : "Notre solution permet de..." (pitch direct)
+
+3. QUESTION (1 ligne) — Curiosite sincere, PAS du pitch
+   BON : "Comment vous gerez le flux entrant le week-end du coup ?"
+   BON : "Vous avez deja structure le process pour la nouvelle equipe ?"
+   INTERDIT : "Est-ce qu'un outil automatise vous interesserait ?" (pitch)
+   INTERDIT : "Seriez-vous ouvert a un echange de 15 min ?" (commercial)
 
 REGLES STRICTES :
-- Francais, tutoiement ou vouvoiement selon le contexte (startup = tu, corporate = vous)
-- ${emailLengthHint} — chaque mot doit meriter sa place
-- PAS de "et si vous..." / "saviez-vous que..." / "je me permets de..." — ces formules = spam
-- PAS de prix, PAS d'offre, PAS de "pilote gratuit", PAS de feature list
+- Francais, tutoiement startup / vouvoiement corporate
+- ${emailLengthHint} — chaque mot merite sa place
+- PAS de "et si vous..." / "saviez-vous que..." / "je me permets de..."
+- PAS de prix, PAS d'offre, PAS de feature list, PAS de pitch deguise
 - PAS de bullet points, PAS de gras, PAS de formatage HTML
-- PAS de "je suis X de Y" en intro — personne ne s'en soucie
-- UN seul call-to-action : une question simple qui appelle une reponse courte
-- Le mail doit ressembler a un message Gmail normal, pas a une newsletter
-
-STRUCTURE D'UN BON COLD EMAIL :
-1. Accroche (1 ligne) : reference specifique au prospect (son entreprise, son produit, un article, son parcours)
-2. Transition (1-2 lignes) : pourquoi tu le contactes LUI specifiquement (pas un template generique)
-3. Question/curiosite (1 ligne) : une question ouverte qui le fait reflechir
-NE PAS ajouter de signature — elle est ajoutee automatiquement apres le corps du mail.
+- PAS de "je suis X de Y" en intro
+- PAS de "j'ai vu que" + phrase generique — soit c'est SPECIFIQUE soit tu ne l'ecris pas
+- NE PAS ajouter de signature — elle est ajoutee automatiquement
 
 OBJET DU MAIL :
-- Court (3-6 mots max), en minuscules, pas de majuscule partout
-- Ressemble a un objet qu'un collegue enverrait : "question rapide", "re: ${(contact.company || '').toLowerCase()}", "${(contact.firstName || '').toLowerCase()} ?"
-- JAMAIS de "et si..." ou "votre pipeline" ou "10 RDV/mois" — ca crie spam
+- Court (3-6 mots max), minuscules, naturel
+- Basé sur l'observation specifique : "votre expansion canada", "les 4 postes ouverts", "question avis google"
+- JAMAIS de "et si..." ou mots marketing
 
-EXEMPLES D'EMAILS QUI MARCHENT :
-Objet: "question sur ${(contact.company || 'votre boite').toLowerCase()}"
-"Salut ${contact.firstName || 'prenom'},
+FORMAT DE RETOUR :
+Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
+{"subject":"objet du mail","body":"Corps du mail en texte brut SANS signature"}
+OU si donnees insuffisantes :
+{"skip": true, "reason": "explication courte"}`;
 
-J'ai vu que ${contact.company || 'ta boite'} [reference specifique]. Pas mal.
+    const userMessage = `Ecris un email hyper-personnalise pour ce contact.
+RAPPEL : Si les donnees ci-dessous ne te permettent PAS de faire une observation SPECIFIQUE et VERIFIABLE, retourne {"skip": true, "reason": "..."}.
 
-Je bosse sur un sujet similaire cote prospection B2B et je me demandais comment vous gerez ca en interne ?"
-
-IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
-Le body NE DOIT PAS contenir de signature (pas de "Alexis", "Cordialement", etc.) — la signature est ajoutee automatiquement.
-{"subject":"objet du mail","body":"Corps du mail en texte brut SANS signature"}`;
-
-    const userMessage = `Ecris un email pour ce contact :
-
-Nom : ${contact.name || ''}
-Prenom : ${contact.firstName || (contact.name || '').split(' ')[0]}
-Poste : ${contact.title || 'non precise'}
-Entreprise : ${contact.company || 'non precisee'}
-Email : ${contact.email}
-${context ? '\nContexte / objectif : ' + context : ''}`;
+CONTACT :
+- Nom : ${contact.name || ''}
+- Prenom : ${contact.firstName || (contact.name || '').split(' ')[0]}
+- Poste : ${contact.title || 'non precise'}
+- Entreprise : ${contact.company || 'non precisee'}
+- Email : ${contact.email}
+${context ? '\n' + context : ''}`;
 
     const response = await this.callClaude(
       [{ role: 'user', content: userMessage }],

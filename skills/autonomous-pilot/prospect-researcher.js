@@ -505,8 +505,8 @@ class ProspectResearcher {
     }
 
     const brief = lines.join('\n');
-    // Tronquer si trop long (garder ~800 chars max pour ne pas exploser le prompt)
-    return brief.substring(0, 800);
+    // Tronquer si trop long (1200 chars pour permettre des observations specifiques)
+    return brief.substring(0, 1200);
   }
 }
 

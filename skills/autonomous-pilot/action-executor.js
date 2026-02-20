@@ -467,20 +467,24 @@ Format JSON strict :
     };
 
     // Construire un contexte enrichi — SANS pitch commercial (premier email = ouvrir une conversation)
-    let context = 'Tu contactes ce prospect pour la premiere fois. BUT: ouvrir une conversation, PAS vendre.';
-    context += '\nQUI TU ES: Alexis, fondateur d\'iFIND — on aide les boites B2B a automatiser leur prospection.';
-    context += '\nIMPORTANT: Ne mentionne PAS de prix, PAS d\'offre, PAS de "pilote gratuit". C\'est un PREMIER contact.';
+    let context = 'MISSION: Premier contact. Ouvrir une conversation, PAS vendre. Aucun pitch.';
+    context += '\nQUI TU ES: Alexis, fondateur — prospection B2B.';
+    context += '\nREGLE ABSOLUE: Ne mentionne PAS de prix, PAS d\'offre, PAS de "pilote gratuit".';
 
     const ep = config.emailPreferences || {};
     if (ep.maxLines) context += '\nLONGUEUR: ' + ep.maxLines + ' lignes MAXIMUM.';
     if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
-      context += '\nMOTS INTERDITS: ' + ep.forbiddenWords.join(', ');
+      context += '\nMOTS INTERDITS (ne JAMAIS utiliser): ' + ep.forbiddenWords.join(', ');
     }
     if (ep.tone) context += '\nTON: ' + ep.tone;
 
-    // Injecter les informations de recherche prospect (Pilier 1 Intelligence Reelle)
+    // Injecter les informations de recherche prospect — structurees et prioritaires
     if (params._prospectIntel) {
-      context += '\n\nINFOS SUR LE PROSPECT (utilise-les pour personnaliser — c\'est CA qui fait la difference):\n' + params._prospectIntel;
+      context += '\n\n=== DONNEES PROSPECT (OBLIGATOIRE — base ton email sur ces faits) ===\n' + params._prospectIntel;
+      context += '\n=== FIN DONNEES PROSPECT ===';
+      context += '\nINSTRUCTION: Utilise les donnees ci-dessus pour une observation SPECIFIQUE. Si elles sont trop vagues pour ca, retourne {"skip": true, "reason": "..."}.';
+    } else {
+      context += '\n\nATTENTION: Aucune donnee prospect disponible. Retourne {"skip": true, "reason": "pas de donnees prospect"}.';
     }
 
     // Signature ajoutee automatiquement par resend-client.js (HTML minimal)
@@ -559,6 +563,22 @@ Format JSON strict :
       }
     }
 
+    // Verification statut email (FullEnrich) — bloquer les INVALID avant de depenser un appel Claude
+    const leStorageCheck = getLeadEnrichStorage();
+    if (leStorageCheck) {
+      const enriched = leStorageCheck.getEnrichedLead(params.to);
+      if (enriched && enriched.enrichData && enriched.enrichData._fullenrich) {
+        const emailStatus = enriched.enrichData._fullenrich.emailStatus;
+        if (emailStatus === 'INVALID' || emailStatus === 'INVALID_DOMAIN') {
+          log.info('action-executor', params.to + ' emailStatus=' + emailStatus + ' — skip (invalide)');
+          return { success: false, error: 'Email invalide (FullEnrich: ' + emailStatus + ')', invalidEmail: true };
+        }
+        if (emailStatus === 'CATCH_ALL') {
+          log.warn('action-executor', params.to + ' emailStatus=CATCH_ALL — envoi avec prudence');
+        }
+      }
+    }
+
     // Si _generateFirst est true, generer le contenu avant envoi
     if (params._generateFirst && (!params.subject || !params.body)) {
       // Recherche pre-envoi sur le prospect (scrape site, news, Apollo data)
@@ -586,12 +606,48 @@ Format JSON strict :
       if (!genResult.success || !genResult.email) {
         return { success: false, error: 'Generation email echouee: ' + (genResult.error || 'pas de contenu') };
       }
+      // Si le writer retourne skip:true = donnees insuffisantes pour personnalisation
+      if (genResult.email.skip) {
+        log.info('action-executor', 'Email skip pour ' + params.to + ': ' + (genResult.email.reason || 'donnees insuffisantes'));
+        return { success: false, error: 'Donnees insuffisantes pour email personnalise', skipped: true };
+      }
       params.subject = genResult.email.subject;
       params.body = genResult.email.body || genResult.email.text || genResult.email.html || '';
     }
 
     if (!params.subject || !params.body) {
       return { success: false, error: 'Subject et body requis pour envoyer un email' };
+    }
+
+    // Validation post-generation : verifier mots interdits
+    const config = storage.getConfig();
+    const epCheck = config.emailPreferences || {};
+    if (epCheck.forbiddenWords && epCheck.forbiddenWords.length > 0) {
+      const emailText = (params.subject + ' ' + params.body).toLowerCase();
+      const foundWords = epCheck.forbiddenWords.filter(w => emailText.includes(w.toLowerCase()));
+      if (foundWords.length > 0) {
+        log.warn('action-executor', 'Mots interdits detectes dans email: ' + foundWords.join(', ') + ' — regeneration');
+        // Regenerer avec instruction explicite d'eviter ces mots
+        params._prospectIntel = (params._prospectIntel || '') +
+          '\nATTENTION CRITIQUE: l\'email precedent contenait ces mots INTERDITS: ' + foundWords.join(', ') +
+          '. Tu ne dois ABSOLUMENT PAS les utiliser. Reformule completement.';
+        params.subject = null;
+        params.body = null;
+        const retryGen = await this._generateEmail(params);
+        if (retryGen.success && retryGen.email && !retryGen.email.skip) {
+          params.subject = retryGen.email.subject;
+          params.body = retryGen.email.body || retryGen.email.text || '';
+          // 2e verification
+          const retryText = (params.subject + ' ' + params.body).toLowerCase();
+          const stillFound = epCheck.forbiddenWords.filter(w => retryText.includes(w.toLowerCase()));
+          if (stillFound.length > 0) {
+            log.error('action-executor', 'Mots interdits persistants apres retry: ' + stillFound.join(', ') + ' — envoi bloque');
+            return { success: false, error: 'Mots interdits persistants: ' + stillFound.join(', ') };
+          }
+        } else {
+          return { success: false, error: 'Regeneration email echouee apres detection mots interdits' };
+        }
+      }
     }
 
     const ResendClient = getResendClient();
