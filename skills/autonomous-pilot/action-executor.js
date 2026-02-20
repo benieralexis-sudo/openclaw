@@ -534,8 +534,8 @@ Format JSON strict :
       // FIX 19 : Utiliser les compteurs persistants au lieu du filtre dynamique
       const sentToday = amStorage.getTodaySendCount();
 
-      // Domaine cree le 15 fev 2026 — calculer l'age en jours
-      const domainAge = Math.floor((Date.now() - new Date('2026-02-15').getTime()) / (24 * 60 * 60 * 1000));
+      // Domaine getifind.fr cree le 20 fev 2026 — calculer l'age en jours
+      const domainAge = Math.floor((Date.now() - new Date('2026-02-20').getTime()) / (24 * 60 * 60 * 1000));
       let dailyLimit = 5; // Semaine 1-2
       if (domainAge > 14) dailyLimit = 10;
       if (domainAge > 28) dailyLimit = 20;
