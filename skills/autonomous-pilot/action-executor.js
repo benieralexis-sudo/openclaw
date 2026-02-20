@@ -359,7 +359,8 @@ Format JSON strict :
                 first_name: firstName,
                 last_name: lastName,
                 company_name: companyName,
-                _email: lead.email  // garder pour la sauvegarde
+                _email: lead.email,  // garder pour la sauvegarde
+                _linkedin: lead.linkedin || lead.linkedinUrl || ''
               });
             } else {
               // Fallback si pas de nom/entreprise
@@ -415,32 +416,38 @@ Format JSON strict :
                 ffStorage2.save();
               }
             }
-          } else if (contact._email) {
-            // Fallback : valider l'email Apollo existant via reverse email
-            log.info('action-executor', 'Nom+entreprise echoue pour ' + contact.first_name + ' ' + contact.last_name + ', fallback verification email ' + contact._email);
+          } else if (contact._linkedin) {
+            // Fallback : enrichir via LinkedIn URL quand nom+entreprise echoue
+            log.info('action-executor', 'Nom+entreprise echoue pour ' + contact.first_name + ' ' + contact.last_name + ', fallback LinkedIn ' + contact._linkedin);
             try {
-              const fallback = await enricher.enrichByEmail(contact._email);
-              if (fallback.success) {
-                enriched++;
-                const status = fallback._fullenrich && fallback._fullenrich.emailStatus ? fallback._fullenrich.emailStatus : '?';
-                log.info('action-executor', 'Fallback email ' + contact._email + ' → ' + status);
-                if (leStorage) leStorage.saveEnrichedLead(contact._email, fallback, { score: 5, reasoning: 'Enrichi par fallback email (nom+entreprise introuvable)' }, 'autonomous-pilot');
-                const ffStorage3 = getFlowFastStorage();
-                if (ffStorage3 && ffStorage3.data) {
-                  const leadsObj3 = ffStorage3.data.leads || {};
-                  for (const lid of Object.keys(leadsObj3)) {
-                    if (leadsObj3[lid].email === contact._email) {
-                      leadsObj3[lid].enrichedAt = new Date().toISOString();
-                      leadsObj3[lid].emailStatus = status;
-                      break;
+              const submitResult = await enricher._submitEnrichment([{ linkedin_url: contact._linkedin }]);
+              if (submitResult.enrichment_id) {
+                const pollResult = await enricher._pollResults(submitResult.enrichment_id);
+                if (!pollResult._error) {
+                  const formatted = enricher._formatResult(pollResult);
+                  if (formatted.success) {
+                    enriched++;
+                    const email = contact._email || (formatted.person && formatted.person.email) || null;
+                    const status = formatted._fullenrich && formatted._fullenrich.emailStatus ? formatted._fullenrich.emailStatus : '?';
+                    log.info('action-executor', 'Fallback LinkedIn OK: ' + (formatted.person && formatted.person.email) + ' → ' + status);
+                    if (email && leStorage) leStorage.saveEnrichedLead(email, formatted, { score: 5, reasoning: 'Enrichi par fallback LinkedIn' }, 'autonomous-pilot');
+                    const ffStorage3 = getFlowFastStorage();
+                    if (ffStorage3 && ffStorage3.data) {
+                      const leadsObj3 = ffStorage3.data.leads || {};
+                      for (const lid of Object.keys(leadsObj3)) {
+                        if (leadsObj3[lid].email === contact._email) {
+                          leadsObj3[lid].enrichedAt = new Date().toISOString();
+                          leadsObj3[lid].emailStatus = status;
+                          if (formatted.person && formatted.person.email) leadsObj3[lid].enrichedEmail = formatted.person.email;
+                          break;
+                        }
+                      }
+                      ffStorage3.save();
                     }
                   }
-                  ffStorage3.save();
                 }
-              } else {
-                log.info('action-executor', 'Fallback email aussi echoue pour ' + contact._email);
               }
-            } catch (fe) { log.warn('action-executor', 'Erreur fallback email ' + contact._email + ':', fe.message); }
+            } catch (fe) { log.warn('action-executor', 'Erreur fallback LinkedIn ' + contact._linkedin + ':', fe.message); }
           } else {
             log.info('action-executor', 'Enrichissement echoue pour ' + contact.first_name + ' ' + contact.last_name + ' @ ' + contact.company_name + ': ' + (result.error || ''));
           }
