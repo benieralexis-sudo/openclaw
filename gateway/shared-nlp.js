@@ -6,6 +6,9 @@ const https = require('https');
 const { retryAsync } = require('./utils.js');
 const { getBreaker } = require('./circuit-breaker.js');
 
+// --- HTTPS Agent avec keepAlive (connection pooling OpenAI) ---
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10, timeout: 90000 });
+
 /**
  * Appel OpenAI GPT-4o-mini unique (sans retry).
  * @param {string} apiKey - Cle API OpenAI
@@ -17,7 +20,7 @@ function _callOnce(apiKey, messages, opts) {
   opts = opts || {};
   const maxTokens = opts.maxTokens || 300;
   const temperature = opts.temperature || 0.2;
-  const timeout = opts.timeout || 30000;
+  const timeout = opts.timeout || 60000;
   const model = opts.model || 'gpt-4o-mini';
 
   return new Promise((resolve, reject) => {
@@ -32,6 +35,7 @@ function _callOnce(apiKey, messages, opts) {
       hostname: 'api.openai.com',
       path: '/v1/chat/completions',
       method: 'POST',
+      agent: httpsAgent,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + apiKey,
@@ -71,7 +75,7 @@ function _callOnce(apiKey, messages, opts) {
  */
 function callOpenAI(apiKey, messages, opts) {
   const breaker = getBreaker('openai', { failureThreshold: 5, cooldownMs: 30000 });
-  return breaker.call(() => retryAsync(() => _callOnce(apiKey, messages, opts), 2, 1000));
+  return breaker.call(() => retryAsync(() => _callOnce(apiKey, messages, opts), 3, 2000));
 }
 
 module.exports = { callOpenAI };

@@ -398,6 +398,7 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
       hostname: 'api.anthropic.com',
       path: '/v1/messages',
       method: 'POST',
+      agent: httpsAgent,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': CLAUDE_KEY,
@@ -428,7 +429,7 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
       });
     });
     req.on('error', reject);
-    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Timeout Claude')); });
+    req.setTimeout(120000, () => { req.destroy(); reject(new Error('Timeout Claude (120s)')); });
     req.write(postData);
     req.end();
   });
@@ -439,7 +440,7 @@ function callClaude(systemPrompt, userMessage, maxTokens, model) {
   appConfig.assertBudgetAvailable();
   const breakerName = model === 'claude-opus-4-6' ? 'claude-opus' : 'claude-sonnet';
   const breaker = getBreaker(breakerName, { failureThreshold: 5, cooldownMs: 30000 });
-  return breaker.call(() => retryAsync(() => _callClaudeOnce(systemPrompt, userMessage, maxTokens, model), 2, 2000));
+  return breaker.call(() => retryAsync(() => _callClaudeOnce(systemPrompt, userMessage, maxTokens, model), 4, 3000));
 }
 
 // --- Proactive Agent ---
