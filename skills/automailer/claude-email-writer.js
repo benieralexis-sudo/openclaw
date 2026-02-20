@@ -1,9 +1,10 @@
-// AutoMailer - Redaction IA d'emails via Claude API
+// AutoMailer - Redaction IA d'emails via Claude API (+ OpenAI GPT-4o-mini pour taches simples)
 const https = require('https');
 
 class ClaudeEmailWriter {
   constructor(apiKey) {
     this.apiKey = apiKey;
+    this.openaiKey = process.env.OPENAI_API_KEY || '';
   }
 
   callClaude(messages, systemPrompt, maxTokens) {
@@ -45,6 +46,46 @@ class ClaudeEmailWriter {
       });
       req.on('error', reject);
       req.setTimeout(30000, () => { req.destroy(); reject(new Error('Timeout Claude API')); });
+      req.write(postData);
+      req.end();
+    });
+  }
+
+  // GPT-4o-mini pour taches simples (edit, subject variant) — 20x moins cher que Sonnet
+  callOpenAIMini(systemPrompt, userMessage, maxTokens) {
+    maxTokens = maxTokens || 500;
+    if (!this.openaiKey) return this.callClaude([{ role: 'user', content: userMessage }], systemPrompt, maxTokens);
+    return new Promise((resolve, reject) => {
+      const postData = JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: maxTokens,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ]
+      });
+      const req = https.request({
+        hostname: 'api.openai.com',
+        path: '/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + this.openaiKey,
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try {
+            const r = JSON.parse(data);
+            if (r.choices && r.choices[0]) resolve(r.choices[0].message.content);
+            else reject(new Error('OpenAI invalide: ' + data.substring(0, 200)));
+          } catch (e) { reject(e); }
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout OpenAI')); });
       req.write(postData);
       req.end();
     });
@@ -232,11 +273,8 @@ ${currentEmail.body}
 
 Instruction de modification : ${instruction}`;
 
-    const response = await this.callClaude(
-      [{ role: 'user', content: userMessage }],
-      systemPrompt,
-      1000
-    );
+    // GPT-4o-mini suffit pour l'edition (20x moins cher que Sonnet)
+    const response = await this.callOpenAIMini(systemPrompt, userMessage, 1000);
     return this._parseJSON(response);
   }
 
@@ -292,11 +330,8 @@ REGLES :
 - Garde le ton professionnel
 - Retourne UNIQUEMENT le texte de l'objet alternatif, rien d'autre (pas de JSON, pas de guillemets, pas d'explication)`;
 
-    const response = await this.callClaude(
-      [{ role: 'user', content: 'Objet original : ' + originalSubject + '\n\nGénère une variante alternative.' }],
-      systemPrompt,
-      200
-    );
+    // GPT-4o-mini suffit pour generer un objet alternatif
+    const response = await this.callOpenAIMini(systemPrompt, 'Objet original : ' + originalSubject + '\n\nGénère une variante alternative.', 200);
     return response.trim().replace(/^["']|["']$/g, '');
   }
 

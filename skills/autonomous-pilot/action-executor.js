@@ -168,9 +168,22 @@ Format JSON strict :
     }
 
     const apollo = new ApolloConnector(this.apolloKey);
-    const criteria = params.criteria || storage.getGoals().searchCriteria;
 
-    log.info('action-executor', 'Recherche leads:', JSON.stringify(criteria).substring(0, 200));
+    // Forcer les criteres configures comme BASE — le brain ne peut pas les overrider
+    const configCriteria = storage.getGoals().searchCriteria || {};
+    const brainCriteria = params.criteria || {};
+    const criteria = {
+      titles: configCriteria.titles && configCriteria.titles.length > 0 ? configCriteria.titles : brainCriteria.titles,
+      locations: configCriteria.locations && configCriteria.locations.length > 0 ? configCriteria.locations : brainCriteria.locations,
+      seniorities: configCriteria.seniorities && configCriteria.seniorities.length > 0 ? configCriteria.seniorities : brainCriteria.seniorities,
+      companySize: configCriteria.companySize && configCriteria.companySize.length > 0 ? configCriteria.companySize : brainCriteria.companySize,
+      // Keywords : le brain peut ajouter/alterner les mots-cles (multi-niche)
+      keywords: brainCriteria.keywords || configCriteria.keywords || '',
+      industries: brainCriteria.industries || configCriteria.industries || [],
+      limit: configCriteria.limit || brainCriteria.limit || 10
+    };
+
+    log.info('action-executor', 'Recherche leads (config+brain):', JSON.stringify(criteria).substring(0, 300));
     const result = await apollo.searchLeads(criteria);
 
     if (!result.success) {

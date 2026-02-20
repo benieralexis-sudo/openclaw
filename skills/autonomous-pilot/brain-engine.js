@@ -292,8 +292,8 @@ class BrainEngine {
 
     let plan;
     try {
-      // callClaudeOpus fait deja breaker+retry en interne — pas de double-wrap
-      const response = await this.callClaudeOpus(systemPrompt, userMessage, 4000);
+      // Sonnet pour les cycles reguliers (5x moins cher qu'Opus) — Opus reserve a l'analyse hebdo
+      const response = await this.callClaude(systemPrompt, userMessage, 4000);
       plan = this._parseJsonResponse(response);
     } catch (e) {
       log.error('brain', 'Erreur Claude Opus:', e.message);
@@ -959,8 +959,12 @@ Analyse et reponds en JSON:
     prompt += '- Open rate >= ' + g.minOpenRate + '%\n';
     prompt += '- Push CRM si score >= ' + g.pushToCrmAboveScore + '\n';
 
-    prompt += '\nCRITERES DE RECHERCHE:\n';
+    prompt += '\nCRITERES DE RECHERCHE (VERROUILLES — NE PAS MODIFIER):\n';
     prompt += JSON.stringify(sc, null, 2) + '\n';
+    prompt += '→ IMPORTANT: Ces criteres (titles, locations, companySize) sont VERROUILLES par la config.\n';
+    prompt += '→ Pour search_leads, tu peux UNIQUEMENT changer "keywords" pour tester differentes niches.\n';
+    prompt += '→ Ex: keywords="agence marketing" OU keywords="cabinet recrutement" OU keywords="SaaS B2B"\n';
+    prompt += '→ Les autres champs (titles, locations, companySize) seront FORCES par le systeme.\n';
 
     prompt += '\nNIVEAU D\'AUTONOMIE: ' + config.autonomyLevel + ' (MODE MACHINE DE GUERRE)\n';
     if (config.autonomyLevel === 'full') {
