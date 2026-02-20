@@ -1298,6 +1298,8 @@ function enqueueUpdate(update) {
 
 let _polling = true;
 
+let _consecutiveErrors = 0;
+
 async function poll() {
   while (_polling) {
     try {
@@ -1307,6 +1309,8 @@ async function poll() {
         allowed_updates: ['message', 'callback_query']
       });
 
+      _consecutiveErrors = 0; // Reset on success
+
       if (result.ok && result.result && result.result.length > 0) {
         for (const update of result.result) {
           offset = update.update_id + 1;
@@ -1314,10 +1318,17 @@ async function poll() {
         }
       }
     } catch (error) {
-      log.error('router', 'Erreur polling:', error.message);
+      _consecutiveErrors++;
+      // Socket hang up = normal avec long polling, log seulement si repetitif
+      if (_consecutiveErrors <= 3) {
+        log.warn('router', 'Polling erreur (' + _consecutiveErrors + '/3): ' + error.message);
+      } else if (_consecutiveErrors === 4) {
+        log.error('router', 'Polling instable: ' + _consecutiveErrors + ' erreurs consecutives');
+      }
       if (_polling) {
-        const jitter = 2000 + Math.floor(Math.random() * 3000); // 2-5s random
-        await new Promise(r => setTimeout(r, jitter));
+        // Backoff progressif : 1s, 2s, 4s, max 10s
+        const backoff = Math.min(1000 * Math.pow(2, _consecutiveErrors - 1), 10000);
+        await new Promise(r => setTimeout(r, backoff));
       }
     }
   }
