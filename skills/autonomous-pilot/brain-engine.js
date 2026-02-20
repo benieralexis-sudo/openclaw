@@ -399,13 +399,11 @@ class BrainEngine {
       log.error('brain', 'Erreur pattern/adjust:', e.message);
     }
 
-    // 7.5. Sync watches Web Intel avec les criteres de recherche (Intelligence Reelle v5)
-    try { this._syncWatchesWithCriteria(); }
-    catch (e) { log.warn('brain', 'Erreur sync watches:', e.message); }
-
-    // 7.6. Sync watches Web Intel avec les deals CRM
-    try { await this._syncWatchesWithCRMDeals(); }
-    catch (e) { log.warn('brain', 'Erreur sync watches CRM:', e.message); }
+    // 7.5. Sync watches Web Intel — DESACTIVE
+    // L'auto-creation de watches polluait avec des watches generiques (Revolut, life-obseques...).
+    // Les watches sont maintenant gerees manuellement (4 watches ciblees par niche).
+    // try { this._syncWatchesWithCriteria(); }
+    // try { await this._syncWatchesWithCRMDeals(); }
 
     // 8. Envoyer resume
     const autoActions = plan.actions.filter(a => a.autoExecute);

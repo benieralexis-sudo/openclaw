@@ -1,5 +1,7 @@
 // FlowFast - Connexion Apollo.io
 const https = require('https');
+let _appConfig = null;
+try { _appConfig = require('../../gateway/app-config.js'); } catch (e) {}
 
 class ApolloConnector {
   constructor(apiKey) {
@@ -106,11 +108,17 @@ class ApolloConnector {
     try {
       const result = await this.makeRequest('/v1/mixed_people/api_search', searchData);
 
-      console.log(`✅ Trouvé ${result.people ? result.people.length : 0} leads`);
+      const count = result.people ? result.people.length : 0;
+      console.log(`✅ Trouvé ${count} leads`);
+
+      // Track usage
+      if (_appConfig && _appConfig.recordServiceUsage) {
+        _appConfig.recordServiceUsage('apollo', { searches: 1 });
+      }
 
       return {
         success: true,
-        count: result.people ? result.people.length : 0,
+        count: count,
         leads: result.people || []
       };
 
@@ -128,6 +136,10 @@ class ApolloConnector {
   async revealLead(apolloId) {
     try {
       const result = await this.makeRequest('/v1/people/match', { id: apolloId });
+      // Track usage (1 credit par reveal)
+      if (_appConfig && _appConfig.recordServiceUsage) {
+        _appConfig.recordServiceUsage('apollo', { reveals: 1, credits: 1 });
+      }
       if (result.person) {
         const p = result.person;
         return {

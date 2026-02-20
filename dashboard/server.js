@@ -876,6 +876,133 @@ app.get('/api/meetings', authRequired, async (req, res) => {
   });
 });
 
+// Finance (admin only)
+app.get('/api/finance', authRequired, adminRequired, async (req, res) => {
+  // Lire le fichier app-config.json pour les donnees de budget et service usage
+  let appConfig = {};
+  try {
+    const raw = await fsp.readFile(APP_CONFIG_PATH, 'utf8');
+    appConfig = JSON.parse(raw);
+  } catch (e) {}
+
+  const budget = appConfig.budget || {};
+  const serviceUsage = appConfig.serviceUsage || {};
+  const serviceHistory = appConfig.serviceUsageHistory || [];
+  const today = new Date().toISOString().substring(0, 10);
+  const todayUsage = serviceUsage[today] || {};
+
+  // Budget historique (30 jours)
+  const budgetHistory = budget.history || [];
+
+  // Calculer les totaux du mois en cours
+  const currentMonth = today.substring(0, 7);
+  const monthDays = [...budgetHistory.filter(d => d.date && d.date.startsWith(currentMonth))];
+  if (budget.todayDate === today) {
+    monthDays.push({ date: today, spent: budget.todaySpent || 0 });
+  }
+  const monthlyLLMTotal = monthDays.reduce((s, d) => s + (d.spent || 0), 0);
+
+  // Service usage du mois (depuis history + today)
+  const monthServiceData = {};
+  const services = ['claude', 'openai', 'apollo', 'fullenrich', 'gmail', 'resend'];
+  for (const s of services) monthServiceData[s] = { calls: 0, cost: 0, credits: 0, emails: 0, searches: 0, reveals: 0 };
+
+  // History entries for current month
+  for (const entry of serviceHistory) {
+    if (entry.date && entry.date.startsWith(currentMonth)) {
+      for (const s of services) {
+        if (entry[s]) {
+          const d = entry[s];
+          monthServiceData[s].calls += d.calls || 0;
+          monthServiceData[s].cost += d.cost || 0;
+          monthServiceData[s].credits += d.credits || 0;
+          monthServiceData[s].emails += d.emails || 0;
+          monthServiceData[s].searches += d.searches || 0;
+          monthServiceData[s].reveals += d.reveals || 0;
+        }
+      }
+    }
+  }
+  // Add today
+  for (const s of services) {
+    if (todayUsage[s]) {
+      const d = todayUsage[s];
+      monthServiceData[s].calls += d.calls || 0;
+      monthServiceData[s].cost += d.cost || 0;
+      monthServiceData[s].credits += d.credits || 0;
+      monthServiceData[s].emails += d.emails || 0;
+      monthServiceData[s].searches += d.searches || 0;
+      monthServiceData[s].reveals += d.reveals || 0;
+    }
+  }
+
+  // Couts fixes
+  const fixedCosts = {
+    googleWorkspace: { amount: 7.00, currency: 'USD', label: 'Google Workspace' },
+    domain: { amount: 0.58, currency: 'EUR', label: 'Domaine getifind.fr' }
+  };
+  const fixedTotal = 7.00 + 0.58;
+
+  // Cout variable total du mois
+  const variableTotal = Object.values(monthServiceData).reduce((s, d) => s + (d.cost || 0), 0);
+  const grandTotal = variableTotal + fixedTotal;
+
+  // Projections (cout par email = LLM cost / emails sent, extrapoler)
+  const totalEmailsSent = (monthServiceData.gmail.emails || 0) + (monthServiceData.resend.emails || 0);
+  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+  const daysPassed = new Date().getDate();
+  const costPerEmail = totalEmailsSent > 0 ? variableTotal / totalEmailsSent : 0.15; // Estimation par defaut
+  const brainCycleCostPerDay = 0.25; // ~2 brain cycles Claude Opus/jour
+
+  const projections = [5, 10, 20, 50].map(emailsPerDay => {
+    const emailCostMonth = costPerEmail * emailsPerDay * 30;
+    const brainCostMonth = brainCycleCostPerDay * 30;
+    const total = emailCostMonth + brainCostMonth + fixedTotal;
+    return {
+      scale: emailsPerDay + ' emails/jour',
+      emailCost: Math.round(emailCostMonth * 100) / 100,
+      brainCost: Math.round(brainCostMonth * 100) / 100,
+      fixedCost: Math.round(fixedTotal * 100) / 100,
+      total: Math.round(total * 100) / 100
+    };
+  });
+
+  // Historique journalier (30 derniers jours) pour chart
+  const dailyCosts = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().substring(0, 10);
+    const budgetDay = budgetHistory.find(h => h.date === dateStr);
+    let cost = budgetDay ? budgetDay.spent : 0;
+    if (dateStr === today) cost = budget.todaySpent || 0;
+    dailyCosts.push({ date: dateStr, cost: Math.round(cost * 10000) / 10000 });
+  }
+
+  res.json({
+    today: {
+      date: today,
+      spent: Math.round((budget.todaySpent || 0) * 10000) / 10000,
+      limit: budget.dailyLimit || 5,
+      services: todayUsage
+    },
+    month: {
+      period: currentMonth,
+      llmTotal: Math.round(monthlyLLMTotal * 100) / 100,
+      variableTotal: Math.round(variableTotal * 100) / 100,
+      fixedTotal: Math.round(fixedTotal * 100) / 100,
+      grandTotal: Math.round(grandTotal * 100) / 100,
+      services: monthServiceData,
+      daysPassed,
+      daysInMonth
+    },
+    fixedCosts,
+    projections,
+    dailyCosts,
+    totalEmailsSent
+  });
+});
+
 // --- Helper functions ---
 
 function calcChange(current, previous) {

@@ -4,6 +4,8 @@ const net = require('net');
 const tls = require('tls');
 const crypto = require('crypto');
 const log = require('../../gateway/logger.js');
+let _appConfig = null;
+try { _appConfig = require('../../gateway/app-config.js'); } catch (e) {}
 
 class ResendClient {
   constructor(apiKey, senderEmail) {
@@ -215,6 +217,9 @@ class ResendClient {
       try {
         const result = await this._sendViaGmail(to, subject, body, options);
         log.info('resend-client', 'Email envoye via Gmail SMTP a ' + (Array.isArray(to) ? to[0] : to));
+        if (_appConfig && _appConfig.recordServiceUsage) {
+          _appConfig.recordServiceUsage('gmail', { emails: 1 });
+        }
         return result;
       } catch (e) {
         log.warn('resend-client', 'Gmail SMTP echoue, fallback Resend: ' + e.message);
@@ -241,6 +246,9 @@ class ResendClient {
     const result = await this._request('POST', '/emails', payload);
 
     if (result.statusCode === 200 || result.statusCode === 201) {
+      if (_appConfig && _appConfig.recordServiceUsage) {
+        _appConfig.recordServiceUsage('resend', { emails: 1 });
+      }
       return { success: true, id: result.data.id };
     }
     const errorMsg = result.data.message || result.data.error || ('Resend erreur ' + result.statusCode);

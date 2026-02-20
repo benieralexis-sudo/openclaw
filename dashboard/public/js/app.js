@@ -32,7 +32,7 @@ const App = {
   },
 
   applyRoleVisibility() {
-    const adminPages = ['invoices', 'self-improve', 'system', 'users'];
+    const adminPages = ['invoices', 'finance', 'self-improve', 'system', 'users'];
     document.querySelectorAll('.nav-item').forEach(item => {
       const page = item.dataset.page;
       if (adminPages.includes(page)) {
@@ -129,6 +129,7 @@ const App = {
       'enrichment': this.renderEnrichment,
       'content': this.renderContent,
       'invoices': this.renderInvoices,
+      'finance': this.renderFinance,
       'proactive': this.renderProactive,
       'self-improve': this.renderSelfImprove,
       'web-intel': this.renderWebIntel,
@@ -1331,6 +1332,175 @@ const App = {
         </div>
       </div>
     </div>`;
+  },
+
+  // ========================================
+  // PAGE: Finances (Admin)
+  // ========================================
+  async renderFinance(container) {
+    if (this.userRole !== 'admin') {
+      container.innerHTML = '<div class="empty-state"><p>Acces reserve aux administrateurs</p></div>';
+      return;
+    }
+
+    const data = await API.finance();
+    if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les donnees</p></div>';
+
+    const t = data.today || {};
+    const m = data.month || {};
+    const services = m.services || {};
+    const proj = data.projections || [];
+
+    // KPI Cards
+    const pctBudget = t.limit > 0 ? Math.round((t.spent / t.limit) * 100) : 0;
+    const pctClass = pctBudget > 80 ? 'red' : pctBudget > 50 ? 'orange' : 'green';
+
+    // Service breakdown rows
+    const svcRows = [
+      { key: 'claude', label: 'Claude (Opus/Sonnet)', icon: 'brain', detail: (s) => s.calls + ' appels, ' + ((s.inputTokens || 0) / 1000).toFixed(0) + 'K tokens' },
+      { key: 'openai', label: 'OpenAI (GPT-4o-mini)', icon: 'bot', detail: (s) => s.calls + ' appels, ' + ((s.inputTokens || 0) / 1000).toFixed(0) + 'K tokens' },
+      { key: 'apollo', label: 'Apollo (Leads)', icon: 'search', detail: (s) => (s.searches || 0) + ' recherches, ' + (s.reveals || 0) + ' reveals' },
+      { key: 'fullenrich', label: 'FullEnrich', icon: 'target', detail: (s) => (s.credits || 0) + ' credits utilises' },
+      { key: 'gmail', label: 'Gmail SMTP', icon: 'mail', detail: (s) => (s.emails || 0) + ' emails envoyes' },
+      { key: 'resend', label: 'Resend (fallback)', icon: 'mail', detail: (s) => (s.emails || 0) + ' emails envoyes' }
+    ];
+
+    const svcHtml = svcRows.map(r => {
+      const s = services[r.key] || {};
+      const cost = (s.cost || 0).toFixed(4);
+      const hasActivity = (s.calls || 0) + (s.credits || 0) + (s.emails || 0) + (s.searches || 0) + (s.reveals || 0) > 0;
+      return '<tr' + (hasActivity ? '' : ' style="opacity:0.5"') + '>'
+        + '<td>' + Utils.icon(r.icon, 14) + ' ' + e(r.label) + '</td>'
+        + '<td style="text-align:right;font-weight:600">$' + cost + '</td>'
+        + '<td style="color:var(--text-secondary)">' + r.detail(s) + '</td>'
+        + '</tr>';
+    }).join('');
+
+    // Fixed costs
+    const fixedCosts = data.fixedCosts || {};
+    const fixedHtml = Object.values(fixedCosts).map(f =>
+      '<tr><td>' + e(f.label) + '</td><td style="text-align:right;font-weight:600">' + f.currency + ' ' + f.amount.toFixed(2) + '/mois</td><td style="color:var(--text-secondary)">Cout fixe</td></tr>'
+    ).join('');
+
+    // Projections table
+    const projHtml = proj.map(p =>
+      '<tr><td style="font-weight:600">' + e(p.scale) + '</td>'
+      + '<td style="text-align:right">$' + p.emailCost.toFixed(2) + '</td>'
+      + '<td style="text-align:right">$' + p.brainCost.toFixed(2) + '</td>'
+      + '<td style="text-align:right">$' + p.fixedCost.toFixed(2) + '</td>'
+      + '<td style="text-align:right;font-weight:700;color:var(--primary)">$' + p.total.toFixed(2) + '</td></tr>'
+    ).join('');
+
+    container.innerHTML = `
+    <div class="page-enter stagger">
+      <div class="page-header">
+        <h1 class="page-title">${Utils.icon('bar-chart')} Finances</h1>
+        <div class="page-actions">
+          <span class="badge ${pctClass}" style="padding:6px 12px;font-size:13px">Budget: $${t.spent.toFixed(2)} / $${t.limit.toFixed(2)} (${pctBudget}%)</span>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-header"><div class="kpi-icon blue">${Utils.icon('bar-chart')}</div></div>
+          <div class="kpi-value" data-count="${m.grandTotal}">$${m.grandTotal.toFixed(2)}</div>
+          <div class="kpi-label">Total mois (${e(m.period)})</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-header"><div class="kpi-icon purple">${Utils.icon('brain')}</div></div>
+          <div class="kpi-value" data-count="${m.variableTotal}">$${m.variableTotal.toFixed(2)}</div>
+          <div class="kpi-label">Couts variables (API)</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-header"><div class="kpi-icon orange">${Utils.icon('settings')}</div></div>
+          <div class="kpi-value" data-count="${m.fixedTotal}">$${m.fixedTotal.toFixed(2)}</div>
+          <div class="kpi-label">Couts fixes /mois</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-header"><div class="kpi-icon green">${Utils.icon('mail')}</div></div>
+          <div class="kpi-value" data-count="${data.totalEmailsSent}">${data.totalEmailsSent}</div>
+          <div class="kpi-label">Emails envoyes ce mois</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3>Depenses journalieres (30 jours)</h3></div>
+        <div class="card-body"><canvas id="finance-chart" height="200"></canvas></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-header"><h3>Detail par service — ${e(m.period)}</h3></div>
+          <div class="card-body">
+            <table class="data-table" style="width:100%">
+              <thead><tr><th>Service</th><th style="text-align:right">Cout</th><th>Detail</th></tr></thead>
+              <tbody>${svcHtml}</tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Couts fixes mensuels</h3></div>
+          <div class="card-body">
+            <table class="data-table" style="width:100%">
+              <thead><tr><th>Service</th><th style="text-align:right">Montant</th><th>Type</th></tr></thead>
+              <tbody>${fixedHtml}</tbody>
+            </table>
+            <div style="margin-top:16px;padding:12px;background:var(--bg-secondary);border-radius:8px;font-size:13px;color:var(--text-secondary)">
+              Total fixe: <strong>$${m.fixedTotal.toFixed(2)}/mois</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3>Projections mensuelles par echelle</h3></div>
+        <div class="card-body">
+          <table class="data-table" style="width:100%">
+            <thead>
+              <tr>
+                <th>Echelle</th>
+                <th style="text-align:right">Emails (LLM)</th>
+                <th style="text-align:right">Brain cycles</th>
+                <th style="text-align:right">Fixe</th>
+                <th style="text-align:right">Total /mois</th>
+              </tr>
+            </thead>
+            <tbody>${projHtml}</tbody>
+          </table>
+          <div style="margin-top:16px;padding:12px;background:var(--bg-secondary);border-radius:8px;font-size:13px;color:var(--text-secondary)">
+            Estimations basees sur le cout reel par email observe. Brain cycles = 2 cycles Claude Opus/jour (~$0.25/jour).
+            Couts Apollo et FullEnrich non inclus (free tier / credits pre-payes).
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    // Chart
+    const dailyCosts = data.dailyCosts || [];
+    if (dailyCosts.length > 0) {
+      Charts.create('finance-chart', {
+        type: 'bar',
+        data: {
+          labels: dailyCosts.map(d => d.date.substring(5)),
+          datasets: [{
+            label: 'Depenses API ($)',
+            data: dailyCosts.map(d => d.cost),
+            backgroundColor: 'rgba(37, 99, 235, 0.7)',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { callback: v => '$' + v.toFixed(2) } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
   },
 
   // ========================================

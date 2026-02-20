@@ -2,6 +2,8 @@
 // API 100% asynchrone : POST → enrichment_id → polling resultats
 const https = require('https');
 const log = require('../../gateway/logger.js');
+let _appConfig = null;
+try { _appConfig = require('../../gateway/app-config.js'); } catch (e) {}
 
 const BASE_HOST = 'app.fullenrich.com';
 const BASE_PATH = '/api/v2';
@@ -96,6 +98,11 @@ class FullEnrichEnricher {
         const result = await this._makeRequest('GET', '/contact/enrich/bulk/' + enrichmentId);
 
         if (result.status === 'FINISHED') {
+          // Track usage
+          const contactCount = (result.data || []).length;
+          if (_appConfig && _appConfig.recordServiceUsage) {
+            _appConfig.recordServiceUsage('fullenrich', { credits: contactCount });
+          }
           return result;
         }
         if (result.status === 'CANCELED') {

@@ -143,6 +143,11 @@ function recordApiSpend(model, inputTokens, outputTokens) {
 
   const cost = estimateCost(model, inputTokens, outputTokens);
   _config.budget.todaySpent += cost;
+
+  // Track par service aussi
+  const service = model.startsWith('gpt') ? 'openai' : 'claude';
+  recordServiceUsage(service, { cost, inputTokens: inputTokens || 0, outputTokens: outputTokens || 0 });
+
   save();
 
   // Notification si budget depasse
@@ -179,6 +184,69 @@ function onBudgetExceeded(callback) {
   _budgetExceededCallback = callback;
 }
 
+// --- Service usage tracking (Apollo, FullEnrich, Gmail, Resend) ---
+
+function _ensureServiceUsage() {
+  load();
+  if (!_config.serviceUsage) _config.serviceUsage = {};
+  const today = new Date().toISOString().substring(0, 10);
+  if (!_config.serviceUsage[today]) {
+    // Archiver les jours precedents dans history
+    if (!_config.serviceUsageHistory) _config.serviceUsageHistory = [];
+    for (const [date, data] of Object.entries(_config.serviceUsage)) {
+      if (date !== today && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        _config.serviceUsageHistory.push({ date, ...data });
+      }
+    }
+    // Garder 90 jours d'historique
+    if (_config.serviceUsageHistory.length > 90) {
+      _config.serviceUsageHistory = _config.serviceUsageHistory.slice(-90);
+    }
+    // Nettoyer les anciens jours du serviceUsage courant
+    for (const key of Object.keys(_config.serviceUsage)) {
+      if (key !== today && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        delete _config.serviceUsage[key];
+      }
+    }
+    _config.serviceUsage[today] = {};
+  }
+  return _config.serviceUsage[today];
+}
+
+function recordServiceUsage(service, metrics) {
+  const today = _ensureServiceUsage();
+  if (!today[service]) today[service] = { calls: 0, cost: 0 };
+  const s = today[service];
+  s.calls = (s.calls || 0) + 1;
+  if (metrics.cost) s.cost = (s.cost || 0) + metrics.cost;
+  if (metrics.credits) s.credits = (s.credits || 0) + metrics.credits;
+  if (metrics.emails) s.emails = (s.emails || 0) + metrics.emails;
+  if (metrics.searches) s.searches = (s.searches || 0) + metrics.searches;
+  if (metrics.reveals) s.reveals = (s.reveals || 0) + metrics.reveals;
+  if (metrics.inputTokens) s.inputTokens = (s.inputTokens || 0) + metrics.inputTokens;
+  if (metrics.outputTokens) s.outputTokens = (s.outputTokens || 0) + metrics.outputTokens;
+  save();
+}
+
+function getServiceUsage() {
+  _ensureServiceUsage();
+  const today = new Date().toISOString().substring(0, 10);
+  return {
+    today: _config.serviceUsage[today] || {},
+    history: _config.serviceUsageHistory || []
+  };
+}
+
+// Couts fixes mensuels
+const FIXED_MONTHLY_COSTS = {
+  googleWorkspace: { amount: 7.00, currency: 'USD', label: 'Google Workspace' },
+  domain: { amount: 0.58, currency: 'EUR', label: 'Domaine getifind.fr' }
+};
+
+function getFixedCosts() {
+  return FIXED_MONTHLY_COSTS;
+}
+
 module.exports = {
   load,
   getConfig,
@@ -191,5 +259,8 @@ module.exports = {
   isBudgetExceeded,
   assertBudgetAvailable,
   getBudgetStatus,
-  onBudgetExceeded
+  onBudgetExceeded,
+  recordServiceUsage,
+  getServiceUsage,
+  getFixedCosts
 };
