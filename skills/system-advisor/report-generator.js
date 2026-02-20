@@ -11,7 +11,7 @@ class ReportGenerator {
 
   callClaude(messages, systemPrompt, maxTokens, model) {
     maxTokens = maxTokens || 1500;
-    model = model || 'claude-sonnet-4-5-20250929';
+    model = model || 'claude-sonnet-4-6';
     return new Promise((resolve, reject) => {
       const body = {
         model: model,

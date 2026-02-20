@@ -106,6 +106,7 @@ function deactivateAll() {
 const MODEL_RATES = {
   'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
   'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015 },
+  'claude-sonnet-4-6': { input: 0.003, output: 0.015 },
   'claude-opus-4-6': { input: 0.015, output: 0.075 }
 };
 const DEFAULT_RATE = { input: 0.005, output: 0.015 };

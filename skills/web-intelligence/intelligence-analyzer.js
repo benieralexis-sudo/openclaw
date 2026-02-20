@@ -13,7 +13,7 @@ class IntelligenceAnalyzer {
     maxTokens = maxTokens || 1500;
     return new Promise((resolve, reject) => {
       const body = {
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
         messages: messages
       };

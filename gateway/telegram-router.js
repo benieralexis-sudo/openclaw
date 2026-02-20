@@ -386,7 +386,7 @@ async function callOpenAINLP(systemPrompt, userMessage, maxTokens) {
 
 function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
   maxTokens = maxTokens || 800;
-  model = model || 'claude-sonnet-4-5-20250929';
+  model = model || 'claude-sonnet-4-6';
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
       model: model,
