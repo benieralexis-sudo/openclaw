@@ -465,33 +465,82 @@ function saveMarketSignals(signals) {
   return saveMarketSignalsDeduped(signals);
 }
 
+function _extractEntities(title) {
+  // Extraire les noms propres / entreprises du titre (mots qui commencent par une majuscule, > 2 chars)
+  if (!title) return [];
+  const words = title.split(/[\s,.:;!?\-—–()[\]{}'"«»]+/);
+  const entities = [];
+  for (const w of words) {
+    // Mot avec majuscule initiale, pas en debut de phrase (skip index 0), > 2 chars
+    if (w.length > 2 && /^[A-ZÀ-Ü]/.test(w) && !/^(Le|La|Les|Un|Une|Des|Du|De|Au|Aux|En|Et|Ou|Son|Sa|Ses|Ce|Par|Pour|Sur|Dans|Avec|Qui|Que|Comment|Quand|Dit|Selon|Après|Avant|Aussi|Tout|Tous)$/.test(w)) {
+      entities.push(w.toLowerCase());
+    }
+  }
+  return entities;
+}
+
 function saveMarketSignalsDeduped(signals) {
   const data = _load();
   if (!data.marketSignals) data.marketSignals = [];
 
   const newSignals = [];
   const now = Date.now();
-  const dedup48h = 48 * 60 * 60 * 1000; // Fenetre de deduplication : 48h
+  const dedup48h = 48 * 60 * 60 * 1000;
+
+  // Collecter les signaux recents (48h) pour la dedup
+  const recentSignals = data.marketSignals.filter(s => {
+    const t = s.detectedAt ? new Date(s.detectedAt).getTime() : 0;
+    return (now - t) < dedup48h;
+  });
 
   for (const s of signals) {
-    // Verifier si un signal similaire existe deja (meme titre normalise dans les 48h)
-    const titleNorm = _normalizeTitle(s.article ? s.article.title : '');
-    if (titleNorm.length < 10) continue; // Titre trop court = pas fiable
+    const title = s.article ? s.article.title : '';
+    const titleNorm = _normalizeTitle(title);
+    if (titleNorm.length < 10) continue;
 
-    const isDuplicate = data.marketSignals.some(existing => {
+    // Dedup niveau 1 : meme titre normalise
+    const titleDuplicate = recentSignals.some(existing => {
       const existingTitleNorm = _normalizeTitle(existing.article ? existing.article.title : '');
-      const existingTime = existing.detectedAt ? new Date(existing.detectedAt).getTime() : 0;
-      return existingTitleNorm === titleNorm && (now - existingTime) < dedup48h;
+      return existingTitleNorm === titleNorm;
     });
 
-    if (isDuplicate) {
-      console.log('[web-intel-storage] Signal doublon ignore: ' + (s.article ? s.article.title : '').substring(0, 60));
+    if (titleDuplicate) {
+      console.log('[web-intel-storage] Signal doublon (titre) ignore: ' + title.substring(0, 60));
+      continue;
+    }
+
+    // Dedup niveau 2 : meme evenement (meme type + entites communes >= 2)
+    // Ex: "Dassault nomme Canonge chez Centric" et "Canonge prend la direction de Centric" = meme evenement
+    const entities = _extractEntities(title);
+    const eventDuplicate = entities.length >= 2 && recentSignals.some(existing => {
+      if (existing.type !== s.type) return false;
+      const existingEntities = _extractEntities(existing.article ? existing.article.title : '');
+      const commonEntities = entities.filter(e => existingEntities.includes(e));
+      return commonEntities.length >= 2; // 2+ entites en commun = meme evenement
+    });
+
+    if (eventDuplicate) {
+      console.log('[web-intel-storage] Signal doublon (evenement) ignore: ' + title.substring(0, 60));
+      continue;
+    }
+
+    // Dedup dans le batch courant aussi (evite que 2 articles du meme scan passent)
+    const batchDuplicate = entities.length >= 2 && newSignals.some(existing => {
+      if (existing.type !== s.type) return false;
+      const existingEntities = _extractEntities(existing.article ? existing.article.title : '');
+      const commonEntities = entities.filter(e => existingEntities.includes(e));
+      return commonEntities.length >= 2;
+    });
+
+    if (batchDuplicate) {
+      console.log('[web-intel-storage] Signal doublon (batch) ignore: ' + title.substring(0, 60));
       continue;
     }
 
     s.id = _generateId('sig');
     data.marketSignals.push(s);
     newSignals.push(s);
+    recentSignals.push(s); // Ajouter aux recents pour dedup intra-batch
   }
 
   // Limiter a 200 signaux

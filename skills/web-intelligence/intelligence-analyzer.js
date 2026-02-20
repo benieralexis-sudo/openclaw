@@ -546,27 +546,40 @@ REGLES :
 
     // Mots-cles negatifs globaux — articles non B2B a exclure
     const GLOBAL_NEGATIVE_KEYWORDS = [
+      // Deces / charite
       'obsèques', 'obseques', 'funerailles', 'deces', 'décès', 'memorial', 'necro',
       'cagnotte', 'don ', 'dons ', 'charite', 'charité', 'humanitaire', 'solidaire',
+      // Catastrophes / faits divers
       'catastrophe', 'seisme', 'inondation', 'incendie', 'accident',
+      'criminel', 'meurtre', 'agression', 'tué ', 'tue ', 'mort de ',
+      // Sport / loisirs
       'sport ', 'football', 'rugby', 'tennis', 'olympique', 'ligue 1', 'champions league',
-      'recette ', 'cuisine', 'horoscope', 'meteo', 'météo',
-      'criminel', 'meurtre', 'agression', 'tué ', 'tue ', 'mort de '
+      'real madrid', 'recette ', 'cuisine', 'horoscope', 'meteo', 'météo',
+      // Bourse / marchés financiers (pas du B2B)
+      'obligations convertibles', 'actions ordinaires', 'rachats d\'actions',
+      'rachat d\'actions', 'cours de bourse', 'portefeuille boursier', 'dividende',
+      'chute suite', 'chute en bourse', 'cotation', 'capitalisation boursiere',
+      'introduction en bourse ne', 'offre publique d\'achat',
+      // Articles d'opinion generiques (pas de signal actionnable)
+      'faut-il investir', 'investir en bourse', 'cap sur les',
+      'apocalypse saas', 'fin du saas', 'revolution inevitable',
+      'ces 3 noms', 'ces 5 noms'
     ];
 
     const SIGNAL_PATTERNS = {
       funding: {
         keywords: ['levee de fonds', 'levée de fonds', 'serie a', 'serie b', 'serie c', 'seed round',
-                   'millions d\'euros', 'millions de dollars', 'funding', 'raised', 'leve des fonds'],
-        // Mots-cles qui doivent etre presents en contexte pour valider le signal
+                   'funding', 'raised', 'leve des fonds', ' lève ', ' leve '],
+        // "millions d'euros/dollars" retire — trop generique (commandes, bourse, etc.)
+        // "lève X millions" est capture par " lève "
         contextKeywords: ['startup', 'fintech', 'saas', 'tech', 'logiciel', 'plateforme', 'editeur',
                           'intelligence artificielle', 'ia ', ' ai ', 'cloud', 'b2b', 'scale-up',
                           'venture', 'capital-risque', 'investisseur', 'fonds d\'investissement',
                           'bpifrance', 'round', 'valorisation', 'licorne', 'centaure'],
-        // Mots-cles negatifs specifiques a cette categorie
-        negativeKeywords: ['cagnotte', 'obsèques', 'obseques', 'participatif solidaire', 'don',
-                           'faut-il investir', 'investir en bourse', 'action ', 'cours de bourse',
-                           'portefeuille boursier', 'dividende', 'cap sur les'],
+        negativeKeywords: ['cagnotte', 'participatif solidaire',
+                           'remporte des commandes', 'chiffre d\'affaires', 'resultat net',
+                           'financements ralentis', 'financements en baisse',
+                           'quand le financement', 'financement automobile'],
         priority: 'high',
         action: 'Prospect chaud — vient de lever des fonds, budget disponible',
         requireContext: false
@@ -589,9 +602,12 @@ REGLES :
       },
       leadership_change: {
         keywords: ['nomme directeur', 'nommé directeur', 'nomme president', 'nommé président',
+                   'nommé managing', 'nomme managing',
                    'nouveau ceo', 'nouveau pdg', 'nouveau directeur', 'nouvelle directrice',
-                   'prend la direction de', 'rejoint en tant que', 'appointed ceo', 'appointed cto',
-                   'prend la tete de'],
+                   'prend la direction de', 'prend la direction generale',
+                   'rejoint en tant que', 'appointed ceo', 'appointed cto',
+                   'prend la tete de', 'devient directeur', 'devient président',
+                   'nomme son directeur'],
         negativeKeywords: [],
         priority: 'high',
         action: 'Changement de direction — nouveau decideur, fenetre d\'opportunite',
@@ -606,13 +622,18 @@ REGLES :
         requireContext: false
       },
       acquisition: {
-        keywords: ['fait l\'acquisition de', 'acquiert', 'rachete', 'rachat de', 'fusion entre',
-                   'met la main sur', 'rachète'],
-        // "acquisition" seul est trop ambigu (marketing acquisition vs M&A)
+        keywords: ['fait l\'acquisition de', 'rachete', 'rachat de', 'fusion entre',
+                   'met la main sur', 'rachète', 'reprend les actifs de'],
+        // "acquiert" retire — trop ambigu (acquiert des actions, acquiert des clients)
         negativeKeywords: ['acquisition en ligne', 'acquisition client', 'acquisition de trafic',
                            'acquisition marketing', 'boost votre acquisition', 'booste votre acquisition',
-                           'strategie d\'acquisition', 'cout d\'acquisition', 'coût d\'acquisition',
-                           'ambassadeur de', 'devient l\'ambassadeur'],
+                           'booste l\'acquisition', 'strategie d\'acquisition', 'cout d\'acquisition',
+                           'coût d\'acquisition', 'ambassadeur de', 'devient l\'ambassadeur',
+                           'acquiert des actions', 'actions ordinaires', 'rachats d\'actions',
+                           'rachat d\'actions', 'augmentent leurs rachats',
+                           'fusions-acquisitions renforcent', 'depart de ', 'quitte ',
+                           'se heurte a', 'se heurte à',
+                           'clé du marketing', 'cle du marketing', 'micro-influenceur'],
         priority: 'high',
         action: 'Acquisition — restructuration en cours, besoins potentiels',
         requireContext: false

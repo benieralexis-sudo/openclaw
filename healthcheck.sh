@@ -16,15 +16,16 @@ if [ -z "$BOT_TOKEN" ]; then
   exit 1
 fi
 
-# Check Docker container
-CONTAINER_STATUS=$(docker compose -f /opt/moltbot/docker-compose.yml ps openclaw-gateway --format '{{.Status}}' 2>/dev/null)
+# Check Docker container (service = telegram-router)
+CONTAINER_STATUS=$(docker compose -f /opt/moltbot/docker-compose.yml ps telegram-router --format '{{.Status}}' 2>/dev/null)
 CONTAINER_HEALTH=$(echo "$CONTAINER_STATUS" | grep -o '(healthy)\|(unhealthy)\|(starting)' || echo "unknown")
 
-# Check HTTP gateway
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$GATEWAY_URL" 2>/dev/null || echo "000")
+# Check HTTP gateway (fix: eviter double "000" si curl echoue)
+HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$GATEWAY_URL" 2>/dev/null)
+if [ -z "$HTTP_STATUS" ]; then HTTP_STATUS="000"; fi
 
-# Check uptime
-UPTIME=$(docker compose -f /opt/moltbot/docker-compose.yml ps openclaw-gateway --format '{{.Status}}' 2>/dev/null | grep -oP 'Up \K[^(]+' | xargs || echo "inconnu")
+# Check uptime (service = telegram-router)
+UPTIME=$(docker compose -f /opt/moltbot/docker-compose.yml ps telegram-router --format '{{.Status}}' 2>/dev/null | grep -oP 'Up \K[^(]+' | xargs || echo "inconnu")
 
 # Check dernier backup
 LAST_BACKUP=$(ls -t /opt/moltbot/backups/moltbot-*.tar.gz 2>/dev/null | head -1)
