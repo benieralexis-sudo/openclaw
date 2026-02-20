@@ -873,7 +873,54 @@ Format JSON strict :
       return { success: false, error: 'Aucun contact pour la sequence' };
     }
 
+    // Validation emails : le brain invente parfois des emails (andrea@trendex.com au lieu de andrea@trendex.tech)
+    // Corriger en croisant avec FlowFast et automailer
     const amStorage = getAutomailerStorage();
+    const ffStorage = getFlowFastStorage();
+    if (ffStorage && ffStorage.data) {
+      const leadsObj = ffStorage.data.leads || {};
+      const leadIds = Object.keys(leadsObj);
+      const sentEmails = amStorage ? (amStorage.data.emails || []) : [];
+
+      for (let ci = 0; ci < contacts.length; ci++) {
+        const c = contacts[ci];
+        // Verifier si l'email existe dans FlowFast ou automailer
+        let emailFound = false;
+        for (const lid of leadIds) {
+          if (leadsObj[lid].email === c.email) { emailFound = true; break; }
+        }
+        if (!emailFound) {
+          for (const se of sentEmails) {
+            if (se.to === c.email) { emailFound = true; break; }
+          }
+        }
+        if (!emailFound) {
+          // Chercher par nom dans FlowFast
+          const nom = c.nom || c.name || '';
+          let correctedEmail = null;
+          for (const lid of leadIds) {
+            const lead = leadsObj[lid];
+            if (lead.email && lead.nom && lead.nom.toLowerCase() === nom.toLowerCase()) {
+              correctedEmail = lead.email;
+              break;
+            }
+          }
+          if (correctedEmail) {
+            log.warn('action-executor', 'Follow-up email corrige: ' + c.email + ' -> ' + correctedEmail);
+            c.email = correctedEmail;
+          } else {
+            log.warn('action-executor', 'Follow-up email inconnu: ' + c.email + ' (pas dans FlowFast/automailer) — retire');
+            contacts.splice(ci, 1);
+            ci--;
+          }
+        }
+      }
+      if (contacts.length === 0) {
+        return { success: false, error: 'Aucun contact valide apres validation emails' };
+      }
+    }
+
+    if (!amStorage) {
     if (!amStorage) {
       return { success: false, error: 'Automailer storage non disponible' };
     }

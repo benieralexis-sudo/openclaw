@@ -602,6 +602,8 @@ function startAllCrons() {
 
   // Polling statuts email Resend toutes les 30 min (backup du webhook)
   if (automailerHandler.campaignEngine) {
+    // Demarrer le scheduler de campagne (verifie les steps toutes les 60s pendant heures bureau)
+    automailerHandler.campaignEngine.start();
     setInterval(async () => {
       try {
         await automailerHandler.campaignEngine.checkEmailStatuses();
