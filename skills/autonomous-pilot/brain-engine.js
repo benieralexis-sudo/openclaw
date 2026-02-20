@@ -749,6 +749,7 @@ Analyse et reponds en JSON:
           );
 
           // Appliquer le boost de score sur chaque lead matche
+          let anyNewBoost = false;
           for (const [key, lead] of matchingLeads) {
             const signalId = (signal.detectedAt || '') + '_' + signal.type + '_' + signal.company;
             if (!lead._processedSignals) lead._processedSignals = [];
@@ -760,11 +761,12 @@ Analyse et reponds en JSON:
               lead._processedSignals.push(signalId);
               if (lead._processedSignals.length > 50) lead._processedSignals = lead._processedSignals.slice(-50);
               ffStorage.updateLeadScore(key, newScore, reason);
+              anyNewBoost = true;
             }
           }
 
-          // Notifier sur Telegram
-          if (matchingLeads.length > 0) {
+          // Notifier sur Telegram UNIQUEMENT si un nouveau boost a ete applique (evite les doublons)
+          if (matchingLeads.length > 0 && anyNewBoost) {
             const [, firstLead] = matchingLeads[0];
             const boost = SIGNAL_BOOSTS[signal.type] || 0.5;
             try {

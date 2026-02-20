@@ -544,46 +544,88 @@ REGLES :
 
     const signals = [];
 
+    // Mots-cles negatifs globaux — articles non B2B a exclure
+    const GLOBAL_NEGATIVE_KEYWORDS = [
+      'obsèques', 'obseques', 'funerailles', 'deces', 'décès', 'memorial', 'necro',
+      'cagnotte', 'don ', 'dons ', 'charite', 'charité', 'humanitaire', 'solidaire',
+      'catastrophe', 'seisme', 'inondation', 'incendie', 'accident',
+      'sport ', 'football', 'rugby', 'tennis', 'olympique', 'ligue 1', 'champions league',
+      'recette ', 'cuisine', 'horoscope', 'meteo', 'météo',
+      'criminel', 'meurtre', 'agression', 'tué ', 'tue ', 'mort de '
+    ];
+
     const SIGNAL_PATTERNS = {
       funding: {
-        keywords: ['levee de fonds', 'levée de fonds', 'leve des fonds', 'serie a', 'serie b', 'serie c', 'seed',
-                   'financement', 'investissement', 'millions d\'euros', 'millions de dollars', 'funding', 'raised', 'round'],
+        keywords: ['levee de fonds', 'levée de fonds', 'serie a', 'serie b', 'serie c', 'seed round',
+                   'millions d\'euros', 'millions de dollars', 'funding', 'raised', 'leve des fonds'],
+        // Mots-cles qui doivent etre presents en contexte pour valider le signal
+        contextKeywords: ['startup', 'fintech', 'saas', 'tech', 'logiciel', 'plateforme', 'editeur',
+                          'intelligence artificielle', 'ia ', ' ai ', 'cloud', 'b2b', 'scale-up',
+                          'venture', 'capital-risque', 'investisseur', 'fonds d\'investissement',
+                          'bpifrance', 'round', 'valorisation', 'licorne', 'centaure'],
+        // Mots-cles negatifs specifiques a cette categorie
+        negativeKeywords: ['cagnotte', 'obsèques', 'obseques', 'participatif solidaire', 'don',
+                           'faut-il investir', 'investir en bourse', 'action ', 'cours de bourse',
+                           'portefeuille boursier', 'dividende', 'cap sur les'],
         priority: 'high',
-        action: 'Prospect chaud — vient de lever des fonds, budget disponible'
+        action: 'Prospect chaud — vient de lever des fonds, budget disponible',
+        requireContext: false
       },
       hiring: {
-        keywords: ['recrute', 'recrutement', 'embauche', 'hiring', 'postes ouverts', 'offres d\'emploi',
-                   'equipe grandit', 'croissance des effectifs', 'nouvelle equipe', 'CDI', 'rejoindre l\'equipe'],
+        keywords: ['recrute', 'recrutement massif', 'embauche', 'hiring', 'postes ouverts',
+                   'equipe grandit', 'croissance des effectifs'],
+        negativeKeywords: [],
         priority: 'medium',
-        action: 'Entreprise en croissance — potentiel besoin de services'
+        action: 'Entreprise en croissance — potentiel besoin de services',
+        requireContext: false
       },
       product_launch: {
-        keywords: ['lance', 'lancement', 'nouveau produit', 'nouvelle offre', 'nouvelle version',
-                   'release', 'annonce', 'devoile', 'presente sa nouvelle', 'disponible'],
+        keywords: ['lance son', 'lance sa', 'lancement de', 'nouveau produit', 'nouvelle offre', 'nouvelle version',
+                   'devoile', 'presente sa nouvelle'],
+        negativeKeywords: [],
         priority: 'medium',
-        action: 'Lancement produit — moment cle pour proposer des services complementaires'
+        action: 'Lancement produit — moment cle pour proposer des services complementaires',
+        requireContext: false
       },
       leadership_change: {
-        keywords: ['nomme', 'nommé', 'nouveau ceo', 'nouveau pdg', 'nouveau directeur', 'nouvelle directrice',
-                   'prend la direction', 'rejoint', 'appointed', 'prend la tete'],
+        keywords: ['nomme directeur', 'nommé directeur', 'nomme president', 'nommé président',
+                   'nouveau ceo', 'nouveau pdg', 'nouveau directeur', 'nouvelle directrice',
+                   'prend la direction de', 'rejoint en tant que', 'appointed ceo', 'appointed cto',
+                   'prend la tete de'],
+        negativeKeywords: [],
         priority: 'high',
-        action: 'Changement de direction — nouveau decideur, fenetre d\'opportunite'
+        action: 'Changement de direction — nouveau decideur, fenetre d\'opportunite',
+        requireContext: false
       },
       expansion: {
-        keywords: ['expansion', 'ouvre un bureau', 'nouveau bureau', 's\'implante', 'internationalisation',
-                   'entre sur le marche', 'partenariat strategique', 'partenariat stratégique', 'deploiement'],
+        keywords: ['ouvre un bureau', 'nouveau bureau', 's\'implante en', 'internationalisation',
+                   'entre sur le marche', 'partenariat strategique', 'partenariat stratégique'],
+        negativeKeywords: [],
         priority: 'medium',
-        action: 'Expansion — entreprise ambitieuse, budget probable'
+        action: 'Expansion — entreprise ambitieuse, budget probable',
+        requireContext: false
       },
       acquisition: {
-        keywords: ['acquisition', 'acquiert', 'rachete', 'rachat', 'fusion', 'merge', 'rapprochement'],
+        keywords: ['fait l\'acquisition de', 'acquiert', 'rachete', 'rachat de', 'fusion entre',
+                   'met la main sur', 'rachète'],
+        // "acquisition" seul est trop ambigu (marketing acquisition vs M&A)
+        negativeKeywords: ['acquisition en ligne', 'acquisition client', 'acquisition de trafic',
+                           'acquisition marketing', 'boost votre acquisition', 'booste votre acquisition',
+                           'strategie d\'acquisition', 'cout d\'acquisition', 'coût d\'acquisition',
+                           'ambassadeur de', 'devient l\'ambassadeur'],
         priority: 'high',
-        action: 'Acquisition — restructuration en cours, besoins potentiels'
+        action: 'Acquisition — restructuration en cours, besoins potentiels',
+        requireContext: false
       }
     };
 
     for (const article of articles) {
-      // FIX 17 : Filtre geographique — ne garder que France/Europe
+      // Filtre 1 : Score de pertinence minimum (evite le bruit)
+      if ((article.relevanceScore || 0) < 5) {
+        continue;
+      }
+
+      // Filtre 2 : Geographique — ne garder que France/Europe
       if (!this._isRelevantGeography(article)) {
         log.info('web-intel', 'Signal filtre (hors zone geo) : ' + (article.title || '').substring(0, 60));
         continue;
@@ -591,25 +633,50 @@ REGLES :
 
       const textLower = ((article.title || '') + ' ' + (article.snippet || '') + ' ' + (article.summary || '')).toLowerCase();
 
+      // Filtre 3 : Mots-cles negatifs globaux (articles non-B2B)
+      const hasGlobalNegative = GLOBAL_NEGATIVE_KEYWORDS.some(kw => textLower.includes(kw));
+      if (hasGlobalNegative) {
+        log.info('web-intel', 'Signal filtre (non-B2B) : ' + (article.title || '').substring(0, 60));
+        continue;
+      }
+
       for (const [signalType, config] of Object.entries(SIGNAL_PATTERNS)) {
         const matchedKeywords = config.keywords.filter(kw => textLower.includes(kw));
-        if (matchedKeywords.length > 0) {
-          signals.push({
-            type: signalType,
-            priority: config.priority,
-            suggestedAction: config.action,
-            article: {
-              title: article.title,
-              link: article.link,
-              source: article.source,
-              summary: article.summary || article.snippet,
-              company: article.crmMatch ? article.crmMatch.company : null
-            },
-            matchedKeywords: matchedKeywords,
-            detectedAt: new Date().toISOString()
-          });
-          break; // Un signal par article (le premier detecte)
+        if (matchedKeywords.length === 0) continue;
+
+        // Filtre 4 : Mots-cles negatifs specifiques au type de signal
+        if (config.negativeKeywords && config.negativeKeywords.length > 0) {
+          const hasNegative = config.negativeKeywords.some(kw => textLower.includes(kw));
+          if (hasNegative) {
+            log.info('web-intel', 'Signal filtre (negative kw ' + signalType + ') : ' + (article.title || '').substring(0, 60));
+            continue;
+          }
         }
+
+        // Filtre 5 : Contexte requis (ex: funding doit mentionner un contexte tech/startup)
+        if (config.requireContext && config.contextKeywords && config.contextKeywords.length > 0) {
+          const hasContext = config.contextKeywords.some(kw => textLower.includes(kw));
+          if (!hasContext) {
+            log.info('web-intel', 'Signal filtre (pas de contexte ' + signalType + ') : ' + (article.title || '').substring(0, 60));
+            continue;
+          }
+        }
+
+        signals.push({
+          type: signalType,
+          priority: config.priority,
+          suggestedAction: config.action,
+          article: {
+            title: article.title,
+            link: article.link,
+            source: article.source,
+            summary: article.summary || article.snippet,
+            company: article.crmMatch ? article.crmMatch.company : null
+          },
+          matchedKeywords: matchedKeywords,
+          detectedAt: new Date().toISOString()
+        });
+        break; // Un signal par article (le premier detecte)
       }
     }
 

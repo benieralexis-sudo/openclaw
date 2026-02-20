@@ -972,32 +972,37 @@ Reponds UNIQUEMENT en JSON strict :
       }
     }
 
-    // 9. Sauvegarder
-    const addedCount = storage.addArticles(analyzed);
+    // 9. Sauvegarder (retourne les articles effectivement ajoutes, sans doublons)
+    const addedResult = storage.addArticlesAndReturnAdded(analyzed);
+    const addedCount = addedResult.count;
+    const addedArticles = addedResult.articles;
     storage.updateWatch(watch.id, {
       lastCheckedAt: new Date().toISOString(),
       articleCount: (watch.articleCount || 0) + addedCount
     });
 
-    // 9.5. Detection de signaux marche (Intelligence Reelle v5)
+    // 9.5. Detection de signaux marche — UNIQUEMENT sur les articles reellement ajoutes (anti-doublons)
     try {
-      const signals = this.analyzer.classifyMarketSignals(analyzed);
-      if (signals.length > 0) {
-        storage.saveMarketSignals(signals);
-        log.info('web-intel', 'Signaux marche detectes: ' + signals.length + ' pour ' + watch.name);
+      if (addedArticles.length > 0) {
+        const signals = this.analyzer.classifyMarketSignals(addedArticles);
+        // Deduplication des signaux (meme titre d'article = meme signal)
+        const newSignals = storage.saveMarketSignalsDeduped(signals);
+        if (newSignals.length > 0) {
+          log.info('web-intel', 'Signaux marche detectes: ' + newSignals.length + ' pour ' + watch.name);
 
-        // Alerter sur les signaux high priority
-        const highPriority = signals.filter(s => s.priority === 'high');
-        if (highPriority.length > 0 && this.sendTelegram) {
-          const config = storage.getConfig();
-          const chatId = config.adminChatId;
-          if (chatId) {
-            let alertMsg = '📡 *SIGNAL MARCHE* (' + highPriority.length + ')\n\n';
-            for (const s of highPriority.slice(0, 3)) {
-              alertMsg += '*' + s.type.toUpperCase() + '* : ' + s.article.title + '\n';
-              alertMsg += '→ _' + s.suggestedAction + '_\n\n';
+          // Alerter sur les signaux high priority
+          const highPriority = newSignals.filter(s => s.priority === 'high');
+          if (highPriority.length > 0 && this.sendTelegram) {
+            const config = storage.getConfig();
+            const chatId = config.adminChatId;
+            if (chatId) {
+              let alertMsg = '📡 *SIGNAL MARCHE* (' + highPriority.length + ')\n\n';
+              for (const s of highPriority.slice(0, 5)) {
+                alertMsg += '*' + s.type.toUpperCase() + '* : ' + s.article.title + '\n';
+                alertMsg += '→ _' + s.suggestedAction + '_\n\n';
+              }
+              try { await this.sendTelegram(chatId, alertMsg, 'Markdown'); } catch (e) {}
             }
-            try { await this.sendTelegram(chatId, alertMsg, 'Markdown'); } catch (e) {}
           }
         }
       }

@@ -208,8 +208,14 @@ function hasArticleByTitle(title) {
 }
 
 function addArticles(articles) {
+  const result = addArticlesAndReturnAdded(articles);
+  return result.count;
+}
+
+function addArticlesAndReturnAdded(articles) {
   const data = _load();
   let added = 0;
+  const addedArticles = [];
   for (const article of articles) {
     // Deduplication par URL + titre (articles syndiques avec URLs differentes)
     if (hasArticle(article.link)) continue;
@@ -232,6 +238,7 @@ function addArticles(articles) {
       fetchedAt: new Date().toISOString()
     };
     data.articles.push(fullArticle);
+    addedArticles.push(fullArticle);
     added++;
   }
 
@@ -242,7 +249,7 @@ function addArticles(articles) {
 
   data.stats.totalArticlesFetched += added;
   _save();
-  return added;
+  return { count: added, articles: addedArticles };
 }
 
 function getArticlesForWatch(watchId, limit) {
@@ -455,18 +462,44 @@ function incrementStat(key) {
 // --- Market Signals (Intelligence Reelle v5) ---
 
 function saveMarketSignals(signals) {
+  return saveMarketSignalsDeduped(signals);
+}
+
+function saveMarketSignalsDeduped(signals) {
   const data = _load();
   if (!data.marketSignals) data.marketSignals = [];
+
+  const newSignals = [];
+  const now = Date.now();
+  const dedup48h = 48 * 60 * 60 * 1000; // Fenetre de deduplication : 48h
+
   for (const s of signals) {
+    // Verifier si un signal similaire existe deja (meme titre normalise dans les 48h)
+    const titleNorm = _normalizeTitle(s.article ? s.article.title : '');
+    if (titleNorm.length < 10) continue; // Titre trop court = pas fiable
+
+    const isDuplicate = data.marketSignals.some(existing => {
+      const existingTitleNorm = _normalizeTitle(existing.article ? existing.article.title : '');
+      const existingTime = existing.detectedAt ? new Date(existing.detectedAt).getTime() : 0;
+      return existingTitleNorm === titleNorm && (now - existingTime) < dedup48h;
+    });
+
+    if (isDuplicate) {
+      console.log('[web-intel-storage] Signal doublon ignore: ' + (s.article ? s.article.title : '').substring(0, 60));
+      continue;
+    }
+
     s.id = _generateId('sig');
     data.marketSignals.push(s);
+    newSignals.push(s);
   }
+
   // Limiter a 200 signaux
   if (data.marketSignals.length > 200) {
     data.marketSignals = data.marketSignals.slice(-200);
   }
   _save();
-  return signals;
+  return newSignals;
 }
 
 function getRecentMarketSignals(limit) {
@@ -489,13 +522,14 @@ module.exports = {
   getConfig, updateConfig,
   addWatch, getWatch, getWatchByName, updateWatch, deleteWatch,
   getWatches, getEnabledWatches, getWatchesByType,
-  hasArticle, hasArticleByTitle, addArticles, getArticlesForWatch, getRecentArticles,
+  hasArticle, hasArticleByTitle, addArticles, addArticlesAndReturnAdded,
+  getArticlesForWatch, getRecentArticles,
   getUnnotifiedArticles, markArticleNotified,
   getArticlesByDateRange, getArticlesLast24h, getArticlesLastWeek,
   saveNewsOutreach, getRelevantNewsForContact, getRecentNewsOutreach, markNewsUsedInEmail,
   saveCompetitiveDigest, getLatestCompetitiveDigest,
   saveTrends, getLatestTrends,
-  saveMarketSignals, getRecentMarketSignals, getHighPrioritySignals,
+  saveMarketSignals, saveMarketSignalsDeduped, getRecentMarketSignals, getHighPrioritySignals,
   saveAnalysis, getRecentAnalyses,
   getStats, updateStat, incrementStat
 };
