@@ -293,12 +293,21 @@ Format JSON strict :
 
     storage.incrementProgress('leadsFoundThisWeek', result.leads?.length || 0);
 
+    // Tracker la niche si fournie par le brain
+    const niche = params.niche || this._inferNiche(params.criteria?.keywords || '');
+    if (niche) {
+      for (let ni = 0; ni < saved; ni++) {
+        storage.trackNicheEvent(niche, 'lead');
+      }
+    }
+
     return {
       success: true,
       total: result.leads?.length || 0,
       qualified: qualified,
       saved: saved,
-      summary: (result.leads?.length || 0) + ' leads trouves, ' + qualified + ' qualifies (score >= ' + minScore + ')'
+      niche: niche || null,
+      summary: (result.leads?.length || 0) + ' leads trouves, ' + qualified + ' qualifies (score >= ' + minScore + ')' + (niche ? ' [niche: ' + niche + ']' : '')
     };
   }
 
@@ -737,6 +746,22 @@ Format JSON strict :
 
         storage.incrementProgress('emailsSentThisWeek', 1);
 
+        // Tracker la niche de ce lead pour l'auto-pivot
+        const ffStorageNiche = getFlowFastStorage();
+        if (ffStorageNiche && ffStorageNiche.data) {
+          const leadsObj2 = ffStorageNiche.data.leads || {};
+          for (const lid of Object.keys(leadsObj2)) {
+            if (leadsObj2[lid].email === params.to) {
+              const leadNiche = this._inferLeadNiche(leadsObj2[lid]);
+              if (leadNiche) {
+                storage.trackNicheEvent(leadNiche, 'sent');
+                log.info('action-executor', 'Niche tracking: email sent [' + leadNiche + '] pour ' + params.to);
+              }
+              break;
+            }
+          }
+        }
+
         // Marquer le lead comme _emailSent dans FlowFast pour eviter re-envoi
         const ffStorage = getFlowFastStorage();
         if (ffStorage && ffStorage.markEmailSent) {
@@ -995,6 +1020,40 @@ Format JSON strict :
       log.error('action-executor', 'Erreur creation sequence follow-up:', e.message);
       return { success: false, error: 'Creation sequence echouee: ' + e.message };
     }
+  }
+
+  // --- Inference de niche a partir des keywords de recherche ---
+  _inferNiche(keywords) {
+    if (!keywords) return null;
+    const kw = keywords.toLowerCase();
+    const nicheMap = [
+      { slug: 'agences-marketing', patterns: ['agence marketing', 'agence digitale', 'agence growth', 'agence communication', 'agence web'] },
+      { slug: 'esn-ssii', patterns: ['esn', 'ssii', 'consulting it', 'conseil informatique', 'societe services informatiques', 'services numeriques'] },
+      { slug: 'saas-b2b', patterns: ['saas b2b', 'logiciel b2b', 'editeur logiciel', 'startup saas', 'saas'] }
+    ];
+    for (const n of nicheMap) {
+      for (const p of n.patterns) {
+        if (kw.includes(p)) return n.slug;
+      }
+    }
+    return null;
+  }
+
+  // --- Inference niche d'un lead a partir de ses donnees FlowFast ---
+  _inferLeadNiche(lead) {
+    if (!lead) return null;
+    // Chercher dans les criteres de recherche stockes avec le lead
+    if (lead.searchCriteria) {
+      const niche = this._inferNiche(lead.searchCriteria);
+      if (niche) return niche;
+    }
+    // Chercher dans le nom d'entreprise / industrie
+    const orgData = lead.organizationData ? (typeof lead.organizationData === 'string' ? lead.organizationData : JSON.stringify(lead.organizationData)) : '';
+    const combined = ((lead.entreprise || '') + ' ' + orgData).toLowerCase();
+    if (combined.includes('agence') || combined.includes('marketing') || combined.includes('communication')) return 'agences-marketing';
+    if (combined.includes('esn') || combined.includes('ssii') || combined.includes('consulting') || combined.includes('services informatiques')) return 'esn-ssii';
+    if (combined.includes('saas') || combined.includes('logiciel') || combined.includes('editeur')) return 'saas-b2b';
+    return null;
   }
 }
 

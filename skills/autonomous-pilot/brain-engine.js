@@ -959,6 +959,23 @@ Analyse et reponds en JSON:
     prompt += '- Open rate >= ' + g.minOpenRate + '%\n';
     prompt += '- Push CRM si score >= ' + g.pushToCrmAboveScore + '\n';
 
+    // --- PERFORMANCE PAR NICHE (Auto-Pivot) ---
+    const nichePerf = storage.getNichePerformance();
+    const nicheKeys = Object.keys(nichePerf);
+    if (nicheKeys.length > 0) {
+      prompt += '\nPERFORMANCE PAR NICHE (auto-pivot):\n';
+      for (const nk of nicheKeys) {
+        const np = nichePerf[nk];
+        const openRate = np.sent > 0 ? Math.round((np.opened / np.sent) * 100) : 0;
+        const replyRate = np.sent > 0 ? Math.round((np.replied / np.sent) * 100) : 0;
+        prompt += '- ' + nk + ': ' + np.leads + ' leads, ' + np.sent + ' envoyes, ' + np.opened + ' ouverts (' + openRate + '%), ' + np.replied + ' reponses (' + replyRate + '%)\n';
+      }
+      prompt += '→ REGLE AUTO-PIVOT: Apres 15+ emails par niche, concentre 70% des envois sur la meilleure niche (open rate).\n';
+      prompt += '→ Si une niche a < 5% open rate apres 20+ emails, ABANDONNE-LA et teste une niche de remplacement.\n';
+      prompt += '→ Niches de remplacement possibles: "cabinet conseil", "courtier assurance", "formation professionnelle"\n';
+      prompt += '→ Pour chaque search_leads, ajoute params.niche (ex: "agences-marketing", "esn-ssii", "saas-b2b") pour le tracking.\n';
+    }
+
     prompt += '\nCRITERES DE RECHERCHE (VERROUILLES — NE PAS MODIFIER):\n';
     prompt += JSON.stringify(sc, null, 2) + '\n';
     prompt += '→ IMPORTANT: Ces criteres (titles, locations, companySize) sont VERROUILLES par la config.\n';
