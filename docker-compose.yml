@@ -14,6 +14,9 @@ services:
       CLAUDE_API_KEY: ${CLAUDE_API_KEY}
       RESEND_API_KEY: ${RESEND_API_KEY}
       SENDER_EMAIL: ${SENDER_EMAIL:-onboarding@resend.dev}
+      GMAIL_SMTP_USER: ${GMAIL_SMTP_USER:-}
+      GMAIL_SMTP_PASS: ${GMAIL_SMTP_PASS:-}
+      GMAIL_SMTP_ENABLED: ${GMAIL_SMTP_ENABLED:-false}
       FLOWFAST_DATA_DIR: /data/flowfast
       AUTOMAILER_DATA_DIR: /data/automailer
       CRM_PILOT_DATA_DIR: /data/crm-pilot

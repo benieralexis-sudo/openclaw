@@ -301,6 +301,8 @@ class CampaignEngine {
       }
 
       const result = await this.resend.sendEmail(contact.email, subject, body, {
+        replyTo: 'hello@ifind.fr',
+        fromName: 'Alexis',
         tags: [
           { name: 'campaign_id', value: campaignId },
           { name: 'step', value: String(stepNumber) }
