@@ -192,12 +192,11 @@ REGLES :
 - Max 20 lignes, concis et actionnable`;
 
     try {
-      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 60000 });
+      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
       const response = await breaker.call(() => retryAsync(() => this.callClaude(
         [{ role: 'user', content: dataStr }],
         systemPrompt,
-        1500,
-        'claude-opus-4-6'
+        1500
       ), 2, 3000));
       return response;
     } catch (e) {

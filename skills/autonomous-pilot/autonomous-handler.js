@@ -289,7 +289,7 @@ Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}
 
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-sonnet-4-6',
         max_tokens: maxTokens || 2000,
         system: systemPrompt,
         messages: [
@@ -316,7 +316,7 @@ Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}
             if (json.content && json.content[0]) {
               // Budget tracking — input/output separes
               if (json.usage) {
-                appConfig.recordApiSpend('claude-sonnet-4-5-20250929', json.usage.input_tokens || 0, json.usage.output_tokens || 0);
+                appConfig.recordApiSpend('claude-sonnet-4-6', json.usage.input_tokens || 0, json.usage.output_tokens || 0);
               }
               resolve(json.content[0].text);
             } else {

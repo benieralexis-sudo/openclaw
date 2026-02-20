@@ -3,6 +3,8 @@
 
 const storage = require('./storage.js');
 const { getStorage, getModule } = require('../../gateway/skill-loader.js');
+const { callOpenAI } = require('../../gateway/shared-nlp.js');
+const appConfig = require('../../gateway/app-config.js');
 const log = require('../../gateway/logger.js');
 
 function getHubSpotClient() { return getModule('hubspot-client'); }
@@ -12,10 +14,29 @@ class ReportGenerator {
   constructor(options) {
     this.callClaude = options.callClaude;
     this.callClaudeOpus = options.callClaudeOpus || options.callClaude;
+    this.openaiKey = process.env.OPENAI_API_KEY || '';
     this.hubspotKey = options.hubspotKey;
     this.resendKey = options.resendKey;
     this.senderEmail = options.senderEmail;
     this.ownerName = process.env.DASHBOARD_OWNER || 'le client';
+  }
+
+  // GPT-4o-mini pour taches simples (alertes courtes, briefings internes)
+  async _callMini(systemPrompt, userMessage, maxTokens) {
+    if (!this.openaiKey) return this.callClaude(systemPrompt, userMessage, maxTokens);
+    try {
+      const result = await callOpenAI(this.openaiKey, [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ], { maxTokens: maxTokens || 500, temperature: 0.7 });
+      if (result.usage) {
+        appConfig.recordApiSpend('gpt-4o-mini', result.usage.prompt_tokens || 0, result.usage.completion_tokens || 0);
+      }
+      return result.content;
+    } catch (e) {
+      log.warn('proactive-report', 'GPT-4o-mini echec, fallback Sonnet:', e.message);
+      return this.callClaude(systemPrompt, userMessage, maxTokens);
+    }
   }
 
   // --- Collecte de donnees cross-skill ---
@@ -436,7 +457,7 @@ REGLES :
 - JAMAIS mentionner Claude, OpenAI, GPT ou IA`;
 
     try {
-      return await this.callClaude(systemPrompt, prompt, 500);
+      return await this._callMini(systemPrompt, prompt, 500);
     } catch (e) {
       log.info('proactive-report', 'Erreur generation pipeline alerts:', e.message);
       return null;
@@ -570,7 +591,7 @@ REGLES :
 - JAMAIS mentionner Claude, OpenAI, GPT ou IA`;
 
     try {
-      return await this.callClaude(systemPrompt, prompt, 300);
+      return await this._callMini(systemPrompt, prompt, 300);
     } catch (e) {
       return 'Un lead vient d\'ouvrir ton email ' + opens + ' fois : *' + email + '*. Ca vaut le coup de le relancer !';
     }
@@ -595,7 +616,7 @@ REGLES :
 - JAMAIS mentionner Claude, OpenAI, GPT ou IA`;
 
     try {
-      return await this.callClaude(systemPrompt, prompt, 500);
+      return await this._callMini(systemPrompt, prompt, 500);
     } catch (e) {
       log.info('proactive-report', 'Erreur generation nightly briefing:', e.message);
       return null;

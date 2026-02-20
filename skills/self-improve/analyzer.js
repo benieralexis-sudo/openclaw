@@ -100,7 +100,7 @@ Reponds UNIQUEMENT en JSON strict :
       overrideContext;
 
     try {
-      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 60000 });
+      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
       const response = await breaker.call(() => retryAsync(() => this.callClaude(systemPrompt, userMessage, 2000), 2, 3000));
       const cleaned = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const analysis = JSON.parse(cleaned);
