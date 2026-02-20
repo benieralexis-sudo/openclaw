@@ -921,7 +921,6 @@ Format JSON strict :
     }
 
     if (!amStorage) {
-    if (!amStorage) {
       return { success: false, error: 'Automailer storage non disponible' };
     }
 
