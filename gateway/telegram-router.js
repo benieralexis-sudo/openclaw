@@ -1567,6 +1567,15 @@ const healthServer = http.createServer((req, res) => {
         } else {
           sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
         }
+        // Tracker l'ouverture dans Proactive Agent (hot lead detection)
+        try {
+          const tracked = proactiveAgentStorage.trackEmailOpen(email.to, email.trackingId || trackingId);
+          const paConfig = proactiveAgentStorage.getConfig();
+          if (tracked.opens >= (paConfig.thresholds || {}).hotLeadOpens && !proactiveAgentStorage.isHotLeadNotified(email.to)) {
+            sendMessage(ADMIN_CHAT_ID, '\u{1f525} *HOT LEAD* — ' + (email.contactName || email.to) + ' a ouvert ' + tracked.opens + ' emails !\n_Ce prospect est tres engage, contacte-le rapidement._', 'Markdown').catch(() => {});
+            proactiveAgentStorage.markHotLeadNotified(email.to);
+          }
+        } catch (paErr) { log.warn('tracking', 'Proactive tracking: ' + paErr.message); }
         // Sync CRM (async, non-bloquant)
         (async () => {
           try {

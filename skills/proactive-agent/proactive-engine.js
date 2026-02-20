@@ -382,49 +382,55 @@ class ProactiveEngine {
       const automailerStorage = getAutomailerStorage();
       if (!automailerStorage || !automailerStorage.data) return;
 
-      const ResendClient = getResendClient();
-      if (!ResendClient || !this.resendKey) return;
-
-      const resend = new ResendClient(this.resendKey, this.senderEmail);
       const allEmails = automailerStorage.data.emails || [];
-
-      // Verifier les emails recents (derniers 50 max)
-      const recentEmails = allEmails
-        .filter(e => e.resendId && (e.status === 'sent' || e.status === 'delivered' || e.status === 'queued'))
-        .slice(-50);
-
       let newOpens = 0;
 
-      for (const email of recentEmails) {
-        try {
-          const status = await resend.getEmail(email.resendId);
-          if (!status) continue;
+      // Methode 1 : Verifier via Resend API (pour emails avec resendId)
+      const ResendClient = getResendClient();
+      if (ResendClient && this.resendKey) {
+        const resend = new ResendClient(this.resendKey, this.senderEmail);
+        const resendEmails = allEmails
+          .filter(e => e.resendId && (e.status === 'sent' || e.status === 'delivered' || e.status === 'queued'))
+          .slice(-50);
 
-          const newStatus = status.last_event || status.status;
-          if (newStatus && newStatus !== email.status) {
-            email.status = newStatus;
+        for (const email of resendEmails) {
+          try {
+            const status = await resend.getEmail(email.resendId);
+            if (!status) continue;
 
-            if (newStatus === 'opened') {
-              newOpens++;
-              const tracked = storage.trackEmailOpen(email.to, email.resendId);
+            const newStatus = status.last_event || status.status;
+            if (newStatus && newStatus !== email.status) {
+              email.status = newStatus;
 
-              // Detecter hot lead
-              if (tracked.opens >= config.thresholds.hotLeadOpens && !storage.isHotLeadNotified(email.to)) {
-                await this._notifyHotLead(email.to, tracked.opens);
+              if (newStatus === 'opened') {
+                newOpens++;
+                const tracked = storage.trackEmailOpen(email.to, email.resendId);
+                if (tracked.opens >= config.thresholds.hotLeadOpens && !storage.isHotLeadNotified(email.to)) {
+                  await this._notifyHotLead(email.to, tracked.opens);
+                }
               }
             }
-          }
+            await new Promise(r => setTimeout(r, 100));
+          } catch (e) {}
+        }
 
-          // Rate limit
-          await new Promise(r => setTimeout(r, 100));
-        } catch (e) {
-          // Silently skip individual email errors
+        if (newOpens > 0) {
+          try { automailerStorage.save(); } catch (e) {}
         }
       }
 
-      // Sauvegarder les mises a jour
-      if (newOpens > 0) {
-        try { automailerStorage.save(); } catch (e) {}
+      // Methode 2 : Detecter les opens via tracking pixel (emails Gmail sans resendId)
+      // Le tracking pixel met a jour status='opened' dans automailer — on synchronise avec hotLeads
+      const openedEmails = allEmails.filter(e => e.status === 'opened' && e.to);
+      for (const email of openedEmails) {
+        const hotLeads = storage.data.hotLeads || {};
+        if (!hotLeads[email.to]) {
+          newOpens++;
+          const tracked = storage.trackEmailOpen(email.to, email.trackingId || email.resendId || null);
+          if (tracked.opens >= config.thresholds.hotLeadOpens && !storage.isHotLeadNotified(email.to)) {
+            await this._notifyHotLead(email.to, tracked.opens);
+          }
+        }
       }
 
       storage.updateStat('lastEmailCheck', new Date().toISOString());

@@ -55,6 +55,41 @@ class WebIntelligenceHandler {
     }));
     log.info('web-intel', 'Cron: digest hebdo lundi 14h');
 
+    // Initialiser les watches par defaut si aucune n'existe (premier demarrage)
+    const existingWatches = storage.getWatches();
+    if (Object.keys(existingWatches).length === 0) {
+      const defaultWatches = [
+        {
+          name: 'SaaS & Startups France',
+          type: 'sector',
+          keywords: ['startup SaaS France', 'levée fonds startup', 'B2B SaaS français'],
+          googleNewsEnabled: true
+        },
+        {
+          name: 'Automatisation Commerciale',
+          type: 'sector',
+          keywords: ['automatisation prospection', 'sales automation', 'outbound B2B'],
+          googleNewsEnabled: true
+        },
+        {
+          name: 'Concurrents Prospection',
+          type: 'competitor',
+          keywords: ['Apollo.io', 'Clay.com', 'Lemlist', 'La Growth Machine'],
+          googleNewsEnabled: true
+        },
+        {
+          name: 'CEOs Tech PME',
+          type: 'prospect',
+          keywords: ['CEO startup recrutement', 'dirigeant PME tech', 'fondateur entreprise technologie'],
+          googleNewsEnabled: true
+        }
+      ];
+      for (const w of defaultWatches) {
+        storage.addWatch(w);
+        log.info('web-intel', 'Watch par defaut creee: ' + w.name);
+      }
+    }
+
     log.info('web-intel', 'Demarre avec ' + this.crons.length + ' cron(s)');
   }
 
