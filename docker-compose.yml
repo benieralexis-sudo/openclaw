@@ -79,7 +79,7 @@ services:
         limits:
           memory: 512M
           cpus: '1.0'
-    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && exec runuser -u node -- node /app/gateway/telegram-router.js"]
+    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && cd /app && exec runuser -u node -- node /app/gateway/telegram-router.js"]
     logging:
       driver: json-file
       options:

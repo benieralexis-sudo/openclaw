@@ -1353,7 +1353,7 @@ const App = {
 
     // KPI Cards
     const pctBudget = t.limit > 0 ? Math.round((t.spent / t.limit) * 100) : 0;
-    const pctClass = pctBudget > 80 ? 'red' : pctBudget > 50 ? 'orange' : 'green';
+    const pctClass = pctBudget > 80 ? 'badge-red' : pctBudget > 50 ? 'badge-orange' : 'badge-green';
 
     // Service breakdown rows
     const svcRows = [
@@ -1479,27 +1479,9 @@ const App = {
     // Chart
     const dailyCosts = data.dailyCosts || [];
     if (dailyCosts.length > 0) {
-      Charts.create('finance-chart', {
-        type: 'bar',
-        data: {
-          labels: dailyCosts.map(d => d.date.substring(5)),
-          datasets: [{
-            label: 'Depenses API ($)',
-            data: dailyCosts.map(d => d.cost),
-            backgroundColor: 'rgba(37, 99, 235, 0.7)',
-            borderRadius: 4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            y: { beginAtZero: true, ticks: { callback: v => '$' + v.toFixed(2) } },
-            x: { grid: { display: false } }
-          }
-        }
-      });
+      const labels = dailyCosts.map(d => d.date.substring(5));
+      const values = dailyCosts.map(d => d.cost);
+      Charts.barChart('finance-chart', labels, values, '#3b82f6', 'Depenses API ($)');
     }
   },
 
