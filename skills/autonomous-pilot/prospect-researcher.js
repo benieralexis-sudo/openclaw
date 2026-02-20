@@ -431,12 +431,18 @@ class ProspectResearcher {
 
   /**
    * Compile toutes les donnees en un brief textuel structure.
-   * Max ~600 chars, pret a injecter dans le prompt de generation d'email.
+   * Ordre par UTILITE pour la personnalisation email :
+   * 1. News recentes (observations temporelles specifiques)
+   * 2. LinkedIn (angle personnel)
+   * 3. Technologies (faits verifiables)
+   * 4. Description entreprise
+   * 5. Donnees enrichissement
+   * Max 2000 chars — surcout negligible (~$0.05/mois)
    */
   _buildProspectBrief(intel, contact) {
     const lines = [];
 
-    // Ligne 1 : entreprise + meta
+    // Contact + entreprise (toujours en premier pour le contexte)
     let companyLine = 'ENTREPRISE: ' + intel.company;
     const meta = [];
     if (intel.apolloData) {
@@ -444,69 +450,75 @@ class ProspectResearcher {
       if (intel.apolloData.employeeCount) meta.push(intel.apolloData.employeeCount + ' employes');
       if (intel.apolloData.foundedYear) meta.push('fondee en ' + intel.apolloData.foundedYear);
       if (intel.apolloData.city) meta.push(intel.apolloData.city);
+      if (intel.apolloData.revenue) meta.push('CA: ' + intel.apolloData.revenue);
     }
     if (meta.length > 0) companyLine += ' (' + meta.join(', ') + ')';
     lines.push(companyLine);
 
-    // Description depuis Apollo ou site web
-    if (intel.apolloData && intel.apolloData.shortDescription) {
-      lines.push('DESCRIPTION: ' + intel.apolloData.shortDescription.substring(0, 200));
-    } else if (intel.websiteInsights && intel.websiteInsights.description) {
-      lines.push('SITE WEB: "' + intel.websiteInsights.description.substring(0, 200) + '"');
-    } else if (intel.websiteInsights && intel.websiteInsights.title) {
-      lines.push('SITE WEB: "' + intel.websiteInsights.title.substring(0, 150) + '"');
+    if (contact.nom || contact.titre) {
+      let contactLine = 'CONTACT: ' + (contact.nom || '');
+      if (contact.titre) contactLine += ' — ' + contact.titre;
+      lines.push(contactLine);
     }
 
-    // Technologies (Apollo)
-    if (intel.apolloData && intel.apolloData.technologies && intel.apolloData.technologies.length > 0) {
-      lines.push('TECHNOLOGIES: ' + intel.apolloData.technologies.slice(0, 5).join(', '));
-    }
-
-    // News recentes (Google News RSS)
+    // PRIORITE 1 : News recentes — meilleure source d'observations specifiques et temporelles
     if (intel.recentNews.length > 0) {
-      lines.push('NEWS RECENTES:');
-      for (const news of intel.recentNews.slice(0, 3)) {
+      lines.push('NEWS RECENTES (pour observations specifiques):');
+      for (const news of intel.recentNews.slice(0, 4)) {
         const dateStr = news.pubDate ? ' (' + new Date(news.pubDate).toLocaleDateString('fr-FR') + ')' : '';
-        lines.push('- "' + news.title + '"' + dateStr);
+        let newsLine = '- "' + news.title + '"' + dateStr;
+        if (news.snippet) newsLine += ' → ' + news.snippet.substring(0, 100);
+        lines.push(newsLine);
       }
     }
 
-    // Articles Web Intelligence existants
+    // PRIORITE 2 : LinkedIn — angle personnel sur le decideur
+    if (intel.linkedinData) {
+      let liLine = 'LINKEDIN ' + (contact.nom || '') + ': ';
+      if (intel.linkedinData.headline) liLine += intel.linkedinData.headline;
+      if (intel.linkedinData.summary) liLine += ' — ' + intel.linkedinData.summary.substring(0, 150);
+      lines.push(liLine);
+    }
+
+    // PRIORITE 3 : Technologies — faits verifiables pour observations techniques
+    if (intel.apolloData && intel.apolloData.technologies && intel.apolloData.technologies.length > 0) {
+      lines.push('STACK TECHNIQUE: ' + intel.apolloData.technologies.slice(0, 8).join(', '));
+    }
+
+    // PRIORITE 4 : Description entreprise (Apollo ou site web, pas les deux)
+    if (intel.apolloData && intel.apolloData.shortDescription) {
+      lines.push('ACTIVITE: ' + intel.apolloData.shortDescription.substring(0, 250));
+    } else if (intel.websiteInsights && intel.websiteInsights.description) {
+      lines.push('SITE WEB: "' + intel.websiteInsights.description.substring(0, 250) + '"');
+    }
+
+    // Contenu du site web (si pas deja couvert par la description)
+    if (intel.websiteInsights && intel.websiteInsights.textContent) {
+      const siteText = intel.websiteInsights.textContent.substring(0, 300).replace(/\s+/g, ' ').trim();
+      if (siteText.length > 50) lines.push('CONTENU SITE: ' + siteText);
+    }
+
+    // PRIORITE 5 : Articles Web Intelligence
     if (intel.existingArticles.length > 0) {
       lines.push('ARTICLES VEILLE:');
-      for (const a of intel.existingArticles.slice(0, 2)) {
+      for (const a of intel.existingArticles.slice(0, 3)) {
         lines.push('- "' + a.headline + '" [pertinence: ' + a.relevance + '/10]');
       }
     }
 
-    // Profil LinkedIn
-    if (intel.linkedinData) {
-      let liLine = 'LINKEDIN: ';
-      if (intel.linkedinData.headline) liLine += intel.linkedinData.headline;
-      if (intel.linkedinData.summary) liLine += ' — ' + intel.linkedinData.summary.substring(0, 100);
-      lines.push(liLine);
-    }
-
-    // Donnees Lead Enrich (si deja enrichi)
+    // PRIORITE 6 : Enrichissement Lead Enrich
     if (intel.leadEnrichData) {
       const le = intel.leadEnrichData;
       const leParts = [];
       if (le.industry) leParts.push('industrie: ' + le.industry);
       if (le.persona) leParts.push('persona: ' + le.persona);
       if (le.score) leParts.push('score: ' + le.score + '/10');
+      if (le.technologies && le.technologies.length > 0) leParts.push('tech: ' + le.technologies.slice(0, 3).join(', '));
       if (leParts.length > 0) lines.push('ENRICHISSEMENT: ' + leParts.join(', '));
     }
 
-    // Contact info
-    if (contact.nom || contact.titre) {
-      let contactLine = 'CONTACT: ' + (contact.nom || '');
-      if (contact.titre) contactLine += ' (' + contact.titre + ')';
-      lines.push(contactLine);
-    }
-
     const brief = lines.join('\n');
-    // Tronquer si trop long (1200 chars pour permettre des observations specifiques)
-    return brief.substring(0, 1200);
+    return brief.substring(0, 2000);
   }
 }
 
