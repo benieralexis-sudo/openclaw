@@ -576,6 +576,29 @@ function saveProspectResearch(email, intel) {
   _save();
 }
 
+// --- Niche Performance Tracking (auto-pivot) ---
+
+function getNichePerformance() {
+  const data = _load();
+  if (!data.nichePerformance) data.nichePerformance = {};
+  return data.nichePerformance;
+}
+
+function trackNicheEvent(niche, event) {
+  if (!niche) return;
+  const data = _load();
+  if (!data.nichePerformance) data.nichePerformance = {};
+  if (!data.nichePerformance[niche]) {
+    data.nichePerformance[niche] = { sent: 0, opened: 0, replied: 0, leads: 0 };
+  }
+  const np = data.nichePerformance[niche];
+  if (event === 'lead') np.leads = (np.leads || 0) + 1;
+  else if (event === 'sent') np.sent = (np.sent || 0) + 1;
+  else if (event === 'opened') np.opened = (np.opened || 0) + 1;
+  else if (event === 'replied') np.replied = (np.replied || 0) + 1;
+  _save();
+}
+
 module.exports = {
   PILOT_STATES, getPilotState: () => _getPilotState(_load().config),
   getConfig, updateConfig, updateEmailPreferences, updateOffer,
@@ -587,5 +610,6 @@ module.exports = {
   getLearnings, addLearning, addExperiment, completeExperiment, getActiveExperiments,
   getPatterns, savePatterns, getCriteriaHistory, addCriteriaAdjustment,
   getProspectResearch, saveProspectResearch,
+  getNichePerformance, trackNicheEvent,
   getStats, updateStat, incrementStat
 };

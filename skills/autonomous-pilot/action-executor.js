@@ -335,6 +335,7 @@ Format JSON strict :
     let classified = 0;
 
     // Auto-discovery : si aucun email/contact fourni, trouver les leads non enrichis dans FlowFast
+    // IMPORTANT: on remplit contacts[] (nom+entreprise) et PAS emails[] — le reverse email est bugge sur FullEnrich
     if (contacts.length === 0 && emails.length === 0) {
       const ffStorage = getFlowFastStorage();
       if (ffStorage && ffStorage.data) {
@@ -343,11 +344,26 @@ Format JSON strict :
         for (const id of ids) {
           const lead = leadsObj[id];
           if (lead.email && !lead.enrichedAt) {
-            emails.push(lead.email);
+            const nom = lead.nom || '';
+            const parts = nom.split(' ');
+            const firstName = parts[0] || '';
+            const lastName = parts.slice(1).join(' ') || '';
+            if (firstName && lead.entreprise) {
+              contacts.push({
+                first_name: firstName,
+                last_name: lastName,
+                company_name: lead.entreprise,
+                _email: lead.email  // garder pour la sauvegarde
+              });
+            } else {
+              // Fallback si pas de nom/entreprise
+              emails.push(lead.email);
+            }
           }
         }
-        if (emails.length > 0) {
-          log.info('action-executor', 'Enrich auto-discovery: ' + emails.length + ' leads non enrichis trouves dans FlowFast');
+        const total = contacts.length + emails.length;
+        if (total > 0) {
+          log.info('action-executor', 'Enrich auto-discovery: ' + contacts.length + ' contacts (nom+entreprise) + ' + emails.length + ' emails seuls');
         } else {
           log.info('action-executor', 'Enrich auto-discovery: tous les leads sont deja enrichis');
           return { success: true, total: 0, enriched: 0, classified: 0, summary: 'Tous les leads sont deja enrichis' };
@@ -355,26 +371,50 @@ Format JSON strict :
       }
     }
 
-    // Si on a des contacts avec nom+entreprise, utiliser le batch FullEnrich
-    if (contacts.length > 0) {
-      try {
-        const batchResult = await enricher.enrichBatch(contacts);
-        if (batchResult.success) {
-          for (const result of batchResult.results) {
-            if (!result.success) continue;
+    // Si on a des contacts avec nom+entreprise, utiliser FullEnrich un par un
+    // (batch bulk rate-limited a 10 max pour economiser les credits)
+    const contactsToEnrich = contacts.slice(0, 10);
+    if (contactsToEnrich.length > 0) {
+      log.info('action-executor', 'Enrichissement de ' + contactsToEnrich.length + ' contacts via FullEnrich (nom+entreprise)');
+      for (const contact of contactsToEnrich) {
+        try {
+          const result = await enricher.enrichByNameAndCompany(
+            contact.first_name, contact.last_name, contact.company_name
+          );
+          if (result.success) {
             enriched++;
-            const email = result.person.email;
-            if (classifier && email) {
-              try {
-                const classification = await classifier.classifyLead(result);
-                classified++;
-                if (leStorage) leStorage.saveEnrichedLead(email, result, classification, 'autonomous-pilot');
-              } catch (e) { log.warn('action-executor', 'Classification echouee pour ' + email + ':', e.message); }
+            // Utiliser l'email FlowFast (_email) en priorite, sinon celui retourne par FullEnrich
+            const email = contact._email || (result.person && result.person.email) || null;
+            if (email) {
+              // Sauvegarder les donnees FullEnrich (emailStatus, etc.)
+              if (classifier) {
+                try {
+                  const classification = await classifier.classifyLead(result);
+                  classified++;
+                  if (leStorage) leStorage.saveEnrichedLead(email, result, classification, 'autonomous-pilot');
+                } catch (e) { log.warn('action-executor', 'Classification echouee pour ' + email + ':', e.message); }
+              } else if (leStorage) {
+                leStorage.saveEnrichedLead(email, result, { score: 5, reasoning: 'Enrichi sans classification IA' }, 'autonomous-pilot');
+              }
+              // Marquer comme enrichi dans FlowFast
+              const ffStorage2 = getFlowFastStorage();
+              if (ffStorage2 && ffStorage2.data) {
+                const leadsObj2 = ffStorage2.data.leads || {};
+                for (const lid of Object.keys(leadsObj2)) {
+                  if (leadsObj2[lid].email === email) {
+                    leadsObj2[lid].enrichedAt = new Date().toISOString();
+                    break;
+                  }
+                }
+                ffStorage2.save();
+              }
             }
+          } else {
+            log.info('action-executor', 'Enrichissement echoue pour ' + contact.first_name + ' ' + contact.last_name + ' @ ' + contact.company_name + ': ' + (result.error || ''));
           }
+        } catch (e) {
+          log.info('action-executor', 'Erreur enrichissement ' + contact.first_name + ' @ ' + contact.company_name + ':', e.message);
         }
-      } catch (e) {
-        log.info('action-executor', 'Erreur enrichissement batch:', e.message);
       }
     }
 
