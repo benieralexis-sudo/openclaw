@@ -321,9 +321,30 @@ Format JSON strict :
 
     // Accepter emails OU contacts avec nom+entreprise
     const contacts = params.contacts || [];
-    const emails = params.emails || [];
+    let emails = params.emails || [];
     let enriched = 0;
     let classified = 0;
+
+    // Auto-discovery : si aucun email/contact fourni, trouver les leads non enrichis dans FlowFast
+    if (contacts.length === 0 && emails.length === 0) {
+      const ffStorage = getFlowFastStorage();
+      if (ffStorage && ffStorage.data) {
+        const leadsObj = ffStorage.data.leads || {};
+        const ids = Object.keys(leadsObj);
+        for (const id of ids) {
+          const lead = leadsObj[id];
+          if (lead.email && !lead.enrichedAt) {
+            emails.push(lead.email);
+          }
+        }
+        if (emails.length > 0) {
+          log.info('action-executor', 'Enrich auto-discovery: ' + emails.length + ' leads non enrichis trouves dans FlowFast');
+        } else {
+          log.info('action-executor', 'Enrich auto-discovery: tous les leads sont deja enrichis');
+          return { success: true, total: 0, enriched: 0, classified: 0, summary: 'Tous les leads sont deja enrichis' };
+        }
+      }
+    }
 
     // Si on a des contacts avec nom+entreprise, utiliser le batch FullEnrich
     if (contacts.length > 0) {
@@ -519,8 +540,10 @@ Format JSON strict :
 
   // --- Envoi d'email (apres confirmation) ---
   async _sendEmail(params) {
-    if (!this.resendKey) {
-      return { success: false, error: 'Cle Resend manquante' };
+    // Verifier qu'au moins un service email est configure (Gmail SMTP ou Resend)
+    const gmailReady = process.env.GMAIL_SMTP_ENABLED === 'true' && process.env.GMAIL_SMTP_USER;
+    if (!this.resendKey && !gmailReady) {
+      return { success: false, error: 'Aucun service email configure (Resend ou Gmail)' };
     }
 
     // Validation format email
@@ -593,8 +616,11 @@ Format JSON strict :
       }
     }
 
-    // Si _generateFirst est true, generer le contenu avant envoi
-    if (params._generateFirst && (!params.subject || !params.body)) {
+    // Si _generateFirst est true, TOUJOURS regenerer via ProspectResearcher + ClaudeEmailWriter
+    // (le brain pre-remplit parfois subject/body avec du contenu generique — on les ignore)
+    if (params._generateFirst) {
+      params.subject = null;
+      params.body = null;
       // Recherche pre-envoi sur le prospect (scrape site, news, Apollo data)
       try {
         const ProspectResearcher = getProspectResearcher();
