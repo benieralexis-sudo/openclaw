@@ -344,15 +344,21 @@ Format JSON strict :
         for (const id of ids) {
           const lead = leadsObj[id];
           if (lead.email && !lead.enrichedAt) {
-            const nom = lead.nom || '';
-            const parts = nom.split(' ');
-            const firstName = parts[0] || '';
-            const lastName = parts.slice(1).join(' ') || '';
-            if (firstName && lead.entreprise) {
+            const nom = (lead.nom || '').trim();
+            // Prénoms composés : le lastName est toujours le dernier mot, le reste est le firstName
+            // Ex: "Jean-Michel Khou" → "Jean-Michel" + "Khou"
+            // Ex: "Marie Claire Dupont" → "Marie Claire" + "Dupont"
+            const lastSpace = nom.lastIndexOf(' ');
+            const firstName = lastSpace > 0 ? nom.substring(0, lastSpace) : nom;
+            const lastName = lastSpace > 0 ? nom.substring(lastSpace + 1) : '';
+            // Nettoyer le nom d'entreprise : retirer descriptions après " - ", " | ", " — "
+            const rawCompany = lead.entreprise || '';
+            const companyName = rawCompany.split(/\s[-–—|]\s/)[0].trim();
+            if (firstName && companyName) {
               contacts.push({
                 first_name: firstName,
                 last_name: lastName,
-                company_name: lead.entreprise,
+                company_name: companyName,
                 _email: lead.email  // garder pour la sauvegarde
               });
             } else {
