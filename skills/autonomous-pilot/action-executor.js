@@ -169,19 +169,24 @@ Format JSON strict :
 
     const apollo = new ApolloConnector(this.apolloKey);
 
-    // Forcer les criteres configures comme BASE — le brain ne peut pas les overrider
+    // Config = defaults, brain params = override (permet le multi-niche)
+    // Le brain envoie les params directement (pas dans un sous-objet criteria)
     const configCriteria = storage.getGoals().searchCriteria || {};
-    const brainCriteria = params.criteria || {};
+    const brainCriteria = params.criteria || params;
     const criteria = {
-      titles: configCriteria.titles && configCriteria.titles.length > 0 ? configCriteria.titles : brainCriteria.titles,
-      locations: configCriteria.locations && configCriteria.locations.length > 0 ? configCriteria.locations : brainCriteria.locations,
+      titles: brainCriteria.titles && brainCriteria.titles.length > 0 ? brainCriteria.titles : configCriteria.titles,
+      locations: brainCriteria.locations && brainCriteria.locations.length > 0 ? brainCriteria.locations : configCriteria.locations,
       seniorities: configCriteria.seniorities && configCriteria.seniorities.length > 0 ? configCriteria.seniorities : brainCriteria.seniorities,
-      companySize: configCriteria.companySize && configCriteria.companySize.length > 0 ? configCriteria.companySize : brainCriteria.companySize,
-      // Keywords : le brain peut ajouter/alterner les mots-cles (multi-niche)
+      companySize: brainCriteria.companySize && brainCriteria.companySize.length > 0 ? brainCriteria.companySize : configCriteria.companySize,
+      // Keywords : le brain OVERRIDE la config pour varier les niches
       keywords: brainCriteria.keywords || configCriteria.keywords || '',
       industries: brainCriteria.industries || configCriteria.industries || [],
-      limit: configCriteria.limit || brainCriteria.limit || 10
+      limit: brainCriteria.limit || configCriteria.limit || 10
     };
+    // Si keywords est un array, joindre en string (Apollo attend une string)
+    if (Array.isArray(criteria.keywords)) {
+      criteria.keywords = criteria.keywords.join(' OR ');
+    }
 
     log.info('action-executor', 'Recherche leads (config+brain):', JSON.stringify(criteria).substring(0, 300));
     const result = await apollo.searchLeads(criteria);
