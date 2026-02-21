@@ -296,7 +296,7 @@ class BrainEngine {
       const response = await this.callClaude(systemPrompt, userMessage, 4000);
       plan = this._parseJsonResponse(response);
     } catch (e) {
-      log.error('brain', 'Erreur Claude Opus:', e.message);
+      log.error('brain', 'Erreur Claude Sonnet (brain plan):', e.message);
       plan = this._fallbackPlan(state);
     }
 
