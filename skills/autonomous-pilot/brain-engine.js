@@ -1632,7 +1632,8 @@ Analyse et reponds en JSON:
                 email: lead.email,
                 nom: lead.nom,
                 titre: lead.titre,
-                entreprise: lead.entreprise
+                entreprise: lead.entreprise,
+                linkedin_url: lead.linkedin || lead.linkedinUrl || ''
               }
             },
             autoExecute: true, // FULL AUTO — machine de guerre

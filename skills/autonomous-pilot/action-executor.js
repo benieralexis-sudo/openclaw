@@ -710,6 +710,38 @@ Format JSON strict :
       }
     }
 
+    // === FIX : Recuperer organization Apollo + LinkedIn depuis FlowFast ===
+    if (params._generateFirst && !(params.contact && params.contact.organization)) {
+      try {
+        const ffStorageOrg = getFlowFastStorage();
+        if (ffStorageOrg && ffStorageOrg.data) {
+          const leadsObj = ffStorageOrg.data.leads || {};
+          for (const lid of Object.keys(leadsObj)) {
+            if (leadsObj[lid].email === params.to) {
+              const orgDataRaw = leadsObj[lid].organizationData;
+              if (orgDataRaw) {
+                try {
+                  const orgParsed = typeof orgDataRaw === 'string' ? JSON.parse(orgDataRaw) : orgDataRaw;
+                  if (orgParsed && orgParsed.name) {
+                    if (!params.contact) params.contact = {};
+                    params.contact.organization = orgParsed;
+                    log.info('action-executor', 'Organization Apollo recuperee depuis FlowFast pour ' + params.to + ': ' + orgParsed.name);
+                  }
+                } catch (parseErr) {}
+              }
+              if (!params.contact) params.contact = {};
+              if (!params.contact.linkedin_url) {
+                params.contact.linkedin_url = leadsObj[lid].linkedin || leadsObj[lid].linkedinUrl || '';
+              }
+              break;
+            }
+          }
+        }
+      } catch (orgErr) {
+        log.info('action-executor', 'Recuperation org FlowFast skip: ' + orgErr.message);
+      }
+    }
+
     // Si _generateFirst est true, TOUJOURS regenerer via ProspectResearcher + ClaudeEmailWriter
     // (le brain pre-remplit parfois subject/body avec du contenu generique — on les ignore)
     if (params._generateFirst) {
@@ -725,7 +757,8 @@ Format JSON strict :
             nom: params.contactName || (params.contact && params.contact.nom),
             entreprise: params.company || (params.contact && params.contact.entreprise),
             titre: params.contact && params.contact.titre,
-            organization: params.contact && params.contact.organization
+            organization: params.contact && params.contact.organization,
+            linkedin_url: params.contact && params.contact.linkedin_url
           });
           if (intel && intel.brief) {
             params._prospectIntel = intel.brief;

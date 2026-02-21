@@ -640,6 +640,10 @@ const selfImproveStorage = require('../skills/self-improve/storage.js');
 const webIntelStorage = require('../skills/web-intelligence/storage.js');
 const systemAdvisorStorage = require('../skills/system-advisor/storage.js');
 const autonomousPilotStorage = require('../skills/autonomous-pilot/storage.js');
+let flowFastStorageRouter = null;
+try { flowFastStorageRouter = require('../skills/flowfast/storage.js'); } catch (e) {}
+let leadEnrichStorageRouter = null;
+try { leadEnrichStorageRouter = require('../skills/lead-enrich/storage.js'); } catch (e) {}
 
 function startAllCrons() {
   // Activer les configs internes (chaque start() verifie config.enabled)
@@ -1736,7 +1740,26 @@ const healthServer = http.createServer((req, res) => {
         if (ProspectResearcher) {
           try {
             const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
-            const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: '' };
+            // FIX 5 : Recuperer le titre du prospect depuis FlowFast ou Lead Enrich
+            let prospectTitle = '';
+            try {
+              if (flowFastStorageRouter && flowFastStorageRouter.data) {
+                const ffLeads = flowFastStorageRouter.data.leads || {};
+                for (const lid of Object.keys(ffLeads)) {
+                  if (ffLeads[lid].email === email.to) {
+                    prospectTitle = ffLeads[lid].title || ffLeads[lid].titre || '';
+                    break;
+                  }
+                }
+              }
+              if (!prospectTitle && leadEnrichStorageRouter) {
+                const leData = leadEnrichStorageRouter.data || {};
+                const enriched = leData.enrichedContacts || [];
+                const found = enriched.find(c => c.email === email.to);
+                if (found) prospectTitle = found.title || found.titre || '';
+              }
+            } catch (titleErr) {}
+            const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: prospectTitle };
             Promise.race([
               researcher.researchProspect(contact),
               new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout 30s')), 30000))
@@ -1759,10 +1782,11 @@ const healthServer = http.createServer((req, res) => {
                       prospectEmail: email.to,
                       prospectName: email.contactName || '',
                       prospectCompany: email.company || '',
+                      prospectTitle: prospectTitle || '',
                       originalEmailId: email.id,
                       originalSubject: email.subject || '',
                       originalBody: (email.body || '').substring(0, 500),
-                      prospectIntel: intel.brief.substring(0, 2000),
+                      prospectIntel: intel.brief.substring(0, 3500),
                       scheduledAfter: scheduledAfter
                     });
                     if (added) {

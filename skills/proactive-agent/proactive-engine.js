@@ -835,10 +835,40 @@ class ProactiveEngine {
         }
 
         const writer = new ClaudeEmailWriter(claudeKey);
+        // FIX 6 : Recuperer le titre depuis followUp, prospectIntel, FlowFast ou Lead Enrich
+        let prospectTitle = followUp.prospectTitle || '';
+        try {
+          // Essayer d'extraire le titre depuis le brief (format "TITRE: ...")
+          const intelText = followUp.prospectIntel || '';
+          const titleMatch = intelText.match(/(?:TITRE|POSTE|ROLE)\s*:\s*(.+)/i);
+          if (titleMatch) prospectTitle = titleMatch[1].trim();
+          // Fallback : chercher dans FlowFast
+          if (!prospectTitle) {
+            const ffStor = getFlowfastStorage();
+            if (ffStor && ffStor.data) {
+              const ffLeads = ffStor.data.leads || {};
+              for (const lid of Object.keys(ffLeads)) {
+                if (ffLeads[lid].email === followUp.prospectEmail) {
+                  prospectTitle = ffLeads[lid].title || ffLeads[lid].titre || '';
+                  break;
+                }
+              }
+            }
+          }
+          // Fallback : Lead Enrich
+          if (!prospectTitle) {
+            const leStor = getLeadEnrichStorage();
+            if (leStor && leStor.data) {
+              const enriched = leStor.data.enrichedContacts || [];
+              const found = enriched.find(c => c.email === followUp.prospectEmail);
+              if (found) prospectTitle = found.title || found.titre || '';
+            }
+          }
+        } catch (titleErr) {}
         const contact = {
           name: followUp.prospectName,
           firstName: (followUp.prospectName || '').split(' ')[0],
-          title: '',
+          title: prospectTitle,
           company: followUp.prospectCompany,
           email: followUp.prospectEmail
         };

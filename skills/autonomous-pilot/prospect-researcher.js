@@ -118,6 +118,21 @@ class ProspectResearcher {
       this._fetchLinkedInData(linkedinUrl, contact.nom || contact.name || '', company)
     ]);
 
+    // Chercher market signals Web Intelligence pour cette entreprise
+    let marketSignals = [];
+    try {
+      const wiStorage = getWebIntelStorage();
+      if (wiStorage && wiStorage.getRecentMarketSignals) {
+        const allSignals = wiStorage.getRecentMarketSignals(20);
+        const companyLower = company.toLowerCase();
+        marketSignals = allSignals.filter(s => {
+          const title = (s.article && s.article.title || '').toLowerCase();
+          const signalCo = (s.article && s.article.company || '').toLowerCase();
+          return title.includes(companyLower) || signalCo.includes(companyLower);
+        }).slice(0, 3);
+      }
+    } catch (e) {}
+
     const intel = {
       company: company,
       websiteInsights: websiteResult.status === 'fulfilled' ? websiteResult.value : null,
@@ -126,6 +141,7 @@ class ProspectResearcher {
       existingArticles: webIntelArticles.status === 'fulfilled' ? webIntelArticles.value : [],
       linkedinData: linkedinResult.status === 'fulfilled' ? linkedinResult.value : null,
       leadEnrichData: leadEnrichData,
+      marketSignals: marketSignals,
       researchedAt: new Date().toISOString()
     };
 
@@ -472,6 +488,14 @@ class ProspectResearcher {
       }
     }
 
+    // PRIORITE 1b : Signaux marche (funding, hiring, expansion, acquisition)
+    if (intel.marketSignals && intel.marketSignals.length > 0) {
+      lines.push('SIGNAUX MARCHE:');
+      for (const s of intel.marketSignals.slice(0, 2)) {
+        lines.push('- [' + (s.type || '?').toUpperCase() + '] ' + (s.article && s.article.title || '').substring(0, 80) + (s.suggestedAction ? ' → ' + s.suggestedAction.substring(0, 60) : ''));
+      }
+    }
+
     // PRIORITE 2 : LinkedIn — angle personnel sur le decideur
     if (intel.linkedinData) {
       let liLine = 'LINKEDIN ' + (contact.nom || '') + ': ';
@@ -518,7 +542,7 @@ class ProspectResearcher {
     }
 
     const brief = lines.join('\n');
-    return brief.substring(0, 2000);
+    return brief.substring(0, 3500);
   }
 }
 
