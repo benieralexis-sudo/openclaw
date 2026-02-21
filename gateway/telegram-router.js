@@ -578,6 +578,8 @@ if (inboxListener && inboxListener.isConfigured()) {
 }
 
 // --- Controle centralise des crons (17 crons au total) ---
+let _emailPollingInterval = null;
+let _bookingSyncInterval = null;
 
 // Storages des skills a crons (pour toggle config.enabled)
 const proactiveAgentStorage = require('../skills/proactive-agent/storage.js');
@@ -604,7 +606,7 @@ function startAllCrons() {
   if (automailerHandler.campaignEngine) {
     // Demarrer le scheduler de campagne (verifie les steps toutes les 60s pendant heures bureau)
     automailerHandler.campaignEngine.start();
-    setInterval(async () => {
+    _emailPollingInterval = setInterval(async () => {
       try {
         await automailerHandler.campaignEngine.checkEmailStatuses();
       } catch (e) { log.error('router', 'Erreur check email statuses:', e.message); }
@@ -614,7 +616,7 @@ function startAllCrons() {
 
   // Sync bookings Cal.eu toutes les 5 min
   if (meetingHandler.calcom.isConfigured()) {
-    setInterval(async () => {
+    _bookingSyncInterval = setInterval(async () => {
       try {
         await meetingHandler.syncBookings(sendMessage, _getHubSpotClient(), ADMIN_CHAT_ID);
       } catch (e) { log.error('router', 'Booking sync echoue:', e.message); }
@@ -631,6 +633,8 @@ function stopAllCrons() {
   webIntelHandler.stop();
   systemAdvisorHandler.stop();
   autoPilotEngine.stop();
+  if (_emailPollingInterval) { clearInterval(_emailPollingInterval); _emailPollingInterval = null; }
+  if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
 
   // Desactiver les configs internes (double securite)
   try { proactiveAgentStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron proactive:', e.message); }
@@ -1669,6 +1673,8 @@ function gracefulShutdown() {
   _botReady = false;
   clearInterval(_cleanupInterval);
   clearInterval(_metricsSaveInterval);
+  if (_emailPollingInterval) { clearInterval(_emailPollingInterval); _emailPollingInterval = null; }
+  if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
   _saveMetrics();
   log.info('router', 'Metriques sauvegardees sur disque');
   healthServer.close();
