@@ -59,48 +59,91 @@ class ApolloConnector {
     });
   }
 
-  // Rechercher des leads sur Apollo
-  async searchLeads(criteria = {}) {
-    console.log('🔍 Recherche de leads sur Apollo...');
-
+  // Construire les params de base (sans keywords)
+  _buildSearchData(criteria) {
     const searchData = {
       page: 1,
       per_page: Math.min(criteria.limit || 10, 100)
     };
-
-    // Postes / titres
     if (criteria.titles && criteria.titles.length > 0) {
       searchData.person_titles = criteria.titles;
     }
-
-    // Localisation des personnes (format "City, CC")
     if (criteria.locations && criteria.locations.length > 0) {
       searchData.person_locations = criteria.locations;
     }
-
-    // Niveau hiérarchique
     if (criteria.seniorities && criteria.seniorities.length > 0) {
       searchData.person_seniorities = criteria.seniorities;
     }
-
-    // Mots-clés libres
-    if (criteria.keywords) {
-      searchData.q_keywords = criteria.keywords;
-    }
-
-    // Domaine d'entreprise
     if (criteria.domain) {
       searchData.q_organization_domains = criteria.domain;
     }
-
-    // Taille d'entreprise
     if (criteria.companySize && criteria.companySize.length > 0) {
       searchData.organization_num_employees_ranges = criteria.companySize;
     }
-
-    // Emails vérifiés uniquement
     if (criteria.verifiedEmails) {
       searchData.contact_email_status = ['verified'];
+    }
+    return searchData;
+  }
+
+  // Rechercher des leads sur Apollo
+  // Supporte keywords multiples via " OR " (Apollo ne gere pas OR nativement)
+  async searchLeads(criteria = {}) {
+    console.log('🔍 Recherche de leads sur Apollo...');
+
+    const keywords = (criteria.keywords || '').trim();
+
+    // Si keywords contient " OR ", splitter et faire une recherche par terme
+    if (keywords.includes(' OR ')) {
+      const terms = keywords.split(/\s+OR\s+/).map(t => t.trim()).filter(Boolean);
+      console.log('[apollo] Multi-keywords detectes:', terms.length, 'termes:', terms.join(' | '));
+
+      const allLeads = [];
+      const seenIds = new Set();
+      let searchCount = 0;
+
+      for (const term of terms) {
+        const searchData = this._buildSearchData(criteria);
+        searchData.q_keywords = term;
+        console.log('[apollo] Recherche "' + term + '"...');
+
+        try {
+          const result = await this.makeRequest('/v1/mixed_people/api_search', searchData);
+          searchCount++;
+          const people = result.people || [];
+          let added = 0;
+          for (const p of people) {
+            if (!seenIds.has(p.id)) {
+              seenIds.add(p.id);
+              allLeads.push(p);
+              added++;
+            }
+          }
+          console.log('   → ' + people.length + ' resultats (' + added + ' nouveaux)');
+          // Rate limit entre les appels
+          if (terms.indexOf(term) < terms.length - 1) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+        } catch (e) {
+          console.error('   ❌ Erreur pour "' + term + '":', e.message);
+        }
+      }
+
+      // Limiter au nombre demande
+      const limited = allLeads.slice(0, criteria.limit || 10);
+      console.log('✅ Total: ' + allLeads.length + ' leads uniques (' + searchCount + ' recherches), retourne ' + limited.length);
+
+      if (_appConfig && _appConfig.recordServiceUsage) {
+        _appConfig.recordServiceUsage('apollo', { searches: searchCount });
+      }
+
+      return { success: true, count: limited.length, leads: limited };
+    }
+
+    // Recherche simple (un seul keyword ou aucun)
+    const searchData = this._buildSearchData(criteria);
+    if (keywords) {
+      searchData.q_keywords = keywords;
     }
 
     console.log('[apollo] Recherche avec ' + Object.keys(searchData).length + ' criteres, limit=' + searchData.per_page);
@@ -111,7 +154,6 @@ class ApolloConnector {
       const count = result.people ? result.people.length : 0;
       console.log(`✅ Trouvé ${count} leads`);
 
-      // Track usage
       if (_appConfig && _appConfig.recordServiceUsage) {
         _appConfig.recordServiceUsage('apollo', { searches: 1 });
       }
