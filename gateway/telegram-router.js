@@ -55,6 +55,8 @@ function _saveMetrics() {
   } catch (e) {
     log.warn('router', 'Impossible de sauvegarder metriques:', e.message);
   }
+  // Sauvegarder l'etat volatile (bans + historique) en meme temps
+  if (typeof _saveVolatileState === 'function') _saveVolatileState();
 }
 
 global.__ifindMetrics = _loadMetrics() || {
@@ -240,9 +242,59 @@ async function sendMessageWithButtons(chatId, text, buttons) {
   return result;
 }
 
-// --- Memoire conversationnelle ---
+// --- Memoire conversationnelle (persistee sur disque) ---
 // Stocke les 15 derniers echanges par utilisateur pour le contexte
 const conversationHistory = {};
+const _bans = {}; // chatId -> { until: timestamp, violations: count }
+
+// --- Persistance etat volatile (bans + historique) ---
+const VOLATILE_STATE_FILE = (process.env.APP_CONFIG_DIR || '/data/app-config') + '/volatile-state.json';
+
+function _loadVolatileState() {
+  try {
+    if (fs.existsSync(VOLATILE_STATE_FILE)) {
+      const raw = fs.readFileSync(VOLATILE_STATE_FILE, 'utf-8');
+      const state = JSON.parse(raw);
+      const now = Date.now();
+      // Restaurer les bans encore actifs
+      if (state.bans) {
+        for (const id of Object.keys(state.bans)) {
+          if (state.bans[id].until > now) {
+            _bans[id] = state.bans[id];
+          }
+        }
+        const activeBans = Object.keys(_bans).length;
+        if (activeBans > 0) log.info('router', activeBans + ' ban(s) actif(s) restaure(s)');
+      }
+      // Restaurer l'historique encore frais (< 24h)
+      if (state.history) {
+        const HISTORY_TTL = 24 * 60 * 60 * 1000;
+        for (const id of Object.keys(state.history)) {
+          const entries = state.history[id];
+          if (entries && entries.length > 0 && now - entries[entries.length - 1].ts < HISTORY_TTL) {
+            conversationHistory[id] = entries;
+          }
+        }
+        const restoredChats = Object.keys(conversationHistory).length;
+        if (restoredChats > 0) log.info('router', restoredChats + ' conversation(s) restauree(s)');
+      }
+    }
+  } catch (e) {
+    log.warn('router', 'Impossible de charger volatile-state:', e.message);
+  }
+}
+
+function _saveVolatileState() {
+  try {
+    atomicWriteSync(VOLATILE_STATE_FILE, {
+      bans: _bans,
+      history: conversationHistory,
+      savedAt: new Date().toISOString()
+    });
+  } catch (e) {
+    log.warn('router', 'Impossible de sauvegarder volatile-state:', e.message);
+  }
+}
 
 // Nettoyage des conversations inactives + pending states toutes les heures
 const _cleanupInterval = setInterval(() => {
@@ -316,7 +368,7 @@ const _cleanupInterval = setInterval(() => {
 
 // --- Rate limiting messages (anti-spam, progressif) ---
 const messageRates = {};
-const _bans = {}; // chatId -> { until: timestamp, violations: count }
+
 
 function isRateLimited(chatId) {
   const id = String(chatId);
@@ -644,6 +696,9 @@ function stopAllCrons() {
   try { autonomousPilotStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron autonomous-pilot:', e.message); }
   log.info('router', 'Tous les crons stoppes (standby)');
 }
+
+// Restaurer l'etat volatile (bans + historique) depuis le disque
+_loadVolatileState();
 
 // Demarrage conditionnel selon le mode persiste
 if (appConfig.isProduction()) {
@@ -1724,7 +1779,8 @@ function gracefulShutdown() {
   if (_emailPollingInterval) { clearInterval(_emailPollingInterval); _emailPollingInterval = null; }
   if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
   _saveMetrics();
-  log.info('router', 'Metriques sauvegardees sur disque');
+  _saveVolatileState();
+  log.info('router', 'Metriques + etat volatile sauvegardes sur disque');
   healthServer.close();
   httpsAgent.destroy();
   [automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
