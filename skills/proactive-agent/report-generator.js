@@ -85,9 +85,6 @@ class ReportGenerator {
         for (const deal of data.hubspot.deals) {
           const amount = parseFloat(deal.amount) || 0;
           const isClosed = deal.stage === 'closedwon' || deal.stage === 'closedlost';
-          if (!isClosed) {
-            data.hubspot.pipeline += amount;
-          }
 
           // Determiner l'engagement via emails et stage
           const updatedAt = deal.updatedAt ? new Date(deal.updatedAt).getTime() : 0;
@@ -105,6 +102,7 @@ class ReportGenerator {
             // Ignore
           } else if (hasReply || hasAdvancedStage) {
             data.hubspot.engagedDeals.push(dealInfo);
+            data.hubspot.pipeline += amount;
           } else if (daysSinceUpdate > 14) {
             data.hubspot.deadDeals.push(dealInfo);
           } else {
@@ -452,7 +450,7 @@ class ReportGenerator {
 
     const prompt = `DONNEES DU JOUR :
 - Contacts HubSpot : ${data.hubspot.contacts}
-- Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length + data.hubspot.coldDeals.length} deals) — ${data.hubspot.engagedDeals.length} engages, ${data.hubspot.coldDeals.length} prospects froids${data.hubspot.deadDeals.length > 0 ? ', ' + data.hubspot.deadDeals.length + ' morts (14j+ sans activite)' : ''}
+- Pipeline engage : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} deals engages) | ${data.hubspot.coldDeals.length} prospects froids en attente${data.hubspot.deadDeals.length > 0 ? ' | ' + data.hubspot.deadDeals.length + ' morts (14j+ sans activite)' : ''}
 - Emails envoyes : ${data.emails.sent}, delivered : ${data.emails.delivered}, bounced : ${data.emails.bounced}${isPlainTextMode ? '' : ', ouverts : ' + data.emails.opened + ' (taux: ' + emailOpenRate + '%)'}
 - Campagnes actives : ${data.emails.activeCampaigns}${isPlainTextMode ? '' : '\n- Meilleur jour d\'envoi : ' + bestDayStr + ' | Meilleure heure : ' + bestHourStr}
 - Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched} (+${data.leads.enrichedThisWeek} cette semaine)
@@ -534,7 +532,7 @@ REGLES :
 
     const prompt = `BILAN HEBDOMADAIRE :
 - Contacts HubSpot : ${data.hubspot.contacts}
-- Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length + data.hubspot.coldDeals.length} deals) — ${data.hubspot.engagedDeals.length} engages, ${data.hubspot.coldDeals.length} prospects froids${data.hubspot.deadDeals.length > 0 ? ', ' + data.hubspot.deadDeals.length + ' morts' : ''}
+- Pipeline engage : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} deals engages) | ${data.hubspot.coldDeals.length} prospects froids${data.hubspot.deadDeals.length > 0 ? ' | ' + data.hubspot.deadDeals.length + ' morts' : ''}
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
 - Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${weekOpenRate}%), bounced : ${data.emails.bounced}
 - Meilleur jour d'envoi : ${weekBestDay ? weekBestDay[0] + ' (' + weekBestDay[1].rate + '%)' : 'N/A'}
@@ -588,7 +586,7 @@ REGLES :
 
     const prompt = `BILAN MENSUEL :
 - Contacts HubSpot : ${data.hubspot.contacts}
-- Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} engages, ${data.hubspot.coldDeals.length} froids${data.hubspot.deadDeals.length > 0 ? ', ' + data.hubspot.deadDeals.length + ' morts' : ''})
+- Pipeline engage : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} deals engages) | ${data.hubspot.coldDeals.length} froids${data.hubspot.deadDeals.length > 0 ? ' | ' + data.hubspot.deadDeals.length + ' morts' : ''}
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
 - Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${monthOpenRate}%)
 - Bounced : ${data.emails.bounced}
@@ -680,7 +678,7 @@ REGLES :
     const lines = [
       'Bonjour ! Voici le point du matin.',
       '',
-      'Pipeline actif : *' + data.hubspot.pipeline + ' EUR* (' + (data.hubspot.engagedDeals.length + data.hubspot.coldDeals.length) + ' deals — ' + data.hubspot.engagedDeals.length + ' engages, ' + data.hubspot.coldDeals.length + ' froids)',
+      'Pipeline engage : *' + data.hubspot.pipeline + ' EUR* (' + data.hubspot.engagedDeals.length + ' deals engages) | ' + data.hubspot.coldDeals.length + ' prospects froids',
       'Emails : ' + data.emails.sent + ' envoyes, ' + data.emails.opened + ' ouverts',
       'Leads : ' + data.leads.total + ' trouves, ' + data.leads.enriched + ' enrichis',
     ];
