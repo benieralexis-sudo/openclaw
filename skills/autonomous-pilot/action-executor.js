@@ -413,7 +413,7 @@ Format JSON strict :
                     break;
                   }
                 }
-                ffStorage2.save();
+                ffStorage2._save();
               }
             }
           } else if (contact._linkedin) {
@@ -442,7 +442,7 @@ Format JSON strict :
                           break;
                         }
                       }
-                      ffStorage3.save();
+                      ffStorage3._save();
                     }
                   }
                 }
