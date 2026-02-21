@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
 
 // --- Cross-skill imports (dual-path) ---
 
@@ -189,7 +190,7 @@ Format JSON strict :
     }
 
     log.info('action-executor', 'Recherche leads (config+brain):', JSON.stringify(criteria).substring(0, 300));
-    const result = await apollo.searchLeads(criteria);
+    const result = await getBreaker('apollo', { failureThreshold: 3, cooldownMs: 60000 }).call(() => apollo.searchLeads(criteria));
 
     if (!result.success) {
       return { success: false, error: 'Recherche Apollo echouee', details: result };
@@ -258,7 +259,7 @@ Format JSON strict :
         let revealed = 0;
         for (const lead of toReveal) {
           try {
-            const revealResult = await apollo.revealLead(lead.apolloId);
+            const revealResult = await getBreaker('apollo', { failureThreshold: 3, cooldownMs: 60000 }).call(() => apollo.revealLead(lead.apolloId));
             if (revealResult.success && revealResult.lead.email) {
               lead.email = revealResult.lead.email;
               lead.last_name = revealResult.lead.last_name;
@@ -390,9 +391,9 @@ Format JSON strict :
       log.info('action-executor', 'Enrichissement de ' + contactsToEnrich.length + ' contacts via FullEnrich (nom+entreprise)');
       for (const contact of contactsToEnrich) {
         try {
-          const result = await enricher.enrichByNameAndCompany(
+          const result = await getBreaker('fullenrich', { failureThreshold: 3, cooldownMs: 60000 }).call(() => enricher.enrichByNameAndCompany(
             contact.first_name, contact.last_name, contact.company_name
-          );
+          ));
           if (result.success) {
             enriched++;
             // Utiliser l'email FlowFast (_email) en priorite, sinon celui retourne par FullEnrich
@@ -465,7 +466,7 @@ Format JSON strict :
     // Enrichir les emails un par un (fallback)
     for (const email of emails) {
       try {
-        const result = await enricher.enrichByEmail(email);
+        const result = await getBreaker('fullenrich', { failureThreshold: 3, cooldownMs: 60000 }).call(() => enricher.enrichByEmail(email));
         if (result.success) {
           enriched++;
           if (classifier) {
@@ -508,7 +509,7 @@ Format JSON strict :
 
     for (const contact of contacts) {
       try {
-        const existing = await hubspot.findContactByEmail(contact.email);
+        const existing = await getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 }).call(() => hubspot.findContactByEmail(contact.email));
         if (existing) {
           // Marquer comme pousse meme si deja dans HubSpot (evite re-push)
           const ffS = getFlowFastStorage();
@@ -520,14 +521,14 @@ Format JSON strict :
           continue;
         }
 
-        const hsContact = await hubspot.createContact({
+        const hsContact = await getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 }).call(() => hubspot.createContact({
           firstname: contact.firstName || contact.nom?.split(' ')[0] || '',
           lastname: contact.lastName || contact.nom?.split(' ').slice(1).join(' ') || '',
           email: contact.email,
           jobtitle: contact.title || contact.titre || '',
           company: contact.company || contact.entreprise || '',
           phone: contact.phone || ''
-        });
+        }));
         created++;
 
         // Marquer le lead comme pousse dans FlowFast storage
@@ -540,13 +541,13 @@ Format JSON strict :
         const minScore = storage.getGoals().weekly.pushToCrmAboveScore || 7;
         if ((contact.score || 0) >= minScore && hsContact && hsContact.id) {
           try {
-            const deal = await hubspot.createDeal({
+            const deal = await getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 }).call(() => hubspot.createDeal({
               dealname: (contact.company || contact.entreprise || 'Lead') + ' — Prospection',
               dealstage: 'appointmentscheduled',
               amount: params.dealAmount || 690
-            });
+            }));
             if (deal && deal.id) {
-              await hubspot.associateDealToContact(deal.id, hsContact.id);
+              await getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 }).call(() => hubspot.associateDealToContact(deal.id, hsContact.id));
               deals++;
             }
           } catch (e) {
@@ -795,12 +796,12 @@ Format JSON strict :
     const trackingId = crypto.randomBytes(16).toString('hex');
 
     try {
-      const result = await resend.sendEmail(
+      const result = await getBreaker('gmail-smtp', { failureThreshold: 3, cooldownMs: 60000 }).call(() => resend.sendEmail(
         params.to,
         params.subject,
         params.body,
         { replyTo: 'hello@ifind.fr', fromName: 'Alexis', trackingId: trackingId }
-      );
+      ));
 
       if (result.success) {
         // Recuperer le chatId admin depuis la config AP

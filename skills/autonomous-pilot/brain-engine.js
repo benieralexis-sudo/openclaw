@@ -3,7 +3,7 @@ const { Cron } = require('croner');
 const storage = require('./storage.js');
 const ActionExecutor = require('./action-executor.js');
 const diagnostic = require('./diagnostic.js');
-// retryAsync et getBreaker retires — callClaudeOpus fait deja breaker+retry en interne
+const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const log = require('../../gateway/logger.js');
 
 // --- Cross-skill imports (dual-path) ---
@@ -861,7 +861,7 @@ Analyse et reponds en JSON:
     if (!hubspot) return;
 
     try {
-      const result = await hubspot.listDeals(50);
+      const result = await getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 }).call(() => hubspot.listDeals(50));
       if (!result || !result.deals) return;
 
       const existingWatches = wiStorage.getWatches ? wiStorage.getWatches() : {};
