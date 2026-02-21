@@ -5,6 +5,15 @@ const https = require('https');
 const storage = require('./storage.js');
 const diagnostic = require('./diagnostic.js');
 const { retryAsync } = require('../../gateway/utils.js');
+
+// Acces cross-skill : automailer storage (pour contexte emails envoyes)
+function getAutomailerStorage() {
+  try { return require('../automailer/storage.js'); } catch (e) { return null; }
+}
+// Acces cross-skill : proactive-agent storage (pour contexte relances reactives)
+function getProactiveStorage() {
+  try { return require('../proactive-agent/storage.js'); } catch (e) { return null; }
+}
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const appConfig = require('../../gateway/app-config.js');
 const log = require('../../gateway/logger.js');
@@ -141,7 +150,8 @@ ${queued.length > 0 ? '\n' + queued.length + ' action(s) en attente de confirmat
 ${learnings.bestSearchCriteria.length > 0 ? '\nMEILLEURS CRITERES: ' + learnings.bestSearchCriteria.slice(0, 2).map(c => c.summary).join(' | ') : ''}
 ${learnings.bestEmailStyles.length > 0 ? '\nMEILLEURS EMAILS: ' + learnings.bestEmailStyles.slice(0, 2).map(s => s.summary).join(' | ') : ''}
 ${learnings.weeklyPerformance.length > 0 ? '\nHISTORIQUE:\n' + learnings.weeklyPerformance.slice(0, 3).map(w => '- Sem ' + w.weekStart + ': ' + w.leadsFoundThisWeek + ' leads, ' + w.emailsSentThisWeek + ' emails, ' + (w.responsesThisWeek || 0) + ' rep').join('\n') : ''}
-
+${this._getRecentEmailsContext()}
+${this._getReactiveFollowUpsContext()}
 ACTIONS QUE TU PEUX DECLENCHER:
 Si le client te demande de faire quelque chose (modifier un parametre, lancer une recherche, etc.), tu peux declencher des actions.
 Pour ca, ajoute un bloc a la FIN de ta reponse (apres ta reponse naturelle) avec ce format exact :
@@ -173,7 +183,38 @@ Client: "mets 30 leads par semaine" → Tu reponds "C'est fait, objectif passe a
 Client: "ajoute Marseille" → Tu reponds "Marseille ajoutee ! On couvre maintenant 7 villes." + <actions>[{"type":"update_criteria","params":{"locations":${JSON.stringify([...(sc.locations || []), 'Marseille, FR'])}}}]</actions>
 Client: "c'est quoi mon taux d'ouverture ?" → Tu reponds avec les stats SANS bloc actions
 Client: "lance une recherche" → Tu reponds "C'est parti !" + <actions>[{"type":"force_brain_cycle","params":{}}]</actions>
-Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}}]</actions>`;
+Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}}]</actions>
+Client: "montre moi le message pour Nadine" → Tu rediges un brouillon de relance personnalise en te basant sur l'email original et le contexte du prospect (voir DERNIERS EMAILS ci-dessus). Tu ne declenches PAS d'action, tu montres juste le texte.
+Client: "relance de X" → Idem, tu rediges un brouillon. Si tu ne connais pas le prospect, demande plus de contexte.`;
+  }
+
+  // --- Contexte des derniers emails envoyes (cross-skill) ---
+  _getRecentEmailsContext() {
+    try {
+      const amStorage = getAutomailerStorage();
+      if (!amStorage) return '';
+      const allEmails = amStorage.getAllEmails();
+      if (!allEmails || allEmails.length === 0) return '';
+      const recent = allEmails.slice(-10).map(e => {
+        const status = e.openedAt ? 'OUVERT' : (e.deliveredAt ? 'delivre' : e.status);
+        return '- ' + (e.contactName || e.to) + ' (' + (e.company || '?') + ') | Sujet: ' + (e.subject || '?').substring(0, 60) + ' | Status: ' + status + (e.sentAt ? ' | Envoye: ' + new Date(e.sentAt).toLocaleDateString('fr-FR') : '');
+      }).join('\n');
+      return '\nDERNIERS EMAILS ENVOYES:\n' + recent + '\n';
+    } catch (e) { return ''; }
+  }
+
+  // --- Contexte des relances reactives (cross-skill) ---
+  _getReactiveFollowUpsContext() {
+    try {
+      const paStorage = getProactiveStorage();
+      if (!paStorage || !paStorage.getPendingFollowUps) return '';
+      const pending = paStorage.getPendingFollowUps();
+      if (!pending || pending.length === 0) return '';
+      const ctx = pending.map(f => {
+        return '- ' + (f.prospectName || f.prospectEmail) + ' (' + (f.prospectCompany || '?') + ') | Prevu apres: ' + new Date(f.scheduledAfter).toLocaleString('fr-FR') + ' | Email original: ' + (f.originalSubject || '?').substring(0, 50);
+      }).join('\n');
+      return '\nRELANCES REACTIVES EN ATTENTE:\n' + ctx + '\n';
+    } catch (e) { return ''; }
   }
 
   // Actions autorisees (whitelist)
