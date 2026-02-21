@@ -610,9 +610,9 @@ Format JSON strict :
     if (params._prospectIntel) {
       context += '\n\n=== DONNEES PROSPECT (OBLIGATOIRE — base ton email sur ces faits) ===\n' + params._prospectIntel;
       context += '\n=== FIN DONNEES PROSPECT ===';
-      context += '\nINSTRUCTION: Utilise les donnees ci-dessus pour une observation SPECIFIQUE. Si elles sont trop vagues pour ca, retourne {"skip": true, "reason": "..."}.';
+      context += '\nINSTRUCTION: Utilise les donnees ci-dessus pour une observation SPECIFIQUE. Si trop vagues, base-toi sur le secteur et le titre du prospect (niveau 2).';
     } else {
-      context += '\n\nATTENTION: Aucune donnee prospect disponible. Retourne {"skip": true, "reason": "pas de donnees prospect"}.';
+      context += '\n\nPas de donnees prospect detaillees. Base ton email sur le SECTEUR + TITRE du contact (niveau 2 : realite metier).';
     }
 
     // Signature ajoutee automatiquement par resend-client.js (HTML minimal)

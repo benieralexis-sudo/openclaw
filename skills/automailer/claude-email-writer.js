@@ -160,8 +160,13 @@ STRUCTURE OBLIGATOIRE (3 temps, ${emailLengthHint}) :
    BON : "En agence marketing, la prospection passe souvent apres les projets clients — c'est le cordonnier mal chausse"
    BON : "Gerer une ESN de 30 personnes, c'est jongler entre l'intercontrat et le pipe commercial"
    BON : "En SaaS B2B post-revenue, le passage de founder-led sales a un vrai process structure est un cap"
+   BON : "Quand on gere une agence digitale, le nerf de la guerre c'est de remplir le pipe ENTRE deux gros projets"
+   BON : "Le plus dur en consulting IT c'est que les meilleurs profils partent aussi vite qu'ils arrivent"
+   BON : "Diriger un editeur logiciel B2B, c'est souvent le fondateur qui fait les 10 premieres ventes"
    INTERDIT : "J'ai vu que votre entreprise se developpe" (generique, nul)
    INTERDIT : "Votre secteur est en pleine croissance" (bateau)
+
+   IMPORTANT DIVERSITE : Chaque email DOIT avoir un angle DIFFERENT. Ne reutilise JAMAIS la meme metaphore ou accroche (ex: "cordonnier mal chausse") pour deux prospects du meme secteur. Varie les angles : rythme commercial, recrutement, process interne, croissance, tech stack, etc.
 
 2. IMPLICATION (1-2 lignes) — Consequence business de cette observation
    BON : "Les prospects du week-end tombent surement dans le vide"
