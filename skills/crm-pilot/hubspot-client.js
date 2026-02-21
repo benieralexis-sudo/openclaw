@@ -411,6 +411,38 @@ class HubSpotClient {
   async associateDealToContact(dealId, contactId) {
     return this._createAssociation('deals', dealId, 'contacts', contactId, ASSOCIATION_TYPES.deal_to_contact);
   }
+
+  async getContactDeals(contactId) {
+    const result = await this.makeRequest(
+      '/crm/v3/objects/contacts/' + contactId + '/associations/deals',
+      'GET'
+    );
+    if (!result || !result.results) return [];
+    const dealIds = result.results.map(r => r.toObjectId || r.id);
+    const deals = [];
+    for (const dealId of dealIds) {
+      try {
+        const deal = await this.getDeal(dealId);
+        if (deal) deals.push(deal);
+      } catch (e) { /* skip */ }
+    }
+    return deals;
+  }
+
+  async advanceDealStage(contactId, targetStage, triggerLabel) {
+    const deals = await this.getContactDeals(contactId);
+    const STAGE_ORDER = ['appointmentscheduled', 'qualifiedtobuy', 'presentationscheduled', 'decisionmakerboughtin', 'contractsent', 'closedwon', 'closedlost'];
+    const targetIdx = STAGE_ORDER.indexOf(targetStage);
+    let advanced = 0;
+    for (const deal of deals) {
+      const currentIdx = STAGE_ORDER.indexOf(deal.stage);
+      if (currentIdx >= 0 && currentIdx < targetIdx && deal.stage !== 'closedwon' && deal.stage !== 'closedlost') {
+        await this.updateDeal(deal.id, { dealstage: targetStage });
+        advanced++;
+      }
+    }
+    return advanced;
+  }
 }
 
 module.exports = HubSpotClient;

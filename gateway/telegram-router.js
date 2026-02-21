@@ -1420,7 +1420,7 @@ async function handleResendWebhook(body) {
     log.info('webhook', 'Spam complaint: ' + email.to + ' ajoute au blacklist');
   }
 
-  // Sync CRM pour les evenements importants
+  // Sync CRM + avancement deal automatique pour les evenements importants
   if (['opened', 'bounced', 'clicked'].includes(status)) {
     try {
       const hubspot = _getHubSpotClient();
@@ -1435,6 +1435,14 @@ async function handleResendWebhook(body) {
           const note = await hubspot.createNote(noteBody);
           if (note && note.id) {
             await hubspot.associateNoteToContact(note.id, contact.id);
+          }
+          // Avancement automatique des deals selon l'evenement
+          if (status === 'opened') {
+            const adv = await hubspot.advanceDealStage(contact.id, 'qualifiedtobuy', 'email_opened');
+            if (adv > 0) log.info('webhook', 'Deal avance a qualifiedtobuy pour ' + email.to + ' (email ouvert)');
+          } else if (status === 'clicked') {
+            const adv = await hubspot.advanceDealStage(contact.id, 'presentationscheduled', 'email_clicked');
+            if (adv > 0) log.info('webhook', 'Deal avance a presentationscheduled pour ' + email.to + ' (clic email)');
           }
         }
       }
@@ -1587,7 +1595,7 @@ const healthServer = http.createServer((req, res) => {
             proactiveAgentStorage.markHotLeadNotified(email.to);
           }
         } catch (paErr) { log.warn('tracking', 'Proactive tracking: ' + paErr.message); }
-        // Sync CRM (async, non-bloquant)
+        // Sync CRM + avancement deal automatique (async, non-bloquant)
         (async () => {
           try {
             const hubspot = _getHubSpotClient();
@@ -1597,6 +1605,9 @@ const healthServer = http.createServer((req, res) => {
                 const noteBody = 'Email "' + (email.subject || '') + '" — Ouvert (pixel tracking)\nDate : ' + new Date().toLocaleDateString('fr-FR');
                 const note = await hubspot.createNote(noteBody);
                 if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
+                // Avancer le deal a "qualifiedtobuy" sur ouverture email
+                const advanced = await hubspot.advanceDealStage(contact.id, 'qualifiedtobuy', 'email_opened');
+                if (advanced > 0) log.info('tracking', 'Deal avance a qualifiedtobuy pour ' + email.to + ' (email ouvert)');
               }
             }
           } catch (crmErr) { log.warn('tracking', 'CRM sync: ' + crmErr.message); }

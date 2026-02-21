@@ -571,11 +571,11 @@ class CampaignEngine {
           const deal = await hubspot.getDeal(dealId);
           if (!deal) continue;
 
-          // Avancer le deal stage si c'est un stage de prospection
-          const prospectingStages = ['appointmentscheduled', 'qualifiedtobuy'];
-          if (prospectingStages.includes(deal.stage)) {
-            await hubspot.updateDeal(dealId, { dealstage: 'qualifiedtobuy' });
-            log.info('campaign-engine', 'Deal ' + deal.name + ' avance a qualifiedtobuy suite a reponse de ' + emailRecord.to);
+          // Avancer le deal a presentationscheduled sur reponse (une reponse = vrai engagement)
+          const prospectingStages = ['appointmentscheduled', 'qualifiedtobuy', 'presentationscheduled'];
+          if (prospectingStages.includes(deal.stage) && deal.stage !== 'presentationscheduled') {
+            await hubspot.updateDeal(dealId, { dealstage: 'presentationscheduled' });
+            log.info('campaign-engine', 'Deal ' + deal.name + ' avance a presentationscheduled suite a reponse de ' + emailRecord.to);
           }
 
           // Creer une note sur le deal
