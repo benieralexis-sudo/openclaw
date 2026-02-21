@@ -359,6 +359,7 @@ const _cleanupInterval = setInterval(() => {
   for (const id of Object.keys(userActiveSkill)) {
     if (!conversationHistory[id]) {
       delete userActiveSkill[id];
+      delete userActiveSkillTime[id];
       cleaned++;
     }
   }
@@ -812,6 +813,28 @@ function buildSystemStatus() {
 
 // Etat par utilisateur : quel skill est actif
 const userActiveSkill = {};
+const userActiveSkillTime = {};
+
+// --- Conversation stickiness : reste sur le meme skill si message de continuation ---
+const STICKINESS_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+const CONTINUATION_PATTERN = /^(oui|non|ok|go|envoie|fais|lance|montre|ajuste|modifie|change|parfait|super|merci|nice|top|cool|ca marche|d'accord|valide|confirme|annule|stop|attends|pas encore|plutot|exactement|voila|c'est bon|on y va|balance|envoyer|programme|planifie|demain|ce soir|a \d+h|lui|elle|leur|les|le|la|ca|c'est|je pense|tu peux|s'il te plait)/i;
+
+function checkStickiness(chatId, text) {
+  const id = String(chatId);
+  const lastSkill = userActiveSkill[id];
+  const lastTime = userActiveSkillTime[id];
+  if (!lastSkill || !lastTime) return null;
+  if (Date.now() - lastTime > STICKINESS_TIMEOUT_MS) return null;
+  // Message court (< 100 chars) qui ressemble a une continuation
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (t.length < 100 && CONTINUATION_PATTERN.test(t)) {
+    // Verifier qu'aucun autre skill n'a un match fort (fast classify)
+    const forceSkill = fastClassify(text);
+    if (forceSkill && forceSkill !== lastSkill) return null; // mot-cle explicite pour un AUTRE skill
+    return lastSkill;
+  }
+  return null;
+}
 
 // --- UPGRADE 5 : Smart Router — Pre-filtre par mots-cles (zero token) ---
 
@@ -1131,19 +1154,27 @@ async function handleUpdate(update) {
   // ========== FIN COMMANDES DE CONTROLE ==========
 
   try {
-    // Determiner le skill : fast classify d'abord (zero token), puis NLP fallback
+    // Determiner le skill : stickiness > fast classify > NLP fallback
     const textForNLP = truncateInput(text, 2000);
-    let skill = fastClassify(textForNLP);
+    let skill = checkStickiness(chatId, textForNLP);
     if (skill) {
-      global.__ifindMetrics.fastClassifyHits++;
-      log.info('router', 'FastClassify: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
-    } else {
-      // Fallback NLP seulement si le fast classify ne trouve rien
+      log.info('router', 'Stickiness: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
+    }
+    if (!skill) {
+      skill = fastClassify(textForNLP);
+      if (skill) {
+        global.__ifindMetrics.fastClassifyHits++;
+        log.info('router', 'FastClassify: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
+      }
+    }
+    if (!skill) {
+      // Fallback NLP seulement si ni stickiness ni fast classify ne trouvent rien
       skill = await classifySkill(textForNLP, chatId);
       global.__ifindMetrics.nlpFallbacks++;
       log.info('router', 'NLP classify: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
     }
     userActiveSkill[String(chatId)] = skill;
+    userActiveSkillTime[String(chatId)] = Date.now();
 
     // ===== GARDES DE SECURITE =====
 
