@@ -98,9 +98,12 @@ class ReportGenerator {
 
           const dealInfo = { name: deal.name, amount: amount, stage: deal.stage, daysSinceUpdate: Math.round(daysSinceUpdate) };
 
+          // Pipeline = uniquement les deals avec reponse (conversation reelle)
+          const hasRealConversation = hasReply || deal.stage === 'presentationscheduled' || deal.stage === 'decisionmakerboughtin' || deal.stage === 'contractsent';
+
           if (isClosed) {
             // Ignore
-          } else if (hasReply || hasAdvancedStage) {
+          } else if (hasRealConversation) {
             data.hubspot.engagedDeals.push(dealInfo);
             data.hubspot.pipeline += amount;
           } else if (daysSinceUpdate > 14) {
