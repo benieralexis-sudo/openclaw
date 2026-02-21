@@ -537,6 +537,127 @@ REGLES :
     return true;
   }
 
+  // --- Extraction du nom d'entreprise depuis le titre d'un article ---
+  _extractCompanyFromTitle(title, signalType) {
+    if (!title) return null;
+
+    // Nettoyer le titre : retirer la source apres " - " final
+    const cleanTitle = title.replace(/\s*-\s*[A-Z][\w\s.'-]*$/, '').trim();
+
+    // Patterns par type de signal
+    const FUNDING_VERBS = [
+      'lève', 'leve', 'annonce une levée', 'annonce une levee',
+      'boucle sa', 'boucle une', 'réalise une levée', 'realise une levee',
+      'obtient', 'sécurise', 'securise', 'clôture', 'cloture',
+      'raised', 'raises', 'secures'
+    ];
+
+    const ACQUISITION_VERBS = [
+      'rachète', 'rachete', 'fait l\'acquisition de', 'acquiert',
+      'met la main sur', 'reprend', 'absorbe', 's\'offre'
+    ];
+
+    const LAUNCH_VERBS = [
+      'lance son', 'lance sa', 'lance un', 'lance une', 'lance le', 'lance la',
+      'dévoile', 'devoile', 'présente sa', 'presente sa', 'présente son', 'presente son',
+      'intègre', 'integre', 'introduit', 'annonce le lancement',
+      'renforce', 'redéfinit', 'redefinit', 'transforme'
+    ];
+
+    const LEADERSHIP_VERBS = [
+      'nomme', 'nommé', 'recrute la', 'recrute le', 'recrute un',
+      'prend la direction', 'prend la tête', 'prend la tete',
+      'rejoint', 'appointed'
+    ];
+
+    const HIRING_VERBS = [
+      'recrute', 'embauche', 'ouvre des postes', 'cherche à recruter'
+    ];
+
+    let verbs;
+    switch (signalType) {
+      case 'funding': verbs = FUNDING_VERBS; break;
+      case 'acquisition': verbs = ACQUISITION_VERBS; break;
+      case 'product_launch': verbs = LAUNCH_VERBS; break;
+      case 'leadership_change': verbs = LEADERSHIP_VERBS; break;
+      case 'hiring': verbs = HIRING_VERBS; break;
+      default: verbs = [...FUNDING_VERBS, ...ACQUISITION_VERBS, ...LAUNCH_VERBS];
+    }
+
+    // Strategie 1 : "CompanyName verbe..." — extraire ce qui precede le verbe
+    for (const verb of verbs) {
+      const idx = cleanTitle.toLowerCase().indexOf(verb.toLowerCase());
+      if (idx > 0) {
+        let before = cleanTitle.substring(0, idx).trim();
+        // Retirer prefixes courants (articles, descripteurs)
+        before = before
+          .replace(/^(le |la |l'|les |l\'|du |de la |des |un |une )/i, '')
+          .replace(/^(french tech|startup|fintech|edtech|proptech|legaltech|healthtech|insurtech)\s*[:.]?\s*/i, '')
+          .replace(/,\s*$/, '')
+          .trim();
+        // Retirer contexte entre parentheses/tirets avant le nom
+        before = before.replace(/^.*[–—]\s*/, '');
+        // Garder la derniere partie si contient un separateur
+        if (before.includes(' : ')) before = before.split(' : ').pop().trim();
+        // Retirer descriptions generiques avant le dernier nom propre
+        // "cabinet de marketing digital Spaag" → "Spaag"
+        // "Numérique. Listo" → "Listo"
+        before = before.replace(/^.*\.\s+/, ''); // "Numérique. Listo" → "Listo"
+        // Retirer tout ce qui precede le dernier mot/groupe capitalise
+        // "cabinet de marketing digital Spaag" → "Spaag"
+        const lastCapMatch = before.match(/.*\s([A-ZÀ-Ü0-9][\w.&'-]+(?:\s+[A-ZÀ-Ü][\w.&'-]*)*)$/);
+        if (lastCapMatch && /^[a-zà-ü]/.test(before)) {
+          before = lastCapMatch[1];
+        }
+        before = before.trim();
+        // Verifier que c'est un vrai nom (pas trop court, pas trop generique)
+        if (before.length >= 2 && before.length <= 60 && !/^(il|elle|on|qui|ce|cette|son|sa|ses|leur)$/i.test(before)) {
+          return before;
+        }
+      }
+    }
+
+    // Strategie 1b : "le groupe X va..." — extraire le nom apres "groupe/societe"
+    const groupeMatch = cleanTitle.match(/(?:le |la |l')?(groupe|société|societe)\s+([\wÀ-ü.&'-]+(?:\s+[A-ZÀ-Ü][\w.&'-]+)*)/i);
+    if (groupeMatch) {
+      // Nettoyer : retirer les mots qui suivent apres le nom (verbes, etc.)
+      let name = groupeMatch[2].trim();
+      name = name.replace(/\s+(va|est|a|fait|lance|lève|annonce|boucle|renforce|rejoint|devient)\b.*$/i, '');
+      return name.trim();
+    }
+
+    // Strategie 2 : Pour acquisitions "X rachete Y" — extraire aussi Y (la cible)
+    if (signalType === 'acquisition') {
+      for (const verb of ACQUISITION_VERBS) {
+        const idx = cleanTitle.toLowerCase().indexOf(verb.toLowerCase());
+        if (idx >= 0) {
+          const after = cleanTitle.substring(idx + verb.length).trim();
+          // Prendre jusqu'a la prochaine ponctuation ou fin
+          const match = after.match(/^([A-ZÀ-Ü][\w\s.&'-]{1,40}?)(?:\s*[-–—,;:]|\s+pour\s|\s+et\s|\s+afin\s|$)/);
+          if (match) return match[1].trim();
+        }
+      }
+    }
+
+    // Strategie 3 : Pattern "Né du rapprochement entre X et Y"
+    const rapprochement = cleanTitle.match(/rapprochement entre\s+(\S+(?:\s\S+)?)\s+et\s+(\S+(?:\s\S+)?)/i);
+    if (rapprochement) return rapprochement[1];
+
+    // Strategie 4 : Premier mot/groupe capitalise du titre (heuristique)
+    const capMatch = cleanTitle.match(/^([A-ZÀ-Ü][\w.]*(?:\s+[A-ZÀ-Ü][\w.]*)*)/);
+    if (capMatch && capMatch[1].length >= 3 && capMatch[1].length <= 40) {
+      // Verifier que c'est pas un mot courant francais
+      const COMMON_WORDS = ['le', 'la', 'les', 'un', 'une', 'des', 'du', 'ce', 'cette',
+        'son', 'sa', 'ses', 'quand', 'comment', 'pourquoi', 'nouveau', 'nouvelle',
+        'pioneer', 'pionnier', 'premier', 'premiere'];
+      if (!COMMON_WORDS.includes(capMatch[1].toLowerCase())) {
+        return capMatch[1];
+      }
+    }
+
+    return null;
+  }
+
   // --- Detection de signaux marche actionnables (Intelligence Reelle v5) ---
 
   classifyMarketSignals(articles) {
@@ -692,7 +813,7 @@ REGLES :
             link: article.link,
             source: article.source,
             summary: article.summary || article.snippet,
-            company: article.crmMatch ? article.crmMatch.company : null
+            company: article.crmMatch ? article.crmMatch.company : this._extractCompanyFromTitle(article.title, signalType)
           },
           matchedKeywords: matchedKeywords,
           detectedAt: new Date().toISOString()
