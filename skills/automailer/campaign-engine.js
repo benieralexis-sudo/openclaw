@@ -300,9 +300,13 @@ class CampaignEngine {
         }
       }
 
+      // Generer un tracking ID unique pour le pixel d'ouverture
+      const trackingId = require('crypto').randomBytes(16).toString('hex');
+
       const result = await this.resend.sendEmail(contact.email, subject, body, {
         replyTo: 'hello@ifind.fr',
         fromName: 'Alexis',
+        trackingId: trackingId,
         tags: [
           { name: 'campaign_id', value: campaignId },
           { name: 'step', value: String(stepNumber) }
@@ -317,6 +321,7 @@ class CampaignEngine {
         subject: subject,
         body: body,
         resendId: result.success ? result.id : null,
+        trackingId: trackingId,
         status: result.success ? 'sent' : 'failed',
         abVariant: stepNumber === 1 ? abVariant : undefined
       };

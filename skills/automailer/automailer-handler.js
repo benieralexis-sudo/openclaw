@@ -837,12 +837,17 @@ JSON strict, exemples :
 
     if (sendReply) await sendReply({ type: 'text', content: '📤 _Envoi en cours vers ' + pending.to + '..._' });
 
+    // Generer un tracking ID unique pour le pixel d'ouverture
+    const crypto = require('crypto');
+    const trackingId = crypto.randomBytes(16).toString('hex');
+
     try {
       const resendBreaker = getBreaker('resend', { failureThreshold: 3, cooldownMs: 60000 });
       const result = await resendBreaker.call(() => retryAsync(() => this.resend.sendEmail(
         pending.to,
         pending.email.subject,
-        pending.email.body
+        pending.email.body,
+        { replyTo: 'hello@ifind.fr', fromName: 'Alexis', trackingId: trackingId }
       ), 2, 2000));
 
       storage.addEmail({
@@ -851,6 +856,7 @@ JSON strict, exemples :
         subject: pending.email.subject,
         body: pending.email.body,
         resendId: result.success ? result.id : null,
+        trackingId: trackingId,
         status: result.success ? 'sent' : 'failed'
       });
       delete this.pendingEmails[String(chatId)];
