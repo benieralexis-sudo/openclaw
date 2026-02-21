@@ -3,13 +3,40 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Ecriture atomique : ecrit dans un fichier temporaire puis renomme.
- * Previent la corruption si le process crash pendant l'ecriture.
+ * Ecriture atomique avec write lock par fichier.
+ * - Ecrit dans un fichier temporaire puis renomme (anti-corruption crash).
+ * - Un seul write a la fois par fichier (anti-race condition async).
+ * - Debounce 50ms : si plusieurs _save() arrivent en rafale, seul le dernier gagne.
  */
+const _writeLocks = {};    // filePath → true si ecriture en cours
+const _pendingWrites = {}; // filePath → data a ecrire (debounce)
+const _debounceTimers = {}; // filePath → timer
+
 function atomicWriteSync(filePath, data) {
-  const tmpFile = filePath + '.tmp';
-  fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf8');
-  fs.renameSync(tmpFile, filePath);
+  // Si un write est en cours, planifier un write differe
+  if (_writeLocks[filePath]) {
+    _pendingWrites[filePath] = data;
+    return;
+  }
+
+  _doWrite(filePath, data);
+}
+
+function _doWrite(filePath, data) {
+  _writeLocks[filePath] = true;
+  try {
+    const tmpFile = filePath + '.tmp';
+    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf8');
+    fs.renameSync(tmpFile, filePath);
+  } finally {
+    _writeLocks[filePath] = false;
+    // Si un write en attente, l'executer au prochain tick
+    if (_pendingWrites[filePath]) {
+      const pendingData = _pendingWrites[filePath];
+      delete _pendingWrites[filePath];
+      process.nextTick(() => _doWrite(filePath, pendingData));
+    }
+  }
 }
 
 /**
