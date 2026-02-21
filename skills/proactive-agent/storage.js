@@ -21,6 +21,11 @@ class ProactiveStorage {
     try {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
       this.data = JSON.parse(raw);
+      // Migration : ajouter reactiveFollowUps si absent (bases existantes)
+      if (!this.data.reactiveFollowUps) {
+        this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 120, maxDelayMinutes: 240 } };
+        this._save();
+      }
       console.log('[proactive-storage] Base chargee (' + this.data.alertHistory.length + ' alertes)');
     } catch (e) {
       this.data = this._defaultData();
@@ -58,6 +63,15 @@ class ProactiveStorage {
       },
       alertHistory: [],
       hotLeads: {},
+      reactiveFollowUps: {
+        pending: [],
+        sent: [],
+        config: {
+          enabled: true,
+          minDelayMinutes: 120,
+          maxDelayMinutes: 240
+        }
+      },
       nightlyBriefing: null,
       metrics: {
         dailySnapshots: [],
@@ -210,6 +224,97 @@ class ProactiveStorage {
       this.data.hotLeads[email].notifiedAt = new Date().toISOString();
       this._save();
     }
+  }
+
+  // --- Reactive Follow-Ups ---
+
+  addPendingFollowUp(followUp) {
+    if (!this.data.reactiveFollowUps) {
+      this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 120, maxDelayMinutes: 240 } };
+    }
+    const email = (followUp.prospectEmail || '').toLowerCase();
+    // Deduplication : 1 seul follow-up reactif par prospect
+    const exists = this.data.reactiveFollowUps.pending.some(f => f.prospectEmail.toLowerCase() === email)
+      || this.data.reactiveFollowUps.sent.some(f => f.prospectEmail.toLowerCase() === email && f.status === 'sent');
+    if (exists) return null;
+
+    const entry = {
+      id: this._generateId(),
+      prospectEmail: followUp.prospectEmail,
+      prospectName: followUp.prospectName || '',
+      prospectCompany: followUp.prospectCompany || '',
+      originalEmailId: followUp.originalEmailId || null,
+      originalSubject: followUp.originalSubject || '',
+      originalBody: followUp.originalBody || '',
+      prospectIntel: followUp.prospectIntel || '',
+      scheduledAfter: followUp.scheduledAfter,
+      createdAt: new Date().toISOString(),
+      status: 'pending'
+    };
+    this.data.reactiveFollowUps.pending.push(entry);
+    if (this.data.reactiveFollowUps.pending.length > 50) {
+      this.data.reactiveFollowUps.pending = this.data.reactiveFollowUps.pending.slice(-50);
+    }
+    this._save();
+    return entry;
+  }
+
+  getPendingFollowUps() {
+    if (!this.data.reactiveFollowUps) return [];
+    return this.data.reactiveFollowUps.pending.filter(f => f.status === 'pending');
+  }
+
+  markFollowUpSent(followUpId, result) {
+    if (!this.data.reactiveFollowUps) return null;
+    const idx = this.data.reactiveFollowUps.pending.findIndex(f => f.id === followUpId);
+    if (idx === -1) return null;
+    const followUp = this.data.reactiveFollowUps.pending[idx];
+    followUp.status = 'sent';
+    followUp.sentAt = new Date().toISOString();
+    followUp.result = result || {};
+    this.data.reactiveFollowUps.sent.unshift(followUp);
+    this.data.reactiveFollowUps.pending.splice(idx, 1);
+    if (this.data.reactiveFollowUps.sent.length > 200) {
+      this.data.reactiveFollowUps.sent = this.data.reactiveFollowUps.sent.slice(0, 200);
+    }
+    this._save();
+    return followUp;
+  }
+
+  markFollowUpFailed(followUpId, error) {
+    if (!this.data.reactiveFollowUps) return null;
+    const idx = this.data.reactiveFollowUps.pending.findIndex(f => f.id === followUpId);
+    if (idx === -1) return null;
+    const followUp = this.data.reactiveFollowUps.pending[idx];
+    followUp.status = 'failed';
+    followUp.failedAt = new Date().toISOString();
+    followUp.error = error || 'unknown';
+    this.data.reactiveFollowUps.sent.unshift(followUp);
+    this.data.reactiveFollowUps.pending.splice(idx, 1);
+    this._save();
+    return followUp;
+  }
+
+  hasReactiveFollowUp(prospectEmail) {
+    if (!this.data.reactiveFollowUps) return false;
+    const email = (prospectEmail || '').toLowerCase();
+    return this.data.reactiveFollowUps.pending.some(f => f.prospectEmail.toLowerCase() === email)
+      || this.data.reactiveFollowUps.sent.some(f => f.prospectEmail.toLowerCase() === email && f.status === 'sent');
+  }
+
+  getReactiveFollowUpConfig() {
+    if (!this.data.reactiveFollowUps || !this.data.reactiveFollowUps.config) {
+      return { enabled: true, minDelayMinutes: 120, maxDelayMinutes: 240 };
+    }
+    return this.data.reactiveFollowUps.config;
+  }
+
+  updateReactiveFollowUpConfig(updates) {
+    if (!this.data.reactiveFollowUps) {
+      this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 120, maxDelayMinutes: 240 } };
+    }
+    Object.assign(this.data.reactiveFollowUps.config, updates);
+    this._save();
   }
 
   // --- Nightly briefing ---

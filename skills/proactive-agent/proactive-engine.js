@@ -39,6 +39,22 @@ function getLeadEnrichStorage() {
   }
 }
 
+function getClaudeEmailWriter() {
+  try { return require('../automailer/claude-email-writer.js'); }
+  catch (e) {
+    try { return require('/app/skills/automailer/claude-email-writer.js'); }
+    catch (e2) { return null; }
+  }
+}
+
+function getAPStorage() {
+  try { return require('../autonomous-pilot/storage.js'); }
+  catch (e) {
+    try { return require('/app/skills/autonomous-pilot/storage.js'); }
+    catch (e2) { return null; }
+  }
+}
+
 class ProactiveEngine {
   constructor(options) {
     this.sendTelegram = options.sendTelegram;
@@ -124,6 +140,10 @@ class ProactiveEngine {
     // Smart alerts — toutes les heures
     this.crons.push(new Cron('0 * * * *', { timezone: tz }, () => this._checkSmartAlerts()));
     log.info('proactive-engine', 'Cron: smart alerts toutes les heures');
+
+    // Reactive follow-ups — toutes les 10 min
+    this.crons.push(new Cron('*/10 * * * *', { timezone: tz }, () => this._processReactiveFollowUps()));
+    log.info('proactive-engine', 'Cron: reactive follow-ups toutes les 10 min');
 
     this.running = true;
     log.info('proactive-engine', 'Demarre avec ' + this.crons.length + ' crons');
@@ -729,6 +749,201 @@ class ProactiveEngine {
 
   async triggerSmartAlerts() {
     return this._checkSmartAlerts();
+  }
+
+  // --- Tache : Reactive Follow-Ups (toutes les 10 min) ---
+
+  async _processReactiveFollowUps() {
+    const rfConfig = storage.getReactiveFollowUpConfig();
+    if (!rfConfig || !rfConfig.enabled) return;
+
+    // Verifier heures bureau (Paris, lun-ven 9h-18h)
+    const now = new Date();
+    const parisHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(now));
+    const parisDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const parisDay = parisDate.getDay();
+    if (parisDay === 0 || parisDay === 6 || parisHour < 9 || parisHour >= 18) {
+      return; // Hors heures bureau
+    }
+
+    const pending = storage.getPendingFollowUps();
+    if (pending.length === 0) return;
+
+    const config = storage.getConfig();
+    log.info('proactive-engine', 'Reactive follow-ups: ' + pending.length + ' en attente');
+
+    for (const followUp of pending) {
+      // Verifier le delai
+      const scheduledTime = new Date(followUp.scheduledAfter).getTime();
+      if (Date.now() < scheduledTime) continue;
+
+      log.info('proactive-engine', 'Traitement reactive follow-up pour ' + followUp.prospectEmail);
+
+      try {
+        // 1. Verifications de securite
+        const amStorage = getAutomailerStorage();
+        if (!amStorage) {
+          log.warn('proactive-engine', 'Reactive FU: automailer storage non disponible');
+          continue;
+        }
+
+        // Verifier blacklist
+        if (amStorage.isBlacklisted(followUp.prospectEmail)) {
+          log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' blackliste — annule');
+          storage.markFollowUpFailed(followUp.id, 'blacklisted');
+          continue;
+        }
+
+        // Verifier si le prospect a repondu ou bounce
+        const emailEvents = amStorage.getEmailEventsForRecipient(followUp.prospectEmail);
+        if (emailEvents.some(e => e.status === 'replied' || e.hasReplied)) {
+          log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' a repondu — annule');
+          storage.markFollowUpFailed(followUp.id, 'already_replied');
+          continue;
+        }
+        if (emailEvents.some(e => e.status === 'bounced')) {
+          log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' bounce — annule');
+          storage.markFollowUpFailed(followUp.id, 'bounced');
+          continue;
+        }
+
+        // Verifier warmup quotidien
+        const todaySent = amStorage.getTodaySendCount ? amStorage.getTodaySendCount() : 0;
+        const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
+        let dailyLimit = 5;
+        if (firstSendDate) {
+          const daysSince = Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000);
+          const schedule = [5, 10, 20, 35, 50, 75, 100];
+          dailyLimit = schedule[Math.min(daysSince, schedule.length - 1)] || 100;
+        }
+        if (todaySent >= dailyLimit) {
+          log.info('proactive-engine', 'Reactive FU: warmup limit (' + todaySent + '/' + dailyLimit + ') — reporte');
+          continue; // Reste pending, reessaye au prochain cycle
+        }
+
+        // 2. Generer le follow-up via Claude
+        const ClaudeEmailWriter = getClaudeEmailWriter();
+        if (!ClaudeEmailWriter) {
+          log.warn('proactive-engine', 'Reactive FU: ClaudeEmailWriter non disponible');
+          continue;
+        }
+
+        const claudeKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+        if (!claudeKey) {
+          log.warn('proactive-engine', 'Reactive FU: cle Claude manquante');
+          continue;
+        }
+
+        const writer = new ClaudeEmailWriter(claudeKey);
+        const contact = {
+          name: followUp.prospectName,
+          firstName: (followUp.prospectName || '').split(' ')[0],
+          title: '',
+          company: followUp.prospectCompany,
+          email: followUp.prospectEmail
+        };
+
+        const generated = await writer.generateReactiveFollowUp(
+          contact,
+          { subject: followUp.originalSubject, body: followUp.originalBody },
+          followUp.prospectIntel
+        );
+
+        if (!generated || generated.skip) {
+          log.info('proactive-engine', 'Reactive FU: generation skippee pour ' + followUp.prospectEmail);
+          storage.markFollowUpFailed(followUp.id, 'generation_skipped');
+          continue;
+        }
+
+        const subject = generated.subject;
+        const body = generated.body;
+
+        // 3. Validation mots interdits
+        try {
+          const apStorage = getAPStorage();
+          if (apStorage) {
+            const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+            const ep = apConfig.emailPreferences || {};
+            if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+              const emailText = (subject + ' ' + body).toLowerCase();
+              const foundWords = ep.forbiddenWords.filter(w => emailText.includes(w.toLowerCase()));
+              if (foundWords.length > 0) {
+                log.warn('proactive-engine', 'Reactive FU: mots interdits: ' + foundWords.join(', ') + ' — annule');
+                storage.markFollowUpFailed(followUp.id, 'forbidden_words: ' + foundWords.join(', '));
+                continue;
+              }
+            }
+          }
+        } catch (fwErr) {
+          log.warn('proactive-engine', 'Reactive FU: check mots interdits echoue: ' + fwErr.message);
+        }
+
+        // 4. Envoyer l'email via Resend
+        const ResendClient = getResendClient();
+        if (!ResendClient) {
+          log.warn('proactive-engine', 'Reactive FU: ResendClient non disponible');
+          continue;
+        }
+
+        const resendKey = this.resendKey || process.env.RESEND_API_KEY || '';
+        const senderEmail = this.senderEmail || process.env.SENDER_EMAIL || 'hello@ifind.fr';
+        const resend = new ResendClient(resendKey, senderEmail);
+        const crypto = require('crypto');
+        const trackingId = crypto.randomBytes(16).toString('hex');
+
+        const sendResult = await resend.sendEmail(
+          followUp.prospectEmail,
+          subject,
+          body,
+          { replyTo: 'hello@ifind.fr', fromName: 'Alexis', trackingId: trackingId }
+        );
+
+        if (sendResult.success) {
+          // Enregistrer dans automailer
+          amStorage.addEmail({
+            chatId: config.adminChatId || '1409505520',
+            to: followUp.prospectEmail,
+            subject: subject,
+            body: body,
+            resendId: sendResult.id || null,
+            trackingId: trackingId,
+            status: 'sent',
+            source: 'reactive-followup',
+            contactName: followUp.prospectName,
+            company: followUp.prospectCompany
+          });
+
+          if (amStorage.setFirstSendDate) amStorage.setFirstSendDate();
+          if (amStorage.incrementTodaySendCount) amStorage.incrementTodaySendCount();
+
+          storage.markFollowUpSent(followUp.id, { resendId: sendResult.id, subject: subject });
+
+          // Notification Telegram
+          const tgMsg = '\u{1f3af} *Relance reactive envoyee !*\n\n' +
+            '*Qui :* ' + (followUp.prospectName || followUp.prospectEmail) + '\n' +
+            (followUp.prospectCompany ? '*Entreprise :* ' + followUp.prospectCompany + '\n' : '') +
+            '*Objet :* _' + subject.substring(0, 60) + '_\n\n' +
+            body.substring(0, 300) + '\n\n' +
+            '_Envoyee auto suite a ouverture du premier email._';
+          await this.sendTelegram(config.adminChatId, tgMsg, 'Markdown');
+
+          log.info('proactive-engine', 'Reactive FU envoye a ' + followUp.prospectEmail + ': "' + subject + '"');
+
+          // Rate limiting : 2 min entre envois
+          await new Promise(r => setTimeout(r, 120000));
+        } else {
+          log.error('proactive-engine', 'Reactive FU erreur envoi: ' + (sendResult.error || '?'));
+          storage.markFollowUpFailed(followUp.id, 'send_error: ' + (sendResult.error || '?'));
+        }
+      } catch (e) {
+        log.error('proactive-engine', 'Reactive FU erreur pour ' + followUp.prospectEmail + ':', e.message);
+        storage.markFollowUpFailed(followUp.id, 'exception: ' + e.message);
+      }
+    }
+  }
+
+  async triggerReactiveFollowUps() {
+    return this._processReactiveFollowUps();
   }
 }
 

@@ -1536,8 +1536,31 @@ async function handleResendWebhook(body) {
             (email.company ? '*Entreprise :* ' + email.company + '\n' : '') +
             '*Objet :* _' + (email.subject || '(sans objet)').substring(0, 60) + '_\n\n' +
             '🔍 *Intel prospect :*\n' + intel.brief.substring(0, 500) + '\n\n' +
-            '➡️ _Suggestion : relancer avec un message personnalise_';
+            '➡️ _Relance reactive programmee automatiquement_';
           sendMessage(ADMIN_CHAT_ID, msg, 'Markdown').catch(() => {});
+          // Enregistrer le follow-up reactif en attente
+          try {
+            const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
+            if (rfConfig.enabled) {
+              const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
+              const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
+              const added = proactiveAgentStorage.addPendingFollowUp({
+                prospectEmail: email.to,
+                prospectName: email.contactName || '',
+                prospectCompany: email.company || '',
+                originalEmailId: email.id,
+                originalSubject: email.subject || '',
+                originalBody: (email.body || '').substring(0, 500),
+                prospectIntel: intel.brief.substring(0, 2000),
+                scheduledAfter: scheduledAfter
+              });
+              if (added) {
+                log.info('webhook', 'Reactive follow-up programme pour ' + email.to + ' a ' + scheduledAfter);
+              }
+            }
+          } catch (rfErr) {
+            log.warn('webhook', 'Erreur enregistrement reactive follow-up: ' + rfErr.message);
+          }
         } else {
           sendMessage(ADMIN_CHAT_ID, '👀 *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
         }
@@ -1692,8 +1715,33 @@ const healthServer = http.createServer((req, res) => {
                 (email.company ? '*Entreprise :* ' + email.company + '\n' : '') +
                 '*Objet :* _' + (email.subject || '(sans objet)').substring(0, 60) + '_\n\n' +
                 (intel && intel.brief ? '\u{1f50d} *Intel :*\n' + intel.brief.substring(0, 500) + '\n\n' : '') +
-                '\u27a1\ufe0f _Suggestion : relancer avec un message personnalise_';
+                '\u27a1\ufe0f _Relance reactive programmee automatiquement_';
               sendMessage(ADMIN_CHAT_ID, msg, 'Markdown').catch(() => {});
+              // Enregistrer le follow-up reactif en attente
+              if (intel && intel.brief) {
+                try {
+                  const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
+                  if (rfConfig.enabled) {
+                    const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
+                    const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
+                    const added = proactiveAgentStorage.addPendingFollowUp({
+                      prospectEmail: email.to,
+                      prospectName: email.contactName || '',
+                      prospectCompany: email.company || '',
+                      originalEmailId: email.id,
+                      originalSubject: email.subject || '',
+                      originalBody: (email.body || '').substring(0, 500),
+                      prospectIntel: intel.brief.substring(0, 2000),
+                      scheduledAfter: scheduledAfter
+                    });
+                    if (added) {
+                      log.info('tracking', 'Reactive follow-up programme pour ' + email.to + ' (pixel) a ' + scheduledAfter);
+                    }
+                  }
+                } catch (rfErr) {
+                  log.warn('tracking', 'Erreur enregistrement reactive follow-up: ' + rfErr.message);
+                }
+              }
             }).catch(() => {
               sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
             });

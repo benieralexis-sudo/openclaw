@@ -1653,10 +1653,15 @@ Analyse et reponds en JSON:
 
       // Trouver les leads contactes il y a 3+ jours sans campagne de relance
       const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+      const paStorage = getProactiveStorage();
       const needsFollowUp = sentEmails.filter(e => {
         if (!e.sentAt) return false;
         const sentTime = new Date(e.sentAt).getTime();
         if (sentTime > threeDaysAgo) return false; // Trop recent
+        // Skip si un follow-up reactif a deja ete envoye
+        if (paStorage && paStorage.hasReactiveFollowUp && paStorage.hasReactiveFollowUp(e.to)) {
+          return false;
+        }
         // Verifier qu'il n'y a pas deja une campagne pour ce contact
         const allCampaigns = amStorage.getAllCampaigns();
         const hasSequence = allCampaigns.some(c =>

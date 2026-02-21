@@ -269,6 +269,86 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
     }
   }
 
+  async generateReactiveFollowUp(contact, originalEmail, prospectIntel) {
+    let emailLengthHint = '5-8 lignes max';
+    try {
+      const selfImproveStorage = require('../self-improve/storage.js');
+      const prefs = selfImproveStorage.getEmailPreferences();
+      if (prefs && prefs.maxLength) {
+        const chars = prefs.maxLength;
+        emailLengthHint = chars < 200 ? '3-4 lignes max' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
+      }
+    } catch (e) {
+      try {
+        const selfImproveStorage = require('/app/skills/self-improve/storage.js');
+        const prefs = selfImproveStorage.getEmailPreferences();
+        if (prefs && prefs.maxLength) {
+          const chars = prefs.maxLength;
+          emailLengthHint = chars < 200 ? '3-4 lignes max' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
+        }
+      } catch (e2) {}
+    }
+
+    const systemPrompt = `Tu es un fondateur B2B qui relance un prospect qui a recu ton premier email il y a quelques heures.
+
+CONTEXTE CRUCIAL :
+- Tu NE DOIS PAS mentionner que tu sais qu'il a ouvert l'email (c'est intrusif)
+- Tu NE DOIS PAS dire "suite a mon precedent email" ou "je reviens vers vous" (generique)
+- Tu apportes un NOUVEL ANGLE, une NOUVELLE VALEUR qui complete ton premier message
+- Ca doit ressembler a un fondateur qui a pense a quelque chose d'utile pour le prospect
+
+STRATEGIE :
+1. Ouvre avec un nouvel insight, une question pertinente, ou un fait que tu n'avais pas mentionne
+2. Le nouvel angle doit etre DIFFERENT mais COMPLEMENTAIRE au premier email
+3. Reste bref et naturel
+
+EXEMPLES DE BONS ANGLES :
+- Partager un mini cas client anonymise pertinent pour son secteur
+- Poser une question specifique liee a son secteur/poste
+- Mentionner un fait/chiffre decouvert sur son entreprise
+- Rebondir sur une actualite de son secteur
+
+REGLES STRICTES :
+- Francais, meme ton que l'email precedent (tutoiement startup / vouvoiement corporate)
+- ${emailLengthHint}
+- PAS de "suite a mon email" / "je me permets de relancer" / "je reviens vers vous"
+- PAS de pitch, PAS de prix, PAS d'offre
+- PAS de bullet points, PAS de gras, PAS de HTML
+- NE PAS ajouter de signature — elle est ajoutee automatiquement
+
+OBJET DU MAIL :
+- Court (3-6 mots), minuscules, naturel
+- DIFFERENT de l'objet du premier email
+- Pas de "re:" ni de "relance"
+
+FORMAT :
+JSON strict sans markdown ni backticks :
+{"subject":"nouvel objet","body":"Corps de la relance SANS signature"}`;
+
+    const userMessage = `PREMIER EMAIL ENVOYE :
+Objet : ${originalEmail.subject || '(sans objet)'}
+Corps : ${(originalEmail.body || '').substring(0, 400)}
+
+DONNEES PROSPECT (pour trouver un nouvel angle) :
+${prospectIntel || 'Aucune donnee supplementaire'}
+
+CONTACT :
+- Nom : ${contact.name || ''}
+- Prenom : ${contact.firstName || (contact.name || '').split(' ')[0]}
+- Poste : ${contact.title || 'non precise'}
+- Entreprise : ${contact.company || 'non precisee'}
+- Email : ${contact.email}
+
+Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas les memes observations.`;
+
+    const response = await this.callClaude(
+      [{ role: 'user', content: userMessage }],
+      systemPrompt,
+      1000
+    );
+    return this._parseJSON(response);
+  }
+
   async editEmail(currentEmail, instruction) {
     const systemPrompt = `Tu es un expert en redaction d'emails professionnels.
 L'utilisateur te donne un email existant et une instruction de modification.
