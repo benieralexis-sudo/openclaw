@@ -192,8 +192,20 @@ REGLES STRICTES :
 
 OBJET DU MAIL :
 - Court (3-6 mots max), minuscules, naturel
-- Basé sur l'observation specifique : "votre expansion canada", "les 4 postes ouverts", "question avis google"
+- Contient le NOM DU PROSPECT ou de son ENTREPRISE quand c'est pertinent (ex: "EKELA + La Boite a media", "question pour Marc")
+- Base sur l'observation specifique : "votre expansion canada", "les 4 postes ouverts", "question avis google"
 - JAMAIS de "et si..." ou mots marketing
+
+STYLE D'ECRITURE (CRUCIAL) :
+- JAMAIS affirmer quelque chose qu'on ne sait pas — POSER LA QUESTION a la place
+  MAUVAIS : "ca represente un sacre saut en termes de volume de clients" (supposition)
+  BON : "ca change quoi cote acquisition pour vous ?" (question neutre)
+- Privilegier le COMPLIMENT SINCERE + QUESTION plutot que l'observation froide
+  MAUVAIS : "Vous avez 187 avis Google mais pas de page devis" (agressif)
+  BON : "187 avis a 4.8 sur Google — beau travail. Du coup la prospection elle vient d'ou ?" (compliment + curiosite)
+- Phrases COURTES. Pas de subordonnees a rallonge. Une idee = une phrase.
+- Le mot "curieux" est ton ami. "Curieux : comment vous gerez X ?" est naturel et non-intrusif.
+- JAMAIS utiliser "sacre", "en termes de", "un certain nombre de" — c'est du remplissage
 
 FORMAT DE RETOUR :
 Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
@@ -237,6 +249,17 @@ STRUCTURE DES RELANCES :
 - Relance 1 (J+4) : nouvel angle, partage un insight ou une observation utile pour lui
 - Relance 2 (J+8) : micro cas client anonymise ("un CEO dans ton secteur...")
 - Relance 3 (J+16) : breakup ultra court (2 lignes max), "pas de souci si c'est pas le moment"
+
+STYLE D'ECRITURE (CRUCIAL) :
+- JAMAIS affirmer quelque chose qu'on ne sait pas — POSER LA QUESTION a la place
+  MAUVAIS : "ca doit etre complique de gerer la croissance" (supposition)
+  BON : "comment vous gerez le pipe en ce moment ?" (question neutre)
+- Privilegier le COMPLIMENT SINCERE + QUESTION
+  BON : "Beau parcours depuis le lancement. Curieux : la prospection c'est gere comment chez vous ?"
+- Phrases COURTES. Une idee = une phrase. Pas de subordonnees a rallonge.
+- Le mot "curieux" est ton ami. Naturel et non-intrusif.
+- JAMAIS "sacre", "en termes de", "un certain nombre de" — c'est du remplissage
+- Les objets contiennent le NOM DU PROSPECT ou de son ENTREPRISE quand c'est pertinent
 
 IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
 Le body NE DOIT PAS contenir de signature (pas de "Alexis", "Cordialement", etc.) — la signature est ajoutee automatiquement.
@@ -318,8 +341,19 @@ REGLES STRICTES :
 
 OBJET DU MAIL :
 - Court (3-6 mots), minuscules, naturel
+- Contient le NOM DU PROSPECT ou de son ENTREPRISE (ex: "EKELA + La Boite a media", "question pour Nadine")
 - DIFFERENT de l'objet du premier email
 - Pas de "re:" ni de "relance"
+
+STYLE D'ECRITURE (CRUCIAL) :
+- JAMAIS affirmer quelque chose qu'on ne sait pas — POSER LA QUESTION a la place
+  MAUVAIS : "ca represente un sacre saut en termes de volume" (supposition)
+  BON : "ca change quoi cote acquisition pour vous ?" (question neutre)
+- Privilegier le COMPLIMENT SINCERE + QUESTION
+  BON : "Le rapprochement avec X — beau move. Du coup la prospection elle vient d'ou ?"
+- Phrases COURTES. Une idee = une phrase. Pas de subordonnees.
+- Le mot "curieux" est ton ami. "Curieux : comment vous gerez X ?" = naturel et non-intrusif
+- JAMAIS "sacre", "en termes de", "un certain nombre de" — c'est du remplissage
 
 FORMAT :
 JSON strict sans markdown ni backticks :
