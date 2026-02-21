@@ -1,11 +1,22 @@
-// Meeting Scheduler - Client API Cal.com
+// Meeting Scheduler - Client API Cal.com (compatible cal.eu v2)
 const https = require('https');
 const log = require('../../gateway/logger.js');
 
 class CalComClient {
   constructor(apiKey, baseUrl) {
     this.apiKey = apiKey || '';
-    this.baseUrl = baseUrl || 'https://api.cal.com';
+    this.baseUrl = baseUrl || 'https://api.cal.eu';
+    // Cal.eu profile cache
+    this._profileCache = null;
+    this._profileCacheTime = 0;
+    // Fallback event type (hardcoded from cal.eu account)
+    this._fallbackEventType = {
+      id: 0,
+      title: 'Appel téléphonique',
+      slug: 'appel-telephonique',
+      length: 15,
+      description: 'Appel découverte 15 min'
+    };
   }
 
   isConfigured() {
@@ -15,11 +26,12 @@ class CalComClient {
   _request(method, path, body) {
     return new Promise((resolve, reject) => {
       const url = new URL(path, this.baseUrl);
-      url.searchParams.set('apiKey', this.apiKey);
 
       const postData = body ? JSON.stringify(body) : '';
       const headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + this.apiKey,
+        'cal-api-version': '2024-08-13'
       };
       if (postData) headers['Content-Length'] = Buffer.byteLength(postData);
 
@@ -59,64 +71,74 @@ class CalComClient {
   async getEventTypes() {
     if (!this.isConfigured()) return [];
     try {
-      const result = await this._request('GET', '/v1/event-types');
-      if (result.statusCode === 200 && result.data.event_types) {
-        return result.data.event_types.map(et => ({
-          id: et.id,
-          title: et.title,
-          slug: et.slug,
-          length: et.length,
-          description: et.description || ''
-        }));
+      // Try v2 event-types endpoint first
+      const result = await this._request('GET', '/v2/event-types');
+      if (result.statusCode === 200 && result.data.data) {
+        const types = Array.isArray(result.data.data) ? result.data.data : [];
+        if (types.length > 0) {
+          return types.map(et => ({
+            id: et.id,
+            title: et.title || et.name,
+            slug: et.slug || et.lengthInMinutes + 'min',
+            length: et.lengthInMinutes || et.length || 30,
+            description: et.description || ''
+          }));
+        }
       }
-      log.warn('calcom', 'getEventTypes HTTP ' + result.statusCode);
-      return [];
+      log.warn('calcom', 'getEventTypes HTTP ' + result.statusCode + ', utilise fallback');
     } catch (e) {
-      log.error('calcom', 'Erreur getEventTypes:', e.message);
-      return [];
+      log.warn('calcom', 'Erreur getEventTypes:', e.message + ', utilise fallback');
     }
+
+    // Fallback: return hardcoded event type from cal.eu account
+    return [this._fallbackEventType];
   }
 
   // Generer un lien de reservation pour un lead
   async getBookingLink(eventTypeSlug, leadEmail, leadName) {
     if (!this.isConfigured()) return null;
 
-    // Le lien de booking Cal.com est compose du username + slug
     try {
-      const result = await this._request('GET', '/v1/me');
-      if (result.statusCode === 200 && result.data.user) {
-        const username = result.data.user.username;
+      const profile = await this.getProfile();
+      if (profile && profile.username) {
         const params = new URLSearchParams();
         if (leadEmail) params.set('email', leadEmail);
         if (leadName) params.set('name', leadName);
         const queryStr = params.toString() ? '?' + params.toString() : '';
-        return 'https://cal.com/' + username + '/' + eventTypeSlug + queryStr;
+        return 'https://cal.eu/' + profile.username + '/' + eventTypeSlug + queryStr;
       }
     } catch (e) {
       log.error('calcom', 'Erreur getBookingLink:', e.message);
     }
 
-    return null;
+    // Fallback direct avec username connu
+    const params = new URLSearchParams();
+    if (leadEmail) params.set('email', leadEmail);
+    if (leadName) params.set('name', leadName);
+    const queryStr = params.toString() ? '?' + params.toString() : '';
+    return 'https://cal.eu/alexis-benier-sarxqi/' + eventTypeSlug + queryStr;
   }
 
   // Recuperer les bookings existants
   async getBookings(status) {
     if (!this.isConfigured()) return [];
     try {
-      const path = status ? '/v1/bookings?status=' + status : '/v1/bookings';
+      const path = status ? '/v2/bookings?status=' + status : '/v2/bookings';
       const result = await this._request('GET', path);
-      if (result.statusCode === 200 && result.data.bookings) {
-        return result.data.bookings.map(b => ({
+      if (result.statusCode === 200 && result.data.data) {
+        const bookings = Array.isArray(result.data.data) ? result.data.data : [];
+        return bookings.map(b => ({
           id: b.id,
           uid: b.uid,
           title: b.title,
-          startTime: b.startTime,
-          endTime: b.endTime,
+          startTime: b.startTime || b.start,
+          endTime: b.endTime || b.end,
           status: b.status,
           attendees: (b.attendees || []).map(a => ({ email: a.email, name: a.name })),
-          meetingUrl: b.metadata?.videoCallUrl || null
+          meetingUrl: b.meetingUrl || (b.metadata && b.metadata.videoCallUrl) || null
         }));
       }
+      log.warn('calcom', 'getBookings HTTP ' + result.statusCode);
       return [];
     } catch (e) {
       log.error('calcom', 'Erreur getBookings:', e.message);
@@ -127,17 +149,30 @@ class CalComClient {
   // Recuperer le profil utilisateur (pour le username)
   async getProfile() {
     if (!this.isConfigured()) return null;
+
+    // Cache profil 1h
+    const now = Date.now();
+    if (this._profileCache && (now - this._profileCacheTime) < 3600000) {
+      return this._profileCache;
+    }
+
     try {
-      const result = await this._request('GET', '/v1/me');
-      if (result.statusCode === 200 && result.data.user) {
-        return {
-          id: result.data.user.id,
-          username: result.data.user.username,
-          name: result.data.user.name,
-          email: result.data.user.email,
-          timeZone: result.data.user.timeZone
+      const result = await this._request('GET', '/v2/me');
+      // v2 API: data is at result.data.data (not result.data.user)
+      const user = result.data.data || result.data.user || result.data;
+      if (result.statusCode === 200 && user && user.username) {
+        const profile = {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          email: user.email,
+          timeZone: user.timeZone
         };
+        this._profileCache = profile;
+        this._profileCacheTime = now;
+        return profile;
       }
+      log.warn('calcom', 'getProfile HTTP ' + result.statusCode);
       return null;
     } catch (e) {
       log.error('calcom', 'Erreur getProfile:', e.message);

@@ -12,7 +12,7 @@ class MeetingSchedulerStorage {
       config: {
         enabled: false,
         calcomApiKey: '',
-        calcomBaseUrl: 'https://api.cal.com/v1',
+        calcomBaseUrl: 'https://api.cal.eu',
         defaultEventTypeId: null,
         defaultDurationMinutes: 30,
         autoPropose: false  // Proposer auto un rdv quand lead hot
