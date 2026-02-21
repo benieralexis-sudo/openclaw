@@ -612,7 +612,17 @@ function startAllCrons() {
     log.info('router', 'Polling statuts email toutes les 30 min');
   }
 
-  log.info('router', '18 crons demarres (production)');
+  // Sync bookings Cal.eu toutes les 5 min
+  if (meetingHandler.calcom.isConfigured()) {
+    setInterval(async () => {
+      try {
+        await meetingHandler.syncBookings(sendMessage, _getHubSpotClient(), ADMIN_CHAT_ID);
+      } catch (e) { log.error('router', 'Booking sync echoue:', e.message); }
+    }, 5 * 60 * 1000);
+    log.info('router', 'Sync bookings Cal.eu toutes les 5 min');
+  }
+
+  log.info('router', '19 crons demarres (production)');
 }
 
 function stopAllCrons() {

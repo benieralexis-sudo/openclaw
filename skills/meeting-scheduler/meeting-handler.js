@@ -369,6 +369,123 @@ class MeetingHandler {
     return meeting;
   }
 
+  // Sync bookings Cal.eu → met a jour le storage local, notifie, avance deals
+  async syncBookings(sendTelegram, hubspotClient, adminChatId) {
+    if (!this.calcom.isConfigured()) return;
+
+    try {
+      const bookings = await this.calcom.getBookings();
+      if (bookings.length === 0) return;
+
+      const allMeetings = storage.getRecentMeetings(100);
+
+      for (const booking of bookings) {
+        const attendeeEmails = (booking.attendees || []).map(a => (a.email || '').toLowerCase());
+        if (attendeeEmails.length === 0) continue;
+
+        // Chercher un meeting propose qui matche un attendee
+        for (const meeting of allMeetings) {
+          if (!meeting.leadEmail) continue;
+          const leadEmail = meeting.leadEmail.toLowerCase();
+
+          if (!attendeeEmails.includes(leadEmail)) continue;
+
+          // Match ! Gerer selon les statuts
+          if (meeting.status === 'proposed' && (booking.status === 'accepted' || booking.status === 'confirmed' || booking.status === 'pending')) {
+            // Nouveau booking confirme
+            storage.updateMeetingStatus(meeting.id, 'booked', {
+              scheduledAt: booking.startTime,
+              calcomBookingId: booking.uid || booking.id
+            });
+
+            const dateStr = new Date(booking.startTime).toLocaleDateString('fr-FR', {
+              weekday: 'long', day: '2-digit', month: 'long',
+              hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris'
+            });
+
+            const notif = [
+              '✅ *RDV confirme !*',
+              '',
+              '👤 *' + (meeting.leadName || meeting.leadEmail) + '*',
+              '📧 ' + meeting.leadEmail,
+              '📅 ' + dateStr,
+              '⏱ ' + (meeting.duration || 15) + ' min'
+            ];
+            if (booking.meetingUrl) {
+              notif.push('🔗 ' + booking.meetingUrl);
+            }
+            if (meeting.company) {
+              notif.push('🏢 ' + meeting.company);
+            }
+            notif.push('');
+            notif.push('_Le lead a reserve un creneau via Cal.eu_');
+
+            if (sendTelegram && adminChatId) {
+              await sendTelegram(adminChatId, notif.join('\n'), 'Markdown');
+            }
+
+            // Avancer le deal HubSpot
+            if (hubspotClient) {
+              try {
+                const contact = await hubspotClient.findContactByEmail(leadEmail);
+                if (contact && contact.id) {
+                  await hubspotClient.advanceDealStage(contact.id, 'decisionmakerboughtin', 'meeting_booked');
+                  const noteBody = 'RDV confirme via Cal.eu\n' +
+                    'Date : ' + dateStr + '\n' +
+                    'Duree : ' + (meeting.duration || 15) + ' min\n' +
+                    '[Meeting Scheduler — sync automatique]';
+                  const note = await hubspotClient.createNote(noteBody);
+                  if (note && note.id) await hubspotClient.associateNoteToContact(note.id, contact.id);
+                }
+              } catch (e) {
+                log.warn('meeting-handler', 'HubSpot update echoue pour ' + leadEmail + ':', e.message);
+              }
+            }
+
+            log.info('meeting-handler', 'Booking sync: ' + leadEmail + ' → booked le ' + dateStr);
+
+          } else if (meeting.status === 'booked' && (booking.status === 'cancelled' || booking.status === 'rejected')) {
+            // Annulation
+            storage.updateMeetingStatus(meeting.id, 'cancelled');
+
+            if (sendTelegram && adminChatId) {
+              await sendTelegram(adminChatId,
+                '❌ *RDV annule*\n\n👤 ' + (meeting.leadName || meeting.leadEmail) + '\n📧 ' + meeting.leadEmail +
+                '\n\n_Le lead a annule son RDV Cal.eu_', 'Markdown');
+            }
+
+            log.info('meeting-handler', 'Booking sync: ' + leadEmail + ' → annule');
+          }
+        }
+      }
+
+      // Rappels — meetings bookes dans < 1h et pas encore rappele
+      const now = Date.now();
+      const oneHour = 60 * 60 * 1000;
+      for (const meeting of allMeetings) {
+        if (meeting.status !== 'booked' || !meeting.scheduledAt || meeting.reminderSent) continue;
+        const meetingTime = new Date(meeting.scheduledAt).getTime();
+        if (meetingTime > now && meetingTime - now < oneHour) {
+          // Rappel !
+          const dateStr = new Date(meeting.scheduledAt).toLocaleTimeString('fr-FR', {
+            hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris'
+          });
+          if (sendTelegram && adminChatId) {
+            await sendTelegram(adminChatId,
+              '🔔 *Rappel — RDV dans moins d\'1h*\n\n👤 *' + (meeting.leadName || meeting.leadEmail) +
+              '*\n📧 ' + meeting.leadEmail + '\n🕐 ' + dateStr +
+              '\n⏱ ' + (meeting.duration || 15) + ' min', 'Markdown');
+          }
+          storage.updateMeetingStatus(meeting.id, 'booked', { reminderSent: true });
+          log.info('meeting-handler', 'Rappel envoye pour RDV avec ' + meeting.leadEmail);
+        }
+      }
+
+    } catch (e) {
+      log.error('meeting-handler', 'Erreur syncBookings:', e.message);
+    }
+  }
+
   async _syncEventTypes() {
     try {
       const types = await this.calcom.getEventTypes();

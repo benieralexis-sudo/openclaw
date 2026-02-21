@@ -87,7 +87,8 @@ class MeetingSchedulerStorage {
       notes: meetingData.notes || '',
       proposedAt: new Date().toISOString(),
       bookedAt: null,
-      completedAt: null
+      completedAt: null,
+      reminderSent: false
     };
 
     this.data.meetings.push(entry);
