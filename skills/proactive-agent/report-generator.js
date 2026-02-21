@@ -44,7 +44,7 @@ class ReportGenerator {
   async collectDailyData() {
     const data = {
       date: new Date().toISOString().split('T')[0],
-      hubspot: { contacts: 0, deals: [], pipeline: 0, stagnantDeals: [], urgentDeals: [], dealsAdvanced: [] },
+      hubspot: { contacts: 0, deals: [], pipeline: 0, stagnantDeals: [], urgentDeals: [], dealsAdvanced: [], coldDeals: [], engagedDeals: [], deadDeals: [] },
       emails: { sent: 0, delivered: 0, opened: 0, campaigns: 0, activeCampaigns: 0, opensByDay: {}, bestHour: null, topOpened: [], bounced: 0 },
       leads: { total: 0, enriched: 0, topScore: 0, recentSearches: 0, enrichedThisWeek: 0, topLeads: [], coldLeads: [] },
       content: { generated: 0, thisWeek: 0, byType: {} },
@@ -66,16 +66,53 @@ class ReportGenerator {
         const now = Date.now();
         const thresholds = storage.getConfig().thresholds;
 
+        // Categoriser les deals par engagement
+        data.hubspot.coldDeals = [];
+        data.hubspot.engagedDeals = [];
+        data.hubspot.deadDeals = [];
+
+        // Charger les emails pour croiser avec les deals
+        const amStorage = getStorage('automailer');
+        const adminChatId = storage.getConfig().adminChatId;
+        const allEmails = amStorage ? (amStorage.getEmails ? amStorage.getEmails(adminChatId) : []) : [];
+        const repliedEmails = new Set();
+        const openedEmails = new Set();
+        for (const em of allEmails) {
+          if (em.status === 'replied') repliedEmails.add((em.to || '').toLowerCase());
+          if (em.status === 'opened') openedEmails.add((em.to || '').toLowerCase());
+        }
+
         for (const deal of data.hubspot.deals) {
           const amount = parseFloat(deal.amount) || 0;
-          if (deal.stage !== 'closedwon' && deal.stage !== 'closedlost') {
+          const isClosed = deal.stage === 'closedwon' || deal.stage === 'closedlost';
+          if (!isClosed) {
             data.hubspot.pipeline += amount;
           }
 
-          // Deals stagnants
+          // Determiner l'engagement via emails et stage
           const updatedAt = deal.updatedAt ? new Date(deal.updatedAt).getTime() : 0;
           const daysSinceUpdate = (now - updatedAt) / (1000 * 60 * 60 * 24);
-          if (daysSinceUpdate > thresholds.stagnantDealDays && deal.stage !== 'closedwon' && deal.stage !== 'closedlost') {
+          const dealNameLower = (deal.name || '').toLowerCase();
+          const hasAdvancedStage = deal.stage !== 'appointmentscheduled';
+
+          // Chercher si un email a ete ouvert/repondu pour ce deal (match par nom d'entreprise dans l'email)
+          const hasReply = [...repliedEmails].some(e => dealNameLower.includes(e.split('@')[1]?.split('.')[0] || '___'));
+          const hasOpen = [...openedEmails].some(e => dealNameLower.includes(e.split('@')[1]?.split('.')[0] || '___'));
+
+          const dealInfo = { name: deal.name, amount: amount, stage: deal.stage, daysSinceUpdate: Math.round(daysSinceUpdate) };
+
+          if (isClosed) {
+            // Ignore
+          } else if (hasReply || hasAdvancedStage) {
+            data.hubspot.engagedDeals.push(dealInfo);
+          } else if (daysSinceUpdate > 14) {
+            data.hubspot.deadDeals.push(dealInfo);
+          } else {
+            data.hubspot.coldDeals.push(dealInfo);
+          }
+
+          // Deals stagnants
+          if (daysSinceUpdate > thresholds.stagnantDealDays && !isClosed) {
             data.hubspot.stagnantDeals.push({
               name: deal.name,
               amount: amount,
@@ -88,13 +125,27 @@ class ReportGenerator {
           if (deal.closeDate) {
             const closeDate = new Date(deal.closeDate).getTime();
             const daysUntilClose = (closeDate - now) / (1000 * 60 * 60 * 24);
-            if (daysUntilClose > 0 && daysUntilClose <= thresholds.dealCloseWarningDays && deal.stage !== 'closedwon' && deal.stage !== 'closedlost') {
+            if (daysUntilClose > 0 && daysUntilClose <= thresholds.dealCloseWarningDays && !isClosed) {
               data.hubspot.urgentDeals.push({
                 name: deal.name,
                 amount: amount,
                 closeDate: deal.closeDate,
                 daysLeft: Math.round(daysUntilClose)
               });
+            }
+          }
+        }
+        // Auto-clean : fermer les deals morts (14j+ sans activite, aucune reponse)
+        if (data.hubspot.deadDeals.length > 0) {
+          for (const dead of data.hubspot.deadDeals) {
+            try {
+              const dealToClose = data.hubspot.deals.find(d => d.name === dead.name);
+              if (dealToClose && dealToClose.id) {
+                await hubspot.updateDeal(dealToClose.id, { dealstage: 'closedlost' });
+                log.info('proactive-report', 'Deal mort ferme automatiquement: ' + dead.name + ' (' + dead.daysSinceUpdate + 'j inactif)');
+              }
+            } catch (cleanErr) {
+              log.info('proactive-report', 'Erreur fermeture deal mort ' + dead.name + ':', cleanErr.message);
             }
           }
         }
@@ -401,7 +452,7 @@ class ReportGenerator {
 
     const prompt = `DONNEES DU JOUR :
 - Contacts HubSpot : ${data.hubspot.contacts}
-- Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.deals.filter(d => d.stage !== 'closedwon' && d.stage !== 'closedlost').length} deals)
+- Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length + data.hubspot.coldDeals.length} deals) — ${data.hubspot.engagedDeals.length} engages, ${data.hubspot.coldDeals.length} prospects froids${data.hubspot.deadDeals.length > 0 ? ', ' + data.hubspot.deadDeals.length + ' morts (14j+ sans activite)' : ''}
 - Emails envoyes : ${data.emails.sent}, delivered : ${data.emails.delivered}, bounced : ${data.emails.bounced}${isPlainTextMode ? '' : ', ouverts : ' + data.emails.opened + ' (taux: ' + emailOpenRate + '%)'}
 - Campagnes actives : ${data.emails.activeCampaigns}${isPlainTextMode ? '' : '\n- Meilleur jour d\'envoi : ' + bestDayStr + ' | Meilleure heure : ' + bestHourStr}
 - Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched} (+${data.leads.enrichedThisWeek} cette semaine)
@@ -483,7 +534,7 @@ REGLES :
 
     const prompt = `BILAN HEBDOMADAIRE :
 - Contacts HubSpot : ${data.hubspot.contacts}
-- Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.deals.filter(d => d.stage !== 'closedwon' && d.stage !== 'closedlost').length} deals)
+- Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length + data.hubspot.coldDeals.length} deals) — ${data.hubspot.engagedDeals.length} engages, ${data.hubspot.coldDeals.length} prospects froids${data.hubspot.deadDeals.length > 0 ? ', ' + data.hubspot.deadDeals.length + ' morts' : ''}
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
 - Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${weekOpenRate}%), bounced : ${data.emails.bounced}
 - Meilleur jour d'envoi : ${weekBestDay ? weekBestDay[0] + ' (' + weekBestDay[1].rate + '%)' : 'N/A'}
@@ -537,7 +588,7 @@ REGLES :
 
     const prompt = `BILAN MENSUEL :
 - Contacts HubSpot : ${data.hubspot.contacts}
-- Pipeline actif : ${data.hubspot.pipeline} EUR
+- Pipeline actif : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} engages, ${data.hubspot.coldDeals.length} froids${data.hubspot.deadDeals.length > 0 ? ', ' + data.hubspot.deadDeals.length + ' morts' : ''})
 - Deals stagnants : ${data.hubspot.stagnantDeals.length}
 - Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${monthOpenRate}%)
 - Bounced : ${data.emails.bounced}
@@ -629,7 +680,7 @@ REGLES :
     const lines = [
       'Bonjour ! Voici le point du matin.',
       '',
-      'Pipeline actif : *' + data.hubspot.pipeline + ' EUR* (' + data.hubspot.deals.filter(d => d.stage !== 'closedwon' && d.stage !== 'closedlost').length + ' deals)',
+      'Pipeline actif : *' + data.hubspot.pipeline + ' EUR* (' + (data.hubspot.engagedDeals.length + data.hubspot.coldDeals.length) + ' deals — ' + data.hubspot.engagedDeals.length + ' engages, ' + data.hubspot.coldDeals.length + ' froids)',
       'Emails : ' + data.emails.sent + ' envoyes, ' + data.emails.opened + ' ouverts',
       'Leads : ' + data.leads.total + ' trouves, ' + data.leads.enriched + ' enrichis',
     ];

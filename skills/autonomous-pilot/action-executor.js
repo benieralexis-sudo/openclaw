@@ -543,7 +543,7 @@ Format JSON strict :
             const deal = await hubspot.createDeal({
               dealname: (contact.company || contact.entreprise || 'Lead') + ' — Prospection',
               dealstage: 'appointmentscheduled',
-              amount: params.dealAmount || 0
+              amount: params.dealAmount || 690
             });
             if (deal && deal.id) {
               await hubspot.associateDealToContact(deal.id, hsContact.id);
