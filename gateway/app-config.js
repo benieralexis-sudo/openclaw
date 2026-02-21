@@ -256,6 +256,7 @@ module.exports = {
   isStandby,
   activateAll,
   deactivateAll,
+  estimateCost,
   recordApiSpend,
   isBudgetExceeded,
   assertBudgetAvailable,
