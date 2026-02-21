@@ -329,7 +329,13 @@ class BrainEngine {
           try {
             result = await this.executor.executeAction(action);
             if (result.success || result.deduplicated) break; // Succes ou dedup = pas de retry
-            // Echec non-exception : retry si retryable
+            // Erreurs permanentes : pas de retry (blacklist, MX fail, etc.)
+            const err = (result.error || '').toLowerCase();
+            if (err.includes('blacklist') || err.includes('mx') || err.includes('invalid email') || err.includes('deja contacte')) {
+              log.info('brain', 'Action ' + action.type + ' echouee (non-retryable): ' + result.error);
+              break;
+            }
+            // Echec temporaire : retry si retryable
             if (attempts < maxAttempts) {
               log.warn('brain', 'Action ' + action.type + ' echouee (tentative ' + attempts + '/' + maxAttempts + '): ' + (result.error || '?') + ' — retry dans 2s');
               await new Promise(function(r) { setTimeout(r, 2000); });
