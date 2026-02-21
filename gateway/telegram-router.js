@@ -1513,17 +1513,6 @@ const healthServer = http.createServer((req, res) => {
 
   // Webhook Resend
   if (req.url && req.url.startsWith('/webhook/resend') && req.method === 'POST') {
-    // Verification du secret (query param) — obligatoire si configure
-    const urlObj = new URL(req.url, 'http://localhost');
-    const secret = urlObj.searchParams.get('secret');
-    if (!WEBHOOK_SECRET) {
-      log.warn('webhook', 'RESEND_WEBHOOK_SECRET non configure — webhook non securise');
-    } else if (secret !== WEBHOOK_SECRET) {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'unauthorized' }));
-      return;
-    }
-
     let body = '';
     let bodySize = 0;
     const MAX_BODY = 100 * 1024; // 100KB max
@@ -1538,6 +1527,65 @@ const healthServer = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: 'payload too large' }));
         return;
       }
+
+      // --- Verification signature Svix/Resend (HMAC-SHA256) ---
+      if (WEBHOOK_SECRET) {
+        const svixId = req.headers['svix-id'];
+        const svixTimestamp = req.headers['svix-timestamp'];
+        const svixSignature = req.headers['svix-signature'];
+
+        if (svixId && svixTimestamp && svixSignature) {
+          // Verifier le timestamp (tolerance 5 min pour anti-replay)
+          const ts = parseInt(svixTimestamp, 10);
+          const now = Math.floor(Date.now() / 1000);
+          if (Math.abs(now - ts) > 300) {
+            log.warn('webhook', 'Timestamp Svix expire (delta: ' + (now - ts) + 's)');
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'timestamp expired' }));
+            return;
+          }
+
+          // Calculer le HMAC-SHA256
+          const signedContent = svixId + '.' + svixTimestamp + '.' + body;
+          // Le secret Resend peut etre au format whsec_xxx (base64) ou hex brut
+          let secretBytes;
+          if (WEBHOOK_SECRET.startsWith('whsec_')) {
+            secretBytes = Buffer.from(WEBHOOK_SECRET.slice(6), 'base64');
+          } else {
+            secretBytes = Buffer.from(WEBHOOK_SECRET, 'hex');
+          }
+          const crypto = require('crypto');
+          const expectedSig = crypto.createHmac('sha256', secretBytes).update(signedContent).digest('base64');
+
+          // svix-signature contient "v1,<sig1> v1,<sig2> ..." — verifier contre chaque
+          const signatures = svixSignature.split(' ').map(s => s.replace('v1,', ''));
+          const valid = signatures.some(sig => {
+            try {
+              return crypto.timingSafeEqual(Buffer.from(expectedSig), Buffer.from(sig));
+            } catch (e) { return false; }
+          });
+
+          if (!valid) {
+            log.warn('webhook', 'Signature Svix invalide — webhook rejete');
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'invalid signature' }));
+            return;
+          }
+        } else {
+          // Pas de headers Svix → fallback sur query param secret (retro-compat)
+          const urlObj = new URL(req.url, 'http://localhost');
+          const secret = urlObj.searchParams.get('secret');
+          if (secret !== WEBHOOK_SECRET) {
+            log.warn('webhook', 'Secret query param invalide — webhook rejete');
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'unauthorized' }));
+            return;
+          }
+        }
+      } else {
+        log.warn('webhook', 'RESEND_WEBHOOK_SECRET non configure — webhook non securise');
+      }
+
       try {
         const parsed = JSON.parse(body);
         const result = await handleResendWebhook(parsed);
