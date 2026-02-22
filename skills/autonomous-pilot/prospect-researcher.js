@@ -907,8 +907,17 @@ class ProspectResearcher {
       lines.push('NEWS RECENTES (pour observations specifiques):');
       for (const news of intel.recentNews.slice(0, 4)) {
         const dateStr = news.pubDate ? ' (' + new Date(news.pubDate).toLocaleDateString('fr-FR') + ')' : '';
-        let newsLine = '- "' + news.title + '"' + dateStr;
-        if (news.snippet) newsLine += ' → ' + news.snippet.substring(0, 100);
+        // Nettoyer le titre (enlever "- Source" en fin si deja dans news.source)
+        let cleanTitle = news.title || '';
+        if (news.source && cleanTitle.endsWith(' - ' + news.source)) {
+          cleanTitle = cleanTitle.slice(0, -((' - ' + news.source).length));
+        }
+        let newsLine = '- "' + cleanTitle + '"' + dateStr;
+        if (news.source) newsLine += ' [' + news.source + ']';
+        // Snippet seulement si c'est du vrai texte (pas une URL Google News)
+        if (news.snippet && !news.snippet.includes('news.google.com') && !news.snippet.includes('<a href')) {
+          newsLine += ' → ' + news.snippet.substring(0, 100);
+        }
         lines.push(newsLine);
       }
     }
@@ -935,8 +944,17 @@ class ProspectResearcher {
     if (intel.personProfile && intel.personProfile.items && intel.personProfile.items.length > 0) {
       lines.push('PROFIL PUBLIC ' + (contact.nom || '') + ':');
       for (const item of intel.personProfile.items.slice(0, 3)) {
-        let itemLine = '- [' + item.type.toUpperCase() + '] "' + item.title + '"';
-        if (item.snippet) itemLine += ' — ' + item.snippet.substring(0, 120);
+        // Nettoyer le titre (enlever "- Source" en fin)
+        let cleanTitle = item.title || '';
+        const dashSource = cleanTitle.match(/\s-\s[^-]+$/);
+        const source = dashSource ? dashSource[0].replace(/^\s-\s/, '') : '';
+        if (dashSource) cleanTitle = cleanTitle.slice(0, dashSource.index);
+        let itemLine = '- [' + item.type.toUpperCase() + '] "' + cleanTitle + '"';
+        if (source) itemLine += ' [' + source + ']';
+        // Snippet seulement si texte reel (pas URL)
+        if (item.snippet && !item.snippet.includes('news.google.com') && !item.snippet.includes('<a href')) {
+          itemLine += ' — ' + item.snippet.substring(0, 120);
+        }
         lines.push(itemLine);
       }
     }
