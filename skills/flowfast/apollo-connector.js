@@ -88,10 +88,30 @@ class ApolloConnector {
 
   // Rechercher des leads sur Apollo
   // Supporte keywords multiples via " OR " (Apollo ne gere pas OR nativement)
+  // FIX: Normalise les keywords multi-mots (>2 mots sans OR) en recherches separees
   async searchLeads(criteria = {}) {
     console.log('🔍 Recherche de leads sur Apollo...');
 
-    const keywords = (criteria.keywords || '').trim();
+    let keywords = (criteria.keywords || '').trim();
+
+    // FIX: Si keywords contient 3+ mots SANS "OR", c'est probablement une erreur du brain
+    // Ex: "SaaS B2B editeur logiciel" -> chercher "SaaS B2B" puis "editeur logiciel" separement
+    // Apollo fait un AND implicite sur les mots, donc 3+ mots = quasi 0 resultats
+    if (keywords && !keywords.includes(' OR ') && keywords.split(/\s+/).length > 2) {
+      const words = keywords.split(/\s+/);
+      // Grouper les mots par paires de 2 max et joindre avec OR
+      const pairs = [];
+      for (let i = 0; i < words.length; i += 2) {
+        if (i + 1 < words.length) {
+          pairs.push(words[i] + ' ' + words[i + 1]);
+        } else {
+          pairs.push(words[i]);
+        }
+      }
+      const normalized = pairs.join(' OR ');
+      console.log('[apollo] FIX: Keywords multi-mots normalises: "' + keywords + '" -> "' + normalized + '"');
+      keywords = normalized;
+    }
 
     // Si keywords contient " OR ", splitter et faire une recherche par terme
     if (keywords.includes(' OR ')) {

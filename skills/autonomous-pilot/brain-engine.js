@@ -301,8 +301,13 @@ class BrainEngine {
     }
 
     if (!plan || !plan.actions) {
-      log.warn('brain', 'Pas de plan valide, skip');
-      return;
+      log.warn('brain', 'Pas de plan valide, utilisation du fallback');
+      plan = this._fallbackPlan(state);
+      if (!plan || !plan.actions || plan.actions.length === 0) {
+        log.warn('brain', 'Fallback aussi vide, skip');
+        return;
+      }
+      log.info('brain', 'Fallback plan: ' + plan.actions.length + ' actions');
     }
 
     // Limiter a 10 actions par cycle (securite anti-emballement)
@@ -986,7 +991,10 @@ Analyse et reponds en JSON:
     prompt += JSON.stringify(sc, null, 2) + '\n';
     prompt += '→ IMPORTANT: Ces criteres (titles, locations, companySize) sont VERROUILLES par la config.\n';
     prompt += '→ Pour search_leads, tu peux UNIQUEMENT changer "keywords" pour tester differentes niches.\n';
-    prompt += '→ Ex: keywords="agence marketing" OU keywords="cabinet recrutement" OU keywords="SaaS B2B"\n';
+    prompt += '→ REGLE CRITIQUE KEYWORDS: Maximum 2 mots par keyword. Apollo fait un AND implicite, donc 3+ mots = 0 resultats.\n';
+    prompt += '→ CORRECT: keywords="agence marketing" ou keywords="ESN" ou keywords="SaaS B2B" (1-2 mots)\n';
+    prompt += '→ INCORRECT: keywords="SaaS B2B editeur logiciel" (4 mots = 0 resultats!)\n';
+    prompt += '→ Pour varier, utilise OR: keywords="agence marketing OR agence digitale" (recherches separees)\n';
     prompt += '→ Les autres champs (titles, locations, companySize) seront FORCES par le systeme.\n';
 
     prompt += '\nNIVEAU D\'AUTONOMIE: ' + config.autonomyLevel + ' (MODE MACHINE DE GUERRE)\n';

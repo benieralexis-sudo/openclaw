@@ -813,7 +813,7 @@ class ProactiveEngine {
         let dailyLimit = 5;
         if (firstSendDate) {
           const daysSince = Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000);
-          const schedule = [5, 10, 20, 35, 50, 75, 100];
+          const schedule = [5, 10, 15, 20, 25, 30, 35, 50, 50, 50, 50, 50, 50, 50, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 100];
           dailyLimit = schedule[Math.min(daysSince, schedule.length - 1)] || 100;
         }
         if (todaySent >= dailyLimit) {

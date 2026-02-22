@@ -665,18 +665,21 @@ Format JSON strict :
       // FIX 19 : Utiliser les compteurs persistants au lieu du filtre dynamique
       const sentToday = amStorage.getTodaySendCount();
 
-      // Domaine getifind.fr cree le 20 fev 2026 — calculer l'age en jours
-      const domainAge = Math.floor((Date.now() - new Date('2026-02-20').getTime()) / (24 * 60 * 60 * 1000));
-      let dailyLimit = 5; // Semaine 1-2
-      if (domainAge > 14) dailyLimit = 10;
-      if (domainAge > 28) dailyLimit = 20;
-      if (domainAge > 56) dailyLimit = 50;
+      // Warmup progressif base sur firstSendDate (unifie avec campaign-engine)
+      const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
+      let dailyLimit = 5;
+      if (firstSendDate) {
+        const daysSince = Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000);
+        // Schedule progressif : jour0=5, j1=10, j2=15, j3=20, j5+=30, j7+=50, j14+=75, j28+=100
+        const schedule = [5, 10, 15, 20, 25, 30, 35, 50, 50, 50, 50, 50, 50, 50, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 100];
+        dailyLimit = schedule[Math.min(daysSince, schedule.length - 1)] || 100;
+      }
 
       if (sentToday >= dailyLimit) {
-        log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails envoyes aujourd\'hui (domaine age: ' + domainAge + 'j) — limite atteinte');
+        log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails envoyes aujourd\'hui (daysSince: ' + (firstSendDate ? Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000) : 0) + 'j) — limite atteinte');
         return { success: false, error: 'Limite warm-up atteinte (' + dailyLimit + '/jour)', warmupLimited: true };
       }
-      log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails aujourd\'hui (domaine age: ' + domainAge + 'j)');
+      log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails aujourd\'hui (daysSince: ' + (firstSendDate ? Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000) : 0) + 'j)');
     }
 
     // Deduplication : verifier si un email a deja ete envoye a cette adresse
