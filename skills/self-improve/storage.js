@@ -95,7 +95,9 @@ class SelfImproveStorage {
       },
       anomalyHistory: [],
       brainInsights: { lastCollectedAt: null, nichePerformance: {}, learnings: {}, weeklyPerformance: [] },
-      abTestInsights: { lastCollectedAt: null, campaignResults: [], summary: null }
+      abTestInsights: { lastCollectedAt: null, campaignResults: [], summary: null },
+      temporalPatterns: { lastAnalyzedAt: null, dayHourGrid: {}, bestSlots: [], worstSlots: [], totalAnalyzed: 0 },
+      cohortInsights: { lastAnalyzedAt: null, byIndustry: {}, byCompanySize: {}, byRole: {}, topCohorts: [], bottomCohorts: [] }
     };
   }
 
@@ -432,6 +434,27 @@ class SelfImproveStorage {
 
   getABTestInsights() {
     return this.data.abTestInsights || { lastCollectedAt: null, campaignResults: [], summary: null };
+  }
+  // --- Temporal Patterns ---
+
+  saveTemporalPatterns(patterns) {
+    this.data.temporalPatterns = { ...patterns, lastAnalyzedAt: new Date().toISOString() };
+    this._save();
+  }
+
+  getTemporalPatterns() {
+    return this.data.temporalPatterns || { lastAnalyzedAt: null, dayHourGrid: {}, bestSlots: [], worstSlots: [], totalAnalyzed: 0 };
+  }
+
+  // --- Cohort Insights ---
+
+  saveCohortInsights(insights) {
+    this.data.cohortInsights = { ...insights, lastAnalyzedAt: new Date().toISOString() };
+    this._save();
+  }
+
+  getCohortInsights() {
+    return this.data.cohortInsights || { lastAnalyzedAt: null, byIndustry: {}, byCompanySize: {}, byRole: {}, topCohorts: [], bottomCohorts: [] };
   }
 }
 

@@ -142,4 +142,47 @@ describe('Self-Improve Storage v3', () => {
       assert.equal(insights.lastCollectedAt, null);
     });
   });
+
+  describe('Temporal Patterns', () => {
+    it('saveTemporalPatterns + getTemporalPatterns', () => {
+      storage.saveTemporalPatterns({
+        dayHourGrid: { '1_9': { day: 1, hour: 9, sent: 10, opened: 5 } },
+        bestSlots: [{ dayName: 'Lundi', hour: 9, openRate: 50, sent: 10 }],
+        worstSlots: [{ dayName: 'Vendredi', hour: 16, openRate: 10, sent: 8 }],
+        totalAnalyzed: 50
+      });
+      const patterns = storage.getTemporalPatterns();
+      assert.ok(patterns.lastAnalyzedAt);
+      assert.equal(patterns.bestSlots[0].dayName, 'Lundi');
+      assert.equal(patterns.totalAnalyzed, 50);
+    });
+
+    it('getTemporalPatterns retourne defaut si pas de donnees', () => {
+      storage.data.temporalPatterns = null;
+      const patterns = storage.getTemporalPatterns();
+      assert.equal(patterns.lastAnalyzedAt, null);
+    });
+  });
+
+  describe('Cohort Insights', () => {
+    it('saveCohortInsights + getCohortInsights', () => {
+      storage.saveCohortInsights({
+        byIndustry: { tech: { sent: 20, opened: 10, replied: 2, openRate: 50, replyRate: 10 } },
+        byCompanySize: {},
+        byRole: {},
+        topCohorts: [{ segment: 'industry', name: 'tech', openRate: 50, replyRate: 10, sent: 20 }],
+        bottomCohorts: []
+      });
+      const insights = storage.getCohortInsights();
+      assert.ok(insights.lastAnalyzedAt);
+      assert.equal(insights.topCohorts[0].name, 'tech');
+      assert.equal(insights.byIndustry.tech.openRate, 50);
+    });
+
+    it('getCohortInsights retourne defaut si pas de donnees', () => {
+      storage.data.cohortInsights = null;
+      const insights = storage.getCohortInsights();
+      assert.equal(insights.lastAnalyzedAt, null);
+    });
+  });
 });

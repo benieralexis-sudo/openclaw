@@ -150,6 +150,26 @@ Reponds UNIQUEMENT en JSON strict :
       ? '\n\nANOMALIES RECENTES:\n' + anomalies.map(a => '- ' + a.type + ': ' + a.message).join('\n')
       : '';
 
+    // Temporal patterns (meilleurs creneaux jour x heure)
+    const temporalPatterns = storage.getTemporalPatterns();
+    const temporalContext = temporalPatterns.lastAnalyzedAt && temporalPatterns.bestSlots && temporalPatterns.bestSlots.length > 0
+      ? '\n\nPATTERNS TEMPORELS DECOUVERTS (jour x heure):\nMeilleurs creneaux: ' +
+        temporalPatterns.bestSlots.slice(0, 3).map(s => s.dayName + ' ' + s.hour + 'h (' + s.openRate + '% open, ' + s.sent + ' emails)').join(', ') +
+        (temporalPatterns.worstSlots && temporalPatterns.worstSlots.length > 0 ?
+          '\nPires creneaux: ' + temporalPatterns.worstSlots.slice(0, 2).map(s => s.dayName + ' ' + s.hour + 'h (' + s.openRate + '% open)').join(', ') : '') +
+        '\nREGLE: Utilise ces patterns pour generer des recommandations send_timing specifiques (jour + heure).'
+      : '';
+
+    // Cohort segmentation
+    const cohortInsights = storage.getCohortInsights();
+    const cohortContext = cohortInsights.lastAnalyzedAt && cohortInsights.topCohorts && cohortInsights.topCohorts.length > 0
+      ? '\n\nSEGMENTATION PAR COHORT:\nTop cohorts: ' +
+        cohortInsights.topCohorts.slice(0, 3).map(c => c.segment + ':' + c.name + ' (' + c.openRate + '% open, ' + c.replyRate + '% reply, n=' + c.sent + ')').join(', ') +
+        (cohortInsights.bottomCohorts && cohortInsights.bottomCohorts.length > 0 ?
+          '\nFlop cohorts: ' + cohortInsights.bottomCohorts.slice(0, 2).map(c => c.segment + ':' + c.name + ' (' + c.openRate + '% open, n=' + c.sent + ')').join(', ') : '') +
+        '\nREGLE: Genere des recommandations niche_targeting et prospect_priority basees sur ces cohorts.'
+      : '';
+
     const userMessage = 'METRIQUES DE CETTE SEMAINE :\n' +
       JSON.stringify(snapshot, null, 2) +
       historyContext +
@@ -159,7 +179,9 @@ Reponds UNIQUEMENT en JSON strict :
       funnelContext +
       brainContext +
       abContext +
-      anomalyContext;
+      anomalyContext +
+      temporalContext +
+      cohortContext;
 
     try {
       const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 120000 });
@@ -470,6 +492,22 @@ Reponds UNIQUEMENT en JSON strict :
     return record;
   }
 
+  // Z-test pour comparer deux proportions (significativite statistique)
+  // Retourne { zScore, pValue, significant } (significant = p < 0.10, soit 90% de confiance)
+  _zTestProportions(successes1, n1, successes2, n2) {
+    if (n1 < 5 || n2 < 5) return { zScore: 0, pValue: 1, significant: false, reason: 'sample_too_small' };
+    const p1 = successes1 / n1;
+    const p2 = successes2 / n2;
+    const pPool = (successes1 + successes2) / (n1 + n2);
+    const se = Math.sqrt(pPool * (1 - pPool) * (1 / n1 + 1 / n2));
+    if (se === 0) return { zScore: 0, pValue: 1, significant: false, reason: 'zero_variance' };
+    const z = (p2 - p1) / se;
+    // Approximation de la p-value (two-tailed) via la fonction d'erreur
+    const absZ = Math.abs(z);
+    const pValue = absZ > 3.5 ? 0.001 : absZ > 2.58 ? 0.01 : absZ > 1.96 ? 0.05 : absZ > 1.645 ? 0.10 : 0.5;
+    return { zScore: Math.round(z * 100) / 100, pValue, significant: absZ >= 1.645, reason: null };
+  }
+
   // Mesurer l'impact des recommandations appliquees il y a 14 jours
   measureAppliedImpact(currentSnapshot) {
     const due = storage.getTrackingDueForMeasurement();
@@ -504,18 +542,56 @@ Reponds UNIQUEMENT en JSON strict :
         avgScore: Math.round((impact.avgScore - (baseline.avgScore || 0)) * 10) / 10
       };
 
-      // Reply rate compte double dans le verdict
-      const mainDelta = delta.openRate + delta.replyRate * 2;
+      // Test de significativite statistique sur openRate
+      const baselineSent = baseline.totalSent || 0;
+      const baselineOpened = Math.round((baseline.openRate || 0) * baselineSent / 100);
+      const openTest = this._zTestProportions(baselineOpened, baselineSent, impact.totalOpened, impact.totalSent);
+
+      // Test sur replyRate
+      const baselineReplied = Math.round((baseline.replyRate || 0) * baselineSent / 100);
+      const replyTest = this._zTestProportions(baselineReplied, baselineSent, impact.totalReplied, impact.totalSent);
+
+      // Verdict base sur significativite statistique
       let verdict = 'neutral';
-      if (mainDelta > 2) verdict = 'positive';
-      else if (mainDelta < -2) verdict = 'negative';
+      let statSignificant = false;
+
+      if (baselineSent < 10 || impact.totalSent < 10) {
+        verdict = 'insufficient_data';
+      } else if (openTest.significant || replyTest.significant) {
+        statSignificant = true;
+        // Reply rate compte double dans le verdict
+        const mainDelta = delta.openRate + delta.replyRate * 2;
+        if (mainDelta > 2) verdict = 'positive';
+        else if (mainDelta < -2) verdict = 'negative';
+        // Significatif mais delta faible → neutral
+      } else {
+        // Pas significatif → on regarde quand même la direction mais on marque non-significatif
+        const mainDelta = delta.openRate + delta.replyRate * 2;
+        if (mainDelta > 5) verdict = 'positive';
+        else if (mainDelta < -5) verdict = 'negative';
+        // Avec un seuil plus élevé quand pas significatif statistiquement
+      }
+
+      const statDetails = {
+        openRateZScore: openTest.zScore,
+        openRateSignificant: openTest.significant,
+        replyRateZScore: replyTest.zScore,
+        replyRateSignificant: replyTest.significant,
+        baselineSampleSize: baselineSent,
+        currentSampleSize: impact.totalSent,
+        statSignificant
+      };
 
       storage.completeImpactTracking(tracking.recoId, impact, delta, verdict);
       storage.updateTypePerformance(tracking.recoType, verdict);
 
-      results.push({ recoId: tracking.recoId, type: tracking.recoType, description: tracking.recoDescription, delta, verdict });
+      results.push({
+        recoId: tracking.recoId, type: tracking.recoType, description: tracking.recoDescription,
+        delta, verdict, statDetails
+      });
       log.info('self-improve', 'Impact mesure: ' + tracking.recoType + ' → ' + verdict +
-        ' (openRate ' + (delta.openRate > 0 ? '+' : '') + delta.openRate + '%)');
+        ' (openRate ' + (delta.openRate > 0 ? '+' : '') + delta.openRate + '%' +
+        (statSignificant ? ', STAT SIGNIFICATIF z=' + openTest.zScore : ', non significatif') + ')');
     }
 
     return results;
@@ -678,6 +754,26 @@ Reponds UNIQUEMENT en JSON strict :
       lines.push('  ' + f.leadsFound + ' leads → ' + f.leadsQualified + ' qualifies → ' + f.emailsSent + ' emails');
       lines.push('  ' + f.emailsOpened + ' ouverts → ' + f.emailsReplied + ' replies → ' + f.meetingsBooked + ' meetings');
       if (f.costPerLead) lines.push('  $' + f.costPerLead + '/lead | $' + (f.costPerReply || '?') + '/reply');
+    }
+
+    // Temporal patterns
+    const patterns = storage.getTemporalPatterns();
+    if (patterns.lastAnalyzedAt && patterns.bestSlots && patterns.bestSlots.length > 0) {
+      lines.push('');
+      lines.push('⏰ *CRENEAUX OPTIMAUX*');
+      for (const slot of patterns.bestSlots.slice(0, 3)) {
+        lines.push('  ' + slot.dayName + ' ' + slot.hour + 'h : ' + slot.openRate + '% open (' + slot.sent + ' emails)');
+      }
+    }
+
+    // Cohort insights
+    const cohorts = storage.getCohortInsights();
+    if (cohorts.lastAnalyzedAt && cohorts.topCohorts && cohorts.topCohorts.length > 0) {
+      lines.push('');
+      lines.push('🎯 *TOP COHORTS*');
+      for (const c of cohorts.topCohorts.slice(0, 3)) {
+        lines.push('  ' + c.name + ' (' + c.segment + ') : ' + c.openRate + '% open, ' + c.replyRate + '% reply (n=' + c.sent + ')');
+      }
     }
 
     return lines.join('\n');

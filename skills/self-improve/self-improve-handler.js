@@ -587,13 +587,37 @@ Reponds UNIQUEMENT en JSON strict :
         impactResults = this.analyzer.measureAppliedImpact(snapshot);
         if (impactResults.length > 0) {
           log.info('self-improve', 'Impact mesure: ' + impactResults.length + ' reco(s) evaluee(s)');
+          // Auto-rollback si impact negatif ET statistiquement significatif
           const negatives = impactResults.filter(r => r.verdict === 'negative');
-          if (negatives.length > 0 && this.sendTelegram) {
-            let impactMsg = '*Impact negatif detecte*\n';
-            for (const neg of negatives) {
-              impactMsg += '- ' + (neg.description || neg.type) + ': openRate ' + (neg.delta.openRate > 0 ? '+' : '') + neg.delta.openRate + '%\n';
+          const significantNegatives = negatives.filter(r => r.statDetails && r.statDetails.statSignificant);
+
+          if (significantNegatives.length > 0) {
+            // Auto-rollback automatique
+            try {
+              const rollbackResult = this.optimizer.rollbackLast();
+              if (rollbackResult.success && this.sendTelegram) {
+                let autoRollMsg = '*AUTO-ROLLBACK effectue*\n\n';
+                autoRollMsg += 'Impact negatif statistiquement significatif detecte:\n';
+                for (const neg of significantNegatives) {
+                  autoRollMsg += '- ' + (neg.description || neg.type) + ': openRate ' + (neg.delta.openRate > 0 ? '+' : '') + neg.delta.openRate + '%';
+                  if (neg.statDetails) autoRollMsg += ' (z=' + neg.statDetails.openRateZScore + ')';
+                  autoRollMsg += '\n';
+                }
+                autoRollMsg += '\nConfig restauree automatiquement.';
+                await this.sendTelegram(config.adminChatId, autoRollMsg);
+              }
+            } catch (rollbackErr) {
+              log.error('self-improve', 'Erreur auto-rollback:', rollbackErr.message);
             }
-            impactMsg += '\nDis _"rollback"_ pour annuler.';
+          } else if (negatives.length > 0 && this.sendTelegram) {
+            // Impact negatif mais pas significatif → alerte simple
+            let impactMsg = '*Impact negatif detecte (non significatif)*\n';
+            for (const neg of negatives) {
+              impactMsg += '- ' + (neg.description || neg.type) + ': openRate ' + (neg.delta.openRate > 0 ? '+' : '') + neg.delta.openRate + '%';
+              if (neg.statDetails) impactMsg += ' (echantillon trop petit: n=' + neg.statDetails.currentSampleSize + ')';
+              impactMsg += '\n';
+            }
+            impactMsg += '\nPas de rollback auto (pas assez de donnees). Dis _"rollback"_ si tu veux annuler manuellement.';
             await this.sendTelegram(config.adminChatId, impactMsg);
           }
         }

@@ -362,6 +362,10 @@ class MetricsCollector {
     const brainMetrics = this.collectBrainMetrics();
     const abTestMetrics = this.collectABTestMetrics();
 
+    // Collectes v3.1
+    const temporalPatterns = this.discoverTemporalPatterns();
+    const cohortInsights = this.collectCohortAnalysis();
+
     // Ajouter les top patterns depuis les details individuels
     const detailedInsights = this._extractDetailedInsights(emailDetails);
 
@@ -375,6 +379,8 @@ class MetricsCollector {
       funnel: funnelMetrics,
       brain: brainMetrics,
       abTests: abTestMetrics,
+      temporalPatterns: temporalPatterns,
+      cohortInsights: cohortInsights,
       emailDetailsCount: emailDetails.length,
       currentOverrides: {
         scoringWeights: storage.getScoringWeights(),
@@ -647,6 +653,150 @@ class MetricsCollector {
       console.error('[metrics-collector] Erreur AB test metrics:', e.message);
       return { available: false };
     }
+  }
+
+  // --- Temporal Pattern Learning : decouvrir les meilleurs jour x heure ---
+  discoverTemporalPatterns() {
+    const automailer = getAutomailerStorage();
+    if (!automailer || !automailer.data) return { available: false };
+
+    const emails = (automailer.data.emails || []).filter(e => e.sentAt && e.status !== 'queued');
+    if (emails.length < 15) return { available: false, reason: 'not_enough_emails', count: emails.length };
+
+    const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const grid = {};
+
+    for (const email of emails) {
+      const d = new Date(email.sentAt);
+      const day = d.getDay();
+      const hour = d.getHours();
+      const key = day + '_' + hour;
+      if (!grid[key]) grid[key] = { day, hour, dayName: dayNames[day], sent: 0, opened: 0, replied: 0 };
+      grid[key].sent++;
+      if (email.openedAt) grid[key].opened++;
+      if (email.hasReplied || email.status === 'replied') grid[key].replied++;
+    }
+
+    // Calculer les taux et trier
+    const slots = Object.values(grid)
+      .filter(s => s.sent >= 3)
+      .map(s => ({
+        ...s,
+        openRate: Math.round((s.opened / s.sent) * 100),
+        replyRate: Math.round((s.replied / s.sent) * 100),
+        score: Math.round(((s.opened / s.sent) * 100 + (s.replied / s.sent) * 200)) // reply pese double
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    const result = {
+      available: slots.length > 0,
+      dayHourGrid: grid,
+      bestSlots: slots.slice(0, 5),
+      worstSlots: slots.length > 3 ? slots.slice(-3).reverse() : [],
+      totalAnalyzed: emails.length,
+      slotsWithData: slots.length
+    };
+
+    storage.saveTemporalPatterns(result);
+    return result;
+  }
+
+  // --- Cohort Analysis : segmenter performance par industrie/taille/role ---
+  collectCohortAnalysis() {
+    const automailer = getAutomailerStorage();
+    const leadStorage = getLeadEnrichStorage();
+    if (!automailer || !automailer.data || !leadStorage || !leadStorage.data) return { available: false };
+
+    const emails = (automailer.data.emails || []).filter(e => e.sentAt && e.to && e.status !== 'queued');
+    const leads = leadStorage.data.enrichedContacts || leadStorage.data.enrichedLeads || {};
+    if (emails.length < 10) return { available: false };
+
+    const byIndustry = {};
+    const byCompanySize = {};
+    const byRole = {};
+
+    for (const email of emails) {
+      const lead = leads[email.to.toLowerCase()] || leads[email.to];
+      if (!lead || !lead.aiClassification) continue;
+
+      const cl = lead.aiClassification;
+      const opened = !!email.openedAt;
+      const replied = !!(email.hasReplied || email.status === 'replied');
+
+      // Par industrie
+      const industry = cl.industry || 'unknown';
+      if (!byIndustry[industry]) byIndustry[industry] = { sent: 0, opened: 0, replied: 0 };
+      byIndustry[industry].sent++;
+      if (opened) byIndustry[industry].opened++;
+      if (replied) byIndustry[industry].replied++;
+
+      // Par taille entreprise
+      const size = cl.companySize || lead.company_size || 'unknown';
+      if (size !== 'unknown') {
+        if (!byCompanySize[size]) byCompanySize[size] = { sent: 0, opened: 0, replied: 0 };
+        byCompanySize[size].sent++;
+        if (opened) byCompanySize[size].opened++;
+        if (replied) byCompanySize[size].replied++;
+      }
+
+      // Par role/persona
+      const role = cl.persona || 'unknown';
+      if (role !== 'unknown') {
+        if (!byRole[role]) byRole[role] = { sent: 0, opened: 0, replied: 0 };
+        byRole[role].sent++;
+        if (opened) byRole[role].opened++;
+        if (replied) byRole[role].replied++;
+      }
+    }
+
+    // Calculer les taux
+    const calcRates = (obj) => {
+      const result = {};
+      for (const [key, data] of Object.entries(obj)) {
+        if (data.sent >= 2) {
+          result[key] = {
+            ...data,
+            openRate: Math.round((data.opened / data.sent) * 100),
+            replyRate: Math.round((data.replied / data.sent) * 100)
+          };
+        }
+      }
+      return result;
+    };
+
+    const ratedIndustry = calcRates(byIndustry);
+    const ratedSize = calcRates(byCompanySize);
+    const ratedRole = calcRates(byRole);
+
+    // Top et bottom cohorts (tous segments confondus)
+    const allCohorts = [];
+    for (const [name, data] of Object.entries(ratedIndustry)) {
+      allCohorts.push({ segment: 'industry', name, ...data });
+    }
+    for (const [name, data] of Object.entries(ratedSize)) {
+      allCohorts.push({ segment: 'companySize', name, ...data });
+    }
+    for (const [name, data] of Object.entries(ratedRole)) {
+      allCohorts.push({ segment: 'role', name, ...data });
+    }
+    allCohorts.sort((a, b) => (b.openRate + b.replyRate * 2) - (a.openRate + a.replyRate * 2));
+
+    const result = {
+      available: allCohorts.length > 0,
+      byIndustry: ratedIndustry,
+      byCompanySize: ratedSize,
+      byRole: ratedRole,
+      topCohorts: allCohorts.slice(0, 5),
+      bottomCohorts: allCohorts.length > 3 ? allCohorts.slice(-3).reverse() : [],
+      totalAnalyzed: emails.length,
+      totalWithLeadData: emails.filter(e => {
+        const l = leads[e.to.toLowerCase()] || leads[e.to];
+        return l && l.aiClassification;
+      }).length
+    };
+
+    storage.saveCohortInsights(result);
+    return result;
   }
 
   // --- Snapshot leger pour anomaly detection (pur JS, pas d'IA) ---
