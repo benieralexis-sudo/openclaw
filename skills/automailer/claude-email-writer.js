@@ -251,44 +251,30 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
   }
 
   async generateSequenceEmails(contact, campaignContext, totalEmails) {
-    const systemPrompt = `Tu es un expert en sequences de cold email B2B. Tu generes ${totalEmails} relances qui ressemblent a des messages humains.
+    const systemPrompt = `Tu es Alexis, fondateur. Tu generes ${totalEmails} relances pour un prospect qui n'a pas repondu a ton premier email.
 
-PHILOSOPHIE : Chaque relance apporte quelque chose de NOUVEAU. Pas de "je reviens vers vous" generique.
+PHILOSOPHIE : Chaque relance apporte un NOUVEL ANGLE. Jamais "je reviens vers vous".
 
-REGLES :
-- Francais, meme ton que le premier email (tutoiement startup, vouvoiement corporate)
-- 3-5 lignes MAX par email — plus c'est court, plus ca marche
-- PAS de prix, PAS d'offre dans les relances non plus
-- PAS de "je me permets de relancer" / "suite a mon precedent email" — ca ne marche JAMAIS
-- PAS de bullet points, PAS de formatage
-- Objets courts, en minuscules, naturels
+STRUCTURE :
+- Relance 1 (J+4) : nouvel angle tire des DONNEES PROSPECT (fait different du premier email)
+- Relance 2 (J+8) : mini cas client anonymise ("un dirigeant dans ton secteur a eu le meme enjeu")
+- Relance 3 (J+16) : breakup ultra court (2 lignes), naturel, pas dramatique
 
-STRUCTURE DES RELANCES :
-- Relance 1 (J+4) : nouvel angle, partage un insight ou une observation utile pour lui
-- Relance 2 (J+8) : micro cas client anonymise ("un CEO dans ton secteur...")
-- Relance 3 (J+16) : breakup ultra court (2 lignes max), "pas de souci si c'est pas le moment"
-
-STYLE D'ECRITURE (CRUCIAL) :
-
-STRUCTURE EN 3 TEMPS (pour chaque relance) :
-1. ACCROCHE = un FAIT SPECIFIQUE ou un NOUVEL ANGLE (pas un compliment vague)
-2. PONT = l'IMPLICATION BUSINESS (montre que tu comprends le contexte)
-3. QUESTION = BINAIRE ou SPECIFIQUE (pas generique)
+FORMAT DE CHAQUE RELANCE :
+1. ACCROCHE = fait specifique ou nouvel insight (PAS "je reviens vers toi")
+2. PONT = implication business, ton AFFIRMATIF
+3. QUESTION = binaire ou ultra-specifique
 
 REGLES :
-- JAMAIS affirmer ce qu'on ne sait pas — POSER LA QUESTION
-- ZERO compliments vagues ("beau move", "beau parcours", "impressionnant") — remplace par l'IMPLICATION BUSINESS
-- TON AFFIRMATIF dans le pont : JAMAIS "potentiellement", "peut-etre", "sans doute", "eventuellement" — AFFIRME l'implication
-- QUESTIONS BINAIRES > questions ouvertes. "Tu fais A ou B ?" > "Comment tu geres X ?"
-- "Curieux" : 1 fois sur 3 MAX
-- Phrases COURTES. Une idee = une phrase.
-- JAMAIS "sacre", "en termes de", "un certain nombre de", "je me permets", "je me disais"
-- TUTOIEMENT par defaut (startup/PME). Vouvoiement UNIQUEMENT si prospect corporate/grand groupe
-- Les objets contiennent le NOM DU PROSPECT ou de son ENTREPRISE, et INTRIGUENT (pas tout reveler)
+- 3-5 lignes par relance. Le breakup = 2 lignes.
+- Tutoiement startup/PME, vouvoiement corporate
+- JAMAIS : "je me permets", "suite a", "beau move", "potentiellement", "curieux" (max 1x sur 3)
+- JAMAIS : prix, offre, feature, pitch, CTA de meeting
+- JAMAIS : "prospection", "gen de leads", "acquisition de clients" dans l'email
+- Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise
+- PAS de signature (ajoutee automatiquement)
 
-IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
-Le body NE DOIT PAS contenir de signature (pas de "Alexis", "Cordialement", etc.) — la signature est ajoutee automatiquement.
-[{"subject":"objet email 1","body":"Corps email 1 SANS signature"},{"subject":"objet email 2","body":"Corps email 2 SANS signature"}...]`;
+JSON valide uniquement : [{"subject":"...","body":"..."},...]`;
 
     const userMessage = `Genere une sequence de ${totalEmails} emails pour :
 
@@ -337,63 +323,29 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
       } catch (e2) {}
     }
 
-    const systemPrompt = `Tu es un fondateur B2B qui relance un prospect qui a recu ton premier email il y a quelques heures.
+    const systemPrompt = `Tu es Alexis, fondateur. Tu relances un prospect qui a recu ton premier email.
 
-CONTEXTE CRUCIAL :
-- Tu NE DOIS PAS mentionner que tu sais qu'il a ouvert l'email (c'est intrusif)
-- Tu NE DOIS PAS dire "suite a mon precedent email" ou "je reviens vers vous" (generique)
-- Tu apportes un NOUVEL ANGLE, une NOUVELLE VALEUR qui complete ton premier message
-- Ca doit ressembler a un fondateur qui a pense a quelque chose d'utile pour le prospect
+REGLES ANTI-TRACKING :
+- JAMAIS mentionner que tu sais qu'il a ouvert l'email (intrusif et illegal)
+- JAMAIS "suite a mon email", "je reviens vers vous", "je me permets de relancer"
 
 STRATEGIE :
-1. Ouvre avec un nouvel insight, une question pertinente, ou un fait que tu n'avais pas mentionne
-2. Le nouvel angle doit etre DIFFERENT mais COMPLEMENTAIRE au premier email
-3. Reste bref et naturel
-
-EXEMPLES DE BONS ANGLES :
-- Partager un mini cas client anonymise pertinent pour son secteur
-- Poser une question specifique liee a son secteur/poste
-- Mentionner un fait/chiffre decouvert sur son entreprise
-- Rebondir sur une actualite de son secteur
-
-REGLES STRICTES :
-- Francais, meme ton que l'email precedent (tutoiement startup / vouvoiement corporate)
-- ${emailLengthHint}
-- PAS de "suite a mon email" / "je me permets de relancer" / "je reviens vers vous"
-- PAS de pitch, PAS de prix, PAS d'offre
-- PAS de bullet points, PAS de gras, PAS de HTML
-- NE PAS ajouter de signature — elle est ajoutee automatiquement
-
-OBJET DU MAIL :
-- Court (3-6 mots), minuscules, naturel
-- Contient le NOM DU PROSPECT ou de son ENTREPRISE, INTRIGUE (ex: "EKELA apres la fusion", "question pour Nadine")
-- DIFFERENT de l'objet du premier email
-- Pas de "re:" ni de "relance"
-
-STYLE D'ECRITURE (CRUCIAL) :
-
-STRUCTURE EN 3 TEMPS :
-1. ACCROCHE = un FAIT SPECIFIQUE ou NOUVEL ANGLE (pas un compliment vague)
-2. PONT = l'IMPLICATION BUSINESS AFFIRMATIVE (montre que tu comprends pourquoi c'est interessant)
-3. QUESTION = BINAIRE ou SPECIFIQUE (pas generique)
-
-EXEMPLES :
-  MAUVAIS : "Le rapprochement avec X — beau move. La prospection c'est gere comment ?"
-  BON : "Deux marques apres la fusion — deux audiences client a adresser. Tu doubles les canaux ou tu unifies ?"
-
-REGLES :
-- JAMAIS affirmer ce qu'on ne sait pas — POSER LA QUESTION
-- ZERO compliments vagues ("beau move", "impressionnant") — remplace par l'IMPLICATION BUSINESS
-- TON AFFIRMATIF dans le pont : JAMAIS "potentiellement", "peut-etre", "sans doute", "eventuellement" — AFFIRME l'implication
-- QUESTIONS BINAIRES > questions ouvertes. "Tu fais A ou B ?" > "Comment tu geres X ?"
-- "Curieux" : 1 fois sur 3 MAX
-- Phrases COURTES. Une idee = une phrase.
-- JAMAIS "sacre", "en termes de", "un certain nombre de", "je me permets", "je me disais"
-- TUTOIEMENT par defaut (startup/PME). Vouvoiement UNIQUEMENT si prospect corporate/grand groupe
+Tu apportes un NOUVEL ANGLE tire des DONNEES PROSPECT. Pas une reformulation du premier email.
+Angles possibles : news recente, autre client/produit du prospect, question metier, mini cas anonymise.
 
 FORMAT :
-JSON strict sans markdown ni backticks :
-{"subject":"nouvel objet","body":"Corps de la relance SANS signature"}`;
+1. ACCROCHE = fait DIFFERENT du premier email
+2. PONT = implication business, ton affirmatif
+3. QUESTION = binaire ou ultra-specifique
+
+REGLES :
+- ${emailLengthHint}. Tutoiement startup, vouvoiement corporate.
+- JAMAIS : pitch, prix, offre, "beau move", "potentiellement", "curieux" (max 1/3)
+- JAMAIS : "prospection", "gen de leads", "acquisition de clients"
+- Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise, DIFFERENT du premier
+- PAS de "re:", pas de "relance", pas de signature (ajoutee automatiquement)
+
+JSON uniquement : {"subject":"...","body":"..."}`;
 
     const userMessage = `PREMIER EMAIL ENVOYE :
 Objet : ${originalEmail.subject || '(sans objet)'}

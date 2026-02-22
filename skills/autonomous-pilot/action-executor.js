@@ -596,25 +596,17 @@ Format JSON strict :
       email: rawContact.email || params.to || ''
     };
 
-    // Construire un contexte enrichi — SANS pitch commercial (premier email = ouvrir une conversation)
-    let context = 'MISSION: Premier contact. Ouvrir une conversation, PAS vendre. Aucun pitch.';
-    context += '\nQUI TU ES: Alexis, fondateur — prospection B2B.';
-    context += '\nREGLE ABSOLUE: Ne mentionne PAS de prix, PAS d\'offre, PAS de "pilote gratuit".';
+    // Contexte minimal — le systemPrompt du writer contient deja toutes les regles
+    let context = '';
 
     const ep = config.emailPreferences || {};
-    if (ep.maxLines) context += '\nLONGUEUR: ' + ep.maxLines + ' lignes MAXIMUM.';
     if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
-      context += '\nMOTS INTERDITS (ne JAMAIS utiliser): ' + ep.forbiddenWords.join(', ');
+      context += 'MOTS INTERDITS: ' + ep.forbiddenWords.join(', ');
     }
-    if (ep.tone) context += '\nTON: ' + ep.tone;
 
-    // Injecter les informations de recherche prospect — structurees et prioritaires
+    // Injecter les donnees prospect
     if (params._prospectIntel) {
-      context += '\n\n=== DONNEES PROSPECT (OBLIGATOIRE — base ton email sur ces faits) ===\n' + params._prospectIntel;
-      context += '\n=== FIN DONNEES PROSPECT ===';
-      context += '\nINSTRUCTION: Ton email DOIT citer au moins 1 fait SPECIFIQUE des donnees ci-dessus (chiffre, techno, client, news, service). Si aucun fait specifique disponible, cite au minimum un detail concret (nb employes, annee fondation, ville, stack technique).';
-    } else {
-      context += '\n\nPas de donnees prospect detaillees. Base ton email sur le SECTEUR + TITRE du contact (niveau 2 : realite metier).';
+      context += '\n\n' + params._prospectIntel;
     }
 
     // Rotation d'angles : injecter les angles DEJA utilises pour eviter les repetitions
