@@ -213,6 +213,7 @@ class WebFetcher {
         return null;
       }
       const parsed = this.parseHtml(result.body);
+      parsed.rawHtml = result.body; // Conserver le HTML brut pour detection tech stack
       parsed.url = url;
       parsed.source = 'Web: ' + this._extractDomain(url);
       return parsed;

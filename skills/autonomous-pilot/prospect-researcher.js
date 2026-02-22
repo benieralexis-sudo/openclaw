@@ -41,6 +41,7 @@ const USER_AGENTS = [
 class ProspectResearcher {
   constructor(options) {
     this.claudeKey = options.claudeKey;
+    this.pappersToken = options.pappersToken || process.env.PAPPERS_API_TOKEN || null;
     this._fetcher = null;
     this._uaIndex = Math.floor(Math.random() * USER_AGENTS.length);
   }
@@ -108,17 +109,19 @@ class ProspectResearcher {
     // Extraire le domaine depuis l'email
     const domain = email ? email.split('@')[1] : null;
 
-    // Executer toutes les recherches en parallele (7 sources)
+    // Executer toutes les recherches en parallele (10 sources)
     const linkedinUrl = contact.linkedin_url || contact.linkedin || contact.linkedinUrl || '';
     const contactName = contact.nom || contact.name || '';
-    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult] = await Promise.allSettled([
+    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, pappersResult, jobPostingsResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
       Promise.resolve(this._extractApolloOrgData(contact.organization)),
       Promise.resolve(this._checkExistingWebIntelArticles(company)),
       this._fetchLinkedInData(linkedinUrl, contactName, company),
       this._searchCompanyClients(company),
-      this._searchPersonProfile(contactName, company)
+      this._searchPersonProfile(contactName, company),
+      this._fetchPappersData(company),
+      this._searchJobPostings(company)
     ]);
 
     // Chercher market signals Web Intelligence pour cette entreprise
@@ -186,6 +189,7 @@ class ProspectResearcher {
     const intel = {
       company: company,
       websiteInsights: websiteResult.status === 'fulfilled' ? websiteResult.value : null,
+      techStack: (websiteResult.status === 'fulfilled' && websiteResult.value) ? websiteResult.value.techStack || null : null,
       recentNews: newsResult.status === 'fulfilled' ? newsResult.value : [],
       apolloData: apolloData.status === 'fulfilled' ? apolloData.value : null,
       existingArticles: rawArticles,
@@ -193,12 +197,23 @@ class ProspectResearcher {
       clientSearch: clientSearchResult.status === 'fulfilled' ? clientSearchResult.value : null,
       personProfile: personProfile,
       personFromWebsite: personFromWebsite,
+      pappersData: pappersResult.status === 'fulfilled' ? pappersResult.value : null,
+      jobPostings: jobPostingsResult.status === 'fulfilled' ? jobPostingsResult.value : null,
       intentSignals: personProfile ? (personProfile.intentSignals || []) : [],
       sectorCompetitors: sectorCompetitors,
       leadEnrichData: leadEnrichData,
       marketSignals: marketSignals,
       researchedAt: new Date().toISOString()
     };
+
+    // Auto-intent signal : recrutement massif
+    if (intel.jobPostings && intel.jobPostings.totalJobs >= 3) {
+      intel.intentSignals.push({
+        type: 'active_hiring',
+        detail: intel.jobPostings.totalJobs + ' postes ouverts' +
+          (intel.jobPostings.categories.sales > 0 ? ' (dont ' + intel.jobPostings.categories.sales + ' commerciaux)' : '')
+      });
+    }
 
     // Construire le brief textuel
     intel.brief = this._buildProspectBrief(intel, contact);
@@ -217,6 +232,9 @@ class ProspectResearcher {
       intel.clientSearch ? 'DDG clients' : null,
       intel.personProfile ? intel.personProfile.items.length + ' profil' : null,
       intel.personFromWebsite ? intel.personFromWebsite.mentions.length + ' mentions site' : null,
+      intel.pappersData ? 'Pappers' : null,
+      intel.jobPostings ? intel.jobPostings.totalJobs + ' offres emploi' : null,
+      intel.techStack ? 'tech stack' : null,
       intel.sectorCompetitors.length > 0 ? intel.sectorCompetitors.length + ' concurrents' : null
     ].filter(Boolean);
 
@@ -279,6 +297,12 @@ class ProspectResearcher {
       }
 
       insights.textContent = texts.join('\n').substring(0, 3000);
+
+      // 5. Detecter le tech stack depuis le HTML brut (0 requete supplementaire)
+      if (result.rawHtml) {
+        insights.techStack = this._detectTechStack(result.rawHtml);
+      }
+
       return insights;
     } catch (e) {
       log.info('prospect-research', 'Scrape echoue pour ' + domain + ' (non bloquant): ' + e.message);
@@ -600,22 +624,34 @@ class ProspectResearcher {
     const fetcher = this._getFetcher();
     if (!fetcher) return null;
 
-    // Strategie 1 (PRIORITAIRE) : DuckDuckGo HTML — pas de rate limit agressif, le plus fiable
+    // Strategie 1 (PRIORITAIRE) : DuckDuckGo HTML — retry sur 202 (rate-limit)
     if (name) {
-      try {
-        const ddgQuery = encodeURIComponent('"' + name + '"' + (company ? ' "' + company + '"' : '') + ' site:linkedin.com/in/');
-        const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + ddgQuery;
-        const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
-        if (result && result.statusCode === 200 && result.body) {
-          const parsed = this._parseDDGLinkedInResults(result.body, name);
-          if (parsed && parsed.headline) {
-            parsed.source = 'duckduckgo';
-            log.info('prospect-research', 'LinkedIn via DuckDuckGo OK pour ' + name);
-            return parsed;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const ddgQuery = encodeURIComponent('"' + name + '"' + (company ? ' "' + company + '"' : '') + ' site:linkedin.com/in/');
+          const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + ddgQuery;
+          const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
+
+          // 202 = rate limited, retry apres 2s
+          if (result && result.statusCode === 202 && attempt === 0) {
+            log.info('prospect-research', 'DuckDuckGo LinkedIn 202 — retry dans 2s');
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
           }
+
+          if (result && result.statusCode === 200 && result.body) {
+            const parsed = this._parseDDGLinkedInResults(result.body, name);
+            if (parsed && parsed.headline) {
+              parsed.source = 'duckduckgo';
+              log.info('prospect-research', 'LinkedIn via DuckDuckGo OK pour ' + name);
+              return parsed;
+            }
+          }
+          break;
+        } catch (e) {
+          log.info('prospect-research', 'DuckDuckGo LinkedIn echoue: ' + e.message);
+          break;
         }
-      } catch (e) {
-        log.info('prospect-research', 'DuckDuckGo LinkedIn echoue: ' + e.message);
       }
     }
 
@@ -635,6 +671,30 @@ class ProspectResearcher {
         }
       } catch (e) {
         log.info('prospect-research', 'Bing LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    // Strategie 2.5 : DDG alt-query (sans site: filter, format different)
+    if (name && company) {
+      try {
+        const altQuery = encodeURIComponent(name + ' ' + company + ' linkedin.com/in');
+        const altUrl = 'https://html.duckduckgo.com/html/?q=' + altQuery;
+        const result = await fetcher.fetchUrl(altUrl, { userAgent: this._nextUA() });
+        if (result && result.statusCode === 200 && result.body) {
+          const linkedinLinkMatch = result.body.match(/href="[^"]*uddg=([^"&]+)[^"]*"[^>]*>[^<]*linkedin[^<]*<\/a>/i)
+            || result.body.match(/linkedin\.com\/in\/[^"<\s]+/i);
+          if (linkedinLinkMatch) {
+            // Chercher le snippet/titre associe au lien LinkedIn
+            const parsed = this._parseDDGLinkedInResults(result.body, name);
+            if (parsed && parsed.headline) {
+              parsed.source = 'ddg_alt_query';
+              log.info('prospect-research', 'LinkedIn via DDG alt-query OK pour ' + name);
+              return parsed;
+            }
+          }
+        }
+      } catch (e) {
+        log.info('prospect-research', 'DDG alt-query LinkedIn echoue: ' + e.message);
       }
     }
 
@@ -833,6 +893,281 @@ class ProspectResearcher {
   }
 
   /**
+   * Recherche les offres d'emploi actives pour cette entreprise (hiring = buying signal).
+   * Source 1 : DDG site:welcometothejungle.com (WTTJ = #1 France)
+   * Source 2 (fallback) : DDG generique recrutement
+   * Cout : 0$
+   */
+  async _searchJobPostings(companyName) {
+    if (!companyName || companyName.length < 3) return null;
+
+    const fetcher = this._getFetcher();
+    if (!fetcher) return null;
+
+    try {
+      // Strategie 1 : DDG search site:welcometothejungle.com
+      const query = encodeURIComponent('site:welcometothejungle.com "' + companyName + '"');
+      const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + query;
+      const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
+
+      let jobSnippets = [];
+      let wttjSlug = null;
+
+      if (result && result.statusCode === 200 && result.body && result.body.length > 500) {
+        const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+        const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+
+        let m;
+        while ((m = linkRegex.exec(result.body)) !== null && jobSnippets.length < 8) {
+          let url = m[1];
+          if (url.includes('uddg=')) {
+            const uddg = url.split('uddg=')[1];
+            if (uddg) url = decodeURIComponent(uddg.split('&')[0]);
+          }
+          const title = m[2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim();
+
+          if (!wttjSlug && url.includes('welcometothejungle.com/fr/companies/')) {
+            const slugMatch = url.match(/companies\/([^\/]+)/);
+            if (slugMatch) wttjSlug = slugMatch[1];
+          }
+
+          if (title.length > 5 && url.includes('welcometothejungle.com')) {
+            jobSnippets.push(title);
+          }
+        }
+
+        while ((m = snippetRegex.exec(result.body)) !== null && jobSnippets.length < 12) {
+          const snippet = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+          if (snippet.length > 20) jobSnippets.push(snippet);
+        }
+      }
+
+      // Strategie 2 (fallback) si WTTJ n'a rien donne
+      if (jobSnippets.length === 0) {
+        const fallbackQuery = encodeURIComponent('"' + companyName + '" recrutement OR recrute OR "postes ouverts" OR "rejoint notre equipe"');
+        const fallbackUrl = 'https://html.duckduckgo.com/html/?q=' + fallbackQuery;
+        const fallbackResult = await fetcher.fetchUrl(fallbackUrl, { userAgent: this._nextUA() });
+
+        if (fallbackResult && fallbackResult.statusCode === 200 && fallbackResult.body) {
+          const snippetRegex2 = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+          let m2;
+          while ((m2 = snippetRegex2.exec(fallbackResult.body)) !== null && jobSnippets.length < 5) {
+            const snippet = m2[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+            if (snippet.length > 20 && /recrut|embauche|poste|cdi|cdd|stage|alternance|talent/i.test(snippet)) {
+              jobSnippets.push(snippet);
+            }
+          }
+        }
+      }
+
+      if (jobSnippets.length === 0) return null;
+
+      // Classifier les postes par categorie
+      const allText = jobSnippets.join(' ').toLowerCase();
+      const categories = { tech: 0, sales: 0, marketing: 0, product: 0, other: 0 };
+
+      const TECH_KW = ['developer', 'developpeur', 'ingenieur', 'engineer', 'devops', 'data', 'backend', 'frontend', 'fullstack', 'sre', 'tech lead', 'qa', 'software'];
+      const SALES_KW = ['commercial', 'sales', 'business development', 'account', 'sdr', 'bdr', 'responsable commercial'];
+      const MKT_KW = ['marketing', 'communication', 'content', 'seo', 'growth', 'acquisition', 'brand', 'social media'];
+      const PROD_KW = ['product', 'produit', 'chef de projet', 'project manager', 'ux', 'ui', 'design'];
+
+      for (const kw of TECH_KW) { if (allText.includes(kw)) categories.tech++; }
+      for (const kw of SALES_KW) { if (allText.includes(kw)) categories.sales++; }
+      for (const kw of MKT_KW) { if (allText.includes(kw)) categories.marketing++; }
+      for (const kw of PROD_KW) { if (allText.includes(kw)) categories.product++; }
+
+      const totalJobs = Math.min(jobSnippets.length, 20);
+      const highlights = jobSnippets.filter(s => s.length > 10 && s.length < 100).slice(0, 5).map(s => s.substring(0, 80));
+
+      log.info('prospect-research', 'Job postings pour ' + companyName + ': ~' + totalJobs + ' postes (tech=' + categories.tech + ', sales=' + categories.sales + ', mkt=' + categories.marketing + ')');
+
+      return {
+        totalJobs: totalJobs,
+        categories: categories,
+        highlights: highlights,
+        wttjSlug: wttjSlug,
+        source: wttjSlug ? 'welcometothejungle' : 'web_search'
+      };
+    } catch (e) {
+      log.info('prospect-research', 'Job postings echoue pour ' + companyName + ': ' + e.message);
+      return null;
+    }
+  }
+
+  /**
+   * Recupere les donnees legales et financieres via Pappers.fr API (gratuit 100 req/mois).
+   * Recherche par nom d'entreprise. Cache 30 jours (donnees legales = stables).
+   */
+  async _fetchPappersData(companyName) {
+    if (!companyName || !this.pappersToken) return null;
+
+    // Cache 30 jours
+    const cacheKey = 'pappers_' + companyName.toLowerCase().trim();
+    const apStorage = getAPStorage();
+    if (apStorage && apStorage.getProspectResearch) {
+      try {
+        const cached = apStorage.getProspectResearch(cacheKey);
+        if (cached && cached.pappersData && cached.cachedAt) {
+          const age = Date.now() - new Date(cached.cachedAt).getTime();
+          if (age < 30 * 24 * 60 * 60 * 1000) {
+            log.info('prospect-research', 'Pappers cache hit pour ' + companyName);
+            return cached.pappersData;
+          }
+        }
+      } catch (e) {}
+    }
+
+    const fetcher = this._getFetcher();
+    if (!fetcher) return null;
+
+    try {
+      const searchUrl = 'https://api.pappers.fr/v2/recherche?api_token=' + this.pappersToken +
+        '&q=' + encodeURIComponent(companyName) + '&par_page=3&statut=A';
+
+      const result = await fetcher.fetchUrl(searchUrl);
+      if (!result || result.statusCode !== 200 || !result.body) return null;
+
+      let data;
+      try { data = JSON.parse(result.body); } catch (e) { return null; }
+
+      if (!data.resultats || data.resultats.length === 0) return null;
+
+      const best = data.resultats[0];
+      const pappersData = {
+        siren: best.siren || null,
+        nom: best.nom_entreprise || best.denomination || companyName,
+        formeJuridique: best.forme_juridique || null,
+        dateCreation: best.date_creation || null,
+        effectif: best.effectifs || best.tranche_effectif || null,
+        chiffreAffaires: best.chiffre_affaires || null,
+        resultatNet: best.resultat || null,
+        codeNAF: best.code_naf || null,
+        activite: best.objet_social || best.libelle_code_naf || null,
+        dirigeants: (best.representants || []).slice(0, 5).map(d => ({
+          nom: ((d.prenom || '') + ' ' + (d.nom || '')).trim(),
+          fonction: d.qualite || d.fonction || null
+        })),
+        siege: best.siege ? {
+          ville: best.siege.ville || null,
+          codePostal: best.siege.code_postal || null
+        } : null,
+        capital: best.capital || null
+      };
+
+      // Sauvegarder dans le cache (30 jours)
+      if (apStorage && apStorage.saveProspectResearch) {
+        try { apStorage.saveProspectResearch(cacheKey, { pappersData, cachedAt: new Date().toISOString() }); } catch (e) {}
+      }
+
+      log.info('prospect-research', 'Pappers OK pour ' + companyName + ': SIREN ' + (pappersData.siren || '?') + ', ' + (pappersData.effectif || '?') + ' salaries');
+      return pappersData;
+    } catch (e) {
+      log.info('prospect-research', 'Pappers echoue pour ' + companyName + ': ' + e.message);
+      return null;
+    }
+  }
+
+  /**
+   * Detecte le stack technique depuis le HTML brut du site web (0 requete HTTP supplementaire).
+   * Scan meta tags, script src, link href, class names, framework fingerprints.
+   * Retourne { cms, frameworks[], analytics[], marketing[], ecommerce[], other[] } ou null.
+   */
+  _detectTechStack(html) {
+    if (!html || html.length < 200) return null;
+
+    const detected = { cms: null, frameworks: [], analytics: [], marketing: [], ecommerce: [], other: [] };
+    const h = html.toLowerCase();
+
+    // CMS
+    const CMS = [
+      { name: 'WordPress', p: ['wp-content/', 'wp-includes/', 'generator" content="wordpress'] },
+      { name: 'Shopify', p: ['cdn.shopify.com', 'shopify.com/s/', 'shopify-section'] },
+      { name: 'Wix', p: ['static.wixstatic.com', '_wix_browser_sess'] },
+      { name: 'Webflow', p: ['webflow.com', 'w-webflow-badge', 'data-wf-'] },
+      { name: 'Squarespace', p: ['static1.squarespace.com', 'squarespace-cdn'] },
+      { name: 'HubSpot CMS', p: ['hs-scripts.com', 'hubspot.net/hub/'] },
+      { name: 'Drupal', p: ['drupal.js', 'sites/default/files'] },
+      { name: 'PrestaShop', p: ['prestashop', '/modules/ps_'] },
+      { name: 'Ghost', p: ['ghost.io', 'content="ghost'] },
+      { name: 'Strapi', p: ['strapi.io'] },
+      { name: 'Contentful', p: ['contentful.com'] }
+    ];
+    for (const c of CMS) { if (c.p.some(p => h.includes(p))) { detected.cms = c.name; break; } }
+
+    // Frameworks
+    const FW = [
+      { name: 'React', p: ['react.production.min', 'data-reactroot', 'react-dom'] },
+      { name: 'Next.js', p: ['_next/static', '__next', '_buildmanifest.js'] },
+      { name: 'Vue.js', p: ['vue.min.js', 'vue.runtime', 'data-v-'] },
+      { name: 'Nuxt', p: ['__nuxt', '_nuxt/'] },
+      { name: 'Angular', p: ['ng-version', 'ng-app', 'ng-controller'] },
+      { name: 'Gatsby', p: ['gatsby-', '/static/d/'] },
+      { name: 'Svelte', p: ['__svelte', 'svelte-'] },
+      { name: 'jQuery', p: ['jquery.min.js', 'jquery/'] },
+      { name: 'Tailwind CSS', p: ['tailwindcss'] }
+    ];
+    for (const f of FW) { if (f.p.some(p => h.includes(p))) detected.frameworks.push(f.name); }
+
+    // Analytics
+    const AN = [
+      { name: 'Google Analytics', p: ['google-analytics.com', 'gtag(', 'analytics.js'] },
+      { name: 'Google Tag Manager', p: ['googletagmanager.com/gtm.js'] },
+      { name: 'Matomo', p: ['matomo.js', 'piwik.js', 'matomo.cloud'] },
+      { name: 'Hotjar', p: ['hotjar.com', 'hjid'] },
+      { name: 'Mixpanel', p: ['cdn.mxpnl.com', 'mixpanel'] },
+      { name: 'Segment', p: ['cdn.segment.com', 'analytics.js/v1/'] },
+      { name: 'Plausible', p: ['plausible.io'] },
+      { name: 'Amplitude', p: ['cdn.amplitude.com'] }
+    ];
+    for (const a of AN) { if (a.p.some(p => h.includes(p))) detected.analytics.push(a.name); }
+
+    // Marketing / CRM
+    const MK = [
+      { name: 'HubSpot', p: ['js.hs-scripts.com', 'hbspt.'] },
+      { name: 'Salesforce', p: ['salesforce.com', 'pardot.com'] },
+      { name: 'Intercom', p: ['widget.intercom.io', 'intercomcdn.com'] },
+      { name: 'Drift', p: ['js.driftt.com'] },
+      { name: 'Zendesk', p: ['zopim.com', 'zendesk.com', 'zdassets.com'] },
+      { name: 'Crisp', p: ['client.crisp.chat'] },
+      { name: 'Brevo', p: ['sibautomation.com', 'sendinblue.com', 'brevo.com'] },
+      { name: 'ActiveCampaign', p: ['trackcmp.net', 'activecampaign.com'] },
+      { name: 'Mailchimp', p: ['list-manage.com', 'mailchimp.com'] },
+      { name: 'Typeform', p: ['typeform.com'] },
+      { name: 'Calendly', p: ['calendly.com'] },
+      { name: 'Freshdesk', p: ['freshdesk.com', 'freshchat.com'] },
+      { name: 'Pipedrive', p: ['pipedrive.com'] },
+      { name: 'LiveChat', p: ['cdn.livechatinc.com'] }
+    ];
+    for (const m of MK) { if (m.p.some(p => h.includes(p))) detected.marketing.push(m.name); }
+
+    // E-commerce
+    const EC = [
+      { name: 'Stripe', p: ['js.stripe.com'] },
+      { name: 'PayPal', p: ['paypal.com/sdk', 'paypalobjects.com'] },
+      { name: 'WooCommerce', p: ['woocommerce', 'wc-ajax'] },
+      { name: 'Magento', p: ['magento', 'mage/'] }
+    ];
+    for (const e of EC) { if (e.p.some(p => h.includes(p))) detected.ecommerce.push(e.name); }
+
+    // Infra / Other
+    const OT = [
+      { name: 'Cloudflare', p: ['cdnjs.cloudflare.com', '__cf_bm'] },
+      { name: 'Vercel', p: ['vercel.app', '_vercel'] },
+      { name: 'Netlify', p: ['netlify.app'] },
+      { name: 'AWS', p: ['amazonaws.com'] },
+      { name: 'Sentry', p: ['sentry.io', 'sentry-cdn'] },
+      { name: 'reCAPTCHA', p: ['google.com/recaptcha'] },
+      { name: 'Axeptio', p: ['axept.io'] },
+      { name: 'Didomi', p: ['didomi.io', 'sdk.privacy-center'] },
+      { name: 'Tarteaucitron', p: ['tarteaucitron'] }
+    ];
+    for (const o of OT) { if (o.p.some(p => h.includes(p))) detected.other.push(o.name); }
+
+    const total = (detected.cms ? 1 : 0) + detected.frameworks.length + detected.analytics.length + detected.marketing.length + detected.ecommerce.length;
+    return total === 0 ? null : detected;
+  }
+
+  /**
    * Parse le HTML d'une page LinkedIn (depuis le cache Google).
    */
   _parseLinkedInPage(html) {
@@ -893,6 +1228,18 @@ class ProspectResearcher {
       if (intel.apolloData.city) meta.push(intel.apolloData.city);
       if (intel.apolloData.revenue) meta.push('CA: ' + intel.apolloData.revenue);
     }
+    // Merger Pappers si Apollo manque des infos
+    if (intel.pappersData) {
+      if (!intel.apolloData || !intel.apolloData.employeeCount) {
+        if (intel.pappersData.effectif) meta.push(intel.pappersData.effectif + (typeof intel.pappersData.effectif === 'number' ? ' salaries' : ''));
+      }
+      if (!intel.apolloData || !intel.apolloData.foundedYear) {
+        if (intel.pappersData.dateCreation) meta.push('fondee ' + intel.pappersData.dateCreation);
+      }
+      if (!intel.apolloData || !intel.apolloData.city) {
+        if (intel.pappersData.siege && intel.pappersData.siege.ville) meta.push(intel.pappersData.siege.ville);
+      }
+    }
     if (meta.length > 0) companyLine += ' (' + meta.join(', ') + ')';
     lines.push(companyLine);
 
@@ -900,6 +1247,23 @@ class ProspectResearcher {
       let contactLine = 'CONTACT: ' + (contact.nom || '');
       if (contact.titre) contactLine += ' — ' + contact.titre;
       lines.push(contactLine);
+    }
+
+    // PRIORITE 0 : Donnees legales verifiees (Pappers.fr)
+    if (intel.pappersData) {
+      const pp = intel.pappersData;
+      const legalParts = [];
+      if (pp.formeJuridique) legalParts.push(pp.formeJuridique);
+      if (pp.dateCreation) legalParts.push('creee le ' + pp.dateCreation);
+      if (pp.effectif) legalParts.push(pp.effectif + (typeof pp.effectif === 'number' ? ' salaries' : ''));
+      if (pp.chiffreAffaires) legalParts.push('CA: ' + (typeof pp.chiffreAffaires === 'number' ? (pp.chiffreAffaires / 1000000).toFixed(1) + 'M€' : pp.chiffreAffaires));
+      if (pp.siege && pp.siege.ville) legalParts.push(pp.siege.ville);
+      if (legalParts.length > 0) lines.push('DONNEES LEGALES (Pappers.fr): ' + legalParts.join(', '));
+      if (pp.activite) lines.push('ACTIVITE NAF: ' + pp.activite);
+      if (pp.dirigeants && pp.dirigeants.length > 0) {
+        const dirList = pp.dirigeants.slice(0, 3).map(d => d.nom + (d.fonction ? ' (' + d.fonction + ')' : '')).join(', ');
+        lines.push('DIRIGEANTS: ' + dirList);
+      }
     }
 
     // PRIORITE 1 : News recentes — meilleure source d'observations specifiques et temporelles
@@ -930,6 +1294,20 @@ class ProspectResearcher {
         const ageLabel = signalAge !== null ? (signalAge < 48 ? ' (il y a ' + signalAge + 'h)' : ' (il y a ' + Math.round(signalAge / 24) + 'j)') : '';
         lines.push('- [' + (s.type || '?').toUpperCase() + '] ' + (s.article && s.article.title || '').substring(0, 80) + ageLabel + (s.suggestedAction ? ' → ' + s.suggestedAction.substring(0, 60) : ''));
       }
+    }
+
+    // PRIORITE 1c : Offres d'emploi (hiring = signal de croissance)
+    if (intel.jobPostings) {
+      const jp = intel.jobPostings;
+      let jobLine = 'RECRUTEMENT ACTIF: ~' + jp.totalJobs + ' postes ouverts';
+      const catParts = [];
+      if (jp.categories.tech > 0) catParts.push(jp.categories.tech + ' tech');
+      if (jp.categories.sales > 0) catParts.push(jp.categories.sales + ' commercial');
+      if (jp.categories.marketing > 0) catParts.push(jp.categories.marketing + ' marketing');
+      if (jp.categories.product > 0) catParts.push(jp.categories.product + ' produit');
+      if (catParts.length > 0) jobLine += ' (' + catParts.join(', ') + ')';
+      if (jp.source === 'welcometothejungle') jobLine += ' [WTTJ]';
+      lines.push(jobLine);
     }
 
     // PRIORITE 2 : LinkedIn — angle personnel sur le decideur
@@ -978,6 +1356,18 @@ class ProspectResearcher {
     // PRIORITE 3 : Technologies — faits verifiables pour observations techniques
     if (intel.apolloData && intel.apolloData.technologies && intel.apolloData.technologies.length > 0) {
       lines.push('STACK TECHNIQUE: ' + intel.apolloData.technologies.slice(0, 10).join(', '));
+    }
+
+    // PRIORITE 3a : Tech stack detecte depuis le HTML du site (complement Apollo)
+    if (intel.techStack) {
+      const ts = intel.techStack;
+      const tsParts = [];
+      if (ts.cms) tsParts.push('CMS: ' + ts.cms);
+      if (ts.frameworks.length > 0) tsParts.push('Front: ' + ts.frameworks.join(', '));
+      if (ts.marketing.length > 0) tsParts.push('Marketing: ' + ts.marketing.join(', '));
+      if (ts.analytics.length > 0) tsParts.push('Analytics: ' + ts.analytics.join(', '));
+      if (ts.ecommerce.length > 0) tsParts.push('Paiement: ' + ts.ecommerce.join(', '));
+      if (tsParts.length > 0) lines.push('TECH STACK DETECTE: ' + tsParts.join(' | '));
     }
 
     // PRIORITE 3b : Keywords Apollo — services/produits proposes
