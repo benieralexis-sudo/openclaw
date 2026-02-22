@@ -728,6 +728,23 @@ Format JSON strict :
       }
     }
 
+    // 7. Client/marque detecte par DDG ou extraction noms propres
+    const clientMatch = intelText.match(/CLIENTS\/MARQUES DETECTES:\s*([^\n]+)/);
+    if (clientMatch) {
+      const clients = clientMatch[1].split(',').map(c => c.trim().toLowerCase()).filter(c => c.length > 2);
+      for (const client of clients) {
+        if (emailText.includes(client)) { facts.push('client:' + client); break; }
+      }
+    }
+    // 7b. Noms propres du site web
+    const nomsMatch = intelText.match(/\[NOMS DETECTES\]\s*([^\n]+)/);
+    if (nomsMatch) {
+      const noms = nomsMatch[1].split(',').map(n => n.trim().toLowerCase()).filter(n => n.length > 2);
+      for (const nom of noms) {
+        if (emailText.includes(nom)) { facts.push('nom_propre:' + nom); break; }
+      }
+    }
+
     const level = facts.length >= 1 ? 'specific' : 'generic';
     const reason = facts.length === 0 ? 'Aucun fait specifique du brief dans l\'email' : facts.length + ' fait(s)';
     return { level, facts, reason };

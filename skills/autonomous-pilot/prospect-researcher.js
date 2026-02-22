@@ -108,14 +108,15 @@ class ProspectResearcher {
     // Extraire le domaine depuis l'email
     const domain = email ? email.split('@')[1] : null;
 
-    // Executer toutes les recherches en parallele
+    // Executer toutes les recherches en parallele (6 sources)
     const linkedinUrl = contact.linkedin_url || contact.linkedin || contact.linkedinUrl || '';
-    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult] = await Promise.allSettled([
+    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
       Promise.resolve(this._extractApolloOrgData(contact.organization)),
       Promise.resolve(this._checkExistingWebIntelArticles(company)),
-      this._fetchLinkedInData(linkedinUrl, contact.nom || contact.name || '', company)
+      this._fetchLinkedInData(linkedinUrl, contact.nom || contact.name || '', company),
+      this._searchCompanyClients(company)
     ]);
 
     // Chercher market signals Web Intelligence pour cette entreprise
@@ -160,6 +161,7 @@ class ProspectResearcher {
       apolloData: apolloData.status === 'fulfilled' ? apolloData.value : null,
       existingArticles: rawArticles,
       linkedinData: linkedinResult.status === 'fulfilled' ? linkedinResult.value : null,
+      clientSearch: clientSearchResult.status === 'fulfilled' ? clientSearchResult.value : null,
       leadEnrichData: leadEnrichData,
       marketSignals: marketSignals,
       researchedAt: new Date().toISOString()
@@ -178,7 +180,8 @@ class ProspectResearcher {
       intel.recentNews.length > 0 ? intel.recentNews.length + ' news' : null,
       intel.apolloData ? 'Apollo' : null,
       intel.existingArticles.length > 0 ? intel.existingArticles.length + ' articles WI' : null,
-      intel.linkedinData ? 'LinkedIn' : null
+      intel.linkedinData ? 'LinkedIn' : null,
+      intel.clientSearch ? 'DDG clients' : null
     ].filter(Boolean);
 
     log.info('prospect-research', 'Recherche terminee pour ' + company + ': ' + sources.join(', '));
@@ -209,10 +212,16 @@ class ProspectResearcher {
         textContent: ''
       };
 
-      // 2. Pages internes cibles (parallele, timeout 5s) — clients, about, services
-      const targetPaths = ['/clients', '/nos-clients', '/references', '/nos-references', '/about', '/a-propos', '/qui-sommes-nous', '/services', '/nos-services'];
+      // 2. Pages internes cibles (parallele, timeout 5s)
+      const targetPaths = [
+        '/clients', '/nos-clients', '/references', '/nos-references',
+        '/realisations', '/nos-realisations', '/portfolio', '/cas-clients',
+        '/about', '/a-propos', '/qui-sommes-nous',
+        '/services', '/nos-services', '/expertises',
+        '/temoignages', '/projets', '/equipe', '/team'
+      ];
       const internalResults = await Promise.allSettled(
-        targetPaths.slice(0, 4).map(p =>
+        targetPaths.slice(0, 6).map(p =>
           this._fetchInternalPage(fetcher, 'https://' + domain + p, p)
         )
       );
@@ -225,7 +234,15 @@ class ProspectResearcher {
           texts.push('[PAGE ' + r.value.path.toUpperCase() + '] ' + r.value.text);
         }
       }
-      insights.textContent = texts.join('\n').substring(0, 2500);
+
+      // 4. Extraire les noms propres (clients, marques, partenaires) du texte complet
+      const allText = texts.join(' ');
+      const properNouns = this._extractProperNouns(allText);
+      if (properNouns.length > 0) {
+        texts.push('[NOMS DETECTES] ' + properNouns.join(', '));
+      }
+
+      insights.textContent = texts.join('\n').substring(0, 3000);
       return insights;
     } catch (e) {
       log.info('prospect-research', 'Scrape echoue pour ' + domain + ' (non bloquant): ' + e.message);
@@ -309,6 +326,47 @@ class ProspectResearcher {
       }));
     } catch (e) {
       return [];
+    }
+  }
+
+  /**
+   * Recherche DDG "entreprise + clients/projets/realisations" pour trouver des noms de clients.
+   * Gratuit, ajoute une 6eme source de donnees specifiques.
+   */
+  async _searchCompanyClients(companyName) {
+    if (!companyName) return null;
+    const fetcher = this._getFetcher();
+    if (!fetcher) return null;
+
+    try {
+      const query = encodeURIComponent('"' + companyName + '" clients OR projets OR réalisations OR témoignages');
+      const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + query;
+      const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
+      if (!result || result.statusCode !== 200 || !result.body) return null;
+
+      // Extraire les snippets des resultats DDG
+      const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+      const snippets = [];
+      let m;
+      while ((m = snippetRegex.exec(result.body)) !== null && snippets.length < 5) {
+        const snippet = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+        if (snippet.length > 20) snippets.push(snippet);
+      }
+
+      if (snippets.length === 0) return null;
+
+      // Extraire les noms propres des snippets (marques, entreprises clientes)
+      const allText = snippets.join(' ');
+      const clientNames = this._extractProperNouns(allText);
+
+      log.info('prospect-research', 'DDG clients pour ' + companyName + ': ' + snippets.length + ' snippets, ' + clientNames.length + ' noms');
+      return {
+        snippets: snippets.slice(0, 3).map(s => s.substring(0, 200)),
+        clientNames: clientNames.slice(0, 10)
+      };
+    } catch (e) {
+      log.info('prospect-research', 'DDG clients echoue pour ' + companyName + ': ' + e.message);
+      return null;
     }
   }
 
@@ -475,6 +533,87 @@ class ProspectResearcher {
   }
 
   /**
+   * Extrait les noms propres (clients, marques, partenaires) du texte scrape.
+   * Heuristique : mots capitalises qui ne sont pas des mots francais courants.
+   */
+  _extractProperNouns(text) {
+    if (!text || text.length < 50) return [];
+
+    // Mots francais courants a ignorer (stop words capitalises en debut de phrase)
+    const stopWords = new Set([
+      'Le', 'La', 'Les', 'Un', 'Une', 'Des', 'De', 'Du', 'Au', 'Aux',
+      'Et', 'Ou', 'Mais', 'Donc', 'Or', 'Ni', 'Car', 'Si', 'En', 'Dans',
+      'Sur', 'Sous', 'Avec', 'Pour', 'Par', 'Sans', 'Chez', 'Vers',
+      'Notre', 'Nos', 'Votre', 'Vos', 'Leur', 'Leurs', 'Mon', 'Ma', 'Mes',
+      'Ce', 'Cette', 'Ces', 'Son', 'Sa', 'Ses', 'Tout', 'Tous', 'Toute',
+      'Qui', 'Que', 'Quoi', 'Dont', 'Nous', 'Vous', 'Ils', 'Elles',
+      'Est', 'Sont', 'Fait', 'Plus', 'Bien', 'Aussi', 'Comme', 'Depuis',
+      'Alors', 'Ainsi', 'Encore', 'Mieux', 'Moins', 'Tres', 'Tant',
+      'Accueil', 'Contact', 'Services', 'Equipe', 'Expertise', 'Expertises',
+      'Agence', 'Page', 'Menu', 'Navigation', 'Recherche', 'Voir',
+      'Projet', 'Projets', 'Client', 'Clients', 'Partenaire', 'Partenaires',
+      'Accompagnement', 'Solutions', 'Conseil', 'Formation', 'Groupe',
+      'France', 'Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes',
+      'Lille', 'Strasbourg', 'Nice', 'Montpellier', 'Rennes',
+      'Copyright', 'Mentions', 'Conditions', 'Politique', 'Confidentialite',
+      'SARL', 'SAS', 'EURL', 'SA', 'PME', 'ETI', 'TPE', 'RCS',
+      'Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'
+    ]);
+
+    const found = new Map(); // nom -> count
+
+    // Pattern 1 : Mots capitalises (2+ chars) non en debut de phrase
+    // On cherche au milieu d'une phrase (apres minuscule + espace)
+    const midSentence = text.match(/[a-zéèêëàâùûôîïç,;:]\s+([A-ZÉÈÊËÀÂÙÛÔÎÏÇ][a-zéèêëàâùûôîïç]+(?:\s+[A-ZÉÈÊËÀÂÙÛÔÎÏÇ][a-zéèêëàâùûôîïç]+){0,2})/g);
+    if (midSentence) {
+      for (const m of midSentence) {
+        const name = m.replace(/^[a-zéèêëàâùûôîïç,;:]\s+/, '').trim();
+        if (name.length >= 3 && !stopWords.has(name.split(' ')[0])) {
+          found.set(name, (found.get(name) || 0) + 1);
+        }
+      }
+    }
+
+    // Pattern 2 : Mots tout en majuscules (acronymes/marques : LVMH, EDF, SNCF)
+    const acronyms = text.match(/\b[A-ZÉÈÊËÀÂ]{2,15}\b/g);
+    if (acronyms) {
+      for (const a of acronyms) {
+        if (a.length >= 2 && !stopWords.has(a) && !['PAGE', 'NOMS', 'DETECTES', 'NEWS', 'SITE', 'WEB', 'CONTACT', 'ENTREPRISE', 'LINKEDIN', 'HTTP', 'HTTPS', 'HTML', 'CSS', 'SEO', 'SEA', 'CRM', 'ERP', 'API', 'ROI', 'URL', 'PHP', 'SQL'].includes(a)) {
+          found.set(a, (found.get(a) || 0) + 1);
+        }
+      }
+    }
+
+    // Pattern 3 : Apres "client", "partenaire", "reference", "ils nous font confiance"
+    const contextPatterns = [
+      /(?:clients?|partenaires?|r[eé]f[eé]rences?|font confiance|accompagn[eé])\s*[:\-]?\s*([A-ZÉÈÊË][^.]{10,200})/gi,
+    ];
+    for (const pat of contextPatterns) {
+      let cm;
+      while ((cm = pat.exec(text)) !== null) {
+        // Extraire les mots capitalises de la liste
+        const chunk = cm[1];
+        const names = chunk.match(/[A-ZÉÈÊËÀÂ][a-zéèêëàâùûôîïç]*(?:\s+[A-ZÉÈÊËÀÂ][a-zéèêëàâùûôîïç]*)*/g);
+        if (names) {
+          for (const n of names) {
+            if (n.length >= 3 && !stopWords.has(n.split(' ')[0])) {
+              found.set(n, (found.get(n) || 0) + 2); // bonus poids contexte
+            }
+          }
+        }
+      }
+    }
+
+    // Trier par frequence, garder les top 15
+    return Array.from(found.entries())
+      .filter(([name, count]) => count >= 1 && name.length >= 3)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([name]) => name);
+  }
+
+  /**
    * Parse le HTML d'une page LinkedIn (depuis le cache Google).
    */
   _parseLinkedInPage(html) {
@@ -579,6 +718,16 @@ class ProspectResearcher {
     // PRIORITE 3b : Keywords Apollo — services/produits proposes
     if (intel.apolloData && intel.apolloData.keywords && intel.apolloData.keywords.length > 0) {
       lines.push('MOTS-CLES: ' + intel.apolloData.keywords.slice(0, 10).join(', '));
+    }
+
+    // PRIORITE 3c : Clients/projets trouves via recherche web (noms de marques = tres specifique)
+    if (intel.clientSearch) {
+      if (intel.clientSearch.clientNames && intel.clientSearch.clientNames.length > 0) {
+        lines.push('CLIENTS/MARQUES DETECTES: ' + intel.clientSearch.clientNames.join(', '));
+      }
+      if (intel.clientSearch.snippets && intel.clientSearch.snippets.length > 0) {
+        lines.push('CONTEXTE WEB: ' + intel.clientSearch.snippets[0].substring(0, 200));
+      }
     }
 
     // PRIORITE 4 : Description entreprise (Apollo ou site web, pas les deux)
