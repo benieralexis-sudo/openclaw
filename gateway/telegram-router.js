@@ -1556,7 +1556,58 @@ async function handleResendWebhook(body) {
     }
   }
 
-  // Auto-research sur premiere ouverture email (avec timeout 30s)
+  // --- REACTIVE FOLLOW-UP : basé sur le comportement (données prouvées) ---
+  // 1ère ouverture = juste notifier + research (pas de relance)
+  // 2ème+ ouverture = programmer reactive FU (signal d'intérêt fort)
+  // Clic = programmer reactive FU (engagement maximal)
+
+  // Helper : programmer un reactive FU
+  function _scheduleReactiveFU(emailRecord, intelBrief) {
+    try {
+      const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
+      if (!rfConfig.enabled) return;
+      const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
+      const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
+      const added = proactiveAgentStorage.addPendingFollowUp({
+        prospectEmail: emailRecord.to,
+        prospectName: emailRecord.contactName || '',
+        prospectCompany: emailRecord.company || '',
+        originalEmailId: emailRecord.id,
+        originalSubject: emailRecord.subject || '',
+        originalBody: (emailRecord.body || '').substring(0, 500),
+        prospectIntel: (intelBrief || '').substring(0, 3500),
+        scheduledAfter: scheduledAfter
+      });
+      if (added) {
+        log.info('webhook', 'Reactive follow-up programme pour ' + emailRecord.to + ' a ' + scheduledAfter);
+      }
+    } catch (rfErr) {
+      log.warn('webhook', 'Erreur enregistrement reactive follow-up: ' + rfErr.message);
+    }
+  }
+
+  // Clic email → programmer reactive FU immédiatement (engagement fort)
+  if (status === 'clicked' && ProspectResearcher) {
+    log.info('webhook', 'Clic detecte pour ' + email.to + ' — programmation reactive FU');
+    try {
+      const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
+      const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: '' };
+      Promise.race([
+        researcher.researchProspect(contact),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 30s')), 30000))
+      ]).then(intel => {
+        sendMessage(ADMIN_CHAT_ID, '🖱️ *Clic sur email !*\n\n*Qui :* ' + (email.contactName || email.to) + '\n' + (email.company ? '*Entreprise :* ' + email.company + '\n' : '') + '*Objet :* _' + (email.subject || '').substring(0, 60) + '_\n\n➡️ _Relance reactive programmee (clic = interet fort)_', 'Markdown').catch(() => {});
+        _scheduleReactiveFU(email, intel && intel.brief ? intel.brief : '');
+      }).catch(() => {
+        sendMessage(ADMIN_CHAT_ID, '🖱️ *Clic sur email* par ' + (email.contactName || email.to), 'Markdown').catch(() => {});
+        _scheduleReactiveFU(email, '');
+      });
+    } catch (e) {
+      log.warn('webhook', 'Erreur reactive FU sur clic: ' + e.message);
+    }
+  }
+
+  // Première ouverture → research + notification seulement (PAS de reactive FU)
   if (status === 'opened' && !wasAlreadyOpened && ProspectResearcher) {
     try {
       const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
@@ -1567,67 +1618,45 @@ async function handleResendWebhook(body) {
       ]);
       researchWithTimeout.then(intel => {
         if (intel && intel.brief) {
-          const msg = '👀 *Email ouvert !*\n\n' +
+          const msg = '👀 *Email ouvert (1ère fois)*\n\n' +
             '*Qui :* ' + (email.contactName || email.to) + '\n' +
             (email.company ? '*Entreprise :* ' + email.company + '\n' : '') +
             '*Objet :* _' + (email.subject || '(sans objet)').substring(0, 60) + '_\n\n' +
-            '🔍 *Intel prospect :*\n' + intel.brief.substring(0, 500) + '\n\n' +
-            '➡️ _Relance reactive programmee automatiquement_';
+            '🔍 *Intel :*\n' + intel.brief.substring(0, 500) + '\n\n' +
+            '_En attente d\'un 2ème signal (reouvre ou clic) pour relancer._';
           sendMessage(ADMIN_CHAT_ID, msg, 'Markdown').catch(() => {});
-          // Enregistrer le follow-up reactif en attente
+          // Sauvegarder l'intel pour usage ultérieur (2ème ouverture)
           try {
-            const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
-            if (rfConfig.enabled) {
-              const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
-              const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
-              const added = proactiveAgentStorage.addPendingFollowUp({
-                prospectEmail: email.to,
-                prospectName: email.contactName || '',
-                prospectCompany: email.company || '',
-                originalEmailId: email.id,
-                originalSubject: email.subject || '',
-                originalBody: (email.body || '').substring(0, 500),
-                prospectIntel: intel.brief.substring(0, 3500),
-                scheduledAfter: scheduledAfter
-              });
-              if (added) {
-                log.info('webhook', 'Reactive follow-up programme pour ' + email.to + ' a ' + scheduledAfter);
-              }
-            }
-          } catch (rfErr) {
-            log.warn('webhook', 'Erreur enregistrement reactive follow-up: ' + rfErr.message);
-          }
+            proactiveAgentStorage.data._cachedIntel = proactiveAgentStorage.data._cachedIntel || {};
+            proactiveAgentStorage.data._cachedIntel[email.to] = { brief: intel.brief.substring(0, 3500), cachedAt: new Date().toISOString() };
+            // Nettoyer cache > 100 entrées
+            const keys = Object.keys(proactiveAgentStorage.data._cachedIntel);
+            if (keys.length > 100) { for (var ci = 0; ci < keys.length - 100; ci++) delete proactiveAgentStorage.data._cachedIntel[keys[ci]]; }
+            proactiveAgentStorage._save();
+          } catch (cacheErr) {}
         } else {
           sendMessage(ADMIN_CHAT_ID, '👀 *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
         }
       }).catch(err => {
         log.warn('webhook', 'Prospect research echoue pour open event: ' + err.message);
         sendMessage(ADMIN_CHAT_ID, '👀 *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
-        // Fallback : programmer relance reactive MEME sans intel (utilise les donnees du premier email)
-        try {
-          const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
-          if (rfConfig.enabled) {
-            const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
-            const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
-            proactiveAgentStorage.addPendingFollowUp({
-              prospectEmail: email.to,
-              prospectName: email.contactName || '',
-              prospectCompany: email.company || '',
-              originalEmailId: email.id,
-              originalSubject: email.subject || '',
-              originalBody: (email.body || '').substring(0, 500),
-              prospectIntel: '',
-              scheduledAfter: scheduledAfter
-            });
-            log.info('webhook', 'Reactive follow-up programme SANS intel (timeout) pour ' + email.to);
-          }
-        } catch (rfFallback) {
-          log.warn('webhook', 'Fallback reactive FU echoue: ' + rfFallback.message);
-        }
       });
     } catch (e) {
       log.warn('webhook', 'Erreur init prospect research: ' + e.message);
     }
+  }
+
+  // 2ème+ ouverture → signal d'intérêt fort → programmer reactive FU
+  if (status === 'opened' && wasAlreadyOpened) {
+    log.info('webhook', 'Rouverture detectee pour ' + email.to + ' — programmation reactive FU');
+    sendMessage(ADMIN_CHAT_ID, '🔄 *Email rouvert !*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Signal d\'interet fort — relance reactive programmee._', 'Markdown').catch(() => {});
+    // Utiliser l'intel en cache si disponible
+    var cachedIntel = '';
+    try {
+      var cache = (proactiveAgentStorage.data._cachedIntel || {})[email.to];
+      if (cache && cache.brief) cachedIntel = cache.brief;
+    } catch (e) {}
+    _scheduleReactiveFU(email, cachedIntel);
   }
 
   return { processed: true, status: status, email: email.to };
@@ -1758,11 +1787,10 @@ const healthServer = http.createServer((req, res) => {
       if (!wasAlreadyOpened) {
         automailerStorage.updateEmailStatus(email.id, 'opened');
         log.info('tracking', 'Email ouvert (pixel) : ' + email.to + ' — ' + (email.subject || '').substring(0, 40));
-        // Notification Telegram + prospect research (meme logique que webhook Resend)
+        // 1ère ouverture (pixel) : research + cache intel, PAS de reactive FU
         if (ProspectResearcher) {
           try {
             const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
-            // FIX 5 : Recuperer le titre du prospect depuis FlowFast ou Lead Enrich
             let prospectTitle = '';
             try {
               if (flowFastStorageRouter && flowFastStorageRouter.data) {
@@ -1786,61 +1814,25 @@ const healthServer = http.createServer((req, res) => {
               researcher.researchProspect(contact),
               new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout 30s')), 30000))
             ]).then(intel => {
-              const msg = '\u{1f4e8} *Email ouvert !*\n\n' +
+              const msg = '\u{1f4e8} *Email ouvert (1ere fois)*\n\n' +
                 '*Qui :* ' + (email.contactName || email.to) + '\n' +
                 (email.company ? '*Entreprise :* ' + email.company + '\n' : '') +
                 '*Objet :* _' + (email.subject || '(sans objet)').substring(0, 60) + '_\n\n' +
                 (intel && intel.brief ? '\u{1f50d} *Intel :*\n' + intel.brief.substring(0, 500) + '\n\n' : '') +
-                '\u27a1\ufe0f _Relance reactive programmee automatiquement_';
+                '_En attente d\'un 2eme signal (reouvre ou clic) pour relancer._';
               sendMessage(ADMIN_CHAT_ID, msg, 'Markdown').catch(() => {});
-              // Enregistrer le follow-up reactif en attente
+              // Cache l'intel pour usage ultérieur
               if (intel && intel.brief) {
                 try {
-                  const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
-                  if (rfConfig.enabled) {
-                    const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
-                    const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
-                    const added = proactiveAgentStorage.addPendingFollowUp({
-                      prospectEmail: email.to,
-                      prospectName: email.contactName || '',
-                      prospectCompany: email.company || '',
-                      prospectTitle: prospectTitle || '',
-                      originalEmailId: email.id,
-                      originalSubject: email.subject || '',
-                      originalBody: (email.body || '').substring(0, 500),
-                      prospectIntel: intel.brief.substring(0, 3500),
-                      scheduledAfter: scheduledAfter
-                    });
-                    if (added) {
-                      log.info('tracking', 'Reactive follow-up programme pour ' + email.to + ' (pixel) a ' + scheduledAfter);
-                    }
-                  }
-                } catch (rfErr) {
-                  log.warn('tracking', 'Erreur enregistrement reactive follow-up: ' + rfErr.message);
-                }
+                  proactiveAgentStorage.data._cachedIntel = proactiveAgentStorage.data._cachedIntel || {};
+                  proactiveAgentStorage.data._cachedIntel[email.to] = { brief: intel.brief.substring(0, 3500), cachedAt: new Date().toISOString() };
+                  var cKeys = Object.keys(proactiveAgentStorage.data._cachedIntel);
+                  if (cKeys.length > 100) { for (var ck = 0; ck < cKeys.length - 100; ck++) delete proactiveAgentStorage.data._cachedIntel[cKeys[ck]]; }
+                  proactiveAgentStorage._save();
+                } catch (cacheErr2) {}
               }
-            }).catch((pixelErr) => {
+            }).catch(() => {
               sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
-              // Fallback : programmer relance reactive MEME sans intel
-              try {
-                const rfConfig2 = proactiveAgentStorage.getReactiveFollowUpConfig();
-                if (rfConfig2.enabled) {
-                  const delayMs2 = (rfConfig2.minDelayMinutes + Math.random() * (rfConfig2.maxDelayMinutes - rfConfig2.minDelayMinutes)) * 60 * 1000;
-                  const scheduledAfter2 = new Date(Date.now() + delayMs2).toISOString();
-                  proactiveAgentStorage.addPendingFollowUp({
-                    prospectEmail: email.to,
-                    prospectName: email.contactName || '',
-                    prospectCompany: email.company || '',
-                    prospectTitle: prospectTitle || '',
-                    originalEmailId: email.id,
-                    originalSubject: email.subject || '',
-                    originalBody: (email.body || '').substring(0, 500),
-                    prospectIntel: '',
-                    scheduledAfter: scheduledAfter2
-                  });
-                  log.info('tracking', 'Reactive follow-up programme SANS intel (timeout pixel) pour ' + email.to);
-                }
-              } catch (rfFb2) {}
             });
           } catch (e) {
             sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to), 'Markdown').catch(() => {});
@@ -1848,13 +1840,44 @@ const healthServer = http.createServer((req, res) => {
         } else {
           sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
         }
-        // Tracker l'ouverture dans Proactive Agent (hot lead detection)
+      } else {
+        // 2ème+ ouverture pixel → signal d'intérêt fort → programmer reactive FU
+        log.info('tracking', 'Rouverture pixel detectee pour ' + email.to + ' — programmation reactive FU');
+        sendMessage(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel) !*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Signal d\'interet fort — relance reactive programmee._', 'Markdown').catch(() => {});
+        var pixelCachedIntel = '';
         try {
-          const tracked = proactiveAgentStorage.trackEmailOpen(email.to, email.trackingId || trackingId);
-          const paConfig = proactiveAgentStorage.getConfig();
-          if (tracked.opens >= (paConfig.thresholds || {}).hotLeadOpens && !proactiveAgentStorage.isHotLeadNotified(email.to)) {
-            sendMessage(ADMIN_CHAT_ID, '\u{1f525} *HOT LEAD* — ' + (email.contactName || email.to) + ' a ouvert ' + tracked.opens + ' emails !\n_Ce prospect est tres engage, contacte-le rapidement._', 'Markdown').catch(() => {});
-            proactiveAgentStorage.markHotLeadNotified(email.to);
+          var pCache = (proactiveAgentStorage.data._cachedIntel || {})[email.to];
+          if (pCache && pCache.brief) pixelCachedIntel = pCache.brief;
+        } catch (pce) {}
+        try {
+          var rfConfig3 = proactiveAgentStorage.getReactiveFollowUpConfig();
+          if (rfConfig3.enabled) {
+            var delayMs3 = (rfConfig3.minDelayMinutes + Math.random() * (rfConfig3.maxDelayMinutes - rfConfig3.minDelayMinutes)) * 60 * 1000;
+            var scheduledAfter3 = new Date(Date.now() + delayMs3).toISOString();
+            proactiveAgentStorage.addPendingFollowUp({
+              prospectEmail: email.to,
+              prospectName: email.contactName || '',
+              prospectCompany: email.company || '',
+              originalEmailId: email.id,
+              originalSubject: email.subject || '',
+              originalBody: (email.body || '').substring(0, 500),
+              prospectIntel: pixelCachedIntel,
+              scheduledAfter: scheduledAfter3
+            });
+            log.info('tracking', 'Reactive FU programme (reouvre pixel) pour ' + email.to);
+          }
+        } catch (rfErr3) {}
+      }
+      // Tracker l'ouverture dans Proactive Agent (hot lead detection — toujours, 1ère ou pas)
+      if (!wasAlreadyOpened) {
+        automailerStorage.updateEmailStatus(email.id, 'opened');
+      }
+      try {
+        const tracked = proactiveAgentStorage.trackEmailOpen(email.to, email.trackingId || trackingId);
+        const paConfig = proactiveAgentStorage.getConfig();
+        if (tracked.opens >= (paConfig.thresholds || {}).hotLeadOpens && !proactiveAgentStorage.isHotLeadNotified(email.to)) {
+          sendMessage(ADMIN_CHAT_ID, '\u{1f525} *HOT LEAD* — ' + (email.contactName || email.to) + ' a ouvert ' + tracked.opens + ' emails !\n_Ce prospect est tres engage, contacte-le rapidement._', 'Markdown').catch(() => {});
+          proactiveAgentStorage.markHotLeadNotified(email.to);
           }
         } catch (paErr) { log.warn('tracking', 'Proactive tracking: ' + paErr.message); }
         // Sync CRM + avancement deal automatique (async, non-bloquant)
@@ -1874,7 +1897,6 @@ const healthServer = http.createServer((req, res) => {
             }
           } catch (crmErr) { log.warn('tracking', 'CRM sync: ' + crmErr.message); }
         })();
-      }
     } catch (trackErr) {
       log.warn('tracking', 'Erreur tracking pixel: ' + trackErr.message);
     }

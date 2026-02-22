@@ -1282,8 +1282,10 @@ Format JSON strict :
     const apConfig = storage.getConfig();
     const adminChatId = apConfig.adminChatId || '1409505520';
     const fuConfig = apConfig.followUpConfig || {};
-    const totalSteps = params.totalSteps || fuConfig.sequenceTotalSteps || 3;
-    const intervalDays = params.intervalDays || fuConfig.sequenceIntervalDays || 4;
+    const totalSteps = params.totalSteps || fuConfig.sequenceTotalSteps || 4;
+    const stepDays = fuConfig.sequenceStepDays || [3, 7, 14, 21];
+    // Legacy: si params.intervalDays est fourni, utiliser l'ancien mode (intervalles fixes)
+    const intervalDays = params.intervalDays || null;
 
     try {
       // 1. Creer une liste de contacts pour la campagne
@@ -1317,27 +1319,29 @@ Format JSON strict :
       if (ep.tone) context += '\nTON: ' + ep.tone;
       context += '\nSIGNATURE: Alexis — iFIND';
       context += '\nCONTEXTE: Ce sont des RELANCES (le prospect a deja recu un premier email sans repondre).';
-      context += '\nRelance 1 (J+' + intervalDays + '): Nouvel angle de valeur, question ouverte courte.';
-      context += '\nRelance 2 (J+' + (intervalDays * 2) + '): Preuve sociale, cas client concret.';
-      context += '\nRelance 3 (J+' + (intervalDays * 4) + '): Breakup email, derniere chance, court et direct.';
+      context += '\nRelance 1 (J+' + stepDays[0] + '): Nouvel angle tire des DONNEES PROSPECT, question ouverte.';
+      context += '\nRelance 2 (J+' + stepDays[1] + '): Preuve sociale, mini cas client anonymise.';
+      context += '\nRelance 3 (J+' + stepDays[2] + '): Dernier angle de valeur, question directe.';
+      context += '\nRelance 4 (J+' + stepDays[3] + '): BREAKUP — 2 lignes max, choix binaire.';
 
       const offer = apConfig.offer || {};
       if (offer.description) context += '\nOFFRE: ' + offer.description;
       if (offer.trial) context += '\nESSAI: ' + offer.trial;
 
-      // 4. Generer les emails de relance (3 steps)
+      // 4. Generer les emails de relance (4 steps avec stepDays variables)
       const steps = await this.campaignEngine.generateCampaignEmails(
         campaign.id,
         context,
         totalSteps,
-        intervalDays
+        intervalDays || stepDays
       );
 
       // 5. Demarrer la campagne (le scheduler du campaign-engine gerera les envois)
       await this.campaignEngine.startCampaign(campaign.id);
 
+      const daysLabel = stepDays.map(function(d) { return 'J+' + d; }).join(', ');
       log.info('action-executor', 'Sequence follow-up creee: ' + campaign.id +
-        ' (' + contacts.length + ' contacts, ' + totalSteps + ' relances, intervalle ' + intervalDays + 'j)');
+        ' (' + contacts.length + ' contacts, ' + totalSteps + ' relances, ' + daysLabel + ')');
 
       return {
         success: true,
@@ -1345,7 +1349,7 @@ Format JSON strict :
         contacts: contacts.length,
         steps: totalSteps,
         summary: 'Sequence de ' + totalSteps + ' relances creee pour ' + contacts.length +
-          ' lead(s) (J+' + intervalDays + ', J+' + (intervalDays * 2) + ', J+' + (intervalDays * 4) + ')'
+          ' lead(s) (' + daysLabel + ')'
       };
     } catch (e) {
       log.error('action-executor', 'Erreur creation sequence follow-up:', e.message);

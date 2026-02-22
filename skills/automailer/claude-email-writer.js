@@ -283,19 +283,22 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
 PHILOSOPHIE : Chaque relance apporte un NOUVEL ANGLE. Jamais "je reviens vers vous".
 
 STRUCTURE :
-- Relance 1 (J+4) : nouvel angle tire des DONNEES PROSPECT (fait different du premier email)
-- Relance 2 (J+8) : mini cas client anonymise ("un dirigeant dans ton secteur a eu le meme enjeu")
-- Relance 3 (J+16) : breakup ultra court (2 lignes), naturel, pas dramatique
+- Relance 1 (J+3) : nouvel angle tire des DONNEES PROSPECT (fait DIFFERENT du premier email)
+- Relance 2 (J+7) : preuve sociale — mini cas client anonymise ("un dirigeant dans ton secteur...")
+- Relance 3 (J+14) : dernier angle de valeur, question directe
+- Relance 4 (J+21) : BREAKUP — 2 lignes max, choix binaire ("pas le bon moment ? dis-le moi, je ne relancerai plus")
 
-FORMAT DE CHAQUE RELANCE :
+Le breakup est le plus important : il exploite la loss aversion. 95% des reponses au breakup sont "pas le bon moment" (pas un refus). Format strict : 2 phrases, une question fermee.
+
+FORMAT DE CHAQUE RELANCE (sauf breakup) :
 1. ACCROCHE = fait specifique ou nouvel insight (PAS "je reviens vers toi")
 2. PONT = implication business, ton AFFIRMATIF
 3. QUESTION = binaire ou ultra-specifique
 
 REGLES :
-- 3-5 lignes par relance. Le breakup = 2 lignes.
+- 3-5 lignes par relance. Le breakup = 2 lignes MAX.
 - Tutoiement startup/PME, vouvoiement corporate
-- JAMAIS : "je me permets", "suite a", "beau move", "potentiellement", "curieux" (max 1x sur 3)
+- JAMAIS : "je me permets", "suite a", "beau move", "potentiellement", "curieux" (max 1x sur 4)
 - JAMAIS : prix, offre, feature, pitch, CTA de meeting
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients" dans l'email
 - Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise

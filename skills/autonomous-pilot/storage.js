@@ -64,8 +64,8 @@ function _defaultData() {
         signatureStyle: ''
       },
       followUpConfig: {
-        sequenceIntervalDays: 4,
-        sequenceTotalSteps: 3,
+        sequenceStepDays: [3, 7, 14, 21],
+        sequenceTotalSteps: 4,
         reactiveMinDelayMinutes: 120,
         reactiveMaxDelayMinutes: 240
       },

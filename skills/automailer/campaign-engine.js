@@ -74,6 +74,48 @@ function isBusinessHours() {
   return true;
 }
 
+// --- Envoi preferentiel Mar-Jeu 9h-11h (Paris) ---
+// Données : Belkins 16.5M emails → 44% open rate Mar-Jeu 9h-11h
+// Si le jour est Lun/Ven → glisse au prochain Mar/Mer/Jeu
+// Heure toujours fixée entre 9h00-10h30 (Paris) avec jitter
+function _snapToPreferredSlot(date) {
+  // Convertir en heure Paris
+  const parisStr = date.toLocaleString('en-US', { timeZone: 'Europe/Paris' });
+  const parisDate = new Date(parisStr);
+  const day = parisDate.getDay(); // 0=dim, 1=lun, 2=mar, 3=mer, 4=jeu, 5=ven, 6=sam
+
+  // Jours preferentiels : 2=Mar, 3=Mer, 4=Jeu
+  // Jours acceptables mais non-optimaux : 1=Lun, 5=Ven → glisser au prochain Mar/Mer/Jeu
+  let daysToAdd = 0;
+  if (day === 0) daysToAdd = 2;       // Dim → Mar
+  else if (day === 6) daysToAdd = 3;   // Sam → Mar
+  else if (day === 1) daysToAdd = 1;   // Lun → Mar
+  else if (day === 5) daysToAdd = 4;   // Ven → Mar suivant
+  // Mar/Mer/Jeu → 0 (déjà optimal)
+
+  if (daysToAdd > 0) {
+    date = new Date(date.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+  }
+
+  // Fixer l'heure a 9h00-10h30 Paris (avec jitter pour eviter pattern detectable)
+  const offset = _getParisOffsetMs(date);
+  const targetHour = 9;
+  const jitterMinutes = Math.floor(Math.random() * 90); // 0-89 min → 9h00 à 10h29
+  const parisTarget = new Date(date);
+  parisTarget.setUTCHours(0, 0, 0, 0);
+  // Mettre a 9h Paris = 9h - offset en UTC
+  parisTarget.setTime(parisTarget.getTime() + (targetHour * 60 + jitterMinutes) * 60 * 1000 - offset);
+
+  return parisTarget;
+}
+
+// Offset Paris en ms (gère heure d'été/hiver)
+function _getParisOffsetMs(date) {
+  const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' });
+  const parisStr = date.toLocaleString('en-US', { timeZone: 'Europe/Paris' });
+  return new Date(parisStr).getTime() - new Date(utcStr).getTime();
+}
+
 // --- Warmup progressif (source unique : gateway/utils.js) ---
 function getDailyLimit() {
   const firstSendDate = storage.getFirstSendDate ? storage.getFirstSendDate() : null;
@@ -104,7 +146,7 @@ class CampaignEngine {
     return campaign;
   }
 
-  async generateCampaignEmails(campaignId, context, totalSteps, intervalDays) {
+  async generateCampaignEmails(campaignId, context, totalSteps, intervalDaysOrStepDays, options) {
     const campaign = storage.getCampaign(campaignId);
     if (!campaign) throw new Error('Campagne introuvable');
 
@@ -114,19 +156,26 @@ class CampaignEngine {
     // Generer les emails pour le premier contact (les memes seront personalises pour chaque contact a l'envoi)
     const sampleContact = list.contacts[0];
     const emailTemplates = await this.claude.generateSequenceEmails(
-      sampleContact, context, totalSteps
+      sampleContact, context, totalSteps, options
     );
+
+    // Support stepDays array [3, 7, 14, 21] ou intervalDays fixe (legacy)
+    const stepDays = Array.isArray(intervalDaysOrStepDays) ? intervalDaysOrStepDays : null;
+    const intervalDays = stepDays ? null : (intervalDaysOrStepDays || 4);
 
     // Construire les steps de la campagne
     const steps = [];
     const now = new Date();
     for (let i = 0; i < emailTemplates.length; i++) {
-      const scheduledDate = new Date(now.getTime() + (i * intervalDays * 24 * 60 * 60 * 1000));
+      const dayOffset = stepDays ? (stepDays[i] || stepDays[stepDays.length - 1]) : (i * intervalDays);
+      let scheduledDate = new Date(now.getTime() + (dayOffset * 24 * 60 * 60 * 1000));
+      // Ajuster au prochain créneau préférentiel Mar-Jeu 9h-11h (Paris)
+      scheduledDate = _snapToPreferredSlot(scheduledDate);
       steps.push({
         stepNumber: i + 1,
         subjectTemplate: emailTemplates[i].subject,
         bodyTemplate: emailTemplates[i].body,
-        delayDays: i === 0 ? 0 : intervalDays,
+        delayDays: dayOffset,
         status: 'pending',
         scheduledAt: scheduledDate.toISOString(),
         sentAt: null,
