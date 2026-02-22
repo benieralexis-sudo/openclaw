@@ -343,7 +343,7 @@ class BrainEngine {
             if (result.success || result.deduplicated) break; // Succes ou dedup = pas de retry
             // Erreurs permanentes : pas de retry (blacklist, MX fail, etc.)
             const err = (result.error || '').toLowerCase();
-            if (err.includes('blacklist') || err.includes('mx') || err.includes('invalid email') || err.includes('deja contacte')) {
+            if (err.includes('blacklist') || err.includes('mx') || err.includes('invalid email') || err.includes('deja contacte') || err.includes('donnees insuffisantes')) {
               log.info('brain', 'Action ' + action.type + ' echouee (non-retryable): ' + result.error);
               break;
             }
