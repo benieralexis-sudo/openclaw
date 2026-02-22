@@ -1,6 +1,7 @@
 // AutoMailer - Moteur de campagnes (sequences, scheduling, execution)
 const storage = require('./storage');
 const dns = require('dns');
+const net = require('net');
 const log = require('../../gateway/logger.js');
 const { getWarmupDailyLimit } = require('../../gateway/utils.js');
 
@@ -28,6 +29,123 @@ function _checkMX(email) {
         _mxCache.delete(firstKey);
       }
       resolve(valid);
+    });
+  });
+}
+
+// --- Cache SMTP par email (24h TTL) ---
+const _smtpCache = new Map();
+const SMTP_CACHE_TTL = 24 * 60 * 60 * 1000;
+// Cache catch-all par domaine (24h)
+const _catchAllCache = new Map();
+
+function _smtpVerify(email) {
+  return new Promise((resolve) => {
+    const key = (email || '').toLowerCase().trim();
+    if (!key) return resolve({ valid: false, reason: 'empty_email' });
+
+    // Check cache
+    const cached = _smtpCache.get(key);
+    if (cached && Date.now() - cached.ts < SMTP_CACHE_TTL) {
+      return resolve(cached.result);
+    }
+
+    const domain = key.split('@')[1];
+    if (!domain) return resolve({ valid: false, reason: 'no_domain' });
+
+    // Check catch-all cache — si domaine catch-all, skip verification
+    const catchAllCached = _catchAllCache.get(domain);
+    if (catchAllCached && Date.now() - catchAllCached.ts < SMTP_CACHE_TTL) {
+      if (catchAllCached.isCatchAll) return resolve({ valid: null, reason: 'catch_all' });
+    }
+
+    dns.resolveMx(domain, (err, addresses) => {
+      if (err || !addresses || addresses.length === 0) {
+        return resolve({ valid: false, reason: 'no_mx' });
+      }
+
+      // Trier par priorite (plus bas = plus prioritaire)
+      addresses.sort((a, b) => a.priority - b.priority);
+      const mxHost = addresses[0].exchange;
+
+      const timeout = 10000;
+      let done = false;
+      let response = '';
+      let step = 'connect';
+
+      const finish = (result) => {
+        if (done) return;
+        done = true;
+        // Cache le resultat
+        _smtpCache.set(key, { result, ts: Date.now() });
+        if (_smtpCache.size > 1000) {
+          const firstKey = _smtpCache.keys().next().value;
+          _smtpCache.delete(firstKey);
+        }
+        try { socket.destroy(); } catch (e) {}
+        resolve(result);
+      };
+
+      const socket = net.createConnection(25, mxHost);
+      socket.setTimeout(timeout, () => finish({ valid: null, reason: 'timeout' }));
+      socket.on('error', () => finish({ valid: null, reason: 'connect_error' }));
+
+      const sendCommand = (cmd) => {
+        response = '';
+        socket.write(cmd + '\r\n');
+      };
+
+      socket.on('data', (data) => {
+        response += data.toString();
+        if (!/\r\n/.test(response)) return;
+
+        const code = parseInt(response.substring(0, 3), 10);
+
+        if (step === 'connect') {
+          if (code !== 220) return finish({ valid: null, reason: 'bad_greeting' });
+          step = 'ehlo';
+          sendCommand('EHLO getifind.fr');
+        } else if (step === 'ehlo') {
+          if (code !== 250) return finish({ valid: null, reason: 'ehlo_rejected' });
+          step = 'mail_from';
+          sendCommand('MAIL FROM:<verify@getifind.fr>');
+        } else if (step === 'mail_from') {
+          if (code !== 250) return finish({ valid: null, reason: 'mail_from_rejected' });
+          // Catch-all detection : tester adresse random d'abord
+          const catchAllCachedNow = _catchAllCache.get(domain);
+          if (!catchAllCachedNow || Date.now() - catchAllCachedNow.ts >= SMTP_CACHE_TTL) {
+            step = 'catch_all_test';
+            sendCommand('RCPT TO:<xyztest_fake_' + Date.now() + '@' + domain + '>');
+          } else {
+            step = 'rcpt_to';
+            sendCommand('RCPT TO:<' + key + '>');
+          }
+        } else if (step === 'catch_all_test') {
+          if (code === 250 || code === 251) {
+            // Domaine catch-all — accepte tout
+            _catchAllCache.set(domain, { isCatchAll: true, ts: Date.now() });
+            step = 'quit';
+            sendCommand('QUIT');
+            return finish({ valid: null, reason: 'catch_all' });
+          }
+          _catchAllCache.set(domain, { isCatchAll: false, ts: Date.now() });
+          // Reset pour tester la vraie adresse
+          step = 'rcpt_to';
+          sendCommand('RCPT TO:<' + key + '>');
+        } else if (step === 'rcpt_to') {
+          step = 'quit';
+          sendCommand('QUIT');
+          if (code === 250 || code === 251) {
+            return finish({ valid: true });
+          } else if (code === 550 || code === 551 || code === 552 || code === 553) {
+            return finish({ valid: false, reason: 'user_unknown' });
+          } else {
+            return finish({ valid: null, reason: 'smtp_code_' + code });
+          }
+        } else if (step === 'quit') {
+          finish({ valid: null, reason: 'done' });
+        }
+      });
     });
   });
 }
@@ -375,6 +493,24 @@ class CampaignEngine {
       } catch (mxErr) {
         // En cas d'erreur DNS, on laisse passer (pas de blocage)
         log.info('campaign-engine', 'MX check echoue pour ' + contact.email + ' (non bloquant): ' + mxErr.message);
+      }
+
+      // Verification SMTP : l'adresse existe-t-elle reellement ?
+      try {
+        const smtpResult = await _smtpVerify(contact.email);
+        if (smtpResult && smtpResult.valid === false) {
+          log.info('campaign-engine', 'Skip ' + contact.email + ' (SMTP: ' + smtpResult.reason + ') — blacklist');
+          storage.addToBlacklist(contact.email, 'smtp_invalid');
+          skipped++;
+          continue;
+        }
+        if (smtpResult && smtpResult.valid === true) {
+          log.info('campaign-engine', 'SMTP OK: ' + contact.email);
+        } else if (smtpResult) {
+          log.info('campaign-engine', 'SMTP incertain pour ' + contact.email + ' (' + smtpResult.reason + ') — on laisse passer');
+        }
+      } catch (smtpErr) {
+        log.info('campaign-engine', 'SMTP verify echoue pour ' + contact.email + ' (non bloquant): ' + smtpErr.message);
       }
 
       // Verifier si l'email a deja ete envoye pour ce contact/step
