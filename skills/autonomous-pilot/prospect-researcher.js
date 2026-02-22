@@ -174,6 +174,15 @@ class ProspectResearcher {
 
     const personProfile = personProfileResult.status === 'fulfilled' ? personProfileResult.value : null;
 
+    // Extraire les mentions de la personne depuis le site web scrape (gratuit, toujours disponible)
+    let personFromWebsite = null;
+    if (contactName && contactName.length >= 3) {
+      const ws = websiteResult.status === 'fulfilled' ? websiteResult.value : null;
+      if (ws && ws.textContent) {
+        personFromWebsite = this._extractPersonMentions(contactName, ws.textContent);
+      }
+    }
+
     const intel = {
       company: company,
       websiteInsights: websiteResult.status === 'fulfilled' ? websiteResult.value : null,
@@ -183,6 +192,7 @@ class ProspectResearcher {
       linkedinData: linkedinResult.status === 'fulfilled' ? linkedinResult.value : null,
       clientSearch: clientSearchResult.status === 'fulfilled' ? clientSearchResult.value : null,
       personProfile: personProfile,
+      personFromWebsite: personFromWebsite,
       intentSignals: personProfile ? (personProfile.intentSignals || []) : [],
       sectorCompetitors: sectorCompetitors,
       leadEnrichData: leadEnrichData,
@@ -206,6 +216,7 @@ class ProspectResearcher {
       intel.linkedinData ? 'LinkedIn' : null,
       intel.clientSearch ? 'DDG clients' : null,
       intel.personProfile ? intel.personProfile.items.length + ' profil' : null,
+      intel.personFromWebsite ? intel.personFromWebsite.mentions.length + ' mentions site' : null,
       intel.sectorCompetitors.length > 0 ? intel.sectorCompetitors.length + ' concurrents' : null
     ].filter(Boolean);
 
@@ -474,7 +485,11 @@ class ProspectResearcher {
     if (!fetcher) return null;
     try {
       // Google News RSS — gratuit, fiable, meme endpoint que _fetchCompanyNews
-      const articles = await fetcher.fetchGoogleNews([name + (company ? ' ' + company : '')]);
+      // Essai 1 : nom + entreprise, Essai 2 : nom seul (si le premier ne donne rien)
+      let articles = await fetcher.fetchGoogleNews([name + (company ? ' ' + company : '')]);
+      if ((!articles || articles.length === 0) && company) {
+        articles = await fetcher.fetchGoogleNews(['"' + name + '"']);
+      }
       if (!articles || articles.length === 0) return null;
 
       const items = articles.slice(0, 5).map(a => {
@@ -518,6 +533,60 @@ class ProspectResearcher {
       }
     }
     return signals.slice(0, 5);
+  }
+
+  /**
+   * Extrait les mentions d'une personne dans le texte du site web scrape.
+   * Cherche le nom/prenom et retourne les phrases environnantes.
+   */
+  _extractPersonMentions(fullName, siteText) {
+    if (!fullName || !siteText) return null;
+
+    const parts = fullName.toLowerCase().split(/\s+/).filter(p => p.length >= 3);
+    if (parts.length === 0) return null;
+
+    // Chercher le nom complet d'abord, puis le nom de famille
+    const textLower = siteText.toLowerCase();
+    const lastName = parts[parts.length - 1];
+    const firstName = parts[0];
+
+    // Decouper le texte en phrases (approximatif)
+    const sentences = siteText.split(/(?<=[.!?\n])\s+/).filter(s => s.length > 10);
+    const matches = [];
+
+    for (const sentence of sentences) {
+      const sl = sentence.toLowerCase();
+      // Match nom complet ou (prenom + nom de famille dans la meme phrase)
+      if (sl.includes(fullName.toLowerCase()) ||
+          (sl.includes(firstName) && sl.includes(lastName))) {
+        const clean = sentence.replace(/\s+/g, ' ').trim().substring(0, 250);
+        if (clean.length > 20 && !matches.includes(clean)) {
+          matches.push(clean);
+        }
+      }
+    }
+
+    // Aussi chercher dans les sections [PAGE /equipe] ou [PAGE /team]
+    const sectionRegex = /\[PAGE\s+(\/equipe|\/team|\/a-propos|\/about|\/qui-sommes-nous)\]\s*([\s\S]*?)(?=\[PAGE|\[NOMS|$)/gi;
+    let m;
+    while ((m = sectionRegex.exec(siteText)) !== null) {
+      const sectionText = m[2] || '';
+      if (sectionText.toLowerCase().includes(lastName)) {
+        // Extraire les 300 chars autour de la mention
+        const idx = sectionText.toLowerCase().indexOf(lastName);
+        const start = Math.max(0, idx - 100);
+        const end = Math.min(sectionText.length, idx + 200);
+        const excerpt = sectionText.substring(start, end).replace(/\s+/g, ' ').trim();
+        if (excerpt.length > 20 && !matches.some(m => m.includes(excerpt.substring(0, 50)))) {
+          matches.push(excerpt);
+        }
+      }
+    }
+
+    if (matches.length === 0) return null;
+
+    log.info('prospect-research', 'Person mentions site web pour ' + fullName + ': ' + matches.length);
+    return { mentions: matches.slice(0, 3), source: 'company_website' };
   }
 
   /**
@@ -869,6 +938,14 @@ class ProspectResearcher {
         let itemLine = '- [' + item.type.toUpperCase() + '] "' + item.title + '"';
         if (item.snippet) itemLine += ' — ' + item.snippet.substring(0, 120);
         lines.push(itemLine);
+      }
+    }
+
+    // PRIORITE 2b-bis : Mentions personne sur le site web (fallback quand pas de profil public)
+    if (intel.personFromWebsite && intel.personFromWebsite.mentions && intel.personFromWebsite.mentions.length > 0) {
+      lines.push('PERSONNE SUR LE SITE (' + (contact.nom || '') + '):');
+      for (const mention of intel.personFromWebsite.mentions.slice(0, 2)) {
+        lines.push('- "' + mention + '"');
       }
     }
 
