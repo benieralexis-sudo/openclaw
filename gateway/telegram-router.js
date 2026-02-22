@@ -846,9 +846,10 @@ function fastClassify(text) {
   const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   // Patterns exacts — zero ambiguite
-  // ORDRE IMPORTANT : autonomous-pilot AVANT automailer (evite que "envoie" match automailer)
+  // ORDRE IMPORTANT : autonomous-pilot AVANT content-gen et automailer
+  // "redige un email pour Nadine" = prospect (autonomous-pilot), PAS email marketing (content-gen)
   const patterns = {
-    'autonomous-pilot': /\b(pilot|autonome?|brain|objectif|critere|checklist|diagnostic|cycle|prochain.*email|quand.*envoi|prochaine?.*prospection|avancement|ou.*en.*es|lead.*trouve|resultat.*prospection|relance[rs]?|follow.?up|message.*personnalise?|mail.*prospect)\b/,
+    'autonomous-pilot': /\b(pilot|autonome?|brain|objectif|critere|checklist|diagnostic|cycle|prochain.*email|quand.*envoi|prochaine?.*prospection|avancement|ou.*en.*es|lead.*trouve|resultat.*prospection|relance[rs]?|follow.?up|message.*personnalise?|mail.*prospect)\b|(?:redige|ecri[st]|prepare|envoie|draft).*(?:email|mail|message).*pour\b/,
     'automailer': /\b(campagne|template|newsletter|liste.*contact|import.*csv|stats.*email|taux.*ouverture|creer?.*campagne|lance.*campagne)\b/,
     'crm-pilot': /\b(crm|hubspot|pipeline|deal|offre|fiche.*contact|note|tache|rappel|commercial)\b/,
     'lead-enrich': /\b(enrichi|scorer?|profil.*complet|hot.*lead|lead.*chaud|fullenrich|apollo)\b/,
