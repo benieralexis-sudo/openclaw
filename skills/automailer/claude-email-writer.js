@@ -421,6 +421,125 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
     return this._parseJSON(response);
   }
 
+  /**
+   * Genere une relance de campagne individuellement personnalisee pour un prospect.
+   * Contrairement a generateSequenceEmails() qui genere des templates,
+   * cette methode genere un email unique base sur le brief complet du prospect.
+   */
+  async generatePersonalizedFollowUp(contact, stepNumber, totalSteps, prospectIntel, previousEmails, campaignContext) {
+    let emailLengthHint = '5-8 lignes max';
+    try {
+      const selfImproveStorage = require('../self-improve/storage.js');
+      const prefs = selfImproveStorage.getEmailPreferences();
+      if (prefs && prefs.maxLength) {
+        const chars = prefs.maxLength;
+        emailLengthHint = chars < 200 ? '3-4 lignes max' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
+      }
+    } catch (e) {
+      try {
+        const selfImproveStorage = require('/app/skills/self-improve/storage.js');
+        const prefs = selfImproveStorage.getEmailPreferences();
+        if (prefs && prefs.maxLength) {
+          const chars = prefs.maxLength;
+          emailLengthHint = chars < 200 ? '3-4 lignes max' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
+        }
+      } catch (e2) {}
+    }
+
+    // Injecter les mots interdits depuis la config AP
+    let forbiddenWordsRule = '';
+    try {
+      const apStorage = require('../autonomous-pilot/storage.js');
+      const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+      const ep = apConfig.emailPreferences || {};
+      if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+        forbiddenWordsRule = '\nMOTS ABSOLUMENT INTERDITS: ' + ep.forbiddenWords.join(', ');
+      }
+    } catch (e) {
+      try {
+        const apStorage = require('/app/skills/autonomous-pilot/storage.js');
+        const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+        const ep = apConfig.emailPreferences || {};
+        if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+          forbiddenWordsRule = '\nMOTS ABSOLUMENT INTERDITS: ' + ep.forbiddenWords.join(', ');
+        }
+      } catch (e2) {}
+    }
+
+    // Construire l'historique des emails precedents (anti-repetition)
+    let previousEmailsContext = '';
+    if (previousEmails && previousEmails.length > 0) {
+      previousEmailsContext = '\n\n=== EMAILS PRECEDENTS ENVOYES A CE PROSPECT (NE PAS REPETER CES ANGLES) ===';
+      for (const prev of previousEmails) {
+        previousEmailsContext += '\n--- Email ' + prev.stepNumber + ' ---';
+        previousEmailsContext += '\nObjet: ' + (prev.subject || '');
+        previousEmailsContext += '\nCorps: ' + (prev.body || '').substring(0, 400);
+      }
+      previousEmailsContext += '\n=== FIN EMAILS PRECEDENTS ===';
+      previousEmailsContext += '\nTu DOIS utiliser un angle COMPLETEMENT DIFFERENT de tous les emails ci-dessus.';
+    }
+
+    // Strategie specifique par step
+    const isBreakup = stepNumber >= totalSteps;
+    let stepStrategy = '';
+    if (stepNumber === 2) {
+      stepStrategy = 'Relance 1 (J+3): Nouvel angle DIFFERENT du premier email, tire des DONNEES PROSPECT. Question ouverte.';
+    } else if (stepNumber === 3) {
+      stepStrategy = 'Relance 2 (J+7): Preuve sociale — mini cas client anonymise ("un dirigeant dans ton secteur..."). Fait rebondir sur un aspect specifique du prospect.';
+    } else if (stepNumber === totalSteps - 1 && totalSteps > 4) {
+      stepStrategy = 'Relance 3 (J+14): Dernier angle de valeur, question directe basee sur un fait specifique des donnees prospect.';
+    } else if (isBreakup) {
+      stepStrategy = 'BREAKUP (derniere relance): 2 lignes MAXIMUM. Choix binaire simple ("pas le bon moment ? dis-le moi"). Exploite la loss aversion.';
+    } else {
+      stepStrategy = 'Relance ' + (stepNumber - 1) + ': Nouvel angle tire des DONNEES PROSPECT, question specifique.';
+    }
+
+    const systemPrompt = `Tu es Alexis, fondateur d'iFIND. Tu ecris une relance personnalisee a un prospect specifique.
+
+CONTEXTE : Relance ${stepNumber - 1} sur ${totalSteps - 1} (step ${stepNumber}/${totalSteps}).
+STRATEGIE : ${stepStrategy}
+
+FORMAT :
+1. ACCROCHE = fait specifique ou nouvel insight (PAS "je reviens vers toi")
+2. PONT = implication business, ton AFFIRMATIF
+3. QUESTION = binaire ou ultra-specifique
+${isBreakup ? '\nBREAKUP = 2 phrases max. Question fermee. Exploite la loss aversion.' : ''}
+
+REGLES :
+- ${emailLengthHint}. ${isBreakup ? '2 LIGNES MAXIMUM.' : ''}
+- Tutoiement startup/PME, vouvoiement corporate
+- JAMAIS : "suite a mon email", "je reviens vers vous", "je me permets de relancer"
+- JAMAIS : pitch, prix, offre, "beau move", "potentiellement", "curieux" (max 1/3)
+- JAMAIS : "prospection", "gen de leads", "acquisition de clients"
+- Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise, DIFFERENT des precedents
+- PAS de "re:", pas de "relance", pas de signature${forbiddenWordsRule}
+
+JSON uniquement : {"subject":"...","body":"..."}`;
+
+    const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+    const userMessage = `DONNEES PROSPECT (pour personnalisation PROFONDE) :
+${prospectIntel || 'Aucune donnee supplementaire'}
+${previousEmailsContext}
+
+CONTACT :
+- Prenom : ${firstName}
+- Nom complet : ${contact.name || ''}
+- Poste : ${contact.title || 'non precise'}
+- Entreprise : ${contact.company || 'non precisee'}
+- Email : ${contact.email}
+
+Objectif campagne : ${campaignContext || 'prospection B2B'}
+
+Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base sur les DONNEES PROSPECT ci-dessus.${isBreakup ? ' FORMAT BREAKUP : 2 lignes max, choix binaire.' : ''}`;
+
+    const response = await this.callClaude(
+      [{ role: 'user', content: userMessage }],
+      systemPrompt,
+      isBreakup ? 500 : 1000
+    );
+    return this._parseJSON(response);
+  }
+
   async editEmail(currentEmail, instruction) {
     const systemPrompt = `Tu es un expert en redaction d'emails professionnels.
 L'utilisateur te donne un email existant et une instruction de modification.

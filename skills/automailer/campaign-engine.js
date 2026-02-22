@@ -129,6 +129,120 @@ class CampaignEngine {
     this.schedulerInterval = null;
   }
 
+  // --- Recuperation intel prospect (cascade 3 sources) ---
+
+  /**
+   * Recupere le brief prospect depuis les sources disponibles.
+   * 1. AP storage cache (brief complet 5500 chars, TTL 7j)
+   * 2. Proactive Agent cache (brief sauvegarde lors des opens)
+   * 3. Lead Enrich storage (donnees basiques)
+   * Retourne le brief string ou null.
+   */
+  _getProspectIntel(email) {
+    // Source 1 : AP storage (prospect research cache, le plus riche)
+    try {
+      let apStorage = null;
+      try { apStorage = require('../autonomous-pilot/storage.js'); }
+      catch (e) { try { apStorage = require('/app/skills/autonomous-pilot/storage.js'); } catch (e2) {} }
+      if (apStorage && apStorage.getProspectResearch) {
+        const cached = apStorage.getProspectResearch(email);
+        if (cached && cached.brief) {
+          const cacheAge = Date.now() - new Date(cached.cachedAt || cached.researchedAt || 0).getTime();
+          if (cacheAge < 7 * 24 * 60 * 60 * 1000) {
+            log.info('campaign-engine', 'ProspectIntel cache hit (AP) pour ' + email);
+            return cached.brief;
+          }
+        }
+      }
+    } catch (e) {}
+
+    // Source 2 : Proactive Agent cached intel (sauvegarde lors des opens/clicks)
+    try {
+      let paStorage = null;
+      try { paStorage = require('../proactive-agent/storage.js'); }
+      catch (e) { try { paStorage = require('/app/skills/proactive-agent/storage.js'); } catch (e2) {} }
+      if (paStorage && paStorage.data && paStorage.data._cachedIntel) {
+        const cached = paStorage.data._cachedIntel[email];
+        if (cached && cached.brief) {
+          log.info('campaign-engine', 'ProspectIntel cache hit (PA) pour ' + email);
+          return cached.brief;
+        }
+      }
+    } catch (e) {}
+
+    // Source 3 : Lead Enrich storage (donnees basiques enrichies)
+    try {
+      let leStorage = null;
+      try { leStorage = require('../lead-enrich/storage.js'); }
+      catch (e) { try { leStorage = require('/app/skills/lead-enrich/storage.js'); } catch (e2) {} }
+      if (leStorage && leStorage.getEnrichedLead) {
+        const enriched = leStorage.getEnrichedLead(email);
+        if (enriched) {
+          // Verifier si prospectIntel a ete sauvegarde lors du premier envoi
+          if (enriched.prospectIntel) {
+            log.info('campaign-engine', 'ProspectIntel cache hit (LE.prospectIntel) pour ' + email);
+            return enriched.prospectIntel;
+          }
+          // Sinon construire un brief minimal depuis les donnees enrichies
+          const parts = [];
+          if (enriched.aiClassification) {
+            if (enriched.aiClassification.industry) parts.push('INDUSTRIE: ' + enriched.aiClassification.industry);
+            if (enriched.aiClassification.persona) parts.push('PERSONA: ' + enriched.aiClassification.persona);
+          }
+          if (enriched.apolloData && enriched.apolloData.organization) {
+            const org = enriched.apolloData.organization;
+            if (org.short_description) parts.push('ACTIVITE: ' + org.short_description);
+            if (org.technologies && org.technologies.length > 0) parts.push('STACK TECHNIQUE: ' + org.technologies.slice(0, 8).join(', '));
+            if (org.keywords && org.keywords.length > 0) parts.push('MOTS-CLES: ' + org.keywords.slice(0, 8).join(', '));
+            if (org.estimated_num_employees) parts.push('TAILLE: ' + org.estimated_num_employees + ' employes');
+            if (org.city) parts.push('VILLE: ' + org.city);
+          }
+          if (parts.length > 0) {
+            log.info('campaign-engine', 'ProspectIntel partiel (LE) pour ' + email);
+            return parts.join('\n');
+          }
+        }
+      }
+    } catch (e) {}
+
+    return null;
+  }
+
+  /**
+   * Recupere l'historique des emails envoyes a ce prospect dans cette campagne.
+   * Retourne un array d'objets {stepNumber, subject, body} pour anti-repetition.
+   */
+  _getPreviousEmails(campaignId, email, currentStep) {
+    const allEmails = storage.getEmailsByCampaign(campaignId)
+      .filter(e => e.to === email && e.stepNumber < currentStep && e.status !== 'failed');
+    return allEmails.map(e => ({
+      stepNumber: e.stepNumber,
+      subject: e.subject || '',
+      body: (e.body || '').substring(0, 400)
+    }));
+  }
+
+  /**
+   * Applique les variables template ({{firstName}}, {{company}}, etc.) sur un texte.
+   */
+  _applyTemplateVars(text, contact, firstName) {
+    const vars = {
+      firstName: firstName || contact.firstName || (contact.name || '').split(' ')[0] || '',
+      lastName: contact.lastName || '',
+      name: contact.name || firstName || '',
+      company: contact.company || '',
+      title: contact.title || ''
+    };
+    for (const key of Object.keys(vars)) {
+      const regex = new RegExp('\\{\\{' + key + '\\}\\}', 'g');
+      text = text.replace(regex, vars[key]);
+    }
+    if (vars.firstName && !text.includes(vars.firstName)) {
+      text = text.replace(/Bonjour\s*,/i, 'Bonjour ' + vars.firstName + ',');
+    }
+    return text;
+  }
+
   // --- Cycle de vie des campagnes ---
 
   async createCampaign(chatId, config) {
@@ -184,7 +298,7 @@ class CampaignEngine {
       });
     }
 
-    storage.updateCampaign(campaignId, { steps: steps });
+    storage.updateCampaign(campaignId, { steps: steps, context: context });
     return steps;
   }
 
@@ -298,34 +412,72 @@ class CampaignEngine {
       let subject = step.subjectTemplate;
       let body = step.bodyTemplate;
       const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
-      const vars = {
-        firstName: firstName,
-        lastName: contact.lastName || '',
-        name: contact.name || firstName,
-        company: contact.company || '',
-        title: contact.title || ''
-      };
-      for (const key of Object.keys(vars)) {
-        const regex = new RegExp('\\{\\{' + key + '\\}\\}', 'g');
-        subject = subject.replace(regex, vars[key]);
-        body = body.replace(regex, vars[key]);
-      }
-      // Remplacer aussi les references au prenom dans le texte brut
-      if (firstName && !body.includes(firstName)) {
-        body = body.replace(/Bonjour\s*,/i, 'Bonjour ' + firstName + ',');
-      }
 
-      // FIX 12 : Personnalisation IA par Claude si le contact a des données enrichies
-      if (contact.company || contact.title || contact.industry) {
-        try {
-          const personalized = await this.claude.personalizeEmail(subject, body, contact);
-          if (personalized && personalized.subject && personalized.body) {
-            subject = personalized.subject;
-            body = personalized.body;
+      if (stepNumber > 1) {
+        // === RELANCES : generation individuelle avec brief complet ===
+        const prospectIntel = this._getProspectIntel(contact.email);
+
+        if (prospectIntel) {
+          try {
+            const previousEmails = this._getPreviousEmails(campaignId, contact.email, stepNumber);
+            const campaignContext = campaign.context || campaign.name || 'prospection B2B';
+
+            const personalized = await this.claude.generatePersonalizedFollowUp(
+              contact,
+              stepNumber,
+              campaign.steps.length,
+              prospectIntel,
+              previousEmails,
+              campaignContext
+            );
+
+            if (personalized && personalized.subject && personalized.body && !personalized.skip) {
+              subject = personalized.subject;
+              body = personalized.body;
+              log.info('campaign-engine', 'Relance individualisee generee pour ' + contact.email + ' (step ' + stepNumber + ')');
+            } else {
+              // Fallback template si skip ou donnees insuffisantes
+              log.info('campaign-engine', 'Fallback template pour ' + contact.email + ' (step ' + stepNumber + '): ' + (personalized && personalized.reason || 'generation incomplete'));
+              subject = this._applyTemplateVars(subject, contact, firstName);
+              body = this._applyTemplateVars(body, contact, firstName);
+            }
+          } catch (genErr) {
+            // Fallback complet sur le template en cas d'erreur
+            log.warn('campaign-engine', 'Erreur generation individualisee pour ' + contact.email + ', fallback template: ' + genErr.message);
+            subject = this._applyTemplateVars(subject, contact, firstName);
+            body = this._applyTemplateVars(body, contact, firstName);
           }
-        } catch (personalizeErr) {
-          // Fallback : envoyer le template original si la personnalisation echoue
-          log.info('campaign-engine', 'Personnalisation IA echouee pour ' + contact.email + ', envoi du template original: ' + personalizeErr.message);
+        } else {
+          // Pas de brief : fallback template + personalizeEmail basique
+          log.info('campaign-engine', 'Pas de prospectIntel pour ' + contact.email + ' — fallback template (step ' + stepNumber + ')');
+          subject = this._applyTemplateVars(subject, contact, firstName);
+          body = this._applyTemplateVars(body, contact, firstName);
+          if (contact.company || contact.title || contact.industry) {
+            try {
+              const pResult = await this.claude.personalizeEmail(subject, body, contact);
+              if (pResult && pResult.subject && pResult.body) {
+                subject = pResult.subject;
+                body = pResult.body;
+              }
+            } catch (personalizeErr) {
+              log.info('campaign-engine', 'personalizeEmail fallback echoue: ' + personalizeErr.message);
+            }
+          }
+        }
+      } else {
+        // === STEP 1 : comportement original (template + personalizeEmail + A/B) ===
+        subject = this._applyTemplateVars(subject, contact, firstName);
+        body = this._applyTemplateVars(body, contact, firstName);
+        if (contact.company || contact.title || contact.industry) {
+          try {
+            const personalized = await this.claude.personalizeEmail(subject, body, contact);
+            if (personalized && personalized.subject && personalized.body) {
+              subject = personalized.subject;
+              body = personalized.body;
+            }
+          } catch (personalizeErr) {
+            log.info('campaign-engine', 'Personnalisation IA echouee pour ' + contact.email + ': ' + personalizeErr.message);
+          }
         }
       }
 
