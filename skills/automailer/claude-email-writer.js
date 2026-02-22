@@ -205,19 +205,21 @@ STRUCTURE EN 3 TEMPS :
 3. QUESTION = une question BINAIRE ou SPECIFIQUE liee au pont (pas une question generique)
 
 EXEMPLES :
-  MAUVAIS (7/10) : "Le rapprochement avec X — beau move. La prospection c'est gere comment ?" (compliment vague + question generique)
-  BON (10/10) : "Deux marques apres la fusion — potentiellement deux audiences a prospecter. Vous doublez les canaux ou vous unifiez ?" (fait + implication + question binaire)
+  MAUVAIS (7/10) : "Le rapprochement avec X — beau move. La prospection c'est gere comment ?"
+  BON (10/10) : "Deux marques apres la fusion — deux audiences client a adresser. Tu doubles les canaux d'acquisition ou tu unifies ?"
 
-  MAUVAIS (7/10) : "187 avis a 4.8 — beau travail. La prospection elle vient d'ou ?" (compliment + generique)
-  BON (10/10) : "187 avis a 4.8, zero page devis visible. Vos clients viennent du bouche-a-oreille ou vous avez un autre canal ?" (fait + implication + question binaire)
+  MAUVAIS (7/10) : "187 avis a 4.8 — beau travail. La prospection elle vient d'ou ?"
+  BON (10/10) : "187 avis a 4.8, zero page devis visible. Tes clients viennent du bouche-a-oreille ou t'as un autre canal ?"
 
 REGLES :
 - JAMAIS affirmer ce qu'on ne sait pas — POSER LA QUESTION
 - ZERO compliments vagues ("beau move", "impressionnant", "beau travail") — remplace par l'IMPLICATION BUSINESS
-- QUESTIONS BINAIRES > questions ouvertes. "A ou B ?" > "Comment vous gerez X ?"
-- "Curieux" : 1 fois sur 3 MAX, pas systematiquement
+- TON AFFIRMATIF dans le pont : JAMAIS "potentiellement", "peut-etre", "sans doute", "eventuellement" — AFFIRME l'implication
+- QUESTIONS BINAIRES > questions ouvertes. "Tu fais A ou B ?" > "Comment tu geres X ?"
+- "Curieux" : 1 fois sur 3 MAX
 - Phrases COURTES. Une idee = une phrase.
-- JAMAIS "sacre", "en termes de", "un certain nombre de", "je me permets"
+- JAMAIS "sacre", "en termes de", "un certain nombre de", "je me permets", "je me disais"
+- TUTOIEMENT par defaut (startup/PME). Vouvoiement UNIQUEMENT si prospect corporate/grand groupe/institution
 
 FORMAT DE RETOUR :
 Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
@@ -272,10 +274,12 @@ STRUCTURE EN 3 TEMPS (pour chaque relance) :
 REGLES :
 - JAMAIS affirmer ce qu'on ne sait pas — POSER LA QUESTION
 - ZERO compliments vagues ("beau move", "beau parcours", "impressionnant") — remplace par l'IMPLICATION BUSINESS
-- QUESTIONS BINAIRES > questions ouvertes. "A ou B ?" > "Comment vous gerez X ?"
-- "Curieux" : 1 fois sur 3 MAX, pas systematiquement
+- TON AFFIRMATIF dans le pont : JAMAIS "potentiellement", "peut-etre", "sans doute", "eventuellement" — AFFIRME l'implication
+- QUESTIONS BINAIRES > questions ouvertes. "Tu fais A ou B ?" > "Comment tu geres X ?"
+- "Curieux" : 1 fois sur 3 MAX
 - Phrases COURTES. Une idee = une phrase.
-- JAMAIS "sacre", "en termes de", "un certain nombre de"
+- JAMAIS "sacre", "en termes de", "un certain nombre de", "je me permets", "je me disais"
+- TUTOIEMENT par defaut (startup/PME). Vouvoiement UNIQUEMENT si prospect corporate/grand groupe
 - Les objets contiennent le NOM DU PROSPECT ou de son ENTREPRISE, et INTRIGUENT (pas tout reveler)
 
 IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
@@ -358,7 +362,7 @@ REGLES STRICTES :
 
 OBJET DU MAIL :
 - Court (3-6 mots), minuscules, naturel
-- Contient le NOM DU PROSPECT ou de son ENTREPRISE (ex: "EKELA + La Boite a media", "question pour Nadine")
+- Contient le NOM DU PROSPECT ou de son ENTREPRISE, INTRIGUE (ex: "EKELA apres la fusion", "question pour Nadine")
 - DIFFERENT de l'objet du premier email
 - Pas de "re:" ni de "relance"
 
@@ -366,20 +370,22 @@ STYLE D'ECRITURE (CRUCIAL) :
 
 STRUCTURE EN 3 TEMPS :
 1. ACCROCHE = un FAIT SPECIFIQUE ou NOUVEL ANGLE (pas un compliment vague)
-2. PONT = l'IMPLICATION BUSINESS (montre que tu comprends pourquoi c'est interessant)
+2. PONT = l'IMPLICATION BUSINESS AFFIRMATIVE (montre que tu comprends pourquoi c'est interessant)
 3. QUESTION = BINAIRE ou SPECIFIQUE (pas generique)
 
 EXEMPLES :
-  MAUVAIS : "Le rapprochement avec X — beau move. La prospection c'est gere comment ?" (vague + generique)
-  BON : "Deux marques apres la fusion — deux audiences a prospecter. Vous doublez les canaux ou vous unifiez ?" (fait + pont + binaire)
+  MAUVAIS : "Le rapprochement avec X — beau move. La prospection c'est gere comment ?"
+  BON : "Deux marques apres la fusion — deux audiences client a adresser. Tu doubles les canaux ou tu unifies ?"
 
 REGLES :
 - JAMAIS affirmer ce qu'on ne sait pas — POSER LA QUESTION
 - ZERO compliments vagues ("beau move", "impressionnant") — remplace par l'IMPLICATION BUSINESS
-- QUESTIONS BINAIRES > questions ouvertes. "A ou B ?" > "Comment vous gerez X ?"
+- TON AFFIRMATIF dans le pont : JAMAIS "potentiellement", "peut-etre", "sans doute", "eventuellement" — AFFIRME l'implication
+- QUESTIONS BINAIRES > questions ouvertes. "Tu fais A ou B ?" > "Comment tu geres X ?"
 - "Curieux" : 1 fois sur 3 MAX
 - Phrases COURTES. Une idee = une phrase.
-- JAMAIS "sacre", "en termes de", "un certain nombre de"
+- JAMAIS "sacre", "en termes de", "un certain nombre de", "je me permets", "je me disais"
+- TUTOIEMENT par defaut (startup/PME). Vouvoiement UNIQUEMENT si prospect corporate/grand groupe
 
 FORMAT :
 JSON strict sans markdown ni backticks :

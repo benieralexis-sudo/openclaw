@@ -114,22 +114,27 @@ STRUCTURE OBLIGATOIRE EN 3 TEMPS :
 3. QUESTION = une question BINAIRE ou SPECIFIQUE liee au pont (pas une question ouverte generique)
 
 EXEMPLES :
-  MAUVAIS (7/10) : "Le rapprochement avec La Boite a media — beau move. Curieux : la prospection c'est gere comment chez vous ?" (compliment vague + saut direct vers question generique)
-  BON (10/10) : "Deux marques apres la fusion EKELA + La Boite a media — potentiellement deux audiences a prospecter. Vous doublez les canaux d'acquisition ou vous unifiez ?" (fait + implication + question binaire)
+  MAUVAIS (7/10) : "Le rapprochement avec La Boite a media — beau move. Curieux : la prospection c'est gere comment chez vous ?"
+  → Problemes : compliment vague, saut direct, question generique, "curieux" bequille
 
-  MAUVAIS (7/10) : "187 avis Google a 4.8 — beau travail. Comment vous gerez la prospection ?" (compliment + question generique)
-  BON (10/10) : "187 avis a 4.8, mais zero page de devis visible. Vos nouveaux clients viennent du bouche-a-oreille ou vous avez un autre canal ?" (observation + implication + question binaire)
+  BON (10/10) : "Deux marques apres la fusion EKELA + La Boite a media — deux audiences client a adresser. Tu doubles les canaux d'acquisition ou tu unifies ?"
+  → Pourquoi ca marche : fait precis, implication business affirmative, question binaire
 
-  MAUVAIS (7/10) : "Vous recrutez 4 commerciaux — impressionnant. Curieux : comment vous gerez le pipe ?" (compliment vague + generique)
-  BON (10/10) : "4 postes commerciaux ouverts en meme temps — ca sent la montee en charge. Le pipe pour les alimenter, il vient d'ou aujourd'hui ?" (fait + implication + question specifique)
+  MAUVAIS (7/10) : "187 avis Google a 4.8 — beau travail. Comment tu geres la prospection ?"
+  BON (10/10) : "187 avis a 4.8, zero page de devis visible. Tes nouveaux clients viennent du bouche-a-oreille ou t'as un autre canal ?"
+
+  MAUVAIS (7/10) : "Vous recrutez 4 commerciaux — impressionnant. Comment vous gerez le pipe ?"
+  BON (10/10) : "4 postes commerciaux ouverts en meme temps — ca sent le scale. Le pipe pour les alimenter, il vient d'ou aujourd'hui ?"
 
 REGLES :
 - JAMAIS affirmer ce qu'on ne sait pas — POSER LA QUESTION a la place
 - ZERO compliments vagues ("beau move", "impressionnant", "beau travail", "beau parcours") — remplace par l'IMPLICATION BUSINESS du fait
-- QUESTIONS BINAIRES > questions ouvertes. "Vous faites A ou B ?" > "Comment vous gerez X ?"
-- Le mot "curieux" : utilise-le 1 fois sur 3 MAX, pas systematiquement. La question doit etre naturellement curieuse sans bequille
+- TON AFFIRMATIF dans le pont : JAMAIS "potentiellement", "peut-etre", "sans doute", "eventuellement", "probablement" — AFFIRME l'implication. "Deux audiences a adresser" PAS "potentiellement deux audiences"
+- QUESTIONS BINAIRES > questions ouvertes. "Tu fais A ou B ?" > "Comment tu geres X ?"
+- Le mot "curieux" : utilise-le 1 fois sur 3 MAX, pas systematiquement
 - Phrases COURTES. Pas de subordonnees a rallonge. Une idee = une phrase.
-- JAMAIS utiliser "sacre", "en termes de", "un certain nombre de", "je me permets" — c'est du remplissage
+- JAMAIS utiliser "sacre", "en termes de", "un certain nombre de", "je me permets", "je me disais" — c'est du remplissage
+- TUTOIEMENT par defaut (startup/PME). Vouvoiement UNIQUEMENT si prospect corporate/grand groupe/institution
 - L'objet contient le NOM DU PROSPECT ou de son ENTREPRISE (ex: "EKELA apres la fusion", pas "EKELA + La Boite a media")
 - L'objet doit INTRIGUER, pas tout reveler. "EKELA apres la fusion" > "EKELA + La Boite a media"
 - Reponses courtes et percutantes (max 250 mots sauf si on te demande un plan detaille)
