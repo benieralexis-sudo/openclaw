@@ -11,13 +11,43 @@ class ResendClient {
   constructor(apiKey, senderEmail) {
     this.apiKey = apiKey;
     this.senderEmail = senderEmail || 'onboarding@resend.dev';
-    // Gmail SMTP config
+
+    // Multi-mailbox rotation : GMAIL_MAILBOXES=user1:pass1,user2:pass2,user3:pass3
+    this.mailboxes = [];
+    this._mailboxIndex = 0;
+    const mailboxesEnv = (process.env.GMAIL_MAILBOXES || '').trim();
+    if (mailboxesEnv) {
+      for (const entry of mailboxesEnv.split(',')) {
+        const [user, pass] = entry.trim().split(':');
+        if (user && pass) {
+          this.mailboxes.push({ user: user.trim(), pass: pass.trim().replace(/\s/g, '') });
+        }
+      }
+    }
+
+    // Fallback : ancienne config mono-boîte si pas de GMAIL_MAILBOXES
     this.gmailEnabled = process.env.GMAIL_SMTP_ENABLED === 'true';
     this.gmailUser = process.env.GMAIL_SMTP_USER || '';
     this.gmailPass = (process.env.GMAIL_SMTP_PASS || '').replace(/\s/g, '');
-    if (this.gmailEnabled && this.gmailUser) {
-      log.info('resend-client', 'Gmail SMTP actif: ' + this.gmailUser);
+
+    // Si mono-boîte configurée et pas de multi, l'ajouter au tableau
+    if (this.mailboxes.length === 0 && this.gmailEnabled && this.gmailUser && this.gmailPass) {
+      this.mailboxes.push({ user: this.gmailUser, pass: this.gmailPass });
     }
+
+    if (this.mailboxes.length > 0) {
+      log.info('resend-client', 'Gmail SMTP actif: ' + this.mailboxes.length + ' boite(s) en rotation — ' + this.mailboxes.map(m => m.user).join(', '));
+    }
+  }
+
+  /**
+   * Retourne la prochaine boîte mail en rotation round-robin.
+   */
+  _nextMailbox() {
+    if (this.mailboxes.length === 0) return null;
+    const mailbox = this.mailboxes[this._mailboxIndex % this.mailboxes.length];
+    this._mailboxIndex++;
+    return mailbox;
   }
 
   // --- Gmail SMTP (prioritaire) ---
@@ -43,18 +73,22 @@ class ResendClient {
     });
   }
 
-  async _sendViaGmail(to, subject, body, options) {
+  async _sendViaGmail(to, subject, body, options, mailbox) {
     options = options || {};
     const toEmail = Array.isArray(to) ? to[0] : to;
     const fromName = options.fromName || 'Alexis';
+    // Utiliser la boîte passée en paramètre ou fallback sur this.gmailUser
+    const smtpUser = mailbox ? mailbox.user : this.gmailUser;
+    const smtpPass = mailbox ? mailbox.pass : this.gmailPass;
+    const smtpDomain = smtpUser.split('@')[1] || 'getifind.fr';
 
     // Construire le message MIME
     const boundary = 'boundary_' + crypto.randomBytes(8).toString('hex');
-    const messageId = '<' + crypto.randomBytes(12).toString('hex') + '@getifind.fr>';
+    const messageId = '<' + crypto.randomBytes(12).toString('hex') + '@' + smtpDomain + '>';
     const htmlBody = options.html || this._minimalHtml(body, options.trackingId);
 
     const mime = [
-      'From: ' + fromName + ' <' + this.gmailUser + '>',
+      'From: ' + fromName + ' <' + smtpUser + '>',
       'To: ' + toEmail,
       'Subject: =?UTF-8?B?' + Buffer.from(subject).toString('base64') + '?=',
       'MIME-Version: 1.0',
@@ -95,7 +129,7 @@ class ResendClient {
           // Greeting
           await this._smtpCommand(currentSocket, null);
           // EHLO
-          await this._smtpCommand(currentSocket, 'EHLO getifind.fr');
+          await this._smtpCommand(currentSocket, 'EHLO ' + smtpDomain);
           // STARTTLS
           await this._smtpCommand(currentSocket, 'STARTTLS');
 
@@ -104,19 +138,19 @@ class ResendClient {
             try {
               currentSocket = tlsSocket;
               // EHLO again after TLS
-              await this._smtpCommand(currentSocket, 'EHLO getifind.fr');
+              await this._smtpCommand(currentSocket, 'EHLO ' + smtpDomain);
               // AUTH LOGIN
               const authResp = await this._smtpCommand(currentSocket, 'AUTH LOGIN');
               if (!authResp.startsWith('334')) { cleanup(); return reject(new Error('AUTH failed: ' + authResp)); }
               // Username
-              const userResp = await this._smtpCommand(currentSocket, Buffer.from(this.gmailUser).toString('base64'));
+              const userResp = await this._smtpCommand(currentSocket, Buffer.from(smtpUser).toString('base64'));
               if (!userResp.startsWith('334')) { cleanup(); return reject(new Error('AUTH user failed: ' + userResp)); }
               // Password
-              const passResp = await this._smtpCommand(currentSocket, Buffer.from(this.gmailPass).toString('base64'));
+              const passResp = await this._smtpCommand(currentSocket, Buffer.from(smtpPass).toString('base64'));
               if (!passResp.startsWith('235')) { cleanup(); return reject(new Error('AUTH pass failed: ' + passResp)); }
 
               // MAIL FROM
-              const fromResp = await this._smtpCommand(currentSocket, 'MAIL FROM:<' + this.gmailUser + '>');
+              const fromResp = await this._smtpCommand(currentSocket, 'MAIL FROM:<' + smtpUser + '>');
               if (!fromResp.startsWith('250')) { cleanup(); return reject(new Error('MAIL FROM failed: ' + fromResp)); }
               // RCPT TO
               const rcptResp = await this._smtpCommand(currentSocket, 'RCPT TO:<' + toEmail + '>');
@@ -217,17 +251,18 @@ class ResendClient {
   // --- Envoi principal (Gmail prioritaire, Resend fallback) ---
 
   async sendEmail(to, subject, body, options) {
-    // Gmail SMTP si disponible
-    if (this.gmailEnabled && this.gmailUser && this.gmailPass) {
+    // Gmail SMTP via rotation multi-boîtes
+    const mailbox = this._nextMailbox();
+    if (mailbox) {
       try {
-        const result = await this._sendViaGmail(to, subject, body, options);
-        log.info('resend-client', 'Email envoye via Gmail SMTP a ' + (Array.isArray(to) ? to[0] : to));
+        const result = await this._sendViaGmail(to, subject, body, options, mailbox);
+        log.info('resend-client', 'Email envoye via Gmail SMTP (' + mailbox.user + ') a ' + (Array.isArray(to) ? to[0] : to));
         if (_appConfig && _appConfig.recordServiceUsage) {
           _appConfig.recordServiceUsage('gmail', { emails: 1 });
         }
         return result;
       } catch (e) {
-        log.warn('resend-client', 'Gmail SMTP echoue, fallback Resend: ' + e.message);
+        log.warn('resend-client', 'Gmail SMTP (' + mailbox.user + ') echoue, fallback Resend: ' + e.message);
       }
     }
 
@@ -261,12 +296,13 @@ class ResendClient {
   }
 
   async sendBatch(emails) {
-    // En mode Gmail, envoyer un par un
-    if (this.gmailEnabled && this.gmailUser && this.gmailPass) {
+    // En mode Gmail, envoyer un par un avec rotation
+    if (this.mailboxes.length > 0) {
       const results = [];
       for (const e of emails) {
+        const mailbox = this._nextMailbox();
         try {
-          const r = await this._sendViaGmail(e.to, e.subject, e.body, { fromName: e.fromName || 'Alexis', trackingId: e.trackingId });
+          const r = await this._sendViaGmail(e.to, e.subject, e.body, { fromName: e.fromName || 'Alexis', trackingId: e.trackingId }, mailbox);
           results.push(r);
         } catch (err) {
           results.push({ success: false, error: err.message });
