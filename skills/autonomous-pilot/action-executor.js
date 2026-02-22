@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const { getWarmupDailyLimit } = require('../../gateway/utils.js');
 
 // --- Cross-skill imports (dual-path) ---
 
@@ -665,15 +666,9 @@ Format JSON strict :
       // FIX 19 : Utiliser les compteurs persistants au lieu du filtre dynamique
       const sentToday = amStorage.getTodaySendCount();
 
-      // Warmup progressif base sur firstSendDate (unifie avec campaign-engine)
+      // Warmup progressif (source unique : gateway/utils.js)
       const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
-      let dailyLimit = 5;
-      if (firstSendDate) {
-        const daysSince = Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000);
-        // Schedule progressif : jour0=5, j1=10, j2=15, j3=20, j5+=30, j7+=50, j14+=75, j28+=100
-        const schedule = [5, 10, 15, 20, 25, 30, 35, 50, 50, 50, 50, 50, 50, 50, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 100];
-        dailyLimit = schedule[Math.min(daysSince, schedule.length - 1)] || 100;
-      }
+      const dailyLimit = getWarmupDailyLimit(firstSendDate);
 
       if (sentToday >= dailyLimit) {
         log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails envoyes aujourd\'hui (daysSince: ' + (firstSendDate ? Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000) : 0) + 'j) — limite atteinte');

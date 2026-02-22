@@ -293,7 +293,13 @@ class BrainEngine {
     let plan;
     try {
       // Sonnet pour les cycles reguliers (5x moins cher qu'Opus) — Opus reserve a l'analyse hebdo
-      const response = await this.callClaude(systemPrompt, userMessage, 8192);
+      const response = await this.callClaude(systemPrompt, userMessage, 16384);
+      // Detection troncature : si la reponse ne se termine pas par } ou ], c'est probablement tronque
+      const trimmed = (response || '').trim();
+      const lastChar = trimmed.charAt(trimmed.length - 1);
+      if (trimmed.length > 100 && lastChar !== '}' && lastChar !== ']') {
+        log.warn('brain', 'ALERTE: Reponse probablement tronquee (' + trimmed.length + ' chars, finit par "' + trimmed.slice(-20) + '")');
+      }
       plan = this._parseJsonResponse(response);
       if (!plan) log.warn('brain', 'Parse JSON echoue, reponse brute (200 premiers chars):', (response || '(vide)').substring(0, 200));
     } catch (e) {

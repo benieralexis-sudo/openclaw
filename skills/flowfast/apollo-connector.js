@@ -97,8 +97,8 @@ class ApolloConnector {
     // FIX: Si keywords contient 3+ mots SANS "OR", c'est probablement une erreur du brain
     // Ex: "SaaS B2B editeur logiciel" -> chercher "SaaS B2B" puis "editeur logiciel" separement
     // Apollo fait un AND implicite sur les mots, donc 3+ mots = quasi 0 resultats
-    if (keywords && !keywords.includes(' OR ') && keywords.split(/\s+/).length > 2) {
-      const words = keywords.split(/\s+/);
+    if (keywords && !keywords.includes(' OR ') && keywords.split(/\s+/).filter(Boolean).length > 2) {
+      const words = keywords.split(/\s+/).filter(Boolean);
       // Grouper les mots par paires de 2 max et joindre avec OR
       const pairs = [];
       for (let i = 0; i < words.length; i += 2) {
@@ -109,14 +109,18 @@ class ApolloConnector {
         }
       }
       const normalized = pairs.join(' OR ');
-      console.log('[apollo] FIX: Keywords multi-mots normalises: "' + keywords + '" -> "' + normalized + '"');
+      console.log('[apollo-connector] Keywords multi-mots normalises: "' + keywords + '" -> "' + normalized + '" (' + words.length + ' mots, ' + pairs.length + ' paires)');
       keywords = normalized;
     }
 
     // Si keywords contient " OR ", splitter et faire une recherche par terme
     if (keywords.includes(' OR ')) {
       const terms = keywords.split(/\s+OR\s+/).map(t => t.trim()).filter(Boolean);
-      console.log('[apollo] Multi-keywords detectes:', terms.length, 'termes:', terms.join(' | '));
+      if (terms.length === 0) {
+        console.log('[apollo-connector] WARN: Aucun terme valide apres normalisation de: "' + (criteria.keywords || '') + '"');
+        return { leads: [], total: 0 };
+      }
+      console.log('[apollo-connector] Multi-keywords: ' + terms.length + ' termes: ' + terms.join(' | '));
 
       const allLeads = [];
       const seenIds = new Set();

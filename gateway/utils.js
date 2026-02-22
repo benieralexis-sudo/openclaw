@@ -91,4 +91,19 @@ function sanitize(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize };
+/**
+ * Calcule la limite d'envois quotidienne basee sur le warmup progressif.
+ * Source unique de verite — utilisee par action-executor, campaign-engine, proactive-engine.
+ * @param {string|Date|null} firstSendDate - Date du premier envoi (ISO string ou Date)
+ * @returns {number} Limite d'emails par jour
+ */
+function getWarmupDailyLimit(firstSendDate) {
+  if (!firstSendDate) return 5;
+  const daysSinceFirst = Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000);
+  if (daysSinceFirst < 0) return 5;
+  // Schedule progressif : j0=5, j1=10, j2=15, j3=20, j4=25, j5=30, j6=35, j7-13=50, j14-27=75, j28+=100
+  const schedule = [5, 10, 15, 20, 25, 30, 35, 50, 50, 50, 50, 50, 50, 50, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 100];
+  return schedule[Math.min(daysSinceFirst, schedule.length - 1)] || 100;
+}
+
+module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit };

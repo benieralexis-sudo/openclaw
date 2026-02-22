@@ -5,6 +5,7 @@ const { Cron } = require('croner');
 const ReportGenerator = require('./report-generator.js');
 const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
+const { getWarmupDailyLimit } = require('../../gateway/utils.js');
 
 // Cross-skill imports
 function getResendClient() {
@@ -810,12 +811,7 @@ class ProactiveEngine {
         // Verifier warmup quotidien
         const todaySent = amStorage.getTodaySendCount ? amStorage.getTodaySendCount() : 0;
         const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
-        let dailyLimit = 5;
-        if (firstSendDate) {
-          const daysSince = Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000);
-          const schedule = [5, 10, 15, 20, 25, 30, 35, 50, 50, 50, 50, 50, 50, 50, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 100];
-          dailyLimit = schedule[Math.min(daysSince, schedule.length - 1)] || 100;
-        }
+        const dailyLimit = getWarmupDailyLimit(firstSendDate);
         if (todaySent >= dailyLimit) {
           log.info('proactive-engine', 'Reactive FU: warmup limit (' + todaySent + '/' + dailyLimit + ') — reporte');
           continue; // Reste pending, reessaye au prochain cycle
