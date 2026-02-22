@@ -188,7 +188,7 @@ function isBusinessHours() {
   const parisDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
   const parisDay = parisDate.getDay(); // 0=dimanche, 6=samedi
   if (parisDay === 0 || parisDay === 6) return false; // weekend
-  if (parisHour < 9 || parisHour >= 18) return false; // hors heures
+  if (parisHour < 9 || parisHour >= 13) return false; // envois concentres le matin 9h-12h59
   return true;
 }
 
