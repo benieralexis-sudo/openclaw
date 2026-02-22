@@ -406,11 +406,11 @@ class ProspectResearcher {
     if (!fetcher) return null;
 
     try {
-      const query = encodeURIComponent('"' + name + '"' + (company ? ' "' + company + '"' : '') + ' (interview OR podcast OR conférence OR article OR speaker OR keynote)');
+      const query = encodeURIComponent('"' + name + '"' + (company ? ' ' + company : '') + ' interview podcast conference article');
       const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + query;
       const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
-      if (!result || result.statusCode !== 200 || !result.body) {
-        return this._searchPersonProfileBing(name, company);
+      if (!result || !result.body || result.body.length < 1000) {
+        return this._searchPersonProfileNews(name, company);
       }
 
       // Extraire liens + titres DDG
@@ -443,7 +443,7 @@ class ProspectResearcher {
         si++;
       }
 
-      if (items.length === 0) return this._searchPersonProfileBing(name, company);
+      if (items.length === 0) return this._searchPersonProfileNews(name, company);
 
       // Classifier chaque resultat
       const classified = items.map(item => {
@@ -462,41 +462,37 @@ class ProspectResearcher {
       return { items: classified.slice(0, 5), intentSignals: intentSignals };
     } catch (e) {
       log.info('prospect-research', 'Person profile echoue pour ' + name + ': ' + e.message);
-      return this._searchPersonProfileBing(name, company);
+      return this._searchPersonProfileNews(name, company);
     }
   }
 
   /**
-   * Fallback Bing pour Person Profile.
+   * Fallback Google News RSS pour Person Profile (meme moteur que _fetchCompanyNews).
    */
-  async _searchPersonProfileBing(name, company) {
+  async _searchPersonProfileNews(name, company) {
     const fetcher = this._getFetcher();
     if (!fetcher) return null;
     try {
-      const bingQuery = encodeURIComponent('"' + name + '"' + (company ? ' "' + company + '"' : '') + ' interview OR podcast OR conference OR article');
-      const bingUrl = 'https://www.bing.com/search?q=' + bingQuery + '&count=5';
-      const result = await fetcher.fetchUrl(bingUrl, { userAgent: this._nextUA() });
-      if (!result || result.statusCode !== 200 || !result.body) return null;
+      // Google News RSS — gratuit, fiable, meme endpoint que _fetchCompanyNews
+      const articles = await fetcher.fetchGoogleNews([name + (company ? ' ' + company : '')]);
+      if (!articles || articles.length === 0) return null;
 
-      const items = [];
-      const regex = /<h2[^>]*><a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-      let m;
-      while ((m = regex.exec(result.body)) !== null && items.length < 5) {
-        const url = m[1];
-        const title = m[2].replace(/<[^>]+>/g, '').trim();
-        if (/linkedin\.com|facebook\.com|twitter\.com|x\.com/i.test(url)) continue;
-        if (title.length < 5) continue;
-        const text = (title + ' ' + url).toLowerCase();
+      const items = articles.slice(0, 5).map(a => {
+        const text = ((a.title || '') + ' ' + (a.snippet || '') + ' ' + (a.source || '')).toLowerCase();
         let type = 'mention';
-        if (text.includes('podcast')) type = 'podcast';
-        else if (text.includes('interview')) type = 'interview';
-        else if (/conf[ée]rence|conference|keynote/i.test(text)) type = 'conference';
-        else if (text.includes('article') || text.includes('tribune') || text.includes('blog')) type = 'article';
-        items.push({ type, title: title.substring(0, 150), snippet: '', url });
-      }
+        if (text.includes('podcast') || text.includes('episode')) type = 'podcast';
+        else if (text.includes('interview') || text.includes('entretien') || text.includes('portrait')) type = 'interview';
+        else if (/conf[ée]rence|conference|keynote|speaker|salon|sommet/.test(text)) type = 'conference';
+        else if (text.includes('tribune') || text.includes('blog') || text.includes('opinion')) type = 'article';
+        return {
+          type,
+          title: (a.title || '').substring(0, 150),
+          snippet: (a.snippet || '').substring(0, 250),
+          url: a.link || ''
+        };
+      });
 
-      if (items.length === 0) return null;
-      log.info('prospect-research', 'Person profile Bing pour ' + name + ': ' + items.length + ' resultats');
+      log.info('prospect-research', 'Person profile News pour ' + name + ': ' + items.length + ' articles');
       return { items: items, intentSignals: this._extractPersonIntentSignals(items) };
     } catch (e) { return null; }
   }
