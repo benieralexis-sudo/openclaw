@@ -108,15 +108,17 @@ class ProspectResearcher {
     // Extraire le domaine depuis l'email
     const domain = email ? email.split('@')[1] : null;
 
-    // Executer toutes les recherches en parallele (6 sources)
+    // Executer toutes les recherches en parallele (7 sources)
     const linkedinUrl = contact.linkedin_url || contact.linkedin || contact.linkedinUrl || '';
-    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult] = await Promise.allSettled([
+    const contactName = contact.nom || contact.name || '';
+    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
       Promise.resolve(this._extractApolloOrgData(contact.organization)),
       Promise.resolve(this._checkExistingWebIntelArticles(company)),
-      this._fetchLinkedInData(linkedinUrl, contact.nom || contact.name || '', company),
-      this._searchCompanyClients(company)
+      this._fetchLinkedInData(linkedinUrl, contactName, company),
+      this._searchCompanyClients(company),
+      this._searchPersonProfile(contactName, company)
     ]);
 
     // Chercher market signals Web Intelligence pour cette entreprise
@@ -154,6 +156,24 @@ class ProspectResearcher {
       }
     }
 
+    // Chercher les concurrents dans le meme secteur (inter-prospect memory)
+    let sectorCompetitors = [];
+    try {
+      const apStorage2 = getAPStorage();
+      if (apStorage2 && apStorage2.getCompetitorsInIndustry) {
+        let industry = '';
+        if (leadEnrichData && leadEnrichData.industry) industry = leadEnrichData.industry;
+        const apolloResolved = apolloData.status === 'fulfilled' ? apolloData.value : null;
+        if (!industry && apolloResolved && apolloResolved.industry) industry = apolloResolved.industry;
+        if (industry) {
+          sectorCompetitors = apStorage2.getCompetitorsInIndustry(industry, 5)
+            .filter(c => c.name.toLowerCase() !== company.toLowerCase());
+        }
+      }
+    } catch (e) {}
+
+    const personProfile = personProfileResult.status === 'fulfilled' ? personProfileResult.value : null;
+
     const intel = {
       company: company,
       websiteInsights: websiteResult.status === 'fulfilled' ? websiteResult.value : null,
@@ -162,6 +182,9 @@ class ProspectResearcher {
       existingArticles: rawArticles,
       linkedinData: linkedinResult.status === 'fulfilled' ? linkedinResult.value : null,
       clientSearch: clientSearchResult.status === 'fulfilled' ? clientSearchResult.value : null,
+      personProfile: personProfile,
+      intentSignals: personProfile ? (personProfile.intentSignals || []) : [],
+      sectorCompetitors: sectorCompetitors,
       leadEnrichData: leadEnrichData,
       marketSignals: marketSignals,
       researchedAt: new Date().toISOString()
@@ -181,7 +204,9 @@ class ProspectResearcher {
       intel.apolloData ? 'Apollo' : null,
       intel.existingArticles.length > 0 ? intel.existingArticles.length + ' articles WI' : null,
       intel.linkedinData ? 'LinkedIn' : null,
-      intel.clientSearch ? 'DDG clients' : null
+      intel.clientSearch ? 'DDG clients' : null,
+      intel.personProfile ? intel.personProfile.items.length + ' profil' : null,
+      intel.sectorCompetitors.length > 0 ? intel.sectorCompetitors.length + ' concurrents' : null
     ].filter(Boolean);
 
     log.info('prospect-research', 'Recherche terminee pour ' + company + ': ' + sources.join(', '));
@@ -368,6 +393,135 @@ class ProspectResearcher {
       log.info('prospect-research', 'DDG clients echoue pour ' + companyName + ': ' + e.message);
       return null;
     }
+  }
+
+  /**
+   * Recherche DDG/Bing le profil public de la personne (interviews, podcasts, conferences, articles).
+   * 7eme source de donnees — centree sur la PERSONNE, pas l'entreprise.
+   * Cout : 0$ (DDG + Bing gratuits)
+   */
+  async _searchPersonProfile(name, company) {
+    if (!name || name.length < 3) return null;
+    const fetcher = this._getFetcher();
+    if (!fetcher) return null;
+
+    try {
+      const query = encodeURIComponent('"' + name + '"' + (company ? ' "' + company + '"' : '') + ' (interview OR podcast OR conférence OR article OR speaker OR keynote)');
+      const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + query;
+      const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
+      if (!result || result.statusCode !== 200 || !result.body) {
+        return this._searchPersonProfileBing(name, company);
+      }
+
+      // Extraire liens + titres DDG
+      const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+      const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+      const items = [];
+      let m;
+
+      while ((m = linkRegex.exec(result.body)) !== null && items.length < 8) {
+        let url = m[1];
+        // Decoder redirections DDG (//duckduckgo.com/l/?uddg=REAL_URL&...)
+        if (url.includes('uddg=')) {
+          const uddg = url.split('uddg=')[1];
+          if (uddg) url = decodeURIComponent(uddg.split('&')[0]);
+        }
+        const title = m[2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+        // Filtrer reseaux sociaux (deja geres ailleurs)
+        if (/linkedin\.com|facebook\.com|twitter\.com|x\.com|instagram\.com/i.test(url)) continue;
+        if (title.length < 5) continue;
+        items.push({ url: url, title: title.substring(0, 150), snippet: '' });
+      }
+
+      // Enrichir avec snippets
+      let si = 0;
+      while ((m = snippetRegex.exec(result.body)) !== null) {
+        const snippet = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+        if (snippet.length > 20 && si < items.length) {
+          items[si].snippet = snippet.substring(0, 250);
+        }
+        si++;
+      }
+
+      if (items.length === 0) return this._searchPersonProfileBing(name, company);
+
+      // Classifier chaque resultat
+      const classified = items.map(item => {
+        const text = (item.title + ' ' + item.snippet + ' ' + item.url).toLowerCase();
+        let type = 'mention';
+        if (text.includes('podcast') || text.includes('episode') || text.includes('épisode')) type = 'podcast';
+        else if (text.includes('interview') || text.includes('entretien') || text.includes('portrait') || text.includes('rencontre avec')) type = 'interview';
+        else if (/conf[ée]rence|talk|keynote|speaker|sommet|salon/i.test(text)) type = 'conference';
+        else if (text.includes('article') || text.includes('tribune') || text.includes('blog') || text.includes('publie') || text.includes('écrit par')) type = 'article';
+        return { type, title: item.title, snippet: item.snippet, url: item.url };
+      });
+
+      const intentSignals = this._extractPersonIntentSignals(classified);
+
+      log.info('prospect-research', 'Person profile pour ' + name + ': ' + classified.length + ' resultats, ' + intentSignals.length + ' intent signals');
+      return { items: classified.slice(0, 5), intentSignals: intentSignals };
+    } catch (e) {
+      log.info('prospect-research', 'Person profile echoue pour ' + name + ': ' + e.message);
+      return this._searchPersonProfileBing(name, company);
+    }
+  }
+
+  /**
+   * Fallback Bing pour Person Profile.
+   */
+  async _searchPersonProfileBing(name, company) {
+    const fetcher = this._getFetcher();
+    if (!fetcher) return null;
+    try {
+      const bingQuery = encodeURIComponent('"' + name + '"' + (company ? ' "' + company + '"' : '') + ' interview OR podcast OR conference OR article');
+      const bingUrl = 'https://www.bing.com/search?q=' + bingQuery + '&count=5';
+      const result = await fetcher.fetchUrl(bingUrl, { userAgent: this._nextUA() });
+      if (!result || result.statusCode !== 200 || !result.body) return null;
+
+      const items = [];
+      const regex = /<h2[^>]*><a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+      let m;
+      while ((m = regex.exec(result.body)) !== null && items.length < 5) {
+        const url = m[1];
+        const title = m[2].replace(/<[^>]+>/g, '').trim();
+        if (/linkedin\.com|facebook\.com|twitter\.com|x\.com/i.test(url)) continue;
+        if (title.length < 5) continue;
+        const text = (title + ' ' + url).toLowerCase();
+        let type = 'mention';
+        if (text.includes('podcast')) type = 'podcast';
+        else if (text.includes('interview')) type = 'interview';
+        else if (/conf[ée]rence|conference|keynote/i.test(text)) type = 'conference';
+        else if (text.includes('article') || text.includes('tribune') || text.includes('blog')) type = 'article';
+        items.push({ type, title: title.substring(0, 150), snippet: '', url });
+      }
+
+      if (items.length === 0) return null;
+      log.info('prospect-research', 'Person profile Bing pour ' + name + ': ' + items.length + ' resultats');
+      return { items: items, intentSignals: this._extractPersonIntentSignals(items) };
+    } catch (e) { return null; }
+  }
+
+  /**
+   * Detecte des signaux d'intent dans les resultats de recherche personne.
+   */
+  _extractPersonIntentSignals(items) {
+    const signals = [];
+    for (const item of items) {
+      const text = (item.title + ' ' + (item.snippet || '')).toLowerCase();
+      if (text.includes('recrute') || text.includes('hiring') || text.includes('recrutement') || text.includes('embauche')) {
+        signals.push({ type: 'hiring_activity', detail: item.title.substring(0, 80) });
+      }
+      if (/conf[ée]rence|speaker|keynote|sommet|salon/.test(text)) {
+        signals.push({ type: 'thought_leader', detail: item.title.substring(0, 80) });
+      }
+      if (text.includes('lève') || text.includes('leve') || text.includes('funding') || text.includes('levée') || text.includes('série')) {
+        signals.push({ type: 'recent_funding', detail: item.title.substring(0, 80) });
+      }
+      if (item.type === 'article' || item.type === 'podcast') {
+        signals.push({ type: 'content_creator', detail: item.title.substring(0, 80) });
+      }
+    }
+    return signals.slice(0, 5);
   }
 
   /**
@@ -698,7 +852,9 @@ class ProspectResearcher {
     if (intel.marketSignals && intel.marketSignals.length > 0) {
       lines.push('SIGNAUX MARCHE:');
       for (const s of intel.marketSignals.slice(0, 2)) {
-        lines.push('- [' + (s.type || '?').toUpperCase() + '] ' + (s.article && s.article.title || '').substring(0, 80) + (s.suggestedAction ? ' → ' + s.suggestedAction.substring(0, 60) : ''));
+        const signalAge = s.detectedAt ? Math.round((Date.now() - new Date(s.detectedAt).getTime()) / (60 * 60 * 1000)) : null;
+        const ageLabel = signalAge !== null ? (signalAge < 48 ? ' (il y a ' + signalAge + 'h)' : ' (il y a ' + Math.round(signalAge / 24) + 'j)') : '';
+        lines.push('- [' + (s.type || '?').toUpperCase() + '] ' + (s.article && s.article.title || '').substring(0, 80) + ageLabel + (s.suggestedAction ? ' → ' + s.suggestedAction.substring(0, 60) : ''));
       }
     }
 
@@ -708,6 +864,24 @@ class ProspectResearcher {
       if (intel.linkedinData.headline) liLine += intel.linkedinData.headline;
       if (intel.linkedinData.summary) liLine += ' — ' + intel.linkedinData.summary.substring(0, 350);
       lines.push(liLine);
+    }
+
+    // PRIORITE 2b : Profil public — interviews, podcasts, conferences (PERSONNE, pas entreprise)
+    if (intel.personProfile && intel.personProfile.items && intel.personProfile.items.length > 0) {
+      lines.push('PROFIL PUBLIC ' + (contact.nom || '') + ':');
+      for (const item of intel.personProfile.items.slice(0, 3)) {
+        let itemLine = '- [' + item.type.toUpperCase() + '] "' + item.title + '"';
+        if (item.snippet) itemLine += ' — ' + item.snippet.substring(0, 120);
+        lines.push(itemLine);
+      }
+    }
+
+    // PRIORITE 2c : Signaux intent personne (recrutement, conference, funding, contenu)
+    if (intel.intentSignals && intel.intentSignals.length > 0) {
+      lines.push('SIGNAUX INTENT:');
+      for (const sig of intel.intentSignals.slice(0, 3)) {
+        lines.push('- [' + sig.type.toUpperCase() + '] ' + sig.detail);
+      }
     }
 
     // PRIORITE 3 : Technologies — faits verifiables pour observations techniques
@@ -762,6 +936,19 @@ class ProspectResearcher {
       if (le.score) leParts.push('score: ' + le.score + '/10');
       if (le.technologies && le.technologies.length > 0) leParts.push('tech: ' + le.technologies.slice(0, 3).join(', '));
       if (leParts.length > 0) lines.push('ENRICHISSEMENT: ' + leParts.join(', '));
+    }
+
+    // PRIORITE 7 : Contexte sectoriel (inter-prospect memory)
+    if (intel.sectorCompetitors && intel.sectorCompetitors.length > 0) {
+      const industryLabel = (intel.leadEnrichData && intel.leadEnrichData.industry) || (intel.apolloData && intel.apolloData.industry) || 'meme secteur';
+      lines.push('CONTEXTE SECTORIEL (' + industryLabel + '): ' + intel.sectorCompetitors.length + ' autres entreprises contactees');
+      for (const comp of intel.sectorCompetitors.slice(0, 3)) {
+        const meta = [];
+        if (comp.employees) meta.push(comp.employees + ' emp');
+        if (comp.city) meta.push(comp.city);
+        lines.push('- ' + comp.name + (meta.length > 0 ? ' (' + meta.join(', ') + ')' : ''));
+      }
+      lines.push('REGLE: Tu peux mentionner que d\'autres acteurs du secteur s\'interessent a la meme problematique. NE JAMAIS nommer les prospects — reste anonyme ("d\'autres ' + industryLabel + '", "un acteur de ta taille").');
     }
 
     const brief = lines.join('\n');

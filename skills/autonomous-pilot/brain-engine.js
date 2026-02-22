@@ -752,7 +752,7 @@ Analyse et reponds en JSON:
     const highSignals = wiSignals.filter(s => s.priority === 'high');
 
     // Score boost map par type de signal
-    const SIGNAL_BOOSTS = { funding: 2, expansion: 1.5, acquisition: 2, product_launch: 1, hiring: 0.5, leadership_change: 1 };
+    const SIGNAL_BOOSTS = { funding: 2, expansion: 1.5, acquisition: 2, product_launch: 1, hiring: 1.5, leadership_change: 1 };
 
     if (highSignals.length > 0) {
       const ffStorage = getFlowFastStorage();
@@ -770,7 +770,14 @@ Analyse et reponds en JSON:
             const signalId = (signal.detectedAt || '') + '_' + signal.type + '_' + signal.company;
             if (!lead._processedSignals) lead._processedSignals = [];
             if (!lead._processedSignals.includes(signalId)) {
-              const boost = SIGNAL_BOOSTS[signal.type] || 0.5;
+              // Temporal decay : signal recent = boost amplifie
+              const baseBoost = SIGNAL_BOOSTS[signal.type] || 0.5;
+              const signalAge = signal.detectedAt ? (Date.now() - new Date(signal.detectedAt).getTime()) : Infinity;
+              let boost;
+              if (signalAge < 48 * 60 * 60 * 1000) boost = baseBoost * 1.5;       // < 48h
+              else if (signalAge < 7 * 24 * 60 * 60 * 1000) boost = baseBoost * 1.2; // < 7j
+              else boost = baseBoost;
+              boost = Math.round(boost * 10) / 10; // arrondir a 1 decimale
               const newScore = Math.min(10, (lead.score || 0) + boost);
               const reason = 'Signal ' + signal.type + ': ' + (signal.title || '').substring(0, 80);
               // updateLeadScore persiste le score ET _processedSignals via _save()

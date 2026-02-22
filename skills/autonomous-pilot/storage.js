@@ -622,6 +622,56 @@ function getRecentAnglesForIndustry(industry, limit) {
   return angles.sort((a, b) => (b.usedAt || '').localeCompare(a.usedAt || '')).slice(0, limit || 10).map(a => a.angle);
 }
 
+// --- Inter-Prospect Memory : intelligence sectorielle ---
+
+function recordCompetitorContact(industry, companyData) {
+  if (!industry || !companyData) return;
+  const data = _load();
+  if (!data.companyIntelligence) data.companyIntelligence = {};
+  const key = industry.toLowerCase().trim();
+  if (!data.companyIntelligence[key]) data.companyIntelligence[key] = [];
+
+  // Dedup par domaine ou nom
+  const existing = data.companyIntelligence[key].find(c =>
+    (companyData.domain && c.domain === companyData.domain) ||
+    (companyData.name && c.name && c.name.toLowerCase() === companyData.name.toLowerCase())
+  );
+  if (existing) {
+    existing.contactedAt = new Date().toISOString();
+    existing.contactCount = (existing.contactCount || 1) + 1;
+    if (companyData.score) existing.score = companyData.score;
+    if (companyData.employees) existing.employees = companyData.employees;
+    if (companyData.city) existing.city = companyData.city;
+  } else {
+    data.companyIntelligence[key].push({
+      name: companyData.name || '',
+      domain: companyData.domain || '',
+      keywords: (companyData.keywords || []).slice(0, 5),
+      employees: companyData.employees || null,
+      score: companyData.score || null,
+      city: companyData.city || null,
+      contactedAt: new Date().toISOString(),
+      contactCount: 1
+    });
+  }
+
+  // Max 50 entreprises par industrie
+  if (data.companyIntelligence[key].length > 50) {
+    data.companyIntelligence[key] = data.companyIntelligence[key].slice(-50);
+  }
+  _save();
+}
+
+function getCompetitorsInIndustry(industry, limit) {
+  if (!industry) return [];
+  const data = _load();
+  if (!data.companyIntelligence) return [];
+  const key = industry.toLowerCase().trim();
+  return (data.companyIntelligence[key] || [])
+    .sort((a, b) => (b.contactedAt || '').localeCompare(a.contactedAt || ''))
+    .slice(0, limit || 10);
+}
+
 module.exports = {
   PILOT_STATES, getPilotState: () => _getPilotState(_load().config),
   getConfig, updateConfig, updateEmailPreferences, updateOffer,
@@ -635,5 +685,6 @@ module.exports = {
   getProspectResearch, saveProspectResearch,
   getNichePerformance, trackNicheEvent,
   trackUsedAngle, getRecentAnglesForIndustry,
+  recordCompetitorContact, getCompetitorsInIndustry,
   getStats, updateStat, incrementStat
 };

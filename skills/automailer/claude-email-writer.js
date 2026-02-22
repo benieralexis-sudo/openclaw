@@ -201,6 +201,16 @@ REGLES STRICTES :
 - PAS de "j'ai vu que" + phrase generique — soit c'est SPECIFIQUE soit tu ne l'ecris pas
 - NE PAS ajouter de signature — elle est ajoutee automatiquement
 
+CONTEXTE SECTORIEL (si fourni dans les donnees) :
+- Tu peux mentionner que d'autres acteurs du meme secteur s'y interessent deja
+- JAMAIS nommer les entreprises — references ANONYMES uniquement : "d'autres agences marketing", "un SaaS B2B de ta taille", "des ESN avec lesquelles on echange"
+- C'est un signal de preuve sociale puissant — l'utiliser subtilement, pas en argument principal
+
+PROFIL PUBLIC (si fourni dans les donnees) :
+- Si le prospect a des interviews, podcasts, conferences — REBONDIR dessus en accroche
+- C'est la meilleure personnalisation possible : "J'ai ecoute ton passage dans [podcast]..."
+- Prioriser le profil public AVANT les donnees entreprise pour l'accroche
+
 OBJET DU MAIL :
 - Court (3-6 mots max), minuscules, naturel
 - Contient le NOM DU PROSPECT ou de son ENTREPRISE

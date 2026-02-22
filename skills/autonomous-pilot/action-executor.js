@@ -745,6 +745,22 @@ Format JSON strict :
       }
     }
 
+    // 8. Profil public personne (interview, podcast, conference)
+    const profileMatch = intelText.match(/profil public[^:]*:([\s\S]*?)(?=\nsignaux|\npriori|\nstack|\nmots|\ncontexte|\nenrich|\n$)/i);
+    if (profileMatch) {
+      const profileKws = profileMatch[1].match(/"([^"]+)"/g);
+      if (profileKws) {
+        for (const pk of profileKws) {
+          const title = pk.replace(/"/g, '').toLowerCase();
+          const words = title.split(/\s+/).filter(w => w.length > 4 && !/^(interview|podcast|article|conference|mention)$/i.test(w));
+          for (const word of words.slice(0, 5)) {
+            if (emailText.includes(word)) { facts.push('person_profile:' + word); break; }
+          }
+          if (facts.some(f => f.startsWith('person_profile:'))) break;
+        }
+      }
+    }
+
     const level = facts.length >= 1 ? 'specific' : 'generic';
     const reason = facts.length === 0 ? 'Aucun fait specifique du brief dans l\'email' : facts.length + ' fait(s)';
     return { level, facts, reason };
@@ -1063,6 +1079,35 @@ Format JSON strict :
             log.info('action-executor', 'Lead Enrich save skip:', leErr.message);
           }
         }
+
+        // Inter-Prospect Memory : enregistrer le contact sectoriel
+        try {
+          let industry = '';
+          if (params._prospectIntel) {
+            const indMatch = params._prospectIntel.match(/(?:industrie|industry):\s*([^,\n)]+)/i);
+            if (indMatch) industry = indMatch[1].trim();
+          }
+          if (!industry) {
+            const leStorageInd = getLeadEnrichStorage();
+            if (leStorageInd && leStorageInd.getEnrichedLead) {
+              const enriched = leStorageInd.getEnrichedLead(params.to);
+              if (enriched && enriched.aiClassification) industry = enriched.aiClassification.industry || '';
+            }
+          }
+          if (industry) {
+            const domain = params.to ? params.to.split('@')[1] : '';
+            const org = params.contact && params.contact.organization;
+            storage.recordCompetitorContact(industry, {
+              name: params.company || (org && org.name) || '',
+              domain: domain,
+              keywords: org ? (org.keywords || []).slice(0, 5) : [],
+              employees: org ? (org.estimated_num_employees || null) : null,
+              score: params.score || 0,
+              city: org ? (org.city || null) : null
+            });
+            log.info('action-executor', 'CompanyIntelligence: enregistre ' + (params.company || '?') + ' dans [' + industry + ']');
+          }
+        } catch (ciErr) {}
 
         return {
           success: true,
