@@ -481,12 +481,12 @@ class CampaignEngine {
         }
       }
 
-      // FIX 13 : A/B testing — appliquer la variante du sujet si step 1
-      if (stepNumber === 1 && !contact._abVariant) {
+      // A/B testing — appliquer la variante du sujet sur TOUS les steps
+      if (!contact._abVariant) {
         contact._abVariant = Math.random() < 0.5 ? 'A' : 'B';
       }
       let abVariant = contact._abVariant || 'A';
-      if (stepNumber === 1 && abVariant === 'B') {
+      if (abVariant === 'B') {
         try {
           const variantSubject = await this.claude.generateSubjectVariant(subject);
           if (variantSubject && variantSubject.length > 3) {
@@ -521,7 +521,7 @@ class CampaignEngine {
         resendId: result.success ? result.id : null,
         trackingId: trackingId,
         status: result.success ? 'sent' : 'failed',
-        abVariant: stepNumber === 1 ? abVariant : undefined
+        abVariant: abVariant
       };
       storage.addEmail(emailRecord);
 
@@ -585,8 +585,12 @@ class CampaignEngine {
     const bounced = emails.filter(e => e.status === 'bounced').length;
     const failed = emails.filter(e => e.status === 'failed').length;
 
-    // FIX 13 : A/B testing stats
+    // A/B testing stats (global + par step)
     const abResults = storage.getABTestResults(campaignId);
+    const abResultsByStep = {};
+    for (const step of campaign.steps) {
+      abResultsByStep[step.stepNumber] = storage.getABTestResults(campaignId, step.stepNumber);
+    }
 
     return {
       campaign: campaign,
@@ -600,6 +604,7 @@ class CampaignEngine {
         openRate: delivered > 0 ? Math.round((opened / delivered) * 100) : 0
       },
       abTestResults: abResults,
+      abResultsByStep: abResultsByStep,
       stepStats: campaign.steps.map(s => ({
         stepNumber: s.stepNumber,
         status: s.status,

@@ -461,8 +461,9 @@ class AutoMailerStorage {
     return email;
   }
 
-  getABTestResults(campaignId) {
-    const emails = this.getEmailsByCampaign(campaignId).filter(e => e.abVariant);
+  getABTestResults(campaignId, stepNumber) {
+    const emails = this.getEmailsByCampaign(campaignId)
+      .filter(e => e.abVariant && (stepNumber ? e.stepNumber === stepNumber : true));
     const results = { A: { sent: 0, delivered: 0, opened: 0, bounced: 0 }, B: { sent: 0, delivered: 0, opened: 0, bounced: 0 } };
 
     for (const email of emails) {
