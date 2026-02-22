@@ -599,6 +599,29 @@ function trackNicheEvent(niche, event) {
   _save();
 }
 
+// --- Tracking d'angles email par industrie (anti-repetition) ---
+
+function trackUsedAngle(industry, angle) {
+  if (!industry || !angle) return;
+  const data = _load();
+  if (!data.usedAngles) data.usedAngles = {};
+  const key = industry.toLowerCase().trim();
+  if (!data.usedAngles[key]) data.usedAngles[key] = [];
+  data.usedAngles[key].push({ angle: angle.substring(0, 150), usedAt: new Date().toISOString() });
+  // Garder les 30 derniers angles par industrie
+  if (data.usedAngles[key].length > 30) data.usedAngles[key] = data.usedAngles[key].slice(-30);
+  _save();
+}
+
+function getRecentAnglesForIndustry(industry, limit) {
+  if (!industry) return [];
+  const data = _load();
+  if (!data.usedAngles) return [];
+  const key = industry.toLowerCase().trim();
+  const angles = data.usedAngles[key] || [];
+  return angles.sort((a, b) => (b.usedAt || '').localeCompare(a.usedAt || '')).slice(0, limit || 10).map(a => a.angle);
+}
+
 module.exports = {
   PILOT_STATES, getPilotState: () => _getPilotState(_load().config),
   getConfig, updateConfig, updateEmailPreferences, updateOffer,
@@ -611,5 +634,6 @@ module.exports = {
   getPatterns, savePatterns, getCriteriaHistory, addCriteriaAdjustment,
   getProspectResearch, saveProspectResearch,
   getNichePerformance, trackNicheEvent,
+  trackUsedAngle, getRecentAnglesForIndustry,
   getStats, updateStat, incrementStat
 };

@@ -612,9 +612,41 @@ Format JSON strict :
     if (params._prospectIntel) {
       context += '\n\n=== DONNEES PROSPECT (OBLIGATOIRE — base ton email sur ces faits) ===\n' + params._prospectIntel;
       context += '\n=== FIN DONNEES PROSPECT ===';
-      context += '\nINSTRUCTION: Utilise les donnees ci-dessus pour une observation SPECIFIQUE. Si trop vagues, base-toi sur le secteur et le titre du prospect (niveau 2).';
+      context += '\nINSTRUCTION: Ton email DOIT citer au moins 1 fait SPECIFIQUE des donnees ci-dessus (chiffre, techno, client, news, service). Si aucun fait specifique disponible, cite au minimum un detail concret (nb employes, annee fondation, ville, stack technique).';
     } else {
       context += '\n\nPas de donnees prospect detaillees. Base ton email sur le SECTEUR + TITRE du contact (niveau 2 : realite metier).';
+    }
+
+    // Rotation d'angles : injecter les angles DEJA utilises pour eviter les repetitions
+    let industryForAngles = '';
+    try {
+      // Deduire l'industrie depuis le brief, Lead Enrich, ou Apollo
+      if (params._prospectIntel) {
+        const indMatch = params._prospectIntel.match(/(?:industrie|industry):\s*([^,\n)]+)/i);
+        if (indMatch) industryForAngles = indMatch[1].trim();
+      }
+      if (!industryForAngles) {
+        const leStorage = getLeadEnrichStorage();
+        if (leStorage) {
+          const enriched = leStorage.getEnrichedLead ? leStorage.getEnrichedLead(contact.email) : null;
+          if (enriched && enriched.aiClassification) industryForAngles = enriched.aiClassification.industry || '';
+        }
+      }
+      if (!industryForAngles && rawContact.industry) industryForAngles = rawContact.industry;
+    } catch (e) {}
+
+    if (industryForAngles) {
+      params._industryForAngles = industryForAngles;
+      const recentAngles = storage.getRecentAnglesForIndustry(industryForAngles, 10);
+      if (recentAngles.length > 0) {
+        context += '\n\n=== ANGLES DEJA UTILISES (NE PAS REPETER) ===';
+        context += '\nSecteur : ' + industryForAngles;
+        context += '\nLes accroches suivantes ont DEJA ete envoyees a des prospects de ce secteur. Tu DOIS utiliser un angle COMPLETEMENT DIFFERENT :';
+        for (const angle of recentAngles) {
+          context += '\n- "' + angle + '"';
+        }
+        context += '\n=== FIN ANGLES UTILISES ===';
+      }
     }
 
     // Signature ajoutee automatiquement par resend-client.js (HTML minimal)
@@ -631,6 +663,74 @@ Format JSON strict :
     } catch (e) {
       return { success: false, error: 'Generation email echouee: ' + e.message };
     }
+  }
+
+  // --- Quality gate : verifier que l'email contient un fait specifique du brief ---
+  _checkEmailSpecificity(body, subject, prospectIntel) {
+    const emailText = ((subject || '') + ' ' + (body || '')).toLowerCase();
+    const intelText = (prospectIntel || '').toLowerCase();
+    const facts = [];
+
+    // 1. Nom d'entreprise/produit cite (pas juste "agence" ou "ESN")
+    const companyMatch = prospectIntel.match(/ENTREPRISE:\s*([^(\n]+)/);
+    if (companyMatch) {
+      const companyName = companyMatch[1].trim().toLowerCase();
+      // Verifier le nom complet ou les mots significatifs (> 3 chars)
+      if (companyName.length > 3 && emailText.includes(companyName)) {
+        facts.push('entreprise');
+      } else {
+        const parts = companyName.split(/[\s-]+/).filter(w => w.length > 3);
+        for (const part of parts) {
+          if (emailText.includes(part)) { facts.push('entreprise_partiel:' + part); break; }
+        }
+      }
+    }
+
+    // 2. Chiffre specifique du brief retrouve dans l'email
+    const intelNumbers = intelText.match(/\d{2,}/g) || [];
+    const emailNumbers = emailText.match(/\d{2,}/g) || [];
+    const sharedNumbers = emailNumbers.filter(n => intelNumbers.includes(n) && parseInt(n) > 3 && parseInt(n) < 100000);
+    if (sharedNumbers.length > 0) facts.push('chiffre:' + sharedNumbers[0]);
+
+    // 3. Technologie du brief citee dans l'email
+    const techMatch = intelText.match(/STACK TECHNIQUE:\s*([^\n]+)/);
+    if (techMatch) {
+      const techs = techMatch[1].split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 2);
+      for (const tech of techs) {
+        if (emailText.includes(tech)) { facts.push('tech:' + tech); break; }
+      }
+    }
+
+    // 4. Evenement recent (news, signal) cite
+    const eventKws = ['levee', 'leve', 'recrute', 'recrutement', 'lance', 'acquisition', 'fusion', 'partenariat', 'expansion', 'ouvert', 'ouvre'];
+    for (const kw of eventKws) {
+      if (emailText.includes(kw) && intelText.includes(kw)) { facts.push('evenement:' + kw); break; }
+    }
+
+    // 5. Client/service specifique de la page /clients ou /services
+    const pageMatch = intelText.match(/\[PAGE [^\]]+\]\s*([^\n]+)/g);
+    if (pageMatch) {
+      for (const pageLine of pageMatch) {
+        const words = pageLine.replace(/\[PAGE [^\]]+\]\s*/, '').split(/\s+/).filter(w => w.length > 4 && !/^(notre|votre|agence|services|clients|pour|avec|dans|plus|tout|nous)$/i.test(w));
+        for (const word of words.slice(0, 15)) {
+          if (emailText.includes(word.toLowerCase())) { facts.push('site:' + word); break; }
+        }
+        if (facts.some(f => f.startsWith('site:'))) break;
+      }
+    }
+
+    // 6. Mot-cle Apollo ou activite cite
+    const kwMatch = intelText.match(/MOTS-CLES:\s*([^\n]+)/);
+    if (kwMatch) {
+      const keywords = kwMatch[1].split(',').map(k => k.trim().toLowerCase()).filter(k => k.length > 3);
+      for (const kw of keywords) {
+        if (emailText.includes(kw)) { facts.push('keyword:' + kw); break; }
+      }
+    }
+
+    const level = facts.length >= 1 ? 'specific' : 'generic';
+    const reason = facts.length === 0 ? 'Aucun fait specifique du brief dans l\'email' : facts.length + ' fait(s)';
+    return { level, facts, reason };
   }
 
   // --- Envoi d'email (apres confirmation) ---
@@ -778,6 +878,41 @@ Format JSON strict :
       }
       params.subject = genResult.email.subject;
       params.body = genResult.email.body || genResult.email.text || genResult.email.html || '';
+
+      // === QUALITY GATE : verifier la specificite de l'email ===
+      if (params.body && params._prospectIntel) {
+        const specificity = this._checkEmailSpecificity(params.body, params.subject, params._prospectIntel);
+        if (specificity.level === 'generic') {
+          log.warn('action-executor', 'Quality gate FAIL pour ' + params.to + ': ' + specificity.reason + ' — regeneration');
+          params._prospectIntel += '\n\n=== INSTRUCTION CRITIQUE ===\nL\'email precedent etait TROP GENERIQUE. Tu DOIS citer un FAIT SPECIFIQUE tire des donnees prospect ci-dessus : un client, un chiffre, une technologie, un evenement recent, un service precis. Si aucun fait specifique n\'est disponible, retourne {"skip": true, "reason": "donnees insuffisantes pour email specifique"}.';
+          params.subject = null;
+          params.body = null;
+          const retryResult = await this._generateEmail(params);
+          if (retryResult.success && retryResult.email && !retryResult.email.skip) {
+            params.subject = retryResult.email.subject;
+            params.body = retryResult.email.body || retryResult.email.text || '';
+            const retrySpecificity = this._checkEmailSpecificity(params.body, params.subject, params._prospectIntel);
+            if (retrySpecificity.level === 'generic') {
+              log.warn('action-executor', 'Quality gate STILL GENERIC apres retry pour ' + params.to + ' — skip');
+              return { success: false, error: 'Email trop generique meme apres retry', skipped: true };
+            }
+            log.info('action-executor', 'Quality gate OK apres retry pour ' + params.to + ': ' + retrySpecificity.facts.join(', '));
+          } else if (retryResult.email && retryResult.email.skip) {
+            log.info('action-executor', 'Quality gate → skip pour ' + params.to + ': donnees insuffisantes');
+            return { success: false, error: 'Skip: donnees insuffisantes pour email specifique', skipped: true };
+          } else {
+            return { success: false, error: 'Regeneration echouee apres quality gate' };
+          }
+        } else {
+          log.info('action-executor', 'Quality gate OK pour ' + params.to + ': ' + specificity.facts.join(', '));
+        }
+      }
+
+      // Tracker l'angle utilise pour la rotation
+      if (params.body && params._industryForAngles) {
+        const firstLine = params.body.split(/[\n.!?]/)[0].trim();
+        if (firstLine.length > 10) storage.trackUsedAngle(params._industryForAngles, firstLine);
+      }
     }
 
     if (!params.subject || !params.body) {

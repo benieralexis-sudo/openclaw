@@ -133,12 +133,32 @@ class ProspectResearcher {
       }
     } catch (e) {}
 
+    const rawArticles = webIntelArticles.status === 'fulfilled' ? webIntelArticles.value : [];
+
+    // Fetch contenu complet des 1-2 articles WI les plus pertinents (score >= 7)
+    const topArticles = rawArticles.filter(a => a.relevance >= 7 && a.url).slice(0, 2);
+    if (topArticles.length > 0) {
+      const fetcher = this._getFetcher();
+      if (fetcher) {
+        const articleFetches = await Promise.allSettled(
+          topArticles.map(a => this._fetchInternalPage(fetcher, a.url, 'article'))
+        );
+        for (let i = 0; i < topArticles.length; i++) {
+          if (articleFetches[i].status === 'fulfilled' && articleFetches[i].value) {
+            // Retrouver l'article dans rawArticles et ajouter le contenu
+            const idx = rawArticles.indexOf(topArticles[i]);
+            if (idx !== -1) rawArticles[idx].fullText = articleFetches[i].value.text;
+          }
+        }
+      }
+    }
+
     const intel = {
       company: company,
       websiteInsights: websiteResult.status === 'fulfilled' ? websiteResult.value : null,
       recentNews: newsResult.status === 'fulfilled' ? newsResult.value : [],
       apolloData: apolloData.status === 'fulfilled' ? apolloData.value : null,
-      existingArticles: webIntelArticles.status === 'fulfilled' ? webIntelArticles.value : [],
+      existingArticles: rawArticles,
       linkedinData: linkedinResult.status === 'fulfilled' ? linkedinResult.value : null,
       leadEnrichData: leadEnrichData,
       marketSignals: marketSignals,
@@ -179,15 +199,51 @@ class ProspectResearcher {
     if (!fetcher) return null;
 
     try {
+      // 1. Homepage
       const result = await fetcher.scrapeWebPage('https://' + domain);
       if (!result) return null;
-      return {
+
+      const insights = {
         title: (result.title || '').substring(0, 200),
         description: (result.description || '').substring(0, 300),
-        textContent: (result.textContent || '').substring(0, 1000)
+        textContent: ''
       };
+
+      // 2. Pages internes cibles (parallele, timeout 5s) — clients, about, services
+      const targetPaths = ['/clients', '/nos-clients', '/references', '/nos-references', '/about', '/a-propos', '/qui-sommes-nous', '/services', '/nos-services'];
+      const internalResults = await Promise.allSettled(
+        targetPaths.slice(0, 4).map(p =>
+          this._fetchInternalPage(fetcher, 'https://' + domain + p, p)
+        )
+      );
+
+      // 3. Combiner les textes (homepage + pages internes)
+      const texts = [];
+      if (result.textContent) texts.push(result.textContent.substring(0, 600));
+      for (const r of internalResults) {
+        if (r.status === 'fulfilled' && r.value) {
+          texts.push('[PAGE ' + r.value.path.toUpperCase() + '] ' + r.value.text);
+        }
+      }
+      insights.textContent = texts.join('\n').substring(0, 2500);
+      return insights;
     } catch (e) {
       log.info('prospect-research', 'Scrape echoue pour ' + domain + ' (non bloquant): ' + e.message);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch une page interne avec timeout court (5s).
+   */
+  async _fetchInternalPage(fetcher, url, path) {
+    try {
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+      const fetch = fetcher.scrapeWebPage(url);
+      const result = await Promise.race([fetch, timeout]);
+      if (!result || !result.textContent || result.textContent.length < 50) return null;
+      return { path: path, text: result.textContent.substring(0, 500) };
+    } catch (e) {
       return null;
     }
   }
@@ -227,8 +283,8 @@ class ProspectResearcher {
       employeeCount: organization.estimated_num_employees || null,
       foundedYear: organization.founded_year || null,
       shortDescription: (organization.short_description || '').substring(0, 300),
-      keywords: (organization.keywords || []).slice(0, 10),
-      technologies: (organization.technologies || []).slice(0, 10),
+      keywords: (organization.keywords || []).slice(0, 15),
+      technologies: (organization.technologies || []).slice(0, 15),
       city: organization.city || null,
       country: organization.country || null,
       linkedinUrl: organization.linkedin_url || null,
@@ -248,7 +304,8 @@ class ProspectResearcher {
       return wiStorage.getRelevantNewsForContact(companyName).map(n => ({
         headline: n.headline,
         date: n.date,
-        relevance: n.relevance
+        relevance: n.relevance,
+        url: n.url || n.link || null
       }));
     } catch (e) {
       return [];
@@ -384,27 +441,37 @@ class ProspectResearcher {
   _parseDDGLinkedInResults(html, name) {
     if (!html || html.length < 200) return null;
 
+    const result = { headline: null, summary: '' };
+
     // DDG HTML: <a class="result__a" href="...linkedin.com/in/...">Title</a>
     const linkMatches = html.match(/<a[^>]*class="result__a"[^>]*href="[^"]*linkedin\.com\/in\/[^"]*"[^>]*>([^<]+)<\/a>/gi);
     if (linkMatches && linkMatches.length > 0) {
       const titleMatch = linkMatches[0].match(/>([^<]+)<\/a>/i);
       if (titleMatch) {
         const raw = titleMatch[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
-        const headline = raw.replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim();
-        if (headline.length > 5) return { headline: headline.substring(0, 200) };
+        result.headline = raw.replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim().substring(0, 200);
       }
     }
 
-    // DDG snippet: <a class="result__snippet" ...>snippet text</a>
-    const snippetMatch = html.match(/<a[^>]*class="result__snippet"[^>]*>([^<]+)</i);
-    if (snippetMatch) {
-      const snippet = snippetMatch[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim();
-      if (snippet.length > 20) {
-        return { headline: name, summary: snippet.substring(0, 200) };
-      }
+    // DDG snippets: collecter TOUS les snippets (pas juste le 1er) pour enrichir le profil
+    const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+    const allSnippets = [];
+    let match;
+    while ((match = snippetRegex.exec(html)) !== null) {
+      const snippet = match[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+      if (snippet.length > 15) allSnippets.push(snippet);
+    }
+    if (allSnippets.length > 0) {
+      result.summary = allSnippets.join(' | ').substring(0, 400);
     }
 
-    return null;
+    if (!result.headline && !result.summary) {
+      // Dernier fallback avec le nom
+      if (allSnippets.length > 0) return { headline: name, summary: allSnippets.join(' | ').substring(0, 400) };
+      return null;
+    }
+    if (!result.headline) result.headline = name;
+    return result;
   }
 
   /**
@@ -500,13 +567,18 @@ class ProspectResearcher {
     if (intel.linkedinData) {
       let liLine = 'LINKEDIN ' + (contact.nom || '') + ': ';
       if (intel.linkedinData.headline) liLine += intel.linkedinData.headline;
-      if (intel.linkedinData.summary) liLine += ' — ' + intel.linkedinData.summary.substring(0, 150);
+      if (intel.linkedinData.summary) liLine += ' — ' + intel.linkedinData.summary.substring(0, 350);
       lines.push(liLine);
     }
 
     // PRIORITE 3 : Technologies — faits verifiables pour observations techniques
     if (intel.apolloData && intel.apolloData.technologies && intel.apolloData.technologies.length > 0) {
-      lines.push('STACK TECHNIQUE: ' + intel.apolloData.technologies.slice(0, 8).join(', '));
+      lines.push('STACK TECHNIQUE: ' + intel.apolloData.technologies.slice(0, 10).join(', '));
+    }
+
+    // PRIORITE 3b : Keywords Apollo — services/produits proposes
+    if (intel.apolloData && intel.apolloData.keywords && intel.apolloData.keywords.length > 0) {
+      lines.push('MOTS-CLES: ' + intel.apolloData.keywords.slice(0, 10).join(', '));
     }
 
     // PRIORITE 4 : Description entreprise (Apollo ou site web, pas les deux)
@@ -522,11 +594,13 @@ class ProspectResearcher {
       if (siteText.length > 50) lines.push('CONTENU SITE: ' + siteText);
     }
 
-    // PRIORITE 5 : Articles Web Intelligence
+    // PRIORITE 5 : Articles Web Intelligence (avec contenu si disponible)
     if (intel.existingArticles.length > 0) {
       lines.push('ARTICLES VEILLE:');
       for (const a of intel.existingArticles.slice(0, 3)) {
-        lines.push('- "' + a.headline + '" [pertinence: ' + a.relevance + '/10]');
+        let artLine = '- "' + a.headline + '" [pertinence: ' + a.relevance + '/10]';
+        if (a.fullText) artLine += '\n  EXTRAIT: ' + a.fullText.substring(0, 300);
+        lines.push(artLine);
       }
     }
 
@@ -542,7 +616,7 @@ class ProspectResearcher {
     }
 
     const brief = lines.join('\n');
-    return brief.substring(0, 3500);
+    return brief.substring(0, 5500);
   }
 }
 
