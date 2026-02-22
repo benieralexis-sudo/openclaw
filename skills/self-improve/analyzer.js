@@ -14,7 +14,7 @@ class Analyzer {
     maxTokens = maxTokens || 2000;
     return new Promise((resolve, reject) => {
       const postData = JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-opus-4-6',
         max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }]
@@ -77,6 +77,10 @@ REGLES :
   * "email_length" : ajuster la longueur des emails
   * "targeting_criteria" : ajuster les criteres de ciblage (score minimum)
   * "industry_focus" : se concentrer sur certains secteurs
+  * "subject_style" : style de sujet (question vs affirmation, court vs long)
+  * "follow_up_cadence" : ajuster le nombre et l'espacement des follow-ups
+  * "niche_targeting" : pivoter vers les niches les plus performantes
+  * "prospect_priority" : prioriser certains profils (titre, taille entreprise)
 - Si les donnees sont insuffisantes (< 10 emails), dis-le honnetement
 
 Reponds UNIQUEMENT en JSON strict :
@@ -85,7 +89,7 @@ Reponds UNIQUEMENT en JSON strict :
   "insights": ["insight 1", "insight 2"],
   "recommendations": [
     {
-      "type": "scoring_weight|send_timing|email_length|targeting_criteria|industry_focus",
+      "type": "scoring_weight|send_timing|email_length|targeting_criteria|industry_focus|subject_style|follow_up_cadence|niche_targeting|prospect_priority",
       "description": "Description claire en francais",
       "action": "nom_action",
       "params": {},
@@ -105,13 +109,60 @@ Reponds UNIQUEMENT en JSON strict :
       ? '\n\nOVERRIDES ACTUELS (deja appliques) :\n' + JSON.stringify(currentOverrides)
       : '';
 
+    // Impact des recos precedentes
+    const completedImpacts = storage.getCompletedImpactTracking(10);
+    const impactContext = completedImpacts.length > 0
+      ? '\n\nIMPACT DES RECOMMANDATIONS PRECEDENTES:\n' +
+        JSON.stringify(completedImpacts.map(t => ({ type: t.recoType, description: t.recoDescription, verdict: t.verdict, delta: t.delta })), null, 2)
+      : '';
+
+    // Performance par type
+    const typePerf = storage.getTypePerformance();
+    const typePerfContext = Object.keys(typePerf).length > 0
+      ? '\n\nPERFORMANCE PAR TYPE DE RECO:\n' + JSON.stringify(typePerf, null, 2) +
+        '\nREGLE: Booste la confiance des types avec ratio improved/applied > 60%. Reduis pour < 30%.'
+      : '';
+
+    // Funnel complet
+    const funnelSnapshots = storage.getFunnelSnapshots(2);
+    const funnelContext = funnelSnapshots.length > 0
+      ? '\n\nFUNNEL COMPLET:\n' + JSON.stringify(funnelSnapshots[0], null, 2)
+      : '';
+
+    // Brain insights
+    const brainInsights = storage.getBrainInsights();
+    const brainContext = brainInsights.lastCollectedAt
+      ? '\n\nINSIGHTS BRAIN ENGINE:\nMeilleure niche: ' + JSON.stringify(brainInsights.bestNiche) +
+        '\nPire niche: ' + JSON.stringify(brainInsights.worstNiche) +
+        '\nPerformance niches: ' + JSON.stringify(brainInsights.nichePerformance)
+      : '';
+
+    // A/B tests
+    const abInsights = storage.getABTestInsights();
+    const abContext = abInsights.lastCollectedAt && abInsights.campaignResults && abInsights.campaignResults.length > 0
+      ? '\n\nRESULTATS A/B TESTS:\n' + JSON.stringify(abInsights.summary) +
+        '\nDetails: ' + JSON.stringify(abInsights.campaignResults.slice(0, 5), null, 2)
+      : '';
+
+    // Anomalies
+    const anomalies = storage.getRecentAnomalies(5);
+    const anomalyContext = anomalies.length > 0
+      ? '\n\nANOMALIES RECENTES:\n' + anomalies.map(a => '- ' + a.type + ': ' + a.message).join('\n')
+      : '';
+
     const userMessage = 'METRIQUES DE CETTE SEMAINE :\n' +
       JSON.stringify(snapshot, null, 2) +
       historyContext +
-      overrideContext;
+      overrideContext +
+      impactContext +
+      typePerfContext +
+      funnelContext +
+      brainContext +
+      abContext +
+      anomalyContext;
 
     try {
-      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 120000 });
       const response = await breaker.call(() => retryAsync(() => this.callClaude(systemPrompt, userMessage, 2000), 2, 3000));
       const cleaned = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const analysis = JSON.parse(cleaned);
@@ -419,6 +470,57 @@ Reponds UNIQUEMENT en JSON strict :
     return record;
   }
 
+  // Mesurer l'impact des recommandations appliquees il y a 14 jours
+  measureAppliedImpact(currentSnapshot) {
+    const due = storage.getTrackingDueForMeasurement();
+    if (due.length === 0) return [];
+
+    const results = [];
+    const automailer = getAutomailerStorageSafe();
+
+    for (const tracking of due) {
+      const baseline = tracking.baselineSnapshot;
+      const impact = {
+        openRate: currentSnapshot.email ? (currentSnapshot.email.openRate || 0) : 0,
+        bounceRate: currentSnapshot.email ? (currentSnapshot.email.bounceRate || 0) : 0,
+        replyRate: 0,
+        avgScore: currentSnapshot.leads ? (currentSnapshot.leads.avgScore || 0) : 0,
+        totalSent: currentSnapshot.email ? (currentSnapshot.email.totalSent || 0) : 0,
+        totalOpened: currentSnapshot.email ? (currentSnapshot.email.totalOpened || 0) : 0,
+        totalReplied: 0
+      };
+
+      if (automailer && automailer.data) {
+        impact.totalReplied = (automailer.data.emails || []).filter(
+          e => e.hasReplied || e.status === 'replied'
+        ).length;
+        if (impact.totalSent > 0) impact.replyRate = Math.round((impact.totalReplied / impact.totalSent) * 100);
+      }
+
+      const delta = {
+        openRate: impact.openRate - (baseline.openRate || 0),
+        bounceRate: impact.bounceRate - (baseline.bounceRate || 0),
+        replyRate: impact.replyRate - (baseline.replyRate || 0),
+        avgScore: Math.round((impact.avgScore - (baseline.avgScore || 0)) * 10) / 10
+      };
+
+      // Reply rate compte double dans le verdict
+      const mainDelta = delta.openRate + delta.replyRate * 2;
+      let verdict = 'neutral';
+      if (mainDelta > 2) verdict = 'positive';
+      else if (mainDelta < -2) verdict = 'negative';
+
+      storage.completeImpactTracking(tracking.recoId, impact, delta, verdict);
+      storage.updateTypePerformance(tracking.recoType, verdict);
+
+      results.push({ recoId: tracking.recoId, type: tracking.recoType, description: tracking.recoDescription, delta, verdict });
+      log.info('self-improve', 'Impact mesure: ' + tracking.recoType + ' → ' + verdict +
+        ' (openRate ' + (delta.openRate > 0 ? '+' : '') + delta.openRate + '%)');
+    }
+
+    return results;
+  }
+
   // Generer le rapport texte pour Telegram (format lisible avec emojis)
   generateReport(snapshot, analysis, accuracyRecord) {
     const lines = [];
@@ -548,6 +650,34 @@ Reponds UNIQUEMENT en JSON strict :
       lines.push('🔧 _"applique"_ = tout valider | _"applique 1"_ = une seule | _"ignore 2"_ = rejeter');
     } else {
       lines.push('✅ Pas de recommandation (donnees insuffisantes ou tout va bien)');
+    }
+
+    // Impact des recommandations precedentes
+    const impacts = storage.getCompletedImpactTracking(5);
+    if (impacts.length > 0) {
+      lines.push('');
+      lines.push('📈 *IMPACT RECOS APPLIQUEES*');
+      for (const imp of impacts) {
+        const icon = imp.verdict === 'positive' ? '✅' : imp.verdict === 'negative' ? '❌' : '➖';
+        lines.push('  ' + icon + ' ' + (imp.recoDescription || imp.recoType));
+        if (imp.delta) {
+          const parts = [];
+          if (imp.delta.openRate !== 0) parts.push('Open ' + (imp.delta.openRate > 0 ? '+' : '') + imp.delta.openRate + '%');
+          if (imp.delta.replyRate !== 0) parts.push('Reply ' + (imp.delta.replyRate > 0 ? '+' : '') + imp.delta.replyRate + '%');
+          if (parts.length > 0) lines.push('      ' + parts.join(' | '));
+        }
+      }
+    }
+
+    // Funnel
+    const latestFunnel = storage.getFunnelSnapshots(1);
+    if (latestFunnel.length > 0) {
+      const f = latestFunnel[0];
+      lines.push('');
+      lines.push('🔄 *FUNNEL*');
+      lines.push('  ' + f.leadsFound + ' leads → ' + f.leadsQualified + ' qualifies → ' + f.emailsSent + ' emails');
+      lines.push('  ' + f.emailsOpened + ' ouverts → ' + f.emailsReplied + ' replies → ' + f.meetingsBooked + ' meetings');
+      if (f.costPerLead) lines.push('  $' + f.costPerLead + '/lead | $' + (f.costPerReply || '?') + '/reply');
     }
 
     return lines.join('\n');

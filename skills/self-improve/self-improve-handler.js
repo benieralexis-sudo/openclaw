@@ -43,6 +43,10 @@ class SelfImproveHandler {
     this.crons.push(new Cron('0 21 * * 3', { timezone: tz }, () => this._weeklyAnalysis()));
     log.info('self-improve', 'Cron: analyse mercredi 21h');
 
+    // Daily anomaly detection (pur JS, pas d'appel IA)
+    this.crons.push(new Cron('0 10 * * *', { timezone: tz }, () => this._dailyAnomalyCheck()));
+    log.info('self-improve', 'Cron: anomaly check quotidien 10h');
+
     log.info('self-improve', 'Demarre avec ' + this.crons.length + ' cron(s)');
   }
 
@@ -130,6 +134,12 @@ Actions :
 - "toggle_auto_apply" : activer/desactiver l'application automatique
   Params: {"enabled": true/false}
   Ex: "active auto-apply", "desactive auto-apply", "mode automatique", "mode manuel"
+- "show_funnel" : voir le funnel complet de prospection (lead → meeting)
+  Ex: "funnel", "pipeline", "conversion", "cout par lead", "ROI"
+- "show_impact" : voir l'impact des recommandations appliquees
+  Ex: "impact des ameliorations", "est-ce que ca a marche ?", "resultats des recos"
+- "show_anomalies" : voir les anomalies recentes
+  Ex: "anomalies", "alertes recentes", "problemes detectes"
 - "confirm_yes" : confirmation positive
   Ex: "oui", "ok", "go", "c'est bon"
 - "confirm_no" : refus
@@ -262,6 +272,15 @@ Reponds UNIQUEMENT en JSON strict :
       case 'confirm_no':
         delete this.pendingConfirmations[String(chatId)];
         return { type: 'text', content: 'Annule.' };
+
+      case 'show_funnel':
+        return this._showFunnel(chatId);
+
+      case 'show_impact':
+        return this._showImpact(chatId);
+
+      case 'show_anomalies':
+        return this._showAnomalies(chatId);
 
       case 'help':
         return { type: 'text', content: this.getHelp() };
@@ -421,6 +440,9 @@ Reponds UNIQUEMENT en JSON strict :
       // 2. Feedback loop
       const accuracyRecord = this.analyzer.comparePredictions();
 
+      // 2b. Mesure d'impact
+      try { this.analyzer.measureAppliedImpact(snapshot); } catch (e) {}
+
       // 3. Analyse IA
       const history = storage.getWeeklySnapshots(4);
       const analysis = await this.analyzer.analyzePerformance(snapshot, history.slice(1));
@@ -558,6 +580,26 @@ Reponds UNIQUEMENT en JSON strict :
 
       // 2. Feedback loop
       const accuracyRecord = this.analyzer.comparePredictions();
+
+      // 2b. Mesurer l'impact des recommandations appliquees il y a 14j
+      let impactResults = [];
+      try {
+        impactResults = this.analyzer.measureAppliedImpact(snapshot);
+        if (impactResults.length > 0) {
+          log.info('self-improve', 'Impact mesure: ' + impactResults.length + ' reco(s) evaluee(s)');
+          const negatives = impactResults.filter(r => r.verdict === 'negative');
+          if (negatives.length > 0 && this.sendTelegram) {
+            let impactMsg = '*Impact negatif detecte*\n';
+            for (const neg of negatives) {
+              impactMsg += '- ' + (neg.description || neg.type) + ': openRate ' + (neg.delta.openRate > 0 ? '+' : '') + neg.delta.openRate + '%\n';
+            }
+            impactMsg += '\nDis _"rollback"_ pour annuler.';
+            await this.sendTelegram(config.adminChatId, impactMsg);
+          }
+        }
+      } catch (e) {
+        log.error('self-improve', 'Erreur mesure impact:', e.message);
+      }
 
       // 3. Analyse IA
       const history = storage.getWeeklySnapshots(4);
@@ -859,6 +901,171 @@ Reponds UNIQUEMENT en JSON strict :
     }
   }
 
+  // --- Funnel / Impact / Anomalies ---
+
+  _showFunnel(chatId) {
+    const funnels = storage.getFunnelSnapshots(2);
+    if (funnels.length === 0) {
+      return { type: 'text', content: 'Pas encore de donnees funnel. Dis _"analyse maintenant"_ pour collecter.' };
+    }
+    const f = funnels[0];
+    const lines = ['*FUNNEL DE PROSPECTION*', ''];
+    lines.push('Leads trouves: ' + f.leadsFound);
+    lines.push('Leads qualifies: ' + f.leadsQualified + (f.conversionRates.foundToQualified ? ' (' + f.conversionRates.foundToQualified + '%)' : ''));
+    lines.push('Leads enrichis: ' + f.leadsEnriched);
+    lines.push('Emails envoyes: ' + f.emailsSent);
+    lines.push('Emails ouverts: ' + f.emailsOpened + (f.conversionRates.emailedToOpened ? ' (' + f.conversionRates.emailedToOpened + '%)' : ''));
+    lines.push('Replies recues: ' + f.emailsReplied + (f.conversionRates.emailedToReplied ? ' (' + f.conversionRates.emailedToReplied + '%)' : ''));
+    lines.push('Meetings: ' + f.meetingsBooked);
+    lines.push('Deals: ' + f.dealsCreated);
+    if (f.costPerLead || f.totalApiCost) {
+      lines.push('');
+      if (f.costPerLead) lines.push('Cout/lead: $' + f.costPerLead);
+      if (f.costPerReply) lines.push('Cout/reply: $' + f.costPerReply);
+      if (f.costPerMeeting) lines.push('Cout/meeting: $' + f.costPerMeeting);
+      if (f.totalApiCost) lines.push('Cout API total (7j): $' + f.totalApiCost.toFixed(2));
+    }
+    if (funnels.length >= 2) {
+      const prev = funnels[1];
+      const delta = f.emailsReplied - (prev.emailsReplied || 0);
+      if (delta !== 0) {
+        lines.push('');
+        lines.push('_vs semaine prec: replies ' + (delta > 0 ? '+' : '') + delta + '_');
+      }
+    }
+    return { type: 'text', content: lines.join('\n') };
+  }
+
+  _showImpact(chatId) {
+    const impacts = storage.getCompletedImpactTracking(10);
+    if (impacts.length === 0) {
+      return { type: 'text', content: 'Aucune mesure d\'impact encore. Les recos sont evaluees 14 jours apres application.' };
+    }
+    const lines = ['*IMPACT DES RECOMMANDATIONS*', ''];
+    for (const imp of impacts) {
+      const icon = imp.verdict === 'positive' ? '+' : imp.verdict === 'negative' ? '-' : '=';
+      const date = imp.measuredAt ? new Date(imp.measuredAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '?';
+      lines.push('[' + icon + '] ' + (imp.recoDescription || imp.recoType) + ' (' + date + ')');
+      if (imp.delta) {
+        const parts = [];
+        if (imp.delta.openRate !== 0) parts.push('Open ' + (imp.delta.openRate > 0 ? '+' : '') + imp.delta.openRate + '%');
+        if (imp.delta.replyRate !== 0) parts.push('Reply ' + (imp.delta.replyRate > 0 ? '+' : '') + imp.delta.replyRate + '%');
+        if (parts.length > 0) lines.push('    ' + parts.join(' | '));
+      }
+    }
+    const typePerf = storage.getTypePerformance();
+    if (Object.keys(typePerf).length > 0) {
+      lines.push('');
+      lines.push('*Par type:*');
+      for (const [type, perf] of Object.entries(typePerf)) {
+        const successRate = perf.applied > 0 ? Math.round((perf.improved / perf.applied) * 100) : 0;
+        lines.push('  ' + type + ': ' + perf.improved + '/' + perf.applied + ' positives (' + successRate + '%)');
+      }
+    }
+    return { type: 'text', content: lines.join('\n') };
+  }
+
+  _showAnomalies(chatId) {
+    const anomalies = storage.getRecentAnomalies(10);
+    if (anomalies.length === 0) {
+      return { type: 'text', content: 'Aucune anomalie recente detectee.' };
+    }
+    const lines = ['*ANOMALIES RECENTES*', ''];
+    for (const a of anomalies) {
+      const date = a.detectedAt ? new Date(a.detectedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '?';
+      const icon = a.severity === 'high' ? '!!' : a.severity === 'medium' ? '!' : 'i';
+      lines.push('[' + icon + '] ' + date + ' — ' + a.message);
+    }
+    return { type: 'text', content: lines.join('\n') };
+  }
+
+  // --- Daily Anomaly Detection (pur JS, pas d'appel IA) ---
+
+  async _dailyAnomalyCheck() {
+    const config = storage.getConfig();
+    if (!config.enabled) return;
+
+    log.info('self-improve', 'Anomaly check quotidien...');
+
+    try {
+      const metrics = this.metricsCollector.getRecentMetrics(24);
+      if (!metrics) return;
+
+      const anomalies = [];
+
+      // 1. Bounce rate spike (>10%)
+      if (metrics.sent >= 5 && metrics.bounceRate > 10) {
+        anomalies.push({
+          type: 'bounce_spike', severity: 'high',
+          message: 'Taux de bounce eleve: ' + metrics.bounceRate + '% (' + metrics.bounced + '/' + metrics.sent + ' en 24h)',
+          metrics: { bounceRate: metrics.bounceRate, sent: metrics.sent, bounced: metrics.bounced }
+        });
+      }
+
+      // 2. Open rate drop vs moyenne
+      const latestSnapshot = storage.getLatestSnapshot();
+      if (latestSnapshot && latestSnapshot.email && latestSnapshot.email.openRate > 0) {
+        const avgOpenRate = latestSnapshot.email.openRate;
+        if (metrics.sent >= 5 && metrics.openRate < avgOpenRate * 0.5) {
+          anomalies.push({
+            type: 'open_rate_drop', severity: 'medium',
+            message: 'Open rate en chute: ' + metrics.openRate + '% vs ' + avgOpenRate + '% (moyenne)',
+            metrics: { currentOpenRate: metrics.openRate, avgOpenRate }
+          });
+        }
+      }
+
+      // 3. Budget exceeded
+      if (metrics.budgetStatus && metrics.budgetStatus.todaySpent >= (metrics.budgetStatus.dailyLimit || 5)) {
+        anomalies.push({
+          type: 'budget_exceeded', severity: 'high',
+          message: 'Budget API depasse: $' + (metrics.budgetStatus.todaySpent || 0).toFixed(2) + '/$' + (metrics.budgetStatus.dailyLimit || 5).toFixed(2),
+          metrics: metrics.budgetStatus
+        });
+      }
+
+      // 4. Circuit breaker tripped
+      if (metrics.breakerStatus) {
+        for (const [name, status] of Object.entries(metrics.breakerStatus)) {
+          if (status.state === 'OPEN') {
+            anomalies.push({
+              type: 'circuit_breaker', severity: 'high',
+              message: 'Circuit breaker OPEN: ' + name,
+              metrics: { service: name, failures: status.failures }
+            });
+          }
+        }
+      }
+
+      // 5. No activity on weekday
+      const dayOfWeek = new Date().getDay();
+      if (dayOfWeek >= 1 && dayOfWeek <= 5 && metrics.sent === 0) {
+        anomalies.push({
+          type: 'no_activity', severity: 'low',
+          message: 'Aucun email envoye en 24h (jour ouvre)',
+          metrics: { sent: 0, day: dayOfWeek }
+        });
+      }
+
+      for (const anomaly of anomalies) {
+        storage.addAnomaly(anomaly);
+      }
+
+      if (anomalies.length > 0 && this.sendTelegram) {
+        const lines = ['*ALERTE Self-Improve*', ''];
+        for (const a of anomalies) {
+          const icon = a.severity === 'high' ? '!!' : a.severity === 'medium' ? '!' : 'i';
+          lines.push('[' + icon + '] ' + a.message);
+        }
+        await this.sendTelegram(config.adminChatId, lines.join('\n'));
+      }
+
+      log.info('self-improve', 'Anomaly check: ' + anomalies.length + ' anomalie(s)');
+    } catch (e) {
+      log.error('self-improve', 'Erreur anomaly check:', e.message);
+    }
+  }
+
   // --- Aide ---
 
   getHelp() {
@@ -871,6 +1078,9 @@ Reponds UNIQUEMENT en JSON strict :
       '  _"tes recommandations"_ — suggestions d\'amelioration',
       '  _"metriques"_ — stats de performance',
       '  _"historique"_ — modifications appliquees',
+      '  _"funnel"_ — pipeline complet lead → meeting',
+      '  _"impact"_ — resultats des recos appliquees',
+      '  _"anomalies"_ — alertes recentes',
       '  _"status self-improve"_ — etat du systeme',
       '',
       '*Agir :*',

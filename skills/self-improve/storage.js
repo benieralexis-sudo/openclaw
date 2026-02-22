@@ -84,7 +84,18 @@ class SelfImproveStorage {
         currentAccuracy: null,
         lastAnalysisAt: null,
         createdAt: new Date().toISOString()
-      }
+      },
+      impactTracking: {
+        activeTracking: [],
+        completedTracking: []
+      },
+      typePerformance: {},
+      funnel: {
+        weeklyFunnelSnapshots: []
+      },
+      anomalyHistory: [],
+      brainInsights: { lastCollectedAt: null, nichePerformance: {}, learnings: {}, weeklyPerformance: [] },
+      abTestInsights: { lastCollectedAt: null, campaignResults: [], summary: null }
     };
   }
 
@@ -290,6 +301,137 @@ class SelfImproveStorage {
 
   getStats() {
     return this.data.stats;
+  }
+
+  // --- Impact Tracking ---
+
+  startImpactTracking(recoId, recoType, recoDescription, baselineSnapshot) {
+    if (!this.data.impactTracking) this.data.impactTracking = { activeTracking: [], completedTracking: [] };
+    const tracking = {
+      recoId,
+      recoType,
+      recoDescription,
+      appliedAt: new Date().toISOString(),
+      baselineSnapshot,
+      measureAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      measured: false,
+      impactSnapshot: null,
+      delta: null,
+      verdict: null
+    };
+    this.data.impactTracking.activeTracking.push(tracking);
+    if (this.data.impactTracking.activeTracking.length > 50) {
+      this.data.impactTracking.activeTracking = this.data.impactTracking.activeTracking.slice(-50);
+    }
+    this._save();
+    return tracking;
+  }
+
+  getTrackingDueForMeasurement() {
+    if (!this.data.impactTracking) return [];
+    const now = new Date().toISOString();
+    return this.data.impactTracking.activeTracking.filter(t => !t.measured && t.measureAt <= now);
+  }
+
+  completeImpactTracking(recoId, impactSnapshot, delta, verdict) {
+    if (!this.data.impactTracking) return null;
+    const idx = this.data.impactTracking.activeTracking.findIndex(t => t.recoId === recoId);
+    if (idx === -1) return null;
+    const tracking = this.data.impactTracking.activeTracking.splice(idx, 1)[0];
+    tracking.measured = true;
+    tracking.impactSnapshot = impactSnapshot;
+    tracking.delta = delta;
+    tracking.verdict = verdict;
+    tracking.measuredAt = new Date().toISOString();
+    this.data.impactTracking.completedTracking.unshift(tracking);
+    if (this.data.impactTracking.completedTracking.length > 100) {
+      this.data.impactTracking.completedTracking = this.data.impactTracking.completedTracking.slice(0, 100);
+    }
+    this._save();
+    return tracking;
+  }
+
+  getCompletedImpactTracking(limit) {
+    if (!this.data.impactTracking) return [];
+    return this.data.impactTracking.completedTracking.slice(0, limit || 20);
+  }
+
+  // --- Type Performance ---
+
+  getTypePerformance() {
+    if (!this.data.typePerformance) this.data.typePerformance = {};
+    return this.data.typePerformance;
+  }
+
+  updateTypePerformance(type, verdict) {
+    if (!this.data.typePerformance) this.data.typePerformance = {};
+    if (!this.data.typePerformance[type]) {
+      this.data.typePerformance[type] = { applied: 0, improved: 0, worsened: 0, neutral: 0 };
+    }
+    const tp = this.data.typePerformance[type];
+    tp.applied++;
+    if (verdict === 'positive') tp.improved++;
+    else if (verdict === 'negative') tp.worsened++;
+    else tp.neutral++;
+    this._save();
+  }
+
+  // --- Funnel ---
+
+  saveFunnelSnapshot(snapshot) {
+    if (!this.data.funnel) this.data.funnel = { weeklyFunnelSnapshots: [] };
+    this.data.funnel.weeklyFunnelSnapshots.unshift(snapshot);
+    if (this.data.funnel.weeklyFunnelSnapshots.length > 52) {
+      this.data.funnel.weeklyFunnelSnapshots = this.data.funnel.weeklyFunnelSnapshots.slice(0, 52);
+    }
+    this._save();
+  }
+
+  getFunnelSnapshots(limit) {
+    if (!this.data.funnel) return [];
+    return this.data.funnel.weeklyFunnelSnapshots.slice(0, limit || 12);
+  }
+
+  // --- Anomaly History ---
+
+  addAnomaly(anomaly) {
+    if (!this.data.anomalyHistory) this.data.anomalyHistory = [];
+    this.data.anomalyHistory.unshift({
+      ...anomaly,
+      detectedAt: new Date().toISOString(),
+      resolved: false
+    });
+    if (this.data.anomalyHistory.length > 200) {
+      this.data.anomalyHistory = this.data.anomalyHistory.slice(0, 200);
+    }
+    this._save();
+  }
+
+  getRecentAnomalies(limit) {
+    if (!this.data.anomalyHistory) return [];
+    return this.data.anomalyHistory.slice(0, limit || 20);
+  }
+
+  // --- Brain Insights ---
+
+  saveBrainInsights(insights) {
+    this.data.brainInsights = { ...insights, lastCollectedAt: new Date().toISOString() };
+    this._save();
+  }
+
+  getBrainInsights() {
+    return this.data.brainInsights || { lastCollectedAt: null, nichePerformance: {}, learnings: {}, weeklyPerformance: [] };
+  }
+
+  // --- A/B Test Insights ---
+
+  saveABTestInsights(insights) {
+    this.data.abTestInsights = { ...insights, lastCollectedAt: new Date().toISOString() };
+    this._save();
+  }
+
+  getABTestInsights() {
+    return this.data.abTestInsights || { lastCollectedAt: null, campaignResults: [], summary: null };
   }
 }
 

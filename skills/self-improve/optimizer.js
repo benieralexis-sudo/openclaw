@@ -21,6 +21,45 @@ function getAutomailerStorage() {
 class Optimizer {
   constructor() {}
 
+  // Capturer un baseline des metriques actuelles (pour mesure d'impact)
+  _captureBaseline() {
+    const automailer = getAutomailerStorage();
+    const baseline = {
+      openRate: 0, bounceRate: 0, replyRate: 0, avgScore: 0,
+      totalSent: 0, totalOpened: 0, totalReplied: 0,
+      capturedAt: new Date().toISOString()
+    };
+
+    if (automailer && automailer.data) {
+      const emails = automailer.data.emails || [];
+      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const recent = emails.filter(e => {
+        const ts = e.sentAt ? new Date(e.sentAt).getTime() : 0;
+        return ts >= oneWeekAgo;
+      });
+      baseline.totalSent = recent.filter(e => e.status !== 'queued').length;
+      baseline.totalOpened = recent.filter(e => e.openedAt).length;
+      baseline.totalReplied = recent.filter(e => e.hasReplied || e.status === 'replied').length;
+      const totalBounced = recent.filter(e => e.status === 'bounced').length;
+      if (baseline.totalSent > 0) {
+        baseline.openRate = Math.round((baseline.totalOpened / baseline.totalSent) * 100);
+        baseline.bounceRate = Math.round((totalBounced / baseline.totalSent) * 100);
+        baseline.replyRate = Math.round((baseline.totalReplied / baseline.totalSent) * 100);
+      }
+    }
+
+    const leadStorage = getLeadEnrichStorage();
+    if (leadStorage && leadStorage.data) {
+      const leads = Object.values(leadStorage.data.enrichedContacts || leadStorage.data.enrichedLeads || {});
+      const scores = leads.map(l => (l.aiClassification && l.aiClassification.score) || 0).filter(s => s > 0);
+      if (scores.length > 0) {
+        baseline.avgScore = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10;
+      }
+    }
+
+    return baseline;
+  }
+
   // Creer un backup des configs actuelles avant modification
   createBackup() {
     const currentConfig = {
@@ -42,26 +81,42 @@ class Optimizer {
   applyRecommendation(reco) {
     if (!reco || !reco.type) return { success: false, error: 'Recommandation invalide' };
 
+    // Capturer baseline pour mesure d'impact
+    const baselineSnapshot = this._captureBaseline();
+
     try {
+      let result;
       switch (reco.type) {
         case 'scoring_weight':
-          return this._applyScoringWeight(reco);
-
+          result = this._applyScoringWeight(reco); break;
         case 'send_timing':
-          return this._applySendTiming(reco);
-
+          result = this._applySendTiming(reco); break;
         case 'email_length':
-          return this._applyEmailLength(reco);
-
+          result = this._applyEmailLength(reco); break;
         case 'targeting_criteria':
-          return this._applyTargetingCriteria(reco);
-
+          result = this._applyTargetingCriteria(reco); break;
         case 'industry_focus':
-          return this._applyIndustryFocus(reco);
-
+          result = this._applyIndustryFocus(reco); break;
+        case 'subject_style':
+          result = this._applySubjectStyle(reco); break;
+        case 'follow_up_cadence':
+          result = this._applyFollowUpCadence(reco); break;
+        case 'niche_targeting':
+          result = this._applyNicheTargeting(reco); break;
+        case 'prospect_priority':
+          result = this._applyProspectPriority(reco); break;
         default:
           return { success: false, error: 'Type de recommandation inconnu: ' + reco.type };
       }
+
+      // Demarrer le suivi d'impact si application reussie
+      if (result && result.success) {
+        try {
+          storage.startImpactTracking(reco.id, reco.type, reco.description || reco.type, baselineSnapshot);
+        } catch (e) { console.error('[optimizer] Erreur demarrage impact tracking:', e.message); }
+      }
+
+      return result;
     } catch (error) {
       console.error('[optimizer] Erreur application:', error.message);
       return { success: false, error: error.message };
@@ -138,6 +193,51 @@ class Optimizer {
 
     console.log('[optimizer] Focus industrie mis a jour');
     return { success: true, applied: 'industry_focus', before: currentWeights, after: storage.getScoringWeights() };
+  }
+
+  _applySubjectStyle(reco) {
+    const params = reco.params || {};
+    const currentPrefs = storage.getEmailPreferences();
+    const updates = {};
+    if (params.subjectStyle) updates.subjectStyle = params.subjectStyle;
+    if (params.preferredSubjectLength) updates.preferredSubjectLength = params.preferredSubjectLength;
+    storage.setEmailPreferences(updates);
+    console.log('[optimizer] Style sujet mis a jour');
+    return { success: true, applied: 'subject_style', before: currentPrefs, after: storage.getEmailPreferences() };
+  }
+
+  _applyFollowUpCadence(reco) {
+    const params = reco.params || {};
+    const currentPrefs = storage.getEmailPreferences();
+    const updates = {};
+    if (params.maxSteps) updates.recommendedMaxSteps = params.maxSteps;
+    if (params.stepDays) updates.recommendedStepDays = params.stepDays;
+    storage.setEmailPreferences(updates);
+    console.log('[optimizer] Cadence follow-up mise a jour');
+    return { success: true, applied: 'follow_up_cadence', before: currentPrefs, after: storage.getEmailPreferences() };
+  }
+
+  _applyNicheTargeting(reco) {
+    const params = reco.params || {};
+    const currentCriteria = storage.getTargetingCriteria();
+    const updates = {};
+    if (params.focusNiches) updates.focusNiches = params.focusNiches;
+    if (params.excludeNiches) updates.excludeNiches = params.excludeNiches;
+    storage.setTargetingCriteria(updates);
+    console.log('[optimizer] Niche targeting mis a jour');
+    return { success: true, applied: 'niche_targeting', before: currentCriteria, after: storage.getTargetingCriteria() };
+  }
+
+  _applyProspectPriority(reco) {
+    const params = reco.params || {};
+    const currentCriteria = storage.getTargetingCriteria();
+    const updates = {};
+    if (params.preferredTitles) updates.preferredTitles = params.preferredTitles;
+    if (params.preferredCompanySize) updates.preferredCompanySize = params.preferredCompanySize;
+    if (params.minScore !== undefined) updates.minScore = params.minScore;
+    storage.setTargetingCriteria(updates);
+    console.log('[optimizer] Priorite prospect mise a jour');
+    return { success: true, applied: 'prospect_priority', before: currentCriteria, after: storage.getTargetingCriteria() };
   }
 
   // Appliquer plusieurs recommandations d'un coup

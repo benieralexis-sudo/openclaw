@@ -34,6 +34,46 @@ function getProactiveStorage() {
   }
 }
 
+function getAutonomousPilotStorage() {
+  try { return require('../autonomous-pilot/storage.js'); }
+  catch (e) {
+    try { return require('/app/skills/autonomous-pilot/storage.js'); }
+    catch (e2) { return null; }
+  }
+}
+
+function getMeetingSchedulerStorage() {
+  try { return require('../meeting-scheduler/storage.js'); }
+  catch (e) {
+    try { return require('/app/skills/meeting-scheduler/storage.js'); }
+    catch (e2) { return null; }
+  }
+}
+
+function getCrmPilotStorage() {
+  try { return require('../crm-pilot/storage.js'); }
+  catch (e) {
+    try { return require('/app/skills/crm-pilot/storage.js'); }
+    catch (e2) { return null; }
+  }
+}
+
+function getAppConfig() {
+  try { return require('../../gateway/app-config.js'); }
+  catch (e) {
+    try { return require('/app/gateway/app-config.js'); }
+    catch (e2) { return null; }
+  }
+}
+
+function getCircuitBreakerModule() {
+  try { return require('../../gateway/circuit-breaker.js'); }
+  catch (e) {
+    try { return require('/app/gateway/circuit-breaker.js'); }
+    catch (e2) { return null; }
+  }
+}
+
 class MetricsCollector {
   constructor() {}
 
@@ -317,6 +357,11 @@ class MetricsCollector {
     const leadMetrics = this.collectLeadMetrics();
     const crossMetrics = this.collectCrossMetrics();
 
+    // Collectes v3
+    const funnelMetrics = this.collectFunnelMetrics();
+    const brainMetrics = this.collectBrainMetrics();
+    const abTestMetrics = this.collectABTestMetrics();
+
     // Ajouter les top patterns depuis les details individuels
     const detailedInsights = this._extractDetailedInsights(emailDetails);
 
@@ -327,6 +372,9 @@ class MetricsCollector {
       leads: leadMetrics,
       cross: crossMetrics,
       detailedInsights: detailedInsights,
+      funnel: funnelMetrics,
+      brain: brainMetrics,
+      abTests: abTestMetrics,
       emailDetailsCount: emailDetails.length,
       currentOverrides: {
         scoringWeights: storage.getScoringWeights(),
@@ -425,6 +473,220 @@ class MetricsCollector {
       byTitleLevel: calcRate(byTitleLevel),
       bySubjectLength: calcRate(bySubjectLength),
       avgResponseDelayHours: avgDelay
+    };
+  }
+  // --- Funnel complet lead → meeting ---
+  collectFunnelMetrics() {
+    const flowfast = getFlowfastStorage();
+    const automailer = getAutomailerStorage();
+    const meetingScheduler = getMeetingSchedulerStorage();
+    const crmPilot = getCrmPilotStorage();
+    const appConfig = getAppConfig();
+
+    const funnel = {
+      date: new Date().toISOString().split('T')[0],
+      leadsFound: 0, leadsQualified: 0, leadsEnriched: 0,
+      emailsSent: 0, emailsOpened: 0, emailsReplied: 0,
+      meetingsBooked: 0, dealsCreated: 0,
+      conversionRates: {},
+      costPerLead: null, costPerReply: null, costPerMeeting: null,
+      totalApiCost: 0
+    };
+
+    if (flowfast && flowfast.data && flowfast.data.stats) {
+      funnel.leadsFound = flowfast.data.stats.totalLeadsFound || 0;
+      funnel.leadsQualified = flowfast.data.stats.totalLeadsQualified || 0;
+    }
+
+    const leadStorage = getLeadEnrichStorage();
+    if (leadStorage && leadStorage.data) {
+      funnel.leadsEnriched = Object.keys(leadStorage.data.enrichedContacts || leadStorage.data.enrichedLeads || {}).length;
+    }
+
+    if (automailer && automailer.data) {
+      const stats = automailer.data.stats || {};
+      funnel.emailsSent = stats.totalEmailsSent || 0;
+      funnel.emailsOpened = stats.totalEmailsOpened || 0;
+      funnel.emailsReplied = (automailer.data.emails || []).filter(
+        e => e.hasReplied || e.status === 'replied'
+      ).length;
+    }
+
+    if (meetingScheduler && meetingScheduler.data && meetingScheduler.data.stats) {
+      funnel.meetingsBooked = meetingScheduler.data.stats.totalBooked || 0;
+    }
+
+    if (crmPilot && crmPilot.data && crmPilot.data.stats) {
+      funnel.dealsCreated = crmPilot.data.stats.totalDealsCreated || 0;
+    }
+
+    if (appConfig) {
+      try {
+        const budget = appConfig.getBudgetStatus();
+        const history = budget.history || [];
+        const last7 = history.slice(-7);
+        funnel.totalApiCost = last7.reduce((sum, d) => sum + (d.spent || 0), 0) + (budget.todaySpent || 0);
+      } catch (e) {}
+    }
+
+    // Conversion rates
+    if (funnel.leadsFound > 0) funnel.conversionRates.foundToQualified = Math.round((funnel.leadsQualified / funnel.leadsFound) * 100);
+    if (funnel.leadsQualified > 0) funnel.conversionRates.qualifiedToEmailed = Math.round((funnel.emailsSent / funnel.leadsQualified) * 100);
+    if (funnel.emailsSent > 0) {
+      funnel.conversionRates.emailedToOpened = Math.round((funnel.emailsOpened / funnel.emailsSent) * 100);
+      funnel.conversionRates.emailedToReplied = Math.round((funnel.emailsReplied / funnel.emailsSent) * 100);
+    }
+    if (funnel.emailsOpened > 0) funnel.conversionRates.openedToReplied = Math.round((funnel.emailsReplied / funnel.emailsOpened) * 100);
+    if (funnel.emailsReplied > 0 && funnel.meetingsBooked > 0) funnel.conversionRates.repliedToMeeting = Math.round((funnel.meetingsBooked / funnel.emailsReplied) * 100);
+
+    // Cost per metric
+    if (funnel.totalApiCost > 0) {
+      if (funnel.leadsFound > 0) funnel.costPerLead = Math.round((funnel.totalApiCost / funnel.leadsFound) * 100) / 100;
+      if (funnel.emailsReplied > 0) funnel.costPerReply = Math.round((funnel.totalApiCost / funnel.emailsReplied) * 100) / 100;
+      if (funnel.meetingsBooked > 0) funnel.costPerMeeting = Math.round((funnel.totalApiCost / funnel.meetingsBooked) * 100) / 100;
+    }
+
+    storage.saveFunnelSnapshot(funnel);
+    return funnel;
+  }
+
+  // --- Brain Engine insights ---
+  collectBrainMetrics() {
+    const apStorage = getAutonomousPilotStorage();
+    if (!apStorage) return { available: false };
+
+    try {
+      const nichePerf = apStorage.getNichePerformance();
+      const learnings = apStorage.getLearnings();
+      const progress = apStorage.getProgress();
+
+      const insights = {
+        available: true,
+        nichePerformance: nichePerf,
+        bestNiche: null,
+        worstNiche: null,
+        learnings: {
+          bestSearchCriteria: (learnings.bestSearchCriteria || []).slice(0, 5),
+          bestEmailStyles: (learnings.bestEmailStyles || []).slice(0, 5),
+          bestSendTimes: (learnings.bestSendTimes || []).slice(0, 5)
+        },
+        weeklyPerformance: (learnings.weeklyPerformance || []).slice(0, 8),
+        currentProgress: progress
+      };
+
+      // Meilleure et pire niche
+      const niches = Object.entries(nichePerf);
+      if (niches.length > 0) {
+        const sorted = niches
+          .filter(([, np]) => (np.sent || 0) >= 3)
+          .map(([name, np]) => ({
+            name, ...np,
+            openRate: np.sent > 0 ? Math.round((np.opened / np.sent) * 100) : 0,
+            replyRate: np.sent > 0 ? Math.round(((np.replied || 0) / np.sent) * 100) : 0
+          }))
+          .sort((a, b) => b.openRate - a.openRate);
+        if (sorted.length > 0) {
+          insights.bestNiche = sorted[0];
+          insights.worstNiche = sorted[sorted.length - 1];
+        }
+      }
+
+      storage.saveBrainInsights(insights);
+      return insights;
+    } catch (e) {
+      console.error('[metrics-collector] Erreur brain metrics:', e.message);
+      return { available: false };
+    }
+  }
+
+  // --- A/B Test insights ---
+  collectABTestMetrics() {
+    const automailer = getAutomailerStorage();
+    if (!automailer || !automailer.data || !automailer.getABTestResults) return { available: false };
+
+    try {
+      const campaigns = Object.values(automailer.data.campaigns || {});
+      if (campaigns.length === 0) return { available: false };
+
+      const campaignResults = [];
+      let totalAWins = 0, totalBWins = 0, totalABEmails = 0;
+
+      for (const campaign of campaigns) {
+        const abResults = automailer.getABTestResults(campaign.id);
+        if (!abResults || abResults.totalEmails === 0) continue;
+
+        totalABEmails += abResults.totalEmails;
+        if (abResults.winner === 'A') totalAWins++;
+        else if (abResults.winner === 'B') totalBWins++;
+
+        campaignResults.push({
+          campaignId: campaign.id,
+          campaignName: campaign.name || campaign.id,
+          totalEmails: abResults.totalEmails,
+          winner: abResults.winner,
+          aOpenRate: abResults.A ? abResults.A.openRate : 0,
+          bOpenRate: abResults.B ? abResults.B.openRate : 0
+        });
+      }
+
+      const insights = {
+        available: campaignResults.length > 0,
+        campaignResults,
+        summary: {
+          totalCampaignsWithAB: campaignResults.length,
+          totalABEmails,
+          aWins: totalAWins,
+          bWins: totalBWins,
+          variantWinRate: (totalAWins + totalBWins) > 0 ? Math.round((totalBWins / (totalAWins + totalBWins)) * 100) : null
+        }
+      };
+
+      storage.saveABTestInsights(insights);
+      return insights;
+    } catch (e) {
+      console.error('[metrics-collector] Erreur AB test metrics:', e.message);
+      return { available: false };
+    }
+  }
+
+  // --- Snapshot leger pour anomaly detection (pur JS, pas d'IA) ---
+  getRecentMetrics(hours) {
+    hours = hours || 24;
+    const automailer = getAutomailerStorage();
+    if (!automailer || !automailer.data) return null;
+
+    const cutoff = Date.now() - hours * 60 * 60 * 1000;
+    const recentEmails = (automailer.data.emails || []).filter(e => {
+      const ts = e.sentAt ? new Date(e.sentAt).getTime() : 0;
+      return ts >= cutoff;
+    });
+
+    const sent = recentEmails.filter(e => e.status !== 'queued').length;
+    const opened = recentEmails.filter(e => e.openedAt).length;
+    const bounced = recentEmails.filter(e => e.status === 'bounced').length;
+    const replied = recentEmails.filter(e => e.hasReplied || e.status === 'replied').length;
+
+    const cb = getCircuitBreakerModule();
+    let breakerStatus = {};
+    if (cb && cb.getAllStatus) {
+      try { breakerStatus = cb.getAllStatus(); } catch (e) {}
+    }
+
+    const appConfig = getAppConfig();
+    let budgetStatus = {};
+    if (appConfig) {
+      try { budgetStatus = appConfig.getBudgetStatus(); } catch (e) {}
+    }
+
+    return {
+      period: hours + 'h',
+      sent, opened, bounced, replied,
+      openRate: sent > 0 ? Math.round((opened / sent) * 100) : 0,
+      bounceRate: sent > 0 ? Math.round((bounced / sent) * 100) : 0,
+      replyRate: sent > 0 ? Math.round((replied / sent) * 100) : 0,
+      breakerStatus,
+      budgetStatus,
+      collectedAt: new Date().toISOString()
     };
   }
 }
