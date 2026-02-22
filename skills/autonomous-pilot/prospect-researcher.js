@@ -60,6 +60,95 @@ class ProspectResearcher {
   }
 
   /**
+   * Helper universel : recherche DDG → Bing fallback.
+   * Retourne le HTML brut de la page de resultats, ou null.
+   * Resout le probleme DDG 202 (rate-limited) en basculant sur Bing automatiquement.
+   */
+  async _searchWithFallback(query) {
+    const fetcher = this._getFetcher();
+    if (!fetcher) return null;
+
+    // Tentative 1 : DDG HTML
+    try {
+      const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
+      const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
+      if (result && result.statusCode === 200 && result.body && result.body.length > 500) {
+        return { html: result.body, source: 'ddg' };
+      }
+      // DDG 202 = rate-limited, retry une fois apres 1.5s
+      if (result && result.statusCode === 202) {
+        await new Promise(r => setTimeout(r, 1500));
+        const retry = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
+        if (retry && retry.statusCode === 200 && retry.body && retry.body.length > 500) {
+          return { html: retry.body, source: 'ddg' };
+        }
+      }
+    } catch (e) {}
+
+    // Tentative 2 : Bing
+    try {
+      const bingUrl = 'https://www.bing.com/search?q=' + encodeURIComponent(query) + '&count=8';
+      const result = await fetcher.fetchUrl(bingUrl, { userAgent: this._nextUA() });
+      if (result && result.statusCode === 200 && result.body && result.body.length > 500) {
+        return { html: result.body, source: 'bing' };
+      }
+    } catch (e) {}
+
+    return null;
+  }
+
+  /**
+   * Parse les snippets depuis du HTML de resultats (DDG ou Bing).
+   * Retourne un array de { title, snippet, url }.
+   */
+  _parseSearchResults(html, source, maxResults) {
+    const results = [];
+    if (!html) return results;
+    const max = maxResults || 8;
+
+    if (source === 'ddg') {
+      // Parse DDG HTML
+      const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+      const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+      let m;
+      while ((m = linkRegex.exec(html)) !== null && results.length < max) {
+        let url = m[1];
+        if (url.includes('uddg=')) {
+          const uddg = url.split('uddg=')[1];
+          if (uddg) url = decodeURIComponent(uddg.split('&')[0]);
+        }
+        const title = m[2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+        if (title.length > 5) results.push({ title: title.substring(0, 150), snippet: '', url });
+      }
+      let si = 0;
+      while ((m = snippetRegex.exec(html)) !== null) {
+        const snippet = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+        if (snippet.length > 20 && si < results.length) {
+          results[si].snippet = snippet.substring(0, 250);
+        }
+        si++;
+      }
+    } else {
+      // Parse Bing HTML
+      const bingRegex = /<li class="b_algo"[^>]*>([\s\S]*?)<\/li>/gi;
+      let m;
+      while ((m = bingRegex.exec(html)) !== null && results.length < max) {
+        const block = m[1];
+        const linkMatch = block.match(/<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+        const snippetMatch = block.match(/<p[^>]*>([\s\S]*?)<\/p>/i) || block.match(/<div class="b_caption"[^>]*>([\s\S]*?)<\/div>/i);
+        if (linkMatch) {
+          const url = linkMatch[1];
+          const title = linkMatch[2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim();
+          const snippet = snippetMatch ? (snippetMatch[1] || snippetMatch[2] || '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim() : '';
+          if (title.length > 5) results.push({ title: title.substring(0, 150), snippet: snippet.substring(0, 250), url });
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * Recherche complete sur un prospect avant envoi d'email.
    * Execute en parallele : scrape site web, Google News, extraction Apollo, articles Web Intel.
    * Retourne un objet ProspectIntel avec un brief textuel pret a injecter dans le prompt email.
@@ -257,7 +346,21 @@ class ProspectResearcher {
 
     try {
       // 1. Homepage
-      const result = await fetcher.scrapeWebPage('https://' + domain);
+      let result = await fetcher.scrapeWebPage('https://' + domain);
+
+      // 1b. SPA fallback : si linkedom retourne du contenu trop court (SPA React/Vue/Angular),
+      // essayer Google Cache qui a souvent la version rendue
+      if (result && (!result.textContent || result.textContent.length < 80)) {
+        try {
+          const cacheUrl = 'https://webcache.googleusercontent.com/search?q=cache:https://' + domain;
+          const cacheResult = await fetcher.scrapeWebPage(cacheUrl);
+          if (cacheResult && cacheResult.textContent && cacheResult.textContent.length > (result.textContent || '').length) {
+            log.info('prospect-research', 'SPA fallback Google Cache pour ' + domain + ' (' + cacheResult.textContent.length + ' chars vs ' + (result.textContent || '').length + ')');
+            result = cacheResult;
+          }
+        } catch (e) {}
+      }
+
       if (!result) return null;
 
       const insights = {
@@ -395,37 +498,27 @@ class ProspectResearcher {
    */
   async _searchCompanyClients(companyName) {
     if (!companyName) return null;
-    const fetcher = this._getFetcher();
-    if (!fetcher) return null;
 
     try {
-      const query = encodeURIComponent('"' + companyName + '" clients OR projets OR réalisations OR témoignages');
-      const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + query;
-      const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
-      if (!result || result.statusCode !== 200 || !result.body) return null;
+      const query = '"' + companyName + '" clients OR projets OR réalisations OR témoignages';
+      const searchResult = await this._searchWithFallback(query);
+      if (!searchResult) return null;
 
-      // Extraire les snippets des resultats DDG
-      const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-      const snippets = [];
-      let m;
-      while ((m = snippetRegex.exec(result.body)) !== null && snippets.length < 5) {
-        const snippet = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
-        if (snippet.length > 20) snippets.push(snippet);
-      }
+      const parsed = this._parseSearchResults(searchResult.html, searchResult.source, 5);
+      const snippets = parsed.map(r => r.snippet).filter(s => s.length > 20);
 
       if (snippets.length === 0) return null;
 
-      // Extraire les noms propres des snippets (marques, entreprises clientes)
       const allText = snippets.join(' ');
       const clientNames = this._extractProperNouns(allText);
 
-      log.info('prospect-research', 'DDG clients pour ' + companyName + ': ' + snippets.length + ' snippets, ' + clientNames.length + ' noms');
+      log.info('prospect-research', 'Clients ' + searchResult.source + ' pour ' + companyName + ': ' + snippets.length + ' snippets, ' + clientNames.length + ' noms');
       return {
         snippets: snippets.slice(0, 3).map(s => s.substring(0, 200)),
         clientNames: clientNames.slice(0, 10)
       };
     } catch (e) {
-      log.info('prospect-research', 'DDG clients echoue pour ' + companyName + ': ' + e.message);
+      log.info('prospect-research', 'Client search echoue pour ' + companyName + ': ' + e.message);
       return null;
     }
   }
@@ -437,46 +530,15 @@ class ProspectResearcher {
    */
   async _searchPersonProfile(name, company) {
     if (!name || name.length < 3) return null;
-    const fetcher = this._getFetcher();
-    if (!fetcher) return null;
 
     try {
-      const query = encodeURIComponent('"' + name + '"' + (company ? ' ' + company : '') + ' interview podcast conference article');
-      const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + query;
-      const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
-      if (!result || !result.body || result.body.length < 1000) {
-        return this._searchPersonProfileNews(name, company);
-      }
+      const query = '"' + name + '"' + (company ? ' ' + company : '') + ' interview podcast conference article';
+      const searchResult = await this._searchWithFallback(query);
+      if (!searchResult) return this._searchPersonProfileNews(name, company);
 
-      // Extraire liens + titres DDG
-      const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-      const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-      const items = [];
-      let m;
-
-      while ((m = linkRegex.exec(result.body)) !== null && items.length < 8) {
-        let url = m[1];
-        // Decoder redirections DDG (//duckduckgo.com/l/?uddg=REAL_URL&...)
-        if (url.includes('uddg=')) {
-          const uddg = url.split('uddg=')[1];
-          if (uddg) url = decodeURIComponent(uddg.split('&')[0]);
-        }
-        const title = m[2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
-        // Filtrer reseaux sociaux (deja geres ailleurs)
-        if (/linkedin\.com|facebook\.com|twitter\.com|x\.com|instagram\.com/i.test(url)) continue;
-        if (title.length < 5) continue;
-        items.push({ url: url, title: title.substring(0, 150), snippet: '' });
-      }
-
-      // Enrichir avec snippets
-      let si = 0;
-      while ((m = snippetRegex.exec(result.body)) !== null) {
-        const snippet = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
-        if (snippet.length > 20 && si < items.length) {
-          items[si].snippet = snippet.substring(0, 250);
-        }
-        si++;
-      }
+      const rawItems = this._parseSearchResults(searchResult.html, searchResult.source, 8);
+      // Filtrer reseaux sociaux (deja geres ailleurs)
+      const items = rawItems.filter(r => !/linkedin\.com|facebook\.com|twitter\.com|x\.com|instagram\.com/i.test(r.url));
 
       if (items.length === 0) return this._searchPersonProfileNews(name, company);
 
@@ -901,60 +963,34 @@ class ProspectResearcher {
   async _searchJobPostings(companyName) {
     if (!companyName || companyName.length < 3) return null;
 
-    const fetcher = this._getFetcher();
-    if (!fetcher) return null;
-
     try {
-      // Strategie 1 : DDG search site:welcometothejungle.com
-      const query = encodeURIComponent('site:welcometothejungle.com "' + companyName + '"');
-      const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + query;
-      const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
-
       let jobSnippets = [];
       let wttjSlug = null;
 
-      if (result && result.statusCode === 200 && result.body && result.body.length > 500) {
-        const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-        const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-
-        let m;
-        while ((m = linkRegex.exec(result.body)) !== null && jobSnippets.length < 8) {
-          let url = m[1];
-          if (url.includes('uddg=')) {
-            const uddg = url.split('uddg=')[1];
-            if (uddg) url = decodeURIComponent(uddg.split('&')[0]);
-          }
-          const title = m[2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim();
-
-          if (!wttjSlug && url.includes('welcometothejungle.com/fr/companies/')) {
-            const slugMatch = url.match(/companies\/([^\/]+)/);
+      // Strategie 1 : WTTJ via DDG/Bing (fallback auto)
+      const wttjSearch = await this._searchWithFallback('site:welcometothejungle.com "' + companyName + '"');
+      if (wttjSearch) {
+        const parsed = this._parseSearchResults(wttjSearch.html, wttjSearch.source, 8);
+        for (const r of parsed) {
+          if (!wttjSlug && r.url && r.url.includes('welcometothejungle.com/fr/companies/')) {
+            const slugMatch = r.url.match(/companies\/([^\/]+)/);
             if (slugMatch) wttjSlug = slugMatch[1];
           }
-
-          if (title.length > 5 && url.includes('welcometothejungle.com')) {
-            jobSnippets.push(title);
+          if (r.title.length > 5 && r.url && r.url.includes('welcometothejungle.com')) {
+            jobSnippets.push(r.title);
           }
-        }
-
-        while ((m = snippetRegex.exec(result.body)) !== null && jobSnippets.length < 12) {
-          const snippet = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
-          if (snippet.length > 20) jobSnippets.push(snippet);
+          if (r.snippet.length > 20) jobSnippets.push(r.snippet);
         }
       }
 
-      // Strategie 2 (fallback) si WTTJ n'a rien donne
+      // Strategie 2 (fallback) : recherche generique recrutement via DDG/Bing
       if (jobSnippets.length === 0) {
-        const fallbackQuery = encodeURIComponent('"' + companyName + '" recrutement OR recrute OR "postes ouverts" OR "rejoint notre equipe"');
-        const fallbackUrl = 'https://html.duckduckgo.com/html/?q=' + fallbackQuery;
-        const fallbackResult = await fetcher.fetchUrl(fallbackUrl, { userAgent: this._nextUA() });
-
-        if (fallbackResult && fallbackResult.statusCode === 200 && fallbackResult.body) {
-          const snippetRegex2 = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-          let m2;
-          while ((m2 = snippetRegex2.exec(fallbackResult.body)) !== null && jobSnippets.length < 5) {
-            const snippet = m2[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
-            if (snippet.length > 20 && /recrut|embauche|poste|cdi|cdd|stage|alternance|talent/i.test(snippet)) {
-              jobSnippets.push(snippet);
+        const fallbackSearch = await this._searchWithFallback('"' + companyName + '" recrutement OR recrute OR "postes ouverts" OR "rejoint notre equipe"');
+        if (fallbackSearch) {
+          const parsed = this._parseSearchResults(fallbackSearch.html, fallbackSearch.source, 5);
+          for (const r of parsed) {
+            if (r.snippet.length > 20 && /recrut|embauche|poste|cdi|cdd|stage|alternance|talent/i.test(r.snippet)) {
+              jobSnippets.push(r.snippet);
             }
           }
         }
