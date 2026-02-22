@@ -869,10 +869,55 @@ class ProactiveEngine {
           email: followUp.prospectEmail
         };
 
+        // 2b. Cross-dedup : verifier qu'une sequence campaign n'envoie pas deja un email aujourd'hui
+        try {
+          const campaigns = amStorage.getAllCampaigns ? amStorage.getAllCampaigns() : [];
+          const activeCampaigns = campaigns.filter(c => c.status === 'active');
+          let campaignConflict = false;
+          for (const camp of activeCampaigns) {
+            const list = amStorage.getContactList ? amStorage.getContactList(camp.contactListId) : null;
+            if (list && list.contacts) {
+              const inCampaign = list.contacts.some(c => c.email === followUp.prospectEmail);
+              if (inCampaign) {
+                // Verifier si un step est prevu dans les prochaines 24h
+                for (const step of (camp.steps || [])) {
+                  if (step.status === 'pending' && step.scheduledAt) {
+                    const diff = new Date(step.scheduledAt).getTime() - Date.now();
+                    if (diff >= 0 && diff < 24 * 60 * 60 * 1000) {
+                      campaignConflict = true;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            if (campaignConflict) break;
+          }
+          if (campaignConflict) {
+            log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' a une sequence campaign prevue sous 24h — reporte');
+            continue; // Reste pending, reessaye au prochain cycle
+          }
+        } catch (crossErr) {
+          log.info('proactive-engine', 'Reactive FU: cross-dedup check skip: ' + crossErr.message);
+        }
+
+        // 2c. Recuperer l'angle du premier email pour eviter repetition
+        let originalAngle = '';
+        try {
+          const firstLine = (followUp.originalBody || '').split(/[\n.!?]/)[0].trim();
+          if (firstLine.length > 10) originalAngle = firstLine;
+        } catch (e) {}
+
+        // Enrichir le prospectIntel avec l'angle deja utilise
+        let enrichedIntel = followUp.prospectIntel || '';
+        if (originalAngle) {
+          enrichedIntel += '\n\n=== ANGLES DEJA UTILISES (NE PAS REPETER) ===\n- "' + originalAngle + '"\n=== FIN ANGLES UTILISES ===';
+        }
+
         const generated = await writer.generateReactiveFollowUp(
           contact,
           { subject: followUp.originalSubject, body: followUp.originalBody },
-          followUp.prospectIntel
+          enrichedIntel
         );
 
         if (!generated || generated.skip) {
@@ -883,6 +928,23 @@ class ProactiveEngine {
 
         const subject = generated.subject;
         const body = generated.body;
+
+        // 2d. Mini quality gate : verifier que la relance contient au moins 1 fait du brief
+        if (enrichedIntel && enrichedIntel.length > 100) {
+          const emailText = (subject + ' ' + body).toLowerCase();
+          const intelText = enrichedIntel.toLowerCase();
+          // Extraire les mots significatifs du brief (> 5 chars, pas communs)
+          const commonWords = new Set(['notre','votre','cette','leurs','comme','aussi','autres','encore','toujours','depuis','entre','pendant','avant','apres','dessus','dessous','quelque','plusieurs','chaque','meme','tout','tous','toute','toutes','plus','moins','tres','bien','fait','faire','peut','sont','dans','avec','pour','sans','chez','vers']);
+          const intelWords = intelText.match(/[a-zàâäéèêëïîôùûüÿç]{6,}/g) || [];
+          const uniqueWords = [...new Set(intelWords)].filter(w => !commonWords.has(w));
+          const matchedWords = uniqueWords.filter(w => emailText.includes(w));
+          if (matchedWords.length < 1) {
+            log.warn('proactive-engine', 'Reactive FU: quality gate FAIL pour ' + followUp.prospectEmail + ' — aucun mot du brief dans l\'email');
+            storage.markFollowUpFailed(followUp.id, 'quality_gate_generic');
+            continue;
+          }
+          log.info('proactive-engine', 'Reactive FU: quality gate OK (' + matchedWords.length + ' mots: ' + matchedWords.slice(0, 3).join(', ') + ')');
+        }
 
         // 3. Validation mots interdits
         try {

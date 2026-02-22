@@ -1254,10 +1254,36 @@ Format JSON strict :
       return { success: false, error: 'Automailer storage non disponible' };
     }
 
+    // Cross-dedup : retirer les contacts qui ont deja un reactive follow-up pending
+    try {
+      const paStorage = _require('../proactive-agent/storage.js', '/app/skills/proactive-agent/storage.js');
+      if (paStorage && paStorage.getPendingFollowUps) {
+        const pendingFUs = paStorage.getPendingFollowUps();
+        const pendingEmails = new Set(pendingFUs.map(f => f.prospectEmail.toLowerCase()));
+        const before = contacts.length;
+        for (let ci = contacts.length - 1; ci >= 0; ci--) {
+          if (pendingEmails.has((contacts[ci].email || '').toLowerCase())) {
+            log.info('action-executor', 'Follow-up sequence: ' + contacts[ci].email + ' a deja un reactive FU pending — retire');
+            contacts.splice(ci, 1);
+          }
+        }
+        if (contacts.length < before) {
+          log.info('action-executor', 'Cross-dedup: ' + (before - contacts.length) + ' contact(s) retire(s) (reactive FU pending)');
+        }
+      }
+    } catch (crossErr) {
+      log.info('action-executor', 'Cross-dedup check skip: ' + crossErr.message);
+    }
+
+    if (contacts.length === 0) {
+      return { success: false, error: 'Aucun contact apres cross-dedup' };
+    }
+
     const apConfig = storage.getConfig();
     const adminChatId = apConfig.adminChatId || '1409505520';
-    const totalSteps = params.totalSteps || 3;
-    const intervalDays = params.intervalDays || 4; // J+4, J+8, J+16
+    const fuConfig = apConfig.followUpConfig || {};
+    const totalSteps = params.totalSteps || fuConfig.sequenceTotalSteps || 3;
+    const intervalDays = params.intervalDays || fuConfig.sequenceIntervalDays || 4;
 
     try {
       // 1. Creer une liste de contacts pour la campagne

@@ -250,7 +250,34 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     return this._parseJSON(response);
   }
 
-  async generateSequenceEmails(contact, campaignContext, totalEmails) {
+  async generateSequenceEmails(contact, campaignContext, totalEmails, options) {
+    options = options || {};
+    // Injecter les mots interdits depuis la config AP
+    let forbiddenWordsRule = '';
+    try {
+      const apStorage = require('../autonomous-pilot/storage.js');
+      const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+      const ep = apConfig.emailPreferences || {};
+      if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+        forbiddenWordsRule = '\nMOTS ABSOLUMENT INTERDITS: ' + ep.forbiddenWords.join(', ');
+      }
+    } catch (e) {
+      try {
+        const apStorage = require('/app/skills/autonomous-pilot/storage.js');
+        const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+        const ep = apConfig.emailPreferences || {};
+        if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+          forbiddenWordsRule = '\nMOTS ABSOLUMENT INTERDITS: ' + ep.forbiddenWords.join(', ');
+        }
+      } catch (e2) {}
+    }
+
+    // Angles deja utilises (eviter repetitions)
+    let anglesRule = '';
+    if (options.usedAngles && options.usedAngles.length > 0) {
+      anglesRule = '\n\nANGLES DEJA UTILISES (NE PAS REPETER) :\n' + options.usedAngles.map(a => '- "' + a + '"').join('\n');
+    }
+
     const systemPrompt = `Tu es Alexis, fondateur. Tu generes ${totalEmails} relances pour un prospect qui n'a pas repondu a ton premier email.
 
 PHILOSOPHIE : Chaque relance apporte un NOUVEL ANGLE. Jamais "je reviens vers vous".
@@ -272,7 +299,7 @@ REGLES :
 - JAMAIS : prix, offre, feature, pitch, CTA de meeting
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients" dans l'email
 - Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise
-- PAS de signature (ajoutee automatiquement)
+- PAS de signature (ajoutee automatiquement)${forbiddenWordsRule}${anglesRule}
 
 JSON valide uniquement : [{"subject":"...","body":"..."},...]`;
 
@@ -283,7 +310,7 @@ Prenom : ${contact.firstName || (contact.name || '').split(' ')[0]}
 Poste : ${contact.title || 'non precise'}
 Entreprise : ${contact.company || 'non precisee'}
 Email : ${contact.email}
-
+${options.prospectIntel ? '\nDONNEES PROSPECT :\n' + options.prospectIntel : ''}
 Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
 
     const response = await this.callClaude(
@@ -323,6 +350,26 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
       } catch (e2) {}
     }
 
+    // Injecter les mots interdits depuis la config AP
+    let forbiddenWordsRule = '';
+    try {
+      const apStorage = require('../autonomous-pilot/storage.js');
+      const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+      const ep = apConfig.emailPreferences || {};
+      if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+        forbiddenWordsRule = '\nMOTS ABSOLUMENT INTERDITS: ' + ep.forbiddenWords.join(', ');
+      }
+    } catch (e) {
+      try {
+        const apStorage = require('/app/skills/autonomous-pilot/storage.js');
+        const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+        const ep = apConfig.emailPreferences || {};
+        if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+          forbiddenWordsRule = '\nMOTS ABSOLUMENT INTERDITS: ' + ep.forbiddenWords.join(', ');
+        }
+      } catch (e2) {}
+    }
+
     const systemPrompt = `Tu es Alexis, fondateur. Tu relances un prospect qui a recu ton premier email.
 
 REGLES ANTI-TRACKING :
@@ -343,7 +390,7 @@ REGLES :
 - JAMAIS : pitch, prix, offre, "beau move", "potentiellement", "curieux" (max 1/3)
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients"
 - Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise, DIFFERENT du premier
-- PAS de "re:", pas de "relance", pas de signature (ajoutee automatiquement)
+- PAS de "re:", pas de "relance", pas de signature (ajoutee automatiquement)${forbiddenWordsRule}
 
 JSON uniquement : {"subject":"...","body":"..."}`;
 

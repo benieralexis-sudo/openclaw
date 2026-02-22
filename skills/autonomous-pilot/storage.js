@@ -63,6 +63,12 @@ function _defaultData() {
         hookStyle: 'problem-first',
         signatureStyle: ''
       },
+      followUpConfig: {
+        sequenceIntervalDays: 4,
+        sequenceTotalSteps: 3,
+        reactiveMinDelayMinutes: 120,
+        reactiveMaxDelayMinutes: 240
+      },
       brainSchedule: {
         enabled: true,
         businessHoursOnly: true,

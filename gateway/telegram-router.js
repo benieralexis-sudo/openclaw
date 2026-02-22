@@ -1587,7 +1587,7 @@ async function handleResendWebhook(body) {
                 originalEmailId: email.id,
                 originalSubject: email.subject || '',
                 originalBody: (email.body || '').substring(0, 500),
-                prospectIntel: intel.brief.substring(0, 2000),
+                prospectIntel: intel.brief.substring(0, 3500),
                 scheduledAfter: scheduledAfter
               });
               if (added) {
@@ -1603,6 +1603,27 @@ async function handleResendWebhook(body) {
       }).catch(err => {
         log.warn('webhook', 'Prospect research echoue pour open event: ' + err.message);
         sendMessage(ADMIN_CHAT_ID, '👀 *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
+        // Fallback : programmer relance reactive MEME sans intel (utilise les donnees du premier email)
+        try {
+          const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
+          if (rfConfig.enabled) {
+            const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
+            const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
+            proactiveAgentStorage.addPendingFollowUp({
+              prospectEmail: email.to,
+              prospectName: email.contactName || '',
+              prospectCompany: email.company || '',
+              originalEmailId: email.id,
+              originalSubject: email.subject || '',
+              originalBody: (email.body || '').substring(0, 500),
+              prospectIntel: '',
+              scheduledAfter: scheduledAfter
+            });
+            log.info('webhook', 'Reactive follow-up programme SANS intel (timeout) pour ' + email.to);
+          }
+        } catch (rfFallback) {
+          log.warn('webhook', 'Fallback reactive FU echoue: ' + rfFallback.message);
+        }
       });
     } catch (e) {
       log.warn('webhook', 'Erreur init prospect research: ' + e.message);
@@ -1798,8 +1819,28 @@ const healthServer = http.createServer((req, res) => {
                   log.warn('tracking', 'Erreur enregistrement reactive follow-up: ' + rfErr.message);
                 }
               }
-            }).catch(() => {
+            }).catch((pixelErr) => {
               sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
+              // Fallback : programmer relance reactive MEME sans intel
+              try {
+                const rfConfig2 = proactiveAgentStorage.getReactiveFollowUpConfig();
+                if (rfConfig2.enabled) {
+                  const delayMs2 = (rfConfig2.minDelayMinutes + Math.random() * (rfConfig2.maxDelayMinutes - rfConfig2.minDelayMinutes)) * 60 * 1000;
+                  const scheduledAfter2 = new Date(Date.now() + delayMs2).toISOString();
+                  proactiveAgentStorage.addPendingFollowUp({
+                    prospectEmail: email.to,
+                    prospectName: email.contactName || '',
+                    prospectCompany: email.company || '',
+                    prospectTitle: prospectTitle || '',
+                    originalEmailId: email.id,
+                    originalSubject: email.subject || '',
+                    originalBody: (email.body || '').substring(0, 500),
+                    prospectIntel: '',
+                    scheduledAfter: scheduledAfter2
+                  });
+                  log.info('tracking', 'Reactive follow-up programme SANS intel (timeout pixel) pour ' + email.to);
+                }
+              } catch (rfFb2) {}
             });
           } catch (e) {
             sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to), 'Markdown').catch(() => {});
