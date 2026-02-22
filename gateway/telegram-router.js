@@ -11,7 +11,6 @@ const { getBreaker, getAllStatus: getAllBreakerStatus } = require('./circuit-bre
 const log = require('./logger.js');
 const AutoMailerHandler = require('../skills/automailer/automailer-handler.js');
 const CRMPilotHandler = require('../skills/crm-pilot/crm-handler.js');
-const LeadEnrichHandler = require('../skills/lead-enrich/enrich-handler.js');
 const ContentHandler = require('../skills/content-gen/content-handler.js');
 const InvoiceBotHandler = require('../skills/invoice-bot/invoice-handler.js');
 const ProactiveEngine = require('../skills/proactive-agent/proactive-engine.js');
@@ -99,7 +98,6 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const HUBSPOT_KEY = process.env.HUBSPOT_API_KEY;
 const APOLLO_KEY = process.env.APOLLO_API_KEY || '';
-const FULLENRICH_KEY = process.env.FULLENRICH_API_KEY || '';
 const CLAUDE_KEY = process.env.CLAUDE_API_KEY || '';
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
@@ -119,9 +117,6 @@ if (!TOKEN) {
 if (!SENDER_EMAIL || SENDER_EMAIL === 'onboarding@resend.dev' || SENDER_EMAIL.trim() === '') {
   log.warn('router', 'SENDER_EMAIL non configure — envoi email desactive (test only: onboarding@resend.dev)');
 }
-if (!FULLENRICH_KEY || FULLENRICH_KEY.trim() === '') {
-  log.warn('router', 'FULLENRICH_API_KEY absent — enrichissement de leads desactive');
-}
 if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
   log.warn('router', 'CLAUDE_API_KEY absent — redaction IA desactivee');
 }
@@ -130,14 +125,12 @@ if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
 
 const automailerHandler = new AutoMailerHandler(OPENAI_KEY, CLAUDE_KEY, RESEND_KEY, SENDER_EMAIL);
 const crmPilotHandler = new CRMPilotHandler(OPENAI_KEY, HUBSPOT_KEY);
-const leadEnrichHandler = new LeadEnrichHandler(OPENAI_KEY, FULLENRICH_KEY, HUBSPOT_KEY);
 const contentHandler = new ContentHandler(OPENAI_KEY, CLAUDE_KEY);
 const invoiceBotHandler = new InvoiceBotHandler(OPENAI_KEY, RESEND_KEY, SENDER_EMAIL);
 
 // Demarrer les schedulers
 automailerHandler.start();
 crmPilotHandler.start();
-leadEnrichHandler.start();
 contentHandler.start();
 invoiceBotHandler.start();
 
@@ -315,7 +308,7 @@ const _cleanupInterval = setInterval(() => {
   // 2. Pending states des handlers (conversations et confirmations abandonnees)
   // Note: certains handlers sont definis plus bas — resolution lazy pour eviter ReferenceError
   const handlersWithPending = [
-    automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler, invoiceBotHandler
+    automailerHandler, crmPilotHandler, contentHandler, invoiceBotHandler
   ];
   try { handlersWithPending.push(proactiveHandler, webIntelHandler, systemAdvisorHandler); } catch (e) {}
   const pendingMaps = ['pendingConversations', 'pendingConfirmations', 'pendingImports', 'pendingEmails', 'pendingResults'];
@@ -546,7 +539,6 @@ const autoPilotEngine = new BrainEngine({
   callClaudeOpus: callClaudeOpus,
   hubspotKey: HUBSPOT_KEY,
   apolloKey: APOLLO_KEY,
-  fullenrichKey: FULLENRICH_KEY,
   openaiKey: OPENAI_KEY,
   claudeKey: CLAUDE_KEY,
   resendKey: RESEND_KEY,
@@ -740,13 +732,11 @@ function buildSystemStatus() {
     { name: 'OpenAI (NLP)', key: OPENAI_KEY },
     { name: 'Claude (Anthropic)', key: CLAUDE_KEY },
     { name: 'HubSpot (CRM)', key: HUBSPOT_KEY },
-    { name: 'FullEnrich (Enrichissement)', key: FULLENRICH_KEY },
     { name: 'Apollo (Recherche leads)', key: APOLLO_KEY },
     { name: 'Resend (Emails)', key: RESEND_KEY }
   ];
 
   const emailSafe = SENDER_EMAIL && SENDER_EMAIL !== 'onboarding@resend.dev' && SENDER_EMAIL.trim() !== '';
-  const fullenrichOk = FULLENRICH_KEY && FULLENRICH_KEY.trim() !== '';
   const apolloOk = APOLLO_KEY && APOLLO_KEY.trim() !== '';
 
   const cronCounts = {
@@ -775,7 +765,7 @@ function buildSystemStatus() {
   // Skills sans crons
   lines.push('');
   lines.push('*Skills manuelles :*');
-  const manualSkills = ['AutoMailer', 'CRM Pilot', 'Lead Enrich', 'Content Gen', 'Invoice Bot'];
+  const manualSkills = ['AutoMailer', 'CRM Pilot', 'Content Gen', 'Invoice Bot'];
   for (const name of manualSkills) {
     lines.push('  🟢 ' + name);
   }
@@ -792,7 +782,6 @@ function buildSystemStatus() {
   lines.push('');
   lines.push('*Securites :*');
   lines.push('  Email : ' + (emailSafe ? '✅ Configure' : '⚠️ Non configure (test only)'));
-  lines.push('  FullEnrich : ' + (fullenrichOk ? '✅ Active' : '⚠️ Cle absente'));
   lines.push('  Apollo : ' + (apolloOk ? '✅ Active (recherche)' : '⚠️ Cle absente'));
 
   // Budget
@@ -852,7 +841,6 @@ function fastClassify(text) {
     'autonomous-pilot': /\b(pilot|autonome?|brain|objectif|critere|checklist|diagnostic|cycle|prochain.*email|quand.*envoi|prochaine?.*prospection|avancement|ou.*en.*es|lead.*trouve|resultat.*prospection|relance[rs]?|follow.?up|message.*personnalise?|mail.*prospect)\b|(?:redige|ecri[st]|prepare|envoie|draft).*(?:email|mail|message).*pour\b/,
     'automailer': /\b(campagne|template|newsletter|liste.*contact|import.*csv|stats.*email|taux.*ouverture|creer?.*campagne|lance.*campagne)\b/,
     'crm-pilot': /\b(crm|hubspot|pipeline|deal|offre|fiche.*contact|note|tache|rappel|commercial)\b/,
-    'lead-enrich': /\b(enrichi|scorer?|profil.*complet|hot.*lead|lead.*chaud|fullenrich|apollo)\b/,
     'content-gen': /\b(redige|ecri[st]|post.*linkedin|pitch|bio|script|reformule|contenu)\b/,
     'inbox-manager': /\b(inbox|boite.*reception|reponse.*email|email.*recu|imap|reponse.*lead|mail.*entrant)\b/,
     'meeting-scheduler': /\b(rdv|rendez.?vous|meeting|booking|cale[rz]?|reserve[rz]?|planifi|cal\.?com|creneau)\b/,
@@ -879,7 +867,6 @@ async function classifySkill(message, chatId) {
   // Workflows multi-etapes en cours : garder le skill actif (indispensable)
   if (automailerHandler.pendingImports[id] || automailerHandler.pendingConversations[id] || automailerHandler.pendingEmails[id]) return 'automailer';
   if (crmPilotHandler.pendingConversations[id] || crmPilotHandler.pendingConfirmations[id]) return 'crm-pilot';
-  if (leadEnrichHandler.pendingConversations[id] || leadEnrichHandler.pendingConfirmations[id]) return 'lead-enrich';
   if (contentHandler.pendingConversations[id]) return 'content-gen';
   if (invoiceBotHandler.pendingConversations[id] || invoiceBotHandler.pendingConfirmations[id]) return 'invoice-bot';
   if (proactiveHandler.pendingConversations[id] || proactiveHandler.pendingConfirmations[id]) return 'proactive-agent';
@@ -898,7 +885,6 @@ async function classifySkill(message, chatId) {
 SKILLS DISPONIBLES :
 - "automailer" : campagnes email automatisees — creer/gerer des campagnes, envoyer des emails, gerer des listes de contacts email, voir les stats d'envoi, templates email. "comment vont mes campagnes ?" = automailer.
 - "crm-pilot" : gestion CRM (HubSpot) — pipeline commercial, offres/deals, fiches contacts, notes, taches, rappels, rapports hebdo, suivi commercial.
-- "lead-enrich" : enrichissement et resultats de leads — enrichir un profil, scorer des leads, voir les meilleurs leads, les leads trouves, les resultats interessants. "t'as trouve des trucs interessants ?" = lead-enrich. "mes leads" = lead-enrich.
 - "content-gen" : generation de contenu — rediger des posts LinkedIn, pitchs, descriptions, scripts, emails marketing, bios, reformuler du texte.
 - "invoice-bot" : facturation — creer/envoyer des factures, gerer des clients (facturation), suivi des paiements, coordonnees bancaires/RIB, devis.
 - "proactive-agent" : mode proactif, rapports automatiques, alertes pipeline, monitoring — "rapport maintenant", "rapport de la semaine", "rapport du mois", "mes alertes", "mode proactif status", "active le mode proactif", "historique des alertes". Tout ce qui concerne des rapports recapitulatifs cross-skills ou le monitoring automatique.
@@ -911,12 +897,12 @@ SKILLS DISPONIBLES :
 - "general" : salutations, aide globale, bavardage sans rapport avec les skills ci-dessus.
 
 REGLES CRITIQUES :
-1. Comprends le SENS, pas les mots exacts. "comment vont mes envois ?" = automailer. "t'as trouve des trucs ?" = lead-enrich. "ou en est mon business ?" = crm-pilot.
+1. Comprends le SENS, pas les mots exacts. "comment vont mes envois ?" = automailer. "ou en est mon business ?" = crm-pilot.
 2. Le CONTEXTE compte. Si la conversation recente parle de prospection et que l'utilisateur dit "et a Lyon ?", c'est autonomous-pilot (prospection automatique).
 3. TRES IMPORTANT : Si le bot vient d'envoyer des messages automatiques (alertes veille, rapports, alertes systeme, etc.) et que l'utilisateur REAGIT a ces messages (demande un resume, commente, critique le format, dit "trop de messages", "fais un resume", "regroupe", etc.), route vers le skill qui a envoye ces messages. Par exemple : le bot envoie des alertes veille -> l'utilisateur dit "fais-moi un resume" -> c'est web-intelligence. Le bot envoie un rapport proactif -> l'utilisateur dit "c'est quoi ce truc ?" -> c'est proactive-agent.
 4. "aide" ou "help" SEUL = general. Mais "aide sur mes factures" = invoice-bot.
 5. En cas de doute entre deux skills, choisis celui qui correspond le mieux au contexte recent.
-6. Reponds UNIQUEMENT par un seul mot : automailer, crm-pilot, lead-enrich, content-gen, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot, inbox-manager, meeting-scheduler ou general.`;
+6. Reponds UNIQUEMENT par un seul mot : automailer, crm-pilot, content-gen, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot, inbox-manager, meeting-scheduler ou general.`;
 
   const userContent = (historyContext
     ? 'HISTORIQUE RECENT :\n' + historyContext + '\n\nDernier skill utilise : ' + lastSkill + '\n\nNOUVEAU MESSAGE : '
@@ -931,7 +917,7 @@ REGLES CRITIQUES :
     const exactSkills = [
       'autonomous-pilot', 'system-advisor', 'web-intelligence', 'self-improve',
       'proactive-agent', 'inbox-manager', 'meeting-scheduler',
-      'invoice-bot', 'content-gen', 'lead-enrich',
+      'invoice-bot', 'content-gen',
       'crm-pilot', 'automailer', 'general'
     ];
     for (const s of exactSkills) {
@@ -948,7 +934,6 @@ REGLES CRITIQUES :
     if (skill.includes('proactive-agent') || skill.includes('proactive') || skill.includes('proactif')) return 'proactive-agent';
     if (skill.includes('invoice-bot') || skill.includes('invoice')) return 'invoice-bot';
     if (skill.includes('content-gen') || skill.includes('content')) return 'content-gen';
-    if (skill.includes('lead-enrich') || skill.includes('enrich')) return 'lead-enrich';
     if (skill.includes('crm-pilot') || skill.includes('crm')) return 'crm-pilot';
     if (skill.includes('automailer') || skill.includes('mailer')) return 'automailer';
     return 'general';
@@ -1039,7 +1024,7 @@ TES OUTILS (mentionne-les naturellement si pertinent) :
 - Prospection de leads B2B (recherche par poste, secteur, ville)
 - Campagnes email automatisees (envoi, suivi ouvertures, relances)
 - CRM HubSpot (pipeline, deals, contacts, notes)
-- Enrichissement de leads (FullEnrich waterfall, scoring IA)
+- Enrichissement de leads (Apollo + verification SMTP)
 - Generation de contenu (LinkedIn, pitch, email, bio, script)
 - Facturation (creation, envoi, suivi paiements)
 - Veille web (surveillance concurrents, prospects, actualites secteur)
@@ -1201,21 +1186,6 @@ async function handleUpdate(update) {
       }
     }
 
-    // FullEnrich : bloquer enrichissement si cle absente
-    if (skill === 'lead-enrich') {
-      const enrichAction = textLower.match(/enrichi|profil|score|cherche|trouve|prospect/);
-      if (enrichAction && (!FULLENRICH_KEY || FULLENRICH_KEY.trim() === '')) {
-        const warning = [
-          '⚠️ *Enrichissement non disponible*',
-          '',
-          'La cle API FullEnrich n\'est pas configuree.',
-          'Configure FULLENRICH_API_KEY dans .env pour activer.',
-        ].join('\n');
-        addToHistory(chatId, 'bot', 'FullEnrich bloque - cle manquante', skill);
-        await sendMessage(chatId, warning, 'Markdown');
-        return;
-      }
-    }
 
     // ===== FIN GARDES =====
 
@@ -1224,7 +1194,6 @@ async function handleUpdate(update) {
     const handlers = {
       'automailer': automailerHandler,
       'crm-pilot': crmPilotHandler,
-      'lead-enrich': leadEnrichHandler,
       'content-gen': contentHandler,
       'invoice-bot': invoiceBotHandler,
       'proactive-agent': proactiveHandler,
@@ -1239,8 +1208,7 @@ async function handleUpdate(update) {
     const handler = handlers[skill];
     if (handler) {
       const startTime = Date.now();
-      // FullEnrich est async (45-90s/contact) → timeout etendu pour lead-enrich
-      const HANDLER_TIMEOUT = (skill === 'lead-enrich') ? 240000 : 60000;
+      const HANDLER_TIMEOUT = 60000;
       try {
         response = await Promise.race([
           handler.handleMessage(text, chatId, sendReply),
@@ -1950,7 +1918,7 @@ function gracefulShutdown() {
   log.info('router', 'Metriques + etat volatile sauvegardes sur disque');
   healthServer.close();
   httpsAgent.destroy();
-  [automailerHandler, crmPilotHandler, leadEnrichHandler, contentHandler,
+  [automailerHandler, crmPilotHandler, contentHandler,
    invoiceBotHandler, proactiveEngine, webIntelHandler, systemAdvisorHandler, autoPilotEngine,
    inboxHandler, meetingHandler]
     .forEach(h => { try { h.stop(); } catch (e) { log.error('router', 'Erreur stop handler:', e.message); } });

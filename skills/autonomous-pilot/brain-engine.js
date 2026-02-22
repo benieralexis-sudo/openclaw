@@ -61,7 +61,6 @@ class BrainEngine {
 
     this.executor = new ActionExecutor({
       apolloKey: options.apolloKey,
-      fullenrichKey: options.fullenrichKey,
       hubspotKey: options.hubspotKey,
       openaiKey: options.openaiKey,
       claudeKey: options.claudeKey,
@@ -327,7 +326,7 @@ class BrainEngine {
     log.info('brain', 'Plan: ' + plan.actions.length + ' actions, assessment: ' + (plan.weeklyAssessment || '?'));
 
     // 4. Executer les actions (avec retry sur actions critiques)
-    const RETRYABLE_ACTIONS = ['send_email', 'push_to_crm', 'enrich_leads'];
+    const RETRYABLE_ACTIONS = ['send_email', 'push_to_crm'];
     const MAX_RETRIES = 2;
 
     for (const action of plan.actions) {
@@ -999,7 +998,7 @@ Analyse et reponds en JSON:
 
     prompt += 'ETAT ACTUEL:\n';
     prompt += '- Leads trouves cette semaine: ' + p.leadsFoundThisWeek + '/' + g.leadsToFind + '\n';
-    prompt += '- Leads enrichis: ' + p.leadsEnrichedThisWeek + '\n';
+    // Leads enrichis supprime (FullEnrich retire)
     prompt += '- Emails envoyes: ' + p.emailsSentThisWeek + '/' + g.emailsToSend + '\n';
     prompt += '- Reponses: ' + (p.responsesThisWeek || 0) + '/' + g.responsesTarget + '\n';
     prompt += '- RDV: ' + (p.rdvBookedThisWeek || 0) + '/' + g.rdvTarget + '\n';
@@ -1056,7 +1055,7 @@ Analyse et reponds en JSON:
 
     prompt += '\nNIVEAU D\'AUTONOMIE: ' + config.autonomyLevel + ' (MODE MACHINE DE GUERRE)\n';
     if (config.autonomyLevel === 'full') {
-      prompt += '→ Tu es en FULL AUTO. Tu peux rechercher, enrichir, envoyer des emails, creer des sequences de relance SANS demander confirmation.\n';
+      prompt += '→ Tu es en FULL AUTO. Tu peux rechercher, envoyer des emails, creer des sequences de relance SANS demander confirmation.\n';
       prompt += '→ Les emails sont generes automatiquement par ProspectResearcher + ClaudeEmailWriter. Tu n\'as qu\'a fournir le contact et _generateFirst:true.\n';
       prompt += '→ Le warm-up domaine est gere automatiquement par le systeme (max 5/jour semaine 1-2, puis progressif).\n';
     }
@@ -1256,14 +1255,13 @@ Analyse et reponds en JSON:
 
     prompt += '\nACTIONS DISPONIBLES:\n';
     prompt += '1. search_leads — Rechercher des leads via Apollo (params.criteria)\n';
-    prompt += '2. enrich_leads — Enrichir des leads (params.emails: [])\n';
-    prompt += '3. push_to_crm — Pousser vers HubSpot (params.contacts: [])\n';
-    prompt += '4. generate_email — Generer un email sans l\'envoyer (params.contact: {email,name,company,title}, params.context)\n';
-    prompt += '5. send_email — Envoyer un email (params: to, contactName, company, score, contact: {email,nom,entreprise,titre}, _generateFirst: true) — autoExecute=true\n';
-    prompt += '6. update_search_criteria — Modifier les criteres de recherche (params: {titles?, locations?, industries?, seniorities?, companySize?, keywords?, limit?})\n';
-    prompt += '7. update_goals — Modifier les objectifs (params: {leadsToFind?, emailsToSend?, responsesTarget?, rdvTarget?, minLeadScore?})\n';
-    prompt += '8. record_learning — Enregistrer un apprentissage (params: {category: "bestSearchCriteria|bestEmailStyles|bestSendTimes", summary: "...", data: {}})\n';
-    prompt += '9. create_followup_sequence — Creer une sequence de 3 relances automatiques pour des leads deja contactes sans reponse (params: {contacts: [{email, nom, entreprise, titre}], totalSteps: 3, intervalDays: 4})\n';
+    prompt += '2. push_to_crm — Pousser vers HubSpot (params.contacts: [])\n';
+    prompt += '3. generate_email — Generer un email sans l\'envoyer (params.contact: {email,name,company,title}, params.context)\n';
+    prompt += '4. send_email — Envoyer un email (params: to, contactName, company, score, contact: {email,nom,entreprise,titre}, _generateFirst: true) — autoExecute=true\n';
+    prompt += '5. update_search_criteria — Modifier les criteres de recherche (params: {titles?, locations?, industries?, seniorities?, companySize?, keywords?, limit?})\n';
+    prompt += '6. update_goals — Modifier les objectifs (params: {leadsToFind?, emailsToSend?, responsesTarget?, rdvTarget?, minLeadScore?})\n';
+    prompt += '7. record_learning — Enregistrer un apprentissage (params: {category: "bestSearchCriteria|bestEmailStyles|bestSendTimes", summary: "...", data: {}})\n';
+    prompt += '8. create_followup_sequence — Creer une sequence de 3 relances automatiques pour des leads deja contactes sans reponse (params: {contacts: [{email, nom, entreprise, titre}], totalSteps: 3, intervalDays: 4})\n';
 
     prompt += '\nREGLES (MODE MACHINE DE GUERRE):\n';
     prompt += '1. autoExecute=true pour TOUTES les actions, y compris send_email. Tu es en FULL AUTO.\n';

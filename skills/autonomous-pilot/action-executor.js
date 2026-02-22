@@ -28,13 +28,7 @@ function _getSharedNLP() {
   return _require('../../gateway/shared-nlp.js', '/app/gateway/shared-nlp.js');
 }
 
-function getFullEnrichEnricher() {
-  return _require('../lead-enrich/fullenrich-enricher.js', '/app/skills/lead-enrich/fullenrich-enricher.js');
-}
 
-function getAIClassifier() {
-  return _require('../lead-enrich/ai-classifier.js', '/app/skills/lead-enrich/ai-classifier.js');
-}
 
 function getLeadEnrichStorage() {
   return _require('../lead-enrich/storage.js', '/app/skills/lead-enrich/storage.js');
@@ -63,7 +57,6 @@ function getProspectResearcher() {
 class ActionExecutor {
   constructor(options) {
     this.apolloKey = options.apolloKey;
-    this.fullenrichKey = options.fullenrichKey;
     this.hubspotKey = options.hubspotKey;
     this.openaiKey = options.openaiKey;
     this.claudeKey = options.claudeKey;
@@ -80,8 +73,7 @@ class ActionExecutor {
       switch (type) {
         case 'search_leads':
           return await this._searchLeads(params);
-        case 'enrich_leads':
-          return await this._enrichLeads(params);
+        // enrich_leads supprime — FullEnrich inutile (Apollo + SMTP verify suffisent)
         case 'push_to_crm':
           return await this._pushToCrm(params);
         case 'generate_email':
@@ -318,179 +310,7 @@ Format JSON strict :
     };
   }
 
-  // --- Enrichissement de leads via FullEnrich (waterfall 15+ sources) ---
-  async _enrichLeads(params) {
-    if (!this.fullenrichKey) {
-      return { success: false, error: 'Cle FullEnrich manquante' };
-    }
-
-    const FullEnrichEnricher = getFullEnrichEnricher();
-    const AIClassifier = getAIClassifier();
-    const leStorage = getLeadEnrichStorage();
-
-    if (!FullEnrichEnricher) {
-      return { success: false, error: 'Module fullenrich-enricher introuvable' };
-    }
-
-    const enricher = new FullEnrichEnricher(this.fullenrichKey);
-    const classifier = AIClassifier ? new AIClassifier(this.openaiKey) : null;
-
-    // Accepter emails OU contacts avec nom+entreprise
-    const contacts = params.contacts || [];
-    let emails = params.emails || [];
-    let enriched = 0;
-    let classified = 0;
-
-    // Auto-discovery : si aucun email/contact fourni, trouver les leads non enrichis dans FlowFast
-    // IMPORTANT: on remplit contacts[] (nom+entreprise) et PAS emails[] — le reverse email est bugge sur FullEnrich
-    if (contacts.length === 0 && emails.length === 0) {
-      const ffStorage = getFlowFastStorage();
-      if (ffStorage && ffStorage.data) {
-        const leadsObj = ffStorage.data.leads || {};
-        const ids = Object.keys(leadsObj);
-        for (const id of ids) {
-          const lead = leadsObj[id];
-          if (lead.email && !lead.enrichedAt) {
-            const nom = (lead.nom || '').trim();
-            // Prénoms composés : le lastName est toujours le dernier mot, le reste est le firstName
-            // Ex: "Jean-Michel Khou" → "Jean-Michel" + "Khou"
-            // Ex: "Marie Claire Dupont" → "Marie Claire" + "Dupont"
-            const lastSpace = nom.lastIndexOf(' ');
-            const firstName = lastSpace > 0 ? nom.substring(0, lastSpace) : nom;
-            const lastName = lastSpace > 0 ? nom.substring(lastSpace + 1) : '';
-            // Nettoyer le nom d'entreprise : retirer descriptions après " - ", " | ", " — "
-            const rawCompany = lead.entreprise || '';
-            const companyName = rawCompany.split(/\s[-–—|]\s/)[0].trim();
-            if (firstName && companyName) {
-              contacts.push({
-                first_name: firstName,
-                last_name: lastName,
-                company_name: companyName,
-                _email: lead.email,  // garder pour la sauvegarde
-                _linkedin: lead.linkedin || lead.linkedinUrl || ''
-              });
-            } else {
-              // Fallback si pas de nom/entreprise
-              emails.push(lead.email);
-            }
-          }
-        }
-        const total = contacts.length + emails.length;
-        if (total > 0) {
-          log.info('action-executor', 'Enrich auto-discovery: ' + contacts.length + ' contacts (nom+entreprise) + ' + emails.length + ' emails seuls');
-        } else {
-          log.info('action-executor', 'Enrich auto-discovery: tous les leads sont deja enrichis');
-          return { success: true, total: 0, enriched: 0, classified: 0, summary: 'Tous les leads sont deja enrichis' };
-        }
-      }
-    }
-
-    // Si on a des contacts avec nom+entreprise, utiliser FullEnrich un par un
-    // (batch bulk rate-limited a 10 max pour economiser les credits)
-    const contactsToEnrich = contacts.slice(0, 10);
-    if (contactsToEnrich.length > 0) {
-      log.info('action-executor', 'Enrichissement de ' + contactsToEnrich.length + ' contacts via FullEnrich (nom+entreprise)');
-      for (const contact of contactsToEnrich) {
-        try {
-          const result = await getBreaker('fullenrich', { failureThreshold: 3, cooldownMs: 60000 }).call(() => enricher.enrichByNameAndCompany(
-            contact.first_name, contact.last_name, contact.company_name
-          ));
-          if (result.success) {
-            enriched++;
-            // Utiliser l'email FlowFast (_email) en priorite, sinon celui retourne par FullEnrich
-            const email = contact._email || (result.person && result.person.email) || null;
-            if (email) {
-              // Sauvegarder les donnees FullEnrich (emailStatus, etc.)
-              if (classifier) {
-                try {
-                  const classification = await classifier.classifyLead(result);
-                  classified++;
-                  if (leStorage) leStorage.saveEnrichedLead(email, result, classification, 'autonomous-pilot');
-                } catch (e) { log.warn('action-executor', 'Classification echouee pour ' + email + ':', e.message); }
-              } else if (leStorage) {
-                leStorage.saveEnrichedLead(email, result, { score: 5, reasoning: 'Enrichi sans classification IA' }, 'autonomous-pilot');
-              }
-              // Marquer comme enrichi dans FlowFast
-              const ffStorage2 = getFlowFastStorage();
-              if (ffStorage2 && ffStorage2.data) {
-                const leadsObj2 = ffStorage2.data.leads || {};
-                for (const lid of Object.keys(leadsObj2)) {
-                  if (leadsObj2[lid].email === email) {
-                    leadsObj2[lid].enrichedAt = new Date().toISOString();
-                    break;
-                  }
-                }
-                ffStorage2._save();
-              }
-            }
-          } else if (contact._linkedin) {
-            // Fallback : enrichir via LinkedIn URL quand nom+entreprise echoue
-            log.info('action-executor', 'Nom+entreprise echoue pour ' + contact.first_name + ' ' + contact.last_name + ', fallback LinkedIn ' + contact._linkedin);
-            try {
-              const submitResult = await enricher._submitEnrichment([{ linkedin_url: contact._linkedin }]);
-              if (submitResult.enrichment_id) {
-                const pollResult = await enricher._pollResults(submitResult.enrichment_id);
-                if (!pollResult._error) {
-                  const formatted = enricher._formatResult(pollResult);
-                  if (formatted.success) {
-                    enriched++;
-                    const email = contact._email || (formatted.person && formatted.person.email) || null;
-                    const status = formatted._fullenrich && formatted._fullenrich.emailStatus ? formatted._fullenrich.emailStatus : '?';
-                    log.info('action-executor', 'Fallback LinkedIn OK: ' + (formatted.person && formatted.person.email) + ' → ' + status);
-                    if (email && leStorage) leStorage.saveEnrichedLead(email, formatted, { score: 5, reasoning: 'Enrichi par fallback LinkedIn' }, 'autonomous-pilot');
-                    const ffStorage3 = getFlowFastStorage();
-                    if (ffStorage3 && ffStorage3.data) {
-                      const leadsObj3 = ffStorage3.data.leads || {};
-                      for (const lid of Object.keys(leadsObj3)) {
-                        if (leadsObj3[lid].email === contact._email) {
-                          leadsObj3[lid].enrichedAt = new Date().toISOString();
-                          leadsObj3[lid].emailStatus = status;
-                          if (formatted.person && formatted.person.email) leadsObj3[lid].enrichedEmail = formatted.person.email;
-                          break;
-                        }
-                      }
-                      ffStorage3._save();
-                    }
-                  }
-                }
-              }
-            } catch (fe) { log.warn('action-executor', 'Erreur fallback LinkedIn ' + contact._linkedin + ':', fe.message); }
-          } else {
-            log.info('action-executor', 'Enrichissement echoue pour ' + contact.first_name + ' ' + contact.last_name + ' @ ' + contact.company_name + ': ' + (result.error || ''));
-          }
-        } catch (e) {
-          log.info('action-executor', 'Erreur enrichissement ' + contact.first_name + ' @ ' + contact.company_name + ':', e.message);
-        }
-      }
-    }
-
-    // Enrichir les emails un par un (fallback)
-    for (const email of emails) {
-      try {
-        const result = await getBreaker('fullenrich', { failureThreshold: 3, cooldownMs: 60000 }).call(() => enricher.enrichByEmail(email));
-        if (result.success) {
-          enriched++;
-          if (classifier) {
-            const classification = await classifier.classifyLead(result);
-            classified++;
-            if (leStorage) leStorage.saveEnrichedLead(email, result, classification, 'autonomous-pilot');
-          }
-        }
-      } catch (e) {
-        log.info('action-executor', 'Erreur enrichissement ' + email + ':', e.message);
-      }
-    }
-
-    storage.incrementProgress('leadsEnrichedThisWeek', enriched);
-
-    return {
-      success: true,
-      total: contacts.length + emails.length,
-      enriched: enriched,
-      classified: classified,
-      summary: enriched + '/' + (contacts.length + emails.length) + ' leads enrichis (FullEnrich)'
-    };
-  }
+  // --- _enrichLeads supprime (FullEnrich retire — Apollo + SMTP verify suffisent) ---
 
   // --- Push vers HubSpot CRM ---
   async _pushToCrm(params) {
