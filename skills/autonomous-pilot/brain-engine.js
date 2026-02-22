@@ -293,8 +293,9 @@ class BrainEngine {
     let plan;
     try {
       // Sonnet pour les cycles reguliers (5x moins cher qu'Opus) — Opus reserve a l'analyse hebdo
-      const response = await this.callClaude(systemPrompt, userMessage, 4000);
+      const response = await this.callClaude(systemPrompt, userMessage, 8192);
       plan = this._parseJsonResponse(response);
+      if (!plan) log.warn('brain', 'Parse JSON echoue, reponse brute (200 premiers chars):', (response || '(vide)').substring(0, 200));
     } catch (e) {
       log.error('brain', 'Erreur Claude Sonnet (brain plan):', e.message);
       plan = this._fallbackPlan(state);
@@ -1191,7 +1192,7 @@ Analyse et reponds en JSON:
     prompt += '13. PRIORISE les leads dont l\'entreprise est dans l\'actualite (news recentes, signaux marche). C\'est un signal d\'opportunite fort.\n';
     prompt += '14. Si les objectifs sont inatteignables, ajuste-les via update_goals plutot que de forcer.\n';
 
-    prompt += '\nReponds UNIQUEMENT en JSON avec cette structure:\n';
+    prompt += '\nReponds UNIQUEMENT en JSON COMPACT (sans indentation, sans commentaires, reasoning en 2-3 phrases max) avec cette structure:\n';
     prompt += '{\n';
     prompt += '  "reasoning": "Ton raisonnement strategique en 3-5 phrases",\n';
     prompt += '  "actions": [{"type": "...", "params": {...}, "autoExecute": bool, "preview": "description courte"}],\n';
