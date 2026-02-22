@@ -192,20 +192,32 @@ REGLES STRICTES :
 
 OBJET DU MAIL :
 - Court (3-6 mots max), minuscules, naturel
-- Contient le NOM DU PROSPECT ou de son ENTREPRISE quand c'est pertinent (ex: "EKELA + La Boite a media", "question pour Marc")
-- Base sur l'observation specifique : "votre expansion canada", "les 4 postes ouverts", "question avis google"
+- Contient le NOM DU PROSPECT ou de son ENTREPRISE
+- DOIT INTRIGUER sans tout reveler : "EKELA apres la fusion" > "EKELA + La Boite a media"
+- Base sur l'observation : "votre expansion canada", "les 4 postes ouverts", "question pour Nadine"
 - JAMAIS de "et si..." ou mots marketing
 
 STYLE D'ECRITURE (CRUCIAL) :
-- JAMAIS affirmer quelque chose qu'on ne sait pas — POSER LA QUESTION a la place
-  MAUVAIS : "ca represente un sacre saut en termes de volume de clients" (supposition)
-  BON : "ca change quoi cote acquisition pour vous ?" (question neutre)
-- Privilegier le COMPLIMENT SINCERE + QUESTION plutot que l'observation froide
-  MAUVAIS : "Vous avez 187 avis Google mais pas de page devis" (agressif)
-  BON : "187 avis a 4.8 sur Google — beau travail. Du coup la prospection elle vient d'ou ?" (compliment + curiosite)
-- Phrases COURTES. Pas de subordonnees a rallonge. Une idee = une phrase.
-- Le mot "curieux" est ton ami. "Curieux : comment vous gerez X ?" est naturel et non-intrusif.
-- JAMAIS utiliser "sacre", "en termes de", "un certain nombre de" — c'est du remplissage
+
+STRUCTURE EN 3 TEMPS :
+1. ACCROCHE = un FAIT SPECIFIQUE sur le prospect (pas un compliment vague)
+2. PONT = l'IMPLICATION BUSINESS de ce fait (montre que tu comprends pourquoi c'est interessant)
+3. QUESTION = une question BINAIRE ou SPECIFIQUE liee au pont (pas une question generique)
+
+EXEMPLES :
+  MAUVAIS (7/10) : "Le rapprochement avec X — beau move. La prospection c'est gere comment ?" (compliment vague + question generique)
+  BON (10/10) : "Deux marques apres la fusion — potentiellement deux audiences a prospecter. Vous doublez les canaux ou vous unifiez ?" (fait + implication + question binaire)
+
+  MAUVAIS (7/10) : "187 avis a 4.8 — beau travail. La prospection elle vient d'ou ?" (compliment + generique)
+  BON (10/10) : "187 avis a 4.8, zero page devis visible. Vos clients viennent du bouche-a-oreille ou vous avez un autre canal ?" (fait + implication + question binaire)
+
+REGLES :
+- JAMAIS affirmer ce qu'on ne sait pas — POSER LA QUESTION
+- ZERO compliments vagues ("beau move", "impressionnant", "beau travail") — remplace par l'IMPLICATION BUSINESS
+- QUESTIONS BINAIRES > questions ouvertes. "A ou B ?" > "Comment vous gerez X ?"
+- "Curieux" : 1 fois sur 3 MAX, pas systematiquement
+- Phrases COURTES. Une idee = une phrase.
+- JAMAIS "sacre", "en termes de", "un certain nombre de", "je me permets"
 
 FORMAT DE RETOUR :
 Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
@@ -251,15 +263,20 @@ STRUCTURE DES RELANCES :
 - Relance 3 (J+16) : breakup ultra court (2 lignes max), "pas de souci si c'est pas le moment"
 
 STYLE D'ECRITURE (CRUCIAL) :
-- JAMAIS affirmer quelque chose qu'on ne sait pas — POSER LA QUESTION a la place
-  MAUVAIS : "ca doit etre complique de gerer la croissance" (supposition)
-  BON : "comment vous gerez le pipe en ce moment ?" (question neutre)
-- Privilegier le COMPLIMENT SINCERE + QUESTION
-  BON : "Beau parcours depuis le lancement. Curieux : la prospection c'est gere comment chez vous ?"
-- Phrases COURTES. Une idee = une phrase. Pas de subordonnees a rallonge.
-- Le mot "curieux" est ton ami. Naturel et non-intrusif.
-- JAMAIS "sacre", "en termes de", "un certain nombre de" — c'est du remplissage
-- Les objets contiennent le NOM DU PROSPECT ou de son ENTREPRISE quand c'est pertinent
+
+STRUCTURE EN 3 TEMPS (pour chaque relance) :
+1. ACCROCHE = un FAIT SPECIFIQUE ou un NOUVEL ANGLE (pas un compliment vague)
+2. PONT = l'IMPLICATION BUSINESS (montre que tu comprends le contexte)
+3. QUESTION = BINAIRE ou SPECIFIQUE (pas generique)
+
+REGLES :
+- JAMAIS affirmer ce qu'on ne sait pas — POSER LA QUESTION
+- ZERO compliments vagues ("beau move", "beau parcours", "impressionnant") — remplace par l'IMPLICATION BUSINESS
+- QUESTIONS BINAIRES > questions ouvertes. "A ou B ?" > "Comment vous gerez X ?"
+- "Curieux" : 1 fois sur 3 MAX, pas systematiquement
+- Phrases COURTES. Une idee = une phrase.
+- JAMAIS "sacre", "en termes de", "un certain nombre de"
+- Les objets contiennent le NOM DU PROSPECT ou de son ENTREPRISE, et INTRIGUENT (pas tout reveler)
 
 IMPORTANT : Retourne UNIQUEMENT un JSON valide, sans markdown, sans backticks.
 Le body NE DOIT PAS contenir de signature (pas de "Alexis", "Cordialement", etc.) — la signature est ajoutee automatiquement.
@@ -346,14 +363,23 @@ OBJET DU MAIL :
 - Pas de "re:" ni de "relance"
 
 STYLE D'ECRITURE (CRUCIAL) :
-- JAMAIS affirmer quelque chose qu'on ne sait pas — POSER LA QUESTION a la place
-  MAUVAIS : "ca represente un sacre saut en termes de volume" (supposition)
-  BON : "ca change quoi cote acquisition pour vous ?" (question neutre)
-- Privilegier le COMPLIMENT SINCERE + QUESTION
-  BON : "Le rapprochement avec X — beau move. Du coup la prospection elle vient d'ou ?"
-- Phrases COURTES. Une idee = une phrase. Pas de subordonnees.
-- Le mot "curieux" est ton ami. "Curieux : comment vous gerez X ?" = naturel et non-intrusif
-- JAMAIS "sacre", "en termes de", "un certain nombre de" — c'est du remplissage
+
+STRUCTURE EN 3 TEMPS :
+1. ACCROCHE = un FAIT SPECIFIQUE ou NOUVEL ANGLE (pas un compliment vague)
+2. PONT = l'IMPLICATION BUSINESS (montre que tu comprends pourquoi c'est interessant)
+3. QUESTION = BINAIRE ou SPECIFIQUE (pas generique)
+
+EXEMPLES :
+  MAUVAIS : "Le rapprochement avec X — beau move. La prospection c'est gere comment ?" (vague + generique)
+  BON : "Deux marques apres la fusion — deux audiences a prospecter. Vous doublez les canaux ou vous unifiez ?" (fait + pont + binaire)
+
+REGLES :
+- JAMAIS affirmer ce qu'on ne sait pas — POSER LA QUESTION
+- ZERO compliments vagues ("beau move", "impressionnant") — remplace par l'IMPLICATION BUSINESS
+- QUESTIONS BINAIRES > questions ouvertes. "A ou B ?" > "Comment vous gerez X ?"
+- "Curieux" : 1 fois sur 3 MAX
+- Phrases COURTES. Une idee = une phrase.
+- JAMAIS "sacre", "en termes de", "un certain nombre de"
 
 FORMAT :
 JSON strict sans markdown ni backticks :
