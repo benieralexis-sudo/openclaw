@@ -52,6 +52,17 @@ class Analyzer {
 
   // Analyser les performances de la semaine et generer des recommandations
   async analyzePerformance(snapshot, historicalSnapshots) {
+    // Hard minimum : pas de recommandations si < 100 emails envoyes
+    const totalEmails = snapshot && snapshot.email ? (snapshot.email.totalSent || 0) : 0;
+    if (totalEmails < 100) {
+      return {
+        summary: 'Donnees insuffisantes (' + totalEmails + '/100 emails minimum). Accumulation en cours — pas de recommandation pour eviter les decisions sur du bruit statistique.',
+        insights: ['Volume actuel: ' + totalEmails + ' emails. Minimum 100 requis pour des recommandations fiables.'],
+        recommendations: [],
+        dataQuality: 'insufficient'
+      };
+    }
+
     const systemPrompt = `Tu es un expert en optimisation de prospection B2B. On te donne les metriques d'une semaine d'un bot commercial.
 Analyse les donnees et genere des recommandations concretes et actionnables.
 

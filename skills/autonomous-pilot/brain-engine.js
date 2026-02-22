@@ -808,6 +808,49 @@ Analyse et reponds en JSON:
       }
     }
 
+    // 1b. Email engagement → score boost (miroir du pattern Web Signals)
+    const EMAIL_BOOSTS = { opened: 1, clicked: 2, replied: 3 };
+    const amStorage = getAutomailerStorage();
+    const ffStorageEng = getFlowFastStorage();
+    if (amStorage && ffStorageEng) {
+      try {
+        const recentEmails = amStorage.getRecentEmails ? amStorage.getRecentEmails(50) : amStorage.getAllEmails().slice(-50);
+        const engagedEmails = recentEmails.filter(e => e.opened || e.clicked || e.replied || e.hasReplied);
+        const allLeadsEng = ffStorageEng.data && ffStorageEng.data.leads ? ffStorageEng.data.leads : {};
+
+        for (const email of engagedEmails) {
+          const to = (email.to || '').toLowerCase();
+          if (!to) continue;
+
+          // Trouver le lead dans FlowFast par email
+          const leadEntry = Object.entries(allLeadsEng).find(([k, l]) => (l.email || '').toLowerCase() === to);
+          if (!leadEntry) continue;
+
+          const [leadKey, lead] = leadEntry;
+          if (!lead._processedEmails) lead._processedEmails = [];
+
+          // Determiner le type d'engagement le plus fort
+          let engagementType = 'opened';
+          if (email.replied || email.hasReplied) engagementType = 'replied';
+          else if (email.clicked) engagementType = 'clicked';
+
+          const emailSignalId = (email.id || email.sentAt || '') + '_' + engagementType;
+          if (lead._processedEmails.includes(emailSignalId)) continue;
+
+          const boost = EMAIL_BOOSTS[engagementType] || 1;
+          const newScore = Math.min(10, (lead.score || 0) + boost);
+          const reason = 'Email ' + engagementType + ': ' + (email.subject || '').substring(0, 60);
+
+          lead._processedEmails.push(emailSignalId);
+          if (lead._processedEmails.length > 50) lead._processedEmails = lead._processedEmails.slice(-50);
+          ffStorageEng.updateLeadScore(leadKey, newScore, reason);
+          log.info('brain', 'Email engagement +' + boost + ' pour ' + to + ' (' + engagementType + ') → score ' + newScore);
+        }
+      } catch (engErr) {
+        log.info('brain', 'Email engagement cycle erreur (non bloquant): ' + engErr.message);
+      }
+    }
+
     // 2. Verifier si objectifs hebdo sont en retard (mi-semaine)
     const progress = state.progress;
     const goals = state.goals.weekly;
@@ -1117,6 +1160,39 @@ Analyse et reponds en JSON:
 
       prompt += '\n  → Utilise ces patterns ET les recommandations Self-Improve pour prioriser.\n';
       prompt += '  → Concentre-toi sur les titres/industries/villes qui performent le mieux.\n';
+    }
+
+    // --- PROFILS GAGNANTS (leads qui ont ouvert/repondu — feedback loop) ---
+    try {
+      const amPrompt = getAutomailerStorage();
+      const ffPrompt = getFlowFastStorage();
+      if (amPrompt && ffPrompt) {
+        const hotEmails = amPrompt.getAllEmails().filter(e => e.opened || e.replied || e.hasReplied);
+        if (hotEmails.length >= 2) {
+          const allLeadsPrompt = ffPrompt.data && ffPrompt.data.leads ? ffPrompt.data.leads : {};
+          const profiles = [];
+          for (const em of hotEmails.slice(-15)) {
+            const to = (em.to || '').toLowerCase();
+            const leadMatch = Object.values(allLeadsPrompt).find(l => (l.email || '').toLowerCase() === to);
+            if (leadMatch) {
+              profiles.push(
+                (leadMatch.titre || '?') + ' @ ' + (leadMatch.entreprise || '?') +
+                ' (' + (leadMatch.taille || '?') + ' emp, ' + (leadMatch.ville || '?') + ')' +
+                (em.replied || em.hasReplied ? ' [REPONDU]' : ' [OUVERT]')
+              );
+            }
+          }
+          if (profiles.length >= 2) {
+            prompt += '\nPROFILS GAGNANTS (leads ayant ouvert ou repondu — CIBLE CES PROFILS EN PRIORITE):\n';
+            for (const p of profiles) {
+              prompt += '  - ' + p + '\n';
+            }
+            prompt += '  → CHERCHE DES PROFILS SIMILAIRES (meme titre, meme taille, meme secteur) dans tes prochaines recherches.\n';
+          }
+        }
+      }
+    } catch (wpErr) {
+      // Non-bloquant
     }
 
     // --- Historique des ajustements de criteres (Brain v3) ---

@@ -649,7 +649,7 @@ Reponds UNIQUEMENT en JSON strict :
 
   // FIX 16 : Auto-appliquer les recommandations a haute confiance (>= 0.7)
   _autoApplyRecommendations(recommendations) {
-    const MIN_CONFIDENCE = 0.5;
+    const MIN_CONFIDENCE = 0.7;
     const pending = storage.getPendingRecommendations();
     if (pending.length === 0) return { applied: 0, total: 0, results: [] };
 
