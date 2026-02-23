@@ -607,49 +607,73 @@ inboxListener = InboxListener ? new InboxListener({
     }
     // Proposer un meeting auto si meeting-scheduler est configure
     try {
-      const meeting = await meetingHandler.proposeAutoMeeting(
-        replyData.from,
-        replyData.fromName || '',
-        ''
+      // Dedup : verifier si un auto-meeting a deja ete envoye a ce lead dans les 48h
+      const existingEmails = automailerStorageForInbox.getEmailEventsForRecipient(replyData.from);
+      const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+      const recentAutoMeeting = existingEmails.find(e =>
+        e.source === 'auto-meeting' && e.sentAt && new Date(e.sentAt).getTime() > cutoff48h
       );
-      if (meeting && meeting.bookingUrl) {
-        // Envoyer automatiquement l'email avec le lien de booking au lead
-        const resend = automailerHandler.resend;
-        if (resend) {
-          const leadFirstName = (replyData.fromName || '').split(' ')[0] || '';
-          const greet = leadFirstName ? ('Merci ' + leadFirstName) : 'Merci pour ton retour';
-          const autoReplyBody = greet + ' !\n\n' +
-            'Le plus simple, on se cale un call rapide ?\n\n' +
-            'Voici mon lien pour choisir un creneau : ' + meeting.bookingUrl + '\n\n' +
-            'A tres vite !';
-          const replySubject = (replyData.subject || '').startsWith('Re:')
-            ? replyData.subject
-            : 'Re: ' + (replyData.subject || 'notre echange');
-          const sendResult = await resend.sendEmail(replyData.from, replySubject, autoReplyBody, {
-            replyTo: SENDER_EMAIL,
-            tags: [{ name: 'type', value: 'auto-meeting' }]
-          });
-          if (sendResult && sendResult.success) {
-            log.info('inbox-manager', 'Auto-meeting email envoye a ' + replyData.from + ' avec lien ' + meeting.bookingUrl);
-            await sendMessage(ADMIN_CHAT_ID,
-              '📅 *Meeting auto-propose + email envoye !*\n\n' +
-              '👤 ' + (replyData.fromName || replyData.from) + '\n' +
-              '🔗 ' + meeting.bookingUrl + '\n' +
-              '📧 Email de proposition envoye automatiquement',
-              'Markdown'
-            );
+      if (recentAutoMeeting) {
+        log.info('inbox-manager', 'Auto-meeting deja envoye a ' + replyData.from + ' dans les 48h — skip');
+      } else {
+        // Recuperer company depuis l'historique email
+        const leadCompany = (existingEmails.find(e => e.company) || {}).company || '';
+        const meeting = await meetingHandler.proposeAutoMeeting(
+          replyData.from,
+          replyData.fromName || '',
+          leadCompany
+        );
+        if (meeting && meeting.bookingUrl) {
+          const resend = automailerHandler.resend;
+          if (resend) {
+            const leadFirstName = (replyData.fromName || '').trim().split(' ')[0] || '';
+            const greet = leadFirstName ? ('Merci ' + leadFirstName) : 'Merci pour ton retour';
+            const autoReplyBody = greet + ' !\n\n' +
+              'Le plus simple, on se cale un call rapide ?\n\n' +
+              'Voici mon lien pour choisir un creneau : ' + meeting.bookingUrl + '\n\n' +
+              'A tres vite !';
+            const replySubject = (replyData.subject || '').startsWith('Re:')
+              ? replyData.subject
+              : 'Re: ' + (replyData.subject || 'notre echange');
+            const sendResult = await resend.sendEmail(replyData.from, replySubject, autoReplyBody, {
+              replyTo: SENDER_EMAIL,
+              fromName: 'Alexis',
+              tags: [{ name: 'type', value: 'auto-meeting' }]
+            });
+            if (sendResult && sendResult.success) {
+              // Enregistrer dans automailer storage pour tracking + rate limiting
+              automailerStorageForInbox.addEmail({
+                chatId: ADMIN_CHAT_ID,
+                to: replyData.from,
+                subject: replySubject,
+                body: autoReplyBody,
+                resendId: sendResult.id || null,
+                status: 'sent',
+                source: 'auto-meeting',
+                contactName: replyData.fromName || '',
+                company: leadCompany
+              });
+              log.info('inbox-manager', 'Auto-meeting email envoye a ' + replyData.from + ' avec lien ' + meeting.bookingUrl);
+              await sendMessage(ADMIN_CHAT_ID,
+                '📅 *Meeting auto-propose + email envoye !*\n\n' +
+                '👤 ' + (replyData.fromName || replyData.from) + '\n' +
+                '🔗 ' + meeting.bookingUrl + '\n' +
+                '📧 Email de proposition envoye automatiquement',
+                'Markdown'
+              );
+            } else {
+              log.warn('inbox-manager', 'Auto-meeting email echoue:', (sendResult && sendResult.error) || 'unknown');
+              await sendMessage(ADMIN_CHAT_ID,
+                '📅 _Meeting propose pour ' + replyData.from + ' mais email non envoye._\n🔗 ' + meeting.bookingUrl + '\n_Envoie le lien manuellement._',
+                'Markdown'
+              );
+            }
           } else {
-            log.warn('inbox-manager', 'Auto-meeting email echoue:', (sendResult && sendResult.error) || 'unknown');
             await sendMessage(ADMIN_CHAT_ID,
-              '📅 _Meeting propose pour ' + replyData.from + ' mais email non envoye._\n🔗 ' + meeting.bookingUrl + '\n_Envoie le lien manuellement._',
+              '📅 _Meeting auto-propose pour ' + replyData.from + ' :_\n' + meeting.bookingUrl + '\n_Resend non dispo — envoie le lien manuellement._',
               'Markdown'
             );
           }
-        } else {
-          await sendMessage(ADMIN_CHAT_ID,
-            '📅 _Meeting auto-propose pour ' + replyData.from + ' :_\n' + meeting.bookingUrl + '\n_Resend non dispo — envoie le lien manuellement._',
-            'Markdown'
-          );
         }
       }
     } catch (e) {
@@ -1598,9 +1622,9 @@ async function handleResendWebhook(body) {
     }
   }
 
-  // Clic email → programmer reactive FU immédiatement (engagement fort)
+  // Clic email → programmer reactive FU + proposer meeting immédiatement
   if (status === 'clicked' && ProspectResearcher) {
-    log.info('webhook', 'Clic detecte pour ' + email.to + ' — programmation reactive FU');
+    log.info('webhook', 'Clic detecte pour ' + email.to + ' — reactive FU + meeting auto');
     try {
       const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
       const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: '' };
@@ -1616,6 +1640,56 @@ async function handleResendWebhook(body) {
       });
     } catch (e) {
       log.warn('webhook', 'Erreur reactive FU sur clic: ' + e.message);
+    }
+    // Clic = engagement fort → proposer meeting auto immediatement
+    try {
+      const amStorage = require('../skills/automailer/storage.js');
+      const existingEmails = amStorage.getEmailEventsForRecipient(email.to);
+      const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+      const recentAutoMeeting = existingEmails.find(e =>
+        e.source === 'auto-meeting' && e.sentAt && new Date(e.sentAt).getTime() > cutoff48h
+      );
+      if (!recentAutoMeeting) {
+        const meeting = await meetingHandler.proposeAutoMeeting(
+          email.to,
+          email.contactName || '',
+          email.company || ''
+        );
+        if (meeting && meeting.bookingUrl) {
+          const resend = automailerHandler.resend;
+          if (resend) {
+            const leadFirst = (email.contactName || '').trim().split(' ')[0] || '';
+            const meetBody = (leadFirst ? (leadFirst + ', ') : '') +
+              'je vois que le sujet t\'interesse !\n\n' +
+              'Le plus simple : on se fait un call rapide de 15 min ?\n\n' +
+              'Choisis le creneau qui t\'arrange : ' + meeting.bookingUrl + '\n\n' +
+              'A bientot !';
+            const meetSubject = 'On se cale un echange rapide ?';
+            const meetResult = await resend.sendEmail(email.to, meetSubject, meetBody, {
+              replyTo: SENDER_EMAIL,
+              fromName: 'Alexis',
+              tags: [{ name: 'type', value: 'auto-meeting' }]
+            });
+            if (meetResult && meetResult.success) {
+              amStorage.addEmail({
+                chatId: ADMIN_CHAT_ID,
+                to: email.to,
+                subject: meetSubject,
+                body: meetBody,
+                resendId: meetResult.id || null,
+                status: 'sent',
+                source: 'auto-meeting',
+                contactName: email.contactName || '',
+                company: email.company || ''
+              });
+              log.info('webhook', 'Meeting auto envoye sur clic a ' + email.to);
+              sendMessage(ADMIN_CHAT_ID, '📅 *Meeting propose sur clic !*\n👤 ' + (email.contactName || email.to) + '\n🔗 ' + meeting.bookingUrl, 'Markdown').catch(() => {});
+            }
+          }
+        }
+      }
+    } catch (meetErr) {
+      log.info('webhook', 'Auto-meeting sur clic skip: ' + meetErr.message);
     }
   }
 

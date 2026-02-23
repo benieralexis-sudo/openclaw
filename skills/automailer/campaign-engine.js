@@ -532,9 +532,9 @@ class CampaignEngine {
         const allEmailsToContact = storage.getEmailEventsForRecipient(contact.email);
         const cutoff72h = Date.now() - 72 * 60 * 60 * 1000;
         const recentSent = allEmailsToContact.filter(e => {
-          if (e.status === 'failed') return false;
-          const sentTime = new Date(e.sentAt || e.createdAt || 0).getTime();
-          return sentTime > cutoff72h;
+          if (e.status === 'failed' || e.status === 'queued') return false;
+          const sentTime = e.sentAt ? new Date(e.sentAt).getTime() : 0;
+          return sentTime > 0 && sentTime > cutoff72h;
         });
         if (recentSent.length >= 2) {
           log.info('campaign-engine', 'Skip ' + contact.email + ' (rate limit: ' + recentSent.length + ' emails en 72h)');
@@ -705,6 +705,21 @@ class CampaignEngine {
         log.warn('campaign-engine', 'Quality gate FAIL pour ' + contact.email + ': ' + qg.reason + ' — skip envoi');
         skipped++;
         continue;
+      }
+
+      // Ajouter lien booking Cal.eu dans les relances (step 2+)
+      if (stepNumber >= 2) {
+        try {
+          const calcom = require('../meeting-scheduler/calendar-client.js');
+          const calClient = new calcom(process.env.CALCOM_API_KEY || '');
+          const bookingUrl = await calClient.getBookingLink('appel-telephonique', contact.email, firstName);
+          if (bookingUrl) {
+            body += '\n\nSi ca te dit, voici mon lien pour caler un echange rapide : ' + bookingUrl;
+          }
+        } catch (calErr) {
+          // Cal.eu non dispo — pas bloquant, on envoie sans lien
+          log.info('campaign-engine', 'Booking link skip pour ' + contact.email + ': ' + calErr.message);
+        }
       }
 
       // Generer un tracking ID unique pour le pixel d'ouverture
@@ -1048,4 +1063,5 @@ class CampaignEngine {
 }
 
 CampaignEngine.checkMX = _checkMX;
+CampaignEngine.emailPassesQualityGate = _emailPassesQualityGate;
 module.exports = CampaignEngine;

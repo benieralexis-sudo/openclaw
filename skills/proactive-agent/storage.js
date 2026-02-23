@@ -23,7 +23,7 @@ class ProactiveStorage {
       this.data = JSON.parse(raw);
       // Migration : ajouter reactiveFollowUps si absent (bases existantes)
       if (!this.data.reactiveFollowUps) {
-        this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 120, maxDelayMinutes: 240 } };
+        this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 30, maxDelayMinutes: 60 } };
         this._save();
       }
       console.log('[proactive-storage] Base chargee (' + this.data.alertHistory.length + ' alertes)');
@@ -230,7 +230,7 @@ class ProactiveStorage {
 
   addPendingFollowUp(followUp) {
     if (!this.data.reactiveFollowUps) {
-      this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 120, maxDelayMinutes: 240 } };
+      this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 30, maxDelayMinutes: 60 } };
     }
     const email = (followUp.prospectEmail || '').toLowerCase();
     // Deduplication : 1 seul follow-up reactif par prospect
@@ -304,14 +304,14 @@ class ProactiveStorage {
 
   getReactiveFollowUpConfig() {
     if (!this.data.reactiveFollowUps || !this.data.reactiveFollowUps.config) {
-      return { enabled: true, minDelayMinutes: 120, maxDelayMinutes: 240 };
+      return { enabled: true, minDelayMinutes: 30, maxDelayMinutes: 60 };
     }
     return this.data.reactiveFollowUps.config;
   }
 
   updateReactiveFollowUpConfig(updates) {
     if (!this.data.reactiveFollowUps) {
-      this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 120, maxDelayMinutes: 240 } };
+      this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 30, maxDelayMinutes: 60 } };
     }
     Object.assign(this.data.reactiveFollowUps.config, updates);
     this._save();

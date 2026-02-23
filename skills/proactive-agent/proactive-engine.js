@@ -56,6 +56,14 @@ function getAPStorage() {
   }
 }
 
+function getCampaignEngine() {
+  try { return require('../automailer/campaign-engine.js'); }
+  catch (e) {
+    try { return require('/app/skills/automailer/campaign-engine.js'); }
+    catch (e2) { return null; }
+  }
+}
+
 class ProactiveEngine {
   constructor(options) {
     this.sendTelegram = options.sendTelegram;
@@ -811,9 +819,9 @@ class ProactiveEngine {
         // Rate limiting inter-campagne : max 2 emails/72h par contact
         const cutoff72h = Date.now() - 72 * 60 * 60 * 1000;
         const recentSent = emailEvents.filter(e => {
-          if (e.status === 'failed') return false;
-          const sentTime = new Date(e.sentAt || e.createdAt || 0).getTime();
-          return sentTime > cutoff72h;
+          if (e.status === 'failed' || e.status === 'queued') return false;
+          const sentTime = e.sentAt ? new Date(e.sentAt).getTime() : 0;
+          return sentTime > 0 && sentTime > cutoff72h;
         });
         if (recentSent.length >= 2) {
           log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' rate limit (' + recentSent.length + ' emails en 72h) — reporte');
@@ -926,6 +934,27 @@ class ProactiveEngine {
           enrichedIntel += '\n\n=== ANGLES DEJA UTILISES (NE PAS REPETER) ===\n- "' + originalAngle + '"\n=== FIN ANGLES UTILISES ===';
         }
 
+        // Hot lead detection : 3+ ouvertures → ton plus direct + CTA booking
+        const openCount = emailEvents.filter(e => e.status === 'opened' || e.openedAt).length;
+        let isHotLead = openCount >= 3;
+        let bookingUrl = '';
+        if (isHotLead) {
+          log.info('proactive-engine', 'HOT LEAD detecte: ' + followUp.prospectEmail + ' (' + openCount + ' opens)');
+          enrichedIntel += '\n\n=== CONSIGNE SPECIALE ===\n' +
+            'Ce prospect est un HOT LEAD (' + openCount + ' ouvertures). ' +
+            'Adopte un ton plus direct et confiant. ' +
+            'Propose CLAIREMENT un echange rapide de 15 min. ' +
+            'Sois concis (4-6 lignes max). Ne tourne pas autour du pot.\n=== FIN CONSIGNE ===';
+          // Generer le lien booking
+          try {
+            const CalComClient = require('../meeting-scheduler/calendar-client.js');
+            const calcom = new CalComClient(process.env.CALCOM_API_KEY || '');
+            bookingUrl = await calcom.getBookingLink('appel-telephonique', followUp.prospectEmail, contact.firstName || '') || '';
+          } catch (calErr) {
+            log.info('proactive-engine', 'Booking link skip pour hot lead: ' + calErr.message);
+          }
+        }
+
         const generated = await writer.generateReactiveFollowUp(
           contact,
           { subject: followUp.originalSubject, body: followUp.originalBody },
@@ -938,8 +967,13 @@ class ProactiveEngine {
           continue;
         }
 
-        const subject = generated.subject;
-        const body = generated.body;
+        let subject = generated.subject;
+        let body = generated.body;
+
+        // Hot lead : ajouter lien booking au body
+        if (isHotLead && bookingUrl) {
+          body += '\n\nVoici mon lien si tu veux caler un creneau : ' + bookingUrl;
+        }
 
         // 2d. Mini quality gate : verifier que la relance contient au moins 1 fait du brief
         if (enrichedIntel && enrichedIntel.length > 100) {
@@ -956,6 +990,21 @@ class ProactiveEngine {
             continue;
           }
           log.info('proactive-engine', 'Reactive FU: quality gate OK (' + matchedWords.length + ' mots: ' + matchedWords.slice(0, 3).join(', ') + ')');
+        }
+
+        // 2e. Quality gate complete (patterns generiques) — meme check que campaign-engine
+        try {
+          const CE = getCampaignEngine();
+          if (CE && CE.emailPassesQualityGate) {
+            const qg = CE.emailPassesQualityGate(subject, body);
+            if (!qg.pass) {
+              log.warn('proactive-engine', 'Reactive FU: quality gate patterns FAIL pour ' + followUp.prospectEmail + ': ' + qg.reason);
+              storage.markFollowUpFailed(followUp.id, 'quality_gate_pattern: ' + qg.reason);
+              continue;
+            }
+          }
+        } catch (qgErr) {
+          log.info('proactive-engine', 'Reactive FU: quality gate patterns check skip: ' + qgErr.message);
         }
 
         // 3. Validation mots interdits
