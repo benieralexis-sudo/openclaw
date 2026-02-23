@@ -235,14 +235,14 @@ function isBusinessHours() {
   const parisDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
   const parisDay = parisDate.getDay(); // 0=dimanche, 6=samedi
   if (parisDay === 0 || parisDay === 6) return false; // weekend
-  if (parisHour < 9 || parisHour >= 13) return false; // envois concentres le matin 9h-12h59
+  if (parisHour < 9 || parisHour >= 15) return false; // envois 9h-14h59 (14h = best open rate)
   return true;
 }
 
-// --- Envoi preferentiel Mar-Jeu 9h-11h (Paris) ---
-// Données : Belkins 16.5M emails → 44% open rate Mar-Jeu 9h-11h
+// --- Envoi preferentiel Mar-Jeu 14h (Paris) ---
+// Self-Improve confirme : 14h = 29% open rate (meilleur creneau)
 // Si le jour est Lun/Ven → glisse au prochain Mar/Mer/Jeu
-// Heure toujours fixée entre 9h00-10h30 (Paris) avec jitter
+// Heure fixee entre 13h30-14h30 (Paris) avec jitter
 function _snapToPreferredSlot(date) {
   // Convertir en heure Paris
   const parisStr = date.toLocaleString('en-US', { timeZone: 'Europe/Paris' });
@@ -262,13 +262,13 @@ function _snapToPreferredSlot(date) {
     date = new Date(date.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
   }
 
-  // Fixer l'heure a 9h00-10h30 Paris (avec jitter pour eviter pattern detectable)
+  // Fixer l'heure a 13h30-14h30 Paris (avec jitter pour eviter pattern detectable)
   const offset = _getParisOffsetMs(date);
-  const targetHour = 9;
-  const jitterMinutes = Math.floor(Math.random() * 90); // 0-89 min → 9h00 à 10h29
+  const targetHour = 13;
+  const jitterMinutes = 30 + Math.floor(Math.random() * 60); // 30-89 min → 13h30 à 14h29
   const parisTarget = new Date(date);
   parisTarget.setUTCHours(0, 0, 0, 0);
-  // Mettre a 9h Paris = 9h - offset en UTC
+  // Mettre a 13h30+ Paris en UTC
   parisTarget.setTime(parisTarget.getTime() + (targetHour * 60 + jitterMinutes) * 60 * 1000 - offset);
 
   return parisTarget;
