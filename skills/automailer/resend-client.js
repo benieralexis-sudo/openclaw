@@ -76,11 +76,11 @@ class ResendClient {
   async _sendViaGmail(to, subject, body, options, mailbox) {
     options = options || {};
     const toEmail = Array.isArray(to) ? to[0] : to;
-    const fromName = options.fromName || 'Alexis';
+    const fromName = options.fromName || process.env.SENDER_NAME || 'Alexis';
     // Utiliser la boîte passée en paramètre ou fallback sur this.gmailUser
     const smtpUser = mailbox ? mailbox.user : this.gmailUser;
     const smtpPass = mailbox ? mailbox.pass : this.gmailPass;
-    const smtpDomain = smtpUser.split('@')[1] || 'getifind.fr';
+    const smtpDomain = smtpUser.split('@')[1] || process.env.CLIENT_DOMAIN || 'ifind.fr';
 
     // Construire le message MIME
     const boundary = 'boundary_' + crypto.randomBytes(8).toString('hex');
@@ -234,15 +234,18 @@ class ResendClient {
       .replace(/>/g, '&gt;')
       .replace(/\n/g, '<br>');
 
+    const senderFullName = (process.env.SENDER_FULL_NAME || 'Alexis Bénier').replace(/é/g, '&eacute;').replace(/è/g, '&egrave;').replace(/ê/g, '&ecirc;').replace(/à/g, '&agrave;');
+    const senderTitle = process.env.SENDER_TITLE || 'Fondateur';
+    const clientDomain = process.env.CLIENT_DOMAIN || 'ifind.fr';
     const signature = '<br><span style="color:#666;font-size:13px">'
       + '—<br>'
-      + 'Alexis B&eacute;nier<br>'
-      + 'Fondateur &mdash; ifind.fr'
+      + senderFullName + '<br>'
+      + senderTitle + ' &mdash; ' + clientDomain
       + '</span>';
 
     // Pixel de tracking ouverture (invisible)
     const pixel = trackingId
-      ? '<img src="https://ifind.fr/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">'
+      ? '<img src="https://' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">'
       : '';
 
     return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + '</div>' + pixel;
@@ -269,7 +272,7 @@ class ResendClient {
     // Fallback Resend API
     options = options || {};
     const toEmail = Array.isArray(to) ? to[0] : to;
-    const fromName = options.fromName || 'Alexis';
+    const fromName = options.fromName || process.env.SENDER_NAME || 'Alexis';
     const payload = {
       from: fromName + ' <' + this.senderEmail + '>',
       to: Array.isArray(to) ? to : [to],
@@ -277,7 +280,7 @@ class ResendClient {
       text: body,
       html: options.html || this._minimalHtml(body, options.trackingId),
       headers: {
-        'List-Unsubscribe': '<https://ifind.fr/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
+        'List-Unsubscribe': '<https://' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
       }
     };
     if (options.tags) payload.tags = options.tags;
@@ -302,7 +305,7 @@ class ResendClient {
       for (const e of emails) {
         const mailbox = this._nextMailbox();
         try {
-          const r = await this._sendViaGmail(e.to, e.subject, e.body, { fromName: e.fromName || 'Alexis', trackingId: e.trackingId }, mailbox);
+          const r = await this._sendViaGmail(e.to, e.subject, e.body, { fromName: e.fromName || process.env.SENDER_NAME || 'Alexis', trackingId: e.trackingId }, mailbox);
           results.push(r);
         } catch (err) {
           results.push({ success: false, error: err.message });
@@ -314,7 +317,7 @@ class ResendClient {
     // Fallback Resend batch
     const payload = emails.map(e => {
       const toEmail = Array.isArray(e.to) ? e.to[0] : e.to;
-      const fromName = e.fromName || 'Alexis';
+      const fromName = e.fromName || process.env.SENDER_NAME || 'Alexis';
       return {
         from: fromName + ' <' + this.senderEmail + '>',
         to: Array.isArray(e.to) ? e.to : [e.to],
@@ -322,9 +325,9 @@ class ResendClient {
         text: e.body,
         html: this._minimalHtml(e.body, e.trackingId),
         tags: e.tags || [],
-        reply_to: 'alexis@getifind.fr',
+        reply_to: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
         headers: {
-          'List-Unsubscribe': '<https://ifind.fr/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
+          'List-Unsubscribe': '<https://' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
         }
       };
     });

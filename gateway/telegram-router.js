@@ -2,7 +2,7 @@
 
 // --- Securite : refuser de tourner en root ---
 if (typeof process.getuid === 'function' && process.getuid() === 0) {
-  console.error('FATAL: iFIND refuse de tourner en root (uid 0). Utilisez runuser ou USER dans Dockerfile.');
+  console.error('FATAL: Bot refuse de tourner en root (uid 0). Utilisez runuser ou USER dans Dockerfile.');
   process.exit(1);
 }
 
@@ -637,7 +637,7 @@ inboxListener = InboxListener ? new InboxListener({
               : 'Re: ' + (replyData.subject || 'notre echange');
             const sendResult = await resend.sendEmail(replyData.from, replySubject, autoReplyBody, {
               replyTo: SENDER_EMAIL,
-              fromName: 'Alexis',
+              fromName: process.env.SENDER_NAME || 'Alexis',
               tags: [{ name: 'type', value: 'auto-meeting' }]
             });
             if (sendResult && sendResult.success) {
@@ -815,7 +815,7 @@ function buildSystemStatus() {
   const totalCrons = Object.values(cronCounts).reduce((a, b) => a + b, 0);
 
   const lines = [
-    modeEmoji + ' *iFIND — ' + modeLabel + '*',
+    modeEmoji + ' *' + (process.env.CLIENT_NAME || 'iFIND') + ' — ' + modeLabel + '*',
     '_Derniere bascule : ' + new Date(config.lastModeChange).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }) + '_',
     ''
   ];
@@ -945,7 +945,7 @@ async function classifySkill(message, chatId) {
   const historyContext = getHistoryContext(chatId);
   const lastSkill = userActiveSkill[id] || 'aucun';
 
-  const systemPrompt = `Tu es le cerveau d'un bot Telegram appele iFIND. Tu dois comprendre l'INTENTION de l'utilisateur pour router son message vers le bon skill.
+  const systemPrompt = `Tu es le cerveau d'un bot Telegram appele ${process.env.CLIENT_NAME || 'iFIND'}. Tu dois comprendre l'INTENTION de l'utilisateur pour router son message vers le bon skill.
 
 SKILLS DISPONIBLES :
 - "automailer" : campagnes email automatisees — creer/gerer des campagnes, envoyer des emails, gerer des listes de contacts email, voir les stats d'envoi, templates email. "comment vont mes campagnes ?" = automailer.
@@ -1017,7 +1017,7 @@ async function humanizeResponse(rawContent, userMessage, skill) {
   // Ne pas humaniser les messages de chargement intermediaires
   if (rawContent.startsWith('🔍 _') || rawContent.startsWith('✍️ _') || rawContent.startsWith('📧 _') || rawContent.startsWith('🚀 _')) return rawContent;
 
-  const systemPrompt = `Tu es iFIND, un assistant Telegram sympa et decontracte qui parle comme un pote professionnel.
+  const systemPrompt = `Tu es ${process.env.CLIENT_NAME || 'iFIND'}, un assistant Telegram sympa et decontracte qui parle comme un pote professionnel.
 On te donne une reponse brute generee par un de tes modules. Reformule-la en langage naturel et conversationnel.
 
 REGLES STRICTES :
@@ -1072,7 +1072,7 @@ async function generateBusinessResponse(userMessage, chatId) {
   }
 
   // Appel Claude pour une vraie reponse conversationnelle
-  const systemPrompt = `Tu es iFIND, l'assistant business IA personnel de ${process.env.DASHBOARD_OWNER || 'ton client'}. Tu es un expert en strategie commerciale B2B, marketing digital, vente et entrepreneuriat.
+  const systemPrompt = `Tu es ${process.env.CLIENT_NAME || 'iFIND'}, l'assistant business IA personnel de ${process.env.DASHBOARD_OWNER || 'ton client'}. Tu es un expert en strategie commerciale B2B, marketing digital, vente et entrepreneuriat.
 
 TON STYLE :
 - Tu parles comme un pote entrepreneur qui s'y connait — decontracte, direct, bienveillant
@@ -1102,7 +1102,7 @@ NE FAIS PAS :
 - Ne dis pas "je ne suis qu'une IA" — tu es un assistant business, point`;
 
   const userContent = historyContext
-    ? 'CONTEXTE DES DERNIERS ECHANGES :\n' + historyContext + '\n\nNOUVEAU MESSAGE D\'ALEXIS : ' + userMessage
+    ? 'CONTEXTE DES DERNIERS ECHANGES :\n' + historyContext + '\n\nNOUVEAU MESSAGE DE ' + (process.env.SENDER_NAME || 'ALEXIS').toUpperCase() + ' : ' + userMessage
     : userMessage;
 
   try {
@@ -1667,7 +1667,7 @@ async function handleResendWebhook(body) {
             const meetSubject = 'On se cale un echange rapide ?';
             const meetResult = await resend.sendEmail(email.to, meetSubject, meetBody, {
               replyTo: SENDER_EMAIL,
-              fromName: 'Alexis',
+              fromName: process.env.SENDER_NAME || 'Alexis',
               tags: [{ name: 'type', value: 'auto-meeting' }]
             });
             if (meetResult && meetResult.success) {
@@ -1995,13 +1995,13 @@ healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
 // --- Exporter l'agent HTTPS pour les skills ---
 global.__ifindHttpsAgent = httpsAgent;
 
-log.info('router', 'iFIND Router demarre...');
+log.info('router', (process.env.CLIENT_NAME || 'iFIND') + ' Router demarre...');
 telegramAPI('getMe').then(result => {
   if (result.ok) {
     log.info('router', 'Bot connecte : @' + result.result.username + ' (' + result.result.first_name + ')');
     telegramAPI('setMyCommands', {
       commands: [
-        { command: 'start', description: 'Demarrer iFIND' },
+        { command: 'start', description: 'Demarrer ' + (process.env.CLIENT_NAME || 'iFIND') },
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(e => log.warn('router', 'setMyCommands echoue:', e.message));

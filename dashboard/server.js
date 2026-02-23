@@ -952,7 +952,7 @@ app.get('/api/finance', authRequired, adminRequired, async (req, res) => {
   // Couts fixes
   const fixedCosts = {
     googleWorkspace: { amount: 7.00, currency: 'USD', label: 'Google Workspace' },
-    domain: { amount: 0.58, currency: 'EUR', label: 'Domaine getifind.fr' }
+    domain: { amount: 0.58, currency: 'EUR', label: 'Domaine ' + (process.env.CLIENT_DOMAIN || 'ifind.fr') }
   };
   const fixedTotal = 7.00 + 0.58;
 

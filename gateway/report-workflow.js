@@ -290,7 +290,7 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rapport iFIND — ${safeProspectPrenom}</title>
+<title>Rapport ${process.env.CLIENT_NAME || 'iFIND'} — ${safeProspectPrenom}</title>
 </head>
 <body style="margin:0;padding:0;background:#F5F5F4;font-family:'Outfit',Arial,Helvetica,sans-serif;color:#1C1917;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F5F4;padding:32px 16px;">
@@ -299,7 +299,7 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
 
   <!-- Header -->
   <tr><td style="padding:40px 32px;background:#1D4ED8;text-align:center;">
-    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:28px;font-weight:800;color:#FFFFFF;letter-spacing:-0.03em;">iFIND</span>
+    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:28px;font-weight:800;color:#FFFFFF;letter-spacing:-0.03em;">${process.env.CLIENT_NAME || 'iFIND'}</span>
     <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:15px;">Votre rapport de prospection personnalise</p>
   </td></tr>
 
@@ -326,12 +326,12 @@ ${leadsHtml}
   <tr><td style="padding:32px;text-align:center;border-top:1px solid #E7E5E4;">
     <p style="margin:0 0 8px;font-family:'Space Grotesk',Arial,sans-serif;font-size:20px;font-weight:700;color:#1C1917;">Interesse(e) ?</p>
     <p style="margin:0 0 24px;font-size:15px;color:#57534E;">Nous pouvons automatiser l'envoi de ces emails et la gestion des reponses.</p>
-    <a href="mailto:hello@ifind.fr?subject=iFIND — Interesse par l'offre&body=Bonjour Alexis,%0A%0AJ'ai recu mon rapport de prospection et je suis interesse(e).%0A%0AMerci de me recontacter.%0A%0A${encodeURIComponent(prospect.prenom)}" style="display:inline-block;padding:16px 32px;background:#1D4ED8;color:#FFFFFF;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;">Discutons de vos objectifs</a>
+    <a href="mailto:${process.env.REPLY_TO_EMAIL || 'hello@ifind.fr'}?subject=${process.env.CLIENT_NAME || 'iFIND'} — Interesse par l'offre&body=Bonjour ${process.env.SENDER_NAME || 'Alexis'},%0A%0AJ'ai recu mon rapport de prospection et je suis interesse(e).%0A%0AMerci de me recontacter.%0A%0A${encodeURIComponent(prospect.prenom)}" style="display:inline-block;padding:16px 32px;background:#1D4ED8;color:#FFFFFF;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;">Discutons de vos objectifs</a>
   </td></tr>
 
   <!-- Footer -->
   <tr><td style="padding:24px 32px;text-align:center;background:#FAFAF9;border-top:1px solid #E7E5E4;">
-    <p style="margin:0;font-size:12px;color:#A8A29E;">iFIND &mdash; Prospection B2B intelligente &bull; ${date}</p>
+    <p style="margin:0;font-size:12px;color:#A8A29E;">${process.env.CLIENT_NAME || 'iFIND'} &mdash; Prospection B2B intelligente &bull; ${date}</p>
   </td></tr>
 
 </table>
@@ -355,9 +355,9 @@ ${leadsHtml}
         const resend = new ResendClient(this.resendKey, this.senderEmail);
         const result = await resend.sendEmail(
           prospect.email,
-          'Votre rapport de prospection iFIND — ' + prospect.prenom,
+          'Votre rapport de prospection ' + (process.env.CLIENT_NAME || 'iFIND') + ' — ' + prospect.prenom,
           htmlReport,
-          { fromName: 'iFIND', replyTo: 'hello@ifind.fr' }
+          { fromName: process.env.CLIENT_NAME || 'iFIND', replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr' }
         );
         if (result.success) {
           await this.sendTelegram(chatId, '📧 *Rapport envoye par email a ' + prospect.email + '*');

@@ -1035,7 +1035,7 @@ class ProactiveEngine {
         }
 
         const resendKey = this.resendKey || process.env.RESEND_API_KEY || '';
-        const senderEmail = this.senderEmail || process.env.SENDER_EMAIL || 'hello@ifind.fr';
+        const senderEmail = this.senderEmail || process.env.SENDER_EMAIL || process.env.REPLY_TO_EMAIL || 'hello@ifind.fr';
         const resend = new ResendClient(resendKey, senderEmail);
         const crypto = require('crypto');
         const trackingId = crypto.randomBytes(16).toString('hex');
@@ -1044,13 +1044,13 @@ class ProactiveEngine {
           followUp.prospectEmail,
           subject,
           body,
-          { replyTo: 'hello@ifind.fr', fromName: 'Alexis', trackingId: trackingId }
+          { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId }
         );
 
         if (sendResult.success) {
           // Enregistrer dans automailer
           amStorage.addEmail({
-            chatId: config.adminChatId || '1409505520',
+            chatId: config.adminChatId || process.env.ADMIN_CHAT_ID || '1409505520',
             to: followUp.prospectEmail,
             subject: subject,
             body: body,

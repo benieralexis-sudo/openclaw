@@ -847,7 +847,7 @@ JSON strict, exemples :
         pending.to,
         pending.email.subject,
         pending.email.body,
-        { replyTo: 'hello@ifind.fr', fromName: 'Alexis', trackingId: trackingId }
+        { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId }
       ), 2, 2000));
 
       storage.addEmail({
@@ -918,7 +918,7 @@ JSON strict, exemples :
       '  _"historique emails"_ — emails envoyes',
       '',
       '━━━━━━━━━━━━━━━━━━',
-      '📧 iFIND AutoMailer'
+      '📧 ' + (process.env.CLIENT_NAME || 'iFIND') + ' AutoMailer'
     ].join('\n');
   }
 }

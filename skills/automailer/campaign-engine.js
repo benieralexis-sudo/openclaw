@@ -151,11 +151,11 @@ function _smtpVerify(email) {
         if (step === 'connect') {
           if (code !== 220) return finish({ valid: null, reason: 'bad_greeting' });
           step = 'ehlo';
-          sendCommand('EHLO getifind.fr');
+          sendCommand('EHLO ' + (process.env.CLIENT_DOMAIN || 'ifind.fr'));
         } else if (step === 'ehlo') {
           if (code !== 250) return finish({ valid: null, reason: 'ehlo_rejected' });
           step = 'mail_from';
-          sendCommand('MAIL FROM:<verify@getifind.fr>');
+          sendCommand('MAIL FROM:<verify@' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '>');
         } else if (step === 'mail_from') {
           if (code !== 250) return finish({ valid: null, reason: 'mail_from_rejected' });
           // Catch-all detection : tester adresse random d'abord
@@ -726,8 +726,8 @@ class CampaignEngine {
       const trackingId = require('crypto').randomBytes(16).toString('hex');
 
       const result = await this.resend.sendEmail(contact.email, subject, body, {
-        replyTo: 'hello@ifind.fr',
-        fromName: 'Alexis',
+        replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
+        fromName: process.env.SENDER_NAME || 'Alexis',
         trackingId: trackingId,
         tags: [
           { name: 'campaign_id', value: campaignId },

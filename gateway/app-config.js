@@ -241,7 +241,7 @@ function getServiceUsage() {
 // Couts fixes mensuels
 const FIXED_MONTHLY_COSTS = {
   googleWorkspace: { amount: 7.00, currency: 'USD', label: 'Google Workspace' },
-  domain: { amount: 0.58, currency: 'EUR', label: 'Domaine getifind.fr' }
+  domain: { amount: 0.58, currency: 'EUR', label: 'Domaine ' + (process.env.CLIENT_DOMAIN || 'ifind.fr') }
 };
 
 function getFixedCosts() {

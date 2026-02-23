@@ -45,6 +45,14 @@ services:
       IMAP_USER: ${IMAP_USER:-}
       IMAP_PASS: ${IMAP_PASS:-}
       CALCOM_API_KEY: ${CALCOM_API_KEY:-}
+      CALCOM_USERNAME: ${CALCOM_USERNAME:-alexis-benier-sarxqi}
+      SENDER_NAME: ${SENDER_NAME:-Alexis}
+      SENDER_FULL_NAME: ${SENDER_FULL_NAME:-Alexis Bénier}
+      SENDER_TITLE: ${SENDER_TITLE:-Fondateur}
+      CLIENT_NAME: ${CLIENT_NAME:-iFIND}
+      CLIENT_DOMAIN: ${CLIENT_DOMAIN:-ifind.fr}
+      REPLY_TO_EMAIL: ${REPLY_TO_EMAIL:-hello@ifind.fr}
+      CLIENT_DESCRIPTION: ${CLIENT_DESCRIPTION:-agence d'automatisation IA}
       INBOX_MANAGER_DATA_DIR: /data/inbox-manager
       MEETING_SCHEDULER_DATA_DIR: /data/meeting-scheduler
     ports:

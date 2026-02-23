@@ -269,7 +269,7 @@ class AutoMailerStorage {
       chatId: String(record.chatId || ''),
       campaignId: record.campaignId || null,
       stepNumber: record.stepNumber || null,
-      from: record.from || 'hello@ifind.fr',
+      from: record.from || process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
       to: record.to,
       subject: record.subject,
       body: record.body || '',

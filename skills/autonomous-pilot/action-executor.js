@@ -106,7 +106,7 @@ class ActionExecutor {
     }
 
     const sanitize = (val) => (!val || typeof val !== 'string') ? 'N/A' : val.replace(/[{}"\\`$]/g, '').substring(0, 200);
-    const prompt = `Evalue ce lead B2B pour une agence d'automatisation IA (iFIND). Reponds UNIQUEMENT en JSON strict.
+    const prompt = `Evalue ce lead B2B pour ${process.env.CLIENT_DESCRIPTION || "une agence d'automatisation IA"} (${process.env.CLIENT_NAME || 'iFIND'}). Reponds UNIQUEMENT en JSON strict.
 
 Lead :
 - Nom : ${sanitize(lead.nom)}
@@ -887,13 +887,13 @@ Format JSON strict :
         params.to,
         params.subject,
         params.body,
-        { replyTo: 'hello@ifind.fr', fromName: 'Alexis', trackingId: trackingId }
+        { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId }
       ));
 
       if (result.success) {
         // Recuperer le chatId admin depuis la config AP
         const apConfig = storage.getConfig();
-        const adminChatId = apConfig.adminChatId || '1409505520';
+        const adminChatId = apConfig.adminChatId || process.env.ADMIN_CHAT_ID || '1409505520';
 
         if (amStorage) {
           amStorage.addEmail({
@@ -1206,14 +1206,14 @@ Format JSON strict :
       });
 
       // 3. Construire le contexte pour la generation d'emails
-      let context = apConfig.businessContext || 'prospection B2B pour iFIND, agence d\'automatisation IA';
+      let context = apConfig.businessContext || 'prospection B2B pour ' + (process.env.CLIENT_NAME || 'iFIND') + ', ' + (process.env.CLIENT_DESCRIPTION || "agence d'automatisation IA");
       const ep = apConfig.emailPreferences || {};
       if (ep.maxLines) context += '\nREGLE: Email de ' + ep.maxLines + ' lignes MAXIMUM.';
       if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
         context += '\nMOTS INTERDITS: ' + ep.forbiddenWords.join(', ');
       }
       if (ep.tone) context += '\nTON: ' + ep.tone;
-      context += '\nSIGNATURE: Alexis — iFIND';
+      context += '\nSIGNATURE: ' + (process.env.SENDER_NAME || 'Alexis') + ' — ' + (process.env.CLIENT_NAME || 'iFIND');
       context += '\nCONTEXTE: Ce sont des RELANCES (le prospect a deja recu un premier email sans repondre).';
       context += '\nRelance 1 (J+' + stepDays[0] + '): Nouvel angle tire des DONNEES PROSPECT, question ouverte.';
       context += '\nRelance 2 (J+' + stepDays[1] + '): Preuve sociale, mini cas client anonymise.';

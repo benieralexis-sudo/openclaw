@@ -134,7 +134,10 @@ class ClaudeEmailWriter {
       } catch (e2) {}
     }
 
-    const systemPrompt = `Tu es Alexis, fondateur d'iFIND. Tu ecris a un autre dirigeant. Pas un template, pas un SDR — un humain qui a passe 10 minutes a etudier le prospect.
+    const senderName = process.env.SENDER_NAME || 'Alexis';
+    const senderTitle = process.env.SENDER_TITLE || 'fondateur';
+    const clientName = process.env.CLIENT_NAME || 'iFIND';
+    const systemPrompt = `Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris a un autre dirigeant. Pas un template, pas un SDR — un humain qui a passe 10 minutes a etudier le prospect.
 
 BUT : obtenir UNE reponse. Pas vendre, pas pitcher.
 
@@ -278,7 +281,9 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       anglesRule = '\n\nANGLES DEJA UTILISES (NE PAS REPETER) :\n' + options.usedAngles.map(a => '- "' + a + '"').join('\n');
     }
 
-    const systemPrompt = `Tu es Alexis, fondateur. Tu generes ${totalEmails} relances pour un prospect qui n'a pas repondu a ton premier email.
+    const senderName = process.env.SENDER_NAME || 'Alexis';
+    const senderTitle = process.env.SENDER_TITLE || 'fondateur';
+    const systemPrompt = `Tu es ${senderName}, ${senderTitle}. Tu generes ${totalEmails} relances pour un prospect qui n'a pas repondu a ton premier email.
 
 PHILOSOPHIE : Chaque relance apporte un NOUVEL ANGLE. Jamais "je reviens vers vous".
 
@@ -373,7 +378,9 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
       } catch (e2) {}
     }
 
-    const systemPrompt = `Tu es Alexis, fondateur. Tu relances un prospect qui a recu ton premier email.
+    const senderName = process.env.SENDER_NAME || 'Alexis';
+    const senderTitle = process.env.SENDER_TITLE || 'fondateur';
+    const systemPrompt = `Tu es ${senderName}, ${senderTitle}. Tu relances un prospect qui a recu ton premier email.
 
 REGLES ANTI-TRACKING :
 - JAMAIS mentionner que tu sais qu'il a ouvert l'email (intrusif et illegal)
@@ -494,7 +501,10 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
       stepStrategy = 'Relance ' + (stepNumber - 1) + ': Nouvel angle tire des DONNEES PROSPECT, question specifique.';
     }
 
-    const systemPrompt = `Tu es Alexis, fondateur d'iFIND. Tu ecris une relance personnalisee a un prospect specifique.
+    const senderName = process.env.SENDER_NAME || 'Alexis';
+    const senderTitle = process.env.SENDER_TITLE || 'fondateur';
+    const clientName = process.env.CLIENT_NAME || 'iFIND';
+    const systemPrompt = `Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance personnalisee a un prospect specifique.
 
 CONTEXTE : Relance ${stepNumber - 1} sur ${totalSteps - 1} (step ${stepNumber}/${totalSteps}).
 STRATEGIE : ${stepStrategy}

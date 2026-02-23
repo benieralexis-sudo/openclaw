@@ -275,7 +275,7 @@ app.post('/api/lead-request', async (req, res) => {
   const id = generateId();
   saveProspect(id, { prenom, email, activite, cible });
 
-  const message = `\u{1F525} <b>NOUVEAU PROSPECT — iFIND</b>\n\n` +
+  const message = `\u{1F525} <b>NOUVEAU PROSPECT — ${process.env.CLIENT_NAME || 'iFIND'}</b>\n\n` +
     `\u{1F464} <b>Prenom :</b> ${prenom}\n` +
     `\u{1F4E7} <b>Email :</b> ${email}\n` +
     (activite ? `\u{1F3E2} <b>Activite :</b> ${activite}\n` : '') +
@@ -298,5 +298,5 @@ app.post('/api/lead-request', async (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[iFIND Landing] Serveur demarre sur le port ${PORT}`);
+  console.log(`[${process.env.CLIENT_NAME || 'iFIND'} Landing] Serveur demarre sur le port ${PORT}`);
 });
