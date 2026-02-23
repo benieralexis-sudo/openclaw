@@ -764,34 +764,39 @@ Format JSON strict :
       return { success: false, error: 'Subject et body requis pour envoyer un email' };
     }
 
-    // Validation post-generation : verifier mots interdits
+    // Validation post-generation : verifier mots interdits (boucle retry jusqu'a 4 tentatives)
     const config = storage.getConfig();
     const epCheck = config.emailPreferences || {};
     if (epCheck.forbiddenWords && epCheck.forbiddenWords.length > 0) {
-      const emailText = (params.subject + ' ' + params.body).toLowerCase();
-      const foundWords = epCheck.forbiddenWords.filter(w => emailText.includes(w.toLowerCase()));
-      if (foundWords.length > 0) {
-        log.warn('action-executor', 'Mots interdits detectes dans email: ' + foundWords.join(', ') + ' — regeneration');
-        // Regenerer avec instruction explicite d'eviter ces mots
-        params._prospectIntel = (params._prospectIntel || '') +
-          '\nATTENTION CRITIQUE: l\'email precedent contenait ces mots INTERDITS: ' + foundWords.join(', ') +
-          '. Tu ne dois ABSOLUMENT PAS les utiliser. Reformule completement.';
+      const MAX_FORBIDDEN_RETRIES = 4;
+      let forbiddenRetry = 0;
+      let emailText = (params.subject + ' ' + params.body).toLowerCase();
+      let foundWords = epCheck.forbiddenWords.filter(w => emailText.includes(w.toLowerCase()));
+
+      while (foundWords.length > 0 && forbiddenRetry < MAX_FORBIDDEN_RETRIES) {
+        forbiddenRetry++;
+        log.warn('action-executor', 'Mots interdits detectes (tentative ' + forbiddenRetry + '/' + MAX_FORBIDDEN_RETRIES + '): ' + foundWords.join(', ') + ' — regeneration');
+        // Injecter les mots specifiques trouves directement dans _prospectIntel pour le systemPrompt
+        params._prospectIntel = (params._prospectIntel || '').replace(/\nATTENTION CRITIQUE:.*Reformule completement\./g, '') +
+          '\n\nATTENTION CRITIQUE: l\'email precedent contenait ces mots INTERDITS: ' + foundWords.join(', ') +
+          '. Tu ne dois ABSOLUMENT PAS les utiliser. Remplace-les par des synonymes ou reformule completement. ' +
+          'Mots a eviter imperativement: ' + foundWords.map(w => '"' + w + '"').join(', ') + '.';
         params.subject = null;
         params.body = null;
         const retryGen = await this._generateEmail(params);
         if (retryGen.success && retryGen.email && !retryGen.email.skip) {
           params.subject = retryGen.email.subject;
           params.body = retryGen.email.body || retryGen.email.text || '';
-          // 2e verification
-          const retryText = (params.subject + ' ' + params.body).toLowerCase();
-          const stillFound = epCheck.forbiddenWords.filter(w => retryText.includes(w.toLowerCase()));
-          if (stillFound.length > 0) {
-            log.error('action-executor', 'Mots interdits persistants apres retry: ' + stillFound.join(', ') + ' — envoi bloque');
-            return { success: false, error: 'Mots interdits persistants: ' + stillFound.join(', ') };
-          }
+          emailText = (params.subject + ' ' + params.body).toLowerCase();
+          foundWords = epCheck.forbiddenWords.filter(w => emailText.includes(w.toLowerCase()));
         } else {
-          return { success: false, error: 'Regeneration email echouee apres detection mots interdits' };
+          return { success: false, error: 'Regeneration email echouee apres detection mots interdits (tentative ' + forbiddenRetry + ')' };
         }
+      }
+
+      if (foundWords.length > 0) {
+        log.error('action-executor', 'Mots interdits persistants apres ' + MAX_FORBIDDEN_RETRIES + ' retries: ' + foundWords.join(', ') + ' — envoi bloque');
+        return { success: false, error: 'Mots interdits persistants apres ' + MAX_FORBIDDEN_RETRIES + ' tentatives: ' + foundWords.join(', ') };
       }
     }
 

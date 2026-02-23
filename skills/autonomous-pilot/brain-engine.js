@@ -317,7 +317,7 @@ class BrainEngine {
     }
 
     // Limiter a 10 actions par cycle (securite anti-emballement)
-    const MAX_BRAIN_ACTIONS = 10;
+    const MAX_BRAIN_ACTIONS = 25;
     if (plan.actions.length > MAX_BRAIN_ACTIONS) {
       log.warn('brain', 'Actions tronquees: ' + plan.actions.length + ' -> ' + MAX_BRAIN_ACTIONS + ' (limite de securite)');
       plan.actions = plan.actions.slice(0, MAX_BRAIN_ACTIONS);
@@ -1267,7 +1267,7 @@ Analyse et reponds en JSON:
     prompt += '1. autoExecute=true pour TOUTES les actions, y compris send_email. Tu es en FULL AUTO.\n';
     prompt += '2. Pour send_email, mets TOUJOURS _generateFirst:true — la recherche prospect est OBLIGATOIRE avant chaque email.\n';
     prompt += '3. NE FOURNIS PAS subject/body dans send_email — le ProspectResearcher + ClaudeEmailWriter les generent automatiquement avec des infos fraiches.\n';
-    prompt += '4. Envoie 3-5 emails PAR CYCLE. Priorise les leads score >= 8. RESPECTE la limite warm-up (le systeme bloque au-dela).\n';
+    prompt += '4. Envoie 10-15 emails PAR CYCLE. Priorise les leads score >= 8. RESPECTE la limite warm-up (le systeme bloque au-dela).\n';
     prompt += '5. JAMAIS de prix, d\'offre, de feature, de "pilote gratuit" dans le premier email. Le but = OUVRIR UNE CONVERSATION.\n';
     prompt += '6. Apres 3 jours sans reponse sur un lead contacte, cree automatiquement une sequence follow-up (create_followup_sequence).\n';
     prompt += '7. Sois strategique avec les credits Apollo (100/mois). Prefere des recherches ciblees.\n';
@@ -1713,7 +1713,7 @@ Analyse et reponds en JSON:
         const allLeads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : {};
         const leadsWithEmail = Object.values(allLeads)
           .filter(l => l.email && (l.score || 0) >= (g.minLeadScore || 7) && !l._emailSent)
-          .slice(0, 5); // Max 5 emails par cycle (warmup progressif)
+          .slice(0, 15); // Max 15 emails par cycle (warmup gere par action-executor)
 
         for (const lead of leadsWithEmail) {
           actions.push({
