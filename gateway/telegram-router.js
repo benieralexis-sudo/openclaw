@@ -1714,15 +1714,11 @@ const healthServer = http.createServer((req, res) => {
             return;
           }
         } else {
-          // Pas de headers Svix → fallback sur query param secret (retro-compat)
-          const urlObj = new URL(req.url, 'http://localhost');
-          const secret = urlObj.searchParams.get('secret');
-          if (secret !== WEBHOOK_SECRET) {
-            log.warn('webhook', 'Secret query param invalide — webhook rejete');
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'unauthorized' }));
-            return;
-          }
+          // Pas de headers Svix et secret configure → rejeter (plus de fallback query param)
+          log.warn('webhook', 'Headers Svix absents — webhook rejete (configurez Resend pour envoyer les headers svix-*)');
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'unauthorized' }));
+          return;
         }
       } else {
         log.warn('webhook', 'RESEND_WEBHOOK_SECRET non configure — webhook non securise');
@@ -1736,7 +1732,7 @@ const healthServer = http.createServer((req, res) => {
       } catch (e) {
         log.error('webhook', 'Erreur traitement webhook:', e.message);
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.end(JSON.stringify({ error: 'bad request' }));
       }
     });
     return;

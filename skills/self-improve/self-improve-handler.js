@@ -464,7 +464,7 @@ Reponds UNIQUEMENT en JSON strict :
         if (autoApplyResult.applied > 0) {
           autoApplyMsg = '\n\nAuto-Improve : ' + autoApplyResult.applied + '/' +
             autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
-            ' (confiance >= 50%). Dis _"rollback"_ pour annuler.';
+            ' (confiance >= 70%). Dis _"rollback"_ pour annuler.';
         }
       }
 
@@ -649,7 +649,7 @@ Reponds UNIQUEMENT en JSON strict :
         if (autoApplyResult.applied > 0 && this.sendTelegram) {
           const autoMsg = 'Auto-Improve : ' + autoApplyResult.applied + '/' +
             autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
-            ' (confiance >= 50%).\nDis _"rollback"_ pour annuler.';
+            ' (confiance >= 70%).\nDis _"rollback"_ pour annuler.';
           await this.sendTelegram(config.adminChatId, autoMsg);
         }
       }
