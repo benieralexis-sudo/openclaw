@@ -4,7 +4,7 @@ const { Cron } = require('croner');
 const storage = require('./storage.js');
 const SystemMonitor = require('./system-monitor.js');
 const ReportGenerator = require('./report-generator.js');
-const { retryAsync } = require('../../gateway/utils.js');
+const { retryAsync, withCronGuard } = require('../../gateway/utils.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const log = require('../../gateway/logger.js');
 
@@ -34,27 +34,27 @@ class SystemAdvisorHandler {
     const tz = 'Europe/Paris';
 
     // Snapshot toutes les 5 min
-    this.crons.push(new Cron('*/5 * * * *', { timezone: tz }, () => {
+    this.crons.push(new Cron('*/5 * * * *', { timezone: tz }, withCronGuard('sa-snapshot', () => {
       this._collectSnapshot().catch(e => log.error('system-advisor', 'Erreur snapshot:', e.message));
-    }));
+    })));
     log.info('system-advisor', 'Cron: snapshot toutes les 5 min');
 
     // Health check toutes les heures
-    this.crons.push(new Cron('0 * * * *', { timezone: tz }, () => {
+    this.crons.push(new Cron('0 * * * *', { timezone: tz }, withCronGuard('sa-health-check', () => {
       this._hourlyHealthCheck().catch(e => log.error('system-advisor', 'Erreur health check:', e.message));
-    }));
+    })));
     log.info('system-advisor', 'Cron: health check toutes les heures');
 
     // Rapport quotidien 6h30 (avant le rapport matinal unifie de 8h)
-    this.crons.push(new Cron('30 6 * * *', { timezone: tz }, () => {
+    this.crons.push(new Cron('30 6 * * *', { timezone: tz }, withCronGuard('sa-daily-report', () => {
       this._dailyReport().catch(e => log.error('system-advisor', 'Erreur rapport quotidien:', e.message));
-    }));
+    })));
     log.info('system-advisor', 'Cron: rapport quotidien 6h30');
 
     // Rapport hebdo lundi 10h30 (decale pour eviter embouteillage matinal)
-    this.crons.push(new Cron('30 10 * * 1', { timezone: tz }, () => {
+    this.crons.push(new Cron('30 10 * * 1', { timezone: tz }, withCronGuard('sa-weekly-report', () => {
       this._weeklyReport().catch(e => log.error('system-advisor', 'Erreur rapport hebdo:', e.message));
-    }));
+    })));
     log.info('system-advisor', 'Cron: rapport hebdo lundi 10h30');
 
     log.info('system-advisor', 'Demarre avec ' + this.crons.length + ' cron(s)');
