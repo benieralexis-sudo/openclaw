@@ -1060,7 +1060,6 @@ class CampaignEngine {
       log.info('campaign-engine', 'Note CRM creee pour ' + emailRecord.to + ' — ' + statusLabel);
     }
   }
-}
 
   // --- Retry queue : retente les emails failed toutes les 5 min ---
 
@@ -1136,6 +1135,7 @@ class CampaignEngine {
       return 0;
     }
   }
+}
 
 CampaignEngine.checkMX = _checkMX;
 CampaignEngine.emailPassesQualityGate = _emailPassesQualityGate;
