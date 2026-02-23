@@ -5,7 +5,7 @@ const storage = require('./storage.js');
 const MetricsCollector = require('./metrics-collector.js');
 const Analyzer = require('./analyzer.js');
 const Optimizer = require('./optimizer.js');
-const { retryAsync } = require('../../gateway/utils.js');
+const { retryAsync, withCronGuard } = require('../../gateway/utils.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const log = require('../../gateway/logger.js');
 
@@ -37,14 +37,14 @@ class SelfImproveHandler {
     const tz = 'Europe/Paris';
 
     // Cron bi-hebdomadaire : dimanche 21h + mercredi 21h
-    this.crons.push(new Cron('0 21 * * 0', { timezone: tz }, () => this._weeklyAnalysis()));
+    this.crons.push(new Cron('0 21 * * 0', { timezone: tz }, withCronGuard('si-weekly-analysis-sun', () => this._weeklyAnalysis())));
     log.info('self-improve', 'Cron: analyse dimanche 21h');
 
-    this.crons.push(new Cron('0 21 * * 3', { timezone: tz }, () => this._weeklyAnalysis()));
+    this.crons.push(new Cron('0 21 * * 3', { timezone: tz }, withCronGuard('si-weekly-analysis-wed', () => this._weeklyAnalysis())));
     log.info('self-improve', 'Cron: analyse mercredi 21h');
 
     // Daily anomaly detection (pur JS, pas d'appel IA)
-    this.crons.push(new Cron('0 10 * * *', { timezone: tz }, () => this._dailyAnomalyCheck()));
+    this.crons.push(new Cron('0 10 * * *', { timezone: tz }, withCronGuard('si-daily-anomaly-check', () => this._dailyAnomalyCheck())));
     log.info('self-improve', 'Cron: anomaly check quotidien 10h');
 
     log.info('self-improve', 'Demarre avec ' + this.crons.length + ' cron(s)');

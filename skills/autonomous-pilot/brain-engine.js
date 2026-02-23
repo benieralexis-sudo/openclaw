@@ -4,6 +4,7 @@ const storage = require('./storage.js');
 const ActionExecutor = require('./action-executor.js');
 const diagnostic = require('./diagnostic.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
+const { withCronGuard } = require('../../gateway/utils.js');
 const log = require('../../gateway/logger.js');
 
 // --- Cross-skill imports (dual-path) ---
@@ -79,24 +80,24 @@ class BrainEngine {
     const tz = 'Europe/Paris';
 
     // Brain cycle : 9h et 18h (optimise cout — 2 cycles/jour suffisent)
-    this.crons.push(new Cron('0 9,18 * * *', { timezone: tz }, async () => {
+    this.crons.push(new Cron('0 9,18 * * *', { timezone: tz }, withCronGuard('ap-brain-cycle', async () => {
       try { await this._brainCycle(); }
       catch (e) { log.error('brain', 'Erreur cycle:', e.message); }
-    }));
+    })));
 
     // Daily briefing supprime — fusionne avec Proactive Morning Report a 8h (voir proactive-engine.js)
 
     // Mini-cycle leger : 12h et 15h (Intelligence Reelle v5 — 0$ cout, pas d'appel Claude)
-    this.crons.push(new Cron('0 12,15 * * *', { timezone: tz }, async () => {
+    this.crons.push(new Cron('0 12,15 * * *', { timezone: tz }, withCronGuard('ap-mini-cycle', async () => {
       try { await this._lightCycle(); }
       catch (e) { log.error('brain', 'Erreur mini-cycle:', e.message); }
-    }));
+    })));
 
     // Weekly reset + learning : lundi 0h
-    this.crons.push(new Cron('0 0 * * 1', { timezone: tz }, async () => {
+    this.crons.push(new Cron('0 0 * * 1', { timezone: tz }, withCronGuard('ap-weekly-reset', async () => {
       try { await this._weeklyReset(); }
       catch (e) { log.error('brain', 'Erreur reset hebdo:', e.message); }
-    }));
+    })));
 
     log.info('brain', 'Cerveau autonome demarre (4 crons — 2 brain + 2 mini)');
   }

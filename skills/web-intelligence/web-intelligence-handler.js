@@ -6,6 +6,7 @@ const IntelligenceAnalyzer = require('./intelligence-analyzer.js');
 const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
 const { getModule } = require('../../gateway/skill-loader.js');
 const log = require('../../gateway/logger.js');
+const { withCronGuard } = require('../../gateway/utils.js');
 
 function getHubSpotClient() { return getModule('hubspot-client'); }
 
@@ -35,24 +36,24 @@ class WebIntelligenceHandler {
     const tz = 'Europe/Paris';
 
     // Scan automatique toutes les 6h
-    this.crons.push(new Cron('0 */6 * * *', { timezone: tz }, () => {
+    this.crons.push(new Cron('0 */6 * * *', { timezone: tz }, withCronGuard('wi-scheduled-scan', () => {
       log.info('web-intel', 'Cron: scan auto');
       this._scheduledScan().catch(e => log.error('web-intel', 'Erreur scan auto:', e.message));
-    }));
+    })));
     log.info('web-intel', 'Cron: scan auto toutes les 6h');
 
     // Digest quotidien 10h (decale pour eviter embouteillage matinal)
-    this.crons.push(new Cron('0 10 * * *', { timezone: tz }, () => {
+    this.crons.push(new Cron('0 10 * * *', { timezone: tz }, withCronGuard('wi-daily-digest', () => {
       log.info('web-intel', 'Cron: digest quotidien');
       this._dailyDigest().catch(e => log.error('web-intel', 'Erreur digest:', e.message));
-    }));
+    })));
     log.info('web-intel', 'Cron: digest quotidien 10h');
 
     // Digest hebdo lundi 14h (decale pour eviter surcharge matinale du lundi)
-    this.crons.push(new Cron('0 14 * * 1', { timezone: tz }, () => {
+    this.crons.push(new Cron('0 14 * * 1', { timezone: tz }, withCronGuard('wi-weekly-digest', () => {
       log.info('web-intel', 'Cron: digest hebdo');
       this._weeklyDigest().catch(e => log.error('web-intel', 'Erreur digest hebdo:', e.message));
-    }));
+    })));
     log.info('web-intel', 'Cron: digest hebdo lundi 14h');
 
     // Initialiser les watches par defaut si aucune n'existe (premier demarrage)
