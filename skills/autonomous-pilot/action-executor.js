@@ -580,6 +580,14 @@ Format JSON strict :
 
   // --- Envoi d'email (apres confirmation) ---
   async _sendEmail(params) {
+    // FORCE _generateFirst : TOUJOURS passer par ProspectResearcher + ClaudeEmailWriter
+    // Le brain pre-remplit parfois subject/body avec du contenu generique — on les ignore
+    // C'est la SEULE facon de garantir des emails personnalises et sans mots interdits
+    if (!params._generateFirst) {
+      log.info('action-executor', 'Force _generateFirst=true pour ' + (params.to || 'unknown') + ' (securite anti-generique)');
+      params._generateFirst = true;
+    }
+
     // Verifier qu'au moins un service email est configure (Gmail SMTP ou Resend)
     const gmailReady = process.env.GMAIL_SMTP_ENABLED === 'true' && process.env.GMAIL_SMTP_USER;
     if (!this.resendKey && !gmailReady) {
@@ -839,6 +847,21 @@ Format JSON strict :
       if (foundWords.length > 0) {
         log.error('action-executor', 'Mots interdits persistants apres ' + MAX_FORBIDDEN_RETRIES + ' retries: ' + foundWords.join(', ') + ' — envoi bloque');
         return { success: false, error: 'Mots interdits persistants apres ' + MAX_FORBIDDEN_RETRIES + ' tentatives: ' + foundWords.join(', ') };
+      }
+    }
+
+    // === GATE SUJET : Patterns interdits dans le subject ===
+    {
+      const subjectLower = (params.subject || '').toLowerCase();
+      const subjectBans = [
+        'prospection', 'acquisition', 'gen de leads', 'generation de leads',
+        'rdv qualifi', 'rdv/mois', 'pipeline', 'sans recruter',
+        'et si vous', 'et si tu', 'saviez-vous', 'notre solution', 'notre outil'
+      ];
+      const found = subjectBans.filter(b => subjectLower.includes(b));
+      if (found.length > 0) {
+        log.error('action-executor', 'GATE SUJET BLOCK — Patterns interdits dans subject pour ' + params.to + ': ' + found.join(', ') + ' — skip');
+        return { success: false, error: 'Subject contient patterns interdits: ' + found.join(', '), gateBlocked: true };
       }
     }
 

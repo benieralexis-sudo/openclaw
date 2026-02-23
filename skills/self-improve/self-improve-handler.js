@@ -1071,6 +1071,16 @@ Reponds UNIQUEMENT en JSON strict :
         });
       }
 
+      // 6. Zero reply rate after significant volume (7 jours)
+      const weekMetrics = this.metricsCollector.getRecentMetrics(7 * 24);
+      if (weekMetrics && weekMetrics.sent >= 20 && weekMetrics.replied === 0) {
+        anomalies.push({
+          type: 'zero_reply_rate', severity: 'high',
+          message: 'ALERTE: 0 reponse apres ' + weekMetrics.sent + ' emails envoyes (7j) — open rate: ' + weekMetrics.openRate + '% — verifier qualite des messages',
+          metrics: { sent: weekMetrics.sent, replied: 0, openRate: weekMetrics.openRate }
+        });
+      }
+
       for (const anomaly of anomalies) {
         storage.addAnomaly(anomaly);
       }
