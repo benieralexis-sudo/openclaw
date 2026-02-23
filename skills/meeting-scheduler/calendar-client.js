@@ -111,12 +111,13 @@ class CalComClient {
       log.error('calcom', 'Erreur getBookingLink:', e.message);
     }
 
-    // Fallback direct avec username connu
+    // Fallback direct avec username configurable (env ou hardcoded)
+    const fallbackUser = process.env.CALCOM_USERNAME || 'alexis-benier-sarxqi';
     const params = new URLSearchParams();
     if (leadEmail) params.set('email', leadEmail);
     if (leadName) params.set('name', leadName);
     const queryStr = params.toString() ? '?' + params.toString() : '';
-    return 'https://cal.eu/alexis-benier-sarxqi/' + eventTypeSlug + queryStr;
+    return 'https://cal.eu/' + fallbackUser + '/' + eventTypeSlug + queryStr;
   }
 
   // Recuperer les bookings existants
