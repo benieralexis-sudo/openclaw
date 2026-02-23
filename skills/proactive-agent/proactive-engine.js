@@ -808,6 +808,18 @@ class ProactiveEngine {
           continue;
         }
 
+        // Rate limiting inter-campagne : max 2 emails/72h par contact
+        const cutoff72h = Date.now() - 72 * 60 * 60 * 1000;
+        const recentSent = emailEvents.filter(e => {
+          if (e.status === 'failed') return false;
+          const sentTime = new Date(e.sentAt || e.createdAt || 0).getTime();
+          return sentTime > cutoff72h;
+        });
+        if (recentSent.length >= 2) {
+          log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' rate limit (' + recentSent.length + ' emails en 72h) — reporte');
+          continue; // Reste pending, reessaye au prochain cycle
+        }
+
         // Verifier warmup quotidien
         const todaySent = amStorage.getTodaySendCount ? amStorage.getTodaySendCount() : 0;
         const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;

@@ -612,11 +612,45 @@ inboxListener = InboxListener ? new InboxListener({
         replyData.fromName || '',
         ''
       );
-      if (meeting) {
-        await sendMessage(ADMIN_CHAT_ID,
-          '📅 _Meeting auto-propose pour ' + replyData.from + ' :_\n' + meeting.bookingUrl,
-          'Markdown'
-        );
+      if (meeting && meeting.bookingUrl) {
+        // Envoyer automatiquement l'email avec le lien de booking au lead
+        const resend = automailerHandler.resend;
+        if (resend) {
+          const leadFirstName = (replyData.fromName || '').split(' ')[0] || '';
+          const greet = leadFirstName ? ('Merci ' + leadFirstName) : 'Merci pour ton retour';
+          const autoReplyBody = greet + ' !\n\n' +
+            'Le plus simple, on se cale un call rapide ?\n\n' +
+            'Voici mon lien pour choisir un creneau : ' + meeting.bookingUrl + '\n\n' +
+            'A tres vite !';
+          const replySubject = (replyData.subject || '').startsWith('Re:')
+            ? replyData.subject
+            : 'Re: ' + (replyData.subject || 'notre echange');
+          const sendResult = await resend.sendEmail(replyData.from, replySubject, autoReplyBody, {
+            replyTo: SENDER_EMAIL,
+            tags: [{ name: 'type', value: 'auto-meeting' }]
+          });
+          if (sendResult && sendResult.success) {
+            log.info('inbox-manager', 'Auto-meeting email envoye a ' + replyData.from + ' avec lien ' + meeting.bookingUrl);
+            await sendMessage(ADMIN_CHAT_ID,
+              '📅 *Meeting auto-propose + email envoye !*\n\n' +
+              '👤 ' + (replyData.fromName || replyData.from) + '\n' +
+              '🔗 ' + meeting.bookingUrl + '\n' +
+              '📧 Email de proposition envoye automatiquement',
+              'Markdown'
+            );
+          } else {
+            log.warn('inbox-manager', 'Auto-meeting email echoue:', (sendResult && sendResult.error) || 'unknown');
+            await sendMessage(ADMIN_CHAT_ID,
+              '📅 _Meeting propose pour ' + replyData.from + ' mais email non envoye._\n🔗 ' + meeting.bookingUrl + '\n_Envoie le lien manuellement._',
+              'Markdown'
+            );
+          }
+        } else {
+          await sendMessage(ADMIN_CHAT_ID,
+            '📅 _Meeting auto-propose pour ' + replyData.from + ' :_\n' + meeting.bookingUrl + '\n_Resend non dispo — envoie le lien manuellement._',
+            'Markdown'
+          );
+        }
       }
     } catch (e) {
       log.warn('inbox-manager', 'Auto-meeting echoue:', e.message);

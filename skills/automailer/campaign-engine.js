@@ -5,6 +5,53 @@ const net = require('net');
 const log = require('../../gateway/logger.js');
 const { getWarmupDailyLimit } = require('../../gateway/utils.js');
 
+// --- Quality gate post-generation email ---
+const GENERIC_PATTERNS = [
+  /j[a'']ai (?:vu|lu|decouvert|trouve|remarque)/i,
+  /suis tomb[eé]/i,
+  /en parcourant (?:ton|votre) (?:profil|linkedin|site)/i,
+  /je me permets de/i,
+  /me present(?:e|er)/i,
+  /n'h[eé]site[zs]? pas [aà] me contacter/i,
+  /saviez.vous que/i,
+  /et si (?:on|vous|tu)/i,
+  /cordonnier/i,
+  /nerf de la guerre/i,
+  /beau move/i,
+  /dans un monde o[uù]/i,
+  /comment (?:tu prospectes|vous prospectez)/i,
+  /g[eé]n[eé]ration de leads/i,
+  /notre (?:solution|outil|plateforme)/i,
+  /je serais ravi/i
+];
+
+function _emailPassesQualityGate(subject, body) {
+  // 1. Patterns generiques
+  for (const pattern of GENERIC_PATTERNS) {
+    if (pattern.test(body) || pattern.test(subject)) {
+      return { pass: false, reason: 'generic_pattern: ' + pattern.source };
+    }
+  }
+  // 2. Longueur body (3-12 lignes non vides)
+  const lines = body.split('\n').filter(l => l.trim().length > 0);
+  if (lines.length < 2) return { pass: false, reason: 'too_short (' + lines.length + ' lignes)' };
+  if (lines.length > 15) return { pass: false, reason: 'too_long (' + lines.length + ' lignes)' };
+  // 3. Mots interdits depuis config AP (si dispo)
+  try {
+    const apStorage = require('../autonomous-pilot/storage.js');
+    const apConfig = apStorage.getConfig();
+    const ep = apConfig.emailPreferences || {};
+    if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+      for (const word of ep.forbiddenWords) {
+        if (new RegExp('\\b' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(body)) {
+          return { pass: false, reason: 'forbidden_word: ' + word };
+        }
+      }
+    }
+  } catch (e) { /* AP storage non dispo, skip */ }
+  return { pass: true };
+}
+
 // --- Cache MX par domaine (1h TTL) ---
 const _mxCache = new Map();
 const MX_CACHE_TTL = 60 * 60 * 1000; // 1 heure
@@ -480,6 +527,24 @@ class CampaignEngine {
         continue;
       }
 
+      // Rate limiting inter-campagne : max 2 emails/72h par contact (cross-campagne)
+      try {
+        const allEmailsToContact = storage.getEmailEventsForRecipient(contact.email);
+        const cutoff72h = Date.now() - 72 * 60 * 60 * 1000;
+        const recentSent = allEmailsToContact.filter(e => {
+          if (e.status === 'failed') return false;
+          const sentTime = new Date(e.sentAt || e.createdAt || 0).getTime();
+          return sentTime > cutoff72h;
+        });
+        if (recentSent.length >= 2) {
+          log.info('campaign-engine', 'Skip ' + contact.email + ' (rate limit: ' + recentSent.length + ' emails en 72h)');
+          skipped++;
+          continue;
+        }
+      } catch (rlErr) {
+        log.info('campaign-engine', 'Rate limit check skip pour ' + contact.email + ': ' + rlErr.message);
+      }
+
       // FIX 16 : Verification MX du domaine avant envoi
       try {
         const hasMX = await _checkMX(contact.email);
@@ -632,6 +697,14 @@ class CampaignEngine {
           log.info('campaign-engine', 'A/B variant generation echouee, sujet original conserve: ' + abErr.message);
           abVariant = 'A'; // Fallback sur variante A
         }
+      }
+
+      // Quality gate post-generation — verifier avant envoi
+      const qg = _emailPassesQualityGate(subject, body);
+      if (!qg.pass) {
+        log.warn('campaign-engine', 'Quality gate FAIL pour ' + contact.email + ': ' + qg.reason + ' — skip envoi');
+        skipped++;
+        continue;
       }
 
       // Generer un tracking ID unique pour le pixel d'ouverture
