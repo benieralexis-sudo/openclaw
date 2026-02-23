@@ -889,6 +889,124 @@ app.get('/api/meetings', authRequired, async (req, res) => {
   });
 });
 
+// Health / Email Operations (admin only)
+app.get('/api/email-health', authRequired, adminRequired, async (req, res) => {
+  const am = await readData('automailer') || {};
+  const emails = am.emails || [];
+  const stats = am.stats || {};
+
+  // --- Warmup progress ---
+  const firstSendDate = stats.firstSendDate || null;
+  let warmupDay = 0;
+  let warmupLimit = 5;
+  const warmupSchedule = [5, 10, 15, 20, 25, 30, 35, 50, 50, 50, 50, 50, 50, 50, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 100];
+  if (firstSendDate) {
+    warmupDay = Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000);
+    warmupLimit = Math.min(warmupSchedule[Math.min(warmupDay, warmupSchedule.length - 1)] || 100, 100);
+  }
+  const today = new Date().toISOString().substring(0, 10);
+  const todaySent = (stats.dailySends && stats.dailySends[today]) || 0;
+  const warmupMaxDay = warmupSchedule.length - 1;
+  const warmupProgress = Math.min(Math.round((warmupDay / warmupMaxDay) * 100), 100);
+
+  // --- Bounce rate ---
+  const totalSent = emails.filter(e => ['sent', 'delivered', 'opened', 'clicked', 'replied'].includes(e.status) || e.sentAt).length;
+  const totalBounced = emails.filter(e => e.status === 'bounced').length;
+  const bounceRate = totalSent > 0 ? Math.round((totalBounced / totalSent) * 10000) / 100 : 0;
+  const totalComplained = emails.filter(e => e.status === 'complained').length;
+  const complaintRate = totalSent > 0 ? Math.round((totalComplained / totalSent) * 10000) / 100 : 0;
+
+  // --- Deliverability breakdown ---
+  const delivered = emails.filter(e => ['delivered', 'opened', 'clicked', 'replied'].includes(e.status) || e.deliveredAt).length;
+  const opened = emails.filter(e => e.openedAt).length;
+  const deliveryRate = totalSent > 0 ? Math.round((delivered / totalSent) * 10000) / 100 : 0;
+  const openRate = delivered > 0 ? Math.round((opened / delivered) * 10000) / 100 : 0;
+
+  // --- Retry queue status ---
+  const MAX_RETRIES = 3;
+  const failedEmails = emails.filter(e => e.status === 'failed');
+  const retriable = failedEmails.filter(e => (e.retryCount || 0) < MAX_RETRIES);
+  const abandoned = failedEmails.filter(e => (e.retryCount || 0) >= MAX_RETRIES);
+  const lastRetried = failedEmails
+    .filter(e => e.lastRetryAt)
+    .sort((a, b) => (b.lastRetryAt || '').localeCompare(a.lastRetryAt || ''))[0];
+
+  // --- Blacklist stats ---
+  const blacklist = am.blacklist ? Object.values(am.blacklist) : [];
+  const blacklistByReason = {};
+  for (const b of blacklist) {
+    const r = b.reason || 'unknown';
+    blacklistByReason[r] = (blacklistByReason[r] || 0) + 1;
+  }
+
+  // --- Archive stats ---
+  let archiveStats = { count: 0, oldestDate: null, newestDate: null };
+  const archivePath = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/automailer-archive.json';
+  try {
+    const archiveRaw = await fsp.readFile(archivePath, 'utf8');
+    const archive = JSON.parse(archiveRaw);
+    archiveStats = {
+      count: archive.length,
+      oldestDate: archive.length > 0 ? (archive[0].sentAt || archive[0].createdAt) : null,
+      newestDate: archive.length > 0 ? (archive[archive.length - 1].sentAt || archive[archive.length - 1].createdAt) : null
+    };
+  } catch (e) { /* archive file doesn't exist yet */ }
+
+  // --- Daily send history (7j) ---
+  const dailySends = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().substring(0, 10);
+    dailySends.push({
+      date: dateStr,
+      sent: (stats.dailySends && stats.dailySends[dateStr]) || 0
+    });
+  }
+
+  res.json({
+    warmup: {
+      firstSendDate,
+      day: warmupDay,
+      dailyLimit: warmupLimit,
+      maxLimit: 100,
+      todaySent,
+      remaining: Math.max(0, warmupLimit - todaySent),
+      progress: warmupProgress,
+      phase: warmupDay < 7 ? 'ramp-up' : warmupDay < 14 ? 'building' : warmupDay < 28 ? 'maturing' : 'full'
+    },
+    deliverability: {
+      totalSent,
+      delivered,
+      deliveryRate,
+      opened,
+      openRate,
+      bounced: totalBounced,
+      bounceRate,
+      complained: totalComplained,
+      complaintRate,
+      healthy: bounceRate < 5 && complaintRate < 0.1
+    },
+    retryQueue: {
+      totalFailed: failedEmails.length,
+      retriable: retriable.length,
+      abandoned: abandoned.length,
+      lastRetryAt: lastRetried ? lastRetried.lastRetryAt : null
+    },
+    blacklist: {
+      total: blacklist.length,
+      byReason: blacklistByReason
+    },
+    archive: archiveStats,
+    storage: {
+      activeEmails: emails.length,
+      maxActive: 10000,
+      usage: Math.round((emails.length / 10000) * 100)
+    },
+    dailySends
+  });
+});
+
 // Finance (admin only)
 app.get('/api/finance', authRequired, adminRequired, async (req, res) => {
   // Lire le fichier app-config.json pour les donnees de budget et service usage

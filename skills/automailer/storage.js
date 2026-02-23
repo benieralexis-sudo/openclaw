@@ -286,9 +286,9 @@ class AutoMailerStorage {
       createdAt: new Date().toISOString()
     };
     this.data.emails.push(entry);
-    // Garder max 2000 emails
-    if (this.data.emails.length > 2000) {
-      this.data.emails = this.data.emails.slice(-2000);
+    // Garder max 10000 emails actifs (archivage auto des >90j)
+    if (this.data.emails.length > 10000) {
+      this.data.emails = this.data.emails.slice(-10000);
     }
     if (record.status === 'sent') {
       this.data.stats.totalEmailsSent++;
@@ -449,6 +449,110 @@ class AutoMailerStorage {
     const email = (recipientEmail || '').toLowerCase();
     if (!email) return [];
     return this.data.emails.filter(e => (e.to || '').toLowerCase() === email);
+  }
+
+  // --- Archivage auto (emails > 90 jours) ---
+
+  archiveOldEmails() {
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000; // 90 jours
+    const toArchive = this.data.emails.filter(e => {
+      const ts = e.sentAt || e.createdAt;
+      return ts && new Date(ts).getTime() < cutoff;
+    });
+    if (toArchive.length === 0) return 0;
+
+    // Charger l'archive existante
+    const archiveFile = path.join(DATA_DIR, 'automailer-archive.json');
+    let archive = [];
+    try {
+      if (fs.existsSync(archiveFile)) {
+        archive = JSON.parse(fs.readFileSync(archiveFile, 'utf8'));
+      }
+    } catch (e) {
+      console.error('[automailer-storage] Erreur lecture archive:', e.message);
+    }
+
+    // Ajouter les emails a archiver
+    archive.push(...toArchive);
+    // Garder max 50000 emails en archive
+    if (archive.length > 50000) {
+      archive = archive.slice(-50000);
+    }
+
+    // Sauvegarder l'archive
+    try {
+      atomicWriteSync(archiveFile, archive);
+    } catch (e) {
+      console.error('[automailer-storage] Erreur sauvegarde archive:', e.message);
+      return 0;
+    }
+
+    // Retirer les emails archives de la base active
+    const archivedIds = new Set(toArchive.map(e => e.id));
+    this.data.emails = this.data.emails.filter(e => !archivedIds.has(e.id));
+    this._save();
+
+    console.log('[automailer-storage] Archive: ' + toArchive.length + ' emails > 90j deplaces (reste ' + this.data.emails.length + ' actifs, ' + archive.length + ' archives)');
+    return toArchive.length;
+  }
+
+  getArchivedEmails(limit) {
+    const archiveFile = path.join(DATA_DIR, 'automailer-archive.json');
+    try {
+      if (fs.existsSync(archiveFile)) {
+        const archive = JSON.parse(fs.readFileSync(archiveFile, 'utf8'));
+        return limit ? archive.slice(-limit) : archive;
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  getArchiveStats() {
+    const archiveFile = path.join(DATA_DIR, 'automailer-archive.json');
+    try {
+      if (fs.existsSync(archiveFile)) {
+        const archive = JSON.parse(fs.readFileSync(archiveFile, 'utf8'));
+        return {
+          count: archive.length,
+          oldestDate: archive.length > 0 ? (archive[0].sentAt || archive[0].createdAt) : null,
+          newestDate: archive.length > 0 ? (archive[archive.length - 1].sentAt || archive[archive.length - 1].createdAt) : null
+        };
+      }
+    } catch (e) {}
+    return { count: 0, oldestDate: null, newestDate: null };
+  }
+
+  // --- Retry queue helpers ---
+
+  getFailedEmailsForRetry(maxRetries) {
+    maxRetries = maxRetries || 3;
+    return this.data.emails.filter(e => {
+      if (e.status !== 'failed') return false;
+      if ((e.retryCount || 0) >= maxRetries) return false;
+      // Backoff: attendre 5min * 2^retryCount avant de retenter
+      if (e.lastRetryAt) {
+        const backoff = 5 * 60 * 1000 * Math.pow(2, e.retryCount || 0);
+        if (Date.now() - new Date(e.lastRetryAt).getTime() < backoff) return false;
+      }
+      return true;
+    });
+  }
+
+  markRetryAttempt(emailId, success, newResendId) {
+    const email = this.data.emails.find(e => e.id === emailId);
+    if (!email) return null;
+    email.retryCount = (email.retryCount || 0) + 1;
+    email.lastRetryAt = new Date().toISOString();
+    if (success) {
+      email.status = 'sent';
+      email.sentAt = new Date().toISOString();
+      if (newResendId) email.resendId = newResendId;
+      this.data.stats.totalEmailsSent++;
+      const user = this.getUser(email.chatId);
+      user.emailsSent++;
+    }
+    this._save();
+    return email;
   }
 
   // --- A/B Testing ---

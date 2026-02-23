@@ -690,6 +690,8 @@ if (inboxListener && inboxListener.isConfigured()) {
 // --- Controle centralise des crons (17 crons au total) ---
 let _emailPollingInterval = null;
 let _bookingSyncInterval = null;
+let _retryQueueInterval = null;
+let _archiveInterval = null;
 
 // Storages des skills a crons (pour toggle config.enabled)
 const proactiveAgentStorage = require('../skills/proactive-agent/storage.js');
@@ -726,6 +728,25 @@ function startAllCrons() {
       } catch (e) { log.error('router', 'Erreur check email statuses:', e.message); }
     }, 30 * 60 * 1000);
     log.info('router', 'Polling statuts email toutes les 30 min');
+
+    // Retry queue : retenter les emails failed toutes les 5 min
+    _retryQueueInterval = setInterval(async () => {
+      try {
+        await automailerHandler.campaignEngine.processRetryQueue();
+      } catch (e) { log.error('router', 'Erreur retry queue:', e.message); }
+    }, 5 * 60 * 1000);
+    log.info('router', 'Retry queue emails toutes les 5 min');
+
+    // Archivage auto : deplacer emails > 90j toutes les 6h
+    _archiveInterval = setInterval(() => {
+      try {
+        automailerHandler.campaignEngine.runArchive();
+      } catch (e) { log.error('router', 'Erreur archivage auto:', e.message); }
+    }, 6 * 60 * 60 * 1000);
+    // Archivage initial au demarrage (apres 30s)
+    setTimeout(() => {
+      try { automailerHandler.campaignEngine.runArchive(); } catch (e) {}
+    }, 30000);
   }
 
   // Sync bookings Cal.eu toutes les 5 min
@@ -738,7 +759,7 @@ function startAllCrons() {
     log.info('router', 'Sync bookings Cal.eu toutes les 5 min');
   }
 
-  log.info('router', '19 crons demarres (production)');
+  log.info('router', '21 crons demarres (production)');
 }
 
 function stopAllCrons() {
@@ -749,6 +770,8 @@ function stopAllCrons() {
   autoPilotEngine.stop();
   if (_emailPollingInterval) { clearInterval(_emailPollingInterval); _emailPollingInterval = null; }
   if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
+  if (_retryQueueInterval) { clearInterval(_retryQueueInterval); _retryQueueInterval = null; }
+  if (_archiveInterval) { clearInterval(_archiveInterval); _archiveInterval = null; }
 
   // Desactiver les configs internes (double securite)
   try { proactiveAgentStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron proactive:', e.message); }
@@ -2030,6 +2053,8 @@ function gracefulShutdown() {
   clearInterval(_metricsSaveInterval);
   if (_emailPollingInterval) { clearInterval(_emailPollingInterval); _emailPollingInterval = null; }
   if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
+  if (_retryQueueInterval) { clearInterval(_retryQueueInterval); _retryQueueInterval = null; }
+  if (_archiveInterval) { clearInterval(_archiveInterval); _archiveInterval = null; }
   try { _saveMetrics(); } catch (e) { log.error('router', 'Erreur save metrics:', e.message); }
   try { _saveVolatileState(); } catch (e) { log.error('router', 'Erreur save volatile-state:', e.message); }
   log.info('router', 'Metriques + etat volatile sauvegardes sur disque');

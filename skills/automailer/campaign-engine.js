@@ -1062,6 +1062,81 @@ class CampaignEngine {
   }
 }
 
+  // --- Retry queue : retente les emails failed toutes les 5 min ---
+
+  async processRetryQueue() {
+    const MAX_RETRIES = 3;
+    const failedEmails = storage.getFailedEmailsForRetry(MAX_RETRIES);
+    if (failedEmails.length === 0) return { retried: 0, success: 0, gaveUp: 0 };
+
+    let retried = 0;
+    let success = 0;
+    let gaveUp = 0;
+
+    log.info('campaign-engine', 'Retry queue: ' + failedEmails.length + ' email(s) a retenter');
+
+    for (const email of failedEmails) {
+      // Verifier blacklist (a pu etre ajoute entre-temps)
+      if (storage.isBlacklisted(email.to)) {
+        log.info('campaign-engine', 'Retry skip ' + email.to + ' (blackliste)');
+        storage.markRetryAttempt(email.id, false, null);
+        continue;
+      }
+
+      retried++;
+      try {
+        const result = await this.resend.sendEmail(email.to, email.subject, email.body, {
+          replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
+          fromName: process.env.SENDER_NAME || 'Alexis',
+          trackingId: email.trackingId,
+          tags: [
+            { name: 'campaign_id', value: email.campaignId || 'retry' },
+            { name: 'retry', value: String((email.retryCount || 0) + 1) }
+          ]
+        });
+
+        if (result.success) {
+          storage.markRetryAttempt(email.id, true, result.id);
+          storage.setFirstSendDate();
+          storage.incrementTodaySendCount();
+          success++;
+          log.info('campaign-engine', 'Retry OK pour ' + email.to + ' (tentative ' + ((email.retryCount || 0) + 1) + ')');
+        } else {
+          storage.markRetryAttempt(email.id, false, null);
+          const newCount = (email.retryCount || 0) + 1;
+          if (newCount >= MAX_RETRIES) {
+            gaveUp++;
+            log.warn('campaign-engine', 'Retry ABANDON pour ' + email.to + ' apres ' + newCount + ' tentatives: ' + result.error);
+          } else {
+            log.info('campaign-engine', 'Retry FAIL pour ' + email.to + ' (tentative ' + newCount + '/' + MAX_RETRIES + '): ' + result.error);
+          }
+        }
+      } catch (err) {
+        storage.markRetryAttempt(email.id, false, null);
+        log.error('campaign-engine', 'Retry exception pour ' + email.to + ': ' + err.message);
+      }
+
+      // Rate limit entre retries
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (retried > 0) {
+      log.info('campaign-engine', 'Retry queue termine: ' + success + '/' + retried + ' reussis, ' + gaveUp + ' abandonnes');
+    }
+    return { retried, success, gaveUp };
+  }
+
+  // --- Archivage auto (appele periodiquement) ---
+
+  runArchive() {
+    try {
+      return storage.archiveOldEmails();
+    } catch (e) {
+      log.error('campaign-engine', 'Erreur archivage:', e.message);
+      return 0;
+    }
+  }
+
 CampaignEngine.checkMX = _checkMX;
 CampaignEngine.emailPassesQualityGate = _emailPassesQualityGate;
 module.exports = CampaignEngine;
