@@ -1,4 +1,11 @@
 // iFIND - Routeur Telegram central (dispatch 13 skills : AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot + Inbox Manager + Meeting Scheduler)
+
+// --- Securite : refuser de tourner en root ---
+if (typeof process.getuid === 'function' && process.getuid() === 0) {
+  console.error('FATAL: iFIND refuse de tourner en root (uid 0). Utilisez runuser ou USER dans Dockerfile.');
+  process.exit(1);
+}
+
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -1412,6 +1419,9 @@ async function poll() {
 // --- Healthcheck HTTP + Webhook Resend (pour Docker) ---
 const HEALTH_PORT = process.env.HEALTH_PORT || 9090;
 const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || '';
+if (!WEBHOOK_SECRET) {
+  log.warn('webhook', 'RESEND_WEBHOOK_SECRET non configure — webhooks Resend non securises. Configurez-le dans .env pour securiser les callbacks email.');
+}
 let _botReady = false;
 
 // --- FIX 23 : Webhook Resend — reception temps reel des evenements email ---
@@ -1904,17 +1914,20 @@ telegramAPI('getMe').then(result => {
   process.exit(1);
 });
 
-// Cleanup — graceful shutdown (attend 2s pour les operations en cours)
+// Cleanup — graceful shutdown (attend 8s pour les operations en cours)
+let _shutdownInProgress = false;
 function gracefulShutdown() {
-  log.info('router', 'Arret Router...');
+  if (_shutdownInProgress) return;
+  _shutdownInProgress = true;
+  log.info('router', 'Arret gracieux lance (max 8s)...');
   _polling = false;
   _botReady = false;
   clearInterval(_cleanupInterval);
   clearInterval(_metricsSaveInterval);
   if (_emailPollingInterval) { clearInterval(_emailPollingInterval); _emailPollingInterval = null; }
   if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
-  _saveMetrics();
-  _saveVolatileState();
+  try { _saveMetrics(); } catch (e) { log.error('router', 'Erreur save metrics:', e.message); }
+  try { _saveVolatileState(); } catch (e) { log.error('router', 'Erreur save volatile-state:', e.message); }
   log.info('router', 'Metriques + etat volatile sauvegardes sur disque');
   healthServer.close();
   httpsAgent.destroy();
@@ -1924,7 +1937,10 @@ function gracefulShutdown() {
     .forEach(h => { try { h.stop(); } catch (e) { log.error('router', 'Erreur stop handler:', e.message); } });
   if (selfImproveHandler) try { selfImproveHandler.stop(); } catch (e) { log.error('router', 'Erreur stop self-improve:', e.message); }
   if (inboxListener) try { inboxListener.stop(); } catch (e) { log.error('router', 'Erreur stop inbox-listener:', e.message); }
-  setTimeout(() => process.exit(0), 2000);
+  setTimeout(() => {
+    log.info('router', 'Shutdown termine.');
+    process.exit(0);
+  }, 8000);
 }
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
@@ -1935,4 +1951,6 @@ process.on('uncaughtException', (err) => {
 });
 process.on('unhandledRejection', (reason) => {
   log.error('router', 'UNHANDLED REJECTION:', reason?.message || String(reason));
+  log.error('router', reason?.stack ? reason.stack.substring(0, 500) : 'no stack');
+  gracefulShutdown();
 });

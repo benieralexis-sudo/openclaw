@@ -521,7 +521,7 @@ Reponds UNIQUEMENT en JSON strict :
 
     const lines = [
       '*Self-Improve :* ' + (config.enabled ? 'ACTIF' : 'DESACTIF'),
-      '*Auto-Apply :* ' + (config.autoApply ? 'ACTIF (confiance >= 50%)' : 'DESACTIF (mode manuel)'),
+      '*Auto-Apply :* ' + (config.autoApply ? 'ACTIF (confiance >= 70%)' : 'DESACTIF (mode manuel)'),
       '*Crons :* ' + this.crons.length + ' actif(s)',
       ''
     ];

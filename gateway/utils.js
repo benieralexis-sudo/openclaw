@@ -106,4 +106,34 @@ function getWarmupDailyLimit(firstSendDate) {
   return schedule[Math.min(daysSinceFirst, schedule.length - 1)] || 100;
 }
 
-module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit };
+/**
+ * Concurrency guard pour crons — empeche un cron de se relancer s'il est deja en cours.
+ * @param {string} name - Identifiant unique du cron (pour logging)
+ * @param {Function} fn - Fonction async a executer
+ * @returns {Function} Fonction wrappee avec concurrency guard
+ */
+const _cronRunning = {};
+function withCronGuard(name, fn) {
+  return async () => {
+    if (_cronRunning[name]) {
+      log.info('cron-guard', 'Skip ' + name + ' — deja en cours');
+      return;
+    }
+    _cronRunning[name] = true;
+    const start = Date.now();
+    try {
+      await fn();
+    } catch (e) {
+      log.error('cron-guard', name + ' erreur: ' + e.message);
+    } finally {
+      _cronRunning[name] = false;
+      const ms = Date.now() - start;
+      if (ms > 120000) {
+        log.warn('cron-guard', name + ' a pris ' + Math.round(ms / 1000) + 's (>2min)');
+      }
+    }
+  };
+}
+const log = require('./logger.js');
+
+module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit, withCronGuard };

@@ -5,7 +5,7 @@ const { Cron } = require('croner');
 const ReportGenerator = require('./report-generator.js');
 const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
-const { getWarmupDailyLimit } = require('../../gateway/utils.js');
+const { getWarmupDailyLimit, withCronGuard } = require('../../gateway/utils.js');
 
 // Cross-skill imports
 function getResendClient() {
@@ -93,7 +93,7 @@ class ProactiveEngine {
     if (alerts.nightlyAnalysis.enabled) {
       const h = alerts.nightlyAnalysis.hour || 2;
       const m = alerts.nightlyAnalysis.minute || 0;
-      this.crons.push(new Cron(m + ' ' + h + ' * * *', { timezone: tz }, () => this._nightlyAnalysis()));
+      this.crons.push(new Cron(m + ' ' + h + ' * * *', { timezone: tz }, withCronGuard('pa-nightly', () => this._nightlyAnalysis())));
       log.info('proactive-engine', 'Cron: analyse nocturne a ' + h + 'h' + (m > 0 ? String(m).padStart(2, '0') : ''));
     }
 
@@ -101,7 +101,7 @@ class ProactiveEngine {
     if (alerts.morningReport.enabled) {
       const h = alerts.morningReport.hour || 8;
       const m = alerts.morningReport.minute || 0;
-      this.crons.push(new Cron(m + ' ' + h + ' * * *', { timezone: tz }, () => this._morningReport()));
+      this.crons.push(new Cron(m + ' ' + h + ' * * *', { timezone: tz }, withCronGuard('pa-morning', () => this._morningReport())));
       log.info('proactive-engine', 'Cron: rapport matinal a ' + h + 'h' + (m > 0 ? String(m).padStart(2, '0') : ''));
     }
 
@@ -109,7 +109,7 @@ class ProactiveEngine {
     if (alerts.pipelineAlerts.enabled) {
       const h = alerts.pipelineAlerts.hour || 9;
       const m = alerts.pipelineAlerts.minute || 30;
-      this.crons.push(new Cron(m + ' ' + h + ' * * *', { timezone: tz }, () => this._pipelineAlerts()));
+      this.crons.push(new Cron(m + ' ' + h + ' * * *', { timezone: tz }, withCronGuard('pa-pipeline', () => this._pipelineAlerts())));
       log.info('proactive-engine', 'Cron: alertes pipeline a ' + h + 'h' + (m > 0 ? String(m).padStart(2, '0') : ''));
     }
 
@@ -118,7 +118,7 @@ class ProactiveEngine {
       const dow = alerts.weeklyReport.dayOfWeek || 1;
       const h = alerts.weeklyReport.hour || 11;
       const m = alerts.weeklyReport.minute || 0;
-      this.crons.push(new Cron(m + ' ' + h + ' * * ' + dow, { timezone: tz }, () => this._weeklyReport()));
+      this.crons.push(new Cron(m + ' ' + h + ' * * ' + dow, { timezone: tz }, withCronGuard('pa-weekly', () => this._weeklyReport())));
       log.info('proactive-engine', 'Cron: rapport hebdo (jour ' + dow + ' a ' + h + 'h)');
     }
 
@@ -127,23 +127,23 @@ class ProactiveEngine {
       const dom = alerts.monthlyReport.dayOfMonth || 1;
       const h = alerts.monthlyReport.hour || 9;
       const m = alerts.monthlyReport.minute || 0;
-      this.crons.push(new Cron(m + ' ' + h + ' ' + dom + ' * *', { timezone: tz }, () => this._monthlyReport()));
+      this.crons.push(new Cron(m + ' ' + h + ' ' + dom + ' * *', { timezone: tz }, withCronGuard('pa-monthly', () => this._monthlyReport())));
       log.info('proactive-engine', 'Cron: rapport mensuel (jour ' + dom + ' a ' + h + 'h)');
     }
 
     // Check emails — toutes les 30 min
     if (alerts.emailStatusCheck.enabled) {
       const interval = alerts.emailStatusCheck.intervalMinutes || 30;
-      this.crons.push(new Cron('*/' + interval + ' * * * *', { timezone: tz }, () => this._emailStatusCheck()));
+      this.crons.push(new Cron('*/' + interval + ' * * * *', { timezone: tz }, withCronGuard('pa-email-status', () => this._emailStatusCheck())));
       log.info('proactive-engine', 'Cron: check emails toutes les ' + interval + ' min');
     }
 
     // Smart alerts — toutes les heures
-    this.crons.push(new Cron('0 * * * *', { timezone: tz }, () => this._checkSmartAlerts()));
+    this.crons.push(new Cron('0 * * * *', { timezone: tz }, withCronGuard('pa-smart-alerts', () => this._checkSmartAlerts())));
     log.info('proactive-engine', 'Cron: smart alerts toutes les heures');
 
     // Reactive follow-ups — toutes les 10 min
-    this.crons.push(new Cron('*/10 * * * *', { timezone: tz }, () => this._processReactiveFollowUps()));
+    this.crons.push(new Cron('*/10 * * * *', { timezone: tz }, withCronGuard('pa-reactive-fu', () => this._processReactiveFollowUps())));
     log.info('proactive-engine', 'Cron: reactive follow-ups toutes les 10 min');
 
     this.running = true;
