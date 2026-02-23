@@ -4,7 +4,15 @@ services:
 
   telegram-router:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
+    # root requis pour mkdir/chown volumes au boot — drop immediat vers node via runuser
+    # securise par : cap_drop ALL + no-new-privileges + check uid 0 dans Node.js
     user: "root"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -95,6 +103,9 @@ services:
   mission-control:
     image: node:20-alpine
     working_dir: /app
+    user: "1000:1000"
+    cap_drop:
+      - ALL
     logging:
       driver: json-file
       options:
@@ -159,6 +170,9 @@ services:
   landing-page:
     image: node:20-alpine
     working_dir: /app
+    user: "1000:1000"
+    cap_drop:
+      - ALL
     logging:
       driver: json-file
       options:

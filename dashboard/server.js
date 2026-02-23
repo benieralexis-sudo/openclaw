@@ -198,8 +198,21 @@ const apiLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 
 // --- Session encryption ---
+// Secret auto-genere au premier demarrage, persiste sur disque (plus de fallback hardcode)
+function _getOrCreateSessionSecret() {
+  const secretFile = path.join(process.env.DASHBOARD_DATA_DIR || '/data/dashboard', '.session-secret');
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  try {
+    if (fs.existsSync(secretFile)) return fs.readFileSync(secretFile, 'utf8').trim();
+  } catch (e) {}
+  const generated = crypto.randomBytes(32).toString('hex');
+  try { fs.writeFileSync(secretFile, generated, { mode: 0o600 }); } catch (e) {
+    log.warn('dashboard', 'Impossible de persister session secret — genere en memoire');
+  }
+  return generated;
+}
 const SESSION_KEY = crypto.createHash('sha256')
-  .update(PASSWORD + (process.env.SESSION_SECRET || 'moltbot-session-2026'))
+  .update(PASSWORD + _getOrCreateSessionSecret())
   .digest();
 
 function encryptSessions(data) {
