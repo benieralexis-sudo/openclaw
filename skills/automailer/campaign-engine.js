@@ -710,8 +710,8 @@ class CampaignEngine {
       // Ajouter lien booking Cal.eu dans les relances (step 2+)
       if (stepNumber >= 2) {
         try {
-          const calcom = require('../meeting-scheduler/calendar-client.js');
-          const calClient = new calcom(process.env.CALCOM_API_KEY || '');
+          const CalComClient = require('../meeting-scheduler/calendar-client.js');
+          const calClient = new CalComClient(process.env.CALCOM_API_KEY || '');
           const bookingUrl = await calClient.getBookingLink('appel-telephonique', contact.email, firstName);
           if (bookingUrl) {
             body += '\n\nSi ca te dit, voici mon lien pour caler un echange rapide : ' + bookingUrl;

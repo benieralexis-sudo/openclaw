@@ -68,8 +68,8 @@ class ProactiveStorage {
         sent: [],
         config: {
           enabled: true,
-          minDelayMinutes: 120,
-          maxDelayMinutes: 240
+          minDelayMinutes: 30,
+          maxDelayMinutes: 60
         }
       },
       nightlyBriefing: null,
