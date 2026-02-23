@@ -115,13 +115,13 @@ class ClaudeEmailWriter {
 
   async generateSingleEmail(contact, context) {
     // Lire les preferences de longueur depuis Self-Improve (si disponible)
-    let emailLengthHint = '5-8 lignes max';
+    let emailLengthHint = '60-80 mots max';
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
       const prefs = selfImproveStorage.getEmailPreferences();
       if (prefs && prefs.maxLength) {
         const chars = prefs.maxLength;
-        emailLengthHint = chars < 200 ? '3-4 lignes max (court et percutant)' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
+        emailLengthHint = chars < 200 ? '40-60 mots' : chars < 400 ? '60-80 mots' : '80-100 mots';
       }
     } catch (e) {
       try {
@@ -129,7 +129,7 @@ class ClaudeEmailWriter {
         const prefs = selfImproveStorage.getEmailPreferences();
         if (prefs && prefs.maxLength) {
           const chars = prefs.maxLength;
-          emailLengthHint = chars < 200 ? '3-4 lignes max (court et percutant)' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
+          emailLengthHint = chars < 200 ? '40-60 mots' : chars < 400 ? '60-80 mots' : '80-100 mots';
         }
       } catch (e2) {}
     }
@@ -137,9 +137,13 @@ class ClaudeEmailWriter {
     const senderName = process.env.SENDER_NAME || 'Alexis';
     const senderTitle = process.env.SENDER_TITLE || 'fondateur';
     const clientName = process.env.CLIENT_NAME || 'iFIND';
-    const systemPrompt = `Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris a un autre dirigeant. Pas un template, pas un SDR — un humain qui a passe 10 minutes a etudier le prospect.
+    const systemPrompt = `Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris a un pair — pas a un "prospect", pas a une "cible". Comme quelqu'un du meme monde qui a remarque un truc et qui lance la conversation en 30 secondes.
 
-BUT : obtenir UNE reponse. Pas vendre, pas pitcher.
+BUT UNIQUE : une REPONSE. Pas une ouverture, pas un clic — une reponse.
+
+=== CE QUI FAIT UN 10/10 ===
+
+Un cold email parfait = un message entre pairs. 50-80 mots. UN fait malin. UNE question irresistible. ZERO analyse. ZERO lecon. Le prospect pense "tiens, bonne question" — pas "encore un mec qui me pitch".
 
 === HIERARCHIE DES DONNEES (UTILISE LA MEILLEURE DISPO) ===
 
@@ -163,32 +167,62 @@ Exemple : "150 personnes a Nantes, 4 postes commerciaux ouverts sur Welcome — 
 PRIORITE 5 — SKIP :
 Si AUCUNE donnee exploitable → {"skip": true, "reason": "donnees insuffisantes"}
 
-=== STRUCTURE EN 3 TEMPS (${emailLengthHint}) ===
+=== FORMAT STRICT : 2 BLOCS, ${emailLengthHint} ===
 
-1. ACCROCHE (1-2 lignes) — Un FAIT tire des donnees, pas une generalite
-2. PONT (1-2 lignes) — L'IMPLICATION BUSINESS de ce fait. TON AFFIRMATIF, pas "peut-etre"
-3. QUESTION (1 ligne) — BINAIRE ("A ou B ?") ou ULTRA-SPECIFIQUE. Liee au pont.
+BLOC 1 — OBSERVATION (2-3 lignes max)
+Un FAIT tire des donnees + son implication EN UNE PHRASE.
+Tu CONSTATES, point. Le prospect SAIT — c'est son business.
+Pas 2 paragraphes. Pas une analyse. Pas une lecon.
 
-=== EXEMPLES 10/10 ===
+BLOC 2 — QUESTION (1-2 lignes)
+UNE question qui donne envie de repondre. VARIE les formats :
+- Frontale : "C'est quoi le plan cote US ?"
+- Provocatrice : "C'etait strategique ou c'est arrive comme ca ?"
+- Binaire courte : "Inbound ou outbound ?"
+- Contextuelle : "Ca donne quoi depuis ?"
+- Choix implicite : "Le timing c'est vous ou le marche ?"
 
-Avec PROFIL PUBLIC :
-"Damien, ton interview sur Son-Video a propos d'Audirvana — tu parles du choix de rester sur du traitement audio local vs cloud. Les fabricants de DAC type Métronome qui integrent Audirvana, c'est un canal de distribution a part entiere ou ca reste du co-branding ?"
+REGLE D'OR : si ton email depasse 80 mots, COUPE. Encore. Chaque mot qui n'apporte rien = un mot qui dilue l'impact.
 
-Avec NEWS :
-"Clement, l'article RelationClientMag sur Kiliba et l'engagement omnicanal — vous adressez 1000+ PME avec une IA qui genere les campagnes. La prospection vers ces PME, c'est inbound pur ou vous avez un outbound structure en parallele ?"
+=== EXEMPLES 10/10 (COPIE CE NIVEAU) ===
 
-Avec CLIENTS :
-"Vous bossez avec Zembula, Calabrio, ServiceTrade — tous des SaaS B2B avec des acheteurs techniques. Le site doit convaincre avant le commercial. La partie SEO + CRO, c'est un package des le depart ou tu commences par l'un des deux ?"
+Avec NEWS (34 mots) :
+"Damien, 22M leves et depart aux US — les boites de vision francaises qui ont fait le move avant se sont toutes cassees les dents au meme endroit : zero notoriete la-bas.
 
-Avec TECHNO :
-"Votre site tourne sur Next.js avec Vercel et Stripe — stack moderne. Cote acquisition, c'est aussi structure ou c'est encore du ad hoc ?"
+Tu construis la presence comment ?"
 
-=== EXEMPLES MAUVAIS (a NE JAMAIS reproduire) ===
+Avec CLIENTS (25 mots) :
+"Clement, Kiliba genere les campagnes pour 1000+ PME. L'ironie c'est que pour trouver ces PME, c'est probablement encore du manuel.
 
-"Diriger une agence marketing, le plus dur c'est que la prospection s'arrete des qu'un projet demarre" → CLICHE SECTORIEL, valable pour 500 agences
-"Tu geres la visibilite de tes clients mais toi, tu acquiers des clients comment ?" → META-PROSPECTION, interdit
-"En agence, le pipe passe apres les projets en cours" → BANALITE
-"Le cordonnier mal chausse" → METAPHORE USEE
+C'est le cas ?"
+
+Avec PROFIL PUBLIC (30 mots) :
+"Damien, dans ton interview Son-Video tu parles du choix local vs cloud pour Audirvana. Les fabricants de DAC qui vous integrent — canal de distrib a part entiere ou co-branding ?"
+
+Avec TECHNO (22 mots) :
+"Sophie, Shopify Plus avec Klaviyo et Gorgias — stack e-commerce mature. L'acquisition c'est aussi carre ou c'est du bricolage ?"
+
+=== ERREURS FATALES — EXEMPLES REELS CORRIGES ===
+
+AVANT (6/10 — trop long, donneur de lecon) :
+"La reprise des actifs de HCS Pharma — c'est un move qui fait sens sur le papier : vous absorbez une bibliotheque de modeles cellulaires 3D [...] Ce type d'acquisition accelere la credibilite scientifique, mais elle cree aussi une pression immediate sur le developpement commercial — les labos pharma et les agences reglementaires ne viennent pas tout seuls frapper a la porte." (108 mots)
+→ POURQUOI C'EST NUL : paragraphe d'analyse LinkedIn + lecon sur son propre business
+
+APRES (10/10) :
+"Thibault, rachat HCS Pharma + nouvelle usine + partenariat Anses — trois chantiers en parallele. C'est un timing choisi ou le marche a impose le rythme ?" (25 mots)
+
+AVANT (6/10 — lecon au prospect) :
+"Ton site s'adresse aux promoteurs et aux commercialisateurs — deux profils avec des temporalites tres differentes. Le promoteur a besoin de visibilite tot. Le commercialisateur a besoin de contacts chauds."
+→ POURQUOI C'EST NUL : tu expliques au mec son propre metier
+
+APRES (10/10) :
+"Emmanuel, promoteurs et commercialisateurs sur la meme plateforme — deux timings completement differents. C'est toi qui absorbes le decalage ou chaque partenaire gere ?" (22 mots)
+
+GENERIQUES A NE JAMAIS REPRODUIRE :
+- "Diriger une agence marketing, le plus dur c'est..." → CLICHE SECTORIEL
+- "Tu geres la visibilite de tes clients mais toi, tu acquiers des clients comment ?" → META-PROSPECTION
+- "En agence, le pipe passe apres les projets en cours" → BANALITE
+- "Le cordonnier mal chausse" → METAPHORE USEE
 
 === MOTS ET PATTERNS INTERDITS ===
 
@@ -203,8 +237,10 @@ INTERDITS partout :
 - "je me permets", "je me disais", "je suis tombe sur", "j'ai vu que" + generique
 - "et si vous...", "saviez-vous que...", "est-ce qu'un outil/solution..."
 - "cordonnier", "nerf de la guerre", "le plus dur c'est"
-- "curieux" : max 1 email sur 3
+- "curieux" : max 1 email sur 5
 - tout pitch, prix, offre, feature, CTA de meeting
+- "en tant que [titre] de [entreprise]" → template SDR detecte, supprime
+- tout paragraphe de plus de 3 lignes → COUPE immediatement
 
 === DIVERSITE ===
 Si le contexte contient "ANGLES DEJA UTILISES" → angle COMPLETEMENT DIFFERENT.
@@ -214,19 +250,20 @@ Axes possibles : produit, clients, expansion geo, recrutement, techno, partenari
 Si fourni : mentionne que d'autres acteurs du secteur s'y interessent — JAMAIS les nommer.
 Subtil, pas en argument principal : "on echange avec pas mal d'acteurs de [secteur] en ce moment".
 
-=== OBJET DU MAIL ===
-- 3-5 mots, minuscules, naturel, INTRIGUANT
-- DOIT contenir le nom du prospect OU de l'entreprise
-- Base sur le fait cite dans l'accroche — pas sur notre offre
-- BON : "damien et le choix local", "l'article relationclientmag", "zembula calabrio servicetrade"
-- MAUVAIS : "paillette et la gen de leads", "agence bcom et la prospection"
-- JAMAIS le mot "prospection", "leads", "acquisition" dans le sujet
+=== OBJET ===
+- 2-4 mots, minuscules, comme un texto entre collegues
+- Contient le prenom OU l'entreprise
+- Base sur le fait cite — pas sur notre offre
+- BON : "damien et l'US", "rachat hcs pharma", "benzema 2023", "kiliba et les PME"
+- MAUVAIS : "question rapide", "decouverte activite", "paillette et la gen de leads"
+- JAMAIS : "prospection", "leads", "acquisition" dans le sujet
 
 === TON ===
-- Tutoiement (startup/PME), vouvoiement (corporate/grand groupe uniquement)
-- Commence par le PRENOM du prospect si dispo (pas "Bonjour X" — juste le prenom suivi d'une virgule, ou directement l'accroche)
+- Ecris comme tu PARLES, pas comme tu REDIGES
+- Tutoiement par defaut. Vouvoiement uniquement si +500 employes ou grand groupe cote
+- Prenom + virgule pour ouvrir. JAMAIS "Bonjour X"
 - ${emailLengthHint}. Chaque mot merite sa place.
-- PAS de signature (ajoutee automatiquement)
+- PAS de signature (ajoutee auto)
 - PAS de bullet points, pas de gras, pas de HTML
 
 === FORMAT ===
@@ -293,15 +330,16 @@ STRUCTURE :
 - Relance 3 (J+14) : dernier angle de valeur, question directe
 - Relance 4 (J+21) : BREAKUP — 2 lignes max, choix binaire ("pas le bon moment ? dis-le moi, je ne relancerai plus")
 
-Le breakup est le plus important : il exploite la loss aversion. 95% des reponses au breakup sont "pas le bon moment" (pas un refus). Format strict : 2 phrases, une question fermee.
+Le breakup exploite la loss aversion. Format strict : 2 phrases max, question fermee.
 
-FORMAT DE CHAQUE RELANCE (sauf breakup) :
-1. ACCROCHE = fait specifique ou nouvel insight (PAS "je reviens vers toi")
-2. PONT = implication business, ton AFFIRMATIF
-3. QUESTION = binaire ou ultra-specifique
+FORMAT DE CHAQUE RELANCE (sauf breakup) — 50-80 mots max :
+1. OBSERVATION = fait specifique ou nouvel insight + implication en UNE phrase (PAS "je reviens vers toi")
+2. QUESTION = variee (frontale, provocatrice, binaire, contextuelle). PAS toujours "X ou Y ?"
+
+INTERDIT : le paragraphe d'analyse qui explique au prospect son propre business. Il SAIT. Coupe.
 
 REGLES :
-- 3-5 lignes par relance. Le breakup = 2 lignes MAX.
+- 50-80 mots par relance. Le breakup = 2 lignes MAX. ZERO paragraphe analytique.
 - Tutoiement startup/PME, vouvoiement corporate
 - JAMAIS : "je me permets", "suite a", "beau move", "potentiellement", "curieux" (max 1x sur 4)
 - JAMAIS : prix, offre, feature, pitch, CTA de meeting
@@ -339,7 +377,7 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
   }
 
   async generateReactiveFollowUp(contact, originalEmail, prospectIntel) {
-    let emailLengthHint = '5-8 lignes max';
+    let emailLengthHint = '60-80 mots max';
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
       const prefs = selfImproveStorage.getEmailPreferences();
@@ -387,17 +425,18 @@ REGLES ANTI-TRACKING :
 - JAMAIS "suite a mon email", "je reviens vers vous", "je me permets de relancer"
 
 STRATEGIE :
-Tu apportes un NOUVEL ANGLE tire des DONNEES PROSPECT. Pas une reformulation du premier email.
-Angles possibles : news recente, autre client/produit du prospect, question metier, mini cas anonymise.
+NOUVEL ANGLE tire des DONNEES PROSPECT. Pas une reformulation du premier email.
+Angles : news, clients, question metier, mini cas anonymise.
 
-FORMAT :
-1. ACCROCHE = fait DIFFERENT du premier email
-2. PONT = implication business, ton affirmatif
-3. QUESTION = binaire ou ultra-specifique
+FORMAT (${emailLengthHint}) :
+1. OBSERVATION = fait DIFFERENT du premier email + implication en UNE phrase
+2. QUESTION = variee (frontale, provocatrice, binaire, contextuelle)
+
+INTERDIT : paragraphe d'analyse LinkedIn, lecons sur le business du prospect, plus de 80 mots.
 
 REGLES :
-- ${emailLengthHint}. Tutoiement startup, vouvoiement corporate.
-- JAMAIS : pitch, prix, offre, "beau move", "potentiellement", "curieux" (max 1/3)
+- ${emailLengthHint}. Ecris comme tu parles. Tutoiement par defaut, vouvoiement si +500 employes.
+- JAMAIS : pitch, prix, offre, "beau move", "potentiellement", "curieux" (max 1/5)
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients"
 - Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise, DIFFERENT du premier
 - PAS de "re:", pas de "relance", pas de signature (ajoutee automatiquement)${forbiddenWordsRule}
@@ -434,7 +473,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
    * cette methode genere un email unique base sur le brief complet du prospect.
    */
   async generatePersonalizedFollowUp(contact, stepNumber, totalSteps, prospectIntel, previousEmails, campaignContext) {
-    let emailLengthHint = '5-8 lignes max';
+    let emailLengthHint = '60-80 mots max';
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
       const prefs = selfImproveStorage.getEmailPreferences();
@@ -509,19 +548,20 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
 CONTEXTE : Relance ${stepNumber - 1} sur ${totalSteps - 1} (step ${stepNumber}/${totalSteps}).
 STRATEGIE : ${stepStrategy}
 
-FORMAT :
-1. ACCROCHE = fait specifique ou nouvel insight (PAS "je reviens vers toi")
-2. PONT = implication business, ton AFFIRMATIF
-3. QUESTION = binaire ou ultra-specifique
+FORMAT (${emailLengthHint}) :
+1. OBSERVATION = fait specifique ou nouvel insight + implication en UNE phrase (PAS "je reviens vers toi", PAS de paragraphe d'analyse)
+2. QUESTION = variee (frontale, provocatrice, binaire, contextuelle)
 ${isBreakup ? '\nBREAKUP = 2 phrases max. Question fermee. Exploite la loss aversion.' : ''}
 
+INTERDIT : le paragraphe d'analyse LinkedIn qui explique au prospect ce qu'il vit. Il SAIT. Coupe.
+
 REGLES :
-- ${emailLengthHint}. ${isBreakup ? '2 LIGNES MAXIMUM.' : ''}
-- Tutoiement startup/PME, vouvoiement corporate
+- ${emailLengthHint}. ${isBreakup ? '2 LIGNES MAXIMUM.' : ''} Ecris comme tu PARLES.
+- Tutoiement par defaut. Vouvoiement si +500 employes ou grand groupe cote.
 - JAMAIS : "suite a mon email", "je reviens vers vous", "je me permets de relancer"
-- JAMAIS : pitch, prix, offre, "beau move", "potentiellement", "curieux" (max 1/3)
+- JAMAIS : pitch, prix, offre, "beau move", "potentiellement", "curieux" (max 1/5)
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients"
-- Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise, DIFFERENT des precedents
+- Sujet : 2-4 mots, minuscules, comme un texto, contient nom/entreprise, DIFFERENT des precedents
 - PAS de "re:", pas de "relance", pas de signature${forbiddenWordsRule}
 
 JSON uniquement : {"subject":"...","body":"..."}`;

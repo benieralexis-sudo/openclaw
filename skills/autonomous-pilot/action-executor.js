@@ -865,6 +865,18 @@ Format JSON strict :
       }
     }
 
+    // === GATE LONGUEUR : max 120 mots — au-dela c'est du LinkedIn, pas du cold email ===
+    {
+      const bodyWords = (params.body || '').trim().split(/\s+/).filter(w => w.length > 0);
+      if (bodyWords.length > 120) {
+        log.error('action-executor', 'GATE LONGUEUR BLOCK — Email trop long (' + bodyWords.length + ' mots, max 120) pour ' + params.to + ' — skip');
+        return { success: false, error: 'Email trop long: ' + bodyWords.length + ' mots (max 120)', gateBlocked: true };
+      }
+      if (bodyWords.length > 90) {
+        log.warn('action-executor', 'GATE LONGUEUR WARN — Email long (' + bodyWords.length + ' mots) pour ' + params.to + ' — envoye mais sous-optimal');
+      }
+    }
+
     // === GATE 3 : Completude Email — verifier que l'email est complet avant envoi ===
     {
       const subjectTrimmed = (params.subject || '').trim();
