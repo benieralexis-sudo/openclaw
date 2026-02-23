@@ -653,6 +653,25 @@ Format JSON strict :
       }
     }
 
+    // === GATE 1 : Validation Lead Enrich — bloquer leads hors-cible avant de depenser un appel Claude ===
+    if (leStorageCheck) {
+      const enrichedGate = leStorageCheck.getEnrichedLead(params.to);
+      if (enrichedGate && enrichedGate.aiClassification) {
+        const aiClass = enrichedGate.aiClassification;
+        const aiScore = aiClass.score != null ? aiClass.score : 10;
+        const aiIndustry = (aiClass.industry || '').toLowerCase();
+        if (aiScore <= 5 && aiIndustry === 'autre') {
+          log.warn('action-executor', 'GATE 1 BLOCK — Lead Enrich hors-cible pour ' + params.to +
+            ' (score: ' + aiScore + '/10, industrie: ' + aiClass.industry + ') — skip');
+          return { success: false, error: 'Lead hors-cible (Lead Enrich score ' + aiScore + ', industrie: ' + aiClass.industry + ')', gateBlocked: true };
+        }
+        if (aiScore <= 5 || aiIndustry === 'autre') {
+          log.warn('action-executor', 'GATE 1 WARNING — Lead suspect pour ' + params.to +
+            ' (score: ' + aiScore + '/10, industrie: ' + aiClass.industry + ') — envoi avec prudence');
+        }
+      }
+    }
+
     // === FIX : Recuperer organization Apollo + LinkedIn depuis FlowFast ===
     if (params._generateFirst && !(params.contact && params.contact.organization)) {
       try {
@@ -690,6 +709,22 @@ Format JSON strict :
     if (params._generateFirst) {
       params.subject = null;
       params.body = null;
+
+      // Deduire la niche du lead depuis FlowFast (pour Gate 2)
+      let leadNiche = null;
+      try {
+        const ffStorageNiche = getFlowFastStorage();
+        if (ffStorageNiche && ffStorageNiche.data) {
+          const leadsNiche = ffStorageNiche.data.leads || {};
+          for (const lid of Object.keys(leadsNiche)) {
+            if (leadsNiche[lid].email === params.to) {
+              leadNiche = this._inferLeadNiche(leadsNiche[lid]);
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+
       // Recherche pre-envoi sur le prospect (scrape site, news, Apollo data)
       try {
         const ProspectResearcher = getProspectResearcher();
@@ -701,10 +736,17 @@ Format JSON strict :
             entreprise: params.company || (params.contact && params.contact.entreprise),
             titre: params.contact && params.contact.titre,
             organization: params.contact && params.contact.organization,
-            linkedin_url: params.contact && params.contact.linkedin_url
+            linkedin_url: params.contact && params.contact.linkedin_url,
+            niche: leadNiche
           });
           if (intel && intel.brief) {
             params._prospectIntel = intel.brief;
+          }
+          // === GATE 2 : Coherence Niche / Site Web ===
+          if (intel && intel.nicheCoherent === false) {
+            log.warn('action-executor', 'GATE 2 BLOCK — Niche mismatch pour ' + params.to +
+              ' (' + (intel.nicheWarning || 'site web hors-cible') + ') — skip');
+            return { success: false, error: 'Niche mismatch: ' + (intel.nicheWarning || 'site web ne correspond pas a la niche'), gateBlocked: true };
           }
         }
       } catch (e) {
@@ -798,6 +840,35 @@ Format JSON strict :
         log.error('action-executor', 'Mots interdits persistants apres ' + MAX_FORBIDDEN_RETRIES + ' retries: ' + foundWords.join(', ') + ' — envoi bloque');
         return { success: false, error: 'Mots interdits persistants apres ' + MAX_FORBIDDEN_RETRIES + ' tentatives: ' + foundWords.join(', ') };
       }
+    }
+
+    // === GATE 3 : Completude Email — verifier que l'email est complet avant envoi ===
+    {
+      const subjectTrimmed = (params.subject || '').trim();
+      const bodyTrimmed = (params.body || '').trim();
+      const bodyWordCount = bodyTrimmed.split(/\s+/).filter(w => w.length > 0).length;
+      const endsWithPunctuation = /[.!?]$/.test(bodyTrimmed);
+      const endsWithEllipsis = /\.{2,}$/.test(bodyTrimmed);
+
+      if (subjectTrimmed.length < 5) {
+        log.error('action-executor', 'GATE 3 BLOCK — Subject trop court (' + subjectTrimmed.length + ' chars) pour ' + params.to + ' — skip');
+        return { success: false, error: 'Email incomplet: subject trop court (' + subjectTrimmed.length + ' chars)', gateBlocked: true };
+      }
+      if (bodyTrimmed.length < 50) {
+        log.error('action-executor', 'GATE 3 BLOCK — Body trop court (' + bodyTrimmed.length + ' chars) pour ' + params.to + ' — skip');
+        return { success: false, error: 'Email incomplet: body trop court (' + bodyTrimmed.length + ' chars)', gateBlocked: true };
+      }
+      if (bodyWordCount < 8) {
+        log.error('action-executor', 'GATE 3 BLOCK — Body trop peu de mots (' + bodyWordCount + ') pour ' + params.to + ' — skip');
+        return { success: false, error: 'Email incomplet: body trop court (' + bodyWordCount + ' mots)', gateBlocked: true };
+      }
+      if (!endsWithPunctuation || endsWithEllipsis) {
+        log.error('action-executor', 'GATE 3 BLOCK — Body potentiellement tronque pour ' + params.to +
+          ' (termine par: "' + bodyTrimmed.slice(-20) + '") — skip');
+        return { success: false, error: 'Email potentiellement tronque (ne finit pas par . ! ou ?)', gateBlocked: true };
+      }
+      log.info('action-executor', 'GATE 3 OK — Email complet pour ' + params.to +
+        ' (subject: ' + subjectTrimmed.length + ' chars, body: ' + bodyTrimmed.length + ' chars / ' + bodyWordCount + ' mots)');
     }
 
     const ResendClient = getResendClient();

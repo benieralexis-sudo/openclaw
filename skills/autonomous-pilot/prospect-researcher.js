@@ -304,6 +304,20 @@ class ProspectResearcher {
       });
     }
 
+    // === GATE 2 : Coherence Niche / Site Web ===
+    if (contact.niche && intel.websiteInsights && intel.websiteInsights.textContent) {
+      const nicheCheck = this._validateNicheCoherence(intel.websiteInsights.textContent, contact.niche);
+      intel.nicheCoherent = nicheCheck.coherent;
+      if (!nicheCheck.coherent) {
+        intel.nicheWarning = nicheCheck.reason;
+        log.warn('prospect-research', 'GATE 2 — Niche mismatch pour ' + (contact.entreprise || contact.email) +
+          ' [niche: ' + contact.niche + '] — ' + nicheCheck.reason);
+      } else {
+        log.info('prospect-research', 'GATE 2 OK — Niche coherente pour ' + (contact.entreprise || contact.email) +
+          ' [niche: ' + contact.niche + ']');
+      }
+    }
+
     // Construire le brief textuel
     intel.brief = this._buildProspectBrief(intel, contact);
 
@@ -1251,6 +1265,41 @@ class ProspectResearcher {
    * 5. Donnees enrichissement
    * Max 2000 chars — surcout negligible (~$0.05/mois)
    */
+  _validateNicheCoherence(websiteText, niche) {
+    const NICHE_ANTI_KEYWORDS = {
+      'esn-ssii': ['immobilier', 'promoteur', 'programme immobilier', 'commercialisateur', 'foncier', 'residence', 'appartement', 'construction'],
+      'agences-marketing': ['immobilier', 'promoteur', 'notaire', 'avocat', 'cabinet medical', 'pharmacie', 'chirurgien'],
+      'saas-b2b': ['immobilier', 'promoteur', 'restaurant', 'coiffeur', 'boulangerie', 'artisan']
+    };
+
+    const NICHE_EXPECTED_KEYWORDS = {
+      'esn-ssii': ['informatique', 'numerique', 'developpement', 'infrastructure', 'cloud', 'devops', 'logiciel', 'it', 'digital', 'tech'],
+      'agences-marketing': ['marketing', 'communication', 'digitale', 'campagne', 'strategie', 'seo', 'social', 'branding', 'creation', 'web'],
+      'saas-b2b': ['saas', 'logiciel', 'plateforme', 'api', 'abonnement', 'pricing', 'solution', 'integration', 'automatisation', 'dashboard']
+    };
+
+    const text = websiteText.toLowerCase();
+    const antiKw = NICHE_ANTI_KEYWORDS[niche] || [];
+    const expectedKw = NICHE_EXPECTED_KEYWORDS[niche] || [];
+
+    // Detecter les anti-keywords (signal fort de mismatch)
+    const foundAnti = antiKw.filter(kw => text.includes(kw));
+    if (foundAnti.length >= 2) {
+      return { coherent: false, reason: 'Site contient ' + foundAnti.length + ' anti-keywords [' + foundAnti.slice(0, 3).join(', ') + '] pour niche ' + niche };
+    }
+
+    // Compter les keywords attendus
+    const foundExpected = expectedKw.filter(kw => text.includes(kw));
+    const matchRatio = expectedKw.length > 0 ? foundExpected.length / expectedKw.length : 1;
+
+    // Si anti-keyword detecte ET peu de keywords attendus → mismatch
+    if (foundAnti.length >= 1 && matchRatio < 0.2) {
+      return { coherent: false, reason: 'Anti-keyword [' + foundAnti[0] + '] + seulement ' + Math.round(matchRatio * 100) + '% keywords attendus pour niche ' + niche };
+    }
+
+    return { coherent: true, matchRatio: matchRatio, foundExpected: foundExpected.length };
+  }
+
   _buildProspectBrief(intel, contact) {
     const lines = [];
 

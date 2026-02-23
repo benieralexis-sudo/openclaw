@@ -245,7 +245,7 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     const response = await this.callClaude(
       [{ role: 'user', content: userMessage }],
       systemPrompt,
-      1000
+      1500
     );
     return this._parseJSON(response);
   }
@@ -416,7 +416,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
     const response = await this.callClaude(
       [{ role: 'user', content: userMessage }],
       systemPrompt,
-      1000
+      1500
     );
     return this._parseJSON(response);
   }
