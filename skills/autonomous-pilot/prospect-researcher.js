@@ -546,13 +546,13 @@ class ProspectResearcher {
     if (!name || name.length < 3) return null;
 
     try {
-      const query = '"' + name + '"' + (company ? ' ' + company : '') + ' interview podcast conference article';
+      const query = '"' + name + '"' + (company ? ' ' + company : '') + ' interview podcast conference article youtube';
       const searchResult = await this._searchWithFallback(query);
       if (!searchResult) return this._searchPersonProfileNews(name, company);
 
-      const rawItems = this._parseSearchResults(searchResult.html, searchResult.source, 8);
-      // Filtrer reseaux sociaux (deja geres ailleurs)
-      const items = rawItems.filter(r => !/linkedin\.com|facebook\.com|twitter\.com|x\.com|instagram\.com/i.test(r.url));
+      const rawItems = this._parseSearchResults(searchResult.html, searchResult.source, 10);
+      // Filtrer reseaux sociaux SAUF YouTube (interviews/talks) et Twitter/X (prises de position)
+      const items = rawItems.filter(r => !/linkedin\.com|facebook\.com|instagram\.com/i.test(r.url));
 
       if (items.length === 0) return this._searchPersonProfileNews(name, company);
 
@@ -561,6 +561,8 @@ class ProspectResearcher {
         const text = (item.title + ' ' + item.snippet + ' ' + item.url).toLowerCase();
         let type = 'mention';
         if (text.includes('podcast') || text.includes('episode') || text.includes('épisode')) type = 'podcast';
+        else if (/youtube\.com|youtu\.be/i.test(text)) type = 'video';
+        else if (/twitter\.com|x\.com/i.test(text)) type = 'social';
         else if (text.includes('interview') || text.includes('entretien') || text.includes('portrait') || text.includes('rencontre avec')) type = 'interview';
         else if (/conf[ée]rence|talk|keynote|speaker|sommet|salon/i.test(text)) type = 'conference';
         else if (text.includes('article') || text.includes('tribune') || text.includes('blog') || text.includes('publie') || text.includes('écrit par')) type = 'article';
@@ -702,16 +704,17 @@ class ProspectResearcher {
 
     // Strategie 1 (PRIORITAIRE) : DuckDuckGo HTML — retry sur 202 (rate-limit)
     if (name) {
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const ddgQuery = encodeURIComponent('"' + name + '"' + (company ? ' "' + company + '"' : '') + ' site:linkedin.com/in/');
           const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + ddgQuery;
           const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
 
-          // 202 = rate limited, retry apres 2s
-          if (result && result.statusCode === 202 && attempt === 0) {
-            log.info('prospect-research', 'DuckDuckGo LinkedIn 202 — retry dans 2s');
-            await new Promise(r => setTimeout(r, 2000));
+          // 202 = rate limited, retry avec backoff exponentiel
+          if (result && result.statusCode === 202 && attempt < 2) {
+            const delay = (attempt + 1) * 2000; // 2s, 4s
+            log.info('prospect-research', 'DuckDuckGo LinkedIn 202 — retry ' + (attempt + 1) + '/2 dans ' + (delay / 1000) + 's');
+            await new Promise(r => setTimeout(r, delay));
             continue;
           }
 
@@ -1284,7 +1287,7 @@ class ProspectResearcher {
 
     // Detecter les anti-keywords (signal fort de mismatch)
     const foundAnti = antiKw.filter(kw => text.includes(kw));
-    if (foundAnti.length >= 2) {
+    if (foundAnti.length >= 3) {
       return { coherent: false, reason: 'Site contient ' + foundAnti.length + ' anti-keywords [' + foundAnti.slice(0, 3).join(', ') + '] pour niche ' + niche };
     }
 
@@ -1293,7 +1296,7 @@ class ProspectResearcher {
     const matchRatio = expectedKw.length > 0 ? foundExpected.length / expectedKw.length : 1;
 
     // Si anti-keyword detecte ET peu de keywords attendus → mismatch
-    if (foundAnti.length >= 1 && matchRatio < 0.2) {
+    if (foundAnti.length >= 1 && matchRatio < 0.1) {
       return { coherent: false, reason: 'Anti-keyword [' + foundAnti[0] + '] + seulement ' + Math.round(matchRatio * 100) + '% keywords attendus pour niche ' + niche };
     }
 
