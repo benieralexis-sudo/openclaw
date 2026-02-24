@@ -262,7 +262,6 @@ function updateWeeklyGoals(updates) {
 function updateSearchCriteria(updates) {
   const data = _load();
   Object.assign(data.goals.searchCriteria, updates);
-  _save();
   data.stats.totalCriteriaUpdates = (data.stats.totalCriteriaUpdates || 0) + 1;
   _save();
   return data.goals.searchCriteria;
@@ -372,6 +371,39 @@ function completeAction(actionId, result) {
   }
   _save();
   return true;
+}
+
+// --- Queue cleanup (TTL 48h) ---
+
+function cleanupQueue() {
+  const data = _load();
+  const TTL = 48 * 60 * 60 * 1000; // 48h
+  const now = Date.now();
+  const expired = [];
+  const kept = [];
+
+  for (const action of data.actionQueue) {
+    const age = now - new Date(action.createdAt || 0).getTime();
+    if (action.status === 'pending' && age > TTL) {
+      action.status = 'expired';
+      action.expiredAt = new Date().toISOString();
+      data.actionHistory.unshift(action);
+      expired.push(action.id);
+    } else {
+      kept.push(action);
+    }
+  }
+
+  if (expired.length > 0) {
+    data.actionQueue = kept;
+    if (data.actionHistory.length > 500) {
+      data.actionHistory = data.actionHistory.slice(0, 500);
+    }
+    _save();
+    console.log('[autonomous-pilot-storage] Queue cleanup: ' + expired.length + ' action(s) expiree(s)');
+  }
+
+  return expired.length;
 }
 
 // --- Action History ---
@@ -683,7 +715,7 @@ module.exports = {
   getConfig, updateConfig, updateEmailPreferences, updateOffer,
   getGoals, updateWeeklyGoals, updateSearchCriteria,
   getProgress, incrementProgress, resetWeeklyProgress,
-  addToQueue, getQueuedActions, confirmAction, rejectAction, completeAction,
+  addToQueue, getQueuedActions, confirmAction, rejectAction, completeAction, cleanupQueue,
   recordAction, getRecentActions,
   addDiagnosticItem, resolveDiagnosticItem, getOpenDiagnostics, getAllDiagnostics, updateDiagnosticCheck,
   getLearnings, addLearning, addExperiment, completeExperiment, getActiveExperiments,

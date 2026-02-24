@@ -6,6 +6,7 @@ const diagnostic = require('./diagnostic.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const { withCronGuard } = require('../../gateway/utils.js');
 const log = require('../../gateway/logger.js');
+const { escTg, parseJsonResponse } = require('./utils.js');
 
 // --- Cross-skill imports (dual-path) ---
 
@@ -280,6 +281,9 @@ class BrainEngine {
     storage.incrementStat('totalBrainCycles');
     storage.updateStat('lastBrainCycleAt', new Date().toISOString());
 
+    // 0. Nettoyage queue (TTL 48h)
+    storage.cleanupQueue();
+
     // 1. Collecter l'etat
     const state = this._collectState();
 
@@ -431,13 +435,13 @@ class BrainEngine {
       let summary = '🧠 *Cycle Autonomous Pilot*\n\n';
 
       if (plan.reasoning) {
-        summary += '_' + plan.reasoning.substring(0, 300) + '_\n\n';
+        summary += '_' + escTg(plan.reasoning.substring(0, 300)) + '_\n\n';
       }
 
       if (autoActions.length > 0) {
         summary += '✅ *Actions executees :*\n';
         for (const a of autoActions) {
-          summary += '• ' + (a.preview || a.type) + '\n';
+          summary += '• ' + escTg(a.preview || a.type) + '\n';
         }
         summary += '\n';
       }
@@ -450,7 +454,7 @@ class BrainEngine {
       if (plan.experiments && plan.experiments.length > 0) {
         summary += '🧪 *Nouvelles experiences :*\n';
         for (const exp of plan.experiments) {
-          summary += '• ' + (exp.description || exp.type) + '\n';
+          summary += '• ' + escTg(exp.description || exp.type) + '\n';
         }
         summary += '\n';
       }
@@ -472,15 +476,15 @@ class BrainEngine {
     let text = '';
 
     if (action.type === 'send_email') {
-      text = '📧 *Email pret pour ' + (action.params.contactName || action.params.to || '?') + '*\n\n';
+      text = '📧 *Email pret pour ' + escTg(action.params.contactName || action.params.to || '?') + '*\n\n';
       if (action.params.score) text += 'Score: ' + action.params.score + '/10\n';
-      if (action.params.company) text += 'Entreprise: ' + action.params.company + '\n';
-      if (action.params.subject) text += 'Objet: _' + action.params.subject + '_\n';
-      if (action.params.body) text += '\n' + action.params.body.substring(0, 300) + '\n';
+      if (action.params.company) text += 'Entreprise: ' + escTg(action.params.company) + '\n';
+      if (action.params.subject) text += 'Objet: _' + escTg(action.params.subject) + '_\n';
+      if (action.params.body) text += '\n' + escTg(action.params.body.substring(0, 300)) + '\n';
     } else {
       text = '⚡ *Action a confirmer*\n\n';
-      text += 'Type: ' + action.type + '\n';
-      if (action.preview) text += action.preview + '\n';
+      text += 'Type: ' + escTg(action.type) + '\n';
+      if (action.preview) text += escTg(action.preview) + '\n';
     }
 
     const buttons = [
@@ -570,7 +574,7 @@ class BrainEngine {
     if (state.skills.proactive?.hotLeads?.length > 0) {
       msg += '🔥 *Hot leads :*\n';
       for (const hl of state.skills.proactive.hotLeads.slice(0, 5)) {
-        msg += '• ' + hl.email + ' (' + hl.opens + ' ouvertures)\n';
+        msg += '• ' + escTg(hl.email) + ' \\(' + hl.opens + ' ouvertures\\)\n';
       }
       msg += '\n';
     }
@@ -795,11 +799,11 @@ Analyse et reponds en JSON:
             try {
               await this.sendTelegram(chatId,
                 '📡 *Opportunite detectee*\n\n' +
-                '*Signal:* ' + signal.type + ' — ' + signal.title + '\n' +
-                '*Lead(s):* ' + matchingLeads.length + ' (' + firstLead.nom + ', ' + firstLead.entreprise + ')\n' +
-                '*Score boost:* +' + boost + '\n' +
-                '→ _' + signal.action + '_\n\n' +
-                (firstLead._emailSent ? 'Lead deja contacte — relance recommandee !' : 'Ce lead devrait etre contacte en priorite !'),
+                '*Signal:* ' + escTg(signal.type) + ' — ' + escTg(signal.title) + '\n' +
+                '*Lead\\(s\\):* ' + matchingLeads.length + ' \\(' + escTg(firstLead.nom) + ', ' + escTg(firstLead.entreprise) + '\\)\n' +
+                '*Score boost:* \\+' + boost + '\n' +
+                '→ _' + escTg(signal.action) + '_\n\n' +
+                (firstLead._emailSent ? 'Lead deja contacte — relance recommandee \\!' : 'Ce lead devrait etre contacte en priorite \\!'),
                 'Markdown'
               );
             } catch (e) {}
@@ -1293,49 +1297,9 @@ Analyse et reponds en JSON:
     return prompt;
   }
 
-  // --- Parse JSON response from Claude (robuste) ---
+  // --- Parse JSON response from Claude (delegue a utils.js) ---
   _parseJsonResponse(text) {
-    if (!text) return null;
-    try {
-      // 1. Strip markdown code blocks
-      let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-
-      // 2. Essai parse direct
-      try { return JSON.parse(cleaned); } catch (_) {}
-
-      // 3. Trouver le premier objet JSON balance (accolades equilibrees)
-      let depth = 0, start = -1;
-      let parsed = null;
-      for (let i = 0; i < cleaned.length; i++) {
-        if (cleaned[i] === '{') {
-          if (depth === 0) start = i;
-          depth++;
-        } else if (cleaned[i] === '}') {
-          depth--;
-          if (depth === 0 && start !== -1) {
-            try {
-              parsed = JSON.parse(cleaned.substring(start, i + 1));
-              break;
-            } catch (_) {
-              start = -1;
-            }
-          }
-        }
-      }
-
-      // Validation du schema : s'assurer que les champs attendus sont des arrays
-      if (parsed && typeof parsed === 'object') {
-        if (!Array.isArray(parsed.actions)) parsed.actions = [];
-        if (!Array.isArray(parsed.experiments)) parsed.experiments = [];
-        if (!Array.isArray(parsed.learnings)) parsed.learnings = [];
-        if (!Array.isArray(parsed.diagnosticItems)) parsed.diagnosticItems = [];
-        if (!parsed.reasoning) parsed.reasoning = '(raison non fournie)';
-        return parsed;
-      }
-    } catch (e) {
-      log.warn('brain', 'Erreur parse JSON:', e.message);
-    }
-    return null;
+    return parseJsonResponse(text);
   }
 
   // --- 3a. Pattern Detection : analyse les donnees email pour detecter des patterns ---
