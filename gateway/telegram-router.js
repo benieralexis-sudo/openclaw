@@ -108,6 +108,7 @@ const APOLLO_KEY = process.env.APOLLO_API_KEY || '';
 const CLAUDE_KEY = process.env.CLAUDE_API_KEY || '';
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
+const REPLY_TO_EMAIL = process.env.REPLY_TO_EMAIL || SENDER_EMAIL;
 const IMAP_HOST = process.env.IMAP_HOST || '';
 const IMAP_PORT = parseInt(process.env.IMAP_PORT || '993', 10);
 const IMAP_USER = process.env.IMAP_USER || '';
@@ -636,7 +637,7 @@ inboxListener = InboxListener ? new InboxListener({
               ? replyData.subject
               : 'Re: ' + (replyData.subject || 'notre echange');
             const sendResult = await resend.sendEmail(replyData.from, replySubject, autoReplyBody, {
-              replyTo: SENDER_EMAIL,
+              replyTo: REPLY_TO_EMAIL,
               fromName: process.env.SENDER_NAME || 'Alexis',
               tags: [{ name: 'type', value: 'auto-meeting' }]
             });
@@ -1689,7 +1690,7 @@ async function handleResendWebhook(body) {
               'A bientot !';
             const meetSubject = 'On se cale un echange rapide ?';
             const meetResult = await resend.sendEmail(email.to, meetSubject, meetBody, {
-              replyTo: SENDER_EMAIL,
+              replyTo: REPLY_TO_EMAIL,
               fromName: process.env.SENDER_NAME || 'Alexis',
               tags: [{ name: 'type', value: 'auto-meeting' }]
             });

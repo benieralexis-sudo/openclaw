@@ -87,8 +87,11 @@ class ResendClient {
     const messageId = '<' + crypto.randomBytes(12).toString('hex') + '@' + smtpDomain + '>';
     const htmlBody = options.html || this._minimalHtml(body, options.trackingId);
 
+    const replyTo = options.replyTo || process.env.REPLY_TO_EMAIL || smtpUser;
+
     const mime = [
       'From: ' + fromName + ' <' + smtpUser + '>',
+      'Reply-To: ' + replyTo,
       'To: ' + toEmail,
       'Subject: =?UTF-8?B?' + Buffer.from(subject).toString('base64') + '?=',
       'MIME-Version: 1.0',
@@ -284,7 +287,7 @@ class ResendClient {
       }
     };
     if (options.tags) payload.tags = options.tags;
-    if (options.replyTo) payload.reply_to = options.replyTo;
+    payload.reply_to = options.replyTo || process.env.REPLY_TO_EMAIL || this.senderEmail;
 
     const result = await this._request('POST', '/emails', payload);
 
