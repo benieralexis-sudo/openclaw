@@ -1,6 +1,7 @@
 // Meeting Scheduler - Client API Cal.com (compatible cal.eu v2)
 const https = require('https');
 const log = require('../../gateway/logger.js');
+const { retryAsync } = require('../../gateway/utils.js');
 
 class CalComClient {
   constructor(apiKey, baseUrl) {
@@ -67,12 +68,17 @@ class CalComClient {
     });
   }
 
+  // Appel API avec retry (2 tentatives, backoff 1s)
+  async _requestWithRetry(method, path, body) {
+    return retryAsync(() => this._request(method, path, body), 2, 1000);
+  }
+
   // Recuperer les event types disponibles
   async getEventTypes() {
     if (!this.isConfigured()) return [];
     try {
       // Try v2 event-types endpoint first
-      const result = await this._request('GET', '/v2/event-types');
+      const result = await this._requestWithRetry('GET', '/v2/event-types');
       if (result.statusCode === 200 && result.data.data) {
         const types = Array.isArray(result.data.data) ? result.data.data : [];
         if (types.length > 0) {
@@ -125,7 +131,7 @@ class CalComClient {
     if (!this.isConfigured()) return [];
     try {
       const path = status ? '/v2/bookings?status=' + status : '/v2/bookings';
-      const result = await this._request('GET', path);
+      const result = await this._requestWithRetry('GET', path);
       if (result.statusCode === 200 && result.data.data) {
         const bookings = Array.isArray(result.data.data) ? result.data.data : [];
         return bookings.map(b => ({
@@ -158,7 +164,7 @@ class CalComClient {
     }
 
     try {
-      const result = await this._request('GET', '/v2/me');
+      const result = await this._requestWithRetry('GET', '/v2/me');
       // v2 API: data is at result.data.data (not result.data.user)
       const user = result.data.data || result.data.user || result.data;
       if (result.statusCode === 200 && user && user.username) {

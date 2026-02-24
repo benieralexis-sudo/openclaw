@@ -4,6 +4,12 @@ const storage = require('./storage.js');
 const CalComClient = require('./calendar-client.js');
 const { callOpenAI } = require('../../gateway/shared-nlp.js');
 
+// Escape Markdown Telegram v1 (identique a la fonction du routeur)
+function escTg(text) {
+  if (!text) return '';
+  return String(text).replace(/[_*\[\]()~`>#+\-=|{}.!]/g, '\\$&').substring(0, 2000);
+}
+
 class MeetingHandler {
   constructor(openaiKey, calcomApiKey) {
     this.openaiKey = openaiKey;
@@ -26,6 +32,26 @@ class MeetingHandler {
     log.info('meeting-handler', 'Handler meeting-scheduler arrete');
   }
 
+  // Nettoyage conversations pendantes > 10min
+  _cleanupPendingConversations() {
+    const now = Date.now();
+    const TTL = 10 * 60 * 1000;
+    let cleaned = 0;
+    for (const id of Object.keys(this.pendingConversations)) {
+      if (now - (this.pendingConversations[id].createdAt || 0) > TTL) {
+        delete this.pendingConversations[id];
+        cleaned++;
+      }
+    }
+    for (const id of Object.keys(this.pendingConfirmations)) {
+      if (now - (this.pendingConfirmations[id]?.createdAt || 0) > TTL) {
+        delete this.pendingConfirmations[id];
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) log.info('meeting-handler', 'Nettoyage ' + cleaned + ' conversations abandonnees');
+  }
+
   async handleMessage(text, chatId, sendReply) {
     const id = String(chatId);
     const textLower = text.toLowerCase().trim();
@@ -45,6 +71,8 @@ class MeetingHandler {
     switch (intent) {
       case 'propose':
         return this._handlePropose(text, chatId, sendReply);
+      case 'no_show':
+        return this._handleNoShow(text, chatId);
       case 'status':
         return this._handleStatus(chatId);
       case 'upcoming':
@@ -64,6 +92,7 @@ class MeetingHandler {
     const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
     if (/\b(propose|planifi|rdv|rendez|book|reserve|cale|caler)\b/i.test(t)) return 'propose';
+    if (/\b(no.?show|pas.?venu|absent|ghost)\b/i.test(t)) return 'no_show';
     if (/\b(statut|status|etat)\b/i.test(t)) return 'status';
     if (/\b(prochain|a venir|upcoming|agenda)\b/i.test(t)) return 'upcoming';
     if (/\b(historique|passe|recent|dernier)\b/i.test(t)) return 'history';
@@ -93,7 +122,7 @@ class MeetingHandler {
     }
 
     // Pas d'email → demander
-    this.pendingConversations[id] = { step: 'ask_email', originalText: text };
+    this.pendingConversations[id] = { step: 'ask_email', originalText: text, createdAt: Date.now() };
     return {
       type: 'text',
       content: '📅 A qui veux-tu proposer un RDV ? Donne-moi l\'email du lead.'
@@ -161,18 +190,18 @@ class MeetingHandler {
       });
 
       const lines = [
-        '📅 *RDV propose !*',
+        '📅 *RDV propose \\!*',
         '',
-        '👤 *Lead :* ' + (leadName || email),
-        '📧 ' + email,
+        '👤 *Lead :* ' + escTg(leadName || email),
+        '📧 ' + escTg(email),
         '⏱ *Duree :* ' + (eventType.length || 30) + ' min',
-        '📋 *Type :* ' + eventType.title,
+        '📋 *Type :* ' + escTg(eventType.title),
         '',
         '🔗 *Lien de reservation :*',
         bookingUrl,
         '',
-        '_Envoie ce lien au lead par email ou message._',
-        '_Tu veux que je l\'integre dans un email ? Dis "envoie le lien a ' + email + '"_'
+        '_Envoie ce lien au lead par email ou message\\._',
+        '_Tu veux que je l\'integre dans un email \\? Dis "envoie le lien a ' + escTg(email) + '"_'
       ];
 
       return { type: 'text', content: lines.join('\n') };
@@ -190,18 +219,22 @@ class MeetingHandler {
     const lines = [
       '📅 *Meeting Scheduler*',
       '',
-      '*Cal.com :* ' + (isConfigured ? '🟢 Configure' : '🔴 Non configure'),
-      '*Auto-proposition :* ' + (config.autoPropose ? '🟢 Active' : '🔴 Desactive'),
+      '*Cal\\.com :* ' + (isConfigured ? '🟢 Configure' : '🔴 Non configure'),
+      '*Auto\\-proposition :* ' + (config.autoPropose ? '🟢 Active' : '🔴 Desactive'),
       '',
       '*RDV proposes :* ' + (stats.totalProposed || 0),
       '*RDV confirmes :* ' + (stats.totalBooked || 0),
+      '*RDV completes :* ' + (stats.totalCompleted || 0),
+      '*RDV expires :* ' + (stats.totalExpired || 0),
       '*RDV annules :* ' + (stats.totalCancelled || 0),
-      '*A venir :* ' + (stats.upcoming || 0)
+      '*No\\-show :* ' + (stats.totalNoShow || 0),
+      '*A venir :* ' + (stats.upcoming || 0),
+      '*Taux conversion :* ' + (stats.conversionRate || 0) + '%'
     ];
 
     if (!isConfigured) {
       lines.push('');
-      lines.push('_Ajoute CALCOM\\_API\\_KEY dans .env pour activer._');
+      lines.push('_Ajoute CALCOM\\_API\\_KEY dans \\.env pour activer\\._');
     }
 
     return { type: 'text', content: lines.join('\n') };
@@ -221,8 +254,8 @@ class MeetingHandler {
         weekday: 'long', day: '2-digit', month: 'long',
         hour: '2-digit', minute: '2-digit'
       });
-      lines.push('• *' + (m.leadName || m.leadEmail) + '* — ' + date);
-      if (m.company) lines.push('  🏢 ' + m.company);
+      lines.push('• *' + escTg(m.leadName || m.leadEmail) + '* — ' + escTg(date));
+      if (m.company) lines.push('  🏢 ' + escTg(m.company));
       lines.push('  ⏱ ' + m.duration + ' min');
       lines.push('');
     }
@@ -252,7 +285,7 @@ class MeetingHandler {
       const date = new Date(m.proposedAt).toLocaleDateString('fr-FR', {
         day: '2-digit', month: '2-digit'
       });
-      lines.push(icon + ' *' + (m.leadName || m.leadEmail) + '* — ' + m.status + ' (' + date + ')');
+      lines.push(icon + ' *' + escTg(m.leadName || m.leadEmail) + '* — ' + m.status + ' \\(' + date + '\\)');
     }
 
     return { type: 'text', content: lines.join('\n') };
@@ -316,21 +349,48 @@ class MeetingHandler {
     return { type: 'text', content: 'OK !' };
   }
 
+  _handleNoShow(text, chatId) {
+    const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    let meeting = null;
+
+    if (emailMatch) {
+      const meetings = storage.getMeetingByEmail(emailMatch[1]);
+      meeting = meetings.find(m => m.status === 'completed' || m.status === 'booked');
+    } else {
+      const recent = storage.getRecentMeetings(20);
+      meeting = recent.find(m => m.status === 'completed' || m.status === 'booked');
+    }
+
+    if (!meeting) {
+      return { type: 'text', content: '⚠️ Aucun meeting recent a marquer comme no\\-show\\. Precise l\'email du lead\\.' };
+    }
+
+    storage.updateMeetingStatus(meeting.id, 'no_show');
+    log.info('meeting-handler', 'No-show marque: ' + meeting.leadEmail);
+
+    return {
+      type: 'text',
+      content: '👻 *No\\-show enregistre*\n\n👤 ' + escTg(meeting.leadName || meeting.leadEmail) +
+        '\n📧 ' + escTg(meeting.leadEmail)
+    };
+  }
+
   _handleHelp(chatId) {
     const lines = [
       '📅 *Meeting Scheduler — Aide*',
       '',
-      'Je t\'aide a proposer des RDV aux prospects chauds.',
+      'Je t\'aide a proposer des RDV aux prospects chauds\\.',
       '',
       '*Commandes :*',
-      '• _"propose un rdv a john@example.com"_ — Generer un lien de booking',
+      '• _"propose un rdv a john@example\\.com"_ — Generer un lien de booking',
       '• _"statut meetings"_ — Voir le statut',
       '• _"rdv a venir"_ — Voir les prochains RDV',
       '• _"historique rdv"_ — Voir l\'historique',
-      '• _"lien de reservation"_ — Obtenir ton lien Cal.com',
-      '• _"configurer cal.com"_ — Instructions de config',
+      '• _"no\\-show john@example\\.com"_ — Marquer un RDV comme no\\-show',
+      '• _"lien de reservation"_ — Obtenir ton lien Cal\\.com',
+      '• _"configurer cal\\.com"_ — Instructions de config',
       '',
-      '_Integre avec Cal.com pour la gestion automatisee des creneaux._'
+      '_Integre avec Cal\\.com pour la gestion automatisee des creneaux\\._'
     ];
 
     return { type: 'text', content: lines.join('\n') };
@@ -338,25 +398,38 @@ class MeetingHandler {
 
   // Appele depuis le routeur/proactive quand un lead est hot
   async proposeAutoMeeting(leadEmail, leadName, company) {
-    if (!this.calcom.isConfigured()) return null;
+    if (!this.calcom.isConfigured()) {
+      log.info('meeting-handler', 'proposeAutoMeeting skip: Cal.com non configure');
+      return null;
+    }
     const config = storage.getConfig();
-    if (!config.autoPropose) return null;
+    if (!config.autoPropose) {
+      log.info('meeting-handler', 'proposeAutoMeeting skip: autoPropose=false');
+      return null;
+    }
 
-    // Verifier si un meeting existe deja pour ce lead
+    // Verifier si un meeting existe deja pour ce lead (ignorer cancelled/expired)
     const existing = storage.getMeetingByEmail(leadEmail);
-    if (existing.length > 0 && existing[0].status !== 'cancelled') {
-      return null; // Deja un meeting en cours
+    if (existing.length > 0 && existing[0].status !== 'cancelled' && existing[0].status !== 'expired') {
+      log.info('meeting-handler', 'proposeAutoMeeting skip: meeting actif pour ' + leadEmail + ' (status=' + existing[0].status + ')');
+      return null;
     }
 
     let eventTypes = storage.getEventTypes();
     if (eventTypes.length === 0) {
       eventTypes = await this._syncEventTypes();
     }
-    if (eventTypes.length === 0) return null;
+    if (eventTypes.length === 0) {
+      log.warn('meeting-handler', 'proposeAutoMeeting skip: aucun event type disponible');
+      return null;
+    }
 
     const et = eventTypes[0];
     const bookingUrl = await this.calcom.getBookingLink(et.slug, leadEmail, leadName);
-    if (!bookingUrl) return null;
+    if (!bookingUrl) {
+      log.warn('meeting-handler', 'proposeAutoMeeting skip: impossible de generer bookingUrl');
+      return null;
+    }
 
     const meeting = storage.createMeeting({
       leadEmail,
@@ -366,11 +439,43 @@ class MeetingHandler {
       duration: et.length || 30
     });
 
+    log.info('meeting-handler', 'proposeAutoMeeting OK: ' + leadEmail + ' → ' + meeting.id);
     return meeting;
+  }
+
+  // Transitions automatiques du cycle de vie meetings
+  _transitionMeetingLifecycles() {
+    const now = Date.now();
+    const allMeetings = storage.getRecentMeetings(500);
+    let transitions = 0;
+
+    for (const meeting of allMeetings) {
+      // booked + passe depuis > duree → completed
+      if (meeting.status === 'booked' && meeting.scheduledAt) {
+        const meetingEnd = new Date(meeting.scheduledAt).getTime() + (meeting.duration || 30) * 60 * 1000;
+        if (meetingEnd < now) {
+          storage.updateMeetingStatus(meeting.id, 'completed');
+          log.info('meeting-handler', 'Meeting auto-complete: ' + (meeting.leadEmail || meeting.id));
+          transitions++;
+        }
+      }
+      // proposed > 7 jours sans booking → expired
+      if (meeting.status === 'proposed' && meeting.proposedAt) {
+        const proposedAge = now - new Date(meeting.proposedAt).getTime();
+        if (proposedAge > 7 * 24 * 60 * 60 * 1000) {
+          storage.updateMeetingStatus(meeting.id, 'expired');
+          log.info('meeting-handler', 'Meeting auto-expire: ' + (meeting.leadEmail || meeting.id));
+          transitions++;
+        }
+      }
+    }
+    if (transitions > 0) log.info('meeting-handler', transitions + ' transitions lifecycle appliquees');
   }
 
   // Sync bookings Cal.eu → met a jour le storage local, notifie, avance deals
   async syncBookings(sendTelegram, hubspotClient, adminChatId) {
+    this._cleanupPendingConversations();
+    this._transitionMeetingLifecycles();
     if (!this.calcom.isConfigured()) return;
 
     try {
@@ -404,18 +509,18 @@ class MeetingHandler {
             });
 
             const notif = [
-              '✅ *RDV confirme !*',
+              '✅ *RDV confirme \\!*',
               '',
-              '👤 *' + (meeting.leadName || meeting.leadEmail) + '*',
-              '📧 ' + meeting.leadEmail,
-              '📅 ' + dateStr,
+              '👤 *' + escTg(meeting.leadName || meeting.leadEmail) + '*',
+              '📧 ' + escTg(meeting.leadEmail),
+              '📅 ' + escTg(dateStr),
               '⏱ ' + (meeting.duration || 15) + ' min'
             ];
             if (booking.meetingUrl) {
               notif.push('🔗 ' + booking.meetingUrl);
             }
             if (meeting.company) {
-              notif.push('🏢 ' + meeting.company);
+              notif.push('🏢 ' + escTg(meeting.company));
             }
             notif.push('');
             notif.push('_Le lead a reserve un creneau via Cal.eu_');
@@ -450,8 +555,8 @@ class MeetingHandler {
 
             if (sendTelegram && adminChatId) {
               await sendTelegram(adminChatId,
-                '❌ *RDV annule*\n\n👤 ' + (meeting.leadName || meeting.leadEmail) + '\n📧 ' + meeting.leadEmail +
-                '\n\n_Le lead a annule son RDV Cal.eu_', 'Markdown');
+                '❌ *RDV annule*\n\n👤 ' + escTg(meeting.leadName || meeting.leadEmail) + '\n📧 ' + escTg(meeting.leadEmail) +
+                '\n\n_Le lead a annule son RDV Cal\\.eu_', 'Markdown');
             }
 
             log.info('meeting-handler', 'Booking sync: ' + leadEmail + ' → annule');
@@ -472,8 +577,8 @@ class MeetingHandler {
           });
           if (sendTelegram && adminChatId) {
             await sendTelegram(adminChatId,
-              '🔔 *Rappel — RDV dans moins d\'1h*\n\n👤 *' + (meeting.leadName || meeting.leadEmail) +
-              '*\n📧 ' + meeting.leadEmail + '\n🕐 ' + dateStr +
+              '🔔 *Rappel — RDV dans moins d\'1h*\n\n👤 *' + escTg(meeting.leadName || meeting.leadEmail) +
+              '*\n📧 ' + escTg(meeting.leadEmail) + '\n🕐 ' + escTg(dateStr) +
               '\n⏱ ' + (meeting.duration || 15) + ' min', 'Markdown');
           }
           storage.updateMeetingStatus(meeting.id, 'booked', { reminderSent: true });

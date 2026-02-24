@@ -93,6 +93,7 @@ class MeetingSchedulerStorage {
 
     this.data.meetings.push(entry);
     this.data.stats.totalProposed++;
+    if (this.data.meetings.length > 500) this._pruneOldMeetings();
     this._save();
     return entry;
   }
@@ -113,6 +114,12 @@ class MeetingSchedulerStorage {
       this.data.stats.totalNoShow++;
     } else if (status === 'completed') {
       meeting.completedAt = new Date().toISOString();
+      if (!this.data.stats.totalCompleted) this.data.stats.totalCompleted = 0;
+      this.data.stats.totalCompleted++;
+    } else if (status === 'expired') {
+      meeting.expiredAt = new Date().toISOString();
+      if (!this.data.stats.totalExpired) this.data.stats.totalExpired = 0;
+      this.data.stats.totalExpired++;
     }
 
     this._save();
@@ -151,11 +158,33 @@ class MeetingSchedulerStorage {
   }
 
   getStats() {
+    const totalProposed = this.data.stats.totalProposed || 0;
+    const totalBooked = this.data.stats.totalBooked || 0;
+    const conversionRate = totalProposed > 0 ? Math.round((totalBooked / totalProposed) * 100) : 0;
     return {
       ...this.data.stats,
+      totalCompleted: this.data.stats.totalCompleted || 0,
+      totalExpired: this.data.stats.totalExpired || 0,
       upcoming: this.getUpcomingMeetings().length,
-      totalMeetings: this.data.meetings.length
+      totalMeetings: this.data.meetings.length,
+      conversionRate
     };
+  }
+
+  // Archiver les meetings termines au-dela de 500 entries
+  _pruneOldMeetings() {
+    if (this.data.meetings.length <= 500) return;
+    const active = this.data.meetings.filter(m => m.status === 'proposed' || m.status === 'booked');
+    const terminated = this.data.meetings.filter(m => m.status !== 'proposed' && m.status !== 'booked');
+    terminated.sort((a, b) => (a.proposedAt || '').localeCompare(b.proposedAt || ''));
+    const keepCount = 500 - active.length;
+    const kept = keepCount > 0 ? terminated.slice(-keepCount) : [];
+    const pruned = this.data.meetings.length - active.length - kept.length;
+    if (pruned > 0) {
+      this.data.meetings = [...active, ...kept];
+      this._save();
+      console.log('[meeting-scheduler-storage] Prune: ' + pruned + ' meetings archives');
+    }
   }
 }
 
