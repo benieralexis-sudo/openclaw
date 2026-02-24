@@ -79,6 +79,20 @@ class InboxHandler {
       '*Autres emails :* ' + (stats.totalUnmatched || 0)
     ];
 
+    // Repartition par sentiment
+    const breakdown = storage.getSentimentBreakdown();
+    const totalClassified = breakdown.interested + breakdown.question + breakdown.not_interested + breakdown.out_of_office + breakdown.bounce;
+    if (totalClassified > 0) {
+      lines.push('');
+      lines.push('*Analyse des reponses :*');
+      if (breakdown.interested) lines.push('  🟢 Interesses : ' + breakdown.interested);
+      if (breakdown.question) lines.push('  🟡 Questions : ' + breakdown.question);
+      if (breakdown.not_interested) lines.push('  🔴 Pas interesses : ' + breakdown.not_interested);
+      if (breakdown.out_of_office) lines.push('  🏖️ Absents : ' + breakdown.out_of_office);
+      if (breakdown.bounce) lines.push('  💀 Bounces : ' + breakdown.bounce);
+      if (breakdown.unclassified) lines.push('  ❓ Non classes : ' + breakdown.unclassified);
+    }
+
     if (!config.enabled) {
       lines.push('');
       lines.push('_Configure les identifiants IMAP dans .env pour activer._');
@@ -97,15 +111,30 @@ class InboxHandler {
 
     const lines = ['📬 *Dernieres reponses de leads :*', ''];
 
+    const SEMOJIS = { interested: '🟢', question: '🟡', not_interested: '🔴', out_of_office: '🏖️', bounce: '💀' };
+    const SLABELS = { interested: 'Interesse', question: 'Question', not_interested: 'Pas interesse', out_of_office: 'Absent', bounce: 'Bounce' };
+
     for (const r of replies) {
       const name = r.matchedLead ? (r.matchedLead.name || r.from) : r.from;
       const date = new Date(r.processedAt).toLocaleDateString('fr-FR', {
         day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
       });
-      lines.push('👤 *' + name + '* (' + r.from + ')');
+      const sIcon = r.sentiment ? (SEMOJIS[r.sentiment] || '❓') : '';
+      const sLabel = r.sentiment ? ' — ' + (SLABELS[r.sentiment] || r.sentiment) : '';
+      const sScore = r.sentimentScore != null ? ' (' + r.sentimentScore + ')' : '';
+      lines.push((sIcon || '👤') + ' *' + name + '*' + sLabel + sScore);
+      lines.push('   📧 ' + r.from);
       lines.push('   📋 ' + (r.subject || '(sans sujet)'));
       if (r.snippet) {
         lines.push('   💬 _' + r.snippet.substring(0, 100) + (r.snippet.length > 100 ? '...' : '') + '_');
+      }
+      if (r.actionTaken) {
+        const ACTIONS = {
+          auto_meeting: '📅 Meeting propose', question_reply: '💬 Reponse IA',
+          polite_decline: '👋 Decline poli', deferred_ooo: '⏳ Reporte',
+          bounce_blacklist: '💀 Blackliste'
+        };
+        lines.push('   ⚡ ' + (ACTIONS[r.actionTaken] || r.actionTaken));
       }
       lines.push('   📅 ' + date);
       lines.push('');

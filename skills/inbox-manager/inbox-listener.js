@@ -233,6 +233,7 @@ class InboxListener {
             fromName: msg.fromName,
             subject: msg.subject,
             date: msg.date,
+            snippet: msg.snippet || '',
             matchedLead
           });
         } catch (e) {

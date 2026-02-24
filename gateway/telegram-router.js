@@ -31,6 +31,7 @@ const InboxHandler = require('../skills/inbox-manager/inbox-handler.js');
 let InboxListener;
 try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
 const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
+const { classifyReply, generateQuestionReply, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
@@ -578,7 +579,11 @@ inboxListener = InboxListener ? new InboxListener({
     } catch (e) { return []; }
   },
   onReplyDetected: async (replyData) => {
-    // Marquer comme replied dans automailer (chercher par email destinataire)
+    const firstName = (replyData.fromName || '').trim().split(' ')[0] || '';
+    const replySubject = (replyData.subject || '').startsWith('Re:')
+      ? replyData.subject : 'Re: ' + (replyData.subject || 'notre echange');
+
+    // === 1. Marquer comme replied dans automailer ===
     try {
       const emails = (automailerStorageForInbox.data.emails || [])
         .filter(e => e.to && e.to.toLowerCase() === replyData.from.toLowerCase() && e.status !== 'replied');
@@ -589,97 +594,198 @@ inboxListener = InboxListener ? new InboxListener({
     } catch (e) {
       log.warn('inbox-manager', 'markAsReplied echoue:', e.message);
     }
-    // Update CRM si dispo
+
+    // === 2. Classification IA du sentiment ===
+    let classification = { sentiment: 'question', score: 0.5, reason: 'Non classifie', key_phrases: [] };
+    try {
+      classification = await classifyReply(OPENAI_KEY, {
+        from: replyData.from,
+        fromName: replyData.fromName,
+        subject: replyData.subject,
+        snippet: replyData.snippet || ''
+      });
+    } catch (e) {
+      log.error('inbox-manager', 'Classification echouee pour ' + replyData.from + ':', e.message);
+    }
+    const sentiment = classification.sentiment;
+    const score = classification.score;
+    log.info('inbox-manager', 'Sentiment: ' + sentiment + ' (score=' + score + ') pour ' + replyData.from);
+
+    // === 3. Update CRM HubSpot avec sentiment ===
     try {
       const hubspot = _getHubSpotClient();
       if (hubspot) {
         const contact = await hubspot.findContactByEmail(replyData.from);
         if (contact && contact.id) {
+          const LABELS = { interested: 'POSITIF', question: 'QUESTION', not_interested: 'NEGATIF', out_of_office: 'OOO', bounce: 'BOUNCE' };
           const noteBody = 'Reponse email recue de ' + replyData.from + '\n' +
             'Sujet : ' + (replyData.subject || '(sans sujet)') + '\n' +
-            'Date : ' + new Date(replyData.date).toLocaleDateString('fr-FR') + '\n' +
-            '[Inbox Manager — detection automatique]';
+            'Sentiment : ' + (LABELS[sentiment] || sentiment) + ' (score: ' + score + ')\n' +
+            'Analyse : ' + (classification.reason || '') + '\n' +
+            '[Inbox Manager — classification IA]';
           const note = await hubspot.createNote(noteBody);
           if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
+          if (sentiment === 'interested') {
+            await hubspot.advanceDealStage(contact.id, 'presentationscheduled', 'reply_interested').catch(() => {});
+          }
         }
       }
     } catch (e) {
       log.warn('inbox-manager', 'CRM update echoue:', e.message);
     }
-    // Proposer un meeting auto si meeting-scheduler est configure
-    try {
-      // Dedup : verifier si un auto-meeting a deja ete envoye a ce lead dans les 48h
-      const existingEmails = automailerStorageForInbox.getEmailEventsForRecipient(replyData.from);
-      const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
-      const recentAutoMeeting = existingEmails.find(e =>
-        e.source === 'auto-meeting' && e.sentAt && new Date(e.sentAt).getTime() > cutoff48h
-      );
-      if (recentAutoMeeting) {
-        log.info('inbox-manager', 'Auto-meeting deja envoye a ' + replyData.from + ' dans les 48h — skip');
-      } else {
-        // Recuperer company depuis l'historique email
-        const leadCompany = (existingEmails.find(e => e.company) || {}).company || '';
-        const meeting = await meetingHandler.proposeAutoMeeting(
-          replyData.from,
-          replyData.fromName || '',
-          leadCompany
-        );
-        if (meeting && meeting.bookingUrl) {
-          const resend = automailerHandler.resend;
-          if (resend) {
-            const leadFirstName = (replyData.fromName || '').trim().split(' ')[0] || '';
-            const greet = leadFirstName ? ('Merci ' + leadFirstName) : 'Merci pour ton retour';
-            const autoReplyBody = greet + ' !\n\n' +
-              'Le plus simple, on se cale un call rapide ?\n\n' +
-              'Voici mon lien pour choisir un creneau : ' + meeting.bookingUrl + '\n\n' +
-              'A tres vite !';
-            const replySubject = (replyData.subject || '').startsWith('Re:')
-              ? replyData.subject
-              : 'Re: ' + (replyData.subject || 'notre echange');
-            const sendResult = await resend.sendEmail(replyData.from, replySubject, autoReplyBody, {
-              replyTo: REPLY_TO_EMAIL,
-              fromName: process.env.SENDER_NAME || 'Alexis',
-              tags: [{ name: 'type', value: 'auto-meeting' }]
+
+    // === 4. Action selon le sentiment ===
+    let actionTaken = 'none';
+    const existingEmails = automailerStorageForInbox.getEmailEventsForRecipient(replyData.from);
+    const leadCompany = (existingEmails.find(e => e.company) || {}).company || '';
+    const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+    const resend = automailerHandler.resend;
+
+    // --- INTERESTED : meeting + email enthousiaste ---
+    if (sentiment === 'interested') {
+      actionTaken = 'auto_meeting';
+      try {
+        const recentAuto = existingEmails.find(e =>
+          (e.source === 'auto-meeting' || e.source === 'auto-reply-question') &&
+          e.sentAt && new Date(e.sentAt).getTime() > cutoff48h);
+        if (recentAuto) {
+          actionTaken = 'auto_meeting_dedup';
+        } else {
+          const meeting = await meetingHandler.proposeAutoMeeting(replyData.from, replyData.fromName || '', leadCompany);
+          if (meeting && meeting.bookingUrl && resend) {
+            const body = REPLY_TEMPLATES.interested.withMeeting(firstName, meeting.bookingUrl);
+            const sr = await resend.sendEmail(replyData.from, replySubject, body, {
+              replyTo: REPLY_TO_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis',
+              tags: [{ name: 'type', value: 'auto-meeting' }, { name: 'sentiment', value: 'interested' }]
             });
-            if (sendResult && sendResult.success) {
-              // Enregistrer dans automailer storage pour tracking + rate limiting
+            if (sr && sr.success) {
               automailerStorageForInbox.addEmail({
-                chatId: ADMIN_CHAT_ID,
-                to: replyData.from,
-                subject: replySubject,
-                body: autoReplyBody,
-                resendId: sendResult.id || null,
-                status: 'sent',
-                source: 'auto-meeting',
-                contactName: replyData.fromName || '',
-                company: leadCompany
+                chatId: ADMIN_CHAT_ID, to: replyData.from, subject: replySubject, body: body,
+                resendId: sr.id || null, status: 'sent', source: 'auto-meeting',
+                contactName: replyData.fromName || '', company: leadCompany
               });
-              log.info('inbox-manager', 'Auto-meeting email envoye a ' + replyData.from + ' avec lien ' + meeting.bookingUrl);
-              await sendMessage(ADMIN_CHAT_ID,
-                '📅 *Meeting auto-propose + email envoye !*\n\n' +
-                '👤 ' + (replyData.fromName || replyData.from) + '\n' +
-                '🔗 ' + meeting.bookingUrl + '\n' +
-                '📧 Email de proposition envoye automatiquement',
-                'Markdown'
-              );
-            } else {
-              log.warn('inbox-manager', 'Auto-meeting email echoue:', (sendResult && sendResult.error) || 'unknown');
-              await sendMessage(ADMIN_CHAT_ID,
-                '📅 _Meeting propose pour ' + replyData.from + ' mais email non envoye._\n🔗 ' + meeting.bookingUrl + '\n_Envoie le lien manuellement._',
-                'Markdown'
-              );
             }
-          } else {
-            await sendMessage(ADMIN_CHAT_ID,
-              '📅 _Meeting auto-propose pour ' + replyData.from + ' :_\n' + meeting.bookingUrl + '\n_Resend non dispo — envoie le lien manuellement._',
-              'Markdown'
-            );
+          } else if (resend) {
+            const body = REPLY_TEMPLATES.interested.withoutMeeting(firstName);
+            await resend.sendEmail(replyData.from, replySubject, body, {
+              replyTo: REPLY_TO_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis',
+              tags: [{ name: 'type', value: 'auto-meeting' }, { name: 'sentiment', value: 'interested' }]
+            });
           }
         }
-      }
-    } catch (e) {
-      log.warn('inbox-manager', 'Auto-meeting echoue:', e.message);
+      } catch (e) { log.warn('inbox-manager', 'Auto-meeting echoue:', e.message); actionTaken = 'auto_meeting_failed'; }
     }
+
+    // --- QUESTION : reponse IA contextuelle + lien meeting ---
+    else if (sentiment === 'question') {
+      actionTaken = 'question_reply';
+      try {
+        const recentAuto = existingEmails.find(e =>
+          (e.source === 'auto-meeting' || e.source === 'auto-reply-question') &&
+          e.sentAt && new Date(e.sentAt).getTime() > cutoff48h);
+        if (recentAuto) {
+          actionTaken = 'question_reply_dedup';
+        } else if (resend) {
+          let body = await generateQuestionReply(OPENAI_KEY, replyData, classification);
+          const meeting = await meetingHandler.proposeAutoMeeting(replyData.from, replyData.fromName || '', leadCompany);
+          if (meeting && meeting.bookingUrl) {
+            body += '\n\nSi tu preferes, voici un lien pour caler un call : ' + meeting.bookingUrl;
+          }
+          const sr = await resend.sendEmail(replyData.from, replySubject, body, {
+            replyTo: REPLY_TO_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis',
+            tags: [{ name: 'type', value: 'auto-reply-question' }, { name: 'sentiment', value: 'question' }]
+          });
+          if (sr && sr.success) {
+            automailerStorageForInbox.addEmail({
+              chatId: ADMIN_CHAT_ID, to: replyData.from, subject: replySubject, body: body,
+              resendId: sr.id || null, status: 'sent', source: 'auto-reply-question',
+              contactName: replyData.fromName || '', company: leadCompany
+            });
+          }
+        }
+      } catch (e) { log.warn('inbox-manager', 'Question reply echoue:', e.message); actionTaken = 'question_reply_failed'; }
+    }
+
+    // --- NOT_INTERESTED : email poli + blacklist ---
+    else if (sentiment === 'not_interested') {
+      actionTaken = 'polite_decline';
+      try {
+        if (resend) {
+          const body = REPLY_TEMPLATES.not_interested(firstName);
+          const sr = await resend.sendEmail(replyData.from, replySubject, body, {
+            replyTo: REPLY_TO_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis',
+            tags: [{ name: 'type', value: 'auto-reply-decline' }, { name: 'sentiment', value: 'not_interested' }]
+          });
+          if (sr && sr.success) {
+            automailerStorageForInbox.addEmail({
+              chatId: ADMIN_CHAT_ID, to: replyData.from, subject: replySubject, body: body,
+              resendId: sr.id || null, status: 'sent', source: 'auto-reply-decline',
+              contactName: replyData.fromName || ''
+            });
+          }
+        }
+        automailerStorageForInbox.addToBlacklist(replyData.from, 'prospect_declined');
+        log.info('inbox-manager', replyData.from + ' blackliste (decline)');
+      } catch (e) { log.warn('inbox-manager', 'Decline reply echoue:', e.message); }
+    }
+
+    // --- OUT_OF_OFFICE : pas de reponse auto ---
+    else if (sentiment === 'out_of_office') {
+      actionTaken = 'deferred_ooo';
+      log.info('inbox-manager', replyData.from + ' absent (OOO) — pas de reponse auto');
+    }
+
+    // --- BOUNCE : blacklist ---
+    else if (sentiment === 'bounce') {
+      actionTaken = 'bounce_blacklist';
+      try {
+        automailerStorageForInbox.addToBlacklist(replyData.from, 'bounce_detected');
+      } catch (e) {}
+      log.info('inbox-manager', replyData.from + ' blackliste (bounce)');
+    }
+
+    // === 5. Update storage inbox-manager avec sentiment ===
+    try {
+      const inboxStorage = require('../skills/inbox-manager/storage.js');
+      const recentEmails = inboxStorage.getRecentEmails(5);
+      const matchingEntry = recentEmails.find(e => e.from && e.from.toLowerCase() === replyData.from.toLowerCase());
+      if (matchingEntry) {
+        inboxStorage.updateEmailSentiment(matchingEntry.id, {
+          sentiment: sentiment, score: score, reason: classification.reason, actionTaken: actionTaken
+        });
+      }
+    } catch (e) { log.warn('inbox-manager', 'Storage sentiment update echoue:', e.message); }
+
+    // === 6. Notification Telegram enrichie ===
+    const EMOJIS = { interested: '🟢🔥', question: '🟡❓', not_interested: '🔴👋', out_of_office: '🏖️', bounce: '💀' };
+    const SLABELS = { interested: 'INTERESSE', question: 'QUESTION', not_interested: 'PAS INTERESSE', out_of_office: 'ABSENT', bounce: 'BOUNCE' };
+    const ALABELS = {
+      auto_meeting: '📅 Meeting propose + email envoye',
+      auto_meeting_dedup: '📅 Deja envoye (48h)',
+      auto_meeting_failed: '❌ Echec meeting',
+      question_reply: '💬 Reponse IA envoyee',
+      question_reply_dedup: '💬 Deja repondu (48h)',
+      question_reply_failed: '❌ Echec reponse',
+      polite_decline: '👋 Decline poli + blacklist',
+      deferred_ooo: '🏖️ Reporte (OOO)',
+      bounce_blacklist: '💀 Blackliste',
+      none: '—'
+    };
+    const notifLines = [
+      (EMOJIS[sentiment] || '❓') + ' *Reponse prospect — ' + (SLABELS[sentiment] || sentiment) + '*',
+      '',
+      '👤 *' + (replyData.fromName || replyData.from) + '*',
+      '📧 ' + replyData.from,
+      '📋 ' + (replyData.subject || '(sans sujet)'),
+      '📊 Score : ' + score + '/1.0'
+    ];
+    if (replyData.snippet) {
+      notifLines.push('💬 _' + replyData.snippet.substring(0, 200) + (replyData.snippet.length > 200 ? '...' : '') + '_');
+    }
+    notifLines.push('💡 ' + (classification.reason || ''));
+    notifLines.push('');
+    notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));
+    await sendMessage(ADMIN_CHAT_ID, notifLines.join('\n'), 'Markdown');
   }
 }) : null;
 

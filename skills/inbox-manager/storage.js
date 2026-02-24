@@ -80,7 +80,11 @@ class InboxManagerStorage {
       date: emailData.date || new Date().toISOString(),
       snippet: (emailData.text || '').substring(0, 500),
       matchedLead: emailData.matchedLead || null,
-      processedAt: new Date().toISOString()
+      processedAt: new Date().toISOString(),
+      sentiment: emailData.sentiment || null,
+      sentimentScore: emailData.sentimentScore || null,
+      sentimentReason: emailData.sentimentReason || null,
+      actionTaken: emailData.actionTaken || null
     };
 
     this.data.receivedEmails.push(entry);
@@ -148,6 +152,33 @@ class InboxManagerStorage {
   getRecentEmails(limit) {
     limit = limit || 20;
     return this.data.receivedEmails.slice(-limit).reverse();
+  }
+
+  updateEmailSentiment(emailId, sentimentData) {
+    const email = this.data.receivedEmails.find(e => e.id === emailId);
+    if (!email) return null;
+    if (sentimentData.sentiment) email.sentiment = sentimentData.sentiment;
+    if (sentimentData.score != null) email.sentimentScore = sentimentData.score;
+    if (sentimentData.reason) email.sentimentReason = sentimentData.reason;
+    if (sentimentData.actionTaken) email.actionTaken = sentimentData.actionTaken;
+    const reply = this.data.matchedReplies.find(e => e.id === emailId);
+    if (reply) {
+      reply.sentiment = email.sentiment;
+      reply.sentimentScore = email.sentimentScore;
+      reply.actionTaken = email.actionTaken;
+    }
+    this._save();
+    return email;
+  }
+
+  getSentimentBreakdown() {
+    const breakdown = { interested: 0, question: 0, not_interested: 0, out_of_office: 0, bounce: 0, unclassified: 0 };
+    for (const reply of this.data.matchedReplies) {
+      const s = reply.sentiment || 'unclassified';
+      if (breakdown[s] !== undefined) breakdown[s]++;
+      else breakdown.unclassified++;
+    }
+    return breakdown;
   }
 }
 
