@@ -507,6 +507,9 @@ class CampaignEngine {
     let skippedInactive = 0;
     let skippedSentiment = 0;
 
+    // Cache des emails de cette campagne (evite 3 appels/contact)
+    const campaignEmails = storage.getEmailsByCampaign(campaignId);
+
     for (const contact of list.contacts) {
       // FIX 3 : Verifier quota warmup journalier
       const dailyLimit = getDailyLimit();
@@ -581,14 +584,13 @@ class CampaignEngine {
       }
 
       // Verifier si l'email a deja ete envoye pour ce contact/step
-      const existing = storage.getEmailsByCampaign(campaignId)
-        .find(e => e.to === contact.email && e.stepNumber === stepNumber && e.status !== 'failed');
+      const contactEmails = campaignEmails.filter(e => e.to === contact.email);
+      const existing = contactEmails.find(e => e.stepNumber === stepNumber && e.status !== 'failed');
       if (existing) continue;
 
       // FIX 5 : Follow-up intelligent — skip si bounce ou reponse sur un email precedent
       if (stepNumber > 1) {
-        const previousEmails = storage.getEmailsByCampaign(campaignId)
-          .filter(e => e.to === contact.email && e.stepNumber < stepNumber);
+        const previousEmails = contactEmails.filter(e => e.stepNumber < stepNumber);
         const lastEmail = previousEmails.length > 0 ? previousEmails[previousEmails.length - 1] : null;
         if (lastEmail) {
           if (lastEmail.status === 'bounced') {
@@ -612,8 +614,7 @@ class CampaignEngine {
 
         // Stop sur inactivite : skip si zero ouverture apres 2 steps (sauf breakup)
         if (stepNumber > 2 && stepNumber < campaign.steps.length) {
-          const prevEmails = storage.getEmailsByCampaign(campaignId)
-            .filter(e => e.to === contact.email && e.stepNumber < stepNumber && e.status !== 'failed');
+          const prevEmails = contactEmails.filter(e => e.stepNumber < stepNumber && e.status !== 'failed');
           if (prevEmails.length > 0 && !prevEmails.some(e => e.openedAt || e.status === 'opened')) {
             log.info('campaign-engine', 'Skip ' + contact.email + ' (inactif: zero ouverture sur ' + prevEmails.length + ' emails — step ' + stepNumber + ')');
             skippedInactive++;
@@ -693,8 +694,9 @@ class CampaignEngine {
         const step1Intel = this._getProspectIntel(contact.email);
         if (step1Intel && this.claude.generateSingleEmail) {
           try {
-            const campaignContext = campaign.context || campaign.name || 'prospection B2B';
-            const generated = await this.claude.generateSingleEmail(contact, step1Intel, campaignContext);
+            const campaignCtx = campaign.context || campaign.name || 'prospection B2B';
+            const enrichedContext = step1Intel + '\n\nCONTEXTE CAMPAGNE: ' + campaignCtx;
+            const generated = await this.claude.generateSingleEmail(contact, enrichedContext);
             if (generated && generated.subject && generated.body) {
               subject = generated.subject;
               body = generated.body;

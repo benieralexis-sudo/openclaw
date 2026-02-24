@@ -410,3 +410,181 @@ describe('InboxManagerStorage', () => {
     try { fs.rmSync(tmpDir, { recursive: true }); } catch (e) {}
   });
 });
+
+// =============================================
+// AutoMailer Storage — Sentiment cross-skill
+// =============================================
+
+describe('AutoMailer Storage — Sentiment', () => {
+  const fs = require('fs');
+  const tmpDir2 = '/tmp/automailer-test-' + Date.now();
+  process.env.AUTOMAILER_DATA_DIR = tmpDir2;
+  delete require.cache[require.resolve('../skills/automailer/storage.js')];
+  const amStorage = require('../skills/automailer/storage.js');
+
+  it('setSentiment + getSentiment basique', () => {
+    amStorage.setSentiment('test@corp.com', 'interested', 0.9);
+    const s = amStorage.getSentiment('test@corp.com');
+    assert.ok(s);
+    assert.equal(s.sentiment, 'interested');
+    assert.equal(s.score, 0.9);
+    assert.ok(s.updatedAt);
+  });
+
+  it('getSentiment case-insensitive', () => {
+    amStorage.setSentiment('John@CORP.COM', 'not_interested', 0.2);
+    const s = amStorage.getSentiment('john@corp.com');
+    assert.ok(s);
+    assert.equal(s.sentiment, 'not_interested');
+  });
+
+  it('getSentiment retourne null pour email inconnu', () => {
+    const s = amStorage.getSentiment('nobody@unknown.com');
+    assert.equal(s, null);
+  });
+
+  it('setSentiment ecrase la valeur precedente', () => {
+    amStorage.setSentiment('flip@test.com', 'question', 0.5);
+    amStorage.setSentiment('flip@test.com', 'interested', 0.95);
+    const s = amStorage.getSentiment('flip@test.com');
+    assert.equal(s.sentiment, 'interested');
+    assert.equal(s.score, 0.95);
+  });
+
+  it('setSentiment email vide = no-op', () => {
+    amStorage.setSentiment('', 'bounce', 0);
+    amStorage.setSentiment(null, 'bounce', 0);
+    // Pas de crash
+    assert.equal(amStorage.getSentiment(''), null);
+  });
+
+  // Cleanup
+  it('cleanup tmp dir', () => {
+    try { fs.rmSync(tmpDir2, { recursive: true }); } catch (e) {}
+  });
+});
+
+// =============================================
+// Follow-up Sequences — Logique inactivite
+// =============================================
+
+describe('Follow-up Inactivity Logic', () => {
+  // Test de la logique pure (sans campaign-engine, juste les conditions)
+
+  function shouldSkipInactive(stepNumber, totalSteps, prevEmails) {
+    if (stepNumber > 2 && stepNumber < totalSteps) {
+      if (prevEmails.length > 0 && !prevEmails.some(e => e.openedAt || e.status === 'opened')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  it('step 1 → jamais skip', () => {
+    assert.equal(shouldSkipInactive(1, 5, [{ status: 'sent' }]), false);
+  });
+
+  it('step 2 → jamais skip (laisser chance)', () => {
+    assert.equal(shouldSkipInactive(2, 5, [{ status: 'sent' }]), false);
+  });
+
+  it('step 3 zero ouvertures → skip', () => {
+    assert.equal(shouldSkipInactive(3, 5, [
+      { status: 'sent' }, { status: 'delivered' }
+    ]), true);
+  });
+
+  it('step 3 avec ouverture → pas de skip', () => {
+    assert.equal(shouldSkipInactive(3, 5, [
+      { status: 'sent' }, { status: 'opened', openedAt: '2026-01-01' }
+    ]), false);
+  });
+
+  it('dernier step (breakup) → jamais skip', () => {
+    // step 5 sur 5 total → stepNumber < totalSteps = 5 < 5 = false
+    assert.equal(shouldSkipInactive(5, 5, [
+      { status: 'sent' }, { status: 'sent' }
+    ]), false);
+  });
+
+  it('campagne 1 step → pas de check', () => {
+    assert.equal(shouldSkipInactive(1, 1, []), false);
+  });
+
+  it('campagne 2 steps → step 2 = dernier = pas de skip', () => {
+    assert.equal(shouldSkipInactive(2, 2, [{ status: 'sent' }]), false);
+  });
+
+  it('campagne 3 steps → step 2 jamais skip, step 3 = breakup jamais skip', () => {
+    assert.equal(shouldSkipInactive(2, 3, [{ status: 'sent' }]), false);
+    assert.equal(shouldSkipInactive(3, 3, [{ status: 'sent' }]), false);
+  });
+
+  it('prevEmails vide → pas de skip', () => {
+    assert.equal(shouldSkipInactive(4, 6, []), false);
+  });
+});
+
+// =============================================
+// Follow-up Sequences — Logique delai adaptatif
+// =============================================
+
+describe('Adaptive Delay Logic', () => {
+  function computeAdaptiveDelay(stepScheduledAt, prevStepSentAt, prevStepEmails) {
+    const opened = prevStepEmails.filter(e => e.openedAt || e.status === 'opened').length;
+    const total = prevStepEmails.length;
+    const openRate = total > 0 ? opened / total : 0;
+    if (openRate <= 0.4) return { advanced: false, newScheduledAt: stepScheduledAt };
+    const scheduledDate = new Date(stepScheduledAt);
+    const advancedDate = new Date(scheduledDate.getTime() - 24 * 60 * 60 * 1000);
+    const prevSentAt = prevStepSentAt ? new Date(prevStepSentAt) : new Date();
+    const minDate = new Date(prevSentAt.getTime() + 24 * 60 * 60 * 1000);
+    if (advancedDate > minDate) {
+      return { advanced: true, newScheduledAt: advancedDate.toISOString() };
+    }
+    return { advanced: false, newScheduledAt: stepScheduledAt };
+  }
+
+  it('open rate > 40% → avance de 1 jour', () => {
+    const sent = '2026-02-20T14:00:00.000Z';
+    const scheduled = '2026-02-24T14:00:00.000Z'; // 4 jours apres
+    const emails = [
+      { status: 'opened', openedAt: '2026-02-21T10:00:00.000Z' },
+      { status: 'delivered' },
+      { status: 'opened', openedAt: '2026-02-21T11:00:00.000Z' }
+    ]; // 2/3 = 66%
+    const r = computeAdaptiveDelay(scheduled, sent, emails);
+    assert.equal(r.advanced, true);
+    // 2026-02-23 (1 jour avant le 24)
+    assert.ok(r.newScheduledAt.startsWith('2026-02-23'));
+  });
+
+  it('open rate < 40% → pas d\'avance', () => {
+    const sent = '2026-02-20T14:00:00.000Z';
+    const scheduled = '2026-02-24T14:00:00.000Z';
+    const emails = [
+      { status: 'delivered' },
+      { status: 'delivered' },
+      { status: 'opened', openedAt: '2026-02-21T10:00:00.000Z' }
+    ]; // 1/3 = 33%
+    const r = computeAdaptiveDelay(scheduled, sent, emails);
+    assert.equal(r.advanced, false);
+  });
+
+  it('avance impossible si trop proche du min (1j apres sentAt)', () => {
+    const sent = '2026-02-23T14:00:00.000Z';
+    const scheduled = '2026-02-24T15:00:00.000Z'; // Seulement 25h apres sent
+    const emails = [
+      { status: 'opened', openedAt: '2026-02-23T16:00:00.000Z' }
+    ]; // 100% open rate
+    const r = computeAdaptiveDelay(scheduled, sent, emails);
+    // advancedDate = 2026-02-23 15:00, minDate = 2026-02-24 14:00
+    // advancedDate < minDate → pas d'avance
+    assert.equal(r.advanced, false);
+  });
+
+  it('aucun email → open rate = 0 → pas d\'avance', () => {
+    const r = computeAdaptiveDelay('2026-02-24T14:00:00.000Z', '2026-02-20T14:00:00.000Z', []);
+    assert.equal(r.advanced, false);
+  });
+});
