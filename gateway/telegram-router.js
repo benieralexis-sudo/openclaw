@@ -778,6 +778,14 @@ inboxListener = InboxListener ? new InboxListener({
       });
     } catch (e) { log.warn('inbox-manager', 'Storage sentiment update echoue:', e.message); }
 
+    // === 5b. Propager sentiment vers automailer (cross-skill) ===
+    try {
+      if (automailerStorageForInbox.setSentiment) {
+        automailerStorageForInbox.setSentiment(replyData.from, sentiment, score);
+        log.info('inbox-manager', 'Sentiment propage vers automailer: ' + replyData.from + ' → ' + sentiment);
+      }
+    } catch (e) { log.warn('inbox-manager', 'Propagation sentiment automailer echouee:', e.message); }
+
     // === 6. Notification Telegram enrichie ===
     const EMOJIS = { interested: '🟢🔥', question: '🟡❓', not_interested: '🔴👋', out_of_office: '🏖️', bounce: '💀' };
     const SLABELS = { interested: 'INTERESSE', question: 'QUESTION', not_interested: 'PAS INTERESSE', out_of_office: 'ABSENT', bounce: 'BOUNCE' };

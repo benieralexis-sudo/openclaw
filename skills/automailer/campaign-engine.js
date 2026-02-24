@@ -504,6 +504,8 @@ class CampaignEngine {
     let sent = 0;
     let errors = 0;
     let skipped = 0;
+    let skippedInactive = 0;
+    let skippedSentiment = 0;
 
     for (const contact of list.contacts) {
       // FIX 3 : Verifier quota warmup journalier
@@ -607,6 +609,27 @@ class CampaignEngine {
             continue;
           }
         }
+
+        // Stop sur inactivite : skip si zero ouverture apres 2 steps (sauf breakup)
+        if (stepNumber > 2 && stepNumber < campaign.steps.length) {
+          const prevEmails = storage.getEmailsByCampaign(campaignId)
+            .filter(e => e.to === contact.email && e.stepNumber < stepNumber && e.status !== 'failed');
+          if (prevEmails.length > 0 && !prevEmails.some(e => e.openedAt || e.status === 'opened')) {
+            log.info('campaign-engine', 'Skip ' + contact.email + ' (inactif: zero ouverture sur ' + prevEmails.length + ' emails — step ' + stepNumber + ')');
+            skippedInactive++;
+            skipped++;
+            continue;
+          }
+        }
+
+        // Stop si sentiment "not_interested" detecte par inbox-manager
+        const sentimentData = storage.getSentiment ? storage.getSentiment(contact.email) : null;
+        if (sentimentData && sentimentData.sentiment === 'not_interested') {
+          log.info('campaign-engine', 'Skip ' + contact.email + ' (sentiment: not_interested — score ' + sentimentData.score + ')');
+          skippedSentiment++;
+          skipped++;
+          continue;
+        }
       }
 
       // Personnaliser l'email pour ce contact
@@ -666,9 +689,31 @@ class CampaignEngine {
           }
         }
       } else {
-        // === STEP 1 : comportement original (template + personalizeEmail + A/B) ===
-        subject = this._applyTemplateVars(subject, contact, firstName);
-        body = this._applyTemplateVars(body, contact, firstName);
+        // === STEP 1 : brief prospect si dispo, sinon template + personalizeEmail ===
+        const step1Intel = this._getProspectIntel(contact.email);
+        if (step1Intel && this.claude.generateSingleEmail) {
+          try {
+            const campaignContext = campaign.context || campaign.name || 'prospection B2B';
+            const generated = await this.claude.generateSingleEmail(contact, step1Intel, campaignContext);
+            if (generated && generated.subject && generated.body) {
+              subject = generated.subject;
+              body = generated.body;
+              log.info('campaign-engine', 'Step 1 personnalise avec brief pour ' + contact.email);
+            } else {
+              // Fallback template
+              subject = this._applyTemplateVars(subject, contact, firstName);
+              body = this._applyTemplateVars(body, contact, firstName);
+            }
+          } catch (genErr) {
+            log.info('campaign-engine', 'Step 1 brief echoue pour ' + contact.email + ', fallback template: ' + genErr.message);
+            subject = this._applyTemplateVars(subject, contact, firstName);
+            body = this._applyTemplateVars(body, contact, firstName);
+          }
+        } else {
+          // Pas de brief : template + personalizeEmail classique
+          subject = this._applyTemplateVars(subject, contact, firstName);
+          body = this._applyTemplateVars(body, contact, firstName);
+        }
         if (contact.company || contact.title || contact.industry) {
           try {
             const personalized = await this.claude.personalizeEmail(subject, body, contact);
@@ -781,7 +826,7 @@ class CampaignEngine {
 
     storage.updateCampaign(campaignId, updates);
 
-    return { sent, errors, skipped };
+    return { sent, errors, skipped, skippedInactive, skippedSentiment };
   }
 
   pauseCampaign(campaignId) {
@@ -868,12 +913,38 @@ class CampaignEngine {
       for (const step of campaign.steps) {
         if (step.status !== 'pending') continue;
 
+        // --- Delais adaptatifs : avancer les steps si bon engagement ---
+        if (step.stepNumber > 1 && !step._adaptiveChecked) {
+          const prevStep = campaign.steps.find(s => s.stepNumber === step.stepNumber - 1);
+          if (prevStep && prevStep.status === 'completed') {
+            const prevEmails = storage.getEmailsByCampaign(campaign.id)
+              .filter(e => e.stepNumber === prevStep.stepNumber && e.status !== 'failed');
+            const opened = prevEmails.filter(e => e.openedAt || e.status === 'opened').length;
+            const openRate = prevEmails.length > 0 ? opened / prevEmails.length : 0;
+            if (openRate > 0.4) {
+              const scheduledDate = new Date(step.scheduledAt);
+              const advancedDate = new Date(scheduledDate.getTime() - 24 * 60 * 60 * 1000);
+              // Minimum 1 jour apres le step precedent
+              const prevSentAt = prevStep.sentAt ? new Date(prevStep.sentAt) : now;
+              const minDate = new Date(prevSentAt.getTime() + 24 * 60 * 60 * 1000);
+              if (advancedDate > minDate) {
+                step.scheduledAt = advancedDate.toISOString();
+                log.info('campaign-engine', 'Delai adaptatif: step ' + step.stepNumber + ' avance de 1j (open rate ' + Math.round(openRate * 100) + '% au step ' + prevStep.stepNumber + ')');
+              }
+            }
+            step._adaptiveChecked = true;
+            storage.updateCampaign(campaign.id, { steps: campaign.steps });
+          }
+        }
+
         const scheduledAt = new Date(step.scheduledAt);
         if (scheduledAt <= now) {
           log.info('campaign-engine', 'Execution campagne ' + campaign.name + ' step ' + step.stepNumber);
           try {
             const result = await this.executeCampaignStep(campaign.id, step.stepNumber);
-            log.info('campaign-engine', 'Step ' + step.stepNumber + ' termine: ' + result.sent + ' envoyes, ' + result.errors + ' erreurs, ' + (result.skipped || 0) + ' skips');
+            log.info('campaign-engine', 'Step ' + step.stepNumber + ' termine: ' + result.sent + ' envoyes, ' + result.errors + ' erreurs, ' + (result.skipped || 0) + ' skips' +
+              (result.skippedInactive ? ' (' + result.skippedInactive + ' inactifs)' : '') +
+              (result.skippedSentiment ? ' (' + result.skippedSentiment + ' not_interested)' : ''));
           } catch (e) {
             log.error('campaign-engine', 'Erreur execution step:', e.message);
           }

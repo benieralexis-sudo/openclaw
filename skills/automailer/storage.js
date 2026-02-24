@@ -613,6 +613,26 @@ class AutoMailerStorage {
   getAllTemplates() { return Object.values(this.data.templates); }
   getAllEmails() { return this.data.emails; }
   getAllUsers() { return Object.values(this.data.users); }
+
+  // --- Sentiment (cross-skill : inbox-manager → campaign-engine) ---
+
+  setSentiment(email, sentiment, score) {
+    if (!this.data._sentiments) this.data._sentiments = {};
+    const key = (email || '').toLowerCase().trim();
+    if (!key) return;
+    this.data._sentiments[key] = {
+      sentiment: sentiment,
+      score: score || 0,
+      updatedAt: new Date().toISOString()
+    };
+    this._save();
+  }
+
+  getSentiment(email) {
+    if (!this.data._sentiments) return null;
+    const key = (email || '').toLowerCase().trim();
+    return this.data._sentiments[key] || null;
+  }
 }
 
 module.exports = new AutoMailerStorage();
