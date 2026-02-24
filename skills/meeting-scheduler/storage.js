@@ -3,11 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const { atomicWriteSync } = require('../../gateway/utils.js');
 
-const DATA_DIR = process.env.MEETING_SCHEDULER_DATA_DIR || '/data/meeting-scheduler';
-const DB_FILE = path.join(DATA_DIR, 'meeting-scheduler-db.json');
+const DEFAULT_DATA_DIR = process.env.MEETING_SCHEDULER_DATA_DIR || '/data/meeting-scheduler';
 
 class MeetingSchedulerStorage {
-  constructor() {
+  constructor(customDataDir) {
+    this._dataDir = customDataDir || DEFAULT_DATA_DIR;
+    this._dbFile = path.join(this._dataDir, 'meeting-scheduler-db.json');
     this.data = {
       config: {
         enabled: false,
@@ -34,13 +35,13 @@ class MeetingSchedulerStorage {
   }
 
   _ensureDir() {
-    try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+    try { fs.mkdirSync(this._dataDir, { recursive: true }); } catch (e) {}
   }
 
   _load() {
     try {
-      if (fs.existsSync(DB_FILE)) {
-        const raw = fs.readFileSync(DB_FILE, 'utf-8');
+      if (fs.existsSync(this._dbFile)) {
+        const raw = fs.readFileSync(this._dbFile, 'utf-8');
         const loaded = JSON.parse(raw);
         this.data = { ...this.data, ...loaded };
         if (!this.data.meetings) this.data.meetings = [];
@@ -57,7 +58,7 @@ class MeetingSchedulerStorage {
 
   _save() {
     try {
-      atomicWriteSync(DB_FILE, this.data);
+      atomicWriteSync(this._dbFile, this.data);
     } catch (e) {
       console.error('[meeting-scheduler-storage] Erreur sauvegarde:', e.message);
     }
@@ -190,4 +191,6 @@ class MeetingSchedulerStorage {
   }
 }
 
-module.exports = new MeetingSchedulerStorage();
+const instance = new MeetingSchedulerStorage();
+module.exports = instance;
+module.exports.MeetingSchedulerStorage = MeetingSchedulerStorage;

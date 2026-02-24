@@ -1,19 +1,22 @@
 // Meeting Scheduler - Tests unitaires (node:test natif)
+// Teste le VRAI code importé (pas de copies locales)
 'use strict';
 
-const { describe, it } = require('node:test');
+const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+// Imports du vrai code
+const { escTg, classifyIntent } = require('../skills/meeting-scheduler/utils.js');
+const { MeetingSchedulerStorage } = require('../skills/meeting-scheduler/storage.js');
 
 // =============================================
-// 1. escTg — Escape Markdown Telegram
+// 1. escTg — Escape Markdown Telegram (VRAI code)
 // =============================================
 
 describe('Meeting Scheduler — escTg', () => {
-  function escTg(text) {
-    if (!text) return '';
-    return String(text).replace(/[_*\[\]()~`>#+\-=|{}.!]/g, '\\$&').substring(0, 2000);
-  }
-
   it('echappe les underscores', () => {
     assert.equal(escTg('test_user@corp.com'), 'test\\_user@corp\\.com');
   });
@@ -36,143 +39,150 @@ describe('Meeting Scheduler — escTg', () => {
     const long = 'a'.repeat(3000);
     assert.equal(escTg(long).length, 2000);
   });
+
+  it('echappe tous les caracteres speciaux MarkdownV2', () => {
+    assert.equal(escTg('a~b`c>d#e+f=g|h{i}j.k!l'), 'a\\~b\\`c\\>d\\#e\\+f\\=g\\|h\\{i\\}j\\.k\\!l');
+  });
+
+  it('convertit les nombres en string', () => {
+    assert.equal(escTg(42), '42');
+  });
 });
 
 // =============================================
-// 2. Storage — CRUD + lifecycle
+// 2. Storage — CRUD + lifecycle (VRAI MeetingSchedulerStorage)
 // =============================================
 
 describe('Meeting Scheduler — Storage', () => {
-  function createMiniStorage() {
-    const data = {
-      meetings: [],
-      stats: { totalProposed: 0, totalBooked: 0, totalCancelled: 0, totalNoShow: 0, totalCompleted: 0, totalExpired: 0 }
-    };
-    return {
-      createMeeting(md) {
-        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        const entry = {
-          id, leadEmail: md.leadEmail || '', leadName: md.leadName || '',
-          status: 'proposed', proposedAt: new Date().toISOString(),
-          scheduledAt: md.scheduledAt || null, duration: md.duration || 30,
-          bookedAt: null, completedAt: null, expiredAt: null, reminderSent: false
-        };
-        data.meetings.push(entry);
-        data.stats.totalProposed++;
-        return entry;
-      },
-      updateMeetingStatus(meetingId, status) {
-        const m = data.meetings.find(x => x.id === meetingId);
-        if (!m) return null;
-        m.status = status;
-        if (status === 'booked') { m.bookedAt = new Date().toISOString(); data.stats.totalBooked++; }
-        if (status === 'cancelled') data.stats.totalCancelled++;
-        if (status === 'no_show') data.stats.totalNoShow++;
-        if (status === 'completed') { m.completedAt = new Date().toISOString(); data.stats.totalCompleted++; }
-        if (status === 'expired') { m.expiredAt = new Date().toISOString(); data.stats.totalExpired++; }
-        return m;
-      },
-      getMeetingByEmail(email) {
-        return data.meetings.filter(m => m.leadEmail.toLowerCase() === email.toLowerCase())
-          .sort((a, b) => (b.proposedAt || '').localeCompare(a.proposedAt || ''));
-      },
-      getStats() {
-        const tp = data.stats.totalProposed || 0;
-        const tb = data.stats.totalBooked || 0;
-        return { ...data.stats, conversionRate: tp > 0 ? Math.round((tb / tp) * 100) : 0, totalMeetings: data.meetings.length };
-      },
-      _data: data
-    };
-  }
+  let tmpDir;
+  let storage;
+
+  before(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'meeting-test-'));
+    storage = new MeetingSchedulerStorage(tmpDir);
+  });
+
+  after(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 
   it('createMeeting incremente totalProposed', () => {
-    const s = createMiniStorage();
-    s.createMeeting({ leadEmail: 'a@b.com' });
-    assert.equal(s.getStats().totalProposed, 1);
-    assert.equal(s.getStats().totalMeetings, 1);
+    storage.createMeeting({ leadEmail: 'a@b.com' });
+    assert.equal(storage.getStats().totalProposed, 1);
+    assert.equal(storage.getStats().totalMeetings, 1);
   });
 
   it('updateMeetingStatus booked', () => {
-    const s = createMiniStorage();
-    const m = s.createMeeting({ leadEmail: 'a@b.com' });
-    s.updateMeetingStatus(m.id, 'booked');
-    assert.equal(m.status, 'booked');
-    assert.ok(m.bookedAt);
-    assert.equal(s.getStats().totalBooked, 1);
+    const m = storage.createMeeting({ leadEmail: 'book@test.com' });
+    storage.updateMeetingStatus(m.id, 'booked');
+    const updated = storage.getMeeting(m.id);
+    assert.equal(updated.status, 'booked');
+    assert.ok(updated.bookedAt);
+    assert.ok(storage.getStats().totalBooked >= 1);
   });
 
   it('updateMeetingStatus completed', () => {
-    const s = createMiniStorage();
-    const m = s.createMeeting({ leadEmail: 'a@b.com' });
-    s.updateMeetingStatus(m.id, 'completed');
-    assert.equal(m.status, 'completed');
-    assert.ok(m.completedAt);
-    assert.equal(s.getStats().totalCompleted, 1);
+    const m = storage.createMeeting({ leadEmail: 'comp@test.com' });
+    storage.updateMeetingStatus(m.id, 'completed');
+    const updated = storage.getMeeting(m.id);
+    assert.equal(updated.status, 'completed');
+    assert.ok(updated.completedAt);
+    assert.ok(storage.getStats().totalCompleted >= 1);
   });
 
   it('updateMeetingStatus expired', () => {
-    const s = createMiniStorage();
-    const m = s.createMeeting({ leadEmail: 'a@b.com' });
-    s.updateMeetingStatus(m.id, 'expired');
-    assert.equal(m.status, 'expired');
-    assert.ok(m.expiredAt);
-    assert.equal(s.getStats().totalExpired, 1);
+    const m = storage.createMeeting({ leadEmail: 'exp@test.com' });
+    storage.updateMeetingStatus(m.id, 'expired');
+    const updated = storage.getMeeting(m.id);
+    assert.equal(updated.status, 'expired');
+    assert.ok(updated.expiredAt);
+    assert.ok(storage.getStats().totalExpired >= 1);
   });
 
   it('updateMeetingStatus no_show', () => {
-    const s = createMiniStorage();
-    const m = s.createMeeting({ leadEmail: 'a@b.com' });
-    s.updateMeetingStatus(m.id, 'no_show');
-    assert.equal(m.status, 'no_show');
-    assert.equal(s.getStats().totalNoShow, 1);
+    const m = storage.createMeeting({ leadEmail: 'ns@test.com' });
+    storage.updateMeetingStatus(m.id, 'no_show');
+    const updated = storage.getMeeting(m.id);
+    assert.equal(updated.status, 'no_show');
+    assert.ok(storage.getStats().totalNoShow >= 1);
+  });
+
+  it('updateMeetingStatus avec extra merge les champs', () => {
+    const m = storage.createMeeting({ leadEmail: 'extra@test.com' });
+    storage.updateMeetingStatus(m.id, 'booked', { scheduledAt: '2026-03-01T10:00:00Z', calcomBookingId: 'xyz' });
+    const updated = storage.getMeeting(m.id);
+    assert.equal(updated.scheduledAt, '2026-03-01T10:00:00Z');
+    assert.equal(updated.calcomBookingId, 'xyz');
   });
 
   it('conversionRate calcule correctement', () => {
-    const s = createMiniStorage();
-    s.createMeeting({ leadEmail: 'a@b.com' });
-    s.createMeeting({ leadEmail: 'c@d.com' });
-    const m = s.createMeeting({ leadEmail: 'e@f.com' });
-    s.updateMeetingStatus(m.id, 'booked');
-    assert.equal(s.getStats().conversionRate, 33); // 1/3 = 33%
+    const s2 = new MeetingSchedulerStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'meeting-conv-')));
+    s2.createMeeting({ leadEmail: 'a@b.com' });
+    s2.createMeeting({ leadEmail: 'c@d.com' });
+    const m = s2.createMeeting({ leadEmail: 'e@f.com' });
+    s2.updateMeetingStatus(m.id, 'booked');
+    assert.equal(s2.getStats().conversionRate, 33); // 1/3 = 33%
+    fs.rmSync(s2._dataDir, { recursive: true, force: true });
   });
 
   it('getMeetingByEmail case-insensitive', () => {
-    const s = createMiniStorage();
-    s.createMeeting({ leadEmail: 'John@Example.COM' });
-    const result = s.getMeetingByEmail('john@example.com');
-    assert.equal(result.length, 1);
+    storage.createMeeting({ leadEmail: 'John@Example.COM' });
+    const result = storage.getMeetingByEmail('john@example.com');
+    assert.ok(result.length >= 1);
+  });
+
+  it('getRecentMeetings respecte la limite', () => {
+    const s3 = new MeetingSchedulerStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'meeting-recent-')));
+    for (let i = 0; i < 15; i++) s3.createMeeting({ leadEmail: 'u' + i + '@test.com' });
+    assert.equal(s3.getRecentMeetings(5).length, 5);
+    assert.equal(s3.getRecentMeetings().length, 10); // default 10
+    fs.rmSync(s3._dataDir, { recursive: true, force: true });
+  });
+
+  it('getMeeting retourne null pour id inexistant', () => {
+    assert.equal(storage.getMeeting('zzz_inexistant'), null);
+  });
+
+  it('updateMeetingStatus retourne null pour id inexistant', () => {
+    assert.equal(storage.updateMeetingStatus('zzz_inexistant', 'booked'), null);
+  });
+
+  it('persiste sur disque et recharge', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meeting-persist-'));
+    const s4 = new MeetingSchedulerStorage(dir);
+    const m = s4.createMeeting({ leadEmail: 'persist@test.com', leadName: 'Persist' });
+    // Recharger depuis le disque
+    const s5 = new MeetingSchedulerStorage(dir);
+    const reloaded = s5.getMeeting(m.id);
+    assert.ok(reloaded);
+    assert.equal(reloaded.leadEmail, 'persist@test.com');
+    assert.equal(reloaded.leadName, 'Persist');
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });
 
 // =============================================
-// 3. Intent classification
+// 3. Intent classification (VRAI code)
 // =============================================
 
 describe('Meeting Scheduler — Intent classification', () => {
-  function classifyIntent(text) {
-    const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (/\b(propose|planifi|rdv|rendez|book|reserve|cale|caler)\b/i.test(t)) return 'propose';
-    if (/\b(no.?show|pas.?venu|absent|ghost)\b/i.test(t)) return 'no_show';
-    if (/\b(statut|status|etat)\b/i.test(t)) return 'status';
-    if (/\b(prochain|a venir|upcoming|agenda)\b/i.test(t)) return 'upcoming';
-    if (/\b(historique|passe|recent|dernier)\b/i.test(t)) return 'history';
-    if (/\b(configur|parametr|calcom|cal\.com|cle.*api|api.*key)\b/i.test(t)) return 'configure';
-    if (/\b(lien|link|url)\b/i.test(t)) return 'link';
-    if (/\b(aide|help)\b/i.test(t)) return 'help';
-    return 'status';
-  }
-
   it('detecte propose', () => assert.equal(classifyIntent('propose un rdv'), 'propose'));
   it('detecte book', () => assert.equal(classifyIntent('book a meeting'), 'propose'));
   it('detecte reserve', () => assert.equal(classifyIntent('réserve un créneau'), 'propose'));
+  it('detecte caler', () => assert.equal(classifyIntent('on cale un call'), 'propose'));
   it('detecte no-show', () => assert.equal(classifyIntent('no-show john@test.com'), 'no_show'));
   it('detecte pas venu', () => assert.equal(classifyIntent('il est pas venu'), 'no_show'));
   it('detecte ghost', () => assert.equal(classifyIntent('le prospect a ghost'), 'no_show'));
+  it('detecte absent', () => assert.equal(classifyIntent('il etait absent'), 'no_show'));
   it('detecte status', () => assert.equal(classifyIntent('statut meetings'), 'status'));
   it('detecte upcoming', () => assert.equal(classifyIntent('meetings a venir'), 'upcoming'));
+  it('detecte agenda', () => assert.equal(classifyIntent('montre mon agenda'), 'upcoming'));
   it('detecte history', () => assert.equal(classifyIntent('historique recent'), 'history'));
+  it('detecte dernier', () => assert.equal(classifyIntent('mes derniers meetings'), 'history'));
   it('detecte configure', () => assert.equal(classifyIntent('configurer cal.com'), 'configure'));
+  it('detecte api key', () => assert.equal(classifyIntent('changer la cle api'), 'configure'));
   it('detecte link', () => assert.equal(classifyIntent('donne moi le lien'), 'link'));
+  it('detecte url', () => assert.equal(classifyIntent('quelle est l url'), 'link'));
   it('detecte help', () => assert.equal(classifyIntent('aide'), 'help'));
   it('default = status', () => assert.equal(classifyIntent('blablabla quelconque'), 'status'));
 });
@@ -200,6 +210,22 @@ describe('Meeting Scheduler — Lifecycle transitions', () => {
     const duration = 30;
     const meetingEnd = inTwoHours + duration * 60 * 1000;
     assert.ok(meetingEnd > Date.now());
+  });
+
+  it('lifecycle via storage reel — proposed expire apres 7j', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meeting-lc-'));
+    const s = new MeetingSchedulerStorage(dir);
+    const m = s.createMeeting({ leadEmail: 'lc@test.com' });
+    // Simuler proposedAt il y a 8 jours
+    m.proposedAt = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    // Verifier que la condition de transition est vraie
+    const proposedAge = Date.now() - new Date(m.proposedAt).getTime();
+    assert.ok(proposedAge > 7 * 24 * 60 * 60 * 1000);
+    // Appliquer le changement
+    s.updateMeetingStatus(m.id, 'expired');
+    assert.equal(s.getMeeting(m.id).status, 'expired');
+    assert.ok(s.getMeeting(m.id).expiredAt);
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });
 

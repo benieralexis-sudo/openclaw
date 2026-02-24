@@ -3,12 +3,7 @@ const log = require('../../gateway/logger.js');
 const storage = require('./storage.js');
 const CalComClient = require('./calendar-client.js');
 const { callOpenAI } = require('../../gateway/shared-nlp.js');
-
-// Escape Markdown Telegram v1 (identique a la fonction du routeur)
-function escTg(text) {
-  if (!text) return '';
-  return String(text).replace(/[_*\[\]()~`>#+\-=|{}.!]/g, '\\$&').substring(0, 2000);
-}
+const { escTg, classifyIntent } = require('./utils.js');
 
 class MeetingHandler {
   constructor(openaiKey, calcomApiKey) {
@@ -78,18 +73,7 @@ class MeetingHandler {
   }
 
   async _classifyIntent(text) {
-    const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-    if (/\b(propose|planifi|rdv|rendez|book|reserve|cale|caler)\b/i.test(t)) return 'propose';
-    if (/\b(no.?show|pas.?venu|absent|ghost)\b/i.test(t)) return 'no_show';
-    if (/\b(statut|status|etat)\b/i.test(t)) return 'status';
-    if (/\b(prochain|a venir|upcoming|agenda)\b/i.test(t)) return 'upcoming';
-    if (/\b(historique|passe|recent|dernier)\b/i.test(t)) return 'history';
-    if (/\b(configur|parametr|calcom|cal\.com|cle.*api|api.*key)\b/i.test(t)) return 'configure';
-    if (/\b(lien|link|url)\b/i.test(t)) return 'link';
-    if (/\b(aide|help)\b/i.test(t)) return 'help';
-
-    return 'status';
+    return classifyIntent(text);
   }
 
   async _handlePropose(text, chatId, sendReply) {
