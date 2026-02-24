@@ -588,3 +588,40 @@ describe('Adaptive Delay Logic', () => {
     assert.equal(r.advanced, false);
   });
 });
+
+// =============================================
+// A/B Testing — Variante deterministe par email
+// =============================================
+
+describe('A/B Variant Deterministic Hash', () => {
+  function getAbVariant(email) {
+    const hash = email.split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
+    return hash % 2 === 0 ? 'A' : 'B';
+  }
+
+  it('meme email → toujours meme variante', () => {
+    const v1 = getAbVariant('jean@acme.com');
+    const v2 = getAbVariant('jean@acme.com');
+    const v3 = getAbVariant('jean@acme.com');
+    assert.equal(v1, v2);
+    assert.equal(v2, v3);
+  });
+
+  it('retourne A ou B uniquement', () => {
+    const emails = ['a@b.com', 'test@corp.fr', 'x@y.z', 'long.email.address@company.co.uk'];
+    for (const e of emails) {
+      const v = getAbVariant(e);
+      assert.ok(v === 'A' || v === 'B', 'variante invalide: ' + v);
+    }
+  });
+
+  it('distribution ~50/50 sur 100 emails', () => {
+    let countA = 0;
+    for (let i = 0; i < 100; i++) {
+      const v = getAbVariant('user' + i + '@test.com');
+      if (v === 'A') countA++;
+    }
+    // Tolerence large : entre 30 et 70 sur 100
+    assert.ok(countA >= 30 && countA <= 70, 'distribution desequilibree: ' + countA + '/100 en A');
+  });
+});

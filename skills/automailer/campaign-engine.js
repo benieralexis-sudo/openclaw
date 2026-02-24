@@ -729,11 +729,9 @@ class CampaignEngine {
         }
       }
 
-      // A/B testing — appliquer la variante du sujet sur TOUS les steps
-      if (!contact._abVariant) {
-        contact._abVariant = Math.random() < 0.5 ? 'A' : 'B';
-      }
-      let abVariant = contact._abVariant || 'A';
+      // A/B testing — variante deterministe par email (stable entre restarts)
+      const _abHash = contact.email.split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
+      let abVariant = _abHash % 2 === 0 ? 'A' : 'B';
       if (abVariant === 'B') {
         try {
           const variantSubject = await this.claude.generateSubjectVariant(subject);
