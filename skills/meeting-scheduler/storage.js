@@ -24,6 +24,8 @@ class MeetingSchedulerStorage {
         totalBooked: 0,
         totalCancelled: 0,
         totalNoShow: 0,
+        totalCompleted: 0,
+        totalExpired: 0,
         createdAt: new Date().toISOString()
       }
     };

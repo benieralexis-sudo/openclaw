@@ -15,7 +15,6 @@ class MeetingHandler {
     this.openaiKey = openaiKey;
     this.calcom = new CalComClient(calcomApiKey);
     this.pendingConversations = {};
-    this.pendingConfirmations = {};
   }
 
   start() {
@@ -43,12 +42,6 @@ class MeetingHandler {
         cleaned++;
       }
     }
-    for (const id of Object.keys(this.pendingConfirmations)) {
-      if (now - (this.pendingConfirmations[id]?.createdAt || 0) > TTL) {
-        delete this.pendingConfirmations[id];
-        cleaned++;
-      }
-    }
     if (cleaned > 0) log.info('meeting-handler', 'Nettoyage ' + cleaned + ' conversations abandonnees');
   }
 
@@ -59,10 +52,6 @@ class MeetingHandler {
     // Conversation en cours (proposition de RDV)
     if (this.pendingConversations[id]) {
       return this._handlePendingConversation(text, chatId, sendReply);
-    }
-
-    if (this.pendingConfirmations[id]) {
-      return this._handleConfirmation(text, chatId, sendReply);
     }
 
     // Classification intention
@@ -336,17 +325,11 @@ class MeetingHandler {
     if (link) {
       return {
         type: 'text',
-        content: '🔗 *Lien de reservation :*\n\n' + link + '\n\n_Type: ' + et.title + ' (' + et.length + ' min)_'
+        content: '🔗 *Lien de reservation :*\n\n' + link + '\n\n_Type: ' + escTg(et.title) + ' \\(' + et.length + ' min\\)_'
       };
     }
 
     return { type: 'text', content: '❌ Impossible de generer le lien.' };
-  }
-
-  _handleConfirmation(text, chatId) {
-    const id = String(chatId);
-    delete this.pendingConfirmations[id];
-    return { type: 'text', content: 'OK !' };
   }
 
   _handleNoShow(text, chatId) {
@@ -517,7 +500,7 @@ class MeetingHandler {
               '⏱ ' + (meeting.duration || 15) + ' min'
             ];
             if (booking.meetingUrl) {
-              notif.push('🔗 ' + booking.meetingUrl);
+              notif.push('🔗 ' + escTg(booking.meetingUrl));
             }
             if (meeting.company) {
               notif.push('🏢 ' + escTg(meeting.company));
