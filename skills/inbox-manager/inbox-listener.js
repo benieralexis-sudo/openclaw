@@ -1,9 +1,15 @@
-// Inbox Manager - IMAP Listener (imapflow)
+// Inbox Manager - IMAP Listener (imapflow + mailparser)
 let ImapFlow = null;
 try {
   ImapFlow = require('imapflow').ImapFlow;
 } catch (e) {
   // imapflow non installe — sera installe au premier demarrage ou via pnpm add
+}
+let simpleParser = null;
+try {
+  simpleParser = require('mailparser').simpleParser;
+} catch (e) {
+  // mailparser non installe — fallback regex extraction
 }
 const log = require('../../gateway/logger.js');
 const storage = require('./storage.js');
@@ -36,7 +42,8 @@ class InboxListener {
     }
 
     this._running = true;
-    log.info('inbox-manager', 'Demarrage IMAP listener pour ' + this.user + '@' + this.host);
+    log.info('inbox-manager', 'Demarrage IMAP listener pour ' + this.user + '@' + this.host +
+      (simpleParser ? ' (MIME parser actif)' : ' (fallback regex)'));
 
     // Premier check immediat
     await this._checkNewEmails();
@@ -101,7 +108,7 @@ class InboxListener {
         const messages = [];
         for await (const msg of client.fetch(
           { seen: false, since: since },
-          { envelope: true, bodyStructure: true, source: { maxLength: 2000 } }
+          { envelope: true, bodyStructure: true, source: { maxLength: 8192 } }
         )) {
           // Verifier si deja traite
           if (storage.isUidProcessed(msg.uid)) continue;
@@ -118,26 +125,8 @@ class InboxListener {
             ? (msg.envelope.to[0].address || '')
             : '';
 
-          // Extraire un snippet du body si disponible
-          let snippet = '';
-          if (msg.source) {
-            const bodyStr = msg.source.toString('utf-8');
-            // Extraire le texte brut apres les headers
-            const bodyStart = bodyStr.indexOf('\r\n\r\n');
-            if (bodyStart > -1) {
-              snippet = bodyStr.substring(bodyStart + 4, bodyStart + 1004)
-                .replace(/<[^>]+>/g, ' ')        // HTML tags
-                .replace(/&nbsp;|&#160;/g, ' ')  // espaces insecables
-                .replace(/&amp;/g, '&')
-                .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-                .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-                .replace(/&mdash;|&#8212;/g, '-')
-                .replace(/&[a-z]+;/gi, '')       // autres entites
-                .replace(/\s+/g, ' ')
-                .trim()
-                .substring(0, 500);
-            }
-          }
+          // Extraire le snippet via MIME parser ou fallback regex
+          const snippet = await this._extractSnippet(msg.source);
 
           messages.push({
             uid: msg.uid,
@@ -167,6 +156,49 @@ class InboxListener {
         try { await client.logout(); } catch (e) {}
       }
     }
+  }
+
+  /**
+   * Extrait le texte brut d'un email source (MIME ou fallback regex).
+   * Retourne un snippet de max 500 chars.
+   */
+  async _extractSnippet(source) {
+    if (!source) return '';
+
+    // Methode 1 : mailparser (parse MIME correctement : multipart, base64, quoted-printable, charsets)
+    if (simpleParser) {
+      try {
+        const parsed = await simpleParser(source, { skipHtmlToText: false, skipTextToHtml: true, skipImageLinks: true });
+        const text = (parsed.text || parsed.textAsHtml || '').trim();
+        if (text) {
+          return text
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 500);
+        }
+      } catch (e) {
+        log.warn('inbox-manager', 'mailparser echoue, fallback regex:', e.message);
+      }
+    }
+
+    // Methode 2 : fallback regex (extraction brute apres headers)
+    const bodyStr = source.toString('utf-8');
+    const bodyStart = bodyStr.indexOf('\r\n\r\n');
+    if (bodyStart > -1) {
+      return bodyStr.substring(bodyStart + 4, bodyStart + 1004)
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;|&#160;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+        .replace(/&mdash;|&#8212;/g, '-')
+        .replace(/&[a-z]+;/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 500);
+    }
+    return '';
   }
 
   async _processNewEmails(messages) {

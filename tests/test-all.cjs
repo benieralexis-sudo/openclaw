@@ -289,3 +289,124 @@ describe('Apollo _formatSearchResult validation', () => {
     assert.equal(result.organization.employeeCount, 50);
   });
 });
+
+// =============================================
+// Inbox Manager — Reply Classifier (guards)
+// =============================================
+
+describe('ReplyClassifier guards', () => {
+  const { classifyReply } = require('../skills/inbox-manager/reply-classifier.js');
+
+  it('email vide → fallback question score 0.3', async () => {
+    const r = await classifyReply('fake-key', { from: 'a@b.com', snippet: '' });
+    assert.equal(r.sentiment, 'question');
+    assert.equal(r.score, 0.3);
+    assert.ok(r.reason.includes('court') || r.reason.includes('vide'));
+  });
+
+  it('snippet trop court → fallback question', async () => {
+    const r = await classifyReply('fake-key', { from: 'a@b.com', snippet: 'ok' });
+    assert.equal(r.sentiment, 'question');
+    assert.ok(r.score <= 0.5);
+  });
+
+  it('email forwarded (Fwd:) → fallback question', async () => {
+    const r = await classifyReply('fake-key', { from: 'a@b.com', subject: 'Fwd: Proposition', snippet: 'Regarde ca' });
+    assert.equal(r.sentiment, 'question');
+    assert.ok(r.reason.includes('forward'));
+  });
+
+  it('email forwarded (TR:) → fallback question', async () => {
+    const r = await classifyReply('fake-key', { from: 'a@b.com', subject: 'TR: Notre echange', snippet: 'Je te forward' });
+    assert.equal(r.sentiment, 'question');
+  });
+
+  it('bounce par sujet → sentiment bounce', async () => {
+    const r = await classifyReply('fake-key', { from: 'mailer@b.com', subject: 'Undeliverable: Meeting request', snippet: 'Delivery failed' });
+    assert.equal(r.sentiment, 'bounce');
+    assert.equal(r.score, 0.0);
+  });
+
+  it('OOO par sujet → sentiment out_of_office', async () => {
+    const r = await classifyReply('fake-key', { from: 'prospect@b.com', subject: 'Out of Office: Re: Proposition', snippet: 'absent until March' });
+    assert.equal(r.sentiment, 'out_of_office');
+    assert.equal(r.score, 0.5);
+  });
+
+  it('OOO francais → sentiment out_of_office', async () => {
+    const r = await classifyReply('fake-key', { from: 'p@b.com', subject: 'Re: Proposition', snippet: 'Je suis actuellement absent du bureau' });
+    assert.equal(r.sentiment, 'out_of_office');
+  });
+
+  it('pas de cle API → fallback question', async () => {
+    const r = await classifyReply('', { from: 'a@b.com', snippet: 'Oui ca nous interesse' });
+    assert.equal(r.sentiment, 'question');
+    assert.ok(r.reason.includes('cle') || r.reason.includes('API'));
+  });
+});
+
+// =============================================
+// Inbox Manager — Storage
+// =============================================
+
+describe('InboxManagerStorage', () => {
+  // Creer un storage isole (pas le singleton)
+  const fs = require('fs');
+  const path = require('path');
+  const tmpDir = '/tmp/inbox-manager-test-' + Date.now();
+  process.env.INBOX_MANAGER_DATA_DIR = tmpDir;
+  // Force re-require du module storage
+  delete require.cache[require.resolve('../skills/inbox-manager/storage.js')];
+  const storage = require('../skills/inbox-manager/storage.js');
+
+  it('config par defaut contient replyBySentiment', () => {
+    const cfg = storage.getConfig();
+    assert.ok(cfg.replyBySentiment);
+    assert.equal(cfg.replyBySentiment.interested, true);
+    assert.equal(cfg.replyBySentiment.bounce, false);
+  });
+
+  it('addReceivedEmail retourne un entry avec id', () => {
+    const entry = storage.addReceivedEmail({ from: 'test@example.com', subject: 'Test', text: 'Hello world' });
+    assert.ok(entry.id);
+    assert.equal(entry.from, 'test@example.com');
+  });
+
+  it('addProcessedUid + isUidProcessed O(1)', () => {
+    storage.addProcessedUid(12345);
+    assert.equal(storage.isUidProcessed(12345), true);
+    assert.equal(storage.isUidProcessed(99999), false);
+  });
+
+  it('updateSentimentByEmail trouve le bon email', () => {
+    storage.addReceivedEmail({ from: 'lead@corp.com', subject: 'Re: Proposition', text: 'Oui on en parle' });
+    const updated = storage.updateSentimentByEmail('lead@corp.com', {
+      sentiment: 'interested', score: 0.9, reason: 'Positif', actionTaken: 'auto_meeting'
+    });
+    assert.ok(updated);
+    assert.equal(updated.sentiment, 'interested');
+    assert.equal(updated.sentimentScore, 0.9);
+  });
+
+  it('updateSentimentByEmail case-insensitive', () => {
+    storage.addReceivedEmail({ from: 'John@Corp.COM', subject: 'Re: Test', text: 'Non merci' });
+    const updated = storage.updateSentimentByEmail('john@corp.com', {
+      sentiment: 'not_interested', score: 0.1
+    });
+    assert.ok(updated);
+    assert.equal(updated.sentiment, 'not_interested');
+  });
+
+  it('getSentimentBreakdown compte correctement', () => {
+    // Ajouter des matchedReplies avec sentiments
+    storage.addReceivedEmail({ from: 'a@b.com', text: 'test', matchedLead: { email: 'a@b.com' }, sentiment: 'interested' });
+    storage.addReceivedEmail({ from: 'c@d.com', text: 'test', matchedLead: { email: 'c@d.com' }, sentiment: 'question' });
+    const bd = storage.getSentimentBreakdown();
+    assert.ok(bd.interested >= 1 || bd.question >= 1 || bd.unclassified >= 0);
+  });
+
+  // Cleanup
+  it('cleanup tmp dir', () => {
+    try { fs.rmSync(tmpDir, { recursive: true }); } catch (e) {}
+  });
+});

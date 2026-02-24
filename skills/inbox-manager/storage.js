@@ -124,21 +124,26 @@ class InboxManagerStorage {
   }
 
   addProcessedUid(uid) {
-    // On stocke les UIDs dans un Set-like array pour dedup
+    // UIDs stockes en array (JSON-serialisable) mais lookup via Set en memoire
     if (!this.data._processedUids) this.data._processedUids = [];
-    if (!this.data._processedUids.includes(uid)) {
+    if (!this._uidSet) this._uidSet = new Set(this.data._processedUids);
+    if (!this._uidSet.has(uid)) {
       this.data._processedUids.push(uid);
+      this._uidSet.add(uid);
       // Garder les 2000 derniers UIDs
       if (this.data._processedUids.length > 2000) {
         this.data._processedUids = this.data._processedUids.slice(-2000);
+        this._uidSet = new Set(this.data._processedUids);
       }
       this._save();
     }
   }
 
   isUidProcessed(uid) {
-    if (!this.data._processedUids) return false;
-    return this.data._processedUids.includes(uid);
+    if (!this._uidSet) {
+      this._uidSet = new Set(this.data._processedUids || []);
+    }
+    return this._uidSet.has(uid);
   }
 
   recordCheck() {
@@ -177,6 +182,19 @@ class InboxManagerStorage {
     }
     this._save();
     return email;
+  }
+
+  // Cherche le plus recent email d'un sender et update son sentiment
+  updateSentimentByEmail(senderEmail, sentimentData) {
+    const emailLower = (senderEmail || '').toLowerCase();
+    // Chercher dans toute la liste (du plus recent au plus ancien)
+    for (let i = this.data.receivedEmails.length - 1; i >= 0; i--) {
+      const e = this.data.receivedEmails[i];
+      if (e.from && e.from.toLowerCase() === emailLower) {
+        return this.updateEmailSentiment(e.id, sentimentData);
+      }
+    }
+    return null;
   }
 
   getSentimentBreakdown() {

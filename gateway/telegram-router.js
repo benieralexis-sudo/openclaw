@@ -773,13 +773,9 @@ inboxListener = InboxListener ? new InboxListener({
     // === 5. Update storage inbox-manager avec sentiment ===
     try {
       const inboxStorage = require('../skills/inbox-manager/storage.js');
-      const recentEmails = inboxStorage.getRecentEmails(5);
-      const matchingEntry = recentEmails.find(e => e.from && e.from.toLowerCase() === replyData.from.toLowerCase());
-      if (matchingEntry) {
-        inboxStorage.updateEmailSentiment(matchingEntry.id, {
-          sentiment: sentiment, score: score, reason: classification.reason, actionTaken: actionTaken
-        });
-      }
+      inboxStorage.updateSentimentByEmail(replyData.from, {
+        sentiment: sentiment, score: score, reason: classification.reason, actionTaken: actionTaken
+      });
     } catch (e) { log.warn('inbox-manager', 'Storage sentiment update echoue:', e.message); }
 
     // === 6. Notification Telegram enrichie ===
