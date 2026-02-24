@@ -3,6 +3,12 @@ const log = require('../../gateway/logger.js');
 const storage = require('./storage.js');
 const { callOpenAI } = require('../../gateway/shared-nlp.js');
 
+// Escape Telegram Markdown v1
+function escTg(text) {
+  if (!text) return '';
+  return String(text).replace(/[_*\[\]()~`>#+\-=|{}.!]/g, '\\$&').substring(0, 500);
+}
+
 class InboxHandler {
   constructor(openaiKey) {
     this.openaiKey = openaiKey;
@@ -122,11 +128,11 @@ class InboxHandler {
       const sIcon = r.sentiment ? (SEMOJIS[r.sentiment] || '❓') : '';
       const sLabel = r.sentiment ? ' — ' + (SLABELS[r.sentiment] || r.sentiment) : '';
       const sScore = r.sentimentScore != null ? ' (' + r.sentimentScore + ')' : '';
-      lines.push((sIcon || '👤') + ' *' + name + '*' + sLabel + sScore);
-      lines.push('   📧 ' + r.from);
-      lines.push('   📋 ' + (r.subject || '(sans sujet)'));
+      lines.push((sIcon || '👤') + ' *' + escTg(name) + '*' + sLabel + sScore);
+      lines.push('   📧 ' + escTg(r.from));
+      lines.push('   📋 ' + escTg(r.subject || '(sans sujet)'));
       if (r.snippet) {
-        lines.push('   💬 _' + r.snippet.substring(0, 100) + (r.snippet.length > 100 ? '...' : '') + '_');
+        lines.push('   💬 _' + escTg(r.snippet.substring(0, 100)) + (r.snippet.length > 100 ? '...' : '') + '_');
       }
       if (r.actionTaken) {
         const ACTIONS = {
@@ -158,7 +164,7 @@ class InboxHandler {
       const date = new Date(e.processedAt).toLocaleDateString('fr-FR', {
         day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
       });
-      lines.push(icon + ' *' + e.from + '* — ' + (e.subject || '(sans sujet)'));
+      lines.push(icon + ' *' + escTg(e.from) + '* — ' + escTg(e.subject || '(sans sujet)'));
       lines.push('   📅 ' + date + (isLead ? ' _(lead connu)_' : ''));
     }
 

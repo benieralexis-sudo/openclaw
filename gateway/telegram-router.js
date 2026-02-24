@@ -117,6 +117,12 @@ const IMAP_PASS = process.env.IMAP_PASS || '';
 const CALCOM_KEY = process.env.CALCOM_API_KEY || '';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
 
+// Escape Telegram Markdown v1 — empeche l'injection de formatage par contenu externe
+function escTg(text) {
+  if (!text) return '';
+  return String(text).replace(/[_*\[\]()~`>#+\-=|{}.!]/g, '\\$&').substring(0, 2000);
+}
+
 if (!TOKEN) {
   log.error('router', 'TELEGRAM_BOT_TOKEN manquant !');
   process.exit(1);
@@ -641,8 +647,28 @@ inboxListener = InboxListener ? new InboxListener({
     const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
     const resend = automailerHandler.resend;
 
+    // --- Flood protection : max 2 auto-replies par prospect en 48h ---
+    const autoReplies48h = existingEmails.filter(e =>
+      (e.source === 'auto-meeting' || e.source === 'auto-reply-question' || e.source === 'auto-reply-decline') &&
+      e.sentAt && new Date(e.sentAt).getTime() > cutoff48h
+    ).length;
+    if (autoReplies48h >= 2) {
+      actionTaken = 'flood_protection';
+      log.warn('inbox-manager', replyData.from + ': ' + autoReplies48h + ' auto-replies en 48h — bloque');
+    }
+
+    // --- Config : verifier que auto-reply est active pour ce sentiment ---
+    const inboxConfig = require('../skills/inbox-manager/storage.js').getConfig();
+    const replyBySentiment = inboxConfig.replyBySentiment || {};
+    if (replyBySentiment[sentiment] === false) {
+      if (actionTaken === 'none') actionTaken = 'disabled_by_config';
+      log.info('inbox-manager', 'Auto-reply desactive pour sentiment=' + sentiment);
+    }
+
+    const canAutoReply = actionTaken === 'none' && resend;
+
     // --- INTERESTED : meeting + email enthousiaste ---
-    if (sentiment === 'interested') {
+    if (canAutoReply && sentiment === 'interested') {
       actionTaken = 'auto_meeting';
       try {
         const recentAuto = existingEmails.find(e =>
@@ -677,7 +703,7 @@ inboxListener = InboxListener ? new InboxListener({
     }
 
     // --- QUESTION : reponse IA contextuelle + lien meeting ---
-    else if (sentiment === 'question') {
+    else if (canAutoReply && sentiment === 'question') {
       actionTaken = 'question_reply';
       try {
         const recentAuto = existingEmails.find(e =>
@@ -707,7 +733,7 @@ inboxListener = InboxListener ? new InboxListener({
     }
 
     // --- NOT_INTERESTED : email poli + blacklist ---
-    else if (sentiment === 'not_interested') {
+    else if (canAutoReply && sentiment === 'not_interested') {
       actionTaken = 'polite_decline';
       try {
         if (resend) {
@@ -771,20 +797,21 @@ inboxListener = InboxListener ? new InboxListener({
       bounce_blacklist: '💀 Blackliste',
       none: '—'
     };
+    const ALABELS_FLOOD = { flood_protection: '⚠️ Bloque (flood 48h)', disabled_by_config: '⚙️ Desactive (config)' };
     const notifLines = [
       (EMOJIS[sentiment] || '❓') + ' *Reponse prospect — ' + (SLABELS[sentiment] || sentiment) + '*',
       '',
-      '👤 *' + (replyData.fromName || replyData.from) + '*',
-      '📧 ' + replyData.from,
-      '📋 ' + (replyData.subject || '(sans sujet)'),
+      '👤 *' + escTg(replyData.fromName || replyData.from) + '*',
+      '📧 ' + escTg(replyData.from),
+      '📋 ' + escTg(replyData.subject || '(sans sujet)'),
       '📊 Score : ' + score + '/1.0'
     ];
     if (replyData.snippet) {
-      notifLines.push('💬 _' + replyData.snippet.substring(0, 200) + (replyData.snippet.length > 200 ? '...' : '') + '_');
+      notifLines.push('💬 _' + escTg(replyData.snippet.substring(0, 200)) + (replyData.snippet.length > 200 ? '...' : '') + '_');
     }
-    notifLines.push('💡 ' + (classification.reason || ''));
+    notifLines.push('💡 ' + escTg(classification.reason || ''));
     notifLines.push('');
-    notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));
+    notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || ALABELS_FLOOD[actionTaken] || actionTaken));
     await sendMessage(ADMIN_CHAT_ID, notifLines.join('\n'), 'Markdown');
   }
 }) : null;

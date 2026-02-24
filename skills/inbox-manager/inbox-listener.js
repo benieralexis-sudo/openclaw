@@ -125,10 +125,17 @@ class InboxListener {
             // Extraire le texte brut apres les headers
             const bodyStart = bodyStr.indexOf('\r\n\r\n');
             if (bodyStart > -1) {
-              snippet = bodyStr.substring(bodyStart + 4, bodyStart + 504)
-                .replace(/<[^>]+>/g, ' ')
+              snippet = bodyStr.substring(bodyStart + 4, bodyStart + 1004)
+                .replace(/<[^>]+>/g, ' ')        // HTML tags
+                .replace(/&nbsp;|&#160;/g, ' ')  // espaces insecables
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+                .replace(/&mdash;|&#8212;/g, '-')
+                .replace(/&[a-z]+;/gi, '')       // autres entites
                 .replace(/\s+/g, ' ')
-                .trim();
+                .trim()
+                .substring(0, 500);
             }
           }
 
@@ -202,27 +209,28 @@ class InboxListener {
       if (isKnownLead) {
         log.info('inbox-manager', 'REPONSE DETECTEE de ' + senderEmail + ' — sujet: ' + msg.subject);
 
-        // Notifier sur Telegram
+        // Notifier sur Telegram (escape Markdown pour eviter crash formatage)
+        const esc = (t) => (t || '').replace(/[_*\[\]()~`>#+\-=|{}.!]/g, '\\$&').substring(0, 500);
         const notif = [
           '📬 *Reponse email detectee !*',
           '',
-          '👤 *De :* ' + (msg.fromName || senderEmail),
-          '📧 ' + senderEmail,
-          '📋 *Sujet :* ' + msg.subject,
+          '👤 *De :* ' + esc(msg.fromName || senderEmail),
+          '📧 ' + esc(senderEmail),
+          '📋 *Sujet :* ' + esc(msg.subject),
           '📅 ' + new Date(msg.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
           ''
         ];
 
         if (msg.snippet) {
-          notif.push('💬 _' + msg.snippet.substring(0, 200) + (msg.snippet.length > 200 ? '...' : '') + '_');
+          notif.push('💬 _' + esc(msg.snippet.substring(0, 200)) + (msg.snippet.length > 200 ? '...' : '') + '_');
           notif.push('');
         }
 
         if (matchedLead && matchedLead.campaignId) {
-          notif.push('🎯 Campagne : ' + matchedLead.campaignId);
+          notif.push('🎯 Campagne : ' + esc(matchedLead.campaignId));
         }
 
-        notif.push('_Ce lead a repondu a ton email ! Reponds-lui vite._');
+        notif.push('_Ce lead a repondu a ton email \\! Reponds\\-lui vite\\._');
 
         await this.sendTelegram(this.adminChatId, notif.join('\n'));
 
@@ -246,8 +254,11 @@ class InboxListener {
   _isSystemEmail(email) {
     const systemPatterns = [
       'noreply', 'no-reply', 'mailer-daemon', 'postmaster',
-      'bounce', 'notification', 'alert@', 'system@',
-      'donotreply', 'do-not-reply', 'auto-reply'
+      'bounce', 'notification@', 'alert@', 'system@',
+      'donotreply', 'do-not-reply', 'auto-reply',
+      'notifications@github.com', 'notifications@linkedin.com',
+      'no-reply@accounts.google.com', 'noreply@medium.com',
+      'calendar-notification', 'feedback@', 'updates@'
     ];
     return systemPatterns.some(p => email.includes(p));
   }

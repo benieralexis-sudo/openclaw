@@ -49,15 +49,47 @@ const VALID_SENTIMENTS = ['interested', 'question', 'not_interested', 'out_of_of
  */
 async function classifyReply(openaiKey, replyData) {
   const { from, fromName, subject, snippet, originalEmailSubject } = replyData;
+  const subjectStr = subject || '';
+
+  // --- Guard : pas d'API key ---
+  if (!openaiKey) {
+    log.warn('reply-classifier', 'OPENAI_KEY manquante — fallback question');
+    return { sentiment: 'question', score: 0.5, reason: 'Pas de cle API', key_phrases: [] };
+  }
+
+  // --- Guard : email forwarded → pas de classification auto ---
+  if (/^Fwd:|^Fw:|^TR:|-----\s*Forwarded|Transferred message/i.test(subjectStr + ' ' + (snippet || ''))) {
+    log.info('reply-classifier', 'Email forwarde detecte de ' + from + ' — fallback question');
+    return { sentiment: 'question', score: 0.4, reason: 'Email forwarde detecte', key_phrases: [] };
+  }
+
+  // --- Guard : snippet trop court ou vide ---
+  const cleanSnippet = (snippet || '').trim();
+  if (cleanSnippet.length < 3) {
+    log.info('reply-classifier', 'Email vide/trop court de ' + from + ' — fallback question');
+    return { sentiment: 'question', score: 0.3, reason: 'Email trop court ou vide', key_phrases: [] };
+  }
+
+  // --- Guard : detection bounce par sujet (avant appel IA) ---
+  if (/undeliverable|delivery.*fail|mailbox.*not found|address.*rejected|mail delivery.*subsystem/i.test(subjectStr)) {
+    log.info('reply-classifier', 'Bounce detecte par sujet pour ' + from);
+    return { sentiment: 'bounce', score: 0.0, reason: 'Bounce detecte par sujet', key_phrases: [] };
+  }
+
+  // --- Guard : detection OOO par sujet (avant appel IA) ---
+  if (/out of office|absence.*auto|auto.*reply|automatique.*absence|en conge|actuellement absent/i.test(subjectStr + ' ' + cleanSnippet.substring(0, 100))) {
+    log.info('reply-classifier', 'OOO detecte par sujet pour ' + from);
+    return { sentiment: 'out_of_office', score: 0.5, reason: 'Absence auto detectee par sujet', key_phrases: [] };
+  }
 
   const userPrompt = [
     'Email de reponse a analyser :',
     'De : ' + (fromName || from),
-    'Sujet : ' + (subject || '(sans sujet)'),
+    'Sujet : ' + (subjectStr || '(sans sujet)'),
     originalEmailSubject ? 'Sujet original : ' + originalEmailSubject : '',
     '',
     'Contenu :',
-    (snippet || '(vide)').substring(0, 500)
+    cleanSnippet.substring(0, 500)
   ].filter(Boolean).join('\n');
 
   try {
@@ -72,10 +104,16 @@ async function classifyReply(openaiKey, replyData) {
 
     const cleaned = result.content.trim()
       .replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed = JSON.parse(cleaned);
 
-    if (!parsed.sentiment) throw new Error('sentiment manquant');
-    if (!VALID_SENTIMENTS.includes(parsed.sentiment)) parsed.sentiment = 'question';
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (parseErr) {
+      log.warn('reply-classifier', 'JSON invalide de GPT pour ' + from + ': ' + cleaned.substring(0, 100));
+      return { sentiment: 'question', score: 0.5, reason: 'JSON invalide — fallback', key_phrases: [] };
+    }
+
+    if (!parsed.sentiment || !VALID_SENTIMENTS.includes(parsed.sentiment)) parsed.sentiment = 'question';
     parsed.score = Math.max(0, Math.min(1, parseFloat(parsed.score) || 0.5));
     parsed.key_phrases = Array.isArray(parsed.key_phrases) ? parsed.key_phrases : [];
     parsed.reason = parsed.reason || '';

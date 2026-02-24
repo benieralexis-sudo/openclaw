@@ -12,7 +12,15 @@ class InboxManagerStorage {
       config: {
         enabled: false,
         pollIntervalMs: 120000, // 2 minutes
-        lastCheckedAt: null
+        lastCheckedAt: null,
+        autoReplyEnabled: true,
+        replyBySentiment: {
+          interested: true,
+          question: true,
+          not_interested: true,
+          out_of_office: false,
+          bounce: false
+        }
       },
       receivedEmails: [],   // [{id, from, to, subject, date, matchedLead, processedAt}]
       matchedReplies: [],   // Emails qui matchent un lead connu
