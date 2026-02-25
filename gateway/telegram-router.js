@@ -18,7 +18,6 @@ const { getBreaker, getAllStatus: getAllBreakerStatus } = require('./circuit-bre
 const log = require('./logger.js');
 const AutoMailerHandler = require('../skills/automailer/automailer-handler.js');
 const CRMPilotHandler = require('../skills/crm-pilot/crm-handler.js');
-const ContentHandler = require('../skills/content-gen/content-handler.js');
 const InvoiceBotHandler = require('../skills/invoice-bot/invoice-handler.js');
 const ProactiveEngine = require('../skills/proactive-agent/proactive-engine.js');
 const ProactiveHandler = require('../skills/proactive-agent/proactive-handler.js');
@@ -140,13 +139,11 @@ if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
 
 const automailerHandler = new AutoMailerHandler(OPENAI_KEY, CLAUDE_KEY, RESEND_KEY, SENDER_EMAIL);
 const crmPilotHandler = new CRMPilotHandler(OPENAI_KEY, HUBSPOT_KEY);
-const contentHandler = new ContentHandler(OPENAI_KEY, CLAUDE_KEY);
 const invoiceBotHandler = new InvoiceBotHandler(OPENAI_KEY, RESEND_KEY, SENDER_EMAIL);
 
 // Demarrer les schedulers
 automailerHandler.start();
 crmPilotHandler.start();
-contentHandler.start();
 invoiceBotHandler.start();
 
 // Report Workflow (prospection personnalisee depuis la landing page)
@@ -323,7 +320,7 @@ const _cleanupInterval = setInterval(() => {
   // 2. Pending states des handlers (conversations et confirmations abandonnees)
   // Note: certains handlers sont definis plus bas — resolution lazy pour eviter ReferenceError
   const handlersWithPending = [
-    automailerHandler, crmPilotHandler, contentHandler, invoiceBotHandler
+    automailerHandler, crmPilotHandler, invoiceBotHandler
   ];
   try { handlersWithPending.push(proactiveHandler, webIntelHandler, systemAdvisorHandler); } catch (e) {}
   const pendingMaps = ['pendingConversations', 'pendingConfirmations', 'pendingImports', 'pendingEmails', 'pendingResults'];
@@ -994,13 +991,12 @@ function fastClassify(text) {
   const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   // Patterns exacts — zero ambiguite
-  // ORDRE IMPORTANT : autonomous-pilot AVANT content-gen et automailer
-  // "redige un email pour Nadine" = prospect (autonomous-pilot), PAS email marketing (content-gen)
+  // ORDRE IMPORTANT : autonomous-pilot AVANT automailer
+  // "redige un email pour Nadine" = prospect (autonomous-pilot), PAS email marketing
   const patterns = {
     'autonomous-pilot': /\b(pilot|autonome?|brain|objectif|critere|checklist|diagnostic|cycle|prochain.*email|quand.*envoi|prochaine?.*prospection|avancement|ou.*en.*es|lead.*trouve|resultat.*prospection|relance[rs]?|follow.?up|message.*personnalise?|mail.*prospect)\b|(?:redige|ecri[st]|prepare|envoie|draft).*(?:email|mail|message).*pour\b/,
     'automailer': /\b(campagne|template|newsletter|liste.*contact|import.*csv|stats.*email|taux.*ouverture|creer?.*campagne|lance.*campagne)\b/,
     'crm-pilot': /\b(crm|hubspot|pipeline|deal|offre|fiche.*contact|note|tache|rappel|commercial)\b/,
-    'content-gen': /\b(redige|ecri[st]|post.*linkedin|pitch|bio|script|reformule|contenu)\b/,
     'inbox-manager': /\b(inbox|boite.*reception|reponse.*email|email.*recu|imap|reponse.*lead|mail.*entrant)\b/,
     'meeting-scheduler': /\b(rdv|rendez.?vous|meeting|booking|cale[rz]?|reserve[rz]?|planifi|cal\.?com|creneau)\b/,
     'invoice-bot': /\b(factur|devis|paiement|rib|siret|client.*factur)\b/,
@@ -1026,7 +1022,6 @@ async function classifySkill(message, chatId) {
   // Workflows multi-etapes en cours : garder le skill actif (indispensable)
   if (automailerHandler.pendingImports[id] || automailerHandler.pendingConversations[id] || automailerHandler.pendingEmails[id]) return 'automailer';
   if (crmPilotHandler.pendingConversations[id] || crmPilotHandler.pendingConfirmations[id]) return 'crm-pilot';
-  if (contentHandler.pendingConversations[id]) return 'content-gen';
   if (invoiceBotHandler.pendingConversations[id] || invoiceBotHandler.pendingConfirmations[id]) return 'invoice-bot';
   if (proactiveHandler.pendingConversations[id] || proactiveHandler.pendingConfirmations[id]) return 'proactive-agent';
   if (selfImproveHandler && (selfImproveHandler.pendingConversations[id] || selfImproveHandler.pendingConfirmations[id])) return 'self-improve';
@@ -1044,7 +1039,6 @@ async function classifySkill(message, chatId) {
 SKILLS DISPONIBLES :
 - "automailer" : campagnes email automatisees — creer/gerer des campagnes, envoyer des emails, gerer des listes de contacts email, voir les stats d'envoi, templates email. "comment vont mes campagnes ?" = automailer.
 - "crm-pilot" : gestion CRM (HubSpot) — pipeline commercial, offres/deals, fiches contacts, notes, taches, rappels, rapports hebdo, suivi commercial.
-- "content-gen" : generation de contenu — rediger des posts LinkedIn, pitchs, descriptions, scripts, emails marketing, bios, reformuler du texte.
 - "invoice-bot" : facturation — creer/envoyer des factures, gerer des clients (facturation), suivi des paiements, coordonnees bancaires/RIB, devis.
 - "proactive-agent" : mode proactif, rapports automatiques, alertes pipeline, monitoring — "rapport maintenant", "rapport de la semaine", "rapport du mois", "mes alertes", "mode proactif status", "active le mode proactif", "historique des alertes". Tout ce qui concerne des rapports recapitulatifs cross-skills ou le monitoring automatique.
 - "self-improve" : amelioration automatique du bot, optimisation des performances, recommandations IA, feedback loop — "tes recommandations", "analyse maintenant", "applique les ameliorations", "metriques", "historique des ameliorations", "rollback", "status self-improve", "comment ca performe ?". Tout ce qui concerne l'optimisation du bot, l'amelioration continue, et les suggestions d'amelioration.
@@ -1061,7 +1055,7 @@ REGLES CRITIQUES :
 3. TRES IMPORTANT : Si le bot vient d'envoyer des messages automatiques (alertes veille, rapports, alertes systeme, etc.) et que l'utilisateur REAGIT a ces messages (demande un resume, commente, critique le format, dit "trop de messages", "fais un resume", "regroupe", etc.), route vers le skill qui a envoye ces messages. Par exemple : le bot envoie des alertes veille -> l'utilisateur dit "fais-moi un resume" -> c'est web-intelligence. Le bot envoie un rapport proactif -> l'utilisateur dit "c'est quoi ce truc ?" -> c'est proactive-agent.
 4. "aide" ou "help" SEUL = general. Mais "aide sur mes factures" = invoice-bot.
 5. En cas de doute entre deux skills, choisis celui qui correspond le mieux au contexte recent.
-6. Reponds UNIQUEMENT par un seul mot : automailer, crm-pilot, content-gen, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot, inbox-manager, meeting-scheduler ou general.`;
+6. Reponds UNIQUEMENT par un seul mot : automailer, crm-pilot, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot, inbox-manager, meeting-scheduler ou general.`;
 
   const userContent = (historyContext
     ? 'HISTORIQUE RECENT :\n' + historyContext + '\n\nDernier skill utilise : ' + lastSkill + '\n\nNOUVEAU MESSAGE : '
@@ -1076,7 +1070,7 @@ REGLES CRITIQUES :
     const exactSkills = [
       'autonomous-pilot', 'system-advisor', 'web-intelligence', 'self-improve',
       'proactive-agent', 'inbox-manager', 'meeting-scheduler',
-      'invoice-bot', 'content-gen',
+      'invoice-bot',
       'crm-pilot', 'automailer', 'general'
     ];
     for (const s of exactSkills) {
@@ -1092,7 +1086,6 @@ REGLES CRITIQUES :
     if (skill.includes('self-improve') || skill.includes('amelior')) return 'self-improve';
     if (skill.includes('proactive-agent') || skill.includes('proactive') || skill.includes('proactif')) return 'proactive-agent';
     if (skill.includes('invoice-bot') || skill.includes('invoice')) return 'invoice-bot';
-    if (skill.includes('content-gen') || skill.includes('content')) return 'content-gen';
     if (skill.includes('crm-pilot') || skill.includes('crm')) return 'crm-pilot';
     if (skill.includes('automailer') || skill.includes('mailer')) return 'automailer';
     return 'general';
@@ -1353,7 +1346,6 @@ async function handleUpdate(update) {
     const handlers = {
       'automailer': automailerHandler,
       'crm-pilot': crmPilotHandler,
-      'content-gen': contentHandler,
       'invoice-bot': invoiceBotHandler,
       'proactive-agent': proactiveHandler,
       'self-improve': selfImproveHandler,
@@ -1415,7 +1407,7 @@ async function handleUpdate(update) {
       let finalText = response.content;
       // --- UPGRADE 6 : Humanisation selective (economie de tokens) ---
       // Skills deja exclues : general, autonomous-pilot
-      const skipHumanizationSkills = ['general', 'autonomous-pilot', 'content-gen', 'system-advisor', 'proactive-agent', 'inbox-manager', 'meeting-scheduler'];
+      const skipHumanizationSkills = ['general', 'autonomous-pilot', 'system-advisor', 'proactive-agent', 'inbox-manager', 'meeting-scheduler'];
       let shouldHumanize = !skipHumanizationSkills.includes(skill);
 
       if (shouldHumanize) {
@@ -2143,7 +2135,7 @@ function gracefulShutdown() {
   log.info('router', 'Metriques + etat volatile sauvegardes sur disque');
   healthServer.close();
   httpsAgent.destroy();
-  [automailerHandler, crmPilotHandler, contentHandler,
+  [automailerHandler, crmPilotHandler,
    invoiceBotHandler, proactiveEngine, webIntelHandler, systemAdvisorHandler, autoPilotEngine,
    inboxHandler, meetingHandler]
     .forEach(h => { try { h.stop(); } catch (e) { log.error('router', 'Erreur stop handler:', e.message); } });

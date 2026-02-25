@@ -10,7 +10,6 @@ const SKILL_STORAGES = {
   'automailer': 'automailer/storage.js',
   'crm-pilot': 'crm-pilot/storage.js',
   'lead-enrich': 'lead-enrich/storage.js',
-  'content-gen': 'content-gen/storage.js',
   'invoice-bot': 'invoice-bot/storage.js',
   'proactive-agent': 'proactive-agent/storage.js',
   'self-improve': 'self-improve/storage.js',

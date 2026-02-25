@@ -118,7 +118,6 @@ const DATA_PATHS = {
   automailer: process.env.AUTOMAILER_DATA_DIR ? `${process.env.AUTOMAILER_DATA_DIR}/automailer-db.json` : '/data/automailer/automailer-db.json',
   'crm-pilot': process.env.CRM_PILOT_DATA_DIR ? `${process.env.CRM_PILOT_DATA_DIR}/crm-pilot-db.json` : '/data/crm-pilot/crm-pilot-db.json',
   'lead-enrich': process.env.LEAD_ENRICH_DATA_DIR ? `${process.env.LEAD_ENRICH_DATA_DIR}/lead-enrich-db.json` : '/data/lead-enrich/lead-enrich-db.json',
-  'content-gen': process.env.CONTENT_GEN_DATA_DIR ? `${process.env.CONTENT_GEN_DATA_DIR}/content-gen-db.json` : '/data/content-gen/content-gen-db.json',
   'invoice-bot': process.env.INVOICE_BOT_DATA_DIR ? `${process.env.INVOICE_BOT_DATA_DIR}/invoice-bot-db.json` : '/data/invoice-bot/invoice-bot-db.json',
   'proactive-agent': process.env.PROACTIVE_DATA_DIR ? `${process.env.PROACTIVE_DATA_DIR}/proactive-agent-db.json` : '/data/proactive-agent/proactive-agent-db.json',
   'self-improve': process.env.SELF_IMPROVE_DATA_DIR ? `${process.env.SELF_IMPROVE_DATA_DIR}/self-improve-db.json` : '/data/self-improve/self-improve-db.json',
@@ -686,26 +685,6 @@ app.get('/api/enrichment', authRequired, async (req, res) => {
   });
 });
 
-// Content Gen
-app.get('/api/content', authRequired, async (req, res) => {
-  const cg = await readData('content-gen') || {};
-  const allContents = cg.generatedContents ? Object.values(cg.generatedContents).flat() : [];
-  const stats = cg.stats || {};
-
-  const sortedContents = allContents.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 50);
-  const { items: paginatedContents, total: totalContents } = paginate(sortedContents, req);
-
-  res.json({
-    stats: {
-      total: allContents.length,
-      byType: stats.byType || {},
-      ...stats
-    },
-    contents: paginatedContents,
-    totalContents
-  });
-});
-
 // Invoice Bot (admin only)
 app.get('/api/invoices', authRequired, adminRequired, async (req, res) => {
   const inv = await readData('invoice-bot') || {};
@@ -1218,11 +1197,6 @@ function buildActivityFeed(all, since) {
     feed.push({ time: e.enrichedAt, icon: 'search', text: `Lead enrichi : ${e.email} (score ${e.aiClassification?.score || '?'})`, skill: 'lead-enrich' });
   });
 
-  // Content
-  const contents = all['content-gen']?.generatedContents ? Object.values(all['content-gen'].generatedContents).flat() : [];
-  contents.filter(c => c.createdAt >= sinceStr).forEach(c => {
-    feed.push({ time: c.createdAt, icon: 'pen-tool', text: `Contenu ${c.type} généré`, skill: 'content-gen' });
-  });
 
   // Invoices
   const invoices = all['invoice-bot']?.invoices ? Object.values(all['invoice-bot'].invoices) : [];

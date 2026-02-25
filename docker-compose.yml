@@ -29,7 +29,6 @@ services:
       AUTOMAILER_DATA_DIR: /data/automailer
       CRM_PILOT_DATA_DIR: /data/crm-pilot
       LEAD_ENRICH_DATA_DIR: /data/lead-enrich
-      CONTENT_GEN_DATA_DIR: /data/content-gen
       INVOICE_BOT_DATA_DIR: /data/invoice-bot
       PROACTIVE_DATA_DIR: /data/proactive-agent
       SELF_IMPROVE_DATA_DIR: /data/self-improve
@@ -63,7 +62,6 @@ services:
       - ./skills/automailer:/app/skills/automailer
       - ./skills/crm-pilot:/app/skills/crm-pilot
       - ./skills/lead-enrich:/app/skills/lead-enrich
-      - ./skills/content-gen:/app/skills/content-gen
       - ./skills/invoice-bot:/app/skills/invoice-bot
       - ./skills/proactive-agent:/app/skills/proactive-agent
       - ./skills/self-improve:/app/skills/self-improve
@@ -76,7 +74,6 @@ services:
       - automailer-data:/data/automailer
       - crm-pilot-data:/data/crm-pilot
       - lead-enrich-data:/data/lead-enrich
-      - content-gen-data:/data/content-gen
       - invoice-bot-data:/data/invoice-bot
       - proactive-agent-data:/data/proactive-agent
       - self-improve-data:/data/self-improve
@@ -95,7 +92,7 @@ services:
         limits:
           memory: 512M
           cpus: '1.0'
-    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/content-gen /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && cd /app && (node -e \"require('mailparser')\" 2>/dev/null || npx pnpm add -w mailparser@3.9.3 --ignore-scripts 2>/dev/null) && exec runuser -u node -- node /app/gateway/telegram-router.js"]
+    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config && cd /app && (node -e \"require('mailparser')\" 2>/dev/null || npx pnpm add -w mailparser@3.9.3 --ignore-scripts 2>/dev/null) && exec runuser -u node -- node /app/gateway/telegram-router.js"]
     logging:
       driver: json-file
       options:
@@ -134,7 +131,6 @@ services:
       AUTOMAILER_DATA_DIR: /data/automailer
       CRM_PILOT_DATA_DIR: /data/crm-pilot
       LEAD_ENRICH_DATA_DIR: /data/lead-enrich
-      CONTENT_GEN_DATA_DIR: /data/content-gen
       INVOICE_BOT_DATA_DIR: /data/invoice-bot
       PROACTIVE_DATA_DIR: /data/proactive-agent
       SELF_IMPROVE_DATA_DIR: /data/self-improve
@@ -153,7 +149,6 @@ services:
       - automailer-data:/data/automailer:ro
       - crm-pilot-data:/data/crm-pilot:ro
       - lead-enrich-data:/data/lead-enrich:ro
-      - content-gen-data:/data/content-gen:ro
       - invoice-bot-data:/data/invoice-bot:ro
       - proactive-agent-data:/data/proactive-agent:ro
       - self-improve-data:/data/self-improve:ro
@@ -217,7 +212,6 @@ volumes:
   automailer-data:
   crm-pilot-data:
   lead-enrich-data:
-  content-gen-data:
   invoice-bot-data:
   proactive-agent-data:
   self-improve-data:
