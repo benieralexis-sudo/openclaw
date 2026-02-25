@@ -10,6 +10,7 @@ class MeetingHandler {
     this.openaiKey = openaiKey;
     this.calcom = new CalComClient(calcomApiKey);
     this.pendingConversations = {};
+    this.pendingConfirmations = {};
   }
 
   start() {

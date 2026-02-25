@@ -105,24 +105,28 @@ class MeetingSchedulerStorage {
     const meeting = this.data.meetings.find(m => m.id === meetingId);
     if (!meeting) return null;
 
+    const prevStatus = meeting.status;
     meeting.status = status;
     if (extra) Object.assign(meeting, extra);
 
-    if (status === 'booked') {
-      meeting.bookedAt = new Date().toISOString();
-      this.data.stats.totalBooked++;
-    } else if (status === 'cancelled') {
-      this.data.stats.totalCancelled++;
-    } else if (status === 'no_show') {
-      this.data.stats.totalNoShow++;
-    } else if (status === 'completed') {
-      meeting.completedAt = new Date().toISOString();
-      if (!this.data.stats.totalCompleted) this.data.stats.totalCompleted = 0;
-      this.data.stats.totalCompleted++;
-    } else if (status === 'expired') {
-      meeting.expiredAt = new Date().toISOString();
-      if (!this.data.stats.totalExpired) this.data.stats.totalExpired = 0;
-      this.data.stats.totalExpired++;
+    // Only increment stats on actual status transition (avoid double-counting)
+    if (prevStatus !== status) {
+      if (status === 'booked') {
+        meeting.bookedAt = new Date().toISOString();
+        this.data.stats.totalBooked++;
+      } else if (status === 'cancelled') {
+        this.data.stats.totalCancelled++;
+      } else if (status === 'no_show') {
+        this.data.stats.totalNoShow++;
+      } else if (status === 'completed') {
+        meeting.completedAt = new Date().toISOString();
+        if (!this.data.stats.totalCompleted) this.data.stats.totalCompleted = 0;
+        this.data.stats.totalCompleted++;
+      } else if (status === 'expired') {
+        meeting.expiredAt = new Date().toISOString();
+        if (!this.data.stats.totalExpired) this.data.stats.totalExpired = 0;
+        this.data.stats.totalExpired++;
+      }
     }
 
     this._save();

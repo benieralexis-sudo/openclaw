@@ -21,6 +21,10 @@ class SelfImproveStorage {
     try {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
       this.data = JSON.parse(raw);
+      // Ensure critical structures exist (migration safety)
+      if (!this.data.impactTracking) this.data.impactTracking = { activeTracking: [], completedTracking: [] };
+      if (!this.data.typePerformance) this.data.typePerformance = {};
+      if (!this.data.anomalyHistory) this.data.anomalyHistory = [];
       console.log('[self-improve-storage] Base chargee (' +
         this.data.analysis.appliedRecommendations.length + ' recos appliquees, ' +
         this.data.metrics.weeklySnapshots.length + ' snapshots)');
