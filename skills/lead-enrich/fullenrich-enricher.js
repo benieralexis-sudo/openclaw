@@ -8,7 +8,7 @@ try { _appConfig = require('../../gateway/app-config.js'); } catch (e) {}
 const BASE_HOST = 'app.fullenrich.com';
 const BASE_PATH = '/api/v2';
 const POLL_INTERVAL_MS = 15000;   // 15s entre chaque poll
-const MAX_POLL_MS = 180000;       // 3 min max d'attente
+const MAX_POLL_MS = 300000;       // 5 min max d'attente
 const BATCH_MAX_POLL_MS = 600000; // 10 min max pour les batches
 
 class FullEnrichEnricher {
