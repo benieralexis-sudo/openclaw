@@ -745,6 +745,18 @@ inboxListener = InboxListener ? new InboxListener({
     if (actionTaken === 'human_takeover') {
       notifLines.push('');
       notifLines.push('🚨 _Le bot a ARRETE toute automation pour ce prospect\\. Reponds\\-lui manuellement\\!_');
+      // Fix 6: Ajouter lien Cal.eu pour prise de RDV rapide
+      try {
+        if (meetingHandler.calcom.isConfigured()) {
+          const slug = process.env.CALCOM_EVENT_SLUG || 'appel-telephonique';
+          const bookingUrl = await meetingHandler.calcom.getBookingLink(slug, replyData.from, replyData.fromName);
+          if (bookingUrl) {
+            notifLines.push('');
+            notifLines.push('📅 *Lien RDV rapide :*');
+            notifLines.push(bookingUrl);
+          }
+        }
+      } catch (e) { /* silent — best effort */ }
     }
     await sendMessage(ADMIN_CHAT_ID, notifLines.join('\n'), 'Markdown');
   }

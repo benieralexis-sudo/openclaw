@@ -620,6 +620,14 @@ Reponds UNIQUEMENT en JSON strict :
             impactMsg += '\nPas de rollback auto (pas assez de donnees). Dis _"rollback"_ si tu veux annuler manuellement.';
             await this.sendTelegram(config.adminChatId, impactMsg);
           }
+
+          // Fix 4: Mettre a jour typePerformance pour chaque reco mesuree
+          for (const result of impactResults) {
+            if (result.type && result.verdict) {
+              storage.updateTypePerformance(result.type, result.verdict);
+            }
+          }
+          log.info('self-improve', 'TypePerformance mis a jour pour ' + impactResults.length + ' reco(s)');
         }
       } catch (e) {
         log.error('self-improve', 'Erreur mesure impact:', e.message);
@@ -641,17 +649,6 @@ Reponds UNIQUEMENT en JSON strict :
       if (this.sendTelegram) {
         await this.sendTelegram(config.adminChatId, report);
         log.info('self-improve', 'Rapport hebdomadaire envoye a ' + config.adminChatId);
-      }
-
-      // FIX 16 : Auto-application des recommandations a haute confiance
-      if (config.autoApply && analysis.recommendations && analysis.recommendations.length > 0) {
-        const autoApplyResult = this._autoApplyRecommendations(analysis.recommendations);
-        if (autoApplyResult.applied > 0 && this.sendTelegram) {
-          const autoMsg = 'Auto-Improve : ' + autoApplyResult.applied + '/' +
-            autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
-            ' (confiance >= 70%).\nDis _"rollback"_ pour annuler.';
-          await this.sendTelegram(config.adminChatId, autoMsg);
-        }
       }
 
       // 6. Enregistrer des predictions pour la feedback loop
@@ -704,6 +701,21 @@ Reponds UNIQUEMENT en JSON strict :
         }
       } catch (e2) {
         log.error('self-improve', 'Erreur analyses avancees:', e2.message);
+      }
+
+      // 9. Auto-application des recommandations a haute confiance (APRES toutes les analyses)
+      if (config.autoApply) {
+        const allPending = storage.getPendingRecommendations();
+        if (allPending.length > 0) {
+          log.info('self-improve', 'Auto-apply: ' + allPending.length + ' pending, lancement...');
+          const autoApplyResult = this._autoApplyRecommendations(allPending);
+          if (autoApplyResult.applied > 0 && this.sendTelegram) {
+            const autoMsg = 'Auto-Improve : ' + autoApplyResult.applied + '/' +
+              autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
+              ' (confiance >= 70%).\nDis _"rollback"_ pour annuler.';
+            await this.sendTelegram(config.adminChatId, autoMsg);
+          }
+        }
       }
 
       log.info('self-improve', 'Analyse hebdomadaire terminee (' +
@@ -1013,7 +1025,10 @@ Reponds UNIQUEMENT en JSON strict :
 
     try {
       const metrics = this.metricsCollector.getRecentMetrics(24);
-      if (!metrics) return;
+      if (!metrics) {
+        log.warn('self-improve', 'Anomaly check: aucune metrique disponible (metricsCollector retourne null)');
+        return;
+      }
 
       const anomalies = [];
 

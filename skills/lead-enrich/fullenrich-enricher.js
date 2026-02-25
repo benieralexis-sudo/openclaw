@@ -15,6 +15,7 @@ class FullEnrichEnricher {
   constructor(apiKey) {
     this.apiKey = apiKey;
     this._lastRequestTime = 0;
+    this._inFlight = new Set(); // Fix 12: dedup enrichissements en vol
   }
 
   // Rate limit : 60 calls/min → 1 call/seconde
@@ -139,6 +140,12 @@ class FullEnrichEnricher {
 
   async enrichByEmail(email) {
     // FullEnrich : reverse email lookup
+    const dedupKey = 'email:' + email.toLowerCase();
+    if (this._inFlight.has(dedupKey)) {
+      log.info('fullenrich', 'Dedup: enrichissement deja en cours pour ' + email);
+      return { success: false, error: 'Enrichissement deja en cours pour cette adresse' };
+    }
+    this._inFlight.add(dedupKey);
     try {
       await this._rateLimit();
       const result = await this._makeRequest('POST', '/contact/reverse/email/bulk', {
@@ -170,10 +177,18 @@ class FullEnrichEnricher {
         }
       }
       return { success: false, error: 'Enrichissement par email seul non supporte. Utilise nom+entreprise ou LinkedIn.' };
+    } finally {
+      this._inFlight.delete(dedupKey);
     }
   }
 
   async enrichByNameAndCompany(firstName, lastName, company, options) {
+    const dedupKey = 'name:' + (firstName + '|' + lastName + '|' + company).toLowerCase();
+    if (this._inFlight.has(dedupKey)) {
+      log.info('fullenrich', 'Dedup: enrichissement deja en cours pour ' + firstName + ' ' + lastName);
+      return { success: false, error: 'Enrichissement deja en cours pour ce contact' };
+    }
+    this._inFlight.add(dedupKey);
     try {
       const contact = {
         first_name: firstName,
@@ -195,10 +210,18 @@ class FullEnrichEnricher {
     } catch (e) {
       log.error('fullenrich', 'Erreur enrichByNameAndCompany:', e.message);
       return { success: false, error: e.message };
+    } finally {
+      this._inFlight.delete(dedupKey);
     }
   }
 
   async enrichByLinkedIn(linkedinUrl, options) {
+    const dedupKey = 'linkedin:' + linkedinUrl.toLowerCase();
+    if (this._inFlight.has(dedupKey)) {
+      log.info('fullenrich', 'Dedup: enrichissement deja en cours pour ' + linkedinUrl);
+      return { success: false, error: 'Enrichissement deja en cours pour ce LinkedIn' };
+    }
+    this._inFlight.add(dedupKey);
     try {
       const fields = (options && options.includePhone) ? ['contact.emails', 'contact.phones'] : undefined;
       const submitResult = await this._submitEnrichment([{
@@ -217,6 +240,8 @@ class FullEnrichEnricher {
     } catch (e) {
       log.error('fullenrich', 'Erreur enrichByLinkedIn:', e.message);
       return { success: false, error: e.message };
+    } finally {
+      this._inFlight.delete(dedupKey);
     }
   }
 

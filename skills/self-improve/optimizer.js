@@ -80,6 +80,7 @@ class Optimizer {
   // Appliquer une recommandation validee
   applyRecommendation(reco) {
     if (!reco || !reco.type) return { success: false, error: 'Recommandation invalide' };
+    console.log('[optimizer] Applying reco type=' + reco.type + ' id=' + (reco.id || '?'));
 
     // Capturer baseline pour mesure d'impact
     const baselineSnapshot = this._captureBaseline();
@@ -111,9 +112,12 @@ class Optimizer {
 
       // Demarrer le suivi d'impact si application reussie
       if (result && result.success) {
+        console.log('[optimizer] Reco appliquee OK: type=' + reco.type);
         try {
           storage.startImpactTracking(reco.id, reco.type, reco.description || reco.type, baselineSnapshot);
         } catch (e) { console.error('[optimizer] Erreur demarrage impact tracking:', e.message); }
+      } else {
+        console.log('[optimizer] Reco ECHEC: type=' + reco.type + ' reason=' + (result && result.reason || result && result.error || 'unknown'));
       }
 
       return result;
@@ -144,7 +148,15 @@ class Optimizer {
     const updates = {};
 
     if (params.day) updates.preferredSendDay = params.day;
-    if (params.hour !== undefined) updates.preferredSendHour = params.hour;
+    if (params.hour !== undefined) {
+      // Validation: heures business seulement (7h-20h)
+      const hour = parseInt(params.hour, 10);
+      if (isNaN(hour) || hour < 7 || hour > 20) {
+        console.log('[optimizer] REJET send_timing: hour=' + params.hour + ' hors plage 7-20h');
+        return { success: false, applied: 'send_timing', reason: 'hour ' + params.hour + ' hors plage 7-20h' };
+      }
+      updates.preferredSendHour = hour;
+    }
 
     storage.setEmailPreferences(updates);
     console.log('[optimizer] Timing email mis a jour');
@@ -154,8 +166,13 @@ class Optimizer {
   _applyEmailLength(reco) {
     const params = reco.params || {};
     const currentPrefs = storage.getEmailPreferences();
+    const VALID_LENGTHS = ['short', 'medium', 'long'];
 
     if (params.maxLength) {
+      if (!VALID_LENGTHS.includes(params.maxLength)) {
+        console.log('[optimizer] REJET email_length: maxLength=' + params.maxLength + ' invalide (attendu: ' + VALID_LENGTHS.join('/') + ')');
+        return { success: false, applied: 'email_length', reason: 'maxLength invalide: ' + params.maxLength };
+      }
       storage.setEmailPreferences({ maxLength: params.maxLength });
     }
 
@@ -168,7 +185,13 @@ class Optimizer {
     const currentCriteria = storage.getTargetingCriteria();
 
     if (params.minScore !== undefined) {
-      storage.setTargetingCriteria({ minScore: params.minScore });
+      // Validation: scoring est sur 0-10
+      const score = parseFloat(params.minScore);
+      if (isNaN(score) || score < 0 || score > 10) {
+        console.log('[optimizer] REJET targeting_criteria: minScore=' + params.minScore + ' hors echelle 0-10');
+        return { success: false, applied: 'targeting_criteria', reason: 'minScore ' + params.minScore + ' hors echelle 0-10' };
+      }
+      storage.setTargetingCriteria({ minScore: score });
     }
 
     console.log('[optimizer] Criteres de ciblage mis a jour');

@@ -10,6 +10,8 @@ class CalComClient {
     // Cal.eu profile cache
     this._profileCache = null;
     this._profileCacheTime = 0;
+    // Compteur 401 consecutifs pour alerte
+    this._consecutive401 = 0;
     // Fallback event type (hardcoded from cal.eu account)
     this._fallbackEventType = {
       id: 0,
@@ -126,6 +128,7 @@ class CalComClient {
       const reqPath = status ? '/v2/bookings?status=' + status : '/v2/bookings';
       const result = await this._requestWithRetry('GET', reqPath);
       if (result.statusCode === 200 && result.data.data) {
+        this._consecutive401 = 0; // Reset sur succes
         const bookings = Array.isArray(result.data.data) ? result.data.data : [];
         return bookings.map(b => ({
           id: b.id,
@@ -139,7 +142,12 @@ class CalComClient {
         }));
       }
       if (result.statusCode === 401) {
-        log.error('calcom', 'getBookings: API key invalide (401) — verifier CALCOM_API_KEY');
+        this._consecutive401++;
+        if (this._consecutive401 >= 3) {
+          log.error('calcom', 'ALERTE: API key invalide depuis ' + this._consecutive401 + ' syncs consecutifs — verifier CALCOM_API_KEY');
+        } else {
+          log.error('calcom', 'getBookings: API key invalide (401) — tentative ' + this._consecutive401 + '/3');
+        }
       } else {
         log.warn('calcom', 'getBookings HTTP ' + result.statusCode);
       }

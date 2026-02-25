@@ -449,6 +449,7 @@ Reponds UNIQUEMENT en JSON strict :
   // Boucle de feedback : comparer predictions vs resultats
   comparePredictions() {
     const unverified = storage.getUnverifiedPredictions();
+    log.info('self-improve', 'ComparePredictions: ' + unverified.length + ' predictions non verifiees');
     if (unverified.length === 0) return null;
 
     const automailerStorage = getAutomailerStorageSafe();
@@ -511,6 +512,7 @@ Reponds UNIQUEMENT en JSON strict :
   // Mesurer l'impact des recommandations appliquees il y a 14 jours
   measureAppliedImpact(currentSnapshot) {
     const due = storage.getTrackingDueForMeasurement();
+    log.info('self-improve', 'MeasureImpact: ' + due.length + ' tracking(s) dus pour mesure');
     if (due.length === 0) return [];
 
     const results = [];

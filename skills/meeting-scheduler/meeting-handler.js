@@ -383,6 +383,16 @@ class MeetingHandler {
       return null;
     }
 
+    // Fix 7: Cooldown 6h — eviter propositions repetees si lead re-ouvre
+    const COOLDOWN_MS = 6 * 60 * 60 * 1000;
+    const recentInWindow = existing.filter(m =>
+      m.proposedAt && (Date.now() - new Date(m.proposedAt).getTime()) < COOLDOWN_MS);
+    if (recentInWindow.length > 0) {
+      const agoMin = Math.round((Date.now() - new Date(recentInWindow[0].proposedAt).getTime()) / 60000);
+      log.info('meeting-handler', 'proposeAutoMeeting skip: cooldown 6h actif pour ' + leadEmail + ' (il y a ' + agoMin + ' min)');
+      return null;
+    }
+
     let eventTypes = storage.getEventTypes();
     if (eventTypes.length === 0) {
       eventTypes = await this._syncEventTypes();
@@ -450,18 +460,20 @@ class MeetingHandler {
       const bookings = await this.calcom.getBookings();
       if (bookings.length === 0) return;
 
-      const allMeetings = storage.getRecentMeetings(100);
-
       for (const booking of bookings) {
         const attendeeEmails = (booking.attendees || []).map(a => (a.email || '').toLowerCase());
         if (attendeeEmails.length === 0) continue;
 
-        // Chercher un meeting propose qui matche un attendee
-        for (const meeting of allMeetings) {
-          if (!meeting.leadEmail) continue;
-          const leadEmail = meeting.leadEmail.toLowerCase();
+        // Fix 8: Match direct par email (sans limite de 100 meetings)
+        let meeting = null;
+        for (const attendeeEmail of attendeeEmails) {
+          const matches = storage.getMeetingByEmail(attendeeEmail);
+          if (matches.length > 0) { meeting = matches[0]; break; }
+        }
+        if (!meeting) continue;
+        const leadEmail = meeting.leadEmail.toLowerCase();
 
-          if (!attendeeEmails.includes(leadEmail)) continue;
+        {
 
           // Match ! Gerer selon les statuts
           if (meeting.status === 'proposed' && (booking.status === 'accepted' || booking.status === 'confirmed' || booking.status === 'pending')) {
@@ -535,8 +547,9 @@ class MeetingHandler {
       // Rappels — meetings bookes dans < 1h et pas encore rappele
       const now = Date.now();
       const oneHour = 60 * 60 * 1000;
-      for (const meeting of allMeetings) {
-        if (meeting.status !== 'booked' || !meeting.scheduledAt || meeting.reminderSent) continue;
+      const upcomingMeetings = storage.getUpcomingMeetings();
+      for (const meeting of upcomingMeetings) {
+        if (meeting.reminderSent) continue;
         const meetingTime = new Date(meeting.scheduledAt).getTime();
         if (meetingTime > now && meetingTime - now < oneHour) {
           // Rappel !
