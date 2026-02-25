@@ -318,6 +318,39 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       anglesRule = '\n\nANGLES DEJA UTILISES (NE PAS REPETER) :\n' + options.usedAngles.map(a => '- "' + a + '"').join('\n');
     }
 
+    // Construire le lien Cal.eu pour le breakup (si configure)
+    let breakupBookingUrl = '';
+    const calcomUser = process.env.CALCOM_USERNAME;
+    const calcomSlug = process.env.CALCOM_EVENT_SLUG || 'appel-telephonique';
+    const contactFirstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+    if (calcomUser && contact.email) {
+      const bp = new URLSearchParams();
+      bp.set('email', contact.email);
+      if (contactFirstName) bp.set('name', contactFirstName);
+      breakupBookingUrl = 'https://cal.eu/' + calcomUser + '/' + calcomSlug + '?' + bp.toString();
+    }
+
+    const breakupInstruction = breakupBookingUrl
+      ? `- Relance ${totalEmails} (J+21) : BREAKUP + LIEN AGENDA — 3 lignes max
+
+Le breakup exploite la loss aversion. Il DOIT se terminer par ce lien EXACT sur sa propre ligne :
+${breakupBookingUrl}
+
+Exemple breakup :
+"${contactFirstName}, pas le bon moment ? Pas de souci.
+
+Si le sujet revient un jour, 15 min ici :
+${breakupBookingUrl}"
+
+Le lien doit etre COPIE TEL QUEL dans le body JSON — ne JAMAIS le modifier ni l'inventer.`
+      : `- Relance ${totalEmails} (J+21) : BREAKUP — 2 lignes max, choix binaire ("pas le bon moment ? dis-le moi, je ne relancerai plus")
+
+Le breakup exploite la loss aversion. Format strict : 2 phrases max, question fermee.`;
+
+    const meetingCTARule = breakupBookingUrl
+      ? '- JAMAIS : prix, offre, feature, pitch, CTA de meeting (EXCEPTION : le breakup inclut le lien agenda fourni)'
+      : '- JAMAIS : prix, offre, feature, pitch, CTA de meeting';
+
     const senderName = process.env.SENDER_NAME || 'Alexis';
     const senderTitle = process.env.SENDER_TITLE || 'fondateur';
     const systemPrompt = `Tu es ${senderName}, ${senderTitle}. Tu generes ${totalEmails} relances pour un prospect qui n'a pas repondu a ton premier email.
@@ -328,9 +361,7 @@ STRUCTURE :
 - Relance 1 (J+3) : nouvel angle tire des DONNEES PROSPECT (fait DIFFERENT du premier email)
 - Relance 2 (J+7) : preuve sociale — mini cas client anonymise ("un dirigeant dans ton secteur...")
 - Relance 3 (J+14) : dernier angle de valeur, question directe
-- Relance 4 (J+21) : BREAKUP — 2 lignes max, choix binaire ("pas le bon moment ? dis-le moi, je ne relancerai plus")
-
-Le breakup exploite la loss aversion. Format strict : 2 phrases max, question fermee.
+${breakupInstruction}
 
 FORMAT DE CHAQUE RELANCE (sauf breakup) — 50-80 mots max :
 1. OBSERVATION = fait specifique ou nouvel insight + implication en UNE phrase (PAS "je reviens vers toi")
@@ -342,7 +373,7 @@ REGLES :
 - 50-80 mots par relance. Le breakup = 2 lignes MAX. ZERO paragraphe analytique.
 - Tutoiement startup/PME, vouvoiement corporate
 - JAMAIS : "je me permets", "suite a", "beau move", "potentiellement", "curieux" (max 1x sur 4)
-- JAMAIS : prix, offre, feature, pitch, CTA de meeting
+${meetingCTARule}
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients" dans l'email
 - Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise
 - PAS de signature (ajoutee automatiquement)${forbiddenWordsRule}${anglesRule}
@@ -367,9 +398,18 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
 
     try {
       const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const emails = JSON.parse(cleaned);
-      if (Array.isArray(emails)) return emails;
-      throw new Error('Format invalide');
+      let emails = JSON.parse(cleaned);
+      if (!Array.isArray(emails)) throw new Error('Format invalide');
+
+      // Post-processing : garantir que le breakup (dernier email) contient le lien Cal.eu
+      if (breakupBookingUrl && emails.length > 0) {
+        const last = emails[emails.length - 1];
+        if (last.body && !last.body.includes('cal.eu/')) {
+          last.body = last.body.trimEnd() + '\n\n' + breakupBookingUrl;
+        }
+      }
+
+      return emails;
     } catch (e) {
       // Fallback : essayer de parser comme objet unique
       return [this._parseJSON(response)];
