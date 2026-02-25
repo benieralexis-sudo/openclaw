@@ -640,134 +640,48 @@ inboxListener = InboxListener ? new InboxListener({
       log.warn('inbox-manager', 'CRM update echoue:', e.message);
     }
 
-    // === 4. Action selon le sentiment ===
-    let actionTaken = 'none';
-    const existingEmails = automailerStorageForInbox.getEmailEventsForRecipient(replyData.from);
-    const leadCompany = (existingEmails.find(e => e.company) || {}).company || '';
-    const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
-    const resend = automailerHandler.resend;
+    // === 4. HUMAN TAKEOVER : le bot ARRETE toute automation, l'humain prend le relais ===
+    let actionTaken = 'human_takeover';
 
-    // --- Flood protection : max 2 auto-replies par prospect en 48h ---
-    const autoReplies48h = existingEmails.filter(e =>
-      (e.source === 'auto-meeting' || e.source === 'auto-reply-question' || e.source === 'auto-reply-decline') &&
-      e.sentAt && new Date(e.sentAt).getTime() > cutoff48h
-    ).length;
-    if (autoReplies48h >= 2) {
-      actionTaken = 'flood_protection';
-      log.warn('inbox-manager', replyData.from + ': ' + autoReplies48h + ' auto-replies en 48h — bloque');
-    }
-
-    // --- Config : verifier que auto-reply est active pour ce sentiment ---
-    const inboxConfig = require('../skills/inbox-manager/storage.js').getConfig();
-    const replyBySentiment = inboxConfig.replyBySentiment || {};
-    if (replyBySentiment[sentiment] === false) {
-      if (actionTaken === 'none') actionTaken = 'disabled_by_config';
-      log.info('inbox-manager', 'Auto-reply desactive pour sentiment=' + sentiment);
-    }
-
-    const canAutoReply = actionTaken === 'none' && resend;
-
-    // --- INTERESTED : meeting + email enthousiaste ---
-    if (canAutoReply && sentiment === 'interested') {
-      actionTaken = 'auto_meeting';
-      try {
-        const recentAuto = existingEmails.find(e =>
-          (e.source === 'auto-meeting' || e.source === 'auto-reply-question') &&
-          e.sentAt && new Date(e.sentAt).getTime() > cutoff48h);
-        if (recentAuto) {
-          actionTaken = 'auto_meeting_dedup';
-        } else {
-          const meeting = await meetingHandler.proposeAutoMeeting(replyData.from, replyData.fromName || '', leadCompany);
-          if (meeting && meeting.bookingUrl && resend) {
-            const body = REPLY_TEMPLATES.interested.withMeeting(firstName, meeting.bookingUrl);
-            const sr = await resend.sendEmail(replyData.from, replySubject, body, {
-              replyTo: REPLY_TO_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis',
-              tags: [{ name: 'type', value: 'auto-meeting' }, { name: 'sentiment', value: 'interested' }]
-            });
-            if (sr && sr.success) {
-              automailerStorageForInbox.addEmail({
-                chatId: ADMIN_CHAT_ID, to: replyData.from, subject: replySubject, body: body,
-                resendId: sr.id || null, status: 'sent', source: 'auto-meeting',
-                contactName: replyData.fromName || '', company: leadCompany
-              });
-            }
-          } else if (resend) {
-            const body = REPLY_TEMPLATES.interested.withoutMeeting(firstName);
-            await resend.sendEmail(replyData.from, replySubject, body, {
-              replyTo: REPLY_TO_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis',
-              tags: [{ name: 'type', value: 'auto-meeting' }, { name: 'sentiment', value: 'interested' }]
-            });
-          }
-        }
-      } catch (e) { log.warn('inbox-manager', 'Auto-meeting echoue:', e.message); actionTaken = 'auto_meeting_failed'; }
-    }
-
-    // --- QUESTION : reponse IA contextuelle + lien meeting ---
-    else if (canAutoReply && sentiment === 'question') {
-      actionTaken = 'question_reply';
-      try {
-        const recentAuto = existingEmails.find(e =>
-          (e.source === 'auto-meeting' || e.source === 'auto-reply-question') &&
-          e.sentAt && new Date(e.sentAt).getTime() > cutoff48h);
-        if (recentAuto) {
-          actionTaken = 'question_reply_dedup';
-        } else if (resend) {
-          let body = await generateQuestionReply(OPENAI_KEY, replyData, classification);
-          const meeting = await meetingHandler.proposeAutoMeeting(replyData.from, replyData.fromName || '', leadCompany);
-          if (meeting && meeting.bookingUrl) {
-            body += '\n\nSi tu preferes, voici un lien pour caler un call : ' + meeting.bookingUrl;
-          }
-          const sr = await resend.sendEmail(replyData.from, replySubject, body, {
-            replyTo: REPLY_TO_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis',
-            tags: [{ name: 'type', value: 'auto-reply-question' }, { name: 'sentiment', value: 'question' }]
-          });
-          if (sr && sr.success) {
-            automailerStorageForInbox.addEmail({
-              chatId: ADMIN_CHAT_ID, to: replyData.from, subject: replySubject, body: body,
-              resendId: sr.id || null, status: 'sent', source: 'auto-reply-question',
-              contactName: replyData.fromName || '', company: leadCompany
-            });
-          }
-        }
-      } catch (e) { log.warn('inbox-manager', 'Question reply echoue:', e.message); actionTaken = 'question_reply_failed'; }
-    }
-
-    // --- NOT_INTERESTED : email poli + blacklist ---
-    else if (canAutoReply && sentiment === 'not_interested') {
-      actionTaken = 'polite_decline';
-      try {
-        if (resend) {
-          const body = REPLY_TEMPLATES.not_interested(firstName);
-          const sr = await resend.sendEmail(replyData.from, replySubject, body, {
-            replyTo: REPLY_TO_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis',
-            tags: [{ name: 'type', value: 'auto-reply-decline' }, { name: 'sentiment', value: 'not_interested' }]
-          });
-          if (sr && sr.success) {
-            automailerStorageForInbox.addEmail({
-              chatId: ADMIN_CHAT_ID, to: replyData.from, subject: replySubject, body: body,
-              resendId: sr.id || null, status: 'sent', source: 'auto-reply-decline',
-              contactName: replyData.fromName || ''
-            });
-          }
-        }
-        automailerStorageForInbox.addToBlacklist(replyData.from, 'prospect_declined');
-        log.info('inbox-manager', replyData.from + ' blackliste (decline)');
-      } catch (e) { log.warn('inbox-manager', 'Decline reply echoue:', e.message); }
-    }
-
-    // --- OUT_OF_OFFICE : pas de reponse auto ---
-    else if (sentiment === 'out_of_office') {
-      actionTaken = 'deferred_ooo';
-      log.info('inbox-manager', replyData.from + ' absent (OOO) — pas de reponse auto');
-    }
-
-    // --- BOUNCE : blacklist ---
-    else if (sentiment === 'bounce') {
+    // Blacklister les bounces (pas de relais humain necessaire)
+    if (sentiment === 'bounce') {
       actionTaken = 'bounce_blacklist';
       try {
         automailerStorageForInbox.addToBlacklist(replyData.from, 'bounce_detected');
       } catch (e) {}
       log.info('inbox-manager', replyData.from + ' blackliste (bounce)');
+    }
+    // Blacklister les not_interested (reponse polie auto + arret)
+    else if (sentiment === 'not_interested') {
+      actionTaken = 'polite_decline_blacklist';
+      try {
+        automailerStorageForInbox.addToBlacklist(replyData.from, 'prospect_declined');
+        log.info('inbox-manager', replyData.from + ' blackliste (decline) — human takeover');
+      } catch (e) {}
+    }
+    // OOO : reporter, pas de relais humain immédiat
+    else if (sentiment === 'out_of_office') {
+      actionTaken = 'deferred_ooo';
+      log.info('inbox-manager', replyData.from + ' absent (OOO) — pas de relais humain');
+    }
+    // INTERESTED / QUESTION / autre : HUMAN TAKEOVER — aucun auto-reply
+    else {
+      actionTaken = 'human_takeover';
+      log.info('inbox-manager', '🤝 HUMAN TAKEOVER: ' + replyData.from + ' (sentiment=' + sentiment + ') — le bot arrete, l\'humain prend le relais');
+
+      // Annuler les reactive follow-ups pending pour ce prospect
+      try {
+        const proactiveStorage = require('../skills/proactive-agent/storage.js');
+        const pendingFUs = proactiveStorage.getPendingFollowUps();
+        for (const fu of pendingFUs) {
+          if (fu.prospectEmail && fu.prospectEmail.toLowerCase() === replyData.from.toLowerCase()) {
+            proactiveStorage.markFollowUpFailed(fu.id, 'human_takeover: prospect replied');
+            log.info('inbox-manager', 'Reactive FU annule pour ' + replyData.from + ' (human takeover)');
+          }
+        }
+      } catch (e) {
+        log.warn('inbox-manager', 'Annulation reactive FU echouee:', e.message);
+      }
     }
 
     // === 5. Update storage inbox-manager avec sentiment ===
@@ -790,18 +704,12 @@ inboxListener = InboxListener ? new InboxListener({
     const EMOJIS = { interested: '🟢🔥', question: '🟡❓', not_interested: '🔴👋', out_of_office: '🏖️', bounce: '💀' };
     const SLABELS = { interested: 'INTERESSE', question: 'QUESTION', not_interested: 'PAS INTERESSE', out_of_office: 'ABSENT', bounce: 'BOUNCE' };
     const ALABELS = {
-      auto_meeting: '📅 Meeting propose + email envoye',
-      auto_meeting_dedup: '📅 Deja envoye (48h)',
-      auto_meeting_failed: '❌ Echec meeting',
-      question_reply: '💬 Reponse IA envoyee',
-      question_reply_dedup: '💬 Deja repondu (48h)',
-      question_reply_failed: '❌ Echec reponse',
-      polite_decline: '👋 Decline poli + blacklist',
+      human_takeover: '🤝 HUMAN TAKEOVER — reponds-lui !',
+      polite_decline_blacklist: '👋 Blackliste (decline)',
       deferred_ooo: '🏖️ Reporte (OOO)',
-      bounce_blacklist: '💀 Blackliste',
+      bounce_blacklist: '💀 Blackliste (bounce)',
       none: '—'
     };
-    const ALABELS_FLOOD = { flood_protection: '⚠️ Bloque (flood 48h)', disabled_by_config: '⚙️ Desactive (config)' };
     const notifLines = [
       (EMOJIS[sentiment] || '❓') + ' *Reponse prospect — ' + (SLABELS[sentiment] || sentiment) + '*',
       '',
@@ -815,7 +723,11 @@ inboxListener = InboxListener ? new InboxListener({
     }
     notifLines.push('💡 ' + escTg(classification.reason || ''));
     notifLines.push('');
-    notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || ALABELS_FLOOD[actionTaken] || actionTaken));
+    notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));
+    if (actionTaken === 'human_takeover') {
+      notifLines.push('');
+      notifLines.push('🚨 _Le bot a ARRETE toute automation pour ce prospect\\. Reponds\\-lui manuellement\\!_');
+    }
     await sendMessage(ADMIN_CHAT_ID, notifLines.join('\n'), 'Markdown');
   }
 }) : null;
