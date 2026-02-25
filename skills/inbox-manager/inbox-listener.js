@@ -85,14 +85,22 @@ class InboxListener {
         pass: this.pass
       },
       logger: false, // Desactiver le logging verbose d'imapflow
-      emitLogs: false
+      emitLogs: false,
+      tls: { rejectUnauthorized: false }
     });
 
-    await client.connect();
+    // Timeout 15s pour eviter les hangs silencieux
+    const connectTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('IMAP connect timeout (15s)')), 15000)
+    );
+    await Promise.race([client.connect(), connectTimeout]);
     return client;
   }
 
   async _checkNewEmails() {
+    if (!this._pollCount) this._pollCount = 0;
+    this._pollCount++;
+
     let client = null;
     try {
       client = await this._getClient();
@@ -101,17 +109,23 @@ class InboxListener {
       const lock = await client.getMailboxLock('INBOX');
 
       try {
-        // Chercher les messages non vus (UNSEEN) des 7 derniers jours
+        // Chercher TOUS les messages des 7 derniers jours (pas seulement UNSEEN)
+        // Le filtre par UID deja traite evite les doublons
         const since = new Date();
         since.setDate(since.getDate() - 7);
 
         const messages = [];
+        let totalChecked = 0;
         for await (const msg of client.fetch(
-          { seen: false, since: since },
+          { since: since },
           { envelope: true, bodyStructure: true, source: { maxLength: 8192 } }
         )) {
+          totalChecked++;
+          // Normaliser UID en nombre pour eviter mismatch string/int
+          const uid = typeof msg.uid === 'string' ? parseInt(msg.uid, 10) : msg.uid;
+
           // Verifier si deja traite
-          if (storage.isUidProcessed(msg.uid)) continue;
+          if (storage.isUidProcessed(uid)) continue;
 
           const from = msg.envelope.from && msg.envelope.from[0]
             ? (msg.envelope.from[0].address || '')
@@ -129,7 +143,7 @@ class InboxListener {
           const snippet = await this._extractSnippet(msg.source);
 
           messages.push({
-            uid: msg.uid,
+            uid,
             from,
             fromName,
             to,
@@ -141,8 +155,13 @@ class InboxListener {
 
         // Traiter les nouveaux messages
         if (messages.length > 0) {
-          log.info('inbox-manager', messages.length + ' nouveau(x) email(s) detecte(s)');
+          log.info('inbox-manager', messages.length + ' nouveau(x) email(s) detecte(s) (sur ' + totalChecked + ' verifies)');
           await this._processNewEmails(messages);
+        }
+
+        // Heartbeat log toutes les 10 polls (~20 min) pour confirmer que le polling tourne
+        if (this._pollCount % 10 === 0) {
+          log.info('inbox-manager', 'Heartbeat: poll #' + this._pollCount + ' — ' + totalChecked + ' emails verifies, ' + messages.length + ' nouveaux');
         }
 
         storage.recordCheck();

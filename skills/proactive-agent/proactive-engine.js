@@ -782,11 +782,26 @@ class ProactiveEngine {
     log.info('proactive-engine', 'Reactive follow-ups: ' + pending.length + ' en attente');
 
     for (const followUp of pending) {
+      // TTL 72h : expirer les follow-ups trop anciens
+      const expiresAt = followUp.expiresAt ? new Date(followUp.expiresAt).getTime() : (new Date(followUp.createdAt).getTime() + 72 * 60 * 60 * 1000);
+      if (Date.now() > expiresAt) {
+        log.info('proactive-engine', 'Reactive FU EXPIRED (TTL 72h): ' + followUp.prospectEmail + ' — cree le ' + followUp.createdAt + ', retries: ' + (followUp.retryCount || 0));
+        storage.markFollowUpExpired(followUp.id, 'ttl_72h_expired (retries: ' + (followUp.retryCount || 0) + ', last: ' + (followUp.lastBlockedReason || 'none') + ')');
+        continue;
+      }
+
+      // Max 20 retries (~3h20 de cycles de 10 min)
+      if ((followUp.retryCount || 0) >= 20) {
+        log.warn('proactive-engine', 'Reactive FU MAX RETRIES (20): ' + followUp.prospectEmail + ' — derniere raison: ' + (followUp.lastBlockedReason || '?'));
+        storage.markFollowUpExpired(followUp.id, 'max_retries_20 (last: ' + (followUp.lastBlockedReason || 'none') + ')');
+        continue;
+      }
+
       // Verifier le delai
       const scheduledTime = new Date(followUp.scheduledAfter).getTime();
       if (Date.now() < scheduledTime) continue;
 
-      log.info('proactive-engine', 'Traitement reactive follow-up pour ' + followUp.prospectEmail);
+      log.info('proactive-engine', 'Traitement reactive follow-up pour ' + followUp.prospectEmail + ' (retry #' + (followUp.retryCount || 0) + ')');
 
       try {
         // 1. Verifications de securite
@@ -824,8 +839,9 @@ class ProactiveEngine {
           return sentTime > 0 && sentTime > cutoff72h;
         });
         if (recentSent.length >= 2) {
-          log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' rate limit (' + recentSent.length + ' emails en 72h) — reporte');
-          continue; // Reste pending, reessaye au prochain cycle
+          log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' rate limit (' + recentSent.length + ' emails en 72h) — reporte (retry #' + (followUp.retryCount || 0) + ')');
+          storage.incrementFollowUpRetry(followUp.id, 'rate_limit_72h');
+          continue;
         }
 
         // Verifier warmup quotidien
@@ -833,8 +849,9 @@ class ProactiveEngine {
         const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
         const dailyLimit = getWarmupDailyLimit(firstSendDate);
         if (todaySent >= dailyLimit) {
-          log.info('proactive-engine', 'Reactive FU: warmup limit (' + todaySent + '/' + dailyLimit + ') — reporte');
-          continue; // Reste pending, reessaye au prochain cycle
+          log.info('proactive-engine', 'Reactive FU: warmup limit (' + todaySent + '/' + dailyLimit + ') — reporte (retry #' + (followUp.retryCount || 0) + ')');
+          storage.incrementFollowUpRetry(followUp.id, 'warmup_daily_limit');
+          continue;
         }
 
         // 2. Generer le follow-up via Claude
@@ -914,8 +931,9 @@ class ProactiveEngine {
             if (campaignConflict) break;
           }
           if (campaignConflict) {
-            log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' a une sequence campaign prevue sous 24h — reporte');
-            continue; // Reste pending, reessaye au prochain cycle
+            log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' a une sequence campaign prevue sous 24h — reporte (retry #' + (followUp.retryCount || 0) + ')');
+            storage.incrementFollowUpRetry(followUp.id, 'campaign_conflict_24h');
+            continue;
           }
         } catch (crossErr) {
           log.info('proactive-engine', 'Reactive FU: cross-dedup check skip: ' + crossErr.message);

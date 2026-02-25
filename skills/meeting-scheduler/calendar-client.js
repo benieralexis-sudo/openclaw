@@ -68,35 +68,28 @@ class CalComClient {
     });
   }
 
-  // Appel API avec retry (2 tentatives, backoff 1s)
+  // Appel API avec retry (3 tentatives, backoff 2s/4s/8s)
   async _requestWithRetry(method, path, body) {
-    return retryAsync(() => this._request(method, path, body), 2, 1000);
+    return retryAsync(() => this._request(method, path, body), 3, 2000);
   }
 
-  // Recuperer les event types disponibles
+  // Recuperer les event types — Cal.eu n'expose PAS /v2/event-types,
+  // on utilise le slug configure en env ou le fallback hardcode
   async getEventTypes() {
     if (!this.isConfigured()) return [];
-    try {
-      // Try v2 event-types endpoint first
-      const result = await this._requestWithRetry('GET', '/v2/event-types');
-      if (result.statusCode === 200 && result.data.data) {
-        const types = Array.isArray(result.data.data) ? result.data.data : [];
-        if (types.length > 0) {
-          return types.map(et => ({
-            id: et.id,
-            title: et.title || et.name,
-            slug: et.slug || et.lengthInMinutes + 'min',
-            length: et.lengthInMinutes || et.length || 30,
-            description: et.description || ''
-          }));
-        }
-      }
-      log.warn('calcom', 'getEventTypes HTTP ' + result.statusCode + ', utilise fallback');
-    } catch (e) {
-      log.warn('calcom', 'Erreur getEventTypes:', e.message + ', utilise fallback');
+
+    // Lire slug depuis env si disponible
+    const envSlug = process.env.CALCOM_EVENT_SLUG;
+    if (envSlug) {
+      return [{
+        id: 0,
+        title: 'Appel téléphonique',
+        slug: envSlug,
+        length: 15,
+        description: 'Appel découverte 15 min'
+      }];
     }
 
-    // Fallback: return hardcoded event type from cal.eu account
     return [this._fallbackEventType];
   }
 
@@ -130,8 +123,8 @@ class CalComClient {
   async getBookings(status) {
     if (!this.isConfigured()) return [];
     try {
-      const path = status ? '/v2/bookings?status=' + status : '/v2/bookings';
-      const result = await this._requestWithRetry('GET', path);
+      const reqPath = status ? '/v2/bookings?status=' + status : '/v2/bookings';
+      const result = await this._requestWithRetry('GET', reqPath);
       if (result.statusCode === 200 && result.data.data) {
         const bookings = Array.isArray(result.data.data) ? result.data.data : [];
         return bookings.map(b => ({
@@ -145,7 +138,11 @@ class CalComClient {
           meetingUrl: b.meetingUrl || (b.metadata && b.metadata.videoCallUrl) || null
         }));
       }
-      log.warn('calcom', 'getBookings HTTP ' + result.statusCode);
+      if (result.statusCode === 401) {
+        log.error('calcom', 'getBookings: API key invalide (401) — verifier CALCOM_API_KEY');
+      } else {
+        log.warn('calcom', 'getBookings HTTP ' + result.statusCode);
+      }
       return [];
     } catch (e) {
       log.error('calcom', 'Erreur getBookings:', e.message);

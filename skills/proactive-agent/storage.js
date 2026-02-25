@@ -249,6 +249,9 @@ class ProactiveStorage {
       prospectIntel: followUp.prospectIntel || '',
       scheduledAfter: followUp.scheduledAfter,
       createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+      retryCount: 0,
+      lastBlockedReason: null,
       status: 'pending'
     };
     this.data.reactiveFollowUps.pending.push(entry);
@@ -293,6 +296,30 @@ class ProactiveStorage {
     this.data.reactiveFollowUps.pending.splice(idx, 1);
     this._save();
     return followUp;
+  }
+
+  markFollowUpExpired(followUpId, reason) {
+    if (!this.data.reactiveFollowUps) return null;
+    const idx = this.data.reactiveFollowUps.pending.findIndex(f => f.id === followUpId);
+    if (idx === -1) return null;
+    const followUp = this.data.reactiveFollowUps.pending[idx];
+    followUp.status = 'expired';
+    followUp.expiredAt = new Date().toISOString();
+    followUp.error = reason || 'ttl_72h_expired';
+    this.data.reactiveFollowUps.sent.unshift(followUp);
+    this.data.reactiveFollowUps.pending.splice(idx, 1);
+    this._save();
+    return followUp;
+  }
+
+  incrementFollowUpRetry(followUpId, reason) {
+    if (!this.data.reactiveFollowUps) return;
+    const fu = this.data.reactiveFollowUps.pending.find(f => f.id === followUpId);
+    if (!fu) return;
+    fu.retryCount = (fu.retryCount || 0) + 1;
+    fu.lastBlockedReason = reason;
+    fu.lastBlockedAt = new Date().toISOString();
+    this._save();
   }
 
   hasReactiveFollowUp(prospectEmail) {

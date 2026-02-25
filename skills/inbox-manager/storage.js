@@ -124,12 +124,14 @@ class InboxManagerStorage {
   }
 
   addProcessedUid(uid) {
+    // Normaliser en nombre pour eviter mismatch string/int
+    const normalizedUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
     // UIDs stockes en array (JSON-serialisable) mais lookup via Set en memoire
     if (!this.data._processedUids) this.data._processedUids = [];
-    if (!this._uidSet) this._uidSet = new Set(this.data._processedUids);
-    if (!this._uidSet.has(uid)) {
-      this.data._processedUids.push(uid);
-      this._uidSet.add(uid);
+    if (!this._uidSet) this._uidSet = new Set(this.data._processedUids.map(u => typeof u === 'string' ? parseInt(u, 10) : u));
+    if (!this._uidSet.has(normalizedUid)) {
+      this.data._processedUids.push(normalizedUid);
+      this._uidSet.add(normalizedUid);
       // Garder les 2000 derniers UIDs
       if (this.data._processedUids.length > 2000) {
         this.data._processedUids = this.data._processedUids.slice(-2000);
@@ -140,10 +142,11 @@ class InboxManagerStorage {
   }
 
   isUidProcessed(uid) {
+    const normalizedUid = typeof uid === 'string' ? parseInt(uid, 10) : uid;
     if (!this._uidSet) {
-      this._uidSet = new Set(this.data._processedUids || []);
+      this._uidSet = new Set((this.data._processedUids || []).map(u => typeof u === 'string' ? parseInt(u, 10) : u));
     }
-    return this._uidSet.has(uid);
+    return this._uidSet.has(normalizedUid);
   }
 
   recordCheck() {
