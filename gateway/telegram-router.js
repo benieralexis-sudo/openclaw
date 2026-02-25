@@ -719,9 +719,30 @@ inboxListener = InboxListener ? new InboxListener({
       '📊 Score : ' + score + '/1.0'
     ];
     if (replyData.snippet) {
-      notifLines.push('💬 _' + escTg(replyData.snippet.substring(0, 200)) + (replyData.snippet.length > 200 ? '...' : '') + '_');
+      notifLines.push('');
+      notifLines.push('💬 *Sa reponse :*');
+      notifLines.push('_' + escTg(replyData.snippet.substring(0, 300)) + (replyData.snippet.length > 300 ? '...' : '') + '_');
     }
+    notifLines.push('');
     notifLines.push('💡 ' + escTg(classification.reason || ''));
+
+    // Contexte : inclure l'email original qu'on lui avait envoye
+    try {
+      const existingEmails = automailerStorageForInbox.getEmailEventsForRecipient(replyData.from);
+      const lastSent = existingEmails.filter(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened').pop();
+      if (lastSent) {
+        notifLines.push('');
+        notifLines.push('📤 *Ton email original :*');
+        notifLines.push('Sujet : ' + escTg(lastSent.subject || ''));
+        if (lastSent.body) {
+          notifLines.push('_' + escTg(lastSent.body.substring(0, 250)) + (lastSent.body.length > 250 ? '...' : '') + '_');
+        }
+        if (lastSent.company) {
+          notifLines.push('🏢 ' + escTg(lastSent.company));
+        }
+      }
+    } catch (ctxErr) {}
+
     notifLines.push('');
     notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));
     if (actionTaken === 'human_takeover') {
@@ -1675,6 +1696,12 @@ async function handleResendWebhook(body) {
     try {
       const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
       if (!rfConfig.enabled) return;
+      // Guard : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
+      const events = automailerStorage.getEmailEventsForRecipient(emailRecord.to);
+      if (events.some(e => e.status === 'replied' || e.hasReplied)) {
+        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — deja repondu (human takeover)');
+        return;
+      }
       const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
       const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
       const added = proactiveAgentStorage.addPendingFollowUp({
@@ -2007,19 +2034,25 @@ const healthServer = http.createServer((req, res) => {
         try {
           var rfConfig3 = proactiveAgentStorage.getReactiveFollowUpConfig();
           if (rfConfig3.enabled) {
-            var delayMs3 = (rfConfig3.minDelayMinutes + Math.random() * (rfConfig3.maxDelayMinutes - rfConfig3.minDelayMinutes)) * 60 * 1000;
-            var scheduledAfter3 = new Date(Date.now() + delayMs3).toISOString();
-            proactiveAgentStorage.addPendingFollowUp({
-              prospectEmail: email.to,
-              prospectName: email.contactName || '',
-              prospectCompany: email.company || '',
-              originalEmailId: email.id,
-              originalSubject: email.subject || '',
-              originalBody: (email.body || '').substring(0, 500),
-              prospectIntel: pixelCachedIntel,
-              scheduledAfter: scheduledAfter3
-            });
-            log.info('tracking', 'Reactive FU programme (reouvre pixel) pour ' + email.to);
+            // Guard : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
+            var pixelEvents = automailerStorage.getEmailEventsForRecipient(email.to);
+            if (pixelEvents.some(function(e) { return e.status === 'replied' || e.hasReplied; })) {
+              log.info('tracking', 'Skip reactive FU (reouvre pixel) pour ' + email.to + ' — deja repondu (human takeover)');
+            } else {
+              var delayMs3 = (rfConfig3.minDelayMinutes + Math.random() * (rfConfig3.maxDelayMinutes - rfConfig3.minDelayMinutes)) * 60 * 1000;
+              var scheduledAfter3 = new Date(Date.now() + delayMs3).toISOString();
+              proactiveAgentStorage.addPendingFollowUp({
+                prospectEmail: email.to,
+                prospectName: email.contactName || '',
+                prospectCompany: email.company || '',
+                originalEmailId: email.id,
+                originalSubject: email.subject || '',
+                originalBody: (email.body || '').substring(0, 500),
+                prospectIntel: pixelCachedIntel,
+                scheduledAfter: scheduledAfter3
+              });
+              log.info('tracking', 'Reactive FU programme (reouvre pixel) pour ' + email.to);
+            }
           }
         } catch (rfErr3) {}
       }

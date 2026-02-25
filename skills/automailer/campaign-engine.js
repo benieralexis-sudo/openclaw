@@ -767,6 +767,14 @@ class CampaignEngine {
         }
       }
 
+      // Dernier guard avant envoi : re-verifier replied (anti race condition)
+      const freshEvents = storage.getEmailEventsForRecipient(contact.email);
+      if (freshEvents.some(e => e.status === 'replied' || e.hasReplied)) {
+        log.info('campaign-engine', 'Guard pre-envoi: ' + contact.email + ' a repondu entre-temps — skip');
+        skipped++;
+        continue;
+      }
+
       // Generer un tracking ID unique pour le pixel d'ouverture
       const trackingId = require('crypto').randomBytes(16).toString('hex');
 
