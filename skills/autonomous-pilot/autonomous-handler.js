@@ -199,6 +199,7 @@ Actions disponibles:
 - resume : reprendre
 - force_brain_cycle : lancer un cycle brain immediatement
 - run_diagnostic : lancer un diagnostic
+- blacklist_prospect : BLOQUER toute automation pour un prospect → params: {email: "x@y.com", reason: "demande client"}. UTILISE CETTE ACTION quand le client dit "ne relance pas X", "arrete de contacter X", "stop X", "laisse tomber X", etc.
 
 REGLES ACTIONS:
 - N'ajoute le bloc <actions> QUE si le client demande explicitement un changement ou une action
@@ -213,7 +214,9 @@ Client: "c'est quoi mon taux d'ouverture ?" → Tu reponds avec les stats SANS b
 Client: "lance une recherche" → Tu reponds "C'est parti !" + <actions>[{"type":"force_brain_cycle","params":{}}]</actions>
 Client: "pause" → "Ok c'est en pause." + <actions>[{"type":"pause","params":{}}]</actions>
 Client: "montre moi le message pour Nadine" → Tu rediges un brouillon de relance personnalise en te basant sur l'email original et le contexte du prospect (voir DERNIERS EMAILS ci-dessus). Tu ne declenches PAS d'action, tu montres juste le texte.
-Client: "relance de X" → Idem, tu rediges un brouillon. Si tu ne connais pas le prospect, demande plus de contexte.`;
+Client: "relance de X" → Idem, tu rediges un brouillon. Si tu ne connais pas le prospect, demande plus de contexte.
+Client: "ne relance pas Patrice" → "Ok, Patrice est blackliste. Plus aucune relance ni email automatique." + <actions>[{"type":"blacklist_prospect","params":{"email":"patrice@example.com","reason":"demande client"}}]</actions>
+Client: "arrete de contacter Thunder Code" → "C'est fait, Thunder Code est sorti de la boucle." + <actions>[{"type":"blacklist_prospect","params":{"email":"contact@thundercode.com","reason":"demande client"}}]</actions>`;
   }
 
   // --- Contexte des derniers emails envoyes (cross-skill) ---
@@ -345,6 +348,35 @@ Client: "relance de X" → Idem, tu rediges un brouillon. Si tu ne connais pas l
       case 'run_diagnostic':
         diagnostic.runFullDiagnostic();
         break;
+
+      case 'blacklist_prospect': {
+        const email = (params.email || '').toLowerCase().trim();
+        const reason = params.reason || 'demande client';
+        if (email) {
+          // 1. Blacklist automailer (bloque envois + relances reactives)
+          const amStorage = getAutomailerStorage();
+          if (amStorage && amStorage.addToBlacklist) {
+            amStorage.addToBlacklist(email, reason);
+            log.info('autonomous', 'Prospect blackliste: ' + email + ' (' + reason + ')');
+          }
+          // 2. Annuler les follow-ups pending
+          try {
+            const paStorage = getProactiveStorage();
+            if (paStorage && paStorage.getPendingFollowUps) {
+              const pendingFUs = paStorage.getPendingFollowUps();
+              for (const fu of pendingFUs) {
+                if (fu.prospectEmail && fu.prospectEmail.toLowerCase() === email) {
+                  paStorage.markFollowUpFailed(fu.id, 'blacklisted: ' + reason);
+                  log.info('autonomous', 'FU annule pour ' + email);
+                }
+              }
+            }
+          } catch (e) {
+            log.warn('autonomous', 'Erreur annulation FU:', e.message);
+          }
+        }
+        break;
+      }
 
       default:
         log.warn('autonomous', 'Action inconnue:', type);
