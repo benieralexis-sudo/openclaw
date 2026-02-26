@@ -104,6 +104,16 @@ function updateConfig(updates) {
 
 // --- Watches ---
 
+function _syncArticleCounts(data) {
+  const counts = {};
+  for (const a of data.articles) {
+    if (a.watchId) counts[a.watchId] = (counts[a.watchId] || 0) + 1;
+  }
+  for (const id of Object.keys(data.watches)) {
+    data.watches[id].articleCount = counts[id] || 0;
+  }
+}
+
 function addWatch(watch) {
   const data = _load();
   const id = _generateId('watch');
@@ -114,7 +124,11 @@ function addWatch(watch) {
     keywords: watch.keywords || [],
     rssUrls: watch.rssUrls || [],
     scrapeUrls: watch.scrapeUrls || [],
+    redditSubs: watch.redditSubs || [],
     googleNewsEnabled: watch.googleNewsEnabled !== false,
+    hackerNewsEnabled: watch.hackerNewsEnabled || false,
+    productHuntEnabled: watch.productHuntEnabled || false,
+    githubTrendingEnabled: watch.githubTrendingEnabled || false,
     frequency: watch.frequency || 6,
     enabled: true,
     createdAt: new Date().toISOString(),
@@ -194,6 +208,42 @@ function _normalizeTitle(title) {
   return title.toLowerCase().replace(/[^a-z0-9\u00C0-\u024F]/g, '').substring(0, 80);
 }
 
+function _levenshtein(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      const cost = b.charAt(i - 1) === a.charAt(j - 1) ? 0 : 1;
+      matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function _titleSimilarity(title1, title2) {
+  const n1 = _normalizeTitle(title1);
+  const n2 = _normalizeTitle(title2);
+  if (n1.length < 10 || n2.length < 10) return 0;
+  if (Math.abs(n1.length - n2.length) > Math.max(n1.length, n2.length) * 0.5) return 0;
+  const maxLen = Math.max(n1.length, n2.length);
+  const dist = _levenshtein(n1.substring(0, 80), n2.substring(0, 80));
+  return 1 - (dist / maxLen);
+}
+
+function _isValidArticleDate(dateStr) {
+  if (!dateStr) return true;
+  try {
+    const d = new Date(dateStr);
+    const t = d.getTime();
+    if (isNaN(t)) return true;
+    const now = Date.now();
+    return t > (now - 30 * 24 * 60 * 60 * 1000) && t < (now + 24 * 60 * 60 * 1000);
+  } catch (e) { return true; }
+}
+
 function hasArticle(link) {
   const data = _load();
   return data.articles.some(a => a.link === link);
@@ -202,9 +252,18 @@ function hasArticle(link) {
 function hasArticleByTitle(title) {
   if (!title) return false;
   const norm = _normalizeTitle(title);
-  if (norm.length < 10) return false; // titre trop court = pas fiable
+  if (norm.length < 10) return false;
   const data = _load();
-  return data.articles.some(a => _normalizeTitle(a.title) === norm);
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recent = data.articles.filter(a => {
+    const t = a.fetchedAt ? new Date(a.fetchedAt).getTime() : 0;
+    return t > sevenDaysAgo;
+  });
+  for (const a of recent) {
+    if (_normalizeTitle(a.title) === norm) return true;
+    if (_titleSimilarity(title, a.title) > 0.85) return true;
+  }
+  return false;
 }
 
 function addArticles(articles) {
@@ -217,9 +276,9 @@ function addArticlesAndReturnAdded(articles) {
   let added = 0;
   const addedArticles = [];
   for (const article of articles) {
-    // Deduplication par URL + titre (articles syndiques avec URLs differentes)
     if (hasArticle(article.link)) continue;
     if (hasArticleByTitle(article.title)) continue;
+    if (!_isValidArticleDate(article.pubDate)) continue;
 
     const fullArticle = {
       id: _generateId('art'),
@@ -228,7 +287,7 @@ function addArticlesAndReturnAdded(articles) {
       link: article.link || '',
       source: article.source || '',
       pubDate: article.pubDate || null,
-      snippet: (article.snippet || '').substring(0, 300),
+      snippet: (article.snippet || '').substring(0, 600),
       relevanceScore: article.relevanceScore || 5,
       summary: article.summary || '',
       matchedKeywords: article.matchedKeywords || [],
@@ -248,6 +307,7 @@ function addArticlesAndReturnAdded(articles) {
   }
 
   data.stats.totalArticlesFetched += added;
+  _syncArticleCounts(data);
   _save();
   return { count: added, articles: addedArticles };
 }
@@ -567,6 +627,22 @@ function getHighPrioritySignals() {
     .slice(0, 10);
 }
 
+function saveSourceHealth(health) {
+  const data = _load();
+  data.sourceHealth = health;
+  _save();
+}
+
+function getSourceHealth() {
+  return _load().sourceHealth || {};
+}
+
+function getPreviousTrends() {
+  const data = _load();
+  if (!data.trendHistory || data.trendHistory.length < 2) return null;
+  return data.trendHistory[data.trendHistory.length - 2];
+}
+
 module.exports = {
   getConfig, updateConfig,
   addWatch, getWatch, getWatchByName, updateWatch, deleteWatch,
@@ -577,8 +653,9 @@ module.exports = {
   getArticlesByDateRange, getArticlesLast24h, getArticlesLastWeek,
   saveNewsOutreach, getRelevantNewsForContact, getRecentNewsOutreach, markNewsUsedInEmail,
   saveCompetitiveDigest, getLatestCompetitiveDigest,
-  saveTrends, getLatestTrends,
+  saveTrends, getLatestTrends, getPreviousTrends,
   saveMarketSignals, saveMarketSignalsDeduped, getRecentMarketSignals, getHighPrioritySignals,
+  saveSourceHealth, getSourceHealth,
   saveAnalysis, getRecentAnalyses,
   getStats, updateStat, incrementStat
 };

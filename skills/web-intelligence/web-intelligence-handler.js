@@ -49,12 +49,12 @@ class WebIntelligenceHandler {
     })));
     log.info('web-intel', 'Cron: digest quotidien 10h');
 
-    // Digest hebdo lundi 14h (decale pour eviter surcharge matinale du lundi)
-    this.crons.push(new Cron('0 14 * * 1', { timezone: tz }, withCronGuard('wi-weekly-digest', () => {
+    // Digest hebdo lundi 9h
+    this.crons.push(new Cron('0 9 * * 1', { timezone: tz }, withCronGuard('wi-weekly-digest', () => {
       log.info('web-intel', 'Cron: digest hebdo');
       this._weeklyDigest().catch(e => log.error('web-intel', 'Erreur digest hebdo:', e.message));
     })));
-    log.info('web-intel', 'Cron: digest hebdo lundi 14h');
+    log.info('web-intel', 'Cron: digest hebdo lundi 9h');
 
     // Initialiser les watches par defaut si aucune n'existe (premier demarrage)
     const existingWatches = storage.getWatches();
@@ -394,10 +394,17 @@ Reponds UNIQUEMENT en JSON strict :
     return { type: 'text', content: lines.join('\n') };
   }
 
+  _isValidUrl(url) {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol) && parsed.hostname.length >= 3;
+    } catch (e) { return false; }
+  }
+
   async _handleAddRss(chatId, params) {
     const url = params.url;
-    if (!url || !url.startsWith('http')) {
-      return { type: 'text', content: 'Donne-moi l\'URL du flux RSS. Ex: _"ajoute https://techcrunch.com/feed/"_' };
+    if (!url || !this._isValidUrl(url)) {
+      return { type: 'text', content: 'URL invalide. Donne-moi l\'URL du flux RSS. Ex: _"ajoute https://techcrunch.com/feed/"_' };
     }
 
     const watchName = params.watchName;
@@ -683,6 +690,20 @@ Reponds UNIQUEMENT en JSON strict :
       }
     }
 
+    // Sante des sources
+    const health = this.fetcher.getSourceHealth();
+    if (Object.keys(health).length > 0) {
+      lines.push('');
+      lines.push('*Sante des sources :*');
+      for (const [name, h] of Object.entries(health)) {
+        const status = h.failures > 5 ? 'KO' : h.failures > 2 ? 'WARN' : 'OK';
+        lines.push('  [' + status + '] ' + name + ' — ' + h.successes + ' ok, ' + h.failures + ' err');
+      }
+    }
+
+    // Sauvegarder source health
+    storage.saveSourceHealth(health);
+
     return { type: 'text', content: lines.join('\n') };
   }
 
@@ -735,41 +756,56 @@ Reponds UNIQUEMENT en JSON strict :
   async _handleDetectTrends(chatId, sendReply) {
     if (sendReply) await sendReply({ type: 'text', content: '_Detection des tendances en cours..._' });
 
-    const articles = storage.getRecentArticles(100); // Plus d'articles pour une meilleure analyse
+    const articles = storage.getRecentArticles(100);
     if (articles.length < 5) {
       return { type: 'text', content: 'Pas assez d\'articles pour une analyse de tendances. Continue la veille pendant quelques jours.' };
     }
 
-    const trends = this.analyzer.detectTrends(articles);
-
-    // Sauvegarder les tendances
+    const previousTrends = storage.getPreviousTrends();
+    const trends = await this.analyzer.detectTrendsWithAI(articles, previousTrends);
     storage.saveTrends(trends);
 
-    // Formater la reponse
     const lines = ['*Detection de tendances* (30 derniers jours)', ''];
 
-    if (trends.rising.length > 0) {
+    // Themes emergents (IA)
+    if (trends.emergingThemes && trends.emergingThemes.length > 0) {
+      lines.push('*Themes emergents :*');
+      for (const t of trends.emergingThemes.slice(0, 5)) {
+        lines.push('  *' + t.theme + '* (confiance: ' + Math.round((t.confidence || 0.5) * 100) + '%)');
+        if (t.insight) lines.push('  → ' + t.insight);
+      }
+      lines.push('');
+    }
+
+    if (trends.weekOverWeek) {
+      lines.push('*Evolution vs semaine precedente :*');
+      lines.push('  ' + trends.weekOverWeek);
+      lines.push('');
+    }
+
+    if (trends.rising && trends.rising.length > 0) {
       lines.push('*Sujets en hausse :*');
       for (const t of trends.rising.slice(0, 7)) {
-        lines.push('  ↗️ *' + t.keyword + '* (+' + t.change + '%, ' + t.recentMentions + ' mentions recentes)');
+        lines.push('  *' + t.keyword + '* (+' + t.change + '%, ' + t.recentMentions + ' mentions recentes)');
       }
       lines.push('');
     }
 
-    if (trends.falling.length > 0) {
+    if (trends.falling && trends.falling.length > 0) {
       lines.push('*Sujets en baisse :*');
       for (const t of trends.falling.slice(0, 7)) {
-        lines.push('  ↘️ _' + t.keyword + '_ (' + t.change + '%, ' + t.recentMentions + ' mentions recentes)');
+        lines.push('  _' + t.keyword + '_ (' + t.change + '%, ' + t.recentMentions + ' mentions recentes)');
       }
       lines.push('');
     }
 
-    if (trends.stable.length > 0) {
-      lines.push('*Sujets stables :*');
-      lines.push('  ' + trends.stable.slice(0, 5).map(t => t.keyword + ' (' + t.mentions + ')').join(', '));
+    if (trends.crossCorrelations && trends.crossCorrelations.length > 0) {
+      lines.push('*Correlations cross-veilles :*');
+      for (const c of trends.crossCorrelations) lines.push('  ' + c);
+      lines.push('');
     }
 
-    if (trends.rising.length === 0 && trends.falling.length === 0 && trends.stable.length === 0) {
+    if ((!trends.rising || trends.rising.length === 0) && (!trends.falling || trends.falling.length === 0) && (!trends.emergingThemes || trends.emergingThemes.length === 0)) {
       lines.push('Pas assez de donnees pour detecter des tendances. Continue la veille !');
     }
 
@@ -897,24 +933,27 @@ Reponds UNIQUEMENT en JSON strict :
 
     const results = [];
     let totalNew = 0;
+    const BATCH_SIZE = 3;
 
-    for (const watch of watches) {
-      try {
-        const count = await this._scanWatchInternal(watch);
-        totalNew += count;
-        results.push('*' + watch.name + '* : ' + count + ' nouveau(x) article(s)');
-      } catch (e) {
-        log.error('web-intel', 'Erreur scan ' + watch.name + ':', e.message);
-        results.push('*' + watch.name + '* : erreur (' + e.message + ')');
+    for (let i = 0; i < watches.length; i += BATCH_SIZE) {
+      const batch = watches.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.allSettled(
+        batch.map(watch => this._scanWatchInternal(watch)
+          .then(count => ({ name: watch.name, count, error: null }))
+          .catch(e => ({ name: watch.name, count: 0, error: e.message }))
+        )
+      );
+      for (const r of batchResults) {
+        if (r.status === 'fulfilled') {
+          totalNew += r.value.count;
+          results.push('*' + r.value.name + '* : ' + r.value.count + ' nouveau(x)' + (r.value.error ? ' (' + r.value.error + ')' : ''));
+        }
       }
-      // Espacement entre les requetes pour eviter le rate limiting
-      await new Promise(r => setTimeout(r, 2000));
+      if (i + BATCH_SIZE < watches.length) await new Promise(r => setTimeout(r, 1500));
     }
 
     storage.updateStat('lastScanAt', new Date().toISOString());
-
-    const lines = ['*Scan termine*', '', 'Total : ' + totalNew + ' nouveau(x) article(s)', ''].concat(results);
-    return lines.join('\n');
+    return ['*Scan termine*', '', 'Total : ' + totalNew + ' nouveau(x) article(s)', ''].concat(results).join('\n');
   }
 
   async _scanWatch(watch) {
@@ -924,40 +963,88 @@ Reponds UNIQUEMENT en JSON strict :
   }
 
   async _scanWatchInternal(watch) {
-    let allArticles = [];
+    const fetchPromises = [];
 
-    // 1. Google News RSS
+    // 1. News (fallback chain: Google → DDG → Bing)
     if (watch.googleNewsEnabled && watch.keywords.length > 0) {
-      const googleArticles = await this.fetcher.fetchGoogleNews(watch.keywords);
-      allArticles = allArticles.concat(googleArticles);
-      log.info('web-intel', 'Google News "' + watch.name + '": ' + googleArticles.length + ' articles');
+      fetchPromises.push(
+        this.fetcher.fetchNewsWithFallback(watch.keywords)
+          .then(a => ({ type: 'news', articles: a }))
+          .catch(() => ({ type: 'news', articles: [] }))
+      );
     }
 
-    // 2. RSS custom
+    // 2. HackerNews (pour watches tech/sector)
+    if (watch.hackerNewsEnabled || (watch.type === 'sector' && watch.keywords.some(k => /tech|saas|ia|ai|startup|dev|code/i.test(k)))) {
+      fetchPromises.push(
+        this.fetcher.fetchHackerNews(watch.keywords)
+          .then(a => ({ type: 'hackernews', articles: a }))
+          .catch(() => ({ type: 'hackernews', articles: [] }))
+      );
+    }
+
+    // 3. Product Hunt
+    if (watch.productHuntEnabled || watch.type === 'sector' || watch.type === 'competitor') {
+      fetchPromises.push(
+        this.fetcher.fetchProductHunt(watch.keywords)
+          .then(a => ({ type: 'producthunt', articles: a }))
+          .catch(() => ({ type: 'producthunt', articles: [] }))
+      );
+    }
+
+    // 4. Reddit
+    if ((watch.redditSubs && watch.redditSubs.length > 0) || watch.type === 'sector') {
+      fetchPromises.push(
+        this.fetcher.fetchRedditRss(watch.redditSubs, watch.keywords)
+          .then(a => ({ type: 'reddit', articles: a }))
+          .catch(() => ({ type: 'reddit', articles: [] }))
+      );
+    }
+
+    // 5. GitHub Trending (watches tech)
+    if (watch.githubTrendingEnabled || (watch.type === 'sector' && watch.keywords.some(k => /tech|dev|code|open.?source|github/i.test(k)))) {
+      fetchPromises.push(
+        this.fetcher.fetchGitHubTrending()
+          .then(a => ({ type: 'github', articles: a }))
+          .catch(() => ({ type: 'github', articles: [] }))
+      );
+    }
+
+    // 6. RSS custom (parallele)
     for (const rssUrl of (watch.rssUrls || [])) {
-      const rssArticles = await this.fetcher.fetchRss(rssUrl);
-      allArticles = allArticles.concat(rssArticles);
-      log.info('web-intel', 'RSS ' + rssUrl + ': ' + rssArticles.length + ' articles');
-      await new Promise(r => setTimeout(r, 1000));
+      fetchPromises.push(
+        this.fetcher.fetchRss(rssUrl)
+          .then(a => ({ type: 'rss', articles: a }))
+          .catch(() => ({ type: 'rss', articles: [] }))
+      );
     }
 
-    // 3. Scraping web
+    // 7. Scraping web (parallele)
     for (const scrapeUrl of (watch.scrapeUrls || [])) {
-      const page = await this.fetcher.scrapeWebPage(scrapeUrl);
-      if (page && page.title) {
-        allArticles.push({
-          title: page.title,
-          link: page.url,
-          source: page.source,
-          snippet: page.description || page.textContent.substring(0, 300),
-          pubDate: new Date().toISOString()
-        });
-      }
-      await new Promise(r => setTimeout(r, 1000));
+      fetchPromises.push(
+        this.fetcher.scrapeWebPage(scrapeUrl)
+          .then(page => {
+            if (page && page.title) {
+              return { type: 'scrape', articles: [{ title: page.title, link: page.url, source: page.source, snippet: page.description || page.textContent.substring(0, 600), pubDate: new Date().toISOString() }] };
+            }
+            return { type: 'scrape', articles: [] };
+          })
+          .catch(() => ({ type: 'scrape', articles: [] }))
+      );
     }
 
-    // 4. Deduplication
-    const newArticles = allArticles.filter(a => a.link && !storage.hasArticle(a.link));
+    // EXECUTION PARALLELE
+    let allArticles = [];
+    const results = await Promise.allSettled(fetchPromises);
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value.articles.length > 0) {
+        log.info('web-intel', r.value.type + ' "' + watch.name + '": ' + r.value.articles.length + ' articles');
+        allArticles = allArticles.concat(r.value.articles);
+      }
+    }
+
+    // Deduplication
+    const newArticles = allArticles.filter(a => a.link && !storage.hasArticle(a.link) && !storage.hasArticleByTitle(a.title));
     if (newArticles.length === 0) {
       storage.updateWatch(watch.id, { lastCheckedAt: new Date().toISOString() });
       return 0;
@@ -991,7 +1078,10 @@ Reponds UNIQUEMENT en JSON strict :
         }
       }
     } catch (e) {
-      log.warn('web-intel', 'Cross-ref CRM skip:', e.message);
+      log.warn('web-intel', 'Cross-ref CRM skip: ' + e.message);
+      if (e.message && e.message.includes('circuit')) {
+        log.error('web-intel', 'HubSpot indisponible — cross-ref CRM desactive temporairement');
+      }
     }
 
     // 8.5. News-to-Outreach Bridge : stocker les articles mentionnant une entreprise
@@ -1100,7 +1190,15 @@ Reponds UNIQUEMENT en JSON strict :
     }
 
     log.info('web-intel', 'Scan planifie de ' + watches.length + ' veille(s) active(s)');
-    await this._scanAllWatches();
+    const SCAN_TIMEOUT = 5 * 60 * 1000;
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Scan timeout 5min')), SCAN_TIMEOUT)
+    );
+    try {
+      await Promise.race([this._scanAllWatches(), timeoutPromise]);
+    } catch (e) {
+      log.error('web-intel', 'Scan planifie interrompu: ' + e.message);
+    }
   }
 
   async _dailyDigest() {

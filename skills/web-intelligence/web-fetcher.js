@@ -7,11 +7,57 @@ const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const log = require('../../gateway/logger.js');
 
 class WebFetcher {
+  static USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15'
+  ];
+
   constructor() {
-    this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    this.userAgent = WebFetcher.USER_AGENTS[0];
     this.timeout = 15000;
     this.maxRedirects = 3;
-    this.maxResponseSize = 5 * 1024 * 1024; // 5 MB max
+    this.maxResponseSize = 5 * 1024 * 1024;
+    this._uaIndex = Math.floor(Math.random() * WebFetcher.USER_AGENTS.length);
+    this._sourceHealth = {};
+    this._fetchCache = {};
+  }
+
+  _nextUA() {
+    this._uaIndex = (this._uaIndex + 1) % WebFetcher.USER_AGENTS.length;
+    return WebFetcher.USER_AGENTS[this._uaIndex];
+  }
+
+  _trackSourceHealth(name, success) {
+    if (!this._sourceHealth[name]) this._sourceHealth[name] = { failures: 0, successes: 0, lastFail: 0, lastSuccess: 0 };
+    const h = this._sourceHealth[name];
+    if (success) { h.successes++; h.lastSuccess = Date.now(); h.failures = Math.max(0, h.failures - 1); }
+    else { h.failures++; h.lastFail = Date.now(); }
+  }
+
+  isSourceHealthy(name) {
+    const h = this._sourceHealth[name];
+    if (!h) return true;
+    return !(h.failures > 5 && (Date.now() - h.lastFail) < 30 * 60 * 1000);
+  }
+
+  getSourceHealth() { return { ...this._sourceHealth }; }
+
+  _getCached(key, ttlMs) {
+    const cached = this._fetchCache[key];
+    if (cached && (Date.now() - cached.ts) < (ttlMs || 7200000)) return cached.data;
+    return null;
+  }
+
+  _setCache(key, data) {
+    this._fetchCache[key] = { data, ts: Date.now() };
+    const keys = Object.keys(this._fetchCache);
+    if (keys.length > 100) {
+      keys.sort((a, b) => this._fetchCache[a].ts - this._fetchCache[b].ts);
+      for (let i = 0; i < 20; i++) delete this._fetchCache[keys[i]];
+    }
   }
 
   // --- Fetch HTTP generique ---
@@ -223,6 +269,174 @@ class WebFetcher {
     }
   }
 
+  // --- DuckDuckGo News ---
+
+  async fetchDuckDuckGoNews(keywords) {
+    if (!keywords || keywords.length === 0) return [];
+    const query = keywords.join(' ') + ' news';
+    const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
+    try {
+      const result = await this.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
+      if (result.statusCode === 202) {
+        await new Promise(r => setTimeout(r, 1500));
+        const retry = await this.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
+        if (retry.statusCode === 200) return this._parseDDGResults(retry.body);
+        return [];
+      }
+      if (result.statusCode !== 200) return [];
+      return this._parseDDGResults(result.body);
+    } catch (e) {
+      log.error('web-fetcher', 'Erreur DDG News:', e.message);
+      return [];
+    }
+  }
+
+  _parseDDGResults(html) {
+    const articles = [];
+    if (!html) return articles;
+    const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+    let m;
+    while ((m = linkRegex.exec(html)) !== null && articles.length < 15) {
+      let url = m[1];
+      if (url.includes('uddg=')) {
+        const uddg = url.split('uddg=')[1];
+        if (uddg) url = decodeURIComponent(uddg.split('&')[0]);
+      }
+      const title = this._decodeHtmlEntities(m[2].replace(/<[^>]+>/g, '').trim());
+      if (title.length > 5) articles.push({ title, link: url, source: 'DuckDuckGo News', snippet: '', pubDate: null });
+    }
+    let si = 0;
+    while ((m = snippetRegex.exec(html)) !== null) {
+      const snippet = this._cleanHtml(m[1]).substring(0, 600);
+      if (snippet.length > 20 && si < articles.length) articles[si].snippet = snippet;
+      si++;
+    }
+    return articles;
+  }
+
+  // --- Hacker News RSS ---
+
+  async fetchHackerNews(keywords) {
+    try {
+      const articles = await this.fetchRss('https://news.ycombinator.com/rss');
+      if (keywords && keywords.length > 0) {
+        const kwLower = keywords.map(k => k.toLowerCase());
+        return articles.filter(a => {
+          const text = ((a.title || '') + ' ' + (a.snippet || '')).toLowerCase();
+          return kwLower.some(k => text.includes(k));
+        }).map(a => { a.source = 'Hacker News'; return a; });
+      }
+      return articles.map(a => { a.source = 'Hacker News'; return a; });
+    } catch (e) {
+      log.error('web-fetcher', 'Erreur HackerNews:', e.message);
+      return [];
+    }
+  }
+
+  // --- Reddit RSS ---
+
+  async fetchRedditRss(subreddits, keywords) {
+    const subs = subreddits && subreddits.length > 0 ? subreddits : ['startups', 'SaaS', 'entrepreneur'];
+    let allArticles = [];
+    for (const sub of subs) {
+      try {
+        const articles = await this.fetchRss('https://www.reddit.com/r/' + sub + '/top/.rss?t=day');
+        allArticles = allArticles.concat(articles.map(a => { a.source = 'Reddit r/' + sub; return a; }));
+      } catch (e) {
+        log.warn('web-fetcher', 'Reddit r/' + sub + ' erreur:', e.message);
+      }
+    }
+    if (keywords && keywords.length > 0) {
+      const kwLower = keywords.map(k => k.toLowerCase());
+      allArticles = allArticles.filter(a => {
+        const text = ((a.title || '') + ' ' + (a.snippet || '')).toLowerCase();
+        return kwLower.some(k => text.includes(k));
+      });
+    }
+    return allArticles;
+  }
+
+  // --- Product Hunt RSS ---
+
+  async fetchProductHunt(keywords) {
+    try {
+      const articles = await this.fetchRss('https://www.producthunt.com/feed.rss');
+      if (keywords && keywords.length > 0) {
+        const kwLower = keywords.map(k => k.toLowerCase());
+        return articles.filter(a => {
+          const text = ((a.title || '') + ' ' + (a.snippet || '')).toLowerCase();
+          return kwLower.some(k => text.includes(k));
+        }).map(a => { a.source = 'Product Hunt'; return a; });
+      }
+      return articles.map(a => { a.source = 'Product Hunt'; return a; });
+    } catch (e) {
+      log.error('web-fetcher', 'Erreur Product Hunt:', e.message);
+      return [];
+    }
+  }
+
+  // --- GitHub Trending ---
+
+  async fetchGitHubTrending(language) {
+    const url = 'https://github.com/trending' + (language ? '/' + language : '') + '?since=daily';
+    try {
+      const result = await this.fetchUrl(url, { userAgent: this._nextUA() });
+      if (result.statusCode !== 200) return [];
+      const articles = [];
+      const repoRegex = /<article class="Box-row">([\s\S]*?)<\/article>/gi;
+      let m;
+      while ((m = repoRegex.exec(result.body)) !== null && articles.length < 10) {
+        const block = m[1];
+        const nameMatch = block.match(/<a[^>]*href="\/([^"]+)"[^>]*>/);
+        const descMatch = block.match(/<p[^>]*>([\s\S]*?)<\/p>/);
+        if (nameMatch) {
+          articles.push({
+            title: nameMatch[1].replace(/\//g, ' / '),
+            link: 'https://github.com/' + nameMatch[1],
+            source: 'GitHub Trending',
+            snippet: descMatch ? this._cleanHtml(descMatch[1]).substring(0, 300) : '',
+            pubDate: new Date().toISOString()
+          });
+        }
+      }
+      return articles;
+    } catch (e) {
+      log.error('web-fetcher', 'Erreur GitHub Trending:', e.message);
+      return [];
+    }
+  }
+
+  // --- Fallback chain: Google → DDG → Bing ---
+
+  async fetchNewsWithFallback(keywords) {
+    const cacheKey = 'news:' + keywords.join(',');
+    const cached = this._getCached(cacheKey);
+    if (cached) return cached;
+
+    const sources = [
+      { name: 'Google News', fn: () => this.fetchGoogleNews(keywords) },
+      { name: 'DuckDuckGo', fn: () => this.fetchDuckDuckGoNews(keywords) },
+      { name: 'Bing News', fn: () => this._fetchBingNews(keywords) }
+    ];
+    let articles = [];
+    for (const source of sources) {
+      if (!this.isSourceHealthy(source.name)) {
+        log.info('web-fetcher', 'Skip ' + source.name + ' (unhealthy)');
+        continue;
+      }
+      try {
+        const result = await source.fn();
+        this._trackSourceHealth(source.name, result.length > 0);
+        if (result.length > 0) { articles = result; break; }
+      } catch (e) {
+        this._trackSourceHealth(source.name, false);
+      }
+    }
+    if (articles.length > 0) this._setCache(cacheKey, articles);
+    return articles;
+  }
+
   // --- Parsing RSS XML (regex) ---
 
   parseRssXml(xml) {
@@ -246,7 +460,7 @@ class WebFetcher {
           link: link.trim(),
           pubDate: pubDate || null,
           source: source ? this._decodeHtmlEntities(source) : null,
-          snippet: this._cleanHtml(description || '').substring(0, 300)
+          snippet: this._cleanHtml(description || '').substring(0, 600)
         });
       }
     }
@@ -268,7 +482,7 @@ class WebFetcher {
             link: link.trim(),
             pubDate: pubDate || null,
             source: null,
-            snippet: this._cleanHtml(summary || '').substring(0, 300)
+            snippet: this._cleanHtml(summary || '').substring(0, 600)
           });
         }
       }

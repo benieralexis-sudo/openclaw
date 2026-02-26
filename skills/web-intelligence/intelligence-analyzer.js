@@ -88,7 +88,17 @@ Reponds UNIQUEMENT en JSON valide, sans markdown :
       ), 2, 3000));
 
       const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const results = JSON.parse(cleaned);
+      let results;
+      try {
+        results = JSON.parse(cleaned);
+      } catch (parseError) {
+        const fixed = cleaned.replace(/,\s*]/g, ']').replace(/,\s*}/g, '}').replace(/[\x00-\x1F]/g, ' ');
+        try { results = JSON.parse(fixed); } catch (e2) {
+          const jsonMatch = fixed.match(/\[[\s\S]*\]/);
+          if (jsonMatch) results = JSON.parse(jsonMatch[0]);
+          else throw parseError;
+        }
+      }
 
       if (!Array.isArray(results)) throw new Error('Format invalide');
 
@@ -103,10 +113,15 @@ Reponds UNIQUEMENT en JSON valide, sans markdown :
         }
       }
 
-      // Articles non analyses dans le batch : fallback
+      // Articles non analyses dans le batch : fallback keyword density
+      const kwLower = (watch.keywords || []).map(k => k.toLowerCase());
       for (const a of batch) {
         if (!a.summary) a.summary = a.snippet;
-        if (a.relevanceScore === undefined) a.relevanceScore = 5;
+        if (a.relevanceScore === undefined || a.relevanceScore === 5) {
+          const text = ((a.title || '') + ' ' + (a.snippet || '')).toLowerCase();
+          const kwCount = kwLower.filter(k => text.includes(k)).length;
+          if (!a.relevanceScore || a.relevanceScore === 5) a.relevanceScore = Math.min(10, 3 + kwCount * 2);
+        }
       }
 
       return batch;
@@ -129,7 +144,37 @@ Reponds UNIQUEMENT en JSON valide, sans markdown :
     });
   }
 
-  // --- Cross-reference CRM ---
+  // --- Cross-reference CRM (fuzzy Levenshtein) ---
+
+  _levenshtein(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        const cost = b.charAt(i - 1) === a.charAt(j - 1) ? 0 : 1;
+        matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
+      }
+    }
+    return matrix[b.length][a.length];
+  }
+
+  _fuzzyMatch(text, term) {
+    if (!text || !term || term.length < 3) return false;
+    if (text.includes(term)) return true;
+    const words = text.split(/\s+/);
+    const termWords = term.split(/\s+/);
+    for (let i = 0; i <= words.length - termWords.length; i++) {
+      const candidate = words.slice(i, i + termWords.length).join(' ');
+      if (candidate.length > 0) {
+        const maxLen = Math.max(candidate.length, term.length);
+        if (maxLen > 0 && (1 - this._levenshtein(candidate, term) / maxLen) > 0.8) return true;
+      }
+    }
+    return false;
+  }
 
   crossReferenceWithCRM(articles, contacts, deals) {
     if (!articles || articles.length === 0) return articles;
@@ -148,37 +193,25 @@ Reponds UNIQUEMENT en JSON valide, sans markdown :
     for (const article of articles) {
       const textLower = ((article.title || '') + ' ' + (article.snippet || '')).toLowerCase();
 
-      // Chercher des contacts
       for (const c of contactNames) {
-        if ((c.name.length > 4 && textLower.includes(c.name)) ||
-            (c.company.length > 3 && textLower.includes(c.company))) {
-          article.crmMatch = {
-            type: 'contact',
-            contactId: c.id,
-            contactName: c.name,
-            company: c.company
-          };
+        if ((c.name.length > 4 && this._fuzzyMatch(textLower, c.name)) ||
+            (c.company.length > 3 && this._fuzzyMatch(textLower, c.company))) {
+          article.crmMatch = { type: 'contact', contactId: c.id, contactName: c.name, company: c.company };
           article.relevanceScore = Math.min(10, (article.relevanceScore || 5) + 2);
           break;
         }
       }
 
-      // Chercher des deals
       if (!article.crmMatch) {
         for (const d of dealNames) {
-          if (d.name.length > 4 && textLower.includes(d.name)) {
-            article.crmMatch = {
-              type: 'deal',
-              dealId: d.id,
-              dealName: d.name
-            };
+          if (d.name.length > 4 && this._fuzzyMatch(textLower, d.name)) {
+            article.crmMatch = { type: 'deal', dealId: d.id, dealName: d.name };
             article.relevanceScore = Math.min(10, (article.relevanceScore || 5) + 2);
             break;
           }
         }
       }
     }
-
     return articles;
   }
 
@@ -444,34 +477,94 @@ REGLES :
     return trends;
   }
 
+  // --- Trends avances (Claude AI) ---
+
+  async detectTrendsWithAI(articles, previousTrends) {
+    if (!this.claudeKey || !articles || articles.length < 5) return this.detectTrends(articles);
+
+    const keywordTrends = this.detectTrends(articles);
+
+    const articlesSummary = articles.slice(0, 30).map((a, i) =>
+      (i + 1) + '. ' + a.title + (a.summary ? ' — ' + a.summary.substring(0, 100) : '')
+    ).join('\n');
+
+    const prevContext = previousTrends
+      ? '\nTendances PRECEDENTES :\n- Hausse: ' + (previousTrends.rising || []).map(t => t.keyword).slice(0, 5).join(', ') + '\n- Baisse: ' + (previousTrends.falling || []).map(t => t.keyword).slice(0, 5).join(', ')
+      : '';
+
+    const systemPrompt = `Tu es un analyste de tendances B2B. Analyse les articles et identifie les THEMES emergents.${prevContext}
+
+Reponds en JSON strict :
+{"emergingThemes":[{"theme":"...","confidence":0.8,"insight":"..."}],"crossWatchCorrelations":["..."],"weekOverWeek":"synthese evolution"}`;
+
+    try {
+      const breaker = getBreaker('claude-sonnet', { failureThreshold: 3, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaude(
+        [{ role: 'user', content: 'Articles recents :\n\n' + articlesSummary }],
+        systemPrompt, 1500
+      ), 2, 3000));
+
+      const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      let aiTrends;
+      try { aiTrends = JSON.parse(cleaned); } catch (e) {
+        const fixed = cleaned.replace(/,\s*]/g, ']').replace(/,\s*}/g, '}');
+        aiTrends = JSON.parse(fixed);
+      }
+      return {
+        ...keywordTrends,
+        emergingThemes: aiTrends.emergingThemes || [],
+        crossCorrelations: aiTrends.crossWatchCorrelations || [],
+        weekOverWeek: aiTrends.weekOverWeek || ''
+      };
+    } catch (e) {
+      log.error('web-intel', 'Erreur trend AI:', e.message);
+      return keywordTrends;
+    }
+  }
+
+  detectCrossWatchTrends(articlesByWatch) {
+    const allKeywords = {};
+    for (const [watchName, articles] of Object.entries(articlesByWatch)) {
+      const trends = this.detectTrends(articles);
+      for (const t of trends.rising) {
+        if (!allKeywords[t.keyword]) allKeywords[t.keyword] = { watches: [], totalChange: 0 };
+        allKeywords[t.keyword].watches.push(watchName);
+        allKeywords[t.keyword].totalChange += t.change;
+      }
+    }
+    return Object.entries(allKeywords)
+      .filter(([_, v]) => v.watches.length >= 2)
+      .map(([keyword, v]) => ({ keyword, watches: v.watches, avgChange: Math.round(v.totalChange / v.watches.length) }))
+      .sort((a, b) => b.avgChange - a.avgChange)
+      .slice(0, 10);
+  }
+
   // --- Detection d'urgence ---
 
   detectUrgency(article) {
     if (!article) return false;
-
-    const urgentKeywords = [
-      'acquisition', 'acquiert', 'rachete', 'rachat',
-      'levee de fonds', 'levée de fonds', 'leve des fonds', 'serie a', 'serie b', 'serie c',
-      'faillite', 'liquidation', 'redressement judiciaire',
-      'licenciement', 'plan social', 'restructuration',
-      'partenariat strategique', 'partenariat stratégique',
-      'lancement', 'nouveau produit', 'nouvelle offre',
-      'changement de direction', 'nouveau ceo', 'nouveau pdg', 'nomme',
-      'introduction en bourse', 'ipo',
-      'fusion', 'merge'
-    ];
-
     const textLower = ((article.title || '') + ' ' + (article.snippet || '')).toLowerCase();
 
-    for (const kw of urgentKeywords) {
-      if (textLower.includes(kw)) {
-        return true;
+    const urgentPatterns = [
+      { keywords: ['acquisition', 'acquiert', 'rachete', 'rachat'], negatives: ['acquisition client', 'acquisition marketing', "cout d'acquisition", 'acquisition de competences'] },
+      { keywords: ['levee de fonds', 'levée de fonds', 'serie a', 'serie b', 'serie c'], negatives: [] },
+      { keywords: ['faillite', 'liquidation', 'redressement judiciaire'], negatives: [] },
+      { keywords: ['licenciement', 'plan social', 'restructuration'], negatives: ['restructuration marketing', 'restructuration du site'] },
+      { keywords: ['lancement', 'nouveau produit', 'nouvelle offre'], negatives: ['lancement de campagne', 'lancement emailing'] },
+      { keywords: ['changement de direction', 'nouveau ceo', 'nouveau pdg', 'nomme directeur'], negatives: [] },
+      { keywords: ['introduction en bourse', 'ipo'], negatives: [] },
+      { keywords: ['fusion', 'merge'], negatives: ['merge request', 'git merge', 'fusionner les'] }
+    ];
+
+    for (const pattern of urgentPatterns) {
+      const hasKw = pattern.keywords.some(kw => textLower.includes(kw));
+      if (hasKw) {
+        const hasNeg = pattern.negatives.some(neg => textLower.includes(neg));
+        if (!hasNeg) return true;
       }
     }
 
-    // Score tres eleve = potentiellement urgent
     if (article.relevanceScore >= 9) return true;
-
     return false;
   }
 
