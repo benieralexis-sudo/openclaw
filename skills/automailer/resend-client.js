@@ -96,6 +96,8 @@ class ResendClient {
       'Subject: =?UTF-8?B?' + Buffer.from(subject).toString('base64') + '?=',
       'MIME-Version: 1.0',
       'Message-ID: ' + messageId,
+      options.inReplyTo ? 'In-Reply-To: ' + options.inReplyTo : null,
+      options.references ? 'References: ' + options.references : (options.inReplyTo ? 'References: ' + options.inReplyTo : null),
       'Content-Type: multipart/alternative; boundary="' + boundary + '"',
       '',
       '--' + boundary,
@@ -111,7 +113,7 @@ class ResendClient {
       Buffer.from(htmlBody).toString('base64'),
       '',
       '--' + boundary + '--'
-    ].join('\r\n');
+    ].filter(Boolean).join('\r\n');
 
     return new Promise((resolve, reject) => {
       const socket = net.createConnection(587, 'smtp.gmail.com');
@@ -171,7 +173,7 @@ class ResendClient {
 
               // Extraire le message ID de la reponse Gmail
               const idMatch = sendResp.match(/sm\d+|[a-z0-9]{10,}/i);
-              resolve({ success: true, id: 'gmail_' + (idMatch ? idMatch[0] : Date.now().toString(36)) });
+              resolve({ success: true, id: 'gmail_' + (idMatch ? idMatch[0] : Date.now().toString(36)), messageId: messageId });
             } catch (e) {
               cleanup();
               reject(e);
@@ -286,6 +288,10 @@ class ResendClient {
         'List-Unsubscribe': '<https://' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
       }
     };
+    if (options.inReplyTo) {
+      payload.headers['In-Reply-To'] = options.inReplyTo;
+      payload.headers['References'] = options.references || options.inReplyTo;
+    }
     if (options.tags) payload.tags = options.tags;
     payload.reply_to = options.replyTo || process.env.REPLY_TO_EMAIL || this.senderEmail;
 

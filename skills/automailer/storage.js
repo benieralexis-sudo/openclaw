@@ -266,6 +266,7 @@ class AutoMailerStorage {
       id: 'eml_' + this._generateId(),
       resendId: record.resendId || null,
       trackingId: record.trackingId || null,
+      messageId: record.messageId || null,
       chatId: String(record.chatId || ''),
       campaignId: record.campaignId || null,
       stepNumber: record.stepNumber || null,
@@ -359,6 +360,33 @@ class AutoMailerStorage {
   getBlacklist() {
     if (!this.data.blacklist) return [];
     return Object.values(this.data.blacklist);
+  }
+
+  removeFromBlacklist(email) {
+    if (!this.data.blacklist) return false;
+    const key = (email || '').toLowerCase().trim();
+    if (this.data.blacklist[key]) {
+      delete this.data.blacklist[key];
+      this._save();
+      return true;
+    }
+    return false;
+  }
+
+  isHardBlacklisted(email) {
+    if (!this.data.blacklist) return false;
+    const entry = this.data.blacklist[(email || '').toLowerCase().trim()];
+    if (!entry) return false;
+    const hardReasons = ['bounce_detected', 'spam_complaint', 'permanent_block', 'rgpd', 'ne_me_contactez_plus'];
+    return hardReasons.some(r => (entry.reason || '').toLowerCase().includes(r));
+  }
+
+  getMessageIdForRecipient(recipientEmail) {
+    const emailLower = (recipientEmail || '').toLowerCase();
+    if (!emailLower) return null;
+    const emails = this.data.emails.filter(e => (e.to || '').toLowerCase() === emailLower && e.messageId);
+    if (emails.length === 0) return null;
+    return emails[emails.length - 1].messageId;
   }
 
   // --- Warmup tracking ---

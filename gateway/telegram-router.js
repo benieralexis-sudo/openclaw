@@ -30,7 +30,7 @@ const InboxHandler = require('../skills/inbox-manager/inbox-handler.js');
 let InboxListener;
 try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
 const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
-const { classifyReply, generateQuestionReply, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
+const { classifyReply, generateQuestionReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, parseOOOReturnDate, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
@@ -653,8 +653,208 @@ inboxListener = InboxListener ? new InboxListener({
       log.warn('inbox-manager', 'CRM update echoue:', e.message);
     }
 
+    // === 3b. SMART AUTO-REPLY : le bot gere les objections simples, delegue le reste ===
+    let autoReplyHandled = false;
+    const autoReplyEnabled = process.env.AUTO_REPLY_ENABLED !== 'false';
+    const autoReplyConfidence = parseFloat(process.env.AUTO_REPLY_CONFIDENCE) || 0.8;
+    const autoReplyMaxPerDay = parseInt(process.env.AUTO_REPLY_MAX_PER_DAY) || 10;
+
+    if (autoReplyEnabled && sentiment !== 'bounce' && sentiment !== 'interested') {
+      try {
+        const inboxStorage = require('../skills/inbox-manager/storage.js');
+        const todayCount = inboxStorage.getTodayAutoReplyCount();
+
+        if (todayCount < autoReplyMaxPerDay) {
+          // Recuperer l'email original envoye a ce prospect
+          let originalEmail = null;
+          let originalMessageId = null;
+          try {
+            let existingEmails = [];
+            for (const ep of emailsToProcess) {
+              existingEmails = existingEmails.concat(automailerStorageForInbox.getEmailEventsForRecipient(ep));
+            }
+            const lastSent = existingEmails.filter(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened').pop();
+            if (lastSent) {
+              originalEmail = { subject: lastSent.subject, body: lastSent.body, company: lastSent.company };
+              originalMessageId = lastSent.messageId || automailerStorageForInbox.getMessageIdForRecipient(originalEmail && lastSent.to);
+            }
+          } catch (e) {}
+
+          // Contexte client pour la generation
+          const clientContext = {
+            senderName: process.env.SENDER_NAME || 'Alexis',
+            senderTitle: process.env.SENDER_TITLE || '',
+            clientDomain: process.env.CLIENT_DOMAIN || 'ifind.fr',
+            bookingUrl: ''
+          };
+          try {
+            if (meetingHandler && meetingHandler.calcom && meetingHandler.calcom.isConfigured()) {
+              const slug = process.env.CALCOM_EVENT_SLUG || 'appel-telephonique';
+              clientContext.bookingUrl = await meetingHandler.calcom.getBookingLink(slug, replyData.from, replyData.fromName);
+            }
+          } catch (e) {}
+
+          // --- Cas 1: Objection douce (not_interested, score 0.15-0.3) ---
+          if (sentiment === 'not_interested' && score >= 0.15) {
+            const subClass = await subClassifyObjection(OPENAI_KEY, replyData, classification);
+            log.info('inbox-manager', 'Sub-classification: ' + subClass.type + ' / ' + subClass.objectionType + ' (conf=' + subClass.confidence + ')');
+
+            if (subClass.type === 'soft_objection' && subClass.confidence >= autoReplyConfidence) {
+              const autoReply = await generateObjectionReply(callClaude, replyData, classification, subClass, originalEmail, clientContext);
+
+              if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
+                // Envoyer la reponse auto via Gmail SMTP
+                try {
+                  const ResendClient = require('../skills/automailer/resend-client.js');
+                  const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
+                  const sendResult = await resendClient.sendEmail(replyData.from, autoReply.subject, autoReply.body, {
+                    inReplyTo: originalMessageId,
+                    references: originalMessageId,
+                    fromName: clientContext.senderName
+                  });
+
+                  if (sendResult && sendResult.success) {
+                    autoReplyHandled = true;
+                    log.info('inbox-manager', 'AUTO-REPLY envoye a ' + replyData.from + ' (objection: ' + subClass.objectionType + ')');
+
+                    // Tracker dans storage
+                    inboxStorage.addAutoReply({
+                      prospectEmail: replyData.from,
+                      prospectName: replyData.fromName,
+                      sentiment: sentiment,
+                      subClassification: subClass.type,
+                      objectionType: subClass.objectionType,
+                      replyBody: autoReply.body,
+                      replySubject: autoReply.subject,
+                      originalEmailId: originalEmail && originalEmail.subject,
+                      confidence: autoReply.confidence,
+                      sendResult: sendResult
+                    });
+
+                    // Stocker le messageId pour threading futur
+                    if (sendResult.messageId) {
+                      automailerStorageForInbox.addEmail({
+                        to: replyData.from,
+                        subject: autoReply.subject,
+                        body: autoReply.body,
+                        source: 'auto_reply',
+                        status: 'sent',
+                        messageId: sendResult.messageId,
+                        chatId: ADMIN_CHAT_ID
+                      });
+                    }
+                  }
+                } catch (sendErr) {
+                  log.warn('inbox-manager', 'Envoi auto-reply echoue:', sendErr.message);
+                }
+              }
+            }
+          }
+
+          // --- Cas 2: Question simple (score 0.4-0.65) ---
+          else if (sentiment === 'question' && score >= 0.4 && score <= 0.65) {
+            // Verifier que ce n'est pas un email forwarde ou trop long (question complexe)
+            const snippetLen = (replyData.snippet || '').length;
+            if (snippetLen < 500) {
+              const autoReply = await generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
+
+              if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
+                try {
+                  const ResendClient = require('../skills/automailer/resend-client.js');
+                  const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
+                  const sendResult = await resendClient.sendEmail(replyData.from, autoReply.subject, autoReply.body, {
+                    inReplyTo: originalMessageId,
+                    references: originalMessageId,
+                    fromName: clientContext.senderName
+                  });
+
+                  if (sendResult && sendResult.success) {
+                    autoReplyHandled = true;
+                    log.info('inbox-manager', 'AUTO-REPLY question envoye a ' + replyData.from);
+
+                    inboxStorage.addAutoReply({
+                      prospectEmail: replyData.from,
+                      prospectName: replyData.fromName,
+                      sentiment: sentiment,
+                      subClassification: 'simple_question',
+                      objectionType: '',
+                      replyBody: autoReply.body,
+                      replySubject: autoReply.subject,
+                      originalEmailId: originalEmail && originalEmail.subject,
+                      confidence: autoReply.confidence,
+                      sendResult: sendResult
+                    });
+
+                    if (sendResult.messageId) {
+                      automailerStorageForInbox.addEmail({
+                        to: replyData.from,
+                        subject: autoReply.subject,
+                        body: autoReply.body,
+                        source: 'auto_reply',
+                        status: 'sent',
+                        messageId: sendResult.messageId,
+                        chatId: ADMIN_CHAT_ID
+                      });
+                    }
+                  }
+                } catch (sendErr) {
+                  log.warn('inbox-manager', 'Envoi auto-reply question echoue:', sendErr.message);
+                }
+              }
+            }
+          }
+
+          // --- Cas 3: OOO — reschedule automatique ---
+          else if (sentiment === 'out_of_office') {
+            try {
+              const returnDate = parseOOOReturnDate(replyData.snippet);
+              let scheduledDate;
+              if (returnDate) {
+                // Reschedule 7 jours apres la date de retour
+                const returnTs = new Date(returnDate).getTime();
+                scheduledDate = new Date(returnTs + 7 * 24 * 60 * 60 * 1000).toISOString();
+              } else {
+                // Pas de date trouvee — reschedule dans 14 jours
+                scheduledDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+              }
+
+              inboxStorage.addOOOReschedule({
+                prospectEmail: replyData.from,
+                prospectName: replyData.fromName || firstName,
+                returnDate: returnDate,
+                scheduledFollowUpAt: scheduledDate
+              });
+
+              // Creer un follow-up dans proactive-agent
+              try {
+                const proactiveStorage = require('../skills/proactive-agent/storage.js');
+                proactiveStorage.addPendingFollowUp({
+                  prospectEmail: replyData.from,
+                  prospectName: replyData.fromName || firstName,
+                  prospectCompany: (originalEmail && originalEmail.company) || '',
+                  originalSubject: (originalEmail && originalEmail.subject) || '',
+                  originalBody: (originalEmail && originalEmail.body || '').substring(0, 300),
+                  prospectIntel: 'OOO detecte. Retour prevu: ' + (returnDate || 'inconnu') + '. Reschedule automatique.',
+                  scheduledAfter: scheduledDate
+                });
+              } catch (e) {}
+
+              autoReplyHandled = true;
+              log.info('inbox-manager', 'OOO reschedule pour ' + replyData.from + ' → follow-up prevu le ' + scheduledDate.substring(0, 10));
+            } catch (e) {
+              log.warn('inbox-manager', 'OOO reschedule echoue:', e.message);
+            }
+          }
+        } else {
+          log.info('inbox-manager', 'Auto-reply limite atteinte (' + todayCount + '/' + autoReplyMaxPerDay + ') — fallback human takeover');
+        }
+      } catch (autoReplyErr) {
+        log.warn('inbox-manager', 'Auto-reply pipeline echoue:', autoReplyErr.message);
+      }
+    }
+
     // === 4. HUMAN TAKEOVER : le bot ARRETE toute automation, l'humain prend le relais ===
-    let actionTaken = 'human_takeover';
+    let actionTaken = autoReplyHandled ? 'auto_reply_' + sentiment : 'human_takeover';
 
     // Blacklister les bounces (pas de relais humain necessaire)
     if (sentiment === 'bounce') {
@@ -666,22 +866,32 @@ inboxListener = InboxListener ? new InboxListener({
       } catch (e) {}
       log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (bounce)');
     }
-    // Blacklister les not_interested (reponse polie auto + arret)
+    // not_interested : si auto-reply a gere → blacklist douce, sinon blacklist + human takeover
     else if (sentiment === 'not_interested') {
-      actionTaken = 'polite_decline_blacklist';
-      try {
-        for (const ep of emailsToProcess) {
-          automailerStorageForInbox.addToBlacklist(ep, 'prospect_declined');
-        }
-        log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (decline) — human takeover');
-      } catch (e) {}
+      if (autoReplyHandled) {
+        actionTaken = 'auto_reply_not_interested';
+        // NE PAS blacklister : le bot a contre-argumente, on attend la re-reponse
+        log.info('inbox-manager', 'Auto-reply envoye a ' + replyData.from + ' — pas de blacklist (attente re-reponse)');
+      } else {
+        actionTaken = 'polite_decline_blacklist';
+        try {
+          for (const ep of emailsToProcess) {
+            automailerStorageForInbox.addToBlacklist(ep, 'prospect_declined');
+          }
+          log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (decline) — human takeover');
+        } catch (e) {}
+      }
     }
-    // OOO : reporter, pas de relais humain immédiat
+    // OOO : si reschedule auto → deferred_ooo_rescheduled, sinon deferred_ooo
     else if (sentiment === 'out_of_office') {
-      actionTaken = 'deferred_ooo';
-      log.info('inbox-manager', replyData.from + ' absent (OOO) — pas de relais humain');
+      actionTaken = autoReplyHandled ? 'deferred_ooo_rescheduled' : 'deferred_ooo';
+      log.info('inbox-manager', replyData.from + ' absent (OOO) — ' + (autoReplyHandled ? 'reschedule auto programme' : 'pas de relais humain'));
     }
-    // INTERESTED / QUESTION / autre : HUMAN TAKEOVER — aucun auto-reply
+    // INTERESTED / QUESTION / autre : si auto-reply a gere la question → pas de human takeover
+    else if (autoReplyHandled) {
+      actionTaken = 'auto_reply_' + sentiment;
+      log.info('inbox-manager', 'Auto-reply ' + sentiment + ' envoye a ' + replyData.from + ' — le bot a gere');
+    }
     else {
       actionTaken = 'human_takeover';
       log.info('inbox-manager', '🤝 HUMAN TAKEOVER: ' + replyData.from + ' (sentiment=' + sentiment + ') — le bot arrete, l\'humain prend le relais');
@@ -755,7 +965,11 @@ inboxListener = InboxListener ? new InboxListener({
       human_takeover: '🤝 HUMAN TAKEOVER — reponds-lui !',
       polite_decline_blacklist: '👋 Blackliste (decline)',
       deferred_ooo: '🏖️ Reporte (OOO)',
+      deferred_ooo_rescheduled: '🏖️📅 OOO — relance auto programmee',
       bounce_blacklist: '💀 Blackliste (bounce)',
+      auto_reply_not_interested: '🤖💬 Bot a contre-argumente',
+      auto_reply_question: '🤖💬 Bot a repondu a la question',
+      auto_reply_out_of_office: '🤖📅 OOO — relance auto programmee',
       none: '—'
     };
     const notifLines = [
@@ -793,6 +1007,23 @@ inboxListener = InboxListener ? new InboxListener({
         }
       }
     } catch (ctxErr) {}
+
+    // Si auto-reply envoye, montrer la reponse du bot
+    if (autoReplyHandled && actionTaken.startsWith('auto_reply_')) {
+      try {
+        const inboxStorage = require('../skills/inbox-manager/storage.js');
+        const recentAR = inboxStorage.getAutoReplies(1);
+        if (recentAR.length > 0 && recentAR[0].replyBody) {
+          notifLines.push('');
+          notifLines.push('🤖 *Reponse du bot :*');
+          notifLines.push('_' + escTg(recentAR[0].replyBody.substring(0, 400)) + '_');
+          if (recentAR[0].objectionType) {
+            notifLines.push('📋 Type: ' + escTg(recentAR[0].objectionType));
+          }
+          notifLines.push('📊 Confiance: ' + (recentAR[0].confidence || 0).toFixed(2));
+        }
+      } catch (e) {}
+    }
 
     notifLines.push('');
     notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));

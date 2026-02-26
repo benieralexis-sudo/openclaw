@@ -24,6 +24,8 @@ class InboxManagerStorage {
       },
       receivedEmails: [],   // [{id, from, to, subject, date, matchedLead, processedAt}]
       matchedReplies: [],   // Emails qui matchent un lead connu
+      autoReplies: [],      // [{id, prospectEmail, sentiment, subClassification, replyBody, replySubject, originalEmailId, confidence, sentAt, sendResult}]
+      oooReschedules: [],    // [{id, prospectEmail, returnDate, scheduledFollowUpAt, status}]
       stats: {
         totalReceived: 0,
         totalMatched: 0,
@@ -49,6 +51,8 @@ class InboxManagerStorage {
         this.data = { ...this.data, ...loaded };
         if (!this.data.receivedEmails) this.data.receivedEmails = [];
         if (!this.data.matchedReplies) this.data.matchedReplies = [];
+        if (!this.data.autoReplies) this.data.autoReplies = [];
+        if (!this.data.oooReschedules) this.data.oooReschedules = [];
         console.log('[inbox-manager-storage] Base chargee (' + this.data.matchedReplies.length + ' replies matchees)');
       } else {
         console.log('[inbox-manager-storage] Nouvelle base creee');
@@ -198,6 +202,91 @@ class InboxManagerStorage {
       }
     }
     return null;
+  }
+
+  // --- Auto-Reply tracking ---
+
+  addAutoReply(data) {
+    if (!this.data.autoReplies) this.data.autoReplies = [];
+    const entry = {
+      id: 'ar_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      prospectEmail: (data.prospectEmail || '').toLowerCase(),
+      prospectName: data.prospectName || '',
+      sentiment: data.sentiment || '',
+      subClassification: data.subClassification || '',
+      objectionType: data.objectionType || '',
+      replyBody: data.replyBody || '',
+      replySubject: data.replySubject || '',
+      originalEmailId: data.originalEmailId || null,
+      confidence: data.confidence || 0,
+      sentAt: new Date().toISOString(),
+      sendResult: data.sendResult || null
+    };
+    this.data.autoReplies.push(entry);
+    if (this.data.autoReplies.length > 500) {
+      this.data.autoReplies = this.data.autoReplies.slice(-500);
+    }
+    this._save();
+    return entry;
+  }
+
+  getAutoReplies(limit) {
+    if (!this.data.autoReplies) return [];
+    return this.data.autoReplies.slice(-(limit || 20)).reverse();
+  }
+
+  getTodayAutoReplyCount() {
+    if (!this.data.autoReplies) return 0;
+    const today = new Date().toISOString().slice(0, 10);
+    return this.data.autoReplies.filter(ar => ar.sentAt && ar.sentAt.startsWith(today)).length;
+  }
+
+  getAutoReplyStats() {
+    if (!this.data.autoReplies) return { total: 0, bySentiment: {}, byObjection: {} };
+    const bySentiment = {};
+    const byObjection = {};
+    for (const ar of this.data.autoReplies) {
+      bySentiment[ar.sentiment] = (bySentiment[ar.sentiment] || 0) + 1;
+      if (ar.objectionType) byObjection[ar.objectionType] = (byObjection[ar.objectionType] || 0) + 1;
+    }
+    return { total: this.data.autoReplies.length, bySentiment, byObjection };
+  }
+
+  // --- OOO Reschedule tracking ---
+
+  addOOOReschedule(data) {
+    if (!this.data.oooReschedules) this.data.oooReschedules = [];
+    const entry = {
+      id: 'ooo_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      prospectEmail: (data.prospectEmail || '').toLowerCase(),
+      prospectName: data.prospectName || '',
+      detectedAt: new Date().toISOString(),
+      returnDate: data.returnDate || null,
+      scheduledFollowUpAt: data.scheduledFollowUpAt || null,
+      status: 'pending'
+    };
+    this.data.oooReschedules.push(entry);
+    if (this.data.oooReschedules.length > 200) {
+      this.data.oooReschedules = this.data.oooReschedules.slice(-200);
+    }
+    this._save();
+    return entry;
+  }
+
+  getPendingOOOReschedules() {
+    if (!this.data.oooReschedules) return [];
+    return this.data.oooReschedules.filter(o => o.status === 'pending');
+  }
+
+  markOOORescheduleProcessed(id) {
+    if (!this.data.oooReschedules) return null;
+    const entry = this.data.oooReschedules.find(o => o.id === id);
+    if (entry) {
+      entry.status = 'processed';
+      entry.processedAt = new Date().toISOString();
+      this._save();
+    }
+    return entry;
   }
 
   getSentimentBreakdown() {
