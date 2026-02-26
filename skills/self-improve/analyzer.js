@@ -5,6 +5,12 @@ const { retryAsync } = require('../../gateway/utils.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const log = require('../../gateway/logger.js');
 
+// Constantes impact tracking (extraites pour configurabilite)
+const IMPACT_REPLY_WEIGHT = 2;            // reply rate compte double vs open rate
+const IMPACT_THRESHOLD_SIGNIFICANT = 2;   // % delta requis si stat significatif
+const IMPACT_THRESHOLD_NOISY = 5;         // % delta requis si pas significatif
+const MIN_SAMPLE_FOR_IMPACT = 10;         // minimum emails pour mesurer impact
+
 class Analyzer {
   constructor(claudeKey) {
     this.claudeKey = claudeKey;
@@ -54,10 +60,10 @@ class Analyzer {
   async analyzePerformance(snapshot, historicalSnapshots) {
     // Hard minimum : pas de recommandations si < 100 emails envoyes
     const totalEmails = snapshot && snapshot.email ? (snapshot.email.totalSent || 0) : 0;
-    if (totalEmails < 100) {
+    if (totalEmails < 50) {
       return {
-        summary: 'Donnees insuffisantes (' + totalEmails + '/100 emails minimum). Accumulation en cours — pas de recommandation pour eviter les decisions sur du bruit statistique.',
-        insights: ['Volume actuel: ' + totalEmails + ' emails. Minimum 100 requis pour des recommandations fiables.'],
+        summary: 'Donnees insuffisantes (' + totalEmails + '/50 emails minimum). Accumulation en cours — pas de recommandation pour eviter les decisions sur du bruit statistique.',
+        insights: ['Volume actuel: ' + totalEmails + ' emails. Minimum 50 requis pour des recommandations fiables.'],
         recommendations: [],
         dataQuality: 'insufficient'
       };
@@ -493,6 +499,17 @@ Reponds UNIQUEMENT en JSON strict :
     return record;
   }
 
+  // Approximation CDF normale (Abramowitz & Stegun, erreur < 1.5e-7)
+  _normalCDF(z) {
+    const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+    const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+    const sign = z < 0 ? -1 : 1;
+    const x = Math.abs(z) / Math.sqrt(2);
+    const t = 1.0 / (1.0 + p * x);
+    const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+    return 0.5 * (1.0 + sign * y);
+  }
+
   // Z-test pour comparer deux proportions (significativite statistique)
   // Retourne { zScore, pValue, significant } (significant = p < 0.10, soit 90% de confiance)
   _zTestProportions(successes1, n1, successes2, n2) {
@@ -503,10 +520,10 @@ Reponds UNIQUEMENT en JSON strict :
     const se = Math.sqrt(pPool * (1 - pPool) * (1 / n1 + 1 / n2));
     if (se === 0) return { zScore: 0, pValue: 1, significant: false, reason: 'zero_variance' };
     const z = (p2 - p1) / se;
-    // Approximation de la p-value (two-tailed) via la fonction d'erreur
     const absZ = Math.abs(z);
-    const pValue = absZ > 3.5 ? 0.001 : absZ > 2.58 ? 0.01 : absZ > 1.96 ? 0.05 : absZ > 1.645 ? 0.10 : 0.5;
-    return { zScore: Math.round(z * 100) / 100, pValue, significant: absZ >= 1.645, reason: null };
+    // P-value precise via CDF normale (two-tailed)
+    const pValue = Math.round(2 * (1 - this._normalCDF(absZ)) * 10000) / 10000;
+    return { zScore: Math.round(z * 100) / 100, pValue, significant: pValue < 0.10, reason: null };
   }
 
   // Mesurer l'impact des recommandations appliquees il y a 14 jours
@@ -557,21 +574,17 @@ Reponds UNIQUEMENT en JSON strict :
       let verdict = 'neutral';
       let statSignificant = false;
 
-      if (baselineSent < 10 || impact.totalSent < 10) {
+      if (baselineSent < MIN_SAMPLE_FOR_IMPACT || impact.totalSent < MIN_SAMPLE_FOR_IMPACT) {
         verdict = 'insufficient_data';
       } else if (openTest.significant || replyTest.significant) {
         statSignificant = true;
-        // Reply rate compte double dans le verdict
-        const mainDelta = delta.openRate + delta.replyRate * 2;
-        if (mainDelta > 2) verdict = 'positive';
-        else if (mainDelta < -2) verdict = 'negative';
-        // Significatif mais delta faible → neutral
+        const mainDelta = delta.openRate + delta.replyRate * IMPACT_REPLY_WEIGHT;
+        if (mainDelta > IMPACT_THRESHOLD_SIGNIFICANT) verdict = 'positive';
+        else if (mainDelta < -IMPACT_THRESHOLD_SIGNIFICANT) verdict = 'negative';
       } else {
-        // Pas significatif → on regarde quand même la direction mais on marque non-significatif
-        const mainDelta = delta.openRate + delta.replyRate * 2;
-        if (mainDelta > 5) verdict = 'positive';
-        else if (mainDelta < -5) verdict = 'negative';
-        // Avec un seuil plus élevé quand pas significatif statistiquement
+        const mainDelta = delta.openRate + delta.replyRate * IMPACT_REPLY_WEIGHT;
+        if (mainDelta > IMPACT_THRESHOLD_NOISY) verdict = 'positive';
+        else if (mainDelta < -IMPACT_THRESHOLD_NOISY) verdict = 'negative';
       }
 
       const statDetails = {

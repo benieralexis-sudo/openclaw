@@ -1,4 +1,4 @@
-// Tests — Self-Improve Storage v3 (node:test)
+// Tests — Self-Improve Storage v4 (node:test)
 const { describe, it, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const os = require('os');
@@ -13,7 +13,102 @@ process.env.SELF_IMPROVE_DATA_DIR = tmpDir;
 delete require.cache[require.resolve('./storage.js')];
 const storage = require('./storage.js');
 
-describe('Self-Improve Storage v3', () => {
+describe('Self-Improve Storage v4', () => {
+
+  describe('Schema Versioning & Migration', () => {
+    it('nouvelle base a la version 2', () => {
+      assert.equal(storage.data.version, 2);
+    });
+
+    it('toutes les structures critiques existent', () => {
+      assert.ok(storage.data.config);
+      assert.ok(storage.data.metrics);
+      assert.ok(storage.data.analysis);
+      assert.ok(storage.data.feedback);
+      assert.ok(storage.data.stats);
+      assert.ok(storage.data.impactTracking);
+      assert.ok(storage.data.funnel);
+      assert.ok(storage.data.brainInsights);
+      assert.ok(storage.data.abTestInsights);
+      assert.ok(storage.data.temporalPatterns);
+      assert.ok(storage.data.cohortInsights);
+      assert.ok(Array.isArray(storage.data.anomalyHistory));
+    });
+
+    it('migration depuis ancienne version sans champs', () => {
+      // Simuler une ancienne base sans version ni certains champs
+      const dbFile = path.join(tmpDir, 'self-improve-db.json');
+      fs.writeFileSync(dbFile, JSON.stringify({
+        config: { enabled: true, adminChatId: '123' },
+        metrics: { weeklySnapshots: [], emailDetails: [] },
+        analysis: { lastAnalysis: null, lastRecommendations: [] },
+        feedback: { predictions: [], accuracyHistory: [] },
+        backups: [],
+        stats: { totalAnalyses: 5 }
+      }));
+      // Recharger
+      storage._load();
+      assert.equal(storage.data.version, 2);
+      assert.ok(storage.data.impactTracking);
+      assert.ok(storage.data.config.emailPreferences);
+      assert.ok(storage.data.config.targetingCriteria);
+      assert.ok(Array.isArray(storage.data.analysis.pendingRecommendations));
+      assert.equal(storage.data.stats.totalAnalyses, 5); // Preserve existing data
+    });
+  });
+
+  describe('Deep Merge updateConfig', () => {
+    it('preserve les sous-objets existants', () => {
+      storage.data.config.emailPreferences = { maxLength: 'short', preferredSendHour: 10 };
+      storage.updateConfig({ emailPreferences: { maxLength: 'long' } });
+      assert.equal(storage.data.config.emailPreferences.maxLength, 'long');
+      assert.equal(storage.data.config.emailPreferences.preferredSendHour, 10); // Preserve !
+    });
+
+    it('ecrase les valeurs scalaires', () => {
+      storage.updateConfig({ enabled: false });
+      assert.equal(storage.data.config.enabled, false);
+    });
+  });
+
+  describe('Save Retry Logic', () => {
+    it('_save ne crash pas (3 tentatives)', () => {
+      // Juste verifier que ca ne throw pas
+      storage._save();
+      assert.ok(true);
+    });
+  });
+
+  describe('Z-Test Precision', () => {
+    it('p-value precise pour z=1.96 → ~0.05', () => {
+      // Importer l'analyzer pour tester _normalCDF
+      delete require.cache[require.resolve('./analyzer.js')];
+      const Analyzer = require('./analyzer.js');
+      const analyzer = new Analyzer('fake-key');
+      const result = analyzer._zTestProportions(50, 100, 40, 100);
+      assert.ok(result.zScore !== 0);
+      // Pour 50/100 vs 40/100, z ≈ 1.43, p ≈ 0.15 (pas significatif)
+      assert.equal(result.significant, false);
+      assert.ok(result.pValue > 0.10);
+    });
+
+    it('detecte un ecart significatif 70/100 vs 40/100', () => {
+      delete require.cache[require.resolve('./analyzer.js')];
+      const Analyzer = require('./analyzer.js');
+      const analyzer = new Analyzer('fake-key');
+      const result = analyzer._zTestProportions(40, 100, 70, 100);
+      assert.equal(result.significant, true);
+      assert.ok(result.pValue < 0.05);
+    });
+
+    it('_normalCDF(0) = 0.5', () => {
+      delete require.cache[require.resolve('./analyzer.js')];
+      const Analyzer = require('./analyzer.js');
+      const analyzer = new Analyzer('fake-key');
+      const cdf = analyzer._normalCDF(0);
+      assert.ok(Math.abs(cdf - 0.5) < 0.001);
+    });
+  });
 
   describe('Impact Tracking', () => {
     it('startImpactTracking cree un tracking actif', () => {

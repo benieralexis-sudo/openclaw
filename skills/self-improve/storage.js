@@ -5,6 +5,7 @@ const { atomicWriteSync } = require('../../gateway/utils.js');
 
 const DATA_DIR = process.env.SELF_IMPROVE_DATA_DIR || '/data/self-improve';
 const DB_FILE = path.join(DATA_DIR, 'self-improve-db.json');
+const SCHEMA_VERSION = 2;
 
 class SelfImproveStorage {
   constructor() {
@@ -21,25 +22,60 @@ class SelfImproveStorage {
     try {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
       this.data = JSON.parse(raw);
-      // Ensure critical structures exist (migration safety)
-      if (!this.data.impactTracking) this.data.impactTracking = { activeTracking: [], completedTracking: [] };
-      if (!this.data.typePerformance) this.data.typePerformance = {};
-      if (!this.data.anomalyHistory) this.data.anomalyHistory = [];
-      console.log('[self-improve-storage] Base chargee (' +
-        this.data.analysis.appliedRecommendations.length + ' recos appliquees, ' +
-        this.data.metrics.weeklySnapshots.length + ' snapshots)');
+      this._migrate();
+      console.log('[self-improve-storage] Base v' + (this.data.version || 1) + ' chargee (' +
+        (this.data.analysis.appliedRecommendations || []).length + ' recos appliquees, ' +
+        (this.data.metrics.weeklySnapshots || []).length + ' snapshots)');
     } catch (e) {
       this.data = this._defaultData();
       this._save();
-      console.log('[self-improve-storage] Nouvelle base creee');
+      console.log('[self-improve-storage] Nouvelle base v' + SCHEMA_VERSION + ' creee');
+    }
+  }
+
+  // Migration automatique des anciennes versions
+  _migrate() {
+    const defaults = this._defaultData();
+    // Structures critiques obligatoires
+    if (!this.data.config) this.data.config = defaults.config;
+    if (!this.data.metrics) this.data.metrics = defaults.metrics;
+    if (!this.data.analysis) this.data.analysis = defaults.analysis;
+    if (!this.data.feedback) this.data.feedback = defaults.feedback;
+    if (!this.data.stats) this.data.stats = defaults.stats;
+    if (!this.data.impactTracking) this.data.impactTracking = { activeTracking: [], completedTracking: [] };
+    if (!this.data.typePerformance) this.data.typePerformance = {};
+    if (!this.data.anomalyHistory) this.data.anomalyHistory = [];
+    if (!this.data.funnel) this.data.funnel = { weeklyFunnelSnapshots: [] };
+    if (!this.data.brainInsights) this.data.brainInsights = defaults.brainInsights;
+    if (!this.data.abTestInsights) this.data.abTestInsights = defaults.abTestInsights;
+    if (!this.data.temporalPatterns) this.data.temporalPatterns = defaults.temporalPatterns;
+    if (!this.data.cohortInsights) this.data.cohortInsights = defaults.cohortInsights;
+    // Sous-structures config
+    if (!this.data.config.emailPreferences) this.data.config.emailPreferences = defaults.config.emailPreferences;
+    if (!this.data.config.targetingCriteria) this.data.config.targetingCriteria = defaults.config.targetingCriteria;
+    // Sous-structures analysis
+    if (!this.data.analysis.pendingRecommendations) this.data.analysis.pendingRecommendations = [];
+    if (!this.data.analysis.appliedRecommendations) this.data.analysis.appliedRecommendations = [];
+    // Marquer la version
+    if (!this.data.version || this.data.version < SCHEMA_VERSION) {
+      this.data.version = SCHEMA_VERSION;
+      this._save();
     }
   }
 
   _save() {
-    try {
-      atomicWriteSync(DB_FILE, this.data);
-    } catch (e) {
-      console.error('[self-improve-storage] Erreur sauvegarde:', e.message);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        atomicWriteSync(DB_FILE, this.data);
+        return;
+      } catch (e) {
+        if (attempt === 2) {
+          console.error('[self-improve-storage] Erreur sauvegarde (3 tentatives):', e.message);
+        } else {
+          // Sync sleep 100ms entre les retries
+          const start = Date.now(); while (Date.now() - start < 100) {}
+        }
+      }
     }
   }
 
@@ -49,6 +85,7 @@ class SelfImproveStorage {
 
   _defaultData() {
     return {
+      version: SCHEMA_VERSION,
       config: {
         enabled: true,
         adminChatId: '1409505520',
@@ -112,7 +149,13 @@ class SelfImproveStorage {
   }
 
   updateConfig(updates) {
-    Object.assign(this.data.config, updates);
+    for (const key of Object.keys(updates)) {
+      if (updates[key] && typeof updates[key] === 'object' && !Array.isArray(updates[key]) && this.data.config[key] && typeof this.data.config[key] === 'object') {
+        Object.assign(this.data.config[key], updates[key]);
+      } else {
+        this.data.config[key] = updates[key];
+      }
+    }
     this._save();
   }
 
@@ -422,6 +465,10 @@ class SelfImproveStorage {
 
   saveBrainInsights(insights) {
     this.data.brainInsights = { ...insights, lastCollectedAt: new Date().toISOString() };
+    // Limiter weeklyPerformance a 52 entrees
+    if (this.data.brainInsights.weeklyPerformance && this.data.brainInsights.weeklyPerformance.length > 52) {
+      this.data.brainInsights.weeklyPerformance = this.data.brainInsights.weeklyPerformance.slice(0, 52);
+    }
     this._save();
   }
 
@@ -443,6 +490,10 @@ class SelfImproveStorage {
 
   saveTemporalPatterns(patterns) {
     this.data.temporalPatterns = { ...patterns, lastAnalyzedAt: new Date().toISOString() };
+    // Limiter bestSlots/worstSlots
+    if (this.data.temporalPatterns.bestSlots && this.data.temporalPatterns.bestSlots.length > 10) {
+      this.data.temporalPatterns.bestSlots = this.data.temporalPatterns.bestSlots.slice(0, 10);
+    }
     this._save();
   }
 
@@ -454,6 +505,13 @@ class SelfImproveStorage {
 
   saveCohortInsights(insights) {
     this.data.cohortInsights = { ...insights, lastAnalyzedAt: new Date().toISOString() };
+    // Limiter topCohorts/bottomCohorts
+    if (this.data.cohortInsights.topCohorts && this.data.cohortInsights.topCohorts.length > 10) {
+      this.data.cohortInsights.topCohorts = this.data.cohortInsights.topCohorts.slice(0, 10);
+    }
+    if (this.data.cohortInsights.bottomCohorts && this.data.cohortInsights.bottomCohorts.length > 10) {
+      this.data.cohortInsights.bottomCohorts = this.data.cohortInsights.bottomCohorts.slice(0, 10);
+    }
     this._save();
   }
 

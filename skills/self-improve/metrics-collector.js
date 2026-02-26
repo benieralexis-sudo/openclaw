@@ -1,6 +1,17 @@
 // Self-Improve - Collecte cross-skill des metriques
 const storage = require('./storage.js');
 
+// CDF normale statique (Abramowitz & Stegun) pour A/B test significativite
+function _normalCDFStatic(z) {
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const sign = z < 0 ? -1 : 1;
+  const x = Math.abs(z) / Math.sqrt(2);
+  const t = 1.0 / (1.0 + p * x);
+  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return 0.5 * (1.0 + sign * y);
+}
+
 // Cross-skill imports (dual-path pour Docker)
 function getAutomailerStorage() {
   try { return require('../automailer/storage.js'); }
@@ -605,34 +616,58 @@ class MetricsCollector {
     }
   }
 
-  // --- A/B Test insights ---
+  // --- A/B Test insights (avec significativite statistique) ---
   collectABTestMetrics() {
     const automailer = getAutomailerStorage();
-    if (!automailer || !automailer.data || !automailer.getABTestResults) return { available: false };
+    if (!automailer || !automailer.data || typeof automailer.getABTestResults !== 'function') {
+      return { available: false, reason: 'method_not_available' };
+    }
 
     try {
       const campaigns = Object.values(automailer.data.campaigns || {});
-      if (campaigns.length === 0) return { available: false };
+      if (campaigns.length === 0) return { available: false, reason: 'no_campaigns' };
 
       const campaignResults = [];
-      let totalAWins = 0, totalBWins = 0, totalABEmails = 0;
+      let totalAWins = 0, totalBWins = 0, totalABEmails = 0, significantWins = 0;
 
       for (const campaign of campaigns) {
-        const abResults = automailer.getABTestResults(campaign.id);
+        let abResults;
+        try { abResults = automailer.getABTestResults(campaign.id); } catch (e) { continue; }
         if (!abResults || abResults.totalEmails === 0) continue;
 
         totalABEmails += abResults.totalEmails;
         if (abResults.winner === 'A') totalAWins++;
         else if (abResults.winner === 'B') totalBWins++;
 
-        campaignResults.push({
+        const result = {
           campaignId: campaign.id,
           campaignName: campaign.name || campaign.id,
           totalEmails: abResults.totalEmails,
           winner: abResults.winner,
           aOpenRate: abResults.A ? abResults.A.openRate : 0,
-          bOpenRate: abResults.B ? abResults.B.openRate : 0
-        });
+          bOpenRate: abResults.B ? abResults.B.openRate : 0,
+          significant: false,
+          pValue: null
+        };
+
+        // Test de significativite statistique (z-test sur open rates)
+        if (abResults.A && abResults.B && (abResults.A.sent || 0) >= 10 && (abResults.B.sent || 0) >= 10) {
+          const aSent = abResults.A.sent, bSent = abResults.B.sent;
+          const aOpened = Math.round((abResults.A.openRate || 0) * aSent / 100);
+          const bOpened = Math.round((abResults.B.openRate || 0) * bSent / 100);
+          // Z-test inline (meme logique que analyzer)
+          const p1 = aOpened / aSent, p2 = bOpened / bSent;
+          const pPool = (aOpened + bOpened) / (aSent + bSent);
+          const se = Math.sqrt(pPool * (1 - pPool) * (1 / aSent + 1 / bSent));
+          if (se > 0) {
+            const z = Math.abs((p2 - p1) / se);
+            result.significant = z >= 1.645; // 90% confiance
+            result.pValue = Math.round(2 * (1 - _normalCDFStatic(z)) * 10000) / 10000;
+            if (result.significant) significantWins++;
+          }
+        }
+
+        campaignResults.push(result);
       }
 
       const insights = {
@@ -643,6 +678,8 @@ class MetricsCollector {
           totalABEmails,
           aWins: totalAWins,
           bWins: totalBWins,
+          significantWins,
+          totalComparisons: campaignResults.filter(r => r.pValue !== null).length,
           variantWinRate: (totalAWins + totalBWins) > 0 ? Math.round((totalBWins / (totalAWins + totalBWins)) * 100) : null
         }
       };
@@ -651,7 +688,7 @@ class MetricsCollector {
       return insights;
     } catch (e) {
       console.error('[metrics-collector] Erreur AB test metrics:', e.message);
-      return { available: false };
+      return { available: false, reason: e.message };
     }
   }
 

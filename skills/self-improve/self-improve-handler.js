@@ -1015,46 +1015,95 @@ Reponds UNIQUEMENT en JSON strict :
     return { type: 'text', content: lines.join('\n') };
   }
 
-  // --- Daily Anomaly Detection (pur JS, pas d'appel IA) ---
+  // --- Daily Anomaly Detection Adaptive (pur JS, pas d'appel IA) ---
+
+  // Calcule mean et stdDev d'une metrique sur les N derniers snapshots
+  _getHistoricalBaseline(metricPath, weeks) {
+    const snapshots = storage.getWeeklySnapshots(weeks || 8);
+    if (snapshots.length < 3) return null; // Pas assez d'historique
+    const values = [];
+    for (const s of snapshots) {
+      const parts = metricPath.split('.');
+      let val = s;
+      for (const p of parts) { val = val ? val[p] : undefined; }
+      if (typeof val === 'number' && !isNaN(val)) values.push(val);
+    }
+    if (values.length < 3) return null;
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+    const stdDev = Math.sqrt(variance);
+    return { mean: Math.round(mean * 100) / 100, stdDev: Math.round(stdDev * 100) / 100, count: values.length };
+  }
 
   async _dailyAnomalyCheck() {
     const config = storage.getConfig();
     if (!config.enabled) return;
 
-    log.info('self-improve', 'Anomaly check quotidien...');
+    log.info('self-improve', 'Anomaly check quotidien (adaptatif)...');
 
     try {
       const metrics = this.metricsCollector.getRecentMetrics(24);
       if (!metrics) {
-        log.warn('self-improve', 'Anomaly check: aucune metrique disponible (metricsCollector retourne null)');
+        log.warn('self-improve', 'Anomaly check: aucune metrique disponible');
         return;
       }
 
       const anomalies = [];
 
-      // 1. Bounce rate spike (>10%)
-      if (metrics.sent >= 5 && metrics.bounceRate > 10) {
-        anomalies.push({
-          type: 'bounce_spike', severity: 'high',
-          message: 'Taux de bounce eleve: ' + metrics.bounceRate + '% (' + metrics.bounced + '/' + metrics.sent + ' en 24h)',
-          metrics: { bounceRate: metrics.bounceRate, sent: metrics.sent, bounced: metrics.bounced }
-        });
-      }
-
-      // 2. Open rate drop vs moyenne
-      const latestSnapshot = storage.getLatestSnapshot();
-      if (latestSnapshot && latestSnapshot.email && latestSnapshot.email.openRate > 0) {
-        const avgOpenRate = latestSnapshot.email.openRate;
-        if (metrics.sent >= 5 && metrics.openRate < avgOpenRate * 0.5) {
+      // 1. Bounce rate spike — adaptatif (z-score > 2) ou fallback > 10%
+      if (metrics.sent >= 5) {
+        const baseline = this._getHistoricalBaseline('email.bounceRate');
+        const threshold = baseline ? baseline.mean + 2 * baseline.stdDev : 10;
+        if (metrics.bounceRate > Math.max(threshold, 5)) { // minimum 5% pour eviter bruit
           anomalies.push({
-            type: 'open_rate_drop', severity: 'medium',
-            message: 'Open rate en chute: ' + metrics.openRate + '% vs ' + avgOpenRate + '% (moyenne)',
-            metrics: { currentOpenRate: metrics.openRate, avgOpenRate }
+            type: 'bounce_spike', severity: 'high',
+            message: 'Taux de bounce eleve: ' + metrics.bounceRate + '% (seuil adaptatif: ' + Math.round(threshold) + '%, ' + metrics.bounced + '/' + metrics.sent + ' en 24h)',
+            metrics: { bounceRate: metrics.bounceRate, sent: metrics.sent, bounced: metrics.bounced, threshold: Math.round(threshold) }
           });
         }
       }
 
-      // 3. Budget exceeded
+      // 2. Open rate drop — adaptatif (z-score < -2) ou fallback < 50% de la moyenne
+      if (metrics.sent >= 5) {
+        const baseline = this._getHistoricalBaseline('email.openRate');
+        if (baseline) {
+          const threshold = Math.max(baseline.mean - 2 * baseline.stdDev, 0);
+          if (metrics.openRate < threshold) {
+            anomalies.push({
+              type: 'open_rate_drop', severity: 'medium',
+              message: 'Open rate en chute: ' + metrics.openRate + '% (baseline: ' + baseline.mean + '% ± ' + baseline.stdDev + '%, seuil: ' + Math.round(threshold) + '%)',
+              metrics: { currentOpenRate: metrics.openRate, baselineMean: baseline.mean, threshold: Math.round(threshold) }
+            });
+          }
+        } else {
+          // Fallback si pas assez d'historique
+          const latestSnapshot = storage.getLatestSnapshot();
+          if (latestSnapshot && latestSnapshot.email && latestSnapshot.email.openRate > 0 && metrics.openRate < latestSnapshot.email.openRate * 0.5) {
+            anomalies.push({
+              type: 'open_rate_drop', severity: 'medium',
+              message: 'Open rate en chute: ' + metrics.openRate + '% vs ' + latestSnapshot.email.openRate + '% (dernier snapshot)',
+              metrics: { currentOpenRate: metrics.openRate, avgOpenRate: latestSnapshot.email.openRate }
+            });
+          }
+        }
+      }
+
+      // 3. Reply rate drop — adaptatif
+      if (metrics.sent >= 10) {
+        const baseline = this._getHistoricalBaseline('email.replyRate');
+        if (baseline && baseline.mean > 0) {
+          const threshold = Math.max(baseline.mean - 2 * baseline.stdDev, 0);
+          if (metrics.replyRate < threshold) {
+            anomalies.push({
+              type: 'reply_rate_drop', severity: 'medium',
+              message: 'Reply rate en chute: ' + metrics.replyRate + '% (baseline: ' + baseline.mean + '%, seuil: ' + Math.round(threshold) + '%)',
+              metrics: { currentReplyRate: metrics.replyRate, baselineMean: baseline.mean, threshold: Math.round(threshold) }
+            });
+          }
+        }
+      }
+
+      // 4. Budget exceeded
       if (metrics.budgetStatus && metrics.budgetStatus.todaySpent >= (metrics.budgetStatus.dailyLimit || 5)) {
         anomalies.push({
           type: 'budget_exceeded', severity: 'high',
@@ -1063,7 +1112,7 @@ Reponds UNIQUEMENT en JSON strict :
         });
       }
 
-      // 4. Circuit breaker tripped
+      // 5. Circuit breaker tripped
       if (metrics.breakerStatus) {
         for (const [name, status] of Object.entries(metrics.breakerStatus)) {
           if (status.state === 'OPEN') {
@@ -1076,7 +1125,7 @@ Reponds UNIQUEMENT en JSON strict :
         }
       }
 
-      // 5. No activity on weekday
+      // 6. No activity on weekday
       const dayOfWeek = new Date().getDay();
       if (dayOfWeek >= 1 && dayOfWeek <= 5 && metrics.sent === 0) {
         anomalies.push({
@@ -1086,12 +1135,12 @@ Reponds UNIQUEMENT en JSON strict :
         });
       }
 
-      // 6. Zero reply rate after significant volume (7 jours)
+      // 7. Zero reply rate after significant volume (7 jours)
       const weekMetrics = this.metricsCollector.getRecentMetrics(7 * 24);
       if (weekMetrics && weekMetrics.sent >= 20 && weekMetrics.replied === 0) {
         anomalies.push({
           type: 'zero_reply_rate', severity: 'high',
-          message: 'ALERTE: 0 reponse apres ' + weekMetrics.sent + ' emails envoyes (7j) — open rate: ' + weekMetrics.openRate + '% — verifier qualite des messages',
+          message: 'ALERTE: 0 reponse apres ' + weekMetrics.sent + ' emails (7j) — open rate: ' + weekMetrics.openRate + '% — verifier qualite',
           metrics: { sent: weekMetrics.sent, replied: 0, openRate: weekMetrics.openRate }
         });
       }
@@ -1109,7 +1158,7 @@ Reponds UNIQUEMENT en JSON strict :
         await this.sendTelegram(config.adminChatId, lines.join('\n'));
       }
 
-      log.info('self-improve', 'Anomaly check: ' + anomalies.length + ' anomalie(s)');
+      log.info('self-improve', 'Anomaly check: ' + anomalies.length + ' anomalie(s)' + (anomalies.length > 0 ? ' (' + anomalies.map(a => a.type).join(', ') + ')' : ''));
     } catch (e) {
       log.error('self-improve', 'Erreur anomaly check:', e.message);
     }
