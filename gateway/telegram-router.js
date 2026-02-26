@@ -936,6 +936,24 @@ inboxListener = InboxListener ? new InboxListener({
       } catch (e) {
         log.warn('inbox-manager', 'Annulation reactive FU echouee:', e.message);
       }
+
+      // Multi-Threading : marquer l'entreprise comme "replied" → stopper TOUS les contacts secondaires
+      try {
+        const ffStorage = require('../skills/flowfast/storage.js');
+        if (ffStorage && ffStorage.markCompanyReplied) {
+          for (const ep of emailsToProcess) {
+            const updatedGroup = ffStorage.markCompanyReplied(ep);
+            if (updatedGroup) {
+              const cancelled = updatedGroup.contacts.filter(c => c.status === 'cancelled').length;
+              if (cancelled > 0) {
+                log.info('inbox-manager', 'Multi-thread: entreprise ' + updatedGroup.companyName + ' replied → ' + cancelled + ' contact(s) secondaire(s) annule(s)');
+              }
+            }
+          }
+        }
+      } catch (e) {
+        log.warn('inbox-manager', 'Multi-thread markCompanyReplied echoue:', e.message);
+      }
     }
 
     // === 5. Update storage inbox-manager avec sentiment ===

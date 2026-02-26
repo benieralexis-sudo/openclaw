@@ -446,6 +446,186 @@ class Storage {
     this._save();
     return lead;
   }
+
+  // --- Multi-Threading (Company Groups) ---
+
+  _ensureCompanyGroups() {
+    if (!this.data.companyGroups) {
+      this.data.companyGroups = {};
+    }
+  }
+
+  _normalizeCompanyName(name) {
+    return (name || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9àâäéèêëïîôùûüç ]/g, '')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+  }
+
+  // Creer ou mettre a jour un groupe entreprise
+  // contacts: [{email, name, title, role:'primary'|'secondary', emailAngle:'main_pitch'|'technical'|'roi'|'testimonial'}]
+  createCompanyGroup(companyName, contacts) {
+    this._ensureCompanyGroups();
+    const key = this._normalizeCompanyName(companyName);
+    if (!key) return null;
+
+    if (this.data.companyGroups[key]) {
+      // Ajouter les nouveaux contacts sans doublons
+      const existing = this.data.companyGroups[key];
+      const existingEmails = new Set(existing.contacts.map(c => c.email.toLowerCase()));
+      for (const c of contacts) {
+        if (!existingEmails.has(c.email.toLowerCase())) {
+          existing.contacts.push({
+            email: c.email,
+            name: c.name || '',
+            title: c.title || '',
+            role: c.role || 'secondary',
+            emailAngle: c.emailAngle || 'main_pitch',
+            status: 'pending',
+            sentAt: null,
+            scheduledAt: null
+          });
+        }
+      }
+      this._save();
+      return existing;
+    }
+
+    const staggerDays = parseInt(process.env.MULTI_THREAD_STAGGER_DAYS) || 2;
+    const group = {
+      companyName: companyName,
+      normalizedName: key,
+      contacts: contacts.map((c, i) => ({
+        email: c.email,
+        name: c.name || '',
+        title: c.title || '',
+        role: i === 0 ? 'primary' : (c.role || 'secondary'),
+        emailAngle: c.emailAngle || (i === 0 ? 'main_pitch' : (i === 1 ? 'technical' : 'roi')),
+        status: i === 0 ? 'pending' : 'scheduled',
+        sentAt: null,
+        scheduledAt: i === 0 ? null : new Date(Date.now() + i * staggerDays * 24 * 60 * 60 * 1000).toISOString()
+      })),
+      status: 'active',
+      repliedBy: null,
+      repliedAt: null,
+      createdAt: new Date().toISOString()
+    };
+    this.data.companyGroups[key] = group;
+    // Limiter a 200 groupes
+    const keys = Object.keys(this.data.companyGroups);
+    if (keys.length > 200) {
+      // Supprimer les plus anciens qui ne sont pas actifs
+      const sortable = keys.map(k => ({ key: k, group: this.data.companyGroups[k] }))
+        .filter(g => g.group.status !== 'active')
+        .sort((a, b) => (a.group.createdAt || '').localeCompare(b.group.createdAt || ''));
+      for (let i = 0; i < Math.min(50, sortable.length); i++) {
+        delete this.data.companyGroups[sortable[i].key];
+      }
+    }
+    this._save();
+    return group;
+  }
+
+  getCompanyGroup(companyName) {
+    this._ensureCompanyGroups();
+    const key = this._normalizeCompanyName(companyName);
+    return this.data.companyGroups[key] || null;
+  }
+
+  // Verifier si l'entreprise a un groupe actif (email deja envoye ou en cours)
+  isCompanyGroupActive(companyName) {
+    const group = this.getCompanyGroup(companyName);
+    if (!group) return false;
+    return group.status === 'active' && group.contacts.some(c => c.status === 'sent' || c.status === 'pending');
+  }
+
+  // Checker si l'entreprise a deja ete contactee (peu importe le statut du groupe)
+  hasCompanyBeenContacted(companyName) {
+    const group = this.getCompanyGroup(companyName);
+    if (!group) return false;
+    return group.contacts.some(c => c.status === 'sent');
+  }
+
+  // Marquer qu'un contact de l'entreprise a repondu → stopper TOUS les contacts
+  markCompanyReplied(email) {
+    this._ensureCompanyGroups();
+    const emailLower = (email || '').toLowerCase();
+    for (const [key, group] of Object.entries(this.data.companyGroups)) {
+      const contact = group.contacts.find(c => c.email.toLowerCase() === emailLower);
+      if (contact) {
+        group.status = 'replied';
+        group.repliedBy = emailLower;
+        group.repliedAt = new Date().toISOString();
+        // Annuler les contacts non encore envoyes
+        for (const c of group.contacts) {
+          if (c.status === 'pending' || c.status === 'scheduled') {
+            c.status = 'cancelled';
+            c.cancelledAt = new Date().toISOString();
+            c.cancelReason = 'company_replied';
+          }
+        }
+        this._save();
+        return group;
+      }
+    }
+    return null;
+  }
+
+  // Marquer un contact comme envoye
+  markCompanyContactSent(email) {
+    this._ensureCompanyGroups();
+    const emailLower = (email || '').toLowerCase();
+    for (const [key, group] of Object.entries(this.data.companyGroups)) {
+      const contact = group.contacts.find(c => c.email.toLowerCase() === emailLower);
+      if (contact) {
+        contact.status = 'sent';
+        contact.sentAt = new Date().toISOString();
+        this._save();
+        return group;
+      }
+    }
+    return null;
+  }
+
+  // Retourner les contacts secondaires dont le delai est ecoule et l'entreprise toujours active
+  getSecondariesDueForSend() {
+    this._ensureCompanyGroups();
+    const now = new Date().toISOString();
+    const due = [];
+    for (const [key, group] of Object.entries(this.data.companyGroups)) {
+      if (group.status !== 'active') continue;
+      // Le primaire doit avoir ete envoye
+      const primarySent = group.contacts.some(c => c.role === 'primary' && c.status === 'sent');
+      if (!primarySent) continue;
+      for (const contact of group.contacts) {
+        if (contact.role === 'secondary' && contact.status === 'scheduled' && contact.scheduledAt && contact.scheduledAt <= now) {
+          due.push({
+            companyName: group.companyName,
+            groupKey: key,
+            email: contact.email,
+            name: contact.name,
+            title: contact.title,
+            emailAngle: contact.emailAngle
+          });
+        }
+      }
+    }
+    return due;
+  }
+
+  // Trouver le groupe d'une entreprise par email d'un de ses contacts
+  findCompanyGroupByEmail(email) {
+    this._ensureCompanyGroups();
+    const emailLower = (email || '').toLowerCase();
+    for (const [key, group] of Object.entries(this.data.companyGroups)) {
+      if (group.contacts.some(c => c.email.toLowerCase() === emailLower)) {
+        return group;
+      }
+    }
+    return null;
+  }
 }
 
 module.exports = new Storage();

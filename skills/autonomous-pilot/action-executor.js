@@ -302,6 +302,45 @@ Format JSON strict :
       }
     }
 
+    // --- Multi-Threading : grouper les leads qualifies par entreprise ---
+    if (process.env.MULTI_THREAD_ENABLED !== 'false' && ffStorage && ffStorage.createCompanyGroup) {
+      try {
+        const maxContacts = parseInt(process.env.MULTI_THREAD_MAX_CONTACTS) || 3;
+        const qualifiedWithOrg = (result.leads || []).filter(l => l.email && l.organization && l.organization.name && l.score >= minScore);
+
+        // Grouper par entreprise
+        const byCompany = {};
+        for (const l of qualifiedWithOrg) {
+          const orgName = l.organization.name;
+          if (!byCompany[orgName]) byCompany[orgName] = [];
+          byCompany[orgName].push(l);
+        }
+
+        let groupsCreated = 0;
+        for (const [orgName, leads] of Object.entries(byCompany)) {
+          if (leads.length < 2) continue; // Mono-contact, pas besoin de groupe
+          if (ffStorage.hasCompanyBeenContacted(orgName)) continue; // Deja contacte
+
+          const ANGLES = ['main_pitch', 'technical', 'roi', 'testimonial'];
+          const contacts = leads.slice(0, maxContacts).map((l, i) => ({
+            email: l.email,
+            name: ((l.first_name || '') + ' ' + (l.last_name || '')).trim(),
+            title: l.title || '',
+            role: i === 0 ? 'primary' : 'secondary',
+            emailAngle: ANGLES[i] || 'main_pitch'
+          }));
+
+          ffStorage.createCompanyGroup(orgName, contacts);
+          groupsCreated++;
+        }
+        if (groupsCreated > 0) {
+          log.info('action-executor', 'Multi-threading: ' + groupsCreated + ' groupes entreprise crees');
+        }
+      } catch (e) {
+        log.warn('action-executor', 'Multi-threading groupement echoue:', e.message);
+      }
+    }
+
     return {
       success: true,
       total: result.leads?.length || 0,
@@ -663,6 +702,18 @@ Format JSON strict :
       }
     }
 
+    // Multi-Threading : company-level dedup — si l'entreprise a deja recu une reponse, skip TOUS les contacts
+    if (process.env.MULTI_THREAD_ENABLED !== 'false' && params.company) {
+      const ffStorageMT = getFlowFastStorage();
+      if (ffStorageMT && ffStorageMT.findCompanyGroupByEmail) {
+        const companyGroup = ffStorageMT.findCompanyGroupByEmail(params.to);
+        if (companyGroup && companyGroup.status === 'replied') {
+          log.info('action-executor', 'Multi-thread: entreprise ' + companyGroup.companyName + ' a deja repondu (via ' + companyGroup.repliedBy + ') — skip ' + params.to);
+          return { success: false, error: 'Entreprise ' + companyGroup.companyName + ' a deja repondu', companyReplied: true };
+        }
+      }
+    }
+
     // Verification statut email (FullEnrich) — bloquer les INVALID avant de depenser un appel Claude
     const leStorageCheck = getLeadEnrichStorage();
     if (leStorageCheck) {
@@ -993,6 +1044,10 @@ Format JSON strict :
           const marked = ffStorage.markEmailSent(params.to);
           if (!marked) {
             log.warn('action-executor', 'markEmailSent: lead non trouve pour ' + params.to + ' — le lead pourrait etre re-contacte');
+          }
+          // Multi-Threading : marquer le contact comme envoye dans son company group
+          if (ffStorage.markCompanyContactSent) {
+            ffStorage.markCompanyContactSent(params.to);
           }
         } else {
           log.warn('action-executor', 'FlowFast storage indisponible pour markEmailSent');

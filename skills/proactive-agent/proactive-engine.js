@@ -121,6 +121,12 @@ class ProactiveEngine {
       log.info('proactive-engine', 'Cron: job change detection dimanche 22h');
     }
 
+    // Multi-Threading : envoi des contacts secondaires (toutes les heures, heures bureau)
+    if (process.env.MULTI_THREAD_ENABLED !== 'false') {
+      this.crons.push(new Cron('30 9-17 * * 1-5', { timezone: tz }, withCronGuard('pa-multi-thread', () => this._processSecondaryEmails())));
+      log.info('proactive-engine', 'Cron: multi-thread secondaires lun-ven 9h30-17h30');
+    }
+
     this.running = true;
     log.info('proactive-engine', 'Demarre avec ' + this.crons.length + ' crons');
 
@@ -909,6 +915,103 @@ class ProactiveEngine {
 
   _getHubspotClient() {
     try { return require('../crm-hubspot/hubspot-client.js'); } catch (e) { return null; }
+  }
+
+  // --- Tache : Multi-Threading - envoi des secondaires (lun-ven heures bureau) ---
+
+  async _processSecondaryEmails() {
+    try {
+      const ffStorage = this._getFlowfastStorage();
+      if (!ffStorage || !ffStorage.getSecondariesDueForSend) {
+        return;
+      }
+
+      const dueContacts = ffStorage.getSecondariesDueForSend();
+      if (dueContacts.length === 0) return;
+
+      log.info('proactive-engine', 'Multi-thread: ' + dueContacts.length + ' contact(s) secondaire(s) a envoyer');
+
+      const amStorage = this._getAutomailerStorage();
+      const ActionExecutor = this._getActionExecutor();
+      if (!ActionExecutor) {
+        log.warn('proactive-engine', 'Multi-thread: ActionExecutor non disponible');
+        return;
+      }
+
+      let sent = 0;
+      const maxPerCycle = 3; // Max 3 secondaires par cycle horaire
+
+      for (const contact of dueContacts) {
+        if (sent >= maxPerCycle) break;
+
+        // Verifier pas blackliste
+        if (amStorage && amStorage.isBlacklisted(contact.email)) {
+          log.info('proactive-engine', 'Multi-thread: ' + contact.email + ' blackliste — skip');
+          // Marquer comme cancelled dans le group
+          if (ffStorage.markCompanyReplied) {
+            // Pas ideal mais on annule ce contact
+            const group = ffStorage.getCompanyGroup(contact.companyName);
+            if (group) {
+              const c = group.contacts.find(c => c.email.toLowerCase() === contact.email.toLowerCase());
+              if (c) { c.status = 'cancelled'; c.cancelReason = 'blacklisted'; }
+              ffStorage._save && ffStorage._save();
+            }
+          }
+          continue;
+        }
+
+        try {
+          const ANGLE_INTELS = {
+            technical: 'ANGLE TECHNIQUE: Aborde le sujet d\'un point de vue technique. Parle de l\'infrastructure, des defis d\'integration, de la stack tech. Sois precis et concret.',
+            roi: 'ANGLE ROI/BUSINESS: Aborde le sujet d\'un point de vue retour sur investissement. Chiffres, economies, gains de productivite. Sois factuel et impactant.',
+            testimonial: 'ANGLE TEMOIGNAGE: Mentionne un cas client similaire ou une success story. Sois authentique et donne un resultat concret.',
+            main_pitch: ''
+          };
+
+          const executor = new ActionExecutor({
+            claudeKey: this.options.claudeKey || process.env.CLAUDE_API_KEY,
+            resendKey: this.options.resendKey || process.env.RESEND_API_KEY,
+            senderEmail: this.options.senderEmail || process.env.SENDER_EMAIL
+          });
+
+          const angleIntel = ANGLE_INTELS[contact.emailAngle] || '';
+          const result = await executor.executeAction({
+            type: 'send_email',
+            to: contact.email,
+            contactName: contact.name,
+            company: contact.companyName,
+            source: 'multi_thread_secondary',
+            _generateFirst: true,
+            _prospectIntel: 'MULTI-THREADING SECONDAIRE: Un collegue de cette entreprise a deja ete contacte. ' +
+              'Genere un email avec un angle COMPLETEMENT DIFFERENT du pitch principal. ' +
+              (angleIntel ? angleIntel + ' ' : '') +
+              'Ne mentionne PAS que quelqu\'un d\'autre a ete contacte. Sois bref (3-5 lignes).'
+          });
+
+          if (result && result.success) {
+            sent++;
+            ffStorage.markCompanyContactSent(contact.email);
+            log.info('proactive-engine', 'Multi-thread: secondaire envoye a ' + contact.email + ' (' + contact.companyName + ', angle: ' + contact.emailAngle + ')');
+          } else {
+            log.warn('proactive-engine', 'Multi-thread: echec envoi a ' + contact.email + ': ' + (result && result.error || 'unknown'));
+          }
+        } catch (e) {
+          log.warn('proactive-engine', 'Multi-thread: erreur pour ' + contact.email + ':', e.message);
+        }
+      }
+
+      if (sent > 0) {
+        const lines = ['🎯 *Multi-Thread — ' + sent + ' email(s) secondaire(s) envoye(s)*', ''];
+        for (const c of dueContacts.slice(0, sent)) {
+          lines.push('📧 ' + (c.name || c.email) + ' (' + c.companyName + ') — _' + (c.emailAngle || 'secondary').replace(/_/g, ' ') + '_');
+        }
+        try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) {}
+      }
+
+      log.info('proactive-engine', 'Multi-thread termine: ' + sent + '/' + dueContacts.length + ' secondaires envoyes');
+    } catch (e) {
+      log.error('proactive-engine', 'Multi-thread erreur:', e.message);
+    }
   }
 
   // --- Tache : Job Change Detection (dimanche 22h) ---

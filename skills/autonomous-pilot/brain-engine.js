@@ -1251,6 +1251,15 @@ Analyse et reponds en JSON:
     prompt += '7. record_learning — Enregistrer un apprentissage (params: {category: "bestSearchCriteria|bestEmailStyles|bestSendTimes", summary: "...", data: {}})\n';
     prompt += '8. create_followup_sequence — Creer une sequence de 3 relances automatiques pour des leads deja contactes sans reponse (params: {contacts: [{email, nom, entreprise, titre}], totalSteps: 3, intervalDays: 4})\n';
 
+    prompt += '\nMULTI-THREADING (contacts multiples par entreprise):\n';
+    prompt += '- Tu peux contacter 2-3 decision-makers PAR entreprise avec des angles DIFFERENTS.\n';
+    prompt += '- Primaire : pitch principal (envoye immediatement). Secondaires : angle technique, ROI ou temoignage (envoyes en decale J+2, J+3).\n';
+    prompt += '- Le systeme gere automatiquement le groupement et le stagger temporel.\n';
+    prompt += '- Si tu envoies un send_email avec un contact d\'une entreprise deja dans le pipeline, le systeme cree automatiquement le multi-thread.\n';
+    prompt += '- Tu peux ajouter contactRole ("primary"/"secondary") et emailAngle ("main_pitch"/"technical"/"roi"/"testimonial") dans params de send_email.\n';
+    prompt += '- IMPORTANT : si un des contacts repond, le systeme ARRETE automatiquement tous les autres contacts de la meme entreprise.\n';
+    prompt += '- Quand tu cherches des leads (search_leads), le systeme groupe automatiquement les resultats par entreprise si plusieurs contacts qualifies.\n';
+
     prompt += '\nREGLES (MODE MACHINE DE GUERRE):\n';
     prompt += '1. autoExecute=true pour TOUTES les actions, y compris send_email. Tu es en FULL AUTO.\n';
     prompt += '2. Pour send_email, mets TOUJOURS _generateFirst:true — la recherche prospect est OBLIGATOIRE avant chaque email.\n';
