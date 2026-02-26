@@ -199,6 +199,16 @@ class ProactiveStorage {
     this.data.hotLeads[email].lastOpenAt = new Date().toISOString();
     if (resendId && !this.data.hotLeads[email].resendIds.includes(resendId)) {
       this.data.hotLeads[email].resendIds.push(resendId);
+      if (this.data.hotLeads[email].resendIds.length > 50) {
+        this.data.hotLeads[email].resendIds = this.data.hotLeads[email].resendIds.slice(-50);
+      }
+    }
+    // Nettoyage des vieux hot leads (>180 jours sans ouverture)
+    const hotCutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
+    for (const key of Object.keys(this.data.hotLeads)) {
+      if (this.data.hotLeads[key].lastOpenAt && this.data.hotLeads[key].lastOpenAt < hotCutoff) {
+        delete this.data.hotLeads[key];
+      }
     }
     this._save();
     return this.data.hotLeads[email];

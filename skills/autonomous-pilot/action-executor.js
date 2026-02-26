@@ -706,7 +706,10 @@ Format JSON strict :
     if (process.env.MULTI_THREAD_ENABLED !== 'false' && params.company) {
       const ffStorageMT = getFlowFastStorage();
       if (ffStorageMT && ffStorageMT.findCompanyGroupByEmail) {
-        const companyGroup = ffStorageMT.findCompanyGroupByEmail(params.to);
+        let companyGroup = ffStorageMT.findCompanyGroupByEmail(params.to);
+        if (!companyGroup && params.company && ffStorageMT.getCompanyGroup) {
+          companyGroup = ffStorageMT.getCompanyGroup(params.company);
+        }
         if (companyGroup && companyGroup.status === 'replied') {
           log.info('action-executor', 'Multi-thread: entreprise ' + companyGroup.companyName + ' a deja repondu (via ' + companyGroup.repliedBy + ') — skip ' + params.to);
           return { success: false, error: 'Entreprise ' + companyGroup.companyName + ' a deja repondu', companyReplied: true };

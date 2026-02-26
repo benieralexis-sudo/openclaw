@@ -21,6 +21,7 @@ function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
 class ProactiveEngine {
   constructor(options) {
+    this.options = options;
     this.sendTelegram = options.sendTelegram;
     this.callClaude = options.callClaude;
     this.hubspotKey = options.hubspotKey;
@@ -842,14 +843,16 @@ class ProactiveEngine {
 
           const result = await executor.executeAction({
             type: 'send_email',
-            to: candidate.email,
-            contactName: candidate.name,
-            company: candidate.company,
-            source: 'revival',
-            _generateFirst: true,
-            _prospectIntel: 'CONTEXTE REVIVAL: Ce prospect ' + (REASON_LABELS[candidate.reason] || 'est inactif depuis ' + daysAgo + 'j') +
-              '. Genere un email COMPLETEMENT DIFFERENT du premier. Nouvel angle, nouvelle accroche. ' +
-              'Mentionne que du temps a passe. Sois bref (3-5 lignes). Ne repete RIEN du premier email.'
+            params: {
+              to: candidate.email,
+              contactName: candidate.name,
+              company: candidate.company,
+              source: 'revival',
+              _generateFirst: true,
+              _prospectIntel: 'CONTEXTE REVIVAL: Ce prospect ' + (REASON_LABELS[candidate.reason] || 'est inactif depuis ' + daysAgo + 'j') +
+                '. Genere un email COMPLETEMENT DIFFERENT du premier. Nouvel angle, nouvelle accroche. ' +
+                'Mentionne que du temps a passe. Sois bref (3-5 lignes). Ne repete RIEN du premier email.'
+            }
           });
 
           if (result && result.success) {
@@ -971,16 +974,15 @@ class ProactiveEngine {
       const knownCompanies = [];
       const unknownCompanies = [];
 
+      // Charger les leads UNE SEULE fois (performance)
+      const allLeads = (ffStorage && ffStorage.getAllLeads) ? ffStorage.getAllLeads() : [];
+      const allCompanyNames = allLeads.map(l => (l.entreprise || '').toLowerCase()).filter(Boolean);
+
       for (const comp of sorted.slice(0, 20)) {
-        let isKnown = false;
-        if (ffStorage) {
-          // Chercher si l'entreprise est dans nos leads
-          const leads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : [];
-          isKnown = leads.some(l =>
-            (l.entreprise || '').toLowerCase().includes(comp.name.toLowerCase()) ||
-            comp.name.toLowerCase().includes((l.entreprise || '').toLowerCase())
-          );
-        }
+        const compLower = comp.name.toLowerCase();
+        const isKnown = allCompanyNames.some(ent =>
+          ent.includes(compLower) || compLower.includes(ent)
+        );
         if (isKnown) knownCompanies.push(comp);
         else unknownCompanies.push(comp);
       }
@@ -1079,15 +1081,17 @@ class ProactiveEngine {
           const angleIntel = ANGLE_INTELS[contact.emailAngle] || '';
           const result = await executor.executeAction({
             type: 'send_email',
-            to: contact.email,
-            contactName: contact.name,
-            company: contact.companyName,
-            source: 'multi_thread_secondary',
-            _generateFirst: true,
-            _prospectIntel: 'MULTI-THREADING SECONDAIRE: Un collegue de cette entreprise a deja ete contacte. ' +
-              'Genere un email avec un angle COMPLETEMENT DIFFERENT du pitch principal. ' +
-              (angleIntel ? angleIntel + ' ' : '') +
-              'Ne mentionne PAS que quelqu\'un d\'autre a ete contacte. Sois bref (3-5 lignes).'
+            params: {
+              to: contact.email,
+              contactName: contact.name,
+              company: contact.companyName,
+              source: 'multi_thread_secondary',
+              _generateFirst: true,
+              _prospectIntel: 'MULTI-THREADING SECONDAIRE: Un collegue de cette entreprise a deja ete contacte. ' +
+                'Genere un email avec un angle COMPLETEMENT DIFFERENT du pitch principal. ' +
+                (angleIntel ? angleIntel + ' ' : '') +
+                'Ne mentionne PAS que quelqu\'un d\'autre a ete contacte. Sois bref (3-5 lignes).'
+            }
           });
 
           if (result && result.success) {

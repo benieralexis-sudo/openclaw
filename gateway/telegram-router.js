@@ -678,7 +678,7 @@ inboxListener = InboxListener ? new InboxListener({
               originalEmail = { subject: lastSent.subject, body: lastSent.body, company: lastSent.company };
               originalMessageId = lastSent.messageId || automailerStorageForInbox.getMessageIdForRecipient(originalEmail && lastSent.to);
             }
-          } catch (e) {}
+          } catch (e) { log.warn('inbox-manager', 'Recuperation email original echouee:', e.message); }
 
           // Contexte client pour la generation
           const clientContext = {
@@ -692,7 +692,7 @@ inboxListener = InboxListener ? new InboxListener({
               const slug = process.env.CALCOM_EVENT_SLUG || 'appel-telephonique';
               clientContext.bookingUrl = await meetingHandler.calcom.getBookingLink(slug, replyData.from, replyData.fromName);
             }
-          } catch (e) {}
+          } catch (e) { log.warn('inbox-manager', 'Booking URL echouee:', e.message); }
 
           // --- Cas 1: Objection douce (not_interested, score 0.15-0.3) ---
           if (sentiment === 'not_interested' && score >= 0.15) {
@@ -837,7 +837,7 @@ inboxListener = InboxListener ? new InboxListener({
                   prospectIntel: 'OOO detecte. Retour prevu: ' + (returnDate || 'inconnu') + '. Reschedule automatique.',
                   scheduledAfter: scheduledDate
                 });
-              } catch (e) {}
+              } catch (e) { log.warn('inbox-manager', 'Follow-up proactif OOO echoue:', e.message); }
 
               autoReplyHandled = true;
               log.info('inbox-manager', 'OOO reschedule pour ' + replyData.from + ' → follow-up prevu le ' + scheduledDate.substring(0, 10));

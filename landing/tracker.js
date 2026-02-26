@@ -105,12 +105,21 @@ class VisitorTracker {
       res.send(this._getTrackingScript(req));
     });
 
+    // Rate-limiting pour /api/track (anti-flood)
+    const trackRateLimit = new Map();
+    setInterval(() => trackRateLimit.clear(), 60000);
+
     // Reception des page views
     app.post('/api/track', async (req, res) => {
       try {
         const ip = req.ip || req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '';
         // Nettoyer l'IP (prendre la premiere si liste)
         const cleanIP = ip.split(',')[0].trim().replace('::ffff:', '');
+
+        // Rate limit: max 30 requetes/min par IP
+        const rlCount = trackRateLimit.get(cleanIP) || 0;
+        if (rlCount > 30) return res.json({ ok: true });
+        trackRateLimit.set(cleanIP, rlCount + 1);
 
         const { url, referrer, title } = req.body || {};
 
@@ -172,11 +181,12 @@ class VisitorTracker {
       // Tracker la visite en background
       try {
         const ip = (req.ip || req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim().replace('::ffff:', '');
+        const safeId = (req.params.id || '').substring(0, 64).replace(/[^a-zA-Z0-9_-]/g, '');
         const ipInfo = await this.lookupIP(ip);
         visitorStorage.addVisit({
           ip: ip,
-          url: '/v/' + req.params.id,
-          referrer: req.headers.referer || '',
+          url: '/v/' + safeId,
+          referrer: (req.headers.referer || '').substring(0, 500),
           userAgent: (req.headers['user-agent'] || '').substring(0, 300),
           company: ipInfo.company,
           city: ipInfo.city,
@@ -184,7 +194,7 @@ class VisitorTracker {
           country: ipInfo.country,
           org: ipInfo.org
         });
-      } catch (e) {}
+      } catch (e) { console.error('[tracker] Pixel tracking error:', e.message); }
     });
 
     // API: stats visiteurs (interne seulement)
@@ -210,7 +220,7 @@ class VisitorTracker {
 
   // Script de tracking minifie
   _getTrackingScript(req) {
-    const host = req.headers.host || process.env.CLIENT_DOMAIN || 'ifind.fr';
+    const host = (req.headers.host || process.env.CLIENT_DOMAIN || 'ifind.fr').replace(/[^a-zA-Z0-9.:_-]/g, '');
     const protocol = 'https';
     const endpoint = protocol + '://' + host + '/api/track';
 

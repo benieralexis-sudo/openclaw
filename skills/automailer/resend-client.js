@@ -55,21 +55,26 @@ class ResendClient {
   _smtpCommand(socket, command) {
     return new Promise((resolve, reject) => {
       let response = '';
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        socket.removeListener('data', onData);
+        if (!response) reject(new Error('SMTP timeout'));
+        else resolve(response.trim());
+      }, 15000);
       const onData = (data) => {
         response += data.toString();
-        // SMTP responses end with \r\n and start with 3-digit code
         if (/^\d{3}[ -]/m.test(response) && response.endsWith('\r\n')) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
           socket.removeListener('data', onData);
           resolve(response.trim());
         }
       };
       socket.on('data', onData);
       if (command) socket.write(command + '\r\n');
-      setTimeout(() => {
-        socket.removeListener('data', onData);
-        if (!response) reject(new Error('SMTP timeout'));
-        else resolve(response.trim());
-      }, 15000);
     });
   }
 

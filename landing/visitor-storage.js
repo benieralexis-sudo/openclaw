@@ -140,6 +140,17 @@ class VisitorStorage {
       }
     }
 
+    // Limiter le nombre d'entreprises a 2000
+    const companyKeys = Object.keys(this.data.companies);
+    if (companyKeys.length > 2000) {
+      const sorted = companyKeys.sort((a, b) =>
+        (this.data.companies[a].lastVisit || '').localeCompare(this.data.companies[b].lastVisit || '')
+      );
+      for (let i = 0; i < 500; i++) {
+        delete this.data.companies[sorted[i]];
+      }
+    }
+
     this._save();
     return visit;
   }

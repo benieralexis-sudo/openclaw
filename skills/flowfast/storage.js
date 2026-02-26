@@ -401,6 +401,11 @@ class Storage {
         const contactDate = lead._emailSentAt || lead.createdAt;
         if (contactDate && contactDate < cutoffDate) continue;
       }
+      // Dedup: skip les leads deja checks dans les 6 derniers jours
+      if (lead._lastApolloCheck) {
+        const minInterval = (options.minDaysBetweenChecks || 6) * 24 * 60 * 60 * 1000;
+        if (Date.now() - new Date(lead._lastApolloCheck).getTime() < minInterval) continue;
+      }
       results.push({
         email: lead.email,
         apolloId: lead.apolloId,
@@ -513,6 +518,13 @@ class Storage {
       createdAt: new Date().toISOString()
     };
     this.data.companyGroups[key] = group;
+    // Expirer les groupes actifs > 90 jours
+    const expirationCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    for (const [k, g] of Object.entries(this.data.companyGroups)) {
+      if (g.status === 'active' && g.createdAt && g.createdAt < expirationCutoff) {
+        g.status = 'expired';
+      }
+    }
     // Limiter a 200 groupes
     const keys = Object.keys(this.data.companyGroups);
     if (keys.length > 200) {
