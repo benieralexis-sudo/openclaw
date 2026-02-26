@@ -1125,6 +1125,11 @@ Analyse et reponds en JSON:
         const sia = patterns.selfImproveAnalysis;
         if (sia.bestSendHours) prompt += '\n  SELF-IMPROVE - MEILLEURE HEURE (analyse IA): ' + sia.bestSendHours + '\n';
         if (sia.bestDays) prompt += '  SELF-IMPROVE - MEILLEURS JOURS: ' + sia.bestDays + '\n';
+        if (sia.emailPrefs) {
+          const ep = sia.emailPrefs;
+          if (ep.maxLength) prompt += '  SELF-IMPROVE - LONGUEUR EMAIL OPTIMALE: ' + ep.maxLength + '\n';
+          if (ep.preferredSendHour) prompt += '  SELF-IMPROVE - HEURE OPTIMALE: ' + ep.preferredSendHour + 'h\n';
+        }
         if (sia.recommendations && sia.recommendations.length > 0) {
           prompt += '\n  RECOMMANDATIONS SELF-IMPROVE:\n';
           for (const r of sia.recommendations.slice(0, 3)) {
@@ -1413,6 +1418,7 @@ Analyse et reponds en JSON:
               analyzedAt: lastAnalysis.analyzedAt || null,
               bestSendHours: lastAnalysis.bestSendHours || null,
               bestDays: lastAnalysis.bestDays || null,
+              emailPrefs: siStorage.getEmailPreferences ? siStorage.getEmailPreferences() : null,
               recommendations: (lastAnalysis.recommendations || []).slice(0, 5)
             };
           }

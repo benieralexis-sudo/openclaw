@@ -726,15 +726,36 @@ Reponds UNIQUEMENT en JSON strict :
   }
 
   // FIX 16 : Auto-appliquer les recommandations a haute confiance (>= 0.7)
+  // FIX 21 : Bloquer auto-apply sur email_length/email_style si < 100 emails (evite flip-flop)
   _autoApplyRecommendations(recommendations) {
     const MIN_CONFIDENCE = 0.7;
+    const MIN_EMAILS_FOR_STYLE_CHANGE = 100;
     const pending = storage.getPendingRecommendations();
     if (pending.length === 0) return { applied: 0, total: 0, results: [] };
 
+    // Compter les emails pour savoir si on a assez de data
+    let totalEmails = 0;
+    try {
+      const amStorage = getAutomailerStorageSafe();
+      if (amStorage && amStorage.data) {
+        totalEmails = (amStorage.data.emails || []).filter(e => e.status !== 'queued').length;
+      }
+    } catch (e) {}
+
     // Filtrer les recommandations a haute confiance
-    const highConfidence = pending.filter(r => (r.confidence || 0) >= MIN_CONFIDENCE);
+    // + bloquer les recos email_length/email_style si pas assez de data
+    const STYLE_TYPES = ['email_length', 'email_style', 'subject_style'];
+    const highConfidence = pending.filter(r => {
+      if ((r.confidence || 0) < MIN_CONFIDENCE) return false;
+      if (STYLE_TYPES.includes(r.type) && totalEmails < MIN_EMAILS_FOR_STYLE_CHANGE) {
+        log.info('self-improve', 'Auto-apply BLOQUE ' + r.type + ': ' + totalEmails + '/' + MIN_EMAILS_FOR_STYLE_CHANGE + ' emails min');
+        return false;
+      }
+      return true;
+    });
+
     if (highConfidence.length === 0) {
-      log.info('self-improve', 'Auto-apply: aucune recommandation avec confiance >= ' + (MIN_CONFIDENCE * 100) + '%');
+      log.info('self-improve', 'Auto-apply: aucune recommandation eligible');
       return { applied: 0, total: pending.length, results: [] };
     }
 
