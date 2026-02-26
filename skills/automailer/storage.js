@@ -642,6 +642,87 @@ class AutoMailerStorage {
   getAllEmails() { return this.data.emails; }
   getAllUsers() { return Object.values(this.data.users); }
 
+  // --- Lead Revival candidates ---
+
+  getRevivalCandidates(options) {
+    options = options || {};
+    const minDaysOpened = options.minDaysOpened || 30;
+    const minDaysNotNow = options.minDaysNotNow || 45;
+    const minDaysHotStale = options.minDaysHotStale || 21;
+    const cutoffOpened = Date.now() - minDaysOpened * 24 * 60 * 60 * 1000;
+    const cutoffNotNow = Date.now() - minDaysNotNow * 24 * 60 * 60 * 1000;
+    const cutoffHot = Date.now() - minDaysHotStale * 24 * 60 * 60 * 1000;
+    const candidates = [];
+
+    // Grouper emails par destinataire
+    const byRecipient = {};
+    for (const email of this.data.emails) {
+      const to = (email.to || '').toLowerCase();
+      if (!to) continue;
+      if (!byRecipient[to]) byRecipient[to] = [];
+      byRecipient[to].push(email);
+    }
+
+    for (const [recipientEmail, emails] of Object.entries(byRecipient)) {
+      // Skip si deja repondu
+      if (emails.some(e => e.hasReplied || e.status === 'replied')) continue;
+      // Skip si bounce
+      if (emails.some(e => e.status === 'bounced')) continue;
+      // Skip si hard blacklist
+      if (this.isHardBlacklisted(recipientEmail)) continue;
+
+      const openedEmails = emails.filter(e => e.openedAt);
+      const openCount = openedEmails.length;
+      const lastSent = emails.filter(e => e.sentAt).sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))[0];
+      const lastSentAt = lastSent ? new Date(lastSent.sentAt).getTime() : 0;
+
+      // Cat A: Ouvert mais jamais repondu, >30 jours
+      if (openCount >= 1 && lastSentAt > 0 && lastSentAt < cutoffOpened) {
+        candidates.push({
+          email: recipientEmail,
+          name: (lastSent && lastSent.contactName) || '',
+          company: (lastSent && lastSent.company) || '',
+          reason: 'opened_no_reply',
+          openCount: openCount,
+          lastContactAt: lastSent.sentAt
+        });
+        continue;
+      }
+
+      // Cat B: Sentiment "not now" (score 0.15-0.25), >45 jours
+      const sentiment = this.getSentiment(recipientEmail);
+      if (sentiment && sentiment.sentiment === 'not_interested' && sentiment.score >= 0.15 && sentiment.score <= 0.25) {
+        const sentimentTime = new Date(sentiment.updatedAt).getTime();
+        if (sentimentTime > 0 && sentimentTime < cutoffNotNow) {
+          candidates.push({
+            email: recipientEmail,
+            name: (lastSent && lastSent.contactName) || '',
+            company: (lastSent && lastSent.company) || '',
+            reason: 'not_now_expired',
+            openCount: openCount,
+            lastContactAt: sentiment.updatedAt
+          });
+          continue;
+        }
+      }
+
+      // Cat C: 3+ ouvertures, >21 jours, pas de RDV (hot lead stagnant)
+      if (openCount >= 3 && lastSentAt > 0 && lastSentAt < cutoffHot) {
+        candidates.push({
+          email: recipientEmail,
+          name: (lastSent && lastSent.contactName) || '',
+          company: (lastSent && lastSent.company) || '',
+          reason: 'hot_lead_stale',
+          openCount: openCount,
+          lastContactAt: lastSent.sentAt
+        });
+      }
+    }
+
+    // Trier par openCount decroissant (les plus engages en premier)
+    return candidates.sort((a, b) => b.openCount - a.openCount);
+  }
+
   // --- Sentiment (cross-skill : inbox-manager → campaign-engine) ---
 
   setSentiment(email, sentiment, score) {

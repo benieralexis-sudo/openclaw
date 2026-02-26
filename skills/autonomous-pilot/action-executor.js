@@ -633,17 +633,33 @@ Format JSON strict :
     }
 
     // Deduplication : verifier si un email a deja ete envoye a cette adresse
+    // Revival emails bypass le check dedup (c'est intentionnel — on re-contacte un ancien lead)
     if (amStorage && params.to) {
-      const existing = amStorage.getEmailEventsForRecipient(params.to);
-      const alreadySent = existing.some(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened' || e.status === 'replied');
-      if (alreadySent) {
-        log.info('action-executor', 'Email deja envoye a ' + params.to + ' — skip (deduplication)');
-        return { success: false, error: 'Email deja envoye a ' + params.to, deduplicated: true };
+      const isRevival = params.source === 'revival';
+      if (!isRevival) {
+        const existing = amStorage.getEmailEventsForRecipient(params.to);
+        const alreadySent = existing.some(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened' || e.status === 'replied');
+        if (alreadySent) {
+          log.info('action-executor', 'Email deja envoye a ' + params.to + ' — skip (deduplication)');
+          return { success: false, error: 'Email deja envoye a ' + params.to, deduplicated: true };
+        }
+      } else {
+        log.info('action-executor', 'Revival email pour ' + params.to + ' — dedup bypass (intentionnel)');
       }
-      // Verifier la blacklist
+      // Verifier la blacklist (hard blacklist bloque meme les revivals)
       if (amStorage.isBlacklisted(params.to)) {
-        log.info('action-executor', params.to + ' est blackliste — skip');
-        return { success: false, error: params.to + ' est blackliste' };
+        // Pour les revivals, seule la hard blacklist bloque
+        if (isRevival && amStorage.isHardBlacklisted) {
+          if (amStorage.isHardBlacklisted(params.to)) {
+            log.info('action-executor', params.to + ' est hard-blackliste — skip revival');
+            return { success: false, error: params.to + ' est hard-blackliste (bounce/spam/rgpd)' };
+          }
+          // Soft blacklist (decline, human_takeover) : OK pour revival
+          log.info('action-executor', params.to + ' soft-blackliste mais revival autorise');
+        } else {
+          log.info('action-executor', params.to + ' est blackliste — skip');
+          return { success: false, error: params.to + ' est blackliste' };
+        }
       }
     }
 

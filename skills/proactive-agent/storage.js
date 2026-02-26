@@ -359,6 +359,81 @@ class ProactiveStorage {
     return this.data.nightlyBriefing;
   }
 
+  // --- Lead Revival ---
+
+  _ensureRevival() {
+    if (!this.data.leadRevival) {
+      this.data.leadRevival = {
+        sent: [],
+        config: {
+          enabled: true,
+          maxPerCycle: 5,
+          minDaysSinceLastContact: 30,
+          minDaysSinceNotNow: 45,
+          excludeReasons: ['bounce_detected', 'spam_complaint', 'permanent_block', 'rgpd', 'ne_me_contactez_plus']
+        },
+        stats: {
+          totalRevivalsSent: 0,
+          totalRevivalReplies: 0,
+          lastScanAt: null
+        }
+      };
+    }
+  }
+
+  addRevivalSent(data) {
+    this._ensureRevival();
+    const entry = {
+      id: this._generateId(),
+      email: (data.email || '').toLowerCase(),
+      name: data.name || '',
+      company: data.company || '',
+      reason: data.reason || '',
+      originalLastContact: data.originalLastContact || null,
+      sentAt: new Date().toISOString(),
+      emailId: data.emailId || null,
+      result: data.result || null
+    };
+    this.data.leadRevival.sent.push(entry);
+    if (this.data.leadRevival.sent.length > 500) {
+      this.data.leadRevival.sent = this.data.leadRevival.sent.slice(-500);
+    }
+    this.data.leadRevival.stats.totalRevivalsSent++;
+    this.data.leadRevival.stats.lastScanAt = new Date().toISOString();
+    this._save();
+    return entry;
+  }
+
+  isAlreadyRevived(email) {
+    this._ensureRevival();
+    const emailLower = (email || '').toLowerCase();
+    const cutoff90d = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    return this.data.leadRevival.sent.some(r =>
+      r.email === emailLower && r.sentAt && new Date(r.sentAt).getTime() > cutoff90d
+    );
+  }
+
+  getRevivalConfig() {
+    this._ensureRevival();
+    return { ...this.data.leadRevival.config };
+  }
+
+  updateRevivalConfig(updates) {
+    this._ensureRevival();
+    Object.assign(this.data.leadRevival.config, updates);
+    this._save();
+  }
+
+  getRevivalStats() {
+    this._ensureRevival();
+    return { ...this.data.leadRevival.stats };
+  }
+
+  getRecentRevivals(limit) {
+    this._ensureRevival();
+    return this.data.leadRevival.sent.slice(-(limit || 20)).reverse();
+  }
+
   // --- Stats ---
 
   updateStat(key, value) {

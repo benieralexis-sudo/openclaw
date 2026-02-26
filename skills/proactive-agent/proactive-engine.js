@@ -109,6 +109,12 @@ class ProactiveEngine {
     this.crons.push(new Cron('*/10 * * * *', { timezone: tz }, withCronGuard('pa-reactive-fu', () => this._processReactiveFollowUps())));
     log.info('proactive-engine', 'Cron: reactive follow-ups toutes les 10 min');
 
+    // Lead Revival — mardi + vendredi 10h
+    if (process.env.LEAD_REVIVAL_ENABLED !== 'false') {
+      this.crons.push(new Cron('0 10 * * 2,5', { timezone: tz }, withCronGuard('pa-lead-revival', () => this._leadRevival())));
+      log.info('proactive-engine', 'Cron: lead revival mardi+vendredi 10h');
+    }
+
     this.running = true;
     log.info('proactive-engine', 'Demarre avec ' + this.crons.length + ' crons');
 
@@ -735,6 +741,151 @@ class ProactiveEngine {
 
   async triggerSmartAlerts() {
     return this._checkSmartAlerts();
+  }
+
+  // --- Tache : Lead Revival (mardi + vendredi 10h) ---
+
+  async _leadRevival() {
+    log.info('proactive-engine', 'Lead Revival: scan des leads inactifs...');
+
+    try {
+      const amStorage = this._getAutomailerStorage();
+      if (!amStorage || !amStorage.getRevivalCandidates) {
+        log.warn('proactive-engine', 'Lead Revival: automailer storage non disponible');
+        return;
+      }
+
+      const revivalConfig = storage.getRevivalConfig();
+      if (!revivalConfig.enabled) {
+        log.info('proactive-engine', 'Lead Revival: desactive');
+        return;
+      }
+
+      const candidates = amStorage.getRevivalCandidates({
+        minDaysOpened: revivalConfig.minDaysSinceLastContact || 30,
+        minDaysNotNow: revivalConfig.minDaysSinceNotNow || 45,
+        minDaysHotStale: 21
+      });
+
+      if (candidates.length === 0) {
+        log.info('proactive-engine', 'Lead Revival: aucun candidat trouve');
+        return;
+      }
+
+      log.info('proactive-engine', 'Lead Revival: ' + candidates.length + ' candidats trouves');
+
+      const maxPerCycle = revivalConfig.maxPerCycle || 5;
+      let sent = 0;
+      const revived = [];
+
+      for (const candidate of candidates) {
+        if (sent >= maxPerCycle) break;
+
+        // Verifier pas deja revived dans les 90 derniers jours
+        if (storage.isAlreadyRevived(candidate.email)) {
+          log.info('proactive-engine', 'Lead Revival: ' + candidate.email + ' deja revived recemment — skip');
+          continue;
+        }
+
+        // Verifier pas hard-blackliste
+        if (amStorage.isHardBlacklisted && amStorage.isHardBlacklisted(candidate.email)) {
+          log.info('proactive-engine', 'Lead Revival: ' + candidate.email + ' hard-blackliste — skip');
+          continue;
+        }
+
+        // Pour les "not_now", retirer temporairement de la blacklist
+        let wasBlacklisted = false;
+        if (candidate.reason === 'not_now_expired' && amStorage.isBlacklisted(candidate.email)) {
+          wasBlacklisted = true;
+          amStorage.removeFromBlacklist(candidate.email);
+          log.info('proactive-engine', 'Lead Revival: ' + candidate.email + ' temporairement retire de la blacklist');
+        }
+
+        try {
+          // Generer et envoyer un email revival via le pipeline action-executor
+          const ActionExecutor = this._getActionExecutor();
+          if (!ActionExecutor) {
+            log.warn('proactive-engine', 'Lead Revival: ActionExecutor non disponible');
+            break;
+          }
+
+          const executor = new ActionExecutor({
+            claudeKey: this.options.claudeKey || process.env.CLAUDE_API_KEY,
+            resendKey: this.options.resendKey || process.env.RESEND_API_KEY,
+            senderEmail: this.options.senderEmail || process.env.SENDER_EMAIL
+          });
+
+          const daysAgo = Math.floor((Date.now() - new Date(candidate.lastContactAt).getTime()) / (24 * 60 * 60 * 1000));
+          const REASON_LABELS = {
+            opened_no_reply: 'a ouvert ton email ' + candidate.openCount + ' fois mais jamais repondu (il y a ' + daysAgo + 'j)',
+            not_now_expired: 'avait dit "pas le bon moment" il y a ' + daysAgo + 'j',
+            hot_lead_stale: 'prospect chaud (' + candidate.openCount + ' ouvertures) devenu inactif depuis ' + daysAgo + 'j'
+          };
+
+          const result = await executor.executeAction({
+            type: 'send_email',
+            to: candidate.email,
+            contactName: candidate.name,
+            company: candidate.company,
+            source: 'revival',
+            _generateFirst: true,
+            _prospectIntel: 'CONTEXTE REVIVAL: Ce prospect ' + (REASON_LABELS[candidate.reason] || 'est inactif depuis ' + daysAgo + 'j') +
+              '. Genere un email COMPLETEMENT DIFFERENT du premier. Nouvel angle, nouvelle accroche. ' +
+              'Mentionne que du temps a passe. Sois bref (3-5 lignes). Ne repete RIEN du premier email.'
+          });
+
+          if (result && result.success) {
+            sent++;
+            revived.push(candidate);
+            storage.addRevivalSent({
+              email: candidate.email,
+              name: candidate.name,
+              company: candidate.company,
+              reason: candidate.reason,
+              originalLastContact: candidate.lastContactAt,
+              emailId: result.emailId || null,
+              result: 'success'
+            });
+            log.info('proactive-engine', 'Lead Revival: email envoye a ' + candidate.email + ' (' + candidate.reason + ')');
+          } else {
+            log.warn('proactive-engine', 'Lead Revival: echec envoi a ' + candidate.email + ': ' + (result && result.error || 'unknown'));
+            // Re-blacklister si on avait retire la blacklist
+            if (wasBlacklisted) {
+              amStorage.addToBlacklist(candidate.email, 'prospect_declined');
+            }
+          }
+        } catch (e) {
+          log.warn('proactive-engine', 'Lead Revival: erreur pour ' + candidate.email + ':', e.message);
+          if (wasBlacklisted) {
+            amStorage.addToBlacklist(candidate.email, 'prospect_declined');
+          }
+        }
+      }
+
+      // Notification Telegram
+      if (sent > 0) {
+        const lines = ['📬 *Lead Revival — ' + sent + ' lead(s) reactive(s)*', ''];
+        for (const r of revived) {
+          const RICONS = { opened_no_reply: '👁️', not_now_expired: '🔄', hot_lead_stale: '🔥' };
+          lines.push((RICONS[r.reason] || '📧') + ' ' + (r.name || r.email) + (r.company ? ' (' + r.company + ')' : '') + ' — _' + r.reason.replace(/_/g, ' ') + '_');
+        }
+        lines.push('');
+        lines.push('_' + candidates.length + ' candidats scannes, ' + sent + ' emails envoyes_');
+        try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) {}
+      }
+
+      log.info('proactive-engine', 'Lead Revival termine: ' + sent + '/' + candidates.length + ' envoyes');
+    } catch (e) {
+      log.error('proactive-engine', 'Lead Revival erreur globale:', e.message);
+    }
+  }
+
+  _getAutomailerStorage() {
+    try { return require('../automailer/storage.js'); } catch (e) { return null; }
+  }
+
+  _getActionExecutor() {
+    try { return require('../autonomous-pilot/action-executor.js'); } catch (e) { return null; }
   }
 
   // --- Tache : Reactive Follow-Ups (toutes les 10 min) ---
