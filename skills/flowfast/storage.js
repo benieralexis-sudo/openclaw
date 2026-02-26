@@ -379,6 +379,73 @@ class Storage {
   getAllUsers() {
     return Object.values(this.data.users);
   }
+
+  // --- Job Change Detection ---
+
+  // Retourne les leads qui ont un apolloId (enrichis via Apollo reveal)
+  // Filtre optionnel : seulement les leads actifs (email envoye, score >= seuil)
+  getLeadsWithApolloId(options) {
+    options = options || {};
+    const maxResults = options.maxResults || 50;
+    const onlyActive = options.onlyActive !== false; // defaut: true
+    const maxDaysSinceContact = options.maxDaysSinceContact || 90;
+    const cutoffDate = new Date(Date.now() - maxDaysSinceContact * 24 * 60 * 60 * 1000).toISOString();
+
+    const results = [];
+    for (const [key, lead] of Object.entries(this.data.leads)) {
+      if (!lead.apolloId) continue;
+      if (!lead.email) continue;
+      if (onlyActive) {
+        // Seulement les leads contactes (email envoye) et pas trop anciens
+        if (!lead._emailSent && !lead._emailSentAt) continue;
+        const contactDate = lead._emailSentAt || lead.createdAt;
+        if (contactDate && contactDate < cutoffDate) continue;
+      }
+      results.push({
+        email: lead.email,
+        apolloId: lead.apolloId,
+        firstName: lead.first_name || (lead.nom || '').split(' ')[0] || '',
+        lastName: lead.last_name || (lead.nom || '').split(' ').slice(1).join(' ') || '',
+        currentTitle: lead.titre || lead.title || '',
+        currentCompany: lead.entreprise || (lead.organization && lead.organization.name) || '',
+        score: lead.score || 0,
+        lastContact: lead._emailSentAt || lead.createdAt || ''
+      });
+      if (results.length >= maxResults) break;
+    }
+    return results;
+  }
+
+  // Met a jour le snapshot Apollo d'un lead et stocke l'historique du changement
+  updateLeadApolloSnapshot(email, oldData, newData) {
+    const key = this._findLeadKeyByEmail(email);
+    if (!key) return null;
+    const lead = this.data.leads[key];
+
+    // Stocker le changement dans l'historique
+    if (!lead._apolloHistory) lead._apolloHistory = [];
+    lead._apolloHistory.push({
+      detectedAt: new Date().toISOString(),
+      old: { title: oldData.title || '', company: oldData.company || '' },
+      new: { title: newData.title || '', company: newData.company || '' }
+    });
+    if (lead._apolloHistory.length > 10) lead._apolloHistory = lead._apolloHistory.slice(-10);
+
+    // Mettre a jour les champs actuels
+    if (newData.title) {
+      lead.titre = newData.title;
+      lead.title = newData.title;
+    }
+    if (newData.company) {
+      lead.entreprise = newData.company;
+    }
+    if (newData.linkedinUrl) {
+      lead.linkedin_url = newData.linkedinUrl;
+    }
+    lead._lastApolloCheck = new Date().toISOString();
+    this._save();
+    return lead;
+  }
 }
 
 module.exports = new Storage();

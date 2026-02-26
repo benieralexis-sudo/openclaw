@@ -115,6 +115,12 @@ class ProactiveEngine {
       log.info('proactive-engine', 'Cron: lead revival mardi+vendredi 10h');
     }
 
+    // Job Change Detection — dimanche 22h
+    if (process.env.JOB_CHANGE_ENABLED !== 'false') {
+      this.crons.push(new Cron('0 22 * * 0', { timezone: tz }, withCronGuard('pa-job-change', () => this._jobChangeDetection())));
+      log.info('proactive-engine', 'Cron: job change detection dimanche 22h');
+    }
+
     this.running = true;
     log.info('proactive-engine', 'Demarre avec ' + this.crons.length + ' crons');
 
@@ -886,6 +892,185 @@ class ProactiveEngine {
 
   _getActionExecutor() {
     try { return require('../autonomous-pilot/action-executor.js'); } catch (e) { return null; }
+  }
+
+  _getFlowfastStorage() {
+    try { return require('../flowfast/storage.js'); } catch (e) { return null; }
+  }
+
+  _getApolloConnector() {
+    try {
+      const ApolloConnector = require('../flowfast/apollo-connector.js');
+      const apiKey = process.env.APOLLO_API_KEY;
+      if (!apiKey) return null;
+      return new ApolloConnector(apiKey);
+    } catch (e) { return null; }
+  }
+
+  _getHubspotClient() {
+    try { return require('../crm-hubspot/hubspot-client.js'); } catch (e) { return null; }
+  }
+
+  // --- Tache : Job Change Detection (dimanche 22h) ---
+
+  async _jobChangeDetection() {
+    log.info('proactive-engine', 'Job Change Detection: scan hebdomadaire...');
+
+    try {
+      const jcConfig = storage.getJobChangeConfig();
+      if (!jcConfig.enabled) {
+        log.info('proactive-engine', 'Job Change Detection: desactive');
+        return;
+      }
+
+      const ffStorage = this._getFlowfastStorage();
+      if (!ffStorage || !ffStorage.getLeadsWithApolloId) {
+        log.warn('proactive-engine', 'Job Change Detection: FlowFast storage non disponible');
+        return;
+      }
+
+      const apollo = this._getApolloConnector();
+      if (!apollo) {
+        log.warn('proactive-engine', 'Job Change Detection: Apollo connector non disponible (pas d\'API key ?)');
+        return;
+      }
+
+      // Recuperer les leads avec un apolloId (contactes dans les 90 derniers jours)
+      const leads = ffStorage.getLeadsWithApolloId({
+        maxResults: jcConfig.maxCreditsPerCycle || 50,
+        onlyActive: jcConfig.onlyActiveProspects !== false,
+        maxDaysSinceContact: jcConfig.maxDaysSinceContact || 90
+      });
+
+      if (leads.length === 0) {
+        log.info('proactive-engine', 'Job Change Detection: aucun lead avec apolloId');
+        return;
+      }
+
+      log.info('proactive-engine', 'Job Change Detection: ' + leads.length + ' leads a verifier');
+
+      const amStorage = this._getAutomailerStorage();
+      let checked = 0;
+      let creditsUsed = 0;
+      const changes = [];
+
+      for (const lead of leads) {
+        if (creditsUsed >= (jcConfig.maxCreditsPerCycle || 50)) {
+          log.info('proactive-engine', 'Job Change Detection: budget credits atteint (' + creditsUsed + ')');
+          break;
+        }
+
+        // Skip blacklistes hard
+        if (amStorage && amStorage.isHardBlacklisted && amStorage.isHardBlacklisted(lead.email)) {
+          continue;
+        }
+
+        try {
+          const result = await apollo.reCheckPerson({
+            email: lead.email,
+            firstName: lead.firstName,
+            lastName: lead.lastName,
+            apolloId: lead.apolloId
+          });
+          creditsUsed++;
+          checked++;
+
+          if (result.success && result.person) {
+            const current = result.person;
+            const titleChanged = current.title && lead.currentTitle &&
+              current.title.toLowerCase() !== lead.currentTitle.toLowerCase();
+            const companyChanged = current.organizationName && lead.currentCompany &&
+              current.organizationName.toLowerCase() !== lead.currentCompany.toLowerCase();
+
+            if (titleChanged || companyChanged) {
+              log.info('proactive-engine', 'Job Change detecte: ' + lead.email +
+                ' — ' + lead.currentTitle + ' @ ' + lead.currentCompany +
+                ' → ' + current.title + ' @ ' + current.organizationName);
+
+              // Enregistrer dans proactive storage
+              const changeEntry = storage.addJobChange({
+                email: lead.email,
+                name: (lead.firstName + ' ' + lead.lastName).trim(),
+                oldTitle: lead.currentTitle,
+                oldCompany: lead.currentCompany,
+                newTitle: current.title,
+                newCompany: current.organizationName
+              });
+
+              // Mettre a jour dans FlowFast storage
+              ffStorage.updateLeadApolloSnapshot(lead.email,
+                { title: lead.currentTitle, company: lead.currentCompany },
+                { title: current.title, company: current.organizationName, linkedinUrl: current.linkedinUrl }
+              );
+
+              // Mettre a jour HubSpot si disponible
+              try {
+                const hubspot = this._getHubspotClient();
+                if (hubspot && hubspot.addNote) {
+                  const noteTxt = 'Job change detecte par Apollo:\n' +
+                    'Ancien: ' + lead.currentTitle + ' @ ' + lead.currentCompany + '\n' +
+                    'Nouveau: ' + current.title + ' @ ' + current.organizationName + '\n' +
+                    'Detecte le: ' + new Date().toISOString().split('T')[0];
+                  await hubspot.addNote(lead.email, noteTxt);
+                }
+              } catch (e) {
+                log.warn('proactive-engine', 'Job Change HubSpot note failed: ' + e.message);
+              }
+
+              changes.push({
+                email: lead.email,
+                name: (lead.firstName + ' ' + lead.lastName).trim(),
+                oldTitle: lead.currentTitle,
+                oldCompany: lead.currentCompany,
+                newTitle: current.title,
+                newCompany: current.organizationName,
+                id: changeEntry ? changeEntry.id : null
+              });
+            }
+          }
+
+          // Rate limit: 1 appel/seconde (respecter Apollo rate limits)
+          await new Promise(r => setTimeout(r, 1100));
+
+        } catch (e) {
+          log.warn('proactive-engine', 'Job Change check failed for ' + lead.email + ': ' + e.message);
+        }
+      }
+
+      // Mettre a jour les stats
+      storage.updateJobChangeStats({
+        totalChecked: (storage.getJobChangeStats().totalChecked || 0) + checked,
+        totalCreditsUsed: (storage.getJobChangeStats().totalCreditsUsed || 0) + creditsUsed,
+        lastScanAt: new Date().toISOString()
+      });
+
+      // Notification Telegram
+      if (changes.length > 0) {
+        const lines = ['🔄 *Job Change Detection — ' + changes.length + ' changement(s) detecte(s)*', ''];
+        for (const c of changes) {
+          lines.push('👤 *' + (c.name || c.email) + '*');
+          lines.push('   ❌ ' + c.oldTitle + ' @ ' + c.oldCompany);
+          lines.push('   ✅ ' + c.newTitle + ' @ ' + c.newCompany);
+          lines.push('');
+        }
+        lines.push('_' + checked + ' leads verifies, ' + creditsUsed + ' credits Apollo utilises_');
+        try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) {}
+      } else {
+        log.info('proactive-engine', 'Job Change Detection: aucun changement detecte (' + checked + ' verifies, ' + creditsUsed + ' credits)');
+      }
+
+      // Log dans alert history
+      storage.logAlert('job_change_scan', 'Scan: ' + checked + ' verifies, ' + changes.length + ' changements, ' + creditsUsed + ' credits', {
+        checked: checked,
+        changes: changes.length,
+        creditsUsed: creditsUsed
+      });
+
+      log.info('proactive-engine', 'Job Change Detection termine: ' + changes.length + ' changements sur ' + checked + ' verifies');
+
+    } catch (e) {
+      log.error('proactive-engine', 'Job Change Detection erreur globale:', e.message);
+    }
   }
 
   // --- Tache : Reactive Follow-Ups (toutes les 10 min) ---

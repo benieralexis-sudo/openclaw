@@ -434,6 +434,96 @@ class ProactiveStorage {
     return this.data.leadRevival.sent.slice(-(limit || 20)).reverse();
   }
 
+  // --- Job Change Detection ---
+
+  _ensureJobChanges() {
+    if (!this.data.jobChanges) {
+      this.data.jobChanges = {
+        detected: [],
+        config: {
+          enabled: true,
+          maxCreditsPerCycle: 50,
+          scanIntervalDays: 7,
+          onlyActiveProspects: true,
+          maxDaysSinceContact: 90
+        },
+        stats: {
+          totalChangesDetected: 0,
+          totalChecked: 0,
+          totalCreditsUsed: 0,
+          lastScanAt: null
+        }
+      };
+    }
+  }
+
+  addJobChange(data) {
+    this._ensureJobChanges();
+    const entry = {
+      id: this._generateId(),
+      email: (data.email || '').toLowerCase(),
+      name: data.name || '',
+      oldTitle: data.oldTitle || '',
+      oldCompany: data.oldCompany || '',
+      newTitle: data.newTitle || '',
+      newCompany: data.newCompany || '',
+      detectedAt: new Date().toISOString(),
+      reEngaged: false,
+      reEngagedAt: null,
+      notifiedAt: null
+    };
+    this.data.jobChanges.detected.unshift(entry);
+    if (this.data.jobChanges.detected.length > 200) {
+      this.data.jobChanges.detected = this.data.jobChanges.detected.slice(0, 200);
+    }
+    this.data.jobChanges.stats.totalChangesDetected++;
+    this._save();
+    return entry;
+  }
+
+  getRecentJobChanges(limit) {
+    this._ensureJobChanges();
+    return this.data.jobChanges.detected.slice(0, limit || 20);
+  }
+
+  getPendingJobChanges() {
+    this._ensureJobChanges();
+    return this.data.jobChanges.detected.filter(j => !j.reEngaged);
+  }
+
+  markJobChangeReEngaged(id) {
+    this._ensureJobChanges();
+    const change = this.data.jobChanges.detected.find(j => j.id === id);
+    if (change) {
+      change.reEngaged = true;
+      change.reEngagedAt = new Date().toISOString();
+      this._save();
+    }
+    return change;
+  }
+
+  getJobChangeConfig() {
+    this._ensureJobChanges();
+    return { ...this.data.jobChanges.config };
+  }
+
+  updateJobChangeConfig(updates) {
+    this._ensureJobChanges();
+    Object.assign(this.data.jobChanges.config, updates);
+    this._save();
+  }
+
+  getJobChangeStats() {
+    this._ensureJobChanges();
+    return { ...this.data.jobChanges.stats };
+  }
+
+  updateJobChangeStats(updates) {
+    this._ensureJobChanges();
+    Object.assign(this.data.jobChanges.stats, updates);
+    this._save();
+  }
+
   // --- Stats ---
 
   updateStat(key, value) {

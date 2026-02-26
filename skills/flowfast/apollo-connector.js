@@ -243,6 +243,45 @@ class ApolloConnector {
     return results;
   }
 
+  // Re-verifier une personne sur Apollo (pour detection changement de poste)
+  // Coute 1 credit par appel (people/match)
+  async reCheckPerson(params) {
+    const matchData = {};
+    if (params.email) matchData.email = params.email;
+    if (params.firstName) matchData.first_name = params.firstName;
+    if (params.lastName) matchData.last_name = params.lastName;
+    if (params.apolloId) matchData.id = params.apolloId;
+    if (params.organizationName) matchData.organization_name = params.organizationName;
+
+    try {
+      const result = await this.makeRequest('/v1/people/match', matchData);
+      if (_appConfig && _appConfig.recordServiceUsage) {
+        _appConfig.recordServiceUsage('apollo', { reveals: 1, credits: 1 });
+      }
+      if (result.person) {
+        const p = result.person;
+        return {
+          success: true,
+          person: {
+            apolloId: p.id,
+            firstName: p.first_name || '',
+            lastName: p.last_name || '',
+            title: p.title || '',
+            email: p.email || '',
+            linkedinUrl: p.linkedin_url || '',
+            city: p.city || '',
+            organizationName: (p.organization && p.organization.name) || '',
+            organizationId: (p.organization && p.organization.id) || '',
+            organizationWebsite: (p.organization && p.organization.website_url) || ''
+          }
+        };
+      }
+      return { success: false, error: 'Personne non trouvee' };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   // Formater un lead pour affichage (compatible ancien et nouveau endpoint Apollo)
   formatLead(lead) {
     return {
