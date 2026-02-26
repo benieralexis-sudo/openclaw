@@ -54,6 +54,10 @@ function getProspectResearcher() {
   return _require('./prospect-researcher.js', '/app/skills/autonomous-pilot/prospect-researcher.js');
 }
 
+function getWebIntelStorage() {
+  return _require('../web-intelligence/storage.js', '/app/skills/web-intelligence/storage.js');
+}
+
 class ActionExecutor {
   constructor(options) {
     this.apolloKey = options.apolloKey;
@@ -1011,6 +1015,34 @@ Format JSON strict :
           }
         } else {
           log.warn('action-executor', 'FlowFast storage indisponible pour markEmailSent');
+        }
+
+        // Marquer les news WI comme utilisees dans cet email (evite recyclage infini)
+        try {
+          const wiStorage = getWebIntelStorage();
+          if (wiStorage && wiStorage.markNewsUsedInEmail) {
+            // Marquage explicite si Claude a passe un newsId
+            if (params._wiNewsId) {
+              wiStorage.markNewsUsedInEmail(params._wiNewsId);
+              log.info('action-executor', 'WI news marquee (explicite) id=' + params._wiNewsId + ' pour ' + params.company);
+            }
+            // Marquage auto par matching company (filet de securite)
+            if (wiStorage.getRecentNewsOutreach) {
+              const companyLower = (params.company || '').toLowerCase().trim();
+              if (companyLower.length >= 2) {
+                const allNews = wiStorage.getRecentNewsOutreach(50);
+                const matched = allNews.filter(n =>
+                  !n.usedInEmail && n.company && n.company.toLowerCase().includes(companyLower)
+                );
+                for (const news of matched) {
+                  wiStorage.markNewsUsedInEmail(news.id);
+                  log.info('action-executor', 'WI news marquee (auto) "' + news.headline + '" pour ' + params.company);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          log.warn('action-executor', 'Erreur marquage WI news:', e.message);
         }
 
         // FIX 20 : Sauvegarder les donnees prospect dans Lead Enrich DB

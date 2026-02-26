@@ -77,6 +77,14 @@ function getAppConfig() {
   }
 }
 
+function getWebIntelStorage() {
+  try { return require('../web-intelligence/storage.js'); }
+  catch (e) {
+    try { return require('/app/skills/web-intelligence/storage.js'); }
+    catch (e2) { return null; }
+  }
+}
+
 function getCircuitBreakerModule() {
   try { return require('../../gateway/circuit-breaker.js'); }
   catch (e) {
@@ -100,6 +108,15 @@ class MetricsCollector {
     const enrichedLeads = (leadStorage && leadStorage.data) ? leadStorage.data.enrichedLeads || {} : {};
     const days = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 
+    // Recuperer les news WI marquees comme utilisees pour correlation
+    let wiNewsUsed = [];
+    try {
+      const wiStorage = getWebIntelStorage();
+      if (wiStorage && wiStorage.getRecentNewsOutreach) {
+        wiNewsUsed = wiStorage.getRecentNewsOutreach(100).filter(n => n.usedInEmail);
+      }
+    } catch (e) {}
+
     const detailed = [];
     for (const email of emails) {
       if (!email.to || !email.sentAt) continue;
@@ -114,6 +131,13 @@ class MetricsCollector {
       let responseDelayHours = null;
       if (email.openedAt && email.sentAt) {
         responseDelayHours = Math.round((new Date(email.openedAt).getTime() - new Date(email.sentAt).getTime()) / (1000 * 60 * 60) * 10) / 10;
+      }
+
+      // Verifier si un article WI a ete utilise pour cette entreprise
+      let usedWiNews = false;
+      if (wiNewsUsed && (email.company || org.name)) {
+        const co = (email.company || org.name || '').toLowerCase();
+        usedWiNews = co.length >= 2 && wiNewsUsed.some(n => n.company && n.company.toLowerCase().includes(co));
       }
 
       detailed.push({
@@ -136,7 +160,9 @@ class MetricsCollector {
         leadCountry: person.country || null,
         leadTitle: person.title || null,
         companyName: org.name || null,
-        companyEmployees: org.employeeCount || null
+        companyEmployees: org.employeeCount || null,
+        // Web Intelligence context
+        usedWiNews: usedWiNews
       });
     }
 
@@ -199,6 +225,32 @@ class MetricsCollector {
     const activeCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'sending');
     const completedCampaigns = campaigns.filter(c => c.status === 'completed');
 
+    // Correlation WI news / performance emails
+    let wiCorrelation = null;
+    try {
+      const wiStorage = getWebIntelStorage();
+      if (wiStorage && wiStorage.getRecentNewsOutreach) {
+        const usedNews = wiStorage.getRecentNewsOutreach(100).filter(n => n.usedInEmail);
+        const usedCompanies = new Set(usedNews.map(n => (n.company || '').toLowerCase()).filter(c => c.length >= 2));
+        let wiSent = 0, wiOpened = 0, noWiSent = 0, noWiOpened = 0;
+        for (const email of recentEmails) {
+          const co = (email.company || '').toLowerCase();
+          if (co.length >= 2 && usedCompanies.has(co)) {
+            wiSent++;
+            if (email.openedAt) wiOpened++;
+          } else {
+            noWiSent++;
+            if (email.openedAt) noWiOpened++;
+          }
+        }
+        wiCorrelation = {
+          withWiNews: { sent: wiSent, opened: wiOpened, openRate: wiSent > 0 ? Math.round((wiOpened / wiSent) * 100) : 0 },
+          withoutWiNews: { sent: noWiSent, opened: noWiOpened, openRate: noWiSent > 0 ? Math.round((noWiOpened / noWiSent) * 100) : 0 },
+          totalNewsUsed: usedNews.length
+        };
+      }
+    } catch (e) {}
+
     return {
       available: true,
       totalSent: totalSent,
@@ -213,7 +265,8 @@ class MetricsCollector {
       completedCampaigns: completedCampaigns.length,
       totalCampaigns: campaigns.length,
       recentEmailCount: recentEmails.length,
-      globalStats: automailerStorage.data.stats || {}
+      globalStats: automailerStorage.data.stats || {},
+      wiCorrelation: wiCorrelation
     };
   }
 

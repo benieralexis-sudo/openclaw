@@ -1242,9 +1242,10 @@ Analyse et reponds en JSON:
       if (wi.newsForOutreach && wi.newsForOutreach.length > 0) {
         prompt += '\nNEWS UTILISABLES POUR EMAILS (entreprises dans l\'actu):\n';
         for (const n of wi.newsForOutreach) {
-          prompt += '- ' + n.company + ': "' + n.headline + '"\n';
+          prompt += '- [' + (n.id || '?') + '] ' + n.company + ': "' + n.headline + '" (relevance: ' + (n.relevance || '?') + ')\n';
         }
         prompt += '→ Privilegie ces entreprises pour les prochains emails (actualite = meilleure accroche).\n';
+        prompt += '→ Passe _wiNewsId dans params.send_email si tu utilises une news.\n';
       }
 
       if (wi.marketSignals && wi.marketSignals.length > 0) {

@@ -496,6 +496,7 @@ class ProspectResearcher {
 
     try {
       return wiStorage.getRelevantNewsForContact(companyName).map(n => ({
+        id: n.id || null,
         headline: n.headline,
         date: n.date,
         relevance: n.relevance,
