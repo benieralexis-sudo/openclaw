@@ -114,24 +114,26 @@ class ClaudeEmailWriter {
   }
 
   async generateSingleEmail(contact, context) {
-    // Lire les preferences de longueur depuis Self-Improve (si disponible)
+    // Lire les preferences depuis Self-Improve (si disponible)
     let emailLengthHint = '60-80 mots max';
+    let subjectStyleHint = '';
+    let siPrefs = null;
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
-      const prefs = selfImproveStorage.getEmailPreferences();
-      if (prefs && prefs.maxLength) {
-        const chars = prefs.maxLength;
-        emailLengthHint = chars < 200 ? '40-60 mots' : chars < 400 ? '60-80 mots' : '80-100 mots';
-      }
+      siPrefs = selfImproveStorage.getEmailPreferences();
     } catch (e) {
       try {
         const selfImproveStorage = require('/app/skills/self-improve/storage.js');
-        const prefs = selfImproveStorage.getEmailPreferences();
-        if (prefs && prefs.maxLength) {
-          const chars = prefs.maxLength;
-          emailLengthHint = chars < 200 ? '40-60 mots' : chars < 400 ? '60-80 mots' : '80-100 mots';
-        }
+        siPrefs = selfImproveStorage.getEmailPreferences();
       } catch (e2) {}
+    }
+    if (siPrefs) {
+      // maxLength est un string "short"/"medium"/"long"
+      if (siPrefs.maxLength === 'short') emailLengthHint = '40-60 mots max';
+      else if (siPrefs.maxLength === 'long') emailLengthHint = '80-100 mots max';
+      // subjectStyle : directive pour le style d'objet
+      if (siPrefs.subjectStyle) subjectStyleHint = '\nSTYLE OBJET RECOMMANDE : ' + siPrefs.subjectStyle;
+      if (siPrefs.preferredSubjectLength) subjectStyleHint += ' (' + siPrefs.preferredSubjectLength + ' mots max)';
     }
 
     const senderName = process.env.SENDER_NAME || 'Alexis';
@@ -256,7 +258,7 @@ Subtil, pas en argument principal : "on echange avec pas mal d'acteurs de [secte
 - Base sur le fait cite — pas sur notre offre
 - BON : "damien et l'US", "rachat hcs pharma", "benzema 2023", "kiliba et les PME"
 - MAUVAIS : "question rapide", "decouverte activite", "paillette et la gen de leads"
-- JAMAIS : "prospection", "leads", "acquisition" dans le sujet
+- JAMAIS : "prospection", "leads", "acquisition" dans le sujet${subjectStyleHint}
 
 === TON ===
 - Ecris comme tu PARLES, pas comme tu REDIGES
@@ -513,23 +515,20 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
    * cette methode genere un email unique base sur le brief complet du prospect.
    */
   async generatePersonalizedFollowUp(contact, stepNumber, totalSteps, prospectIntel, previousEmails, campaignContext) {
-    let emailLengthHint = '60-80 mots max';
+    let emailLengthHint = '5-8 lignes max';
+    let siPrefsfu = null;
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
-      const prefs = selfImproveStorage.getEmailPreferences();
-      if (prefs && prefs.maxLength) {
-        const chars = prefs.maxLength;
-        emailLengthHint = chars < 200 ? '3-4 lignes max' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
-      }
+      siPrefsfu = selfImproveStorage.getEmailPreferences();
     } catch (e) {
       try {
         const selfImproveStorage = require('/app/skills/self-improve/storage.js');
-        const prefs = selfImproveStorage.getEmailPreferences();
-        if (prefs && prefs.maxLength) {
-          const chars = prefs.maxLength;
-          emailLengthHint = chars < 200 ? '3-4 lignes max' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
-        }
+        siPrefsfu = selfImproveStorage.getEmailPreferences();
       } catch (e2) {}
+    }
+    if (siPrefsfu) {
+      if (siPrefsfu.maxLength === 'short') emailLengthHint = '3-4 lignes max';
+      else if (siPrefsfu.maxLength === 'long') emailLengthHint = '8-12 lignes';
     }
 
     // Injecter les mots interdits depuis la config AP

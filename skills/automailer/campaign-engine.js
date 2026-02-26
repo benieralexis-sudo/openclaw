@@ -239,36 +239,59 @@ function isBusinessHours() {
   return true;
 }
 
-// --- Envoi preferentiel Mar-Jeu 14h (Paris) ---
-// Self-Improve confirme : 14h = 29% open rate (meilleur creneau)
-// Si le jour est Lun/Ven → glisse au prochain Mar/Mer/Jeu
-// Heure fixee entre 13h30-14h30 (Paris) avec jitter
+// --- Envoi preferentiel (Paris) ---
+// Defaults : Mar-Jeu 13h30-14h30. Self-Improve peut overrider heure et jour.
+// Mapping jour string → numero (0=dim)
+const _DAY_MAP = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
+  dimanche: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6 };
+
+function _getSelfImproveTimingPrefs() {
+  try {
+    const si = require('../self-improve/storage.js');
+    return si.getEmailPreferences() || {};
+  } catch (e) {
+    try {
+      const si = require('/app/skills/self-improve/storage.js');
+      return si.getEmailPreferences() || {};
+    } catch (e2) { return {}; }
+  }
+}
+
 function _snapToPreferredSlot(date) {
-  // Convertir en heure Paris
+  const siPrefs = _getSelfImproveTimingPrefs();
+
+  // Heure preferentielle (default 13 = 13h30-14h29 avec jitter)
+  const targetHour = (siPrefs.preferredSendHour >= 7 && siPrefs.preferredSendHour <= 20)
+    ? siPrefs.preferredSendHour : 13;
+
+  // Jours preferentiels : par defaut Mar/Mer/Jeu. Si self-improve specifie un jour, l'accepter aussi.
+  const preferredDays = new Set([2, 3, 4]); // Mar, Mer, Jeu
+  if (siPrefs.preferredSendDay) {
+    const siDay = _DAY_MAP[(siPrefs.preferredSendDay || '').toLowerCase()];
+    if (siDay >= 1 && siDay <= 5) preferredDays.add(siDay); // Ajouter le jour recommande (jours ouvrables only)
+  }
+
   const parisStr = date.toLocaleString('en-US', { timeZone: 'Europe/Paris' });
   const parisDate = new Date(parisStr);
-  const day = parisDate.getDay(); // 0=dim, 1=lun, 2=mar, 3=mer, 4=jeu, 5=ven, 6=sam
+  const day = parisDate.getDay();
 
-  // Jours preferentiels : 2=Mar, 3=Mer, 4=Jeu
-  // Jours acceptables mais non-optimaux : 1=Lun, 5=Ven → glisser au prochain Mar/Mer/Jeu
+  // Si le jour actuel n'est pas un jour prefere → glisser au prochain jour prefere
   let daysToAdd = 0;
-  if (day === 0) daysToAdd = 2;       // Dim → Mar
-  else if (day === 6) daysToAdd = 3;   // Sam → Mar
-  else if (day === 1) daysToAdd = 1;   // Lun → Mar
-  else if (day === 5) daysToAdd = 4;   // Ven → Mar suivant
-  // Mar/Mer/Jeu → 0 (déjà optimal)
+  if (!preferredDays.has(day)) {
+    for (let d = 1; d <= 7; d++) {
+      if (preferredDays.has((day + d) % 7)) { daysToAdd = d; break; }
+    }
+  }
 
   if (daysToAdd > 0) {
     date = new Date(date.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
   }
 
-  // Fixer l'heure a 13h30-14h30 Paris (avec jitter pour eviter pattern detectable)
+  // Fixer l'heure avec jitter (+/- 30min autour de targetHour)
   const offset = _getParisOffsetMs(date);
-  const targetHour = 13;
-  const jitterMinutes = 30 + Math.floor(Math.random() * 60); // 30-89 min → 13h30 à 14h29
+  const jitterMinutes = Math.floor(Math.random() * 60); // 0-59 min apres targetHour
   const parisTarget = new Date(date);
   parisTarget.setUTCHours(0, 0, 0, 0);
-  // Mettre a 13h30+ Paris en UTC
   parisTarget.setTime(parisTarget.getTime() + (targetHour * 60 + jitterMinutes) * 60 * 1000 - offset);
 
   return parisTarget;
@@ -431,6 +454,15 @@ class CampaignEngine {
 
     const list = storage.getContactList(campaign.contactListId);
     if (!list || list.contacts.length === 0) throw new Error('Liste de contacts vide');
+
+    // Fallback Self-Improve : si pas de steps/cadence explicite, utiliser les recos
+    const siPrefs = _getSelfImproveTimingPrefs();
+    if (!totalSteps && siPrefs.recommendedMaxSteps) {
+      totalSteps = siPrefs.recommendedMaxSteps;
+    }
+    if (!intervalDaysOrStepDays && siPrefs.recommendedStepDays) {
+      intervalDaysOrStepDays = siPrefs.recommendedStepDays;
+    }
 
     // Generer les emails pour le premier contact (les memes seront personalises pour chaque contact a l'envoi)
     const sampleContact = list.contacts[0];

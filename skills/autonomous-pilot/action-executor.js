@@ -163,18 +163,33 @@ Format JSON strict :
 
     const apollo = new ApolloConnector(this.apolloKey);
 
-    // Config = defaults, brain params = override (permet le multi-niche)
-    // Le brain envoie les params directement (pas dans un sous-objet criteria)
+    // Lire les overrides Self-Improve (targeting criteria)
+    let siTargeting = {};
+    try {
+      const siStorage = require('../self-improve/storage.js');
+      siTargeting = siStorage.getTargetingCriteria() || {};
+    } catch (e) {
+      try {
+        const siStorage = require('/app/skills/self-improve/storage.js');
+        siTargeting = siStorage.getTargetingCriteria() || {};
+      } catch (e2) {}
+    }
+
+    // Priorite : Brain params (explicit) > Self-Improve overrides > Config locale AP > Defaults
     const configCriteria = storage.getGoals().searchCriteria || {};
     const brainCriteria = params.criteria || params;
     const criteria = {
-      titles: brainCriteria.titles && brainCriteria.titles.length > 0 ? brainCriteria.titles : configCriteria.titles,
+      titles: brainCriteria.titles && brainCriteria.titles.length > 0
+        ? brainCriteria.titles
+        : (siTargeting.preferredTitles && siTargeting.preferredTitles.length > 0 ? siTargeting.preferredTitles : configCriteria.titles),
       locations: brainCriteria.locations && brainCriteria.locations.length > 0 ? brainCriteria.locations : configCriteria.locations,
       seniorities: configCriteria.seniorities && configCriteria.seniorities.length > 0 ? configCriteria.seniorities : brainCriteria.seniorities,
-      companySize: brainCriteria.companySize && brainCriteria.companySize.length > 0 ? brainCriteria.companySize : configCriteria.companySize,
+      companySize: brainCriteria.companySize && brainCriteria.companySize.length > 0
+        ? brainCriteria.companySize
+        : (siTargeting.preferredCompanySize && siTargeting.preferredCompanySize.length > 0 ? siTargeting.preferredCompanySize : configCriteria.companySize),
       // Keywords : le brain OVERRIDE la config pour varier les niches
       keywords: brainCriteria.keywords || configCriteria.keywords || '',
-      industries: brainCriteria.industries || configCriteria.industries || [],
+      industries: brainCriteria.industries || (siTargeting.focusNiches && siTargeting.focusNiches.length > 0 ? siTargeting.focusNiches : configCriteria.industries) || [],
       limit: brainCriteria.limit || configCriteria.limit || 10
     };
     // Si keywords est un array, joindre en string (Apollo attend une string)
@@ -182,7 +197,7 @@ Format JSON strict :
       criteria.keywords = criteria.keywords.join(' OR ');
     }
 
-    log.info('action-executor', 'Recherche leads (config+brain):', JSON.stringify(criteria).substring(0, 300));
+    log.info('action-executor', 'Recherche leads (config+brain+SI):', JSON.stringify(criteria).substring(0, 300));
     const result = await getBreaker('apollo', { failureThreshold: 3, cooldownMs: 60000 }).call(() => apollo.searchLeads(criteria));
 
     if (!result.success) {
@@ -193,12 +208,30 @@ Format JSON strict :
     const ffStorage = getFlowFastStorage();
     let qualified = 0;
     let saved = 0;
-    const minScore = storage.getGoals().weekly.minLeadScore || 7;
+    // Self-Improve peut overrider le minScore (prend le plus bas des deux pour etre plus permissif)
+    const configMinScore = storage.getGoals().weekly.minLeadScore || 7;
+    const minScore = (siTargeting.minScore && siTargeting.minScore > 0 && siTargeting.minScore <= 10)
+      ? Math.min(configMinScore, siTargeting.minScore) : configMinScore;
+    // Industries a exclure (Self-Improve)
+    const excludeNiches = (siTargeting.excludeNiches || []).map(n => n.toLowerCase());
 
     if (result.leads) {
 
+      // Filtrer les industries exclues par Self-Improve
+      let filteredLeads = result.leads;
+      if (excludeNiches.length > 0) {
+        const beforeCount = filteredLeads.length;
+        filteredLeads = filteredLeads.filter(l => {
+          const industry = (l.organization?.industry || '').toLowerCase();
+          return !excludeNiches.some(ex => industry.includes(ex));
+        });
+        if (filteredLeads.length < beforeCount) {
+          log.info('action-executor', 'Self-Improve excludeNiches: ' + (beforeCount - filteredLeads.length) + ' leads exclus (' + excludeNiches.join(', ') + ')');
+        }
+      }
+
       // Mapper les champs Apollo (nouveau endpoint mixed_people/api_search)
-      const mappedLeads = result.leads.map(l => ({
+      const mappedLeads = filteredLeads.map(l => ({
         apolloId: l.id,
         nom: (l.first_name || '') + (l.last_name ? ' ' + l.last_name : ''),
         first_name: l.first_name || '',
