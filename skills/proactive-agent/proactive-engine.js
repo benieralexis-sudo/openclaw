@@ -127,6 +127,12 @@ class ProactiveEngine {
       log.info('proactive-engine', 'Cron: multi-thread secondaires lun-ven 9h30-17h30');
     }
 
+    // Website Visitor Digest — dimanche 20h
+    if (process.env.VISITOR_TRACKING_ENABLED !== 'false') {
+      this.crons.push(new Cron('0 20 * * 0', { timezone: tz }, withCronGuard('pa-visitor-digest', () => this._weeklyVisitorDigest())));
+      log.info('proactive-engine', 'Cron: visitor digest dimanche 20h');
+    }
+
     this.running = true;
     log.info('proactive-engine', 'Demarre avec ' + this.crons.length + ' crons');
 
@@ -915,6 +921,102 @@ class ProactiveEngine {
 
   _getHubspotClient() {
     try { return require('../crm-hubspot/hubspot-client.js'); } catch (e) { return null; }
+  }
+
+  // --- Tache : Weekly Visitor Digest (dimanche 20h) ---
+
+  async _weeklyVisitorDigest() {
+    log.info('proactive-engine', 'Visitor Digest: generation du resume hebdo...');
+
+    try {
+      // Lire le visitor DB directement depuis le volume partage
+      const fs = require('fs');
+      const visitorDbPath = (process.env.VISITOR_DATA_DIR || '/data/visitors') + '/visitor-db.json';
+
+      if (!fs.existsSync(visitorDbPath)) {
+        log.info('proactive-engine', 'Visitor Digest: pas de donnees visiteurs');
+        return;
+      }
+
+      const raw = fs.readFileSync(visitorDbPath, 'utf8');
+      const visitorData = JSON.parse(raw);
+
+      // Calculer le digest de la semaine
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const recentVisits = (visitorData.visits || []).filter(v => v.timestamp >= weekAgo);
+
+      if (recentVisits.length === 0) {
+        log.info('proactive-engine', 'Visitor Digest: aucune visite cette semaine');
+        return;
+      }
+
+      // Agreger par entreprise
+      const companyVisits = {};
+      for (const v of recentVisits) {
+        if (!v.company) continue;
+        if (!companyVisits[v.company]) {
+          companyVisits[v.company] = { name: v.company, count: 0, pages: new Set(), cities: new Set() };
+        }
+        companyVisits[v.company].count++;
+        if (v.url) companyVisits[v.company].pages.add(v.url);
+        if (v.city) companyVisits[v.company].cities.add(v.city);
+      }
+
+      const sorted = Object.values(companyVisits)
+        .map(c => ({ name: c.name, count: c.count, pages: [...c.pages], cities: [...c.cities] }))
+        .sort((a, b) => b.count - a.count);
+
+      // Cross-reference avec FlowFast/pipeline
+      const ffStorage = this._getFlowfastStorage();
+      const knownCompanies = [];
+      const unknownCompanies = [];
+
+      for (const comp of sorted.slice(0, 20)) {
+        let isKnown = false;
+        if (ffStorage) {
+          // Chercher si l'entreprise est dans nos leads
+          const leads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : [];
+          isKnown = leads.some(l =>
+            (l.entreprise || '').toLowerCase().includes(comp.name.toLowerCase()) ||
+            comp.name.toLowerCase().includes((l.entreprise || '').toLowerCase())
+          );
+        }
+        if (isKnown) knownCompanies.push(comp);
+        else unknownCompanies.push(comp);
+      }
+
+      // Construire le message Telegram
+      const lines = ['📊 *Visitor Digest Hebdo*', ''];
+      lines.push('📈 ' + recentVisits.length + ' visites, ' + new Set(recentVisits.map(v => v.ip)).size + ' IPs uniques, ' + sorted.length + ' entreprises');
+      lines.push('');
+
+      if (knownCompanies.length > 0) {
+        lines.push('🎯 *Entreprises DANS ton pipeline:*');
+        for (const c of knownCompanies.slice(0, 10)) {
+          lines.push('  🔥 ' + c.name + ' — ' + c.count + ' visite(s), ' + c.pages.length + ' page(s)');
+        }
+        lines.push('');
+      }
+
+      if (unknownCompanies.length > 0) {
+        lines.push('🏢 *Autres entreprises:*');
+        for (const c of unknownCompanies.slice(0, 10)) {
+          lines.push('  👁️ ' + c.name + ' — ' + c.count + ' visite(s)' + (c.cities.length > 0 ? ' (' + c.cities[0] + ')' : ''));
+        }
+      }
+
+      try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) {}
+
+      storage.logAlert('visitor_digest', 'Digest: ' + recentVisits.length + ' visites, ' + sorted.length + ' entreprises, ' + knownCompanies.length + ' dans pipeline', {
+        visits: recentVisits.length,
+        companies: sorted.length,
+        knownInPipeline: knownCompanies.length
+      });
+
+      log.info('proactive-engine', 'Visitor Digest envoye: ' + recentVisits.length + ' visites, ' + sorted.length + ' entreprises');
+    } catch (e) {
+      log.error('proactive-engine', 'Visitor Digest erreur:', e.message);
+    }
   }
 
   // --- Tache : Multi-Threading - envoi des secondaires (lun-ven heures bureau) ---

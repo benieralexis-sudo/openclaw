@@ -5,6 +5,8 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
+const VisitorTracker = require('./tracker.js');
+
 const app = express();
 const PORT = process.env.LANDING_PORT || 3080;
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -22,7 +24,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "https:"],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"]
@@ -296,6 +298,19 @@ app.post('/api/lead-request', async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur, reessayez.' });
   }
 });
+
+// --- Visitor Tracking ---
+const tracker = new VisitorTracker({
+  telegramNotify: async (text) => {
+    if (!BOT_TOKEN) return;
+    await telegramAPI('sendMessage', {
+      chat_id: ADMIN_CHAT_ID,
+      text: text,
+      parse_mode: 'Markdown'
+    });
+  }
+});
+tracker.setupRoutes(app);
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[${process.env.CLIENT_NAME || 'iFIND'} Landing] Serveur demarre sur le port ${PORT}`);
