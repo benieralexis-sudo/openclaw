@@ -24,6 +24,14 @@ function getAutomailerStorage() {
   }
 }
 
+function getWebIntelStorage() {
+  try { return require('../web-intelligence/storage.js'); }
+  catch (e) {
+    try { return require('/app/skills/web-intelligence/storage.js'); }
+    catch (e2) { return null; }
+  }
+}
+
 class LeadEnrichHandler {
   constructor(openaiKey, fullenrichKey, hubspotKey) {
     this.openaiKey = openaiKey;
@@ -306,6 +314,35 @@ Reponds UNIQUEMENT en JSON strict :
       }
     } catch (e) {
       log.warn('lead-enrich', 'Erreur calcul behavior score:', e.message);
+    }
+
+    // UPGRADE 2 : Enrichir avec signaux Web Intelligence
+    try {
+      const companyName = (enrichResult.organization && enrichResult.organization.name) || '';
+      if (companyName.length >= 2) {
+        const wiStorage = getWebIntelStorage();
+        if (wiStorage) {
+          const wiArticles = wiStorage.getRelevantNewsForContact ? wiStorage.getRelevantNewsForContact(companyName) : [];
+          const wiSignals = wiStorage.getRecentMarketSignals ? wiStorage.getRecentMarketSignals(20) : [];
+          const companyLower = companyName.toLowerCase();
+          const matchedSignals = wiSignals.filter(s => {
+            const co = (s.article && s.article.company || '').toLowerCase();
+            return co.includes(companyLower);
+          });
+          if (wiArticles.length > 0 || matchedSignals.length > 0) {
+            storage.updateLeadWISignals(email, {
+              hasNewsActivity: wiArticles.length > 0,
+              articleCount: wiArticles.length,
+              lastArticleScore: wiArticles.length > 0 ? (wiArticles[0].relevance || 5) : 0,
+              signalCount: matchedSignals.length,
+              hasUrgentSignal: matchedSignals.some(s => s.priority === 'high')
+            });
+            log.info('lead-enrich', 'WI signals pour ' + companyName + ': ' + wiArticles.length + ' articles, ' + matchedSignals.length + ' signaux');
+          }
+        }
+      }
+    } catch (e) {
+      log.warn('lead-enrich', 'Erreur enrichissement WI:', e.message);
     }
 
     const lead = storage.getEnrichedLead(email);
@@ -760,6 +797,31 @@ Reponds UNIQUEMENT en JSON strict :
           replied: hl.replied || false
         });
       }
+    }
+
+    // Methode 3 : Leads avec activite Web Intelligence (news recentes)
+    try {
+      const wiLeads = storage.getLeadsWithWIActivity(6);
+      for (const lead of wiLeads.slice(0, 5)) {
+        const key = (lead.email || '').toLowerCase();
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          allHotLeads.push({
+            email: key,
+            name: lead.enrichData ? (lead.enrichData.person || {}).fullName : null,
+            title: lead.enrichData ? (lead.enrichData.person || {}).title : null,
+            company: lead.enrichData ? (lead.enrichData.organization || {}).name : null,
+            staticScore: lead.aiClassification ? lead.aiClassification.score : null,
+            behaviorScore: lead.behaviorScore || 0,
+            combinedScore: lead.combinedScore || 0,
+            signals: (lead.behaviorSignals || []).concat(lead.wiSignals ? [lead.wiSignals.articleCount + ' articles WI'] : []),
+            hotLead: true,
+            source: 'web-intelligence'
+          });
+        }
+      }
+    } catch (e) {
+      log.warn('lead-enrich', 'Erreur lecture WI leads:', e.message);
     }
 
     if (allHotLeads.length === 0) {

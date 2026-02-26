@@ -64,6 +64,14 @@ function getCampaignEngine() {
   }
 }
 
+function getWebIntelStorage() {
+  try { return require('../web-intelligence/storage.js'); }
+  catch (e) {
+    try { return require('/app/skills/web-intelligence/storage.js'); }
+    catch (e2) { return null; }
+  }
+}
+
 class ProactiveEngine {
   constructor(options) {
     this.sendTelegram = options.sendTelegram;
@@ -693,6 +701,34 @@ class ProactiveEngine {
       }
     } catch (e) {
       log.info('proactive-engine', 'Smart alert bounce anomaly skip:', e.message);
+    }
+
+    // --- 6. Web Intelligence : articles urgents avec match CRM ---
+    try {
+      const wiStorage = getWebIntelStorage();
+      if (wiStorage && wiStorage.getRecentArticles) {
+        const recentArticles = wiStorage.getRecentArticles(50);
+        const urgentWithCRM = recentArticles.filter(a =>
+          a.isUrgent === true && (a.relevanceScore || 0) >= 8 && a.crmMatch
+        );
+
+        for (const article of urgentWithCRM.slice(0, 3)) {
+          const alertKey = 'wi_urgent:' + (article.id || article.title.substring(0, 30));
+          if (!this._isAlertAlreadySent('wi_urgent', alertKey)) {
+            const company = article.crmMatch ? (article.crmMatch.company || '') : '';
+            const msg = '*VEILLE URGENTE* : ' + (article.title || '').substring(0, 100) + '\n' +
+              'Source: ' + (article.source || '?') + ' | Score: ' + article.relevanceScore + '/10\n' +
+              (company ? 'Match CRM: ' + company + '\n' : '') +
+              '_Action recommandee : contacter ce prospect avec cette actu comme accroche_';
+            await this.sendTelegram(config.adminChatId, msg);
+            this._markAlertSent('wi_urgent', alertKey);
+            storage.logAlert('smart_wi_urgent', msg, { title: article.title, score: article.relevanceScore, company });
+            alertsSent++;
+          }
+        }
+      }
+    } catch (e) {
+      log.info('proactive-engine', 'Smart alert WI urgent skip:', e.message);
     }
 
     if (alertsSent > 0) {

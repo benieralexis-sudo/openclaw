@@ -190,6 +190,32 @@ class LeadEnrichStorage {
       .slice(0, limit);
   }
 
+  updateLeadWISignals(email, wiSignals) {
+    const key = (email || '').toLowerCase();
+    if (!key) return null;
+    const lead = this.data.enrichedLeads[key];
+    if (!lead) return null;
+
+    lead.wiSignals = wiSignals || {};
+    lead.wiUpdatedAt = new Date().toISOString();
+
+    // Recalculer combined score avec bonus WI
+    const staticScore = (lead.aiClassification && lead.aiClassification.score) || 0;
+    const behaviorBonus = lead.behaviorScore ? Math.round(lead.behaviorScore / 3) : 0;
+    const wiBonus = (wiSignals.hasNewsActivity && wiSignals.lastArticleScore > 6) ? 1 : 0;
+    lead.combinedScore = Math.min(10, staticScore + behaviorBonus + wiBonus);
+
+    this._save();
+    return lead;
+  }
+
+  getLeadsWithWIActivity(minScore) {
+    minScore = minScore || 0;
+    return Object.values(this.data.enrichedLeads)
+      .filter(l => l.wiSignals && l.wiSignals.hasNewsActivity && (l.combinedScore || 0) >= minScore)
+      .sort((a, b) => (b.wiSignals.lastArticleScore || 0) - (a.wiSignals.lastArticleScore || 0));
+  }
+
   // --- Credits enrichissement (FullEnrich) ---
 
   trackEnrichCredit(amount) {
