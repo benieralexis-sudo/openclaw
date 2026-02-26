@@ -262,6 +262,12 @@ section{padding:120px 0;position:relative}
 .pr-feat .ci{color:var(--green);font-weight:700;margin-top:2px;flex-shrink:0}
 .pr-cta{padding:0 32px 32px;display:flex;flex-direction:column;gap:10px}
 .badge-accent{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+.pr-volume{font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--text);margin:12px 0 0;letter-spacing:-0.02em}
+.pr-old{font-size:24px;font-weight:500;color:var(--text-3);text-decoration:line-through;opacity:0.5}
+.pr-founder-banner{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 24px;margin:0 auto 32px;background:linear-gradient(135deg,rgba(29,78,216,0.06),rgba(124,58,237,0.06));border:1px solid rgba(29,78,216,0.15);border-radius:100px;font-size:14px;font-weight:600;color:var(--accent);max-width:520px}
+.pr-founder-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+.pr-guarantee{text-align:center;margin-top:32px;font-size:15px;font-weight:500;color:var(--text-2);padding:16px 24px;background:var(--green-bg);border:1px solid rgba(22,163,74,0.12);border-radius:var(--r);max-width:580px;margin-left:auto;margin-right:auto}
 
 /* ====== FAQ ====== */
 .faq-list{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
