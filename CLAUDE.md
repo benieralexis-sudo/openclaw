@@ -41,7 +41,7 @@
 | 4 | Content Gen (redaction multi-format) | `skills/content-gen/` | Claude Sonnet 4.6 + GPT-4o-mini | 7/10 | 1 020 |
 | 5 | Invoice Bot (facturation chiffree) | `skills/invoice-bot/` | GPT-4o-mini | 7.5/10 | 1 596 |
 | 6 | Proactive Agent (rapports + alertes) | `skills/proactive-agent/` | Claude Sonnet 4.6 | 8/10 | 2 003 |
-| 7 | Self-Improve (optimisation bi-hebdo) | `skills/self-improve/` | Claude Opus 4.6 + GPT-4o-mini | 7.5/10 | 2 424 |
+| 7 | Self-Improve (optimisation bi-hebdo) | `skills/self-improve/` | Claude Opus 4.6 + GPT-4o-mini | 10/10 | 2 424 |
 | 8 | Web Intelligence (veille marche) | `skills/web-intelligence/` | Claude Sonnet 4.6 + GPT-4o-mini | 9/10 | 2 663 |
 | 9 | System Advisor (monitoring systeme) | `skills/system-advisor/` | Claude Sonnet 4.6 + GPT-4o-mini | 8/10 | 1 713 |
 | 10 | Autonomous Pilot (cerveau autonome) | `skills/autonomous-pilot/` | Claude Opus 4.6 | 9.5/10 | 4 293 |
