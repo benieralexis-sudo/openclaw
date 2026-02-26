@@ -1195,21 +1195,9 @@ Reponds UNIQUEMENT en JSON strict :
   }
 }
 
-// Helpers cross-skill
-function getAutomailerStorageSafe() {
-  try { return require('../automailer/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/automailer/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getLeadEnrichStorageSafe() {
-  try { return require('../lead-enrich/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/lead-enrich/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
+// Helpers cross-skill via skill-loader centralise
+const { getStorage: _getStorage } = require('../../gateway/skill-loader.js');
+function getAutomailerStorageSafe() { return _getStorage('automailer'); }
+function getLeadEnrichStorageSafe() { return _getStorage('lead-enrich'); }
 
 module.exports = SelfImproveHandler;

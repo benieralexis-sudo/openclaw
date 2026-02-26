@@ -8,48 +8,25 @@ const { withCronGuard } = require('../../gateway/utils.js');
 const log = require('../../gateway/logger.js');
 const { escTg, parseJsonResponse } = require('./utils.js');
 
-// --- Cross-skill imports (dual-path) ---
+// --- Cross-skill imports via skill-loader centralise ---
+const { getStorage, getModule } = require('../../gateway/skill-loader.js');
 
-function _require(relativePath, absolutePath) {
-  try { return require(relativePath); }
-  catch (e) {
-    try { return require(absolutePath); }
-    catch (e2) { return null; }
-  }
-}
-
-function getFlowFastStorage() {
-  return _require('../flowfast/storage.js', '/app/skills/flowfast/storage.js');
-}
-
-function getAutomailerStorage() {
-  return _require('../automailer/storage.js', '/app/skills/automailer/storage.js');
-}
-
-function getLeadEnrichStorage() {
-  return _require('../lead-enrich/storage.js', '/app/skills/lead-enrich/storage.js');
-}
-
-function getProactiveStorage() {
-  return _require('../proactive-agent/storage.js', '/app/skills/proactive-agent/storage.js');
-}
-
-function getSelfImproveStorage() {
-  return _require('../self-improve/storage.js', '/app/skills/self-improve/storage.js');
-}
-
-function getWebIntelStorage() {
-  return _require('../web-intelligence/storage.js', '/app/skills/web-intelligence/storage.js');
-}
+function getFlowFastStorage() { return getStorage('flowfast'); }
+function getAutomailerStorage() { return getStorage('automailer'); }
+function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
+function getProactiveStorage() { return getStorage('proactive-agent'); }
+function getSelfImproveStorage() { return getStorage('self-improve'); }
+function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
 function getAppConfig() {
-  return _require('../../gateway/app-config.js', '/app/gateway/app-config.js');
+  try { return require('../../gateway/app-config.js'); }
+  catch (e) { return null; }
 }
 
 function getHubSpotClient() {
   const apiKey = process.env.HUBSPOT_API_KEY;
   if (!apiKey) return null;
-  const HubSpotClient = _require('../crm-pilot/hubspot-client.js', '/app/skills/crm-pilot/hubspot-client.js');
+  const HubSpotClient = getModule('hubspot-client');
   if (!HubSpotClient) return null;
   try { return new HubSpotClient(apiKey); } catch (e) { return null; }
 }

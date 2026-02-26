@@ -7,30 +7,12 @@ const { retryAsync } = require('../../gateway/utils.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const log = require('../../gateway/logger.js');
 
-// Cross-skill imports (avec fallback pour Docker)
-function getHubSpotClient() {
-  try { return require('../crm-pilot/hubspot-client.js'); }
-  catch (e) {
-    try { return require('/app/skills/crm-pilot/hubspot-client.js'); }
-    catch (e2) { return null; }
-  }
-}
+// Cross-skill imports via skill-loader centralise
+const { getStorage, getModule } = require('../../gateway/skill-loader.js');
 
-function getAutomailerStorage() {
-  try { return require('../automailer/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/automailer/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getWebIntelStorage() {
-  try { return require('../web-intelligence/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/web-intelligence/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
+function getHubSpotClient() { return getModule('hubspot-client'); }
+function getAutomailerStorage() { return getStorage('automailer'); }
+function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
 class LeadEnrichHandler {
   constructor(openaiKey, fullenrichKey, hubspotKey) {

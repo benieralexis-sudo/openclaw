@@ -7,70 +7,17 @@ const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
 const { getWarmupDailyLimit, withCronGuard } = require('../../gateway/utils.js');
 
-// Cross-skill imports
-function getResendClient() {
-  try { return require('../automailer/resend-client.js'); }
-  catch (e) {
-    try { return require('/app/skills/automailer/resend-client.js'); }
-    catch (e2) { return null; }
-  }
-}
+// Cross-skill imports via skill-loader centralise
+const { getStorage, getModule } = require('../../gateway/skill-loader.js');
 
-function getAutomailerStorage() {
-  try { return require('../automailer/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/automailer/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getFlowfastStorage() {
-  try { return require('../flowfast/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/flowfast/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getLeadEnrichStorage() {
-  try { return require('../lead-enrich/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/lead-enrich/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getClaudeEmailWriter() {
-  try { return require('../automailer/claude-email-writer.js'); }
-  catch (e) {
-    try { return require('/app/skills/automailer/claude-email-writer.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getAPStorage() {
-  try { return require('../autonomous-pilot/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/autonomous-pilot/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getCampaignEngine() {
-  try { return require('../automailer/campaign-engine.js'); }
-  catch (e) {
-    try { return require('/app/skills/automailer/campaign-engine.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getWebIntelStorage() {
-  try { return require('../web-intelligence/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/web-intelligence/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
+function getResendClient() { return getModule('resend-client'); }
+function getAutomailerStorage() { return getStorage('automailer'); }
+function getFlowfastStorage() { return getStorage('flowfast'); }
+function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
+function getClaudeEmailWriter() { return getModule('claude-email-writer'); }
+function getAPStorage() { return getStorage('autonomous-pilot'); }
+function getCampaignEngine() { return getModule('campaign-engine'); }
+function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
 class ProactiveEngine {
   constructor(options) {
@@ -317,13 +264,7 @@ class ProactiveEngine {
   }
 
   // --- Helper pour acceder au storage AP ---
-  _getAPStorage() {
-    try { return require('../autonomous-pilot/storage.js'); }
-    catch (e) {
-      try { return require('/app/skills/autonomous-pilot/storage.js'); }
-      catch (e2) { return null; }
-    }
-  }
+  _getAPStorage() { return getAPStorage(); }
 
   // --- Tache 3 : Alertes pipeline (9h) ---
 

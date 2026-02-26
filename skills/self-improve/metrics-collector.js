@@ -12,85 +12,26 @@ function _normalCDFStatic(z) {
   return 0.5 * (1.0 + sign * y);
 }
 
-// Cross-skill imports (dual-path pour Docker)
-function getAutomailerStorage() {
-  try { return require('../automailer/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/automailer/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
+// Cross-skill imports via skill-loader centralise
+const { getStorage, getModule } = require('../../gateway/skill-loader.js');
 
-function getLeadEnrichStorage() {
-  try { return require('../lead-enrich/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/lead-enrich/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getFlowfastStorage() {
-  try { return require('../flowfast/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/flowfast/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getProactiveStorage() {
-  try { return require('../proactive-agent/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/proactive-agent/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getAutonomousPilotStorage() {
-  try { return require('../autonomous-pilot/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/autonomous-pilot/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getMeetingSchedulerStorage() {
-  try { return require('../meeting-scheduler/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/meeting-scheduler/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getCrmPilotStorage() {
-  try { return require('../crm-pilot/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/crm-pilot/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
+function getAutomailerStorage() { return getStorage('automailer'); }
+function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
+function getFlowfastStorage() { return getStorage('flowfast'); }
+function getProactiveStorage() { return getStorage('proactive-agent'); }
+function getAutonomousPilotStorage() { return getStorage('autonomous-pilot'); }
+function getMeetingSchedulerStorage() { return getStorage('meeting-scheduler'); }
+function getCrmPilotStorage() { return getStorage('crm-pilot'); }
+function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
 function getAppConfig() {
   try { return require('../../gateway/app-config.js'); }
-  catch (e) {
-    try { return require('/app/gateway/app-config.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getWebIntelStorage() {
-  try { return require('../web-intelligence/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/web-intelligence/storage.js'); }
-    catch (e2) { return null; }
-  }
+  catch (e) { return null; }
 }
 
 function getCircuitBreakerModule() {
   try { return require('../../gateway/circuit-breaker.js'); }
-  catch (e) {
-    try { return require('/app/gateway/circuit-breaker.js'); }
-    catch (e2) { return null; }
-  }
+  catch (e) { return null; }
 }
 
 class MetricsCollector {

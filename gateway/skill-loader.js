@@ -17,15 +17,23 @@ const SKILL_STORAGES = {
   'system-advisor': 'system-advisor/storage.js',
   'autonomous-pilot': 'autonomous-pilot/storage.js',
   'inbox-manager': 'inbox-manager/storage.js',
-  'meeting-scheduler': 'meeting-scheduler/storage.js'
+  'meeting-scheduler': 'meeting-scheduler/storage.js',
+  'flowfast': 'flowfast/storage.js'
 };
 
 // Chemins des modules specifiques
 const SKILL_MODULES = {
   'hubspot-client': 'crm-pilot/hubspot-client.js',
   'resend-client': 'automailer/resend-client.js',
+  'claude-email-writer': 'automailer/claude-email-writer.js',
+  'campaign-engine': 'automailer/campaign-engine.js',
+  'apollo-connector': 'flowfast/apollo-connector.js',
   'apollo-enricher': 'lead-enrich/apollo-enricher.js',
-  'ai-classifier': 'lead-enrich/ai-classifier.js'
+  'ai-classifier': 'lead-enrich/ai-classifier.js',
+  'web-fetcher': 'web-intelligence/web-fetcher.js',
+  'prospect-researcher': 'autonomous-pilot/prospect-researcher.js',
+  'calendar-client': 'meeting-scheduler/calendar-client.js',
+  'reply-classifier': 'inbox-manager/reply-classifier.js'
 };
 
 const SKILLS_ROOT = path.resolve(__dirname, '..', 'skills');

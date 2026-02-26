@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { atomicWriteSync } = require('../../gateway/utils.js');
+const log = require('../../gateway/logger.js');
 
 const DATA_DIR = process.env.AUTONOMOUS_PILOT_DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'autonomous-pilot.json');
@@ -155,7 +156,7 @@ function _load() {
       // Migration : injecter les 30 mots interdits si la liste est vide (ancien JSON sur disque)
       if (!_data.config.emailPreferences.forbiddenWords || _data.config.emailPreferences.forbiddenWords.length === 0) {
         _data.config.emailPreferences.forbiddenWords = def.config.emailPreferences.forbiddenWords;
-        console.log('[autonomous-pilot-storage] Migration: 30 mots interdits injectes');
+        log.info('autonomous-pilot', 'Migration: 30 mots interdits injectes');
       }
       if (!_data.goals) _data.goals = def.goals;
       if (!_data.goals.weekly) _data.goals.weekly = def.goals.weekly;
@@ -173,16 +174,16 @@ function _load() {
       if (!_data.learnings.experiments) _data.learnings.experiments = [];
       if (!_data.stats) _data.stats = def.stats;
       if (_data.stats.totalCriteriaUpdates === undefined) _data.stats.totalCriteriaUpdates = 0;
-      console.log('[autonomous-pilot-storage] Donnees chargees (' +
+      log.info('autonomous-pilot', 'Donnees chargees (' +
         _data.actionHistory.length + ' actions, ' +
         _data.diagnostic.items.length + ' diagnostics)');
     } else {
       _data = _defaultData();
       _save();
-      console.log('[autonomous-pilot-storage] Nouvelle base creee');
+      log.info('autonomous-pilot', 'Nouvelle base creee');
     }
   } catch (e) {
-    console.log('[autonomous-pilot-storage] Erreur lecture, reset:', e.message);
+    log.warn('autonomous-pilot', 'Erreur lecture, reset:', e.message);
     _data = _defaultData();
     _save();
   }
@@ -194,7 +195,7 @@ function _save() {
   try {
     atomicWriteSync(DATA_FILE, _data);
   } catch (e) {
-    console.log('[autonomous-pilot-storage] Erreur ecriture:', e.message);
+    log.warn('autonomous-pilot', 'Erreur ecriture:', e.message);
   }
 }
 
@@ -218,9 +219,9 @@ function updateConfig(updates) {
   const newState = _getPilotState(data.config);
   if (oldState !== newState) {
     if (_canTransition(oldState, newState)) {
-      console.log('[autonomous-pilot] Transition: ' + oldState + ' → ' + newState);
+      log.info('autonomous-pilot', 'Transition: ' + oldState + ' → ' + newState);
     } else {
-      console.warn('[autonomous-pilot] Transition invalide: ' + oldState + ' → ' + newState + ' (forcee)');
+      log.warn('autonomous-pilot', 'Transition invalide: ' + oldState + ' → ' + newState + ' (forcee)');
     }
     data.config._state = newState;
     data.config._stateChangedAt = new Date().toISOString();
@@ -400,7 +401,7 @@ function cleanupQueue() {
       data.actionHistory = data.actionHistory.slice(0, 500);
     }
     _save();
-    console.log('[autonomous-pilot-storage] Queue cleanup: ' + expired.length + ' action(s) expiree(s)');
+    log.info('autonomous-pilot', 'Queue cleanup: ' + expired.length + ' action(s) expiree(s)');
   }
 
   return expired.length;

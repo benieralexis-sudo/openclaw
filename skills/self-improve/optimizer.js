@@ -1,22 +1,10 @@
 // Self-Improve - Backup, application et rollback des recommandations
 const storage = require('./storage.js');
 
-// Cross-skill imports
-function getLeadEnrichStorage() {
-  try { return require('../lead-enrich/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/lead-enrich/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
-
-function getAutomailerStorage() {
-  try { return require('../automailer/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/automailer/storage.js'); }
-    catch (e2) { return null; }
-  }
-}
+// Cross-skill imports via skill-loader centralise
+const { getStorage } = require('../../gateway/skill-loader.js');
+function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
+function getAutomailerStorage() { return getStorage('automailer'); }
 
 class Optimizer {
   constructor() {}

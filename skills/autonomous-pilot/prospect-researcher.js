@@ -5,29 +5,13 @@
 
 const log = require('../../gateway/logger.js');
 
-function _require(relativePath, absolutePath) {
-  try { return require(relativePath); }
-  catch (e) {
-    try { return require(absolutePath); }
-    catch (e2) { return null; }
-  }
-}
+// Cross-skill imports via skill-loader centralise
+const { getStorage, getModule } = require('../../gateway/skill-loader.js');
 
-function getWebFetcher() {
-  return _require('../web-intelligence/web-fetcher.js', '/app/skills/web-intelligence/web-fetcher.js');
-}
-
-function getWebIntelStorage() {
-  return _require('../web-intelligence/storage.js', '/app/skills/web-intelligence/storage.js');
-}
-
-function getAPStorage() {
-  return _require('./storage.js', '/app/skills/autonomous-pilot/storage.js');
-}
-
-function getLeadEnrichStorage() {
-  return _require('../lead-enrich/storage.js', '/app/skills/lead-enrich/storage.js');
-}
+function getWebFetcher() { return getModule('web-fetcher'); }
+function getWebIntelStorage() { return getStorage('web-intelligence'); }
+function getAPStorage() { return getStorage('autonomous-pilot'); }
+function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
 
 // User-agents rotatifs pour eviter les 403 Google Cache
 const USER_AGENTS = [

@@ -6,14 +6,10 @@ const storage = require('./storage.js');
 const diagnostic = require('./diagnostic.js');
 const { retryAsync } = require('../../gateway/utils.js');
 
-// Acces cross-skill : automailer storage (pour contexte emails envoyes)
-function getAutomailerStorage() {
-  try { return require('../automailer/storage.js'); } catch (e) { return null; }
-}
-// Acces cross-skill : proactive-agent storage (pour contexte relances reactives)
-function getProactiveStorage() {
-  try { return require('../proactive-agent/storage.js'); } catch (e) { return null; }
-}
+// Cross-skill imports via skill-loader centralise
+const { getStorage } = require('../../gateway/skill-loader.js');
+function getAutomailerStorage() { return getStorage('automailer'); }
+function getProactiveStorage() { return getStorage('proactive-agent'); }
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const appConfig = require('../../gateway/app-config.js');
 const log = require('../../gateway/logger.js');

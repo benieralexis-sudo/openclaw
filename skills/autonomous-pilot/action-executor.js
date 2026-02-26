@@ -5,57 +5,22 @@ const log = require('../../gateway/logger.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const { getWarmupDailyLimit } = require('../../gateway/utils.js');
 
-// --- Cross-skill imports (dual-path) ---
+// --- Cross-skill imports via skill-loader centralise ---
+const { getStorage, getModule } = require('../../gateway/skill-loader.js');
 
-function _require(relativePath, absolutePath) {
-  try { return require(relativePath); }
-  catch (e) {
-    try { return require(absolutePath); }
-    catch (e2) { return null; }
-  }
-}
+function getApolloConnector() { return getModule('apollo-connector'); }
+function getFlowFastStorage() { return getStorage('flowfast'); }
+function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
+function getHubSpotClient() { return getModule('hubspot-client'); }
+function getClaudeEmailWriter() { return getModule('claude-email-writer'); }
+function getResendClient() { return getModule('resend-client'); }
+function getAutomailerStorage() { return getStorage('automailer'); }
+function getProspectResearcher() { return getModule('prospect-researcher'); }
+function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
-function getApolloConnector() {
-  return _require('../flowfast/apollo-connector.js', '/app/skills/flowfast/apollo-connector.js');
-}
-
-function getFlowFastStorage() {
-  return _require('../flowfast/storage.js', '/app/skills/flowfast/storage.js');
-}
-
-// NLP partage pour scoring leads (anciennement dans FlowFast workflow)
 function _getSharedNLP() {
-  return _require('../../gateway/shared-nlp.js', '/app/gateway/shared-nlp.js');
-}
-
-
-
-function getLeadEnrichStorage() {
-  return _require('../lead-enrich/storage.js', '/app/skills/lead-enrich/storage.js');
-}
-
-function getHubSpotClient() {
-  return _require('../crm-pilot/hubspot-client.js', '/app/skills/crm-pilot/hubspot-client.js');
-}
-
-function getClaudeEmailWriter() {
-  return _require('../automailer/claude-email-writer.js', '/app/skills/automailer/claude-email-writer.js');
-}
-
-function getResendClient() {
-  return _require('../automailer/resend-client.js', '/app/skills/automailer/resend-client.js');
-}
-
-function getAutomailerStorage() {
-  return _require('../automailer/storage.js', '/app/skills/automailer/storage.js');
-}
-
-function getProspectResearcher() {
-  return _require('./prospect-researcher.js', '/app/skills/autonomous-pilot/prospect-researcher.js');
-}
-
-function getWebIntelStorage() {
-  return _require('../web-intelligence/storage.js', '/app/skills/web-intelligence/storage.js');
+  try { return require('../../gateway/shared-nlp.js'); }
+  catch (e) { return null; }
 }
 
 class ActionExecutor {
