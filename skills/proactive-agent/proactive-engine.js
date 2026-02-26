@@ -818,6 +818,22 @@ class ProactiveEngine {
           continue;
         }
 
+        // Verifier exclusions AP (businessContext contient "ne pas relancer")
+        try {
+          const apStorage = getAPStorage();
+          if (apStorage) {
+            const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+            const bc = (apConfig.businessContext || '').toLowerCase();
+            if (bc.includes(followUp.prospectEmail.toLowerCase()) && (bc.includes('ne pas relancer') || bc.includes('annulee') || bc.includes('exclu'))) {
+              log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' exclu par AP businessContext — annule');
+              storage.markFollowUpFailed(followUp.id, 'excluded_by_ap');
+              continue;
+            }
+          }
+        } catch (apErr) {
+          log.warn('proactive-engine', 'Check AP exclusions echoue:', apErr.message);
+        }
+
         // Verifier si le prospect a repondu ou bounce
         const emailEvents = amStorage.getEmailEventsForRecipient(followUp.prospectEmail);
         if (emailEvents.some(e => e.status === 'replied' || e.hasReplied)) {

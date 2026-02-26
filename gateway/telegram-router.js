@@ -666,6 +666,27 @@ inboxListener = InboxListener ? new InboxListener({
       actionTaken = 'human_takeover';
       log.info('inbox-manager', '🤝 HUMAN TAKEOVER: ' + replyData.from + ' (sentiment=' + sentiment + ') — le bot arrete, l\'humain prend le relais');
 
+      // BLACKLIST le prospect pour bloquer TOUTE future automation (relances, FU, etc.)
+      try {
+        automailerStorageForInbox.addToBlacklist(replyData.from, 'human_takeover: prospect replied (' + sentiment + ')');
+        log.info('inbox-manager', replyData.from + ' blackliste (human takeover) — TOUTE automation arretee');
+      } catch (e) {
+        log.warn('inbox-manager', 'Blacklist human takeover echouee:', e.message);
+      }
+
+      // Marquer hasReplied sur TOUS les emails envoyes a ce prospect
+      try {
+        const allEmails = automailerStorageForInbox.getEmailEventsForRecipient(replyData.from);
+        for (const em of allEmails) {
+          if (em.id && !em.hasReplied) {
+            automailerStorageForInbox.updateEmailStatus(em.id, em.status || 'replied', { hasReplied: true, repliedAt: new Date().toISOString() });
+          }
+        }
+        log.info('inbox-manager', 'hasReplied=true marque sur ' + allEmails.length + ' emails pour ' + replyData.from);
+      } catch (e) {
+        log.warn('inbox-manager', 'Marquage hasReplied echoue:', e.message);
+      }
+
       // Annuler les reactive follow-ups pending pour ce prospect
       try {
         const proactiveStorage = require('../skills/proactive-agent/storage.js');
@@ -1700,7 +1721,12 @@ async function handleResendWebhook(body) {
     try {
       const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
       if (!rfConfig.enabled) return;
-      // Guard : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
+      // Guard 1 : blacklist automailer (human takeover, bounce, decline)
+      if (automailerStorage.isBlacklisted(emailRecord.to)) {
+        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — blackliste');
+        return;
+      }
+      // Guard 2 : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
       const events = automailerStorage.getEmailEventsForRecipient(emailRecord.to);
       if (events.some(e => e.status === 'replied' || e.hasReplied)) {
         log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — deja repondu (human takeover)');
@@ -2038,9 +2064,15 @@ const healthServer = http.createServer((req, res) => {
         try {
           var rfConfig3 = proactiveAgentStorage.getReactiveFollowUpConfig();
           if (rfConfig3.enabled) {
-            // Guard : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
-            var pixelEvents = automailerStorage.getEmailEventsForRecipient(email.to);
-            if (pixelEvents.some(function(e) { return e.status === 'replied' || e.hasReplied; })) {
+            // Guard 1 : blacklist automailer (human takeover, bounce, decline)
+            if (automailerStorage.isBlacklisted(email.to)) {
+              log.info('tracking', 'Skip reactive FU (reouvre pixel) pour ' + email.to + ' — blackliste');
+            }
+            // Guard 2 : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
+            else if ((function() {
+              var pixelEvents = automailerStorage.getEmailEventsForRecipient(email.to);
+              return pixelEvents.some(function(e) { return e.status === 'replied' || e.hasReplied; });
+            })()) {
               log.info('tracking', 'Skip reactive FU (reouvre pixel) pour ' + email.to + ' — deja repondu (human takeover)');
             } else {
               var delayMs3 = (rfConfig3.minDelayMinutes + Math.random() * (rfConfig3.maxDelayMinutes - rfConfig3.minDelayMinutes)) * 60 * 1000;
