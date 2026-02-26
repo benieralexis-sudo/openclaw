@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>iFIND &mdash; D&eacute;couvrir l'offre</title>
+<meta name="description" content="Un agent commercial IA qui prospecte pour toi 24h/24. Emails hyper-personnalis&eacute;s, pas de templates. Teste sans risque pour 490&euro;.">
+<meta property="og:title" content="iFIND &mdash; D&eacute;couvrir l'offre">
+<meta property="og:description" content="Un agent commercial IA qui prospecte pour toi 24h/24. Teste sans risque.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="iFIND">
+<meta property="og:url" content="https://ifind.fr/offre.html">
+<meta property="og:image" content="https://ifind.fr/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ifind.fr/offre.html">
+<meta name="theme-color" content="#1D4ED8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232563EB'/%3E%3Cstop offset='100%25' stop-color='%231e40af'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Ctext x='16' y='22.5' text-anchor='middle' fill='white' font-family='Inter,system-ui,sans-serif' font-size='21' font-weight='600'%3Ei%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/style.css?v=17">
+<style>
+/* === OFFRE PAGE SPECIFIC === */
+.offre-hero{padding:140px 0 80px;position:relative;overflow:hidden;background:linear-gradient(180deg,#f8fafc 0%,var(--bg) 100%)}
+.offre-hero .container{position:relative;z-index:1;text-align:center;max-width:800px}
+.offre-hero h1{font-family:var(--font-d);font-size:clamp(32px,5vw,52px);font-weight:800;line-height:1.1;letter-spacing:-0.04em;margin:20px 0 20px;color:var(--text)}
+.offre-hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--accent) 0%,#7C3AED 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.offre-hero p{font-size:19px;color:var(--text-2);max-width:560px;margin:0 auto 40px;line-height:1.75}
+
+/* Pain points */
+.pain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.pain-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:36px 28px;transition:all var(--tr)}
+.pain-card:hover{box-shadow:var(--shadow-md);transform:translateY(-4px)}
+.pain-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:24px}
+.pain-icon-red{background:var(--red-bg);color:var(--red)}
+.pain-icon-amber{background:var(--amber-bg);color:var(--amber)}
+.pain-card h3{font-family:var(--font-d);font-size:18px;font-weight:600;margin-bottom:10px;color:var(--text)}
+.pain-card p{font-size:14px;color:var(--text-2);line-height:1.75}
+.pain-card .pain-price{font-family:var(--font-d);font-weight:700;color:var(--red)}
+
+/* Solution section */
+.sol-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.sol-card{display:flex;gap:16px;align-items:flex-start;padding:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);transition:all var(--tr)}
+.sol-card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.sol-icon{width:44px;height:44px;border-radius:10px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;font-size:20px}
+.sol-card h4{font-family:var(--font-d);font-size:15px;font-weight:600;margin-bottom:6px;color:var(--text)}
+.sol-card p{font-size:14px;color:var(--text-2);line-height:1.65}
+
+/* Email examples */
+.email-compare{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
+.email-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;transition:all var(--tr)}
+.email-box:hover{box-shadow:var(--shadow-md)}
+.email-box-bad{opacity:0.7}
+.email-box-bad:hover{opacity:0.85}
+.email-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.email-dot{width:8px;height:8px;border-radius:50%}
+.email-dot-green{background:var(--green)}
+.email-dot-red{background:var(--red)}
+.email-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em}
+.email-label-green{color:var(--green)}
+.email-label-red{color:var(--red)}
+.email-body{padding:24px;font-size:14px;color:var(--text-2);line-height:1.8}
+.email-body .email-subject{font-weight:600;color:var(--text);margin-bottom:12px;font-size:13px}
+.email-body .email-text{font-style:italic}
+.email-note{padding:12px 20px;background:var(--card);border-top:1px solid var(--border);font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:8px}
+
+/* Pilot offer */
+.pilot-section{background:linear-gradient(135deg,var(--accent) 0%,#1e3a8a 50%,#1e40af 100%);color:#fff;position:relative;overflow:hidden}
+.pilot-section::before{content:'';position:absolute;top:-200px;right:-200px;width:500px;height:500px;border-radius:50%;background:rgba(255,255,255,0.04);animation:orbFloat 8s ease-in-out infinite}
+.pilot-inner{max-width:680px;margin:0 auto;text-align:center;position:relative;z-index:1}
+.pilot-inner .s-label{color:rgba(255,255,255,0.7);background:none;-webkit-text-fill-color:rgba(255,255,255,0.7)}
+.pilot-inner h2{font-family:var(--font-d);font-size:clamp(30px,4vw,44px);font-weight:800;color:#fff;line-height:1.15;margin-bottom:20px;letter-spacing:-0.03em}
+.pilot-inner>p{font-size:18px;color:rgba(255,255,255,0.75);margin-bottom:40px;line-height:1.75}
+.pilot-card{background:rgba(255,255,255,0.1);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.15);border-radius:var(--r-xl);padding:40px;text-align:left;margin-bottom:32px}
+.pilot-price{display:flex;align-items:baseline;gap:8px;margin-bottom:20px}
+.pilot-price .am{font-family:var(--font-d);font-size:52px;font-weight:800;color:#fff}
+.pilot-price .pe{font-size:16px;color:rgba(255,255,255,0.65)}
+.pilot-features{list-style:none;display:flex;flex-direction:column;gap:12px}
+.pilot-features li{display:flex;align-items:flex-start;gap:10px;font-size:15px;color:rgba(255,255,255,0.9)}
+.pilot-features .ci{color:#86EFAC;font-weight:700;flex-shrink:0}
+.pilot-then{margin-top:24px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.15);font-size:14px;color:rgba(255,255,255,0.65)}
+.pilot-then strong{color:#fff}
+.pilot-vs{display:flex;align-items:center;justify-content:center;gap:32px;margin-bottom:40px;flex-wrap:wrap}
+.pilot-vs-item{text-align:center}
+.pilot-vs-val{font-family:var(--font-d);font-size:28px;font-weight:800;color:#fff}
+.pilot-vs-label{font-size:13px;color:rgba(255,255,255,0.6);margin-top:4px}
+.pilot-vs-sep{font-size:20px;color:rgba(255,255,255,0.3);font-weight:300}
+.pilot-section .btn-p{background:#fff;color:var(--accent) !important;font-size:17px;padding:18px 44px}
+.pilot-section .btn-p:hover{background:#f0f0f0;box-shadow:0 8px 30px rgba(0,0,0,0.25);transform:translateY(-3px)}
+
+/* Responsive offre */
+@media(max-width:768px){
+.pain-grid{grid-template-columns:1fr}
+.sol-grid{grid-template-columns:1fr}
+.email-compare{grid-template-columns:1fr}
+.pilot-card{padding:28px 20px}
+.pilot-vs{gap:20px}
+}
+</style>
+<noscript><style>.rv{opacity:1!important;transform:none!important;transition:none!important}</style></noscript>
+</head>
+<body id="top">
+<a href="#main-content" class="skip-link">Aller au contenu principal</a>
+
+<!-- Navbar -->
+<nav class="nav" id="navbar">
+<div class="container">
+  <a href="/" class="nav-logo">
+    <span class="brand-i brand-i-lg">i</span><span class="brand-find">find</span>
+  </a>
+  <div class="nav-links">
+    <a href="#problem">Le probl&egrave;me</a>
+    <a href="#solution">La solution</a>
+    <a href="#exemples">Exemples</a>
+    <a href="#offre">L'offre</a>
+    <a href="https://cal.eu/alexis-benier-sarxqi" class="btn btn-p" target="_blank" rel="noopener">Prendre RDV</a>
+  </div>
+  <button class="burger" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mm"><span></span><span></span><span></span></button>
+</div>
+</nav>
+
+<!-- Mobile menu -->
+<div class="mobile-menu" id="mm" role="dialog" aria-modal="true" aria-label="Menu de navigation">
+  <button class="mobile-close" aria-label="Fermer le menu">&times;</button>
+  <a href="#problem">Le probl&egrave;me</a>
+  <a href="#solution">La solution</a>
+  <a href="#exemples">Exemples</a>
+  <a href="#offre">L'offre</a>
+  <a href="https://cal.eu/alexis-benier-sarxqi" class="btn btn-p btn-lg" target="_blank" rel="noopener">Prendre RDV</a>
+</div>
+
+<main id="main-content">
+
+<!-- HERO -->
+<section class="offre-hero">
+<div class="hero-orb hero-orb-1"></div>
+<div class="hero-orb hero-orb-2"></div>
+<div class="container">
+  <div class="badge rv">Pour les fondateurs SaaS B2B</div>
+  <h1 class="rv rv-1">Tu as un bon produit.<br><em>Combien de d&eacute;cideurs le savent ?</em></h1>
+  <p class="rv rv-2">La prospection B2B est le point faible de 90% des fondateurs SaaS. Tu sais construire un produit &mdash; mais remplir un pipeline, c'est un autre m&eacute;tier.</p>
+</div>
+</section>
+
+<!-- PROBLEME -->
+<section class="problem" id="problem">
+<div class="container">
+  <div class="s-head c rv">
+    <div class="s-label">Le probl&egrave;me</div>
+    <h2 class="s-title">Les 3 options classiques&hellip; et pourquoi elles coincent</h2>
+  </div>
+  <div class="pain-grid">
+    <div class="pain-card rv rv-1">
+      <div class="pain-icon pain-icon-red">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <h3>Prospecter toi-m&ecirc;me</h3>
+      <p>Tu passes tes soir&eacute;es &agrave; &eacute;crire des emails au lieu de bosser sur ton produit. Et quand tu arr&ecirc;tes, le pipeline se vide.</p>
+    </div>
+    <div class="pain-card rv rv-2">
+      <div class="pain-icon pain-icon-red">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <h3>Embaucher un SDR</h3>
+      <p><span class="pain-price">5 000&euro;/mois</span> charg&eacute;. 3 &agrave; 6 mois avant qu'il soit autonome. Et un turnover moyen de 14 mois dans le m&eacute;tier.</p>
+    </div>
+    <div class="pain-card rv rv-3">
+      <div class="pain-icon pain-icon-amber">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+      <h3>Agence ou outil d'emailing</h3>
+      <p>Templates g&eacute;n&eacute;riques envoy&eacute;s &agrave; des milliers de contacts. Ton image de marque prend cher, et les r&eacute;sultats stagnent &agrave; 1-2% de r&eacute;ponse.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SOLUTION -->
+<section class="sec-gradient" id="solution">
+<div class="container">
+  <div class="s-head c rv">
+    <div class="s-label">La solution</div>
+    <h2 class="s-title">Un agent commercial qui prospecte comme toi tu le ferais &mdash; mais 24h/24</h2>
+    <p class="s-sub">Pas un outil &agrave; apprendre. Pas une agence avec des templates. Un agent d&eacute;di&eacute; qui fait le travail de A &agrave; Z.</p>
+  </div>
+  <div class="sol-grid">
+    <div class="sol-card rv rv-1">
+      <div class="sol-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <div>
+        <h4>Recherche chaque prospect individuellement</h4>
+        <p>Site web, actualit&eacute;s r&eacute;centes, LinkedIn, lev&eacute;es de fonds, recrutements&hellip; 10 sources analys&eacute;es avant chaque email.</p>
+      </div>
+    </div>
+    <div class="sol-card rv rv-2">
+      <div class="sol-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+      </div>
+      <div>
+        <h4>R&eacute;dige des emails uniques, pas des templates</h4>
+        <p>Chaque message mentionne un fait pr&eacute;cis sur le prospect. Ton &agrave; pair-&agrave;-pair : un fondateur qui &eacute;crit &agrave; un autre.</p>
+      </div>
+    </div>
+    <div class="sol-card rv rv-3">
+      <div class="sol-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div>
+        <h4>Relance intelligemment selon le comportement</h4>
+        <p>Pas de relance aveugle &agrave; J+3. L'agent d&eacute;tecte les ouvertures, les clics, et adapte le timing et le message.</p>
+      </div>
+    </div>
+    <div class="sol-card rv rv-4">
+      <div class="sol-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </div>
+      <div>
+        <h4>Tu re&ccedil;ois une notif quand &ccedil;a mord</h4>
+        <p>D&egrave;s qu'un prospect r&eacute;pond ou montre de l'int&eacute;r&ecirc;t, tu re&ccedil;ois un message. Tu prends le relais uniquement pour closer.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- COMMENT CA MARCHE -->
+<section id="steps">
+<div class="container">
+  <div class="s-head c rv">
+    <div class="s-label">&Eacute;tapes</div>
+    <h2 class="s-title">Comment &ccedil;a marche</h2>
+  </div>
+  <div class="st-grid">
+    <div class="st-card rv rv-1">
+      <div class="st-n">01</div>
+      <h3>On d&eacute;finit ta cible</h3>
+      <p>Un call de 15 min pour comprendre ton ICP : secteur, taille, poste d&eacute;cisionnel, zone g&eacute;o. On configure tout.</p>
+    </div>
+    <div class="st-card rv rv-2">
+      <div class="st-n">02</div>
+      <h3>L'agent prospecte en continu</h3>
+      <p>Recherche de prospects, enrichissement, r&eacute;daction d'emails personnalis&eacute;s, envoi et suivi. 24h/24, 7j/7.</p>
+    </div>
+    <div class="st-card rv rv-3">
+      <div class="st-n">03</div>
+      <h3>Tu re&ccedil;ois des prospects chauds</h3>
+      <p>Notification instantan&eacute;e quand un prospect r&eacute;pond. Lien de prise de RDV int&eacute;gr&eacute;. Tu ne g&egrave;res que les conversations.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- EXEMPLES EMAILS -->
+<section class="sec-warm" id="exemples">
+<div class="container">
+  <div class="s-head c rv">
+    <div class="s-label">Exemples r&eacute;els</div>
+    <h2 class="s-title">Voici ce que re&ccedil;oivent tes prospects</h2>
+    <p class="s-sub">Des emails que les gens lisent et auxquels ils r&eacute;pondent &mdash; parce qu'ils sont &eacute;crits pour eux, pas pour 10 000 contacts.</p>
+  </div>
+
+  <div class="email-compare rv">
+    <!-- BON EMAIL -->
+    <div class="email-box">
+      <div class="email-header">
+        <div class="email-dot email-dot-green"></div>
+        <span class="email-label email-label-green">Email iFIND</span>
+      </div>
+      <div class="email-body">
+        <div class="email-subject">Objet : dataflow et le rachat de nexgen</div>
+        <div class="email-text">
+          &laquo; Le rachat de NexGen en janvier et la nouvelle offre data governance &mdash; il y a une tension int&eacute;ressante l&agrave;-dedans.<br><br>
+          Vous avez absorb&eacute; une boite pure player analytics, et en m&ecirc;me temps vous annoncez que le mod&egrave;le data classique doit se r&eacute;inventer. NexGen c'&eacute;tait une r&eacute;ponse ou &ccedil;a a soulev&eacute; de nouvelles questions ? &raquo;
+        </div>
+      </div>
+      <div class="email-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        Bas&eacute; sur 10 sources analys&eacute;es automatiquement
+      </div>
+    </div>
+
+    <!-- MAUVAIS EMAIL -->
+    <div class="email-box email-box-bad">
+      <div class="email-header">
+        <div class="email-dot email-dot-red"></div>
+        <span class="email-label email-label-red">Email classique</span>
+      </div>
+      <div class="email-body">
+        <div class="email-subject">Objet : Solution de prospection B2B</div>
+        <div class="email-text">
+          &laquo; Bonjour [Pr&eacute;nom],<br><br>
+          Je me permets de vous contacter car je pense que notre solution pourrait vous int&eacute;resser. Nous aidons les entreprises comme [Entreprise] &agrave; g&eacute;n&eacute;rer plus de leads qualifi&eacute;s gr&acirc;ce &agrave; notre plateforme innovante.<br><br>
+          Seriez-vous disponible pour un call de 15 minutes cette semaine ? &raquo;
+        </div>
+      </div>
+      <div class="email-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        Template g&eacute;n&eacute;rique — aucune recherche
+      </div>
+    </div>
+  </div>
+
+  <!-- Deuxième exemple -->
+  <div class="email-compare rv" style="margin-top:32px">
+    <div class="email-box">
+      <div class="email-header">
+        <div class="email-dot email-dot-green"></div>
+        <span class="email-label email-label-green">Follow-up iFIND</span>
+      </div>
+      <div class="email-body">
+        <div class="email-subject">Objet : cloudmatic depuis 2019</div>
+        <div class="email-text">
+          &laquo; 5 ans en SaaS infra cloud, c'est rare &mdash; la plupart pivotent ou disparaissent avant.<br><br>
+          Ce qui distingue ceux qui tiennent sur cette dur&eacute;e, c'est g&eacute;n&eacute;ralement qu'ils ont trouv&eacute; un segment o&ugrave; ils sont vraiment indispensables, pas juste utiles.<br><br>
+          Tu l'as trouv&eacute; chez Cloudmatic ? &raquo;
+        </div>
+      </div>
+      <div class="email-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        Relance 3 jours apr&egrave;s la premi&egrave;re ouverture
+      </div>
+    </div>
+
+    <div class="email-box email-box-bad">
+      <div class="email-header">
+        <div class="email-dot email-dot-red"></div>
+        <span class="email-label email-label-red">Relance classique</span>
+      </div>
+      <div class="email-body">
+        <div class="email-subject">Objet : Re: Solution de prospection B2B</div>
+        <div class="email-text">
+          &laquo; Bonjour [Pr&eacute;nom],<br><br>
+          Je me permets de revenir vers vous suite &agrave; mon pr&eacute;c&eacute;dent email. Avez-vous eu le temps d'y jeter un &oelig;il ?<br><br>
+          Je serais ravi d'&eacute;changer avec vous. Voici mon lien Calendly : [lien] &raquo;
+        </div>
+      </div>
+      <div class="email-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        Relance automatique &agrave; J+3 &mdash; m&ecirc;me template
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- OFFRE PILOTE -->
+<section class="pilot-section" id="offre">
+<div class="container">
+  <div class="pilot-inner rv">
+    <div class="s-label">L'offre</div>
+    <h2>Teste sans risque.<br>Juge sur les r&eacute;sultats.</h2>
+    <p>Pas d'engagement long terme. Pas de setup compliqu&eacute;. Tu testes pendant 2 semaines, et tu d&eacute;cides.</p>
+
+    <div class="pilot-card">
+      <div class="pilot-price">
+        <span class="am">490&euro;</span>
+        <span class="pe">/ 2 semaines</span>
+      </div>
+      <ul class="pilot-features">
+        <li><span class="ci">&#10003;</span> Configuration compl&egrave;te de ton agent (cible, ton, domaine)</li>
+        <li><span class="ci">&#10003;</span> Recherche et envoi d'emails personnalis&eacute;s &agrave; tes prospects</li>
+        <li><span class="ci">&#10003;</span> Suivi en temps r&eacute;el : ouvertures, clics, r&eacute;ponses</li>
+        <li><span class="ci">&#10003;</span> Notifications instantan&eacute;es sur Telegram</li>
+        <li><span class="ci">&#10003;</span> Rapport de r&eacute;sultats complet en fin de pilote</li>
+        <li><span class="ci">&#10003;</span> Aucun engagement apr&egrave;s le pilote</li>
+      </ul>
+      <div class="pilot-then">
+        Apr&egrave;s le pilote, si tu veux continuer : <strong>690&euro;/mois</strong>, r&eacute;siliable &agrave; tout moment. Pas de contrat, pas de pi&egrave;ge.
+      </div>
+    </div>
+
+    <div class="pilot-vs">
+      <div class="pilot-vs-item">
+        <div class="pilot-vs-val">490&euro;</div>
+        <div class="pilot-vs-label">Pilote iFIND (2 sem.)</div>
+      </div>
+      <div class="pilot-vs-sep">vs</div>
+      <div class="pilot-vs-item">
+        <div class="pilot-vs-val">5 000&euro;</div>
+        <div class="pilot-vs-label">1 mois de SDR junior</div>
+      </div>
+    </div>
+
+    <a href="https://cal.eu/alexis-benier-sarxqi" class="btn btn-p btn-xl" target="_blank" rel="noopener">R&eacute;server un appel de 15 min</a>
+    <p style="margin-top:16px;font-size:14px;color:rgba(255,255,255,0.5)">Ou &eacute;cris-moi directement : alexis@getifind.fr</p>
+  </div>
+</div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="final">
+<div class="container rv">
+  <div class="badge">Pr&ecirc;t &agrave; d&eacute;marrer ?</div>
+  <h2>Remplis ton pipeline<br>sans y passer tes journ&eacute;es.</h2>
+  <p>15 minutes de call, et ton agent est lanc&eacute;.</p>
+  <a href="https://cal.eu/alexis-benier-sarxqi" class="btn btn-p btn-xl" target="_blank" rel="noopener">Booker un appel</a>
+</div>
+</section>
+
+</main>
+
+<!-- Footer -->
+<footer>
+<div class="container">
+  <div class="footer-inner">
+    <div class="footer-left">
+      <a href="/" class="nav-logo" style="font-size:20px">
+        <span class="brand-i brand-i-sm">i</span><span class="brand-find">find</span>
+      </a>
+    </div>
+    <p>&copy; 2026 iFIND. Prospection B2B intelligente.</p>
+    <div class="f-links">
+      <a href="mailto:alexis@getifind.fr">alexis@getifind.fr</a>
+      <a href="tel:+33766344093">07 66 34 40 93</a>
+      <a href="/">Accueil</a>
+    </div>
+  </div>
+</div>
+</footer>
+
+<!-- Mobile sticky CTA -->
+<div class="mobile-cta">
+  <a href="https://cal.eu/alexis-benier-sarxqi" class="btn btn-p btn-lg" target="_blank" rel="noopener">R&eacute;server un appel</a>
+</div>
+
+<script>
+// Navbar scroll effect
+const nav = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 20);
+}, { passive: true });
+
+// Mobile menu
+const burger = document.querySelector('.burger');
+const mm = document.getElementById('mm');
+const mclose = document.querySelector('.mobile-close');
+if (burger && mm) {
+  burger.addEventListener('click', () => {
+    mm.classList.add('open');
+    burger.setAttribute('aria-expanded', 'true');
+  });
+  mclose.addEventListener('click', () => {
+    mm.classList.remove('open');
+    burger.setAttribute('aria-expanded', 'false');
+  });
+  mm.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+    mm.classList.remove('open');
+    burger.setAttribute('aria-expanded', 'false');
+  }));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && mm.classList.contains('open')) {
+      mm.classList.remove('open');
+      burger.setAttribute('aria-expanded', 'false');
+      burger.focus();
+    }
+  });
+}
+
+// Reveal on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('v');
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.rv').forEach(el => observer.observe(el));
+
+// Smooth scroll for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) {
+      e.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+});
+</script>
+</body>
+</html>
