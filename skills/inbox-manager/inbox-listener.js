@@ -234,11 +234,25 @@ class InboxListener {
         continue;
       }
 
-      // Verifier si le sender est un lead connu
-      const isKnownLead = knownEmails.has(senderEmail);
-      const matchedLead = isKnownLead
+      // Verifier si le sender est un lead connu (exact match d'abord, puis fuzzy sur local part)
+      let isKnownLead = knownEmails.has(senderEmail);
+      let matchedLead = isKnownLead
         ? knownLeads.find(l => (l.email || l.to || '').toLowerCase() === senderEmail)
         : null;
+
+      // Fuzzy match : meme local part (avant @) avec domaine different (.com vs .fr, etc.)
+      if (!isKnownLead && senderEmail.includes('@')) {
+        const senderLocal = senderEmail.split('@')[0];
+        const fuzzyMatch = knownLeads.find(l => {
+          const leadEmail = (l.email || l.to || '').toLowerCase();
+          return leadEmail.includes('@') && leadEmail.split('@')[0] === senderLocal && leadEmail !== senderEmail;
+        });
+        if (fuzzyMatch) {
+          isKnownLead = true;
+          matchedLead = fuzzyMatch;
+          log.info('inbox-manager', 'Fuzzy match: ' + senderEmail + ' → ' + (fuzzyMatch.email || fuzzyMatch.to) + ' (meme local part, domaine different)');
+        }
+      }
 
       // Enregistrer dans le storage
       const entry = storage.addReceivedEmail({

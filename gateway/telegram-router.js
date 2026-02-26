@@ -586,10 +586,22 @@ inboxListener = InboxListener ? new InboxListener({
     const replySubject = (replyData.subject || '').startsWith('Re:')
       ? replyData.subject : 'Re: ' + (replyData.subject || 'notre echange');
 
+    // Determiner l'email original (celui auquel on a envoye) — peut differer du from si fuzzy match (.com vs .fr)
+    const originalEmail = (replyData.matchedLead && replyData.matchedLead.email)
+      ? replyData.matchedLead.email.toLowerCase()
+      : replyData.from.toLowerCase();
+    const replyFrom = replyData.from.toLowerCase();
+    // Collecter les deux adresses a traiter (dedupliquees)
+    const emailsToProcess = [originalEmail];
+    if (replyFrom !== originalEmail) {
+      emailsToProcess.push(replyFrom);
+      log.info('inbox-manager', 'Fuzzy match detecte: reply de ' + replyFrom + ' → email original ' + originalEmail);
+    }
+
     // === 1. Marquer comme replied dans automailer ===
     try {
       const emails = (automailerStorageForInbox.data.emails || [])
-        .filter(e => e.to && e.to.toLowerCase() === replyData.from.toLowerCase() && e.status !== 'replied');
+        .filter(e => e.to && emailsToProcess.includes(e.to.toLowerCase()) && e.status !== 'replied');
       for (const em of emails) {
         automailerStorageForInbox.markAsReplied(em.id);
         log.info('inbox-manager', 'Email ' + em.id + ' marque replied (reponse de ' + replyData.from + ')');
@@ -618,7 +630,11 @@ inboxListener = InboxListener ? new InboxListener({
     try {
       const hubspot = _getHubSpotClient();
       if (hubspot) {
-        const contact = await hubspot.findContactByEmail(replyData.from);
+        let contact = null;
+        for (const ep of emailsToProcess) {
+          contact = await hubspot.findContactByEmail(ep);
+          if (contact && contact.id) break;
+        }
         if (contact && contact.id) {
           const LABELS = { interested: 'POSITIF', question: 'QUESTION', not_interested: 'NEGATIF', out_of_office: 'OOO', bounce: 'BOUNCE' };
           const noteBody = 'Reponse email recue de ' + replyData.from + '\n' +
@@ -644,16 +660,20 @@ inboxListener = InboxListener ? new InboxListener({
     if (sentiment === 'bounce') {
       actionTaken = 'bounce_blacklist';
       try {
-        automailerStorageForInbox.addToBlacklist(replyData.from, 'bounce_detected');
+        for (const ep of emailsToProcess) {
+          automailerStorageForInbox.addToBlacklist(ep, 'bounce_detected');
+        }
       } catch (e) {}
-      log.info('inbox-manager', replyData.from + ' blackliste (bounce)');
+      log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (bounce)');
     }
     // Blacklister les not_interested (reponse polie auto + arret)
     else if (sentiment === 'not_interested') {
       actionTaken = 'polite_decline_blacklist';
       try {
-        automailerStorageForInbox.addToBlacklist(replyData.from, 'prospect_declined');
-        log.info('inbox-manager', replyData.from + ' blackliste (decline) — human takeover');
+        for (const ep of emailsToProcess) {
+          automailerStorageForInbox.addToBlacklist(ep, 'prospect_declined');
+        }
+        log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (decline) — human takeover');
       } catch (e) {}
     }
     // OOO : reporter, pas de relais humain immédiat
@@ -668,33 +688,39 @@ inboxListener = InboxListener ? new InboxListener({
 
       // BLACKLIST le prospect pour bloquer TOUTE future automation (relances, FU, etc.)
       try {
-        automailerStorageForInbox.addToBlacklist(replyData.from, 'human_takeover: prospect replied (' + sentiment + ')');
-        log.info('inbox-manager', replyData.from + ' blackliste (human takeover) — TOUTE automation arretee');
+        for (const ep of emailsToProcess) {
+          automailerStorageForInbox.addToBlacklist(ep, 'human_takeover: prospect replied (' + sentiment + ')');
+        }
+        log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (human takeover) — TOUTE automation arretee');
       } catch (e) {
         log.warn('inbox-manager', 'Blacklist human takeover echouee:', e.message);
       }
 
-      // Marquer hasReplied sur TOUS les emails envoyes a ce prospect
+      // Marquer hasReplied sur TOUS les emails envoyes a ce prospect (les deux adresses)
       try {
-        const allEmails = automailerStorageForInbox.getEmailEventsForRecipient(replyData.from);
-        for (const em of allEmails) {
-          if (em.id && !em.hasReplied) {
-            automailerStorageForInbox.updateEmailStatus(em.id, em.status || 'replied', { hasReplied: true, repliedAt: new Date().toISOString() });
+        let totalMarked = 0;
+        for (const ep of emailsToProcess) {
+          const allEmails = automailerStorageForInbox.getEmailEventsForRecipient(ep);
+          for (const em of allEmails) {
+            if (em.id && !em.hasReplied) {
+              automailerStorageForInbox.updateEmailStatus(em.id, em.status || 'replied', { hasReplied: true, repliedAt: new Date().toISOString() });
+              totalMarked++;
+            }
           }
         }
-        log.info('inbox-manager', 'hasReplied=true marque sur ' + allEmails.length + ' emails pour ' + replyData.from);
+        log.info('inbox-manager', 'hasReplied=true marque sur ' + totalMarked + ' emails pour ' + emailsToProcess.join(' + '));
       } catch (e) {
         log.warn('inbox-manager', 'Marquage hasReplied echoue:', e.message);
       }
 
-      // Annuler les reactive follow-ups pending pour ce prospect
+      // Annuler les reactive follow-ups pending pour ce prospect (les deux adresses)
       try {
         const proactiveStorage = require('../skills/proactive-agent/storage.js');
         const pendingFUs = proactiveStorage.getPendingFollowUps();
         for (const fu of pendingFUs) {
-          if (fu.prospectEmail && fu.prospectEmail.toLowerCase() === replyData.from.toLowerCase()) {
+          if (fu.prospectEmail && emailsToProcess.includes(fu.prospectEmail.toLowerCase())) {
             proactiveStorage.markFollowUpFailed(fu.id, 'human_takeover: prospect replied');
-            log.info('inbox-manager', 'Reactive FU annule pour ' + replyData.from + ' (human takeover)');
+            log.info('inbox-manager', 'Reactive FU annule pour ' + fu.prospectEmail + ' (human takeover)');
           }
         }
       } catch (e) {
@@ -705,16 +731,20 @@ inboxListener = InboxListener ? new InboxListener({
     // === 5. Update storage inbox-manager avec sentiment ===
     try {
       const inboxStorage = require('../skills/inbox-manager/storage.js');
-      inboxStorage.updateSentimentByEmail(replyData.from, {
-        sentiment: sentiment, score: score, reason: classification.reason, actionTaken: actionTaken
-      });
+      for (const ep of emailsToProcess) {
+        inboxStorage.updateSentimentByEmail(ep, {
+          sentiment: sentiment, score: score, reason: classification.reason, actionTaken: actionTaken
+        });
+      }
     } catch (e) { log.warn('inbox-manager', 'Storage sentiment update echoue:', e.message); }
 
     // === 5b. Propager sentiment vers automailer (cross-skill) ===
     try {
       if (automailerStorageForInbox.setSentiment) {
-        automailerStorageForInbox.setSentiment(replyData.from, sentiment, score);
-        log.info('inbox-manager', 'Sentiment propage vers automailer: ' + replyData.from + ' → ' + sentiment);
+        for (const ep of emailsToProcess) {
+          automailerStorageForInbox.setSentiment(ep, sentiment, score);
+        }
+        log.info('inbox-manager', 'Sentiment propage vers automailer: ' + emailsToProcess.join(' + ') + ' → ' + sentiment);
       }
     } catch (e) { log.warn('inbox-manager', 'Propagation sentiment automailer echouee:', e.message); }
 
@@ -744,9 +774,12 @@ inboxListener = InboxListener ? new InboxListener({
     notifLines.push('');
     notifLines.push('💡 ' + escTg(classification.reason || ''));
 
-    // Contexte : inclure l'email original qu'on lui avait envoye
+    // Contexte : inclure l'email original qu'on lui avait envoye (chercher les deux adresses)
     try {
-      const existingEmails = automailerStorageForInbox.getEmailEventsForRecipient(replyData.from);
+      let existingEmails = [];
+      for (const ep of emailsToProcess) {
+        existingEmails = existingEmails.concat(automailerStorageForInbox.getEmailEventsForRecipient(ep));
+      }
       const lastSent = existingEmails.filter(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened').pop();
       if (lastSent) {
         notifLines.push('');
