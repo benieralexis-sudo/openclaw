@@ -102,20 +102,34 @@ const GENERIC_PATTERNS = [
   /carnet de contacts (?:est )?satur/i,
   /cercle de prescripteurs (?:est )?satur/i,
   /vit de recommandations et de r[eé]seaux/i,
-  /comment (?:tu|vous) (?:trouv|g[eé]n[eè]r|acqui).{0,20}(?:client|lead|opportunit)/i
+  /comment (?:tu|vous) (?:trouv|g[eé]n[eè]r|acqui).{0,20}(?:client|lead|opportunit)/i,
+  // Anti-meta-prospection elargi
+  /comment (?:tu|vous) g[eè]r.{0,10}(?:le flux|la prospection|le pipe|l.acquisition)/i,
+  /(?:tu|vous) acqui.{0,10}(?:de )?nouveaux? clients? comment/i,
+  /c.est du bouche.[aà]?.oreille ou/i,
+  /qui s.occupe de (?:la tienne|la votre|la sienne)/i,
+  /(?:ta|votre) propre acquisition/i,
+  /comment (?:tu|vous) (?:scale|rempli).{0,15}(?:pipe|prospection|commercial)/i,
+  /founder.led (?:sales|selling)/i,
+  /le plus (?:dur|ingrat|difficile) c.est/i,
+  // Anti-analyse/lecon
+  /ce type de .{5,40} (?:souvent|generalement|habituellement)/i,
+  /le vrai cap.{0,5} c.est/i,
+  /ce qui distingue .{5,30} c.est/i,
+  /en tant que (?:CEO|founder|CTO|dirigeant|fondateur)/i
 ];
 
 function _emailPassesQualityGate(subject, body) {
-  // 1. Patterns generiques
+  // 1. Patterns generiques + meta-prospection
   for (const pattern of GENERIC_PATTERNS) {
     if (pattern.test(body) || pattern.test(subject)) {
       return { pass: false, reason: 'generic_pattern: ' + pattern.source };
     }
   }
-  // 2. Longueur body (3-12 lignes non vides)
+  // 2. Longueur body (2-8 lignes non vides, plus strict)
   const lines = body.split('\n').filter(l => l.trim().length > 0);
   if (lines.length < 2) return { pass: false, reason: 'too_short (' + lines.length + ' lignes)' };
-  if (lines.length > 15) return { pass: false, reason: 'too_long (' + lines.length + ' lignes)' };
+  if (lines.length > 8) return { pass: false, reason: 'too_long (' + lines.length + ' lignes)' };
   // 3. Mots interdits depuis config AP (si dispo)
   try {
     const apStorage = require('../autonomous-pilot/storage.js');

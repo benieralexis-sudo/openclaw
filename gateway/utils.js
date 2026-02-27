@@ -243,8 +243,8 @@ function getCityTimezone(city, country) {
  */
 function validateEmailOutput(subject, body, options) {
   options = options || {};
-  const maxWords = options.maxWords || 120;
-  const minWords = options.minWords || 15;
+  const maxWords = options.maxWords || 60;
+  const minWords = options.minWords || 10;
   const maxSubjectLen = options.maxSubjectLen || 80;
   const forbiddenWords = options.forbiddenWords || [];
   const reasons = [];

@@ -115,7 +115,7 @@ class ClaudeEmailWriter {
 
   async generateSingleEmail(contact, context) {
     // Lire les preferences depuis Self-Improve (si disponible)
-    let emailLengthHint = '60-80 mots max';
+    let emailLengthHint = '30-50 mots max (JAMAIS plus de 50)';
     let subjectStyleHint = '';
     let siPrefs = null;
     try {
@@ -129,8 +129,8 @@ class ClaudeEmailWriter {
     }
     if (siPrefs) {
       // maxLength est un string "short"/"medium"/"long"
-      if (siPrefs.maxLength === 'short') emailLengthHint = '40-60 mots max';
-      else if (siPrefs.maxLength === 'long') emailLengthHint = '80-100 mots max';
+      if (siPrefs.maxLength === 'short') emailLengthHint = '20-35 mots max (ultra-court)';
+      else if (siPrefs.maxLength === 'long') emailLengthHint = '40-60 mots max';
       // subjectStyle : directive pour le style d'objet
       if (siPrefs.subjectStyle) subjectStyleHint = '\nSTYLE OBJET RECOMMANDE : ' + siPrefs.subjectStyle;
       if (siPrefs.preferredSubjectLength) subjectStyleHint += ' (' + siPrefs.preferredSubjectLength + ' mots max)';
@@ -145,7 +145,13 @@ BUT UNIQUE : une REPONSE. Pas une ouverture, pas un clic — une reponse.
 
 === CE QUI FAIT UN 10/10 ===
 
-Un cold email parfait = un message entre pairs. 50-80 mots. UN fait malin. UNE question irresistible. ZERO analyse. ZERO lecon. Le prospect pense "tiens, bonne question" — pas "encore un mec qui me pitch".
+Un cold email parfait = 2 ELEMENTS et RIEN D'AUTRE :
+1. UN FAIT SPECIFIQUE (chiffre, nom, date, evenement — tire des donnees)
+2. UNE QUESTION IRRESISTIBLE (le prospect pense "tiens, bonne question")
+
+30-50 mots MAXIMUM. Pas 51. Pas 60. Pas 80. TRENTE A CINQUANTE.
+ZERO analyse. ZERO lecon. ZERO explication. Tu CONSTATES un fait, tu POSES une question. POINT.
+Si entre le fait et la question tu as envie d'ecrire un paragraphe qui commence par "Ce type de...", "Le vrai cap...", "Ce qui distingue..." → SUPPRIME-LE. Le prospect n'a pas besoin de ton analyse de son business.
 
 === HIERARCHIE DES DONNEES (UTILISE LA MEILLEURE DISPO) ===
 
@@ -171,20 +177,21 @@ Si AUCUNE donnee exploitable → {"skip": true, "reason": "donnees insuffisantes
 
 === FORMAT STRICT : 2 BLOCS, ${emailLengthHint} ===
 
-BLOC 1 — OBSERVATION (2-3 lignes max)
-Un FAIT tire des donnees + son implication EN UNE PHRASE.
-Tu CONSTATES, point. Le prospect SAIT — c'est son business.
-Pas 2 paragraphes. Pas une analyse. Pas une lecon.
+BLOC 1 — FAIT (1-2 lignes, PAS PLUS)
+UN fait tire des donnees. Chiffre, nom propre, date, evenement. EN UNE PHRASE.
+INTERDIT : "Ce type de...", "Ce qui distingue...", "Le vrai cap c'est...", "Ca veut dire que..."
+Tu ne COMMENTES pas le fait. Tu le POSES. Le prospect comprend tout seul.
 
-BLOC 2 — QUESTION (1-2 lignes)
-UNE question qui donne envie de repondre. VARIE les formats :
+BLOC 2 — QUESTION (1 ligne)
+UNE question courte qui donne envie de repondre. Formats :
 - Frontale : "C'est quoi le plan cote US ?"
 - Provocatrice : "C'etait strategique ou c'est arrive comme ca ?"
-- Binaire courte : "Inbound ou outbound ?"
+- Binaire : "Timing choisi ou impose ?"
 - Contextuelle : "Ca donne quoi depuis ?"
-- Choix implicite : "Le timing c'est vous ou le marche ?"
 
-REGLE D'OR : si ton email depasse 80 mots, COUPE. Encore. Chaque mot qui n'apporte rien = un mot qui dilue l'impact.
+REGLE ABSOLUE : 30-50 mots. Si tu depasses 50 mots, COUPE. Coupe le paragraphe d'analyse. Coupe la deuxieme phrase du bloc 1. Coupe l'explication. L'email parfait fait 25-35 mots.
+
+TEST MENTAL : si tu retires les 2 phrases du milieu et que l'email est MEILLEUR → elles n'auraient jamais du etre la.
 
 === MICRO-VARIATIONS ANTI-REPETITION ===
 Chaque email DOIT avoir une structure unique. Varie subtilement :
@@ -297,12 +304,86 @@ CONTACT :
 - Email : ${contact.email}
 ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
 
-    const response = await this.callClaude(
-      [{ role: 'user', content: userMessage }],
-      systemPrompt,
-      1500
-    );
-    return this._parseJSON(response);
+    // Generation + auto-scoring + retry
+    const result = await this._generateAndScore(contact, context, systemPrompt, userMessage);
+    return result;
+  }
+
+  // Auto-scoring : note l'email 1-10, retry si < 9, skip si < 8 apres retry
+  async _generateAndScore(contact, context, systemPrompt, userMessage) {
+    const maxAttempts = 2;
+    let best = null;
+    let bestScore = 0;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      let prompt = userMessage;
+      if (attempt > 0 && best) {
+        prompt = userMessage + '\n\nATTENTION: l\'email precedent a ete note ' + bestScore + '/10. Problemes: ' + (best._scoreReason || 'qualite insuffisante') + '. Ecris un email MEILLEUR — plus court (30-50 mots max), un FAIT specifique, UNE question, ZERO analyse, ZERO meta-prospection.';
+      }
+      const response = await this.callClaude(
+        [{ role: 'user', content: prompt }],
+        systemPrompt,
+        1500
+      );
+      const parsed = this._parseJSON(response);
+      if (!parsed || parsed.skip) return parsed;
+
+      // Auto-scoring via GPT-4o-mini (cout: ~0.001$/email)
+      const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
+      if (score.note >= 9) return parsed; // 9-10/10 → envoyer direct
+      if (score.note > bestScore) {
+        best = parsed;
+        bestScore = score.note;
+        best._scoreReason = score.reason;
+      }
+    }
+    // Apres retries : envoyer si >= 7, sinon skip
+    if (bestScore >= 7) return best;
+    return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
+  }
+
+  async _scoreEmail(subject, body, contact) {
+    const wordCount = (body || '').split(/\s+/).filter(w => w.length > 0).length;
+    const prompt = `Note cet email de prospection B2B de 1 a 10. Sois TRES STRICT.
+
+CRITERES 10/10 :
+- 30-50 mots (penalise si > 50)
+- UN fait specifique (chiffre, nom propre, date, evenement)
+- UNE question irresistible
+- ZERO paragraphe d'analyse entre le fait et la question
+- ZERO meta-prospection (ne demande PAS "comment tu prospectes/acquiers des clients/generes des leads")
+- ZERO lecon au prospect (pas de "Ce type de...", "Le vrai cap c'est...")
+- Ton naturel, entre pairs, comme un SMS entre collegues
+- PAS de pitch, prix, CTA, feature
+
+PENALITES :
+- > 50 mots : -2 points
+- > 70 mots : -4 points
+- Paragraphe d'analyse (plus de 2 phrases entre fait et question) : -3 points
+- Meta-prospection (question sur la prospection/acquisition du prospect) : -3 points
+- Generique secteur (remplacable par n'importe quelle entreprise du secteur) : -4 points
+- Pitch/prix/CTA : -5 points
+
+EMAIL :
+Objet: ${subject}
+Corps: ${body}
+(${wordCount} mots)
+Prospect: ${contact.name || '?'} — ${contact.company || '?'}
+
+Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
+
+    try {
+      const response = await this.callOpenAIMini(
+        'Tu es un evaluateur strict de cold emails B2B. Note de 1 a 10.',
+        prompt,
+        100
+      );
+      const parsed = this._parseJSON(response);
+      if (parsed && typeof parsed.note === 'number') {
+        return { note: Math.min(10, Math.max(1, Math.round(parsed.note))), reason: parsed.reason || '' };
+      }
+    } catch (e) { /* scoring echoue → passer quand meme */ }
+    return { note: 7, reason: 'scoring_unavailable' }; // default si scoring echoue
   }
 
   async generateSequenceEmails(contact, campaignContext, totalEmails, options) {
@@ -378,7 +459,7 @@ STRUCTURE :
 - Relance 3 (J+14) : dernier angle de valeur, question directe
 ${breakupInstruction}
 
-FORMAT DE CHAQUE RELANCE (sauf breakup) — 50-80 mots max :
+FORMAT DE CHAQUE RELANCE (sauf breakup) — 30-50 mots max (JAMAIS plus de 50) :
 1. OBSERVATION = fait specifique ou nouvel insight + implication en UNE phrase (PAS "je reviens vers toi")
 2. QUESTION = variee (frontale, provocatrice, binaire, contextuelle). PAS toujours "X ou Y ?"
 
@@ -439,13 +520,13 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
   }
 
   async generateReactiveFollowUp(contact, originalEmail, prospectIntel) {
-    let emailLengthHint = '60-80 mots max';
+    let emailLengthHint = '30-50 mots max (JAMAIS plus de 50)';
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
       const prefs = selfImproveStorage.getEmailPreferences();
       if (prefs && prefs.maxLength) {
         const chars = prefs.maxLength;
-        emailLengthHint = chars < 200 ? '3-4 lignes max' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
+        emailLengthHint = chars < 200 ? '20-35 mots max (ultra-court)' : chars < 400 ? '30-50 mots max (JAMAIS plus de 50)' : '40-60 mots max';
       }
     } catch (e) {
       try {
@@ -453,7 +534,7 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
         const prefs = selfImproveStorage.getEmailPreferences();
         if (prefs && prefs.maxLength) {
           const chars = prefs.maxLength;
-          emailLengthHint = chars < 200 ? '3-4 lignes max' : chars < 400 ? '5-8 lignes max' : '8-12 lignes';
+          emailLengthHint = chars < 200 ? '20-35 mots max (ultra-court)' : chars < 400 ? '30-50 mots max (JAMAIS plus de 50)' : '40-60 mots max';
         }
       } catch (e2) {}
     }
@@ -541,7 +622,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
    * cette methode genere un email unique base sur le brief complet du prospect.
    */
   async generatePersonalizedFollowUp(contact, stepNumber, totalSteps, prospectIntel, previousEmails, campaignContext) {
-    let emailLengthHint = '5-8 lignes max';
+    let emailLengthHint = '30-50 mots max (JAMAIS plus de 50)';
     let siPrefsfu = null;
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
@@ -553,8 +634,8 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
       } catch (e2) {}
     }
     if (siPrefsfu) {
-      if (siPrefsfu.maxLength === 'short') emailLengthHint = '3-4 lignes max';
-      else if (siPrefsfu.maxLength === 'long') emailLengthHint = '8-12 lignes';
+      if (siPrefsfu.maxLength === 'short') emailLengthHint = '20-35 mots max (ultra-court)';
+      else if (siPrefsfu.maxLength === 'long') emailLengthHint = '40-60 mots max';
     }
 
     // Injecter les mots interdits depuis la config AP
