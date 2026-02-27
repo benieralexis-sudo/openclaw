@@ -243,10 +243,17 @@ class ProactiveStorage {
       this.data.reactiveFollowUps = { pending: [], sent: [], config: { enabled: true, minDelayMinutes: 30, maxDelayMinutes: 60 } };
     }
     const email = (followUp.prospectEmail || '').toLowerCase();
-    // Deduplication : 1 seul follow-up reactif par prospect (couvre sent, failed, cancelled, expired)
-    const exists = this.data.reactiveFollowUps.pending.some(f => f.prospectEmail.toLowerCase() === email)
-      || this.data.reactiveFollowUps.sent.some(f => f.prospectEmail.toLowerCase() === email);
-    if (exists) return null;
+    // Deduplication : 1 seul follow-up reactif par prospect en pending
+    const existsPending = this.data.reactiveFollowUps.pending.some(f => f.prospectEmail.toLowerCase() === email);
+    if (existsPending) return null;
+    // Dedup sent : bloquer si deja envoye/failed dans les 30 derniers jours (pas forever)
+    const cutoff30d = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const existsSent = this.data.reactiveFollowUps.sent.some(f => {
+      if (f.prospectEmail.toLowerCase() !== email) return false;
+      const ts = f.sentAt || f.failedAt || f.expiredAt || f.createdAt;
+      return ts && new Date(ts).getTime() > cutoff30d;
+    });
+    if (existsSent) return null;
 
     const entry = {
       id: this._generateId(),

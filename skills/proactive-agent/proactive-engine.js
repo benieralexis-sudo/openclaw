@@ -23,6 +23,7 @@ class ProactiveEngine {
   constructor(options) {
     this.options = options;
     this.sendTelegram = options.sendTelegram;
+    this.sendTelegramButtons = options.sendTelegramButtons || null;
     this.callClaude = options.callClaude;
     this.hubspotKey = options.hubspotKey;
     this.resendKey = options.resendKey;
@@ -883,16 +884,24 @@ class ProactiveEngine {
         }
       }
 
-      // Notification Telegram
+      // Notification Telegram avec boutons blacklist par prospect
       if (sent > 0) {
         const lines = ['📬 *Lead Revival — ' + sent + ' lead(s) reactive(s)*', ''];
+        const buttons = [];
         for (const r of revived) {
           const RICONS = { opened_no_reply: '👁️', not_now_expired: '🔄', hot_lead_stale: '🔥' };
           lines.push((RICONS[r.reason] || '📧') + ' ' + (r.name || r.email) + (r.company ? ' (' + r.company + ')' : '') + ' — _' + r.reason.replace(/_/g, ' ') + '_');
+          buttons.push([{ text: '🚫 Stop ' + (r.name || r.email).substring(0, 25), callback_data: 'bl_prospect_' + r.email }]);
         }
         lines.push('');
         lines.push('_' + candidates.length + ' candidats scannes, ' + sent + ' emails envoyes_');
-        try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) {}
+        try {
+          if (this.sendTelegramButtons && buttons.length > 0) {
+            await this.sendTelegramButtons(this.options.adminChatId, lines.join('\n'), buttons);
+          } else {
+            await this.options.sendTelegram(this.options.adminChatId, lines.join('\n'));
+          }
+        } catch (e) {}
       }
 
       log.info('proactive-engine', 'Lead Revival termine: ' + sent + '/' + candidates.length + ' envoyes');
@@ -1108,10 +1117,18 @@ class ProactiveEngine {
 
       if (sent > 0) {
         const lines = ['🎯 *Multi-Thread — ' + sent + ' email(s) secondaire(s) envoye(s)*', ''];
+        const buttons = [];
         for (const c of dueContacts.slice(0, sent)) {
           lines.push('📧 ' + (c.name || c.email) + ' (' + c.companyName + ') — _' + (c.emailAngle || 'secondary').replace(/_/g, ' ') + '_');
+          buttons.push([{ text: '🚫 Stop ' + (c.name || c.email).substring(0, 25), callback_data: 'bl_prospect_' + c.email }]);
         }
-        try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) {}
+        try {
+          if (this.sendTelegramButtons && buttons.length > 0) {
+            await this.sendTelegramButtons(this.options.adminChatId, lines.join('\n'), buttons);
+          } else {
+            await this.options.sendTelegram(this.options.adminChatId, lines.join('\n'));
+          }
+        } catch (e) {}
       }
 
       log.info('proactive-engine', 'Multi-thread termine: ' + sent + '/' + dueContacts.length + ' secondaires envoyes');
@@ -1623,14 +1640,18 @@ class ProactiveEngine {
 
           storage.markFollowUpSent(followUp.id, { resendId: sendResult.id, subject: subject });
 
-          // Notification Telegram
+          // Notification Telegram avec bouton blacklist
           const tgMsg = '\u{1f3af} *Relance reactive envoyee !*\n\n' +
             '*Qui :* ' + (followUp.prospectName || followUp.prospectEmail) + '\n' +
             (followUp.prospectCompany ? '*Entreprise :* ' + followUp.prospectCompany + '\n' : '') +
             '*Objet :* _' + subject.substring(0, 60) + '_\n\n' +
             body.substring(0, 300) + '\n\n' +
             '_Envoyee auto suite a ouverture du premier email._';
-          await this.sendTelegram(config.adminChatId, tgMsg, 'Markdown');
+          if (this.sendTelegramButtons) {
+            await this.sendTelegramButtons(config.adminChatId, tgMsg, [[{ text: '🚫 Blacklister ce prospect', callback_data: 'bl_prospect_' + followUp.prospectEmail }]]);
+          } else {
+            await this.sendTelegram(config.adminChatId, tgMsg);
+          }
 
           log.info('proactive-engine', 'Reactive FU envoye a ' + followUp.prospectEmail + ': "' + subject + '"');
 

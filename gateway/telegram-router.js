@@ -512,6 +512,7 @@ const proactiveEngine = new ProactiveEngine({
     await sendMessage(chatId, message, 'Markdown');
     addToHistory(chatId, 'bot', message.substring(0, 200), 'proactive-agent');
   },
+  sendTelegramButtons: sendMessageWithButtons,
   callClaude: callClaude,
   callClaudeOpus: callClaudeOpus,
   hubspotKey: HUBSPOT_KEY,
@@ -1820,6 +1821,26 @@ async function handleCallback(update) {
       log.error('router', 'Erreur annulation reactive FU:', e.message);
       await sendMessage(chatId, '❌ Erreur: ' + e.message);
     }
+  } else if (data.startsWith('bl_prospect_')) {
+    // Blacklister un prospect via bouton Telegram
+    const prospectEmail = data.replace('bl_prospect_', '');
+    try {
+      automailerStorage.addToBlacklist(prospectEmail, 'manual_blacklist_telegram');
+      // Annuler toutes les reactive FU pending pour ce prospect
+      const pendingFUs = proactiveAgentStorage.getPendingFollowUps();
+      let cancelled = 0;
+      for (const fu of pendingFUs) {
+        if (fu.prospectEmail && fu.prospectEmail.toLowerCase() === prospectEmail.toLowerCase()) {
+          proactiveAgentStorage.markFollowUpFailed(fu.id, 'manual_blacklist_telegram');
+          cancelled++;
+        }
+      }
+      await sendMessage(chatId, '🚫 *' + prospectEmail + '* blackliste.\n' + (cancelled > 0 ? cancelled + ' relance(s) en attente annulee(s).' : 'Aucune relance en attente.') + '\n_Plus aucun email ne sera envoye a ce prospect._', 'Markdown');
+      log.info('router', 'Prospect blackliste via Telegram: ' + prospectEmail + ' (+ ' + cancelled + ' FU annulees)');
+    } catch (e) {
+      log.error('router', 'Erreur blacklist prospect:', e.message);
+      await sendMessage(chatId, '❌ Erreur: ' + e.message);
+    }
   } else if (data.startsWith('feedback_')) {
     const parts = data.split('_');
     const type = parts[1];
@@ -2018,12 +2039,28 @@ async function handleResendWebhook(body) {
     try {
       const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
       if (!rfConfig.enabled) return null;
-      // Guard 1 : blacklist automailer (human takeover, bounce, decline)
+
+      // Guard 0 : ANTI-BOUCLE — ne JAMAIS relancer sur un email qui est lui-meme une relance
+      const emailSource = (emailRecord.source || '').toLowerCase();
+      if (emailSource === 'reactive-followup' || emailSource === 'auto-reply' || emailSource === 'lead-revival' || emailSource === 'multi-threading' || emailSource === 'objection-reply') {
+        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — anti-boucle (source: ' + emailSource + ')');
+        return null;
+      }
+
+      // Guard 1 : emails generiques (contact@, info@, etc.)
+      const genericPrefixes = ['contact', 'info', 'hello', 'support', 'admin', 'commercial', 'sales', 'marketing', 'direction', 'accueil', 'reception', 'compta', 'facturation', 'rh'];
+      const localPart = (emailRecord.to || '').split('@')[0].toLowerCase();
+      if (genericPrefixes.includes(localPart)) {
+        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — email generique');
+        return null;
+      }
+
+      // Guard 2 : blacklist automailer (human takeover, bounce, decline)
       if (automailerStorage.isBlacklisted(emailRecord.to)) {
         log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — blackliste');
         return null;
       }
-      // Guard 2 : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
+      // Guard 3 : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
       const events = automailerStorage.getEmailEventsForRecipient(emailRecord.to);
       if (events.some(e => e.status === 'replied' || e.hasReplied)) {
         log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — deja repondu (human takeover)');
