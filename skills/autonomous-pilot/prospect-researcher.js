@@ -1505,8 +1505,10 @@ class ProspectResearcher {
           const summary = await this._summarizeWebsite(rawSiteText, companyName);
           if (summary && summary.length > 30) {
             lines.push('ANALYSE SITE WEB:\n' + summary.substring(0, 500));
+            log.info('prospect-research', 'Pre-analyse IA site web OK pour ' + companyName + ' (' + summary.length + ' chars)');
           } else {
             lines.push('CONTENU SITE: ' + rawSiteText.substring(0, 400));
+            log.info('prospect-research', 'Pre-analyse IA echouee pour ' + companyName + ' — fallback texte brut');
           }
         } catch (e) {
           lines.push('CONTENU SITE: ' + rawSiteText.substring(0, 400));
