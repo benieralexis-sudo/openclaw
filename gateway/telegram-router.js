@@ -1805,6 +1805,21 @@ async function handleCallback(update) {
       log.error('router', 'Erreur report workflow:', e.message);
       await sendMessage(chatId, '❌ Erreur rapport: ' + e.message);
     }
+  } else if (data.startsWith('cancel_rfu_')) {
+    // Annuler une relance reactive programmee
+    const fuId = data.replace('cancel_rfu_', '');
+    try {
+      const result = proactiveAgentStorage.markFollowUpFailed(fuId, 'manual_cancel_telegram');
+      if (result) {
+        await sendMessage(chatId, '✅ Relance annulee pour *' + (result.prospectName || result.prospectEmail) + '*' + (result.prospectCompany ? ' (' + result.prospectCompany + ')' : ''), 'Markdown');
+        log.info('router', 'Reactive FU annule manuellement via Telegram: ' + fuId + ' — ' + result.prospectEmail);
+      } else {
+        await sendMessage(chatId, '⚠️ Relance introuvable ou deja traitee.');
+      }
+    } catch (e) {
+      log.error('router', 'Erreur annulation reactive FU:', e.message);
+      await sendMessage(chatId, '❌ Erreur: ' + e.message);
+    }
   } else if (data.startsWith('feedback_')) {
     const parts = data.split('_');
     const type = parts[1];
@@ -1998,21 +2013,21 @@ async function handleResendWebhook(body) {
   // 2ème+ ouverture = programmer reactive FU (signal d'intérêt fort)
   // Clic = programmer reactive FU (engagement maximal)
 
-  // Helper : programmer un reactive FU
+  // Helper : programmer un reactive FU — retourne l'objet ajouté ou null
   function _scheduleReactiveFU(emailRecord, intelBrief) {
     try {
       const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
-      if (!rfConfig.enabled) return;
+      if (!rfConfig.enabled) return null;
       // Guard 1 : blacklist automailer (human takeover, bounce, decline)
       if (automailerStorage.isBlacklisted(emailRecord.to)) {
         log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — blackliste');
-        return;
+        return null;
       }
       // Guard 2 : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
       const events = automailerStorage.getEmailEventsForRecipient(emailRecord.to);
       if (events.some(e => e.status === 'replied' || e.hasReplied)) {
         log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — deja repondu (human takeover)');
-        return;
+        return null;
       }
       const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
       const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
@@ -2029,8 +2044,10 @@ async function handleResendWebhook(body) {
       if (added) {
         log.info('webhook', 'Reactive follow-up programme pour ' + emailRecord.to + ' a ' + scheduledAfter);
       }
+      return added;
     } catch (rfErr) {
       log.warn('webhook', 'Erreur enregistrement reactive follow-up: ' + rfErr.message);
+      return null;
     }
   }
 
@@ -2044,11 +2061,19 @@ async function handleResendWebhook(body) {
         researcher.researchProspect(contact),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 30s')), 30000))
       ]).then(intel => {
-        sendMessage(ADMIN_CHAT_ID, '🖱️ *Clic sur email !*\n\n*Qui :* ' + (email.contactName || email.to) + '\n' + (email.company ? '*Entreprise :* ' + email.company + '\n' : '') + '*Objet :* _' + (email.subject || '').substring(0, 60) + '_\n\n➡️ _Relance reactive programmee (clic = interet fort)_', 'Markdown').catch(() => {});
-        _scheduleReactiveFU(email, intel && intel.brief ? intel.brief : '');
+        var addedFUclick = _scheduleReactiveFU(email, intel && intel.brief ? intel.brief : '');
+        if (addedFUclick) {
+          sendMessageWithButtons(ADMIN_CHAT_ID, '🖱️ *Clic sur email !*\n\n*Qui :* ' + (email.contactName || email.to) + '\n' + (email.company ? '*Entreprise :* ' + email.company + '\n' : '') + '*Objet :* _' + (email.subject || '').substring(0, 60) + '_\n\n➡️ _Relance programmee._', [[{ text: '❌ Annuler relance', callback_data: 'cancel_rfu_' + addedFUclick.id }]]).catch(() => {});
+        } else {
+          sendMessage(ADMIN_CHAT_ID, '🖱️ *Clic sur email !*\n\n*Qui :* ' + (email.contactName || email.to) + '\n' + (email.company ? '*Entreprise :* ' + email.company + '\n' : '') + '*Objet :* _' + (email.subject || '').substring(0, 60) + '_', 'Markdown').catch(() => {});
+        }
       }).catch(() => {
-        sendMessage(ADMIN_CHAT_ID, '🖱️ *Clic sur email* par ' + (email.contactName || email.to), 'Markdown').catch(() => {});
-        _scheduleReactiveFU(email, '');
+        var addedFUclick2 = _scheduleReactiveFU(email, '');
+        if (addedFUclick2) {
+          sendMessageWithButtons(ADMIN_CHAT_ID, '🖱️ *Clic sur email* par ' + (email.contactName || email.to) + '\n\n_Relance programmee._', [[{ text: '❌ Annuler relance', callback_data: 'cancel_rfu_' + addedFUclick2.id }]]).catch(() => {});
+        } else {
+          sendMessage(ADMIN_CHAT_ID, '🖱️ *Clic sur email* par ' + (email.contactName || email.to), 'Markdown').catch(() => {});
+        }
       });
     } catch (e) {
       log.warn('webhook', 'Erreur reactive FU sur clic: ' + e.message);
@@ -2147,14 +2172,18 @@ async function handleResendWebhook(body) {
   // 2ème+ ouverture → signal d'intérêt fort → programmer reactive FU
   if (status === 'opened' && wasAlreadyOpened) {
     log.info('webhook', 'Rouverture detectee pour ' + email.to + ' — programmation reactive FU');
-    sendMessage(ADMIN_CHAT_ID, '🔄 *Email rouvert !*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Signal d\'interet fort — relance reactive programmee._', 'Markdown').catch(() => {});
     // Utiliser l'intel en cache si disponible
     var cachedIntel = '';
     try {
       var cache = (proactiveAgentStorage.data._cachedIntel || {})[email.to];
       if (cache && cache.brief) cachedIntel = cache.brief;
     } catch (e) {}
-    _scheduleReactiveFU(email, cachedIntel);
+    var addedFUwh = _scheduleReactiveFU(email, cachedIntel);
+    if (addedFUwh) {
+      sendMessageWithButtons(ADMIN_CHAT_ID, '🔄 *Email rouvert !*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Relance programmee._', [[{ text: '❌ Annuler relance', callback_data: 'cancel_rfu_' + addedFUwh.id }]]).catch(() => {});
+    } else {
+      sendMessage(ADMIN_CHAT_ID, '🔄 *Email rouvert*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Relance deja en cours ou skippee (guards)._', 'Markdown').catch(() => {});
+    }
   }
 
   return { processed: true, status: status, email: email.to };
@@ -2337,7 +2366,6 @@ const healthServer = http.createServer((req, res) => {
       } else {
         // 2ème+ ouverture pixel → signal d'intérêt fort → programmer reactive FU
         log.info('tracking', 'Rouverture pixel detectee pour ' + email.to + ' — programmation reactive FU');
-        sendMessage(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel) !*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Signal d\'interet fort — relance reactive programmee._', 'Markdown').catch(() => {});
         var pixelCachedIntel = '';
         try {
           var pCache = (proactiveAgentStorage.data._cachedIntel || {})[email.to];
@@ -2349,6 +2377,7 @@ const healthServer = http.createServer((req, res) => {
             // Guard 1 : blacklist automailer (human takeover, bounce, decline)
             if (automailerStorage.isBlacklisted(email.to)) {
               log.info('tracking', 'Skip reactive FU (reouvre pixel) pour ' + email.to + ' — blackliste');
+              sendMessage(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel)*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Prospect blackliste — pas de relance._', 'Markdown').catch(() => {});
             }
             // Guard 2 : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
             else if ((function() {
@@ -2356,10 +2385,11 @@ const healthServer = http.createServer((req, res) => {
               return pixelEvents.some(function(e) { return e.status === 'replied' || e.hasReplied; });
             })()) {
               log.info('tracking', 'Skip reactive FU (reouvre pixel) pour ' + email.to + ' — deja repondu (human takeover)');
+              sendMessage(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel)*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Prospect a deja repondu — pas de relance._', 'Markdown').catch(() => {});
             } else {
               var delayMs3 = (rfConfig3.minDelayMinutes + Math.random() * (rfConfig3.maxDelayMinutes - rfConfig3.minDelayMinutes)) * 60 * 1000;
               var scheduledAfter3 = new Date(Date.now() + delayMs3).toISOString();
-              proactiveAgentStorage.addPendingFollowUp({
+              var addedFU3 = proactiveAgentStorage.addPendingFollowUp({
                 prospectEmail: email.to,
                 prospectName: email.contactName || '',
                 prospectCompany: email.company || '',
@@ -2369,7 +2399,13 @@ const healthServer = http.createServer((req, res) => {
                 prospectIntel: pixelCachedIntel,
                 scheduledAfter: scheduledAfter3
               });
-              log.info('tracking', 'Reactive FU programme (reouvre pixel) pour ' + email.to);
+              if (addedFU3) {
+                log.info('tracking', 'Reactive FU programme (reouvre pixel) pour ' + email.to + ' — id: ' + addedFU3.id);
+                sendMessageWithButtons(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel) !*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Relance programmee dans ~' + Math.round(delayMs3 / 60000) + ' min._', [[{ text: '❌ Annuler relance', callback_data: 'cancel_rfu_' + addedFU3.id }]]).catch(() => {});
+              } else {
+                log.info('tracking', 'Reactive FU deja programme pour ' + email.to + ' (dedup)');
+                sendMessage(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel)*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Relance deja en cours._', 'Markdown').catch(() => {});
+              }
             }
           }
         } catch (rfErr3) {}
