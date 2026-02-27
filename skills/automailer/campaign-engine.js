@@ -3,7 +3,7 @@ const storage = require('./storage');
 const dns = require('dns');
 const net = require('net');
 const log = require('../../gateway/logger.js');
-const { getWarmupDailyLimit, applySpintax } = require('../../gateway/utils.js');
+const { getWarmupDailyLimit, applySpintax, validateEmailOutput, getCityTimezone } = require('../../gateway/utils.js');
 
 // --- Quality gate post-generation email ---
 const GENERIC_PATTERNS = [
@@ -228,14 +228,14 @@ const STATUS_LABELS = {
 };
 
 // --- FIX 4 : Heures bureau (Europe/Paris, lun-ven 9h-18h) ---
-function isBusinessHours() {
+function isBusinessHours(timezone) {
+  timezone = timezone || 'Europe/Paris';
   const now = new Date();
-  const parisHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(now));
-  // Convertir en heure Paris pour obtenir le jour de la semaine
-  const parisDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-  const parisDay = parisDate.getDay(); // 0=dimanche, 6=samedi
-  if (parisDay === 0 || parisDay === 6) return false; // weekend
-  if (parisHour < 9 || parisHour >= 15) return false; // envois 9h-14h59 (14h = best open rate)
+  const localHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }).format(now));
+  const localDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+  const localDay = localDate.getDay(); // 0=dimanche, 6=samedi
+  if (localDay === 0 || localDay === 6) return false; // weekend
+  if (localHour < 9 || localHour >= 15) return false; // envois 9h-14h59 dans la timezone du prospect
   return true;
 }
 
@@ -257,7 +257,8 @@ function _getSelfImproveTimingPrefs() {
   }
 }
 
-function _snapToPreferredSlot(date) {
+function _snapToPreferredSlot(date, timezone) {
+  timezone = timezone || 'Europe/Paris';
   const siPrefs = _getSelfImproveTimingPrefs();
 
   // Heure preferentielle (default 13 = 13h30-14h29 avec jitter)
@@ -271,9 +272,9 @@ function _snapToPreferredSlot(date) {
     if (siDay >= 1 && siDay <= 5) preferredDays.add(siDay); // Ajouter le jour recommande (jours ouvrables only)
   }
 
-  const parisStr = date.toLocaleString('en-US', { timeZone: 'Europe/Paris' });
-  const parisDate = new Date(parisStr);
-  const day = parisDate.getDay();
+  const localStr = date.toLocaleString('en-US', { timeZone: timezone });
+  const localDate = new Date(localStr);
+  const day = localDate.getDay();
 
   // Si le jour actuel n'est pas un jour prefere → glisser au prochain jour prefere
   let daysToAdd = 0;
@@ -287,21 +288,22 @@ function _snapToPreferredSlot(date) {
     date = new Date(date.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
   }
 
-  // Fixer l'heure avec jitter (+/- 30min autour de targetHour)
-  const offset = _getParisOffsetMs(date);
+  // Fixer l'heure avec jitter (+/- 30min autour de targetHour) dans la timezone du prospect
+  const offset = _getTimezoneOffsetMs(date, timezone);
   const jitterMinutes = Math.floor(Math.random() * 60); // 0-59 min apres targetHour
-  const parisTarget = new Date(date);
-  parisTarget.setUTCHours(0, 0, 0, 0);
-  parisTarget.setTime(parisTarget.getTime() + (targetHour * 60 + jitterMinutes) * 60 * 1000 - offset);
+  const localTarget = new Date(date);
+  localTarget.setUTCHours(0, 0, 0, 0);
+  localTarget.setTime(localTarget.getTime() + (targetHour * 60 + jitterMinutes) * 60 * 1000 - offset);
 
-  return parisTarget;
+  return localTarget;
 }
 
-// Offset Paris en ms (gère heure d'été/hiver)
-function _getParisOffsetMs(date) {
+// Offset timezone en ms (gere heure d'ete/hiver, n'importe quelle timezone IANA)
+function _getTimezoneOffsetMs(date, timezone) {
+  timezone = timezone || 'Europe/Paris';
   const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' });
-  const parisStr = date.toLocaleString('en-US', { timeZone: 'Europe/Paris' });
-  return new Date(parisStr).getTime() - new Date(utcStr).getTime();
+  const localStr = date.toLocaleString('en-US', { timeZone: timezone });
+  return new Date(localStr).getTime() - new Date(utcStr).getTime();
 }
 
 // --- Warmup progressif (source unique : gateway/utils.js) ---
@@ -553,10 +555,14 @@ class CampaignEngine {
         break;
       }
 
-      // FIX 4 : Re-verifier heures bureau (la boucle peut durer longtemps)
-      if (!isBusinessHours()) {
-        log.info('campaign-engine', 'Sortie heures bureau en cours d\'envoi — stop');
-        break;
+      // Detecter timezone prospect (Apollo city/country ou fallback Paris)
+      const prospectTz = getCityTimezone(contact.city || contact.state || '', contact.country || '');
+
+      // FIX 4 : Re-verifier heures bureau dans la timezone du prospect
+      if (!isBusinessHours(prospectTz)) {
+        log.info('campaign-engine', 'Hors heures bureau pour ' + contact.email + ' (tz: ' + prospectTz + ') — skip');
+        skipped++;
+        continue; // Skip ce contact, pas break (d'autres contacts peuvent etre dans une autre TZ)
       }
 
       // FIX 2 : Verifier blacklist
@@ -774,15 +780,31 @@ class CampaignEngine {
         abVariant = 'A'; // Fallback sur le leader
       }
 
-      // Generer un sujet alternatif pour variants B et C
-      if (abVariant !== 'A') {
+      // A/B variants : B = body+sujet alternatif (nouvel angle), C = sujet alternatif + body original
+      if (abVariant === 'B') {
+        try {
+          const prospectCtx = prospectIntel || '';
+          const bodyVariant = await this.claude.generateBodyVariant(body, subject, prospectCtx);
+          if (bodyVariant && bodyVariant.body && bodyVariant.subject) {
+            subject = bodyVariant.subject;
+            body = bodyVariant.body;
+          } else {
+            // Fallback : au moins varier le sujet
+            const variantSubject = await this.claude.generateSubjectVariant(subject);
+            if (variantSubject && variantSubject.length > 3) subject = variantSubject;
+          }
+        } catch (abErr) {
+          log.info('campaign-engine', 'A/B variant B generation echouee: ' + abErr.message);
+          abVariant = 'A';
+        }
+      } else if (abVariant === 'C') {
         try {
           const variantSubject = await this.claude.generateSubjectVariant(subject);
           if (variantSubject && variantSubject.length > 3) {
             subject = variantSubject;
           }
         } catch (abErr) {
-          log.info('campaign-engine', 'A/B variant ' + abVariant + ' generation echouee: ' + abErr.message);
+          log.info('campaign-engine', 'A/B variant C generation echouee: ' + abErr.message);
           abVariant = 'A';
         }
       }
@@ -794,6 +816,19 @@ class CampaignEngine {
         skipped++;
         continue;
       }
+
+      // Validation programmatique : word count + forbidden words (word boundary)
+      try {
+        const apStorage = require('../autonomous-pilot/storage.js');
+        const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+        const ep = apConfig.emailPreferences || {};
+        const validation = validateEmailOutput(subject, body, { forbiddenWords: ep.forbiddenWords || [] });
+        if (!validation.pass) {
+          log.warn('campaign-engine', 'Validation programmatique FAIL pour ' + contact.email + ': ' + validation.reasons.join(', ') + ' — skip');
+          skipped++;
+          continue;
+        }
+      } catch (valErr) { /* validation non bloquante si AP storage indisponible */ }
 
       // Ajouter lien booking Cal.eu dans les relances (step 2+)
       if (stepNumber >= 2) {
@@ -1014,6 +1049,12 @@ class CampaignEngine {
                 step.scheduledAt = advancedDate.toISOString();
                 log.info('campaign-engine', 'Delai adaptatif: step ' + step.stepNumber + ' avance de 1j (open rate ' + Math.round(openRate * 100) + '% au step ' + prevStep.stepNumber + ')');
               }
+            } else if (openRate < 0.15 && prevEmails.length >= 5) {
+              // Engagement faible : ralentir d'1 jour pour eviter d'agacer
+              const scheduledDate = new Date(step.scheduledAt);
+              const delayedDate = new Date(scheduledDate.getTime() + 24 * 60 * 60 * 1000);
+              step.scheduledAt = delayedDate.toISOString();
+              log.info('campaign-engine', 'Delai adaptatif: step ' + step.stepNumber + ' retarde de 1j (open rate ' + Math.round(openRate * 100) + '% au step ' + prevStep.stepNumber + ')');
             }
             step._adaptiveChecked = true;
             storage.updateCampaign(campaign.id, { steps: campaign.steps });

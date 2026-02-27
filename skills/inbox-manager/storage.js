@@ -220,7 +220,8 @@ class InboxManagerStorage {
       originalEmailId: data.originalEmailId || null,
       confidence: data.confidence || 0,
       sentAt: new Date().toISOString(),
-      sendResult: data.sendResult || null
+      sendResult: data.sendResult || null,
+      effectiveness: null // null=unknown, 'effective'=prospect re-responded positively, 'ineffective'=negative
     };
     this.data.autoReplies.push(entry);
     if (this.data.autoReplies.length > 500) {
@@ -228,6 +229,39 @@ class InboxManagerStorage {
     }
     this._save();
     return entry;
+  }
+
+  // Marquer l'effectiveness d'un auto-reply (quand le prospect re-repond)
+  markAutoReplyEffectiveness(prospectEmail, effectiveness) {
+    if (!this.data.autoReplies) return null;
+    const email = (prospectEmail || '').toLowerCase();
+    // Trouver le dernier auto-reply envoye a ce prospect
+    const ar = [...this.data.autoReplies].reverse().find(a => a.prospectEmail === email && !a.effectiveness);
+    if (ar) {
+      ar.effectiveness = effectiveness; // 'effective' ou 'ineffective'
+      ar.effectivenessAt = new Date().toISOString();
+      this._save();
+    }
+    return ar;
+  }
+
+  // Stats d'effectiveness pour le metrics-collector
+  getAutoReplyEffectivenessStats() {
+    if (!this.data.autoReplies) return { total: 0, effective: 0, ineffective: 0, unknown: 0, byType: {} };
+    const stats = { total: 0, effective: 0, ineffective: 0, unknown: 0, byType: {} };
+    for (const ar of this.data.autoReplies) {
+      stats.total++;
+      if (ar.effectiveness === 'effective') stats.effective++;
+      else if (ar.effectiveness === 'ineffective') stats.ineffective++;
+      else stats.unknown++;
+      // Par type d'objection
+      const type = ar.objectionType || ar.subClassification || 'question';
+      if (!stats.byType[type]) stats.byType[type] = { total: 0, effective: 0, ineffective: 0 };
+      stats.byType[type].total++;
+      if (ar.effectiveness === 'effective') stats.byType[type].effective++;
+      else if (ar.effectiveness === 'ineffective') stats.byType[type].ineffective++;
+    }
+    return stats;
   }
 
   getAutoReplies(limit) {

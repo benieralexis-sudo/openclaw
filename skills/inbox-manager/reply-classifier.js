@@ -263,6 +263,17 @@ async function generateObjectionReply(callClaude, replyData, classification, sub
 
   const strategy = OBJECTION_STRATEGIES[subClass.objectionType] || OBJECTION_STRATEGIES.timing;
 
+  // Charger mots interdits depuis config AP
+  let forbiddenWordsRule = '';
+  try {
+    const apStorage = require('../autonomous-pilot/storage.js');
+    const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+    const ep = apConfig.emailPreferences || {};
+    if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+      forbiddenWordsRule = '\n\nMOTS ABSOLUMENT INTERDITS (ne jamais utiliser): ' + ep.forbiddenWords.join(', ');
+    }
+  } catch (e) { /* AP non dispo */ }
+
   const systemPrompt = `Tu es ${senderName}, professionnel B2B. Tu reponds a un prospect qui a fait une objection a ton email de prospection.
 
 STRATEGIE: ${strategy}
@@ -275,7 +286,7 @@ REGLES ABSOLUES:
 - Si tu proposes un call, termine par un lien de booking si disponible
 - Reponds en francais
 - Sois HUMAIN, pas commercial. Tu es une vraie personne qui discute.
-
+${forbiddenWordsRule}
 ${bookingUrl ? 'Lien de booking si pertinent: ' + bookingUrl : ''}`;
 
   const userPrompt = `Email original envoye:
@@ -314,6 +325,17 @@ async function generateQuestionReplyViaClaude(callClaude, replyData, classificat
   const senderName = clientContext.senderName || process.env.SENDER_NAME || 'Alexis';
   const bookingUrl = clientContext.bookingUrl || '';
 
+  // Charger mots interdits depuis config AP
+  let forbiddenWordsRule2 = '';
+  try {
+    const apStorage = require('../autonomous-pilot/storage.js');
+    const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+    const ep = apConfig.emailPreferences || {};
+    if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+      forbiddenWordsRule2 = '\n\nMOTS ABSOLUMENT INTERDITS (ne jamais utiliser): ' + ep.forbiddenWords.join(', ');
+    }
+  } catch (e) { /* AP non dispo */ }
+
   const systemPrompt = `Tu es ${senderName}, professionnel B2B. Un prospect a pose une question en reponse a ton email de prospection.
 
 REGLES ABSOLUES:
@@ -324,7 +346,7 @@ REGLES ABSOLUES:
 - Pas de signature, pas de "Cordialement"
 - Reponds en francais
 - Sois concret: chiffres, exemples, pas de blabla
-
+${forbiddenWordsRule2}
 ${bookingUrl ? 'Lien de booking pour le call: ' + bookingUrl : ''}`;
 
   const userPrompt = `Email original envoye:

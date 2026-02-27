@@ -370,6 +370,7 @@ class MetricsCollector {
     // Collectes v3.1
     const temporalPatterns = this.discoverTemporalPatterns();
     const cohortInsights = this.collectCohortAnalysis();
+    const autoReplyEffectiveness = this.collectAutoReplyEffectiveness();
 
     // Ajouter les top patterns depuis les details individuels
     const detailedInsights = this._extractDetailedInsights(emailDetails);
@@ -386,6 +387,7 @@ class MetricsCollector {
       abTests: abTestMetrics,
       temporalPatterns: temporalPatterns,
       cohortInsights: cohortInsights,
+      autoReplyEffectiveness: autoReplyEffectiveness,
       emailDetailsCount: emailDetails.length,
       currentOverrides: {
         scoringWeights: storage.getScoringWeights(),
@@ -723,6 +725,25 @@ class MetricsCollector {
       return insights;
     } catch (e) {
       console.error('[metrics-collector] Erreur AB test metrics:', e.message);
+      return { available: false, reason: e.message };
+    }
+  }
+
+  // --- Auto-Reply Effectiveness (feedback loop) ---
+  collectAutoReplyEffectiveness() {
+    try {
+      const inboxStorage = require('../inbox-manager/storage.js');
+      if (!inboxStorage || typeof inboxStorage.getAutoReplyEffectivenessStats !== 'function') {
+        return { available: false, reason: 'method_not_available' };
+      }
+      const stats = inboxStorage.getAutoReplyEffectivenessStats();
+      if (stats.total === 0) return { available: false, reason: 'no_auto_replies' };
+      return {
+        available: true,
+        ...stats,
+        effectivenessRate: stats.total > 0 ? Math.round((stats.effective / stats.total) * 100) : 0
+      };
+    } catch (e) {
       return { available: false, reason: e.message };
     }
   }

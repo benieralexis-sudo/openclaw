@@ -25,9 +25,40 @@ const USER_AGENTS = [
 class ProspectResearcher {
   constructor(options) {
     this.claudeKey = options.claudeKey;
+    this.openaiKey = options.openaiKey || process.env.OPENAI_API_KEY || null;
     this.pappersToken = options.pappersToken || process.env.PAPPERS_API_TOKEN || null;
     this._fetcher = null;
     this._uaIndex = Math.floor(Math.random() * USER_AGENTS.length);
+  }
+
+  // Pre-analyse IA du site web : texte brut → insights structures (GPT-4o-mini, ~0.001$/call)
+  async _summarizeWebsite(rawText, companyName) {
+    if (!rawText || rawText.length < 100 || !this.openaiKey) return null;
+    const https = require('https');
+    const prompt = `Analyse ce site web de "${companyName || 'entreprise'}". Extrais en 3-5 bullets courts :\n- Proposition de valeur principale\n- Clients cibles (B2B/B2C, secteur)\n- Produit/service phare\n- Element differenciateur\n- Signal d'achat potentiel (recrutement, croissance, nouveau produit)\n\nSite web:\n${rawText.substring(0, 3000)}`;
+    return new Promise((resolve) => {
+      const postData = JSON.stringify({
+        model: 'gpt-4o-mini', max_tokens: 300, temperature: 0.2,
+        messages: [{ role: 'user', content: prompt }]
+      });
+      const req = https.request({
+        hostname: 'api.openai.com', path: '/v1/chat/completions', method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.openaiKey }
+      }, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const r = JSON.parse(data);
+            resolve(r.choices && r.choices[0] ? r.choices[0].message.content.trim() : null);
+          } catch (e) { resolve(null); }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.setTimeout(15000, () => { req.destroy(); resolve(null); });
+      req.write(postData);
+      req.end();
+    });
   }
 
   _nextUA() {
@@ -302,8 +333,8 @@ class ProspectResearcher {
       }
     }
 
-    // Construire le brief textuel
-    intel.brief = this._buildProspectBrief(intel, contact);
+    // Construire le brief textuel (avec pre-analyse IA du site web si disponible)
+    intel.brief = await this._buildProspectBrief(intel, contact);
 
     // Sauvegarder dans le cache
     if (apStorage && email && apStorage.saveProspectResearch) {
@@ -1288,7 +1319,7 @@ class ProspectResearcher {
     return { coherent: true, matchRatio: matchRatio, foundExpected: foundExpected.length };
   }
 
-  _buildProspectBrief(intel, contact) {
+  async _buildProspectBrief(intel, contact) {
     const lines = [];
 
     // Contact + entreprise (toujours en premier pour le contexte)
@@ -1465,10 +1496,24 @@ class ProspectResearcher {
       lines.push('SITE WEB: "' + intel.websiteInsights.description.substring(0, 250) + '"');
     }
 
-    // Contenu du site web (si pas deja couvert par la description)
+    // Contenu du site web : pre-analyse IA si assez de texte, sinon injection brute
     if (intel.websiteInsights && intel.websiteInsights.textContent) {
-      const siteText = intel.websiteInsights.textContent.substring(0, 300).replace(/\s+/g, ' ').trim();
-      if (siteText.length > 50) lines.push('CONTENU SITE: ' + siteText);
+      const rawSiteText = intel.websiteInsights.textContent.replace(/\s+/g, ' ').trim();
+      if (rawSiteText.length > 500) {
+        try {
+          const companyName = contact.company || contact.entreprise || '';
+          const summary = await this._summarizeWebsite(rawSiteText, companyName);
+          if (summary && summary.length > 30) {
+            lines.push('ANALYSE SITE WEB:\n' + summary.substring(0, 500));
+          } else {
+            lines.push('CONTENU SITE: ' + rawSiteText.substring(0, 400));
+          }
+        } catch (e) {
+          lines.push('CONTENU SITE: ' + rawSiteText.substring(0, 400));
+        }
+      } else if (rawSiteText.length > 50) {
+        lines.push('CONTENU SITE: ' + rawSiteText.substring(0, 300));
+      }
     }
 
     // PRIORITE 5 : Articles Web Intelligence (avec contenu si disponible)

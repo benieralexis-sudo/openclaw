@@ -715,6 +715,36 @@ REGLES :
     return response.trim().replace(/^["']|["']$/g, '');
   }
 
+  async generateBodyVariant(originalBody, originalSubject, prospectContext) {
+    const systemPrompt = `Tu es un expert en cold email B2B et A/B testing. On te donne un cold email. Reecris-le avec un ANGLE COMPLETEMENT DIFFERENT tout en ciblant le meme prospect.
+
+REGLES STRICTES :
+- Meme structure : 2 blocs (observation + question). Pas plus.
+- Meme longueur approximative (50-80 mots)
+- NOUVEL ANGLE : si l'original parle de news, utilise le stack technique. Si l'original cite un client, parle du positionnement. Etc.
+- Garde le tutoiement/vouvoiement de l'original
+- Pas de signature (ajoutee automatiquement)
+- Pas de formule de politesse
+- Retourne un JSON : {"subject":"nouvel objet","body":"nouveau corps"}
+- L'objet doit aussi etre different de l'original`;
+
+    const userMessage = `Email original :
+Objet: ${originalSubject}
+Corps: ${originalBody}
+${prospectContext ? '\nDonnees prospect disponibles:\n' + (prospectContext || '').substring(0, 2000) : ''}
+
+Genere une variante A/B avec un angle different. JSON uniquement.`;
+
+    try {
+      const response = await this.callOpenAIMini(systemPrompt, userMessage, 800);
+      const parsed = this._parseJSON(response);
+      if (parsed && parsed.body && parsed.subject && !parsed.skip) {
+        return { subject: parsed.subject, body: parsed.body };
+      }
+    } catch (e) { /* fallback : retourne null */ }
+    return null;
+  }
+
   async generateFromTemplate(template, contact) {
     // Remplace les variables {{...}} par les valeurs du contact
     let subject = template.subject;

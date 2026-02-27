@@ -149,4 +149,124 @@ function applySpintax(text) {
   });
 }
 
-module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit, withCronGuard, applySpintax };
+/**
+ * Detecte la timezone IANA d'un prospect a partir de sa ville et/ou son pays.
+ * Couvre les villes les plus courantes en B2B (France, Europe, US, Canada, UK, DACH, Nordics).
+ * @param {string} city
+ * @param {string} country
+ * @returns {string} Timezone IANA (default: 'Europe/Paris')
+ */
+const _CITY_TZ = {
+  // France
+  paris: 'Europe/Paris', lyon: 'Europe/Paris', marseille: 'Europe/Paris', toulouse: 'Europe/Paris',
+  nice: 'Europe/Paris', nantes: 'Europe/Paris', strasbourg: 'Europe/Paris', montpellier: 'Europe/Paris',
+  bordeaux: 'Europe/Paris', lille: 'Europe/Paris', rennes: 'Europe/Paris', grenoble: 'Europe/Paris',
+  // UK & Ireland
+  london: 'Europe/London', manchester: 'Europe/London', birmingham: 'Europe/London', edinburgh: 'Europe/London',
+  dublin: 'Europe/Dublin', glasgow: 'Europe/London', bristol: 'Europe/London', leeds: 'Europe/London',
+  // DACH
+  berlin: 'Europe/Berlin', munich: 'Europe/Berlin', hamburg: 'Europe/Berlin', frankfurt: 'Europe/Berlin',
+  zurich: 'Europe/Zurich', geneva: 'Europe/Zurich', vienna: 'Europe/Vienna', bern: 'Europe/Zurich',
+  // Benelux
+  brussels: 'Europe/Brussels', amsterdam: 'Europe/Amsterdam', rotterdam: 'Europe/Amsterdam',
+  luxembourg: 'Europe/Luxembourg', bruxelles: 'Europe/Brussels',
+  // Southern Europe
+  madrid: 'Europe/Madrid', barcelona: 'Europe/Madrid', lisbon: 'Europe/Lisbon', rome: 'Europe/Rome',
+  milan: 'Europe/Rome', milano: 'Europe/Rome',
+  // Nordics
+  stockholm: 'Europe/Stockholm', oslo: 'Europe/Oslo', copenhagen: 'Europe/Copenhagen', helsinki: 'Europe/Helsinki',
+  // US East
+  'new york': 'America/New_York', boston: 'America/New_York', philadelphia: 'America/New_York',
+  washington: 'America/New_York', miami: 'America/New_York', atlanta: 'America/New_York',
+  charlotte: 'America/New_York',
+  // US Central
+  chicago: 'America/Chicago', dallas: 'America/Chicago', houston: 'America/Chicago',
+  austin: 'America/Chicago', minneapolis: 'America/Chicago',
+  // US Mountain
+  denver: 'America/Denver', phoenix: 'America/Phoenix', salt_lake_city: 'America/Denver',
+  // US West
+  'san francisco': 'America/Los_Angeles', 'los angeles': 'America/Los_Angeles',
+  seattle: 'America/Los_Angeles', portland: 'America/Los_Angeles', 'san diego': 'America/Los_Angeles',
+  'san jose': 'America/Los_Angeles',
+  // Canada
+  toronto: 'America/Toronto', montreal: 'America/Toronto', vancouver: 'America/Vancouver',
+  ottawa: 'America/Toronto', calgary: 'America/Edmonton',
+  // Other
+  dubai: 'Asia/Dubai', singapore: 'Asia/Singapore', sydney: 'Australia/Sydney',
+  'tel aviv': 'Asia/Jerusalem', tokyo: 'Asia/Tokyo'
+};
+
+const _COUNTRY_TZ = {
+  france: 'Europe/Paris', fr: 'Europe/Paris',
+  'united kingdom': 'Europe/London', uk: 'Europe/London', gb: 'Europe/London',
+  germany: 'Europe/Berlin', de: 'Europe/Berlin',
+  switzerland: 'Europe/Zurich', ch: 'Europe/Zurich',
+  belgium: 'Europe/Brussels', be: 'Europe/Brussels',
+  netherlands: 'Europe/Amsterdam', nl: 'Europe/Amsterdam',
+  spain: 'Europe/Madrid', es: 'Europe/Madrid',
+  italy: 'Europe/Rome', it: 'Europe/Rome',
+  portugal: 'Europe/Lisbon', pt: 'Europe/Lisbon',
+  austria: 'Europe/Vienna', at: 'Europe/Vienna',
+  sweden: 'Europe/Stockholm', se: 'Europe/Stockholm',
+  norway: 'Europe/Oslo', no: 'Europe/Oslo',
+  denmark: 'Europe/Copenhagen', dk: 'Europe/Copenhagen',
+  finland: 'Europe/Helsinki', fi: 'Europe/Helsinki',
+  ireland: 'Europe/Dublin', ie: 'Europe/Dublin',
+  'united states': 'America/New_York', us: 'America/New_York', usa: 'America/New_York',
+  canada: 'America/Toronto', ca: 'America/Toronto',
+  australia: 'Australia/Sydney', au: 'Australia/Sydney',
+  japan: 'Asia/Tokyo', jp: 'Asia/Tokyo',
+  singapore: 'Asia/Singapore', sg: 'Asia/Singapore',
+  'united arab emirates': 'Asia/Dubai', uae: 'Asia/Dubai',
+  israel: 'Asia/Jerusalem', il: 'Asia/Jerusalem'
+};
+
+function getCityTimezone(city, country) {
+  if (city) {
+    const cityLower = city.toLowerCase().trim();
+    if (_CITY_TZ[cityLower]) return _CITY_TZ[cityLower];
+  }
+  if (country) {
+    const countryLower = country.toLowerCase().trim();
+    if (_COUNTRY_TZ[countryLower]) return _COUNTRY_TZ[countryLower];
+  }
+  return 'Europe/Paris'; // default
+}
+
+/**
+ * Validation programmatique post-generation email.
+ * Verifie word count, forbidden words (avec word boundary), longueur sujet.
+ * @param {string} subject
+ * @param {string} body
+ * @param {Object} options - { forbiddenWords: [], maxWords: 120, minWords: 20, maxSubjectLen: 80 }
+ * @returns {{ pass: boolean, reasons: string[] }}
+ */
+function validateEmailOutput(subject, body, options) {
+  options = options || {};
+  const maxWords = options.maxWords || 120;
+  const minWords = options.minWords || 15;
+  const maxSubjectLen = options.maxSubjectLen || 80;
+  const forbiddenWords = options.forbiddenWords || [];
+  const reasons = [];
+
+  // 1. Word count body
+  const words = (body || '').split(/\s+/).filter(w => w.length > 0);
+  if (words.length > maxWords) reasons.push('too_many_words:' + words.length);
+  if (words.length < minWords) reasons.push('too_few_words:' + words.length);
+
+  // 2. Subject length
+  if (subject && subject.length > maxSubjectLen) reasons.push('subject_too_long:' + subject.length);
+
+  // 3. Forbidden words avec word boundary (evite "solution" dans "dissolution")
+  for (const word of forbiddenWords) {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp('\\b' + escaped + '\\b', 'i');
+    if (regex.test(body || '') || regex.test(subject || '')) {
+      reasons.push('forbidden:' + word);
+    }
+  }
+
+  return { pass: reasons.length === 0, reasons };
+}
+
+module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit, withCronGuard, applySpintax, validateEmailOutput, getCityTimezone };

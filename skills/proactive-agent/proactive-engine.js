@@ -1616,7 +1616,10 @@ class ProactiveEngine {
             const ep = apConfig.emailPreferences || {};
             if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
               const emailText = (subject + ' ' + body).toLowerCase();
-              const foundWords = ep.forbiddenWords.filter(w => emailText.includes(w.toLowerCase()));
+              const foundWords = ep.forbiddenWords.filter(w => {
+                const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                return new RegExp('\\b' + escaped + '\\b', 'i').test(emailText);
+              });
               if (foundWords.length > 0) {
                 log.warn('proactive-engine', 'Reactive FU: mots interdits: ' + foundWords.join(', ') + ' — annule');
                 storage.markFollowUpFailed(followUp.id, 'forbidden_words: ' + foundWords.join(', '));

@@ -902,7 +902,10 @@ Format JSON strict :
       const MAX_FORBIDDEN_RETRIES = 4;
       let forbiddenRetry = 0;
       let emailText = (params.subject + ' ' + params.body).toLowerCase();
-      let foundWords = epCheck.forbiddenWords.filter(w => emailText.includes(w.toLowerCase()));
+      let foundWords = epCheck.forbiddenWords.filter(w => {
+        const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp('\\b' + escaped + '\\b', 'i').test(emailText);
+      });
 
       while (foundWords.length > 0 && forbiddenRetry < MAX_FORBIDDEN_RETRIES) {
         forbiddenRetry++;
@@ -919,7 +922,10 @@ Format JSON strict :
           params.subject = retryGen.email.subject;
           params.body = retryGen.email.body || retryGen.email.text || '';
           emailText = (params.subject + ' ' + params.body).toLowerCase();
-          foundWords = epCheck.forbiddenWords.filter(w => emailText.includes(w.toLowerCase()));
+          foundWords = epCheck.forbiddenWords.filter(w => {
+            const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp('\\b' + escaped + '\\b', 'i').test(emailText);
+          });
         } else {
           return { success: false, error: 'Regeneration email echouee apres detection mots interdits (tentative ' + forbiddenRetry + ')' };
         }

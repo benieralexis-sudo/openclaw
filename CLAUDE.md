@@ -45,7 +45,7 @@
 | 8 | Web Intelligence (veille marche) | `skills/web-intelligence/` | Claude Sonnet 4.6 + GPT-4o-mini | 9/10 | 2 663 |
 | 9 | System Advisor (monitoring systeme) | `skills/system-advisor/` | Claude Sonnet 4.6 + GPT-4o-mini | 8/10 | 1 713 |
 | 10 | Autonomous Pilot (cerveau autonome) | `skills/autonomous-pilot/` | Claude Opus 4.6 | 9.5/10 | 4 293 |
-| 11 | Inbox Manager (surveillance IMAP + fuzzy match) | `skills/inbox-manager/` | GPT-4o-mini | 5/10 | 627 |
+| 11 | Inbox Manager (IMAP + fuzzy match + auto-reply feedback loop) | `skills/inbox-manager/` | GPT-4o-mini + Claude Sonnet | 9/10 | 627 |
 | 12 | Meeting Scheduler (prise de RDV) | `skills/meeting-scheduler/` | GPT-4o-mini | 3/10 | 704 |
 | 13 | Routeur central | `gateway/telegram-router.js` | GPT-4o-mini | 9.5/10 | 2 573 |
 
@@ -145,7 +145,7 @@
 - DASHBOARD_PASSWORD
 - API_DAILY_BUDGET (defaut: 5$)
 - ADMIN_CHAT_ID (defaut: 1409505520)
-- IMAP_HOST, IMAP_USER, IMAP_PASS (optionnel — Inbox Manager, non configure)
+- IMAP_HOST, IMAP_USER, IMAP_PASS (Inbox Manager — ACTIF, polling 120s)
 - CALCOM_API_KEY (optionnel — Meeting Scheduler, non configure)
 
 ## Commandes utiles

@@ -654,6 +654,18 @@ inboxListener = InboxListener ? new InboxListener({
       log.warn('inbox-manager', 'CRM update echoue:', e.message);
     }
 
+    // === 3a-bis. FEEDBACK LOOP : si ce prospect a recu un auto-reply, tracker l'effectiveness ===
+    try {
+      const inboxStorageFB = require('../skills/inbox-manager/storage.js');
+      const effectiveness = (sentiment === 'interested') ? 'effective' : (sentiment === 'not_interested' ? 'ineffective' : null);
+      if (effectiveness) {
+        const updated = inboxStorageFB.markAutoReplyEffectiveness(replyData.from, effectiveness);
+        if (updated) {
+          log.info('inbox-manager', 'Feedback loop: auto-reply ' + updated.id + ' marque ' + effectiveness + ' (re-reponse ' + sentiment + ' de ' + replyData.from + ')');
+        }
+      }
+    } catch (fbErr) { /* feedback loop non bloquante */ }
+
     // === 3b. SMART AUTO-REPLY : le bot gere les objections simples, delegue le reste ===
     let autoReplyHandled = false;
     const autoReplyEnabled = process.env.AUTO_REPLY_ENABLED !== 'false';
@@ -723,7 +735,10 @@ inboxListener = InboxListener ? new InboxListener({
                   const epQG = apConfigQG.emailPreferences || {};
                   if (epQG.forbiddenWords && epQG.forbiddenWords.length > 0) {
                     const arText = (autoReply.subject + ' ' + autoReply.body).toLowerCase();
-                    const found = epQG.forbiddenWords.filter(w => arText.includes(w.toLowerCase()));
+                    const found = epQG.forbiddenWords.filter(w => {
+                      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      return new RegExp('\\b' + escaped + '\\b', 'i').test(arText);
+                    });
                     if (found.length > 0) {
                       log.warn('inbox-manager', 'AUTO-REPLY BLOQUE (mots interdits: ' + found.join(', ') + ') pour ' + replyData.from);
                       autoReplyBlocked = true;
@@ -788,7 +803,7 @@ inboxListener = InboxListener ? new InboxListener({
           else if (sentiment === 'question' && score >= 0.4 && score <= 0.65) {
             // Verifier que ce n'est pas un email forwarde ou trop long (question complexe)
             const snippetLen = (replyData.snippet || '').length;
-            if (snippetLen < 500) {
+            if (snippetLen < 1500) {
               const autoReply = await generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
 
               if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
@@ -800,7 +815,10 @@ inboxListener = InboxListener ? new InboxListener({
                   const epQG2 = apConfigQG2.emailPreferences || {};
                   if (epQG2.forbiddenWords && epQG2.forbiddenWords.length > 0) {
                     const qrText = (autoReply.subject + ' ' + autoReply.body).toLowerCase();
-                    const qrFound = epQG2.forbiddenWords.filter(w => qrText.includes(w.toLowerCase()));
+                    const qrFound = epQG2.forbiddenWords.filter(w => {
+                      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      return new RegExp('\\b' + escaped + '\\b', 'i').test(qrText);
+                    });
                     if (qrFound.length > 0) {
                       log.warn('inbox-manager', 'AUTO-REPLY question BLOQUE (mots interdits: ' + qrFound.join(', ') + ') pour ' + replyData.from);
                       qReplyBlocked = true;
