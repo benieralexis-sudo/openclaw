@@ -255,6 +255,14 @@ class ProactiveStorage {
     });
     if (existsSent) return null;
 
+    // OOO follow-ups peuvent etre a 2-4 semaines → expiresAt = scheduledAfter + 7 jours
+    const isOOO = !!followUp.isOOO;
+    let expiresAt;
+    if (isOOO && followUp.scheduledAfter) {
+      expiresAt = new Date(new Date(followUp.scheduledAfter).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    } else {
+      expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+    }
     const entry = {
       id: this._generateId(),
       prospectEmail: followUp.prospectEmail,
@@ -265,8 +273,9 @@ class ProactiveStorage {
       originalBody: followUp.originalBody || '',
       prospectIntel: followUp.prospectIntel || '',
       scheduledAfter: followUp.scheduledAfter,
+      isOOO: isOOO,
       createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+      expiresAt: expiresAt,
       retryCount: 0,
       lastBlockedReason: null,
       status: 'pending'

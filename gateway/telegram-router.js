@@ -897,7 +897,7 @@ inboxListener = InboxListener ? new InboxListener({
                 scheduledFollowUpAt: scheduledDate
               });
 
-              // Creer un follow-up dans proactive-agent
+              // Creer un follow-up dans proactive-agent (flag OOO pour bypasser le guard "replied")
               try {
                 const proactiveStorage = require('../skills/proactive-agent/storage.js');
                 proactiveStorage.addPendingFollowUp({
@@ -907,7 +907,8 @@ inboxListener = InboxListener ? new InboxListener({
                   originalSubject: (originalEmail && originalEmail.subject) || '',
                   originalBody: (originalEmail && originalEmail.body || '').substring(0, 300),
                   prospectIntel: 'OOO detecte. Retour prevu: ' + (returnDate || 'inconnu') + '. Reschedule automatique.',
-                  scheduledAfter: scheduledDate
+                  scheduledAfter: scheduledDate,
+                  isOOO: true
                 });
               } catch (e) { log.warn('inbox-manager', 'Follow-up proactif OOO echoue:', e.message); }
 

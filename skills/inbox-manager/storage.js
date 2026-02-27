@@ -11,7 +11,7 @@ class InboxManagerStorage {
     this.data = {
       config: {
         enabled: false,
-        pollIntervalMs: 120000, // 2 minutes
+        pollIntervalMs: 60000, // 1 minute (reduit la fenetre de race condition)
         lastCheckedAt: null,
         autoReplyEnabled: true,
         replyBySentiment: {

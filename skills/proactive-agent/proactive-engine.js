@@ -1329,10 +1329,11 @@ class ProactiveEngine {
         continue;
       }
 
-      // Max 20 retries (~3h20 de cycles de 10 min)
-      if ((followUp.retryCount || 0) >= 20) {
-        log.warn('proactive-engine', 'Reactive FU MAX RETRIES (20): ' + followUp.prospectEmail + ' — derniere raison: ' + (followUp.lastBlockedReason || '?'));
-        storage.markFollowUpExpired(followUp.id, 'max_retries_20 (last: ' + (followUp.lastBlockedReason || 'none') + ')');
+      // Max retries : OOO follow-ups ont un TTL long (semaines), donc limite haute
+      const maxRetries = followUp.isOOO ? 500 : 20;
+      if ((followUp.retryCount || 0) >= maxRetries) {
+        log.warn('proactive-engine', 'Reactive FU MAX RETRIES (' + maxRetries + '): ' + followUp.prospectEmail + ' — derniere raison: ' + (followUp.lastBlockedReason || '?'));
+        storage.markFollowUpExpired(followUp.id, 'max_retries_' + maxRetries + ' (last: ' + (followUp.lastBlockedReason || 'none') + ')');
         continue;
       }
 
@@ -1374,8 +1375,9 @@ class ProactiveEngine {
         }
 
         // Verifier si le prospect a repondu ou bounce
+        // EXCEPTION : les follow-ups OOO sont autorises malgre le flag "replied" (le reply EST l'OOO)
         const emailEvents = amStorage.getEmailEventsForRecipient(followUp.prospectEmail);
-        if (emailEvents.some(e => e.status === 'replied' || e.hasReplied)) {
+        if (!followUp.isOOO && emailEvents.some(e => e.status === 'replied' || e.hasReplied)) {
           log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' a repondu — annule');
           storage.markFollowUpFailed(followUp.id, 'already_replied');
           continue;
