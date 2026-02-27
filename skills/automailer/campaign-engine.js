@@ -26,7 +26,11 @@ function _checkEmailSpecificity(body, subject, prospectIntel) {
   // 2. Chiffre specifique
   const intelNums = intelText.match(/\d{2,}/g) || [];
   const emailNums = emailText.match(/\d{2,}/g) || [];
-  const shared = emailNums.filter(n => intelNums.includes(n) && parseInt(n) > 3 && parseInt(n) < 100000);
+  const currentYear = new Date().getFullYear();
+  const shared = emailNums.filter(n => {
+    const num = parseInt(n);
+    return intelNums.includes(n) && num > 3 && num < 100000 && !(num >= currentYear - 5 && num <= currentYear + 5);
+  });
   if (shared.length > 0) facts.push('chiffre:' + shared[0]);
   // 3. Technologie
   const techMatch = intelText.match(/STACK TECHNIQUE:\s*([^\n]+)/);
@@ -771,10 +775,12 @@ class CampaignEngine {
       let subject = step.subjectTemplate;
       let body = step.bodyTemplate;
       const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+      let currentProspectIntel = ''; // Pour A/B variant B context
 
       if (stepNumber > 1) {
         // === RELANCES : generation individuelle avec brief complet ===
         const prospectIntel = this._getProspectIntel(contact.email);
+        currentProspectIntel = prospectIntel || '';
 
         if (prospectIntel) {
           try {
@@ -826,6 +832,7 @@ class CampaignEngine {
       } else {
         // === STEP 1 : brief prospect si dispo, sinon template + personalizeEmail ===
         const step1Intel = this._getProspectIntel(contact.email);
+        currentProspectIntel = step1Intel || '';
         if (step1Intel && this.claude.generateSingleEmail) {
           try {
             const campaignCtx = campaign.context || campaign.name || 'prospection B2B';
@@ -922,7 +929,7 @@ class CampaignEngine {
       // A/B variants : B = body+sujet alternatif (nouvel angle), C = sujet alternatif + body original
       if (abVariant === 'B') {
         try {
-          const prospectCtx = prospectIntel || '';
+          const prospectCtx = currentProspectIntel || '';
           const bodyVariant = await this.claude.generateBodyVariant(body, subject, prospectCtx);
           if (bodyVariant && bodyVariant.body && bodyVariant.subject) {
             subject = bodyVariant.subject;
@@ -964,17 +971,27 @@ class CampaignEngine {
       }
 
       // Validation programmatique : word count + forbidden words (word boundary)
+      // Word count + subject length toujours verifies (independant de AP storage)
+      const validationBase = validateEmailOutput(subject, body, { forbiddenWords: [] });
+      if (!validationBase.pass) {
+        log.warn('campaign-engine', 'Validation base FAIL pour ' + contact.email + ': ' + validationBase.reasons.join(', ') + ' — skip');
+        skipped++;
+        continue;
+      }
+      // Forbidden words depuis AP storage (non bloquant si indisponible)
       try {
         const apStorage = require('../autonomous-pilot/storage.js');
         const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
         const ep = apConfig.emailPreferences || {};
-        const validation = validateEmailOutput(subject, body, { forbiddenWords: ep.forbiddenWords || [] });
-        if (!validation.pass) {
-          log.warn('campaign-engine', 'Validation programmatique FAIL pour ' + contact.email + ': ' + validation.reasons.join(', ') + ' — skip');
-          skipped++;
-          continue;
+        if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+          const validationFw = validateEmailOutput(subject, body, { forbiddenWords: ep.forbiddenWords });
+          if (!validationFw.pass) {
+            log.warn('campaign-engine', 'Forbidden words FAIL pour ' + contact.email + ': ' + validationFw.reasons.join(', ') + ' — skip');
+            skipped++;
+            continue;
+          }
         }
-      } catch (valErr) { /* validation non bloquante si AP storage indisponible */ }
+      } catch (valErr) { /* AP storage indisponible — word count deja verifie ci-dessus */ }
 
       // Ajouter lien booking Cal.eu dans les relances (step 2+)
       if (stepNumber >= 2) {
@@ -1423,6 +1440,15 @@ class CampaignEngine {
         continue;
       }
 
+      // Re-verifier quality gates (forbiddenWords/patterns ont pu etre mis a jour)
+      const retryQg = _emailPassesQualityGate(email.subject, email.body);
+      if (!retryQg.pass) {
+        log.warn('campaign-engine', 'Retry quality gate FAIL ' + email.to + ': ' + retryQg.reason + ' — abandon');
+        storage.markRetryAttempt(email.id, false, null);
+        gaveUp++;
+        continue;
+      }
+
       retried++;
       try {
         // Threading : recuperer messageId precedent pour ce prospect
@@ -1487,4 +1513,5 @@ class CampaignEngine {
 
 CampaignEngine.checkMX = _checkMX;
 CampaignEngine.emailPassesQualityGate = _emailPassesQualityGate;
+CampaignEngine.subjectPassesGate = _subjectPassesGate;
 module.exports = CampaignEngine;

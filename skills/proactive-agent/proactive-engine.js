@@ -1610,6 +1610,32 @@ class ProactiveEngine {
           log.info('proactive-engine', 'Reactive FU: quality gate patterns check skip: ' + qgErr.message);
         }
 
+        // 2f. Subject gate : patterns interdits dans l'objet
+        try {
+          const CE = getCampaignEngine();
+          if (CE && CE.subjectPassesGate) {
+            const sg = CE.subjectPassesGate(subject);
+            if (!sg.pass) {
+              log.warn('proactive-engine', 'Reactive FU: subject gate FAIL pour ' + followUp.prospectEmail + ': ' + sg.reason);
+              storage.markFollowUpFailed(followUp.id, 'subject_gate: ' + sg.reason);
+              continue;
+            }
+          }
+        } catch (sgErr) {}
+
+        // 2g. Word count gate : 10-60 mots (meme que campaign-engine)
+        const bodyWords = (body || '').split(/\s+/).filter(w => w.length > 0).length;
+        if (bodyWords > 60) {
+          log.warn('proactive-engine', 'Reactive FU: word count FAIL pour ' + followUp.prospectEmail + ': ' + bodyWords + ' mots (max 60)');
+          storage.markFollowUpFailed(followUp.id, 'word_count:' + bodyWords);
+          continue;
+        }
+        if (bodyWords < 10) {
+          log.warn('proactive-engine', 'Reactive FU: word count FAIL pour ' + followUp.prospectEmail + ': ' + bodyWords + ' mots (min 10)');
+          storage.markFollowUpFailed(followUp.id, 'word_count_low:' + bodyWords);
+          continue;
+        }
+
         // 3. Validation mots interdits
         try {
           const apStorage = getAPStorage();

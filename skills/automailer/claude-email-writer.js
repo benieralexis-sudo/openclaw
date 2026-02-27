@@ -151,6 +151,7 @@ Un cold email parfait = 2 ELEMENTS et RIEN D'AUTRE :
 
 30-50 mots MAXIMUM. Pas 51. Pas 60. Pas 80. TRENTE A CINQUANTE.
 ZERO analyse. ZERO lecon. ZERO explication. Tu CONSTATES un fait, tu POSES une question. POINT.
+ANTI-HALLUCINATION : N'invente JAMAIS un fait. Si un chiffre, un client, un evenement n'apparait PAS dans les donnees prospect, tu ne le cites PAS. Tu ne devines pas. Tu ne brodes pas. Chaque fait doit etre tracable dans les DONNEES PROSPECT ci-dessous.
 Si entre le fait et la question tu as envie d'ecrire un paragraphe qui commence par "Ce type de...", "Le vrai cap...", "Ce qui distingue..." → SUPPRIME-LE. Le prospect n'a pas besoin de ton analyse de son business.
 
 === HIERARCHIE DES DONNEES (UTILISE LA MEILLEURE DISPO) ===
@@ -189,7 +190,7 @@ UNE question courte qui donne envie de repondre. Formats :
 - Binaire : "Timing choisi ou impose ?"
 - Contextuelle : "Ca donne quoi depuis ?"
 
-REGLE ABSOLUE : 30-50 mots. Si tu depasses 50 mots, COUPE. Coupe le paragraphe d'analyse. Coupe la deuxieme phrase du bloc 1. Coupe l'explication. L'email parfait fait 25-35 mots.
+REGLE ABSOLUE : 30-50 mots. Si tu depasses 50 mots, COUPE. Coupe le paragraphe d'analyse. Coupe la deuxieme phrase du bloc 1. Coupe l'explication. Vise 35 mots.
 
 TEST MENTAL : si tu retires les 2 phrases du milieu et que l'email est MEILLEUR → elles n'auraient jamais du etre la.
 
@@ -268,10 +269,6 @@ INTERDITS partout :
 Si le contexte contient "ANGLES DEJA UTILISES" → angle COMPLETEMENT DIFFERENT.
 Axes possibles : produit, clients, expansion geo, recrutement, techno, partenariats, concurrence, news, personne.
 
-=== CONTEXTE SECTORIEL ===
-Si fourni : mentionne que d'autres acteurs du secteur s'y interessent — JAMAIS les nommer.
-Subtil, pas en argument principal : "on echange avec pas mal d'acteurs de [secteur] en ce moment".
-
 === OBJET ===
 - 2-4 mots, minuscules, comme un texto entre collegues
 - Contient le prenom OU l'entreprise
@@ -337,8 +334,8 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
         best._scoreReason = score.reason;
       }
     }
-    // Apres retries : envoyer si >= 7, sinon skip
-    if (bestScore >= 7) return best;
+    // Apres retries : envoyer si >= 8, sinon skip
+    if (bestScore >= 8) return best;
     return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
   }
 
@@ -382,8 +379,26 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
       if (parsed && typeof parsed.note === 'number') {
         return { note: Math.min(10, Math.max(1, Math.round(parsed.note))), reason: parsed.reason || '' };
       }
-    } catch (e) { /* scoring echoue → passer quand meme */ }
-    return { note: 7, reason: 'scoring_unavailable' }; // default si scoring echoue
+    } catch (e) { /* scoring echoue → score bas pour forcer prudence */ }
+    return { note: 5, reason: 'scoring_unavailable' }; // default prudent si scoring echoue
+  }
+
+  // Score leger pour les follow-ups/relances (pas de retry, juste reject si trop bas)
+  async _scoreAndFilter(parsed, contact) {
+    if (!parsed || parsed.skip) return parsed;
+    try {
+      // Gate programmatique rapide : rejet automatique si > 60 mots (sans appeler le scorer)
+      const wordCount = (parsed.body || '').split(/\s+/).filter(w => w.length > 0).length;
+      if (wordCount > 60) {
+        return { skip: true, reason: 'too_many_words:' + wordCount + ' (max 60)' };
+      }
+      const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
+      if (score.note >= 8) return parsed;
+      return { skip: true, reason: 'auto_score_too_low:' + score.note + '/10 (' + (score.reason || '?') + ')' };
+    } catch (e) {
+      // Si le scoring plante, laisser passer (les quality gates en aval filtreront)
+      return parsed;
+    }
   }
 
   async generateSequenceEmails(contact, campaignContext, totalEmails, options) {
@@ -473,7 +488,7 @@ INTERDITS ABSOLUS (TEMPLATES GENERIQUES) :
 - Chaque relance DOIT citer un fait SPECIFIQUE du prospect (news, chiffre, client, techno, produit, interview).
 
 REGLES :
-- 50-80 mots par relance. Le breakup = 2 lignes MAX. ZERO paragraphe analytique.
+- 30-50 mots par relance (JAMAIS plus de 50). Le breakup = 2 lignes MAX. ZERO paragraphe analytique.
 - Tutoiement startup/PME, vouvoiement corporate
 - JAMAIS : "je me permets", "suite a", "beau move", "potentiellement", "curieux" (max 1x sur 4)
 ${meetingCTARule}
@@ -613,7 +628,8 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
       systemPrompt,
       1500
     );
-    return this._parseJSON(response);
+    const parsed = this._parseJSON(response);
+    return this._scoreAndFilter(parsed, contact);
   }
 
   /**
@@ -739,7 +755,10 @@ Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base s
       systemPrompt,
       isBreakup ? 500 : 1000
     );
-    return this._parseJSON(response);
+    const parsed = this._parseJSON(response);
+    // Breakups (2 lignes) ne passent pas par le scoring — trop courts
+    if (isBreakup) return parsed;
+    return this._scoreAndFilter(parsed, contact);
   }
 
   async editEmail(currentEmail, instruction) {
@@ -825,7 +844,7 @@ REGLES :
 
 REGLES STRICTES :
 - Meme structure : 2 blocs (observation + question). Pas plus.
-- Meme longueur approximative (50-80 mots)
+- 30-50 mots max (JAMAIS plus de 50)
 - NOUVEL ANGLE : si l'original parle de news, utilise le stack technique. Si l'original cite un client, parle du positionnement. Etc.
 - Garde le tutoiement/vouvoiement de l'original
 - Pas de signature (ajoutee automatiquement)
@@ -849,6 +868,9 @@ Genere une variante A/B avec un angle different. JSON uniquement.`;
       );
       const parsed = this._parseJSON(response);
       if (parsed && parsed.body && parsed.subject && !parsed.skip) {
+        // Gate programmatique : rejet si > 60 mots
+        const wc = (parsed.body || '').split(/\s+/).filter(w => w.length > 0).length;
+        if (wc > 60) return null;
         return { subject: parsed.subject, body: parsed.body };
       }
     } catch (e) { /* fallback : retourne null */ }

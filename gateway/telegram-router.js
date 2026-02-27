@@ -746,6 +746,27 @@ inboxListener = InboxListener ? new InboxListener({
                   }
                 } catch (qgErr) { log.info('inbox-manager', 'Quality gate check skip: ' + qgErr.message); }
 
+                // Quality gate patterns + word count (meme gates que campagnes)
+                if (!autoReplyBlocked) {
+                  try {
+                    const CE = require('../skills/automailer/campaign-engine.js');
+                    if (CE.emailPassesQualityGate) {
+                      const qg = CE.emailPassesQualityGate(autoReply.subject, autoReply.body);
+                      if (!qg.pass) {
+                        log.warn('inbox-manager', 'AUTO-REPLY BLOQUE (quality gate: ' + qg.reason + ') pour ' + replyData.from);
+                        autoReplyBlocked = true;
+                      }
+                    }
+                  } catch (qgPatErr) {}
+                }
+                if (!autoReplyBlocked) {
+                  const arWordCount = (autoReply.body || '').split(/\s+/).filter(w => w.length > 0).length;
+                  if (arWordCount > 80 || arWordCount < 8) {
+                    log.warn('inbox-manager', 'AUTO-REPLY BLOQUE (word count: ' + arWordCount + ') pour ' + replyData.from);
+                    autoReplyBlocked = true;
+                  }
+                }
+
                 if (!autoReplyBlocked) {
                 // Envoyer la reponse auto via Gmail SMTP
                 try {
@@ -825,6 +846,27 @@ inboxListener = InboxListener ? new InboxListener({
                     }
                   }
                 } catch (qgErr2) { log.info('inbox-manager', 'Quality gate question check skip: ' + qgErr2.message); }
+
+                // Quality gate patterns + word count
+                if (!qReplyBlocked) {
+                  try {
+                    const CE2 = require('../skills/automailer/campaign-engine.js');
+                    if (CE2.emailPassesQualityGate) {
+                      const qg2 = CE2.emailPassesQualityGate(autoReply.subject, autoReply.body);
+                      if (!qg2.pass) {
+                        log.warn('inbox-manager', 'AUTO-REPLY question BLOQUE (quality gate: ' + qg2.reason + ') pour ' + replyData.from);
+                        qReplyBlocked = true;
+                      }
+                    }
+                  } catch (qgPatErr2) {}
+                }
+                if (!qReplyBlocked) {
+                  const qrWordCount = (autoReply.body || '').split(/\s+/).filter(w => w.length > 0).length;
+                  if (qrWordCount > 80 || qrWordCount < 8) {
+                    log.warn('inbox-manager', 'AUTO-REPLY question BLOQUE (word count: ' + qrWordCount + ') pour ' + replyData.from);
+                    qReplyBlocked = true;
+                  }
+                }
 
                 if (!qReplyBlocked) {
                 try {
