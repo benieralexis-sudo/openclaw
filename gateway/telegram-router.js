@@ -665,7 +665,18 @@ inboxListener = InboxListener ? new InboxListener({
         const inboxStorage = require('../skills/inbox-manager/storage.js');
         const todayCount = inboxStorage.getTodayAutoReplyCount();
 
-        if (todayCount < autoReplyMaxPerDay) {
+        // CHECK WARMUP GLOBAL : auto-replies comptent dans le warmup domaine
+        const { getWarmupDailyLimit } = require('./utils.js');
+        const warmupSentToday = automailerStorageForInbox.getTodaySendCount();
+        const firstSendDate = automailerStorageForInbox.getFirstSendDate ? automailerStorageForInbox.getFirstSendDate() : null;
+        const warmupDailyLimit = getWarmupDailyLimit(firstSendDate);
+        const warmupOk = warmupSentToday < warmupDailyLimit;
+
+        if (!warmupOk) {
+          log.info('inbox-manager', 'AUTO-REPLY bloque par warmup global (' + warmupSentToday + '/' + warmupDailyLimit + ')');
+        }
+
+        if (todayCount < autoReplyMaxPerDay && warmupOk) {
           // Recuperer l'email original envoye a ce prospect
           let originalEmail = null;
           let originalMessageId = null;
@@ -704,6 +715,23 @@ inboxListener = InboxListener ? new InboxListener({
               const autoReply = await generateObjectionReply(callClaude, replyData, classification, subClass, originalEmail, clientContext);
 
               if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
+                // Quality gate : mots interdits + patterns generiques
+                let autoReplyBlocked = false;
+                try {
+                  const apStorageQG = require('../skills/autonomous-pilot/storage.js');
+                  const apConfigQG = apStorageQG.getConfig ? apStorageQG.getConfig() : {};
+                  const epQG = apConfigQG.emailPreferences || {};
+                  if (epQG.forbiddenWords && epQG.forbiddenWords.length > 0) {
+                    const arText = (autoReply.subject + ' ' + autoReply.body).toLowerCase();
+                    const found = epQG.forbiddenWords.filter(w => arText.includes(w.toLowerCase()));
+                    if (found.length > 0) {
+                      log.warn('inbox-manager', 'AUTO-REPLY BLOQUE (mots interdits: ' + found.join(', ') + ') pour ' + replyData.from);
+                      autoReplyBlocked = true;
+                    }
+                  }
+                } catch (qgErr) { log.info('inbox-manager', 'Quality gate check skip: ' + qgErr.message); }
+
+                if (!autoReplyBlocked) {
                 // Envoyer la reponse auto via Gmail SMTP
                 try {
                   const ResendClient = require('../skills/automailer/resend-client.js');
@@ -716,7 +744,10 @@ inboxListener = InboxListener ? new InboxListener({
 
                   if (sendResult && sendResult.success) {
                     autoReplyHandled = true;
-                    log.info('inbox-manager', 'AUTO-REPLY envoye a ' + replyData.from + ' (objection: ' + subClass.objectionType + ')');
+                    // Incrementer warmup global (auto-reply = email sortant)
+                    if (automailerStorageForInbox.setFirstSendDate) automailerStorageForInbox.setFirstSendDate();
+                    automailerStorageForInbox.incrementTodaySendCount();
+                    log.info('inbox-manager', 'AUTO-REPLY envoye a ' + replyData.from + ' (objection: ' + subClass.objectionType + ', warmup: ' + automailerStorageForInbox.getTodaySendCount() + '/' + warmupDailyLimit + ')');
 
                     // Tracker dans storage
                     inboxStorage.addAutoReply({
@@ -748,6 +779,7 @@ inboxListener = InboxListener ? new InboxListener({
                 } catch (sendErr) {
                   log.warn('inbox-manager', 'Envoi auto-reply echoue:', sendErr.message);
                 }
+                } // fin if (!autoReplyBlocked)
               }
             }
           }
@@ -760,6 +792,23 @@ inboxListener = InboxListener ? new InboxListener({
               const autoReply = await generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
 
               if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
+                // Quality gate : mots interdits
+                let qReplyBlocked = false;
+                try {
+                  const apStorageQG2 = require('../skills/autonomous-pilot/storage.js');
+                  const apConfigQG2 = apStorageQG2.getConfig ? apStorageQG2.getConfig() : {};
+                  const epQG2 = apConfigQG2.emailPreferences || {};
+                  if (epQG2.forbiddenWords && epQG2.forbiddenWords.length > 0) {
+                    const qrText = (autoReply.subject + ' ' + autoReply.body).toLowerCase();
+                    const qrFound = epQG2.forbiddenWords.filter(w => qrText.includes(w.toLowerCase()));
+                    if (qrFound.length > 0) {
+                      log.warn('inbox-manager', 'AUTO-REPLY question BLOQUE (mots interdits: ' + qrFound.join(', ') + ') pour ' + replyData.from);
+                      qReplyBlocked = true;
+                    }
+                  }
+                } catch (qgErr2) { log.info('inbox-manager', 'Quality gate question check skip: ' + qgErr2.message); }
+
+                if (!qReplyBlocked) {
                 try {
                   const ResendClient = require('../skills/automailer/resend-client.js');
                   const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
@@ -771,7 +820,10 @@ inboxListener = InboxListener ? new InboxListener({
 
                   if (sendResult && sendResult.success) {
                     autoReplyHandled = true;
-                    log.info('inbox-manager', 'AUTO-REPLY question envoye a ' + replyData.from);
+                    // Incrementer warmup global (auto-reply = email sortant)
+                    if (automailerStorageForInbox.setFirstSendDate) automailerStorageForInbox.setFirstSendDate();
+                    automailerStorageForInbox.incrementTodaySendCount();
+                    log.info('inbox-manager', 'AUTO-REPLY question envoye a ' + replyData.from + ' (warmup: ' + automailerStorageForInbox.getTodaySendCount() + '/' + warmupDailyLimit + ')');
 
                     inboxStorage.addAutoReply({
                       prospectEmail: replyData.from,
@@ -801,6 +853,7 @@ inboxListener = InboxListener ? new InboxListener({
                 } catch (sendErr) {
                   log.warn('inbox-manager', 'Envoi auto-reply question echoue:', sendErr.message);
                 }
+                } // fin if (!qReplyBlocked)
               }
             }
           }
@@ -1826,6 +1879,13 @@ async function handleCallback(update) {
     const prospectEmail = data.replace('bl_prospect_', '');
     try {
       automailerStorage.addToBlacklist(prospectEmail, 'manual_blacklist_telegram');
+      // Marquer hasReplied=true sur TOUS les emails du prospect (bloque campagnes)
+      const allEmails = automailerStorage.getEmailEventsForRecipient(prospectEmail);
+      for (const em of allEmails) {
+        if (em.id && !em.hasReplied) {
+          automailerStorage.updateEmailStatus(em.id, em.status || 'sent', { hasReplied: true, blacklistedAt: new Date().toISOString() });
+        }
+      }
       // Annuler toutes les reactive FU pending pour ce prospect
       const pendingFUs = proactiveAgentStorage.getPendingFollowUps();
       let cancelled = 0;
@@ -1835,7 +1895,7 @@ async function handleCallback(update) {
           cancelled++;
         }
       }
-      await sendMessage(chatId, '🚫 *' + prospectEmail + '* blackliste.\n' + (cancelled > 0 ? cancelled + ' relance(s) en attente annulee(s).' : 'Aucune relance en attente.') + '\n_Plus aucun email ne sera envoye a ce prospect._', 'Markdown');
+      await sendMessage(chatId, '🚫 *' + prospectEmail + '* blackliste.\n' + (cancelled > 0 ? cancelled + ' relance(s) annulee(s).' : '') + '\n_Blacklist + campagnes stoppees. Plus aucun email ne sera envoye._', 'Markdown');
       log.info('router', 'Prospect blackliste via Telegram: ' + prospectEmail + ' (+ ' + cancelled + ' FU annulees)');
     } catch (e) {
       log.error('router', 'Erreur blacklist prospect:', e.message);

@@ -505,16 +505,25 @@ Format JSON strict :
     // Signature ajoutee automatiquement par resend-client.js (HTML minimal)
     context += '\nSIGNATURE: NE PAS ajouter de signature — elle est ajoutee automatiquement apres le corps du mail.';
 
-    try {
-      const email = await writer.generateSingleEmail(contact, context);
-      return {
-        success: true,
-        email: email,
-        summary: 'Email genere pour ' + (contact.email || 'inconnu') + ': "' +
-          (email.subject || '').substring(0, 50) + '"'
-      };
-    } catch (e) {
-      return { success: false, error: 'Generation email echouee: ' + e.message };
+    // Generation avec retry (max 2 tentatives sur erreur Claude API)
+    const MAX_GEN_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_GEN_RETRIES; attempt++) {
+      try {
+        const email = await writer.generateSingleEmail(contact, context);
+        return {
+          success: true,
+          email: email,
+          summary: 'Email genere pour ' + (contact.email || 'inconnu') + ': "' +
+            (email.subject || '').substring(0, 50) + '"'
+        };
+      } catch (e) {
+        if (attempt < MAX_GEN_RETRIES) {
+          log.warn('action-executor', 'Claude API erreur (retry ' + (attempt + 1) + '/' + MAX_GEN_RETRIES + '): ' + e.message);
+          await new Promise(r => setTimeout(r, (attempt + 1) * 2000)); // backoff 2s, 4s
+        } else {
+          return { success: false, error: 'Generation email echouee apres ' + (MAX_GEN_RETRIES + 1) + ' tentatives: ' + e.message };
+        }
+      }
     }
   }
 
@@ -990,11 +999,20 @@ Format JSON strict :
     const trackingId = crypto.randomBytes(16).toString('hex');
 
     try {
+      // Threading : recuperer messageId precedent pour ce prospect
+      const sendOpts = { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId };
+      if (amStorage) {
+        const prevMsgId = amStorage.getMessageIdForRecipient(params.to);
+        if (prevMsgId) {
+          sendOpts.inReplyTo = prevMsgId;
+          sendOpts.references = prevMsgId;
+        }
+      }
       const result = await getBreaker('gmail-smtp', { failureThreshold: 3, cooldownMs: 60000 }).call(() => resend.sendEmail(
         params.to,
         params.subject,
         params.body,
-        { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId }
+        sendOpts
       ));
 
       if (result.success) {
@@ -1009,6 +1027,7 @@ Format JSON strict :
             subject: params.subject,
             body: params.body,
             resendId: result.id || null,
+            messageId: result.messageId || null,
             trackingId: trackingId,
             status: 'sent',
             source: 'autonomous-pilot',

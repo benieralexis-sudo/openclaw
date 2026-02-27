@@ -1386,6 +1386,14 @@ class ProactiveEngine {
           continue;
         }
 
+        // Guard sentiment : pas de relance si not_interested confirme
+        const sentimentData = amStorage.getSentiment ? amStorage.getSentiment(followUp.prospectEmail) : null;
+        if (sentimentData && sentimentData.sentiment === 'not_interested' && sentimentData.score >= 0.3) {
+          log.info('proactive-engine', 'Reactive FU: ' + followUp.prospectEmail + ' sentiment not_interested (score ' + sentimentData.score + ') — annule');
+          storage.markFollowUpFailed(followUp.id, 'sentiment_not_interested');
+          continue;
+        }
+
         // Rate limiting inter-campagne : max 2 emails/72h par contact
         const cutoff72h = Date.now() - 72 * 60 * 60 * 1000;
         const recentSent = emailEvents.filter(e => {
@@ -1528,15 +1536,35 @@ class ProactiveEngine {
           }
         }
 
-        const generated = await writer.generateReactiveFollowUp(
-          contact,
-          { subject: followUp.originalSubject, body: followUp.originalBody },
-          enrichedIntel
-        );
+        // Generation avec retry (max 2 tentatives sur erreur Claude API)
+        let generated = null;
+        let genRetries = 0;
+        const MAX_GEN_RETRIES = 2;
+        while (genRetries <= MAX_GEN_RETRIES) {
+          try {
+            generated = await writer.generateReactiveFollowUp(
+              contact,
+              { subject: followUp.originalSubject, body: followUp.originalBody },
+              enrichedIntel
+            );
+            break; // succes
+          } catch (genErr) {
+            genRetries++;
+            if (genRetries > MAX_GEN_RETRIES) {
+              log.error('proactive-engine', 'Reactive FU: Claude API FAIL apres ' + MAX_GEN_RETRIES + ' retries pour ' + followUp.prospectEmail + ': ' + genErr.message);
+              storage.incrementFollowUpRetry(followUp.id, 'claude_api_error: ' + genErr.message);
+              break;
+            }
+            log.warn('proactive-engine', 'Reactive FU: Claude API erreur (retry ' + genRetries + '/' + MAX_GEN_RETRIES + '): ' + genErr.message);
+            await new Promise(r => setTimeout(r, genRetries * 2000)); // backoff 2s, 4s
+          }
+        }
 
         if (!generated || generated.skip) {
-          log.info('proactive-engine', 'Reactive FU: generation skippee pour ' + followUp.prospectEmail);
-          storage.markFollowUpFailed(followUp.id, 'generation_skipped');
+          if (generated && generated.skip) {
+            log.info('proactive-engine', 'Reactive FU: generation skippee pour ' + followUp.prospectEmail);
+            storage.markFollowUpFailed(followUp.id, 'generation_skipped');
+          }
           continue;
         }
 
@@ -1613,11 +1641,18 @@ class ProactiveEngine {
         const crypto = require('crypto');
         const trackingId = crypto.randomBytes(16).toString('hex');
 
+        // Threading : recuperer messageId precedent pour ce prospect
+        const fuSendOpts = { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId };
+        const prevFuMsgId = amStorage.getMessageIdForRecipient ? amStorage.getMessageIdForRecipient(followUp.prospectEmail) : null;
+        if (prevFuMsgId) {
+          fuSendOpts.inReplyTo = prevFuMsgId;
+          fuSendOpts.references = prevFuMsgId;
+        }
         const sendResult = await resend.sendEmail(
           followUp.prospectEmail,
           subject,
           body,
-          { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId }
+          fuSendOpts
         );
 
         if (sendResult.success) {
@@ -1628,6 +1663,7 @@ class ProactiveEngine {
             subject: subject,
             body: body,
             resendId: sendResult.id || null,
+            messageId: sendResult.messageId || null,
             trackingId: trackingId,
             status: 'sent',
             source: 'reactive-followup',

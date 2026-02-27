@@ -810,7 +810,8 @@ class CampaignEngine {
       // Generer un tracking ID unique pour le pixel d'ouverture
       const trackingId = require('crypto').randomBytes(16).toString('hex');
 
-      const result = await this.resend.sendEmail(contact.email, subject, body, {
+      // Threading : recuperer le messageId du dernier email envoye a ce prospect
+      const sendOpts = {
         replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
         fromName: process.env.SENDER_NAME || 'Alexis',
         trackingId: trackingId,
@@ -818,7 +819,16 @@ class CampaignEngine {
           { name: 'campaign_id', value: campaignId },
           { name: 'step', value: String(stepNumber) }
         ]
-      });
+      };
+      if (stepNumber > 0) {
+        const prevMessageId = storage.getMessageIdForRecipient(contact.email);
+        if (prevMessageId) {
+          sendOpts.inReplyTo = prevMessageId;
+          sendOpts.references = prevMessageId;
+        }
+      }
+
+      const result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
 
       const emailRecord = {
         chatId: campaign.chatId,
@@ -828,6 +838,7 @@ class CampaignEngine {
         subject: subject,
         body: body,
         resendId: result.success ? result.id : null,
+        messageId: result.success ? (result.messageId || null) : null,
         trackingId: trackingId,
         status: result.success ? 'sent' : 'failed',
         abVariant: abVariant
@@ -1195,7 +1206,8 @@ class CampaignEngine {
 
       retried++;
       try {
-        const result = await this.resend.sendEmail(email.to, email.subject, email.body, {
+        // Threading : recuperer messageId precedent pour ce prospect
+        const retryOpts = {
           replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
           fromName: process.env.SENDER_NAME || 'Alexis',
           trackingId: email.trackingId,
@@ -1203,7 +1215,13 @@ class CampaignEngine {
             { name: 'campaign_id', value: email.campaignId || 'retry' },
             { name: 'retry', value: String((email.retryCount || 0) + 1) }
           ]
-        });
+        };
+        const prevMsgId = storage.getMessageIdForRecipient(email.to);
+        if (prevMsgId) {
+          retryOpts.inReplyTo = prevMsgId;
+          retryOpts.references = prevMsgId;
+        }
+        const result = await this.resend.sendEmail(email.to, email.subject, email.body, retryOpts);
 
         if (result.success) {
           storage.markRetryAttempt(email.id, true, result.id);
