@@ -233,6 +233,11 @@ GENERIQUES A NE JAMAIS REPRODUIRE :
 - "Tu geres la visibilite de tes clients mais toi, tu acquiers des clients comment ?" → META-PROSPECTION
 - "En agence, le pipe passe apres les projets en cours" → BANALITE
 - "Le cordonnier mal chausse" → METAPHORE USEE
+- "[Industrie] vit de recommandations et de reseaux — mais ces canaux ont un plafond" → TEMPLATE GENERIQUE (pas un fait sur EUX)
+- "Comment [Company] genere de nouvelles opportunites ?" → META-PROSPECTION (on VEND ca)
+- "Quand le carnet de contacts est sature..." → TEMPLATE GENERIQUE
+- "Le cercle de prescripteurs est sature..." → TEMPLATE GENERIQUE
+- Toute structure repetable ou le seul changement est le nom de l'industrie/entreprise → C'EST UN TEMPLATE, PAS UN EMAIL PERSONNALISE
 
 === MOTS ET PATTERNS INTERDITS ===
 
@@ -379,6 +384,13 @@ FORMAT DE CHAQUE RELANCE (sauf breakup) — 50-80 mots max :
 
 INTERDIT : le paragraphe d'analyse qui explique au prospect son propre business. Il SAIT. Coupe.
 
+INTERDITS ABSOLUS (TEMPLATES GENERIQUES) :
+- "[Industrie] vit de recommandations et de reseaux" → TEMPLATE
+- "Comment [Company] genere de nouvelles opportunites" → META-PROSPECTION
+- "Ces canaux ont un plafond" / "carnet de contacts sature" → TEMPLATE
+- Toute phrase ou seul le nom de l'industrie/entreprise change entre deux emails → C'EST UN TEMPLATE, PAS UNE RELANCE.
+- Chaque relance DOIT citer un fait SPECIFIQUE du prospect (news, chiffre, client, techno, produit, interview).
+
 REGLES :
 - 50-80 mots par relance. Le breakup = 2 lignes MAX. ZERO paragraphe analytique.
 - Tutoiement startup/PME, vouvoiement corporate
@@ -483,6 +495,12 @@ FORMAT (${emailLengthHint}) :
 2. QUESTION = variee (frontale, provocatrice, binaire, contextuelle)
 
 INTERDIT : paragraphe d'analyse LinkedIn, lecons sur le business du prospect, plus de 80 mots.
+
+INTERDITS ABSOLUS (TEMPLATES GENERIQUES) :
+- "[Industrie] vit de recommandations et de reseaux" → TEMPLATE
+- "Comment [Company] genere de nouvelles opportunites" → META-PROSPECTION
+- "Ces canaux ont un plafond" / "carnet de contacts sature" → TEMPLATE
+- La relance DOIT citer un fait SPECIFIQUE du prospect (news, chiffre, client, techno, produit).
 
 REGLES :
 - ${emailLengthHint}. Ecris comme tu parles. Tutoiement par defaut, vouvoiement si +500 employes.
@@ -601,6 +619,12 @@ FORMAT (${emailLengthHint}) :
 ${isBreakup ? '\nBREAKUP = 2 phrases max. Question fermee. Exploite la loss aversion.' : ''}
 
 INTERDIT : le paragraphe d'analyse LinkedIn qui explique au prospect ce qu'il vit. Il SAIT. Coupe.
+
+INTERDITS ABSOLUS (TEMPLATES GENERIQUES) :
+- "[Industrie] vit de recommandations et de reseaux" → TEMPLATE
+- "Comment [Company] genere de nouvelles opportunites" → META-PROSPECTION
+- "Ces canaux ont un plafond" / "carnet de contacts sature" → TEMPLATE
+- La relance DOIT citer un fait SPECIFIQUE tire des DONNEES PROSPECT ci-dessous.
 
 REGLES :
 - ${emailLengthHint}. ${isBreakup ? '2 LIGNES MAXIMUM.' : ''} Ecris comme tu PARLES.
@@ -736,7 +760,12 @@ ${prospectContext ? '\nDonnees prospect disponibles:\n' + (prospectContext || ''
 Genere une variante A/B avec un angle different. JSON uniquement.`;
 
     try {
-      const response = await this.callOpenAIMini(systemPrompt, userMessage, 800);
+      // Claude Sonnet pour la qualite (meme modele que l'email original — A/B equitable)
+      const response = await this.callClaude(
+        [{ role: 'user', content: userMessage }],
+        systemPrompt,
+        800
+      );
       const parsed = this._parseJSON(response);
       if (parsed && parsed.body && parsed.subject && !parsed.skip) {
         return { subject: parsed.subject, body: parsed.body };

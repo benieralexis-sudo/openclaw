@@ -5,6 +5,80 @@ const net = require('net');
 const log = require('../../gateway/logger.js');
 const { getWarmupDailyLimit, applySpintax, validateEmailOutput, getCityTimezone } = require('../../gateway/utils.js');
 
+// --- Quality gate : specificite email (miroir de action-executor._checkEmailSpecificity) ---
+function _checkEmailSpecificity(body, subject, prospectIntel) {
+  if (!prospectIntel) return { level: 'no_brief', facts: [], reason: 'Pas de brief' };
+  const emailText = ((subject || '') + ' ' + (body || '')).toLowerCase();
+  const intelText = (prospectIntel || '').toLowerCase();
+  const facts = [];
+
+  // 1. Nom d'entreprise
+  const companyMatch = prospectIntel.match(/ENTREPRISE:\s*([^(\n]+)/);
+  if (companyMatch) {
+    const cn = companyMatch[1].trim().toLowerCase();
+    if (cn.length > 3 && emailText.includes(cn)) facts.push('entreprise');
+    else {
+      for (const p of cn.split(/[\s-]+/).filter(w => w.length > 3)) {
+        if (emailText.includes(p)) { facts.push('entreprise_partiel:' + p); break; }
+      }
+    }
+  }
+  // 2. Chiffre specifique
+  const intelNums = intelText.match(/\d{2,}/g) || [];
+  const emailNums = emailText.match(/\d{2,}/g) || [];
+  const shared = emailNums.filter(n => intelNums.includes(n) && parseInt(n) > 3 && parseInt(n) < 100000);
+  if (shared.length > 0) facts.push('chiffre:' + shared[0]);
+  // 3. Technologie
+  const techMatch = intelText.match(/STACK TECHNIQUE:\s*([^\n]+)/);
+  if (techMatch) {
+    for (const t of techMatch[1].split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 2)) {
+      if (emailText.includes(t)) { facts.push('tech:' + t); break; }
+    }
+  }
+  // 4. Evenement recent
+  const evtKws = ['levee', 'leve', 'recrute', 'recrutement', 'lance', 'acquisition', 'fusion', 'partenariat', 'expansion', 'ouvert', 'ouvre'];
+  for (const kw of evtKws) {
+    if (emailText.includes(kw) && intelText.includes(kw)) { facts.push('evt:' + kw); break; }
+  }
+  // 5. Client/marque detecte
+  const clientMatch = intelText.match(/CLIENTS\/MARQUES DETECTES:\s*([^\n]+)/);
+  if (clientMatch) {
+    for (const c of clientMatch[1].split(',').map(c => c.trim().toLowerCase()).filter(c => c.length > 2)) {
+      if (emailText.includes(c)) { facts.push('client:' + c); break; }
+    }
+  }
+  // 6. Profil public
+  const profileMatch = intelText.match(/profil public[^:]*:([\s\S]*?)(?=\nsignaux|\nstack|\nmots|\ncontexte|\nenrich|\n$)/i);
+  if (profileMatch) {
+    const pks = profileMatch[1].match(/"([^"]+)"/g);
+    if (pks) {
+      for (const pk of pks) {
+        for (const w of pk.replace(/"/g, '').toLowerCase().split(/\s+/).filter(w => w.length > 4)) {
+          if (emailText.includes(w)) { facts.push('profile:' + w); break; }
+        }
+        if (facts.some(f => f.startsWith('profile:'))) break;
+      }
+    }
+  }
+
+  return { level: facts.length >= 1 ? 'specific' : 'generic', facts, reason: facts.length === 0 ? 'Aucun fait specifique' : facts.length + ' fait(s)' };
+}
+
+// --- Patterns sujets interdits dans les campagnes ---
+const SUBJECT_BANS = [
+  'prospection', 'acquisition', 'gen de leads', 'generation de leads',
+  'rdv qualifi', 'rdv/mois', 'pipeline', 'sans recruter',
+  'et si vous', 'et si tu', 'saviez-vous', 'notre solution', 'notre outil'
+];
+
+function _subjectPassesGate(subject) {
+  const subjectLower = (subject || '').toLowerCase();
+  for (const ban of SUBJECT_BANS) {
+    if (subjectLower.includes(ban)) return { pass: false, reason: 'banned_subject: ' + ban };
+  }
+  return { pass: true };
+}
+
 // --- Quality gate post-generation email ---
 const GENERIC_PATTERNS = [
   /j[a'']ai (?:vu|lu|decouvert|trouve|remarque)/i,
@@ -22,7 +96,13 @@ const GENERIC_PATTERNS = [
   /comment (?:tu prospectes|vous prospectez)/i,
   /g[eé]n[eé]ration de leads/i,
   /notre (?:solution|outil|plateforme)/i,
-  /je serais ravi/i
+  /je serais ravi/i,
+  /comment .{0,30} g[eé]n[eè]re (?:de )?nouvelles? opportunit/i,
+  /ces canaux ont un plafond/i,
+  /carnet de contacts (?:est )?satur/i,
+  /cercle de prescripteurs (?:est )?satur/i,
+  /vit de recommandations et de r[eé]seaux/i,
+  /comment (?:tu|vous) (?:trouv|g[eé]n[eè]r|acqui).{0,20}(?:client|lead|opportunit)/i
 ];
 
 function _emailPassesQualityGate(subject, body) {
@@ -740,11 +820,56 @@ class CampaignEngine {
             if (generated && generated.subject && generated.body) {
               subject = generated.subject;
               body = generated.body;
-              log.info('campaign-engine', 'Step 1 personnalise avec brief pour ' + contact.email);
+              // Gate specificite : l'email doit contenir au moins 1 fait du brief
+              const spec = _checkEmailSpecificity(body, subject, step1Intel);
+              if (spec.level === 'generic') {
+                log.warn('campaign-engine', 'Step 1 GENERIQUE pour ' + contact.email + ' — retry avec instruction critique');
+                try {
+                  const retryCtx = enrichedContext + '\n\nATTENTION CRITIQUE: l\'email precedent etait TROP GENERIQUE. Tu DOIS citer un FAIT SPECIFIQUE tire des donnees ci-dessus : un client, un chiffre, une technologie, un evenement recent, un service precis. Si aucun fait specifique n\'est disponible, retourne {"skip": true, "reason": "donnees insuffisantes pour email specifique"}.';
+                  const retry = await this.claude.generateSingleEmail(contact, retryCtx);
+                  if (retry && retry.subject && retry.body && !retry.skip) {
+                    const spec2 = _checkEmailSpecificity(retry.body, retry.subject, step1Intel);
+                    if (spec2.level !== 'generic') {
+                      subject = retry.subject;
+                      body = retry.body;
+                      log.info('campaign-engine', 'Step 1 retry OK pour ' + contact.email + ' — ' + spec2.reason);
+                    } else {
+                      log.warn('campaign-engine', 'Step 1 TOUJOURS generique apres retry pour ' + contact.email + ' — skip');
+                      skipped++;
+                      continue;
+                    }
+                  } else {
+                    log.info('campaign-engine', 'Step 1 skipped (donnees insuffisantes) pour ' + contact.email);
+                    skipped++;
+                    continue;
+                  }
+                } catch (retryErr) {
+                  log.warn('campaign-engine', 'Step 1 retry echoue pour ' + contact.email + ': ' + retryErr.message + ' — skip');
+                  skipped++;
+                  continue;
+                }
+              }
+              log.info('campaign-engine', 'Step 1 personnalise avec brief pour ' + contact.email + ' (' + spec.reason + ')');
+              // PAS de double personnalisation : generateSingleEmail avec brief = deja hyper-personnalise
+            } else if (generated && generated.skip) {
+              log.info('campaign-engine', 'Step 1 skipped par Claude pour ' + contact.email + ': ' + (generated.reason || 'donnees insuffisantes'));
+              skipped++;
+              continue;
             } else {
-              // Fallback template
+              // Fallback template + personalizeEmail (pas de brief exploitable)
               subject = this._applyTemplateVars(subject, contact, firstName);
               body = this._applyTemplateVars(body, contact, firstName);
+              if (contact.company || contact.title || contact.industry) {
+                try {
+                  const personalized = await this.claude.personalizeEmail(subject, body, contact);
+                  if (personalized && personalized.subject && personalized.body) {
+                    subject = personalized.subject;
+                    body = personalized.body;
+                  }
+                } catch (personalizeErr) {
+                  log.info('campaign-engine', 'personalizeEmail fallback echoue: ' + personalizeErr.message);
+                }
+              }
             }
           } catch (genErr) {
             log.info('campaign-engine', 'Step 1 brief echoue pour ' + contact.email + ', fallback template: ' + genErr.message);
@@ -755,16 +880,16 @@ class CampaignEngine {
           // Pas de brief : template + personalizeEmail classique
           subject = this._applyTemplateVars(subject, contact, firstName);
           body = this._applyTemplateVars(body, contact, firstName);
-        }
-        if (contact.company || contact.title || contact.industry) {
-          try {
-            const personalized = await this.claude.personalizeEmail(subject, body, contact);
-            if (personalized && personalized.subject && personalized.body) {
-              subject = personalized.subject;
-              body = personalized.body;
+          if (contact.company || contact.title || contact.industry) {
+            try {
+              const personalized = await this.claude.personalizeEmail(subject, body, contact);
+              if (personalized && personalized.subject && personalized.body) {
+                subject = personalized.subject;
+                body = personalized.body;
+              }
+            } catch (personalizeErr) {
+              log.info('campaign-engine', 'personalizeEmail fallback echoue: ' + personalizeErr.message);
             }
-          } catch (personalizeErr) {
-            log.info('campaign-engine', 'Personnalisation IA echouee pour ' + contact.email + ': ' + personalizeErr.message);
           }
         }
       }
@@ -813,6 +938,13 @@ class CampaignEngine {
       const qg = _emailPassesQualityGate(subject, body);
       if (!qg.pass) {
         log.warn('campaign-engine', 'Quality gate FAIL pour ' + contact.email + ': ' + qg.reason + ' — skip envoi');
+        skipped++;
+        continue;
+      }
+      // Gate sujet : patterns interdits dans l'objet
+      const sg = _subjectPassesGate(subject);
+      if (!sg.pass) {
+        log.warn('campaign-engine', 'Subject gate FAIL pour ' + contact.email + ': ' + sg.reason + ' — skip envoi');
         skipped++;
         continue;
       }
