@@ -49,13 +49,18 @@ class ProspectResearcher {
         res.on('data', c => data += c);
         res.on('end', () => {
           try {
+            if (res.statusCode !== 200) {
+              log.warn('prospect-research', '_summarizeWebsite HTTP ' + res.statusCode + ': ' + (data || '').substring(0, 200));
+              resolve(null);
+              return;
+            }
             const r = JSON.parse(data);
             resolve(r.choices && r.choices[0] ? r.choices[0].message.content.trim() : null);
-          } catch (e) { resolve(null); }
+          } catch (e) { log.warn('prospect-research', '_summarizeWebsite parse error: ' + e.message + ' — data: ' + (data || '').substring(0, 200)); resolve(null); }
         });
       });
-      req.on('error', () => resolve(null));
-      req.setTimeout(15000, () => { req.destroy(); resolve(null); });
+      req.on('error', (e) => { log.warn('prospect-research', '_summarizeWebsite error: ' + e.message); resolve(null); });
+      req.setTimeout(20000, () => { log.warn('prospect-research', '_summarizeWebsite timeout (20s)'); req.destroy(); resolve(null); });
       req.write(postData);
       req.end();
     });

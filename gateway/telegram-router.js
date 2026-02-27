@@ -1202,6 +1202,26 @@ try { flowFastStorageRouter = require('../skills/flowfast/storage.js'); } catch 
 let leadEnrichStorageRouter = null;
 try { leadEnrichStorageRouter = require('../skills/lead-enrich/storage.js'); } catch (e) {}
 
+// Helper : enrichir un contact avec organization depuis lead-enrich (pour ProspectResearcher)
+function _enrichContactWithOrg(email, contactName, company, title) {
+  const contact = { email: email, nom: contactName || '', entreprise: company || '', titre: title || '' };
+  try {
+    if (leadEnrichStorageRouter && leadEnrichStorageRouter.data) {
+      const enrichedLeads = leadEnrichStorageRouter.data.enrichedLeads || {};
+      const enriched = enrichedLeads[email] || enrichedLeads[(email || '').toLowerCase()];
+      if (enriched) {
+        const org = (enriched.enrichData && enriched.enrichData.organization) || (enriched.apolloData && enriched.apolloData.organization) || null;
+        if (org) contact.organization = org;
+        if (!contact.titre) {
+          const person = (enriched.enrichData && enriched.enrichData.person) || (enriched.apolloData && enriched.apolloData.person) || {};
+          if (person.title) contact.titre = person.title;
+        }
+      }
+    }
+  } catch (e) {}
+  return contact;
+}
+
 function startAllCrons() {
   // Activer les configs internes (chaque start() verifie config.enabled)
   try { proactiveAgentStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron proactive:', e.message); }
@@ -2214,7 +2234,7 @@ async function handleResendWebhook(body) {
     log.info('webhook', 'Clic detecte pour ' + email.to + ' — reactive FU + meeting auto');
     try {
       const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
-      const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: '' };
+      const contact = _enrichContactWithOrg(email.to, email.contactName || '', email.company || '', '');
       Promise.race([
         researcher.researchProspect(contact),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 30s')), 30000))
@@ -2292,7 +2312,7 @@ async function handleResendWebhook(body) {
   if (status === 'opened' && !wasAlreadyOpened && ProspectResearcher) {
     try {
       const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
-      const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: '' };
+      const contact = _enrichContactWithOrg(email.to, email.contactName || '', email.company || '', '');
       const researchWithTimeout = Promise.race([
         researcher.researchProspect(contact),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 30s')), 30000))
@@ -2490,7 +2510,7 @@ const healthServer = http.createServer((req, res) => {
                 if (found) prospectTitle = found.title || found.titre || '';
               }
             } catch (titleErr) {}
-            const contact = { email: email.to, nom: email.contactName || '', entreprise: email.company || '', titre: prospectTitle };
+            const contact = _enrichContactWithOrg(email.to, email.contactName || '', email.company || '', prospectTitle);
             Promise.race([
               researcher.researchProspect(contact),
               new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout 30s')), 30000))
