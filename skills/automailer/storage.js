@@ -284,6 +284,7 @@ class AutoMailerStorage {
       deliveredAt: null,
       openedAt: null,
       abVariant: record.abVariant || null,
+      senderDomain: record.senderDomain || null,
       createdAt: new Date().toISOString()
     };
     this.data.emails.push(entry);
@@ -596,21 +597,43 @@ class AutoMailerStorage {
   getABTestResults(campaignId, stepNumber) {
     const emails = this.getEmailsByCampaign(campaignId)
       .filter(e => e.abVariant && (stepNumber ? e.stepNumber === stepNumber : true));
-    const results = { A: { sent: 0, delivered: 0, opened: 0, bounced: 0 }, B: { sent: 0, delivered: 0, opened: 0, bounced: 0 } };
 
+    // Construire dynamiquement les stats par variant (A, B, C...)
+    const variants = {};
     for (const email of emails) {
       const v = email.abVariant;
-      if (v !== 'A' && v !== 'B') continue;
-      results[v].sent++;
-      if (email.status === 'delivered' || email.status === 'opened') results[v].delivered++;
-      if (email.status === 'opened') results[v].opened++;
-      if (email.status === 'bounced') results[v].bounced++;
+      if (!variants[v]) variants[v] = { sent: 0, delivered: 0, opened: 0, replied: 0, bounced: 0 };
+      variants[v].sent++;
+      if (['delivered', 'opened'].includes(email.status) || email.deliveredAt) variants[v].delivered++;
+      if (email.status === 'opened' || email.openedAt) variants[v].opened++;
+      if (email.status === 'replied' || email.hasReplied) variants[v].replied++;
+      if (email.status === 'bounced') variants[v].bounced++;
     }
 
-    results.A.openRate = results.A.delivered > 0 ? Math.round((results.A.opened / results.A.delivered) * 100) : 0;
-    results.B.openRate = results.B.delivered > 0 ? Math.round((results.B.opened / results.B.delivered) * 100) : 0;
-    results.winner = results.A.openRate >= results.B.openRate ? 'A' : 'B';
-    results.totalEmails = emails.length;
+    // Calculer les taux pour chaque variant
+    for (const v of Object.keys(variants)) {
+      const s = variants[v];
+      s.openRate = s.delivered > 0 ? Math.round((s.opened / s.delivered) * 100) : 0;
+      s.replyRate = s.sent > 0 ? Math.round((s.replied / s.sent) * 100) : 0;
+    }
+
+    // Determiner le winner (meilleur open rate)
+    const variantKeys = Object.keys(variants);
+    let winner = variantKeys[0] || 'A';
+    for (const v of variantKeys) {
+      if ((variants[v].openRate || 0) > (variants[winner].openRate || 0)) winner = v;
+    }
+
+    // Retrocompat : exposer A et B directement
+    const results = {
+      ...variants,
+      A: variants.A || { sent: 0, delivered: 0, opened: 0, replied: 0, bounced: 0, openRate: 0, replyRate: 0 },
+      B: variants.B || { sent: 0, delivered: 0, opened: 0, replied: 0, bounced: 0, openRate: 0, replyRate: 0 },
+      variants,
+      winner,
+      totalEmails: emails.length,
+      numVariants: variantKeys.length
+    };
 
     return results;
   }

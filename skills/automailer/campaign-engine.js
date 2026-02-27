@@ -3,7 +3,7 @@ const storage = require('./storage');
 const dns = require('dns');
 const net = require('net');
 const log = require('../../gateway/logger.js');
-const { getWarmupDailyLimit } = require('../../gateway/utils.js');
+const { getWarmupDailyLimit, applySpintax } = require('../../gateway/utils.js');
 
 // --- Quality gate post-generation email ---
 const GENERIC_PATTERNS = [
@@ -428,6 +428,8 @@ class CampaignEngine {
     if (vars.firstName && !text.includes(vars.firstName)) {
       text = text.replace(/Bonjour\s*,/i, 'Bonjour ' + vars.firstName + ',');
     }
+    // Appliquer spintax : {variante1|variante2|variante3} → choix aleatoire
+    text = applySpintax(text);
     return text;
   }
 
@@ -761,18 +763,27 @@ class CampaignEngine {
         }
       }
 
-      // A/B testing — variante deterministe par email (stable entre restarts)
-      const _abHash = contact.email.split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
-      let abVariant = _abHash % 2 === 0 ? 'A' : 'B';
-      if (abVariant === 'B') {
+      // A/B/C testing avance — hash deterministe, auto-kill perdants
+      const ABTesting = require('./ab-testing.js');
+      const abTester = new ABTesting(storage);
+      const abConfig = campaign.abConfig || { numVariants: 3, metric: 'open_rate', disabledVariants: [] };
+      let abVariant = abTester.assignVariant(contact.email, campaignId, abConfig.numVariants);
+
+      // Verifier que le variant n'est pas desactive (auto-kill)
+      if (abConfig.disabledVariants && abConfig.disabledVariants.includes(abVariant)) {
+        abVariant = 'A'; // Fallback sur le leader
+      }
+
+      // Generer un sujet alternatif pour variants B et C
+      if (abVariant !== 'A') {
         try {
           const variantSubject = await this.claude.generateSubjectVariant(subject);
           if (variantSubject && variantSubject.length > 3) {
             subject = variantSubject;
           }
         } catch (abErr) {
-          log.info('campaign-engine', 'A/B variant generation echouee, sujet original conserve: ' + abErr.message);
-          abVariant = 'A'; // Fallback sur variante A
+          log.info('campaign-engine', 'A/B variant ' + abVariant + ' generation echouee: ' + abErr.message);
+          abVariant = 'A';
         }
       }
 
@@ -839,6 +850,7 @@ class CampaignEngine {
         body: body,
         resendId: result.success ? result.id : null,
         messageId: result.success ? (result.messageId || null) : null,
+        senderDomain: result.senderDomain || null,
         trackingId: trackingId,
         status: result.success ? 'sent' : 'failed',
         abVariant: abVariant
@@ -873,6 +885,26 @@ class CampaignEngine {
     if (nextStep > campaign.steps.length) {
       updates.status = 'completed';
       updates.completedAt = new Date().toISOString();
+    }
+
+    // A/B auto-kill : desactiver les variants sous-performants apres le step
+    try {
+      const ABTestingPostStep = require('./ab-testing.js');
+      const abTesterPost = new ABTestingPostStep(storage);
+      const abConfigPost = campaign.abConfig || { numVariants: 3, metric: 'open_rate', disabledVariants: [] };
+      if (abConfigPost.numVariants > 1) {
+        const disabled = abTesterPost.getDisabledVariants(campaignId, abConfigPost.metric);
+        for (const d of disabled) {
+          if (!abConfigPost.disabledVariants) abConfigPost.disabledVariants = [];
+          if (!abConfigPost.disabledVariants.includes(d.variant)) {
+            abConfigPost.disabledVariants.push(d.variant);
+            log.info('campaign-engine', 'A/B AUTO-KILL variant ' + d.variant + ' (rate: ' + d.rate + '% vs leader ' + d.leaderVariant + ': ' + d.leaderRate + '%, p=' + d.pValue + ')');
+          }
+        }
+        if (disabled.length > 0) updates.abConfig = abConfigPost;
+      }
+    } catch (abPostErr) {
+      log.info('campaign-engine', 'A/B auto-kill check skip: ' + abPostErr.message);
     }
 
     storage.updateCampaign(campaignId, updates);

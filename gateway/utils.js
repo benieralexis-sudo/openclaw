@@ -136,4 +136,17 @@ function withCronGuard(name, fn) {
 }
 const log = require('./logger.js');
 
-module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit, withCronGuard };
+/**
+ * Spintax parser : {variante1|variante2|variante3} → choix aleatoire.
+ * Supporte l'imbrication a 1 niveau. Echappe \{ pour les accolades literales.
+ */
+function applySpintax(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text.replace(/\{([^{}]+)\}/g, (match, group) => {
+    const variants = group.split('|');
+    if (variants.length < 2) return match; // Pas un spintax valide
+    return variants[Math.floor(Math.random() * variants.length)].trim();
+  });
+}
+
+module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit, withCronGuard, applySpintax };

@@ -610,7 +610,7 @@ class MetricsCollector {
     }
   }
 
-  // --- A/B Test insights (avec significativite statistique) ---
+  // --- A/B Test insights (avec significativite statistique, A/B/C + chi-carre) ---
   collectABTestMetrics() {
     const automailer = getAutomailerStorage();
     if (!automailer || !automailer.data || typeof automailer.getABTestResults !== 'function') {
@@ -618,11 +618,17 @@ class MetricsCollector {
     }
 
     try {
+      // Charger ABTesting module pour chi-carre
+      let ABTesting;
+      try { ABTesting = require('../automailer/ab-testing.js'); } catch (e) { ABTesting = null; }
+      const abTester = ABTesting ? new ABTesting(automailer) : null;
+
       const campaigns = Object.values(automailer.data.campaigns || {});
       if (campaigns.length === 0) return { available: false, reason: 'no_campaigns' };
 
       const campaignResults = [];
-      let totalAWins = 0, totalBWins = 0, totalABEmails = 0, significantWins = 0;
+      const variantWins = {};
+      let totalABEmails = 0, significantWins = 0;
 
       for (const campaign of campaigns) {
         let abResults;
@@ -630,32 +636,68 @@ class MetricsCollector {
         if (!abResults || abResults.totalEmails === 0) continue;
 
         totalABEmails += abResults.totalEmails;
-        if (abResults.winner === 'A') totalAWins++;
-        else if (abResults.winner === 'B') totalBWins++;
+        const winner = abResults.winner || 'A';
+        variantWins[winner] = (variantWins[winner] || 0) + 1;
+
+        // Construire les open rates par variant (A, B, C...)
+        const variantRates = {};
+        const variantKeys = Object.keys(abResults.variants || abResults).filter(k => /^[A-C]$/.test(k));
+        for (const v of variantKeys) {
+          const vData = (abResults.variants || abResults)[v];
+          if (vData) {
+            variantRates[v] = {
+              openRate: vData.openRate || 0,
+              replyRate: vData.replyRate || 0,
+              sent: vData.sent || 0,
+              replied: vData.replied || 0
+            };
+          }
+        }
 
         const result = {
           campaignId: campaign.id,
           campaignName: campaign.name || campaign.id,
           totalEmails: abResults.totalEmails,
-          winner: abResults.winner,
-          aOpenRate: abResults.A ? abResults.A.openRate : 0,
-          bOpenRate: abResults.B ? abResults.B.openRate : 0,
+          numVariants: variantKeys.length,
+          winner,
+          variantRates,
           significant: false,
-          pValue: null
+          pValue: null,
+          autoKilled: (campaign.abConfig && campaign.abConfig.disabledVariants) || []
         };
 
-        // Test de significativite statistique (z-test sur open rates)
-        if (abResults.A && abResults.B && (abResults.A.sent || 0) >= 10 && (abResults.B.sent || 0) >= 10) {
+        // Test significativite via chi-carre (ABTesting module) ou fallback z-test
+        if (abTester && variantKeys.length >= 2) {
+          const report = abTester.getCampaignReport(campaign.id);
+          if (report && report.hasSignificance) {
+            // Chi-carre entre leader et chaque autre variant
+            const stats = abTester.getVariantStats(campaign.id);
+            for (const v of variantKeys) {
+              if (v === winner && stats[winner] && stats[v]) {
+                continue;
+              }
+              if (stats[winner] && stats[v]) {
+                const test = abTester.chiSquareTest(stats[winner], stats[v], 'open_rate');
+                if (test.significant) {
+                  result.significant = true;
+                  result.pValue = test.pValue;
+                  significantWins++;
+                  break;
+                }
+              }
+            }
+          }
+        } else if (abResults.A && abResults.B && (abResults.A.sent || 0) >= 10 && (abResults.B.sent || 0) >= 10) {
+          // Fallback z-test pour retrocompat
           const aSent = abResults.A.sent, bSent = abResults.B.sent;
           const aOpened = Math.round((abResults.A.openRate || 0) * aSent / 100);
           const bOpened = Math.round((abResults.B.openRate || 0) * bSent / 100);
-          // Z-test inline (meme logique que analyzer)
           const p1 = aOpened / aSent, p2 = bOpened / bSent;
           const pPool = (aOpened + bOpened) / (aSent + bSent);
           const se = Math.sqrt(pPool * (1 - pPool) * (1 / aSent + 1 / bSent));
           if (se > 0) {
             const z = Math.abs((p2 - p1) / se);
-            result.significant = z >= 1.645; // 90% confiance
+            result.significant = z >= 1.645;
             result.pValue = Math.round(2 * (1 - _normalCDFStatic(z)) * 10000) / 10000;
             if (result.significant) significantWins++;
           }
@@ -670,11 +712,10 @@ class MetricsCollector {
         summary: {
           totalCampaignsWithAB: campaignResults.length,
           totalABEmails,
-          aWins: totalAWins,
-          bWins: totalBWins,
+          variantWins,
           significantWins,
           totalComparisons: campaignResults.filter(r => r.pValue !== null).length,
-          variantWinRate: (totalAWins + totalBWins) > 0 ? Math.round((totalBWins / (totalAWins + totalBWins)) * 100) : null
+          autoKilledTotal: campaignResults.reduce((sum, r) => sum + (r.autoKilled || []).length, 0)
         }
       };
 

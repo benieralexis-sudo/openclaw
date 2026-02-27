@@ -90,7 +90,8 @@ class ResendClient {
     // Construire le message MIME
     const boundary = 'boundary_' + crypto.randomBytes(8).toString('hex');
     const messageId = '<' + crypto.randomBytes(12).toString('hex') + '@' + smtpDomain + '>';
-    const htmlBody = options.html || this._minimalHtml(body, options.trackingId);
+    const htmlBody = options.html || this._minimalHtml(body, options.trackingId, toEmail);
+    const trackingDomain = process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr';
 
     const replyTo = options.replyTo || process.env.REPLY_TO_EMAIL || smtpUser;
 
@@ -101,6 +102,8 @@ class ResendClient {
       'Subject: =?UTF-8?B?' + Buffer.from(subject).toString('base64') + '?=',
       'MIME-Version: 1.0',
       'Message-ID: ' + messageId,
+      'List-Unsubscribe: <https://' + trackingDomain + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
+      'List-Unsubscribe-Post: List-Unsubscribe=One-Click',
       options.inReplyTo ? 'In-Reply-To: ' + options.inReplyTo : null,
       options.references ? 'References: ' + options.references : (options.inReplyTo ? 'References: ' + options.inReplyTo : null),
       'Content-Type: multipart/alternative; boundary="' + boundary + '"',
@@ -237,7 +240,7 @@ class ResendClient {
   }
 
   // HTML minimal — ressemble a un email tape dans Gmail, zero branding
-  _minimalHtml(body, trackingId) {
+  _minimalHtml(body, trackingId, toEmail) {
     const escaped = body
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -247,32 +250,63 @@ class ResendClient {
     const senderFullName = (process.env.SENDER_FULL_NAME || 'Alexis Bénier').replace(/é/g, '&eacute;').replace(/è/g, '&egrave;').replace(/ê/g, '&ecirc;').replace(/à/g, '&agrave;');
     const senderTitle = process.env.SENDER_TITLE || 'Fondateur';
     const clientDomain = process.env.CLIENT_DOMAIN || 'ifind.fr';
+    const trackingDomain = process.env.TRACKING_DOMAIN || clientDomain;
+    // Micro-variation signature (anti-fingerprint)
+    const dashes = ['\u2014', '\u2013', '--'];
+    const dash = dashes[Math.floor(Math.random() * dashes.length)];
+    const separators = [' \u2014 ', ' | ', ' \u2013 '];
+    const sep = separators[Math.floor(Math.random() * separators.length)];
     const signature = '<br><span style="color:#666;font-size:13px">'
-      + '—<br>'
+      + dash + '<br>'
       + senderFullName + '<br>'
-      + senderTitle + ' &mdash; ' + clientDomain
+      + senderTitle + sep + clientDomain
       + '</span>';
+
+    // Lien de desabonnement visible dans le footer
+    const unsubLink = toEmail
+      ? '<br><br><span style="font-size:11px;color:#999"><a href="https://' + trackingDomain + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '" style="color:#999;text-decoration:underline">Se desabonner</a></span>'
+      : '';
 
     // Pixel de tracking ouverture (invisible)
     const pixel = trackingId
-      ? '<img src="https://' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">'
+      ? '<img src="https://' + trackingDomain + '/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">'
       : '';
 
-    return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + '</div>' + pixel;
+    return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + unsubLink + '</div>' + pixel;
   }
 
   // --- Envoi principal (Gmail prioritaire, Resend fallback) ---
 
   async sendEmail(to, subject, body, options) {
-    // Gmail SMTP via rotation multi-boîtes
-    const mailbox = this._nextMailbox();
+    const toEmail = Array.isArray(to) ? to[0] : to;
+
+    // Multi-domaine : selectionner le domaine optimal via DomainManager
+    let selectedDomain = null;
+    let domainMailbox = null;
+    try {
+      const domainManager = require('./domain-manager.js');
+      selectedDomain = domainManager.selectDomain(toEmail);
+      if (selectedDomain) {
+        domainMailbox = domainManager.getMailboxForDomain(selectedDomain.domain);
+      }
+    } catch (e) { /* domain-manager non dispo, fallback classique */ }
+
+    // Gmail SMTP via rotation multi-boîtes (ou domaine selectionne)
+    const mailbox = domainMailbox || this._nextMailbox();
     if (mailbox) {
       try {
         const result = await this._sendViaGmail(to, subject, body, options, mailbox);
-        log.info('resend-client', 'Email envoye via Gmail SMTP (' + mailbox.user + ') a ' + (Array.isArray(to) ? to[0] : to));
+        const usedDomain = selectedDomain ? selectedDomain.domain : (mailbox.user.split('@')[1] || '?');
+        log.info('resend-client', 'Email envoye via Gmail SMTP (' + mailbox.user + ') a ' + toEmail + ' [domain: ' + usedDomain + ']');
         if (_appConfig && _appConfig.recordServiceUsage) {
           _appConfig.recordServiceUsage('gmail', { emails: 1 });
         }
+        // Tracker l'envoi dans le domain manager
+        try {
+          const dm = require('./domain-manager.js');
+          dm.recordSend(usedDomain, toEmail, true);
+        } catch (e) {}
+        if (result) result.senderDomain = usedDomain;
         return result;
       } catch (e) {
         log.warn('resend-client', 'Gmail SMTP (' + mailbox.user + ') echoue, fallback Resend: ' + e.message);
@@ -281,16 +315,17 @@ class ResendClient {
 
     // Fallback Resend API
     options = options || {};
-    const toEmail = Array.isArray(to) ? to[0] : to;
     const fromName = options.fromName || process.env.SENDER_NAME || 'Alexis';
+    const trackingDomainResend = process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr';
     const payload = {
       from: fromName + ' <' + this.senderEmail + '>',
       to: Array.isArray(to) ? to : [to],
       subject: subject,
       text: body,
-      html: options.html || this._minimalHtml(body, options.trackingId),
+      html: options.html || this._minimalHtml(body, options.trackingId, toEmail),
       headers: {
-        'List-Unsubscribe': '<https://' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
+        'List-Unsubscribe': '<https://' + trackingDomainResend + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
       }
     };
     if (options.inReplyTo) {
@@ -337,11 +372,12 @@ class ResendClient {
         to: Array.isArray(e.to) ? e.to : [e.to],
         subject: e.subject,
         text: e.body,
-        html: this._minimalHtml(e.body, e.trackingId),
+        html: this._minimalHtml(e.body, e.trackingId, toEmail),
         tags: e.tags || [],
         reply_to: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
         headers: {
-          'List-Unsubscribe': '<https://' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>'
+          'List-Unsubscribe': '<https://' + (process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr') + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
         }
       };
     });

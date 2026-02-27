@@ -186,6 +186,14 @@ UNE question qui donne envie de repondre. VARIE les formats :
 
 REGLE D'OR : si ton email depasse 80 mots, COUPE. Encore. Chaque mot qui n'apporte rien = un mot qui dilue l'impact.
 
+=== MICRO-VARIATIONS ANTI-REPETITION ===
+Chaque email DOIT avoir une structure unique. Varie subtilement :
+- Salutation : parfois prenom + virgule, parfois juste prenom, parfois zero salutation (attaque directe)
+- Connecteur entre observation et question : saut de ligne seul, "Du coup —", "Bref,", rien (enchaine direct)
+- Ponctuation question : ? seul, ?! (rare), reformulation en affirmation interrogative
+- Structure : parfois observation PUIS question, parfois question EN PREMIER puis observation
+Ne JAMAIS utiliser la meme ouverture deux emails de suite.
+
 === EXEMPLES 10/10 (COPIE CE NIVEAU) ===
 
 Avec NEWS (34 mots) :
