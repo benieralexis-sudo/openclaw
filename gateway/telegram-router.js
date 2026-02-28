@@ -702,18 +702,9 @@ inboxListener = InboxListener ? new InboxListener({
         const inboxStorage = require('../skills/inbox-manager/storage.js');
         const todayCount = inboxStorage.getTodayAutoReplyCount();
 
-        // CHECK WARMUP GLOBAL : auto-replies comptent dans le warmup domaine
-        const { getWarmupDailyLimit } = require('./utils.js');
-        const warmupSentToday = automailerStorageForInbox.getTodaySendCount();
-        const firstSendDate = automailerStorageForInbox.getFirstSendDate ? automailerStorageForInbox.getFirstSendDate() : null;
-        const warmupDailyLimit = getWarmupDailyLimit(firstSendDate);
-        const warmupOk = warmupSentToday < warmupDailyLimit;
-
-        if (!warmupOk) {
-          log.info('inbox-manager', 'AUTO-REPLY bloque par warmup global (' + warmupSentToday + '/' + warmupDailyLimit + ')');
-        }
-
-        if (todayCount < autoReplyMaxPerDay && warmupOk) {
+        // Les replies HITL ne sont PAS soumises au warmup (ce sont des reponses a une conversation, pas du cold outreach)
+        // Seul le guard autoReplyMaxPerDay (10/jour) limite le volume
+        if (todayCount < autoReplyMaxPerDay) {
           // Recuperer l'email original envoye a ce prospect
           let originalEmail = null;
           let originalMessageId = null;
@@ -934,16 +925,8 @@ inboxListener = InboxListener ? new InboxListener({
     else {
       actionTaken = 'human_takeover';
       log.info('inbox-manager', '🤝 HUMAN TAKEOVER: ' + replyData.from + ' (sentiment=' + sentiment + ') — le bot arrete, l\'humain prend le relais');
-
-      // BLACKLIST le prospect pour bloquer TOUTE future automation (relances, FU, etc.)
-      try {
-        for (const ep of emailsToProcess) {
-          automailerStorageForInbox.addToBlacklist(ep, 'human_takeover: prospect replied (' + sentiment + ')');
-        }
-        log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (human takeover) — TOUTE automation arretee');
-      } catch (e) {
-        log.warn('inbox-manager', 'Blacklist human takeover echouee:', e.message);
-      }
+      // PAS de blacklist : l'humain decide via Telegram ou manuellement
+      // Les relances auto sont bloquees par hasReplied (ci-dessous), pas par la blacklist
 
       // Marquer hasReplied sur TOUS les emails envoyes a ce prospect (les deux adresses)
       try {
