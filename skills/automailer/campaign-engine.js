@@ -1091,8 +1091,7 @@ class CampaignEngine {
                 const dealName = (contact.company || 'Lead') + ' — ' + (campaign.name || 'Campagne');
                 const deal = await hubspot.createDeal({
                   dealname: dealName,
-                  dealstage: 'appointmentscheduled',
-                  amount: 690
+                  dealstage: 'appointmentscheduled'
                 });
                 if (deal && deal.id) {
                   await hubspot.associateDealToContact(deal.id, hsContact.id);

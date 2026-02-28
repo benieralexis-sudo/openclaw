@@ -405,8 +405,7 @@ Format JSON strict :
           try {
             const deal = await getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 }).call(() => hubspot.createDeal({
               dealname: (contact.company || contact.entreprise || 'Lead') + ' — Prospection',
-              dealstage: 'appointmentscheduled',
-              amount: params.dealAmount || 690
+              dealstage: 'appointmentscheduled'
             }));
             if (deal && deal.id) {
               await getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 }).call(() => hubspot.associateDealToContact(deal.id, hsContact.id));
