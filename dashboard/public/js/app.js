@@ -226,8 +226,7 @@ const App = {
       ];
     });
     Utils.exportCSV(headers, rows, 'factures-' + (this._clientSlug || 'ifind') + '-' + new Date().toISOString().slice(0, 10) + '.csv');
-  }
-};
+  },
 
   // ===== Dynamic sidebar badges =====
   async updateBadges() {
