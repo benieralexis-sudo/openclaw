@@ -2450,13 +2450,8 @@ async function handleResendWebhook(body) {
       ]);
       researchWithTimeout.then(intel => {
         if (intel && intel.brief) {
-          const msg = '👀 *Email ouvert (1ère fois)*\n\n' +
-            '*Qui :* ' + (email.contactName || email.to) + '\n' +
-            (email.company ? '*Entreprise :* ' + email.company + '\n' : '') +
-            '*Objet :* _' + (email.subject || '(sans objet)').substring(0, 60) + '_\n\n' +
-            '🔍 *Intel :*\n' + intel.brief.substring(0, 500) + '\n\n' +
-            '_En attente d\'un 2ème signal (reouvre ou clic) pour relancer._';
-          sendMessage(ADMIN_CHAT_ID, msg, 'Markdown').catch(() => {});
+          // Notification silencieuse — le hot lead alert notifiera si 3+ ouvertures
+          log.info('webhook', 'Email ouvert (1ere fois) par ' + email.to + ' — intel cache, notification silencieuse');
           // Sauvegarder l'intel pour usage ultérieur (2ème ouverture)
           try {
             proactiveAgentStorage.data._cachedIntel = proactiveAgentStorage.data._cachedIntel || {};
@@ -2467,11 +2462,10 @@ async function handleResendWebhook(body) {
             proactiveAgentStorage._save();
           } catch (cacheErr) {}
         } else {
-          sendMessage(ADMIN_CHAT_ID, '👀 *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
+          log.info('webhook', 'Email ouvert (1ere fois) par ' + email.to + ' — pas d\'intel, notification silencieuse');
         }
       }).catch(err => {
         log.warn('webhook', 'Prospect research echoue pour open event: ' + err.message);
-        sendMessage(ADMIN_CHAT_ID, '👀 *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
       });
     } catch (e) {
       log.warn('webhook', 'Erreur init prospect research: ' + e.message);
@@ -2489,9 +2483,9 @@ async function handleResendWebhook(body) {
     } catch (e) {}
     var addedFUwh = _scheduleReactiveFU(email, cachedIntel);
     if (addedFUwh) {
-      sendMessageWithButtons(ADMIN_CHAT_ID, '🔄 *Email rouvert !*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Relance programmee._', [[{ text: '❌ Annuler relance', callback_data: 'cancel_rfu_' + addedFUwh.id }]]).catch(() => {});
+      log.info('webhook', 'Reactive FU programme (reouvre webhook) pour ' + email.to + ' — id: ' + addedFUwh.id + ' — notification a l\'envoi');
     } else {
-      sendMessage(ADMIN_CHAT_ID, '🔄 *Email rouvert*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Relance deja en cours ou skippee (guards)._', 'Markdown').catch(() => {});
+      log.info('webhook', 'Reactive FU deja programme ou skippee pour ' + email.to + ' (dedup/guards)');
     }
   }
 
