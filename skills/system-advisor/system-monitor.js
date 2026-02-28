@@ -143,7 +143,6 @@ class SystemMonitor {
       { name: 'automailer', file: '/data/automailer/automailer-db.json' },
       { name: 'crm-pilot', file: '/data/crm-pilot/crm-pilot-db.json' },
       { name: 'lead-enrich', file: '/data/lead-enrich/lead-enrich-db.json' },
-      { name: 'content-gen', file: '/data/content-gen/content-gen-db.json' },
       { name: 'invoice-bot', file: '/data/invoice-bot/invoice-bot-db.json' },
       { name: 'proactive-agent', file: '/data/proactive-agent/proactive-agent-db.json' },
       { name: 'self-improve', file: '/data/self-improve/self-improve-db.json' },
