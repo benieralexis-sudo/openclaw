@@ -649,10 +649,10 @@ Format JSON strict :
       return { success: false, error: 'Adresse email invalide: ' + (params.to || 'vide') };
     }
 
-    // Rate limiting : delai aleatoire 2-5 min entre chaque envoi (pattern humain)
+    // Rate limiting : delai aleatoire 45-90s entre chaque envoi (pattern humain, adapte au warmup jour 10+)
     if (ActionExecutor._lastSendTime) {
-      const minDelay = 2 * 60 * 1000; // 2 min
-      const maxDelay = 5 * 60 * 1000; // 5 min
+      const minDelay = 45 * 1000;     // 45 sec
+      const maxDelay = 90 * 1000;     // 90 sec
       const randomDelay = minDelay + Math.floor(Math.random() * (maxDelay - minDelay));
       const elapsed = Date.now() - ActionExecutor._lastSendTime;
       if (elapsed < randomDelay) {

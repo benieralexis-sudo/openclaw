@@ -4,7 +4,7 @@ const storage = require('./storage.js');
 const ActionExecutor = require('./action-executor.js');
 const diagnostic = require('./diagnostic.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
-const { withCronGuard } = require('../../gateway/utils.js');
+const { withCronGuard, getWarmupDailyLimit } = require('../../gateway/utils.js');
 const log = require('../../gateway/logger.js');
 const { escTg, parseJsonResponse } = require('./utils.js');
 
@@ -57,8 +57,8 @@ class BrainEngine {
     this.running = true;
     const tz = 'Europe/Paris';
 
-    // Brain cycle : 9h et 14h (14h = meilleur open rate confirme par Self-Improve)
-    this.crons.push(new Cron('0 9,14 * * *', { timezone: tz }, withCronGuard('ap-brain-cycle', async () => {
+    // Brain cycle : 9h, 14h et 18h (3 fenetres d'envoi pour maximiser le volume)
+    this.crons.push(new Cron('0 9,14,18 * * *', { timezone: tz }, withCronGuard('ap-brain-cycle', async () => {
       try { await this._brainCycle(); }
       catch (e) { log.error('brain', 'Erreur cycle:', e.message); }
     })));
@@ -77,7 +77,7 @@ class BrainEngine {
       catch (e) { log.error('brain', 'Erreur reset hebdo:', e.message); }
     })));
 
-    log.info('brain', 'Cerveau autonome demarre (4 crons — 2 brain + 2 mini)');
+    log.info('brain', 'Cerveau autonome demarre (5 crons — 3 brain + 2 mini)');
   }
 
   stop() {
@@ -298,7 +298,7 @@ class BrainEngine {
       log.info('brain', 'Fallback plan: ' + plan.actions.length + ' actions');
     }
 
-    // Limiter a 10 actions par cycle (securite anti-emballement)
+    // Limiter a 25 actions par cycle (securite anti-emballement)
     const MAX_BRAIN_ACTIONS = 25;
     if (plan.actions.length > MAX_BRAIN_ACTIONS) {
       log.warn('brain', 'Actions tronquees: ' + plan.actions.length + ' -> ' + MAX_BRAIN_ACTIONS + ' (limite de securite)');
@@ -306,6 +306,71 @@ class BrainEngine {
     }
 
     log.info('brain', 'Plan: ' + plan.actions.length + ' actions, assessment: ' + (plan.weeklyAssessment || '?'));
+
+    // 3b. VALIDATION POST-PLAN : nettoyer les send_email invalides (anti-placeholder + anti-dedup)
+    const eligibleEmails = new Set();
+    try {
+      const ffVal = getFlowFastStorage();
+      const amVal = getAutomailerStorage();
+      if (ffVal) {
+        const allLeadsVal = ffVal.getAllLeads ? ffVal.getAllLeads() : {};
+        const alreadySentVal = new Set();
+        if (amVal && amVal.data && amVal.data.emails) {
+          for (const em of amVal.data.emails) {
+            if (em.to && (em.status === 'sent' || em.status === 'delivered' || em.status === 'opened' || em.status === 'replied')) {
+              alreadySentVal.add(em.to.toLowerCase());
+            }
+          }
+        }
+        const gVal = storage.getGoals().weekly;
+        Object.values(allLeadsVal)
+          .filter(l => l.email && (l.score || 0) >= (gVal.minLeadScore || 5) && !alreadySentVal.has(l.email.toLowerCase()))
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .forEach(l => eligibleEmails.add(l.email.toLowerCase()));
+      }
+    } catch (e) {}
+
+    if (eligibleEmails.size > 0) {
+      const eligibleArray = [...eligibleEmails];
+      let eligibleIdx = 0;
+      const usedInPlan = new Set();
+      let replaced = 0;
+      let dropped = 0;
+
+      plan.actions = plan.actions.map(action => {
+        if (action.type !== 'send_email') return action;
+        const to = (action.params && action.params.to || '').toLowerCase().trim();
+
+        // Cas 1 : email valide et eligible
+        if (to && eligibleEmails.has(to) && !usedInPlan.has(to)) {
+          usedInPlan.add(to);
+          return action;
+        }
+
+        // Cas 2 : email invalide/placeholder/deja contacte → remplacer par le prochain eligible
+        while (eligibleIdx < eligibleArray.length && usedInPlan.has(eligibleArray[eligibleIdx])) {
+          eligibleIdx++;
+        }
+        if (eligibleIdx < eligibleArray.length) {
+          const replacement = eligibleArray[eligibleIdx];
+          log.info('brain', 'Validation post-plan: remplacement ' + (to || '(vide)') + ' → ' + replacement);
+          usedInPlan.add(replacement);
+          eligibleIdx++;
+          action.params.to = replacement;
+          replaced++;
+          return action;
+        }
+
+        // Cas 3 : plus de leads eligibles → supprimer l'action
+        log.info('brain', 'Validation post-plan: suppression send_email (plus de leads eligibles)');
+        dropped++;
+        return null;
+      }).filter(Boolean);
+
+      if (replaced > 0 || dropped > 0) {
+        log.info('brain', 'Validation post-plan: ' + replaced + ' remplaces, ' + dropped + ' supprimes, ' + plan.actions.filter(a => a.type === 'send_email').length + ' send_email valides');
+      }
+    }
 
     // 4. Executer les actions (avec retry sur actions critiques)
     const RETRYABLE_ACTIONS = ['send_email', 'push_to_crm'];
@@ -949,7 +1014,7 @@ Analyse et reponds en JSON:
     prompt += 'ETAT ACTUEL:\n';
     prompt += '- Leads trouves cette semaine: ' + p.leadsFoundThisWeek + '/' + g.leadsToFind + '\n';
     // Leads enrichis supprime (FullEnrich retire)
-    prompt += '- Emails envoyes: ' + p.emailsSentThisWeek + '/' + g.emailsToSend + '\n';
+    prompt += '- Emails envoyes: ' + p.emailsSentThisWeek + '/' + weeklyEmailTarget + ' (limite warmup: ' + dailyLimitGoals + '/jour)\n';
     prompt += '- Reponses: ' + (p.responsesThisWeek || 0) + '/' + g.responsesTarget + '\n';
     prompt += '- RDV: ' + (p.rdvBookedThisWeek || 0) + '/' + g.rdvTarget + '\n';
     prompt += '- Contacts CRM: ' + p.contactsPushedThisWeek + '\n';
@@ -1013,9 +1078,15 @@ Analyse et reponds en JSON:
       // Non-bloquant
     }
 
+    // Objectif email dynamique base sur le warmup
+    const amGoals = getAutomailerStorage();
+    const firstSendDateGoals = amGoals && amGoals.getFirstSendDate ? amGoals.getFirstSendDate() : null;
+    const dailyLimitGoals = getWarmupDailyLimit(firstSendDateGoals);
+    const weeklyEmailTarget = Math.max(g.emailsToSend, dailyLimitGoals * 5);
+
     prompt += '\nOBJECTIFS HEBDO:\n';
     prompt += '- ' + g.leadsToFind + ' leads qualifies (score >= ' + g.minLeadScore + ')\n';
-    prompt += '- ' + g.emailsToSend + ' emails envoyes\n';
+    prompt += '- ' + weeklyEmailTarget + ' emails envoyes (limite warmup: ' + dailyLimitGoals + '/jour)\n';
     prompt += '- ' + g.responsesTarget + ' reponses positives\n';
     prompt += '- ' + g.rdvTarget + ' RDV decroches\n';
     prompt += '- Open rate >= ' + g.minOpenRate + '%\n';
@@ -1277,7 +1348,7 @@ Analyse et reponds en JSON:
     prompt += '1. autoExecute=true pour TOUTES les actions, y compris send_email. Tu es en FULL AUTO.\n';
     prompt += '2. Pour send_email, mets TOUJOURS _generateFirst:true — la recherche prospect est OBLIGATOIRE avant chaque email.\n';
     prompt += '3. NE FOURNIS PAS subject/body dans send_email — le ProspectResearcher + ClaudeEmailWriter les generent automatiquement avec des infos fraiches.\n';
-    prompt += '4. Envoie 10-15 emails PAR CYCLE. Priorise les leads score >= 8. RESPECTE la limite warm-up (le systeme bloque au-dela).\n';
+    prompt += '4. Envoie jusqu\'a ' + dailyLimitGoals + ' emails PAR CYCLE. Priorise les leads score >= 8. Le systeme bloque au-dela de la limite warmup.\n';
     prompt += '5. JAMAIS de prix, d\'offre, de feature, de "pilote gratuit" dans le premier email. Le but = OUVRIR UNE CONVERSATION.\n';
     prompt += '6. Apres 3 jours sans reponse sur un lead contacte, cree automatiquement une sequence follow-up (create_followup_sequence).\n';
     prompt += '7. Sois strategique avec les credits Apollo (100/mois). Prefere des recherches ciblees.\n';
@@ -1734,11 +1805,16 @@ Analyse et reponds en JSON:
         }
         // Verifier qu'il n'y a pas deja une campagne pour ce contact
         const allCampaigns = amStorage.getAllCampaigns();
-        const hasSequence = allCampaigns.some(c =>
-          c.name && c.name.startsWith('Relance auto') &&
-          c.status !== 'completed' &&
-          amStorage.getEmailsByCampaign(c.id).some(ce => ce.to === e.to)
-        );
+        const hasSequence = allCampaigns.some(c => {
+          if (!c.name || !c.name.startsWith('Relance auto') || c.status === 'completed') return false;
+          // Verifier dans la contact list (pas seulement les emails envoyes — sentCount peut etre 0)
+          const list = amStorage.getContactList(c.contactListId);
+          if (list && list.contacts) {
+            return list.contacts.some(contact => contact.email === e.to);
+          }
+          // Fallback: verifier dans les emails envoyes
+          return amStorage.getEmailsByCampaign(c.id).some(ce => ce.to === e.to);
+        });
         return !hasSequence;
       });
 
