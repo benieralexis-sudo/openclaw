@@ -164,6 +164,9 @@ const App = {
     if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
 
     const k = data.kpis;
+    const cn = e(data.clientName || 'iFIND');
+    App._clientSlug = (data.clientName || 'ifind').toLowerCase().replace(/[^a-z0-9]/g, '-');
+    if (data.clientName) document.title = 'Mission Control — ' + cn;
     container.innerHTML = `
     <div class="page-enter stagger">
       <div class="page-header">
@@ -182,11 +185,11 @@ const App = {
 
       ${data.appStatus && data.appStatus.mode === 'standby' ? `
       <div class="standby-banner">
-        iFIND est en <strong>mode stand-by</strong> &mdash; crons d&eacute;sactiv&eacute;s, z&eacute;ro consommation automatique. Dis <em>&laquo; active tout &raquo;</em> sur Telegram pour lancer.
+        ${cn} est en <strong>mode stand-by</strong> &mdash; crons d&eacute;sactiv&eacute;s, z&eacute;ro consommation automatique. Dis <em>&laquo; active tout &raquo;</em> sur Telegram pour lancer.
       </div>
       ` : data.appStatus && data.appStatus.mode === 'production' ? `
       <div class="production-banner">
-        iFIND en <strong>production</strong> &mdash; ${data.appStatus.cronsActive ? '14 crons actifs' : 'crons en pause'}
+        ${cn} en <strong>production</strong> &mdash; ${data.appStatus.cronsActive ? '14 crons actifs' : 'crons en pause'}
       </div>
       ` : ''}
 
@@ -464,7 +467,7 @@ const App = {
       l.pushedToHubspot ? 'Oui' : 'Non',
       l.createdAt ? new Date(l.createdAt).toLocaleDateString('fr-FR') : ''
     ]);
-    Utils.exportCSV(headers, rows, 'leads-ifind-' + new Date().toISOString().slice(0, 10) + '.csv');
+    Utils.exportCSV(headers, rows, 'leads-' + (App._clientSlug || 'ifind') + '-' + new Date().toISOString().slice(0, 10) + '.csv');
   },
 
   async exportEmails() {
@@ -475,7 +478,7 @@ const App = {
       em.to || '', em.subject || '', em.status || '',
       em.campaignName || '', em.createdAt ? new Date(em.createdAt).toLocaleDateString('fr-FR') : ''
     ]);
-    Utils.exportCSV(headers, rows, 'emails-ifind-' + new Date().toISOString().slice(0, 10) + '.csv');
+    Utils.exportCSV(headers, rows, 'emails-' + (App._clientSlug || 'ifind') + '-' + new Date().toISOString().slice(0, 10) + '.csv');
   },
 
   async exportInvoices() {
@@ -490,7 +493,7 @@ const App = {
         i.createdAt ? new Date(i.createdAt).toLocaleDateString('fr-FR') : ''
       ];
     });
-    Utils.exportCSV(headers, rows, 'factures-ifind-' + new Date().toISOString().slice(0, 10) + '.csv');
+    Utils.exportCSV(headers, rows, 'factures-' + (App._clientSlug || 'ifind') + '-' + new Date().toISOString().slice(0, 10) + '.csv');
   },
 
   // ========================================

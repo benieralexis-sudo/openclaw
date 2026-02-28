@@ -30,7 +30,7 @@ const InboxHandler = require('../skills/inbox-manager/inbox-handler.js');
 let InboxListener;
 try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
 const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
-const { classifyReply, generateQuestionReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, generateInterestedReplyViaClaude, parseOOOReturnDate, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
+const { classifyReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, generateInterestedReplyViaClaude, parseOOOReturnDate, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 

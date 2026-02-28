@@ -510,6 +510,7 @@ app.get('/api/overview', authRequired, async (req, res) => {
 
   res.json({
     ownerName: process.env.DASHBOARD_OWNER || '',
+    clientName: process.env.CLIENT_NAME || 'iFIND',
     appStatus,
     kpis: {
       leads: { value: leadsInPeriod, total: leads.length, change: calcChange(leadsInPeriod, leadsPrev) },
@@ -1316,7 +1317,7 @@ body{background:#09090b;color:#fafafa;font-family:'Inter',sans-serif;min-height:
     </div>
     <button type="submit" class="btn">Se connecter</button>
   </form>
-  <div class="footer-text">Propuls&eacute; par iFIND</div>
+  <div class="footer-text">Propuls&eacute; par ${process.env.CLIENT_NAME || 'iFIND'}</div>
 </div>
 <script src="/public/js/login.js"></script>
 </div>

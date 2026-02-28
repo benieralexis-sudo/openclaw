@@ -126,7 +126,7 @@ const dataSets = [
     data: {
       config: {
         enabled: false,
-        adminChatId: '1409505520',
+        adminChatId: process.env.ADMIN_CHAT_ID || '1409505520',
         alerts: {
           morningReport: { enabled: true, hour: 8, minute: 0 },
           pipelineAlerts: { enabled: true, hour: 9, minute: 0 },
@@ -163,7 +163,7 @@ const dataSets = [
     data: {
       config: {
         enabled: false,
-        adminChatId: '1409505520',
+        adminChatId: process.env.ADMIN_CHAT_ID || '1409505520',
         analysisDay: 'sunday',
         analysisHour: 21,
         autoApply: false,
@@ -201,7 +201,7 @@ const dataSets = [
     data: {
       config: {
         enabled: false,
-        adminChatId: '1409505520',
+        adminChatId: process.env.ADMIN_CHAT_ID || '1409505520',
         checkIntervalHours: 6,
         maxArticlesPerWatch: 50,
         maxArticlesTotal: 500,
@@ -235,7 +235,7 @@ const dataSets = [
     data: {
       config: {
         enabled: false,
-        adminChatId: '1409505520',
+        adminChatId: process.env.ADMIN_CHAT_ID || '1409505520',
         alerts: {
           metricsCollection: { enabled: true, intervalMinutes: 5 },
           healthCheck: { enabled: true, intervalMinutes: 60 },

@@ -376,45 +376,6 @@ Redige ta reponse (3-5 lignes + proposition call):`;
   }
 }
 
-/**
- * Legacy: Genere une reponse IA contextuelle pour les prospects qui posent une question.
- * @deprecated Utiliser generateQuestionReplyViaClaude a la place
- */
-async function generateQuestionReply(openaiKey, replyData, classification) {
-  const { from, fromName, snippet } = replyData;
-  const firstName = (fromName || '').trim().split(' ')[0] || '';
-
-  const systemPrompt = `Tu es Alexis, fondateur de iFIND, service de prospection B2B automatisee.
-Un prospect a pose une question dans sa reponse a ton email de prospection.
-Redige une reponse courte (3-5 lignes max), naturelle, ton pair-a-pair (tu tutoies sauf si le prospect vouvoie).
-Termine TOUJOURS par une proposition de call de 15 min.
-NE MENTIONNE JAMAIS : SDR, pipeline, automatisation, solution, outil, IA, robot.
-Reponds en francais. Pas de signature, pas de formule de politesse longue.`;
-
-  const userPrompt = 'Question du prospect ' + (firstName || from) + ' :\n' +
-    'Message : ' + (snippet || '').substring(0, 500) + '\n\n' +
-    'Mots-cles detectes : ' + (classification.key_phrases || []).join(', ');
-
-  try {
-    const result = await callOpenAI(openaiKey, [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ], { maxTokens: 250, temperature: 0.5, model: 'gpt-4o-mini' });
-
-    if (_appConfig && _appConfig.recordApiSpend && result.usage) {
-      _appConfig.recordApiSpend('gpt-4o-mini', result.usage.prompt_tokens || 0, result.usage.completion_tokens || 0);
-    }
-
-    return result.content.trim();
-  } catch (e) {
-    log.error('reply-classifier', 'Erreur generation reponse question:', e.message);
-    return (firstName ? 'Merci ' + firstName : 'Merci pour ta question') + ' !\n\n' +
-      'Bonne question. Le plus simple, on en parle de vive voix ?\n' +
-      'Dis-moi tes dispos cette semaine, je cale un call de 15 min.\n\n' +
-      'A bientot !';
-  }
-}
-
 const REPLY_TEMPLATES = {
   interested: {
     withMeeting: (firstName, bookingUrl) =>
@@ -497,7 +458,6 @@ Redige ta reponse (3-5 lignes + proposition call):`;
 
 module.exports = {
   classifyReply,
-  generateQuestionReply,
   subClassifyObjection,
   generateObjectionReply,
   generateQuestionReplyViaClaude,
