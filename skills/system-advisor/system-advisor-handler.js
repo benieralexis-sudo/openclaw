@@ -45,17 +45,8 @@ class SystemAdvisorHandler {
     })));
     log.info('system-advisor', 'Cron: health check toutes les heures');
 
-    // Rapport quotidien 6h30 (avant le rapport matinal unifie de 8h)
-    this.crons.push(new Cron('30 6 * * *', { timezone: tz }, withCronGuard('sa-daily-report', () => {
-      this._dailyReport().catch(e => log.error('system-advisor', 'Erreur rapport quotidien:', e.message));
-    })));
-    log.info('system-advisor', 'Cron: rapport quotidien 6h30');
-
-    // Rapport hebdo lundi 10h30 (decale pour eviter embouteillage matinal)
-    this.crons.push(new Cron('30 10 * * 1', { timezone: tz }, withCronGuard('sa-weekly-report', () => {
-      this._weeklyReport().catch(e => log.error('system-advisor', 'Erreur rapport hebdo:', e.message));
-    })));
-    log.info('system-advisor', 'Cron: rapport hebdo lundi 10h30');
+    // Rapport quotidien et hebdo : desactives (bruit technique pour le client)
+    // Les fonctions _dailyReport() et _weeklyReport() restent accessibles via commande manuelle "rapport systeme"
 
     log.info('system-advisor', 'Demarre avec ' + this.crons.length + ' cron(s)');
   }

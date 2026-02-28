@@ -2646,14 +2646,9 @@ const healthServer = http.createServer((req, res) => {
               researcher.researchProspect(contact),
               new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout 30s')), 30000))
             ]).then(intel => {
-              const msg = '\u{1f4e8} *Email ouvert (1ere fois)*\n\n' +
-                '*Qui :* ' + (email.contactName || email.to) + '\n' +
-                (email.company ? '*Entreprise :* ' + email.company + '\n' : '') +
-                '*Objet :* _' + (email.subject || '(sans objet)').substring(0, 60) + '_\n\n' +
-                (intel && intel.brief ? '\u{1f50d} *Intel :*\n' + intel.brief.substring(0, 500) + '\n\n' : '') +
-                '_En attente d\'un 2eme signal (reouvre ou clic) pour relancer._';
-              sendMessage(ADMIN_CHAT_ID, msg, 'Markdown').catch(() => {});
-              // Cache l'intel pour usage ultérieur
+              // Notification silencieuse — le hot lead alert notifiera si 3+ ouvertures
+              log.info('tracking', 'Email ouvert (1ere fois) par ' + email.to + ' — intel cache, notification silencieuse');
+              // Cache l'intel pour usage ultérieur (reactive FU, hot lead alert)
               if (intel && intel.brief) {
                 try {
                   proactiveAgentStorage.data._cachedIntel = proactiveAgentStorage.data._cachedIntel || {};
@@ -2664,13 +2659,13 @@ const healthServer = http.createServer((req, res) => {
                 } catch (cacheErr2) {}
               }
             }).catch(() => {
-              sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
+              log.info('tracking', 'Email ouvert (1ere fois) par ' + email.to + ' — research timeout, pas de cache');
             });
           } catch (e) {
-            sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to), 'Markdown').catch(() => {});
+            log.info('tracking', 'Email ouvert (1ere fois) par ' + email.to + ' — researcher non dispo');
           }
         } else {
-          sendMessage(ADMIN_CHAT_ID, '\u{1f4e8} *Email ouvert* par ' + (email.contactName || email.to) + (email.company ? ' (' + email.company + ')' : ''), 'Markdown').catch(() => {});
+          log.info('tracking', 'Email ouvert (1ere fois) par ' + email.to + ' — ProspectResearcher non charge');
         }
       } else {
         // 2ème+ ouverture pixel → signal d'intérêt fort → programmer reactive FU
@@ -2686,7 +2681,6 @@ const healthServer = http.createServer((req, res) => {
             // Guard 1 : blacklist automailer (human takeover, bounce, decline)
             if (automailerStorage.isBlacklisted(email.to)) {
               log.info('tracking', 'Skip reactive FU (reouvre pixel) pour ' + email.to + ' — blackliste');
-              sendMessage(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel)*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Prospect blackliste — pas de relance._', 'Markdown').catch(() => {});
             }
             // Guard 2 : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
             else if ((function() {
@@ -2694,7 +2688,6 @@ const healthServer = http.createServer((req, res) => {
               return pixelEvents.some(function(e) { return e.status === 'replied' || e.hasReplied; });
             })()) {
               log.info('tracking', 'Skip reactive FU (reouvre pixel) pour ' + email.to + ' — deja repondu (human takeover)');
-              sendMessage(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel)*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Prospect a deja repondu — pas de relance._', 'Markdown').catch(() => {});
             } else {
               var delayMs3 = (rfConfig3.minDelayMinutes + Math.random() * (rfConfig3.maxDelayMinutes - rfConfig3.minDelayMinutes)) * 60 * 1000;
               var scheduledAfter3 = new Date(Date.now() + delayMs3).toISOString();
@@ -2709,11 +2702,9 @@ const healthServer = http.createServer((req, res) => {
                 scheduledAfter: scheduledAfter3
               });
               if (addedFU3) {
-                log.info('tracking', 'Reactive FU programme (reouvre pixel) pour ' + email.to + ' — id: ' + addedFU3.id);
-                sendMessageWithButtons(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel) !*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Relance programmee dans ~' + Math.round(delayMs3 / 60000) + ' min._', [[{ text: '❌ Annuler relance', callback_data: 'cancel_rfu_' + addedFU3.id }]]).catch(() => {});
+                log.info('tracking', 'Reactive FU programme (reouvre pixel) pour ' + email.to + ' — id: ' + addedFU3.id + ' — notification a l\'envoi');
               } else {
                 log.info('tracking', 'Reactive FU deja programme pour ' + email.to + ' (dedup)');
-                sendMessage(ADMIN_CHAT_ID, '\u{1f504} *Email rouvert (pixel)*\n\n*Qui :* ' + (email.contactName || email.to) + (email.company ? '\n*Entreprise :* ' + email.company : '') + '\n\n_Relance deja en cours._', 'Markdown').catch(() => {});
               }
             }
           }
@@ -2727,7 +2718,8 @@ const healthServer = http.createServer((req, res) => {
         const tracked = proactiveAgentStorage.trackEmailOpen(email.to, email.trackingId || trackingId);
         const paConfig = proactiveAgentStorage.getConfig();
         if (tracked.opens >= (paConfig.thresholds || {}).hotLeadOpens && !proactiveAgentStorage.isHotLeadNotified(email.to)) {
-          sendMessage(ADMIN_CHAT_ID, '\u{1f525} *HOT LEAD* — ' + (email.contactName || email.to) + ' a ouvert ' + tracked.opens + ' emails !\n_Ce prospect est tres engage, contacte-le rapidement._', 'Markdown').catch(() => {});
+          // Notification via smart alerts proactive (plus riche, avec infos lead) — pas de doublon ici
+          log.info('tracking', 'Hot lead detecte via pixel: ' + email.to + ' (' + tracked.opens + ' opens) — notification via smart alerts');
           proactiveAgentStorage.markHotLeadNotified(email.to);
           }
         } catch (paErr) { log.warn('tracking', 'Proactive tracking: ' + paErr.message); }

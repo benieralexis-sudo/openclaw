@@ -241,7 +241,7 @@ class ProactiveEngine {
       const nightlyBriefing = storage.getNightlyBriefing();
       const report = await this.reportGenerator.generateMorningReport(data, nightlyBriefing);
 
-      // --- Enrichir avec les donnees Autonomous Pilot (fusion briefing AP supprime) ---
+      // --- Section Autonomous Pilot simplifiee (format business) ---
       let apSection = '';
       try {
         const apStorage = this._getAPStorage();
@@ -249,30 +249,15 @@ class ProactiveEngine {
           const progress = apStorage.getProgress ? apStorage.getProgress() : {};
           const goals = apStorage.getGoals ? apStorage.getGoals() : {};
           const g = goals.weekly || {};
-          const queued = apStorage.getQueuedActions ? apStorage.getQueuedActions() : [];
-          const experiments = apStorage.getActiveExperiments ? apStorage.getActiveExperiments() : [];
+          const pctEmails = (g.emailsToSend || 0) > 0 ? Math.round(((progress.emailsSentThisWeek || 0) / g.emailsToSend) * 100) : 100;
 
-          apSection += '\n\n📊 *Autonomous Pilot — Progres semaine :*\n';
-          apSection += '• Leads: ' + (progress.leadsFoundThisWeek || 0) + '/' + (g.leadsToFind || 0);
-          apSection += (progress.leadsFoundThisWeek || 0) >= (g.leadsToFind || 1) ? ' ✅\n' : '\n';
-          apSection += '• Emails: ' + (progress.emailsSentThisWeek || 0) + '/' + (g.emailsToSend || 0);
-          apSection += (progress.emailsSentThisWeek || 0) >= (g.emailsToSend || 1) ? ' ✅\n' : '\n';
-          apSection += '• Reponses: ' + (progress.responsesThisWeek || 0) + '/' + (g.responsesTarget || 0) + '\n';
-
-          if (queued.length > 0) {
-            apSection += '⏳ ' + queued.length + ' action(s) AP en attente\n';
+          apSection += '\n\n🎯 *Cette semaine :*\n';
+          apSection += '• Prospection a ' + Math.min(pctEmails, 100) + '%\n';
+          if ((progress.responsesThisWeek || 0) > 0) {
+            apSection += '• ' + progress.responsesThisWeek + ' reponse(s) recue(s)\n';
           }
-          if (experiments.length > 0) {
-            apSection += '🧪 ' + experiments.length + ' experience(s) en cours\n';
-          }
-
-          // Plan du jour
-          const leadsNeeded = (g.leadsToFind || 0) - (progress.leadsFoundThisWeek || 0);
-          const emailsNeeded = (g.emailsToSend || 0) - (progress.emailsSentThisWeek || 0);
-          if (leadsNeeded > 0 || emailsNeeded > 0) {
-            apSection += '\n🎯 *Aujourd\'hui :*\n';
-            if (leadsNeeded > 0) apSection += '• Rechercher ~' + Math.min(leadsNeeded, 10) + ' leads\n';
-            if (emailsNeeded > 0) apSection += '• Preparer ~' + Math.min(emailsNeeded, 10) + ' emails\n';
+          if ((progress.rdvBookedThisWeek || 0) > 0) {
+            apSection += '• ' + progress.rdvBookedThisWeek + ' RDV pris\n';
           }
         }
       } catch (e) {
@@ -1116,19 +1101,8 @@ class ProactiveEngine {
       }
 
       if (sent > 0) {
-        const lines = ['🎯 *Multi-Thread — ' + sent + ' email(s) secondaire(s) envoye(s)*', ''];
-        const buttons = [];
-        for (const c of dueContacts.slice(0, sent)) {
-          lines.push('📧 ' + (c.name || c.email) + ' (' + c.companyName + ') — _' + (c.emailAngle || 'secondary').replace(/_/g, ' ') + '_');
-          buttons.push([{ text: '🚫 Stop ' + (c.name || c.email).substring(0, 25), callback_data: 'bl_prospect_' + c.email }]);
-        }
-        try {
-          if (this.sendTelegramButtons && buttons.length > 0) {
-            await this.sendTelegramButtons(this.options.adminChatId, lines.join('\n'), buttons);
-          } else {
-            await this.options.sendTelegram(this.options.adminChatId, lines.join('\n'));
-          }
-        } catch (e) {}
+        // Silencieux — les emails secondaires sont inclus dans le compteur global du morning report
+        log.info('proactive-engine', 'Multi-thread: ' + sent + ' emails secondaires envoyes (silencieux)');
       }
 
       log.info('proactive-engine', 'Multi-thread termine: ' + sent + '/' + dueContacts.length + ' secondaires envoyes');
@@ -1707,13 +1681,9 @@ class ProactiveEngine {
 
           storage.markFollowUpSent(followUp.id, { resendId: sendResult.id, subject: subject });
 
-          // Notification Telegram avec bouton blacklist
-          const tgMsg = '\u{1f3af} *Relance reactive envoyee !*\n\n' +
-            '*Qui :* ' + (followUp.prospectName || followUp.prospectEmail) + '\n' +
-            (followUp.prospectCompany ? '*Entreprise :* ' + followUp.prospectCompany + '\n' : '') +
-            '*Objet :* _' + subject.substring(0, 60) + '_\n\n' +
-            body.substring(0, 300) + '\n\n' +
-            '_Envoyee auto suite a ouverture du premier email._';
+          // Notification Telegram compacte avec bouton blacklist
+          const tgMsg = '📧 *Relance envoyee a ' + (followUp.prospectName || followUp.prospectEmail) + '*' +
+            (followUp.prospectCompany ? ' (' + followUp.prospectCompany + ')' : '');
           if (this.sendTelegramButtons) {
             await this.sendTelegramButtons(config.adminChatId, tgMsg, [[{ text: '🚫 Blacklister ce prospect', callback_data: 'bl_prospect_' + followUp.prospectEmail }]]);
           } else {

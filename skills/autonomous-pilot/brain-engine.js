@@ -310,6 +310,7 @@ class BrainEngine {
     // 4. Executer les actions (avec retry sur actions critiques)
     const RETRYABLE_ACTIONS = ['send_email', 'push_to_crm'];
     const MAX_RETRIES = 2;
+    const _actionResults = []; // Track results pour le resume business
 
     for (const action of plan.actions) {
       if (action.autoExecute) {
@@ -351,6 +352,7 @@ class BrainEngine {
           attempts: attempts
         });
 
+        _actionResults.push({ type: action.type, success: !!(result && result.success), result: result });
         if (result && result.success && result.summary) {
           log.info('brain', 'Action auto: ' + result.summary);
         } else if (result && !result.success && attempts > 1) {
@@ -404,47 +406,30 @@ class BrainEngine {
     // try { this._syncWatchesWithCriteria(); }
     // try { await this._syncWatchesWithCRMDeals(); }
 
-    // 8. Envoyer resume
-    const autoActions = plan.actions.filter(a => a.autoExecute);
+    // 8. Envoyer resume (format business — comprehensible par le client)
     const confirmActions = plan.actions.filter(a => !a.autoExecute);
+    const emailsSent = _actionResults.filter(r => r.type === 'send_email' && r.success).length;
+    const leadsFound = _actionResults.filter(r => r.type === 'search_leads' && r.success).length;
+    const followupsCreated = _actionResults.filter(r => r.type === 'create_followup_sequence' && r.success).length;
+    const crmActions = _actionResults.filter(r => r.type === 'push_to_crm' && r.success).length;
+    const hasResults = emailsSent > 0 || leadsFound > 0 || followupsCreated > 0 || crmActions > 0 || confirmActions.length > 0;
 
-    if (autoActions.length > 0 || confirmActions.length > 0) {
-      let summary = '🧠 *Cycle Autonomous Pilot*\n\n';
-
-      if (plan.reasoning) {
-        summary += '_' + escTg(plan.reasoning.substring(0, 300)) + '_\n\n';
-      }
-
-      if (autoActions.length > 0) {
-        summary += '✅ *Actions executees :*\n';
-        for (const a of autoActions) {
-          summary += '• ' + escTg(a.preview || a.type) + '\n';
-        }
-        summary += '\n';
-      }
-
+    if (hasResults) {
+      let summary = '📬 *Prospection auto*\n\n';
+      if (emailsSent > 0) summary += '📧 ' + emailsSent + ' email(s) envoye(s)\n';
+      if (leadsFound > 0) summary += '🔍 Nouveaux prospects trouves\n';
+      if (followupsCreated > 0) summary += '🔄 ' + followupsCreated + ' relance(s) programmee(s)\n';
+      if (crmActions > 0) summary += '📋 ' + crmActions + ' fiche(s) CRM mises a jour\n';
       if (confirmActions.length > 0) {
-        summary += '⏳ *En attente de confirmation :*\n';
-        summary += confirmActions.length + ' action(s) — reponds aux messages ci-dessus\n\n';
+        summary += '\n⏳ ' + confirmActions.length + ' action(s) en attente de ta validation\n';
       }
-
-      if (plan.experiments && plan.experiments.length > 0) {
-        summary += '🧪 *Nouvelles experiences :*\n';
-        for (const exp of plan.experiments) {
-          summary += '• ' + escTg(exp.description || exp.type) + '\n';
-        }
-        summary += '\n';
-      }
-
-      if (plan.weeklyAssessment) {
-        summary += '📊 Bilan: ' + plan.weeklyAssessment + '\n';
-      }
-
       try {
         await this.sendTelegram(chatId, summary, 'Markdown');
       } catch (e) {
         log.error('brain', 'Erreur envoi resume:', e.message);
       }
+    } else {
+      log.info('brain', 'Cycle silencieux — 0 action reussie');
     }
   }
 
@@ -621,17 +606,11 @@ class BrainEngine {
 
     const g = storage.getGoals().weekly;
 
-    let msg = '📅 *Bilan hebdomadaire — Autonomous Pilot*\n\n';
-    msg += '• Leads trouves: ' + oldProgress.leadsFoundThisWeek + '/' + g.leadsToFind;
-    msg += oldProgress.leadsFoundThisWeek >= g.leadsToFind ? ' ✅\n' : ' ❌\n';
-    msg += '• Emails envoyes: ' + oldProgress.emailsSentThisWeek + '/' + g.emailsToSend;
-    msg += oldProgress.emailsSentThisWeek >= g.emailsToSend ? ' ✅\n' : ' ❌\n';
-    msg += '• Reponses: ' + (oldProgress.responsesThisWeek || 0) + '/' + g.responsesTarget + '\n';
-    msg += '• RDV: ' + (oldProgress.rdvBookedThisWeek || 0) + '/' + g.rdvTarget + '\n';
-    msg += '• Enrichis: ' + oldProgress.leadsEnrichedThisWeek + '\n';
-    msg += '• Contacts CRM: ' + oldProgress.contactsPushedThisWeek + '\n';
-    msg += '• Deals CRM: ' + oldProgress.dealsPushedThisWeek + '\n';
-    msg += '\nCompteurs remis a zero. Nouvelle semaine !\n';
+    let msg = '📅 *Bilan de la semaine*\n\n';
+    msg += '📧 ' + oldProgress.emailsSentThisWeek + ' email(s) envoye(s)\n';
+    msg += '🔍 ' + oldProgress.leadsFoundThisWeek + ' prospect(s) trouve(s)\n';
+    msg += '💬 ' + (oldProgress.responsesThisWeek || 0) + ' reponse(s) recue(s)\n';
+    msg += '📅 ' + (oldProgress.rdvBookedThisWeek || 0) + ' RDV pris\n';
 
     try {
       await this.sendTelegram(chatId, msg, 'Markdown');
@@ -769,21 +748,10 @@ Analyse et reponds en JSON:
             }
           }
 
-          // Notifier sur Telegram UNIQUEMENT si un nouveau boost a ete applique (evite les doublons)
+          // Mini-cycle silencieux — les opportunites sont integrees dans le morning report
           if (matchingLeads.length > 0 && anyNewBoost) {
             const [, firstLead] = matchingLeads[0];
-            const boost = SIGNAL_BOOSTS[signal.type] || 0.5;
-            try {
-              await this.sendTelegram(chatId,
-                '📡 *Opportunite detectee*\n\n' +
-                '*Signal:* ' + escTg(signal.type) + ' — ' + escTg(signal.title) + '\n' +
-                '*Lead\\(s\\):* ' + matchingLeads.length + ' \\(' + escTg(firstLead.nom) + ', ' + escTg(firstLead.entreprise) + '\\)\n' +
-                '*Score boost:* \\+' + boost + '\n' +
-                '→ _' + escTg(signal.action) + '_\n\n' +
-                (firstLead._emailSent ? 'Lead deja contacte — relance recommandee \\!' : 'Ce lead devrait etre contacte en priorite \\!'),
-                'Markdown'
-              );
-            } catch (e) {}
+            log.info('brain', 'Mini-cycle: opportunite ' + signal.type + ' pour ' + firstLead.entreprise + ' — score booste (silencieux)');
           }
         }
       }

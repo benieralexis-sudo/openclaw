@@ -451,34 +451,26 @@ class ReportGenerator {
       ? '\n⚠️ IMPORTANT : Les emails sont envoyes en PLAIN TEXT (pas de HTML). Le taux d\'ouverture est NON MESURABLE car il n\'y a pas de pixel de tracking. Ne commente PAS le taux d\'ouverture et ne dis pas que c\'est un probleme. Concentre-toi sur les deliveries et les bounces.'
       : '';
 
-    const prompt = `DONNEES DU JOUR :
-- Contacts HubSpot : ${data.hubspot.contacts}
-- Pipeline engage : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} deals engages) | ${data.hubspot.coldDeals.length} prospects froids en attente${data.hubspot.deadDeals.length > 0 ? ' | ' + data.hubspot.deadDeals.length + ' morts (14j+ sans activite)' : ''}
-- Emails envoyes : ${data.emails.sent}, delivered : ${data.emails.delivered}, bounced : ${data.emails.bounced}${isPlainTextMode ? '' : ', ouverts : ' + data.emails.opened + ' (taux: ' + emailOpenRate + '%)'}
-- Campagnes actives : ${data.emails.activeCampaigns}${isPlainTextMode ? '' : '\n- Meilleur jour d\'envoi : ' + bestDayStr + ' | Meilleure heure : ' + bestHourStr}
-- Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched} (+${data.leads.enrichedThisWeek} cette semaine)
+    const prompt = `DONNEES :
+- Pipeline : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} deals en cours)${data.hubspot.deadDeals.length > 0 ? ' | ' + data.hubspot.deadDeals.length + ' deals inactifs' : ''}
+- Emails envoyes : ${data.emails.sent}${isPlainTextMode ? '' : ', ouverts : ' + data.emails.opened + ' (' + emailOpenRate + '%)'}
+- Prospects trouves : ${data.leads.total}
 - Top leads : ${topLeadsStr}
-- Leads refroidis (7j+ sans activite) : ${coldLeadsStr}
-- Contenus generes : ${data.content.generated} (cette semaine: ${data.content.thisWeek}) — Types: ${contentTypes}
-- Factures : ${data.invoices.total} (${data.invoices.paid} payees, ${data.invoices.overdue} en retard)
-- Veille web : ${data.webIntel.articlesThisWeek} articles cette semaine, ${data.webIntel.competitorAlerts} alertes concurrents
-- Articles pertinents : ${webArticlesStr}
-- Budget API : ${data.budget.todaySpent}$ aujourd'hui / ${data.budget.dailyLimit}$ limite | Semaine: ${data.budget.weekSpent}$ | Projection mois: ${data.budget.projection}$
 ${hotLeadList}${plainTextNote}
 ${briefingText}`;
 
-    const systemPrompt = `Tu es iFIND, l'assistant IA de ${this.ownerName}. Tu envoies un rapport matinal.
+    const systemPrompt = `Tu es l'assistant business de ${this.ownerName}. Rapport du matin.
 
 REGLES :
-- Parle comme un assistant pro mais decontracte. Tutoie ${this.ownerName}.
-- Commence par un "Bonjour" ou "Salut" naturel et varie
-- Donne les chiffres importants de facon conversationnelle, pas en tableau
-- Si hot leads ou deals urgents, mets-les en avant
-- Si rien de special, sois bref et propose une action
+- Maximum 8 lignes. Sois concis et direct.
+- Commence par les RESULTATS de la veille (chiffres cles)
+- Si hot leads ou deals urgents, mets-les en avant avec une action concrete
+- Si rien de special, dis-le en 3 lignes max
+- Ton conversationnel, tutoie ${this.ownerName}
 - Format Telegram Markdown : *gras*, _italique_
-- Maximum 15 lignes
-- Termine par une suggestion ou une motivation
-- JAMAIS mentionner Claude, OpenAI, GPT ou IA`;
+- JAMAIS mentionner : IA, API, budget, tokens, warmup, webhook, pixel, tracking, bounce, CRM sync, enrichissement
+- JAMAIS de jargon technique : pas de "Brain Cycle", "Autonomous Pilot", "mini-cycle", "experience A/B", "niche", "campagne"
+- Termine par 1 action concrete pour la journee`;
 
     try {
       return await this.callClaude(systemPrompt, prompt, 800);
@@ -534,36 +526,26 @@ REGLES :
     const weekArticles = (data.webIntel.relevantArticles || []).slice(0, 3).map(a => '  - ' + a.title + ' (score ' + a.score + (a.isUrgent ? ' URGENT' : '') + ')').join('\n') || '  Aucun';
 
     const prompt = `BILAN HEBDOMADAIRE :
-- Contacts HubSpot : ${data.hubspot.contacts}
-- Pipeline engage : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} deals engages) | ${data.hubspot.coldDeals.length} prospects froids${data.hubspot.deadDeals.length > 0 ? ' | ' + data.hubspot.deadDeals.length + ' morts' : ''}
-- Deals stagnants : ${data.hubspot.stagnantDeals.length}
-- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (taux: ${weekOpenRate}%), bounced : ${data.emails.bounced}
-- Meilleur jour d'envoi : ${weekBestDay ? weekBestDay[0] + ' (' + weekBestDay[1].rate + '%)' : 'N/A'}
-- Campagnes : ${data.emails.campaigns} (${data.emails.activeCampaigns} actives)
-- Leads trouves : ${data.leads.total}, enrichis : ${data.leads.enriched} (+${data.leads.enrichedThisWeek} cette semaine)
-- TOP 5 LEADS :
+- Pipeline : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} deals en cours)${data.hubspot.stagnantDeals.length > 0 ? ' | ' + data.hubspot.stagnantDeals.length + ' deals a relancer' : ''}
+- Emails envoyes : ${data.emails.sent}, ouverts : ${data.emails.opened} (${weekOpenRate}%)
+- Prospects trouves : ${data.leads.total}
+- TOP 5 PROSPECTS :
 ${weekTopLeads}
-- LEADS REFROIDIS (7j+ sans activite) :
+- PROSPECTS INACTIFS :
 ${weekColdLeads}
-- Contenus generes : ${data.content.generated} (cette semaine: ${data.content.thisWeek}) — ${weekContentTypes}
-- Factures : ${data.invoices.total} (CA facture : ${data.invoices.totalBilled} EUR)
-- VEILLE WEB : ${data.webIntel.articlesThisWeek} articles, ${data.webIntel.competitorAlerts} alertes concurrents
-- ARTICLES PERTINENTS :
-${weekArticles}
-- BUDGET API : ${data.budget.weekSpent}$ cette semaine | Projection mois: ${data.budget.projection}$
 ${deltaInfo}`;
 
-    const systemPrompt = `Tu es iFIND. Tu envoies le rapport hebdomadaire du lundi matin a ${this.ownerName}.
+    const systemPrompt = `Tu es l'assistant business de ${this.ownerName}. Rapport de la semaine.
 
 REGLES :
-- Structure par categories mais de facon naturelle et conversationnelle
+- Maximum 15 lignes
+- 4 sections : CHIFFRES CLES, MEILLEURS RESULTATS, POINTS D'ATTENTION, PRIORITES SEMAINE
 - Compare avec la semaine precedente si dispo
-- Mets en avant les points positifs ET les points d'attention
-- Termine par 2-3 priorites pour la semaine
-- Tutoie ${this.ownerName}, ton motive et pro
+- Sois direct et factuel. Ton motive et pro.
+- Tutoie ${this.ownerName}
 - Format Telegram Markdown : *gras*, _italique_
-- Maximum 25 lignes
-- JAMAIS mentionner Claude, OpenAI, GPT ou IA`;
+- JAMAIS mentionner : IA, API, budget, tokens, warmup, webhook, pixel, tracking, bounce, CRM sync, enrichissement, campagne
+- JAMAIS de jargon technique`;
 
     try {
       return await this.callClaudeOpus(systemPrompt, prompt, 1500);
