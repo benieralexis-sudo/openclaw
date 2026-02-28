@@ -178,15 +178,7 @@ const App = {
   _debouncedFilter: null,
 
   filterLeads() {
-    const q = (document.getElementById('search-leads')?.value || '').toLowerCase();
-    document.querySelectorAll('.lead-row').forEach(row => {
-      row.style.display = row.dataset.search.includes(q) ? '' : 'none';
-    });
-  },
-
-  showMoreLeads() {
-    this._leadsPageSize = (this._leadsPageSize || 50) + 50;
-    this.loadPage('leads');
+    if (window._refreshLeadsTable) { window._refreshLeadsTable(); return; }
   },
 
   async exportLeads() {
@@ -324,7 +316,7 @@ document.addEventListener('click', (ev) => {
     case 'export-leads': App.exportLeads(); break;
     case 'export-emails': App.exportEmails(); break;
     case 'export-invoices': App.exportInvoices(); break;
-    case 'show-more-leads': App.showMoreLeads(); break;
+    case 'set-leads-page': if (window._setLeadsPage) window._setLeadsPage(parseInt(param)); break;
     case 'set-intel-tab': App._intelTab = param; App.loadPage('intelligence', true); break;
     case 'send-chat': if (window._sendChatMessage) window._sendChatMessage(); break;
     case 'chat-suggestion': if (window._sendChatMessage) window._sendChatMessage(param); break;

@@ -3,8 +3,76 @@
 const e = (s) => Utils.escapeHtml(s);
 window.Pages = window.Pages || {};
 
+let _allLeads = [];
+let _filters = { score: 'all', source: 'all', hubspot: 'all' };
+let _currentPage = 1;
+const PER_PAGE = 25;
+
+function getFilteredLeads() {
+  let list = _allLeads;
+  const q = (document.getElementById('search-leads')?.value || '').toLowerCase();
+  if (q) list = list.filter(l =>
+    (l.nom || '').toLowerCase().includes(q) ||
+    (l.entreprise || '').toLowerCase().includes(q) ||
+    (l.email || '').toLowerCase().includes(q)
+  );
+  if (_filters.score === '8+') list = list.filter(l => (l.score || l.aiClassification?.score || 0) >= 8);
+  else if (_filters.score === '6+') list = list.filter(l => (l.score || l.aiClassification?.score || 0) >= 6);
+  else if (_filters.score === '<6') list = list.filter(l => (l.score || l.aiClassification?.score || 0) < 6);
+  if (_filters.source === 'brain') list = list.filter(l => l.source === 'brain');
+  else if (_filters.source === 'search') list = list.filter(l => l.source !== 'brain');
+  if (_filters.hubspot === 'oui') list = list.filter(l => l.pushedToHubspot);
+  else if (_filters.hubspot === 'non') list = list.filter(l => !l.pushedToHubspot);
+  return list;
+}
+
+function refreshTable() {
+  const filtered = getFilteredLeads();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  if (_currentPage > totalPages) _currentPage = totalPages;
+  const start = (_currentPage - 1) * PER_PAGE;
+  const pageLeads = filtered.slice(start, start + PER_PAGE);
+
+  const tbody = document.getElementById('leads-tbody');
+  if (tbody) {
+    tbody.innerHTML = pageLeads.length === 0
+      ? '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">Aucun lead trouvé</td></tr>'
+      : pageLeads.map(l => `
+        <tr>
+          <td style="color:var(--text-primary);font-weight:500">${e(l.nom || '—')}</td>
+          <td>${e(l.entreprise || '—')}</td>
+          <td>${e(l.email || '—')}</td>
+          <td>${l.score || l.aiClassification?.score ? `<span class="score-badge ${Utils.scoreClass(l.score || l.aiClassification?.score)}">${l.score || l.aiClassification?.score}</span>` : '—'}</td>
+          <td><span class="badge ${l.source === 'brain' ? 'badge-purple' : 'badge-blue'}">${l.source === 'brain' ? 'Brain' : 'Search'}</span></td>
+          <td>${l.pushedToHubspot ? '<span class="status-dot green"></span>Oui' : '<span class="status-dot red"></span>Non'}</td>
+          <td>${Utils.formatDate(l.createdAt)}</td>
+        </tr>
+      `).join('');
+  }
+
+  const countEl = document.getElementById('leads-filtered-count');
+  if (countEl) countEl.textContent = filtered.length;
+
+  const pagEl = document.getElementById('leads-pagination');
+  if (!pagEl) return;
+  if (totalPages <= 1) { pagEl.innerHTML = ''; return; }
+
+  let btns = `<button class="page-btn" data-action="set-leads-page" data-param="${_currentPage - 1}" ${_currentPage <= 1 ? 'disabled' : ''}>‹</button>`;
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - _currentPage) <= 1) {
+      btns += `<button class="page-btn ${i === _currentPage ? 'active' : ''}" data-action="set-leads-page" data-param="${i}">${i}</button>`;
+    } else if (i === _currentPage - 2 || i === _currentPage + 2) {
+      btns += '<span style="color:var(--text-muted);padding:0 4px">…</span>';
+    }
+  }
+  btns += `<button class="page-btn" data-action="set-leads-page" data-param="${_currentPage + 1}" ${_currentPage >= totalPages ? 'disabled' : ''}>›</button>`;
+  pagEl.innerHTML = `<div class="pagination">${btns}</div>`;
+}
+
+window._refreshLeadsTable = refreshTable;
+window._setLeadsPage = function(p) { _currentPage = p; refreshTable(); };
+
 Pages.leads = async function(container) {
-  // Charger prospection + enrichment + hot leads en parallèle
   const [data, enrichData, proactiveData] = await Promise.all([
     API.prospection(),
     API.enrichment(),
@@ -13,7 +81,9 @@ Pages.leads = async function(container) {
   if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
 
   const s = data.stats;
-  const leads = (data.leads || []).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  _allLeads = (data.leads || []).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  _currentPage = 1;
+  _filters = { score: 'all', source: 'all', hubspot: 'all' };
   const hotLeads = (proactiveData?.hotLeads || []).filter(l => (l.opens || 0) >= 3);
   const apollo = enrichData?.apollo || {};
   const creditPercent = apollo.creditsLimit ? Math.round((apollo.creditsUsed / apollo.creditsLimit) * 100) : 0;
@@ -25,9 +95,31 @@ Pages.leads = async function(container) {
       <div class="page-actions">
         <div class="search-bar">
           ${Utils.icon('search', 16)}
-          <input type="text" placeholder="Rechercher un lead..." id="search-leads">
+          <input type="text" placeholder="Rechercher..." id="search-leads">
         </div>
+        ${_allLeads.length > 0 ? `<button class="btn-export" data-action="export-leads" title="Exporter CSV">${Utils.icon('download', 14)} CSV</button>` : ''}
       </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-bar-label">Filtres</div>
+      <select class="filter-select" id="filter-score" data-filter="score">
+        <option value="all">Score: Tous</option>
+        <option value="8+">Score 8+</option>
+        <option value="6+">Score 6+</option>
+        <option value="<6">Score &lt; 6</option>
+      </select>
+      <select class="filter-select" id="filter-source" data-filter="source">
+        <option value="all">Source: Toutes</option>
+        <option value="brain">Brain</option>
+        <option value="search">Search</option>
+      </select>
+      <select class="filter-select" id="filter-hubspot" data-filter="hubspot">
+        <option value="all">HubSpot: Tous</option>
+        <option value="oui">Poussé</option>
+        <option value="non">Non poussé</option>
+      </select>
+      <span class="filter-count"><span id="leads-filtered-count">${_allLeads.length}</span> / ${_allLeads.length} leads</span>
     </div>
 
     <div class="kpi-grid">
@@ -95,10 +187,7 @@ Pages.leads = async function(container) {
       <div class="card">
         <div class="card-header">
           <div class="card-title">Tous les leads</div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="badge badge-blue">${leads.length}</span>
-            ${leads.length > 0 ? `<button class="btn-export" data-action="export-leads" title="Exporter CSV">${Utils.icon('download', 14)} CSV</button>` : ''}
-          </div>
+          <span class="badge badge-blue">${_allLeads.length}</span>
         </div>
         <div class="card-body no-pad">
           <div class="table-wrapper">
@@ -114,27 +203,16 @@ Pages.leads = async function(container) {
                   <th>Date</th>
                 </tr>
               </thead>
-              <tbody>
-                ${leads.slice(0, App._leadsPageSize || 50).map(l => `
-                  <tr class="lead-row" data-search="${e((l.nom || '').toLowerCase())} ${e((l.entreprise || '').toLowerCase())} ${e((l.email || '').toLowerCase())}">
-                    <td style="color:var(--text-primary);font-weight:500">${e(l.nom || '—')}</td>
-                    <td>${e(l.entreprise || '—')}</td>
-                    <td>${e(l.email || '—')}</td>
-                    <td>${l.score || l.aiClassification?.score ? `<span class="score-badge ${Utils.scoreClass(l.score || l.aiClassification?.score)}">${l.score || l.aiClassification?.score}</span>` : '—'}</td>
-                    <td><span class="badge ${l.source === 'brain' ? 'badge-purple' : 'badge-blue'}">${l.source === 'brain' ? 'Brain' : 'Search'}</span></td>
-                    <td>${l.pushedToHubspot ? '<span class="status-dot green"></span>Oui' : '<span class="status-dot red"></span>Non'}</td>
-                    <td>${Utils.formatDate(l.createdAt)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
+              <tbody id="leads-tbody"></tbody>
             </table>
           </div>
-          ${leads.length > (App._leadsPageSize || 50) ? `<div style="padding:16px;text-align:center"><button class="btn-export" data-action="show-more-leads" style="padding:10px 24px">Voir plus (${leads.length - (App._leadsPageSize || 50)} restants)</button></div>` : ''}
-          ${leads.length === 0 ? '<div class="empty-state"><p>Aucun lead trouvé</p></div>' : ''}
+          <div id="leads-pagination"></div>
         </div>
       </div>
     </div>
   </div>`;
+
+  refreshTable();
 
   if (data.dailyLeads) {
     const labels = data.dailyLeads.map(d => {
@@ -143,5 +221,13 @@ Pages.leads = async function(container) {
     });
     Charts.barChart('chart-leads-daily', labels, data.dailyLeads.map(d => d.count), '#3b82f6', 'Leads');
   }
+
+  document.querySelectorAll('.filter-select[data-filter]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      _filters[sel.dataset.filter] = sel.value;
+      _currentPage = 1;
+      refreshTable();
+    });
+  });
 };
 }
