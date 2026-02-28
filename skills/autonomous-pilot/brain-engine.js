@@ -1000,6 +1000,51 @@ Analyse et reponds en JSON:
       prompt += '- Hot leads: ' + state.skills.proactive.hotLeads.map(h => h.email + '(' + h.opens + ' opens)').join(', ') + '\n';
     }
 
+    // --- LEADS ELIGIBLES POUR ENVOI (vrais emails) ---
+    try {
+      const ffEligible = getFlowFastStorage();
+      const amEligible = getAutomailerStorage();
+      if (ffEligible) {
+        const allLeadsEligible = ffEligible.getAllLeads ? ffEligible.getAllLeads() : {};
+        // Collecter les emails deja envoyes pour filtrer
+        const alreadySent = new Set();
+        if (amEligible && amEligible.data && amEligible.data.emails) {
+          for (const em of amEligible.data.emails) {
+            if (em.to && (em.status === 'sent' || em.status === 'delivered' || em.status === 'opened' || em.status === 'replied')) {
+              alreadySent.add(em.to.toLowerCase());
+            }
+          }
+        }
+        const eligible = Object.values(allLeadsEligible)
+          .filter(l => l.email && (l.score || 0) >= (g.minLeadScore || 5) && !alreadySent.has(l.email.toLowerCase()))
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .slice(0, 20);
+        if (eligible.length > 0) {
+          prompt += '\nLEADS DISPONIBLES POUR ENVOI (emails REELS — utilise-les dans tes actions send_email):\n';
+          for (const l of eligible) {
+            prompt += '- ' + l.email + ' | ' + (l.nom || '?') + ' | ' + (l.titre || '?') + ' @ ' + (l.entreprise || '?') + ' | score: ' + (l.score || '?') + '\n';
+          }
+          prompt += '→ IMPORTANT: Utilise UNIQUEMENT les adresses email ci-dessus dans tes actions send_email. NE JAMAIS inventer de placeholders ou de variables {{...}}.\n';
+          prompt += '→ Si tu as besoin de NOUVEAUX leads, fais d\'abord search_leads, puis utilise les resultats du prochain cycle.\n';
+        } else {
+          prompt += '\n- Aucun lead eligible pour envoi (tous deja contactes ou score trop bas). Fais search_leads pour en trouver.\n';
+        }
+        // Leads deja contactes sans reponse (pour follow-up)
+        const contacted = Object.values(allLeadsEligible)
+          .filter(l => l.email && alreadySent.has(l.email.toLowerCase()))
+          .slice(0, 10);
+        if (contacted.length > 0) {
+          prompt += '\nLEADS DEJA CONTACTES (pour follow-up via create_followup_sequence — PAS send_email):\n';
+          for (const l of contacted) {
+            prompt += '- ' + l.email + ' | ' + (l.nom || '?') + ' @ ' + (l.entreprise || '?') + '\n';
+          }
+          prompt += '→ Pour relancer ces contacts, utilise create_followup_sequence (PAS send_email qui sera bloque par deduplication).\n';
+        }
+      }
+    } catch (eligibleErr) {
+      // Non-bloquant
+    }
+
     prompt += '\nOBJECTIFS HEBDO:\n';
     prompt += '- ' + g.leadsToFind + ' leads qualifies (score >= ' + g.minLeadScore + ')\n';
     prompt += '- ' + g.emailsToSend + ' emails envoyes\n';
@@ -1275,6 +1320,8 @@ Analyse et reponds en JSON:
     prompt += '12. UTILISE les articles Web Intelligence pour personnaliser les emails. Si une entreprise est dans l\'actualite, mentionne-le.\n';
     prompt += '13. PRIORISE les leads dont l\'entreprise est dans l\'actualite (news recentes, signaux marche). C\'est un signal d\'opportunite fort.\n';
     prompt += '14. Si les objectifs sont inatteignables, ajuste-les via update_goals plutot que de forcer.\n';
+    prompt += '15. REGLE CRITIQUE EMAILS: Dans send_email, le champ "to" DOIT etre une VRAIE adresse email (ex: jean@example.com). JAMAIS de placeholder, variable, ou nom generique (ex: {{lead_email}}, cabinet_conseil_lead_1). Si tu n\'as pas l\'email reel, fais d\'abord search_leads.\n';
+    prompt += '16. REGLE RELANCES: Pour relancer un lead DEJA contacte (dans "LEADS DEJA CONTACTES"), utilise create_followup_sequence. send_email sera BLOQUE par la deduplication.\n';
 
     prompt += '\nReponds UNIQUEMENT en JSON COMPACT (sans indentation, sans commentaires, reasoning en 2-3 phrases max) avec cette structure:\n';
     prompt += '{\n';
