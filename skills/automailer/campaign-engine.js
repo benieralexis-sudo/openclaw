@@ -312,6 +312,14 @@ function _getHubSpotClient() {
   }
 }
 
+function _getFlowFastStorage() {
+  try { return require('../flowfast/storage.js'); }
+  catch (e) {
+    try { return require('/app/skills/flowfast/storage.js'); }
+    catch (e2) { return null; }
+  }
+}
+
 // Statuts email importants a synchroniser vers HubSpot
 const CRM_SYNC_STATUSES = ['opened', 'bounced', 'clicked', 'replied'];
 
@@ -1060,6 +1068,46 @@ class CampaignEngine {
         // FIX 3 : Tracker envoi warmup + date du premier envoi
         storage.setFirstSendDate();
         storage.incrementTodaySendCount();
+
+        // Push auto HubSpot : creer contact + deal au premier email
+        if (stepNumber === 1) {
+          try {
+            const hubspot = _getHubSpotClient();
+            if (hubspot) {
+              let hsContact = await hubspot.findContactByEmail(contact.email);
+              if (!hsContact) {
+                hsContact = await hubspot.createContact({
+                  firstname: contact.firstName || '',
+                  lastname: contact.lastName || '',
+                  email: contact.email,
+                  jobtitle: contact.title || '',
+                  company: contact.company || '',
+                  city: contact.city || '',
+                  lifecyclestage: 'lead'
+                });
+                log.info('campaign-engine', 'HubSpot contact cree: ' + contact.email);
+              }
+              if (hsContact && hsContact.id) {
+                const dealName = (contact.company || 'Lead') + ' — ' + (campaign.name || 'Campagne');
+                const deal = await hubspot.createDeal({
+                  dealname: dealName,
+                  dealstage: 'appointmentscheduled',
+                  amount: 690
+                });
+                if (deal && deal.id) {
+                  await hubspot.associateDealToContact(deal.id, hsContact.id);
+                  log.info('campaign-engine', 'HubSpot deal cree + associe: ' + contact.email);
+                }
+              }
+              const ffStorage = _getFlowFastStorage();
+              if (ffStorage && ffStorage.setLeadPushed) {
+                ffStorage.setLeadPushed(contact.email);
+              }
+            }
+          } catch (hsErr) {
+            log.warn('campaign-engine', 'HubSpot auto-push failed: ' + contact.email + ' — ' + hsErr.message);
+          }
+        }
       } else {
         errors++;
         log.error('campaign-engine', 'Erreur envoi a ' + contact.email + ':', result.error);
