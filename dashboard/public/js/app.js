@@ -19,6 +19,7 @@ const App = {
     this.routeFromHash();
     window.addEventListener('hashchange', () => this.routeFromHash());
     startAutoRefresh();
+    this.updateBadges();
   },
 
   async loadUserInfo() {
@@ -225,6 +226,26 @@ const App = {
       ];
     });
     Utils.exportCSV(headers, rows, 'factures-' + (this._clientSlug || 'ifind') + '-' + new Date().toISOString().slice(0, 10) + '.csv');
+  }
+};
+
+  // ===== Dynamic sidebar badges =====
+  async updateBadges() {
+    try {
+      const data = await API.proactive();
+      if (data) {
+        const hotCount = (data.hotLeads || []).filter(l => (l.opens || 0) >= 3).length;
+        const badge = document.getElementById('badge-leads');
+        if (badge) {
+          if (hotCount > 0) {
+            badge.textContent = hotCount;
+            badge.style.display = '';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+      }
+    } catch (e) {}
   }
 };
 

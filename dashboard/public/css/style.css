@@ -1369,13 +1369,23 @@ input, select, textarea { font-family: inherit; }
     padding: 16px;
     padding-top: calc(var(--header-height) + 16px);
   }
-  .kpi-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
   .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
   .page-actions { width: 100%; flex-wrap: wrap; }
   .period-selector { width: 100%; }
   .period-btn { flex: 1; font-size: 11px; padding: 6px 4px; }
   .pipeline-board { flex-direction: column; }
   .pipeline-column { min-width: unset; }
+  /* Tables mobile : scroll horizontal avec hint visuel */
+  .data-table { min-width: 600px; }
+  .table-wrapper { -webkit-overflow-scrolling: touch; }
+  /* Tab bar mobile */
+  .tab-bar { gap: 2px; }
+  .tab-btn { padding: 8px 8px; font-size: 12px; }
+  .tab-btn svg { display: none; }
+  /* Chat mobile */
+  .chat-msg { max-width: 95%; }
+  #chat-input { font-size: 16px; /* empêche zoom iOS */ }
 }
 
 /* ===== TOAST NOTIFICATION ===== */
