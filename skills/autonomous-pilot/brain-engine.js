@@ -1011,6 +1011,12 @@ Analyse et reponds en JSON:
       prompt += '\n';
     }
 
+    // Objectif email dynamique base sur le warmup (calcul avant utilisation)
+    const amGoals = getAutomailerStorage();
+    const firstSendDateGoals = amGoals && amGoals.getFirstSendDate ? amGoals.getFirstSendDate() : null;
+    const dailyLimitGoals = getWarmupDailyLimit(firstSendDateGoals);
+    const weeklyEmailTarget = Math.max(g.emailsToSend, dailyLimitGoals * 5);
+
     prompt += 'ETAT ACTUEL:\n';
     prompt += '- Leads trouves cette semaine: ' + p.leadsFoundThisWeek + '/' + g.leadsToFind + '\n';
     // Leads enrichis supprime (FullEnrich retire)
@@ -1077,12 +1083,6 @@ Analyse et reponds en JSON:
     } catch (eligibleErr) {
       // Non-bloquant
     }
-
-    // Objectif email dynamique base sur le warmup
-    const amGoals = getAutomailerStorage();
-    const firstSendDateGoals = amGoals && amGoals.getFirstSendDate ? amGoals.getFirstSendDate() : null;
-    const dailyLimitGoals = getWarmupDailyLimit(firstSendDateGoals);
-    const weeklyEmailTarget = Math.max(g.emailsToSend, dailyLimitGoals * 5);
 
     prompt += '\nOBJECTIFS HEBDO:\n';
     prompt += '- ' + g.leadsToFind + ' leads qualifies (score >= ' + g.minLeadScore + ')\n';
