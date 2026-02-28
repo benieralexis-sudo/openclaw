@@ -2475,7 +2475,88 @@ async function handleResendWebhook(body) {
   return { processed: true, status: status, email: email.to };
 }
 
+// --- Chat API : bridge Dashboard → NLP pipeline ---
+async function processChatMessage(text, userId) {
+  const chatId = 'dashboard_' + (userId || 'admin');
+  const CHAT_TIMEOUT = 45000;
+
+  try {
+    // 1. Classification NLP
+    const skill = await classifySkill(text, chatId);
+    log.info('chat-api', 'Skill: ' + skill + ' pour: ' + text.substring(0, 60));
+
+    // 2. Handlers (meme map que handleUpdate)
+    const chatHandlers = {
+      'automailer': automailerHandler,
+      'crm-pilot': crmPilotHandler,
+      'invoice-bot': invoiceBotHandler,
+      'proactive-agent': proactiveHandler,
+      'self-improve': selfImproveHandler,
+      'web-intelligence': webIntelHandler,
+      'system-advisor': systemAdvisorHandler,
+      'autonomous-pilot': autoPilotHandler,
+      'inbox-manager': inboxHandler,
+      'meeting-scheduler': meetingHandler
+    };
+
+    let response = null;
+    const handler = chatHandlers[skill];
+    const noopReply = async () => {}; // pas de sendReply Telegram
+
+    if (handler) {
+      response = await Promise.race([
+        handler.handleMessage(text, chatId, noopReply),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), CHAT_TIMEOUT))
+      ]);
+      recordSkillUsage(skill);
+    } else {
+      // General → Autonomous Pilot ou Claude
+      const apConfig = autoPilotHandler.claudeKey ? require('../skills/autonomous-pilot/storage.js').getConfig() : null;
+      if (apConfig && apConfig.enabled && apConfig.businessContext) {
+        response = await autoPilotHandler.handleMessage(text, chatId, noopReply);
+        recordSkillUsage('autonomous-pilot');
+      } else {
+        const generalText = await generateBusinessResponse(text, chatId);
+        response = { type: 'text', content: generalText };
+      }
+    }
+
+    const content = response?.content || 'Pas de reponse.';
+    addToHistory(chatId, 'user', text.substring(0, 200), null);
+    addToHistory(chatId, 'bot', content.substring(0, 200), skill);
+
+    return { text: content, skill };
+  } catch (err) {
+    log.error('chat-api', 'Erreur: ' + err.message);
+    return { text: 'Erreur: ' + err.message, skill: 'error' };
+  }
+}
+
 const healthServer = http.createServer((req, res) => {
+  // Chat API
+  if (req.url === '/api/chat' && req.method === 'POST') {
+    let body = '';
+    let bodySize = 0;
+    req.on('data', (chunk) => { bodySize += chunk.length; if (bodySize > 10240) { req.destroy(); return; } body += chunk; });
+    req.on('end', async () => {
+      try {
+        const data = JSON.parse(body);
+        if (!data.message || typeof data.message !== 'string' || data.message.length > 2000) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'message requis (max 2000 chars)' }));
+          return;
+        }
+        const result = await processChatMessage(data.message.trim(), data.userId || 'admin');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
   // Healthcheck
   if (req.url === '/health' && req.method === 'GET') {
     if (_botReady && _polling) {

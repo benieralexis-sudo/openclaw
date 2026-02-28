@@ -306,6 +306,9 @@ document.addEventListener('click', (ev) => {
     case 'export-invoices': App.exportInvoices(); break;
     case 'show-more-leads': App.showMoreLeads(); break;
     case 'set-intel-tab': App._intelTab = param; App.loadPage('intelligence', true); break;
+    case 'send-chat': if (window._sendChatMessage) window._sendChatMessage(); break;
+    case 'chat-suggestion': if (window._sendChatMessage) window._sendChatMessage(param); break;
+    case 'clear-chat': sessionStorage.removeItem('mc_chat'); App.loadPage('chat'); break;
     case 'toggle-add-user': {
       const form = document.getElementById('add-user-form');
       if (form) form.style.display = form.style.display === 'none' ? '' : 'none';

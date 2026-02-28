@@ -823,6 +823,42 @@ app.get('/api/system', authRequired, adminRequired, async (req, res) => {
   });
 });
 
+// Chat API — proxy vers telegram-router
+app.post('/api/chat', authRequired, async (req, res) => {
+  const message = (req.body.message || '').trim();
+  if (!message || message.length > 2000) {
+    return res.status(400).json({ error: 'message requis (max 2000 chars)' });
+  }
+  const userId = req.user?.username || 'admin';
+  try {
+    const http = require('http');
+    const ROUTER_HOST = process.env.ROUTER_HOST || 'telegram-router';
+    const ROUTER_PORT = process.env.ROUTER_HEALTH_PORT || 9090;
+    const payload = JSON.stringify({ message, userId });
+
+    const result = await new Promise((resolve, reject) => {
+      const options = { hostname: ROUTER_HOST, port: ROUTER_PORT, path: '/api/chat', method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }, timeout: 50000 };
+      const r = http.request(options, (resp) => {
+        let data = '';
+        resp.on('data', (c) => data += c);
+        resp.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch (e) { reject(new Error('Reponse invalide: ' + data.substring(0, 200))); }
+        });
+      });
+      r.on('error', reject);
+      r.on('timeout', () => { r.destroy(); reject(new Error('Timeout (50s)')); });
+      r.write(payload);
+      r.end();
+    });
+
+    res.json(result);
+  } catch (err) {
+    log.error('dashboard', 'Chat proxy error: ' + err.message);
+    res.status(502).json({ error: 'Le bot ne repond pas: ' + err.message });
+  }
+});
+
 // Inbox Manager
 app.get('/api/inbox', authRequired, async (req, res) => {
   const im = await readData('inbox-manager') || {};
