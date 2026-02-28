@@ -30,63 +30,49 @@
   </div>
 
   <nav class="sidebar-nav">
-    <a href="#overview" class="nav-item active" data-page="overview">
+    <div class="nav-section-label">ACTIVITÉ</div>
+
+    <a href="#dashboard" class="nav-item active" data-page="dashboard">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#home"/></svg>
-      <span>Vue d'ensemble</span>
+      <span>Dashboard</span>
     </a>
-    <a href="#prospection" class="nav-item" data-page="prospection">
+    <a href="#leads" class="nav-item" data-page="leads">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#target"/></svg>
-      <span>Prospection</span>
+      <span>Leads</span>
+      <span class="nav-badge" id="badge-leads" style="display:none">0</span>
     </a>
-    <a href="#emails" class="nav-item" data-page="emails">
+    <a href="#campaigns" class="nav-item" data-page="campaigns">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#mail"/></svg>
-      <span>Emails</span>
-      <span class="nav-badge" id="badge-emails" style="display:none">0</span>
+      <span>Campagnes</span>
     </a>
     <a href="#crm" class="nav-item" data-page="crm">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#bar-chart"/></svg>
       <span>CRM</span>
     </a>
-    <a href="#enrichment" class="nav-item" data-page="enrichment">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#search"/></svg>
-      <span>Enrichissement</span>
-    </a>
-    <a href="#content" class="nav-item" data-page="content">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#pen-tool"/></svg>
-      <span>Contenu</span>
-    </a>
-    <a href="#invoices" class="nav-item" data-page="invoices">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#file-text"/></svg>
-      <span>Facturation</span>
-    </a>
-    <a href="#finance" class="nav-item" data-page="finance">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#bar-chart"/></svg>
-      <span>Finances</span>
+    <a href="#chat" class="nav-item" data-page="chat">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#message-circle"/></svg>
+      <span>Chat</span>
     </a>
 
     <div class="nav-separator"></div>
+    <div class="nav-section-label">ADMIN</div>
 
-    <a href="#proactive" class="nav-item" data-page="proactive">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#bot"/></svg>
-      <span>Agent Proactif</span>
-      <span class="nav-badge" id="badge-proactive" style="display:none">0</span>
+    <a href="#finances" class="nav-item" data-page="finances">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#dollar-sign"/></svg>
+      <span>Finances</span>
     </a>
-    <a href="#self-improve" class="nav-item" data-page="self-improve">
+    <a href="#intelligence" class="nav-item" data-page="intelligence">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#brain"/></svg>
-      <span>Auto-Amélioration</span>
-    </a>
-    <a href="#web-intel" class="nav-item" data-page="web-intel">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#globe"/></svg>
-      <span>Web Intelligence</span>
+      <span>Intelligence</span>
     </a>
     <a href="#system" class="nav-item" data-page="system">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#settings"/></svg>
       <span>Système</span>
       <span class="nav-badge badge-warning" id="badge-system" style="display:none">!</span>
     </a>
-    <a href="#users" class="nav-item" data-page="users">
+    <a href="#clients" class="nav-item" data-page="clients">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#user"/></svg>
-      <span>Utilisateurs</span>
+      <span>Clients</span>
     </a>
   </nav>
 
@@ -117,13 +103,23 @@
 <!-- Main content -->
 <main class="main-content" id="main-content" tabindex="-1">
   <div class="page-container" id="page-container" aria-live="polite">
-    <!-- Pages rendered dynamically by app.js -->
+    <!-- Pages rendered dynamically -->
   </div>
 </main>
 
+<!-- Scripts -->
 <script src="/public/js/utils.js"></script>
 <script src="/public/js/api.js"></script>
 <script src="/public/js/charts.js"></script>
+<script src="/public/js/pages/dashboard.js"></script>
+<script src="/public/js/pages/leads.js"></script>
+<script src="/public/js/pages/campaigns.js"></script>
+<script src="/public/js/pages/crm.js"></script>
+<script src="/public/js/pages/chat.js"></script>
+<script src="/public/js/pages/finances.js"></script>
+<script src="/public/js/pages/intelligence.js"></script>
+<script src="/public/js/pages/system.js"></script>
+<script src="/public/js/pages/clients.js"></script>
 <script src="/public/js/app.js"></script>
 
 </body>
