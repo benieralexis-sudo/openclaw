@@ -1,13 +1,15 @@
-/* ===== Page: Campagnes ===== */
+/* ===== Page: Campagnes (fusion Emails + Inbox) ===== */
 {
 const e = (s) => Utils.escapeHtml(s);
 window.Pages = window.Pages || {};
 
 Pages.campaigns = async function(container) {
-  const data = await API.emails();
+  // Charger emails + inbox en parallèle
+  const [data, inboxData] = await Promise.all([API.emails(), API.inbox()]);
   if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
 
   const campaigns = data.campaigns || [];
+  const replies = (inboxData?.replies || []).slice(0, 10);
 
   // Filtre par période
   const allEmails = data.emails || [];
@@ -20,9 +22,8 @@ Pages.campaigns = async function(container) {
   const delivered = emails.filter(em => ['delivered', 'opened', 'clicked'].includes(em.status) || em.openedAt).length;
   const opened = emails.filter(em => em.openedAt).length;
   const bounced = emails.filter(em => em.status === 'bounced').length;
-  const s = { sent, delivered, opened, bounced, openRate: sent > 0 ? Math.round((opened / sent) * 100) : 0, totalCampaigns: campaigns.length, totalContacts: (data.contactLists || []).reduce((a, cl) => a + (cl.contacts?.length || 0), 0) };
+  const s = { sent, delivered, opened, bounced, openRate: sent > 0 ? Math.round((opened / sent) * 100) : 0 };
 
-  // Filtrer campagnes et top emails par période
   const filteredCampaigns = cutoff ? campaigns.filter(c => new Date(c.createdAt || 0).getTime() > cutoff) : campaigns;
   const topEmails = emails
     .filter(em => em.openedAt)
@@ -61,9 +62,9 @@ Pages.campaigns = async function(container) {
         <div class="kpi-label">Délivrés</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-header"><div class="kpi-icon red">${Utils.icon('alert-triangle')}</div></div>
-        <div class="kpi-value" data-count="${s.bounced}">${s.bounced}</div>
-        <div class="kpi-label">Rebonds</div>
+        <div class="kpi-header"><div class="kpi-icon orange">${Utils.icon('message-circle')}</div></div>
+        <div class="kpi-value" data-count="${replies.length}">${replies.length}</div>
+        <div class="kpi-label">Réponses reçues</div>
       </div>
     </div>
 
@@ -127,6 +128,34 @@ Pages.campaigns = async function(container) {
         </div>
       </div>
     </div>
+
+    ${replies.length > 0 ? `
+    <div class="grid-full">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">${Utils.icon('message-circle', 16)} &nbsp;Réponses reçues</div>
+          <span class="badge badge-green">${replies.length}</span>
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead><tr><th>De</th><th>Objet</th><th>Sentiment</th><th>Date</th></tr></thead>
+              <tbody>
+                ${replies.map(r => `
+                  <tr>
+                    <td style="color:var(--text-primary);font-weight:500">${e(r.from || r.prospectEmail || '—')}</td>
+                    <td>${e(Utils.truncate(r.subject || r.originalSubject || '—', 50))}</td>
+                    <td>${r.sentiment ? `<span class="badge badge-${r.sentiment === 'positive' ? 'green' : r.sentiment === 'negative' ? 'red' : 'gray'}">${e(r.sentiment)}</span>` : '—'}</td>
+                    <td>${Utils.formatDateTime(r.matchedAt || r.processedAt)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
   </div>`;
 
   // Graphique taux d'ouverture

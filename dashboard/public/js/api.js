@@ -121,6 +121,7 @@ const API = {
   webIntel() { return this.fetch('web-intelligence'); },
   system() { return this.fetch('system'); },
   finance() { return this.fetch('finance'); },
+  inbox() { return this.fetch('inbox'); },
   me() { return this.fetch('me'); },
   users() { return this.fetch('users'); },
   createUser(data) { return this.post('users', data); },
