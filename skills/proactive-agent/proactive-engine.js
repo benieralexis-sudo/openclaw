@@ -468,6 +468,35 @@ class ProactiveEngine {
     storage.logAlert('hot_lead', alert, { email: email, opens: opens });
 
     log.info('proactive-engine', 'Hot lead notifie: ' + email + ' (' + opens + ' opens)');
+
+    // Auto-creer un reactive follow-up accelere pour les hot leads (delai 15-30 min au lieu de 2-4h)
+    if (opens >= 3 && !storage.hasFollowUpForProspect(email)) {
+      try {
+        const amStorage = getAutomailerStorage();
+        if (amStorage) {
+          const events = amStorage.getEmailEventsForRecipient ? amStorage.getEmailEventsForRecipient(email) : [];
+          const lastSent = events.filter(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened').pop();
+          if (lastSent) {
+            const delayMs = (15 + Math.random() * 15) * 60 * 1000; // 15-30 min
+            const added = storage.addPendingFollowUp({
+              prospectEmail: email,
+              prospectName: (lastSent.contactName || '').substring(0, 100),
+              prospectCompany: (lastSent.company || '').substring(0, 100),
+              originalEmailId: lastSent.id || null,
+              originalSubject: (lastSent.subject || '').substring(0, 200),
+              originalBody: (lastSent.body || '').substring(0, 500),
+              prospectIntel: leadInfo,
+              scheduledAfter: new Date(Date.now() + delayMs).toISOString()
+            });
+            if (added) {
+              log.info('proactive-engine', 'Reactive FU accelere programme pour hot lead ' + email + ' (delai ~20min)');
+            }
+          }
+        }
+      } catch (fuErr) {
+        log.info('proactive-engine', 'Auto reactive FU skip pour hot lead: ' + fuErr.message);
+      }
+    }
   }
 
   // --- Tache 7 : Smart Alerts (toutes les heures) ---

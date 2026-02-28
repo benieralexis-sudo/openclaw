@@ -152,10 +152,13 @@ class BrainEngine {
       const pa = getProactiveStorage();
       if (pa) {
         const hotLeads = pa.data?.hotLeads || {};
+        const pendingFUs = pa.getPendingFollowUps ? pa.getPendingFollowUps() : [];
         state.skills.proactive = {
           hotLeads: Object.entries(hotLeads).filter(([, d]) => (d.opens || 0) >= 3).map(([email, d]) => ({
             email, opens: d.opens
-          }))
+          })),
+          pendingFollowUps: pendingFUs.length,
+          pendingFollowUpEmails: pendingFUs.map(f => f.prospectEmail)
         };
       }
     } catch (e) {}
@@ -1036,7 +1039,19 @@ Analyse et reponds en JSON:
     }
 
     if (state.skills.proactive?.hotLeads?.length > 0) {
-      prompt += '- Hot leads: ' + state.skills.proactive.hotLeads.map(h => h.email + '(' + h.opens + ' opens)').join(', ') + '\n';
+      prompt += '\nHOT LEADS (PRIORITE ABSOLUE — ces prospects ont ouvert tes emails PLUSIEURS fois):\n';
+      for (const h of state.skills.proactive.hotLeads) {
+        prompt += '- ' + h.email + ' (' + h.opens + ' ouvertures)';
+        prompt += ' → Un reactive follow-up accelere est programme automatiquement par le systeme.';
+        prompt += ' NE PAS creer de send_email pour ces contacts (le Proactive Agent gere).\n';
+      }
+      prompt += 'Si aucun follow-up ne part dans les 2h, cree un create_followup_sequence accelere (stepDays: [1, 3]) pour ces contacts.\n';
+    }
+
+    if (state.skills.proactive?.pendingFollowUps > 0) {
+      prompt += '- Reactive follow-ups en attente: ' + state.skills.proactive.pendingFollowUps;
+      prompt += ' (' + state.skills.proactive.pendingFollowUpEmails.slice(0, 5).join(', ') + ')';
+      prompt += ' → ces contacts sont DEJA pris en charge, ne pas les recontacter.\n';
     }
 
     // --- LEADS ELIGIBLES POUR ENVOI (vrais emails) ---

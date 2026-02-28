@@ -1388,12 +1388,28 @@ Format JSON strict :
       if (offer.description) context += '\nOFFRE: ' + offer.description;
       if (offer.trial) context += '\nESSAI: ' + offer.trial;
 
-      // 4. Generer les emails de relance (4 steps avec stepDays variables)
+      // 4. Collecter les sujets deja envoyes a ces contacts (eviter repetitions)
+      const usedAngles = [];
+      try {
+        for (const contact of contacts) {
+          const events = amStorage.getEmailEventsForRecipient ? amStorage.getEmailEventsForRecipient(contact.email) : [];
+          for (const ev of events) {
+            if (ev.subject && (ev.status === 'sent' || ev.status === 'delivered' || ev.status === 'opened')) {
+              usedAngles.push(ev.subject);
+            }
+          }
+        }
+      } catch (angleErr) {
+        log.info('action-executor', 'Collecte usedAngles skip: ' + angleErr.message);
+      }
+
+      // 5. Generer les emails de relance (4 steps avec stepDays variables)
       const steps = await this.campaignEngine.generateCampaignEmails(
         campaign.id,
         context,
         totalSteps,
-        intervalDays || stepDays
+        intervalDays || stepDays,
+        { usedAngles: usedAngles }
       );
 
       // 5. Demarrer la campagne (le scheduler du campaign-engine gerera les envois)

@@ -396,7 +396,18 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
       if (score.note >= 8) return parsed;
       return { skip: true, reason: 'auto_score_too_low:' + score.note + '/10 (' + (score.reason || '?') + ')' };
     } catch (e) {
-      // Si le scoring plante, laisser passer (les quality gates en aval filtreront)
+      // Scoring indisponible — appliquer gates programmatiques strictes
+      const wc = (parsed.body || '').split(/\s+/).filter(w => w.length > 0).length;
+      if (wc > 55) {
+        return { skip: true, reason: 'scoring_unavailable_words:' + wc };
+      }
+      const contactRef = ((contact.firstName || contact.name || '').split(' ')[0] || '').toLowerCase();
+      const companyRef = (contact.company || '').toLowerCase();
+      const subjectLower = (parsed.subject || '').toLowerCase();
+      if (contactRef && contactRef.length > 2 && !subjectLower.includes(contactRef) &&
+          companyRef && companyRef.length > 2 && !subjectLower.includes(companyRef)) {
+        return { skip: true, reason: 'scoring_unavailable_generic_subject' };
+      }
       return parsed;
     }
   }

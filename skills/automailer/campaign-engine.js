@@ -333,7 +333,7 @@ function isBusinessHours(timezone) {
   const localDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
   const localDay = localDate.getDay(); // 0=dimanche, 6=samedi
   if (localDay === 0 || localDay === 6) return false; // weekend
-  if (localHour < 9 || localHour >= 15) return false; // envois 9h-14h59 dans la timezone du prospect
+  if (localHour < 9 || localHour >= 18) return false; // envois 9h-17h59 dans la timezone du prospect
   return true;
 }
 
@@ -1070,13 +1070,27 @@ class CampaignEngine {
     }
 
     // Mettre a jour le step
-    step.status = 'completed';
-    step.sentAt = new Date().toISOString();
-    step.sentCount = sent;
-    step.errorCount = errors;
+    step.sentCount = (step.sentCount || 0) + sent;
+    step.errorCount = (step.errorCount || 0) + errors;
 
-    // Avancer le currentStep
-    const nextStep = stepNumber + 1;
+    if (sent > 0 || (sent === 0 && skipped === 0 && errors === 0)) {
+      // Step reellement traite (emails envoyes ou aucun contact eligible)
+      step.status = 'completed';
+      step.sentAt = new Date().toISOString();
+    } else if ((step._retryCount || 0) >= 5) {
+      // Max retries atteint — forcer completed pour eviter boucle infinie
+      step.status = 'completed';
+      step.sentAt = new Date().toISOString();
+      log.info('campaign-engine', 'Step ' + stepNumber + ' force completed apres ' + step._retryCount + ' retries (sent=' + step.sentCount + ')');
+    } else {
+      // Aucun envoi mais des contacts restent — remettre en pending pour retry
+      step.status = 'pending';
+      step._retryCount = (step._retryCount || 0) + 1;
+      log.info('campaign-engine', 'Step ' + stepNumber + ' remis en pending (retry ' + step._retryCount + '/5, sent=' + sent + ', skipped=' + skipped + ', errors=' + errors + ')');
+    }
+
+    // Avancer le currentStep seulement si step completed
+    const nextStep = step.status === 'completed' ? stepNumber + 1 : stepNumber;
     const updates = { steps: campaign.steps, currentStep: nextStep };
 
     // Si c'etait le dernier step, marquer comme complete
