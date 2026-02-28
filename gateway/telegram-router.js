@@ -30,7 +30,7 @@ const InboxHandler = require('../skills/inbox-manager/inbox-handler.js');
 let InboxListener;
 try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
 const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
-const { classifyReply, generateQuestionReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, parseOOOReturnDate, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
+const { classifyReply, generateQuestionReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, generateInterestedReplyViaClaude, parseOOOReturnDate, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
@@ -252,6 +252,11 @@ async function sendMessageWithButtons(chatId, text, buttons) {
 const conversationHistory = {};
 const _bans = {}; // chatId -> { until: timestamp, violations: count }
 
+// --- HITL : Brouillons de reponses en attente de validation humaine ---
+const _pendingDrafts = new Map();      // draftId -> { replyData, autoReply, classification, ... }
+const _hitlModifyState = new Map();    // chatId -> { draftId, ts }
+function _hitlId() { return 'h' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 5); }
+
 // --- Persistance etat volatile (bans + historique) ---
 const VOLATILE_STATE_FILE = (process.env.APP_CONFIG_DIR || '/data/app-config') + '/volatile-state.json';
 
@@ -365,6 +370,24 @@ const _cleanupInterval = setInterval(() => {
     if (!conversationHistory[id]) {
       delete userActiveSkill[id];
       delete userActiveSkillTime[id];
+      cleaned++;
+    }
+  }
+
+  // 7. HITL drafts expires (24h)
+  const HITL_TTL = 24 * 60 * 60 * 1000;
+  for (const [id, draft] of _pendingDrafts) {
+    if (now - draft.createdAt > HITL_TTL) {
+      log.info('hitl', 'Draft expire apres 24h: ' + id + ' pour ' + (draft.replyData && draft.replyData.from));
+      _pendingDrafts.delete(id);
+      cleaned++;
+    }
+  }
+
+  // 8. HITL modify states orphelins (10 min)
+  for (const [cid, info] of _hitlModifyState) {
+    if (now - (info.ts || 0) > 10 * 60 * 1000) {
+      _hitlModifyState.delete(cid);
       cleaned++;
     }
   }
@@ -666,13 +689,15 @@ inboxListener = InboxListener ? new InboxListener({
       }
     } catch (fbErr) { /* feedback loop non bloquante */ }
 
-    // === 3b. SMART AUTO-REPLY : le bot gere les objections simples, delegue le reste ===
+    // === 3b. HITL AUTO-REPLY : generer draft, soumettre pour validation humaine ===
+    // OOO et bounce restent full auto. Tout le reste passe par HITL (interested, question, not_interested).
     let autoReplyHandled = false;
+    let hitlDraftCreated = false;
     const autoReplyEnabled = process.env.AUTO_REPLY_ENABLED !== 'false';
     const autoReplyConfidence = parseFloat(process.env.AUTO_REPLY_CONFIDENCE) || 0.8;
     const autoReplyMaxPerDay = parseInt(process.env.AUTO_REPLY_MAX_PER_DAY) || 10;
 
-    if (autoReplyEnabled && sentiment !== 'bounce' && sentiment !== 'interested') {
+    if (autoReplyEnabled && sentiment !== 'bounce') {
       try {
         const inboxStorage = require('../skills/inbox-manager/storage.js');
         const todayCount = inboxStorage.getTodayAutoReplyCount();
@@ -718,7 +743,39 @@ inboxListener = InboxListener ? new InboxListener({
             }
           } catch (e) { log.warn('inbox-manager', 'Booking URL echouee:', e.message); }
 
-          // --- Cas 1: Objection douce (not_interested, score 0.15-0.3) ---
+          // Helper : quality gate sur un draft (mots interdits + patterns + word count)
+          function _checkDraftQuality(autoReply) {
+            let warning = null;
+            try {
+              const apStorageQG = require('../skills/autonomous-pilot/storage.js');
+              const apConfigQG = apStorageQG.getConfig ? apStorageQG.getConfig() : {};
+              const epQG = apConfigQG.emailPreferences || {};
+              if (epQG.forbiddenWords && epQG.forbiddenWords.length > 0) {
+                const arText = (autoReply.subject + ' ' + autoReply.body).toLowerCase();
+                const found = epQG.forbiddenWords.filter(w => {
+                  const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  return new RegExp('\\b' + escaped + '\\b', 'i').test(arText);
+                });
+                if (found.length > 0) warning = 'mots interdits: ' + found.join(', ');
+              }
+            } catch (e) {}
+            if (!warning) {
+              try {
+                const CE = require('../skills/automailer/campaign-engine.js');
+                if (CE.emailPassesQualityGate) {
+                  const qg = CE.emailPassesQualityGate(autoReply.subject, autoReply.body);
+                  if (!qg.pass) warning = 'quality gate: ' + qg.reason;
+                }
+              } catch (e) {}
+            }
+            if (!warning) {
+              const wc = (autoReply.body || '').split(/\s+/).filter(w => w.length > 0).length;
+              if (wc > 80 || wc < 8) warning = 'word count: ' + wc + ' (8-80 attendu)';
+            }
+            return warning;
+          }
+
+          // --- Cas 1: Objection douce (not_interested) → HITL ---
           if (sentiment === 'not_interested' && score >= 0.15) {
             const subClass = await subClassifyObjection(OPENAI_KEY, replyData, classification);
             log.info('inbox-manager', 'Sub-classification: ' + subClass.type + ' / ' + subClass.objectionType + ' (conf=' + subClass.confidence + ')');
@@ -727,208 +784,71 @@ inboxListener = InboxListener ? new InboxListener({
               const autoReply = await generateObjectionReply(callClaude, replyData, classification, subClass, originalEmail, clientContext);
 
               if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
-                // Quality gate : mots interdits + patterns generiques
-                let autoReplyBlocked = false;
-                try {
-                  const apStorageQG = require('../skills/autonomous-pilot/storage.js');
-                  const apConfigQG = apStorageQG.getConfig ? apStorageQG.getConfig() : {};
-                  const epQG = apConfigQG.emailPreferences || {};
-                  if (epQG.forbiddenWords && epQG.forbiddenWords.length > 0) {
-                    const arText = (autoReply.subject + ' ' + autoReply.body).toLowerCase();
-                    const found = epQG.forbiddenWords.filter(w => {
-                      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                      return new RegExp('\\b' + escaped + '\\b', 'i').test(arText);
-                    });
-                    if (found.length > 0) {
-                      log.warn('inbox-manager', 'AUTO-REPLY BLOQUE (mots interdits: ' + found.join(', ') + ') pour ' + replyData.from);
-                      autoReplyBlocked = true;
-                    }
-                  }
-                } catch (qgErr) { log.info('inbox-manager', 'Quality gate check skip: ' + qgErr.message); }
+                const qualityWarning = _checkDraftQuality(autoReply);
+                if (qualityWarning) log.warn('hitl', 'Draft quality warning: ' + qualityWarning + ' pour ' + replyData.from);
 
-                // Quality gate patterns + word count (meme gates que campagnes)
-                if (!autoReplyBlocked) {
-                  try {
-                    const CE = require('../skills/automailer/campaign-engine.js');
-                    if (CE.emailPassesQualityGate) {
-                      const qg = CE.emailPassesQualityGate(autoReply.subject, autoReply.body);
-                      if (!qg.pass) {
-                        log.warn('inbox-manager', 'AUTO-REPLY BLOQUE (quality gate: ' + qg.reason + ') pour ' + replyData.from);
-                        autoReplyBlocked = true;
-                      }
-                    }
-                  } catch (qgPatErr) {}
-                }
-                if (!autoReplyBlocked) {
-                  const arWordCount = (autoReply.body || '').split(/\s+/).filter(w => w.length > 0).length;
-                  if (arWordCount > 80 || arWordCount < 8) {
-                    log.warn('inbox-manager', 'AUTO-REPLY BLOQUE (word count: ' + arWordCount + ') pour ' + replyData.from);
-                    autoReplyBlocked = true;
-                  }
-                }
-
-                if (!autoReplyBlocked) {
-                // Envoyer la reponse auto via Gmail SMTP
-                try {
-                  const ResendClient = require('../skills/automailer/resend-client.js');
-                  const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
-                  const sendResult = await resendClient.sendEmail(replyData.from, autoReply.subject, autoReply.body, {
-                    inReplyTo: originalMessageId,
-                    references: originalMessageId,
-                    fromName: clientContext.senderName
-                  });
-
-                  if (sendResult && sendResult.success) {
-                    autoReplyHandled = true;
-                    // Incrementer warmup global (auto-reply = email sortant)
-                    if (automailerStorageForInbox.setFirstSendDate) automailerStorageForInbox.setFirstSendDate();
-                    automailerStorageForInbox.incrementTodaySendCount();
-                    log.info('inbox-manager', 'AUTO-REPLY envoye a ' + replyData.from + ' (objection: ' + subClass.objectionType + ', warmup: ' + automailerStorageForInbox.getTodaySendCount() + '/' + warmupDailyLimit + ')');
-
-                    // Tracker dans storage
-                    inboxStorage.addAutoReply({
-                      prospectEmail: replyData.from,
-                      prospectName: replyData.fromName,
-                      sentiment: sentiment,
-                      subClassification: subClass.type,
-                      objectionType: subClass.objectionType,
-                      replyBody: autoReply.body,
-                      replySubject: autoReply.subject,
-                      originalEmailId: originalEmail && originalEmail.subject,
-                      confidence: autoReply.confidence,
-                      sendResult: sendResult
-                    });
-
-                    // Stocker le messageId pour threading futur
-                    if (sendResult.messageId) {
-                      automailerStorageForInbox.addEmail({
-                        to: replyData.from,
-                        subject: autoReply.subject,
-                        body: autoReply.body,
-                        source: 'auto_reply',
-                        status: 'sent',
-                        messageId: sendResult.messageId,
-                        chatId: ADMIN_CHAT_ID
-                      });
-                    }
-                  }
-                } catch (sendErr) {
-                  log.warn('inbox-manager', 'Envoi auto-reply echoue:', sendErr.message);
-                }
-                } // fin if (!autoReplyBlocked)
+                const draftId = _hitlId();
+                _pendingDrafts.set(draftId, {
+                  replyData, classification, subClass, autoReply, originalEmail,
+                  originalMessageId, clientContext, sentiment, emailsToProcess,
+                  qualityWarning, createdAt: Date.now()
+                });
+                hitlDraftCreated = true;
+                log.info('hitl', 'Draft HITL cree: ' + draftId + ' pour ' + replyData.from + ' (not_interested/' + subClass.objectionType + ')');
               }
             }
           }
 
-          // --- Cas 2: Question simple (score 0.4-0.65) ---
+          // --- Cas 2: Question simple → HITL ---
           else if (sentiment === 'question' && score >= 0.4 && score <= 0.65) {
-            // Verifier que ce n'est pas un email forwarde ou trop long (question complexe)
             const snippetLen = (replyData.snippet || '').length;
             if (snippetLen < 1500) {
               const autoReply = await generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
 
               if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
-                // Quality gate : mots interdits
-                let qReplyBlocked = false;
-                try {
-                  const apStorageQG2 = require('../skills/autonomous-pilot/storage.js');
-                  const apConfigQG2 = apStorageQG2.getConfig ? apStorageQG2.getConfig() : {};
-                  const epQG2 = apConfigQG2.emailPreferences || {};
-                  if (epQG2.forbiddenWords && epQG2.forbiddenWords.length > 0) {
-                    const qrText = (autoReply.subject + ' ' + autoReply.body).toLowerCase();
-                    const qrFound = epQG2.forbiddenWords.filter(w => {
-                      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                      return new RegExp('\\b' + escaped + '\\b', 'i').test(qrText);
-                    });
-                    if (qrFound.length > 0) {
-                      log.warn('inbox-manager', 'AUTO-REPLY question BLOQUE (mots interdits: ' + qrFound.join(', ') + ') pour ' + replyData.from);
-                      qReplyBlocked = true;
-                    }
-                  }
-                } catch (qgErr2) { log.info('inbox-manager', 'Quality gate question check skip: ' + qgErr2.message); }
+                const qualityWarning = _checkDraftQuality(autoReply);
+                if (qualityWarning) log.warn('hitl', 'Draft quality warning: ' + qualityWarning + ' pour ' + replyData.from);
 
-                // Quality gate patterns + word count
-                if (!qReplyBlocked) {
-                  try {
-                    const CE2 = require('../skills/automailer/campaign-engine.js');
-                    if (CE2.emailPassesQualityGate) {
-                      const qg2 = CE2.emailPassesQualityGate(autoReply.subject, autoReply.body);
-                      if (!qg2.pass) {
-                        log.warn('inbox-manager', 'AUTO-REPLY question BLOQUE (quality gate: ' + qg2.reason + ') pour ' + replyData.from);
-                        qReplyBlocked = true;
-                      }
-                    }
-                  } catch (qgPatErr2) {}
-                }
-                if (!qReplyBlocked) {
-                  const qrWordCount = (autoReply.body || '').split(/\s+/).filter(w => w.length > 0).length;
-                  if (qrWordCount > 80 || qrWordCount < 8) {
-                    log.warn('inbox-manager', 'AUTO-REPLY question BLOQUE (word count: ' + qrWordCount + ') pour ' + replyData.from);
-                    qReplyBlocked = true;
-                  }
-                }
-
-                if (!qReplyBlocked) {
-                try {
-                  const ResendClient = require('../skills/automailer/resend-client.js');
-                  const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
-                  const sendResult = await resendClient.sendEmail(replyData.from, autoReply.subject, autoReply.body, {
-                    inReplyTo: originalMessageId,
-                    references: originalMessageId,
-                    fromName: clientContext.senderName
-                  });
-
-                  if (sendResult && sendResult.success) {
-                    autoReplyHandled = true;
-                    // Incrementer warmup global (auto-reply = email sortant)
-                    if (automailerStorageForInbox.setFirstSendDate) automailerStorageForInbox.setFirstSendDate();
-                    automailerStorageForInbox.incrementTodaySendCount();
-                    log.info('inbox-manager', 'AUTO-REPLY question envoye a ' + replyData.from + ' (warmup: ' + automailerStorageForInbox.getTodaySendCount() + '/' + warmupDailyLimit + ')');
-
-                    inboxStorage.addAutoReply({
-                      prospectEmail: replyData.from,
-                      prospectName: replyData.fromName,
-                      sentiment: sentiment,
-                      subClassification: 'simple_question',
-                      objectionType: '',
-                      replyBody: autoReply.body,
-                      replySubject: autoReply.subject,
-                      originalEmailId: originalEmail && originalEmail.subject,
-                      confidence: autoReply.confidence,
-                      sendResult: sendResult
-                    });
-
-                    if (sendResult.messageId) {
-                      automailerStorageForInbox.addEmail({
-                        to: replyData.from,
-                        subject: autoReply.subject,
-                        body: autoReply.body,
-                        source: 'auto_reply',
-                        status: 'sent',
-                        messageId: sendResult.messageId,
-                        chatId: ADMIN_CHAT_ID
-                      });
-                    }
-                  }
-                } catch (sendErr) {
-                  log.warn('inbox-manager', 'Envoi auto-reply question echoue:', sendErr.message);
-                }
-                } // fin if (!qReplyBlocked)
+                const draftId = _hitlId();
+                _pendingDrafts.set(draftId, {
+                  replyData, classification, subClass: { type: 'simple_question', objectionType: '' },
+                  autoReply, originalEmail, originalMessageId, clientContext,
+                  sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
+                });
+                hitlDraftCreated = true;
+                log.info('hitl', 'Draft HITL cree: ' + draftId + ' pour ' + replyData.from + ' (question)');
               }
             }
           }
 
-          // --- Cas 3: OOO — reschedule automatique ---
+          // --- Cas 3: Interested → HITL (NOUVEAU) ---
+          else if (sentiment === 'interested') {
+            const autoReply = await generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
+
+            if (autoReply.body) {
+              const qualityWarning = _checkDraftQuality(autoReply);
+              if (qualityWarning) log.warn('hitl', 'Draft quality warning: ' + qualityWarning + ' pour ' + replyData.from);
+
+              const draftId = _hitlId();
+              _pendingDrafts.set(draftId, {
+                replyData, classification, subClass: { type: 'interested', objectionType: '' },
+                autoReply, originalEmail, originalMessageId, clientContext,
+                sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
+              });
+              hitlDraftCreated = true;
+              log.info('hitl', 'Draft HITL cree: ' + draftId + ' pour ' + replyData.from + ' (interested)');
+            }
+          }
+
+          // --- Cas 4: OOO — reschedule automatique (FULL AUTO, pas de HITL) ---
           else if (sentiment === 'out_of_office') {
             try {
               const returnDate = parseOOOReturnDate(replyData.snippet);
               let scheduledDate;
               if (returnDate) {
-                // Reschedule 7 jours apres la date de retour
                 const returnTs = new Date(returnDate).getTime();
                 scheduledDate = new Date(returnTs + 7 * 24 * 60 * 60 * 1000).toISOString();
               } else {
-                // Pas de date trouvee — reschedule dans 14 jours
                 scheduledDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
               }
 
@@ -939,7 +859,6 @@ inboxListener = InboxListener ? new InboxListener({
                 scheduledFollowUpAt: scheduledDate
               });
 
-              // Creer un follow-up dans proactive-agent (flag OOO pour bypasser le guard "replied")
               try {
                 const proactiveStorage = require('../skills/proactive-agent/storage.js');
                 proactiveStorage.addPendingFollowUp({
@@ -968,8 +887,11 @@ inboxListener = InboxListener ? new InboxListener({
       }
     }
 
-    // === 4. HUMAN TAKEOVER : le bot ARRETE toute automation, l'humain prend le relais ===
-    let actionTaken = autoReplyHandled ? 'auto_reply_' + sentiment : 'human_takeover';
+    // === 4. HUMAN TAKEOVER / HITL PENDING : decider l'action selon le resultat du pipeline ===
+    let actionTaken;
+    if (autoReplyHandled) actionTaken = 'auto_reply_' + sentiment;
+    else if (hitlDraftCreated) actionTaken = 'hitl_pending_' + sentiment;
+    else actionTaken = 'human_takeover';
 
     // Blacklister les bounces (pas de relais humain necessaire)
     if (sentiment === 'bounce') {
@@ -981,28 +903,30 @@ inboxListener = InboxListener ? new InboxListener({
       } catch (e) {}
       log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (bounce)');
     }
-    // not_interested : si auto-reply a gere → blacklist douce, sinon blacklist + human takeover
-    else if (sentiment === 'not_interested') {
-      if (autoReplyHandled) {
-        actionTaken = 'auto_reply_not_interested';
-        // NE PAS blacklister : le bot a contre-argumente, on attend la re-reponse
-        log.info('inbox-manager', 'Auto-reply envoye a ' + replyData.from + ' — pas de blacklist (attente re-reponse)');
-      } else {
-        actionTaken = 'polite_decline_blacklist';
-        try {
-          for (const ep of emailsToProcess) {
-            automailerStorageForInbox.addToBlacklist(ep, 'prospect_declined');
-          }
-          log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (decline) — human takeover');
-        } catch (e) {}
-      }
+    // not_interested avec HITL draft : NE PAS blacklister, on attend la validation
+    else if (sentiment === 'not_interested' && hitlDraftCreated) {
+      log.info('hitl', 'Draft HITL en attente pour ' + replyData.from + ' (not_interested) — pas de blacklist');
+    }
+    // not_interested SANS draft (hard objection / low confidence) : blacklister
+    else if (sentiment === 'not_interested' && !hitlDraftCreated) {
+      actionTaken = 'polite_decline_blacklist';
+      try {
+        for (const ep of emailsToProcess) {
+          automailerStorageForInbox.addToBlacklist(ep, 'prospect_declined');
+        }
+        log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (decline) — human takeover');
+      } catch (e) {}
     }
     // OOO : si reschedule auto → deferred_ooo_rescheduled, sinon deferred_ooo
     else if (sentiment === 'out_of_office') {
       actionTaken = autoReplyHandled ? 'deferred_ooo_rescheduled' : 'deferred_ooo';
       log.info('inbox-manager', replyData.from + ' absent (OOO) — ' + (autoReplyHandled ? 'reschedule auto programme' : 'pas de relais humain'));
     }
-    // INTERESTED / QUESTION / autre : si auto-reply a gere la question → pas de human takeover
+    // HITL draft cree (interested ou question) : stopper les relances mais NE PAS blacklister
+    else if (hitlDraftCreated) {
+      log.info('hitl', 'Draft HITL en attente pour ' + replyData.from + ' (sentiment=' + sentiment + ')');
+    }
+    // INTERESTED / QUESTION / autre avec auto-reply deja envoye
     else if (autoReplyHandled) {
       actionTaken = 'auto_reply_' + sentiment;
       log.info('inbox-manager', 'Auto-reply ' + sentiment + ' envoye a ' + replyData.from + ' — le bot a gere');
@@ -1071,6 +995,33 @@ inboxListener = InboxListener ? new InboxListener({
       }
     }
 
+    // HITL pending : stopper les relances auto mais NE PAS blacklister (en attente de validation)
+    if (hitlDraftCreated) {
+      try {
+        let totalMarked = 0;
+        for (const ep of emailsToProcess) {
+          const allEmails = automailerStorageForInbox.getEmailEventsForRecipient(ep);
+          for (const em of allEmails) {
+            if (em.id && !em.hasReplied) {
+              automailerStorageForInbox.updateEmailStatus(em.id, em.status || 'replied', { hasReplied: true, repliedAt: new Date().toISOString() });
+              totalMarked++;
+            }
+          }
+        }
+        if (totalMarked > 0) log.info('hitl', 'hasReplied=true marque sur ' + totalMarked + ' emails (HITL pending) pour ' + emailsToProcess.join(' + '));
+      } catch (e) {}
+      // Annuler les reactive follow-ups
+      try {
+        const proactiveStorage = require('../skills/proactive-agent/storage.js');
+        const pendingFUs = proactiveStorage.getPendingFollowUps();
+        for (const fu of pendingFUs) {
+          if (fu.prospectEmail && emailsToProcess.includes(fu.prospectEmail.toLowerCase())) {
+            proactiveStorage.markFollowUpFailed(fu.id, 'hitl_pending: draft en attente validation');
+          }
+        }
+      } catch (e) {}
+    }
+
     // === 5. Update storage inbox-manager avec sentiment ===
     try {
       const inboxStorage = require('../skills/inbox-manager/storage.js');
@@ -1103,6 +1054,9 @@ inboxListener = InboxListener ? new InboxListener({
       auto_reply_not_interested: '🤖💬 Bot a contre-argumente',
       auto_reply_question: '🤖💬 Bot a repondu a la question',
       auto_reply_out_of_office: '🤖📅 OOO — relance auto programmee',
+      hitl_pending_interested: '📝 Brouillon pret — valide sur Telegram !',
+      hitl_pending_question: '📝 Brouillon pret — valide sur Telegram !',
+      hitl_pending_not_interested: '📝 Brouillon pret — valide sur Telegram !',
       none: '—'
     };
     const notifLines = [
@@ -1141,8 +1095,55 @@ inboxListener = InboxListener ? new InboxListener({
       }
     } catch (ctxErr) {}
 
-    // Si auto-reply envoye, montrer la reponse du bot
-    if (autoReplyHandled && actionTaken.startsWith('auto_reply_')) {
+    // === HITL : notification enrichie avec brouillon + boutons ===
+    if (hitlDraftCreated) {
+      // Trouver le draft cree pour ce prospect
+      let hitlDraftId = null;
+      let hitlDraft = null;
+      for (const [id, d] of _pendingDrafts) {
+        if (d.replyData.from === replyData.from && Date.now() - d.createdAt < 60000) {
+          hitlDraftId = id;
+          hitlDraft = d;
+        }
+      }
+
+      if (hitlDraft && hitlDraftId) {
+        notifLines.push('');
+        notifLines.push('━━━━━━━━━━━━━━━━━━');
+        notifLines.push('📝 *Brouillon de reponse :*');
+        notifLines.push('_Objet : ' + escTg(hitlDraft.autoReply.subject) + '_');
+        notifLines.push('');
+        notifLines.push(escTg(hitlDraft.autoReply.body));
+        notifLines.push('');
+        notifLines.push('📊 Confiance : ' + (hitlDraft.autoReply.confidence || 0).toFixed(2));
+        if (hitlDraft.subClass && hitlDraft.subClass.objectionType) {
+          notifLines.push('📋 Type : ' + escTg(hitlDraft.subClass.objectionType));
+        }
+        if (hitlDraft.qualityWarning) {
+          notifLines.push('');
+          notifLines.push('⚠️ *Quality gate :* ' + escTg(hitlDraft.qualityWarning));
+        }
+        notifLines.push('');
+        notifLines.push('⏳ _Expire dans 24h si pas d\'action._');
+
+        const buttons = [[
+          { text: '✅ Accepter', callback_data: 'hitl_accept_' + hitlDraftId },
+          { text: '✏️ Modifier', callback_data: 'hitl_modify_' + hitlDraftId },
+          { text: '🚫 Ignorer', callback_data: 'hitl_ignore_' + hitlDraftId }
+        ]];
+
+        await sendMessageWithButtons(ADMIN_CHAT_ID, notifLines.join('\n'), buttons);
+      } else {
+        // Fallback : pas de draft trouve
+        notifLines.push('');
+        notifLines.push('⚠️ _Erreur creation draft — reponds manuellement._');
+        notifLines.push('');
+        notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));
+        await sendMessage(ADMIN_CHAT_ID, notifLines.join('\n'), 'Markdown');
+      }
+    }
+    // Si auto-reply envoye (OOO), montrer la reponse du bot
+    else if (autoReplyHandled && actionTaken.startsWith('auto_reply_')) {
       try {
         const inboxStorage = require('../skills/inbox-manager/storage.js');
         const recentAR = inboxStorage.getAutoReplies(1);
@@ -1156,27 +1157,31 @@ inboxListener = InboxListener ? new InboxListener({
           notifLines.push('📊 Confiance: ' + (recentAR[0].confidence || 0).toFixed(2));
         }
       } catch (e) {}
-    }
-
-    notifLines.push('');
-    notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));
-    if (actionTaken === 'human_takeover') {
       notifLines.push('');
-      notifLines.push('🚨 _Le bot a ARRETE toute automation pour ce prospect\\. Reponds\\-lui manuellement\\!_');
-      // Fix 6: Ajouter lien Cal.eu pour prise de RDV rapide
-      try {
-        if (meetingHandler.calcom.isConfigured()) {
-          const slug = process.env.CALCOM_EVENT_SLUG || 'appel-telephonique';
-          const bookingUrl = await meetingHandler.calcom.getBookingLink(slug, replyData.from, replyData.fromName);
-          if (bookingUrl) {
-            notifLines.push('');
-            notifLines.push('📅 *Lien RDV rapide :*');
-            notifLines.push(bookingUrl);
-          }
-        }
-      } catch (e) { /* silent — best effort */ }
+      notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));
+      await sendMessage(ADMIN_CHAT_ID, notifLines.join('\n'), 'Markdown');
     }
-    await sendMessage(ADMIN_CHAT_ID, notifLines.join('\n'), 'Markdown');
+    // Notification classique (human_takeover, bounce, decline)
+    else {
+      notifLines.push('');
+      notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));
+      if (actionTaken === 'human_takeover') {
+        notifLines.push('');
+        notifLines.push('🚨 _Le bot a ARRETE toute automation pour ce prospect\\. Reponds\\-lui manuellement\\!_');
+        try {
+          if (meetingHandler.calcom.isConfigured()) {
+            const slug = process.env.CALCOM_EVENT_SLUG || 'appel-telephonique';
+            const bookingUrl = await meetingHandler.calcom.getBookingLink(slug, replyData.from, replyData.fromName);
+            if (bookingUrl) {
+              notifLines.push('');
+              notifLines.push('📅 *Lien RDV rapide :*');
+              notifLines.push(bookingUrl);
+            }
+          }
+        } catch (e) { /* silent — best effort */ }
+      }
+      await sendMessage(ADMIN_CHAT_ID, notifLines.join('\n'), 'Markdown');
+    }
   }
 }) : null;
 
@@ -1680,6 +1685,22 @@ async function handleUpdate(update) {
   // Sauvegarder le message dans l'historique
   addToHistory(chatId, 'user', text, null);
 
+  // === HITL : intercepter le texte de modification si en attente ===
+  const _hitlPending = _hitlModifyState.get(String(chatId));
+  if (_hitlPending && _hitlPending.draftId) {
+    _hitlModifyState.delete(String(chatId));
+    const draft = _pendingDrafts.get(_hitlPending.draftId);
+    if (!draft) {
+      await sendMessage(chatId, '⚠️ Brouillon expire ou introuvable.');
+      return;
+    }
+    // Utiliser le texte de l'utilisateur comme nouveau body
+    draft.autoReply.body = text;
+    log.info('hitl', 'Draft modifie par utilisateur: ' + _hitlPending.draftId + ' pour ' + draft.replyData.from);
+    await _hitlSendReply(chatId, _hitlPending.draftId);
+    return;
+  }
+
   const sendReply = async (reply) => {
     await sendMessage(chatId, reply.content, 'Markdown');
   };
@@ -1895,6 +1916,82 @@ async function handleUpdate(update) {
   }
 }
 
+// --- HITL : envoyer une reponse validee ou modifiee ---
+
+async function _hitlSendReply(chatId, draftId) {
+  const draft = _pendingDrafts.get(draftId);
+  if (!draft) {
+    await sendMessage(chatId, '⚠️ Brouillon expire ou introuvable (24h max).');
+    return;
+  }
+
+  try {
+    const ResendClient = require('../skills/automailer/resend-client.js');
+    const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
+
+    const sendResult = await resendClient.sendEmail(
+      draft.replyData.from,
+      draft.autoReply.subject,
+      draft.autoReply.body,
+      {
+        inReplyTo: draft.originalMessageId,
+        references: draft.originalMessageId,
+        fromName: draft.clientContext.senderName
+      }
+    );
+
+    if (sendResult && sendResult.success) {
+      // Incrementer warmup global
+      if (automailerStorageForInbox.setFirstSendDate) automailerStorageForInbox.setFirstSendDate();
+      automailerStorageForInbox.incrementTodaySendCount();
+
+      // Tracker dans inbox-manager storage
+      try {
+        const inboxStorage = require('../skills/inbox-manager/storage.js');
+        inboxStorage.addAutoReply({
+          prospectEmail: draft.replyData.from,
+          prospectName: draft.replyData.fromName,
+          sentiment: draft.sentiment,
+          subClassification: draft.subClass ? draft.subClass.type : 'hitl',
+          objectionType: draft.subClass ? draft.subClass.objectionType : '',
+          replyBody: draft.autoReply.body,
+          replySubject: draft.autoReply.subject,
+          originalEmailId: draft.originalEmail && draft.originalEmail.subject,
+          confidence: draft.autoReply.confidence,
+          sendResult: sendResult
+        });
+      } catch (e) {}
+
+      // Stocker messageId pour threading futur
+      if (sendResult.messageId) {
+        automailerStorageForInbox.addEmail({
+          to: draft.replyData.from,
+          subject: draft.autoReply.subject,
+          body: draft.autoReply.body,
+          source: 'hitl_reply',
+          status: 'sent',
+          messageId: sendResult.messageId,
+          chatId: ADMIN_CHAT_ID
+        });
+      }
+
+      log.info('hitl', 'Reponse HITL envoyee a ' + draft.replyData.from + ' (sentiment=' + draft.sentiment + ')');
+      await sendMessage(chatId, '✅ *Reponse envoyee !*\n\n📧 A : ' + escTg(draft.replyData.from) + '\n📋 Objet : _' + escTg(draft.autoReply.subject) + '_\n\n_' + escTg(draft.autoReply.body.substring(0, 300)) + '_', 'Markdown');
+    } else {
+      log.error('hitl', 'Echec envoi HITL pour ' + draft.replyData.from + ': ' + (sendResult && sendResult.error));
+      await sendMessage(chatId, '❌ Echec envoi email a ' + escTg(draft.replyData.from) + '\nErreur : ' + escTg((sendResult && sendResult.error) || 'Inconnue'));
+      return; // Ne pas supprimer le draft, l'utilisateur peut retenter
+    }
+  } catch (e) {
+    log.error('hitl', 'Erreur envoi HITL:', e.message);
+    await sendMessage(chatId, '❌ Erreur technique envoi : ' + escTg(e.message));
+    return;
+  }
+
+  // Nettoyage du draft apres envoi reussi
+  _pendingDrafts.delete(draftId);
+}
+
 // --- Callback queries (boutons) ---
 
 async function handleCallback(update) {
@@ -1987,6 +2084,40 @@ async function handleCallback(update) {
     const type = parts[1];
     const email = parts.slice(2).join('_');
     await sendMessage(chatId, type === 'positive' ? '👍 Merci pour le feedback !' : '👎 Note, je ferai mieux la prochaine fois !');
+  }
+  // === HITL : callbacks pour brouillons de reponses ===
+  else if (data.startsWith('hitl_accept_')) {
+    const draftId = data.replace('hitl_accept_', '');
+    await _hitlSendReply(chatId, draftId);
+  }
+  else if (data.startsWith('hitl_modify_')) {
+    const draftId = data.replace('hitl_modify_', '');
+    const draft = _pendingDrafts.get(draftId);
+    if (!draft) {
+      await sendMessage(chatId, '⚠️ Brouillon expire ou introuvable.');
+      return;
+    }
+    _hitlModifyState.set(String(chatId), { draftId, ts: Date.now() });
+    await sendMessage(chatId, '✏️ *Mode modification*\n\nTape le nouveau texte de reponse.\nLe prochain message que tu envoies sera utilise comme corps de l\'email.\n\n_Brouillon actuel :_\n' + escTg(draft.autoReply.body.substring(0, 500)) + '\n\n_Envoie ton texte modifie :_', 'Markdown');
+  }
+  else if (data.startsWith('hitl_ignore_')) {
+    const draftId = data.replace('hitl_ignore_', '');
+    const draft = _pendingDrafts.get(draftId);
+    if (!draft) {
+      await sendMessage(chatId, '⚠️ Brouillon deja traite ou expire.');
+      return;
+    }
+    _pendingDrafts.delete(draftId);
+
+    // Blacklister le prospect (human takeover)
+    try {
+      for (const ep of (draft.emailsToProcess || [draft.replyData.from])) {
+        automailerStorageForInbox.addToBlacklist(ep, 'hitl_ignored: human_takeover');
+      }
+    } catch (e) {}
+
+    log.info('hitl', 'Draft ignore: ' + draftId + ' pour ' + draft.replyData.from + ' — human takeover');
+    await sendMessage(chatId, '🚫 Brouillon ignore pour *' + escTg(draft.replyData.fromName || draft.replyData.from) + '*.\n_Prospect en human takeover. Reponds-lui manuellement si besoin._', 'Markdown');
   }
 }
 

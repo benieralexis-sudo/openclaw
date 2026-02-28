@@ -435,12 +435,73 @@ const REPLY_TEMPLATES = {
     'Bonne continuation !'
 };
 
+/**
+ * Genere une reponse pour un prospect INTERESSE via Claude Sonnet.
+ * Inclut le lien Cal.com si disponible. Ton enthousiaste mais naturel.
+ */
+async function generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext) {
+  const firstName = (replyData.fromName || '').trim().split(' ')[0] || '';
+  const senderName = clientContext.senderName || process.env.SENDER_NAME || 'Alexis';
+  const bookingUrl = clientContext.bookingUrl || '';
+
+  // Charger mots interdits depuis config AP
+  let forbiddenWordsRule = '';
+  try {
+    const apStorage = require('../autonomous-pilot/storage.js');
+    const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+    const ep = apConfig.emailPreferences || {};
+    if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+      forbiddenWordsRule = '\n\nMOTS ABSOLUMENT INTERDITS (ne jamais utiliser): ' + ep.forbiddenWords.join(', ');
+    }
+  } catch (e) { /* AP non dispo */ }
+
+  const systemPrompt = `Tu es ${senderName}, professionnel B2B. Un prospect a repondu POSITIVEMENT a ton email de prospection. Il est interesse.
+
+REGLES ABSOLUES:
+- Reponds en 3-5 lignes MAX, ton naturel et enthousiaste mais PAS excessif
+- ${bookingUrl ? 'Propose un call de 15 min et inclus ce lien de booking: ' + bookingUrl : 'Propose un call de 15 min et demande ses dispos'}
+- Si le prospect pose aussi une question, reponds-y BRIEVEMENT avant de proposer le call
+- Tutoie si le prospect tutoie, vouvoie si il vouvoie
+- NE MENTIONNE JAMAIS: IA, bot, automatisation, SDR, pipeline, solution, outil, plateforme
+- Pas de signature, pas de "Cordialement"
+- Reponds en francais
+- ANTI-HALLUCINATION: N'invente JAMAIS un fait, un chiffre, ou une reference client
+${forbiddenWordsRule}`;
+
+  const userPrompt = `Email original envoye:
+Sujet: ${(originalEmail && originalEmail.subject) || '(inconnu)'}
+Contenu: ${(originalEmail && originalEmail.body || '').substring(0, 300)}
+
+Reponse positive du prospect ${firstName || replyData.from}:
+"${(replyData.snippet || '').substring(0, 500)}"
+
+Mots-cles: ${(classification.key_phrases || []).join(', ')}
+
+Redige ta reponse (3-5 lignes + proposition call):`;
+
+  try {
+    const result = await callClaude(systemPrompt, userPrompt, 300);
+    if (!result || result.trim().length < 10) {
+      return { body: null, subject: null, confidence: 0 };
+    }
+    return {
+      body: result.trim(),
+      subject: 'Re: ' + (originalEmail && originalEmail.subject || replyData.subject || 'notre echange'),
+      confidence: 0.9
+    };
+  } catch (e) {
+    log.error('reply-classifier', 'Erreur generation reponse interested:', e.message);
+    return { body: null, subject: null, confidence: 0 };
+  }
+}
+
 module.exports = {
   classifyReply,
   generateQuestionReply,
   subClassifyObjection,
   generateObjectionReply,
   generateQuestionReplyViaClaude,
+  generateInterestedReplyViaClaude,
   parseOOOReturnDate,
   REPLY_TEMPLATES
 };
