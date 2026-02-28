@@ -844,7 +844,23 @@ class CampaignEngine {
         if (step1Intel && this.claude.generateSingleEmail) {
           try {
             const campaignCtx = campaign.context || campaign.name || 'prospection B2B';
-            const enrichedContext = step1Intel + '\n\nCONTEXTE CAMPAGNE: ' + campaignCtx;
+            let enrichedContext = step1Intel + '\n\nCONTEXTE CAMPAGNE: ' + campaignCtx;
+
+            // Rotation d'angles : empecher les sujets repetitifs entre prospects
+            try {
+              let apStorage = null;
+              try { apStorage = require('../autonomous-pilot/storage.js'); }
+              catch (e) { try { apStorage = require('/app/skills/autonomous-pilot/storage.js'); } catch (e2) {} }
+              if (apStorage && apStorage.getRecentAnglesForIndustry) {
+                const industry = contact.industry || contact.company || '';
+                if (industry) {
+                  const recentAngles = apStorage.getRecentAnglesForIndustry(industry, 10);
+                  if (recentAngles.length > 0) {
+                    enrichedContext += '\n\n=== ANGLES DEJA UTILISES (NE PAS REPETER — trouve un angle DIFFERENT) ===\n' + recentAngles.map(a => '- "' + a + '"').join('\n');
+                  }
+                }
+              }
+            } catch (e) {}
             const generated = await this.claude.generateSingleEmail(contact, enrichedContext);
             if (generated && generated.subject && generated.body) {
               subject = generated.subject;
@@ -905,21 +921,35 @@ class CampaignEngine {
             subject = this._applyTemplateVars(subject, contact, firstName);
             body = this._applyTemplateVars(body, contact, firstName);
           }
+        } else if (this.claude.generateSingleEmail && (contact.company || contact.title)) {
+          // Pas de brief riche : generateSingleEmail avec donnees minimales du contact
+          try {
+            const minParts = [];
+            if (contact.company) minParts.push('ENTREPRISE: ' + contact.company);
+            if (contact.title) minParts.push('POSTE: ' + contact.title);
+            if (contact.industry) minParts.push('INDUSTRIE: ' + contact.industry);
+            if (contact.city) minParts.push('VILLE: ' + contact.city);
+            if (contact.country) minParts.push('PAYS: ' + contact.country);
+            const campaignCtx = campaign.context || campaign.name || 'prospection B2B';
+            const minContext = minParts.join('\n') + '\n\nCONTEXTE CAMPAGNE: ' + campaignCtx;
+            const generated = await this.claude.generateSingleEmail(contact, minContext);
+            if (generated && generated.subject && generated.body && !generated.skip) {
+              subject = generated.subject;
+              body = generated.body;
+              log.info('campaign-engine', 'Step 1 genere (donnees minimales) pour ' + contact.email);
+            } else {
+              subject = this._applyTemplateVars(subject, contact, firstName);
+              body = this._applyTemplateVars(body, contact, firstName);
+            }
+          } catch (genErr) {
+            log.info('campaign-engine', 'generateSingleEmail minimal echoue: ' + genErr.message);
+            subject = this._applyTemplateVars(subject, contact, firstName);
+            body = this._applyTemplateVars(body, contact, firstName);
+          }
         } else {
-          // Pas de brief : template + personalizeEmail classique
+          // Dernier fallback : template classique
           subject = this._applyTemplateVars(subject, contact, firstName);
           body = this._applyTemplateVars(body, contact, firstName);
-          if (contact.company || contact.title || contact.industry) {
-            try {
-              const personalized = await this.claude.personalizeEmail(subject, body, contact);
-              if (personalized && personalized.subject && personalized.body) {
-                subject = personalized.subject;
-                body = personalized.body;
-              }
-            } catch (personalizeErr) {
-              log.info('campaign-engine', 'personalizeEmail fallback echoue: ' + personalizeErr.message);
-            }
-          }
         }
       }
 
