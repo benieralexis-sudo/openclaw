@@ -1758,3 +1758,11 @@ input, select, textarea { font-family: inherit; }
   .filter-select { font-size: 11px; padding: 5px 8px; }
   .filter-count { width: 100%; text-align: right; margin-left: 0; }
 }
+
+/* ===== Onboarding Wizard ===== */
+.ob-label { font-size: 12px; font-weight: 500; color: var(--text-muted); display: block; margin-bottom: 4px; }
+.ob-input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); font-size: 14px; font-family: inherit; transition: border-color 0.2s; }
+.ob-input:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+.ob-input::placeholder { color: var(--text-muted); }
+textarea.ob-input { resize: vertical; min-height: 60px; }
+.ob-summary-row { padding: 8px 12px; background: var(--bg-secondary); border-radius: 6px; font-size: 13px; }

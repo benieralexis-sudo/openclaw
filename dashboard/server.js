@@ -535,6 +535,132 @@ app.post('/api/me/password', authRequired, async (req, res) => {
   res.json({ success: true });
 });
 
+// --- Onboarding Wizard (client users) ---
+
+app.get('/api/onboarding', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const client = clientRegistry.getClient(req.clientId);
+  if (!client) return res.status(404).json({ error: 'Client introuvable' });
+  res.json({
+    completed: client.onboarding.completed,
+    steps: client.onboarding.steps,
+    config: client.config,
+    icp: client.icp || {},
+    tone: client.tone || {}
+  });
+});
+
+app.post('/api/onboarding/company', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const { name, domain, description, senderName, senderFullName, senderTitle, senderEmail } = req.body;
+  if (!name || !domain) return res.status(400).json({ error: 'Nom et domaine requis' });
+
+  try {
+    clientRegistry.updateClient(req.clientId, {
+      name: name,
+      config: {
+        clientDomain: domain,
+        clientDescription: description || '',
+        senderName: senderName || '',
+        senderFullName: senderFullName || '',
+        senderTitle: senderTitle || 'Fondateur',
+        senderEmail: senderEmail || '',
+        replyToEmail: senderEmail || ''
+      },
+      onboarding: { steps: { company: new Date().toISOString() } }
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/onboarding/icp', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const { industries, titles, companySizes, geography } = req.body;
+
+  try {
+    clientRegistry.updateClient(req.clientId, {
+      icp: {
+        industries: industries || [],
+        titles: titles || [],
+        companySizes: companySizes || [],
+        geography: geography || []
+      },
+      onboarding: { steps: { icp: new Date().toISOString() } }
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/onboarding/tone', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const { formality, valueProposition, forbiddenWords } = req.body;
+
+  try {
+    clientRegistry.updateClient(req.clientId, {
+      tone: {
+        formality: formality || 'decontracte',
+        valueProposition: valueProposition || '',
+        forbiddenWords: forbiddenWords || []
+      },
+      onboarding: { steps: { tone: new Date().toISOString() } }
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/onboarding/integrations', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const { hubspotApiKey, calcomApiKey, calcomUsername, imapHost, imapUser, imapPass } = req.body;
+
+  try {
+    clientRegistry.updateClient(req.clientId, {
+      config: {
+        hubspotApiKey: hubspotApiKey || '',
+        calcomApiKey: calcomApiKey || '',
+        calcomUsername: calcomUsername || '',
+        imapHost: imapHost || '',
+        imapUser: imapUser || '',
+        imapPass: imapPass || ''
+      },
+      onboarding: { steps: { integrations: new Date().toISOString() } }
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/onboarding/complete', authRequired, resolveClient, async (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+
+  try {
+    const client = clientRegistry.getClient(req.clientId);
+    if (!client) return res.status(404).json({ error: 'Client introuvable' });
+
+    // Mark onboarding complete
+    clientRegistry.updateClient(req.clientId, {
+      onboarding: { completed: true }
+    });
+
+    // Regenerate .env and docker-compose
+    clientRegistry.generateClientEnv(req.clientId, client.config);
+    clientRegistry.generateDockerCompose();
+
+    logAudit('onboarding_completed', req.ip || 'unknown', req.clientId);
+    log.info('dashboard', 'Onboarding complete: ' + req.clientId);
+
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // --- Audit log (admin only) ---
 app.get('/api/audit', authRequired, adminRequired, async (req, res) => {
   try {

@@ -27,9 +27,15 @@ const App = {
     if (!me) return;
     this.userRole = me.role || 'admin';
     this.userName = me.username || '';
+    this.clientId = me.clientId || null;
     const nameEl = document.querySelector('.client-selector span');
-    if (nameEl) nameEl.textContent = me.username;
+    if (nameEl) nameEl.textContent = me.clientName || me.username;
     this.applyRoleVisibility();
+
+    // Redirect non-onboarded client users to onboarding wizard
+    if (me.role === 'client' && me.clientId && me.onboardingDone === false) {
+      window.location.hash = 'onboarding';
+    }
   },
 
   applyRoleVisibility() {
@@ -102,7 +108,8 @@ const App = {
     'proactive': 'intelligence',
     'self-improve': 'intelligence',
     'web-intel': 'intelligence',
-    'users': 'clients'
+    'users': 'clients',
+    'setup': 'onboarding'
   },
 
   routeFromHash() {
