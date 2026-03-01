@@ -21,9 +21,11 @@ Pages.system = async function(container) {
   const lastHealth = data.lastHealthCheck;
   const recentSnapshots = data.recentSnapshots || [];
 
-  const ramPct = snap.ram?.percent || 0;
-  const cpuPct = snap.cpu?.percent || 0;
-  const diskPct = snap.disk?.percent || 0;
+  const ramPct = snap.ram?.usagePercent ?? snap.ram?.percent ?? 0;
+  const cpuLoad = parseFloat(snap.cpu?.loadAvg1m) || snap.cpu?.percent || 0;
+  const cpuPct = snap.cpu?.cores ? Math.min(Math.round((cpuLoad / snap.cpu.cores) * 100), 100) : Math.round(cpuLoad);
+  const diskPct = snap.disk?.usagePercent ?? snap.disk?.percent ?? 0;
+  const uptimeSeconds = typeof snap.uptime === 'object' ? (snap.uptime.osSeconds || snap.uptime.processSeconds || 0) : (snap.uptime || 0);
 
   container.innerHTML = `
   <div class="page-enter stagger">
@@ -38,7 +40,7 @@ Pages.system = async function(container) {
           <div class="kpi-icon ${ramPct > 90 ? 'red' : ramPct > 70 ? 'orange' : 'blue'}">${Utils.icon('cpu')}</div>
         </div>
         <div class="kpi-value" data-count="${ramPct}" data-percent="true">${ramPct}%</div>
-        <div class="kpi-label">RAM (${snap.ram?.used ? Math.round(snap.ram.used / 1048576) : 0} / ${snap.ram?.total ? Math.round(snap.ram.total / 1048576) : 0} Mo)</div>
+        <div class="kpi-label">RAM (${snap.ram?.usedMB || (snap.ram?.used ? Math.round(snap.ram.used / 1048576) : 0)} / ${snap.ram?.totalMB || (snap.ram?.total ? Math.round(snap.ram.total / 1048576) : 0)} Mo)</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-header">
@@ -56,7 +58,7 @@ Pages.system = async function(container) {
       </div>
       <div class="kpi-card">
         <div class="kpi-header"><div class="kpi-icon blue">${Utils.icon('clock')}</div></div>
-        <div class="kpi-value" style="font-size:18px">${snap.uptime ? formatUptime(snap.uptime) : '—'}</div>
+        <div class="kpi-value" style="font-size:18px">${uptimeSeconds ? formatUptime(uptimeSeconds) : '—'}</div>
         <div class="kpi-label">Uptime</div>
       </div>
     </div>

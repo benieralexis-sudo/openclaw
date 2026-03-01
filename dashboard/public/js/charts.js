@@ -339,7 +339,7 @@ const Charts = {
         datasets: [
           {
             label: 'RAM %',
-            data: data.map(d => d.ram?.percent || 0),
+            data: data.map(d => d.ram?.usagePercent ?? d.ram?.percent ?? 0),
             borderColor: '#3b82f6',
             backgroundColor: 'transparent',
             tension: 0.3,
@@ -348,7 +348,11 @@ const Charts = {
           },
           {
             label: 'CPU %',
-            data: data.map(d => d.cpu?.percent || 0),
+            data: data.map(d => {
+              const load = parseFloat(d.cpu?.loadAvg1m) || d.cpu?.percent || 0;
+              const cores = d.cpu?.cores || 1;
+              return Math.min(Math.round((load / cores) * 100), 100);
+            }),
             borderColor: '#f59e0b',
             backgroundColor: 'transparent',
             tension: 0.3,
@@ -357,7 +361,7 @@ const Charts = {
           },
           {
             label: 'Disque %',
-            data: data.map(d => d.disk?.percent || 0),
+            data: data.map(d => d.disk?.usagePercent ?? d.disk?.percent ?? 0),
             borderColor: '#22c55e',
             backgroundColor: 'transparent',
             tension: 0.3,
