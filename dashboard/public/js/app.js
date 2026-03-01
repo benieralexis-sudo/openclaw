@@ -40,15 +40,10 @@ const App = {
 
   applyRoleVisibility() {
     const adminPages = ['finances', 'intelligence', 'system', 'clients'];
-    const clientPages = ['settings']; // Only visible for client users
     document.querySelectorAll('.nav-item').forEach(item => {
       const page = item.dataset.page;
       if (adminPages.includes(page)) {
         item.style.display = this.userRole === 'admin' ? '' : 'none';
-      }
-      if (clientPages.includes(page)) {
-        // Settings visible for client users or admin with clientId
-        item.style.display = (this.userRole === 'client' || this.clientId) ? '' : 'none';
       }
     });
     // Masquer aussi le label "ADMIN" pour les clients
