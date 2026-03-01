@@ -171,7 +171,7 @@ app.use(helmet({
   referrerPolicy: false
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
@@ -578,15 +578,9 @@ app.post('/api/onboarding/company', authRequired, resolveClient, (req, res) => {
 
 app.post('/api/onboarding/icp', authRequired, resolveClient, (req, res) => {
   if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
-  const { industries, titles, companySizes, geography } = req.body;
 
   try {
-    const icpData = {
-      industries: industries || [],
-      titles: titles || [],
-      companySizes: companySizes || [],
-      geography: geography || []
-    };
+    const icpData = validateIcp(req.body);
     clientRegistry.updateClient(req.clientId, {
       icp: icpData,
       onboarding: { steps: { icp: new Date().toISOString() } }
@@ -600,14 +594,9 @@ app.post('/api/onboarding/icp', authRequired, resolveClient, (req, res) => {
 
 app.post('/api/onboarding/tone', authRequired, resolveClient, (req, res) => {
   if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
-  const { formality, valueProposition, forbiddenWords } = req.body;
 
   try {
-    const toneData = {
-      formality: formality || 'decontracte',
-      valueProposition: valueProposition || '',
-      forbiddenWords: forbiddenWords || []
-    };
+    const toneData = validateTone(req.body);
     clientRegistry.updateClient(req.clientId, {
       tone: toneData,
       onboarding: { steps: { tone: new Date().toISOString() } }
@@ -689,37 +678,97 @@ app.post('/api/notifications/read-all', authRequired, resolveClient, (req, res) 
 
 // --- Client Settings ---
 
-// Propagate ICP changes to the bot's autonomous-pilot storage
+// ===== Input validation for ICP and Tone =====
+const VALID_COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001+'];
+const VALID_FORMALITIES = ['tres-formel', 'formel', 'decontracte', 'familier'];
+const MAX_ARRAY_LEN = 20;
+const MAX_STRING_LEN = 100;
+const MAX_FORBIDDEN_WORDS = 50;
+const MAX_VP_LEN = 1000;
+
+function _sanitizeStringArray(arr, maxLen, maxStrLen) {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter(v => typeof v === 'string')
+    .map(v => v.substring(0, maxStrLen).trim())
+    .filter(v => v.length > 0)
+    .slice(0, maxLen);
+}
+
+function validateIcp(body) {
+  return {
+    industries: _sanitizeStringArray(body.industries, MAX_ARRAY_LEN, MAX_STRING_LEN),
+    titles: _sanitizeStringArray(body.titles, MAX_ARRAY_LEN, MAX_STRING_LEN),
+    companySizes: Array.isArray(body.companySizes)
+      ? body.companySizes.filter(s => VALID_COMPANY_SIZES.includes(s)).slice(0, 6)
+      : [],
+    geography: _sanitizeStringArray(body.geography, MAX_ARRAY_LEN, MAX_STRING_LEN)
+  };
+}
+
+function validateTone(body) {
+  return {
+    formality: VALID_FORMALITIES.includes(body.formality) ? body.formality : 'decontracte',
+    valueProposition: typeof body.valueProposition === 'string'
+      ? body.valueProposition.substring(0, MAX_VP_LEN).trim() : '',
+    forbiddenWords: _sanitizeStringArray(body.forbiddenWords, MAX_FORBIDDEN_WORDS, 50)
+  };
+}
+
+// ===== Propagate settings to bot's autonomous-pilot storage =====
+// Uses atomic write (write .tmp then rename) to avoid corruption
+
+function _atomicWriteJSON(filePath, data) {
+  const tmpFile = filePath + '.tmp';
+  fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf8');
+  fs.renameSync(tmpFile, filePath);
+}
+
+function _loadOrCreateApData(apPath) {
+  if (fs.existsSync(apPath)) {
+    return JSON.parse(fs.readFileSync(apPath, 'utf8'));
+  }
+  // Create default structure for new clients
+  const dir = path.dirname(apPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return {
+    config: { enabled: true, emailPreferences: {} },
+    goals: { searchCriteria: {} },
+    progress: {},
+    actionQueue: [],
+    actionHistory: []
+  };
+}
+
 function _propagateIcpToBot(clientId, icp) {
   try {
     const apPath = clientRegistry.getClientDataPaths(clientId)['autonomous-pilot'];
-    if (!apPath || !fs.existsSync(apPath)) return;
-    const apData = JSON.parse(fs.readFileSync(apPath, 'utf8'));
+    if (!apPath) return;
+    const apData = _loadOrCreateApData(apPath);
     if (!apData.goals) apData.goals = {};
     if (!apData.goals.searchCriteria) apData.goals.searchCriteria = {};
-    if (icp.industries) apData.goals.searchCriteria.industries = icp.industries;
-    if (icp.titles) apData.goals.searchCriteria.titles = icp.titles;
-    if (icp.companySizes) apData.goals.searchCriteria.companySize = icp.companySizes;
-    if (icp.geography) apData.goals.searchCriteria.locations = icp.geography;
-    fs.writeFileSync(apPath, JSON.stringify(apData, null, 2));
+    apData.goals.searchCriteria.industries = icp.industries;
+    apData.goals.searchCriteria.titles = icp.titles;
+    apData.goals.searchCriteria.companySize = icp.companySizes;
+    apData.goals.searchCriteria.locations = icp.geography;
+    _atomicWriteJSON(apPath, apData);
     log.info('dashboard', 'ICP propagated to bot for client ' + clientId);
   } catch (e) {
     log.warn('dashboard', 'Failed to propagate ICP to bot: ' + e.message);
   }
 }
 
-// Propagate tone changes to the bot's autonomous-pilot storage
 function _propagateToneToBot(clientId, tone) {
   try {
     const apPath = clientRegistry.getClientDataPaths(clientId)['autonomous-pilot'];
-    if (!apPath || !fs.existsSync(apPath)) return;
-    const apData = JSON.parse(fs.readFileSync(apPath, 'utf8'));
+    if (!apPath) return;
+    const apData = _loadOrCreateApData(apPath);
     if (!apData.config) apData.config = {};
     if (!apData.config.emailPreferences) apData.config.emailPreferences = {};
-    if (tone.formality) apData.config.emailPreferences.tone = tone.formality;
-    if (tone.forbiddenWords) apData.config.emailPreferences.forbiddenWords = tone.forbiddenWords;
-    if (tone.valueProposition !== undefined) apData.config.emailPreferences.valueProposition = tone.valueProposition;
-    fs.writeFileSync(apPath, JSON.stringify(apData, null, 2));
+    apData.config.emailPreferences.tone = tone.formality;
+    apData.config.emailPreferences.forbiddenWords = tone.forbiddenWords;
+    apData.config.emailPreferences.valueProposition = tone.valueProposition;
+    _atomicWriteJSON(apPath, apData);
     log.info('dashboard', 'Tone propagated to bot for client ' + clientId);
   } catch (e) {
     log.warn('dashboard', 'Failed to propagate tone to bot: ' + e.message);
@@ -751,9 +800,12 @@ app.get('/api/settings', authRequired, resolveClient, (req, res) => {
 app.put('/api/settings/icp', authRequired, resolveClient, (req, res) => {
   if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
   try {
-    clientRegistry.updateClient(req.clientId, { icp: req.body });
-    // Propagate ICP to autonomous-pilot storage so bot picks it up
-    _propagateIcpToBot(req.clientId, req.body);
+    const icp = validateIcp(req.body);
+    if (icp.industries.length === 0 && icp.titles.length === 0) {
+      return res.status(400).json({ error: 'Au moins une industrie ou un poste cible requis' });
+    }
+    clientRegistry.updateClient(req.clientId, { icp });
+    _propagateIcpToBot(req.clientId, icp);
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -763,9 +815,9 @@ app.put('/api/settings/icp', authRequired, resolveClient, (req, res) => {
 app.put('/api/settings/tone', authRequired, resolveClient, (req, res) => {
   if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
   try {
-    clientRegistry.updateClient(req.clientId, { tone: req.body });
-    // Propagate tone to autonomous-pilot storage so bot picks it up
-    _propagateToneToBot(req.clientId, req.body);
+    const tone = validateTone(req.body);
+    clientRegistry.updateClient(req.clientId, { tone });
+    _propagateToneToBot(req.clientId, tone);
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
