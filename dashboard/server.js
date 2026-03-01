@@ -683,6 +683,71 @@ app.post('/api/notifications/read-all', authRequired, resolveClient, (req, res) 
   res.json({ success: true });
 });
 
+// --- Client Settings ---
+
+app.get('/api/settings', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const client = clientRegistry.getClient(req.clientId);
+  if (!client) return res.status(404).json({ error: 'Client introuvable' });
+  res.json({
+    id: client.id,
+    name: client.name,
+    plan: client.plan,
+    config: {
+      senderEmail: client.config.senderEmail,
+      senderName: client.config.senderName,
+      senderFullName: client.config.senderFullName,
+      senderTitle: client.config.senderTitle,
+      clientDomain: client.config.clientDomain,
+      clientDescription: client.config.clientDescription
+    },
+    icp: client.icp || {},
+    tone: client.tone || {},
+    notificationPrefs: client.notificationPrefs || {}
+  });
+});
+
+app.put('/api/settings/icp', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  try {
+    clientRegistry.updateClient(req.clientId, { icp: req.body });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.put('/api/settings/tone', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  try {
+    clientRegistry.updateClient(req.clientId, { tone: req.body });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/settings/blacklist', authRequired, resolveClient, async (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const am = await readData('automailer', req.clientId) || {};
+  const blacklist = am.blacklist ? Object.entries(am.blacklist).map(([key, val]) => ({
+    entry: key,
+    reason: val.reason || 'manual',
+    addedAt: val.addedAt || null
+  })) : [];
+  res.json({ blacklist });
+});
+
+app.put('/api/settings/notifications', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  try {
+    clientRegistry.updateClient(req.clientId, { notificationPrefs: req.body });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // --- Audit log (admin only) ---
 app.get('/api/audit', authRequired, adminRequired, async (req, res) => {
   try {
