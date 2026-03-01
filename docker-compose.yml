@@ -112,9 +112,13 @@ services:
   mission-control:
     image: node:20-alpine
     working_dir: /app
-    user: "1000:1000"
+    user: "root"
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
     logging:
       driver: json-file
       options:
@@ -151,6 +155,7 @@ services:
     volumes:
       - ./dashboard:/app
       - ./gateway/logger.js:/gateway/logger.js:ro
+      - ./clients:/clients
       - dashboard-data:/data/dashboard
       - flowfast-data:/data/flowfast:ro
       - automailer-data:/data/automailer:ro
@@ -169,7 +174,7 @@ services:
       - "127.0.0.1:3000:3000"
     init: true
     restart: unless-stopped
-    entrypoint: ["sh", "-c", "cd /app && npm install --production && exec node server.js"]
+    entrypoint: ["sh", "-c", "chown -R node:node /data/dashboard && cd /app && su -s /bin/sh node -c 'npm install --production && exec node server.js'"]
     healthcheck:
       test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:3000/login',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 30s

@@ -108,6 +108,33 @@ const API = {
     }
   },
 
+  async put(endpoint, body) {
+    try {
+      const res = await fetch('/api/' + endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.status === 401) { window.location.href = '/login'; return null; }
+      return await res.json();
+    } catch (err) {
+      console.error('[API] PUT ' + endpoint + ':', err);
+      return null;
+    }
+  },
+
+  async get(endpoint) {
+    try {
+      const res = await fetch(endpoint);
+      if (res.status === 401) { window.location.href = '/login'; return null; }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (err) {
+      console.error('[API] GET ' + endpoint + ':', err);
+      return null;
+    }
+  },
+
   // Shortcuts
   overview(period = '30d') { return this.fetch('overview?period=' + period); },
   prospection() { return this.fetch('prospection'); },
@@ -126,6 +153,15 @@ const API = {
   users() { return this.fetch('users'); },
   createUser(data) { return this.post('users', data); },
   deleteUser(username) { return this.del('users/' + encodeURIComponent(username)); },
+
+  // Client management
+  clients() { return this.get('/api/clients'); },
+  clientDetail(id) { return this.get('/api/clients/' + encodeURIComponent(id)); },
+  createClient(data) { return this.post('clients', data); },
+  updateClient(id, data) { return this.put('clients/' + encodeURIComponent(id), data); },
+  deleteClient(id) { return this.del('clients/' + encodeURIComponent(id)); },
+  restartClient(id) { return this.post('clients/' + encodeURIComponent(id) + '/restart', {}); },
+  clientHealth(id) { return this.get('/api/clients/' + encodeURIComponent(id) + '/health'); },
 
   // Drafts — no cache (time-sensitive)
   async drafts() {

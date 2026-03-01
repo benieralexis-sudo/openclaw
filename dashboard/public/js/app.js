@@ -367,12 +367,13 @@ document.addEventListener('click', (ev) => {
       const password = document.getElementById('new-password')?.value || '';
       const role = document.getElementById('new-role')?.value || 'client';
       const company = (document.getElementById('new-company')?.value || '').trim();
+      const clientId = (document.getElementById('new-client-id')?.value || '').trim();
       const errEl = document.getElementById('add-user-error');
       if (!username || !password) {
         if (errEl) { errEl.textContent = 'Nom et mot de passe requis'; errEl.style.display = ''; }
         break;
       }
-      API.createUser({ username, password, role, company: company || null }).then(res => {
+      API.createUser({ username, password, role, company: company || null, clientId: clientId || null }).then(res => {
         if (res && res.success) {
           API.invalidate('users');
           App.loadPage('clients');
@@ -388,6 +389,81 @@ document.addEventListener('click', (ev) => {
         if (res && res.success) {
           API.invalidate('users');
           App.loadPage('clients');
+        }
+      });
+      break;
+    }
+
+    // --- Client management ---
+    case 'toggle-add-client': {
+      const form = document.getElementById('add-client-form');
+      if (form) form.style.display = form.style.display === 'none' ? '' : 'none';
+      break;
+    }
+    case 'create-client': {
+      const name = (document.getElementById('client-name')?.value || '').trim();
+      const clientDomain = (document.getElementById('client-domain')?.value || '').trim();
+      const plan = document.getElementById('client-plan')?.value || 'pilot';
+      const senderEmail = (document.getElementById('client-sender-email')?.value || '').trim();
+      const senderName = (document.getElementById('client-sender-name')?.value || '').trim();
+      const clientDescription = (document.getElementById('client-description')?.value || '').trim();
+      const errEl = document.getElementById('add-client-error');
+      if (!name) {
+        if (errEl) { errEl.textContent = 'Nom du client requis'; errEl.style.display = ''; }
+        break;
+      }
+      API.createClient({ name, plan, clientDomain, senderEmail, senderName, clientDescription }).then(res => {
+        if (res && res.success) {
+          API.invalidateAll();
+          App.loadPage('clients');
+          if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Client cree avec succes');
+        } else {
+          if (errEl) { errEl.textContent = (res && res.error) || 'Erreur de creation'; errEl.style.display = ''; }
+        }
+      });
+      break;
+    }
+    case 'view-client': {
+      if (param) window.location.hash = 'dashboard?clientId=' + encodeURIComponent(param);
+      break;
+    }
+    case 'health-client': {
+      if (!param) break;
+      target.textContent = '...';
+      API.clientHealth(param).then(res => {
+        if (res && res.healthy) {
+          target.textContent = 'OK';
+          target.style.color = 'var(--accent-green)';
+        } else {
+          target.textContent = 'DOWN';
+          target.style.color = 'var(--accent-red)';
+        }
+        setTimeout(() => { target.textContent = 'Health'; target.style.color = ''; }, 3000);
+      });
+      break;
+    }
+    case 'restart-client': {
+      if (!param || !confirm('Redemarrer le router de "' + param + '" ?')) break;
+      target.textContent = '...';
+      API.restartClient(param).then(res => {
+        if (res && res.success) {
+          target.textContent = 'OK';
+          if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Router redemarrer');
+        } else {
+          target.textContent = 'Erreur';
+          target.style.color = 'var(--accent-red)';
+        }
+        setTimeout(() => { target.textContent = 'Restart'; target.style.color = ''; }, 3000);
+      });
+      break;
+    }
+    case 'delete-client': {
+      if (!param || !confirm('Supprimer le client "' + param + '" ? (soft delete)')) break;
+      API.deleteClient(param).then(res => {
+        if (res && res.success) {
+          API.invalidateAll();
+          App.loadPage('clients');
+          if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Client supprime');
         }
       });
       break;

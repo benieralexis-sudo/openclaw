@@ -9,8 +9,9 @@ const fsp = require('fs').promises;
 const path = require('path');
 const http = require('http');
 const log = require('../gateway/logger.js');
+const clientRegistry = require('./client-registry.js');
 
-const ROUTER_URL = process.env.ROUTER_URL || 'http://telegram-router:9090';
+const DEFAULT_ROUTER_URL = process.env.ROUTER_URL || 'http://telegram-router:9090';
 
 const app = express();
 const PORT = process.env.DASHBOARD_PORT || 3000;
@@ -285,7 +286,8 @@ function authRequired(req, res, next) {
   req.user = {
     username: session.username || 'admin',
     role: session.role || 'admin',
-    company: session.company || null
+    company: session.company || null,
+    clientId: session.clientId || null
   };
   // Audit log pour les requêtes API
   if (req.path.startsWith('/api/')) {
@@ -297,6 +299,20 @@ function authRequired(req, res, next) {
 function adminRequired(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Accès réservé aux administrateurs' });
+  }
+  next();
+}
+
+// --- Multi-tenant client resolution ---
+function resolveClient(req, res, next) {
+  if (req.user.role === 'client') {
+    // Client users are locked to their own clientId
+    req.clientId = req.user.clientId || null;
+  } else if (req.user.role === 'admin' && req.query.clientId) {
+    // Admin can switch context via ?clientId=
+    req.clientId = req.query.clientId;
+  } else {
+    req.clientId = null; // Admin default = main router
   }
   next();
 }
@@ -343,7 +359,8 @@ app.post('/login', loginLimiter, async (req, res) => {
       createdAt: Date.now(),
       username: user ? user.username : 'admin',
       role: user ? user.role : 'admin',
-      company: user ? user.company : null
+      company: user ? user.company : null,
+      clientId: user ? (user.clientId || null) : null
     });
     saveSessions();
     res.cookie('sid', sid, { httpOnly: true, maxAge: SESSION_TTL, sameSite: 'lax', secure: true });
@@ -374,26 +391,33 @@ app.get('/public/js/login.js', (req, res) => {
 app.use('/public', authRequired, express.static(path.join(__dirname, 'public')));
 
 // --- Data reading helper (async I/O) ---
-async function readData(skill) {
-  const cached = dataCache.get(skill);
+async function readData(skill, clientId) {
+  const cacheKey = clientId ? clientId + ':' + skill : skill;
+  const cached = dataCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
-  const filePath = DATA_PATHS[skill];
+  let filePath;
+  if (clientId) {
+    const clientPaths = clientRegistry.getClientDataPaths(clientId);
+    filePath = clientPaths ? clientPaths[skill] : null;
+  } else {
+    filePath = DATA_PATHS[skill];
+  }
   if (!filePath) return null;
 
   try {
     const raw = await fsp.readFile(filePath, 'utf8');
     const data = JSON.parse(raw);
-    dataCache.set(skill, { data, ts: Date.now() });
+    dataCache.set(cacheKey, { data, ts: Date.now() });
     return data;
   } catch (e) {
     return null;
   }
 }
 
-async function readAllData() {
+async function readAllData(clientId) {
   const skills = Object.keys(DATA_PATHS);
-  const results = await Promise.all(skills.map(skill => readData(skill)));
+  const results = await Promise.all(skills.map(skill => readData(skill, clientId)));
   const result = {};
   skills.forEach((skill, i) => { result[skill] = results[i]; });
   return result;
@@ -425,7 +449,14 @@ function paginate(arr, req) {
 
 // Info session courante
 app.get('/api/me', authRequired, (req, res) => {
-  res.json({ username: req.user.username, role: req.user.role, company: req.user.company });
+  const response = { username: req.user.username, role: req.user.role, company: req.user.company };
+  if (req.user.clientId) {
+    response.clientId = req.user.clientId;
+    const client = clientRegistry.getClient(req.user.clientId);
+    response.onboardingDone = client ? !!client.onboarding.completed : false;
+    response.clientName = client ? client.name : null;
+  }
+  res.json(response);
 });
 
 // --- Gestion utilisateurs (admin only) ---
@@ -434,13 +465,14 @@ app.get('/api/users', authRequired, adminRequired, (req, res) => {
     username: u.username,
     role: u.role,
     company: u.company,
+    clientId: u.clientId || null,
     createdAt: u.createdAt
   }));
   res.json({ users: list });
 });
 
 app.post('/api/users', authRequired, adminRequired, async (req, res) => {
-  const { username, password, role, company } = req.body;
+  const { username, password, role, company, clientId } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username et password requis' });
   const uname = username.trim().toLowerCase();
   if (!/^[a-z0-9_-]{2,30}$/.test(uname)) return res.status(400).json({ error: 'Username invalide (2-30 chars, a-z0-9_-)' });
@@ -448,11 +480,18 @@ app.post('/api/users', authRequired, adminRequired, async (req, res) => {
   if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (min 12 caractères)' });
   const validRole = (role === 'client') ? 'client' : 'admin';
 
+  // Validate clientId if provided for client role
+  if (validRole === 'client' && clientId) {
+    const client = clientRegistry.getClient(clientId);
+    if (!client) return res.status(400).json({ error: 'Client "' + clientId + '" introuvable' });
+  }
+
   users[uname] = {
     username: uname,
     passwordHash: await bcrypt.hash(password, 12),
     role: validRole,
     company: validRole === 'client' ? (company || null) : null,
+    clientId: validRole === 'client' ? (clientId || null) : null,
     createdAt: new Date().toISOString()
   };
   saveUsers(users);
@@ -522,8 +561,8 @@ app.get('/api/audit/export', authRequired, adminRequired, async (req, res) => {
 });
 
 // Overview / KPIs globaux
-app.get('/api/overview', authRequired, async (req, res) => {
-  const all = await readAllData();
+app.get('/api/overview', authRequired, resolveClient, async (req, res) => {
+  const all = await readAllData(req.clientId);
   const period = req.query.period || '30d';
   const now = Date.now();
   const periodMs = period === '1d' ? 86400000 : period === '7d' ? 604800000 : 2592000000;
@@ -598,8 +637,8 @@ app.get('/api/overview', authRequired, async (req, res) => {
 });
 
 // Prospection (FlowFast + Autonomous Pilot)
-app.get('/api/prospection', authRequired, async (req, res) => {
-  const [ff, le, ap] = await Promise.all([readData('flowfast'), readData('lead-enrich'), readData('autonomous-pilot')]);
+app.get('/api/prospection', authRequired, resolveClient, async (req, res) => {
+  const [ff, le, ap] = await Promise.all([readData('flowfast', req.clientId), readData('lead-enrich', req.clientId), readData('autonomous-pilot', req.clientId)]);
   const ffData = ff || {};
   const leData = le || {};
   const apData = ap || {};
@@ -658,8 +697,8 @@ app.get('/api/prospection', authRequired, async (req, res) => {
 });
 
 // AutoMailer / Emails
-app.get('/api/emails', authRequired, async (req, res) => {
-  const am = await readData('automailer') || {};
+app.get('/api/emails', authRequired, resolveClient, async (req, res) => {
+  const am = await readData('automailer', req.clientId) || {};
   const emails = am.emails || [];
   const campaigns = am.campaigns ? Object.values(am.campaigns) : [];
   const contactLists = am.contactLists ? Object.values(am.contactLists) : [];
@@ -754,8 +793,8 @@ async function fetchHubSpotDirect() {
   }
 }
 
-app.get('/api/crm', authRequired, async (req, res) => {
-  const crm = await readData('crm-pilot') || {};
+app.get('/api/crm', authRequired, resolveClient, async (req, res) => {
+  const crm = await readData('crm-pilot', req.clientId) || {};
   const activityLog = (crm.activityLog || []).slice(-100);
   const stats = crm.stats || {};
 
@@ -798,8 +837,8 @@ app.get('/api/crm', authRequired, async (req, res) => {
 });
 
 // Lead Enrich
-app.get('/api/enrichment', authRequired, async (req, res) => {
-  const le = await readData('lead-enrich') || {};
+app.get('/api/enrichment', authRequired, resolveClient, async (req, res) => {
+  const le = await readData('lead-enrich', req.clientId) || {};
   const enriched = le.enrichedLeads ? Object.values(le.enrichedLeads) : [];
   const apollo = le.enrichUsage || le.apolloUsage || { creditsUsed: 0, provider: 'fullenrich' };
   const stats = le.stats || {};
@@ -822,8 +861,8 @@ app.get('/api/enrichment', authRequired, async (req, res) => {
 });
 
 // Invoice Bot (admin only)
-app.get('/api/invoices', authRequired, adminRequired, async (req, res) => {
-  const inv = await readData('invoice-bot') || {};
+app.get('/api/invoices', authRequired, adminRequired, resolveClient, async (req, res) => {
+  const inv = await readData('invoice-bot', req.clientId) || {};
   const invoices = inv.invoices ? Object.values(inv.invoices) : [];
   const clients = inv.clients ? Object.values(inv.clients) : [];
   const stats = inv.stats || {};
@@ -861,8 +900,8 @@ app.get('/api/invoices', authRequired, adminRequired, async (req, res) => {
 });
 
 // Proactive Agent
-app.get('/api/proactive', authRequired, async (req, res) => {
-  const pa = await readData('proactive-agent') || {};
+app.get('/api/proactive', authRequired, resolveClient, async (req, res) => {
+  const pa = await readData('proactive-agent', req.clientId) || {};
   const config = pa.config || {};
   const alerts = (pa.alertHistory || []).slice(-50);
   const hotLeads = pa.hotLeads ? Object.entries(pa.hotLeads).map(([email, d]) => ({ email, ...d })) : [];
@@ -881,8 +920,8 @@ app.get('/api/proactive', authRequired, async (req, res) => {
 });
 
 // Self-Improve (admin only)
-app.get('/api/self-improve', authRequired, adminRequired, async (req, res) => {
-  const si = await readData('self-improve') || {};
+app.get('/api/self-improve', authRequired, adminRequired, resolveClient, async (req, res) => {
+  const si = await readData('self-improve', req.clientId) || {};
   const config = si.config || {};
   const analysis = si.analysis || {};
   const feedback = si.feedback || {};
@@ -902,8 +941,8 @@ app.get('/api/self-improve', authRequired, adminRequired, async (req, res) => {
 });
 
 // Web Intelligence
-app.get('/api/web-intelligence', authRequired, async (req, res) => {
-  const wi = await readData('web-intelligence') || {};
+app.get('/api/web-intelligence', authRequired, resolveClient, async (req, res) => {
+  const wi = await readData('web-intelligence', req.clientId) || {};
   const watches = wi.watches ? Object.values(wi.watches) : [];
   const articles = (wi.articles || []).slice(-100);
   const analyses = (wi.analyses || []).slice(-20);
@@ -923,8 +962,8 @@ app.get('/api/web-intelligence', authRequired, async (req, res) => {
 });
 
 // System Advisor (admin only)
-app.get('/api/system', authRequired, adminRequired, async (req, res) => {
-  const sa = await readData('system-advisor') || {};
+app.get('/api/system', authRequired, adminRequired, resolveClient, async (req, res) => {
+  const sa = await readData('system-advisor', req.clientId) || {};
   const config = sa.config || {};
   const systemMetrics = sa.systemMetrics || {};
   const skillMetrics = sa.skillMetrics || {};
@@ -959,16 +998,17 @@ app.get('/api/system', authRequired, adminRequired, async (req, res) => {
 });
 
 // Chat API — proxy vers telegram-router
-app.post('/api/chat', authRequired, async (req, res) => {
+app.post('/api/chat', authRequired, resolveClient, async (req, res) => {
   const message = (req.body.message || '').trim();
   if (!message || message.length > 2000) {
     return res.status(400).json({ error: 'message requis (max 2000 chars)' });
   }
   const userId = req.user?.username || 'admin';
   try {
-    const http = require('http');
-    const ROUTER_HOST = process.env.ROUTER_HOST || 'telegram-router';
-    const ROUTER_PORT = process.env.ROUTER_HEALTH_PORT || 9090;
+    const routerUrl = req.clientId ? clientRegistry.getClientRouterUrl(req.clientId) : DEFAULT_ROUTER_URL;
+    const parsedUrl = new URL(routerUrl);
+    const ROUTER_HOST = parsedUrl.hostname;
+    const ROUTER_PORT = parseInt(parsedUrl.port) || 9090;
     const payload = JSON.stringify({ message, userId });
 
     const result = await new Promise((resolve, reject) => {
@@ -995,8 +1035,8 @@ app.post('/api/chat', authRequired, async (req, res) => {
 });
 
 // Inbox Manager
-app.get('/api/inbox', authRequired, async (req, res) => {
-  const im = await readData('inbox-manager') || {};
+app.get('/api/inbox', authRequired, resolveClient, async (req, res) => {
+  const im = await readData('inbox-manager', req.clientId) || {};
   const config = im.config || {};
   const stats = im.stats || {};
   const receivedEmails = (im.receivedEmails || []).slice(-100);
@@ -1015,9 +1055,10 @@ app.get('/api/inbox', authRequired, async (req, res) => {
 });
 
 // --- HITL Drafts (proxy vers telegram-router) ---
-function proxyToRouter(routerPath, method, body) {
+function proxyToRouter(routerPath, method, body, clientId) {
   return new Promise((resolve, reject) => {
-    const url = new URL(ROUTER_URL + routerPath);
+    const routerUrl = clientId ? clientRegistry.getClientRouterUrl(clientId) : DEFAULT_ROUTER_URL;
+    const url = new URL(routerUrl + routerPath);
     const opts = { hostname: url.hostname, port: url.port, path: url.pathname, method, timeout: 15000 };
     if (body) opts.headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) };
     const req = http.request(opts, (resp) => {
@@ -1035,37 +1076,37 @@ function proxyToRouter(routerPath, method, body) {
   });
 }
 
-app.get('/api/drafts', authRequired, async (req, res) => {
+app.get('/api/drafts', authRequired, resolveClient, async (req, res) => {
   try {
-    const result = await proxyToRouter('/api/hitl/drafts', 'GET');
+    const result = await proxyToRouter('/api/hitl/drafts', 'GET', null, req.clientId);
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });
   }
 });
 
-app.post('/api/drafts/:id/approve', authRequired, async (req, res) => {
+app.post('/api/drafts/:id/approve', authRequired, resolveClient, async (req, res) => {
   try {
-    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/approve', 'POST');
+    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/approve', 'POST', null, req.clientId);
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });
   }
 });
 
-app.post('/api/drafts/:id/reject', authRequired, async (req, res) => {
+app.post('/api/drafts/:id/reject', authRequired, resolveClient, async (req, res) => {
   try {
-    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/reject', 'POST');
+    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/reject', 'POST', null, req.clientId);
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });
   }
 });
 
-app.post('/api/drafts/:id/edit', authRequired, async (req, res) => {
+app.post('/api/drafts/:id/edit', authRequired, resolveClient, async (req, res) => {
   try {
     const body = JSON.stringify({ body: req.body.body });
-    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/edit', 'POST', body);
+    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/edit', 'POST', body, req.clientId);
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });
@@ -1073,8 +1114,8 @@ app.post('/api/drafts/:id/edit', authRequired, async (req, res) => {
 });
 
 // Meeting Scheduler
-app.get('/api/meetings', authRequired, async (req, res) => {
-  const ms = await readData('meeting-scheduler') || {};
+app.get('/api/meetings', authRequired, resolveClient, async (req, res) => {
+  const ms = await readData('meeting-scheduler', req.clientId) || {};
   const config = ms.config || {};
   const stats = ms.stats || {};
   const meetings = ms.meetings || [];
@@ -1099,8 +1140,8 @@ app.get('/api/meetings', authRequired, async (req, res) => {
 });
 
 // Health / Email Operations (admin only)
-app.get('/api/email-health', authRequired, adminRequired, async (req, res) => {
-  const am = await readData('automailer') || {};
+app.get('/api/email-health', authRequired, adminRequired, resolveClient, async (req, res) => {
+  const am = await readData('automailer', req.clientId) || {};
   const emails = am.emails || [];
   const stats = am.stats || {};
 
@@ -1217,7 +1258,7 @@ app.get('/api/email-health', authRequired, adminRequired, async (req, res) => {
 });
 
 // Finance (admin only)
-app.get('/api/finance', authRequired, adminRequired, async (req, res) => {
+app.get('/api/finance', authRequired, adminRequired, resolveClient, async (req, res) => {
   // Lire le fichier app-config.json pour les donnees de budget et service usage
   let appConfig = {};
   try {
@@ -1341,6 +1382,98 @@ app.get('/api/finance', authRequired, adminRequired, async (req, res) => {
     dailyCosts,
     totalEmailsSent
   });
+});
+
+// --- Client Management (admin only) ---
+
+app.get('/api/clients', authRequired, adminRequired, (req, res) => {
+  const clients = clientRegistry.listClients();
+  res.json({ clients: clients.map(c => ({
+    id: c.id,
+    name: c.name,
+    plan: c.plan,
+    status: c.status,
+    routerService: c.routerService,
+    onboardingCompleted: c.onboarding?.completed || false,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt || null
+  })) });
+});
+
+app.post('/api/clients', authRequired, adminRequired, async (req, res) => {
+  try {
+    const { name, plan, senderEmail, senderName, senderFullName, senderTitle,
+      clientDomain, clientDescription, replyToEmail, telegramBotToken, adminChatId,
+      hubspotApiKey, apolloApiKey, fullenrichApiKey, claudeApiKey, openaiApiKey,
+      resendApiKey, gmailMailboxes, calcomApiKey, calcomUsername,
+      imapHost, imapUser, imapPass, dailyBudget } = req.body;
+
+    if (!name) return res.status(400).json({ error: 'Nom du client requis' });
+
+    const client = clientRegistry.createClient({
+      name, plan, senderEmail, senderName, senderFullName, senderTitle,
+      clientDomain, clientDescription, replyToEmail, telegramBotToken, adminChatId,
+      hubspotApiKey, apolloApiKey, fullenrichApiKey, claudeApiKey, openaiApiKey,
+      resendApiKey, gmailMailboxes, calcomApiKey, calcomUsername,
+      imapHost, imapUser, imapPass, dailyBudget
+    });
+
+    // Regenerate docker-compose.clients.yml
+    clientRegistry.generateDockerCompose();
+
+    logAudit('client_created', req.ip || 'unknown', client.id + ' (' + client.name + ')');
+    res.json({ success: true, client });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/clients/:id', authRequired, adminRequired, (req, res) => {
+  const client = clientRegistry.getClient(req.params.id);
+  if (!client) return res.status(404).json({ error: 'Client introuvable' });
+  res.json({ client });
+});
+
+app.put('/api/clients/:id', authRequired, adminRequired, (req, res) => {
+  try {
+    const client = clientRegistry.updateClient(req.params.id, req.body);
+
+    // Regenerate compose if config changed
+    if (req.body.config || req.body.status) {
+      clientRegistry.generateDockerCompose();
+    }
+
+    logAudit('client_updated', req.ip || 'unknown', req.params.id);
+    res.json({ success: true, client });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete('/api/clients/:id', authRequired, adminRequired, (req, res) => {
+  try {
+    clientRegistry.deleteClient(req.params.id);
+    clientRegistry.generateDockerCompose();
+    logAudit('client_deleted', req.ip || 'unknown', req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/clients/:id/restart', authRequired, adminRequired, async (req, res) => {
+  try {
+    const result = await clientRegistry.restartClientRouter(req.params.id);
+    logAudit('client_restart', req.ip || 'unknown', req.params.id);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/clients/:id/health', authRequired, adminRequired, async (req, res) => {
+  const health = await clientRegistry.getClientHealth(req.params.id);
+  res.json(health);
 });
 
 // --- Helper functions ---
