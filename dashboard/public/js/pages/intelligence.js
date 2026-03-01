@@ -213,8 +213,8 @@ async function renderWebIntel(content) {
               <tbody>
                 ${articles.slice(0, 25).map(a => `
                   <tr>
-                    <td style="color:var(--text-primary);font-weight:500;white-space:normal;max-width:300px">${a.url ? `<a href="${e(a.url)}" target="_blank" rel="noopener" style="color:var(--text-primary);text-decoration:underline">${e(Utils.truncate(a.title, 60))}</a>` : e(Utils.truncate(a.title, 60))}</td>
-                    <td>${a.source ? (a.sourceUrl ? `<a href="${e(a.sourceUrl)}" target="_blank" rel="noopener" style="color:var(--accent-blue)">${e(a.source)}</a>` : e(a.source)) : '—'}</td>
+                    <td style="color:var(--text-primary);font-weight:500;white-space:normal;max-width:300px">${(a.url || a.link) ? `<a href="${e(a.url || a.link)}" target="_blank" rel="noopener" style="color:var(--text-primary);text-decoration:underline">${e(Utils.truncate(a.title, 60))}</a>` : e(Utils.truncate(a.title, 60))}</td>
+                    <td>${e(a.source || '—')}</td>
                     <td>${a.relevanceScore ? `<span class="score-badge ${Utils.scoreClass(a.relevanceScore)}">${a.relevanceScore}</span>` : '—'}</td>
                     <td>${a.isUrgent ? '<span class="status-dot orange"></span>Oui' : '—'}</td>
                     <td>${Utils.formatDate(a.fetchedAt)}</td>
@@ -290,13 +290,13 @@ async function renderOptimization(content) {
         <div class="card-body no-pad">
           <div class="table-wrapper">
             <table class="data-table">
-              <thead><tr><th>Titre</th><th>Skill cible</th><th>Priorité</th><th>Date</th></tr></thead>
+              <thead><tr><th>Recommandation</th><th>Type</th><th>Confiance</th><th>Date</th></tr></thead>
               <tbody>
                 ${pending.map(r => `
                   <tr>
-                    <td style="color:var(--text-primary);font-weight:500" title="${e(r.description || r.reason || '')}">${e(r.title)}</td>
-                    <td>${e(r.targetSkill || '—')}</td>
-                    <td><span class="badge badge-${r.priority === 'high' ? 'red' : r.priority === 'medium' ? 'orange' : 'gray'}">${e(r.priority || 'normal')}</span></td>
+                    <td style="color:var(--text-primary);font-weight:500;white-space:normal;max-width:300px">${e(r.title || r.description || '—')}</td>
+                    <td><span class="badge badge-blue">${e(r.type || r.targetSkill || '—')}</span></td>
+                    <td>${r.confidence ? `<span class="score-badge ${r.confidence >= 0.8 ? 'score-high' : r.confidence >= 0.5 ? 'score-mid' : 'score-low'}">${Math.round(r.confidence * 100)}%</span>` : '—'}</td>
                     <td>${Utils.formatDate(r.createdAt)}</td>
                   </tr>
                 `).join('')}
@@ -315,11 +315,11 @@ async function renderOptimization(content) {
         <div class="card-body no-pad">
           <div class="table-wrapper">
             <table class="data-table">
-              <thead><tr><th>Titre</th><th>Statut</th><th>Date</th></tr></thead>
+              <thead><tr><th>Recommandation</th><th>Statut</th><th>Date</th></tr></thead>
               <tbody>
                 ${applied.slice(-15).reverse().map(r => `
                   <tr>
-                    <td style="color:var(--text-primary)">${e(r.title)}</td>
+                    <td style="color:var(--text-primary);white-space:normal;max-width:300px">${e(r.title || r.description || '—')}</td>
                     <td>${Utils.statusBadge(r.status)}</td>
                     <td>${Utils.formatDate(r.appliedAt)}</td>
                   </tr>
