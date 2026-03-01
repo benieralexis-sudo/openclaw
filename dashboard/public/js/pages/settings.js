@@ -30,6 +30,29 @@ function _getSettingsCheckedValues(containerId) {
   return values;
 }
 
+function _timeAgo(isoDate) {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'a l\'instant';
+  if (mins < 60) return 'il y a ' + mins + 'min';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return 'il y a ' + hrs + 'h';
+  const days = Math.floor(hrs / 24);
+  return 'il y a ' + days + 'j';
+}
+
+function _renderChangeRequestsList(reqs, forAdmin) {
+  if (!reqs || reqs.length === 0) return '';
+  return '<div style="margin-top:12px;display:grid;gap:6px">' +
+    reqs.slice(0, 5).map(function(r) {
+      const icon = r.status === 'resolved' ? '<span style="color:var(--accent-green)">&#10003;</span>' : '<span style="color:var(--accent-orange,#f59e0b)">&#9679;</span>';
+      const status = r.status === 'resolved' ? 'traite' : 'en attente';
+      const time = _timeAgo(r.resolvedAt || r.createdAt);
+      return '<div style="font-size:12px;color:var(--text-muted);display:flex;gap:6px;align-items:baseline">' +
+        icon + ' <span>"' + e(r.message.length > 80 ? r.message.substring(0, 80) + '...' : r.message) + '"</span> <span style="white-space:nowrap">— ' + status + ', ' + time + '</span></div>';
+    }).join('') + '</div>';
+}
+
 Pages.settings = async function(container) {
   const lists = await _loadSettingsLists();
   const data = await API.get('/api/settings');
@@ -45,6 +68,9 @@ Pages.settings = async function(container) {
   const L = lists || {};
   const isLocked = data.icpLocked && App.userRole === 'client';
   const _dis = isLocked ? ' disabled' : '';
+  const changeReqs = data.changeRequests || [];
+  const pendingReqs = changeReqs.filter(r => r.status === 'pending');
+  const isAdmin = App.userRole === 'admin';
 
   container.innerHTML = `
   <div class="page-enter stagger">
@@ -75,6 +101,7 @@ Pages.settings = async function(container) {
         </div>
         <div class="card-body">
           ${isLocked ? '<div class="icp-locked-banner">' + Utils.icon('lock', 14) + ' Configuration verrouill\\u00e9e pour optimiser les performances du bot. Utilisez le bouton ci-dessous pour demander une modification.</div>' : ''}
+          ${isAdmin && pendingReqs.length > 0 ? '<div class="icp-locked-banner" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.3);color:var(--accent-orange,#f59e0b)">' + pendingReqs.length + ' demande(s) en attente : "' + e(pendingReqs[0].message.substring(0, 100)) + '" — ' + _timeAgo(pendingReqs[0].createdAt) + '</div>' : ''}
           <div id="settings-ai-loading" style="display:none" class="ob-loading">
             <div class="ob-spinner"></div>
             <p style="margin-top:12px;font-size:13px;color:var(--text-muted)">Re-analyse du site en cours...</p>
@@ -135,7 +162,7 @@ Pages.settings = async function(container) {
             </div>
           </div>
           <div id="tone-status" style="font-size:13px;margin-top:8px;display:none"></div>
-          ${isLocked ? '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px"><label class="ob-label">Demander une modification</label><textarea id="change-request-msg" class="ob-input" rows="3" maxlength="1000" placeholder="Ex: Ajouter l\'industrie Telecom, cibler aussi l\'Allemagne, changer le ton en formel..."></textarea><button class="btn-export" data-action="request-change" style="margin-top:8px;padding:8px 20px">Envoyer la demande</button><div id="change-request-status" style="font-size:13px;margin-top:8px;display:none"></div></div>' : ''}
+          ${isLocked ? '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px"><label class="ob-label">Demander une modification</label><textarea id="change-request-msg" class="ob-input" rows="3" maxlength="1000" placeholder="Ex: Ajouter l\'industrie Telecom, cibler aussi l\'Allemagne, changer le ton en formel..."></textarea><button class="btn-export" data-action="request-change" style="margin-top:8px;padding:8px 20px">Envoyer la demande</button><div id="change-request-status" style="font-size:13px;margin-top:8px;display:none"></div>' + _renderChangeRequestsList(changeReqs, false) + '</div>' : ''}
         </div>
       </div>
     </div>

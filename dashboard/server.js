@@ -803,7 +803,8 @@ app.get('/api/settings', authRequired, resolveClient, (req, res) => {
     icp: client.icp || {},
     tone: client.tone || {},
     notificationPrefs: client.notificationPrefs || {},
-    icpLocked: !!(client.onboarding && client.onboarding.completed)
+    icpLocked: !!(client.onboarding && client.onboarding.completed),
+    changeRequests: (client.changeRequests || []).slice(0, 10)
   });
 });
 
@@ -820,6 +821,16 @@ app.put('/api/settings/icp', authRequired, resolveClient, (req, res) => {
     }
     clientRegistry.updateClient(req.clientId, { icp });
     _propagateIcpToBot(req.clientId, icp);
+    logAudit('icp_changed', req.ip || 'unknown', req.user.username + ' -> ' + req.clientId + ': ' + JSON.stringify(icp));
+    // Auto-resolve pending change requests + notify client
+    if (req.user.role === 'admin') {
+      const _cl = clientRegistry.getClient(req.clientId);
+      if (_cl && _cl.changeRequests && _cl.changeRequests.some(r => r.status === 'pending')) {
+        const updated = _cl.changeRequests.map(r => r.status === 'pending' ? { ...r, status: 'resolved', resolvedAt: new Date().toISOString() } : r);
+        clientRegistry.updateClient(req.clientId, { changeRequests: updated });
+        notificationManager.createNotification(req.clientId, 'system', 'Configuration mise a jour', 'Votre demande de modification ICP a ete traitee.', '#settings');
+      }
+    }
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -836,6 +847,16 @@ app.put('/api/settings/tone', authRequired, resolveClient, (req, res) => {
     const tone = validateTone(req.body);
     clientRegistry.updateClient(req.clientId, { tone });
     _propagateToneToBot(req.clientId, tone);
+    logAudit('tone_changed', req.ip || 'unknown', req.user.username + ' -> ' + req.clientId + ': ' + JSON.stringify(tone));
+    // Auto-resolve pending change requests + notify client
+    if (req.user.role === 'admin') {
+      const _cl2 = clientRegistry.getClient(req.clientId);
+      if (_cl2 && _cl2.changeRequests && _cl2.changeRequests.some(r => r.status === 'pending')) {
+        const updated = _cl2.changeRequests.map(r => r.status === 'pending' ? { ...r, status: 'resolved', resolvedAt: new Date().toISOString() } : r);
+        clientRegistry.updateClient(req.clientId, { changeRequests: updated });
+        notificationManager.createNotification(req.clientId, 'system', 'Configuration mise a jour', 'Votre demande de modification de ton a ete traitee.', '#settings');
+      }
+    }
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -887,6 +908,10 @@ app.post('/api/settings/request-change', authRequired, resolveClient, (req, res)
     '#settings?clientId=' + req.clientId
   );
   _sendAdminTelegram('<b>Demande modif ICP/Ton</b>\nClient: ' + clientName + '\n\n' + message);
+  // Persist change request in client object
+  const existing = client ? (client.changeRequests || []) : [];
+  existing.unshift({ id: crypto.randomBytes(6).toString('hex'), message, status: 'pending', createdAt: new Date().toISOString() });
+  clientRegistry.updateClient(req.clientId, { changeRequests: existing.slice(0, 20) });
   log.info('dashboard', 'Change request from ' + req.clientId + ': ' + message.substring(0, 100));
   res.json({ success: true, message: 'Demande envoyee' });
 });

@@ -210,6 +210,9 @@ function updateClient(clientId, updates) {
     client.notificationPrefs = { ...client.notificationPrefs, ...updates.notificationPrefs };
   }
 
+  // Change requests
+  if (updates.changeRequests) client.changeRequests = updates.changeRequests;
+
   // Push subscriptions
   if (updates.pushSubscriptions) client.pushSubscriptions = updates.pushSubscriptions;
 
