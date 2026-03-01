@@ -113,6 +113,11 @@ const App = {
       window.location.hash = hash;
       return;
     }
+    // Reset filtres leads quand on quitte la page
+    if (this.currentPage === 'leads' && hash !== 'leads') {
+      window._leadsFiltersInitialized = false;
+      window._leadsSearchQuery = '';
+    }
     this.loadPage(hash);
     const gs = document.getElementById('global-search');
     if (gs) { gs.value = ''; document.querySelectorAll('.nav-item').forEach(n => n.style.display = ''); this.applyRoleVisibility(); }
@@ -197,8 +202,16 @@ const App = {
   async exportEmails() {
     const data = await API.emails();
     if (!data || !data.emails) return;
+    // Appliquer le filtre de periode actif
+    let emails = data.emails;
+    const period = this._emailPeriod;
+    if (period && period !== 'all') {
+      const ms = period === '1d' ? 86400000 : period === '7d' ? 604800000 : 2592000000;
+      const cutoff = Date.now() - ms;
+      emails = emails.filter(em => em.createdAt && new Date(em.createdAt).getTime() >= cutoff);
+    }
     const headers = ['Destinataire', 'Objet', 'Statut', 'Campagne', 'Date'];
-    const rows = data.emails.map(em => [
+    const rows = emails.map(em => [
       em.to || '', em.subject || '', em.status || '',
       em.campaignName || '', em.createdAt ? new Date(em.createdAt).toLocaleDateString('fr-FR') : ''
     ]);

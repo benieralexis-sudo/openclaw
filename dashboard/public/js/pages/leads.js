@@ -11,6 +11,7 @@ const PER_PAGE = 25;
 function getFilteredLeads() {
   let list = _allLeads;
   const q = (document.getElementById('search-leads')?.value || '').toLowerCase();
+  window._leadsSearchQuery = q ? document.getElementById('search-leads')?.value : '';
   if (q) list = list.filter(l =>
     (l.nom || '').toLowerCase().includes(q) ||
     (l.entreprise || '').toLowerCase().includes(q) ||
@@ -82,8 +83,12 @@ Pages.leads = async function(container) {
 
   const s = data.stats;
   _allLeads = (data.leads || []).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  _currentPage = 1;
-  _filters = { score: 'all', source: 'all', hubspot: 'all' };
+  // Preserver les filtres lors de l'auto-refresh (ne reset que lors de la premiere visite)
+  if (!window._leadsFiltersInitialized) {
+    _currentPage = 1;
+    _filters = { score: 'all', source: 'all', hubspot: 'all' };
+    window._leadsFiltersInitialized = true;
+  }
   const hotLeads = (proactiveData?.hotLeads || []).filter(l => (l.opens || 0) >= 3);
   const apollo = enrichData?.apollo || {};
   const creditPercent = apollo.creditsLimit ? Math.round((apollo.creditsUsed / apollo.creditsLimit) * 100) : 0;
@@ -211,6 +216,16 @@ Pages.leads = async function(container) {
       </div>
     </div>
   </div>`;
+
+  // Restaurer les filtres apres re-rendu DOM (auto-refresh)
+  const scoreEl = document.getElementById('filter-score');
+  const sourceEl = document.getElementById('filter-source');
+  const hubspotEl = document.getElementById('filter-hubspot');
+  const searchEl = document.getElementById('search-leads');
+  if (scoreEl && _filters.score !== 'all') scoreEl.value = _filters.score;
+  if (sourceEl && _filters.source !== 'all') sourceEl.value = _filters.source;
+  if (hubspotEl && _filters.hubspot !== 'all') hubspotEl.value = _filters.hubspot;
+  if (searchEl && window._leadsSearchQuery) searchEl.value = window._leadsSearchQuery;
 
   refreshTable();
 

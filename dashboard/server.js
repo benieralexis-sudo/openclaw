@@ -563,8 +563,9 @@ app.get('/api/overview', authRequired, async (req, res) => {
   // Activity feed (48h)
   const feed = buildActivityFeed(all, now - 172800000);
 
-  // Charts: 30 days data
-  const chartData = buildChartData(all, 30);
+  // Charts: adapter au filtre de periode
+  const chartDays = period === '1d' ? 1 : period === '7d' ? 7 : 30;
+  const chartData = buildChartData(all, chartDays);
 
   // Next actions
   const nextActions = buildNextActions(all);
