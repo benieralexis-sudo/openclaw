@@ -236,9 +236,12 @@ const App = {
   // ===== Dynamic sidebar badges =====
   async updateBadges() {
     try {
-      const data = await API.proactive();
-      if (data) {
-        const hotCount = (data.hotLeads || []).filter(l => (l.opens || 0) >= 3).length;
+      const [proData, sysData] = await Promise.all([
+        API.proactive().catch(() => null),
+        App.userRole === 'admin' ? API.system().catch(() => null) : Promise.resolve(null)
+      ]);
+      if (proData) {
+        const hotCount = (proData.hotLeads || []).filter(l => (l.opens || 0) >= 3).length;
         const badge = document.getElementById('badge-leads');
         if (badge) {
           if (hotCount > 0) {
@@ -247,6 +250,13 @@ const App = {
           } else {
             badge.style.display = 'none';
           }
+        }
+      }
+      if (sysData) {
+        const alertCount = (sysData.activeAlerts || []).length;
+        const sysBadge = document.getElementById('badge-system');
+        if (sysBadge) {
+          sysBadge.style.display = alertCount > 0 ? '' : 'none';
         }
       }
     } catch (e) {}

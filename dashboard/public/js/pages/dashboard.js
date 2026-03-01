@@ -33,7 +33,7 @@ Pages.dashboard = async function(container) {
     </div>
     ` : data.appStatus && data.appStatus.mode === 'production' ? `
     <div class="production-banner">
-      ${cn} en <strong>production</strong> &mdash; ${data.appStatus.cronsActive ? '14 crons actifs' : 'crons en pause'}
+      ${cn} en <strong>production</strong> &mdash; ${data.appStatus.cronsActive ? 'crons actifs' : 'crons en pause'}
     </div>
     ` : ''}
 
@@ -62,14 +62,18 @@ Pages.dashboard = async function(container) {
         <div class="kpi-value" data-count="${k.openRate.value}" data-percent="true">${k.openRate.value}%</div>
         <div class="kpi-label">Taux d'ouverture</div>
       </div>
-      <div class="kpi-card">
+      ${App.userRole === 'admin' ? `<div class="kpi-card">
         <div class="kpi-header">
           <div class="kpi-icon green">${Utils.icon('dollar-sign')}</div>
           ${Utils.changeBadge(k.revenue.change)}
         </div>
         <div class="kpi-value" data-count="${k.revenue.value}" data-currency="true">${Utils.formatCurrency(k.revenue.value)}</div>
         <div class="kpi-label">Revenus encaissés</div>
-      </div>
+      </div>` : `<div class="kpi-card">
+        <div class="kpi-header"><div class="kpi-icon green">${Utils.icon('message-circle')}</div></div>
+        <div class="kpi-value" data-count="${data.hotLeads.length}">${data.hotLeads.length}</div>
+        <div class="kpi-label">Leads chauds</div>
+      </div>`}
     </div>
 
     ${data.hotLeads.length > 0 ? `
@@ -102,7 +106,7 @@ Pages.dashboard = async function(container) {
     <div class="grid-3">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Activité — 30 jours</div>
+          <div class="card-title">Activité — ${App.currentPeriod === '1d' ? "aujourd'hui" : App.currentPeriod === '7d' ? '7 jours' : '30 jours'}</div>
         </div>
         <div class="card-body">
           <div class="chart-container">

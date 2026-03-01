@@ -675,8 +675,9 @@ app.get('/api/emails', authRequired, async (req, res) => {
     .sort((a, b) => (b.openedAt || '').localeCompare(a.openedAt || ''))
     .slice(0, 5);
 
-  // Pagination optionnelle sur les emails
-  const { items: paginatedEmails, total: totalEmails } = paginate(emails.slice(-200), req);
+  // Filtrer par entreprise pour les clients + pagination optionnelle
+  const filteredEmails = filterByCompany(emails, req.user, 'company');
+  const { items: paginatedEmails, total: totalEmails } = paginate(filteredEmails, req);
 
   res.json({
     stats: {
@@ -707,8 +708,12 @@ app.get('/api/crm', authRequired, async (req, res) => {
 
   // Pipeline data from cache
   const pipeline = crm.cache?.pipeline?.data || null;
-  const deals = crm.cache?.deals ? Object.values(crm.cache.deals).flatMap(c => c.data || []) : [];
-  const contacts = crm.cache?.contacts ? Object.values(crm.cache.contacts).flatMap(c => c.data || []) : [];
+  const allDeals = crm.cache?.deals ? Object.values(crm.cache.deals).flatMap(c => c.data || []) : [];
+  const allContacts = crm.cache?.contacts ? Object.values(crm.cache.contacts).flatMap(c => c.data || []) : [];
+
+  // Filtrer par entreprise pour les clients
+  const deals = filterByCompany(allDeals, req.user, 'company');
+  const contacts = filterByCompany(allContacts, req.user, 'company');
 
   // Pagination optionnelle sur contacts et deals
   const { items: paginatedContacts, total: totalContacts } = paginate(contacts, req);

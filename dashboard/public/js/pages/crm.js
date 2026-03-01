@@ -8,18 +8,49 @@ Pages.crm = async function(container) {
   if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
 
   const s = data.stats;
-  const stages = ['Prospect', 'Contacté', 'Intéressé', 'RDV', 'Négociation', 'Signé', 'Perdu'];
   const deals = data.deals || [];
   const log = data.activityLog || [];
 
+  // Mapping HubSpot EN → FR (couvre les pipelines anglais et français)
+  const stageMap = {
+    'appointmentscheduled': 'RDV', 'qualifiedtobuy': 'Qualifié',
+    'presentationscheduled': 'Présentation', 'decisionmakerboughtin': 'Décision',
+    'contractsent': 'Contrat envoyé', 'closedwon': 'Signé', 'closedlost': 'Perdu',
+    'prospect': 'Prospect', 'contacté': 'Contacté', 'contacte': 'Contacté',
+    'intéressé': 'Intéressé', 'interesse': 'Intéressé', 'rdv': 'RDV',
+    'négociation': 'Négociation', 'negociation': 'Négociation',
+    'signé': 'Signé', 'signe': 'Signé', 'perdu': 'Perdu'
+  };
+
+  function mapStage(raw) {
+    if (!raw) return 'Prospect';
+    const key = raw.toLowerCase().replace(/[\s_-]+/g, '');
+    if (stageMap[key]) return stageMap[key];
+    // Recherche partielle
+    for (const [k, v] of Object.entries(stageMap)) {
+      if (key.includes(k) || k.includes(key)) return v;
+    }
+    // Retourner le nom original (capitalisé) pour les stages custom
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }
+
+  // Construire les stages dynamiquement depuis les deals réels
   const dealsByStage = {};
-  stages.forEach(st => dealsByStage[st] = []);
   deals.forEach(d => {
     const props = d.properties || d;
-    const stage = props.dealstage || props.stage || 'Prospect';
-    const mappedStage = stages.find(s => stage.toLowerCase().includes(s.toLowerCase())) || 'Prospect';
-    dealsByStage[mappedStage].push(d);
+    const rawStage = props.dealstage || props.stage || 'Prospect';
+    const stage = mapStage(rawStage);
+    if (!dealsByStage[stage]) dealsByStage[stage] = [];
+    dealsByStage[stage].push(d);
   });
+
+  // Ordre préféré + ajouter les stages qui existent dans les données
+  const preferredOrder = ['Prospect', 'Contacté', 'Qualifié', 'RDV', 'Présentation', 'Négociation', 'Décision', 'Contrat envoyé', 'Signé', 'Perdu'];
+  const stages = [...new Set([...preferredOrder.filter(s => dealsByStage[s]), ...Object.keys(dealsByStage)])];
+  // Assurer au minimum Prospect et Signé
+  if (!stages.includes('Prospect')) stages.unshift('Prospect');
+  if (!stages.includes('Signé')) stages.splice(-1, 0, 'Signé');
+  stages.forEach(st => { if (!dealsByStage[st]) dealsByStage[st] = []; });
 
   container.innerHTML = `
   <div class="page-enter stagger">
@@ -97,7 +128,7 @@ Pages.crm = async function(container) {
                 ${log.slice(-20).reverse().map(l => `
                   <tr>
                     <td style="color:var(--text-primary);font-weight:500">${e(l.action || '—')}</td>
-                    <td>${e(Utils.truncate(JSON.stringify(l.details || {}), 60))}</td>
+                    <td>${e(Utils.truncate(typeof l.details === 'string' ? l.details : l.details?.email || l.details?.dealname || l.details?.name || l.details?.contactEmail || Object.values(l.details || {}).filter(v => typeof v === 'string').join(' · ') || '—', 60))}</td>
                     <td>${Utils.formatDateTime(l.createdAt)}</td>
                   </tr>
                 `).join('')}

@@ -9,7 +9,7 @@ Pages.campaigns = async function(container) {
   if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
 
   const campaigns = data.campaigns || [];
-  const replies = (inboxData?.replies || []).slice(0, 10);
+  const replies = inboxData?.replies || [];
 
   // Filtre par période
   const allEmails = data.emails || [];

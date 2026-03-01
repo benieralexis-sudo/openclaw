@@ -52,7 +52,7 @@ Pages.clients = async function(container) {
             </div>
             <div>
               <label style="font-size:12px;font-weight:500;color:var(--text-muted);display:block;margin-bottom:4px">Mot de passe</label>
-              <input type="password" id="new-password" placeholder="Min 6 caractères" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px">
+              <input type="password" id="new-password" placeholder="Min 12 caractères" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px">
             </div>
             <div>
               <label style="font-size:12px;font-weight:500;color:var(--text-muted);display:block;margin-bottom:4px">Rôle</label>

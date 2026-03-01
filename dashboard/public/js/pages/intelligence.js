@@ -45,7 +45,7 @@ async function renderAlerts(content) {
   const config = data.config || {};
   const stats = data.stats || {};
   const alerts = (data.alerts || []).reverse();
-  const hotLeads = data.hotLeads || [];
+  const hotLeads = (data.hotLeads || []).filter(l => (l.opens || 0) >= 3);
 
   content.innerHTML = `
     <div class="kpi-grid" style="margin-top:20px">
@@ -198,7 +198,7 @@ async function renderWebIntel(content) {
               <div class="content-preview" style="width:100%;max-height:80px">${e(Utils.truncate(a.content, 200))}</div>
             </div>
           `).join('')}
-          ${analyses.length === 0 ? '<p style="color:var(--text-muted);font-size:13px">Aucun digest</p>' : ''}
+          ${analyses.length === 0 ? '<p style="color:var(--text-muted);font-size:13px">Les digests apparaîtront ici quand la veille web sera active</p>' : ''}
         </div>
       </div>
     </div>
@@ -213,8 +213,8 @@ async function renderWebIntel(content) {
               <tbody>
                 ${articles.slice(0, 25).map(a => `
                   <tr>
-                    <td style="color:var(--text-primary);font-weight:500;white-space:normal;max-width:300px">${e(Utils.truncate(a.title, 60))}</td>
-                    <td>${e(a.source || '—')}</td>
+                    <td style="color:var(--text-primary);font-weight:500;white-space:normal;max-width:300px">${a.url ? `<a href="${e(a.url)}" target="_blank" rel="noopener" style="color:var(--text-primary);text-decoration:underline">${e(Utils.truncate(a.title, 60))}</a>` : e(Utils.truncate(a.title, 60))}</td>
+                    <td>${a.source ? (a.sourceUrl ? `<a href="${e(a.sourceUrl)}" target="_blank" rel="noopener" style="color:var(--accent-blue)">${e(a.source)}</a>` : e(a.source)) : '—'}</td>
                     <td>${a.relevanceScore ? `<span class="score-badge ${Utils.scoreClass(a.relevanceScore)}">${a.relevanceScore}</span>` : '—'}</td>
                     <td>${a.isUrgent ? '<span class="status-dot orange"></span>Oui' : '—'}</td>
                     <td>${Utils.formatDate(a.fetchedAt)}</td>
@@ -294,7 +294,7 @@ async function renderOptimization(content) {
               <tbody>
                 ${pending.map(r => `
                   <tr>
-                    <td style="color:var(--text-primary);font-weight:500">${e(r.title)}</td>
+                    <td style="color:var(--text-primary);font-weight:500" title="${e(r.description || r.reason || '')}">${e(r.title)}</td>
                     <td>${e(r.targetSkill || '—')}</td>
                     <td><span class="badge badge-${r.priority === 'high' ? 'red' : r.priority === 'medium' ? 'orange' : 'gray'}">${e(r.priority || 'normal')}</span></td>
                     <td>${Utils.formatDate(r.createdAt)}</td>
