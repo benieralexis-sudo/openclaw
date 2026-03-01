@@ -18,7 +18,13 @@ function _defaultConfig() {
       todaySpent: 0,
       todayDate: new Date().toISOString().substring(0, 10),
       history: []
-    }
+    },
+    // Mode quiet : limite les messages Telegram auto (max 3/jour)
+    quietMode: process.env.QUIET_MODE === 'true',
+    // Timezone client (pour les crons)
+    timezone: process.env.CLIENT_TIMEZONE || 'Europe/Paris',
+    // Client name pour tracking
+    clientName: process.env.CLIENT_NAME || 'iFIND'
   };
 }
 
@@ -248,6 +254,43 @@ function getFixedCosts() {
   return FIXED_MONTHLY_COSTS;
 }
 
+// --- Quiet mode : limite messages auto Telegram ---
+let _quietMessageCount = 0;
+let _quietMessageDate = '';
+const QUIET_MAX_MESSAGES = 3; // max 3 messages auto/jour en mode quiet
+
+function isQuietMode() {
+  load();
+  return !!_config.quietMode;
+}
+
+function setQuietMode(enabled) {
+  load();
+  _config.quietMode = !!enabled;
+  save();
+  log.info('app-config', 'Mode quiet ' + (enabled ? 'active' : 'desactive'));
+}
+
+// Retourne true si le message auto peut etre envoye (false si quiet + quota atteint)
+function canSendAutoMessage(priority) {
+  if (!isQuietMode()) return true;
+  // Les messages critiques passent toujours
+  if (priority === 'critical') return true;
+  const today = new Date().toISOString().substring(0, 10);
+  if (_quietMessageDate !== today) {
+    _quietMessageDate = today;
+    _quietMessageCount = 0;
+  }
+  if (_quietMessageCount >= QUIET_MAX_MESSAGES) return false;
+  _quietMessageCount++;
+  return true;
+}
+
+function getTimezone() {
+  load();
+  return _config.timezone || 'Europe/Paris';
+}
+
 module.exports = {
   load,
   getConfig,
@@ -264,5 +307,9 @@ module.exports = {
   onBudgetExceeded,
   recordServiceUsage,
   getServiceUsage,
-  getFixedCosts
+  getFixedCosts,
+  isQuietMode,
+  setQuietMode,
+  canSendAutoMessage,
+  getTimezone
 };

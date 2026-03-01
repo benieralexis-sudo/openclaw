@@ -113,7 +113,7 @@ function getWarmupDailyLimit(firstSendDate) {
  * @returns {Function} Fonction wrappee avec concurrency guard
  */
 const _cronRunning = {};
-function withCronGuard(name, fn) {
+function withCronGuard(name, fn, { retry = false, retryDelayMs = 15 * 60 * 1000 } = {}) {
   return async () => {
     if (_cronRunning[name]) {
       log.info('cron-guard', 'Skip ' + name + ' — deja en cours');
@@ -125,6 +125,22 @@ function withCronGuard(name, fn) {
       await fn();
     } catch (e) {
       log.error('cron-guard', name + ' erreur: ' + e.message);
+      // Retry une fois après délai si activé
+      if (retry) {
+        log.info('cron-guard', name + ' — retry programme dans ' + Math.round(retryDelayMs / 60000) + 'min');
+        setTimeout(async () => {
+          if (_cronRunning[name]) return;
+          _cronRunning[name] = true;
+          try {
+            await fn();
+            log.info('cron-guard', name + ' — retry reussi');
+          } catch (e2) {
+            log.error('cron-guard', name + ' — retry echoue: ' + e2.message);
+          } finally {
+            _cronRunning[name] = false;
+          }
+        }, retryDelayMs);
+      }
     } finally {
       _cronRunning[name] = false;
       const ms = Date.now() - start;

@@ -166,7 +166,7 @@ services:
       - "127.0.0.1:3000:3000"
     init: true
     restart: unless-stopped
-    entrypoint: ["sh", "-c", "cd /app && npm install --production 2>/dev/null; node server.js"]
+    entrypoint: ["sh", "-c", "cd /app && npm install --production && exec node server.js"]
     healthcheck:
       test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:3000/login',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 30s
@@ -211,7 +211,7 @@ services:
       - "127.0.0.1:3080:3080"
     init: true
     restart: unless-stopped
-    entrypoint: ["sh", "-c", "mkdir -p /data/visitors && cd /app && npm install --production 2>/dev/null; exec node server.js"]
+    entrypoint: ["sh", "-c", "mkdir -p /data/visitors && cd /app && npm install --production && exec node server.js"]
     healthcheck:
       test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:3080',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 30s

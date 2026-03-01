@@ -335,7 +335,15 @@ class ResendClient {
     if (options.tags) payload.tags = options.tags;
     payload.reply_to = options.replyTo || process.env.REPLY_TO_EMAIL || this.senderEmail;
 
-    const result = await this._request('POST', '/emails', payload);
+    // Retry avec backoff exponentiel sur 429 (rate limit)
+    let result;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      result = await this._request('POST', '/emails', payload);
+      if (result.statusCode !== 429) break;
+      const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+      log.warn('resend', 'Rate limit 429 — retry dans ' + (delay / 1000) + 's (tentative ' + (attempt + 1) + '/3)');
+      await new Promise(r => setTimeout(r, delay));
+    }
 
     if (result.statusCode === 200 || result.statusCode === 201) {
       if (_appConfig && _appConfig.recordServiceUsage) {

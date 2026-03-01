@@ -11,7 +11,16 @@ const log = require('../gateway/logger.js');
 
 const app = express();
 const PORT = process.env.DASHBOARD_PORT || 3000;
-const PASSWORD = process.env.DASHBOARD_PASSWORD || 'iFIND2026!';
+if (!process.env.DASHBOARD_PASSWORD) {
+  console.error('ERREUR FATALE: DASHBOARD_PASSWORD non défini dans les variables d\'environnement');
+  console.error('Définissez DASHBOARD_PASSWORD dans votre fichier .env (min 12 caractères)');
+  process.exit(1);
+}
+if (process.env.DASHBOARD_PASSWORD.length < 12) {
+  console.error('ERREUR: DASHBOARD_PASSWORD trop court (minimum 12 caractères)');
+  process.exit(1);
+}
+const PASSWORD = process.env.DASHBOARD_PASSWORD;
 
 // Hash du mot de passe au démarrage (fallback pour admin)
 const PASSWORD_HASH = bcrypt.hashSync(PASSWORD, 12);
@@ -232,13 +241,28 @@ function decryptSessions(raw) {
   return JSON.parse(decrypted);
 }
 
-// --- Audit log ---
+// --- Audit log (persistant sur disque) ---
 const auditLog = [];
 const MAX_AUDIT_ENTRIES = 500;
+const AUDIT_FILE = process.env.DASHBOARD_DATA_DIR
+  ? `${process.env.DASHBOARD_DATA_DIR}/audit.ndjson`
+  : '/data/dashboard/audit.ndjson';
 
 function logAudit(action, ip, details) {
-  auditLog.push({ action, ip, details, at: new Date().toISOString() });
+  const entry = { action, ip, details, at: new Date().toISOString() };
+  auditLog.push(entry);
   if (auditLog.length > MAX_AUDIT_ENTRIES) auditLog.splice(0, auditLog.length - MAX_AUDIT_ENTRIES);
+  // Persistance asynchrone (append NDJSON)
+  fsp.appendFile(AUDIT_FILE, JSON.stringify(entry) + '\n').catch(() => {});
+}
+
+async function loadAuditFromDisk() {
+  try {
+    const raw = await fsp.readFile(AUDIT_FILE, 'utf8');
+    return raw.split('\n').filter(l => l.trim()).map(l => {
+      try { return JSON.parse(l); } catch { return null; }
+    }).filter(Boolean);
+  } catch { return []; }
 }
 
 // --- Auth middleware ---
@@ -418,7 +442,7 @@ app.post('/api/users', authRequired, adminRequired, async (req, res) => {
   const uname = username.trim().toLowerCase();
   if (!/^[a-z0-9_-]{2,30}$/.test(uname)) return res.status(400).json({ error: 'Username invalide (2-30 chars, a-z0-9_-)' });
   if (users[uname]) return res.status(409).json({ error: 'Utilisateur existe deja' });
-  if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (min 6 chars)' });
+  if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (min 12 caractères)' });
   const validRole = (role === 'client') ? 'client' : 'admin';
 
   users[uname] = {
@@ -448,6 +472,50 @@ app.delete('/api/users/:username', authRequired, adminRequired, (req, res) => {
   logAudit('user_deleted', req.ip, uname);
   log.info('dashboard', 'Utilisateur supprime: ' + uname);
   res.json({ success: true });
+});
+
+// --- Changement de mot de passe ---
+app.post('/api/me/password', authRequired, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Mot de passe actuel et nouveau requis' });
+  if (newPassword.length < 12) return res.status(400).json({ error: 'Nouveau mot de passe trop court (min 12 caractères)' });
+
+  const user = users[req.user.username];
+  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+  const match = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!match) return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+
+  user.passwordHash = await bcrypt.hash(newPassword, 12);
+  saveUsers(users);
+  logAudit('password_changed', req.ip || 'unknown', req.user.username);
+  log.info('dashboard', 'Mot de passe changé: ' + req.user.username);
+  res.json({ success: true });
+});
+
+// --- Audit log (admin only) ---
+app.get('/api/audit', authRequired, adminRequired, async (req, res) => {
+  try {
+    const logs = await loadAuditFromDisk();
+    const { items, total } = paginate(logs.reverse(), req);
+    res.json({ logs: items, total });
+  } catch (e) {
+    res.json({ logs: [], total: 0 });
+  }
+});
+
+app.get('/api/audit/export', authRequired, adminRequired, async (req, res) => {
+  try {
+    const logs = await loadAuditFromDisk();
+    const csv = ['Action,IP,Details,Timestamp',
+      ...logs.map(l => `"${(l.action || '').replace(/"/g, '""')}","${(l.ip || '').replace(/"/g, '""')}","${(l.details || '').replace(/"/g, '""')}","${l.at}"`)
+    ].join('\n');
+    res.header('Content-Type', 'text/csv');
+    res.header('Content-Disposition', 'attachment; filename="audit-' + new Date().toISOString().slice(0, 10) + '.csv"');
+    res.send(csv);
+  } catch (e) {
+    res.status(500).json({ error: 'Export échoué' });
+  }
 });
 
 // Overview / KPIs globaux
@@ -1374,14 +1442,35 @@ app.get('*', authRequired, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Nettoyage des sessions expirées
+// Nettoyage des sessions expirées + limites mémoire
 setInterval(() => {
   const now = Date.now();
   let cleaned = false;
   for (const [sid, session] of sessions) {
     if (now - session.createdAt > SESSION_TTL) { sessions.delete(sid); cleaned = true; }
   }
+  // Limite sessions en mémoire (max 1000)
+  if (sessions.size > 1000) {
+    const sorted = [...sessions.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt);
+    for (let i = 0; i < sorted.length - 1000; i++) { sessions.delete(sorted[i][0]); cleaned = true; }
+  }
   if (cleaned) saveSessions();
+  // Limite CSRF tokens (max 10000)
+  if (csrfTokens.size > 10000) {
+    const sorted = [...csrfTokens.entries()].sort((a, b) => a[1] - b[1]);
+    for (let i = 0; i < sorted.length - 10000; i++) csrfTokens.delete(sorted[i][0]);
+  }
+  // Rotation audit log sur disque (garder max 50000 lignes)
+  fsp.stat(AUDIT_FILE).then(stat => {
+    if (stat.size > 10 * 1024 * 1024) { // > 10MB
+      fsp.readFile(AUDIT_FILE, 'utf8').then(raw => {
+        const lines = raw.split('\n').filter(l => l.trim());
+        if (lines.length > 50000) {
+          fsp.writeFile(AUDIT_FILE, lines.slice(-25000).join('\n') + '\n').catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  }).catch(() => {});
 }, 3600000);
 
 app.listen(PORT, '0.0.0.0', () => {

@@ -257,6 +257,39 @@ const _pendingDrafts = new Map();      // draftId -> { replyData, autoReply, cla
 const _hitlModifyState = new Map();    // chatId -> { draftId, ts }
 function _hitlId() { return 'h' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 5); }
 
+// Persistance HITL drafts sur disque
+const HITL_DRAFTS_FILE = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/hitl-drafts.json';
+
+function _saveHitlDrafts() {
+  try {
+    const obj = {};
+    for (const [id, draft] of _pendingDrafts) obj[id] = draft;
+    atomicWriteSync(HITL_DRAFTS_FILE, obj);
+  } catch (e) { log.warn('hitl', 'Erreur sauvegarde drafts: ' + e.message); }
+}
+
+function _loadHitlDrafts() {
+  try {
+    if (fs.existsSync(HITL_DRAFTS_FILE)) {
+      const raw = fs.readFileSync(HITL_DRAFTS_FILE, 'utf-8');
+      const drafts = JSON.parse(raw);
+      const now = Date.now();
+      let loaded = 0;
+      for (const [id, draft] of Object.entries(drafts)) {
+        if (now - (draft.createdAt || 0) < 24 * 60 * 60 * 1000) {
+          _pendingDrafts.set(id, draft);
+          loaded++;
+        }
+      }
+      if (loaded > 0) log.info('hitl', loaded + ' draft(s) HITL restaure(s) depuis disque');
+    }
+  } catch (e) { log.warn('hitl', 'Erreur chargement drafts: ' + e.message); }
+}
+_loadHitlDrafts();
+
+// Sauvegarde periodique des drafts HITL (toutes les 60s)
+setInterval(_saveHitlDrafts, 60 * 1000);
+
 // --- Persistance etat volatile (bans + historique) ---
 const VOLATILE_STATE_FILE = (process.env.APP_CONFIG_DIR || '/data/app-config') + '/volatile-state.json';
 
@@ -327,7 +360,7 @@ const _cleanupInterval = setInterval(() => {
   const handlersWithPending = [
     automailerHandler, crmPilotHandler, invoiceBotHandler
   ];
-  try { handlersWithPending.push(proactiveHandler, webIntelHandler, systemAdvisorHandler); } catch (e) {}
+  try { handlersWithPending.push(proactiveHandler, webIntelHandler, systemAdvisorHandler); } catch (e) { log.warn('router', 'Handlers push cleanup: ' + e.message); }
   const pendingMaps = ['pendingConversations', 'pendingConfirmations', 'pendingImports', 'pendingEmails', 'pendingResults'];
   for (const handler of handlersWithPending) {
     for (const mapName of pendingMaps) {
@@ -531,7 +564,11 @@ function callClaudeOpus(systemPrompt, userMessage, maxTokens) {
 }
 
 const proactiveEngine = new ProactiveEngine({
-  sendTelegram: async (chatId, message) => {
+  sendTelegram: async (chatId, message, priority) => {
+    if (!appConfig.canSendAutoMessage(priority)) {
+      log.info('quiet', 'Message proactive-agent supprime (mode quiet)');
+      return;
+    }
     await sendMessage(chatId, message, 'Markdown');
     addToHistory(chatId, 'bot', message.substring(0, 200), 'proactive-agent');
   },
@@ -551,14 +588,22 @@ selfImproveHandler = new SelfImproveHandler(OPENAI_KEY, CLAUDE_KEY, async (chatI
   addToHistory(chatId, 'bot', message.substring(0, 200), 'self-improve');
 });
 
-// Web Intelligence handler (avec callback Telegram + historique)
-const webIntelHandler = new WebIntelligenceHandler(OPENAI_KEY, CLAUDE_KEY, async (chatId, message) => {
+// Web Intelligence handler (avec callback Telegram + historique + quiet mode)
+const webIntelHandler = new WebIntelligenceHandler(OPENAI_KEY, CLAUDE_KEY, async (chatId, message, priority) => {
+  if (!appConfig.canSendAutoMessage(priority)) {
+    log.info('quiet', 'Message web-intelligence supprime (mode quiet)');
+    return;
+  }
   await sendMessage(chatId, message, 'Markdown');
   addToHistory(chatId, 'bot', message.substring(0, 200), 'web-intelligence');
 });
 
-// System Advisor handler (avec callback Telegram + historique)
-const systemAdvisorHandler = new SystemAdvisorHandler(OPENAI_KEY, CLAUDE_KEY, async (chatId, message) => {
+// System Advisor handler (avec callback Telegram + historique + quiet mode)
+const systemAdvisorHandler = new SystemAdvisorHandler(OPENAI_KEY, CLAUDE_KEY, async (chatId, message, priority) => {
+  if (!appConfig.canSendAutoMessage(priority)) {
+    log.info('quiet', 'Message system-advisor supprime (mode quiet)');
+    return;
+  }
   await sendMessage(chatId, message, 'Markdown');
   addToHistory(chatId, 'bot', message.substring(0, 200), 'system-advisor');
 });
@@ -749,7 +794,7 @@ inboxListener = InboxListener ? new InboxListener({
                 });
                 if (found.length > 0) warning = 'mots interdits: ' + found.join(', ');
               }
-            } catch (e) {}
+            } catch (e) { log.warn('hitl', 'Forbidden words check: ' + e.message); }
             if (!warning) {
               try {
                 const CE = require('../skills/automailer/campaign-engine.js');
@@ -757,7 +802,7 @@ inboxListener = InboxListener ? new InboxListener({
                   const qg = CE.emailPassesQualityGate(autoReply.subject, autoReply.body);
                   if (!qg.pass) warning = 'quality gate: ' + qg.reason;
                 }
-              } catch (e) {}
+              } catch (e) { log.warn('hitl', 'Quality gate check: ' + e.message); }
             }
             if (!warning) {
               const wc = (autoReply.body || '').split(/\s+/).filter(w => w.length > 0).length;
@@ -891,7 +936,7 @@ inboxListener = InboxListener ? new InboxListener({
         for (const ep of emailsToProcess) {
           automailerStorageForInbox.addToBlacklist(ep, 'bounce_detected');
         }
-      } catch (e) {}
+      } catch (e) { log.warn('inbox', 'Bounce blacklist: ' + e.message); }
       log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (bounce)');
     }
     // not_interested avec HITL draft : NE PAS blacklister, on attend la validation
@@ -906,7 +951,7 @@ inboxListener = InboxListener ? new InboxListener({
           automailerStorageForInbox.addToBlacklist(ep, 'prospect_declined');
         }
         log.info('inbox-manager', emailsToProcess.join(' + ') + ' blackliste (decline) — human takeover');
-      } catch (e) {}
+      } catch (e) { log.warn('inbox', 'Decline blacklist: ' + e.message); }
     }
     // OOO : si reschedule auto → deferred_ooo_rescheduled, sinon deferred_ooo
     else if (sentiment === 'out_of_office') {
@@ -992,7 +1037,7 @@ inboxListener = InboxListener ? new InboxListener({
           }
         }
         if (totalMarked > 0) log.info('hitl', 'hasReplied=true marque sur ' + totalMarked + ' emails (HITL pending) pour ' + emailsToProcess.join(' + '));
-      } catch (e) {}
+      } catch (e) { log.warn('hitl', 'Mark hasReplied: ' + e.message); }
       // Annuler les reactive follow-ups
       try {
         const proactiveStorage = require('../skills/proactive-agent/storage.js');
@@ -1002,7 +1047,7 @@ inboxListener = InboxListener ? new InboxListener({
             proactiveStorage.markFollowUpFailed(fu.id, 'hitl_pending: draft en attente validation');
           }
         }
-      } catch (e) {}
+      } catch (e) { log.warn('hitl', 'Cancel follow-ups: ' + e.message); }
     }
 
     // === 5. Update storage inbox-manager avec sentiment ===
@@ -1139,7 +1184,7 @@ inboxListener = InboxListener ? new InboxListener({
           }
           notifLines.push('📊 Confiance: ' + (recentAR[0].confidence || 0).toFixed(2));
         }
-      } catch (e) {}
+      } catch (e) { log.warn('hitl', 'Notif auto-reply context: ' + e.message); }
       notifLines.push('');
       notifLines.push('⚡ *Action :* ' + (ALABELS[actionTaken] || actionTaken));
       await sendMessage(ADMIN_CHAT_ID, notifLines.join('\n'), 'Markdown');
@@ -1186,9 +1231,9 @@ const webIntelStorage = require('../skills/web-intelligence/storage.js');
 const systemAdvisorStorage = require('../skills/system-advisor/storage.js');
 const autonomousPilotStorage = require('../skills/autonomous-pilot/storage.js');
 let flowFastStorageRouter = null;
-try { flowFastStorageRouter = require('../skills/flowfast/storage.js'); } catch (e) {}
+try { flowFastStorageRouter = require('../skills/flowfast/storage.js'); } catch (e) { log.warn('router', 'FlowFast storage unavailable: ' + e.message); }
 let leadEnrichStorageRouter = null;
-try { leadEnrichStorageRouter = require('../skills/lead-enrich/storage.js'); } catch (e) {}
+try { leadEnrichStorageRouter = require('../skills/lead-enrich/storage.js'); } catch (e) { log.warn('router', 'LeadEnrich storage unavailable: ' + e.message); }
 
 // Helper : enrichir un contact avec organization depuis lead-enrich (pour ProspectResearcher)
 function _enrichContactWithOrg(email, contactName, company, title) {
@@ -1206,7 +1251,7 @@ function _enrichContactWithOrg(email, contactName, company, title) {
         }
       }
     }
-  } catch (e) {}
+  } catch (e) { log.warn('router', 'Build contact context: ' + e.message); }
   return contact;
 }
 
@@ -1251,7 +1296,7 @@ function startAllCrons() {
     }, 6 * 60 * 60 * 1000);
     // Archivage initial au demarrage (apres 30s)
     setTimeout(() => {
-      try { automailerHandler.campaignEngine.runArchive(); } catch (e) {}
+      try { automailerHandler.campaignEngine.runArchive(); } catch (e) { log.warn('router', 'Archivage initial: ' + e.message); }
     }, 30000);
   }
 
@@ -1405,6 +1450,8 @@ const userActiveSkillTime = {};
 // --- Conversation stickiness : reste sur le meme skill si message de continuation ---
 const STICKINESS_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const CONTINUATION_PATTERN = /^(oui|non|ok|go|envoie|fais|lance|montre|ajuste|modifie|change|parfait|super|merci|nice|top|cool|ca marche|d'accord|valide|confirme|annule|stop|attends|pas encore|plutot|exactement|voila|c'est bon|on y va|balance|envoyer|programme|planifie|demain|ce soir|a \d+h|lui|elle|leur|les|le|la|ca|c'est|je pense|tu peux|s'il te plait)/i;
+// Mots-cles qui forcent un reset de stickiness (changement de sujet explicite)
+const STICKINESS_RESET_PATTERN = /^(bonjour|salut|hello|hey|hi|bonsoir|aide|help|menu|accueil|quoi de neuf|c'est quoi|que sais-tu faire|commandes?)\b/i;
 
 function checkStickiness(chatId, text) {
   const id = String(chatId);
@@ -1412,8 +1459,10 @@ function checkStickiness(chatId, text) {
   const lastTime = userActiveSkillTime[id];
   if (!lastSkill || !lastTime) return null;
   if (Date.now() - lastTime > STICKINESS_TIMEOUT_MS) return null;
-  // Message court (< 100 chars) qui ressemble a une continuation
+  // Reset explicite : salutations ou demande d'aide → forcer reclassification
   const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (STICKINESS_RESET_PATTERN.test(t)) return null;
+  // Message court (< 100 chars) qui ressemble a une continuation
   if (t.length < 100 && CONTINUATION_PATTERN.test(t)) {
     // Verifier qu'aucun autre skill n'a un match fort (fast classify)
     const forceSkill = fastClassify(text);
@@ -1643,7 +1692,17 @@ NE FAIS PAS :
 
 async function handleUpdate(update) {
   const msg = update.message;
-  if (!msg || !msg.text) return;
+  if (!msg) return;
+
+  // Gestion des médias : répondre au lieu d'ignorer silencieusement
+  if (!msg.text) {
+    const chatId = msg.chat.id;
+    const mediaType = msg.photo ? 'photo' : msg.document ? 'document' : msg.voice ? 'message vocal' : msg.video ? 'vidéo' : msg.sticker ? 'sticker' : null;
+    if (mediaType && String(chatId) === String(process.env.ADMIN_CHAT_ID)) {
+      await sendMessage(chatId, `J'ai bien reçu ton ${mediaType}, mais je ne traite que le texte pour l'instant. Décris-moi ta demande par écrit et je m'en occupe.`);
+    }
+    return;
+  }
 
   const chatId = msg.chat.id;
   let text = (msg.text || '').trim();
@@ -1745,6 +1804,30 @@ async function handleUpdate(update) {
     const statusMsg = buildSystemStatus();
     addToHistory(chatId, 'bot', 'Statut systeme', 'system');
     await sendMessage(chatId, statusMsg, 'Markdown');
+    return;
+  }
+
+  // Mode quiet (limite les messages auto)
+  const quietOnAliases = ['mode quiet', 'mode silencieux', 'moins de messages', 'trop de messages'];
+  const quietOffAliases = ['mode normal', 'desactive quiet', 'tous les messages'];
+  if (quietOnAliases.some(a => textLower.includes(a))) {
+    if (String(chatId) !== String(ADMIN_CHAT_ID)) {
+      await sendMessage(chatId, '⛔ Seul l\'administrateur peut utiliser cette commande.');
+      return;
+    }
+    appConfig.setQuietMode(true);
+    await sendMessage(chatId, '🤫 *Mode quiet active*\n\nJe limite mes messages auto a 3 par jour maximum.\nLes alertes critiques passent toujours.\nTous les rapports restent disponibles dans le dashboard.\n\n_Dis "mode normal" pour tout reactiver._', 'Markdown');
+    addToHistory(chatId, 'bot', 'Mode quiet active', 'system');
+    return;
+  }
+  if (quietOffAliases.some(a => textLower.includes(a))) {
+    if (String(chatId) !== String(ADMIN_CHAT_ID)) {
+      await sendMessage(chatId, '⛔ Seul l\'administrateur peut utiliser cette commande.');
+      return;
+    }
+    appConfig.setQuietMode(false);
+    await sendMessage(chatId, '🔔 *Mode normal active*\n\nTous les rapports et alertes Telegram sont reactives.', 'Markdown');
+    addToHistory(chatId, 'bot', 'Mode normal active', 'system');
     return;
   }
   // ========== FIN COMMANDES DE CONTROLE ==========
@@ -1943,7 +2026,7 @@ async function _hitlSendReply(chatId, draftId) {
           confidence: draft.autoReply.confidence,
           sendResult: sendResult
         });
-      } catch (e) {}
+      } catch (e) { log.warn('hitl', 'Record auto-reply stats: ' + e.message); }
 
       // Stocker messageId pour threading futur
       if (sendResult.messageId) {
@@ -2097,7 +2180,7 @@ async function handleCallback(update) {
       for (const ep of (draft.emailsToProcess || [draft.replyData.from])) {
         automailerStorageForInbox.addToBlacklist(ep, 'hitl_ignored: human_takeover');
       }
-    } catch (e) {}
+    } catch (e) { log.warn('hitl', 'Ignore blacklist: ' + e.message); }
 
     log.info('hitl', 'Draft ignore: ' + draftId + ' pour ' + draft.replyData.from + ' — human takeover');
     await sendMessage(chatId, '🚫 Brouillon ignore pour *' + escTg(draft.replyData.fromName || draft.replyData.from) + '*.\n_Prospect en human takeover. Reponds-lui manuellement si besoin._', 'Markdown');
@@ -2170,7 +2253,7 @@ async function poll() {
 const HEALTH_PORT = process.env.HEALTH_PORT || 9090;
 const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || '';
 if (!WEBHOOK_SECRET) {
-  log.warn('webhook', 'RESEND_WEBHOOK_SECRET non configure — webhooks Resend non securises. Configurez-le dans .env pour securiser les callbacks email.');
+  log.error('webhook', 'RESEND_WEBHOOK_SECRET non configure — les webhooks Resend seront REJETES. Configurez-le dans .env.');
 }
 let _botReady = false;
 
@@ -2321,6 +2404,12 @@ async function handleResendWebhook(body) {
         log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — deja repondu (human takeover)');
         return null;
       }
+      // Guard 4 : anti-doublon — ne PAS programmer si un FU est deja pending pour ce prospect
+      const pendingFUs = proactiveAgentStorage.getPendingFollowUps();
+      if (pendingFUs.some(fu => fu.prospectEmail && fu.prospectEmail.toLowerCase() === emailRecord.to.toLowerCase() && fu.status === 'pending')) {
+        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — follow-up deja programme');
+        return null;
+      }
       const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
       const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
       const added = proactiveAgentStorage.addPendingFollowUp({
@@ -2463,7 +2552,7 @@ async function handleResendWebhook(body) {
     try {
       var cache = (proactiveAgentStorage.data._cachedIntel || {})[email.to];
       if (cache && cache.brief) cachedIntel = cache.brief;
-    } catch (e) {}
+    } catch (e) { log.warn('webhook', 'Cached intel lookup: ' + e.message); }
     var addedFUwh = _scheduleReactiveFU(email, cachedIntel);
     if (addedFUwh) {
       log.info('webhook', 'Reactive FU programme (reouvre webhook) pour ' + email.to + ' — id: ' + addedFUwh.id + ' — notification a l\'envoi');
@@ -2637,7 +2726,10 @@ const healthServer = http.createServer((req, res) => {
           return;
         }
       } else {
-        log.warn('webhook', 'RESEND_WEBHOOK_SECRET non configure — webhook non securise');
+        log.error('webhook', 'RESEND_WEBHOOK_SECRET non configure — webhook REJETE');
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'webhook_secret_not_configured' }));
+        return;
       }
 
       try {
@@ -2933,10 +3025,14 @@ process.on('SIGINT', gracefulShutdown);
 process.on('uncaughtException', (err) => {
   log.error('router', 'UNCAUGHT EXCEPTION:', err.message);
   log.error('router', err.stack ? err.stack.substring(0, 500) : 'no stack');
+  // Sauvegarder les drafts HITL avant exit
+  try { _saveHitlDrafts(); } catch (e) {}
   gracefulShutdown();
 });
 process.on('unhandledRejection', (reason) => {
   log.error('router', 'UNHANDLED REJECTION:', reason?.message || String(reason));
   log.error('router', reason?.stack ? reason.stack.substring(0, 500) : 'no stack');
+  // Sauvegarder les drafts HITL avant exit
+  try { _saveHitlDrafts(); } catch (e) {}
   gracefulShutdown();
 });
