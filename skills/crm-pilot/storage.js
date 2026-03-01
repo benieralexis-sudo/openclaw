@@ -47,7 +47,9 @@ class CRMPilotStorage {
         this._save();
       }
     } catch (e) {
-      console.error('[crm-pilot-storage] Erreur chargement:', e.message);
+      console.error('[crm-pilot-storage] Erreur chargement (fichier corrompu?):', e.message);
+      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, DB_FILE + '.corrupt.' + Date.now()); } catch (_) {}
+      this._save();
     }
   }
 

@@ -1736,6 +1736,19 @@ async function handleUpdate(update) {
       await sendMessage(chatId, '⚠️ Brouillon expire ou introuvable.');
       return;
     }
+    // Quality gate sur le texte modifié
+    const _qIssues = [];
+    if (text.trim().length < 20) _qIssues.push('Message trop court (<20 caracteres)');
+    const _clientDomain = (process.env.CLIENT_DOMAIN || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const _safeDomains = new RegExp('https?:\\/\\/(?:' + (_clientDomain || 'x-no-match') + '|calendly\\.com|cal\\.com)', 'i');
+    if (/https?:\/\/[^\s]+/i.test(text) && !_safeDomains.test(text)) _qIssues.push('Lien externe suspect detecte');
+    const _spamWords = ['gratuit', 'promotion', 'cliquez ici', 'offre exclusive', 'urgent', 'act now', 'free trial'];
+    const _tLow = text.toLowerCase();
+    for (const sw of _spamWords) { if (_tLow.includes(sw)) { _qIssues.push('Mot spam detecte: ' + sw); break; } }
+    if (_qIssues.length > 0) {
+      log.warn('hitl', 'Quality warning on modified draft ' + _hitlPending.draftId + ': ' + _qIssues.join(', '));
+      await sendMessage(chatId, '⚠️ *Attention qualite :*\n' + _qIssues.map(q => '• ' + q).join('\n') + '\n\n_Envoi quand meme..._', 'Markdown');
+    }
     // Utiliser le texte de l'utilisateur comme nouveau body
     draft.autoReply.body = text;
     log.info('hitl', 'Draft modifie par utilisateur: ' + _hitlPending.draftId + ' pour ' + draft.replyData.from);
@@ -2154,6 +2167,10 @@ async function handleCallback(update) {
   // === HITL : callbacks pour brouillons de reponses ===
   else if (data.startsWith('hitl_accept_')) {
     const draftId = data.replace('hitl_accept_', '');
+    const draft = _pendingDrafts.get(draftId);
+    if (!draft) { await sendMessage(chatId, '⚠️ Brouillon deja traite ou expire.'); return; }
+    if (draft._inFlight) { await sendMessage(chatId, '⏳ Envoi deja en cours...'); return; }
+    draft._inFlight = true;
     await _hitlSendReply(chatId, draftId);
   }
   else if (data.startsWith('hitl_modify_')) {
@@ -2688,6 +2705,12 @@ const healthServer = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'Draft introuvable ou expiré' }));
         return;
       }
+      if (draft._inFlight) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Draft en cours de traitement' }));
+        return;
+      }
+      draft._inFlight = true;
       const ResendClient = require('../skills/automailer/resend-client.js');
       const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
       const sendResult = await resendClient.sendEmail(
@@ -2710,6 +2733,7 @@ const healthServer = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, to: draft.replyData.from }));
       } else {
+        draft._inFlight = false;
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Échec envoi: ' + (sendResult?.error || 'inconnu') }));
       }
@@ -2729,6 +2753,12 @@ const healthServer = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: 'Draft introuvable ou expiré' }));
       return;
     }
+    if (draft._inFlight) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Draft en cours de traitement' }));
+      return;
+    }
+    draft._inFlight = true;
     _pendingDrafts.delete(draftId);
     try {
       for (const ep of (draft.emailsToProcess || [draft.replyData.from])) {
@@ -2760,7 +2790,26 @@ const healthServer = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: 'Draft introuvable ou expiré' }));
           return;
         }
-        draft.autoReply.body = data.body.trim();
+        if (draft._inFlight) {
+          res.writeHead(409, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Draft en cours de traitement' }));
+          return;
+        }
+        draft._inFlight = true;
+        const editedBody = data.body.trim();
+        // Quality gate on edited draft
+        const qWarnings = [];
+        if (editedBody.length < 20) qWarnings.push('Message trop court (<20 caractères)');
+        const cDomain = (process.env.CLIENT_DOMAIN || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const safeDomainRe = new RegExp('https?:\\/\\/(?:' + (cDomain || 'x-no-match') + '|calendly\\.com|cal\\.com)', 'i');
+        if (/https?:\/\/[^\s]+/i.test(editedBody) && !safeDomainRe.test(editedBody)) qWarnings.push('Lien externe suspect');
+        const spamWords = ['gratuit', 'promotion', 'cliquez ici', 'offre exclusive', 'urgent', 'act now', 'free trial'];
+        const bodyLow = editedBody.toLowerCase();
+        for (const sw of spamWords) { if (bodyLow.includes(sw)) { qWarnings.push('Mot spam: ' + sw); break; } }
+        if (qWarnings.length > 0) {
+          log.warn('hitl', 'Quality warnings on dashboard edit ' + draftId + ': ' + qWarnings.join(', '));
+        }
+        draft.autoReply.body = editedBody;
         const ResendClient = require('../skills/automailer/resend-client.js');
         const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
         const sendResult = await resendClient.sendEmail(

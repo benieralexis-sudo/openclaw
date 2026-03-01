@@ -103,6 +103,10 @@ class HubSpotClient {
             if (res.statusCode >= 200 && res.statusCode < 300) {
               _cbFailures = 0; // succes = reset circuit breaker
               resolve(response);
+            } else if (res.statusCode === 429) {
+              // Rate limit — retry apres Retry-After header (ou 10s par defaut)
+              const retryAfter = parseInt(res.headers['retry-after']) || 10;
+              reject(new Error('HubSpot 429 rate limit — retry apres ' + retryAfter + 's'));
             } else {
               if (res.statusCode >= 500) { _cbFailures++; _cbLastFailure = Date.now(); }
               const msg = response.message || response.errors?.[0]?.message || JSON.stringify(response);

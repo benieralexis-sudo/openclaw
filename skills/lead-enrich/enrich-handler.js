@@ -237,6 +237,12 @@ Reponds UNIQUEMENT en JSON strict :
 
     let enrichResult = null;
 
+    // Validation email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (params.email && !emailRegex.test(params.email)) {
+      return { type: 'text', content: '❌ Adresse email invalide : _' + params.email + '_\nVerifie le format (ex: nom@domaine.com)' };
+    }
+
     // Par email
     if (params.email && params.email.includes('@')) {
       // Verifier cache (90 jours)
@@ -271,6 +277,34 @@ Reponds UNIQUEMENT en JSON strict :
     }
     else {
       return { type: 'text', content: '❌ Donne-moi un email, un nom+entreprise, ou un lien LinkedIn.\nExemple : _"enrichis jean@example.com"_' };
+    }
+
+    // Waterfall : si FullEnrich echoue, tenter Apollo comme fallback
+    if ((!enrichResult || !enrichResult.success) && process.env.APOLLO_API_KEY && params.email) {
+      try {
+        const ApolloConnector = require('../flowfast/apollo-connector.js');
+        const apollo = new ApolloConnector(process.env.APOLLO_API_KEY);
+        if (sendReply) await sendReply({ type: 'text', content: '🔄 _FullEnrich echoue, tentative via Apollo..._' });
+        const apolloResult = await apollo.reCheckPerson({ email: params.email });
+        if (apolloResult && apolloResult.success && apolloResult.person) {
+          enrichResult = {
+            success: true,
+            person: {
+              email: apolloResult.person.email || params.email,
+              first_name: apolloResult.person.firstName,
+              last_name: apolloResult.person.lastName,
+              title: apolloResult.person.title,
+              linkedin_url: apolloResult.person.linkedinUrl,
+              city: apolloResult.person.city,
+              organization: { name: apolloResult.person.organizationName, website_url: apolloResult.person.organizationWebsite }
+            },
+            source: 'apollo_fallback'
+          };
+          log.info('lead-enrich', 'Apollo fallback success pour ' + params.email);
+        }
+      } catch (e) {
+        log.warn('lead-enrich', 'Apollo fallback echoue:', e.message);
+      }
     }
 
     if (!enrichResult || !enrichResult.success) {

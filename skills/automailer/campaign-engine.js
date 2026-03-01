@@ -680,10 +680,10 @@ class CampaignEngine {
 
       // Filtre honeypot : exclure les adresses systeme/generiques qui ne repondront jamais
       const emailPrefix = (contact.email || '').split('@')[0].toLowerCase();
-      const HONEYPOT_PREFIXES = ['noreply', 'no-reply', 'donotreply', 'no-response', 'noreponse',
-        'test', 'spam', 'abuse', 'security', 'compliance', 'webmaster', 'postmaster',
-        'hostmaster', 'mailer-daemon', 'info', 'contact', 'admin', 'support', 'hello',
-        'office', 'reception', 'accueil', 'commercial'];
+      // Vrais honeypots/system uniquement — info@, contact@, hello@ etc. sont de vrais emails B2B
+      const HONEYPOT_PREFIXES = ['noreply', 'no-reply', 'donotreply', 'do-not-reply', 'no-response',
+        'noreponse', 'mailer-daemon', 'postmaster', 'hostmaster', 'abuse', 'spam',
+        'bounce', 'auto-reply', 'autoreply'];
       if (HONEYPOT_PREFIXES.includes(emailPrefix)) {
         log.info('campaign-engine', 'Skip ' + contact.email + ' (adresse generique: ' + emailPrefix + '@)');
         storage.addToBlacklist(contact.email, 'generic_address');

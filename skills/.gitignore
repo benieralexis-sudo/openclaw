@@ -1,8 +1,30 @@
-# Ignorer tout sauf flowfast
+# Ignorer tout sauf les skills actives
 *
 !.gitignore
 !flowfast/
 !flowfast/**
+!automailer/
+!automailer/**
+!autonomous-pilot/
+!autonomous-pilot/**
+!crm-pilot/
+!crm-pilot/**
+!inbox-manager/
+!inbox-manager/**
+!invoice-bot/
+!invoice-bot/**
+!lead-enrich/
+!lead-enrich/**
+!meeting-scheduler/
+!meeting-scheduler/**
+!self-improve/
+!self-improve/**
+!system-advisor/
+!system-advisor/**
+!proactive-agent/
+!proactive-agent/**
+!web-intelligence/
+!web-intelligence/**
 
 # Ignorer les fichiers temporaires
 *.save

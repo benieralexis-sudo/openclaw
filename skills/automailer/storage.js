@@ -55,7 +55,10 @@ class AutoMailerStorage {
         this._save();
       }
     } catch (e) {
-      console.error('[automailer-storage] Erreur chargement:', e.message);
+      console.error('[automailer-storage] Erreur chargement (fichier corrompu?):', e.message);
+      // Backup du fichier corrompu et reset aux defaults
+      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, DB_FILE + '.corrupt.' + Date.now()); } catch (_) {}
+      this._save();
     }
   }
 

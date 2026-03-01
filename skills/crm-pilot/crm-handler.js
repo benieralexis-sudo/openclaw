@@ -1143,6 +1143,15 @@ Reponds UNIQUEMENT en JSON strict :
       if (sendReply) await sendReply({ type: 'text', content: '👤 _Creation du contact..._' });
       try {
         const hsBreaker = getBreaker('hubspot', { failureThreshold: 3, cooldownMs: 60000 });
+        // Dedup : verifier si le contact existe deja par email
+        if (pending.data.email) {
+          try {
+            const existing = await hsBreaker.call(() => this.hubspot.findContactByEmail(pending.data.email));
+            if (existing) {
+              return { type: 'text', content: '⚠️ *Contact deja existant dans HubSpot*\n\nEmail : ' + pending.data.email + '\nID : ' + existing.id + '\n\n_Utilise "cherche contact ' + pending.data.email + '" pour le voir._' };
+            }
+          } catch (e) { /* search failed, proceed with creation */ }
+        }
         const contact = await hsBreaker.call(() => retryAsync(() => this.hubspot.createContact(pending.data), 2, 2000));
         storage.incrementStat(chatId, 'contactsCreated');
         storage.incrementGlobalStat('totalContactsCreated');
@@ -1188,10 +1197,15 @@ Reponds UNIQUEMENT en JSON strict :
   // ============================================================
 
   async _getPipeline() {
-    if (this._pipelineCache) return this._pipelineCache;
+    // TTL 30 min sur le cache pipeline en memoire
+    const PIPELINE_CACHE_TTL = 30 * 60 * 1000;
+    if (this._pipelineCache && this._pipelineCacheTime && (Date.now() - this._pipelineCacheTime) < PIPELINE_CACHE_TTL) {
+      return this._pipelineCache;
+    }
     const cached = storage.getCachedPipeline();
     if (cached) {
       this._pipelineCache = cached;
+      this._pipelineCacheTime = Date.now();
       return cached;
     }
     try {
@@ -1199,6 +1213,7 @@ Reponds UNIQUEMENT en JSON strict :
       const pipeline = await hsBreaker.call(() => retryAsync(() => this.hubspot.getDealPipeline('default'), 2, 2000));
       storage.cachePipeline(pipeline);
       this._pipelineCache = pipeline;
+      this._pipelineCacheTime = Date.now();
       return pipeline;
     } catch (e) {
       return { id: 'default', label: 'Pipeline', stages: [] };

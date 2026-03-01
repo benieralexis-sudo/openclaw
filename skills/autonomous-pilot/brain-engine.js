@@ -18,6 +18,9 @@ function getProactiveStorage() { return getStorage('proactive-agent'); }
 function getSelfImproveStorage() { return getStorage('self-improve'); }
 function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
+// Lock pour eviter l'execution simultanee de la meme action
+const _actionsInFlight = new Set();
+
 function getAppConfig() {
   try { return require('../../gateway/app-config.js'); }
   catch (e) { return null; }
@@ -382,6 +385,13 @@ class BrainEngine {
 
     for (const action of plan.actions) {
       if (action.autoExecute) {
+        // Lock par action key pour eviter doublons si deux brain cycles s'executent
+        const actionKey = action.type + '_' + (action.email || action.target || action.id || '');
+        if (_actionsInFlight.has(actionKey)) {
+          log.info('brain', 'Skip action ' + actionKey + ' (deja en cours)');
+          continue;
+        }
+        _actionsInFlight.add(actionKey);
         let result = null;
         let attempts = 0;
         const maxAttempts = RETRYABLE_ACTIONS.includes(action.type) ? MAX_RETRIES + 1 : 1;
@@ -410,6 +420,8 @@ class BrainEngine {
             }
           }
         }
+
+        _actionsInFlight.delete(actionKey);
 
         // Enregistrer le resultat (succes ou echec final)
         storage.recordAction({

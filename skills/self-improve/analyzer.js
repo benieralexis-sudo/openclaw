@@ -224,7 +224,7 @@ Reponds UNIQUEMENT en JSON strict :
         let bestDay = null;
         let bestRate = 0;
         for (const [day, data] of Object.entries(email.byDayOfWeek)) {
-          if (data.sent >= 3) {
+          if (data.sent >= 20) { // Seuil minimum pour significativite statistique
             const rate = data.opened / data.sent;
             if (rate > bestRate) { bestRate = rate; bestDay = day; }
           }
@@ -250,7 +250,7 @@ Reponds UNIQUEMENT en JSON strict :
         let bestHour = null;
         let bestRate = 0;
         for (const [hour, data] of Object.entries(email.byHourOfDay)) {
-          if (data.sent >= 2) {
+          if (data.sent >= 20) { // Seuil minimum pour significativite statistique
             const rate = data.opened / data.sent;
             if (rate > bestRate) { bestRate = rate; bestHour = hour; }
           }

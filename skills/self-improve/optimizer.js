@@ -119,11 +119,22 @@ class Optimizer {
     const params = reco.params || {};
     const currentWeights = storage.getScoringWeights() || {};
 
+    // Clamp toutes les valeurs entre 0 et 2.0 pour eviter des poids aberrants
+    const clampWeights = (obj) => {
+      if (!obj || typeof obj !== 'object') return {};
+      const clamped = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (typeof v === 'number') clamped[k] = Math.max(0, Math.min(2.0, v));
+        else if (typeof v === 'object') clamped[k] = clampWeights(v);
+        else clamped[k] = v;
+      }
+      return clamped;
+    };
     const newWeights = { ...currentWeights };
-    if (params.seniority) newWeights.seniority = { ...(currentWeights.seniority || {}), ...params.seniority };
-    if (params.companySize) newWeights.companySize = { ...(currentWeights.companySize || {}), ...params.companySize };
-    if (params.industry) newWeights.industry = { ...(currentWeights.industry || {}), ...params.industry };
-    if (params.geo) newWeights.geo = { ...(currentWeights.geo || {}), ...params.geo };
+    if (params.seniority) newWeights.seniority = clampWeights({ ...(currentWeights.seniority || {}), ...params.seniority });
+    if (params.companySize) newWeights.companySize = clampWeights({ ...(currentWeights.companySize || {}), ...params.companySize });
+    if (params.industry) newWeights.industry = clampWeights({ ...(currentWeights.industry || {}), ...params.industry });
+    if (params.geo) newWeights.geo = clampWeights({ ...(currentWeights.geo || {}), ...params.geo });
 
     storage.setScoringWeights(newWeights);
     console.log('[optimizer] Scoring weights mis a jour');

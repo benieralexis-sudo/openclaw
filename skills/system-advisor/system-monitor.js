@@ -83,9 +83,21 @@ class SystemMonitor {
       if (lines.length >= 2) {
         const parts = lines[1].split(/\s+/);
         if (parts.length >= 5) {
-          result.totalGB = parts[1];
-          result.usedGB = parts[2];
-          result.availableGB = parts[3];
+          // Parser les valeurs humaines (K/M/G/T) en GB numerique
+          const parseSize = (s) => {
+            if (!s) return 0;
+            const num = parseFloat(s);
+            if (isNaN(num)) return 0;
+            const unit = s.replace(/[0-9.,]/g, '').toUpperCase();
+            if (unit === 'T') return num * 1024;
+            if (unit === 'G') return num;
+            if (unit === 'M') return num / 1024;
+            if (unit === 'K') return num / (1024 * 1024);
+            return num; // assume GB if no unit
+          };
+          result.totalGB = parseSize(parts[1]);
+          result.usedGB = parseSize(parts[2]);
+          result.availableGB = parseSize(parts[3]);
           result.usagePercent = parseInt(parts[4]) || 0;
         }
       }

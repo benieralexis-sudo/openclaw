@@ -50,7 +50,9 @@ class Storage {
         this._save();
       }
     } catch (e) {
-      console.error('[storage] Erreur chargement:', e.message);
+      console.error('[storage] Erreur chargement (fichier corrompu?):', e.message);
+      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, DB_FILE + '.corrupt.' + Date.now()); } catch (_) {}
+      this._save();
     }
   }
 
@@ -211,6 +213,17 @@ class Storage {
       pushedToHubspot: lead.pushedToHubspot || false,
       createdAt: lead.createdAt || new Date().toISOString()
     };
+    // Cap a 5000 leads — supprimer les plus anciens si depasse
+    const MAX_LEADS = 5000;
+    const leadKeys = Object.keys(this.data.leads);
+    if (leadKeys.length > MAX_LEADS) {
+      const sorted = leadKeys
+        .map(k => ({ key: k, createdAt: this.data.leads[k].createdAt || '' }))
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      const toRemove = sorted.slice(0, leadKeys.length - MAX_LEADS);
+      for (const item of toRemove) delete this.data.leads[item.key];
+      console.log('[storage] Leads cap: ' + toRemove.length + ' anciens leads supprimes');
+    }
     this._save();
     return this.data.leads[key];
   }

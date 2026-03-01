@@ -93,7 +93,13 @@ class InboxListener {
     const connectTimeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('IMAP connect timeout (15s)')), 15000)
     );
-    await Promise.race([client.connect(), connectTimeout]);
+    try {
+      await Promise.race([client.connect(), connectTimeout]);
+    } catch (e) {
+      // Detruire le client si le timeout gagne (evite connection leak)
+      try { client.close(); } catch (_) {}
+      throw e;
+    }
     return client;
   }
 
@@ -268,8 +274,6 @@ class InboxListener {
         } : null
       });
 
-      storage.addProcessedUid(msg.uid);
-
       // Si c'est une reponse d'un lead connu → notification + CRM update
       if (isKnownLead) {
         log.info('inbox-manager', 'REPONSE DETECTEE de ' + senderEmail + ' — sujet: ' + msg.subject);
@@ -313,6 +317,9 @@ class InboxListener {
           log.error('inbox-manager', 'Erreur onReplyDetected callback:', e.message);
         }
       }
+
+      // Marquer UID comme traite APRES classification/callback (evite perte si crash)
+      storage.addProcessedUid(msg.uid);
     }
   }
 

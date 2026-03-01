@@ -10,13 +10,14 @@ class InvoiceGenerator {
     const client = invoice.clientId ? storage.getClient(invoice.clientId) : null;
     const currency = invoice.currency === 'EUR' ? '€' : invoice.currency;
 
+    const fmt = (n) => this._fmtAmount(n, currency);
     const itemsRows = (invoice.items || []).map(item => {
-      const lineTotal = (item.qty * item.unitPrice).toFixed(2);
+      const lineTotal = item.qty * item.unitPrice;
       return '<tr>' +
         '<td style="padding:8px 12px;border-bottom:1px solid #eee;">' + this._escapeHtml(item.desc) + '</td>' +
         '<td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">' + item.qty + '</td>' +
-        '<td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">' + item.unitPrice.toFixed(2) + ' ' + currency + '</td>' +
-        '<td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">' + lineTotal + ' ' + currency + '</td>' +
+        '<td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">' + fmt(item.unitPrice) + ' ' + currency + '</td>' +
+        '<td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">' + fmt(lineTotal) + ' ' + currency + '</td>' +
         '</tr>';
     }).join('\n');
 
@@ -73,15 +74,15 @@ class InvoiceGenerator {
     <table style="width:250px;">
       <tr>
         <td style="padding:5px 0;color:#666;">Sous-total HT</td>
-        <td style="padding:5px 0;text-align:right;">${invoice.subtotal.toFixed(2)} ${currency}</td>
+        <td style="padding:5px 0;text-align:right;">${fmt(invoice.subtotal)} ${currency}</td>
       </tr>
       <tr>
         <td style="padding:5px 0;color:#666;">${taxLabel}</td>
-        <td style="padding:5px 0;text-align:right;">${invoice.taxAmount.toFixed(2)} ${currency}</td>
+        <td style="padding:5px 0;text-align:right;">${fmt(invoice.taxAmount)} ${currency}</td>
       </tr>
       <tr style="border-top:2px solid #2c3e50;">
         <td style="padding:10px 0;font-weight:bold;font-size:18px;">Total TTC</td>
-        <td style="padding:10px 0;text-align:right;font-weight:bold;font-size:18px;color:#e74c3c;">${invoice.total.toFixed(2)} ${currency}</td>
+        <td style="padding:10px 0;text-align:right;font-weight:bold;font-size:18px;color:#e74c3c;">${fmt(invoice.total)} ${currency}</td>
       </tr>
     </table>
   </div>
@@ -130,13 +131,13 @@ class InvoiceGenerator {
 
     lines.push('📋 *Lignes :*');
     (invoice.items || []).forEach((item, i) => {
-      lines.push('  ' + (i + 1) + '. ' + item.desc + ' — ' + item.qty + ' x ' + item.unitPrice.toFixed(2) + currency);
+      lines.push('  ' + (i + 1) + '. ' + item.desc + ' — ' + item.qty + ' x ' + this._fmtAmount(item.unitPrice, currency) + currency);
     });
 
     lines.push('');
-    lines.push('💰 Sous-total HT : ' + invoice.subtotal.toFixed(2) + currency);
-    lines.push('📊 TVA (' + Math.round(invoice.taxRate * 100) + '%) : ' + invoice.taxAmount.toFixed(2) + currency);
-    lines.push('*💵 Total TTC : ' + invoice.total.toFixed(2) + currency + '*');
+    lines.push('💰 Sous-total HT : ' + this._fmtAmount(invoice.subtotal, currency) + currency);
+    lines.push('📊 TVA (' + Math.round(invoice.taxRate * 100) + '%) : ' + this._fmtAmount(invoice.taxAmount, currency) + currency);
+    lines.push('*💵 Total TTC : ' + this._fmtAmount(invoice.total, currency) + currency + '*');
     lines.push('');
     lines.push((statusEmojis[invoice.status] || '📝') + ' Statut : ' + (statusLabels[invoice.status] || invoice.status));
     lines.push('📅 Echeance : ' + new Date(invoice.dueDate).toLocaleDateString('fr-FR'));
@@ -146,7 +147,12 @@ class InvoiceGenerator {
 
   // Genere l'objet email
   generateEmailSubject(invoice) {
-    return 'Facture ' + invoice.number + ' — ' + invoice.total.toFixed(2) + '€';
+    return 'Facture ' + invoice.number + ' — ' + this._fmtAmount(invoice.total, '€') + '€';
+  }
+
+  _fmtAmount(n, currency) {
+    if (currency === '€' || currency === 'EUR') return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return n.toFixed(2);
   }
 
   _escapeHtml(str) {

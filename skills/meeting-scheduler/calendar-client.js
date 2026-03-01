@@ -112,8 +112,12 @@ class CalComClient {
       log.error('calcom', 'Erreur getBookingLink:', e.message);
     }
 
-    // Fallback direct avec username configurable (env ou hardcoded)
-    const fallbackUser = process.env.CALCOM_USERNAME || 'alexis-benier-sarxqi';
+    // Fallback avec username configurable (env obligatoire)
+    const fallbackUser = process.env.CALCOM_USERNAME;
+    if (!fallbackUser) {
+      log.error('calcom', 'CALCOM_USERNAME non configure — impossible de generer un lien de booking');
+      return null;
+    }
     const params = new URLSearchParams();
     if (leadEmail) params.set('email', leadEmail);
     if (leadName) params.set('name', leadName);

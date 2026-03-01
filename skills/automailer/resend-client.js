@@ -35,6 +35,9 @@ class ResendClient {
       this.mailboxes.push({ user: this.gmailUser, pass: this.gmailPass });
     }
 
+    // Per-mailbox error tracking (circuit breaker)
+    this._mailboxErrors = {}; // { user: { count: N, lastError: timestamp } }
+
     if (this.mailboxes.length > 0) {
       log.info('resend-client', 'Gmail SMTP actif: ' + this.mailboxes.length + ' boite(s) en rotation — ' + this.mailboxes.map(m => m.user).join(', '));
     }
@@ -42,12 +45,43 @@ class ResendClient {
 
   /**
    * Retourne la prochaine boîte mail en rotation round-robin.
+   * Skip les boîtes avec 3+ erreurs consecutives (cooldown 5 min).
    */
   _nextMailbox() {
     if (this.mailboxes.length === 0) return null;
-    const mailbox = this.mailboxes[this._mailboxIndex % this.mailboxes.length];
+    const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+    const MAX_ERRORS = 3;
+    // Try each mailbox, starting from current index
+    for (let i = 0; i < this.mailboxes.length; i++) {
+      const idx = (this._mailboxIndex + i) % this.mailboxes.length;
+      const mb = this.mailboxes[idx];
+      const err = this._mailboxErrors[mb.user];
+      if (err && err.count >= MAX_ERRORS && (Date.now() - err.lastError) < COOLDOWN_MS) {
+        continue; // Skip this mailbox (in cooldown)
+      }
+      // Reset if cooldown expired
+      if (err && err.count >= MAX_ERRORS && (Date.now() - err.lastError) >= COOLDOWN_MS) {
+        err.count = 0;
+      }
+      this._mailboxIndex = idx + 1;
+      return mb;
+    }
+    // All mailboxes in cooldown — try the first one anyway
     this._mailboxIndex++;
-    return mailbox;
+    return this.mailboxes[(this._mailboxIndex - 1) % this.mailboxes.length];
+  }
+
+  _recordMailboxError(user) {
+    if (!this._mailboxErrors[user]) this._mailboxErrors[user] = { count: 0, lastError: 0 };
+    this._mailboxErrors[user].count++;
+    this._mailboxErrors[user].lastError = Date.now();
+    if (this._mailboxErrors[user].count >= 3) {
+      log.warn('resend-client', 'Mailbox ' + user + ' en cooldown (3+ erreurs consecutives)');
+    }
+  }
+
+  _resetMailboxErrors(user) {
+    if (this._mailboxErrors[user]) this._mailboxErrors[user].count = 0;
   }
 
   // --- Gmail SMTP (prioritaire) ---
@@ -307,8 +341,10 @@ class ResendClient {
           dm.recordSend(usedDomain, toEmail, true);
         } catch (e) {}
         if (result) result.senderDomain = usedDomain;
+        this._resetMailboxErrors(mailbox.user);
         return result;
       } catch (e) {
+        this._recordMailboxError(mailbox.user);
         log.warn('resend-client', 'Gmail SMTP (' + mailbox.user + ') echoue, fallback Resend: ' + e.message);
       }
     }
@@ -340,7 +376,7 @@ class ResendClient {
     for (let attempt = 0; attempt < 3; attempt++) {
       result = await this._request('POST', '/emails', payload);
       if (result.statusCode !== 429) break;
-      const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+      const delay = Math.pow(2, attempt + 1) * 1000 + Math.floor(Math.random() * 1000); // 2-3s, 4-5s, 8-9s (jitter)
       log.warn('resend', 'Rate limit 429 — retry dans ' + (delay / 1000) + 's (tentative ' + (attempt + 1) + '/3)');
       await new Promise(r => setTimeout(r, delay));
     }
