@@ -253,7 +253,7 @@ class SystemMonitor {
 
     // 6. CPU load
     const cpu = this._collectCpu();
-    const loadPerCore = parseFloat(cpu.loadAvg1m) / cpu.cores;
+    const loadPerCore = cpu.cores > 0 ? parseFloat(cpu.loadAvg1m) / cpu.cores : 0;
     checks.push({
       name: 'CPU',
       status: loadPerCore > 2 ? 'warning' : 'ok',

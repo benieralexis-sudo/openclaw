@@ -219,7 +219,7 @@ class Storage {
     if (leadKeys.length > MAX_LEADS) {
       const sorted = leadKeys
         .map(k => ({ key: k, createdAt: this.data.leads[k].createdAt || '' }))
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
       const toRemove = sorted.slice(0, leadKeys.length - MAX_LEADS);
       for (const item of toRemove) delete this.data.leads[item.key];
       console.log('[storage] Leads cap: ' + toRemove.length + ' anciens leads supprimes');

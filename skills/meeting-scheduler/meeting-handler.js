@@ -549,7 +549,7 @@ class MeetingHandler {
       const oneHour = 60 * 60 * 1000;
       const upcomingMeetings = storage.getUpcomingMeetings();
       for (const meeting of upcomingMeetings) {
-        if (meeting.reminderSent) continue;
+        if (meeting.reminderSent || !meeting.scheduledAt) continue;
         const meetingTime = new Date(meeting.scheduledAt).getTime();
         if (meetingTime > now && meetingTime - now < oneHour) {
           // Rappel !

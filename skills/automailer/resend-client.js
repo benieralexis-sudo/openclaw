@@ -161,15 +161,18 @@ class ResendClient {
       const socket = net.createConnection(587, 'smtp.gmail.com');
       let tlsSocket = null;
       let currentSocket = socket;
+      let settled = false;
+      const safeReject = (err) => { if (!settled) { settled = true; reject(err); } };
+      const safeResolve = (val) => { if (!settled) { settled = true; resolve(val); } };
 
       const cleanup = () => {
         try { if (tlsSocket) tlsSocket.destroy(); } catch (e) {}
         try { socket.destroy(); } catch (e) {}
       };
 
-      socket.setTimeout(30000, () => { cleanup(); reject(new Error('Gmail SMTP timeout')); });
+      socket.setTimeout(30000, () => { cleanup(); safeReject(new Error('Gmail SMTP timeout')); });
 
-      socket.on('error', (e) => { cleanup(); reject(new Error('Gmail SMTP erreur: ' + e.message)); });
+      socket.on('error', (e) => { cleanup(); safeReject(new Error('Gmail SMTP erreur: ' + e.message)); });
 
       socket.on('connect', async () => {
         try {
@@ -188,26 +191,26 @@ class ResendClient {
               await this._smtpCommand(currentSocket, 'EHLO ' + smtpDomain);
               // AUTH LOGIN
               const authResp = await this._smtpCommand(currentSocket, 'AUTH LOGIN');
-              if (!authResp.startsWith('334')) { cleanup(); return reject(new Error('AUTH failed: ' + authResp)); }
+              if (!authResp.startsWith('334')) { cleanup(); return safeReject(new Error('AUTH failed: ' + authResp)); }
               // Username
               const userResp = await this._smtpCommand(currentSocket, Buffer.from(smtpUser).toString('base64'));
-              if (!userResp.startsWith('334')) { cleanup(); return reject(new Error('AUTH user failed: ' + userResp)); }
+              if (!userResp.startsWith('334')) { cleanup(); return safeReject(new Error('AUTH user failed: ' + userResp)); }
               // Password
               const passResp = await this._smtpCommand(currentSocket, Buffer.from(smtpPass).toString('base64'));
-              if (!passResp.startsWith('235')) { cleanup(); return reject(new Error('AUTH pass failed: ' + passResp)); }
+              if (!passResp.startsWith('235')) { cleanup(); return safeReject(new Error('AUTH pass failed: ' + passResp)); }
 
               // MAIL FROM
               const fromResp = await this._smtpCommand(currentSocket, 'MAIL FROM:<' + smtpUser + '>');
-              if (!fromResp.startsWith('250')) { cleanup(); return reject(new Error('MAIL FROM failed: ' + fromResp)); }
+              if (!fromResp.startsWith('250')) { cleanup(); return safeReject(new Error('MAIL FROM failed: ' + fromResp)); }
               // RCPT TO
               const rcptResp = await this._smtpCommand(currentSocket, 'RCPT TO:<' + toEmail + '>');
-              if (!rcptResp.startsWith('250')) { cleanup(); return reject(new Error('RCPT TO failed: ' + rcptResp)); }
+              if (!rcptResp.startsWith('250')) { cleanup(); return safeReject(new Error('RCPT TO failed: ' + rcptResp)); }
               // DATA
               const dataResp = await this._smtpCommand(currentSocket, 'DATA');
-              if (!dataResp.startsWith('354')) { cleanup(); return reject(new Error('DATA failed: ' + dataResp)); }
+              if (!dataResp.startsWith('354')) { cleanup(); return safeReject(new Error('DATA failed: ' + dataResp)); }
               // Send message body + terminator
               const sendResp = await this._smtpCommand(currentSocket, mime + '\r\n.');
-              if (!sendResp.startsWith('250')) { cleanup(); return reject(new Error('Send failed: ' + sendResp)); }
+              if (!sendResp.startsWith('250')) { cleanup(); return safeReject(new Error('Send failed: ' + sendResp)); }
 
               // QUIT
               try { await this._smtpCommand(currentSocket, 'QUIT'); } catch (e) {}
@@ -215,17 +218,17 @@ class ResendClient {
 
               // Extraire le message ID de la reponse Gmail
               const idMatch = sendResp.match(/sm\d+|[a-z0-9]{10,}/i);
-              resolve({ success: true, id: 'gmail_' + (idMatch ? idMatch[0] : Date.now().toString(36)), messageId: messageId });
+              safeResolve({ success: true, id: 'gmail_' + (idMatch ? idMatch[0] : Date.now().toString(36)), messageId: messageId });
             } catch (e) {
               cleanup();
-              reject(e);
+              safeReject(e);
             }
           });
 
-          tlsSocket.on('error', (e) => { cleanup(); reject(new Error('TLS erreur: ' + e.message)); });
+          tlsSocket.on('error', (e) => { cleanup(); safeReject(new Error('TLS erreur: ' + e.message)); });
         } catch (e) {
           cleanup();
-          reject(e);
+          safeReject(e);
         }
       });
     });

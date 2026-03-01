@@ -45,6 +45,10 @@ class AutoMailerStorage {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
         const loaded = JSON.parse(raw);
+        // Valider les structures critiques avant merge
+        if (loaded.emails && !Array.isArray(loaded.emails)) loaded.emails = [];
+        if (loaded.users && typeof loaded.users !== 'object') loaded.users = {};
+        if (loaded.campaigns && typeof loaded.campaigns !== 'object') loaded.campaigns = {};
         this.data = { ...this.data, ...loaded };
         console.log('[automailer-storage] Base chargee (' +
           Object.keys(this.data.users).length + ' utilisateurs, ' +

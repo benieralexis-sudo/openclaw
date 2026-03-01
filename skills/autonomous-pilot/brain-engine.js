@@ -161,7 +161,7 @@ class BrainEngine {
             email, opens: d.opens
           })),
           pendingFollowUps: pendingFUs.length,
-          pendingFollowUpEmails: pendingFUs.map(f => f.prospectEmail)
+          pendingFollowUpEmails: pendingFUs.filter(f => f && f.prospectEmail).map(f => f.prospectEmail)
         };
       }
     } catch (e) {}

@@ -247,12 +247,13 @@ class InboxListener {
         : null;
 
       // Fuzzy match : meme local part (avant @) avec domaine different (.com vs .fr, etc.)
+      // Min 3 chars pour eviter les faux positifs sur "a@", "info@", etc.
       if (!isKnownLead && senderEmail.includes('@')) {
         const senderLocal = senderEmail.split('@')[0];
-        const fuzzyMatch = knownLeads.find(l => {
+        const fuzzyMatch = senderLocal.length >= 3 ? knownLeads.find(l => {
           const leadEmail = (l.email || l.to || '').toLowerCase();
           return leadEmail.includes('@') && leadEmail.split('@')[0] === senderLocal && leadEmail !== senderEmail;
-        });
+        }) : null;
         if (fuzzyMatch) {
           isKnownLead = true;
           matchedLead = fuzzyMatch;
