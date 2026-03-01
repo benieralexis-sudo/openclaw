@@ -10,6 +10,7 @@ const path = require('path');
 const http = require('http');
 const log = require('../gateway/logger.js');
 const clientRegistry = require('./client-registry.js');
+const notificationManager = require('./notification-manager.js');
 
 const DEFAULT_ROUTER_URL = process.env.ROUTER_URL || 'http://telegram-router:9090';
 
@@ -659,6 +660,27 @@ app.post('/api/onboarding/complete', authRequired, resolveClient, async (req, re
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// --- Notifications ---
+
+app.get('/api/notifications', authRequired, resolveClient, (req, res) => {
+  const clientId = req.clientId || '_admin';
+  const notifs = notificationManager.getNotifications(clientId);
+  const unread = notificationManager.getUnreadCount(clientId);
+  res.json({ notifications: notifs.slice(0, 50), unread });
+});
+
+app.post('/api/notifications/:id/read', authRequired, resolveClient, (req, res) => {
+  const clientId = req.clientId || '_admin';
+  notificationManager.markRead(clientId, req.params.id);
+  res.json({ success: true });
+});
+
+app.post('/api/notifications/read-all', authRequired, resolveClient, (req, res) => {
+  const clientId = req.clientId || '_admin';
+  notificationManager.markAllRead(clientId);
+  res.json({ success: true });
 });
 
 // --- Audit log (admin only) ---

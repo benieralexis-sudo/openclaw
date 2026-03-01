@@ -1766,3 +1766,25 @@ input, select, textarea { font-family: inherit; }
 .ob-input::placeholder { color: var(--text-muted); }
 textarea.ob-input { resize: vertical; min-height: 60px; }
 .ob-summary-row { padding: 8px 12px; background: var(--bg-secondary); border-radius: 6px; font-size: 13px; }
+
+/* ===== Notifications Bell ===== */
+.notif-bell { position: fixed; top: 16px; right: 24px; z-index: 100; }
+.notif-bell-btn { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; cursor: pointer; color: var(--text-secondary); position: relative; transition: all 0.2s; }
+.notif-bell-btn:hover { border-color: var(--accent-blue); color: var(--text-primary); }
+.notif-badge { position: absolute; top: -4px; right: -4px; background: var(--accent-red); color: #fff; font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; line-height: 16px; text-align: center; border-radius: 8px; padding: 0 4px; }
+.notif-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 360px; max-height: 420px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); overflow: hidden; }
+.notif-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.notif-list { max-height: 360px; overflow-y: auto; }
+.notif-item { display: flex; gap: 10px; padding: 12px 16px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid var(--border-light, rgba(255,255,255,0.03)); }
+.notif-item:hover { background: var(--bg-secondary); }
+.notif-item.unread { background: rgba(59,130,246,0.04); }
+.notif-item.unread .notif-title { font-weight: 600; }
+.notif-icon { flex-shrink: 0; margin-top: 2px; }
+.notif-content { flex: 1; min-width: 0; }
+.notif-title { font-size: 13px; color: var(--text-primary); }
+.notif-body { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif-time { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+@media (max-width: 768px) {
+  .notif-bell { top: 12px; right: 56px; }
+  .notif-dropdown { width: calc(100vw - 32px); right: -16px; }
+}
