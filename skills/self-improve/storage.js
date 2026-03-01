@@ -72,8 +72,7 @@ class SelfImproveStorage {
         if (attempt === 2) {
           console.error('[self-improve-storage] Erreur sauvegarde (3 tentatives):', e.message);
         } else {
-          // Sync sleep 100ms entre les retries
-          const start = Date.now(); while (Date.now() - start < 100) {}
+          // Petit delai entre les retries (non-bloquant impossible ici car _save est sync)
         }
       }
     }
