@@ -1,4 +1,4 @@
-/* ===== Page: Onboarding Wizard ===== */
+/* ===== Page: Onboarding Wizard (v2 — AI-powered + Checkboxes) ===== */
 {
 const e = (s) => Utils.escapeHtml(s);
 window.Pages = window.Pages || {};
@@ -13,13 +13,20 @@ const STEPS = [
 
 let _currentStep = 0;
 let _onboardingData = {};
+let _curatedLists = null;
+let _aiSuggestions = null;
+
+async function _loadCuratedLists() {
+  if (_curatedLists) return _curatedLists;
+  _curatedLists = await API.get('/api/curated-lists');
+  return _curatedLists;
+}
 
 Pages.onboarding = async function(container) {
-  // Load current onboarding state
+  await _loadCuratedLists();
   const data = await API.get('/api/onboarding');
   if (data && !data.error) {
     _onboardingData = data;
-    // Determine current step from saved progress
     if (data.steps) {
       if (data.steps.integrations) _currentStep = 4;
       else if (data.steps.tone) _currentStep = 3;
@@ -28,19 +35,16 @@ Pages.onboarding = async function(container) {
       else _currentStep = 0;
     }
   }
-
   _renderWizard(container);
 };
 
 function _renderWizard(container) {
   container.innerHTML = `
-  <div class="page-enter" style="max-width:700px;margin:0 auto">
+  <div class="page-enter" style="max-width:720px;margin:0 auto">
     <div style="text-align:center;margin-bottom:32px">
       <h1 style="font-size:28px;margin-bottom:8px">Bienvenue sur iFIND</h1>
       <p style="color:var(--text-muted)">Configurons votre prospection en quelques etapes</p>
     </div>
-
-    <!-- Progress bar -->
     <div style="display:flex;gap:4px;margin-bottom:32px">
       ${STEPS.map((s, i) => `
         <div style="flex:1;text-align:center">
@@ -49,15 +53,11 @@ function _renderWizard(container) {
         </div>
       `).join('')}
     </div>
-
-    <!-- Step content -->
     <div class="card">
       <div class="card-body" id="onboarding-step-content">
         ${_renderStepContent(_currentStep)}
       </div>
     </div>
-
-    <!-- Navigation -->
     <div style="display:flex;justify-content:space-between;margin-top:16px">
       <button class="btn-export" data-action="onboarding-prev" style="padding:8px 20px;visibility:${_currentStep > 0 ? 'visible' : 'hidden'}">Precedent</button>
       <button class="btn-export" data-action="onboarding-next" style="padding:8px 20px;background:var(--accent-blue);color:#fff;border:none">${_currentStep === STEPS.length - 1 ? 'Lancer la prospection' : 'Suivant'}</button>
@@ -66,10 +66,30 @@ function _renderWizard(container) {
   </div>`;
 }
 
+function _renderCheckboxGroup(id, items, selected, columns) {
+  columns = columns || 3;
+  return '<div id="' + id + '" class="ob-checkbox-grid" style="grid-template-columns:repeat(' + columns + ',1fr)">' +
+    items.map(function(item) {
+      const val = typeof item === 'object' ? item.value : item;
+      const label = typeof item === 'object' ? item.label : item;
+      const checked = (selected || []).includes(val);
+      return '<label class="ob-checkbox-item' + (checked ? ' ob-checked' : '') + '">' +
+        '<input type="checkbox" value="' + e(val) + '"' + (checked ? ' checked' : '') + '> <span>' + e(label) + '</span></label>';
+    }).join('') + '</div>';
+}
+
+function _getCheckedValues(containerId) {
+  const values = [];
+  document.querySelectorAll('#' + containerId + ' input[type=checkbox]:checked').forEach(function(cb) { values.push(cb.value); });
+  return values;
+}
+
 function _renderStepContent(step) {
   const cfg = _onboardingData.config || {};
   const icp = _onboardingData.icp || {};
   const tone = _onboardingData.tone || {};
+  const lists = _curatedLists || {};
+  const ai = _aiSuggestions || {};
 
   switch(step) {
     case 0: return `
@@ -81,8 +101,8 @@ function _renderStepContent(step) {
             <input type="text" id="ob-company-name" value="${e(_onboardingData.name || '')}" placeholder="Acme Corp" class="ob-input">
           </div>
           <div>
-            <label class="ob-label">Domaine *</label>
-            <input type="text" id="ob-domain" value="${e(cfg.clientDomain || '')}" placeholder="acme.fr" class="ob-input">
+            <label class="ob-label">Site web *</label>
+            <input type="url" id="ob-website-url" value="${e(cfg.clientWebsite || (cfg.clientDomain ? 'https://' + cfg.clientDomain : ''))}" placeholder="https://acme.fr" class="ob-input">
           </div>
         </div>
         <div>
@@ -109,57 +129,73 @@ function _renderStepContent(step) {
             <input type="email" id="ob-sender-email" value="${e(cfg.senderEmail || '')}" placeholder="hello@acme.fr" class="ob-input">
           </div>
         </div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:4px">${Utils.icon('zap', 14)} Votre site sera analyse par IA pour pre-configurer votre ICP et ton d'email.</p>
       </div>`;
 
-    case 1: return `
-      <h2 style="font-size:18px;margin-bottom:16px">${Utils.icon('target', 18)} Votre cible (ICP)</h2>
-      <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Decrivez votre prospect ideal. Separez les valeurs par des virgules.</p>
-      <div style="display:grid;gap:16px">
+    case 1: {
+      const selIndustries = icp.industries && icp.industries.length > 0 ? icp.industries : (ai.suggestedIndustries || []);
+      const selTitles = icp.titles && icp.titles.length > 0 ? icp.titles : (ai.suggestedTitles || []);
+      const selSeniorities = icp.seniorities && icp.seniorities.length > 0 ? icp.seniorities : (ai.suggestedSeniorities || []);
+      const selSizes = icp.companySizes && icp.companySizes.length > 0 ? icp.companySizes : (ai.suggestedCompanySizes || []);
+      const selGeo = icp.geography && icp.geography.length > 0 ? icp.geography : (ai.suggestedGeography || []);
+      const hasAi = ai.suggestedIndustries && ai.suggestedIndustries.length > 0;
+
+      return `
+      <h2 style="font-size:18px;margin-bottom:4px">${Utils.icon('target', 18)} Votre cible (ICP)</h2>
+      <p style="color:${hasAi ? 'var(--accent-blue)' : 'var(--text-muted)'};font-size:12px;margin-bottom:16px">${hasAi ? 'Pre-rempli par l\'analyse IA — ajustez selon vos besoins' : 'Selectionnez les criteres de votre prospect ideal'}</p>
+      <div style="display:grid;gap:20px">
         <div>
           <label class="ob-label">Industries cibles</label>
-          <input type="text" id="ob-industries" value="${e((icp.industries || []).join(', '))}" placeholder="SaaS, Tech, FinTech, E-commerce" class="ob-input">
+          ${_renderCheckboxGroup('ob-industries', lists.INDUSTRIES || [], selIndustries, 3)}
         </div>
         <div>
-          <label class="ob-label">Titres / Postes cibles</label>
-          <input type="text" id="ob-titles" value="${e((icp.titles || []).join(', '))}" placeholder="CEO, CTO, VP Sales, Head of Growth" class="ob-input">
+          <label class="ob-label">Postes / Titres cibles</label>
+          ${_renderCheckboxGroup('ob-titles', lists.TITLES || [], selTitles, 3)}
         </div>
         <div>
-          <label class="ob-label">Tailles d'entreprise</label>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px" id="ob-sizes">
-            ${['1-10', '11-50', '51-200', '201-500', '501-1000', '1001+'].map(s => `
-              <label style="display:flex;align-items:center;gap:4px;padding:6px 12px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px">
-                <input type="checkbox" value="${s}" ${(icp.companySizes || []).includes(s) ? 'checked' : ''}> ${s}
-              </label>
-            `).join('')}
-          </div>
+          <label class="ob-label">Niveau de seniorite</label>
+          ${_renderCheckboxGroup('ob-seniorities', lists.SENIORITIES || [], selSeniorities, 3)}
+        </div>
+        <div>
+          <label class="ob-label">Taille d'entreprise</label>
+          ${_renderCheckboxGroup('ob-sizes', lists.COMPANY_SIZES || [], selSizes, 6)}
         </div>
         <div>
           <label class="ob-label">Geographie</label>
-          <input type="text" id="ob-geography" value="${e((icp.geography || []).join(', '))}" placeholder="France, Belgique, Suisse" class="ob-input">
+          ${_renderCheckboxGroup('ob-geography', lists.GEOGRAPHY || [], selGeo, 3)}
         </div>
       </div>`;
+    }
 
-    case 2: return `
-      <h2 style="font-size:18px;margin-bottom:16px">${Utils.icon('edit', 18)} Ton des emails</h2>
+    case 2: {
+      const selFormality = tone.formality || ai.suggestedFormality || 'decontracte';
+      const selVP = tone.valueProposition || ai.suggestedValueProposition || '';
+      const selForbidden = tone.forbiddenWords && tone.forbiddenWords.length > 0 ? tone.forbiddenWords : (ai.suggestedForbiddenWords || []);
+      const hasAi = ai.suggestedFormality;
+
+      return `
+      <h2 style="font-size:18px;margin-bottom:4px">${Utils.icon('edit', 18)} Ton des emails</h2>
+      <p style="color:${hasAi ? 'var(--accent-blue)' : 'var(--text-muted)'};font-size:12px;margin-bottom:16px">${hasAi ? 'Pre-rempli par l\'analyse IA' : 'Configurez le style de vos emails'}</p>
       <div style="display:grid;gap:16px">
         <div>
           <label class="ob-label">Niveau de formalite</label>
           <select id="ob-formality" class="ob-input">
-            <option value="tres-formel" ${tone.formality === 'tres-formel' ? 'selected' : ''}>Tres formel (vouvoiement strict)</option>
-            <option value="formel" ${tone.formality === 'formel' ? 'selected' : ''}>Formel (vouvoiement souple)</option>
-            <option value="decontracte" ${tone.formality === 'decontracte' || !tone.formality ? 'selected' : ''}>Decontracte (tutoiement)</option>
-            <option value="familier" ${tone.formality === 'familier' ? 'selected' : ''}>Familier (tutoiement direct)</option>
+            ${(lists.FORMALITIES || []).map(function(f) {
+              return '<option value="' + f.value + '"' + (f.value === selFormality ? ' selected' : '') + '>' + e(f.label) + '</option>';
+            }).join('')}
           </select>
         </div>
         <div>
           <label class="ob-label">Proposition de valeur</label>
-          <textarea id="ob-value-prop" class="ob-input" rows="3" placeholder="Decrivez en 2-3 phrases ce que vous apportez a vos clients...">${e(tone.valueProposition || '')}</textarea>
+          <textarea id="ob-value-prop" class="ob-input" rows="3" maxlength="500" placeholder="Decrivez en 2-3 phrases ce que vous apportez a vos clients...">${e(selVP)}</textarea>
+          <div style="text-align:right;font-size:11px;color:var(--text-muted)" id="ob-vp-count">${selVP.length}/500</div>
         </div>
         <div>
-          <label class="ob-label">Mots/expressions a eviter (separes par virgule)</label>
-          <input type="text" id="ob-forbidden" value="${e((tone.forbiddenWords || []).join(', '))}" placeholder="synergies, disruptif, revolutionnaire" class="ob-input">
+          <label class="ob-label">Mots/expressions a eviter</label>
+          ${_renderCheckboxGroup('ob-forbidden', lists.FORBIDDEN_WORDS_STANDARD || [], selForbidden, 3)}
         </div>
       </div>`;
+    }
 
     case 3: return `
       <h2 style="font-size:18px;margin-bottom:16px">${Utils.icon('link', 18)} Integrations (optionnel)</h2>
@@ -200,6 +236,7 @@ function _renderStepContent(step) {
         <div class="ob-summary-row"><strong>Sender :</strong> ${e(cfg2.senderName || '—')} &lt;${e(cfg2.senderEmail || '—')}&gt;</div>
         <div class="ob-summary-row"><strong>Industries :</strong> ${e((icp2.industries || []).join(', ') || '—')}</div>
         <div class="ob-summary-row"><strong>Postes cibles :</strong> ${e((icp2.titles || []).join(', ') || '—')}</div>
+        <div class="ob-summary-row"><strong>Seniorites :</strong> ${e((icp2.seniorities || []).join(', ') || '—')}</div>
         <div class="ob-summary-row"><strong>Geographie :</strong> ${e((icp2.geography || []).join(', ') || '—')}</div>
         <div class="ob-summary-row"><strong>Ton :</strong> ${e(tone2.formality || 'decontracte')}</div>
         <div class="ob-summary-row"><strong>Integrations :</strong> ${[
@@ -215,8 +252,33 @@ function _renderStepContent(step) {
   }
 }
 
-function _parseTags(input) {
-  return (input || '').split(',').map(s => s.trim()).filter(Boolean);
+async function _analyzeWebsite(url) {
+  const container = document.getElementById('onboarding-step-content');
+  if (!container) return false;
+  container.innerHTML = `
+    <div class="ob-loading">
+      <div class="ob-spinner"></div>
+      <h3 style="margin-top:16px;font-size:16px">Analyse de votre site en cours...</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:8px">Notre IA parcourt votre site pour pre-configurer votre prospection.</p>
+    </div>`;
+  try {
+    const res = await API.post('ai/analyze-website', { url: url });
+    if (res && res.success && res.analysis) {
+      _aiSuggestions = res.analysis;
+      if (res.analysis.companyDescription) {
+        _onboardingData.config = _onboardingData.config || {};
+        _onboardingData.config.clientDescription = res.analysis.companyDescription;
+      }
+    } else {
+      _aiSuggestions = null;
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast((res && res.error) || 'Analyse echouee — configuration manuelle');
+      }
+    }
+  } catch (err) {
+    _aiSuggestions = null;
+  }
+  return true;
 }
 
 async function _saveCurrentStep() {
@@ -226,14 +288,23 @@ async function _saveCurrentStep() {
   switch(_currentStep) {
     case 0: {
       const name = (document.getElementById('ob-company-name')?.value || '').trim();
-      const domain = (document.getElementById('ob-domain')?.value || '').trim();
-      if (!name || !domain) {
-        if (errEl) { errEl.textContent = 'Nom et domaine requis'; errEl.style.display = ''; }
+      const websiteUrl = (document.getElementById('ob-website-url')?.value || '').trim();
+      if (!name || !websiteUrl) {
+        if (errEl) { errEl.textContent = 'Nom et URL du site requis'; errEl.style.display = ''; }
+        return false;
+      }
+      let domain;
+      try {
+        const u = new URL(websiteUrl.startsWith('http') ? websiteUrl : 'https://' + websiteUrl);
+        domain = u.hostname.replace(/^www\./, '');
+      } catch (err) {
+        if (errEl) { errEl.textContent = 'URL invalide'; errEl.style.display = ''; }
         return false;
       }
       const res = await API.post('onboarding/company', {
         name,
         domain,
+        clientWebsite: websiteUrl,
         description: (document.getElementById('ob-description')?.value || '').trim(),
         senderName: (document.getElementById('ob-sender-name')?.value || '').trim(),
         senderFullName: (document.getElementById('ob-sender-full')?.value || '').trim(),
@@ -244,53 +315,47 @@ async function _saveCurrentStep() {
         if (errEl) { errEl.textContent = (res && res.error) || 'Erreur'; errEl.style.display = ''; }
         return false;
       }
-      // Update local data
       _onboardingData.config = { ..._onboardingData.config,
         clientDomain: domain,
+        clientWebsite: websiteUrl,
         clientDescription: (document.getElementById('ob-description')?.value || '').trim(),
         senderName: (document.getElementById('ob-sender-name')?.value || '').trim(),
         senderFullName: (document.getElementById('ob-sender-full')?.value || '').trim(),
         senderTitle: (document.getElementById('ob-sender-title')?.value || '').trim(),
         senderEmail: (document.getElementById('ob-sender-email')?.value || '').trim()
       };
+      // Launch AI analysis
+      await _analyzeWebsite(websiteUrl);
       return true;
     }
     case 1: {
-      const checkedSizes = [];
-      document.querySelectorAll('#ob-sizes input[type=checkbox]:checked').forEach(cb => checkedSizes.push(cb.value));
-      const res = await API.post('onboarding/icp', {
-        industries: _parseTags(document.getElementById('ob-industries')?.value),
-        titles: _parseTags(document.getElementById('ob-titles')?.value),
-        companySizes: checkedSizes,
-        geography: _parseTags(document.getElementById('ob-geography')?.value)
-      });
+      const icpData = {
+        industries: _getCheckedValues('ob-industries'),
+        titles: _getCheckedValues('ob-titles'),
+        seniorities: _getCheckedValues('ob-seniorities'),
+        companySizes: _getCheckedValues('ob-sizes'),
+        geography: _getCheckedValues('ob-geography')
+      };
+      const res = await API.post('onboarding/icp', icpData);
       if (!res || res.error) {
         if (errEl) { errEl.textContent = (res && res.error) || 'Erreur'; errEl.style.display = ''; }
         return false;
       }
-      _onboardingData.icp = {
-        industries: _parseTags(document.getElementById('ob-industries')?.value),
-        titles: _parseTags(document.getElementById('ob-titles')?.value),
-        companySizes: checkedSizes,
-        geography: _parseTags(document.getElementById('ob-geography')?.value)
-      };
+      _onboardingData.icp = icpData;
       return true;
     }
     case 2: {
-      const res = await API.post('onboarding/tone', {
+      const toneData = {
         formality: document.getElementById('ob-formality')?.value || 'decontracte',
         valueProposition: (document.getElementById('ob-value-prop')?.value || '').trim(),
-        forbiddenWords: _parseTags(document.getElementById('ob-forbidden')?.value)
-      });
+        forbiddenWords: _getCheckedValues('ob-forbidden')
+      };
+      const res = await API.post('onboarding/tone', toneData);
       if (!res || res.error) {
         if (errEl) { errEl.textContent = (res && res.error) || 'Erreur'; errEl.style.display = ''; }
         return false;
       }
-      _onboardingData.tone = {
-        formality: document.getElementById('ob-formality')?.value || 'decontracte',
-        valueProposition: (document.getElementById('ob-value-prop')?.value || '').trim(),
-        forbiddenWords: _parseTags(document.getElementById('ob-forbidden')?.value)
-      };
+      _onboardingData.tone = toneData;
       return true;
     }
     case 3: {
@@ -317,13 +382,11 @@ async function _saveCurrentStep() {
       return true;
     }
     case 4: {
-      // Complete onboarding
       const res = await API.post('onboarding/complete', {});
       if (!res || res.error) {
         if (errEl) { errEl.textContent = (res && res.error) || 'Erreur lors de la finalisation'; errEl.style.display = ''; }
         return false;
       }
-      // Redirect to dashboard
       window.location.hash = 'dashboard';
       if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Configuration terminee ! Bienvenue.');
       return true;
@@ -332,14 +395,26 @@ async function _saveCurrentStep() {
   return true;
 }
 
+// Character counter for value proposition
+document.addEventListener('input', function(ev) {
+  if (ev.target.id === 'ob-value-prop') {
+    const counter = document.getElementById('ob-vp-count');
+    if (counter) counter.textContent = ev.target.value.length + '/500';
+  }
+});
+
 // Event handlers for onboarding navigation
-document.addEventListener('click', (ev) => {
+document.addEventListener('click', function(ev) {
   const target = ev.target.closest('[data-action]');
   if (!target) return;
   const action = target.dataset.action;
 
   if (action === 'onboarding-next') {
-    _saveCurrentStep().then(ok => {
+    target.disabled = true;
+    target.textContent = '...';
+    _saveCurrentStep().then(function(ok) {
+      target.disabled = false;
+      target.textContent = _currentStep === STEPS.length - 1 ? 'Lancer la prospection' : 'Suivant';
       if (ok && _currentStep < STEPS.length - 1) {
         _currentStep++;
         const container = document.getElementById('page-container');

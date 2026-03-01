@@ -8,9 +8,11 @@ const fs = require('fs');
 const fsp = require('fs').promises;
 const path = require('path');
 const http = require('http');
+const https = require('https');
 const log = require('../gateway/logger.js');
 const clientRegistry = require('./client-registry.js');
 const notificationManager = require('./notification-manager.js');
+const curatedLists = require('./curated-lists.js');
 
 const DEFAULT_ROUTER_URL = process.env.ROUTER_URL || 'http://telegram-router:9090';
 
@@ -553,7 +555,7 @@ app.get('/api/onboarding', authRequired, resolveClient, (req, res) => {
 
 app.post('/api/onboarding/company', authRequired, resolveClient, (req, res) => {
   if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
-  const { name, domain, description, senderName, senderFullName, senderTitle, senderEmail } = req.body;
+  const { name, domain, description, senderName, senderFullName, senderTitle, senderEmail, clientWebsite } = req.body;
   if (!name || !domain) return res.status(400).json({ error: 'Nom et domaine requis' });
 
   try {
@@ -561,6 +563,7 @@ app.post('/api/onboarding/company', authRequired, resolveClient, (req, res) => {
       name: name,
       config: {
         clientDomain: domain,
+        clientWebsite: clientWebsite || '',
         clientDescription: description || '',
         senderName: senderName || '',
         senderFullName: senderFullName || '',
@@ -679,30 +682,32 @@ app.post('/api/notifications/read-all', authRequired, resolveClient, (req, res) 
 // --- Client Settings ---
 
 // ===== Input validation for ICP and Tone =====
-const VALID_COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001+'];
-const VALID_FORMALITIES = ['tres-formel', 'formel', 'decontracte', 'familier'];
-const MAX_ARRAY_LEN = 20;
-const MAX_STRING_LEN = 100;
-const MAX_FORBIDDEN_WORDS = 50;
-const MAX_VP_LEN = 1000;
-
-function _sanitizeStringArray(arr, maxLen, maxStrLen) {
-  if (!Array.isArray(arr)) return [];
-  return arr
-    .filter(v => typeof v === 'string')
-    .map(v => v.substring(0, maxStrLen).trim())
-    .filter(v => v.length > 0)
-    .slice(0, maxLen);
-}
+const VALID_COMPANY_SIZES = curatedLists.COMPANY_SIZES;
+const VALID_FORMALITIES = curatedLists.FORMALITIES.map(f => f.value);
+const VALID_SENIORITIES = curatedLists.SENIORITIES.map(s => s.value);
+const VALID_INDUSTRIES = curatedLists.INDUSTRIES;
+const VALID_TITLES = curatedLists.TITLES;
+const VALID_GEOGRAPHY = curatedLists.GEOGRAPHY;
+const VALID_FORBIDDEN = curatedLists.FORBIDDEN_WORDS_STANDARD;
+const MAX_VP_LEN = 500;
 
 function validateIcp(body) {
   return {
-    industries: _sanitizeStringArray(body.industries, MAX_ARRAY_LEN, MAX_STRING_LEN),
-    titles: _sanitizeStringArray(body.titles, MAX_ARRAY_LEN, MAX_STRING_LEN),
+    industries: Array.isArray(body.industries)
+      ? body.industries.filter(s => typeof s === 'string' && VALID_INDUSTRIES.includes(s)).slice(0, 20)
+      : [],
+    titles: Array.isArray(body.titles)
+      ? body.titles.filter(s => typeof s === 'string' && VALID_TITLES.includes(s)).slice(0, 20)
+      : [],
+    seniorities: Array.isArray(body.seniorities)
+      ? body.seniorities.filter(s => VALID_SENIORITIES.includes(s)).slice(0, 11)
+      : [],
     companySizes: Array.isArray(body.companySizes)
       ? body.companySizes.filter(s => VALID_COMPANY_SIZES.includes(s)).slice(0, 6)
       : [],
-    geography: _sanitizeStringArray(body.geography, MAX_ARRAY_LEN, MAX_STRING_LEN)
+    geography: Array.isArray(body.geography)
+      ? body.geography.filter(s => typeof s === 'string' && VALID_GEOGRAPHY.includes(s)).slice(0, 20)
+      : []
   };
 }
 
@@ -711,7 +716,9 @@ function validateTone(body) {
     formality: VALID_FORMALITIES.includes(body.formality) ? body.formality : 'decontracte',
     valueProposition: typeof body.valueProposition === 'string'
       ? body.valueProposition.substring(0, MAX_VP_LEN).trim() : '',
-    forbiddenWords: _sanitizeStringArray(body.forbiddenWords, MAX_FORBIDDEN_WORDS, 50)
+    forbiddenWords: Array.isArray(body.forbiddenWords)
+      ? body.forbiddenWords.filter(w => typeof w === 'string' && VALID_FORBIDDEN.includes(w)).slice(0, 30)
+      : []
   };
 }
 
@@ -749,6 +756,7 @@ function _propagateIcpToBot(clientId, icp) {
     if (!apData.goals.searchCriteria) apData.goals.searchCriteria = {};
     apData.goals.searchCriteria.industries = icp.industries;
     apData.goals.searchCriteria.titles = icp.titles;
+    apData.goals.searchCriteria.seniorities = icp.seniorities || [];
     apData.goals.searchCriteria.companySize = icp.companySizes;
     apData.goals.searchCriteria.locations = icp.geography;
     _atomicWriteJSON(apPath, apData);
@@ -789,6 +797,7 @@ app.get('/api/settings', authRequired, resolveClient, (req, res) => {
       senderFullName: client.config.senderFullName,
       senderTitle: client.config.senderTitle,
       clientDomain: client.config.clientDomain,
+      clientWebsite: client.config.clientWebsite || '',
       clientDescription: client.config.clientDescription
     },
     icp: client.icp || {},
@@ -842,6 +851,198 @@ app.put('/api/settings/notifications', authRequired, resolveClient, (req, res) =
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+// --- Curated lists (public for frontend) ---
+
+app.get('/api/curated-lists', authRequired, (req, res) => {
+  res.json(curatedLists);
+});
+
+// --- AI Website Analysis ---
+
+const _aiAnalysisCount = {};
+function _checkAiRateLimit(clientId) {
+  const today = new Date().toISOString().substring(0, 10);
+  const entry = _aiAnalysisCount[clientId];
+  if (!entry || entry.date !== today) {
+    _aiAnalysisCount[clientId] = { date: today, count: 0 };
+  }
+  if (_aiAnalysisCount[clientId].count >= 3) return false;
+  _aiAnalysisCount[clientId].count++;
+  return true;
+}
+
+function _fetchWebsite(url) {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const mod = parsedUrl.protocol === 'https:' ? https : http;
+    let redirects = 0;
+
+    function doFetch(fetchUrl) {
+      const u = new URL(fetchUrl);
+      // SSRF protection
+      const host = u.hostname;
+      if (/^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|localhost)/i.test(host)) {
+        return reject(new Error('Adresse privee non autorisee'));
+      }
+      const reqMod = u.protocol === 'https:' ? https : http;
+      const req = reqMod.get(fetchUrl, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; iFIND/1.0)' } }, (res) => {
+        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          if (++redirects > 3) return reject(new Error('Trop de redirections'));
+          const next = new URL(res.headers.location, fetchUrl).href;
+          res.resume();
+          return doFetch(next);
+        }
+        if (res.statusCode !== 200) {
+          res.resume();
+          return reject(new Error('HTTP ' + res.statusCode));
+        }
+        let data = '';
+        let size = 0;
+        res.setEncoding('utf8');
+        res.on('data', chunk => {
+          size += chunk.length;
+          if (size > 512000) { res.destroy(); reject(new Error('Page trop volumineuse')); return; }
+          data += chunk;
+        });
+        res.on('end', () => resolve(data));
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    }
+    doFetch(url);
+  });
+}
+
+function _extractText(html) {
+  // Extract title
+  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+  const title = titleMatch ? titleMatch[1].trim() : '';
+  // Extract meta description
+  const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i)
+    || html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i);
+  const description = descMatch ? descMatch[1].trim() : '';
+  // Strip tags for body text
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  let text = bodyMatch ? bodyMatch[1] : html;
+  text = text.replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return { title, description, text: text.substring(0, 4500) };
+}
+
+function _callClaudeSonnet(apiKey, systemPrompt, userMessage) {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }]
+    });
+    const req = https.request({
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(postData)
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const response = JSON.parse(data);
+          if (response.content && response.content[0]) {
+            resolve(response.content[0].text);
+          } else if (response.error) {
+            reject(new Error('Claude API: ' + (response.error.message || JSON.stringify(response.error))));
+          } else {
+            reject(new Error('Reponse Claude invalide'));
+          }
+        } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Timeout Claude API')); });
+    req.write(postData);
+    req.end();
+  });
+}
+
+app.post('/api/ai/analyze-website', authRequired, resolveClient, async (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+
+  const url = (req.body.url || '').trim();
+  if (!url) return res.status(400).json({ error: 'URL requise' });
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url.startsWith('http') ? url : 'https://' + url);
+    if (!['https:', 'http:'].includes(parsedUrl.protocol)) {
+      return res.status(400).json({ error: 'URL doit etre HTTP ou HTTPS' });
+    }
+  } catch (e) {
+    return res.status(400).json({ error: 'URL invalide' });
+  }
+
+  if (!_checkAiRateLimit(req.clientId)) {
+    return res.status(429).json({ error: 'Limite de 3 analyses par jour atteinte' });
+  }
+
+  try {
+    const html = await _fetchWebsite(parsedUrl.href);
+    const { title, description, text } = _extractText(html);
+    const siteContent = [
+      title ? 'TITRE: ' + title : '',
+      description ? 'DESCRIPTION: ' + description : '',
+      'CONTENU: ' + text
+    ].filter(Boolean).join('\n\n');
+
+    const claudeApiKey = process.env.CLAUDE_API_KEY;
+    if (!claudeApiKey) return res.status(500).json({ error: 'Configuration IA manquante' });
+
+    const systemPrompt = 'Tu es un expert en prospection B2B. Analyse le contenu d\'un site web d\'entreprise et deduis le profil de client ideal (ICP) pour cette entreprise.\n\nTu dois retourner un JSON strict (pas de markdown, pas de commentaires) avec ces champs:\n{\n  "companyDescription": "description en 1-2 phrases",\n  "suggestedIndustries": ["..."],\n  "suggestedTitles": ["..."],\n  "suggestedSeniorities": ["..."],\n  "suggestedCompanySizes": ["..."],\n  "suggestedGeography": ["..."],\n  "suggestedFormality": "...",\n  "suggestedValueProposition": "...",\n  "suggestedForbiddenWords": ["..."]\n}\n\nREGLES:\n- suggestedIndustries: choisis UNIQUEMENT parmi: ' + JSON.stringify(curatedLists.INDUSTRIES) + '\n- suggestedTitles: choisis UNIQUEMENT parmi: ' + JSON.stringify(curatedLists.TITLES) + '\n- suggestedSeniorities: choisis UNIQUEMENT parmi: ' + curatedLists.SENIORITIES.map(s => s.value).join(', ') + '\n- suggestedCompanySizes: choisis UNIQUEMENT parmi: ' + curatedLists.COMPANY_SIZES.join(', ') + '\n- suggestedGeography: choisis UNIQUEMENT parmi: ' + JSON.stringify(curatedLists.GEOGRAPHY) + '\n- suggestedFormality: choisis UNIQUEMENT parmi: tres-formel, formel, decontracte, familier\n- suggestedValueProposition: genere une proposition de valeur en francais, max 500 chars, du point de vue de l\'entreprise analysee. Ecris a la premiere personne du pluriel ("Nous aidons...")\n- suggestedForbiddenWords: choisis UNIQUEMENT parmi: ' + JSON.stringify(curatedLists.FORBIDDEN_WORDS_STANDARD) + '\n- Selectionne 3-8 industries, 5-10 titres, 2-4 seniorites, 2-3 tailles, 2-5 geographies, 5-10 mots interdits\n- Si le site est francophone, privilegie des geographies francophones\n- Retourne UNIQUEMENT le JSON, rien d\'autre';
+
+    const analysis = await _callClaudeSonnet(claudeApiKey, systemPrompt,
+      'Analyse ce site web et retourne le JSON:\n\n' + siteContent);
+
+    let parsed;
+    try {
+      const jsonMatch = analysis.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Pas de JSON');
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      log.warn('dashboard', 'AI analyze: reponse non-JSON: ' + analysis.substring(0, 200));
+      return res.status(500).json({ error: 'Erreur d\'analyse IA. Reessayez.' });
+    }
+
+    // Filter strictly against curated lists
+    const result = {
+      companyDescription: typeof parsed.companyDescription === 'string' ? parsed.companyDescription.substring(0, 500) : '',
+      suggestedIndustries: (parsed.suggestedIndustries || []).filter(i => curatedLists.INDUSTRIES.includes(i)),
+      suggestedTitles: (parsed.suggestedTitles || []).filter(t => curatedLists.TITLES.includes(t)),
+      suggestedSeniorities: (parsed.suggestedSeniorities || []).filter(s => curatedLists.SENIORITIES.some(cs => cs.value === s)),
+      suggestedCompanySizes: (parsed.suggestedCompanySizes || []).filter(s => curatedLists.COMPANY_SIZES.includes(s)),
+      suggestedGeography: (parsed.suggestedGeography || []).filter(g => curatedLists.GEOGRAPHY.includes(g)),
+      suggestedFormality: VALID_FORMALITIES.includes(parsed.suggestedFormality) ? parsed.suggestedFormality : 'decontracte',
+      suggestedValueProposition: typeof parsed.suggestedValueProposition === 'string' ? parsed.suggestedValueProposition.substring(0, 500) : '',
+      suggestedForbiddenWords: (parsed.suggestedForbiddenWords || []).filter(w => curatedLists.FORBIDDEN_WORDS_STANDARD.includes(w))
+    };
+
+    logAudit('ai_analyze_website', req.ip || 'unknown', req.clientId + ' -> ' + parsedUrl.hostname);
+    log.info('dashboard', 'AI analysis OK for ' + req.clientId + ': ' + result.suggestedIndustries.length + ' industries, ' + result.suggestedTitles.length + ' titles');
+    res.json({ success: true, analysis: result });
+  } catch (e) {
+    log.error('dashboard', 'AI analyze error: ' + e.message);
+    res.status(500).json({ error: 'Erreur lors de l\'analyse: ' + e.message });
   }
 });
 

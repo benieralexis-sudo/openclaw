@@ -110,6 +110,7 @@ function createClient(data) {
       senderTitle: data.senderTitle || 'Fondateur',
       clientDomain: data.clientDomain || '',
       clientDescription: data.clientDescription || '',
+      clientWebsite: data.clientWebsite || '',
       replyToEmail: data.replyToEmail || data.senderEmail || '',
       trackingDomain: data.trackingDomain || data.clientDomain || '',
       telegramBotToken: data.telegramBotToken || '',
@@ -140,6 +141,7 @@ function createClient(data) {
     icp: {
       industries: [],
       titles: [],
+      seniorities: [],
       companySizes: [],
       geography: []
     },
