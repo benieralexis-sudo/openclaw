@@ -11,15 +11,16 @@ async function _loadSettingsLists() {
   return _settingsCuratedLists;
 }
 
-function _renderSettingsCheckboxGroup(id, items, selected, columns) {
+function _renderSettingsCheckboxGroup(id, items, selected, columns, disabled) {
   columns = columns || 3;
+  const dis = disabled ? ' disabled' : '';
   return '<div id="' + id + '" class="ob-checkbox-grid" style="grid-template-columns:repeat(' + columns + ',1fr)">' +
     items.map(function(item) {
       const val = typeof item === 'object' ? item.value : item;
       const label = typeof item === 'object' ? item.label : item;
       const checked = (selected || []).includes(val);
-      return '<label class="ob-checkbox-item' + (checked ? ' ob-checked' : '') + '">' +
-        '<input type="checkbox" value="' + e(val) + '"' + (checked ? ' checked' : '') + '> <span>' + e(label) + '</span></label>';
+      return '<label class="ob-checkbox-item' + (checked ? ' ob-checked' : '') + (disabled ? ' ob-disabled' : '') + '">' +
+        '<input type="checkbox" value="' + e(val) + '"' + (checked ? ' checked' : '') + dis + '> <span>' + e(label) + '</span></label>';
     }).join('') + '</div>';
 }
 
@@ -42,6 +43,8 @@ Pages.settings = async function(container) {
   const tone = data.tone || {};
   const notifPrefs = data.notificationPrefs || {};
   const L = lists || {};
+  const isLocked = data.icpLocked && App.userRole === 'client';
+  const _dis = isLocked ? ' disabled' : '';
 
   container.innerHTML = `
   <div class="page-enter stagger">
@@ -68,12 +71,10 @@ Pages.settings = async function(container) {
       <div class="card">
         <div class="card-header">
           <div class="card-title">Cible (ICP)</div>
-          <div style="display:flex;gap:8px">
-            <button class="btn-export" data-action="reanalyze-site" style="padding:6px 16px;font-size:12px">${Utils.icon('zap', 14)} Re-analyser le site</button>
-            <button class="btn-export" data-action="save-icp" style="padding:6px 16px;font-size:12px">Sauvegarder</button>
-          </div>
+          ${isLocked ? '' : '<div style="display:flex;gap:8px"><button class="btn-export" data-action="reanalyze-site" style="padding:6px 16px;font-size:12px">' + Utils.icon('zap', 14) + ' Re-analyser le site</button><button class="btn-export" data-action="save-icp" style="padding:6px 16px;font-size:12px">Sauvegarder</button></div>'}
         </div>
         <div class="card-body">
+          ${isLocked ? '<div class="icp-locked-banner">' + Utils.icon('lock', 14) + ' Configuration verrouill\\u00e9e pour optimiser les performances du bot. Utilisez le bouton ci-dessous pour demander une modification.</div>' : ''}
           <div id="settings-ai-loading" style="display:none" class="ob-loading">
             <div class="ob-spinner"></div>
             <p style="margin-top:12px;font-size:13px;color:var(--text-muted)">Re-analyse du site en cours...</p>
@@ -81,23 +82,23 @@ Pages.settings = async function(container) {
           <div id="settings-icp-content" style="display:grid;gap:16px">
             <div>
               <label class="ob-label">Industries cibles</label>
-              ${_renderSettingsCheckboxGroup('set-industries', L.INDUSTRIES || [], icp.industries || [], 3)}
+              ${_renderSettingsCheckboxGroup('set-industries', L.INDUSTRIES || [], icp.industries || [], 3, isLocked)}
             </div>
             <div>
               <label class="ob-label">Postes / Titres cibles</label>
-              ${_renderSettingsCheckboxGroup('set-titles', L.TITLES || [], icp.titles || [], 3)}
+              ${_renderSettingsCheckboxGroup('set-titles', L.TITLES || [], icp.titles || [], 3, isLocked)}
             </div>
             <div>
               <label class="ob-label">Niveau de seniorite</label>
-              ${_renderSettingsCheckboxGroup('set-seniorities', L.SENIORITIES || [], icp.seniorities || [], 3)}
+              ${_renderSettingsCheckboxGroup('set-seniorities', L.SENIORITIES || [], icp.seniorities || [], 3, isLocked)}
             </div>
             <div>
               <label class="ob-label">Taille d'entreprise</label>
-              ${_renderSettingsCheckboxGroup('set-sizes', L.COMPANY_SIZES || [], icp.companySizes || [], 6)}
+              ${_renderSettingsCheckboxGroup('set-sizes', L.COMPANY_SIZES || [], icp.companySizes || [], 6, isLocked)}
             </div>
             <div>
               <label class="ob-label">Geographie</label>
-              ${_renderSettingsCheckboxGroup('set-geography', L.GEOGRAPHY || [], icp.geography || [], 3)}
+              ${_renderSettingsCheckboxGroup('set-geography', L.GEOGRAPHY || [], icp.geography || [], 3, isLocked)}
             </div>
           </div>
           <div id="icp-status" style="font-size:13px;margin-top:8px;display:none"></div>
@@ -110,13 +111,14 @@ Pages.settings = async function(container) {
       <div class="card">
         <div class="card-header">
           <div class="card-title">Ton des emails</div>
-          <button class="btn-export" data-action="save-tone" style="padding:6px 16px;font-size:12px">Sauvegarder</button>
+          ${isLocked ? '' : '<button class="btn-export" data-action="save-tone" style="padding:6px 16px;font-size:12px">Sauvegarder</button>'}
         </div>
         <div class="card-body">
+          ${isLocked ? '<div class="icp-locked-banner">' + Utils.icon('lock', 14) + ' Ton verrouill\\u00e9 pour optimiser les performances.</div>' : ''}
           <div style="display:grid;gap:16px">
             <div>
               <label class="ob-label">Niveau de formalite</label>
-              <select id="set-formality" class="ob-input">
+              <select id="set-formality" class="ob-input"${_dis}>
                 ${(L.FORMALITIES || []).map(function(f) {
                   return '<option value="' + f.value + '"' + (f.value === (tone.formality || 'decontracte') ? ' selected' : '') + '>' + e(f.label) + '</option>';
                 }).join('')}
@@ -124,15 +126,16 @@ Pages.settings = async function(container) {
             </div>
             <div>
               <label class="ob-label">Proposition de valeur</label>
-              <textarea id="set-value-prop" class="ob-input" rows="3" maxlength="500">${e(tone.valueProposition || '')}</textarea>
+              <textarea id="set-value-prop" class="ob-input" rows="3" maxlength="500"${_dis}>${e(tone.valueProposition || '')}</textarea>
               <div style="text-align:right;font-size:11px;color:var(--text-muted)" id="set-vp-count">${(tone.valueProposition || '').length}/500</div>
             </div>
             <div>
               <label class="ob-label">Mots/expressions a eviter</label>
-              ${_renderSettingsCheckboxGroup('set-forbidden', L.FORBIDDEN_WORDS_STANDARD || [], tone.forbiddenWords || [], 3)}
+              ${_renderSettingsCheckboxGroup('set-forbidden', L.FORBIDDEN_WORDS_STANDARD || [], tone.forbiddenWords || [], 3, isLocked)}
             </div>
           </div>
           <div id="tone-status" style="font-size:13px;margin-top:8px;display:none"></div>
+          ${isLocked ? '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px"><label class="ob-label">Demander une modification</label><textarea id="change-request-msg" class="ob-input" rows="3" maxlength="1000" placeholder="Ex: Ajouter l\'industrie Telecom, cibler aussi l\'Allemagne, changer le ton en formel..."></textarea><button class="btn-export" data-action="request-change" style="margin-top:8px;padding:8px 20px">Envoyer la demande</button><div id="change-request-status" style="font-size:13px;margin-top:8px;display:none"></div></div>' : ''}
         </div>
       </div>
     </div>
@@ -262,6 +265,21 @@ document.addEventListener('click', (ev) => {
         document.getElementById('pw-new').value = '';
       } else {
         _showStatus('pw-status', (res && res.error) || 'Erreur', false);
+      }
+    });
+  }
+
+  if (action === 'request-change') {
+    const msg = (document.getElementById('change-request-msg')?.value || '').trim();
+    if (!msg) { _showStatus('change-request-status', 'Decrivez votre demande', false); return; }
+    target.disabled = true;
+    API.post('settings/request-change', { message: msg }).then(res => {
+      target.disabled = false;
+      if (res && res.success) {
+        _showStatus('change-request-status', 'Demande envoyee ! Nous reviendrons vers vous.', true);
+        document.getElementById('change-request-msg').value = '';
+      } else {
+        _showStatus('change-request-status', (res && res.error) || 'Erreur', false);
       }
     });
   }

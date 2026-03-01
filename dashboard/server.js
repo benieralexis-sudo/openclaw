@@ -802,12 +802,17 @@ app.get('/api/settings', authRequired, resolveClient, (req, res) => {
     },
     icp: client.icp || {},
     tone: client.tone || {},
-    notificationPrefs: client.notificationPrefs || {}
+    notificationPrefs: client.notificationPrefs || {},
+    icpLocked: !!(client.onboarding && client.onboarding.completed)
   });
 });
 
 app.put('/api/settings/icp', authRequired, resolveClient, (req, res) => {
   if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const _c = clientRegistry.getClient(req.clientId);
+  if (_c && _c.onboarding && _c.onboarding.completed && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'ICP verrouille apres configuration. Utilisez "Demander une modification".' });
+  }
   try {
     const icp = validateIcp(req.body);
     if (icp.industries.length === 0 && icp.titles.length === 0) {
@@ -823,6 +828,10 @@ app.put('/api/settings/icp', authRequired, resolveClient, (req, res) => {
 
 app.put('/api/settings/tone', authRequired, resolveClient, (req, res) => {
   if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const _c2 = clientRegistry.getClient(req.clientId);
+  if (_c2 && _c2.onboarding && _c2.onboarding.completed && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Ton verrouille apres configuration. Utilisez "Demander une modification".' });
+  }
   try {
     const tone = validateTone(req.body);
     clientRegistry.updateClient(req.clientId, { tone });
@@ -831,6 +840,55 @@ app.put('/api/settings/tone', authRequired, resolveClient, (req, res) => {
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
+});
+
+// --- Demande de modification ICP/Tone (client locked) ---
+
+const _changeRequestLimiter = {};
+function _checkChangeRequestLimit(clientId) {
+  const now = Date.now();
+  const key = clientId;
+  if (!_changeRequestLimiter[key] || _changeRequestLimiter[key].resetAt < now) {
+    _changeRequestLimiter[key] = { count: 0, resetAt: now + 86400000 };
+  }
+  _changeRequestLimiter[key].count++;
+  return _changeRequestLimiter[key].count <= 3;
+}
+
+function _sendAdminTelegram(text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.ADMIN_CHAT_ID || '1409505520';
+  if (!token || !chatId) return;
+  const payload = JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' });
+  const req = https.request({
+    hostname: 'api.telegram.org',
+    path: '/bot' + token + '/sendMessage',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+    timeout: 10000
+  });
+  req.on('error', (e) => log.error('dashboard', 'Telegram notif error: ' + e.message));
+  req.write(payload);
+  req.end();
+}
+
+app.post('/api/settings/request-change', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const message = typeof req.body.message === 'string' ? req.body.message.trim().substring(0, 1000) : '';
+  if (!message) return res.status(400).json({ error: 'Message requis' });
+  if (!_checkChangeRequestLimit(req.clientId)) {
+    return res.status(429).json({ error: 'Maximum 3 demandes par jour' });
+  }
+  const client = clientRegistry.getClient(req.clientId);
+  const clientName = client ? client.name : req.clientId;
+  notificationManager.createNotification('admin', 'change_request',
+    'Demande modification — ' + clientName,
+    message,
+    '#settings?clientId=' + req.clientId
+  );
+  _sendAdminTelegram('<b>Demande modif ICP/Ton</b>\nClient: ' + clientName + '\n\n' + message);
+  log.info('dashboard', 'Change request from ' + req.clientId + ': ' + message.substring(0, 100));
+  res.json({ success: true, message: 'Demande envoyee' });
 });
 
 app.get('/api/settings/blacklist', authRequired, resolveClient, async (req, res) => {

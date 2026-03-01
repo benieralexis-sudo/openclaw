@@ -1828,6 +1828,24 @@ textarea.ob-input { resize: vertical; min-height: 60px; }
   flex-shrink: 0;
 }
 
+.ob-checkbox-item.ob-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.icp-locked-banner {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ===== AI Loading Spinner ===== */
 .ob-loading {
   text-align: center;
