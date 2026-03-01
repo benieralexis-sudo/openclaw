@@ -1003,6 +1003,23 @@ input, select, textarea { font-family: inherit; }
   background: var(--bg-card-hover);
 }
 
+.btn-danger-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--accent-red);
+  border: 1px solid var(--accent-red);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.btn-danger-outline:hover {
+  background: var(--accent-red-dim);
+}
+
 /* ===== SEARCH / FILTERS ===== */
 .search-bar {
   display: flex;

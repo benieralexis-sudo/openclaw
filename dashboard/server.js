@@ -7,7 +7,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 const fsp = require('fs').promises;
 const path = require('path');
+const http = require('http');
 const log = require('../gateway/logger.js');
+
+const ROUTER_URL = process.env.ROUTER_URL || 'http://telegram-router:9090';
 
 const app = express();
 const PORT = process.env.DASHBOARD_PORT || 3000;
@@ -1009,6 +1012,64 @@ app.get('/api/inbox', authRequired, async (req, res) => {
     totalEmails,
     replies: matchedReplies.reverse()
   });
+});
+
+// --- HITL Drafts (proxy vers telegram-router) ---
+function proxyToRouter(routerPath, method, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(ROUTER_URL + routerPath);
+    const opts = { hostname: url.hostname, port: url.port, path: url.pathname, method, timeout: 15000 };
+    if (body) opts.headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) };
+    const req = http.request(opts, (resp) => {
+      let data = '';
+      resp.on('data', c => { data += c; });
+      resp.on('end', () => {
+        try { resolve({ status: resp.statusCode, data: JSON.parse(data) }); }
+        catch (e) { resolve({ status: resp.statusCode, data: { error: 'Parse error' } }); }
+      });
+    });
+    req.on('error', e => reject(e));
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+app.get('/api/drafts', authRequired, async (req, res) => {
+  try {
+    const result = await proxyToRouter('/api/hitl/drafts', 'GET');
+    res.status(result.status).json(result.data);
+  } catch (e) {
+    res.status(502).json({ error: 'Bot indisponible', details: e.message });
+  }
+});
+
+app.post('/api/drafts/:id/approve', authRequired, async (req, res) => {
+  try {
+    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/approve', 'POST');
+    res.status(result.status).json(result.data);
+  } catch (e) {
+    res.status(502).json({ error: 'Bot indisponible', details: e.message });
+  }
+});
+
+app.post('/api/drafts/:id/reject', authRequired, async (req, res) => {
+  try {
+    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/reject', 'POST');
+    res.status(result.status).json(result.data);
+  } catch (e) {
+    res.status(502).json({ error: 'Bot indisponible', details: e.message });
+  }
+});
+
+app.post('/api/drafts/:id/edit', authRequired, async (req, res) => {
+  try {
+    const body = JSON.stringify({ body: req.body.body });
+    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/edit', 'POST', body);
+    res.status(result.status).json(result.data);
+  } catch (e) {
+    res.status(502).json({ error: 'Bot indisponible', details: e.message });
+  }
 });
 
 // Meeting Scheduler

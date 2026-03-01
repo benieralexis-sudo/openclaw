@@ -236,9 +236,10 @@ const App = {
   // ===== Dynamic sidebar badges =====
   async updateBadges() {
     try {
-      const [proData, sysData] = await Promise.all([
+      const [proData, sysData, draftsData] = await Promise.all([
         API.proactive().catch(() => null),
-        App.userRole === 'admin' ? API.system().catch(() => null) : Promise.resolve(null)
+        App.userRole === 'admin' ? API.system().catch(() => null) : Promise.resolve(null),
+        API.drafts().catch(() => null)
       ]);
       if (proData) {
         const hotCount = (proData.hotLeads || []).filter(l => (l.opens || 0) >= 3).length;
@@ -257,6 +258,17 @@ const App = {
         const sysBadge = document.getElementById('badge-system');
         if (sysBadge) {
           sysBadge.style.display = alertCount > 0 ? '' : 'none';
+        }
+      }
+      // Drafts badge
+      const draftsBadge = document.getElementById('badge-drafts');
+      if (draftsBadge) {
+        const draftCount = Array.isArray(draftsData) ? draftsData.length : 0;
+        if (draftCount > 0) {
+          draftsBadge.textContent = draftCount;
+          draftsBadge.style.display = '';
+        } else {
+          draftsBadge.style.display = 'none';
         }
       }
     } catch (e) {}
@@ -307,6 +319,7 @@ document.addEventListener('input', (ev) => {
       'dashboard': 'vue ensemble accueil dashboard kpi overview',
       'leads': 'leads prospects recherche flowfast apollo prospection enrichissement',
       'campaigns': 'email campagne automailer envoi ouverture emails',
+      'drafts': 'approbation brouillon hitl draft validation email reponse',
       'crm': 'crm hubspot pipeline deals contacts',
       'chat': 'chat conversation bot message telegram',
       'finances': 'factures facturation clients paiement revenus finance budget',

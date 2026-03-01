@@ -125,7 +125,23 @@ const API = {
   me() { return this.fetch('me'); },
   users() { return this.fetch('users'); },
   createUser(data) { return this.post('users', data); },
-  deleteUser(username) { return this.del('users/' + encodeURIComponent(username)); }
+  deleteUser(username) { return this.del('users/' + encodeURIComponent(username)); },
+
+  // Drafts — no cache (time-sensitive)
+  async drafts() {
+    try {
+      const res = await fetch('/api/drafts');
+      if (res.status === 401) { window.location.href = '/login'; return null; }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[API] drafts:', err);
+      return null;
+    }
+  },
+  approveDraft(id) { return this.post('drafts/' + encodeURIComponent(id) + '/approve', {}); },
+  rejectDraft(id) { return this.post('drafts/' + encodeURIComponent(id) + '/reject', {}); },
+  editDraft(id, body) { return this.post('drafts/' + encodeURIComponent(id) + '/edit', { body }); }
 };
 
 // Auto-refresh every 60s (pause when tab hidden)

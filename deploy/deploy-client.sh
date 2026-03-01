@@ -41,6 +41,14 @@ APOLLO_KEY=""
 FULLENRICH_KEY=""
 RESEND_KEY=""
 SENDER_EMAIL=""
+SENDER_NAME=""
+SENDER_FULL_NAME=""
+SENDER_TITLE=""
+CLIENT_DESCRIPTION=""
+REPLY_TO_EMAIL=""
+TRACKING_DOMAIN=""
+SENDER_DOMAINS=""
+GMAIL_MAILBOXES=""
 DASHBOARD_PASS=""
 DAILY_BUDGET="5"
 SKIP_SSL="false"
@@ -69,6 +77,14 @@ Options API (si vides, seront demandees interactivement):
   --fullenrich-key <KEY>   Cle API FullEnrich
   --resend-key <KEY>       Cle API Resend
   --sender-email <EMAIL>   Email d'envoi (defaut: hello@<DOMAIN>)
+  --sender-name <NAME>     Nom expediteur (defaut: CLIENT_NAME)
+  --sender-full-name <N>   Nom complet expediteur
+  --sender-title <TITLE>   Titre/poste expediteur
+  --client-desc <DESC>     Description client/activite
+  --reply-to <EMAIL>       Email de reponse (defaut: SENDER_EMAIL)
+  --tracking-domain <DOM>  Domaine de tracking email
+  --sender-domains <DOMS>  Domaines d'envoi (virgule, ex: d1.com,d2.com)
+  --gmail-mailboxes <JSON> Config Gmail SMTP (JSON)
   --dashboard-pass <PASS>  Mot de passe dashboard
   --daily-budget <N>       Budget API quotidien en $ (defaut: 5)
   --skip-ssl               Ne pas configurer SSL/Let's Encrypt
@@ -104,6 +120,14 @@ while [[ $# -gt 0 ]]; do
     --fullenrich-key) FULLENRICH_KEY="$2"; shift 2 ;;
     --resend-key)     RESEND_KEY="$2"; shift 2 ;;
     --sender-email)   SENDER_EMAIL="$2"; shift 2 ;;
+    --sender-name)    SENDER_NAME="$2"; shift 2 ;;
+    --sender-full-name) SENDER_FULL_NAME="$2"; shift 2 ;;
+    --sender-title)   SENDER_TITLE="$2"; shift 2 ;;
+    --client-desc)    CLIENT_DESCRIPTION="$2"; shift 2 ;;
+    --reply-to)       REPLY_TO_EMAIL="$2"; shift 2 ;;
+    --tracking-domain) TRACKING_DOMAIN="$2"; shift 2 ;;
+    --sender-domains) SENDER_DOMAINS="$2"; shift 2 ;;
+    --gmail-mailboxes) GMAIL_MAILBOXES="$2"; shift 2 ;;
     --dashboard-pass) DASHBOARD_PASS="$2"; shift 2 ;;
     --daily-budget)   DAILY_BUDGET="$2"; shift 2 ;;
     --skip-ssl)       SKIP_SSL="true"; shift ;;
@@ -129,6 +153,8 @@ fi
 
 # Defaults
 [[ -z "$SENDER_EMAIL" ]] && SENDER_EMAIL="hello@${DOMAIN}"
+[[ -z "$SENDER_NAME" ]] && SENDER_NAME="$CLIENT_NAME"
+[[ -z "$REPLY_TO_EMAIL" ]] && REPLY_TO_EMAIL="$SENDER_EMAIL"
 [[ -z "$DASHBOARD_PASS" ]] && DASHBOARD_PASS="iFIND$(openssl rand -hex 4)!"
 
 # Demander les cles manquantes interactivement
@@ -203,6 +229,17 @@ CLAUDE_API_KEY=${CLAUDE_KEY}
 SENDGRID_API_KEY=
 RESEND_API_KEY=${RESEND_KEY}
 SENDER_EMAIL=${SENDER_EMAIL}
+SENDER_NAME=${SENDER_NAME}
+SENDER_FULL_NAME=${SENDER_FULL_NAME}
+SENDER_TITLE=${SENDER_TITLE}
+REPLY_TO_EMAIL=${REPLY_TO_EMAIL}
+CLIENT_DESCRIPTION=${CLIENT_DESCRIPTION}
+GMAIL_SMTP_ENABLED=true
+
+# --- Multi-domaine email ---
+SENDER_DOMAINS=${SENDER_DOMAINS}
+GMAIL_MAILBOXES=${GMAIL_MAILBOXES}
+TRACKING_DOMAIN=${TRACKING_DOMAIN}
 
 # --- Budget API ---
 API_DAILY_BUDGET=${DAILY_BUDGET}
@@ -213,6 +250,7 @@ RESEND_WEBHOOK_SECRET=${WEBHOOK_SECRET}
 # --- Dashboard ---
 DASHBOARD_PASSWORD=${DASHBOARD_PASS}
 DASHBOARD_OWNER=${CLIENT_NAME}
+CLIENT_NAME=${CLIENT_NAME}
 
 # --- Admin ---
 ADMIN_CHAT_ID=${ADMIN_CHAT_ID}
@@ -364,11 +402,18 @@ $SSH_CMD "ln -sf /etc/nginx/sites-available/ifind-client /etc/nginx/sites-enable
 log "Nginx configure pour $DOMAIN"
 
 if [[ "$SKIP_SSL" != "true" ]]; then
-  log "=== Phase 4: SSL/Let's Encrypt ==="
-  $SSH_CMD "certbot --nginx -d ${DOMAIN} --non-interactive --agree-tos --email ${SENDER_EMAIL} --redirect" || {
-    warn "Certbot a echoue — le DNS de $DOMAIN pointe-t-il vers $HOST ?"
-    warn "Vous pouvez relancer plus tard: certbot --nginx -d $DOMAIN"
-  }
+  log "=== Phase 4: Validation DNS + SSL ==="
+  DNS_IP=$(dig +short "$DOMAIN" 2>/dev/null | head -1)
+  if [[ "$DNS_IP" == "$HOST" ]]; then
+    log "DNS OK: $DOMAIN -> $DNS_IP"
+    $SSH_CMD "certbot --nginx -d ${DOMAIN} --non-interactive --agree-tos --email ${SENDER_EMAIL} --redirect" || {
+      warn "Certbot a echoue — verifiez la config nginx"
+      warn "Relancez plus tard: certbot --nginx -d $DOMAIN"
+    }
+  else
+    warn "DNS: $DOMAIN pointe vers '${DNS_IP:-RIEN}' au lieu de $HOST"
+    warn "SSL ignore — configurez le DNS puis lancez: ssh ${SSH_USER}@${HOST} 'certbot --nginx -d $DOMAIN'"
+  fi
 fi
 
 log "=== Phase 5: Fail2ban ==="
@@ -379,14 +424,31 @@ $SSH_CMD "cd /opt/ifind && docker compose down 2>/dev/null; docker compose up -d
 log "Containers demarre"
 
 # Attendre le healthcheck
-log "Attente healthcheck (30s)..."
+log "Attente demarrage containers (30s)..."
 sleep 30
 
-HEALTH=$($SSH_CMD "curl -sf http://127.0.0.1:9090/health 2>/dev/null || echo FAIL")
-if echo "$HEALTH" | grep -q "ok\|healthy\|status"; then
-  log "Healthcheck OK!"
+# Healthcheck bot (telegram-router)
+HEALTH_BOT=$($SSH_CMD "curl -sf http://127.0.0.1:9090/health 2>/dev/null || echo FAIL")
+if echo "$HEALTH_BOT" | grep -q "ok\|healthy\|status"; then
+  log "Bot (telegram-router):  OK"
 else
-  warn "Healthcheck incertain — verifiez avec: ssh ${SSH_USER}@${HOST} 'docker compose -f /opt/ifind/docker-compose.yml logs --tail=50'"
+  warn "Bot (telegram-router):  ECHEC"
+fi
+
+# Healthcheck dashboard
+HEALTH_DASH=$($SSH_CMD "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login 2>/dev/null || echo 000")
+if [[ "$HEALTH_DASH" == "200" ]]; then
+  log "Dashboard (port 3000):  OK"
+else
+  warn "Dashboard (port 3000):  ECHEC (HTTP $HEALTH_DASH)"
+fi
+
+# Healthcheck landing
+HEALTH_LAND=$($SSH_CMD "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:3080/ 2>/dev/null || echo 000")
+if [[ "$HEALTH_LAND" == "200" ]]; then
+  log "Landing (port 3080):    OK"
+else
+  warn "Landing (port 3080):    ECHEC (HTTP $HEALTH_LAND)"
 fi
 
 # === Recapitulatif ===
