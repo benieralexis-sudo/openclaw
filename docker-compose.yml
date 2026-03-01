@@ -145,6 +145,8 @@ services:
       MEETING_SCHEDULER_DATA_DIR: /data/meeting-scheduler
       APP_CONFIG_DIR: /data/app-config
       DASHBOARD_DATA_DIR: /data/dashboard
+      HUBSPOT_API_KEY: ${HUBSPOT_API_KEY:-}
+      CLIENT_NAME: ${CLIENT_NAME:-iFIND}
     volumes:
       - ./dashboard:/app
       - ./gateway/logger.js:/gateway/logger.js:ro

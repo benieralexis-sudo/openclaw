@@ -699,17 +699,75 @@ app.get('/api/emails', authRequired, async (req, res) => {
   });
 });
 
-// CRM Pilot
+// CRM Pilot — avec fallback direct HubSpot si cache vide
+const HUBSPOT_TOKEN = process.env.HUBSPOT_API_KEY || '';
+const HUBSPOT_DEAL_PROPS = 'dealname,dealstage,pipeline,amount,closedate,createdate,hs_lastmodifieddate';
+const HUBSPOT_CONTACT_PROPS = 'firstname,lastname,email,company,phone,createdate,hs_lastmodifieddate';
+
+let _hubspotCache = { deals: null, contacts: null, pipeline: null, ts: 0 };
+const HUBSPOT_CACHE_TTL = 5 * 60 * 1000; // 5min
+
+async function fetchHubSpotDirect() {
+  if (!HUBSPOT_TOKEN) return { deals: [], contacts: [], pipeline: null };
+  if (_hubspotCache.ts && Date.now() - _hubspotCache.ts < HUBSPOT_CACHE_TTL) {
+    return _hubspotCache;
+  }
+  const headers = { Authorization: 'Bearer ' + HUBSPOT_TOKEN };
+  const base = 'https://api.hubapi.com';
+  try {
+    const [dealsRes, contactsRes, pipelineRes] = await Promise.all([
+      fetch(base + '/crm/v3/objects/deals?limit=100&properties=' + HUBSPOT_DEAL_PROPS, { headers }).then(r => r.json()).catch(() => ({})),
+      fetch(base + '/crm/v3/objects/contacts?limit=100&properties=' + HUBSPOT_CONTACT_PROPS, { headers }).then(r => r.json()).catch(() => ({})),
+      fetch(base + '/crm/v3/pipelines/deals/default', { headers }).then(r => r.json()).catch(() => null)
+    ]);
+    const deals = (dealsRes.results || []).map(d => ({
+      id: d.id,
+      properties: {
+        dealname: d.properties?.dealname || '',
+        dealstage: d.properties?.dealstage || '',
+        pipeline: d.properties?.pipeline || 'default',
+        amount: parseFloat(d.properties?.amount) || 0,
+        company: d.properties?.company || '',
+        createdAt: d.properties?.createdate || d.createdAt,
+        updatedAt: d.properties?.hs_lastmodifieddate
+      }
+    }));
+    const contacts = (contactsRes.results || []).map(c => ({
+      id: c.id,
+      properties: {
+        firstname: c.properties?.firstname || '',
+        lastname: c.properties?.lastname || '',
+        email: c.properties?.email || '',
+        company: c.properties?.company || '',
+        phone: c.properties?.phone || '',
+        createdAt: c.properties?.createdate || c.createdAt
+      }
+    }));
+    _hubspotCache = { deals, contacts, pipeline: pipelineRes, ts: Date.now() };
+    return _hubspotCache;
+  } catch (e) {
+    log.warn('dashboard', 'HubSpot fetch failed: ' + e.message);
+    return { deals: [], contacts: [], pipeline: null };
+  }
+}
+
 app.get('/api/crm', authRequired, async (req, res) => {
   const crm = await readData('crm-pilot') || {};
   const activityLog = (crm.activityLog || []).slice(-100);
   const stats = crm.stats || {};
-  const users = crm.users ? Object.values(crm.users) : [];
 
-  // Pipeline data from cache
-  const pipeline = crm.cache?.pipeline?.data || null;
-  const allDeals = crm.cache?.deals ? Object.values(crm.cache.deals).flatMap(c => c.data || []) : [];
-  const allContacts = crm.cache?.contacts ? Object.values(crm.cache.contacts).flatMap(c => c.data || []) : [];
+  // Pipeline data from skill cache
+  let allDeals = crm.cache?.deals ? Object.values(crm.cache.deals).flatMap(c => c.data || []) : [];
+  let allContacts = crm.cache?.contacts ? Object.values(crm.cache.contacts).flatMap(c => c.data || []) : [];
+  let pipeline = crm.cache?.pipeline?.data || null;
+
+  // Fallback : appel direct HubSpot si cache skill vide
+  if (allDeals.length === 0 && HUBSPOT_TOKEN) {
+    const hs = await fetchHubSpotDirect();
+    allDeals = hs.deals;
+    allContacts = hs.contacts;
+    pipeline = hs.pipeline;
+  }
 
   // Filtrer par entreprise pour les clients
   const deals = filterByCompany(allDeals, req.user, 'company');
@@ -722,8 +780,8 @@ app.get('/api/crm', authRequired, async (req, res) => {
   res.json({
     stats: {
       totalActions: stats.totalActions || 0,
-      contactsCreated: stats.totalContactsCreated || 0,
-      dealsCreated: stats.totalDealsCreated || 0,
+      contactsCreated: stats.totalContactsCreated || contacts.length,
+      dealsCreated: stats.totalDealsCreated || deals.length,
       notesAdded: stats.totalNotesAdded || 0,
       tasksCreated: stats.totalTasksCreated || 0
     },
