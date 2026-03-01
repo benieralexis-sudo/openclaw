@@ -678,6 +678,19 @@ class CampaignEngine {
         continue;
       }
 
+      // Filtre honeypot : exclure les adresses systeme/generiques qui ne repondront jamais
+      const emailPrefix = (contact.email || '').split('@')[0].toLowerCase();
+      const HONEYPOT_PREFIXES = ['noreply', 'no-reply', 'donotreply', 'no-response', 'noreponse',
+        'test', 'spam', 'abuse', 'security', 'compliance', 'webmaster', 'postmaster',
+        'hostmaster', 'mailer-daemon', 'info', 'contact', 'admin', 'support', 'hello',
+        'office', 'reception', 'accueil', 'commercial'];
+      if (HONEYPOT_PREFIXES.includes(emailPrefix)) {
+        log.info('campaign-engine', 'Skip ' + contact.email + ' (adresse generique: ' + emailPrefix + '@)');
+        storage.addToBlacklist(contact.email, 'generic_address');
+        skipped++;
+        continue;
+      }
+
       // Rate limiting inter-campagne : max 2 emails/72h par contact (cross-campagne)
       try {
         const allEmailsToContact = storage.getEmailEventsForRecipient(contact.email);
@@ -758,14 +771,24 @@ class CampaignEngine {
           }
         }
 
-        // Stop sur inactivite : skip si zero ouverture apres 2 steps (sauf breakup)
-        if (stepNumber > 2 && stepNumber < campaign.steps.length) {
+        // Stop sur inactivite : skip si zero ouverture (breakup early)
+        if (stepNumber >= 2 && stepNumber < campaign.steps.length) {
           const prevEmails = contactEmails.filter(e => e.stepNumber < stepNumber && e.status !== 'failed');
           if (prevEmails.length > 0 && !prevEmails.some(e => e.openedAt || e.status === 'opened')) {
-            log.info('campaign-engine', 'Skip ' + contact.email + ' (inactif: zero ouverture sur ' + prevEmails.length + ' emails — step ' + stepNumber + ')');
-            skippedInactive++;
-            skipped++;
-            continue;
+            // Step 2 : skip si step 1 envoye depuis 5+ jours sans ouverture
+            // Step 3+ : skip systematiquement si zero ouverture (sauf breakup = dernier step)
+            const oldestSent = prevEmails.reduce((min, e) => {
+              const t = e.sentAt ? new Date(e.sentAt).getTime() : Infinity;
+              return t < min ? t : min;
+            }, Infinity);
+            const daysSinceFirst = (Date.now() - oldestSent) / (24 * 60 * 60 * 1000);
+
+            if (stepNumber > 2 || daysSinceFirst >= 5) {
+              log.info('campaign-engine', 'Skip ' + contact.email + ' (inactif: zero ouverture sur ' + prevEmails.length + ' emails depuis ' + Math.round(daysSinceFirst) + 'j — step ' + stepNumber + ')');
+              skippedInactive++;
+              skipped++;
+              continue;
+            }
           }
         }
 
@@ -1140,6 +1163,14 @@ class CampaignEngine {
       } else {
         errors++;
         log.error('campaign-engine', 'Erreur envoi a ' + contact.email + ':', result.error);
+
+        // Circuit breaker : si 3+ echecs consecutifs, arreter le batch (probleme SMTP/auth probable)
+        const recentEmails = storage.getEmailsByCampaign(campaignId).slice(-5);
+        const recentFails = recentEmails.filter(e => e.status === 'failed').length;
+        if (recentFails >= 3) {
+          log.warn('campaign-engine', 'CIRCUIT BREAKER: 3+ echecs consecutifs — batch interrompu (verifier auth SMTP)');
+          break;
+        }
       }
 
       // Rate limiting : 200ms entre chaque envoi
