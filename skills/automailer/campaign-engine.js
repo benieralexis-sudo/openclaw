@@ -832,32 +832,73 @@ class CampaignEngine {
               body = personalized.body;
               log.info('campaign-engine', 'Relance individualisee generee pour ' + contact.email + ' (step ' + stepNumber + ')');
             } else {
-              // Fallback template si skip ou donnees insuffisantes
-              log.info('campaign-engine', 'Fallback template pour ' + contact.email + ' (step ' + stepNumber + '): ' + (personalized && personalized.reason || 'generation incomplete'));
-              subject = this._applyTemplateVars(subject, contact, firstName);
-              body = this._applyTemplateVars(body, contact, firstName);
+              // Claude a skip (donnees insuffisantes) — essayer relance contextuelle basee sur email precedent
+              const prevEmails = this._getPreviousEmails(campaignId, contact.email, stepNumber);
+              if (prevEmails.length > 0 && this.claude.personalizeEmail) {
+                try {
+                  const lastEmail = prevEmails[prevEmails.length - 1];
+                  const simpleContext = 'Email precedent envoye: "' + (lastEmail.subject || '') + '". Ecris une relance courte (20-30 mots) qui rebondit sur cet email, avec une question simple.';
+                  const simple = await this.claude.generatePersonalizedFollowUp(
+                    contact, stepNumber, campaign.steps.length,
+                    simpleContext, prevEmails, campaign.context || campaign.name || 'prospection B2B'
+                  );
+                  if (simple && simple.subject && simple.body && !simple.skip) {
+                    subject = simple.subject;
+                    body = simple.body;
+                    log.info('campaign-engine', 'Relance contextuelle (basee sur email precedent) pour ' + contact.email);
+                  } else {
+                    log.info('campaign-engine', 'Step ' + stepNumber + ' skip pour ' + contact.email + ' (relance contextuelle aussi echouee): ' + (personalized && personalized.reason || 'generation incomplete'));
+                    skipped++;
+                    continue;
+                  }
+                } catch (simpleErr) {
+                  log.info('campaign-engine', 'Step ' + stepNumber + ' skip pour ' + contact.email + ' (erreur relance contextuelle): ' + simpleErr.message);
+                  skipped++;
+                  continue;
+                }
+              } else {
+                // Aucun email precedent et Claude a skip — skip plutot que template generique
+                log.info('campaign-engine', 'Step ' + stepNumber + ' skip pour ' + contact.email + ': ' + (personalized && personalized.reason || 'generation incomplete'));
+                skipped++;
+                continue;
+              }
             }
           } catch (genErr) {
-            // Fallback complet sur le template en cas d'erreur
-            log.warn('campaign-engine', 'Erreur generation individualisee pour ' + contact.email + ', fallback template: ' + genErr.message);
-            subject = this._applyTemplateVars(subject, contact, firstName);
-            body = this._applyTemplateVars(body, contact, firstName);
+            // Erreur technique Claude — skip plutot que template generique
+            log.warn('campaign-engine', 'Step ' + stepNumber + ' skip pour ' + contact.email + ' (erreur Claude): ' + genErr.message);
+            skipped++;
+            continue;
           }
         } else {
-          // Pas de brief : fallback template + personalizeEmail basique
-          log.info('campaign-engine', 'Pas de prospectIntel pour ' + contact.email + ' — fallback template (step ' + stepNumber + ')');
-          subject = this._applyTemplateVars(subject, contact, firstName);
-          body = this._applyTemplateVars(body, contact, firstName);
-          if (contact.company || contact.title || contact.industry) {
+          // Pas de brief : essayer personalizeEmail avec le contexte de l'email precedent
+          const prevEmails = this._getPreviousEmails(campaignId, contact.email, stepNumber);
+          if (prevEmails.length > 0 && this.claude.generatePersonalizedFollowUp) {
             try {
-              const pResult = await this.claude.personalizeEmail(subject, body, contact);
-              if (pResult && pResult.subject && pResult.body) {
-                subject = pResult.subject;
-                body = pResult.body;
+              const lastEmail = prevEmails[prevEmails.length - 1];
+              const simpleContext = 'Email precedent envoye: "' + (lastEmail.subject || '') + '" — Corps: ' + (lastEmail.body || '').substring(0, 200);
+              const simple = await this.claude.generatePersonalizedFollowUp(
+                contact, stepNumber, campaign.steps.length,
+                simpleContext, prevEmails, campaign.context || campaign.name || 'prospection B2B'
+              );
+              if (simple && simple.subject && simple.body && !simple.skip) {
+                subject = simple.subject;
+                body = simple.body;
+                log.info('campaign-engine', 'Relance sans brief (basee sur email precedent) pour ' + contact.email);
+              } else {
+                log.info('campaign-engine', 'Step ' + stepNumber + ' skip pour ' + contact.email + ' (pas de brief, relance echouee)');
+                skipped++;
+                continue;
               }
             } catch (personalizeErr) {
-              log.info('campaign-engine', 'personalizeEmail fallback echoue: ' + personalizeErr.message);
+              log.info('campaign-engine', 'Step ' + stepNumber + ' skip pour ' + contact.email + ' (erreur personalizeEmail): ' + personalizeErr.message);
+              skipped++;
+              continue;
             }
+          } else {
+            // Zero contexte — skip, ne pas envoyer de template generique
+            log.info('campaign-engine', 'Step ' + stepNumber + ' skip pour ' + contact.email + ' (zero contexte, pas d\'email precedent)');
+            skipped++;
+            continue;
           }
         }
       } else {

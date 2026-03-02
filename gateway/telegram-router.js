@@ -3228,8 +3228,32 @@ process.on('uncaughtException', (err) => {
   gracefulShutdown();
 });
 process.on('unhandledRejection', (reason) => {
-  log.error('router', 'UNHANDLED REJECTION:', reason?.message || String(reason));
-  log.error('router', reason?.stack ? reason.stack.substring(0, 500) : 'no stack');
+  const msg = reason?.message || String(reason);
+  const stack = reason?.stack || '';
+
+  // IMAP/imapflow rejections internes — ne PAS crasher le container
+  // imapflow lance des rejections "Connection not available" / "socket hang up"
+  // quand le timeout gagne la race contre client.connect()
+  if (msg.includes('Connection not available') || msg.includes('socket hang up') ||
+      msg.includes('IMAP') || stack.includes('imapflow')) {
+    log.warn('router', 'IMAP unhandled rejection (non-fatal):', msg);
+    // Restart IMAP listener proprement si disponible
+    if (inboxListener) {
+      try {
+        inboxListener.stop();
+        setTimeout(() => {
+          if (inboxListener && inboxListener.isConfigured()) {
+            inboxListener.start().catch(e => log.warn('router', 'IMAP restart echoue:', e.message));
+          }
+        }, 10000);
+      } catch (e) {}
+    }
+    return; // NE PAS crasher
+  }
+
+  // Autres unhandled rejections — log + crash comme avant
+  log.error('router', 'UNHANDLED REJECTION:', msg);
+  log.error('router', stack ? stack.substring(0, 500) : 'no stack');
   // Sauvegarder les drafts HITL avant exit
   try { _saveHitlDrafts(); } catch (e) {}
   gracefulShutdown();

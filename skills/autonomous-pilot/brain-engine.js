@@ -328,6 +328,11 @@ class BrainEngine {
             }
           }
         }
+        // Exclure les leads recemment echoues (cooldown 3 jours)
+        const recentlyFailedVal = storage.getRecentlyFailedEmails(3);
+        for (const email of recentlyFailedVal) {
+          alreadySentVal.add(email);
+        }
         const gVal = storage.getGoals().weekly;
         Object.values(allLeadsVal)
           .filter(l => l.email && (l.score || 0) >= (gVal.minLeadScore || 5) && !alreadySentVal.has(l.email.toLowerCase()))
@@ -382,8 +387,11 @@ class BrainEngine {
     const RETRYABLE_ACTIONS = ['send_email', 'push_to_crm'];
     const MAX_RETRIES = 2;
     const _actionResults = []; // Track results pour le resume business
+    let _consecutiveEmailSkips = 0; // Circuit breaker: stop apres N skips consecutifs
 
     for (const action of plan.actions) {
+      if (action._skippedByBreaker) continue; // Skip par circuit breaker
+      action._executed = true;
       if (action.autoExecute) {
         // Lock par action key pour eviter doublons si deux brain cycles s'executent
         const actionKey = action.type + '_' + (action.email || action.target || action.id || '');
@@ -435,8 +443,29 @@ class BrainEngine {
         _actionResults.push({ type: action.type, success: !!(result && result.success), result: result });
         if (result && result.success && result.summary) {
           log.info('brain', 'Action auto: ' + result.summary);
+          if (action.type === 'send_email') _consecutiveEmailSkips = 0; // Reset sur succes
         } else if (result && !result.success && attempts > 1) {
           log.error('brain', 'Action ' + action.type + ' echouee apres ' + attempts + ' tentatives: ' + (result.error || '?'));
+        }
+
+        // Circuit breaker: si 3+ send_email consecutifs echouent (skip/gate/blacklist),
+        // arreter les send_email restants — le pool de leads est epuise
+        if (action.type === 'send_email' && result && !result.success) {
+          _consecutiveEmailSkips++;
+          if (_consecutiveEmailSkips >= 3) {
+            const remaining = plan.actions.filter(a => a.type === 'send_email' && a !== action).length;
+            if (remaining > 0) {
+              log.warn('brain', 'Circuit breaker: ' + _consecutiveEmailSkips + ' send_email consecutifs echoues — skip des ' + remaining + ' restants (pool epuise)');
+              // Marquer les send_email restants comme skipped
+              plan.actions = plan.actions.map(a => {
+                if (a.type === 'send_email' && !a._executed) {
+                  a._skippedByBreaker = true;
+                }
+                return a;
+              });
+              break;
+            }
+          }
         }
       } else {
         const queued = storage.addToQueue(action);
@@ -1081,19 +1110,34 @@ Analyse et reponds en JSON:
             }
           }
         }
+        // Exclure aussi les leads ayant echoue recemment (skip, blacklist, gate block)
+        // Cooldown 3 jours pour eviter de reproposer en boucle
+        const recentlyFailed = storage.getRecentlyFailedEmails(3);
+        for (const email of recentlyFailed) {
+          alreadySent.add(email);
+        }
         const eligible = Object.values(allLeadsEligible)
           .filter(l => l.email && (l.score || 0) >= (g.minLeadScore || 5) && !alreadySent.has(l.email.toLowerCase()))
           .sort((a, b) => (b.score || 0) - (a.score || 0))
           .slice(0, 20);
+        // Info sur le taux de skip recent pour guider le brain
+        const recentSendActions = storage.getRecentActions(30).filter(a => a.type === 'send_email');
+        const recentSkips = recentSendActions.filter(a => a.result && !a.result.success && (a.result.skipped || a.result.gateBlocked));
+        const skipRate = recentSendActions.length > 0 ? Math.round(recentSkips.length / recentSendActions.length * 100) : 0;
+
         if (eligible.length > 0) {
           prompt += '\nLEADS DISPONIBLES POUR ENVOI (emails REELS — utilise-les dans tes actions send_email):\n';
           for (const l of eligible) {
             prompt += '- ' + l.email + ' | ' + (l.nom || '?') + ' | ' + (l.titre || '?') + ' @ ' + (l.entreprise || '?') + ' | score: ' + (l.score || '?') + '\n';
           }
           prompt += '→ IMPORTANT: Utilise UNIQUEMENT les adresses email ci-dessus dans tes actions send_email. NE JAMAIS inventer de placeholders ou de variables {{...}}.\n';
-          prompt += '→ Si tu as besoin de NOUVEAUX leads, fais d\'abord search_leads, puis utilise les resultats du prochain cycle.\n';
+          if (skipRate > 40) {
+            prompt += '⚠️ ATTENTION: ' + skipRate + '% des send_email recents ont ete SKIPPED (donnees insuffisantes). Le pool de leads actuel manque de donnees exploitables. PRIORITE: fais 1-2 search_leads dans de NOUVELLES niches avant d\'envoyer plus d\'emails.\n';
+          } else {
+            prompt += '→ Si tu as besoin de NOUVEAUX leads, fais d\'abord search_leads, puis utilise les resultats du prochain cycle.\n';
+          }
         } else {
-          prompt += '\n- Aucun lead eligible pour envoi (tous deja contactes ou score trop bas). Fais search_leads pour en trouver.\n';
+          prompt += '\n⚠️ AUCUN lead eligible pour envoi (tous deja contactes, score trop bas, ou recemment echoues). PRIORITE ABSOLUE: fais 2-3 search_leads dans des niches DIFFERENTES pour reconstituer le pool.\n';
         }
         // Leads deja contactes sans reponse (pour follow-up)
         const contacted = Object.values(allLeadsEligible)

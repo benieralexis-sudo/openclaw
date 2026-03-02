@@ -433,6 +433,30 @@ function getRecentActions(limit) {
   return _load().actionHistory.slice(0, limit);
 }
 
+/**
+ * Retourne un Set d'emails ayant echoue recemment (< cooldownDays jours)
+ * pour eviter que le brain les repropose en boucle.
+ * Inclut: skipped, blacklisted, gate blocked, invalid email, donnees insuffisantes
+ */
+function getRecentlyFailedEmails(cooldownDays) {
+  cooldownDays = cooldownDays || 3;
+  const cutoff = Date.now() - cooldownDays * 24 * 3600 * 1000;
+  const failed = new Set();
+  const history = _load().actionHistory;
+  for (const a of history) {
+    if (a.type !== 'send_email') continue;
+    const ts = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    if (ts < cutoff) continue; // Trop vieux, ignore
+    const r = a.result;
+    if (!r || typeof r !== 'object') continue;
+    if (r.success === true) continue; // Succès, pas un echec
+    // Extraire l'email depuis params.to (ou target si disponible)
+    const email = (a.params?.to || a.target || '').toLowerCase().trim();
+    if (email && email.includes('@')) failed.add(email);
+  }
+  return failed;
+}
+
 // --- Diagnostic ---
 
 function addDiagnosticItem(item) {
@@ -717,7 +741,7 @@ module.exports = {
   getGoals, updateWeeklyGoals, updateSearchCriteria,
   getProgress, incrementProgress, resetWeeklyProgress,
   addToQueue, getQueuedActions, confirmAction, rejectAction, completeAction, cleanupQueue,
-  recordAction, getRecentActions,
+  recordAction, getRecentActions, getRecentlyFailedEmails,
   addDiagnosticItem, resolveDiagnosticItem, getOpenDiagnostics, getAllDiagnostics, updateDiagnosticCheck,
   getLearnings, addLearning, addExperiment, completeExperiment, getActiveExperiments,
   getPatterns, savePatterns, getCriteriaHistory, addCriteriaAdjustment,

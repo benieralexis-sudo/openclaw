@@ -384,6 +384,7 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
   }
 
   // Score leger pour les follow-ups/relances (pas de retry, juste reject si trop bas)
+  // Seuil 6/10 pour les follow-ups (vs 8/10 step 1) — un 6/10 Claude est mieux qu'un template generique
   async _scoreAndFilter(parsed, contact) {
     if (!parsed || parsed.skip) return parsed;
     try {
@@ -393,7 +394,7 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
         return { skip: true, reason: 'too_many_words:' + wordCount + ' (max 60)' };
       }
       const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
-      if (score.note >= 8) return parsed;
+      if (score.note >= 6) return parsed;
       return { skip: true, reason: 'auto_score_too_low:' + score.note + '/10 (' + (score.reason || '?') + ')' };
     } catch (e) {
       // Scoring indisponible — appliquer gates programmatiques strictes

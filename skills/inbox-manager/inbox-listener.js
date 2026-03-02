@@ -90,14 +90,26 @@ class InboxListener {
     });
 
     // Timeout 15s pour eviter les hangs silencieux
-    const connectTimeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('IMAP connect timeout (15s)')), 15000)
-    );
+    let timeoutId = null;
+    const connectTimeout = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('IMAP connect timeout (15s)')), 15000);
+    });
+
+    // Absorber les rejections internes d'imapflow quand le timeout gagne
+    const connectPromise = client.connect().catch(e => {
+      // Rejection absorbee ici — sera detectee par le Promise.race
+      throw e;
+    });
+
     try {
-      await Promise.race([client.connect(), connectTimeout]);
+      await Promise.race([connectPromise, connectTimeout]);
+      clearTimeout(timeoutId);
     } catch (e) {
+      clearTimeout(timeoutId);
       // Detruire le client si le timeout gagne (evite connection leak)
+      // Absorber toute rejection future d'imapflow
       try { client.close(); } catch (_) {}
+      client.on('error', () => {}); // Absorber les erreurs post-close
       throw e;
     }
     return client;
