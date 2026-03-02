@@ -429,6 +429,29 @@ class AutoMailerStorage {
     this._save();
   }
 
+  /**
+   * Compte TOUS les emails envoyes depuis une date donnee (YYYY-MM-DD).
+   * Utilise dailySends (rapide) avec fallback sur scan des emails.
+   */
+  getSendCountSince(sinceDate) {
+    if (!sinceDate) return 0;
+    // Methode rapide : sommer dailySends depuis sinceDate
+    if (this.data.stats.dailySends) {
+      let total = 0;
+      for (const [day, count] of Object.entries(this.data.stats.dailySends)) {
+        if (day >= sinceDate) total += count;
+      }
+      if (total > 0) return total;
+    }
+    // Fallback : compter les emails dans le tableau
+    const sinceTs = new Date(sinceDate + 'T00:00:00Z').getTime();
+    return this.data.emails.filter(e => {
+      if (e.status === 'failed' || e.status === 'queued') return false;
+      const ts = e.sentAt ? new Date(e.sentAt).getTime() : (e.createdAt ? new Date(e.createdAt).getTime() : 0);
+      return ts >= sinceTs;
+    }).length;
+  }
+
   // --- Reply tracking ---
 
   markAsReplied(emailId) {
