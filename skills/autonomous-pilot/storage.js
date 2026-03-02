@@ -731,17 +731,38 @@ function saveProspectResearch(email, intel) {
 function getNichePerformance() {
   const data = _load();
   if (!data.nichePerformance) data.nichePerformance = {};
+  // Migration auto : fusionner les doublons underscore/tiret
+  const normalized = {};
+  let hasDuplicates = false;
+  for (const [niche, stats] of Object.entries(data.nichePerformance)) {
+    const key = String(niche).replace(/_/g, '-').toLowerCase().trim();
+    if (normalized[key]) {
+      hasDuplicates = true;
+      normalized[key].sent += (stats.sent || 0);
+      normalized[key].opened += (stats.opened || 0);
+      normalized[key].replied += (stats.replied || 0);
+      normalized[key].leads += (stats.leads || 0);
+    } else {
+      normalized[key] = { sent: stats.sent || 0, opened: stats.opened || 0, replied: stats.replied || 0, leads: stats.leads || 0 };
+    }
+  }
+  if (hasDuplicates) {
+    data.nichePerformance = normalized;
+    _save();
+  }
   return data.nichePerformance;
 }
 
 function trackNicheEvent(niche, event) {
   if (!niche) return;
+  // Normaliser : toujours tirets, lowercase (evite doublons agences-marketing vs agences_marketing)
+  const normalizedNiche = String(niche).replace(/_/g, '-').toLowerCase().trim();
   const data = _load();
   if (!data.nichePerformance) data.nichePerformance = {};
-  if (!data.nichePerformance[niche]) {
-    data.nichePerformance[niche] = { sent: 0, opened: 0, replied: 0, leads: 0 };
+  if (!data.nichePerformance[normalizedNiche]) {
+    data.nichePerformance[normalizedNiche] = { sent: 0, opened: 0, replied: 0, leads: 0 };
   }
-  const np = data.nichePerformance[niche];
+  const np = data.nichePerformance[normalizedNiche];
   if (event === 'lead') np.leads = (np.leads || 0) + 1;
   else if (event === 'sent') np.sent = (np.sent || 0) + 1;
   else if (event === 'opened') np.opened = (np.opened || 0) + 1;

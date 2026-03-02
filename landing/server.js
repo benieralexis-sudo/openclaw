@@ -10,7 +10,7 @@ const VisitorTracker = require('./tracker.js');
 const app = express();
 const PORT = process.env.LANDING_PORT || 3080;
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '';
 
 // Trust nginx proxy (pour avoir la vraie IP)
 app.set('trust proxy', 1);
@@ -180,6 +180,7 @@ function telegramAPI(method, body) {
 }
 
 function sendTelegramWithButton(text, buttons) {
+  if (!ADMIN_CHAT_ID) return Promise.resolve(null);
   return telegramAPI('sendMessage', {
     chat_id: ADMIN_CHAT_ID,
     text,

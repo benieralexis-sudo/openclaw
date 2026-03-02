@@ -326,7 +326,7 @@ ${leadsHtml}
   <tr><td style="padding:32px;text-align:center;border-top:1px solid #E7E5E4;">
     <p style="margin:0 0 8px;font-family:'Space Grotesk',Arial,sans-serif;font-size:20px;font-weight:700;color:#1C1917;">Interesse(e) ?</p>
     <p style="margin:0 0 24px;font-size:15px;color:#57534E;">Nous pouvons automatiser l'envoi de ces emails et la gestion des reponses.</p>
-    <a href="mailto:${process.env.REPLY_TO_EMAIL || 'hello@ifind.fr'}?subject=${process.env.CLIENT_NAME || 'iFIND'} — Interesse par l'offre&body=Bonjour ${process.env.SENDER_NAME || 'Alexis'},%0A%0AJ'ai recu mon rapport de prospection et je suis interesse(e).%0A%0AMerci de me recontacter.%0A%0A${encodeURIComponent(prospect.prenom)}" style="display:inline-block;padding:16px 32px;background:#1D4ED8;color:#FFFFFF;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;">Discutons de vos objectifs</a>
+    <a href="mailto:${process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL}?subject=${process.env.CLIENT_NAME || 'iFIND'} — Interesse par l'offre&body=Bonjour ${process.env.SENDER_NAME || 'Alexis'},%0A%0AJ'ai recu mon rapport de prospection et je suis interesse(e).%0A%0AMerci de me recontacter.%0A%0A${encodeURIComponent(prospect.prenom)}" style="display:inline-block;padding:16px 32px;background:#1D4ED8;color:#FFFFFF;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;">Discutons de vos objectifs</a>
   </td></tr>
 
   <!-- Footer -->
@@ -357,7 +357,7 @@ ${leadsHtml}
           prospect.email,
           'Votre rapport de prospection ' + (process.env.CLIENT_NAME || 'iFIND') + ' — ' + prospect.prenom,
           htmlReport,
-          { fromName: process.env.CLIENT_NAME || 'iFIND', replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr' }
+          { fromName: process.env.CLIENT_NAME || 'iFIND', replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL }
         );
         if (result.success) {
           await this.sendTelegram(chatId, '📧 *Rapport envoye par email a ' + prospect.email + '*');

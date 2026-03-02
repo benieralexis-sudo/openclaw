@@ -421,7 +421,7 @@ class ResendClient {
         text: e.body,
         html: this._minimalHtml(e.body, e.trackingId, toEmail),
         tags: e.tags || [],
-        reply_to: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
+        reply_to: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL,
         headers: {
           'List-Unsubscribe': '<https://' + (process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr') + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'

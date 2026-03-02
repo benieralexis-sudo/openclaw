@@ -277,7 +277,7 @@ class AutoMailerStorage {
       chatId: String(record.chatId || ''),
       campaignId: record.campaignId || null,
       stepNumber: record.stepNumber || null,
-      from: record.from || process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
+      from: record.from || process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL,
       to: record.to,
       subject: record.subject,
       body: record.body || '',
@@ -448,6 +448,32 @@ class AutoMailerStorage {
     return this.data.emails.filter(e => {
       if (e.status === 'failed' || e.status === 'queued') return false;
       const ts = e.sentAt ? new Date(e.sentAt).getTime() : (e.createdAt ? new Date(e.createdAt).getTime() : 0);
+      return ts >= sinceTs;
+    }).length;
+  }
+
+  /**
+   * Compte les emails ouverts depuis une date donnee (YYYY-MM-DD).
+   */
+  getOpenedCountSince(sinceDate) {
+    if (!sinceDate) return 0;
+    const sinceTs = new Date(sinceDate + 'T00:00:00Z').getTime();
+    return this.data.emails.filter(e => {
+      if (!['opened', 'clicked', 'replied'].includes(e.status) && !e.openedAt) return false;
+      const ts = e.openedAt ? new Date(e.openedAt).getTime() : (e.sentAt ? new Date(e.sentAt).getTime() : 0);
+      return ts >= sinceTs;
+    }).length;
+  }
+
+  /**
+   * Compte les emails ayant recu une reponse depuis une date donnee (YYYY-MM-DD).
+   */
+  getRepliedCountSince(sinceDate) {
+    if (!sinceDate) return 0;
+    const sinceTs = new Date(sinceDate + 'T00:00:00Z').getTime();
+    return this.data.emails.filter(e => {
+      if (e.status !== 'replied' && !e.hasReplied) return false;
+      const ts = e.repliedAt ? new Date(e.repliedAt).getTime() : (e.sentAt ? new Date(e.sentAt).getTime() : 0);
       return ts >= sinceTs;
     }).length;
   }

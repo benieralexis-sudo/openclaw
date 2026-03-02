@@ -412,10 +412,28 @@ function _getTimezoneOffsetMs(date, timezone) {
   return new Date(localStr).getTime() - new Date(utcStr).getTime();
 }
 
-// --- Warmup progressif (source unique : gateway/utils.js) ---
+// --- Warmup progressif (source unique : domain-manager.js) ---
 function getDailyLimit() {
+  try {
+    const domainManager = require('./domain-manager.js');
+    const stats = domainManager.getStats();
+    if (stats && stats.length > 0) {
+      // Plafond global = somme des headroom de tous les domaines actifs
+      const totalHeadroom = stats
+        .filter(s => s.active)
+        .reduce((sum, s) => sum + Math.max(0, s.headroom), 0);
+      // Limite min par domaine (le plus restrictif pour le warmup global)
+      const minWarmupLimit = Math.min(...stats.filter(s => s.active).map(s => s.warmupLimit));
+      const totalTodaySent = stats.reduce((sum, s) => sum + s.todaySends, 0);
+      log.info('campaign-engine', 'Warmup check: ' + totalTodaySent + ' envoyes, limit=' + minWarmupLimit + ', headroom=' + totalHeadroom);
+      return totalHeadroom;
+    }
+  } catch (e) {
+    log.warn('campaign-engine', 'Domain-manager indisponible, fallback storage: ' + e.message);
+  }
+  // Fallback : ancienne methode si domain-manager absent
   const firstSendDate = storage.getFirstSendDate ? storage.getFirstSendDate() : null;
-  return Math.min(getWarmupDailyLimit(firstSendDate), 100); // Resend free tier = 100/jour max
+  return Math.min(getWarmupDailyLimit(firstSendDate), 100);
 }
 
 class CampaignEngine {
@@ -653,11 +671,10 @@ class CampaignEngine {
     const campaignEmails = storage.getEmailsByCampaign(campaignId);
 
     for (const contact of list.contacts) {
-      // FIX 3 : Verifier quota warmup journalier
-      const dailyLimit = getDailyLimit();
-      const todaySent = storage.getTodaySendCount();
-      if (todaySent >= dailyLimit) {
-        log.info('campaign-engine', 'Quota warmup atteint (' + todaySent + '/' + dailyLimit + ') — envoi stoppe');
+      // FIX 3 : Verifier quota warmup journalier via domain-manager
+      const remainingHeadroom = getDailyLimit();
+      if (remainingHeadroom <= 0) {
+        log.info('campaign-engine', 'Quota warmup atteint (headroom=0) — envoi stoppe');
         break;
       }
 
@@ -1123,7 +1140,7 @@ class CampaignEngine {
 
       // Threading : recuperer le messageId du dernier email envoye a ce prospect
       const sendOpts = {
-        replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
+        replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL,
         fromName: process.env.SENDER_NAME || 'Alexis',
         trackingId: trackingId,
         tags: [
@@ -1616,7 +1633,7 @@ class CampaignEngine {
       try {
         // Threading : recuperer messageId precedent pour ce prospect
         const retryOpts = {
-          replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr',
+          replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL,
           fromName: process.env.SENDER_NAME || 'Alexis',
           trackingId: email.trackingId,
           tags: [

@@ -191,7 +191,7 @@ class InboxHandler {
       '```',
       'IMAP_HOST=imap.ton-provider.com',
       'IMAP_PORT=993',
-      'IMAP_USER=hello@ifind.fr',
+      'IMAP_USER=ton_email@ton-domaine.fr',
       'IMAP_PASS=ton_mot_de_passe',
       '```',
       '',

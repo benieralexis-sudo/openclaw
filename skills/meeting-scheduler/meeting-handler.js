@@ -15,11 +15,22 @@ class MeetingHandler {
 
   start() {
     log.info('meeting-handler', 'Handler meeting-scheduler demarre');
-    // Sync event types au demarrage si configure
+    // Boot check : verifier que l'API key Cal.eu est valide
     if (this.calcom.isConfigured()) {
+      this.calcom.getProfile().then(profile => {
+        if (profile && profile.username) {
+          log.info('meeting-handler', 'Cal.eu connecte: ' + profile.username + ' (' + (profile.email || '?') + ')');
+        } else {
+          log.error('meeting-handler', 'ALERTE: CALCOM_API_KEY invalide ou profil inaccessible — meetings desactives');
+        }
+      }).catch(e => {
+        log.error('meeting-handler', 'ALERTE: Cal.eu API inaccessible: ' + e.message);
+      });
       this._syncEventTypes().catch(e =>
         log.warn('meeting-handler', 'Sync event types echoue:', e.message)
       );
+    } else {
+      log.warn('meeting-handler', 'CALCOM_API_KEY non configure — meetings desactives');
     }
   }
 

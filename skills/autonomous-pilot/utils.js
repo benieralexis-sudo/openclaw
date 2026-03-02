@@ -36,6 +36,23 @@ function parseJsonResponse(text) {
         }
       }
     }
+
+    // 4. Tentative de reparation JSON tronque : fermer les accolades/crochets manquants
+    if (start !== -1 && depth > 0) {
+      let truncated = cleaned.substring(start);
+      // Supprimer le dernier element partiel (cle ou valeur tronquee)
+      truncated = truncated.replace(/,\s*"[^"]*$/, '').replace(/,\s*$/, '');
+      // Fermer les structures ouvertes
+      for (let d = 0; d < depth; d++) {
+        // Determiner si on doit fermer un array ou un objet
+        const lastOpen = truncated.lastIndexOf('[') > truncated.lastIndexOf('{') ? ']' : '}';
+        truncated += lastOpen;
+      }
+      try {
+        const parsed = JSON.parse(truncated);
+        return _validatePlan(parsed);
+      } catch (_) {}
+    }
   } catch (e) {
     // silently fail
   }

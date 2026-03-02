@@ -847,7 +847,7 @@ JSON strict, exemples :
         pending.to,
         pending.email.subject,
         pending.email.body,
-        { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId }
+        { replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId }
       ), 2, 2000));
 
       storage.addEmail({

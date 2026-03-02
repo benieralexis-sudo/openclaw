@@ -134,13 +134,31 @@ class BrainEngine {
           activeCampaigns: stats.activeCampaigns || 0
         };
 
-        // FIX: emailsSentThisWeek doit compter TOUS les emails (AP + campaigns)
-        // Utiliser le vrai compteur automailer au lieu du compteur AP seul
-        if (am.getSendCountSince && state.progress.weekStart) {
-          const realCount = am.getSendCountSince(state.progress.weekStart);
-          if (realCount > state.progress.emailsSentThisWeek) {
-            log.info('brain', 'emailsSentThisWeek corrige: ' + state.progress.emailsSentThisWeek + ' (AP) -> ' + realCount + ' (total automailer)');
-            state.progress.emailsSentThisWeek = realCount;
+        // FIX: Syncer TOUS les compteurs depuis automailer (source de verite)
+        if (state.progress.weekStart) {
+          // Emails envoyes
+          if (am.getSendCountSince) {
+            const realSent = am.getSendCountSince(state.progress.weekStart);
+            if (realSent > state.progress.emailsSentThisWeek) {
+              log.info('brain', 'emailsSentThisWeek corrige: ' + state.progress.emailsSentThisWeek + ' -> ' + realSent);
+              state.progress.emailsSentThisWeek = realSent;
+            }
+          }
+          // Emails ouverts
+          if (am.getOpenedCountSince) {
+            const realOpened = am.getOpenedCountSince(state.progress.weekStart);
+            if (realOpened > (state.progress.emailsOpenedThisWeek || 0)) {
+              log.info('brain', 'emailsOpenedThisWeek corrige: ' + (state.progress.emailsOpenedThisWeek || 0) + ' -> ' + realOpened);
+              state.progress.emailsOpenedThisWeek = realOpened;
+            }
+          }
+          // Reponses
+          if (am.getRepliedCountSince) {
+            const realReplied = am.getRepliedCountSince(state.progress.weekStart);
+            if (realReplied > (state.progress.responsesThisWeek || 0)) {
+              log.info('brain', 'responsesThisWeek corrige: ' + (state.progress.responsesThisWeek || 0) + ' -> ' + realReplied);
+              state.progress.responsesThisWeek = realReplied;
+            }
           }
         }
       }
@@ -290,14 +308,21 @@ class BrainEngine {
     let plan;
     try {
       // Sonnet pour les cycles reguliers (5x moins cher qu'Opus) — Opus reserve a l'analyse hebdo
-      const response = await this.callClaude(systemPrompt, userMessage, 16384);
+      const response = await this.callClaude(systemPrompt, userMessage, 32768);
       // Detection troncature : si la reponse ne se termine pas par } ou ], c'est probablement tronque
       const trimmed = (response || '').trim();
       const lastChar = trimmed.charAt(trimmed.length - 1);
-      if (trimmed.length > 100 && lastChar !== '}' && lastChar !== ']') {
+      const isTruncated = trimmed.length > 100 && lastChar !== '}' && lastChar !== ']';
+      if (isTruncated) {
         log.warn('brain', 'ALERTE: Reponse probablement tronquee (' + trimmed.length + ' chars, finit par "' + trimmed.slice(-20) + '")');
       }
       plan = this._parseJsonResponse(response);
+      // Retry avec plus de tokens si tronque et parse echoue
+      if (!plan && isTruncated) {
+        log.info('brain', 'Retry brain cycle avec max_tokens=65536...');
+        const response2 = await this.callClaude(systemPrompt, userMessage, 65536);
+        plan = this._parseJsonResponse(response2);
+      }
       if (!plan) log.warn('brain', 'Parse JSON echoue, reponse brute (200 premiers chars):', (response || '(vide)').substring(0, 200));
     } catch (e) {
       log.error('brain', 'Erreur Claude Sonnet (brain plan):', e.message);
@@ -705,14 +730,31 @@ class BrainEngine {
     const config = storage.getConfig();
     const chatId = config.adminChatId;
 
-    // FIX: Corriger emailsSentThisWeek avant reset pour le bilan
+    // FIX: Corriger TOUS les compteurs avant reset pour le bilan
     try {
       const amReset = getAutomailerStorage();
       const progressBeforeReset = storage.getProgress();
-      if (amReset && amReset.getSendCountSince && progressBeforeReset.weekStart) {
-        const realCount = amReset.getSendCountSince(progressBeforeReset.weekStart);
-        if (realCount > progressBeforeReset.emailsSentThisWeek) {
-          storage.incrementProgress('emailsSentThisWeek', realCount - progressBeforeReset.emailsSentThisWeek);
+      if (amReset && progressBeforeReset.weekStart) {
+        // Emails envoyes
+        if (amReset.getSendCountSince) {
+          const realSent = amReset.getSendCountSince(progressBeforeReset.weekStart);
+          if (realSent > progressBeforeReset.emailsSentThisWeek) {
+            storage.incrementProgress('emailsSentThisWeek', realSent - progressBeforeReset.emailsSentThisWeek);
+          }
+        }
+        // Emails ouverts
+        if (amReset.getOpenedCountSince) {
+          const realOpened = amReset.getOpenedCountSince(progressBeforeReset.weekStart);
+          if (realOpened > (progressBeforeReset.emailsOpenedThisWeek || 0)) {
+            storage.incrementProgress('emailsOpenedThisWeek', realOpened - (progressBeforeReset.emailsOpenedThisWeek || 0));
+          }
+        }
+        // Reponses
+        if (amReset.getRepliedCountSince) {
+          const realReplied = amReset.getRepliedCountSince(progressBeforeReset.weekStart);
+          if (realReplied > (progressBeforeReset.responsesThisWeek || 0)) {
+            storage.incrementProgress('responsesThisWeek', realReplied - (progressBeforeReset.responsesThisWeek || 0));
+          }
         }
       }
     } catch (e) {}
@@ -1206,8 +1248,8 @@ Analyse et reponds en JSON:
       prompt += '→ Si une niche a < 5% open rate apres 20+ emails, ABANDONNE-LA et teste une niche de remplacement.\n';
       // Lister toutes les niches disponibles depuis la liste centralisee
       const allNiches = storage.getNicheList ? storage.getNicheList() : [];
-      const testedNicheSlugs = new Set(nicheKeys);
-      const untestedNiches = allNiches.filter(n => !testedNicheSlugs.has(n.slug) && !testedNicheSlugs.has(n.slug.replace(/-/g, '_')));
+      const testedNicheSlugs = new Set(nicheKeys.map(k => k.replace(/_/g, '-').toLowerCase()));
+      const untestedNiches = allNiches.filter(n => !testedNicheSlugs.has(n.slug.replace(/_/g, '-').toLowerCase()));
       if (untestedNiches.length > 0) {
         prompt += '→ NICHES PAS ENCORE TESTEES (' + untestedNiches.length + ' disponibles — TESTE-LES pour diversifier):\n';
         for (const n of untestedNiches.slice(0, 10)) {

@@ -86,7 +86,7 @@ class InboxListener {
       },
       logger: false, // Desactiver le logging verbose d'imapflow
       emitLogs: false,
-      tls: { rejectUnauthorized: false }
+      tls: { rejectUnauthorized: process.env.IMAP_REJECT_UNAUTHORIZED !== 'false' }
     });
 
     // Timeout 15s pour eviter les hangs silencieux
@@ -258,18 +258,51 @@ class InboxListener {
         ? knownLeads.find(l => (l.email || l.to || '').toLowerCase() === senderEmail)
         : null;
 
-      // Fuzzy match : meme local part (avant @) avec domaine different (.com vs .fr, etc.)
-      // Min 3 chars pour eviter les faux positifs sur "a@", "info@", etc.
+      // Fuzzy match ameliore : 3 niveaux de matching
       if (!isKnownLead && senderEmail.includes('@')) {
         const senderLocal = senderEmail.split('@')[0];
-        const fuzzyMatch = senderLocal.length >= 3 ? knownLeads.find(l => {
-          const leadEmail = (l.email || l.to || '').toLowerCase();
-          return leadEmail.includes('@') && leadEmail.split('@')[0] === senderLocal && leadEmail !== senderEmail;
-        }) : null;
+        const senderDomain = senderEmail.split('@')[1] || '';
+        // Normaliser : supprimer tirets, points, underscores pour comparaison
+        const normalizeLocal = (s) => (s || '').replace(/[-_.]/g, '').toLowerCase();
+        const normalizedSenderLocal = normalizeLocal(senderLocal);
+        // Extraire le nom de domaine sans TLD (.com, .fr, etc.)
+        const domainBase = (d) => (d || '').split('.').slice(0, -1).join('.').toLowerCase();
+        const senderDomainBase = domainBase(senderDomain);
+
+        let fuzzyMatch = null;
+
+        if (normalizedSenderLocal.length >= 3) {
+          // Niveau 1 : meme local part normalise (jean-pierre@ == jeanpierre@)
+          fuzzyMatch = knownLeads.find(l => {
+            const leadEmail = (l.email || l.to || '').toLowerCase();
+            if (!leadEmail.includes('@') || leadEmail === senderEmail) return false;
+            return normalizeLocal(leadEmail.split('@')[0]) === normalizedSenderLocal;
+          });
+
+          // Niveau 2 : meme base de domaine (company.com == company.fr)
+          if (!fuzzyMatch && senderDomainBase.length >= 3) {
+            fuzzyMatch = knownLeads.find(l => {
+              const leadEmail = (l.email || l.to || '').toLowerCase();
+              if (!leadEmail.includes('@') || leadEmail === senderEmail) return false;
+              const leadDomainBase = domainBase(leadEmail.split('@')[1] || '');
+              return leadDomainBase === senderDomainBase && leadDomainBase.length >= 3;
+            });
+          }
+
+          // Niveau 3 : meme nom de contact (si connu)
+          if (!fuzzyMatch && msg.fromName && msg.fromName.trim().length >= 4) {
+            const senderName = msg.fromName.trim().toLowerCase();
+            fuzzyMatch = knownLeads.find(l => {
+              const leadName = (l.name || l.fromName || l.contactName || '').trim().toLowerCase();
+              return leadName.length >= 4 && leadName === senderName;
+            });
+          }
+        }
+
         if (fuzzyMatch) {
           isKnownLead = true;
           matchedLead = fuzzyMatch;
-          log.info('inbox-manager', 'Fuzzy match: ' + senderEmail + ' → ' + (fuzzyMatch.email || fuzzyMatch.to) + ' (meme local part, domaine different)');
+          log.info('inbox-manager', 'Fuzzy match: ' + senderEmail + ' -> ' + (fuzzyMatch.email || fuzzyMatch.to) + ' (matching ameliore)');
         }
       }
 

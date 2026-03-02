@@ -1021,7 +1021,7 @@ Format JSON strict :
 
     try {
       // Threading : recuperer messageId precedent pour ce prospect
-      const sendOpts = { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId };
+      const sendOpts = { replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId };
       if (amStorage) {
         const prevMsgId = amStorage.getMessageIdForRecipient(params.to);
         if (prevMsgId) {

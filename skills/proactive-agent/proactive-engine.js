@@ -1670,13 +1670,13 @@ class ProactiveEngine {
         }
 
         const resendKey = this.resendKey || process.env.RESEND_API_KEY || '';
-        const senderEmail = this.senderEmail || process.env.SENDER_EMAIL || process.env.REPLY_TO_EMAIL || 'hello@ifind.fr';
+        const senderEmail = this.senderEmail || process.env.SENDER_EMAIL || process.env.REPLY_TO_EMAIL;
         const resend = new ResendClient(resendKey, senderEmail);
         const crypto = require('crypto');
         const trackingId = crypto.randomBytes(16).toString('hex');
 
         // Threading : recuperer messageId precedent pour ce prospect
-        const fuSendOpts = { replyTo: process.env.REPLY_TO_EMAIL || 'hello@ifind.fr', fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId };
+        const fuSendOpts = { replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId };
         const prevFuMsgId = amStorage.getMessageIdForRecipient ? amStorage.getMessageIdForRecipient(followUp.prospectEmail) : null;
         if (prevFuMsgId) {
           fuSendOpts.inReplyTo = prevFuMsgId;
