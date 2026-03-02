@@ -1112,17 +1112,17 @@ class CampaignEngine {
         }
       } catch (valErr) { /* AP storage indisponible — word count deja verifie ci-dessus */ }
 
-      // Ajouter lien booking Cal.eu dans les relances (step 2+)
+      // Ajouter lien booking Google Calendar dans les relances (step 2+)
       if (stepNumber >= 2) {
         try {
-          const CalComClient = require('../meeting-scheduler/calendar-client.js');
-          const calClient = new CalComClient(process.env.CALCOM_API_KEY || '');
-          const bookingUrl = await calClient.getBookingLink('appel-telephonique', contact.email, firstName);
+          const GoogleCalendarClient = require('../meeting-scheduler/google-calendar-client.js');
+          const gcal = new GoogleCalendarClient();
+          const bookingUrl = await gcal.getBookingLink(null, contact.email, firstName);
           if (bookingUrl) {
             body += '\n\nSi ca te dit, voici mon lien pour caler un echange rapide : ' + bookingUrl;
           }
         } catch (calErr) {
-          // Cal.eu non dispo — pas bloquant, on envoie sans lien
+          // Google Calendar non dispo — pas bloquant, on envoie sans lien
           log.info('campaign-engine', 'Booking link skip pour ' + contact.email + ': ' + calErr.message);
         }
       }

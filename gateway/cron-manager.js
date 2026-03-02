@@ -74,14 +74,14 @@ function createCronManager(deps) {
       }, 30000);
     }
 
-    // Sync bookings Cal.eu toutes les 5 min
-    if (handlers.meetingHandler.calcom.isConfigured()) {
+    // Sync bookings Google Calendar toutes les 5 min
+    if (handlers.meetingHandler.gcal && handlers.meetingHandler.gcal.isApiConfigured()) {
       _bookingSyncInterval = setInterval(async () => {
         try {
           await handlers.meetingHandler.syncBookings(sendMessage, _getHubSpotClient(), ADMIN_CHAT_ID);
         } catch (e) { log.error('router', 'Booking sync echoue:', e.message); }
       }, 5 * 60 * 1000);
-      log.info('router', 'Sync bookings Cal.eu toutes les 5 min');
+      log.info('router', 'Sync bookings Google Calendar toutes les 5 min');
     }
 
     log.info('router', '21 crons demarres (production)');

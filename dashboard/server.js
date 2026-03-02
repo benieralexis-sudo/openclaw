@@ -613,14 +613,14 @@ app.post('/api/onboarding/tone', authRequired, resolveClient, (req, res) => {
 
 app.post('/api/onboarding/integrations', authRequired, resolveClient, (req, res) => {
   if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
-  const { hubspotApiKey, calcomApiKey, calcomUsername, imapHost, imapUser, imapPass } = req.body;
+  const { hubspotApiKey, googleBookingUrl, googleCalendarId, imapHost, imapUser, imapPass } = req.body;
 
   try {
     clientRegistry.updateClient(req.clientId, {
       config: {
         hubspotApiKey: hubspotApiKey || '',
-        calcomApiKey: calcomApiKey || '',
-        calcomUsername: calcomUsername || '',
+        googleBookingUrl: googleBookingUrl || '',
+        googleCalendarId: googleCalendarId || '',
         imapHost: imapHost || '',
         imapUser: imapUser || '',
         imapPass: imapPass || ''
@@ -1999,7 +1999,7 @@ app.post('/api/clients', authRequired, adminRequired, async (req, res) => {
     const { name, plan, senderEmail, senderName, senderFullName, senderTitle,
       clientDomain, clientDescription, replyToEmail, telegramBotToken, adminChatId,
       hubspotApiKey, apolloApiKey, fullenrichApiKey, claudeApiKey, openaiApiKey,
-      resendApiKey, gmailMailboxes, calcomApiKey, calcomUsername,
+      resendApiKey, gmailMailboxes, googleBookingUrl, googleCalendarId,
       imapHost, imapUser, imapPass, dailyBudget } = req.body;
 
     if (!name) return res.status(400).json({ error: 'Nom du client requis' });
@@ -2008,7 +2008,7 @@ app.post('/api/clients', authRequired, adminRequired, async (req, res) => {
       name, plan, senderEmail, senderName, senderFullName, senderTitle,
       clientDomain, clientDescription, replyToEmail, telegramBotToken, adminChatId,
       hubspotApiKey, apolloApiKey, fullenrichApiKey, claudeApiKey, openaiApiKey,
-      resendApiKey, gmailMailboxes, calcomApiKey, calcomUsername,
+      resendApiKey, gmailMailboxes, googleBookingUrl, googleCalendarId,
       imapHost, imapUser, imapPass, dailyBudget
     });
 

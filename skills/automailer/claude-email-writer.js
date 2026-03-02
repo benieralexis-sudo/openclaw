@@ -473,16 +473,19 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
       anglesRule = '\n\nANGLES DEJA UTILISES (NE PAS REPETER) :\n' + options.usedAngles.map(a => '- "' + a + '"').join('\n');
     }
 
-    // Construire le lien Cal.eu pour le breakup (si configure)
+    // Construire le lien Google Calendar pour le breakup (si configure)
     let breakupBookingUrl = '';
-    const calcomUser = process.env.CALCOM_USERNAME;
-    const calcomSlug = process.env.CALCOM_EVENT_SLUG || 'appel-telephonique';
+    const googleBookingUrl = process.env.GOOGLE_BOOKING_URL || '';
     const contactFirstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
-    if (calcomUser && contact.email) {
-      const bp = new URLSearchParams();
-      bp.set('email', contact.email);
-      if (contactFirstName) bp.set('name', contactFirstName);
-      breakupBookingUrl = 'https://cal.eu/' + calcomUser + '/' + calcomSlug + '?' + bp.toString();
+    if (googleBookingUrl && contact.email) {
+      try {
+        const bpUrl = new URL(googleBookingUrl);
+        bpUrl.searchParams.set('email', contact.email);
+        if (contactFirstName) bpUrl.searchParams.set('name', contactFirstName);
+        breakupBookingUrl = bpUrl.toString();
+      } catch (e) {
+        breakupBookingUrl = googleBookingUrl;
+      }
     }
 
     const breakupInstruction = breakupBookingUrl
@@ -563,10 +566,10 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
       let emails = JSON.parse(cleaned);
       if (!Array.isArray(emails)) throw new Error('Format invalide');
 
-      // Post-processing : garantir que le breakup (dernier email) contient le lien Cal.eu
+      // Post-processing : garantir que le breakup (dernier email) contient le lien booking
       if (breakupBookingUrl && emails.length > 0) {
         const last = emails[emails.length - 1];
-        if (last.body && !last.body.includes('cal.eu/')) {
+        if (last.body && !last.body.includes(breakupBookingUrl.split('?')[0])) {
           last.body = last.body.trimEnd() + '\n\n' + breakupBookingUrl;
         }
       }

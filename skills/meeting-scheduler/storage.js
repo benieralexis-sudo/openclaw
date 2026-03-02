@@ -12,14 +12,14 @@ class MeetingSchedulerStorage {
     this.data = {
       config: {
         enabled: false,
-        calcomApiKey: '',
-        calcomBaseUrl: 'https://api.cal.eu',
+        googleCalendarId: '',
+        googleBookingUrl: '',
         defaultEventTypeId: null,
         defaultDurationMinutes: 30,
         autoPropose: false  // Proposer auto un rdv quand lead hot
       },
-      meetings: [],     // [{id, leadEmail, leadName, status, bookingUrl, scheduledAt, calcomBookingId}]
-      eventTypes: [],   // Cached from Cal.com API
+      meetings: [],     // [{id, leadEmail, leadName, status, bookingUrl, scheduledAt, googleCalendarEventId}]
+      eventTypes: [],   // Cached event types
       stats: {
         totalProposed: 0,
         totalBooked: 0,
@@ -46,6 +46,21 @@ class MeetingSchedulerStorage {
         this.data = { ...this.data, ...loaded };
         if (!this.data.meetings) this.data.meetings = [];
         if (!this.data.eventTypes) this.data.eventTypes = [];
+        // Migration Cal.eu → Google Calendar
+        let migrated = false;
+        for (const m of this.data.meetings) {
+          if (m.calcomBookingId && !m.googleCalendarEventId) {
+            m.googleCalendarEventId = m.calcomBookingId;
+            delete m.calcomBookingId;
+            migrated = true;
+          }
+        }
+        if (this.data.config.calcomApiKey) {
+          delete this.data.config.calcomApiKey;
+          delete this.data.config.calcomBaseUrl;
+          migrated = true;
+        }
+        if (migrated) this._save();
         console.log('[meeting-scheduler-storage] Base chargee (' + this.data.meetings.length + ' meetings)');
       } else {
         console.log('[meeting-scheduler-storage] Nouvelle base creee');
@@ -84,7 +99,7 @@ class MeetingSchedulerStorage {
       company: meetingData.company || '',
       status: 'proposed',  // proposed, booked, cancelled, completed, no_show
       bookingUrl: meetingData.bookingUrl || '',
-      calcomBookingId: meetingData.calcomBookingId || null,
+      googleCalendarEventId: meetingData.googleCalendarEventId || null,
       scheduledAt: meetingData.scheduledAt || null,
       duration: meetingData.duration || 30,
       notes: meetingData.notes || '',

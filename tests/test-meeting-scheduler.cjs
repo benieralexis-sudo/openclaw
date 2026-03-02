@@ -109,10 +109,10 @@ describe('Meeting Scheduler — Storage', () => {
 
   it('updateMeetingStatus avec extra merge les champs', () => {
     const m = storage.createMeeting({ leadEmail: 'extra@test.com' });
-    storage.updateMeetingStatus(m.id, 'booked', { scheduledAt: '2026-03-01T10:00:00Z', calcomBookingId: 'xyz' });
+    storage.updateMeetingStatus(m.id, 'booked', { scheduledAt: '2026-03-01T10:00:00Z', googleCalendarEventId: 'xyz' });
     const updated = storage.getMeeting(m.id);
     assert.equal(updated.scheduledAt, '2026-03-01T10:00:00Z');
-    assert.equal(updated.calcomBookingId, 'xyz');
+    assert.equal(updated.googleCalendarEventId, 'xyz');
   });
 
   it('conversionRate calcule correctement', () => {
@@ -179,7 +179,8 @@ describe('Meeting Scheduler — Intent classification', () => {
   it('detecte agenda', () => assert.equal(classifyIntent('montre mon agenda'), 'upcoming'));
   it('detecte history', () => assert.equal(classifyIntent('historique recent'), 'history'));
   it('detecte dernier', () => assert.equal(classifyIntent('mes derniers meetings'), 'history'));
-  it('detecte configure', () => assert.equal(classifyIntent('configurer cal.com'), 'configure'));
+  it('detecte configure calcom', () => assert.equal(classifyIntent('configurer cal.com'), 'configure'));
+  it('detecte configure gcal', () => assert.equal(classifyIntent('configurer google calendar'), 'configure'));
   it('detecte api key', () => assert.equal(classifyIntent('changer la cle api'), 'configure'));
   it('detecte link', () => assert.equal(classifyIntent('donne moi le lien'), 'link'));
   it('detecte url', () => assert.equal(classifyIntent('quelle est l url'), 'link'));
@@ -250,5 +251,58 @@ describe('Meeting Scheduler — Pending cleanup', () => {
     assert.equal(Object.keys(pending).length, 1);
     assert.ok(pending['456']);
     assert.equal(pending['123'], undefined);
+  });
+});
+
+// --- Tests GoogleCalendarClient ---
+describe('GoogleCalendarClient — unit tests', () => {
+  const GoogleCalendarClient = require('../skills/meeting-scheduler/google-calendar-client.js');
+
+  it('isConfigured retourne false sans booking URL', () => {
+    const gcal = new GoogleCalendarClient({ bookingUrl: '' });
+    assert.equal(gcal.isConfigured(), false);
+  });
+
+  it('isConfigured retourne true avec booking URL', () => {
+    const gcal = new GoogleCalendarClient({ bookingUrl: 'https://calendar.google.com/calendar/appointments/xxx' });
+    assert.equal(gcal.isConfigured(), true);
+  });
+
+  it('isApiConfigured retourne false sans calendarId', () => {
+    const gcal = new GoogleCalendarClient({ bookingUrl: 'https://test.com', calendarId: '' });
+    assert.equal(gcal.isApiConfigured(), false);
+  });
+
+  it('getBookingLink ajoute email et name en query params', async () => {
+    const gcal = new GoogleCalendarClient({ bookingUrl: 'https://calendar.google.com/calendar/appointments/test' });
+    const link = await gcal.getBookingLink(null, 'john@test.com', 'John Doe');
+    assert.ok(link.includes('email=john'));
+    assert.ok(link.includes('name=John'));
+  });
+
+  it('getBookingLink retourne null sans bookingUrl', async () => {
+    const gcal = new GoogleCalendarClient({});
+    const link = await gcal.getBookingLink(null, 'a@b.com', 'Test');
+    assert.equal(link, null);
+  });
+
+  it('getEventTypes retourne un event type par defaut', async () => {
+    const gcal = new GoogleCalendarClient({});
+    const types = await gcal.getEventTypes();
+    assert.equal(types.length, 1);
+    assert.equal(types[0].slug, 'appel-decouverte');
+  });
+
+  it('getProfile en mode link-only retourne un profil minimal', async () => {
+    const gcal = new GoogleCalendarClient({ bookingUrl: 'https://test.com' });
+    const profile = await gcal.getProfile();
+    assert.ok(profile);
+    assert.equal(profile.username, 'google-calendar');
+  });
+
+  it('getProfile sans bookingUrl retourne null', async () => {
+    const gcal = new GoogleCalendarClient({});
+    const profile = await gcal.getProfile();
+    assert.equal(profile, null);
   });
 });

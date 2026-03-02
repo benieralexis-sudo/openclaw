@@ -1533,9 +1533,9 @@ class ProactiveEngine {
             'Sois concis (4-6 lignes max). Ne tourne pas autour du pot.\n=== FIN CONSIGNE ===';
           // Generer le lien booking
           try {
-            const CalComClient = require('../meeting-scheduler/calendar-client.js');
-            const calcom = new CalComClient(process.env.CALCOM_API_KEY || '');
-            bookingUrl = await calcom.getBookingLink('appel-telephonique', followUp.prospectEmail, contact.firstName || '') || '';
+            const GoogleCalendarClient = require('../meeting-scheduler/google-calendar-client.js');
+            const gcal = new GoogleCalendarClient();
+            bookingUrl = await gcal.getBookingLink(null, followUp.prospectEmail, contact.firstName || '') || '';
           } catch (calErr) {
             log.info('proactive-engine', 'Booking link skip pour hot lead: ' + calErr.message);
           }

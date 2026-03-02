@@ -25,7 +25,7 @@ function fastClassify(text) {
     'automailer': /\b(campagne|template|newsletter|liste.*contact|import.*csv|stats.*email|taux.*ouverture|creer?.*campagne|lance.*campagne)\b/,
     'crm-pilot': /\b(crm|hubspot|pipeline|deal|offre|fiche.*contact|note|tache|rappel|commercial)\b/,
     'inbox-manager': /\b(inbox|boite.*reception|reponse.*email|email.*recu|imap|reponse.*lead|mail.*entrant)\b/,
-    'meeting-scheduler': /\b(rdv|rendez.?vous|meeting|booking|cale[rz]?|reserve[rz]?|planifi|cal\.?com|creneau)\b/,
+    'meeting-scheduler': /\b(rdv|rendez.?vous|meeting|booking|cale[rz]?|reserve[rz]?|planifi|google.*calendar|gcal|creneau)\b/,
     'invoice-bot': /\b(factur|devis|paiement|rib|siret|client.*factur)\b/,
     'proactive-agent': /\b(rapport|resume|recap|hebdo|mensuel|alertes?.*pipeline|mode.*proactif)\b/,
     'self-improve': /\b(amelior|optimis|recommandation|performance|metriques?|rollback|auto.?apply)\b/,
@@ -83,7 +83,7 @@ SKILLS DISPONIBLES :
 - "system-advisor" : monitoring technique du bot, sante du systeme, RAM, CPU, disque, uptime, erreurs, health check, alertes systeme, performances, temps de reponse des skills — "status systeme", "comment va le bot ?", "utilisation memoire", "espace disque", "erreurs recentes", "check sante", "rapport systeme", "uptime", "alertes systeme", "temps de reponse", "performances". ATTENTION : distinct de proactive-agent qui gere les rapports BUSINESS (pipeline, campagnes). System-advisor gere le monitoring TECHNIQUE (serveur, memoire, CPU).
 - "autonomous-pilot" : pilotage autonome du bot, objectifs hebdomadaires de prospection, criteres de recherche automatique, checklist diagnostic, historique des actions automatiques, forcer un cycle brain, pause/reprise du pilot, apprentissages, RELANCES de prospects, messages personnalises pour un prospect specifique — "statut pilot", "objectifs", "criteres", "mon business c'est...", "checklist", "historique pilot", "lance le brain", "pause pilot", "reprends pilot", "apprentissages", "qu'est-ce que t'as fait ?", "relance Nadine", "message pour ce prospect", "montre moi le message", "follow-up". Tout ce qui concerne l'autonomie du bot, ses objectifs, ses actions automatiques, ET les relances/messages personnalises pour des prospects. ATTENTION : distinct de proactive-agent qui gere les rapports et alertes. Distinct de automailer qui gere les CAMPAGNES (mass mailing). Autonomous-pilot gere la STRATEGIE, les ACTIONS autonomes, et les RELANCES individuelles.
 - "inbox-manager" : surveillance de la boite email, detection des reponses de prospects, emails recus, emails entrants, IMAP, inbox — "reponses recues", "emails entrants", "inbox", "boite de reception", "qui a repondu ?", "statut inbox". Tout ce qui concerne les emails RECUS (pas les envoyes, ca c'est automailer).
-- "meeting-scheduler" : prise de RDV, rendez-vous, meetings, calendrier, Cal.com, creneaux, booking — "propose un rdv", "planifie un meeting", "rdv a venir", "lien de reservation", "cale un creneau". Tout ce qui concerne la planification de rendez-vous avec des prospects.
+- "meeting-scheduler" : prise de RDV, rendez-vous, meetings, calendrier, Google Calendar, creneaux, booking — "propose un rdv", "planifie un meeting", "rdv a venir", "lien de reservation", "cale un creneau". Tout ce qui concerne la planification de rendez-vous avec des prospects.
 - "general" : salutations, aide globale, bavardage sans rapport avec les skills ci-dessus.
 
 REGLES CRITIQUES :

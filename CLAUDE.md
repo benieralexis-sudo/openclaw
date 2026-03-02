@@ -46,7 +46,7 @@
 | 9 | System Advisor (monitoring systeme) | `skills/system-advisor/` | Claude Sonnet 4.6 + GPT-4o-mini | 8/10 | 1 713 |
 | 10 | Autonomous Pilot (cerveau autonome) | `skills/autonomous-pilot/` | Claude Opus 4.6 | 9.5/10 | 4 293 |
 | 11 | Inbox Manager (IMAP + fuzzy match + auto-reply feedback loop) | `skills/inbox-manager/` | GPT-4o-mini + Claude Sonnet | 9/10 | 627 |
-| 12 | Meeting Scheduler (prise de RDV) | `skills/meeting-scheduler/` | GPT-4o-mini | 3/10 | 704 |
+| 12 | Meeting Scheduler (Google Calendar) | `skills/meeting-scheduler/` | GPT-4o-mini | 7/10 | ~600 |
 | 13 | Routeur central | `gateway/telegram-router.js` | GPT-4o-mini | 9.5/10 | 2 573 |
 
 *Note : `skills/flowfast/apollo-connector.js` et `skills/flowfast/storage.js` sont conserves (596 lignes) — utilises par Autonomous Pilot pour Apollo et le stockage leads.*
@@ -146,7 +146,8 @@
 - API_DAILY_BUDGET (defaut: 5$)
 - ADMIN_CHAT_ID (defaut: 1409505520)
 - IMAP_HOST, IMAP_USER, IMAP_PASS (Inbox Manager — ACTIF, polling 120s)
-- CALCOM_API_KEY (optionnel — Meeting Scheduler, non configure)
+- GOOGLE_BOOKING_URL (Meeting Scheduler — URL page de RDV Google Calendar)
+- GOOGLE_CALENDAR_ID, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN (optionnel — sync API Google Calendar)
 
 ## Commandes utiles
 - Redemarrer : cd /opt/moltbot && docker compose down && docker compose up -d

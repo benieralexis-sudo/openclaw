@@ -179,6 +179,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "file-type": "^21.3.0",
+    "googleapis": "^171.4.0",
     "grammy": "^1.39.3",
     "imapflow": "^1.2.9",
     "jiti": "^2.6.1",

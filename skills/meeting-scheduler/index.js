@@ -3,5 +3,5 @@
 
 module.exports = {
   name: 'meeting-scheduler',
-  description: 'Meeting Scheduler - Prise de RDV automatisee via Cal.com'
+  description: 'Meeting Scheduler - Prise de RDV automatisee via Google Calendar'
 };

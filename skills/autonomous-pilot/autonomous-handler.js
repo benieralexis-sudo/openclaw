@@ -145,7 +145,7 @@ CONFIGURATION SYSTEME:
 - Apollo: ${process.env.APOLLO_API_KEY ? 'OK' : 'non configure'}
 - FullEnrich: ${process.env.FULLENRICH_API_KEY ? 'OK' : 'non configure'}
 - IMAP: ${process.env.IMAP_HOST ? 'OK (' + process.env.IMAP_HOST + ')' : 'non configure (optionnel)'}
-- Cal.com: ${process.env.CALCOM_API_KEY ? 'OK' : 'non configure (optionnel)'}
+- Google Calendar: ${process.env.GOOGLE_BOOKING_URL ? 'OK' : 'non configure (optionnel)'}
 
 ETAT ACTUEL:
 - Mode: ${config.enabled ? 'Actif' : 'En pause'} | Autonomie: ${config.autonomyLevel}

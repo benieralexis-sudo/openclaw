@@ -207,12 +207,12 @@ function _renderStepContent(step) {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <label class="ob-label">Cal.com API Key</label>
-            <input type="text" id="ob-calcom-key" value="${e(cfg.calcomApiKey || '')}" placeholder="cal_live_..." class="ob-input">
+            <label class="ob-label">Google Calendar — URL de RDV</label>
+            <input type="text" id="ob-google-booking-url" value="${e(cfg.googleBookingUrl || '')}" placeholder="https://calendar.google.com/calendar/appointments/..." class="ob-input">
           </div>
           <div>
-            <label class="ob-label">Cal.com Username</label>
-            <input type="text" id="ob-calcom-user" value="${e(cfg.calcomUsername || '')}" placeholder="jean-dupont" class="ob-input">
+            <label class="ob-label">Google Calendar ID (optionnel)</label>
+            <input type="text" id="ob-google-calendar-id" value="${e(cfg.googleCalendarId || '')}" placeholder="xxx@group.calendar.google.com" class="ob-input">
           </div>
         </div>
         <div style="border-top:1px solid var(--border);padding-top:16px">
@@ -241,7 +241,7 @@ function _renderStepContent(step) {
         <div class="ob-summary-row"><strong>Ton :</strong> ${e(tone2.formality || 'decontracte')}</div>
         <div class="ob-summary-row"><strong>Integrations :</strong> ${[
           cfg2.hubspotApiKey ? 'HubSpot' : '',
-          cfg2.calcomApiKey ? 'Cal.com' : '',
+          cfg2.googleBookingUrl ? 'Google Calendar' : '',
           cfg2.imapHost ? 'IMAP' : ''
         ].filter(Boolean).join(', ') || 'Aucune'}</div>
       </div>
@@ -361,8 +361,8 @@ async function _saveCurrentStep() {
     case 3: {
       const res = await API.post('onboarding/integrations', {
         hubspotApiKey: (document.getElementById('ob-hubspot')?.value || '').trim(),
-        calcomApiKey: (document.getElementById('ob-calcom-key')?.value || '').trim(),
-        calcomUsername: (document.getElementById('ob-calcom-user')?.value || '').trim(),
+        googleBookingUrl: (document.getElementById('ob-google-booking-url')?.value || '').trim(),
+        googleCalendarId: (document.getElementById('ob-google-calendar-id')?.value || '').trim(),
         imapHost: (document.getElementById('ob-imap-host')?.value || '').trim(),
         imapUser: (document.getElementById('ob-imap-user')?.value || '').trim(),
         imapPass: (document.getElementById('ob-imap-pass')?.value || '').trim()
@@ -373,8 +373,8 @@ async function _saveCurrentStep() {
       }
       _onboardingData.config = { ..._onboardingData.config,
         hubspotApiKey: (document.getElementById('ob-hubspot')?.value || '').trim(),
-        calcomApiKey: (document.getElementById('ob-calcom-key')?.value || '').trim(),
-        calcomUsername: (document.getElementById('ob-calcom-user')?.value || '').trim(),
+        googleBookingUrl: (document.getElementById('ob-google-booking-url')?.value || '').trim(),
+        googleCalendarId: (document.getElementById('ob-google-calendar-id')?.value || '').trim(),
         imapHost: (document.getElementById('ob-imap-host')?.value || '').trim(),
         imapUser: (document.getElementById('ob-imap-user')?.value || '').trim(),
         imapPass: (document.getElementById('ob-imap-pass')?.value || '').trim()

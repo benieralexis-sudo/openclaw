@@ -32,7 +32,7 @@ const SKILL_MODULES = {
   'ai-classifier': 'lead-enrich/ai-classifier.js',
   'web-fetcher': 'web-intelligence/web-fetcher.js',
   'prospect-researcher': 'autonomous-pilot/prospect-researcher.js',
-  'calendar-client': 'meeting-scheduler/calendar-client.js',
+  'calendar-client': 'meeting-scheduler/google-calendar-client.js',
   'reply-classifier': 'inbox-manager/reply-classifier.js'
 };
 

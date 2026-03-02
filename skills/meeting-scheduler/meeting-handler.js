@@ -1,36 +1,37 @@
 // Meeting Scheduler - Handler Telegram
 const log = require('../../gateway/logger.js');
 const storage = require('./storage.js');
-const CalComClient = require('./calendar-client.js');
+const GoogleCalendarClient = require('./google-calendar-client.js');
 const { callOpenAI } = require('../../gateway/shared-nlp.js');
 const { escTg, classifyIntent } = require('./utils.js');
 
 class MeetingHandler {
-  constructor(openaiKey, calcomApiKey) {
+  constructor(openaiKey, gcalOptions) {
     this.openaiKey = openaiKey;
-    this.calcom = new CalComClient(calcomApiKey);
+    this.gcal = new GoogleCalendarClient(gcalOptions || {});
+    this.calcom = this.gcal; // Alias compatibilite transitoire
     this.pendingConversations = {};
     this.pendingConfirmations = {};
   }
 
   start() {
     log.info('meeting-handler', 'Handler meeting-scheduler demarre');
-    // Boot check : verifier que l'API key Cal.eu est valide
-    if (this.calcom.isConfigured()) {
-      this.calcom.getProfile().then(profile => {
+    // Boot check : verifier la configuration Google Calendar
+    if (this.gcal.isConfigured()) {
+      this.gcal.getProfile().then(profile => {
         if (profile && profile.username) {
-          log.info('meeting-handler', 'Cal.eu connecte: ' + profile.username + ' (' + (profile.email || '?') + ')');
+          log.info('meeting-handler', 'Google Calendar connecte: ' + (profile.name || profile.username) + ' (' + (profile.email || '?') + ')');
         } else {
-          log.error('meeting-handler', 'ALERTE: CALCOM_API_KEY invalide ou profil inaccessible — meetings desactives');
+          log.warn('meeting-handler', 'Google Calendar: profil inaccessible (mode link-only actif)');
         }
       }).catch(e => {
-        log.error('meeting-handler', 'ALERTE: Cal.eu API inaccessible: ' + e.message);
+        log.error('meeting-handler', 'Google Calendar API inaccessible: ' + e.message);
       });
       this._syncEventTypes().catch(e =>
         log.warn('meeting-handler', 'Sync event types echoue:', e.message)
       );
     } else {
-      log.warn('meeting-handler', 'CALCOM_API_KEY non configure — meetings desactives');
+      log.warn('meeting-handler', 'GOOGLE_BOOKING_URL non configure — meetings desactives');
     }
   }
 
@@ -91,10 +92,10 @@ class MeetingHandler {
   async _handlePropose(text, chatId, sendReply) {
     const id = String(chatId);
 
-    if (!this.calcom.isConfigured()) {
+    if (!this.gcal.isConfigured()) {
       return {
         type: 'text',
-        content: '⚠️ Cal.com n\'est pas configure.\nAjoute `CALCOM_API_KEY` dans ton `.env` pour activer la prise de RDV.'
+        content: '⚠️ Google Calendar n\'est pas configure.\nAjoute `GOOGLE_BOOKING_URL` dans ton `.env` pour activer la prise de RDV.'
       };
     }
 
@@ -142,7 +143,7 @@ class MeetingHandler {
       if (eventTypes.length === 0) {
         return {
           type: 'text',
-          content: '⚠️ Aucun type de RDV configure dans Cal.com. Cree d\'abord un event type sur cal.com.'
+          content: '⚠️ Aucun type de RDV configure. Configure GOOGLE_BOOKING_URL dans .env.'
         };
       }
 
@@ -157,12 +158,12 @@ class MeetingHandler {
       const leadName = nameMatch ? nameMatch[1] : '';
 
       // Generer le lien de booking
-      const bookingUrl = await this.calcom.getBookingLink(eventType.slug, email, leadName);
+      const bookingUrl = await this.gcal.getBookingLink(eventType.slug, email, leadName);
 
       if (!bookingUrl) {
         return {
           type: 'text',
-          content: '❌ Impossible de generer le lien de reservation. Verifie ta configuration Cal.com.'
+          content: '❌ Impossible de generer le lien de reservation. Verifie ta configuration Google Calendar.'
         };
       }
 
@@ -199,12 +200,12 @@ class MeetingHandler {
   _handleStatus(chatId) {
     const config = storage.getConfig();
     const stats = storage.getStats();
-    const isConfigured = this.calcom.isConfigured();
+    const isConfigured = this.gcal.isConfigured();
 
     const lines = [
       '📅 *Meeting Scheduler*',
       '',
-      '*Cal\\.com :* ' + (isConfigured ? '🟢 Configure' : '🔴 Non configure'),
+      '*Google Calendar :* ' + (isConfigured ? '🟢 Configure' : '🔴 Non configure'),
       '*Auto\\-proposition :* ' + (config.autoPropose ? '🟢 Active' : '🔴 Desactive'),
       '',
       '*RDV proposes :* ' + (stats.totalProposed || 0),
@@ -219,7 +220,7 @@ class MeetingHandler {
 
     if (!isConfigured) {
       lines.push('');
-      lines.push('_Ajoute CALCOM\\_API\\_KEY dans \\.env pour activer\\._');
+      lines.push('_Ajoute GOOGLE\\_BOOKING\\_URL dans \\.env pour activer\\._');
     }
 
     return { type: 'text', content: lines.join('\n') };
@@ -281,20 +282,23 @@ class MeetingHandler {
     const lines = [
       '⚙️ *Configuration Meeting Scheduler*',
       '',
-      'Pour configurer Cal.com, ajoute cette variable dans ton `.env` :',
+      'Pour configurer Google Calendar, ajoute ces variables dans ton `.env` :',
       '',
       '```',
-      'CALCOM_API_KEY=cal_live_xxxxxxxxxxxxxxxx',
+      'GOOGLE_BOOKING_URL=https://calendar.google.com/calendar/appointments/...',
+      'GOOGLE_CALENDAR_ID=xxx@group.calendar.google.com  (optionnel, pour sync)',
       '```',
       '',
       'Puis redemarre le bot.',
       '',
-      '*Comment obtenir la cle API :*',
-      '1. Va sur cal.com/settings/developer/api-keys',
-      '2. Cree une nouvelle cle API',
-      '3. Copie-la dans ton .env',
+      '*Comment configurer :*',
+      '1. Ouvre Google Calendar → Creer → Page de RDV',
+      '2. Configure tes disponibilites et la duree',
+      '3. Copie le lien de reservation dans GOOGLE\\_BOOKING\\_URL',
+      '4. (Optionnel) Pour la sync API : active Google Calendar API dans la Google Cloud Console',
       '',
-      '*Status actuel :* ' + (this.calcom.isConfigured() ? '🟢 Configure' : '🔴 Non configure'),
+      '*Status actuel :* ' + (this.gcal.isConfigured() ? '🟢 Configure' : '🔴 Non configure'),
+      '*Sync API :* ' + (this.gcal.isApiConfigured() ? '🟢 Active' : '⚪ Non configuree'),
       '*Auto-proposition (lead hot) :* ' + (config.autoPropose ? 'Oui' : 'Non')
     ];
 
@@ -302,8 +306,8 @@ class MeetingHandler {
   }
 
   async _handleGetLink(text, chatId) {
-    if (!this.calcom.isConfigured()) {
-      return { type: 'text', content: '⚠️ Cal.com non configure. Ajoute `CALCOM_API_KEY` dans .env.' };
+    if (!this.gcal.isConfigured()) {
+      return { type: 'text', content: '⚠️ Google Calendar non configure. Ajoute `GOOGLE_BOOKING_URL` dans .env.' };
     }
 
     let eventTypes = storage.getEventTypes();
@@ -312,11 +316,11 @@ class MeetingHandler {
     }
 
     if (eventTypes.length === 0) {
-      return { type: 'text', content: '⚠️ Aucun event type Cal.com trouve.' };
+      return { type: 'text', content: '⚠️ Aucun type de RDV configure.' };
     }
 
     const et = eventTypes[0];
-    const link = await this.calcom.getBookingLink(et.slug);
+    const link = await this.gcal.getBookingLink(et.slug);
 
     if (link) {
       return {
@@ -366,10 +370,10 @@ class MeetingHandler {
       '• _"rdv a venir"_ — Voir les prochains RDV',
       '• _"historique rdv"_ — Voir l\'historique',
       '• _"no\\-show john@example\\.com"_ — Marquer un RDV comme no\\-show',
-      '• _"lien de reservation"_ — Obtenir ton lien Cal\\.com',
-      '• _"configurer cal\\.com"_ — Instructions de config',
+      '• _"lien de reservation"_ — Obtenir ton lien de booking',
+      '• _"configurer calendar"_ — Instructions de config',
       '',
-      '_Integre avec Cal\\.com pour la gestion automatisee des creneaux\\._'
+      '_Integre avec Google Calendar pour la gestion automatisee des creneaux\\._'
     ];
 
     return { type: 'text', content: lines.join('\n') };
@@ -377,8 +381,8 @@ class MeetingHandler {
 
   // Appele depuis le routeur/proactive quand un lead est hot
   async proposeAutoMeeting(leadEmail, leadName, company) {
-    if (!this.calcom.isConfigured()) {
-      log.info('meeting-handler', 'proposeAutoMeeting skip: Cal.com non configure');
+    if (!this.gcal.isConfigured()) {
+      log.info('meeting-handler', 'proposeAutoMeeting skip: Google Calendar non configure');
       return null;
     }
     const config = storage.getConfig();
@@ -414,7 +418,7 @@ class MeetingHandler {
     }
 
     const et = eventTypes[0];
-    const bookingUrl = await this.calcom.getBookingLink(et.slug, leadEmail, leadName);
+    const bookingUrl = await this.gcal.getBookingLink(et.slug, leadEmail, leadName);
     if (!bookingUrl) {
       log.warn('meeting-handler', 'proposeAutoMeeting skip: impossible de generer bookingUrl');
       return null;
@@ -461,14 +465,14 @@ class MeetingHandler {
     if (transitions > 0) log.info('meeting-handler', transitions + ' transitions lifecycle appliquees');
   }
 
-  // Sync bookings Cal.eu → met a jour le storage local, notifie, avance deals
+  // Sync bookings Google Calendar → met a jour le storage local, notifie, avance deals
   async syncBookings(sendTelegram, hubspotClient, adminChatId) {
     this._cleanupPendingConversations();
     this._transitionMeetingLifecycles();
-    if (!this.calcom.isConfigured()) return;
+    if (!this.gcal.isApiConfigured()) return;
 
     try {
-      const bookings = await this.calcom.getBookings();
+      const bookings = await this.gcal.getNewBookings();
       if (bookings.length === 0) return;
 
       for (const booking of bookings) {
@@ -491,7 +495,7 @@ class MeetingHandler {
             // Nouveau booking confirme
             storage.updateMeetingStatus(meeting.id, 'booked', {
               scheduledAt: booking.startTime,
-              calcomBookingId: booking.uid || booking.id
+              googleCalendarEventId: booking.uid || booking.id
             });
 
             const dateStr = new Date(booking.startTime).toLocaleDateString('fr-FR', {
@@ -514,7 +518,7 @@ class MeetingHandler {
               notif.push('🏢 ' + escTg(meeting.company));
             }
             notif.push('');
-            notif.push('_Le lead a reserve un creneau via Cal.eu_');
+            notif.push('_Le lead a reserve un creneau via Google Calendar_');
 
             if (sendTelegram && adminChatId) {
               await sendTelegram(adminChatId, notif.join('\n'), 'Markdown');
@@ -526,7 +530,7 @@ class MeetingHandler {
                 const contact = await hubspotClient.findContactByEmail(leadEmail);
                 if (contact && contact.id) {
                   await hubspotClient.advanceDealStage(contact.id, 'decisionmakerboughtin', 'meeting_booked');
-                  const noteBody = 'RDV confirme via Cal.eu\n' +
+                  const noteBody = 'RDV confirme via Google Calendar\n' +
                     'Date : ' + dateStr + '\n' +
                     'Duree : ' + (meeting.duration || 15) + ' min\n' +
                     '[Meeting Scheduler — sync automatique]';
@@ -547,7 +551,7 @@ class MeetingHandler {
             if (sendTelegram && adminChatId) {
               await sendTelegram(adminChatId,
                 '❌ *RDV annule*\n\n👤 ' + escTg(meeting.leadName || meeting.leadEmail) + '\n📧 ' + escTg(meeting.leadEmail) +
-                '\n\n_Le lead a annule son RDV Cal\\.eu_', 'Markdown');
+                '\n\n_Le lead a annule son RDV Google Calendar_', 'Markdown');
             }
 
             log.info('meeting-handler', 'Booking sync: ' + leadEmail + ' → annule');
@@ -585,10 +589,10 @@ class MeetingHandler {
 
   async _syncEventTypes() {
     try {
-      const types = await this.calcom.getEventTypes();
+      const types = await this.gcal.getEventTypes();
       if (types.length > 0) {
         storage.setEventTypes(types);
-        log.info('meeting-handler', types.length + ' event types Cal.com synchronises');
+        log.info('meeting-handler', types.length + ' event types synchronises');
       }
       return types;
     } catch (e) {

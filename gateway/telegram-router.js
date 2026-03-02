@@ -120,7 +120,7 @@ const IMAP_HOST = process.env.IMAP_HOST || '';
 const IMAP_PORT = parseInt(process.env.IMAP_PORT || '993', 10);
 const IMAP_USER = process.env.IMAP_USER || '';
 const IMAP_PASS = process.env.IMAP_PASS || '';
-const CALCOM_KEY = process.env.CALCOM_API_KEY || '';
+// Google Calendar : credentials lues directement par GoogleCalendarClient via process.env
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
 
 // Escape Telegram Markdown v1 — empeche l'injection de formatage par contenu externe
@@ -180,7 +180,7 @@ const reportWorkflow = new ReportWorkflow({
 
 // Inbox Manager + Meeting Scheduler
 const inboxHandler = new InboxHandler(OPENAI_KEY);
-const meetingHandler = new MeetingHandler(OPENAI_KEY, CALCOM_KEY);
+const meetingHandler = new MeetingHandler(OPENAI_KEY);
 inboxHandler.start();
 meetingHandler.start();
 
@@ -662,9 +662,8 @@ inboxListener = InboxListener ? new InboxListener({
             bookingUrl: ''
           };
           try {
-            if (meetingHandler && meetingHandler.calcom && meetingHandler.calcom.isConfigured()) {
-              const slug = process.env.CALCOM_EVENT_SLUG || 'appel-telephonique';
-              clientContext.bookingUrl = await meetingHandler.calcom.getBookingLink(slug, replyData.from, replyData.fromName);
+            if (meetingHandler && meetingHandler.gcal && meetingHandler.gcal.isConfigured()) {
+              clientContext.bookingUrl = await meetingHandler.gcal.getBookingLink(null, replyData.from, replyData.fromName);
             }
           } catch (e) { log.warn('inbox-manager', 'Booking URL echouee:', e.message); }
 
@@ -1086,9 +1085,8 @@ inboxListener = InboxListener ? new InboxListener({
         notifLines.push('');
         notifLines.push('🚨 _Le bot a ARRETE toute automation pour ce prospect\\. Reponds\\-lui manuellement\\!_');
         try {
-          if (meetingHandler.calcom.isConfigured()) {
-            const slug = process.env.CALCOM_EVENT_SLUG || 'appel-telephonique';
-            const bookingUrl = await meetingHandler.calcom.getBookingLink(slug, replyData.from, replyData.fromName);
+          if (meetingHandler.gcal && meetingHandler.gcal.isConfigured()) {
+            const bookingUrl = await meetingHandler.gcal.getBookingLink(null, replyData.from, replyData.fromName);
             if (bookingUrl) {
               notifLines.push('');
               notifLines.push('📅 *Lien RDV rapide :*');
