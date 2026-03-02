@@ -34,6 +34,13 @@ const { classifyReply, subClassifyObjection, generateObjectionReply, generateQue
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
+// --- Modules extraits (refactoring God Object) ---
+const { createTelegramClient } = require('./telegram-client.js');
+const { fastClassify, classifySkill, checkStickiness } = require('./skill-router.js');
+const { createUserContext } = require('./user-context.js');
+const { createCronManager } = require('./cron-manager.js');
+const { createResendHandler, RESEND_EVENT_MAP } = require('./resend-handler.js');
+
 // --- Metriques globales (partage memoire pour System Advisor) ---
 const METRICS_FILE = (process.env.APP_CONFIG_DIR || '/data/app-config') + '/ifind-metrics.json';
 
@@ -127,6 +134,10 @@ if (!TOKEN) {
   process.exit(1);
 }
 
+// --- Telegram Client (module extrait) ---
+const tgClient = createTelegramClient(TOKEN, httpsAgent);
+const { telegramAPI, sendMessage, sendTyping, sendMessageWithButtons } = tgClient;
+
 // Validation des variables critiques au demarrage
 if (!SENDER_EMAIL || SENDER_EMAIL === 'onboarding@resend.dev' || SENDER_EMAIL.trim() === '') {
   log.warn('router', 'SENDER_EMAIL non configure — envoi email desactive (test only: onboarding@resend.dev)');
@@ -134,6 +145,14 @@ if (!SENDER_EMAIL || SENDER_EMAIL === 'onboarding@resend.dev' || SENDER_EMAIL.tr
 if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
   log.warn('router', 'CLAUDE_API_KEY absent — redaction IA desactivee');
 }
+
+// --- User Context (module extrait) ---
+const userCtx = createUserContext();
+const { isRateLimited, addToHistory, getHistoryContext } = userCtx;
+// Aliases pour acces direct depuis le code existant
+const conversationHistory = userCtx.conversationHistory;
+const messageRates = userCtx.messageRates;
+const _bans = userCtx.bans;
 
 // --- Handlers ---
 
@@ -172,85 +191,6 @@ let inboxListener = null;
 let selfImproveHandler = null;
 
 let offset = 0;
-
-// --- API Telegram ---
-
-function telegramAPI(method, body) {
-  return new Promise((resolve, reject) => {
-    const postData = body ? JSON.stringify(body) : '';
-    const req = https.request({
-      hostname: 'api.telegram.org',
-      path: '/bot' + TOKEN + '/' + method,
-      method: 'POST',
-      agent: httpsAgent,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { reject(new Error('Reponse Telegram invalide')); }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(60000, () => { req.destroy(); reject(new Error('Timeout')); });
-    req.write(postData);
-    req.end();
-  });
-}
-
-async function sendMessage(chatId, text, parseMode) {
-  const maxLen = 4096;
-  if (text.length <= maxLen) {
-    const result = await telegramAPI('sendMessage', {
-      chat_id: chatId,
-      text: text,
-      parse_mode: parseMode || undefined
-    });
-    if (!result.ok && parseMode) {
-      return telegramAPI('sendMessage', { chat_id: chatId, text: text });
-    }
-    return result;
-  }
-  for (let i = 0; i < text.length; i += maxLen) {
-    const chunk = text.slice(i, i + maxLen);
-    await telegramAPI('sendMessage', {
-      chat_id: chatId,
-      text: chunk,
-      parse_mode: parseMode || undefined
-    }).catch(() => telegramAPI('sendMessage', { chat_id: chatId, text: chunk }));
-  }
-}
-
-async function sendTyping(chatId) {
-  await telegramAPI('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(e => log.warn('router', 'sendTyping echoue:', e.message));
-}
-
-async function sendMessageWithButtons(chatId, text, buttons) {
-  const result = await telegramAPI('sendMessage', {
-    chat_id: chatId,
-    text: text,
-    parse_mode: 'Markdown',
-    reply_markup: JSON.stringify({ inline_keyboard: buttons })
-  });
-  if (!result.ok) {
-    // Fallback sans Markdown
-    return telegramAPI('sendMessage', {
-      chat_id: chatId,
-      text: text,
-      reply_markup: JSON.stringify({ inline_keyboard: buttons })
-    });
-  }
-  return result;
-}
-
-// --- Memoire conversationnelle (persistee sur disque) ---
-// Stocke les 15 derniers echanges par utilisateur pour le contexte
-const conversationHistory = {};
-const _bans = {}; // chatId -> { until: timestamp, violations: count }
 
 // --- HITL : Brouillons de reponses en attente de validation humaine ---
 const _pendingDrafts = new Map();      // draftId -> { replyData, autoReply, classification, ... }
@@ -428,58 +368,7 @@ const _cleanupInterval = setInterval(() => {
   if (cleaned > 0) log.info('router', 'Nettoyage memoire: ' + cleaned + ' entree(s) expiree(s)');
 }, 60 * 60 * 1000);
 
-// --- Rate limiting messages (anti-spam, progressif) ---
-const messageRates = {};
-
-
-function isRateLimited(chatId) {
-  const id = String(chatId);
-  const now = Date.now();
-
-  // Check ban actif
-  if (_bans[id] && now < _bans[id].until) return true;
-
-  if (!messageRates[id]) messageRates[id] = [];
-  messageRates[id] = messageRates[id].filter(t => now - t < 30000);
-  if (messageRates[id].length >= 10) {
-    // Ban progressif : 5min, 15min, 1h
-    const violations = (_bans[id] ? _bans[id].violations : 0) + 1;
-    const banDurations = [5 * 60000, 15 * 60000, 60 * 60000]; // 5min, 15min, 1h
-    const banMs = banDurations[Math.min(violations - 1, banDurations.length - 1)];
-    _bans[id] = { until: now + banMs, violations: violations };
-    log.warn('router', 'Ban user ' + id + ' pour ' + (banMs / 60000) + 'min (violation #' + violations + ')');
-    return true;
-  }
-  messageRates[id].push(now);
-  return false;
-}
-
-function addToHistory(chatId, role, text, skill) {
-  const id = String(chatId);
-  if (!conversationHistory[id]) conversationHistory[id] = [];
-  conversationHistory[id].push({
-    role: role,
-    text: text.substring(0, 200),
-    skill: skill || null,
-    ts: Date.now()
-  });
-  // Garder les 15 derniers
-  if (conversationHistory[id].length > 15) {
-    conversationHistory[id] = conversationHistory[id].slice(-15);
-  }
-}
-
-function getHistoryContext(chatId) {
-  const id = String(chatId);
-  const history = conversationHistory[id] || [];
-  if (history.length === 0) return '';
-
-  return history.map(h => {
-    const prefix = h.role === 'user' ? 'Utilisateur' : 'Bot';
-    const skillTag = h.skill ? ' [' + h.skill + ']' : '';
-    return prefix + skillTag + ': ' + h.text;
-  }).join('\n');
-}
+// (isRateLimited, addToHistory, getHistoryContext extraits dans user-context.js)
 
 // --- Modeles IA multi-niveaux ---
 // GPT-4o-mini  : NLP rapide (classification, routage)
@@ -1218,12 +1107,6 @@ if (inboxListener && inboxListener.isConfigured()) {
   inboxListener.start().catch(e => log.error('router', 'Erreur demarrage IMAP:', e.message));
 }
 
-// --- Controle centralise des crons (17 crons au total) ---
-let _emailPollingInterval = null;
-let _bookingSyncInterval = null;
-let _retryQueueInterval = null;
-let _archiveInterval = null;
-
 // Storages des skills a crons (pour toggle config.enabled)
 const proactiveAgentStorage = require('../skills/proactive-agent/storage.js');
 const selfImproveStorage = require('../skills/self-improve/storage.js');
@@ -1255,83 +1138,17 @@ function _enrichContactWithOrg(email, contactName, company, title) {
   return contact;
 }
 
-function startAllCrons() {
-  // Activer les configs internes (chaque start() verifie config.enabled)
-  try { proactiveAgentStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron proactive:', e.message); }
-  try { selfImproveStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron self-improve:', e.message); }
-  try { webIntelStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron web-intel:', e.message); }
-  try { systemAdvisorStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron system-advisor:', e.message); }
-  try { autonomousPilotStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron autonomous-pilot:', e.message); }
-
-  proactiveEngine.start();
-  if (selfImproveHandler) selfImproveHandler.start();
-  webIntelHandler.start();
-  systemAdvisorHandler.start();
-  autoPilotEngine.start();
-
-  // Polling statuts email Resend toutes les 30 min (backup du webhook)
-  if (automailerHandler.campaignEngine) {
-    // Demarrer le scheduler de campagne (verifie les steps toutes les 60s pendant heures bureau)
-    automailerHandler.campaignEngine.start();
-    _emailPollingInterval = setInterval(async () => {
-      try {
-        await automailerHandler.campaignEngine.checkEmailStatuses();
-      } catch (e) { log.error('router', 'Erreur check email statuses:', e.message); }
-    }, 30 * 60 * 1000);
-    log.info('router', 'Polling statuts email toutes les 30 min');
-
-    // Retry queue : retenter les emails failed toutes les 5 min
-    _retryQueueInterval = setInterval(async () => {
-      try {
-        await automailerHandler.campaignEngine.processRetryQueue();
-      } catch (e) { log.error('router', 'Erreur retry queue:', e.message); }
-    }, 5 * 60 * 1000);
-    log.info('router', 'Retry queue emails toutes les 5 min');
-
-    // Archivage auto : deplacer emails > 90j toutes les 6h
-    _archiveInterval = setInterval(() => {
-      try {
-        automailerHandler.campaignEngine.runArchive();
-      } catch (e) { log.error('router', 'Erreur archivage auto:', e.message); }
-    }, 6 * 60 * 60 * 1000);
-    // Archivage initial au demarrage (apres 30s)
-    setTimeout(() => {
-      try { automailerHandler.campaignEngine.runArchive(); } catch (e) { log.warn('router', 'Archivage initial: ' + e.message); }
-    }, 30000);
-  }
-
-  // Sync bookings Cal.eu toutes les 5 min
-  if (meetingHandler.calcom.isConfigured()) {
-    _bookingSyncInterval = setInterval(async () => {
-      try {
-        await meetingHandler.syncBookings(sendMessage, _getHubSpotClient(), ADMIN_CHAT_ID);
-      } catch (e) { log.error('router', 'Booking sync echoue:', e.message); }
-    }, 5 * 60 * 1000);
-    log.info('router', 'Sync bookings Cal.eu toutes les 5 min');
-  }
-
-  log.info('router', '21 crons demarres (production)');
-}
-
-function stopAllCrons() {
-  proactiveEngine.stop();
-  if (selfImproveHandler) selfImproveHandler.stop();
-  webIntelHandler.stop();
-  systemAdvisorHandler.stop();
-  autoPilotEngine.stop();
-  if (_emailPollingInterval) { clearInterval(_emailPollingInterval); _emailPollingInterval = null; }
-  if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
-  if (_retryQueueInterval) { clearInterval(_retryQueueInterval); _retryQueueInterval = null; }
-  if (_archiveInterval) { clearInterval(_archiveInterval); _archiveInterval = null; }
-
-  // Desactiver les configs internes (double securite)
-  try { proactiveAgentStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron proactive:', e.message); }
-  try { selfImproveStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron self-improve:', e.message); }
-  try { webIntelStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron web-intel:', e.message); }
-  try { systemAdvisorStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron system-advisor:', e.message); }
-  try { autonomousPilotStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron autonomous-pilot:', e.message); }
-  log.info('router', 'Tous les crons stoppes (standby)');
-}
+// --- Cron Manager (module extrait) ---
+// Note : _getHubSpotClient est defini plus bas, on passe une closure pour resolution lazy
+const cronManager = createCronManager({
+  engines: { proactiveEngine, autoPilotEngine },
+  handlers: { selfImproveHandler, webIntelHandler, systemAdvisorHandler, automailerHandler, meetingHandler },
+  storages: { proactiveAgentStorage, selfImproveStorage, webIntelStorage, systemAdvisorStorage, autonomousPilotStorage },
+  sendMessage,
+  _getHubSpotClient: () => _getHubSpotClient(),
+  ADMIN_CHAT_ID
+});
+const { startAllCrons, stopAllCrons } = cronManager;
 
 // Restaurer l'etat volatile (bans + historique) depuis le disque
 _loadVolatileState();
@@ -1447,139 +1264,23 @@ function buildSystemStatus() {
 const userActiveSkill = {};
 const userActiveSkillTime = {};
 
-// --- Conversation stickiness : reste sur le meme skill si message de continuation ---
-const STICKINESS_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
-const CONTINUATION_PATTERN = /^(oui|non|ok|go|envoie|fais|lance|montre|ajuste|modifie|change|parfait|super|merci|nice|top|cool|ca marche|d'accord|valide|confirme|annule|stop|attends|pas encore|plutot|exactement|voila|c'est bon|on y va|balance|envoyer|programme|planifie|demain|ce soir|a \d+h|lui|elle|leur|les|le|la|ca|c'est|je pense|tu peux|s'il te plait)/i;
-// Mots-cles qui forcent un reset de stickiness (changement de sujet explicite)
-const STICKINESS_RESET_PATTERN = /^(bonjour|salut|hello|hey|hi|bonsoir|aide|help|menu|accueil|quoi de neuf|c'est quoi|que sais-tu faire|commandes?)\b/i;
-
-function checkStickiness(chatId, text) {
-  const id = String(chatId);
-  const lastSkill = userActiveSkill[id];
-  const lastTime = userActiveSkillTime[id];
-  if (!lastSkill || !lastTime) return null;
-  if (Date.now() - lastTime > STICKINESS_TIMEOUT_MS) return null;
-  // Reset explicite : salutations ou demande d'aide → forcer reclassification
-  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  if (STICKINESS_RESET_PATTERN.test(t)) return null;
-  // Message court (< 100 chars) qui ressemble a une continuation
-  if (t.length < 100 && CONTINUATION_PATTERN.test(t)) {
-    // Verifier qu'aucun autre skill n'a un match fort (fast classify)
-    const forceSkill = fastClassify(text);
-    if (forceSkill && forceSkill !== lastSkill) return null; // mot-cle explicite pour un AUTRE skill
-    return lastSkill;
-  }
-  return null;
-}
-
-// --- UPGRADE 5 : Smart Router — Pre-filtre par mots-cles (zero token) ---
-
-function fastClassify(text) {
-  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-  // Patterns exacts — zero ambiguite
-  // ORDRE IMPORTANT : autonomous-pilot AVANT automailer
-  // "redige un email pour Nadine" = prospect (autonomous-pilot), PAS email marketing
-  const patterns = {
-    'autonomous-pilot': /\b(pilot|autonome?|brain|objectif|critere|checklist|diagnostic|cycle|prochain.*email|quand.*envoi|prochaine?.*prospection|avancement|ou.*en.*es|lead.*trouve|resultat.*prospection|relance[rs]?|follow.?up|message.*personnalise?|mail.*prospect)\b|(?:redige|ecri[st]|prepare|envoie|draft).*(?:email|mail|message).*pour\b/,
-    'automailer': /\b(campagne|template|newsletter|liste.*contact|import.*csv|stats.*email|taux.*ouverture|creer?.*campagne|lance.*campagne)\b/,
-    'crm-pilot': /\b(crm|hubspot|pipeline|deal|offre|fiche.*contact|note|tache|rappel|commercial)\b/,
-    'inbox-manager': /\b(inbox|boite.*reception|reponse.*email|email.*recu|imap|reponse.*lead|mail.*entrant)\b/,
-    'meeting-scheduler': /\b(rdv|rendez.?vous|meeting|booking|cale[rz]?|reserve[rz]?|planifi|cal\.?com|creneau)\b/,
-    'invoice-bot': /\b(factur|devis|paiement|rib|siret|client.*factur)\b/,
-    'proactive-agent': /\b(rapport|resume|recap|hebdo|mensuel|alertes?.*pipeline|mode.*proactif)\b/,
-    'self-improve': /\b(amelior|optimis|recommandation|performance|metriques?|rollback|auto.?apply)\b/,
-    'web-intelligence': /\b(veille|surveill|concurrent|news|article|tendance|rss|scan.*web|google.*news)\b/,
-    'system-advisor': /\b(systeme|memoire|ram|cpu|disque|uptime|health|sante.*bot|erreurs?.*recente)\b/
-  };
-
-  for (const [skill, regex] of Object.entries(patterns)) {
-    if (regex.test(t)) return skill;
-  }
-  return null; // null = fallback vers NLP
-}
-
-async function classifySkill(message, chatId) {
-  const id = String(chatId);
-  const text = message.toLowerCase().trim();
-
-  // Commande /start uniquement
-  if (text === '/start') return 'general';
-
-  // Workflows multi-etapes en cours : garder le skill actif (indispensable)
-  if (automailerHandler.pendingImports[id] || automailerHandler.pendingConversations[id] || automailerHandler.pendingEmails[id]) return 'automailer';
-  if (crmPilotHandler.pendingConversations[id] || crmPilotHandler.pendingConfirmations[id]) return 'crm-pilot';
-  if (invoiceBotHandler.pendingConversations[id] || invoiceBotHandler.pendingConfirmations[id]) return 'invoice-bot';
-  if (proactiveHandler.pendingConversations[id] || proactiveHandler.pendingConfirmations[id]) return 'proactive-agent';
-  if (selfImproveHandler && (selfImproveHandler.pendingConversations[id] || selfImproveHandler.pendingConfirmations[id])) return 'self-improve';
-  if (webIntelHandler.pendingConversations[id] || webIntelHandler.pendingConfirmations[id]) return 'web-intelligence';
-  if (systemAdvisorHandler.pendingConversations[id] || systemAdvisorHandler.pendingConfirmations[id]) return 'system-advisor';
-  if (inboxHandler.pendingConversations[id] || inboxHandler.pendingConfirmations[id]) return 'inbox-manager';
-  if (meetingHandler.pendingConversations[id] || meetingHandler.pendingConfirmations[id]) return 'meeting-scheduler';
-
-  // Classification NLP avec contexte conversationnel
-  const historyContext = getHistoryContext(chatId);
-  const lastSkill = userActiveSkill[id] || 'aucun';
-
-  const systemPrompt = `Tu es le cerveau d'un bot Telegram appele ${process.env.CLIENT_NAME || 'iFIND'}. Tu dois comprendre l'INTENTION de l'utilisateur pour router son message vers le bon skill.
-
-SKILLS DISPONIBLES :
-- "automailer" : campagnes email automatisees — creer/gerer des campagnes, envoyer des emails, gerer des listes de contacts email, voir les stats d'envoi, templates email. "comment vont mes campagnes ?" = automailer.
-- "crm-pilot" : gestion CRM (HubSpot) — pipeline commercial, offres/deals, fiches contacts, notes, taches, rappels, rapports hebdo, suivi commercial.
-- "invoice-bot" : facturation — creer/envoyer des factures, gerer des clients (facturation), suivi des paiements, coordonnees bancaires/RIB, devis.
-- "proactive-agent" : mode proactif, rapports automatiques, alertes pipeline, monitoring — "rapport maintenant", "rapport de la semaine", "rapport du mois", "mes alertes", "mode proactif status", "active le mode proactif", "historique des alertes". Tout ce qui concerne des rapports recapitulatifs cross-skills ou le monitoring automatique.
-- "self-improve" : amelioration automatique du bot, optimisation des performances, recommandations IA, feedback loop — "tes recommandations", "analyse maintenant", "applique les ameliorations", "metriques", "historique des ameliorations", "rollback", "status self-improve", "comment ca performe ?". Tout ce qui concerne l'optimisation du bot, l'amelioration continue, et les suggestions d'amelioration.
-- "web-intelligence" : veille web, surveillance de prospects/concurrents/secteur, news, articles, tendances, RSS, Google News — "surveille un concurrent", "mes veilles", "quoi de neuf ?", "articles", "tendances", "stats veille", "ajoute un flux RSS", "scan maintenant", "des nouvelles ?". Tout ce qui concerne la surveillance web, les actualites, la veille concurrentielle ou sectorielle.
-- "system-advisor" : monitoring technique du bot, sante du systeme, RAM, CPU, disque, uptime, erreurs, health check, alertes systeme, performances, temps de reponse des skills — "status systeme", "comment va le bot ?", "utilisation memoire", "espace disque", "erreurs recentes", "check sante", "rapport systeme", "uptime", "alertes systeme", "temps de reponse", "performances". ATTENTION : distinct de proactive-agent qui gere les rapports BUSINESS (pipeline, campagnes). System-advisor gere le monitoring TECHNIQUE (serveur, memoire, CPU).
-- "autonomous-pilot" : pilotage autonome du bot, objectifs hebdomadaires de prospection, criteres de recherche automatique, checklist diagnostic, historique des actions automatiques, forcer un cycle brain, pause/reprise du pilot, apprentissages, RELANCES de prospects, messages personnalises pour un prospect specifique — "statut pilot", "objectifs", "criteres", "mon business c'est...", "checklist", "historique pilot", "lance le brain", "pause pilot", "reprends pilot", "apprentissages", "qu'est-ce que t'as fait ?", "relance Nadine", "message pour ce prospect", "montre moi le message", "follow-up". Tout ce qui concerne l'autonomie du bot, ses objectifs, ses actions automatiques, ET les relances/messages personnalises pour des prospects. ATTENTION : distinct de proactive-agent qui gere les rapports et alertes. Distinct de automailer qui gere les CAMPAGNES (mass mailing). Autonomous-pilot gere la STRATEGIE, les ACTIONS autonomes, et les RELANCES individuelles.
-- "inbox-manager" : surveillance de la boite email, detection des reponses de prospects, emails recus, emails entrants, IMAP, inbox — "reponses recues", "emails entrants", "inbox", "boite de reception", "qui a repondu ?", "statut inbox". Tout ce qui concerne les emails RECUS (pas les envoyes, ca c'est automailer).
-- "meeting-scheduler" : prise de RDV, rendez-vous, meetings, calendrier, Cal.com, creneaux, booking — "propose un rdv", "planifie un meeting", "rdv a venir", "lien de reservation", "cale un creneau". Tout ce qui concerne la planification de rendez-vous avec des prospects.
-- "general" : salutations, aide globale, bavardage sans rapport avec les skills ci-dessus.
-
-REGLES CRITIQUES :
-1. Comprends le SENS, pas les mots exacts. "comment vont mes envois ?" = automailer. "ou en est mon business ?" = crm-pilot.
-2. Le CONTEXTE compte. Si la conversation recente parle de prospection et que l'utilisateur dit "et a Lyon ?", c'est autonomous-pilot (prospection automatique).
-3. TRES IMPORTANT : Si le bot vient d'envoyer des messages automatiques (alertes veille, rapports, alertes systeme, etc.) et que l'utilisateur REAGIT a ces messages (demande un resume, commente, critique le format, dit "trop de messages", "fais un resume", "regroupe", etc.), route vers le skill qui a envoye ces messages. Par exemple : le bot envoie des alertes veille -> l'utilisateur dit "fais-moi un resume" -> c'est web-intelligence. Le bot envoie un rapport proactif -> l'utilisateur dit "c'est quoi ce truc ?" -> c'est proactive-agent.
-4. "aide" ou "help" SEUL = general. Mais "aide sur mes factures" = invoice-bot.
-5. En cas de doute entre deux skills, choisis celui qui correspond le mieux au contexte recent.
-6. Reponds UNIQUEMENT par un seul mot : automailer, crm-pilot, invoice-bot, proactive-agent, self-improve, web-intelligence, system-advisor, autonomous-pilot, inbox-manager, meeting-scheduler ou general.`;
-
-  const userContent = (historyContext
-    ? 'HISTORIQUE RECENT :\n' + historyContext + '\n\nDernier skill utilise : ' + lastSkill + '\n\nNOUVEAU MESSAGE : '
-    : 'Pas d\'historique.\n\nNOUVEAU MESSAGE : ')
-    + message;
-
-  try {
-    const raw = await callOpenAINLP(systemPrompt, userContent, 15);
-    const skill = raw.toLowerCase().trim().replace(/[^a-z-]/g, '');
-
-    // Exact matches d'abord (prioritaire)
-    const exactSkills = [
-      'autonomous-pilot', 'system-advisor', 'web-intelligence', 'self-improve',
-      'proactive-agent', 'inbox-manager', 'meeting-scheduler',
-      'invoice-bot',
-      'crm-pilot', 'automailer', 'general'
-    ];
-    for (const s of exactSkills) {
-      if (skill === s) return s;
+// (fastClassify, classifySkill, checkStickiness extraits dans skill-router.js)
+// Wrapper classifySkill pour injecter les dependances locales
+async function _classifySkill(message, chatId) {
+  return classifySkill(message, chatId, {
+    callOpenAINLP,
+    getHistoryContext,
+    userActiveSkill,
+    handlers: {
+      automailerHandler, crmPilotHandler, invoiceBotHandler,
+      proactiveHandler, selfImproveHandler, webIntelHandler,
+      systemAdvisorHandler, inboxHandler, meetingHandler
     }
-
-    // Fallback : partial matching (du plus specifique au plus generique)
-    if (skill.includes('autonomous-pilot') || skill.includes('autonomous')) return 'autonomous-pilot';
-    if (skill.includes('inbox-manager') || skill.includes('inbox')) return 'inbox-manager';
-    if (skill.includes('meeting-scheduler') || skill.includes('meeting') || skill.includes('rdv')) return 'meeting-scheduler';
-    if (skill.includes('system-advisor') || skill.includes('monitoring') || skill.includes('sante')) return 'system-advisor';
-    if (skill.includes('web-intelligence') || skill.includes('web-intel') || skill.includes('veille')) return 'web-intelligence';
-    if (skill.includes('self-improve') || skill.includes('amelior')) return 'self-improve';
-    if (skill.includes('proactive-agent') || skill.includes('proactive') || skill.includes('proactif')) return 'proactive-agent';
-    if (skill.includes('invoice-bot') || skill.includes('invoice')) return 'invoice-bot';
-    if (skill.includes('crm-pilot') || skill.includes('crm')) return 'crm-pilot';
-    if (skill.includes('automailer') || skill.includes('mailer')) return 'automailer';
-    return 'general';
-  } catch (e) {
-    log.warn('router', 'Erreur classification NLP:', e.message);
-    return 'general';
-  }
+  });
+}
+// Wrapper checkStickiness pour injecter l'etat local
+function _checkStickiness(chatId, text) {
+  return checkStickiness(chatId, text, { userActiveSkill, userActiveSkillTime });
 }
 
 // --- Humanisation des reponses ---
@@ -1848,7 +1549,7 @@ async function handleUpdate(update) {
   try {
     // Determiner le skill : stickiness > fast classify > NLP fallback
     const textForNLP = truncateInput(text, 2000);
-    let skill = checkStickiness(chatId, textForNLP);
+    let skill = _checkStickiness(chatId, textForNLP);
     if (skill) {
       log.info('router', 'Stickiness: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
     }
@@ -1861,7 +1562,7 @@ async function handleUpdate(update) {
     }
     if (!skill) {
       // Fallback NLP seulement si ni stickiness ni fast classify ne trouvent rien
-      skill = await classifySkill(textForNLP, chatId);
+      skill = await _classifySkill(textForNLP, chatId);
       global.__ifindMetrics.nlpFallbacks++;
       log.info('router', 'NLP classify: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
     }
@@ -2298,288 +1999,24 @@ let ProspectResearcher;
 try { ProspectResearcher = require('../skills/autonomous-pilot/prospect-researcher.js'); }
 catch (e) { try { ProspectResearcher = require('/app/skills/autonomous-pilot/prospect-researcher.js'); } catch (e2) { ProspectResearcher = null; } }
 
-const RESEND_EVENT_MAP = {
-  'email.sent': 'sent',
-  'email.delivered': 'delivered',
-  'email.delivery_delayed': 'delivery_delayed',
-  'email.bounced': 'bounced',
-  'email.complained': 'complained',
-  'email.opened': 'opened',
-  'email.clicked': 'clicked'
-};
+// --- Resend Handler (module extrait) ---
+const resendHandlerModule = createResendHandler({
+  automailerStorage,
+  proactiveAgentStorage,
+  _getHubSpotClient,
+  _enrichContactWithOrg,
+  sendMessage,
+  sendMessageWithButtons,
+  ProspectResearcher,
+  meetingHandler,
+  automailerHandler,
+  CLAUDE_KEY,
+  REPLY_TO_EMAIL,
+  ADMIN_CHAT_ID
+});
+const { handleResendWebhook } = resendHandlerModule;
 
-async function handleResendWebhook(body) {
-  const eventType = body.type;
-  const data = body.data;
-  if (!eventType || !data || !data.email_id) {
-    return { processed: false, reason: 'payload invalide' };
-  }
-
-  const status = RESEND_EVENT_MAP[eventType];
-  if (!status) {
-    return { processed: false, reason: 'event type inconnu: ' + eventType };
-  }
-
-  // Trouver l'email par resendId
-  const email = automailerStorage.findEmailByResendId(data.email_id);
-  if (!email) {
-    return { processed: false, reason: 'email_id inconnu: ' + data.email_id };
-  }
-
-  // Ne pas "downgrader" le statut (opened > delivered > sent)
-  const STATUS_PRIORITY = { queued: 0, sent: 1, delivered: 2, delivery_delayed: 2, opened: 3, clicked: 4, bounced: 5, complained: 5 };
-  const currentPriority = STATUS_PRIORITY[email.status] || 0;
-  const newPriority = STATUS_PRIORITY[status] || 0;
-  if (newPriority <= currentPriority && status !== 'bounced' && status !== 'complained') {
-    return { processed: false, reason: 'statut deja plus avance (' + email.status + ')' };
-  }
-
-  // Sauvegarder l'etat avant mise a jour (pour detecter premiere ouverture)
-  const wasAlreadyOpened = email.openedAt || false;
-
-  // Mettre a jour le statut
-  automailerStorage.updateEmailStatus(email.id, status);
-  log.info('webhook', eventType + ' pour ' + email.to + ' (resend: ' + data.email_id + ')');
-
-  // Bounce → blacklist automatique
-  if (status === 'bounced') {
-    automailerStorage.addToBlacklist(email.to, 'hard_bounce_webhook');
-    log.info('webhook', 'Bounce: ' + email.to + ' ajoute au blacklist');
-  }
-
-  // Complained (spam report) → blacklist automatique
-  if (status === 'complained') {
-    automailerStorage.addToBlacklist(email.to, 'spam_complaint');
-    log.info('webhook', 'Spam complaint: ' + email.to + ' ajoute au blacklist');
-  }
-
-  // Sync CRM + avancement deal automatique pour les evenements importants
-  if (['opened', 'bounced', 'clicked'].includes(status)) {
-    try {
-      const hubspot = _getHubSpotClient();
-      if (hubspot) {
-        const contact = await hubspot.findContactByEmail(email.to);
-        if (contact && contact.id) {
-          const STATUS_LABELS = { opened: 'Ouvert', bounced: 'Bounce', clicked: 'Clique' };
-          const noteBody = 'Email "' + (email.subject || '(sans sujet)') + '" — ' + (STATUS_LABELS[status] || status) + '\n' +
-            'Destinataire : ' + email.to + '\n' +
-            'Date : ' + new Date().toLocaleDateString('fr-FR') + '\n' +
-            '[Webhook Resend — sync auto]';
-          const note = await hubspot.createNote(noteBody);
-          if (note && note.id) {
-            await hubspot.associateNoteToContact(note.id, contact.id);
-          }
-          // Avancement automatique des deals selon l'evenement
-          if (status === 'opened') {
-            const adv = await hubspot.advanceDealStage(contact.id, 'qualifiedtobuy', 'email_opened');
-            if (adv > 0) log.info('webhook', 'Deal avance a qualifiedtobuy pour ' + email.to + ' (email ouvert)');
-          } else if (status === 'clicked') {
-            const adv = await hubspot.advanceDealStage(contact.id, 'presentationscheduled', 'email_clicked');
-            if (adv > 0) log.info('webhook', 'Deal avance a presentationscheduled pour ' + email.to + ' (clic email)');
-          }
-        }
-      }
-    } catch (crmErr) {
-      log.warn('webhook', 'CRM sync echoue: ' + crmErr.message);
-    }
-  }
-
-  // --- REACTIVE FOLLOW-UP : basé sur le comportement (données prouvées) ---
-  // 1ère ouverture = juste notifier + research (pas de relance)
-  // 2ème+ ouverture = programmer reactive FU (signal d'intérêt fort)
-  // Clic = programmer reactive FU (engagement maximal)
-
-  // Helper : programmer un reactive FU — retourne l'objet ajouté ou null
-  function _scheduleReactiveFU(emailRecord, intelBrief) {
-    try {
-      const rfConfig = proactiveAgentStorage.getReactiveFollowUpConfig();
-      if (!rfConfig.enabled) return null;
-
-      // Guard 0 : ANTI-BOUCLE — ne JAMAIS relancer sur un email qui est lui-meme une relance
-      const emailSource = (emailRecord.source || '').toLowerCase();
-      if (emailSource === 'reactive-followup' || emailSource === 'auto-reply' || emailSource === 'lead-revival' || emailSource === 'multi-threading' || emailSource === 'objection-reply') {
-        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — anti-boucle (source: ' + emailSource + ')');
-        return null;
-      }
-
-      // Guard 1 : emails generiques (contact@, info@, etc.)
-      const genericPrefixes = ['contact', 'info', 'hello', 'support', 'admin', 'commercial', 'sales', 'marketing', 'direction', 'accueil', 'reception', 'compta', 'facturation', 'rh'];
-      const localPart = (emailRecord.to || '').split('@')[0].toLowerCase();
-      if (genericPrefixes.includes(localPart)) {
-        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — email generique');
-        return null;
-      }
-
-      // Guard 2 : blacklist automailer (human takeover, bounce, decline)
-      if (automailerStorage.isBlacklisted(emailRecord.to)) {
-        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — blackliste');
-        return null;
-      }
-      // Guard 3 : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
-      const events = automailerStorage.getEmailEventsForRecipient(emailRecord.to);
-      if (events.some(e => e.status === 'replied' || e.hasReplied)) {
-        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — deja repondu (human takeover)');
-        return null;
-      }
-      // Guard 4 : anti-doublon — ne PAS programmer si un FU est deja pending pour ce prospect
-      const pendingFUs = proactiveAgentStorage.getPendingFollowUps();
-      if (pendingFUs.some(fu => fu.prospectEmail && fu.prospectEmail.toLowerCase() === emailRecord.to.toLowerCase() && fu.status === 'pending')) {
-        log.info('webhook', 'Skip reactive FU pour ' + emailRecord.to + ' — follow-up deja programme');
-        return null;
-      }
-      const delayMs = (rfConfig.minDelayMinutes + Math.random() * (rfConfig.maxDelayMinutes - rfConfig.minDelayMinutes)) * 60 * 1000;
-      const scheduledAfter = new Date(Date.now() + delayMs).toISOString();
-      const added = proactiveAgentStorage.addPendingFollowUp({
-        prospectEmail: emailRecord.to,
-        prospectName: emailRecord.contactName || '',
-        prospectCompany: emailRecord.company || '',
-        originalEmailId: emailRecord.id,
-        originalSubject: emailRecord.subject || '',
-        originalBody: (emailRecord.body || '').substring(0, 500),
-        prospectIntel: (intelBrief || '').substring(0, 3500),
-        scheduledAfter: scheduledAfter
-      });
-      if (added) {
-        log.info('webhook', 'Reactive follow-up programme pour ' + emailRecord.to + ' a ' + scheduledAfter);
-      }
-      return added;
-    } catch (rfErr) {
-      log.warn('webhook', 'Erreur enregistrement reactive follow-up: ' + rfErr.message);
-      return null;
-    }
-  }
-
-  // Clic email → programmer reactive FU + proposer meeting immédiatement
-  if (status === 'clicked' && ProspectResearcher) {
-    log.info('webhook', 'Clic detecte pour ' + email.to + ' — reactive FU + meeting auto');
-    try {
-      const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
-      const contact = _enrichContactWithOrg(email.to, email.contactName || '', email.company || '', '');
-      Promise.race([
-        researcher.researchProspect(contact),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 30s')), 30000))
-      ]).then(intel => {
-        var addedFUclick = _scheduleReactiveFU(email, intel && intel.brief ? intel.brief : '');
-        if (addedFUclick) {
-          sendMessageWithButtons(ADMIN_CHAT_ID, '🖱️ *Clic sur email !*\n\n*Qui :* ' + (email.contactName || email.to) + '\n' + (email.company ? '*Entreprise :* ' + email.company + '\n' : '') + '*Objet :* _' + (email.subject || '').substring(0, 60) + '_\n\n➡️ _Relance programmee._', [[{ text: '❌ Annuler relance', callback_data: 'cancel_rfu_' + addedFUclick.id }]]).catch(() => {});
-        } else {
-          sendMessage(ADMIN_CHAT_ID, '🖱️ *Clic sur email !*\n\n*Qui :* ' + (email.contactName || email.to) + '\n' + (email.company ? '*Entreprise :* ' + email.company + '\n' : '') + '*Objet :* _' + (email.subject || '').substring(0, 60) + '_', 'Markdown').catch(() => {});
-        }
-      }).catch(() => {
-        var addedFUclick2 = _scheduleReactiveFU(email, '');
-        if (addedFUclick2) {
-          sendMessageWithButtons(ADMIN_CHAT_ID, '🖱️ *Clic sur email* par ' + (email.contactName || email.to) + '\n\n_Relance programmee._', [[{ text: '❌ Annuler relance', callback_data: 'cancel_rfu_' + addedFUclick2.id }]]).catch(() => {});
-        } else {
-          sendMessage(ADMIN_CHAT_ID, '🖱️ *Clic sur email* par ' + (email.contactName || email.to), 'Markdown').catch(() => {});
-        }
-      });
-    } catch (e) {
-      log.warn('webhook', 'Erreur reactive FU sur clic: ' + e.message);
-    }
-    // Clic = engagement fort → proposer meeting auto immediatement
-    try {
-      const amStorage = require('../skills/automailer/storage.js');
-      const existingEmails = amStorage.getEmailEventsForRecipient(email.to);
-      const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
-      const recentAutoMeeting = existingEmails.find(e =>
-        e.source === 'auto-meeting' && e.sentAt && new Date(e.sentAt).getTime() > cutoff48h
-      );
-      if (!recentAutoMeeting) {
-        const meeting = await meetingHandler.proposeAutoMeeting(
-          email.to,
-          email.contactName || '',
-          email.company || ''
-        );
-        if (meeting && meeting.bookingUrl) {
-          const resend = automailerHandler.resend;
-          if (resend) {
-            const leadFirst = (email.contactName || '').trim().split(' ')[0] || '';
-            const meetBody = (leadFirst ? (leadFirst + ', ') : '') +
-              'je vois que le sujet t\'interesse !\n\n' +
-              'Le plus simple : on se fait un call rapide de 15 min ?\n\n' +
-              'Choisis le creneau qui t\'arrange : ' + meeting.bookingUrl + '\n\n' +
-              'A bientot !';
-            const meetSubject = 'On se cale un echange rapide ?';
-            const meetResult = await resend.sendEmail(email.to, meetSubject, meetBody, {
-              replyTo: REPLY_TO_EMAIL,
-              fromName: process.env.SENDER_NAME || 'Alexis',
-              tags: [{ name: 'type', value: 'auto-meeting' }]
-            });
-            if (meetResult && meetResult.success) {
-              amStorage.addEmail({
-                chatId: ADMIN_CHAT_ID,
-                to: email.to,
-                subject: meetSubject,
-                body: meetBody,
-                resendId: meetResult.id || null,
-                status: 'sent',
-                source: 'auto-meeting',
-                contactName: email.contactName || '',
-                company: email.company || ''
-              });
-              log.info('webhook', 'Meeting auto envoye sur clic a ' + email.to);
-              sendMessage(ADMIN_CHAT_ID, '📅 *Meeting propose sur clic !*\n👤 ' + (email.contactName || email.to) + '\n🔗 ' + meeting.bookingUrl, 'Markdown').catch(() => {});
-            }
-          }
-        }
-      }
-    } catch (meetErr) {
-      log.info('webhook', 'Auto-meeting sur clic skip: ' + meetErr.message);
-    }
-  }
-
-  // Première ouverture → research + notification seulement (PAS de reactive FU)
-  if (status === 'opened' && !wasAlreadyOpened && ProspectResearcher) {
-    try {
-      const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
-      const contact = _enrichContactWithOrg(email.to, email.contactName || '', email.company || '', '');
-      const researchWithTimeout = Promise.race([
-        researcher.researchProspect(contact),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout 30s')), 30000))
-      ]);
-      researchWithTimeout.then(intel => {
-        if (intel && intel.brief) {
-          // Notification silencieuse — le hot lead alert notifiera si 3+ ouvertures
-          log.info('webhook', 'Email ouvert (1ere fois) par ' + email.to + ' — intel cache, notification silencieuse');
-          // Sauvegarder l'intel pour usage ultérieur (2ème ouverture)
-          try {
-            proactiveAgentStorage.data._cachedIntel = proactiveAgentStorage.data._cachedIntel || {};
-            proactiveAgentStorage.data._cachedIntel[email.to] = { brief: intel.brief.substring(0, 3500), cachedAt: new Date().toISOString() };
-            // Nettoyer cache > 100 entrées
-            const keys = Object.keys(proactiveAgentStorage.data._cachedIntel);
-            if (keys.length > 100) { for (var ci = 0; ci < keys.length - 100; ci++) delete proactiveAgentStorage.data._cachedIntel[keys[ci]]; }
-            proactiveAgentStorage._save();
-          } catch (cacheErr) {}
-        } else {
-          log.info('webhook', 'Email ouvert (1ere fois) par ' + email.to + ' — pas d\'intel, notification silencieuse');
-        }
-      }).catch(err => {
-        log.warn('webhook', 'Prospect research echoue pour open event: ' + err.message);
-      });
-    } catch (e) {
-      log.warn('webhook', 'Erreur init prospect research: ' + e.message);
-    }
-  }
-
-  // 2ème+ ouverture → signal d'intérêt fort → programmer reactive FU
-  if (status === 'opened' && wasAlreadyOpened) {
-    log.info('webhook', 'Rouverture detectee pour ' + email.to + ' — programmation reactive FU');
-    // Utiliser l'intel en cache si disponible
-    var cachedIntel = '';
-    try {
-      var cache = (proactiveAgentStorage.data._cachedIntel || {})[email.to];
-      if (cache && cache.brief) cachedIntel = cache.brief;
-    } catch (e) { log.warn('webhook', 'Cached intel lookup: ' + e.message); }
-    var addedFUwh = _scheduleReactiveFU(email, cachedIntel);
-    if (addedFUwh) {
-      log.info('webhook', 'Reactive FU programme (reouvre webhook) pour ' + email.to + ' — id: ' + addedFUwh.id + ' — notification a l\'envoi');
-    } else {
-      log.info('webhook', 'Reactive FU deja programme ou skippee pour ' + email.to + ' (dedup/guards)');
-    }
-  }
-
-  return { processed: true, status: status, email: email.to };
-}
+// handleResendWebhook extrait dans resend-handler.js
 
 // --- Chat API : bridge Dashboard → NLP pipeline ---
 async function processChatMessage(text, userId) {
@@ -2588,7 +2025,7 @@ async function processChatMessage(text, userId) {
 
   try {
     // 1. Classification NLP
-    const skill = await classifySkill(text, chatId);
+    const skill = await _classifySkill(text, chatId);
     log.info('chat-api', 'Skill: ' + skill + ' pour: ' + text.substring(0, 60));
 
     // 2. Handlers (meme map que handleUpdate)
@@ -3198,10 +2635,7 @@ function gracefulShutdown() {
   _botReady = false;
   clearInterval(_cleanupInterval);
   clearInterval(_metricsSaveInterval);
-  if (_emailPollingInterval) { clearInterval(_emailPollingInterval); _emailPollingInterval = null; }
-  if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
-  if (_retryQueueInterval) { clearInterval(_retryQueueInterval); _retryQueueInterval = null; }
-  if (_archiveInterval) { clearInterval(_archiveInterval); _archiveInterval = null; }
+  cronManager.clearAllIntervals();
   try { _saveMetrics(); } catch (e) { log.error('router', 'Erreur save metrics:', e.message); }
   try { _saveVolatileState(); } catch (e) { log.error('router', 'Erreur save volatile-state:', e.message); }
   log.info('router', 'Metriques + etat volatile sauvegardes sur disque');
