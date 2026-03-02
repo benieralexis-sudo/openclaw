@@ -294,7 +294,8 @@ Format JSON strict :
                   linkedin: lead.linkedin_url,
                   source: 'autonomous-pilot',
                   raison: lead.raison || '',
-                  searchCriteria: JSON.stringify(criteria).substring(0, 200)
+                  searchCriteria: JSON.stringify(criteria).substring(0, 200),
+                  organizationData: JSON.stringify(lead.organization || {}).substring(0, 2000)
                 }, lead.score, 'brain-cycle-revealed');
               }
             }

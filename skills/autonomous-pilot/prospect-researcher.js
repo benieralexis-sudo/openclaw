@@ -31,6 +31,90 @@ class ProspectResearcher {
     this._uaIndex = Math.floor(Math.random() * USER_AGENTS.length);
   }
 
+  // --- Filtres anti-bruit pour sources de donnees ---
+
+  /**
+   * Verifie si un texte contient des blocs significatifs de caracteres non-latins
+   * (CJK, arabe, devanagari, etc.). Retourne true si le texte est "pollue".
+   */
+  _hasSignificantNonLatinChars(text) {
+    if (!text) return false;
+    // CJK Unified Ideographs, Arabic, Devanagari, Thai, Japanese Hiragana/Katakana
+    const nonLatinMatch = text.match(/[\u4e00-\u9fff\u3040-\u30ff\u0600-\u06ff\u0900-\u097f\u0e00-\u0e7f\uac00-\ud7af]/g);
+    if (!nonLatinMatch) return false;
+    // "Significatif" = 5+ caracteres non-latins OU > 15% du texte
+    return nonLatinMatch.length >= 5 || (nonLatinMatch.length / text.length) > 0.15;
+  }
+
+  /**
+   * Filtre les news Google News RSS : ne garde que celles dont le titre ou snippet
+   * contient le nom de l'entreprise (au moins un mot significatif > 3 chars, case-insensitive).
+   */
+  _filterRelevantNews(newsItems, companyName) {
+    if (!newsItems || newsItems.length === 0 || !companyName) return newsItems;
+
+    // Extraire les mots significatifs du nom d'entreprise (> 3 chars, pas les stop words)
+    const stopWords = new Set(['sarl', 'sas', 'eurl', 'the', 'and', 'les', 'des', 'group', 'groupe', 'france', 'paris', 'consulting', 'conseil', 'international']);
+    const companyWords = companyName.toLowerCase()
+      .split(/[\s\-_&.,;:'"()]+/)
+      .filter(w => w.length > 3 && !stopWords.has(w));
+
+    // Si le nom complet est court (ex: "IFFP"), aussi matcher en entier
+    const companyLower = companyName.toLowerCase().trim();
+
+    return newsItems.filter(item => {
+      const titleAndSnippet = ((item.title || '') + ' ' + (item.snippet || '')).toLowerCase();
+      // Match exact du nom complet
+      if (titleAndSnippet.includes(companyLower)) return true;
+      // Match d'au moins un mot significatif du nom
+      if (companyWords.length > 0 && companyWords.some(w => titleAndSnippet.includes(w))) return true;
+      return false;
+    });
+  }
+
+  /**
+   * Filtre les resultats de recherche personne : exclut domaines garbage et scripts non-latins.
+   */
+  _filterPersonProfileResults(items) {
+    if (!items || items.length === 0) return items;
+
+    const GARBAGE_DOMAINS = [
+      'zhihu.com', 'baidu.com', 'bilibili.com', 'weibo.com', 'qq.com', 'csdn.net',
+      'levi.com', 'levis.com', 'heidisql.com',
+      'spotify.com', 'deezer.com', 'apple.com/music', 'soundcloud.com',
+      'amazon.com', 'ebay.com', 'aliexpress.com', 'alibaba.com',
+      'pinterest.com', 'tiktok.com',
+      'imdb.com', 'rottentomatoes.com',
+      'genius.com', 'lyrics.com',
+      'booking.com', 'tripadvisor.com'
+    ];
+
+    return items.filter(item => {
+      const url = (item.url || '').toLowerCase();
+      const text = (item.title || '') + ' ' + (item.snippet || '');
+
+      // Exclure les domaines garbage
+      if (GARBAGE_DOMAINS.some(d => url.includes(d))) return false;
+
+      // Exclure les resultats avec caracteres non-latins significatifs
+      if (this._hasSignificantNonLatinChars(text)) return false;
+
+      return true;
+    });
+  }
+
+  /**
+   * Filtre les resultats de recherche clients : exclut les snippets en scripts non-latins.
+   */
+  _filterClientSearchResults(results) {
+    if (!results || results.length === 0) return results;
+
+    return results.filter(item => {
+      const text = (item.title || '') + ' ' + (item.snippet || '');
+      return !this._hasSignificantNonLatinChars(text);
+    });
+  }
+
   // Pre-analyse IA du site web : texte brut → insights structures (GPT-4o-mini, ~0.001$/call)
   async _summarizeWebsite(rawText, companyName) {
     if (!rawText || rawText.length < 100 || !this.openaiKey) return null;
@@ -472,13 +556,21 @@ class ProspectResearcher {
 
     try {
       const articles = await fetcher.fetchGoogleNews([companyName]);
-      // Garder seulement les 5 premiers, juste titre + snippet (pas d'analyse IA)
-      return articles.slice(0, 5).map(a => ({
+      // Mapper les resultats bruts
+      const mapped = articles.slice(0, 10).map(a => ({
         title: a.title,
         snippet: (a.snippet || '').substring(0, 150),
         source: a.source,
         pubDate: a.pubDate
       }));
+      // Filtrer les news non pertinentes (ex: "colibri rare" pour IFFP, "GNL russe" pour Let it be Consulting)
+      const filtered = this._filterRelevantNews(mapped, companyName);
+      if (mapped.length > 0 && filtered.length === 0) {
+        log.info('prospect-research', 'News filtre: ' + mapped.length + ' resultats Google News supprimes (aucun ne mentionne "' + companyName + '")');
+      } else if (filtered.length < mapped.length) {
+        log.info('prospect-research', 'News filtre: ' + (mapped.length - filtered.length) + '/' + mapped.length + ' news non pertinentes supprimees pour ' + companyName);
+      }
+      return filtered.slice(0, 5);
     } catch (e) {
       log.info('prospect-research', 'News echouees pour ' + companyName + ': ' + e.message);
       return [];
@@ -539,7 +631,13 @@ class ProspectResearcher {
       const searchResult = await this._searchWithFallback(query);
       if (!searchResult) return null;
 
-      const parsed = this._parseSearchResults(searchResult.html, searchResult.source, 5);
+      let parsed = this._parseSearchResults(searchResult.html, searchResult.source, 5);
+      // Filtrer les resultats en scripts non-latins (arabe, chinois, japonais)
+      const beforeFilter = parsed.length;
+      parsed = this._filterClientSearchResults(parsed);
+      if (parsed.length < beforeFilter) {
+        log.info('prospect-research', 'Client search filtre: ' + (beforeFilter - parsed.length) + '/' + beforeFilter + ' resultats non-latins supprimes pour ' + companyName);
+      }
       const snippets = parsed.map(r => r.snippet).filter(s => s.length > 20);
 
       if (snippets.length === 0) return null;
@@ -573,7 +671,13 @@ class ProspectResearcher {
 
       const rawItems = this._parseSearchResults(searchResult.html, searchResult.source, 10);
       // Filtrer reseaux sociaux SAUF YouTube (interviews/talks) et Twitter/X (prises de position)
-      const items = rawItems.filter(r => !/linkedin\.com|facebook\.com|instagram\.com/i.test(r.url));
+      let items = rawItems.filter(r => !/linkedin\.com|facebook\.com|instagram\.com/i.test(r.url));
+      // Filtrer domaines garbage et scripts non-latins (ex: zhihu.com, heidisql.com, contenu chinois/arabe)
+      const beforeFilter = items.length;
+      items = this._filterPersonProfileResults(items);
+      if (items.length < beforeFilter) {
+        log.info('prospect-research', 'Person profile filtre: ' + (beforeFilter - items.length) + '/' + beforeFilter + ' resultats garbage supprimes pour ' + name);
+      }
 
       if (items.length === 0) return this._searchPersonProfileNews(name, company);
 
@@ -615,7 +719,22 @@ class ProspectResearcher {
       }
       if (!articles || articles.length === 0) return null;
 
-      const items = articles.slice(0, 5).map(a => {
+      // Filtrer les news non pertinentes (meme probleme que _fetchCompanyNews : Google News RSS retourne du bruit)
+      const nameLower = name.toLowerCase();
+      const nameWords = nameLower.split(/\s+/).filter(w => w.length > 3);
+      const companyLower = company ? company.toLowerCase() : '';
+      const relevantArticles = articles.filter(a => {
+        const titleAndSnippet = ((a.title || '') + ' ' + (a.snippet || '')).toLowerCase();
+        // Match le nom complet ou partiel de la personne
+        if (titleAndSnippet.includes(nameLower)) return true;
+        if (nameWords.length > 0 && nameWords.some(w => titleAndSnippet.includes(w))) return true;
+        // Match le nom d'entreprise
+        if (companyLower && titleAndSnippet.includes(companyLower)) return true;
+        return false;
+      });
+      if (relevantArticles.length === 0) return null;
+
+      const items = relevantArticles.slice(0, 5).map(a => {
         const text = ((a.title || '') + ' ' + (a.snippet || '') + ' ' + (a.source || '')).toLowerCase();
         let type = 'mention';
         if (text.includes('podcast') || text.includes('episode')) type = 'podcast';

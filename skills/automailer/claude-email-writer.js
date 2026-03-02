@@ -173,8 +173,11 @@ PRIORITE 4 — STACK TECHNIQUE / CHIFFRES / DETAILS CONCRETS :
 Technologies, nombre d'employes, annee de fondation, ville, levee de fonds.
 Exemple : "150 personnes a Nantes, 4 postes commerciaux ouverts sur Welcome — ca sent le passage a l'echelle."
 
-PRIORITE 5 — SKIP :
-Si AUCUNE donnee exploitable → {"skip": true, "reason": "donnees insuffisantes"}
+PRIORITE 5 — SKIP (DERNIER RECOURS) :
+Skip UNIQUEMENT si tu n'as NI nom d'entreprise, NI description d'activite, NI aucun fait concret.
+Si tu as au moins une entreprise + un poste → ecris sur l'activite de l'entreprise.
+Un email 7/10 vaut mieux qu'un email 0/10 (skip).
+→ {"skip": true, "reason": "donnees insuffisantes"} seulement si VRAIMENT rien.
 
 === FORMAT STRICT : 2 BLOCS, ${emailLengthHint} ===
 
@@ -291,7 +294,8 @@ JSON valide uniquement, sans markdown, sans backticks.
 OU {"skip": true, "reason": "explication"}`;
 
     const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
-    const userMessage = `Ecris un email pour ce prospect. Utilise la MEILLEURE donnee disponible selon la hierarchie (profil public > news > clients > techno > chiffres). Skip si ZERO fait exploitable.
+    const userMessage = `Ecris un email pour ce prospect. Utilise la MEILLEURE donnee disponible selon la hierarchie (profil public > news > clients > techno > chiffres).
+IMPORTANT : essaie TOUJOURS d'ecrire un email. Si tu as au moins un nom d'entreprise + un poste, tu peux ecrire sur l'activite de cette entreprise. Skip UNIQUEMENT si tu n'as AUCUNE info (pas de nom d'entreprise, pas de description d'activite, rien). Un email 7/10 vaut mieux qu'un skip.
 
 CONTACT :
 - Prenom : ${firstName}
@@ -323,7 +327,35 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
         1500
       );
       const parsed = this._parseJSON(response);
-      if (!parsed || parsed.skip) return parsed;
+      if (!parsed) return parsed;
+
+      // Si Claude skip au premier essai, retry UNE FOIS avec un prompt plus insistant
+      if (parsed.skip) {
+        if (attempt === 0) {
+          // Retry : Claude est stochastique, parfois il skip alors que les donnees suffisent
+          const retryPrompt = prompt + '\n\nATTENTION : tu as voulu skip mais le brief contient des donnees. Essaie de trouver un angle meme minimal. Skip UNIQUEMENT si tu n\'as AUCUNE info (pas de nom d\'entreprise, pas de description d\'activite). Si tu as au moins entreprise + poste, ecris un email court sur leur activite. Un email 7/10 vaut mieux qu\'un skip.';
+          try {
+            const retryResponse = await this.callClaude(
+              [{ role: 'user', content: retryPrompt }],
+              systemPrompt,
+              1500
+            );
+            const retryParsed = this._parseJSON(retryResponse);
+            if (retryParsed && !retryParsed.skip) {
+              // Le retry a produit un email — continuer vers le scoring
+              const retryScore = await this._scoreEmail(retryParsed.subject, retryParsed.body, contact);
+              if (retryScore.note >= 9) return retryParsed;
+              if (retryScore.note > bestScore) {
+                best = retryParsed;
+                bestScore = retryScore.note;
+                best._scoreReason = retryScore.reason;
+              }
+              continue; // passer a l'iteration suivante du for loop
+            }
+          } catch (e) { /* retry echoue, on garde le skip original */ }
+        }
+        return parsed; // skip confirme apres retry (ou 2e attempt)
+      }
 
       // Auto-scoring via GPT-4o-mini (cout: ~0.001$/email)
       const score = await this._scoreEmail(parsed.subject, parsed.body, contact);

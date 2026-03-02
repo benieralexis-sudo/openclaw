@@ -530,7 +530,9 @@ function getRecentlyFailedEmails(cooldownDays) {
   const history = _load().actionHistory;
   for (const a of history) {
     if (a.type !== 'send_email') continue;
-    const ts = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const ts = a.executedAt ? new Date(a.executedAt).getTime()
+      : a.createdAt ? new Date(a.createdAt).getTime()
+      : a.timestamp ? new Date(a.timestamp).getTime() : 0;
     if (ts < cutoff) continue; // Trop vieux, ignore
     const r = a.result;
     if (!r || typeof r !== 'object') continue;
