@@ -166,6 +166,21 @@ Format JSON strict :
       criteria.keywords = criteria.keywords.join(' OR ');
     }
 
+    // --- Guard ICP: JAMAIS de recherche sans criteres de base ---
+    const ICP = storage.ICP_DEFAULTS || {};
+    if (!criteria.titles || criteria.titles.length === 0) {
+      criteria.titles = ICP.titles || ['CEO', 'Founder', 'Co-founder', 'CTO', 'Fondateur', 'Directeur', 'Gerant', 'Associe'];
+      log.warn('action-executor', 'ICP Guard: titles vide, defaults injectes');
+    }
+    if (!criteria.locations || criteria.locations.length === 0) {
+      criteria.locations = ICP.locations || ['France'];
+      log.warn('action-executor', 'ICP Guard: locations vide, defaults injectes');
+    }
+    if (!criteria.seniorities || criteria.seniorities.length === 0) {
+      criteria.seniorities = ICP.seniorities || ['founder', 'c_suite', 'director', 'owner'];
+      log.warn('action-executor', 'ICP Guard: seniorities vide, defaults injectes');
+    }
+
     log.info('action-executor', 'Recherche leads (config+brain+SI):', JSON.stringify(criteria).substring(0, 300));
     const result = await getBreaker('apollo', { failureThreshold: 3, cooldownMs: 60000 }).call(() => apollo.searchLeads(criteria));
 
@@ -1436,12 +1451,9 @@ Format JSON strict :
   _inferNiche(keywords) {
     if (!keywords) return null;
     const kw = keywords.toLowerCase();
-    const nicheMap = [
-      { slug: 'agences-marketing', patterns: ['agence marketing', 'agence digitale', 'agence growth', 'agence communication', 'agence web'] },
-      { slug: 'esn-ssii', patterns: ['esn', 'ssii', 'consulting it', 'conseil informatique', 'societe services informatiques', 'services numeriques'] },
-      { slug: 'saas-b2b', patterns: ['saas b2b', 'logiciel b2b', 'editeur logiciel', 'startup saas', 'saas'] }
-    ];
-    for (const n of nicheMap) {
+    // Utiliser la liste centralisee de niches depuis storage
+    const nicheList = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
+    for (const n of nicheList) {
       for (const p of n.patterns) {
         if (kw.includes(p)) return n.slug;
       }
@@ -1457,12 +1469,15 @@ Format JSON strict :
       const niche = this._inferNiche(lead.searchCriteria);
       if (niche) return niche;
     }
-    // Chercher dans le nom d'entreprise / industrie
+    // Chercher dans le nom d'entreprise / industrie via la liste centralisee
     const orgData = lead.organizationData ? (typeof lead.organizationData === 'string' ? lead.organizationData : JSON.stringify(lead.organizationData)) : '';
     const combined = ((lead.entreprise || '') + ' ' + orgData).toLowerCase();
-    if (combined.includes('agence') || combined.includes('marketing') || combined.includes('communication')) return 'agences-marketing';
-    if (combined.includes('esn') || combined.includes('ssii') || combined.includes('consulting') || combined.includes('services informatiques')) return 'esn-ssii';
-    if (combined.includes('saas') || combined.includes('logiciel') || combined.includes('editeur')) return 'saas-b2b';
+    const nicheList = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
+    for (const n of nicheList) {
+      for (const p of n.patterns) {
+        if (combined.includes(p)) return n.slug;
+      }
+    }
     return null;
   }
 }

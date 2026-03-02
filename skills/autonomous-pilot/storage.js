@@ -7,6 +7,55 @@ const log = require('../../gateway/logger.js');
 const DATA_DIR = process.env.AUTONOMOUS_PILOT_DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'autonomous-pilot.json');
 
+// --- ICP (Ideal Customer Profile) defaults — NEVER allow empty searchCriteria ---
+const ICP_DEFAULTS = {
+  titles: ['CEO', 'Founder', 'Co-founder', 'CTO', 'Fondateur', 'Directeur', 'Gerant', 'Associe', 'Directeur General', 'President', 'DG'],
+  locations: ['France'],
+  seniorities: ['founder', 'c_suite', 'director', 'owner'],
+  companySize: ['1-10', '11-50', '51-200']
+};
+
+// --- Liste exhaustive de niches B2B pour le marche francais ---
+const B2B_NICHE_LIST = [
+  // Tech & Digital
+  { slug: 'agences-marketing', keywords: 'agence marketing OR agence digitale', patterns: ['agence marketing', 'agence digitale', 'agence growth', 'agence communication', 'agence web', 'agence seo', 'agence sem'] },
+  { slug: 'esn-ssii', keywords: 'ESN OR SSII', patterns: ['esn', 'ssii', 'consulting it', 'conseil informatique', 'societe services informatiques', 'services numeriques'] },
+  { slug: 'saas-b2b', keywords: 'SaaS B2B OR editeur logiciel', patterns: ['saas b2b', 'logiciel b2b', 'editeur logiciel', 'startup saas', 'saas'] },
+  { slug: 'startup-tech', keywords: 'startup OR tech', patterns: ['startup', 'fintech', 'proptech', 'healthtech', 'edtech', 'legaltech', 'regtech', 'insurtech'] },
+  { slug: 'ecommerce', keywords: 'e-commerce OR ecommerce', patterns: ['e-commerce', 'ecommerce', 'commerce en ligne', 'marketplace', 'boutique en ligne'] },
+  // Conseil & Services
+  { slug: 'cabinet-conseil', keywords: 'cabinet conseil OR consulting', patterns: ['cabinet conseil', 'consulting', 'conseil en strategie', 'conseil management', 'conseil en organisation'] },
+  { slug: 'cabinet-comptable', keywords: 'expert comptable OR cabinet comptable', patterns: ['expert comptable', 'cabinet comptable', 'expertise comptable', 'comptabilite'] },
+  { slug: 'cabinet-avocat', keywords: 'cabinet avocat OR avocat affaires', patterns: ['cabinet avocat', 'avocat', 'avocat affaires', 'cabinet juridique', 'droit des affaires'] },
+  { slug: 'cabinet-recrutement', keywords: 'cabinet recrutement OR recrutement', patterns: ['cabinet recrutement', 'recrutement', 'chasseur tete', 'talent acquisition', 'rh externalisee'] },
+  // Finance & Assurance
+  { slug: 'courtier-assurance', keywords: 'courtier assurance OR courtage', patterns: ['courtier assurance', 'courtage', 'assurance entreprise', 'courtier'] },
+  { slug: 'gestion-patrimoine', keywords: 'gestion patrimoine OR CGP', patterns: ['gestion patrimoine', 'cgp', 'conseiller patrimoine', 'patrimoine', 'gestion fortune'] },
+  // Formation & Education
+  { slug: 'formation-pro', keywords: 'formation professionnelle OR organisme formation', patterns: ['formation professionnelle', 'organisme formation', 'centre formation', 'formation continue', 'formation entreprise'] },
+  // Immobilier & Construction
+  { slug: 'immobilier-pro', keywords: 'immobilier professionnel OR agence immobiliere', patterns: ['immobilier professionnel', 'agence immobiliere', 'promoteur immobilier', 'immobilier commercial', 'gestion locative'] },
+  { slug: 'btp-construction', keywords: 'BTP OR construction', patterns: ['btp', 'construction', 'entreprise batiment', 'travaux publics', 'renovation'] },
+  // Industrie & Manufacturing
+  { slug: 'industrie-pme', keywords: 'industrie PME OR industriel', patterns: ['industrie', 'industriel', 'pme industrielle', 'manufacturing', 'production', 'usine'] },
+  // Sante & Bien-etre
+  { slug: 'sante-medtech', keywords: 'medtech OR sante entreprise', patterns: ['medtech', 'sante', 'dispositif medical', 'pharma', 'biotech', 'labo'] },
+  // Transport & Logistique
+  { slug: 'transport-logistique', keywords: 'transport OR logistique', patterns: ['transport', 'logistique', 'supply chain', 'fret', 'livraison', 'transitaire'] },
+  // Commerce & Distribution
+  { slug: 'franchise-reseau', keywords: 'franchise OR reseau commercial', patterns: ['franchise', 'reseau commercial', 'reseau distribution', 'concessionnaire', 'distributeur'] },
+  // Communication & Media
+  { slug: 'relations-publiques', keywords: 'relations publiques OR agence RP', patterns: ['relations publiques', 'agence rp', 'communication corporate', 'evenementiel', 'agence evenementiel'] },
+  // Autres services B2B
+  { slug: 'nettoyage-proprete', keywords: 'nettoyage professionnel OR proprete', patterns: ['nettoyage', 'proprete', 'nettoyage professionnel', 'facility management', 'entretien'] },
+  { slug: 'securite-privee', keywords: 'securite privee OR gardiennage', patterns: ['securite privee', 'gardiennage', 'securite entreprise', 'surveillance', 'telesurveillance'] },
+  { slug: 'energie-environnement', keywords: 'energie renouvelable OR transition energetique', patterns: ['energie renouvelable', 'transition energetique', 'solaire', 'environnement', 'cleantech', 'greentech'] }
+];
+
+function getNicheList() {
+  return B2B_NICHE_LIST;
+}
+
 let _data = null;
 
 // --- State machine : etats et transitions valides du Pilot ---
@@ -88,12 +137,12 @@ function _defaultData() {
         pushToCrmAboveScore: 7
       },
       searchCriteria: {
-        titles: ['CEO', 'CTO', 'Founder', 'Directeur'],
-        locations: ['Paris, FR'],
-        seniorities: ['c_suite', 'vp', 'director'],
+        titles: ['CEO', 'Founder', 'Co-founder', 'CTO', 'Fondateur', 'Directeur', 'Gerant', 'Associe', 'Directeur General', 'President', 'DG'],
+        locations: ['France'],
+        seniorities: ['founder', 'c_suite', 'director', 'owner'],
         industries: [],
         keywords: '',
-        companySize: ['11-50', '51-200'],
+        companySize: ['1-10', '11-50', '51-200'],
         limit: 10
       }
     },
@@ -164,6 +213,24 @@ function _load() {
       if (_data.goals.weekly.rdvTarget === undefined) _data.goals.weekly.rdvTarget = def.goals.weekly.rdvTarget;
       if (!_data.goals.searchCriteria) _data.goals.searchCriteria = def.goals.searchCriteria;
       if (!_data.goals.searchCriteria.industries) _data.goals.searchCriteria.industries = [];
+      // --- Guard: fix empty ICP fields on load ---
+      const scLoad = _data.goals.searchCriteria;
+      if (!scLoad.titles || scLoad.titles.length === 0) {
+        scLoad.titles = ICP_DEFAULTS.titles;
+        log.warn('autonomous-pilot', 'Load guard: titles vide, ICP defaults restaures');
+      }
+      if (!scLoad.locations || scLoad.locations.length === 0) {
+        scLoad.locations = ICP_DEFAULTS.locations;
+        log.warn('autonomous-pilot', 'Load guard: locations vide, ICP defaults restaures');
+      }
+      if (!scLoad.seniorities || scLoad.seniorities.length === 0) {
+        scLoad.seniorities = ICP_DEFAULTS.seniorities;
+        log.warn('autonomous-pilot', 'Load guard: seniorities vide, ICP defaults restaures');
+      }
+      if (!scLoad.companySize || scLoad.companySize.length === 0) {
+        scLoad.companySize = ICP_DEFAULTS.companySize;
+        log.warn('autonomous-pilot', 'Load guard: companySize vide, ICP defaults restaures');
+      }
       if (!_data.progress) _data.progress = def.progress;
       if (_data.progress.responsesThisWeek === undefined) _data.progress.responsesThisWeek = 0;
       if (_data.progress.rdvBookedThisWeek === undefined) _data.progress.rdvBookedThisWeek = 0;
@@ -263,6 +330,24 @@ function updateWeeklyGoals(updates) {
 function updateSearchCriteria(updates) {
   const data = _load();
   Object.assign(data.goals.searchCriteria, updates);
+  // --- Guard: NEVER allow empty ICP fields — fallback to ICP_DEFAULTS ---
+  const sc = data.goals.searchCriteria;
+  if (!sc.titles || sc.titles.length === 0) {
+    sc.titles = ICP_DEFAULTS.titles;
+    log.warn('autonomous-pilot', 'Guard: titles vide apres update, ICP defaults restaures');
+  }
+  if (!sc.locations || sc.locations.length === 0) {
+    sc.locations = ICP_DEFAULTS.locations;
+    log.warn('autonomous-pilot', 'Guard: locations vide apres update, ICP defaults restaures');
+  }
+  if (!sc.seniorities || sc.seniorities.length === 0) {
+    sc.seniorities = ICP_DEFAULTS.seniorities;
+    log.warn('autonomous-pilot', 'Guard: seniorities vide apres update, ICP defaults restaures');
+  }
+  if (!sc.companySize || sc.companySize.length === 0) {
+    sc.companySize = ICP_DEFAULTS.companySize;
+    log.warn('autonomous-pilot', 'Guard: companySize vide apres update, ICP defaults restaures');
+  }
   data.stats.totalCriteriaUpdates = (data.stats.totalCriteriaUpdates || 0) + 1;
   _save();
   return data.goals.searchCriteria;
@@ -736,7 +821,8 @@ function getCompetitorsInIndustry(industry, limit) {
 }
 
 module.exports = {
-  PILOT_STATES, getPilotState: () => _getPilotState(_load().config),
+  PILOT_STATES, ICP_DEFAULTS, B2B_NICHE_LIST, getNicheList,
+  getPilotState: () => _getPilotState(_load().config),
   getConfig, updateConfig, updateEmailPreferences, updateOffer,
   getGoals, updateWeeklyGoals, updateSearchCriteria,
   getProgress, incrementProgress, resetWeeklyProgress,

@@ -133,6 +133,16 @@ class BrainEngine {
             ? Math.round(((stats.totalEmailsOpened || 0) / stats.totalEmailsSent) * 100) : 0,
           activeCampaigns: stats.activeCampaigns || 0
         };
+
+        // FIX: emailsSentThisWeek doit compter TOUS les emails (AP + campaigns)
+        // Utiliser le vrai compteur automailer au lieu du compteur AP seul
+        if (am.getSendCountSince && state.progress.weekStart) {
+          const realCount = am.getSendCountSince(state.progress.weekStart);
+          if (realCount > state.progress.emailsSentThisWeek) {
+            log.info('brain', 'emailsSentThisWeek corrige: ' + state.progress.emailsSentThisWeek + ' (AP) -> ' + realCount + ' (total automailer)');
+            state.progress.emailsSentThisWeek = realCount;
+          }
+        }
       }
     } catch (e) {}
 
@@ -695,6 +705,18 @@ class BrainEngine {
     const config = storage.getConfig();
     const chatId = config.adminChatId;
 
+    // FIX: Corriger emailsSentThisWeek avant reset pour le bilan
+    try {
+      const amReset = getAutomailerStorage();
+      const progressBeforeReset = storage.getProgress();
+      if (amReset && amReset.getSendCountSince && progressBeforeReset.weekStart) {
+        const realCount = amReset.getSendCountSince(progressBeforeReset.weekStart);
+        if (realCount > progressBeforeReset.emailsSentThisWeek) {
+          storage.incrementProgress('emailsSentThisWeek', realCount - progressBeforeReset.emailsSentThisWeek);
+        }
+      }
+    } catch (e) {}
+
     // Sauvegarder les perf avant reset
     const oldProgress = storage.resetWeeklyProgress();
 
@@ -920,11 +942,17 @@ Analyse et reponds en JSON:
       const emailsPct = goals.emailsToSend > 0 ? (progress.emailsSentThisWeek / goals.emailsToSend) * 100 : 100;
 
       if (leadsPct < 30 || emailsPct < 30) {
+        // Rotation de niche pour mini-cycle aussi
+        const allNichesMini = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
+        const nicheIdx = (new Date().getHours() + new Date().getDate()) % allNichesMini.length;
+        const miniNiche = allNichesMini[nicheIdx];
+        const miniCriteria = { ...state.goals.searchCriteria };
+        if (miniNiche) miniCriteria.keywords = miniNiche.keywords;
         actions.push({
           type: 'search_leads',
-          params: { criteria: state.goals.searchCriteria },
+          params: { criteria: miniCriteria, niche: miniNiche ? miniNiche.slug : null },
           autoExecute: true,
-          preview: 'Recherche urgente (mini-cycle : objectifs en retard)'
+          preview: 'Recherche urgente (mini-cycle' + (miniNiche ? ' — niche: ' + miniNiche.slug : '') + ')'
         });
       }
     }
@@ -1176,8 +1204,32 @@ Analyse et reponds en JSON:
       }
       prompt += '→ REGLE AUTO-PIVOT: Apres 15+ emails par niche, concentre 70% des envois sur la meilleure niche (open rate).\n';
       prompt += '→ Si une niche a < 5% open rate apres 20+ emails, ABANDONNE-LA et teste une niche de remplacement.\n';
-      prompt += '→ Niches de remplacement possibles: "cabinet conseil", "courtier assurance", "formation professionnelle"\n';
-      prompt += '→ Pour chaque search_leads, ajoute params.niche (ex: "agences-marketing", "esn-ssii", "saas-b2b") pour le tracking.\n';
+      // Lister toutes les niches disponibles depuis la liste centralisee
+      const allNiches = storage.getNicheList ? storage.getNicheList() : [];
+      const testedNicheSlugs = new Set(nicheKeys);
+      const untestedNiches = allNiches.filter(n => !testedNicheSlugs.has(n.slug) && !testedNicheSlugs.has(n.slug.replace(/-/g, '_')));
+      if (untestedNiches.length > 0) {
+        prompt += '→ NICHES PAS ENCORE TESTEES (' + untestedNiches.length + ' disponibles — TESTE-LES pour diversifier):\n';
+        for (const n of untestedNiches.slice(0, 10)) {
+          prompt += '  - "' + n.slug + '" → keywords: "' + n.keywords + '"\n';
+        }
+        if (untestedNiches.length > 10) {
+          prompt += '  ... et ' + (untestedNiches.length - 10) + ' autres niches disponibles.\n';
+        }
+      }
+      prompt += '→ Pour chaque search_leads, ajoute params.niche (ex: "cabinet-conseil", "formation-pro", "immobilier-pro") pour le tracking.\n';
+      prompt += '→ REGLE DIVERSIFICATION: Ne cherche PAS toujours dans les memes 2-3 niches. ALTERNE entre niches testees et nouvelles.\n';
+    } else {
+      // Pas de niche performance data — indiquer les niches disponibles pour demarrer
+      const allNichesInit = storage.getNicheList ? storage.getNicheList() : [];
+      if (allNichesInit.length > 0) {
+        prompt += '\nNICHES B2B DISPONIBLES POUR PROSPECTION (aucune testee encore — commence par 2-3 niches differentes):\n';
+        for (const n of allNichesInit.slice(0, 12)) {
+          prompt += '- "' + n.slug + '" → keywords: "' + n.keywords + '"\n';
+        }
+        prompt += '→ Pour chaque search_leads, ajoute params.niche et params.criteria.keywords correspondant.\n';
+        prompt += '→ REGLE: Teste AU MOINS 3 niches differentes par semaine pour trouver les meilleurs secteurs.\n';
+      }
     }
 
     prompt += '\nCRITERES DE RECHERCHE (VERROUILLES — NE PAS MODIFIER):\n';
@@ -1811,13 +1863,27 @@ Analyse et reponds en JSON:
     const p = state.progress;
     const g = state.goals.weekly;
 
-    // 1. Chercher des leads si objectif non atteint
+    // 1. Chercher des leads si objectif non atteint — avec rotation de niches
     if (p.leadsFoundThisWeek < g.leadsToFind) {
+      // Choisir une niche differente a chaque fallback (rotation basee sur le cycle courant)
+      const allNichesFb = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
+      const nichePerf = storage.getNichePerformance();
+      const testedSlugs = new Set(Object.keys(nichePerf));
+      // Priorite aux niches non testees
+      let targetNiches = allNichesFb.filter(n => !testedSlugs.has(n.slug) && !testedSlugs.has(n.slug.replace(/-/g, '_')));
+      if (targetNiches.length === 0) targetNiches = allNichesFb; // Toutes testees, rotation complete
+      // Rotation pseudo-aleatoire basee sur le jour
+      const dayIdx = new Date().getDate() % targetNiches.length;
+      const niche = targetNiches[dayIdx];
+      const fallbackCriteria = { ...state.goals.searchCriteria };
+      if (niche) {
+        fallbackCriteria.keywords = niche.keywords;
+      }
       actions.push({
         type: 'search_leads',
-        params: { criteria: state.goals.searchCriteria },
+        params: { criteria: fallbackCriteria, niche: niche ? niche.slug : null },
         autoExecute: true,
-        preview: 'Recherche de leads (fallback)'
+        preview: 'Recherche de leads (fallback' + (niche ? ' — niche: ' + niche.slug : '') + ')'
       });
     }
 
