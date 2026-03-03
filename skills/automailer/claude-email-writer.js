@@ -173,11 +173,19 @@ PRIORITE 4 — STACK TECHNIQUE / CHIFFRES / DETAILS CONCRETS :
 Technologies, nombre d'employes, annee de fondation, ville, levee de fonds.
 Exemple : "150 personnes a Nantes, 4 postes commerciaux ouverts sur Welcome — ca sent le passage a l'echelle."
 
-PRIORITE 5 — SKIP (DERNIER RECOURS) :
-Skip UNIQUEMENT si tu n'as NI nom d'entreprise, NI description d'activite, NI aucun fait concret.
-Si tu as au moins une entreprise + un poste → ecris sur l'activite de l'entreprise.
-Un email 7/10 vaut mieux qu'un email 0/10 (skip).
-→ {"skip": true, "reason": "donnees insuffisantes"} seulement si VRAIMENT rien.
+PRIORITE 4.5 — DONNEES MINIMALES (entreprise + poste seulement) :
+Si tu n'as PAS de news, profil public, clients ou techno — mais tu as le NOM DE L'ENTREPRISE + le POSTE :
+→ Ecris un email court (25-35 mots) sur un DEFI CONCRET de ce type de poste dans ce type d'entreprise.
+→ Utilise le nom de l'entreprise + la ville/taille si disponible.
+Exemples :
+"Marc, diriger la tech chez Acti-Immo a Toulouse — entre la conformite reglementaire et la digitalisation des mandats, tu priorises comment ?" (20 mots)
+"Sophie, DG d'un cabinet de 15 personnes — scaler sans perdre le cote boutique, c'est le dilemme permanent non ?" (18 mots)
+CE N'EST PAS un skip. C'est un email 7/10 et c'est SUFFISANT.
+
+PRIORITE 5 — SKIP (DERNIER RECOURS ABSOLU) :
+Skip si tu n'as AUCUN de ces elements : nom d'entreprise, poste, ville, industrie, description.
+Si tu as AU MOINS entreprise + poste → tu DOIS ecrire (priorite 4.5 ci-dessus).
+→ {"skip": true, "reason": "donnees insuffisantes"} UNIQUEMENT si l'email ne contient meme pas un nom d'entreprise.
 
 === FORMAT STRICT : 2 BLOCS, ${emailLengthHint} ===
 
@@ -333,7 +341,7 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       if (parsed.skip) {
         if (attempt === 0) {
           // Retry : Claude est stochastique, parfois il skip alors que les donnees suffisent
-          const retryPrompt = prompt + '\n\nATTENTION : tu as voulu skip mais le brief contient des donnees. Essaie de trouver un angle meme minimal. Skip UNIQUEMENT si tu n\'as AUCUNE info (pas de nom d\'entreprise, pas de description d\'activite). Si tu as au moins entreprise + poste, ecris un email court sur leur activite. Un email 7/10 vaut mieux qu\'un skip.';
+          const retryPrompt = prompt + '\n\nATTENTION : tu as voulu skip mais tu as des donnees exploitables. REGLE : si tu as un nom d\'entreprise + un poste → tu DOIS ecrire un email. Utilise la PRIORITE 4.5 : ecris 25-35 mots sur un defi concret de ce type de poste dans cette entreprise. Exemple : "Marc, diriger la tech chez [Entreprise] a [Ville] — entre [defi 1] et [defi 2], tu priorises comment ?". Skip UNIQUEMENT si tu n\'as meme pas de nom d\'entreprise. Un email 7/10 > un skip.';
           try {
             const retryResponse = await this.callClaude(
               [{ role: 'user', content: retryPrompt }],
@@ -366,8 +374,8 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
         best._scoreReason = score.reason;
       }
     }
-    // Apres retries : envoyer si >= 8, sinon skip
-    if (bestScore >= 8) return best;
+    // Apres retries : envoyer si >= 7, sinon skip (abaisse de 8 a 7 — un 7/10 vaut mieux qu'un skip)
+    if (bestScore >= 7) return best;
     return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
   }
 

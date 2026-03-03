@@ -7,9 +7,9 @@ const log = require('../../gateway/logger.js');
 
 // Constantes impact tracking (extraites pour configurabilite)
 const IMPACT_REPLY_WEIGHT = 2;            // reply rate compte double vs open rate
-const IMPACT_THRESHOLD_SIGNIFICANT = 2;   // % delta requis si stat significatif
-const IMPACT_THRESHOLD_NOISY = 5;         // % delta requis si pas significatif
-const MIN_SAMPLE_FOR_IMPACT = 10;         // minimum emails pour mesurer impact
+const IMPACT_THRESHOLD_SIGNIFICANT = 3;   // % delta requis si stat significatif (was 2)
+const IMPACT_THRESHOLD_NOISY = 8;         // % delta requis si pas significatif (was 5)
+const MIN_SAMPLE_FOR_IMPACT = 20;         // minimum emails pour mesurer impact (was 10)
 
 class Analyzer {
   constructor(claudeKey) {
@@ -60,10 +60,10 @@ class Analyzer {
   async analyzePerformance(snapshot, historicalSnapshots) {
     // Hard minimum : pas de recommandations si < 100 emails envoyes
     const totalEmails = snapshot && snapshot.email ? (snapshot.email.totalSent || 0) : 0;
-    if (totalEmails < 50) {
+    if (totalEmails < 100) {
       return {
-        summary: 'Donnees insuffisantes (' + totalEmails + '/50 emails minimum). Accumulation en cours — pas de recommandation pour eviter les decisions sur du bruit statistique.',
-        insights: ['Volume actuel: ' + totalEmails + ' emails. Minimum 50 requis pour des recommandations fiables.'],
+        summary: 'Donnees insuffisantes (' + totalEmails + '/100 emails minimum). Accumulation en cours — pas de recommandation pour eviter les decisions sur du bruit statistique.',
+        insights: ['Volume actuel: ' + totalEmails + ' emails. Minimum 100 requis pour des recommandations fiables.'],
         recommendations: [],
         dataQuality: 'insufficient'
       };
@@ -275,7 +275,7 @@ Reponds UNIQUEMENT en JSON strict :
       if (email.byBodyLength) {
         const short = email.byBodyLength.short || { sent: 0, opened: 0 };
         const long = email.byBodyLength.long || { sent: 0, opened: 0 };
-        if (short.sent >= 3 && long.sent >= 3) {
+        if (short.sent >= 15 && long.sent >= 15) {
           const shortRate = short.opened / short.sent;
           const longRate = long.opened / long.sent;
           if (shortRate > longRate + 0.1) {
@@ -513,7 +513,7 @@ Reponds UNIQUEMENT en JSON strict :
   // Z-test pour comparer deux proportions (significativite statistique)
   // Retourne { zScore, pValue, significant } (significant = p < 0.10, soit 90% de confiance)
   _zTestProportions(successes1, n1, successes2, n2) {
-    if (n1 < 5 || n2 < 5) return { zScore: 0, pValue: 1, significant: false, reason: 'sample_too_small' };
+    if (n1 < 15 || n2 < 15) return { zScore: 0, pValue: 1, significant: false, reason: 'sample_too_small' };
     const p1 = successes1 / n1;
     const p2 = successes2 / n2;
     const pPool = (successes1 + successes2) / (n1 + n2);

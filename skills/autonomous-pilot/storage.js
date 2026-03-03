@@ -519,27 +519,48 @@ function getRecentActions(limit) {
 }
 
 /**
- * Retourne un Set d'emails ayant echoue recemment (< cooldownDays jours)
- * pour eviter que le brain les repropose en boucle.
+ * Retourne un Set d'emails ayant echoue recemment
+ * Cooldown progressif : 2 echecs → 5j, 3+ echecs → 14j
  * Inclut: skipped, blacklisted, gate blocked, invalid email, donnees insuffisantes
  */
 function getRecentlyFailedEmails(cooldownDays) {
   cooldownDays = cooldownDays || 3;
-  const cutoff = Date.now() - cooldownDays * 24 * 3600 * 1000;
-  const failed = new Set();
   const history = _load().actionHistory;
+
+  // Compter les echecs PAR email (toutes periodes confondues)
+  const failCounts = {};
   for (const a of history) {
     if (a.type !== 'send_email') continue;
-    const ts = a.executedAt ? new Date(a.executedAt).getTime()
-      : a.createdAt ? new Date(a.createdAt).getTime()
-      : a.timestamp ? new Date(a.timestamp).getTime() : 0;
-    if (ts < cutoff) continue; // Trop vieux, ignore
     const r = a.result;
     if (!r || typeof r !== 'object') continue;
-    if (r.success === true) continue; // Succès, pas un echec
-    // Extraire l'email depuis params.to (ou target si disponible)
+    if (r.success === true) continue;
     const email = (a.params?.to || a.target || '').toLowerCase().trim();
-    if (email && email.includes('@')) failed.add(email);
+    if (email && email.includes('@')) {
+      if (!failCounts[email]) failCounts[email] = { count: 0, lastFail: 0 };
+      failCounts[email].count++;
+      const ts = a.executedAt ? new Date(a.executedAt).getTime()
+        : a.createdAt ? new Date(a.createdAt).getTime()
+        : a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      if (ts > failCounts[email].lastFail) failCounts[email].lastFail = ts;
+    }
+  }
+
+  // Appliquer cooldown progressif
+  const failed = new Set();
+  const now = Date.now();
+  for (const [email, info] of Object.entries(failCounts)) {
+    let effectiveCooldown;
+    if (info.count >= 3) {
+      effectiveCooldown = 14; // 3+ echecs → exclu 14 jours
+    } else if (info.count >= 2) {
+      effectiveCooldown = 5;  // 2 echecs → exclu 5 jours
+    } else {
+      effectiveCooldown = cooldownDays; // 1 echec → cooldown normal (3j)
+    }
+    const cutoff = now - effectiveCooldown * 24 * 3600 * 1000;
+    if (info.lastFail > cutoff) {
+      failed.add(email);
+    }
   }
   return failed;
 }

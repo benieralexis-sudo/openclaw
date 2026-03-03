@@ -1373,7 +1373,8 @@ Format JSON strict :
           name: contact.nom || contact.name || '',
           firstName: (contact.nom || contact.name || '').split(' ')[0],
           company: contact.entreprise || contact.company || '',
-          title: contact.titre || contact.title || ''
+          title: contact.titre || contact.title || '',
+          industry: contact.organization?.industry || contact.industry || contact.industrie || ''
         });
       }
 

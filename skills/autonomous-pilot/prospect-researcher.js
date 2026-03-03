@@ -27,6 +27,7 @@ class ProspectResearcher {
     this.claudeKey = options.claudeKey;
     this.openaiKey = options.openaiKey || process.env.OPENAI_API_KEY || null;
     this.pappersToken = options.pappersToken || process.env.PAPPERS_API_TOKEN || null;
+    this.braveKey = options.braveKey || process.env.BRAVE_SEARCH_API_KEY || null;
     this._fetcher = null;
     this._uaIndex = Math.floor(Math.random() * USER_AGENTS.length);
   }
@@ -164,13 +165,70 @@ class ProspectResearcher {
   }
 
   /**
-   * Helper universel : recherche DDG → Bing fallback.
+   * Recherche Brave Search API (JSON) → convertit en pseudo-HTML pour compatibilite.
+   * Gratuit : 2000 req/mois. Pas de rate-limit agressif comme DDG.
+   */
+  async _searchBrave(query) {
+    if (!this.braveKey) return null;
+    const https = require('https');
+    return new Promise((resolve) => {
+      const url = '/res/v1/web/search?q=' + encodeURIComponent(query) + '&count=8&search_lang=fr';
+      const req = https.request({
+        hostname: 'api.search.brave.com',
+        path: url,
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip',
+          'X-Subscription-Token': this.braveKey
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            if (json.web && json.web.results && json.web.results.length > 0) {
+              // Convertir en pseudo-HTML pour compatibilite avec les parsers existants
+              let html = '<html><body>';
+              for (const r of json.web.results) {
+                html += '<div class="result"><a href="' + (r.url || '') + '">' + (r.title || '') + '</a>';
+                html += '<span class="snippet">' + (r.description || '') + '</span></div>';
+              }
+              html += '</body></html>';
+              resolve({ html, source: 'brave' });
+            } else {
+              resolve(null);
+            }
+          } catch (e) {
+            log.info('prospect-research', 'Brave parse error: ' + e.message);
+            resolve(null);
+          }
+        });
+      });
+      req.on('error', (e) => { log.info('prospect-research', 'Brave search error: ' + e.message); resolve(null); });
+      req.setTimeout(10000, () => { req.destroy(); resolve(null); });
+      req.end();
+    });
+  }
+
+  /**
+   * Helper universel : Brave → DDG → Bing → DDG Lite fallback.
    * Retourne le HTML brut de la page de resultats, ou null.
-   * Resout le probleme DDG 202 (rate-limited) en basculant sur Bing automatiquement.
    */
   async _searchWithFallback(query) {
     const fetcher = this._getFetcher();
     if (!fetcher) return null;
+
+    // Tentative 0 : Brave Search API (gratuit, 2000 req/mois, pas de rate-limit agressif)
+    if (this.braveKey) {
+      try {
+        const braveResult = await this._searchBrave(query);
+        if (braveResult) return braveResult;
+      } catch (e) {
+        log.info('prospect-research', 'Brave search echoue: ' + e.message);
+      }
+    }
 
     // Tentative 1 : DDG HTML avec retry ameliore (backoff exponentiel sur 202)
     try {

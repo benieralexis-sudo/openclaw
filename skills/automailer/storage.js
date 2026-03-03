@@ -49,6 +49,20 @@ class AutoMailerStorage {
         if (loaded.emails && !Array.isArray(loaded.emails)) loaded.emails = [];
         if (loaded.users && typeof loaded.users !== 'object') loaded.users = {};
         if (loaded.campaigns && typeof loaded.campaigns !== 'object') loaded.campaigns = {};
+        // FIX: Si blacklist est un array (cause racine de la corruption), convertir en objet
+        if (Array.isArray(loaded.blacklist)) {
+          const fixed = {};
+          for (const item of loaded.blacklist) {
+            if (item && typeof item === 'string' && item.includes('@')) {
+              fixed[item.toLowerCase().trim()] = { email: item.toLowerCase().trim(), reason: 'migrated_from_array', addedAt: new Date().toISOString() };
+            } else if (item && typeof item === 'object' && item.email) {
+              fixed[item.email.toLowerCase().trim()] = item;
+            }
+          }
+          loaded.blacklist = fixed;
+          console.warn('[automailer-storage] Blacklist array → objet : ' + Object.keys(fixed).length + ' entrees migrees');
+        }
+        if (loaded.contactLists && typeof loaded.contactLists !== 'object') loaded.contactLists = {};
         this.data = { ...this.data, ...loaded };
         // FIX: Nettoyer les entrees blacklist corrompues (undefined, null, sans @)
         if (this.data.blacklist) {
@@ -160,6 +174,7 @@ class AutoMailerStorage {
       lastName: contact.lastName || '',
       company: contact.company || '',
       title: contact.title || '',
+      industry: contact.industry || '',
       addedAt: new Date().toISOString()
     };
     list.contacts.push(entry);
