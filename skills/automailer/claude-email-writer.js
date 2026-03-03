@@ -811,8 +811,14 @@ Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base s
       isBreakup ? 500 : 1000
     );
     const parsed = this._parseJSON(response);
-    // Breakups (2 lignes) ne passent pas par le scoring — trop courts
-    if (isBreakup) return parsed;
+    // Breakups : gate programmatique (trop courts pour le scorer IA)
+    if (isBreakup) {
+      if (!parsed || parsed.skip) return parsed;
+      const bwc = (parsed.body || '').split(/\s+/).filter(w => w.length > 0).length;
+      if (bwc > 50) return { skip: true, reason: 'breakup_too_long:' + bwc };
+      if (bwc < 8) return { skip: true, reason: 'breakup_too_short:' + bwc };
+      return parsed;
+    }
     return this._scoreAndFilter(parsed, contact);
   }
 
@@ -894,7 +900,7 @@ REGLES :
     return response.trim().replace(/^["']|["']$/g, '');
   }
 
-  async generateBodyVariant(originalBody, originalSubject, prospectContext) {
+  async generateBodyVariant(originalBody, originalSubject, prospectContext, contact) {
     const systemPrompt = `Tu es un expert en cold email B2B et A/B testing. On te donne un cold email. Reecris-le avec un ANGLE COMPLETEMENT DIFFERENT tout en ciblant le meme prospect.
 
 REGLES STRICTES :
@@ -926,6 +932,16 @@ Genere une variante A/B avec un angle different. JSON uniquement.`;
         // Gate programmatique : rejet si > 60 mots
         const wc = (parsed.body || '').split(/\s+/).filter(w => w.length > 0).length;
         if (wc > 60) return null;
+        // Scoring GPT-4o-mini (seuil 6/10, comme les follow-ups)
+        if (contact) {
+          try {
+            const scored = await this._scoreAndFilter(parsed, contact);
+            if (scored && scored.skip) {
+              log.info('claude-email-writer', 'A/B variant B scored LOW: ' + (scored.reason || 'score<6'));
+              return null;
+            }
+          } catch (scoreErr) { /* scoring indisponible, gate wc suffit */ }
+        }
         return { subject: parsed.subject, body: parsed.body };
       }
     } catch (e) { /* fallback : retourne null */ }

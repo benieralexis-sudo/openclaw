@@ -878,6 +878,13 @@ class CampaignEngine {
               subject = personalized.subject;
               body = personalized.body;
               log.info('campaign-engine', 'Relance individualisee generee pour ' + contact.email + ' (step ' + stepNumber + ')');
+              // Check specificite follow-up (warn only, pas de block)
+              if (prospectIntel) {
+                const specFU = _checkEmailSpecificity(body, subject, prospectIntel);
+                if (specFU.level === 'generic') {
+                  log.warn('campaign-engine', 'Relance step ' + stepNumber + ' GENERIQUE pour ' + contact.email + ' — accepte (follow-up, monitoring)');
+                }
+              }
             } else {
               // Claude a skip (donnees insuffisantes) — essayer relance contextuelle basee sur email precedent
               const prevEmails = this._getPreviousEmails(campaignId, contact.email, stepNumber);
@@ -1053,6 +1060,13 @@ class CampaignEngine {
               subject = generated.subject;
               body = generated.body;
               log.info('campaign-engine', 'Step 1 genere (donnees minimales) pour ' + contact.email);
+              // Check specificite sur donnees minimales
+              const specMin = _checkEmailSpecificity(body, subject, minContext);
+              if (specMin.level === 'generic' && !(contact.company && contact.title)) {
+                log.warn('campaign-engine', 'Step 1 minimal GENERIQUE pour ' + contact.email + ' — skip (pas company+title)');
+                skipped++;
+                continue;
+              }
             } else {
               subject = this._applyTemplateVars(subject, contact, firstName);
               body = this._applyTemplateVars(body, contact, firstName);
@@ -1084,7 +1098,7 @@ class CampaignEngine {
       if (abVariant === 'B') {
         try {
           const prospectCtx = currentProspectIntel || '';
-          const bodyVariant = await this.claude.generateBodyVariant(body, subject, prospectCtx);
+          const bodyVariant = await this.claude.generateBodyVariant(body, subject, prospectCtx, contact);
           if (bodyVariant && bodyVariant.body && bodyVariant.subject) {
             subject = bodyVariant.subject;
             body = bodyVariant.body;
@@ -1673,6 +1687,36 @@ class CampaignEngine {
         gaveUp++;
         continue;
       }
+
+      // Gates supplementaires : subject + validation + forbiddenWords (ont pu evoluer)
+      const retrySg = _subjectPassesGate(email.subject);
+      if (!retrySg.pass) {
+        log.warn('campaign-engine', 'Retry subject gate FAIL ' + email.to + ': ' + retrySg.reason + ' — abandon');
+        storage.markRetryAttempt(email.id, false, null);
+        gaveUp++;
+        continue;
+      }
+      const retryVal = validateEmailOutput(email.subject, email.body, { forbiddenWords: [] });
+      if (!retryVal.pass) {
+        log.warn('campaign-engine', 'Retry validation FAIL ' + email.to + ': ' + (retryVal.reasons || []).join(', ') + ' — abandon');
+        storage.markRetryAttempt(email.id, false, null);
+        gaveUp++;
+        continue;
+      }
+      try {
+        const apStorage = require('../autonomous-pilot/storage.js');
+        const apConfig = apStorage.getConfig ? apStorage.getConfig() : {};
+        const ep = apConfig.emailPreferences || {};
+        if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
+          const retryFw = validateEmailOutput(email.subject, email.body, { forbiddenWords: ep.forbiddenWords });
+          if (!retryFw.pass) {
+            log.warn('campaign-engine', 'Retry forbidden words FAIL ' + email.to + ': ' + (retryFw.reasons || []).join(', ') + ' — abandon');
+            storage.markRetryAttempt(email.id, false, null);
+            gaveUp++;
+            continue;
+          }
+        }
+      } catch (fwErr) { /* AP storage indisponible, skip ce check */ }
 
       retried++;
       try {

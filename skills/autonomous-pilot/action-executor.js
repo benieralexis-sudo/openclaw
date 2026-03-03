@@ -1029,6 +1029,21 @@ Format JSON strict :
         ' (subject: ' + subjectTrimmed.length + ' chars, body: ' + bodyTrimmed.length + ' chars / ' + bodyWordCount + ' mots)');
     }
 
+    // === GATE 4 : Patterns generiques (GENERIC_PATTERNS de campaign-engine) ===
+    try {
+      const CampaignEngine = getModule('campaign-engine');
+      if (CampaignEngine && CampaignEngine.emailPassesQualityGate) {
+        const aeQg = CampaignEngine.emailPassesQualityGate(params.subject, params.body);
+        if (!aeQg.pass) {
+          log.error('action-executor', 'GATE 4 GENERIC_PATTERNS BLOCK pour ' + params.to + ': ' + aeQg.reason + ' — skip');
+          return { success: false, error: 'Email contient pattern generique: ' + aeQg.reason, gateBlocked: true };
+        }
+        log.info('action-executor', 'GATE 4 OK — Pas de pattern generique pour ' + params.to);
+      }
+    } catch (qgErr) {
+      log.warn('action-executor', 'GATE 4 skip (campaign-engine indisponible): ' + qgErr.message);
+    }
+
     const ResendClient = getResendClient();
     if (!ResendClient) {
       return { success: false, error: 'Module automailer/resend-client introuvable' };
