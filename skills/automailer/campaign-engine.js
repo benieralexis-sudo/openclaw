@@ -708,15 +708,25 @@ class CampaignEngine {
         continue;
       }
 
-      // Rate limiting inter-campagne : max 2 emails/72h par contact (cross-campagne)
+      // Rate limiting inter-campagne : max 1 email/24h par contact (cross-campagne) + max 2/72h
       try {
         const allEmailsToContact = storage.getEmailEventsForRecipient(contact.email);
+        const cutoff24h = Date.now() - 24 * 60 * 60 * 1000;
         const cutoff72h = Date.now() - 72 * 60 * 60 * 1000;
         const recentSent = allEmailsToContact.filter(e => {
           if (e.status === 'failed' || e.status === 'queued') return false;
           const sentTime = e.sentAt ? new Date(e.sentAt).getTime() : 0;
           return sentTime > 0 && sentTime > cutoff72h;
         });
+        const sentToday = recentSent.filter(e => {
+          const sentTime = e.sentAt ? new Date(e.sentAt).getTime() : 0;
+          return sentTime > cutoff24h;
+        });
+        if (sentToday.length >= 1) {
+          log.info('campaign-engine', 'Skip ' + contact.email + ' (rate limit: deja ' + sentToday.length + ' email(s) en 24h)');
+          skipped++;
+          continue;
+        }
         if (recentSent.length >= 2) {
           log.info('campaign-engine', 'Skip ' + contact.email + ' (rate limit: ' + recentSent.length + ' emails en 72h)');
           skipped++;
@@ -959,6 +969,11 @@ class CampaignEngine {
                       subject = retry.subject;
                       body = retry.body;
                       log.info('campaign-engine', 'Step 1 retry OK pour ' + contact.email + ' — ' + spec2.reason);
+                    } else if (contact.company && contact.title) {
+                      // FIX: Envoyer quand meme si on a company+title (pas assez de donnees web mais contact qualifie)
+                      subject = retry.subject;
+                      body = retry.body;
+                      log.info('campaign-engine', 'Step 1 generique accepte pour ' + contact.email + ' (company+title disponibles, donnees web insuffisantes)');
                     } else {
                       log.warn('campaign-engine', 'Step 1 TOUJOURS generique apres retry pour ' + contact.email + ' — skip');
                       skipped++;
@@ -1222,11 +1237,11 @@ class CampaignEngine {
         errors++;
         log.error('campaign-engine', 'Erreur envoi a ' + contact.email + ':', result.error);
 
-        // Circuit breaker : si 3+ echecs consecutifs, arreter le batch (probleme SMTP/auth probable)
-        const recentEmails = storage.getEmailsByCampaign(campaignId).slice(-5);
+        // Circuit breaker : si 5+ echecs consecutifs, arreter le batch (probleme SMTP/auth probable)
+        const recentEmails = storage.getEmailsByCampaign(campaignId).slice(-7);
         const recentFails = recentEmails.filter(e => e.status === 'failed').length;
-        if (recentFails >= 3) {
-          log.warn('campaign-engine', 'CIRCUIT BREAKER: 3+ echecs consecutifs — batch interrompu (verifier auth SMTP)');
+        if (recentFails >= 5) {
+          log.warn('campaign-engine', 'CIRCUIT BREAKER: 5+ echecs consecutifs — batch interrompu (verifier auth SMTP)');
           break;
         }
       }
@@ -1243,16 +1258,25 @@ class CampaignEngine {
       // Step reellement traite (emails envoyes ou aucun contact eligible)
       step.status = 'completed';
       step.sentAt = new Date().toISOString();
-    } else if ((step._retryCount || 0) >= 5) {
-      // Max retries atteint — forcer completed pour eviter boucle infinie
+    } else if ((step._retryCount || 0) >= 3) {
+      // Max retries atteint (3 au lieu de 5) — forcer completed + notifier
       step.status = 'completed';
       step.sentAt = new Date().toISOString();
-      log.info('campaign-engine', 'Step ' + stepNumber + ' force completed apres ' + step._retryCount + ' retries (sent=' + step.sentCount + ')');
+      step._forceCompleted = true;
+      const contactNames = (step.contacts || campaign.contacts || []).map(c => c.email || c.name || '?').slice(0, 5).join(', ');
+      log.warn('campaign-engine', 'Step ' + stepNumber + ' FORCE completed apres ' + step._retryCount + ' retries sans envoi (contacts: ' + contactNames + ')');
+      // Notifier le proprietaire via Telegram que la relance a echoue
+      try {
+        const chatId = process.env.ADMIN_CHAT_ID || '1409505520';
+        const TelegramBot = require('node-telegram-bot-api');
+        const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
+        bot.sendMessage(chatId, '⚠️ Relance step ' + stepNumber + ' echouee apres ' + step._retryCount + ' tentatives pour : ' + contactNames + '\nLa qualite etait insuffisante. Tu peux relancer manuellement.');
+      } catch (notifErr) {}
     } else {
       // Aucun envoi mais des contacts restent — remettre en pending pour retry
       step.status = 'pending';
       step._retryCount = (step._retryCount || 0) + 1;
-      log.info('campaign-engine', 'Step ' + stepNumber + ' remis en pending (retry ' + step._retryCount + '/5, sent=' + sent + ', skipped=' + skipped + ', errors=' + errors + ')');
+      log.info('campaign-engine', 'Step ' + stepNumber + ' remis en pending (retry ' + step._retryCount + '/3, sent=' + sent + ', skipped=' + skipped + ', errors=' + errors + ')');
     }
 
     // Avancer le currentStep seulement si step completed

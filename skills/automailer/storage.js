@@ -50,6 +50,15 @@ class AutoMailerStorage {
         if (loaded.users && typeof loaded.users !== 'object') loaded.users = {};
         if (loaded.campaigns && typeof loaded.campaigns !== 'object') loaded.campaigns = {};
         this.data = { ...this.data, ...loaded };
+        // FIX: Nettoyer les entrees blacklist corrompues (undefined, null, sans @)
+        if (this.data.blacklist) {
+          const badKeys = Object.keys(this.data.blacklist).filter(k => !k || k === 'undefined' || k === 'null' || !k.includes('@'));
+          for (const k of badKeys) {
+            delete this.data.blacklist[k];
+            console.warn('[automailer-storage] Blacklist corrompue nettoyee: cle "' + k + '" supprimee');
+          }
+          if (badKeys.length > 0) this._save();
+        }
         console.log('[automailer-storage] Base chargee (' +
           Object.keys(this.data.users).length + ' utilisateurs, ' +
           Object.keys(this.data.campaigns).length + ' campagnes, ' +
@@ -350,6 +359,10 @@ class AutoMailerStorage {
 
   addToBlacklist(email, reason) {
     if (!this.data.blacklist) this.data.blacklist = {};
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      console.warn('[automailer-storage] addToBlacklist: email invalide ignore:', email);
+      return null;
+    }
     const key = email.toLowerCase().trim();
     this.data.blacklist[key] = {
       email: key,

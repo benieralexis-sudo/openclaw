@@ -172,22 +172,26 @@ class ProspectResearcher {
     const fetcher = this._getFetcher();
     if (!fetcher) return null;
 
-    // Tentative 1 : DDG HTML
+    // Tentative 1 : DDG HTML avec retry ameliore (backoff exponentiel sur 202)
     try {
       const ddgUrl = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query);
-      const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
-      if (result && result.statusCode === 200 && result.body && result.body.length > 500) {
-        return { html: result.body, source: 'ddg' };
-      }
-      // DDG 202 = rate-limited, retry une fois apres 1.5s
-      if (result && result.statusCode === 202) {
-        await new Promise(r => setTimeout(r, 1500));
-        const retry = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
-        if (retry && retry.statusCode === 200 && retry.body && retry.body.length > 500) {
-          return { html: retry.body, source: 'ddg' };
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
+        if (result && result.statusCode === 200 && result.body && result.body.length > 500) {
+          return { html: result.body, source: 'ddg' };
         }
+        // DDG 202 = rate-limited, retry avec backoff exponentiel
+        if (result && result.statusCode === 202 && attempt < 2) {
+          const delay = (attempt + 1) * 2000; // 2s, 4s
+          log.info('prospect-research', 'DDG 202 rate-limit — retry ' + (attempt + 1) + '/2 dans ' + (delay / 1000) + 's');
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        break;
       }
-    } catch (e) {}
+    } catch (e) {
+      log.info('prospect-research', 'DDG search echoue: ' + e.message);
+    }
 
     // Tentative 2 : Bing
     try {
@@ -196,7 +200,20 @@ class ProspectResearcher {
       if (result && result.statusCode === 200 && result.body && result.body.length > 500) {
         return { html: result.body, source: 'bing' };
       }
-    } catch (e) {}
+    } catch (e) {
+      log.info('prospect-research', 'Bing search echoue: ' + e.message);
+    }
+
+    // Tentative 3 : DDG Lite (version legere, moins rate-limitee)
+    try {
+      const liteUrl = 'https://lite.duckduckgo.com/lite/?q=' + encodeURIComponent(query);
+      const result = await fetcher.fetchUrl(liteUrl, { userAgent: this._nextUA() });
+      if (result && result.statusCode === 200 && result.body && result.body.length > 200) {
+        return { html: result.body, source: 'ddg_lite' };
+      }
+    } catch (e) {
+      log.info('prospect-research', 'DDG Lite search echoue: ' + e.message);
+    }
 
     return null;
   }

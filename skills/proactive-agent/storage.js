@@ -225,6 +225,33 @@ class ProactiveStorage {
     return hot;
   }
 
+  // Retourne uniquement les hot leads avec des ouvertures NOUVELLES depuis le dernier rapport
+  getNewHotLeads(minOpens) {
+    const threshold = minOpens || this.data.config.thresholds.hotLeadOpens;
+    const lastReport = this.data.stats.lastMorningReport;
+    const hot = {};
+    for (const email of Object.keys(this.data.hotLeads)) {
+      const lead = this.data.hotLeads[email];
+      if (lead.opens < threshold) continue;
+      // Nouveau hot lead (jamais signale) ou nouvelle ouverture depuis le dernier rapport
+      if (!lead.lastMorningReportAt || (lead.lastOpenAt && lead.lastOpenAt > lead.lastMorningReportAt)) {
+        hot[email] = lead;
+      }
+    }
+    return hot;
+  }
+
+  // Marquer les hot leads comme signales dans le rapport du matin
+  markHotLeadsReported(emails) {
+    const now = new Date().toISOString();
+    for (const email of emails) {
+      if (this.data.hotLeads[email]) {
+        this.data.hotLeads[email].lastMorningReportAt = now;
+      }
+    }
+    this._save();
+  }
+
   isHotLeadNotified(email) {
     return this.data.hotLeads[email] && this.data.hotLeads[email].notifiedAt;
   }

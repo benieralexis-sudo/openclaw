@@ -17,7 +17,7 @@ class WebFetcher {
 
   constructor() {
     this.userAgent = WebFetcher.USER_AGENTS[0];
-    this.timeout = 15000;
+    this.timeout = 20000;
     this.maxRedirects = 3;
     this.maxResponseSize = 5 * 1024 * 1024;
     this._uaIndex = Math.floor(Math.random() * WebFetcher.USER_AGENTS.length);

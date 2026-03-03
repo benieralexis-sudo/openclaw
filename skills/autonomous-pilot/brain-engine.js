@@ -483,11 +483,11 @@ class BrainEngine {
           log.error('brain', 'Action ' + action.type + ' echouee apres ' + attempts + ' tentatives: ' + (result.error || '?'));
         }
 
-        // Circuit breaker: si 3+ send_email consecutifs echouent (skip/gate/blacklist),
+        // Circuit breaker: si 5+ send_email consecutifs echouent (skip/gate/blacklist),
         // arreter les send_email restants — le pool de leads est epuise
         if (action.type === 'send_email' && result && !result.success) {
           _consecutiveEmailSkips++;
-          if (_consecutiveEmailSkips >= 3) {
+          if (_consecutiveEmailSkips >= 5) {
             const remaining = plan.actions.filter(a => a.type === 'send_email' && a !== action).length;
             if (remaining > 0) {
               log.warn('brain', 'Circuit breaker: ' + _consecutiveEmailSkips + ' send_email consecutifs echoues — skip des ' + remaining + ' restants (pool epuise)');

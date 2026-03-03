@@ -165,10 +165,22 @@ class ReportGenerator {
         data.emails.activeCampaigns = campaigns.filter(c => c.status === 'active').length;
 
         const allEmails = automailerStorage.data ? automailerStorage.data.emails || [] : [];
-        data.emails.sent = allEmails.length;
-        data.emails.delivered = allEmails.filter(e => e.status === 'delivered' || e.status === 'opened').length;
-        data.emails.opened = allEmails.filter(e => e.status === 'opened').length;
-        data.emails.bounced = allEmails.filter(e => e.status === 'bounced').length;
+        // FIX: Filtrer par "hier" pour le rapport matinal (pas le cumul total)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const yesterdayEmails = allEmails.filter(e => {
+          if (!e.sentAt) return false;
+          const sentTime = new Date(e.sentAt).getTime();
+          return sentTime >= yesterday.getTime() && sentTime < today.getTime();
+        });
+        data.emails.sent = yesterdayEmails.length;
+        data.emails.sentTotal = allEmails.length; // Cumul total disponible si besoin
+        data.emails.delivered = yesterdayEmails.filter(e => e.status === 'delivered' || e.status === 'opened').length;
+        data.emails.opened = yesterdayEmails.filter(e => e.status === 'opened').length;
+        data.emails.bounced = yesterdayEmails.filter(e => e.status === 'bounced').length;
 
         // Taux d'ouverture par jour de la semaine
         const dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -424,10 +436,15 @@ class ReportGenerator {
       ? '\nBRIEFING NOCTURNE :\n' + nightlyBriefing.text
       : '\nPas de briefing nocturne disponible.';
 
-    const hotLeads = storage.getHotLeads();
+    // FIX: Utiliser getNewHotLeads pour ne montrer que les leads avec NOUVELLES ouvertures
+    const hotLeads = storage.getNewHotLeads ? storage.getNewHotLeads() : storage.getHotLeads();
     const hotLeadList = Object.keys(hotLeads).length > 0
-      ? '\nHOT LEADS (3+ ouvertures) : ' + Object.entries(hotLeads).map(([email, d]) => email + ' (' + d.opens + ' ouvertures)').join(', ')
+      ? '\nHOT LEADS (nouvelles ouvertures) : ' + Object.entries(hotLeads).map(([email, d]) => email + ' (' + d.opens + ' ouvertures)').join(', ')
       : '';
+    // Marquer ces hot leads comme signales
+    if (storage.markHotLeadsReported && Object.keys(hotLeads).length > 0) {
+      storage.markHotLeadsReported(Object.keys(hotLeads));
+    }
 
     // Email Intelligence — HTML minimal active depuis v5.3.1 (tracking ouvertures OK)
     const isPlainTextMode = false; // v5.3.1 : HTML minimal pour tracking ouvertures
@@ -451,9 +468,9 @@ class ReportGenerator {
       ? '\n⚠️ IMPORTANT : Les emails sont envoyes en PLAIN TEXT (pas de HTML). Le taux d\'ouverture est NON MESURABLE car il n\'y a pas de pixel de tracking. Ne commente PAS le taux d\'ouverture et ne dis pas que c\'est un probleme. Concentre-toi sur les deliveries et les bounces.'
       : '';
 
-    const prompt = `DONNEES :
+    const prompt = `DONNEES HIER :
 - Pipeline : ${data.hubspot.pipeline} EUR (${data.hubspot.engagedDeals.length} deals en cours)${data.hubspot.deadDeals.length > 0 ? ' | ' + data.hubspot.deadDeals.length + ' deals inactifs' : ''}
-- Emails envoyes : ${data.emails.sent}${isPlainTextMode ? '' : ', ouverts : ' + data.emails.opened + ' (' + emailOpenRate + '%)'}
+- Emails envoyes HIER : ${data.emails.sent} (total cumule : ${data.emails.sentTotal || data.emails.sent})${isPlainTextMode ? '' : ', ouverts hier : ' + data.emails.opened + ' (' + emailOpenRate + '%)'}
 - Prospects trouves : ${data.leads.total}
 - Top leads : ${topLeadsStr}
 ${hotLeadList}${plainTextNote}
