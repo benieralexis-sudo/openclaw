@@ -178,6 +178,39 @@ function _checkMX(email) {
   });
 }
 
+// --- Gate MX Google Workspace (optionnel, active via REQUIRE_GOOGLE_WORKSPACE=true) ---
+const _googleMxCache = new Map();
+const GOOGLE_MX_PATTERNS = ['aspmx.l.google.com', 'googlemail.com', 'google.com'];
+
+function _checkGoogleWorkspace(email) {
+  return new Promise((resolve) => {
+    if (process.env.REQUIRE_GOOGLE_WORKSPACE !== 'true') return resolve(true);
+    const domain = (email || '').split('@')[1];
+    if (!domain) return resolve(false);
+
+    const cached = _googleMxCache.get(domain);
+    if (cached && Date.now() - cached.ts < MX_CACHE_TTL) {
+      return resolve(cached.isGoogle);
+    }
+
+    dns.resolveMx(domain, (err, addresses) => {
+      if (err || !Array.isArray(addresses) || addresses.length === 0) {
+        _googleMxCache.set(domain, { isGoogle: false, ts: Date.now() });
+        return resolve(false);
+      }
+      const isGoogle = addresses.some(mx => {
+        const exchange = (mx.exchange || '').toLowerCase();
+        return GOOGLE_MX_PATTERNS.some(p => exchange.includes(p));
+      });
+      _googleMxCache.set(domain, { isGoogle, ts: Date.now() });
+      if (_googleMxCache.size > 500) {
+        _googleMxCache.delete(_googleMxCache.keys().next().value);
+      }
+      resolve(isGoogle);
+    });
+  });
+}
+
 // --- Cache SMTP par email (24h TTL) ---
 const _smtpCache = new Map();
 const SMTP_CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -749,6 +782,19 @@ class CampaignEngine {
       } catch (mxErr) {
         // En cas d'erreur DNS, on laisse passer (pas de blocage)
         log.info('campaign-engine', 'MX check echoue pour ' + contact.email + ' (non bloquant): ' + mxErr.message);
+      }
+
+      // Gate Google Workspace (optionnel, active via REQUIRE_GOOGLE_WORKSPACE=true)
+      try {
+        const isGws = await _checkGoogleWorkspace(contact.email);
+        if (!isGws) {
+          const gwsDomain = (contact.email || '').split('@')[1];
+          log.info('campaign-engine', 'Skip ' + contact.email + ' (pas Google Workspace: ' + gwsDomain + ')');
+          skipped++;
+          continue;
+        }
+      } catch (gwsErr) {
+        log.info('campaign-engine', 'Google Workspace check echoue pour ' + contact.email + ' (non bloquant)');
       }
 
       // Verification SMTP : l'adresse existe-t-elle reellement ?

@@ -139,7 +139,32 @@ class ClaudeEmailWriter {
     const senderName = process.env.SENDER_NAME || 'Alexis';
     const senderTitle = process.env.SENDER_TITLE || 'fondateur';
     const clientName = process.env.CLIENT_NAME || 'iFIND';
-    const systemPrompt = `Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris a un pair — pas a un "prospect", pas a une "cible". Comme quelqu'un du meme monde qui a remarque un truc et qui lance la conversation en 30 secondes.
+    const clientDescription = process.env.CLIENT_DESCRIPTION || '';
+    const emailLanguage = process.env.EMAIL_LANGUAGE || 'fr';
+    const emailTone = process.env.EMAIL_TONE || 'informal';
+
+    // Bloc langue pour clients non-francophones
+    let languageBlock = '';
+    if (emailLanguage === 'ro') {
+      languageBlock = `
+=== LIMBA / LANGUAGE ===
+SCRIE EMAILUL IN ROMANA. Nu in franceza, nu in engleza — in ROMANA.
+Ton: ${emailTone === 'informal' ? 'tutuit, relaxat dar profesional' : 'formal, cu dumneavoastra'}.
+Subiectul emailului: in romana, 2-4 cuvinte, ca un mesaj intre colegi.
+Toate regulile de mai jos se aplica — dar emailul TREBUIE sa fie in romana naturala, nu tradusa.
+${clientDescription ? 'CE FACE ' + clientName.toUpperCase() + ': ' + clientDescription : ''}
+
+`;
+    } else if (emailLanguage !== 'fr') {
+      languageBlock = `
+=== LANGUAGE ===
+Write the email in ${emailLanguage}. All rules below apply but the email MUST be in native ${emailLanguage}.
+${clientDescription ? 'WHAT ' + clientName.toUpperCase() + ' DOES: ' + clientDescription : ''}
+
+`;
+    }
+
+    const systemPrompt = `${languageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris a un pair — pas a un "prospect", pas a une "cible". Comme quelqu'un du meme monde qui a remarque un truc et qui lance la conversation en 30 secondes.
 
 BUT UNIQUE : une REPONSE. Pas une ouverture, pas un clic — une reponse.
 
@@ -760,7 +785,17 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
     const senderName = process.env.SENDER_NAME || 'Alexis';
     const senderTitle = process.env.SENDER_TITLE || 'fondateur';
     const clientName = process.env.CLIENT_NAME || 'iFIND';
-    const systemPrompt = `Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance personnalisee a un prospect specifique.
+    const fuEmailLanguage = process.env.EMAIL_LANGUAGE || 'fr';
+    const fuClientDescription = process.env.CLIENT_DESCRIPTION || '';
+
+    let fuLanguageBlock = '';
+    if (fuEmailLanguage === 'ro') {
+      fuLanguageBlock = `LIMBA: SCRIE IN ROMANA. Ton: tutuit, relaxat dar profesional.\n${fuClientDescription ? 'CE FACE ' + clientName.toUpperCase() + ': ' + fuClientDescription + '\n' : ''}`;
+    } else if (fuEmailLanguage !== 'fr') {
+      fuLanguageBlock = `LANGUAGE: Write in ${fuEmailLanguage}.\n`;
+    }
+
+    const systemPrompt = `${fuLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance personnalisee a un prospect specifique.
 
 CONTEXTE : Relance ${stepNumber - 1} sur ${totalSteps - 1} (step ${stepNumber}/${totalSteps}).
 STRATEGIE : ${stepStrategy}
