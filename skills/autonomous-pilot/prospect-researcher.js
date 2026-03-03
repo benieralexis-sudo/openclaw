@@ -179,7 +179,6 @@ class ProspectResearcher {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Accept-Encoding': 'gzip',
           'X-Subscription-Token': this.braveKey
         }
       }, (res) => {

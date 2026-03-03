@@ -1393,6 +1393,7 @@ class CampaignEngine {
   // --- Scheduler : verifie les campagnes toutes les 60s ---
 
   start() {
+    if (this.schedulerInterval) return; // Guard anti-double start
     log.info('campaign-engine', 'Scheduler demarre (intervalle: 60s)');
     this.schedulerInterval = setInterval(() => this._processScheduled(), 60 * 1000);
     // Premier check immediat
