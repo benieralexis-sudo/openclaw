@@ -774,6 +774,26 @@ class CampaignEngine {
       const existing = contactEmails.find(e => e.stepNumber === stepNumber && e.status !== 'failed');
       if (existing) continue;
 
+      // FIX RELANCES: Si step 1, rattacher un email orphelin existant au lieu de re-envoyer
+      if (stepNumber === 1) {
+        const allEmails = storage.getAllEmails();
+        const orphan = allEmails.find(e =>
+          (e.to || '').toLowerCase() === contact.email.toLowerCase() &&
+          !e.campaignId &&
+          e.status !== 'failed' &&
+          e.sentAt && (Date.now() - new Date(e.sentAt).getTime()) < 14 * 24 * 60 * 60 * 1000
+        );
+        if (orphan) {
+          // Rattacher l'email orphelin a cette campagne
+          orphan.campaignId = campaignId;
+          orphan.stepNumber = 1;
+          storage._save();
+          log.info('campaign-engine', 'Email orphelin rattache a campagne ' + campaignId + ' pour ' + contact.email + ' (id: ' + orphan.id + ')');
+          sent++;
+          continue;
+        }
+      }
+
       // FIX 5 : Follow-up intelligent — skip si bounce ou reponse sur un email precedent
       if (stepNumber > 1) {
         const previousEmails = contactEmails.filter(e => e.stepNumber < stepNumber);

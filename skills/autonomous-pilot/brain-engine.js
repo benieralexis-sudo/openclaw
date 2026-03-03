@@ -416,7 +416,26 @@ class BrainEngine {
       if (replaced > 0 || dropped > 0) {
         log.info('brain', 'Validation post-plan: ' + replaced + ' remplaces, ' + dropped + ' supprimes, ' + plan.actions.filter(a => a.type === 'send_email').length + ' send_email valides');
       }
+    } else {
+      // FIX PLACEHOLDERS: 0 leads eligibles → supprimer TOUS les send_email (le brain ne peut qu'inventer)
+      const sendEmailCount = plan.actions.filter(a => a.type === 'send_email').length;
+      if (sendEmailCount > 0) {
+        plan.actions = plan.actions.filter(a => a.type !== 'send_email');
+        log.warn('brain', 'Validation post-plan: 0 leads eligibles → ' + sendEmailCount + ' send_email supprimes (anti-placeholder)');
+      }
     }
+
+    // Guard pre-execution : rejeter tout send_email avec email invalide/placeholder
+    plan.actions = plan.actions.filter(action => {
+      if (action.type !== 'send_email') return true;
+      const to = (action.params && action.params.to || '').trim();
+      if (!to || !to.includes('@') || to.includes('{{') || to.includes('}}') || /^[a-z_-]+(lead|ceo|cto|founder|manager)[\d_]*$/i.test(to)) {
+        log.warn('brain', 'Placeholder/email invalide rejete pre-execution: "' + to + '"');
+        storage.logAction({ type: 'send_email', params: action.params, result: { success: false, error: 'Email invalide/placeholder rejete: ' + to } });
+        return false;
+      }
+      return true;
+    });
 
     // 4. Executer les actions (avec retry sur actions critiques)
     const RETRYABLE_ACTIONS = ['send_email', 'push_to_crm'];

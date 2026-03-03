@@ -681,18 +681,39 @@ Format JSON strict :
     // Warm-up domaine : limiter les envois par jour (domaine neuf = max 5/jour semaine 1-2, puis 10, puis 20)
     const amStorage = getAutomailerStorage();
     if (amStorage) {
-      // FIX 19 : Utiliser les compteurs persistants au lieu du filtre dynamique
-      const sentToday = amStorage.getTodaySendCount();
-
-      // Warmup progressif (source unique : gateway/utils.js)
-      const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
-      const dailyLimit = getWarmupDailyLimit(firstSendDate);
+      // FIX WARMUP : utiliser domain-manager comme source de verite (par domaine, pas global)
+      let sentToday, dailyLimit, warmupDays;
+      try {
+        const domainManager = require('../automailer/domain-manager.js');
+        const stats = domainManager.getStats ? domainManager.getStats() : [];
+        const activeStats = stats.filter(s => s.active);
+        if (activeStats.length > 0) {
+          // Prendre la limite la plus basse parmi les domaines actifs (prudence warmup)
+          dailyLimit = Math.min(...activeStats.map(s => s.warmupLimit || 5));
+          sentToday = activeStats.reduce((sum, s) => sum + (s.todaySends || 0), 0);
+          const youngest = activeStats.reduce((min, s) => {
+            const d = s.firstSendDate ? Math.floor((Date.now() - new Date(s.firstSendDate).getTime()) / 86400000) : 0;
+            return d < min ? d : min;
+          }, 999);
+          warmupDays = youngest;
+        } else {
+          sentToday = amStorage.getTodaySendCount();
+          const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
+          dailyLimit = getWarmupDailyLimit(firstSendDate);
+          warmupDays = firstSendDate ? Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000) : 0;
+        }
+      } catch (dmErr) {
+        sentToday = amStorage.getTodaySendCount();
+        const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
+        dailyLimit = getWarmupDailyLimit(firstSendDate);
+        warmupDays = firstSendDate ? Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000) : 0;
+      }
 
       if (sentToday >= dailyLimit) {
-        log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails envoyes aujourd\'hui (daysSince: ' + (firstSendDate ? Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000) : 0) + 'j) — limite atteinte');
+        log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails envoyes aujourd\'hui (day ' + warmupDays + ') — limite atteinte');
         return { success: false, error: 'Limite warm-up atteinte (' + dailyLimit + '/jour)', warmupLimited: true };
       }
-      log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails aujourd\'hui (daysSince: ' + (firstSendDate ? Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000) : 0) + 'j)');
+      log.info('action-executor', 'Warm-up: ' + sentToday + '/' + dailyLimit + ' emails aujourd\'hui (day ' + warmupDays + ')');
     }
 
     // Deduplication : verifier si un email a deja ete envoye a cette adresse
@@ -1367,7 +1388,24 @@ Format JSON strict :
       const listName = 'AP-Relance-' + new Date().toISOString().slice(0, 10);
       const list = amStorage.createContactList(adminChatId, listName);
 
+      // FIX DEDUP: exclure les contacts deja dans une campagne active
+      const activeCampaigns = amStorage.getAllCampaigns().filter(c => c.status === 'active');
+      const alreadyInCampaign = new Set();
+      for (const camp of activeCampaigns) {
+        const campList = amStorage.data.contactLists[camp.contactListId];
+        if (campList && campList.contacts) {
+          for (const c of campList.contacts) {
+            alreadyInCampaign.add((c.email || '').toLowerCase());
+          }
+        }
+      }
+
+      let addedCount = 0;
       for (const contact of contacts) {
+        if (alreadyInCampaign.has((contact.email || '').toLowerCase())) {
+          log.info('action-executor', 'Skip ' + contact.email + ' (deja dans une campagne active)');
+          continue;
+        }
         amStorage.addContactToList(list.id, {
           email: contact.email,
           name: contact.nom || contact.name || '',
@@ -1376,6 +1414,11 @@ Format JSON strict :
           title: contact.titre || contact.title || '',
           industry: contact.organization?.industry || contact.industry || contact.industrie || ''
         });
+        addedCount++;
+      }
+      if (addedCount === 0) {
+        log.info('action-executor', 'Tous les contacts sont deja dans des campagnes actives — pas de nouvelle campagne');
+        return { success: true, message: 'Tous les contacts sont deja en campagne active' };
       }
 
       // 2. Creer la campagne
