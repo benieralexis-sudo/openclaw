@@ -280,6 +280,9 @@ class BrainEngine {
       }
     } catch (e) {}
 
+    // Niche Health
+    state.nicheHealth = storage.getNicheHealth();
+
     return state;
   }
 
@@ -1292,6 +1295,20 @@ Analyse et reponds en JSON:
         prompt += '→ Pour chaque search_leads, ajoute params.niche et params.criteria.keywords correspondant.\n';
         prompt += '→ REGLE: Teste AU MOINS 3 niches differentes par semaine pour trouver les meilleurs secteurs.\n';
       }
+    }
+
+    // --- SANTE DES NICHES (Niche Health Monitor) ---
+    const nicheHealth = state.nicheHealth || {};
+    const nhKeys = Object.keys(nicheHealth).filter(k => !k.startsWith('_'));
+    if (nhKeys.length > 0) {
+      prompt += '\nSANTE DES NICHES (scan quotidien Apollo):\n';
+      for (const slug of nhKeys) {
+        const h = nicheHealth[slug];
+        const emoji = h.status === 'exhausted' ? '🔴' : h.status === 'critical' ? '🟠' : h.status === 'warning' ? '🟡' : '🟢';
+        prompt += '- ' + emoji + ' ' + slug + ': ' + (h.contacted || 0) + '/' + (h.totalAvailable || '?') + ' contactes (' + (h.exhaustionPct || 0) + '%) — ' + h.status + '\n';
+      }
+      prompt += '→ REGLE: EVITE les niches critical/exhausted. PRIVILEGIE les niches healthy avec bon open rate.\n';
+      prompt += '→ Si une niche est a 80%+, bascule vers une niche healthy pas encore testee.\n';
     }
 
     prompt += '\nCRITERES DE RECHERCHE (VERROUILLES — NE PAS MODIFIER):\n';

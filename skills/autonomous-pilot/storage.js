@@ -791,6 +791,69 @@ function trackNicheEvent(niche, event) {
   _save();
 }
 
+// --- Niche Health Monitor ---
+
+function getNicheHealth() {
+  const data = _load();
+  if (!data.nicheHealth) data.nicheHealth = {};
+  return data.nicheHealth;
+}
+
+function updateNicheHealth(slug, healthData) {
+  const data = _load();
+  if (!data.nicheHealth) data.nicheHealth = {};
+  const key = String(slug).replace(/_/g, '-').toLowerCase().trim();
+
+  const existing = data.nicheHealth[key] || {
+    totalAvailable: 0, contacted: 0, exhaustionPct: 0,
+    lastScanAt: null, history: [], alertSentAt: null, status: 'unknown'
+  };
+
+  Object.assign(existing, healthData);
+
+  // Calculer le statut
+  const pct = existing.exhaustionPct || 0;
+  if (pct >= 95) existing.status = 'exhausted';
+  else if (pct >= 80) existing.status = 'critical';
+  else if (pct >= 50) existing.status = 'warning';
+  else existing.status = 'healthy';
+
+  // Historique (garder 30 entrees max)
+  if (!existing.history) existing.history = [];
+  const today = new Date().toISOString().split('T')[0];
+  if (!existing.history.find(h => h.date === today)) {
+    existing.history.push({
+      date: today,
+      available: existing.totalAvailable,
+      contacted: existing.contacted
+    });
+    if (existing.history.length > 30) existing.history = existing.history.slice(-30);
+  }
+
+  data.nicheHealth[key] = existing;
+  _save();
+  return existing;
+}
+
+function markNicheAlertSent(slug) {
+  const data = _load();
+  if (!data.nicheHealth) data.nicheHealth = {};
+  const key = String(slug).replace(/_/g, '-').toLowerCase().trim();
+  if (data.nicheHealth[key]) {
+    data.nicheHealth[key].alertSentAt = new Date().toISOString();
+    _save();
+  }
+}
+
+function getNicheHealthSummary() {
+  const data = _load();
+  const health = data.nicheHealth || {};
+  return B2B_NICHE_LIST.map(n => {
+    const h = health[n.slug] || { status: 'unknown', exhaustionPct: 0, totalAvailable: 0, contacted: 0 };
+    return { slug: n.slug, keywords: n.keywords, ...h };
+  });
+}
+
 // --- Tracking d'angles email par industrie (anti-repetition) ---
 
 function trackUsedAngle(industry, angle) {
@@ -877,6 +940,7 @@ module.exports = {
   getPatterns, savePatterns, getCriteriaHistory, addCriteriaAdjustment,
   getProspectResearch, saveProspectResearch,
   getNichePerformance, trackNicheEvent,
+  getNicheHealth, updateNicheHealth, markNicheAlertSent, getNicheHealthSummary,
   trackUsedAngle, getRecentAnglesForIndustry,
   recordCompetitorContact, getCompetitorsInIndustry,
   getStats, updateStat, incrementStat

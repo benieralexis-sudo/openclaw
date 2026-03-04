@@ -161,7 +161,7 @@ class ApolloConnector {
         _appConfig.recordServiceUsage('apollo', { searches: searchCount });
       }
 
-      return { success: true, count: limited.length, leads: limited };
+      return { success: true, count: limited.length, leads: limited, totalAvailable: allLeads.length };
     }
 
     // Recherche simple (un seul keyword ou aucun)
@@ -185,7 +185,8 @@ class ApolloConnector {
       return {
         success: true,
         count: count,
-        leads: result.people || []
+        leads: result.people || [],
+        totalAvailable: (result.pagination && result.pagination.total_entries) || count
       };
 
     } catch (error) {
@@ -279,6 +280,23 @@ class ApolloConnector {
       return { success: false, error: 'Personne non trouvee' };
     } catch (e) {
       return { success: false, error: e.message };
+    }
+  }
+
+  // Compter les prospects disponibles pour un critere (0 credit, 1 appel API)
+  async countAvailable(criteria = {}) {
+    const searchData = this._buildSearchData({ ...criteria, limit: 1 });
+    searchData.per_page = 1;
+    if (criteria.keywords) searchData.q_keywords = criteria.keywords;
+
+    try {
+      const result = await this.makeRequest('/v1/mixed_people/api_search', searchData);
+      return {
+        success: true,
+        totalAvailable: (result.pagination && result.pagination.total_entries) || 0
+      };
+    } catch (e) {
+      return { success: false, totalAvailable: 0, error: e.message };
     }
   }
 

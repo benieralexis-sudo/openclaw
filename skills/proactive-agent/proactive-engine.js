@@ -135,6 +135,10 @@ class ProactiveEngine {
       log.info('proactive-engine', 'Cron: visitor digest dimanche 20h');
     }
 
+    // Niche Health Monitor — tous les jours a 6h30
+    this.crons.push(new Cron('30 6 * * *', { timezone: tz }, withCronGuard('pa-niche-health', () => this._nicheHealthScan())));
+    log.info('proactive-engine', 'Cron: niche health scan quotidien a 6h30');
+
     this.running = true;
     log.info('proactive-engine', 'Demarre avec ' + this.crons.length + ' crons');
 
@@ -264,8 +268,28 @@ class ProactiveEngine {
         log.info('proactive-engine', 'Enrichissement AP echoue (non bloquant):', e.message);
       }
 
-      await this.sendTelegram(config.adminChatId, report + apSection);
-      storage.logAlert('morning_report', report + apSection, { date: data.date });
+      // --- Section Niche Health ---
+      let nicheSection = '';
+      try {
+        const apStorage2 = this._getAPStorage();
+        if (apStorage2 && apStorage2.getNicheHealth) {
+          const nicheHealth = apStorage2.getNicheHealth();
+          const warnings = [];
+          for (const [slug, h] of Object.entries(nicheHealth)) {
+            if (slug.startsWith('_')) continue;
+            if (h.status === 'critical' || h.status === 'exhausted' || h.status === 'warning') {
+              const emoji = h.status === 'exhausted' ? '🔴' : h.status === 'critical' ? '🟠' : '🟡';
+              warnings.push(emoji + ' ' + slug + ' : ' + (h.exhaustionPct || 0) + '% (' + (h.contacted || 0) + '/' + (h.totalAvailable || '?') + ')');
+            }
+          }
+          if (warnings.length > 0) {
+            nicheSection = '\n\n⚠️ *Niches a surveiller :*\n' + warnings.join('\n');
+          }
+        }
+      } catch (e) {}
+
+      await this.sendTelegram(config.adminChatId, report + apSection + nicheSection);
+      storage.logAlert('morning_report', report + apSection + nicheSection, { date: data.date });
       storage.updateStat('lastMorningReport', new Date().toISOString());
 
       log.info('proactive-engine', 'Rapport matinal unifie envoye');
@@ -1736,6 +1760,139 @@ class ProactiveEngine {
 
   async triggerReactiveFollowUps() {
     return this._processReactiveFollowUps();
+  }
+
+  // --- Niche Health Monitor ---
+
+  async _nicheHealthScan() {
+    const config = storage.getConfig();
+    if (!config.enabled) return;
+
+    log.info('proactive-engine', 'Niche health scan demarre...');
+
+    const apStorage = getAPStorage();
+    if (!apStorage || !apStorage.getNicheList) return;
+
+    const nicheList = apStorage.getNicheList();
+    if (nicheList.length === 0) return;
+
+    // Criteres ICP de base
+    const goals = apStorage.getGoals ? apStorage.getGoals() : {};
+    const baseCriteria = goals.searchCriteria || {};
+
+    // Leads contactes depuis nichePerformance (plus fiable que flowfast)
+    const nichePerf = apStorage.getNichePerformance ? apStorage.getNichePerformance() : {};
+
+    // Apollo connector
+    const ApolloConnector = require('../flowfast/apollo-connector.js');
+    const apolloKey = process.env.APOLLO_API_KEY;
+    if (!apolloKey) {
+      log.warn('proactive-engine', 'Niche health: APOLLO_API_KEY manquante');
+      return;
+    }
+    const apollo = new ApolloConnector(apolloKey);
+
+    let scanned = 0;
+    let alertsSent = 0;
+
+    for (const niche of nicheList) {
+      try {
+        const result = await apollo.countAvailable({
+          ...baseCriteria,
+          keywords: niche.keywords
+        });
+
+        if (!result.success) {
+          log.info('proactive-engine', 'Niche scan echoue pour ' + niche.slug + ': ' + (result.error || '?'));
+          continue;
+        }
+
+        const totalAvailable = result.totalAvailable;
+        const perf = nichePerf[niche.slug] || {};
+        const contacted = perf.sent || 0;
+        const exhaustionPct = totalAvailable > 0 ? Math.round((contacted / totalAvailable) * 1000) / 10 : 0;
+
+        const healthData = apStorage.updateNicheHealth(niche.slug, {
+          totalAvailable,
+          contacted,
+          exhaustionPct,
+          lastScanAt: new Date().toISOString()
+        });
+
+        scanned++;
+
+        // Alerte si >= 80% et pas deja alerte dans les 7 derniers jours
+        if (healthData.status === 'critical' || healthData.status === 'exhausted') {
+          const lastAlert = healthData.alertSentAt ? new Date(healthData.alertSentAt).getTime() : 0;
+          const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+          if (lastAlert < sevenDaysAgo) {
+            const emoji = healthData.status === 'exhausted' ? '🔴' : '🟠';
+            const nicheHealth = apStorage.getNicheHealth();
+            const msg = emoji + ' *Niche epuisee* : *' + niche.slug + '*\n\n' +
+              '📊 ' + contacted + ' / ' + totalAvailable + ' prospects contactes (' + exhaustionPct + '%)\n' +
+              'Statut : ' + healthData.status + '\n\n' +
+              this._suggestAdjacentNiches(niche.slug, nicheList, nicheHealth) +
+              '\n_Consulte le dashboard pour la vue complete._';
+
+            await this.sendTelegram(config.adminChatId, msg);
+            apStorage.markNicheAlertSent(niche.slug);
+            alertsSent++;
+          }
+        }
+
+        // Rate limit entre les appels Apollo
+        await new Promise(r => setTimeout(r, 500));
+
+      } catch (e) {
+        log.info('proactive-engine', 'Niche scan erreur ' + niche.slug + ': ' + e.message);
+      }
+    }
+
+    log.info('proactive-engine', 'Niche health scan termine: ' + scanned + '/' + nicheList.length + ' niches, ' + alertsSent + ' alertes');
+  }
+
+  _suggestAdjacentNiches(exhaustedSlug, nicheList, nicheHealth) {
+    const adjacencyMap = {
+      'agences-marketing': ['relations-publiques', 'ecommerce', 'saas-b2b'],
+      'esn-ssii': ['saas-b2b', 'startup-tech', 'cabinet-conseil'],
+      'saas-b2b': ['startup-tech', 'esn-ssii', 'ecommerce'],
+      'startup-tech': ['saas-b2b', 'esn-ssii', 'energie-environnement'],
+      'ecommerce': ['agences-marketing', 'franchise-reseau', 'transport-logistique'],
+      'cabinet-conseil': ['cabinet-comptable', 'cabinet-recrutement', 'formation-pro'],
+      'cabinet-comptable': ['cabinet-conseil', 'gestion-patrimoine', 'cabinet-avocat'],
+      'cabinet-avocat': ['cabinet-comptable', 'cabinet-conseil', 'immobilier-pro'],
+      'cabinet-recrutement': ['cabinet-conseil', 'formation-pro', 'esn-ssii'],
+      'courtier-assurance': ['gestion-patrimoine', 'immobilier-pro', 'cabinet-comptable'],
+      'gestion-patrimoine': ['courtier-assurance', 'cabinet-comptable', 'immobilier-pro'],
+      'formation-pro': ['cabinet-recrutement', 'cabinet-conseil', 'sante-medtech'],
+      'immobilier-pro': ['btp-construction', 'gestion-patrimoine', 'courtier-assurance'],
+      'btp-construction': ['immobilier-pro', 'industrie-pme', 'energie-environnement'],
+      'industrie-pme': ['btp-construction', 'transport-logistique', 'energie-environnement'],
+      'sante-medtech': ['formation-pro', 'startup-tech', 'cabinet-conseil'],
+      'transport-logistique': ['industrie-pme', 'franchise-reseau', 'ecommerce'],
+      'franchise-reseau': ['ecommerce', 'nettoyage-proprete', 'transport-logistique'],
+      'relations-publiques': ['agences-marketing', 'formation-pro', 'cabinet-conseil'],
+      'nettoyage-proprete': ['securite-privee', 'franchise-reseau', 'btp-construction'],
+      'securite-privee': ['nettoyage-proprete', 'immobilier-pro', 'industrie-pme'],
+      'energie-environnement': ['btp-construction', 'industrie-pme', 'startup-tech']
+    };
+
+    const adjacent = adjacencyMap[exhaustedSlug] || [];
+    const healthy = adjacent.filter(slug => {
+      const h = nicheHealth[slug];
+      return !h || h.status === 'healthy' || h.status === 'unknown';
+    });
+
+    if (healthy.length === 0) return '💡 _Aucune niche adjacente saine trouvee._\n';
+
+    return '💡 *Niches adjacentes suggerees :*\n' +
+      healthy.map(slug => {
+        const niche = nicheList.find(n => n.slug === slug);
+        const h = nicheHealth[slug];
+        const pct = h && h.exhaustionPct ? h.exhaustionPct + '%' : 'non scannee';
+        return '  • *' + slug + '* (' + pct + ')';
+      }).join('\n') + '\n';
   }
 }
 

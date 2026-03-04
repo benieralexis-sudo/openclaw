@@ -1290,6 +1290,40 @@ app.get('/api/prospection', authRequired, resolveClient, async (req, res) => {
   });
 });
 
+// Niche Health Monitor
+app.get('/api/niche-health', authRequired, resolveClient, async (req, res) => {
+  const ap = await readData('autonomous-pilot', req.clientId) || {};
+  const nicheHealth = ap.nicheHealth || {};
+  const nichePerf = ap.nichePerformance || {};
+
+  const slugs = [...new Set([...Object.keys(nicheHealth), ...Object.keys(nichePerf)])].filter(k => !k.startsWith('_'));
+
+  const niches = slugs.map(slug => {
+    const h = nicheHealth[slug] || {};
+    const p = nichePerf[slug] || {};
+    return {
+      slug,
+      totalAvailable: h.totalAvailable || 0,
+      contacted: h.contacted || 0,
+      exhaustionPct: h.exhaustionPct || 0,
+      status: h.status || 'unknown',
+      lastScanAt: h.lastScanAt || null,
+      sent: p.sent || 0,
+      opened: p.opened || 0,
+      replied: p.replied || 0,
+      leads: p.leads || 0,
+      openRate: p.sent > 0 ? Math.round((p.opened / p.sent) * 100) : 0,
+      replyRate: p.sent > 0 ? Math.round((p.replied / p.sent) * 100) : 0,
+      history: h.history || []
+    };
+  });
+
+  res.json({
+    niches: niches.sort((a, b) => b.exhaustionPct - a.exhaustionPct),
+    lastFullScan: nicheHealth._lastFullScanAt || null
+  });
+});
+
 // AutoMailer / Emails
 app.get('/api/emails', authRequired, resolveClient, async (req, res) => {
   const am = await readData('automailer', req.clientId) || {};
