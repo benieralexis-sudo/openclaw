@@ -205,7 +205,8 @@ function parseOOOReturnDate(snippet) {
     /(?:retour|disponible|joignable|present).*?(\d{1,2})\s+(janv|fevr|mars|avri|mai|juin|juil|aout|sept|octo|nove|dece)\w*/i,
     /(?:jusqu.{0,3}au|until)\s+(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/i,
     /(?:jusqu.{0,3}au|until)\s+(\d{1,2})\s+(janv|fevr|mars|avri|mai|juin|juil|aout|sept|octo|nove|dece)\w*/i,
-    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/  // Fallback: premiere date trouvee
+    /(?:back|return|away until|absent).*?(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/i
+    // PAS de fallback generique — evite de matcher des dates non pertinentes (factures, etc.)
   ];
 
   const monthMap = { janv: '01', fevr: '02', mars: '03', avri: '04', mai: '05', juin: '06', juil: '07', aout: '08', sept: '09', octo: '10', nove: '11', dece: '12' };

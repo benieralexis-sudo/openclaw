@@ -566,7 +566,8 @@ Format JSON strict :
     // 2. Chiffre specifique du brief retrouve dans l'email
     const intelNumbers = intelText.match(/\d{2,}/g) || [];
     const emailNumbers = emailText.match(/\d{2,}/g) || [];
-    const sharedNumbers = emailNumbers.filter(n => intelNumbers.includes(n) && parseInt(n) > 3 && parseInt(n) < 100000);
+    const currentYear = new Date().getFullYear();
+    const sharedNumbers = emailNumbers.filter(n => { const num = parseInt(n); return intelNumbers.includes(n) && num > 3 && num < 100000 && !(num >= currentYear - 5 && num <= currentYear + 5); });
     if (sharedNumbers.length > 0) facts.push('chiffre:' + sharedNumbers[0]);
 
     // 3. Technologie du brief citee dans l'email

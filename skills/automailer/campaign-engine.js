@@ -5,67 +5,41 @@ const net = require('net');
 const log = require('../../gateway/logger.js');
 const { getWarmupDailyLimit, applySpintax, validateEmailOutput, getCityTimezone } = require('../../gateway/utils.js');
 
-// --- Quality gate : specificite email (miroir de action-executor._checkEmailSpecificity) ---
-function _checkEmailSpecificity(body, subject, prospectIntel) {
-  if (!prospectIntel) return { level: 'no_brief', facts: [], reason: 'Pas de brief' };
-  const emailText = ((subject || '') + ' ' + (body || '')).toLowerCase();
-  const intelText = (prospectIntel || '').toLowerCase();
-  const facts = [];
-
-  // 1. Nom d'entreprise
-  const companyMatch = prospectIntel.match(/ENTREPRISE:\s*([^(\n]+)/);
-  if (companyMatch) {
-    const cn = companyMatch[1].trim().toLowerCase();
-    if (cn.length > 3 && emailText.includes(cn)) facts.push('entreprise');
-    else {
-      for (const p of cn.split(/[\s-]+/).filter(w => w.length > 3)) {
-        if (emailText.includes(p)) { facts.push('entreprise_partiel:' + p); break; }
-      }
+// --- Quality gate : specificite email (delegue a action-executor pour eviter divergences) ---
+let _checkEmailSpecificity = null;
+try {
+  const ActionExecutor = require('../autonomous-pilot/action-executor.js');
+  if (ActionExecutor && ActionExecutor.prototype && ActionExecutor.prototype._checkEmailSpecificity) {
+    const _ae = new ActionExecutor({});
+    _checkEmailSpecificity = _ae._checkEmailSpecificity.bind(_ae);
+  }
+} catch (e) {}
+if (!_checkEmailSpecificity) {
+  // Fallback inline si action-executor non disponible
+  _checkEmailSpecificity = function(body, subject, prospectIntel) {
+    if (!prospectIntel) return { level: 'no_brief', facts: [], reason: 'Pas de brief' };
+    const emailText = ((subject || '') + ' ' + (body || '')).toLowerCase();
+    const intelText = (prospectIntel || '').toLowerCase();
+    const facts = [];
+    const currentYear = new Date().getFullYear();
+    const companyMatch = prospectIntel.match(/ENTREPRISE:\s*([^(\n]+)/);
+    if (companyMatch) {
+      const cn = companyMatch[1].trim().toLowerCase();
+      if (cn.length > 3 && emailText.includes(cn)) facts.push('entreprise');
+      else { for (const p of cn.split(/[\s-]+/).filter(w => w.length > 3)) { if (emailText.includes(p)) { facts.push('entreprise_partiel:' + p); break; } } }
     }
-  }
-  // 2. Chiffre specifique
-  const intelNums = intelText.match(/\d{2,}/g) || [];
-  const emailNums = emailText.match(/\d{2,}/g) || [];
-  const currentYear = new Date().getFullYear();
-  const shared = emailNums.filter(n => {
-    const num = parseInt(n);
-    return intelNums.includes(n) && num > 3 && num < 100000 && !(num >= currentYear - 5 && num <= currentYear + 5);
-  });
-  if (shared.length > 0) facts.push('chiffre:' + shared[0]);
-  // 3. Technologie
-  const techMatch = intelText.match(/STACK TECHNIQUE:\s*([^\n]+)/);
-  if (techMatch) {
-    for (const t of techMatch[1].split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 2)) {
-      if (emailText.includes(t)) { facts.push('tech:' + t); break; }
-    }
-  }
-  // 4. Evenement recent
-  const evtKws = ['levee', 'leve', 'recrute', 'recrutement', 'lance', 'acquisition', 'fusion', 'partenariat', 'expansion', 'ouvert', 'ouvre'];
-  for (const kw of evtKws) {
-    if (emailText.includes(kw) && intelText.includes(kw)) { facts.push('evt:' + kw); break; }
-  }
-  // 5. Client/marque detecte
-  const clientMatch = intelText.match(/CLIENTS\/MARQUES DETECTES:\s*([^\n]+)/);
-  if (clientMatch) {
-    for (const c of clientMatch[1].split(',').map(c => c.trim().toLowerCase()).filter(c => c.length > 2)) {
-      if (emailText.includes(c)) { facts.push('client:' + c); break; }
-    }
-  }
-  // 6. Profil public
-  const profileMatch = intelText.match(/profil public[^:]*:([\s\S]*?)(?=\nsignaux|\nstack|\nmots|\ncontexte|\nenrich|\n$)/i);
-  if (profileMatch) {
-    const pks = profileMatch[1].match(/"([^"]+)"/g);
-    if (pks) {
-      for (const pk of pks) {
-        for (const w of pk.replace(/"/g, '').toLowerCase().split(/\s+/).filter(w => w.length > 4)) {
-          if (emailText.includes(w)) { facts.push('profile:' + w); break; }
-        }
-        if (facts.some(f => f.startsWith('profile:'))) break;
-      }
-    }
-  }
-
-  return { level: facts.length >= 1 ? 'specific' : 'generic', facts, reason: facts.length === 0 ? 'Aucun fait specifique' : facts.length + ' fait(s)' };
+    const intelNums = intelText.match(/\d{2,}/g) || [];
+    const emailNums = emailText.match(/\d{2,}/g) || [];
+    const shared = emailNums.filter(n => { const num = parseInt(n); return intelNums.includes(n) && num > 3 && num < 100000 && !(num >= currentYear - 5 && num <= currentYear + 5); });
+    if (shared.length > 0) facts.push('chiffre:' + shared[0]);
+    const techMatch = intelText.match(/STACK TECHNIQUE:\s*([^\n]+)/);
+    if (techMatch) { for (const t of techMatch[1].split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 2)) { if (emailText.includes(t)) { facts.push('tech:' + t); break; } } }
+    const evtKws = ['levee', 'leve', 'recrute', 'recrutement', 'lance', 'acquisition', 'fusion', 'partenariat', 'expansion', 'ouvert', 'ouvre'];
+    for (const kw of evtKws) { if (emailText.includes(kw) && intelText.includes(kw)) { facts.push('evt:' + kw); break; } }
+    const clientMatch = intelText.match(/CLIENTS\/MARQUES DETECTES:\s*([^\n]+)/);
+    if (clientMatch) { for (const c of clientMatch[1].split(',').map(c => c.trim().toLowerCase()).filter(c => c.length > 2)) { if (emailText.includes(c)) { facts.push('client:' + c); break; } } }
+    return { level: facts.length >= 1 ? 'specific' : 'generic', facts, reason: facts.length === 0 ? 'Aucun fait specifique' : facts.length + ' fait(s)' };
+  };
 }
 
 // --- Patterns sujets interdits dans les campagnes ---
@@ -159,9 +133,10 @@ function _checkMX(email) {
     const domain = (email || '').split('@')[1];
     if (!domain) return resolve(false);
 
-    // Check cache
+    // Check cache (LRU: delete+re-set pour maintenir l'ordre d'acces)
     const cached = _mxCache.get(domain);
     if (cached && Date.now() - cached.ts < MX_CACHE_TTL) {
+      _mxCache.delete(domain); _mxCache.set(domain, cached);
       return resolve(cached.valid);
     }
 
@@ -190,6 +165,7 @@ function _checkGoogleWorkspace(email) {
 
     const cached = _googleMxCache.get(domain);
     if (cached && Date.now() - cached.ts < MX_CACHE_TTL) {
+      _googleMxCache.delete(domain); _googleMxCache.set(domain, cached);
       return resolve(cached.isGoogle);
     }
 
@@ -222,9 +198,10 @@ function _smtpVerify(email) {
     const key = (email || '').toLowerCase().trim();
     if (!key) return resolve({ valid: false, reason: 'empty_email' });
 
-    // Check cache
+    // Check cache (LRU: delete+re-set)
     const cached = _smtpCache.get(key);
     if (cached && Date.now() - cached.ts < SMTP_CACHE_TTL) {
+      _smtpCache.delete(key); _smtpCache.set(key, cached);
       return resolve(cached.result);
     }
 
@@ -248,8 +225,6 @@ function _smtpVerify(email) {
 
       const timeout = 10000;
       let done = false;
-      let response = '';
-      let step = 'connect';
 
       const finish = (result) => {
         if (done) return;
@@ -268,62 +243,63 @@ function _smtpVerify(email) {
       socket.setTimeout(timeout, () => finish({ valid: null, reason: 'timeout' }));
       socket.on('error', () => finish({ valid: null, reason: 'connect_error' }));
 
+      let dataHandler = null;
       const sendCommand = (cmd) => {
-        response = '';
         socket.write(cmd + '\r\n');
       };
+      const waitForResponse = () => {
+        return new Promise((res) => {
+          let buf = '';
+          if (dataHandler) socket.removeListener('data', dataHandler);
+          dataHandler = (data) => {
+            buf += data.toString();
+            if (/^\d{3}[ ]/m.test(buf) && buf.endsWith('\r\n')) {
+              res(buf.trim());
+            }
+          };
+          socket.on('data', dataHandler);
+        });
+      };
 
-      socket.on('data', (data) => {
-        response += data.toString();
-        if (!/\r\n/.test(response)) return;
+      // Connexion initiale
+      const greeting = await waitForResponse();
+      const greetCode = parseInt(greeting.substring(0, 3), 10);
+      if (greetCode !== 220) return finish({ valid: null, reason: 'bad_greeting' });
 
-        const code = parseInt(response.substring(0, 3), 10);
+      sendCommand('EHLO ' + (process.env.CLIENT_DOMAIN || 'ifind.fr'));
+      const ehloResp = await waitForResponse();
+      if (!ehloResp.startsWith('250')) return finish({ valid: null, reason: 'ehlo_rejected' });
 
-        if (step === 'connect') {
-          if (code !== 220) return finish({ valid: null, reason: 'bad_greeting' });
-          step = 'ehlo';
-          sendCommand('EHLO ' + (process.env.CLIENT_DOMAIN || 'ifind.fr'));
-        } else if (step === 'ehlo') {
-          if (code !== 250) return finish({ valid: null, reason: 'ehlo_rejected' });
-          step = 'mail_from';
-          sendCommand('MAIL FROM:<verify@' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '>');
-        } else if (step === 'mail_from') {
-          if (code !== 250) return finish({ valid: null, reason: 'mail_from_rejected' });
-          // Catch-all detection : tester adresse random d'abord
-          const catchAllCachedNow = _catchAllCache.get(domain);
-          if (!catchAllCachedNow || Date.now() - catchAllCachedNow.ts >= SMTP_CACHE_TTL) {
-            step = 'catch_all_test';
-            sendCommand('RCPT TO:<xyztest_fake_' + Date.now() + '@' + domain + '>');
-          } else {
-            step = 'rcpt_to';
-            sendCommand('RCPT TO:<' + key + '>');
-          }
-        } else if (step === 'catch_all_test') {
-          if (code === 250 || code === 251) {
-            // Domaine catch-all — accepte tout
-            _catchAllCache.set(domain, { isCatchAll: true, ts: Date.now() });
-            step = 'quit';
-            sendCommand('QUIT');
-            return finish({ valid: null, reason: 'catch_all' });
-          }
-          _catchAllCache.set(domain, { isCatchAll: false, ts: Date.now() });
-          // Reset pour tester la vraie adresse
-          step = 'rcpt_to';
-          sendCommand('RCPT TO:<' + key + '>');
-        } else if (step === 'rcpt_to') {
-          step = 'quit';
+      sendCommand('MAIL FROM:<verify@' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '>');
+      const mailFromResp = await waitForResponse();
+      if (!mailFromResp.startsWith('250')) return finish({ valid: null, reason: 'mail_from_rejected' });
+
+      // Catch-all detection
+      const catchAllCachedNow = _catchAllCache.get(domain);
+      if (!catchAllCachedNow || Date.now() - catchAllCachedNow.ts >= SMTP_CACHE_TTL) {
+        sendCommand('RCPT TO:<xyztest_fake_' + Date.now() + '@' + domain + '>');
+        const catchResp = await waitForResponse();
+        const catchCode = parseInt(catchResp.substring(0, 3), 10);
+        if (catchCode === 250 || catchCode === 251) {
+          _catchAllCache.set(domain, { isCatchAll: true, ts: Date.now() });
           sendCommand('QUIT');
-          if (code === 250 || code === 251) {
-            return finish({ valid: true });
-          } else if (code === 550 || code === 551 || code === 552 || code === 553) {
-            return finish({ valid: false, reason: 'user_unknown' });
-          } else {
-            return finish({ valid: null, reason: 'smtp_code_' + code });
-          }
-        } else if (step === 'quit') {
-          finish({ valid: null, reason: 'done' });
+          return finish({ valid: null, reason: 'catch_all' });
         }
-      });
+        _catchAllCache.set(domain, { isCatchAll: false, ts: Date.now() });
+      }
+
+      sendCommand('RCPT TO:<' + key + '>');
+      const rcptResp = await waitForResponse();
+      const code = parseInt(rcptResp.substring(0, 3), 10);
+
+      sendCommand('QUIT');
+      if (code === 250 || code === 251) {
+        return finish({ valid: true });
+      } else if (code === 550 || code === 551 || code === 552 || code === 553) {
+        return finish({ valid: false, reason: 'user_unknown' });
+      } else {
+        return finish({ valid: null, reason: 'smtp_code_' + code });
+      }
     });
   });
 }
