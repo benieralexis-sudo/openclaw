@@ -906,8 +906,8 @@ class ProspectResearcher {
   }
 
   /**
-   * Recupere des donnees LinkedIn via 4 strategies (0$ — aucun appel direct linkedin.com).
-   * Ordre optimise : DuckDuckGo (+ fiable) > Bing > Google Cache > Google search.
+   * Recupere des donnees LinkedIn via 5 strategies (0$ — aucun appel direct linkedin.com).
+   * Ordre optimise : Brave Search (pas de rate-limit) > DuckDuckGo > Bing > Google Cache > Google search.
    * Chaque requete utilise un user-agent different pour eviter les 403.
    */
   async _fetchLinkedInData(linkedinUrl, name, company) {
@@ -916,7 +916,26 @@ class ProspectResearcher {
     const fetcher = this._getFetcher();
     if (!fetcher) return null;
 
-    // Strategie 1 (PRIORITAIRE) : DuckDuckGo HTML — retry sur 202 (rate-limit)
+    // Strategie 0 (PRIORITAIRE) : Brave Search API — pas de rate-limit agressif, 2000 req/mois
+    if (name && this.braveKey) {
+      try {
+        const braveQuery = '"' + name + '"' + (company ? ' "' + company + '"' : '') + ' site:linkedin.com/in/';
+        const braveResult = await this._searchBrave(braveQuery);
+        if (braveResult && braveResult.html) {
+          // Parser le pseudo-HTML Brave comme DDG (meme format de sortie)
+          const parsed = this._parseBraveLinkedInResults(braveResult.html, name);
+          if (parsed && parsed.headline) {
+            parsed.source = 'brave_search';
+            log.info('prospect-research', 'LinkedIn via Brave Search OK pour ' + name);
+            return parsed;
+          }
+        }
+      } catch (e) {
+        log.info('prospect-research', 'Brave LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    // Strategie 1 : DuckDuckGo HTML — retry sur 202 (rate-limit)
     if (name) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -1029,6 +1048,31 @@ class ProspectResearcher {
         }
       } catch (e) {
         log.info('prospect-research', 'DDG Lite LinkedIn echoue: ' + e.message);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Parse les resultats Brave Search (pseudo-HTML) pour extraire les infos LinkedIn.
+   */
+  _parseBraveLinkedInResults(html, name) {
+    if (!html || html.length < 50) return null;
+
+    // Brave pseudo-HTML: <a href="...linkedin.com/in/...">Title</a><span class="snippet">...</span>
+    const linkMatch = html.match(/<a[^>]*href="[^"]*linkedin\.com\/in\/[^"]*"[^>]*>([^<]+)<\/a>/i);
+    if (linkMatch) {
+      const raw = linkMatch[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+      const headline = raw.replace(/\s*[-|]?\s*LinkedIn.*$/i, '').trim();
+      if (headline.length > 5) {
+        const result = { headline: headline.substring(0, 200) };
+        // Extraire le snippet associe
+        const snippetMatch = html.match(/<span class="snippet">([^<]+)<\/span>/i);
+        if (snippetMatch && snippetMatch[1].length > 20) {
+          result.summary = snippetMatch[1].substring(0, 300);
+        }
+        return result;
       }
     }
 

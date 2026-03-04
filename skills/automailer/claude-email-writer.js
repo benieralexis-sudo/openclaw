@@ -92,24 +92,43 @@ class ClaudeEmailWriter {
   }
 
   _parseJSON(response) {
+    if (!response || typeof response !== 'string') throw new Error('Reponse Claude vide ou invalide');
+
     try {
       const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(cleaned);
-      // Gerer le cas skip:true (donnees insuffisantes pour personnalisation)
       if (parsed.skip) return { skip: true, reason: parsed.reason || 'donnees insuffisantes' };
       return parsed;
     } catch (e) {
-      // Detecter skip dans la reponse brute
+      // Fallback 1 : extraire le JSON imbrique dans du texte
+      const jsonMatch = response.match(/\{[\s\S]*"subject"[\s\S]*"body"[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.subject && parsed.body) return parsed;
+        } catch (e2) { /* continue aux regex */ }
+      }
+
+      // Fallback 2 : detecter skip dans la reponse brute
       if (response.includes('"skip"') && response.includes('true')) {
         const reasonMatch = response.match(/"reason"\s*:\s*"([^"]+)"/);
         return { skip: true, reason: reasonMatch ? reasonMatch[1] : 'donnees insuffisantes' };
       }
+
+      // Fallback 3 : regex robuste pour subject/body (gere les cas ou body contient des guillemets echappes)
       const subjectMatch = response.match(/"subject"\s*:\s*"([^"]+)"/);
-      const bodyMatch = response.match(/"body"\s*:\s*"([\s\S]+?)"\s*\}/);
+      const bodyMatch = response.match(/"body"\s*:\s*"((?:[^"\\]|\\.)*)"/);
       if (subjectMatch && bodyMatch) {
-        return { subject: subjectMatch[1], body: bodyMatch[1].replace(/\\n/g, '\n') };
+        return { subject: subjectMatch[1], body: bodyMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') };
       }
-      throw new Error('Impossible de parser la reponse Claude');
+
+      // Fallback 4 : regex ultra-permissive (body multi-ligne)
+      const bodyLoose = response.match(/"body"\s*:\s*"([\s\S]+?)"\s*[,}]/);
+      if (subjectMatch && bodyLoose) {
+        return { subject: subjectMatch[1], body: bodyLoose[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') };
+      }
+
+      throw new Error('Impossible de parser la reponse Claude (len=' + response.length + ', debut: ' + response.substring(0, 100) + ')');
     }
   }
 

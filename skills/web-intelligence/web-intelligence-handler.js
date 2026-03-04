@@ -983,14 +983,14 @@ Reponds UNIQUEMENT en JSON strict :
       );
     }
 
-    // 3. Product Hunt
-    if (watch.productHuntEnabled || watch.type === 'sector' || watch.type === 'competitor') {
-      fetchPromises.push(
-        this.fetcher.fetchProductHunt(watch.keywords)
-          .then(a => ({ type: 'producthunt', articles: a }))
-          .catch(() => ({ type: 'producthunt', articles: [] }))
-      );
-    }
+    // 3. Product Hunt — DESACTIVE (feed RSS mort, 404 permanent depuis fev 2026)
+    // if (watch.productHuntEnabled || watch.type === 'sector' || watch.type === 'competitor') {
+    //   fetchPromises.push(
+    //     this.fetcher.fetchProductHunt(watch.keywords)
+    //       .then(a => ({ type: 'producthunt', articles: a }))
+    //       .catch(() => ({ type: 'producthunt', articles: [] }))
+    //   );
+    // }
 
     // 4. Reddit
     if ((watch.redditSubs && watch.redditSubs.length > 0) || watch.type === 'sector') {

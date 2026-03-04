@@ -308,7 +308,8 @@ class BrainEngine {
     let plan;
     try {
       // Sonnet pour les cycles reguliers (5x moins cher qu'Opus) — Opus reserve a l'analyse hebdo
-      const response = await this.callClaude(systemPrompt, userMessage, 32768);
+      // 65536 tokens pour eviter troncature (etait 32768, tronque a ~14k chars)
+      const response = await this.callClaude(systemPrompt, userMessage, 65536);
       // Detection troncature : si la reponse ne se termine pas par } ou ], c'est probablement tronque
       const trimmed = (response || '').trim();
       const lastChar = trimmed.charAt(trimmed.length - 1);
@@ -317,10 +318,10 @@ class BrainEngine {
         log.warn('brain', 'ALERTE: Reponse probablement tronquee (' + trimmed.length + ' chars, finit par "' + trimmed.slice(-20) + '")');
       }
       plan = this._parseJsonResponse(response);
-      // Retry avec plus de tokens si tronque et parse echoue
+      // Retry avec encore plus de tokens si tronque et parse echoue
       if (!plan && isTruncated) {
-        log.info('brain', 'Retry brain cycle avec max_tokens=65536...');
-        const response2 = await this.callClaude(systemPrompt, userMessage, 65536);
+        log.info('brain', 'Retry brain cycle avec max_tokens=131072...');
+        const response2 = await this.callClaude(systemPrompt, userMessage, 131072);
         plan = this._parseJsonResponse(response2);
       }
       if (!plan) log.warn('brain', 'Parse JSON echoue, reponse brute (200 premiers chars):', (response || '(vide)').substring(0, 200));
