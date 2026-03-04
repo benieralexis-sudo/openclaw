@@ -398,15 +398,20 @@ class InboxListener {
   }
 
   _isSystemEmail(email) {
-    const systemPatterns = [
+    // Matcher sur le local part uniquement (avant @) pour eviter faux positifs
+    const localPart = (email || '').split('@')[0].toLowerCase();
+    const systemLocalParts = [
       'noreply', 'no-reply', 'mailer-daemon', 'postmaster',
-      'bounce', 'notification@', 'alert@', 'system@',
-      'donotreply', 'do-not-reply', 'auto-reply',
-      'notifications@github.com', 'notifications@linkedin.com',
-      'no-reply@accounts.google.com', 'noreply@medium.com',
-      'calendar-notification', 'feedback@', 'updates@'
+      'bounce', 'donotreply', 'do-not-reply', 'auto-reply',
+      'calendar-notification'
     ];
-    return systemPatterns.some(p => email.includes(p));
+    if (systemLocalParts.some(p => localPart.includes(p))) return true;
+    // Emails specifiques (full match) pour les services connus
+    const systemFullEmails = [
+      'notifications@github.com', 'notifications@linkedin.com',
+      'no-reply@accounts.google.com', 'noreply@medium.com'
+    ];
+    return systemFullEmails.includes(email.toLowerCase());
   }
 }
 

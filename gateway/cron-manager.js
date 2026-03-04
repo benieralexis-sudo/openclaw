@@ -45,8 +45,13 @@ function createCronManager(deps) {
 
     // Polling statuts email Resend toutes les 30 min (backup du webhook)
     if (handlers.automailerHandler.campaignEngine) {
+      // Protection double-start : clear les intervals existants
+      if (_emailPollingInterval) clearInterval(_emailPollingInterval);
+      if (_retryQueueInterval) clearInterval(_retryQueueInterval);
+      if (_archiveInterval) clearInterval(_archiveInterval);
+      if (_bookingSyncInterval) clearInterval(_bookingSyncInterval);
       // Demarrer le scheduler de campagne (verifie les steps toutes les 60s pendant heures bureau)
-      handlers.automailerHandler.campaignEngine.start();
+      try { handlers.automailerHandler.campaignEngine.start(); } catch (e) { log.error('router', 'campaignEngine.start() echoue: ' + e.message); }
       _emailPollingInterval = setInterval(async () => {
         try {
           await handlers.automailerHandler.campaignEngine.checkEmailStatuses();

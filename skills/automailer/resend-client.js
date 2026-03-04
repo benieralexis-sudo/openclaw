@@ -208,8 +208,9 @@ class ResendClient {
               // DATA
               const dataResp = await this._smtpCommand(currentSocket, 'DATA');
               if (!dataResp.startsWith('354')) { cleanup(); return safeReject(new Error('DATA failed: ' + dataResp)); }
-              // Send message body + terminator
-              const sendResp = await this._smtpCommand(currentSocket, mime + '\r\n.');
+              // Send message body + terminator (dot-stuffing: doubler les points en debut de ligne)
+              const stuffedMime = mime.replace(/\r\n\./g, '\r\n..');
+              const sendResp = await this._smtpCommand(currentSocket, stuffedMime + '\r\n.');
               if (!sendResp.startsWith('250')) { cleanup(); return safeReject(new Error('Send failed: ' + sendResp)); }
 
               // QUIT

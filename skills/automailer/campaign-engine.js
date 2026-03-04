@@ -704,9 +704,10 @@ class CampaignEngine {
     // Cache des emails de cette campagne (evite 3 appels/contact)
     const campaignEmails = storage.getEmailsByCampaign(campaignId);
 
+    let batchSentCount = 0; // Compteur local pour refleter les envois du batch en cours
     for (const contact of list.contacts) {
       // FIX 3 : Verifier quota warmup journalier via domain-manager
-      const remainingHeadroom = getDailyLimit();
+      const remainingHeadroom = getDailyLimit() - batchSentCount;
       if (remainingHeadroom <= 0) {
         log.info('campaign-engine', 'Quota warmup atteint (headroom=0) — envoi stoppe');
         break;
@@ -1258,12 +1259,16 @@ class CampaignEngine {
         senderDomain: result.senderDomain || null,
         trackingId: trackingId,
         status: result.success ? 'sent' : 'failed',
-        abVariant: abVariant
+        abVariant: abVariant,
+        industry: contact.industry || '',
+        company: contact.company || '',
+        contactName: contact.name || contact.firstName || ''
       };
       storage.addEmail(emailRecord);
 
       if (result.success) {
         sent++;
+        batchSentCount++;
         // FIX 3 : Tracker envoi warmup + date du premier envoi
         storage.setFirstSendDate();
         storage.incrementTodaySendCount();

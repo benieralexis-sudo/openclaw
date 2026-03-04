@@ -1005,10 +1005,12 @@ Format JSON strict :
       const subjectTrimmed = (params.subject || '').trim();
       const bodyTrimmed = (params.body || '').trim();
       const bodyWordCount = bodyTrimmed.split(/\s+/).filter(w => w.length > 0).length;
-      // Accepter: ponctuation, URL, signature (nom/prenom), emoji, parenthese fermante
+      // Accepter: ponctuation, URL, emoji, parenthese fermante, ou signature (derniere ligne courte = nom)
+      const lastLine = bodyTrimmed.split('\n').filter(l => l.trim()).pop() || '';
+      const isSignatureLine = lastLine.trim().length <= 30 && /^[\w\u00C0-\u024F\s.-]+$/u.test(lastLine.trim());
       const endsWithPunctuation = /[.!?)\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]$/u.test(bodyTrimmed)
         || /https?:\/\/\S+$/.test(bodyTrimmed)    // finit par URL (lien booking)
-        || /[\w\u00C0-\u024F]+$/u.test(bodyTrimmed); // finit par un mot (signature/nom)
+        || isSignatureLine; // derniere ligne courte = signature (nom/prenom)
       const endsWithEllipsis = /\.{3,}$/.test(bodyTrimmed);
 
       if (subjectTrimmed.length < 5) {
@@ -1403,7 +1405,10 @@ Format JSON strict :
 
     // Cross-dedup : retirer les contacts qui ont deja un reactive follow-up pending
     try {
-      const paStorage = _require('../proactive-agent/storage.js', '/app/skills/proactive-agent/storage.js');
+      let paStorage = null;
+      try { paStorage = require('../proactive-agent/storage.js'); } catch (_) {
+        try { paStorage = require('/app/skills/proactive-agent/storage.js'); } catch (_2) {}
+      }
       if (paStorage && paStorage.getPendingFollowUps) {
         const pendingFUs = paStorage.getPendingFollowUps();
         const pendingEmails = new Set(pendingFUs.map(f => f.prospectEmail.toLowerCase()));

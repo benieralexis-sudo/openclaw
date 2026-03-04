@@ -548,8 +548,10 @@ Reponds UNIQUEMENT en JSON strict :
       };
 
       if (automailer && automailer.data) {
+        // Compter replied sur la meme periode que totalSent (snapshot = depuis dernier baseline)
+        const baselineDate = baseline._savedAt ? new Date(baseline._savedAt) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         impact.totalReplied = (automailer.data.emails || []).filter(
-          e => e.hasReplied || e.status === 'replied'
+          e => (e.hasReplied || e.status === 'replied') && e.sentAt && new Date(e.sentAt) >= baselineDate
         ).length;
         if (impact.totalSent > 0) impact.replyRate = Math.round((impact.totalReplied / impact.totalSent) * 100);
       }

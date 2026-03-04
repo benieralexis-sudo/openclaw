@@ -476,8 +476,8 @@ class ProactiveEngine {
     try {
       const leStorage = getLeadEnrichStorage();
       if (leStorage && leStorage.data && !leadInfo) {
-        const enriched = leStorage.data.leads || {};
-        const lead = enriched[email];
+        const enriched = leStorage.data.enrichedLeads || leStorage.data.leads || {};
+        const lead = enriched[email] || enriched[(email || '').toLowerCase()];
         if (lead && lead.apolloData) {
           const p = lead.apolloData.person || {};
           const o = lead.apolloData.organization || {};
@@ -1484,8 +1484,9 @@ class ProactiveEngine {
           if (!prospectTitle) {
             const leStor = getLeadEnrichStorage();
             if (leStor && leStor.data) {
-              const enriched = leStor.data.enrichedContacts || [];
-              const found = enriched.find(c => c.email === followUp.prospectEmail);
+              const enrichedObj = leStor.data.enrichedLeads || leStor.data.enrichedContacts || {};
+              const enrichedArr = Array.isArray(enrichedObj) ? enrichedObj : Object.values(enrichedObj);
+              const found = enrichedArr.find(c => (c.email || '') === followUp.prospectEmail);
               if (found) prospectTitle = found.title || found.titre || '';
             }
           }

@@ -393,7 +393,7 @@ class MeetingHandler {
 
     // Verifier si un meeting existe deja pour ce lead (ignorer cancelled/expired)
     const existing = storage.getMeetingByEmail(leadEmail);
-    if (existing.length > 0 && existing[0].status !== 'cancelled' && existing[0].status !== 'expired') {
+    if (existing.length > 0 && existing[0].status !== 'cancelled' && existing[0].status !== 'expired' && existing[0].status !== 'no_show') {
       log.info('meeting-handler', 'proposeAutoMeeting skip: meeting actif pour ' + leadEmail + ' (status=' + existing[0].status + ')');
       return null;
     }
@@ -401,7 +401,8 @@ class MeetingHandler {
     // Fix 7: Cooldown 6h — eviter propositions repetees si lead re-ouvre
     const COOLDOWN_MS = 6 * 60 * 60 * 1000;
     const recentInWindow = existing.filter(m =>
-      m.proposedAt && (Date.now() - new Date(m.proposedAt).getTime()) < COOLDOWN_MS);
+      m.proposedAt && m.status !== 'cancelled' && m.status !== 'expired' && m.status !== 'no_show' &&
+      (Date.now() - new Date(m.proposedAt).getTime()) < COOLDOWN_MS);
     if (recentInWindow.length > 0) {
       const agoMin = Math.round((Date.now() - new Date(recentInWindow[0].proposedAt).getTime()) / 60000);
       log.info('meeting-handler', 'proposeAutoMeeting skip: cooldown 6h actif pour ' + leadEmail + ' (il y a ' + agoMin + ' min)');
@@ -521,7 +522,7 @@ class MeetingHandler {
             notif.push('_Le lead a reserve un creneau via Google Calendar_');
 
             if (sendTelegram && adminChatId) {
-              await sendTelegram(adminChatId, notif.join('\n'), 'Markdown');
+              await sendTelegram(adminChatId, notif.join('\n'), 'MarkdownV2');
             }
 
             // Avancer le deal HubSpot
