@@ -244,62 +244,58 @@ function _smtpVerify(email) {
       socket.on('error', () => finish({ valid: null, reason: 'connect_error' }));
 
       let dataHandler = null;
-      const sendCommand = (cmd) => {
-        socket.write(cmd + '\r\n');
-      };
+      const sendCommand = (cmd) => { socket.write(cmd + '\r\n'); };
       const waitForResponse = () => {
         return new Promise((res) => {
           let buf = '';
           if (dataHandler) socket.removeListener('data', dataHandler);
-          dataHandler = (data) => {
-            buf += data.toString();
-            if (/^\d{3}[ ]/m.test(buf) && buf.endsWith('\r\n')) {
-              res(buf.trim());
-            }
+          dataHandler = (d) => {
+            buf += d.toString();
+            if (/^\d{3}[ ]/m.test(buf) && buf.endsWith('\r\n')) { res(buf.trim()); }
           };
           socket.on('data', dataHandler);
         });
       };
 
-      // Connexion initiale
-      const greeting = await waitForResponse();
-      const greetCode = parseInt(greeting.substring(0, 3), 10);
-      if (greetCode !== 220) return finish({ valid: null, reason: 'bad_greeting' });
+      // Async IIFE pour pouvoir utiliser await dans le callback dns
+      (async () => {
+        try {
+          const greeting = await waitForResponse();
+          if (!greeting.startsWith('220')) return finish({ valid: null, reason: 'bad_greeting' });
 
-      sendCommand('EHLO ' + (process.env.CLIENT_DOMAIN || 'ifind.fr'));
-      const ehloResp = await waitForResponse();
-      if (!ehloResp.startsWith('250')) return finish({ valid: null, reason: 'ehlo_rejected' });
+          sendCommand('EHLO ' + (process.env.CLIENT_DOMAIN || 'ifind.fr'));
+          const ehloResp = await waitForResponse();
+          if (!ehloResp.startsWith('250')) return finish({ valid: null, reason: 'ehlo_rejected' });
 
-      sendCommand('MAIL FROM:<verify@' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '>');
-      const mailFromResp = await waitForResponse();
-      if (!mailFromResp.startsWith('250')) return finish({ valid: null, reason: 'mail_from_rejected' });
+          sendCommand('MAIL FROM:<verify@' + (process.env.CLIENT_DOMAIN || 'ifind.fr') + '>');
+          const mailFromResp = await waitForResponse();
+          if (!mailFromResp.startsWith('250')) return finish({ valid: null, reason: 'mail_from_rejected' });
 
-      // Catch-all detection
-      const catchAllCachedNow = _catchAllCache.get(domain);
-      if (!catchAllCachedNow || Date.now() - catchAllCachedNow.ts >= SMTP_CACHE_TTL) {
-        sendCommand('RCPT TO:<xyztest_fake_' + Date.now() + '@' + domain + '>');
-        const catchResp = await waitForResponse();
-        const catchCode = parseInt(catchResp.substring(0, 3), 10);
-        if (catchCode === 250 || catchCode === 251) {
-          _catchAllCache.set(domain, { isCatchAll: true, ts: Date.now() });
+          const catchAllCachedNow = _catchAllCache.get(domain);
+          if (!catchAllCachedNow || Date.now() - catchAllCachedNow.ts >= SMTP_CACHE_TTL) {
+            sendCommand('RCPT TO:<xyztest_fake_' + Date.now() + '@' + domain + '>');
+            const catchResp = await waitForResponse();
+            const catchCode = parseInt(catchResp.substring(0, 3), 10);
+            if (catchCode === 250 || catchCode === 251) {
+              _catchAllCache.set(domain, { isCatchAll: true, ts: Date.now() });
+              sendCommand('QUIT');
+              return finish({ valid: null, reason: 'catch_all' });
+            }
+            _catchAllCache.set(domain, { isCatchAll: false, ts: Date.now() });
+          }
+
+          sendCommand('RCPT TO:<' + key + '>');
+          const rcptResp = await waitForResponse();
+          const code = parseInt(rcptResp.substring(0, 3), 10);
+
           sendCommand('QUIT');
-          return finish({ valid: null, reason: 'catch_all' });
+          if (code === 250 || code === 251) return finish({ valid: true });
+          else if (code >= 550 && code <= 553) return finish({ valid: false, reason: 'user_unknown' });
+          else return finish({ valid: null, reason: 'smtp_code_' + code });
+        } catch (smtpErr) {
+          finish({ valid: null, reason: 'smtp_error: ' + smtpErr.message });
         }
-        _catchAllCache.set(domain, { isCatchAll: false, ts: Date.now() });
-      }
-
-      sendCommand('RCPT TO:<' + key + '>');
-      const rcptResp = await waitForResponse();
-      const code = parseInt(rcptResp.substring(0, 3), 10);
-
-      sendCommand('QUIT');
-      if (code === 250 || code === 251) {
-        return finish({ valid: true });
-      } else if (code === 550 || code === 551 || code === 552 || code === 553) {
-        return finish({ valid: false, reason: 'user_unknown' });
-      } else {
-        return finish({ valid: null, reason: 'smtp_code_' + code });
-      }
+      })();
     });
   });
 }
