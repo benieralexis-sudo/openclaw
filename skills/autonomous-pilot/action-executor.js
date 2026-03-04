@@ -1403,10 +1403,11 @@ Format JSON strict :
       const listName = 'AP-Relance-' + new Date().toISOString().slice(0, 10);
       const list = amStorage.createContactList(adminChatId, listName);
 
-      // FIX DEDUP: exclure les contacts deja dans une campagne active
-      const activeCampaigns = amStorage.getAllCampaigns().filter(c => c.status === 'active');
+      // FIX DEDUP RENFORCEE: exclure contacts deja en campagne OU ayant recu un email < 14 jours
+      const allCampaigns = amStorage.getAllCampaigns();
       const alreadyInCampaign = new Set();
-      for (const camp of activeCampaigns) {
+      // 1. Contacts dans n'importe quelle campagne (active OU completed)
+      for (const camp of allCampaigns) {
         const campList = amStorage.data.contactLists[camp.contactListId];
         if (campList && campList.contacts) {
           for (const c of campList.contacts) {
@@ -1414,11 +1415,22 @@ Format JSON strict :
           }
         }
       }
+      // 2. Contacts ayant recu un email dans les 14 derniers jours (toutes sources)
+      const cutoff14d = Date.now() - 14 * 24 * 60 * 60 * 1000;
+      const allEmails = amStorage.getAllEmails ? amStorage.getAllEmails() : (amStorage.data.emails || []);
+      for (const e of allEmails) {
+        if (e.to && e.sentAt && e.status !== 'failed') {
+          const sentTs = new Date(e.sentAt).getTime();
+          if (sentTs > cutoff14d) {
+            alreadyInCampaign.add((e.to || '').toLowerCase());
+          }
+        }
+      }
 
       let addedCount = 0;
       for (const contact of contacts) {
         if (alreadyInCampaign.has((contact.email || '').toLowerCase())) {
-          log.info('action-executor', 'Skip ' + contact.email + ' (deja dans une campagne active)');
+          log.info('action-executor', 'Skip ' + contact.email + ' (deja en campagne ou email < 14j)');
           continue;
         }
         amStorage.addContactToList(list.id, {

@@ -1338,14 +1338,14 @@ class CampaignEngine {
       // Step reellement traite (emails envoyes ou aucun contact eligible)
       step.status = 'completed';
       step.sentAt = new Date().toISOString();
-    } else if ((step._retryCount || 0) >= 3) {
-      // Max retries atteint (3 au lieu de 5) — forcer completed + notifier
+    } else if ((step._retryCount || 0) >= 10) {
+      // Max retries atteint (10 tentatives sur ~10h) — forcer completed + notifier
       step.status = 'completed';
       step.sentAt = new Date().toISOString();
       step._forceCompleted = true;
-      const contactNames = (step.contacts || campaign.contacts || []).map(c => c.email || c.name || '?').slice(0, 5).join(', ');
+      const contactList = list.contacts || [];
+      const contactNames = contactList.map(c => c.email || c.name || '?').slice(0, 5).join(', ');
       log.warn('campaign-engine', 'Step ' + stepNumber + ' FORCE completed apres ' + step._retryCount + ' retries sans envoi (contacts: ' + contactNames + ')');
-      // Notifier le proprietaire via Telegram que la relance a echoue
       try {
         const chatId = process.env.ADMIN_CHAT_ID || '1409505520';
         const TelegramBot = require('node-telegram-bot-api');
@@ -1356,7 +1356,9 @@ class CampaignEngine {
       // Aucun envoi mais des contacts restent — remettre en pending pour retry
       step.status = 'pending';
       step._retryCount = (step._retryCount || 0) + 1;
-      log.info('campaign-engine', 'Step ' + stepNumber + ' remis en pending (retry ' + step._retryCount + '/3, sent=' + sent + ', skipped=' + skipped + ', errors=' + errors + ')');
+      // Reporter a +1h minimum pour eviter de bruler les retries en boucle rapide (rate-limit 24h/72h)
+      step.scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      log.info('campaign-engine', 'Step ' + stepNumber + ' remis en pending (retry ' + step._retryCount + '/10, sent=' + sent + ', skipped=' + skipped + ', errors=' + errors + ') — prochain essai dans 1h');
     }
 
     // Avancer le currentStep seulement si step completed
@@ -1454,10 +1456,43 @@ class CampaignEngine {
 
   start() {
     if (this.schedulerInterval) return; // Guard anti-double start
+    // Auto-repair: remettre en pending les steps force-completed avec 0 envois
+    this._repairForceCompletedSteps();
     log.info('campaign-engine', 'Scheduler demarre (intervalle: 60s)');
     this.schedulerInterval = setInterval(() => this._processScheduled(), 60 * 1000);
     // Premier check immediat
     this._processScheduled();
+  }
+
+  _repairForceCompletedSteps() {
+    const campaigns = storage.getAllCampaigns().filter(c => c.status === 'active');
+    let repaired = 0;
+    for (const campaign of campaigns) {
+      let modified = false;
+      for (const step of campaign.steps) {
+        // Remettre en pending les steps completed avec 0 envois effectifs
+        if (step.status === 'completed' && (step.sentCount || 0) === 0 && (step._forceCompleted || (step._retryCount || 0) > 0)) {
+          step.status = 'pending';
+          step._retryCount = 0;
+          step._forceCompleted = false;
+          step._adaptiveChecked = false;
+          // Reporter a +2h pour laisser les rate-limits expirer
+          step.scheduledAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+          modified = true;
+          repaired++;
+          log.info('campaign-engine', 'Repair: step ' + step.stepNumber + ' de ' + campaign.name + ' remis en pending (etait force-completed avec 0 envois)');
+        }
+      }
+      if (modified) {
+        // Recalculer currentStep (= premier step pending)
+        const firstPending = campaign.steps.find(s => s.status === 'pending');
+        const newCurrentStep = firstPending ? firstPending.stepNumber : campaign.steps.length + 1;
+        storage.updateCampaign(campaign.id, { steps: campaign.steps, currentStep: newCurrentStep });
+      }
+    }
+    if (repaired > 0) {
+      log.info('campaign-engine', 'Auto-repair: ' + repaired + ' step(s) remis en pending');
+    }
   }
 
   stop() {

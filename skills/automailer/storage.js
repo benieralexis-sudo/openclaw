@@ -73,6 +73,8 @@ class AutoMailerStorage {
           }
           if (badKeys.length > 0) this._save();
         }
+        // Recalcul stats uniques au chargement (corrige overcounting historique)
+        this._recalcStats();
         console.log('[automailer-storage] Base chargee (' +
           Object.keys(this.data.users).length + ' utilisateurs, ' +
           Object.keys(this.data.campaigns).length + ' campagnes, ' +
@@ -94,6 +96,28 @@ class AutoMailerStorage {
       atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[automailer-storage] Erreur sauvegarde:', e.message);
+    }
+  }
+
+  // Recalcul des stats a partir des donnees reelles (corrige desync/overcounting)
+  _recalcStats() {
+    const emails = this.data.emails || [];
+    let sent = 0, delivered = 0, opened = 0, bounced = 0;
+    for (const e of emails) {
+      if (e.status !== 'failed' && e.status !== 'queued') sent++;
+      // Status progressif: replied > clicked > opened > delivered > sent
+      if (e.deliveredAt || ['delivered', 'opened', 'clicked', 'replied'].includes(e.status)) delivered++;
+      if (e.openedAt || ['opened', 'clicked', 'replied'].includes(e.status)) opened++;
+      if (e.status === 'bounced') bounced++;
+    }
+    const oldOpened = this.data.stats.totalEmailsOpened;
+    this.data.stats.totalEmailsSent = sent;
+    this.data.stats.totalEmailsDelivered = delivered;
+    this.data.stats.totalEmailsOpened = opened;
+    this.data.stats.totalEmailsBounced = bounced;
+    if (oldOpened !== opened) {
+      console.log('[automailer-storage] Stats recalculees: sent=' + sent + ', delivered=' + delivered + ', opened=' + opened + ' (was ' + oldOpened + '), bounced=' + bounced);
+      this._save();
     }
   }
 
@@ -335,15 +359,21 @@ class AutoMailerStorage {
   updateEmailStatus(emailId, status, eventData) {
     const email = this.data.emails.find(e => e.id === emailId);
     if (!email) return null;
+    const prevStatus = email.status;
     email.status = status;
     email.lastEvent = status;
-    if (status === 'delivered') {
+    if (status === 'delivered' && prevStatus !== 'delivered' && !email.deliveredAt) {
       email.deliveredAt = new Date().toISOString();
       this.data.stats.totalEmailsDelivered++;
     } else if (status === 'opened') {
-      email.openedAt = new Date().toISOString();
-      this.data.stats.totalEmailsOpened++;
-    } else if (status === 'bounced') {
+      if (!email.openedAt) {
+        // Premiere ouverture : compter dans les stats
+        email.openedAt = new Date().toISOString();
+        this.data.stats.totalEmailsOpened++;
+      }
+      // Re-ouvertures : tracker le compteur mais pas re-incrementer les stats
+      email.openCount = (email.openCount || 0) + 1;
+    } else if (status === 'bounced' && prevStatus !== 'bounced') {
       this.data.stats.totalEmailsBounced++;
     }
     if (eventData) Object.assign(email, eventData);
