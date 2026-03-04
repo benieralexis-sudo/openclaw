@@ -404,8 +404,9 @@ function _snapToPreferredSlot(date, timezone) {
   const targetHour = (siPrefs.preferredSendHour >= 7 && siPrefs.preferredSendHour <= 20)
     ? siPrefs.preferredSendHour : 13;
 
-  // Jours preferentiels : par defaut Mar/Mer/Jeu. Si self-improve specifie un jour, l'accepter aussi.
-  const preferredDays = new Set([2, 3, 4]); // Mar, Mer, Jeu
+  // Jours preferentiels : tous les jours ouvrables Lun-Ven (1-5)
+  // Avant: Set([2,3,4]) excluait Lun+Ven = -40% volume
+  const preferredDays = new Set([1, 2, 3, 4, 5]); // Lun-Ven
   if (siPrefs.preferredSendDay) {
     const siDay = _DAY_MAP[(siPrefs.preferredSendDay || '').toLowerCase()];
     if (siDay >= 1 && siDay <= 5) preferredDays.add(siDay); // Ajouter le jour recommande (jours ouvrables only)
@@ -864,24 +865,16 @@ class CampaignEngine {
           }
         }
 
-        // Stop sur inactivite : skip si zero ouverture (breakup early)
-        if (stepNumber >= 2 && stepNumber < campaign.steps.length) {
+        // Stop sur inactivite : skip si zero ouverture (step 3+ seulement)
+        // NOTE: ~40% des clients bloquent le pixel de tracking, donc
+        // on n'utilise PAS l'ouverture comme critere pour step 2
+        if (stepNumber >= 3 && stepNumber < campaign.steps.length) {
           const prevEmails = contactEmails.filter(e => e.stepNumber < stepNumber && e.status !== 'failed');
           if (prevEmails.length > 0 && !prevEmails.some(e => e.openedAt || e.status === 'opened')) {
-            // Step 2 : skip si step 1 envoye depuis 5+ jours sans ouverture
-            // Step 3+ : skip systematiquement si zero ouverture (sauf breakup = dernier step)
-            const oldestSent = prevEmails.reduce((min, e) => {
-              const t = e.sentAt ? new Date(e.sentAt).getTime() : Infinity;
-              return t < min ? t : min;
-            }, Infinity);
-            const daysSinceFirst = (Date.now() - oldestSent) / (24 * 60 * 60 * 1000);
-
-            if (stepNumber > 2 || daysSinceFirst >= 5) {
-              log.info('campaign-engine', 'Skip ' + contact.email + ' (inactif: zero ouverture sur ' + prevEmails.length + ' emails depuis ' + Math.round(daysSinceFirst) + 'j — step ' + stepNumber + ')');
-              skippedInactive++;
-              skipped++;
-              continue;
-            }
+            log.info('campaign-engine', 'Skip ' + contact.email + ' (inactif: zero ouverture sur ' + prevEmails.length + ' emails — step ' + stepNumber + ')');
+            skippedInactive++;
+            skipped++;
+            continue;
           }
         }
 

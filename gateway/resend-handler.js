@@ -48,6 +48,24 @@ function createResendHandler(deps) {
 
   const STATUS_PRIORITY = { queued: 0, sent: 1, delivered: 2, delivery_delayed: 2, opened: 3, clicked: 4, bounced: 5, complained: 5 };
 
+  // Inferer la niche d'un lead a partir de l'email record (industry, niche, ou domaine)
+  function _inferLeadNiche(emailRecord) {
+    if (emailRecord.industry) return emailRecord.industry;
+    if (emailRecord.niche) return emailRecord.niche;
+    // Chercher dans les leads stockes
+    try {
+      const apStorage = require('../skills/autonomous-pilot/storage.js');
+      const leads = apStorage.getLeads ? apStorage.getLeads() : [];
+      const lead = leads.find(l => (l.email || '').toLowerCase() === (emailRecord.to || '').toLowerCase());
+      if (lead) {
+        if (lead.niche) return lead.niche;
+        if (lead.industry) return lead.industry;
+        if (lead.aiClassification && lead.aiClassification.industry) return lead.aiClassification.industry;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   // Helper : programmer un reactive FU — retourne l'objet ajoute ou null
   function _scheduleReactiveFU(emailRecord, intelBrief) {
     try {
@@ -144,6 +162,21 @@ function createResendHandler(deps) {
     // Mettre a jour le statut
     automailerStorage.updateEmailStatus(email.id, status);
     log.info('webhook', eventType + ' pour ' + email.to + ' (resend: ' + data.email_id + ')');
+
+    // Niche performance tracking (opened/replied → alimenter nichePerformance pour self-improve)
+    if ((status === 'opened' && !wasAlreadyOpened) || status === 'replied') {
+      try {
+        const apStorage = require('../skills/autonomous-pilot/storage.js');
+        // Chercher la niche du lead dans les leads stockes
+        const leadNiche = _inferLeadNiche(email);
+        if (leadNiche) {
+          apStorage.trackNicheEvent(leadNiche, status === 'opened' ? 'opened' : 'replied');
+          log.info('webhook', 'Niche tracking: ' + status + ' [' + leadNiche + '] pour ' + email.to);
+        }
+      } catch (ntErr) {
+        log.warn('webhook', 'Niche tracking echoue: ' + ntErr.message);
+      }
+    }
 
     // Bounce → blacklist automatique
     if (status === 'bounced') {

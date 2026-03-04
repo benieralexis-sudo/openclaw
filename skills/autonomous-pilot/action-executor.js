@@ -1005,8 +1005,11 @@ Format JSON strict :
       const subjectTrimmed = (params.subject || '').trim();
       const bodyTrimmed = (params.body || '').trim();
       const bodyWordCount = bodyTrimmed.split(/\s+/).filter(w => w.length > 0).length;
-      const endsWithPunctuation = /[.!?]$/.test(bodyTrimmed);
-      const endsWithEllipsis = /\.{2,}$/.test(bodyTrimmed);
+      // Accepter: ponctuation, URL, signature (nom/prenom), emoji, parenthese fermante
+      const endsWithPunctuation = /[.!?)\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]$/u.test(bodyTrimmed)
+        || /https?:\/\/\S+$/.test(bodyTrimmed)    // finit par URL (lien booking)
+        || /[\w\u00C0-\u024F]+$/u.test(bodyTrimmed); // finit par un mot (signature/nom)
+      const endsWithEllipsis = /\.{3,}$/.test(bodyTrimmed);
 
       if (subjectTrimmed.length < 5) {
         log.error('action-executor', 'GATE 3 BLOCK — Subject trop court (' + subjectTrimmed.length + ' chars) pour ' + params.to + ' — skip');
@@ -1212,10 +1215,43 @@ Format JSON strict :
           }
         } catch (ciErr) {}
 
+        // AUTO-CAMPAGNE: creer une campagne follow-up pour ce contact
+        // pour que campaign-engine declenche les relances step 2/3/4
+        try {
+          if (this.campaignEngine && amStorage) {
+            const listName = 'Auto-' + (params.company || params.to.split('@')[0]) + '-' + Date.now().toString(36);
+            const list = amStorage.createContactList(adminChatId, listName);
+            amStorage.addContactToList(list.id, {
+              email: params.to,
+              name: params.contactName || '',
+              firstName: (params.contactName || '').split(' ')[0],
+              company: params.company || '',
+              title: (params.contact && params.contact.titre) || '',
+              industry: (params.contact && params.contact.organization && params.contact.organization.industry) || ''
+            });
+            const campaign = await this.campaignEngine.createCampaign(adminChatId, {
+              name: 'Relance ' + (params.company || params.to),
+              contactListId: list.id,
+              totalContacts: 1
+            });
+            // Rattacher l'email qu'on vient d'envoyer comme step 1
+            const allEmails = amStorage.getAllEmails ? amStorage.getAllEmails() : (amStorage.data.emails || []);
+            const justSent = allEmails.find(e => e.to === params.to && !e.campaignId && e.messageId === result.messageId);
+            if (justSent) {
+              justSent.campaignId = campaign.id;
+              justSent.stepNumber = 1;
+              amStorage._save();
+            }
+            log.info('action-executor', 'Auto-campagne creee: ' + campaign.id + ' pour ' + params.to + ' (follow-ups actifs)');
+          }
+        } catch (campErr) {
+          log.warn('action-executor', 'Auto-campagne echouee pour ' + params.to + ': ' + campErr.message);
+        }
+
         return {
           success: true,
           resendId: result.id,
-          summary: 'Email envoye a ' + params.to
+          summary: 'Email envoye a ' + params.to + ' (campagne follow-up creee)'
         };
       }
 

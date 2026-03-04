@@ -506,9 +506,9 @@ class BrainEngine {
           log.error('brain', 'Action ' + action.type + ' echouee apres ' + attempts + ' tentatives: ' + (result.error || '?'));
         }
 
-        // Circuit breaker: si 5+ send_email consecutifs echouent (skip/gate/blacklist),
-        // arreter les send_email restants — le pool de leads est epuise
-        if (action.type === 'send_email' && result && !result.success) {
+        // Circuit breaker: si 5+ send_email consecutifs echouent (erreurs reseau/SMTP),
+        // arreter les send_email restants — mais PAS sur gateBlocked (quality gate = email regenerable)
+        if (action.type === 'send_email' && result && !result.success && !result.gateBlocked) {
           _consecutiveEmailSkips++;
           if (_consecutiveEmailSkips >= 5) {
             const remaining = plan.actions.filter(a => a.type === 'send_email' && a !== action).length;

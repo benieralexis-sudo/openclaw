@@ -445,8 +445,14 @@ Redige ta reponse (3-5 lignes + proposition call):`;
     if (!result || result.trim().length < 10) {
       return { body: null, subject: null, confidence: 0 };
     }
+    let body = result.trim();
+    // POST-PROCESSING: garantir que le lien de booking est present
+    if (bookingUrl && !body.includes(bookingUrl)) {
+      body += '\n\nVoici mon lien pour caler un creneau : ' + bookingUrl;
+      log.info('reply-classifier', 'Booking URL ajoute en post-processing (Claude l\'avait omis)');
+    }
     return {
-      body: result.trim(),
+      body,
       subject: 'Re: ' + (originalEmail && originalEmail.subject || replyData.subject || 'notre echange'),
       confidence: 0.9
     };

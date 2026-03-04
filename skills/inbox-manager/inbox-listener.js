@@ -29,6 +29,7 @@ class InboxListener {
     this._pollInterval = null;
     this._running = false;
     this._connected = false;
+    this._consecutiveFailures = 0;
   }
 
   isConfigured() {
@@ -134,41 +135,59 @@ class InboxListener {
 
         const messages = [];
         let totalChecked = 0;
-        for await (const msg of client.fetch(
-          { since: since },
-          { envelope: true, bodyStructure: true, source: { maxLength: 8192 } }
-        )) {
-          totalChecked++;
-          // Normaliser UID en nombre pour eviter mismatch string/int
-          const uid = typeof msg.uid === 'string' ? parseInt(msg.uid, 10) : msg.uid;
 
-          // Verifier si deja traite
-          if (storage.isUidProcessed(uid)) continue;
+        // Timeout 60s sur le FETCH pour eviter les hangs silencieux
+        let fetchTimedOut = false;
+        const fetchTimeout = setTimeout(() => {
+          fetchTimedOut = true;
+          log.error('inbox-manager', 'FETCH IMAP timeout (60s) — interruption forcee');
+          try { client.close(); } catch (_) {}
+        }, 60000);
 
-          const from = msg.envelope.from && msg.envelope.from[0]
-            ? (msg.envelope.from[0].address || '')
-            : '';
-          const fromName = msg.envelope.from && msg.envelope.from[0]
-            ? (msg.envelope.from[0].name || '')
-            : '';
-          const subject = msg.envelope.subject || '';
-          const date = msg.envelope.date ? msg.envelope.date.toISOString() : new Date().toISOString();
-          const to = msg.envelope.to && msg.envelope.to[0]
-            ? (msg.envelope.to[0].address || '')
-            : '';
+        try {
+          for await (const msg of client.fetch(
+            { since: since },
+            { envelope: true, bodyStructure: true, source: { maxLength: 8192 } }
+          )) {
+            if (fetchTimedOut) break;
+            totalChecked++;
+            // Normaliser UID en nombre pour eviter mismatch string/int
+            const uid = typeof msg.uid === 'string' ? parseInt(msg.uid, 10) : msg.uid;
 
-          // Extraire le snippet via MIME parser ou fallback regex
-          const snippet = await this._extractSnippet(msg.source);
+            // Verifier si deja traite
+            if (storage.isUidProcessed(uid)) continue;
 
-          messages.push({
-            uid,
-            from,
-            fromName,
-            to,
-            subject,
-            date,
-            snippet
-          });
+            const from = msg.envelope.from && msg.envelope.from[0]
+              ? (msg.envelope.from[0].address || '')
+              : '';
+            const fromName = msg.envelope.from && msg.envelope.from[0]
+              ? (msg.envelope.from[0].name || '')
+              : '';
+            const subject = msg.envelope.subject || '';
+            const date = msg.envelope.date ? msg.envelope.date.toISOString() : new Date().toISOString();
+            const to = msg.envelope.to && msg.envelope.to[0]
+              ? (msg.envelope.to[0].address || '')
+              : '';
+
+            // Extraire le snippet via MIME parser ou fallback regex
+            const snippet = await this._extractSnippet(msg.source);
+
+            messages.push({
+              uid,
+              from,
+              fromName,
+              to,
+              subject,
+              date,
+              snippet
+            });
+          }
+        } finally {
+          clearTimeout(fetchTimeout);
+        }
+
+        if (fetchTimedOut) {
+          throw new Error('IMAP FETCH timeout (60s)');
         }
 
         // Traiter les nouveaux messages
@@ -183,11 +202,20 @@ class InboxListener {
         }
 
         storage.recordCheck();
+        this._consecutiveFailures = 0; // Reset sur succes
       } finally {
         lock.release();
       }
     } catch (e) {
       log.error('inbox-manager', 'Erreur IMAP check:', e.message);
+      this._consecutiveFailures = (this._consecutiveFailures || 0) + 1;
+      // Alerte Telegram apres 5 echecs consecutifs (toutes les 5)
+      if (this._consecutiveFailures % 5 === 0 && this.adminChatId) {
+        this.sendTelegram(this.adminChatId,
+          '⚠️ *IMAP en panne*\n\n' + this._consecutiveFailures + ' echecs consecutifs\nDerniere erreur: ' + (e.message || '').substring(0, 200) +
+          '\n\n_Les reponses emails ne sont plus detectees._'
+        ).catch(() => {});
+      }
     } finally {
       if (client) {
         try { await client.logout(); } catch (e) {}
