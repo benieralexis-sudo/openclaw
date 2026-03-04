@@ -112,9 +112,9 @@
 ## Tarification
 | Plan | Prix/mois | Setup | Leads/mois | Emails | RDV estimes | Engagement |
 |------|-----------|-------|------------|--------|-------------|------------|
-| Pilot | 690€ | 990€ | 100 | 500 | 5-10 | 3 mois |
-| Growth | 1 290€ | 990€ | 300 | 1 500 | 15-25 | 6 mois |
-| Scale | 2 490€ | Offert | 600+ | 3 000+ | 30-50 | 12 mois |
+| Pilot | 690€ | 990€ | 300 | 500 | 5-10 | 3 mois |
+| Growth | 1 290€ | 990€ | 600 | 1 500 | 15-25 | 6 mois |
+| Scale | 2 490€ | Offert | 1 100 | 3 000+ | 30-50 | 12 mois |
 - Essai pilote : 490€ / 2 semaines (tous plans)
 - Cout infra : ~150€/mois → marge brute 78-94%
 
