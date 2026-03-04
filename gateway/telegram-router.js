@@ -347,13 +347,32 @@ const _cleanupInterval = setInterval(() => {
     }
   }
 
-  // 7. HITL drafts expires (24h)
+  // 7. HITL drafts : rappel 4h, auto-send 12h, expire 24h
   const HITL_TTL = 24 * 60 * 60 * 1000;
+  const HITL_REMINDER = 4 * 60 * 60 * 1000;
+  const HITL_AUTOSEND = 12 * 60 * 60 * 1000;
   for (const [id, draft] of _pendingDrafts) {
-    if (now - draft.createdAt > HITL_TTL) {
+    const age = now - draft.createdAt;
+    if (age > HITL_TTL) {
       log.info('hitl', 'Draft expire apres 24h: ' + id + ' pour ' + (draft.replyData && draft.replyData.from));
       _pendingDrafts.delete(id);
       cleaned++;
+    } else if (age > HITL_AUTOSEND && !draft._autoSent) {
+      // Auto-send apres 12h sans action (seulement interested/question)
+      if (draft.sentiment === 'interested' || draft.sentiment === 'question') {
+        draft._autoSent = true;
+        log.info('hitl', 'Auto-send 12h: ' + id + ' pour ' + (draft.replyData && draft.replyData.from) + ' (sentiment=' + draft.sentiment + ')');
+        _hitlSendReply(ADMIN_CHAT_ID, id).then(() => {
+          sendMessage(ADMIN_CHAT_ID, '🤖 *Auto-envoi 12h* — Reponse envoyee automatiquement a *' + escTg(draft.replyData.fromName || draft.replyData.from) + '* (pas d\'action en 12h).', 'Markdown').catch(() => {});
+        }).catch(e => {
+          log.error('hitl', 'Auto-send 12h echoue pour ' + id + ': ' + e.message);
+        });
+      }
+    } else if (age > HITL_REMINDER && !draft._reminded) {
+      // Rappel a 4h
+      draft._reminded = true;
+      const sentimentLabel = draft.sentiment === 'interested' ? '🔥 INTERESSE' : draft.sentiment === 'question' ? '❓ Question' : '💬 Objection';
+      sendMessage(ADMIN_CHAT_ID, '⏰ *Rappel HITL* — Brouillon en attente depuis 4h !\n\n' + sentimentLabel + ' de *' + escTg(draft.replyData.fromName || draft.replyData.from) + '*\n\n_Auto-envoi dans 8h si pas d\'action._', 'Markdown').catch(() => {});
     }
   }
 
@@ -723,8 +742,8 @@ inboxListener = InboxListener ? new InboxListener({
             }
           }
 
-          // --- Cas 2: Question simple → HITL ---
-          else if (sentiment === 'question' && score >= 0.4 && score <= 0.65) {
+          // --- Cas 2: Question → HITL (score >= 0.4, pas de plafond) ---
+          else if (sentiment === 'question' && score >= 0.4) {
             const snippetLen = (replyData.snippet || '').length;
             if (snippetLen < 1500) {
               const autoReply = await generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
@@ -1042,11 +1061,16 @@ inboxListener = InboxListener ? new InboxListener({
         notifLines.push('');
         notifLines.push('⏳ _Expire dans 24h si pas d\'action._');
 
-        const buttons = [[
-          { text: '✅ Accepter', callback_data: 'hitl_accept_' + hitlDraftId },
-          { text: '✏️ Modifier', callback_data: 'hitl_modify_' + hitlDraftId },
-          { text: '🚫 Ignorer', callback_data: 'hitl_ignore_' + hitlDraftId }
-        ]];
+        const buttons = [
+          [
+            { text: '✅ Accepter', callback_data: 'hitl_accept_' + hitlDraftId },
+            { text: '✏️ Modifier', callback_data: 'hitl_modify_' + hitlDraftId },
+          ],
+          [
+            { text: '⏭️ Passer', callback_data: 'hitl_skip_' + hitlDraftId },
+            { text: '🚫 Blacklister', callback_data: 'hitl_ignore_' + hitlDraftId }
+          ]
+        ];
 
         await sendMessageWithButtons(ADMIN_CHAT_ID, notifLines.join('\n'), buttons);
       } else {
@@ -1757,12 +1781,14 @@ async function _hitlSendReply(chatId, draftId) {
       await sendMessage(chatId, '✅ *Reponse envoyee !*\n\n📧 A : ' + escTg(draft.replyData.from) + '\n📋 Objet : _' + escTg(draft.autoReply.subject) + '_\n\n_' + escTg(draft.autoReply.body.substring(0, 300)) + '_', 'Markdown');
     } else {
       log.error('hitl', 'Echec envoi HITL pour ' + draft.replyData.from + ': ' + (sendResult && sendResult.error));
-      await sendMessage(chatId, '❌ Echec envoi email a ' + escTg(draft.replyData.from) + '\nErreur : ' + escTg((sendResult && sendResult.error) || 'Inconnue'));
+      draft._inFlight = false; // Reset pour permettre retry
+      await sendMessage(chatId, '❌ Echec envoi email a ' + escTg(draft.replyData.from) + '\nErreur : ' + escTg((sendResult && sendResult.error) || 'Inconnue') + '\n_Clique Accepter pour retenter._');
       return; // Ne pas supprimer le draft, l'utilisateur peut retenter
     }
   } catch (e) {
     log.error('hitl', 'Erreur envoi HITL:', e.message);
-    await sendMessage(chatId, '❌ Erreur technique envoi : ' + escTg(e.message));
+    draft._inFlight = false; // Reset pour permettre retry
+    await sendMessage(chatId, '❌ Erreur technique envoi : ' + escTg(e.message) + '\n_Clique Accepter pour retenter._');
     return;
   }
 
@@ -1882,6 +1908,19 @@ async function handleCallback(update) {
     _hitlModifyState.set(String(chatId), { draftId, ts: Date.now() });
     await sendMessage(chatId, '✏️ *Mode modification*\n\nTape le nouveau texte de reponse.\nLe prochain message que tu envoies sera utilise comme corps de l\'email.\n\n_Brouillon actuel :_\n' + escTg(draft.autoReply.body.substring(0, 500)) + '\n\n_Envoie ton texte modifie :_', 'Markdown');
   }
+  // === HITL : Passer (sans blacklist) — pour repondre manuellement ===
+  else if (data.startsWith('hitl_skip_')) {
+    const draftId = data.replace('hitl_skip_', '');
+    const draft = _pendingDrafts.get(draftId);
+    if (!draft) {
+      await sendMessage(chatId, '⚠️ Brouillon deja traite ou expire.');
+      return;
+    }
+    _pendingDrafts.delete(draftId);
+    log.info('hitl', 'Draft passe (sans blacklist): ' + draftId + ' pour ' + draft.replyData.from);
+    await sendMessage(chatId, '⏭️ Brouillon passe pour *' + escTg(draft.replyData.fromName || draft.replyData.from) + '*.\n_Prospect conserve dans le pipeline. Reponds-lui manuellement._', 'Markdown');
+  }
+  // === HITL : Blacklister (supprime prospect du pipeline) ===
   else if (data.startsWith('hitl_ignore_')) {
     const draftId = data.replace('hitl_ignore_', '');
     const draft = _pendingDrafts.get(draftId);
@@ -1891,15 +1930,15 @@ async function handleCallback(update) {
     }
     _pendingDrafts.delete(draftId);
 
-    // Blacklister le prospect (human takeover)
+    // Blacklister le prospect
     try {
       for (const ep of (draft.emailsToProcess || [draft.replyData.from])) {
-        automailerStorageForInbox.addToBlacklist(ep, 'hitl_ignored: human_takeover');
+        automailerStorageForInbox.addToBlacklist(ep, 'hitl_blacklisted: explicit');
       }
-    } catch (e) { log.warn('hitl', 'Ignore blacklist: ' + e.message); }
+    } catch (e) { log.warn('hitl', 'Blacklist: ' + e.message); }
 
-    log.info('hitl', 'Draft ignore: ' + draftId + ' pour ' + draft.replyData.from + ' — human takeover');
-    await sendMessage(chatId, '🚫 Brouillon ignore pour *' + escTg(draft.replyData.fromName || draft.replyData.from) + '*.\n_Prospect en human takeover. Reponds-lui manuellement si besoin._', 'Markdown');
+    log.info('hitl', 'Draft blackliste: ' + draftId + ' pour ' + draft.replyData.from);
+    await sendMessage(chatId, '🚫 *' + escTg(draft.replyData.fromName || draft.replyData.from) + '* blackliste.\n_Plus aucun email ne sera envoye a ce prospect._', 'Markdown');
   }
 }
 
@@ -2180,6 +2219,24 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // Skip (sans blacklist) — pour repondre manuellement
+  if (req.url && req.url.match(/^\/api\/hitl\/drafts\/[^/]+\/skip$/) && req.method === 'POST') {
+    const draftId = req.url.split('/')[4];
+    const draft = _pendingDrafts.get(draftId);
+    if (!draft) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Draft introuvable ou expiré' }));
+      return;
+    }
+    _pendingDrafts.delete(draftId);
+    log.info('hitl', 'Draft passe (dashboard, sans blacklist): ' + draftId + ' pour ' + draft.replyData.from);
+    _saveHitlDrafts();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, prospect: draft.replyData.from, action: 'skipped' }));
+    return;
+  }
+
+  // Reject (avec blacklist)
   if (req.url && req.url.match(/^\/api\/hitl\/drafts\/[^/]+\/reject$/) && req.method === 'POST') {
     const draftId = req.url.split('/')[4];
     const draft = _pendingDrafts.get(draftId);
@@ -2197,13 +2254,13 @@ const healthServer = http.createServer(async (req, res) => {
     _pendingDrafts.delete(draftId);
     try {
       for (const ep of (draft.emailsToProcess || [draft.replyData.from])) {
-        automailerStorageForInbox.addToBlacklist(ep, 'hitl_ignored: human_takeover');
+        automailerStorageForInbox.addToBlacklist(ep, 'hitl_blacklisted: dashboard');
       }
     } catch (e) {}
-    log.info('hitl', 'Draft rejete (dashboard): ' + draftId + ' pour ' + draft.replyData.from);
+    log.info('hitl', 'Draft rejete+blackliste (dashboard): ' + draftId + ' pour ' + draft.replyData.from);
     _saveHitlDrafts();
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, prospect: draft.replyData.from }));
+    res.end(JSON.stringify({ success: true, prospect: draft.replyData.from, action: 'blacklisted' }));
     return;
   }
 
