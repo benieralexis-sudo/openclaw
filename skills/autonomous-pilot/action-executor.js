@@ -764,11 +764,23 @@ Format JSON strict :
     if (amStorage && params.to) {
       const isRevival = params.source === 'revival';
       if (!isRevival) {
+        // Check 1: emails deja envoyes
         const existing = amStorage.getEmailEventsForRecipient(params.to);
         const alreadySent = existing.some(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened' || e.status === 'replied');
         if (alreadySent) {
           log.info('action-executor', 'Email deja envoye a ' + params.to + ' — skip (deduplication)');
           return { success: false, error: 'Email deja envoye a ' + params.to, deduplicated: true };
+        }
+        // Check 2: prospect deja dans une campagne active (meme si email pas encore envoye)
+        const prospectLower = params.to.toLowerCase();
+        const allCampaigns = amStorage.getAllCampaigns();
+        for (const camp of allCampaigns) {
+          if (camp.status === 'cancelled' || camp.status === 'completed') continue;
+          const campList = amStorage.data.contactLists ? amStorage.data.contactLists[camp.contactListId] : null;
+          if (campList && campList.contacts && campList.contacts.some(c => (c.email || '').toLowerCase() === prospectLower)) {
+            log.info('action-executor', params.to + ' deja dans campagne ' + camp.id + ' — skip (cross-dedup campagne)');
+            return { success: false, error: params.to + ' deja dans une campagne active', deduplicated: true };
+          }
         }
       } else {
         log.info('action-executor', 'Revival email pour ' + params.to + ' — dedup bypass (intentionnel)');
@@ -1286,33 +1298,71 @@ Format JSON strict :
         } catch (ciErr) {}
 
         // AUTO-CAMPAGNE: creer une campagne follow-up pour ce contact
-        // pour que campaign-engine declenche les relances step 2/3/4
+        // pour que campaign-engine declenche les relances step 2/3
         try {
           if (this.campaignEngine && amStorage) {
-            const listName = 'Auto-' + (params.company || params.to.split('@')[0]) + '-' + Date.now().toString(36);
-            const list = amStorage.createContactList(adminChatId, listName);
-            amStorage.addContactToList(list.id, {
-              email: params.to,
-              name: params.contactName || '',
-              firstName: (params.contactName || '').split(' ')[0],
-              company: params.company || '',
-              title: (params.contact && params.contact.titre) || '',
-              industry: (params.contact && params.contact.organization && params.contact.organization.industry) || ''
-            });
-            const campaign = await this.campaignEngine.createCampaign(adminChatId, {
-              name: 'Relance ' + (params.company || params.to),
-              contactListId: list.id,
-              totalContacts: 1
-            });
-            // Rattacher l'email qu'on vient d'envoyer comme step 1
-            const allEmails = amStorage.getAllEmails ? amStorage.getAllEmails() : (amStorage.data.emails || []);
-            const justSent = allEmails.find(e => e.to === params.to && !e.campaignId && e.messageId === result.messageId);
-            if (justSent) {
-              justSent.campaignId = campaign.id;
-              justSent.stepNumber = 1;
-              amStorage._save();
+            // CROSS-DEDUP: verifier si le prospect est deja dans une campagne active
+            const allCampaigns = amStorage.getAllCampaigns();
+            const prospectLower = params.to.toLowerCase();
+            let alreadyInCampaign = false;
+            for (const camp of allCampaigns) {
+              if (camp.status === 'cancelled') continue;
+              const campList = amStorage.data.contactLists ? amStorage.data.contactLists[camp.contactListId] : null;
+              if (campList && campList.contacts) {
+                if (campList.contacts.some(c => (c.email || '').toLowerCase() === prospectLower)) {
+                  alreadyInCampaign = true;
+                  log.info('action-executor', 'Auto-campagne skip: ' + params.to + ' deja dans campagne ' + camp.id);
+                  // Rattacher l'email orphelin a la campagne existante
+                  const allEmails = amStorage.getAllEmails ? amStorage.getAllEmails() : (amStorage.data.emails || []);
+                  const justSent = allEmails.find(e => e.to === params.to && !e.campaignId && e.messageId === result.messageId);
+                  if (justSent) {
+                    justSent.campaignId = camp.id;
+                    justSent.stepNumber = (camp.steps || []).length + 1;
+                    amStorage._save();
+                  }
+                  break;
+                }
+              }
             }
-            log.info('action-executor', 'Auto-campagne creee: ' + campaign.id + ' pour ' + params.to + ' (follow-ups actifs)');
+
+            if (!alreadyInCampaign) {
+              const listName = 'Auto-' + (params.company || params.to.split('@')[0]) + '-' + Date.now().toString(36);
+              const list = amStorage.createContactList(adminChatId, listName);
+              amStorage.addContactToList(list.id, {
+                email: params.to,
+                name: params.contactName || '',
+                firstName: (params.contactName || '').split(' ')[0],
+                company: params.company || '',
+                title: (params.contact && params.contact.titre) || '',
+                industry: (params.contact && params.contact.organization && params.contact.organization.industry) || ''
+              });
+              const campaign = await this.campaignEngine.createCampaign(adminChatId, {
+                name: 'Relance ' + (params.company || params.to),
+                contactListId: list.id,
+                totalContacts: 1
+              });
+              // Rattacher l'email qu'on vient d'envoyer comme step 1
+              const allEmails = amStorage.getAllEmails ? amStorage.getAllEmails() : (amStorage.data.emails || []);
+              const justSent = allEmails.find(e => e.to === params.to && !e.campaignId && e.messageId === result.messageId);
+              if (justSent) {
+                justSent.campaignId = campaign.id;
+                justSent.stepNumber = 1;
+                amStorage._save();
+              }
+              // Generer et demarrer les follow-ups automatiquement
+              try {
+                const apConfig = storage.getConfig();
+                const fuConfig = apConfig.followUpConfig || {};
+                const stepDays = fuConfig.sequenceStepDays || [3, 7, 14];
+                const totalSteps = fuConfig.sequenceTotalSteps || 3;
+                const context = { company: params.company || '', industry: params.industry || '', contact: params.contactName || '' };
+                await this.campaignEngine.generateCampaignEmails(campaign.id, context, totalSteps, stepDays);
+                await this.campaignEngine.startCampaign(campaign.id);
+                log.info('action-executor', 'Auto-campagne creee et demarree: ' + campaign.id + ' pour ' + params.to + ' (' + totalSteps + ' steps)');
+              } catch (genErr) {
+                log.warn('action-executor', 'Auto-campagne ' + campaign.id + ' creee mais generation/start echoue: ' + genErr.message);
+              }
+            }
           }
         } catch (campErr) {
           log.warn('action-executor', 'Auto-campagne echouee pour ' + params.to + ': ' + campErr.message);

@@ -403,7 +403,10 @@ class InboxListener {
     const systemLocalParts = [
       'noreply', 'no-reply', 'mailer-daemon', 'postmaster',
       'bounce', 'donotreply', 'do-not-reply', 'auto-reply',
-      'calendar-notification'
+      'calendar-notification', 'wordpress', 'notifications',
+      'newsletter', 'info', 'support', 'helpdesk', 'billing',
+      'invoice', 'receipt', 'alert', 'alerts', 'system',
+      'feedback', 'survey', 'marketing'
     ];
     if (systemLocalParts.some(p => localPart.includes(p))) return true;
     // Emails specifiques (full match) pour les services connus
