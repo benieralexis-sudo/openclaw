@@ -35,24 +35,31 @@
   },
 
   "pricing": {
-    "setup": {
-      "amount": "990 EUR",
-      "includes": "Achat et configuration des domaines d'envoi, DNS (SPF/DKIM/DMARC), creation des boites email, warmup initial, configuration de l'agent IA, import de la cible"
-    },
+    "setup": "Pas de frais de setup",
     "monthly_plans": [
       {
         "name": "Starter",
         "price": "490 EUR/mois",
-        "volume": "~300 prospects/mois",
-        "description": "Ideal pour tester la prospection IA sur un segment"
+        "regular_price": "690 EUR/mois",
+        "volume": "300 prospects/mois",
+        "description": "Ideal pour TPE et solopreneurs"
       },
       {
         "name": "Growth",
-        "price": "990 EUR/mois",
-        "volume": "~1000 prospects/mois",
+        "price": "890 EUR/mois",
+        "regular_price": "1290 EUR/mois",
+        "volume": "600 prospects/mois",
         "description": "Pour une prospection soutenue et multi-segments"
+      },
+      {
+        "name": "Scale",
+        "price": "1390 EUR/mois",
+        "regular_price": "1990 EUR/mois",
+        "volume": "1100+ prospects/mois",
+        "description": "Pour les equipes commerciales ambitieuses"
       }
     ],
+    "founder_pricing": "Tarif fondateur — prix bloque a vie",
     "engagement": "Sans engagement, resiliable a tout moment",
     "guarantee": "Pas de garantie de resultats chiffres — les performances dependent de l'offre, du marche et de la cible"
   },
@@ -108,7 +115,7 @@
     },
     {
       "question": "Comment ca marche pour la facturation ?",
-      "answer": "Setup unique de 990 EUR + abonnement mensuel (490 ou 990 EUR/mois selon le volume). Sans engagement, resiliable a tout moment."
+      "answer": "Pas de frais de setup. Trois formules : Starter a 490 EUR/mois (300 prospects), Growth a 890 EUR/mois (600 prospects), ou Scale a 1390 EUR/mois (1100+ prospects). Tarif fondateur bloque a vie. Sans engagement, resiliable a tout moment."
     },
     {
       "question": "Combien de temps avant les premiers resultats ?",

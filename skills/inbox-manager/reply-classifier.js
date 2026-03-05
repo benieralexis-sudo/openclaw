@@ -29,7 +29,8 @@ function _buildKBContext() {
   }
   if (kb.pricing) {
     const plans = (kb.pricing.monthly_plans || []).map(p => p.name + ' ' + p.price + ' (' + p.volume + ')').join(', ');
-    sections.push('TARIFS: Setup ' + (kb.pricing.setup && kb.pricing.setup.amount) + '. Plans: ' + plans + '. ' + (kb.pricing.engagement || ''));
+    const setup = typeof kb.pricing.setup === 'string' ? kb.pricing.setup : ('Setup ' + (kb.pricing.setup && kb.pricing.setup.amount));
+    sections.push('TARIFS: ' + setup + '. Plans: ' + plans + '. ' + (kb.pricing.founder_pricing || '') + '. ' + (kb.pricing.engagement || ''));
   }
   if (kb.process) sections.push('PROCESS: ' + (kb.process.steps || []).join(' → '));
   if (kb.differentiators) sections.push('AVANTAGES: ' + kb.differentiators.join('; '));
