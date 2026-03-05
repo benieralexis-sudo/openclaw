@@ -167,6 +167,25 @@ Pages.settings = async function(container) {
       </div>
     </div>
 
+    <!-- Knowledge Base -->
+    <div class="grid-full">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">${Utils.icon('book', 16)} Knowledge Base</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-export" data-action="save-kb" style="padding:6px 16px;font-size:12px">Sauvegarder la KB</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">La Knowledge Base definit ce que l'IA peut repondre aux prospects. Elle ne peut PAS inventer — seuls les faits presents ici sont utilises.</p>
+          <div id="kb-form" style="display:grid;gap:20px">
+            <div id="kb-loading" style="text-align:center;padding:20px;color:var(--text-muted)">Chargement de la KB...</div>
+          </div>
+          <div id="kb-status" style="font-size:13px;margin-top:8px;display:none"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Notification Preferences -->
     <div class="grid-full">
       <div class="card">
@@ -188,6 +207,14 @@ Pages.settings = async function(container) {
               <input type="checkbox" id="pref-milestone" ${notifPrefs.campaignMilestone !== false ? 'checked' : ''}>
               <span>Jalons de campagne</span>
             </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="pref-email-notif" ${notifPrefs.emailNotifications !== false ? 'checked' : ''}>
+              <span>Recevoir les notifications par email</span>
+            </label>
+            <div>
+              <label class="ob-label">Email de notification</label>
+              <input type="email" id="pref-notif-email" class="ob-input" placeholder="email@entreprise.com" value="${e(notifPrefs.notificationEmail || cfg.senderEmail || '')}">
+            </div>
           </div>
           <div id="notif-prefs-status" style="font-size:13px;margin-top:8px;display:none"></div>
         </div>
@@ -215,7 +242,151 @@ Pages.settings = async function(container) {
       </div>
     </div>
   </div>`;
+
+  // Load KB form asynchronously
+  _loadKBForm();
 };
+
+async function _loadKBForm() {
+  const kbData = await API.kb();
+  const form = document.getElementById('kb-form');
+  if (!form) return;
+  const kb = (kbData && kbData.kb) || {};
+  const isDefault = kbData && kbData.isDefault;
+  const co = kb.company || {};
+  const svc = kb.services || {};
+  const pr = kb.pricing || {};
+  const proc = kb.process || {};
+
+  form.innerHTML = `
+    ${isDefault ? '<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px;margin-bottom:8px;font-size:13px;color:var(--accent-orange,#f59e0b)">KB par defaut — remplissez les informations de votre entreprise pour activer les reponses automatiques.</div>' : ''}
+
+    <!-- Company -->
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:16px">
+      <legend style="font-weight:600;font-size:14px;padding:0 8px">Entreprise</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label class="ob-label">Nom *</label><input type="text" id="kb-co-name" class="ob-input" value="${e(co.name || '')}" maxlength="100" required></div>
+        <div><label class="ob-label">Tagline</label><input type="text" id="kb-co-tagline" class="ob-input" value="${e(co.tagline || '')}" maxlength="200"></div>
+        <div style="grid-column:1/3"><label class="ob-label">Description</label><textarea id="kb-co-desc" class="ob-input" rows="2" maxlength="1000">${e(co.description || '')}</textarea></div>
+        <div><label class="ob-label">Fondateur</label><input type="text" id="kb-co-founder" class="ob-input" value="${e(co.founder || '')}" maxlength="100"></div>
+        <div><label class="ob-label">Titre</label><input type="text" id="kb-co-title" class="ob-input" value="${e(co.founderTitle || '')}" maxlength="100"></div>
+        <div><label class="ob-label">Site web</label><input type="text" id="kb-co-website" class="ob-input" value="${e(co.website || '')}" maxlength="200"></div>
+        <div><label class="ob-label">Email</label><input type="email" id="kb-co-email" class="ob-input" value="${e(co.email || '')}" maxlength="200"></div>
+      </div>
+    </fieldset>
+
+    <!-- Services -->
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:16px">
+      <legend style="font-weight:600;font-size:14px;padding:0 8px">Services</legend>
+      <div style="display:grid;gap:12px">
+        <div><label class="ob-label">Service principal</label><input type="text" id="kb-svc-main" class="ob-input" value="${e(svc.main || '')}" maxlength="500"></div>
+        <div><label class="ob-label">Inclut (1 par ligne)</label><textarea id="kb-svc-includes" class="ob-input" rows="4">${e((svc.includes || []).join('\\n'))}</textarea></div>
+        <div><label class="ob-label">N'inclut PAS (1 par ligne)</label><textarea id="kb-svc-excludes" class="ob-input" rows="3">${e((svc.does_not_include || []).join('\\n'))}</textarea></div>
+      </div>
+    </fieldset>
+
+    <!-- Pricing -->
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:16px">
+      <legend style="font-weight:600;font-size:14px;padding:0 8px">Tarification</legend>
+      <div style="display:grid;gap:12px">
+        <div><label class="ob-label">Setup</label><input type="text" id="kb-price-setup" class="ob-input" value="${e(typeof pr.setup === 'string' ? pr.setup : '')}" maxlength="300" placeholder="Ex: Pas de frais de setup"></div>
+        <div id="kb-plans-container">
+          <label class="ob-label">Formules (nom | prix | volume | description)</label>
+          ${(pr.monthly_plans || []).map(function(p, i) {
+            return '<div class="kb-plan-row" style="display:grid;grid-template-columns:1fr 1fr 1fr 2fr auto;gap:8px;margin-bottom:6px"><input class="ob-input kb-plan-name" value="' + e(p.name || '') + '" placeholder="Nom"><input class="ob-input kb-plan-price" value="' + e(p.price || '') + '" placeholder="Prix"><input class="ob-input kb-plan-vol" value="' + e(p.volume || '') + '" placeholder="Volume"><input class="ob-input kb-plan-desc" value="' + e(p.description || '') + '" placeholder="Description"><button class="btn-danger-outline kb-remove-plan" style="padding:4px 8px;font-size:12px" type="button">X</button></div>';
+          }).join('')}
+          <button class="btn-export" data-action="add-plan" style="padding:4px 12px;font-size:12px;margin-top:4px" type="button">+ Ajouter une formule</button>
+        </div>
+        <div><label class="ob-label">Engagement</label><input type="text" id="kb-price-engagement" class="ob-input" value="${e(pr.engagement || '')}" maxlength="300"></div>
+        <div><label class="ob-label">Garantie</label><input type="text" id="kb-price-guarantee" class="ob-input" value="${e(pr.guarantee || '')}" maxlength="500"></div>
+      </div>
+    </fieldset>
+
+    <!-- Process -->
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:16px">
+      <legend style="font-weight:600;font-size:14px;padding:0 8px">Process</legend>
+      <div style="display:grid;gap:12px">
+        <div><label class="ob-label">Etapes (1 par ligne)</label><textarea id="kb-proc-steps" class="ob-input" rows="4">${e((proc.steps || []).join('\\n'))}</textarea></div>
+        <div><label class="ob-label">Ce que le client fournit (1 par ligne)</label><textarea id="kb-proc-provides" class="ob-input" rows="3">${e((proc.what_client_provides || []).join('\\n'))}</textarea></div>
+        <div><label class="ob-label">Duree onboarding</label><input type="text" id="kb-proc-time" class="ob-input" value="${e(proc.onboarding_time || '')}" maxlength="200"></div>
+      </div>
+    </fieldset>
+
+    <!-- Differentiators -->
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:16px">
+      <legend style="font-weight:600;font-size:14px;padding:0 8px">Avantages differenciants</legend>
+      <textarea id="kb-differentiators" class="ob-input" rows="4" placeholder="1 avantage par ligne">${e((kb.differentiators || []).join('\\n'))}</textarea>
+    </fieldset>
+
+    <!-- FAQ -->
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:16px">
+      <legend style="font-weight:600;font-size:14px;padding:0 8px">FAQ (questions frequentes)</legend>
+      <div id="kb-faq-container">
+        ${(kb.faq || []).map(function(f, i) {
+          return '<div class="kb-faq-row" style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:8px"><div style="display:grid;gap:8px"><div><label class="ob-label">Question</label><input class="ob-input kb-faq-q" value="' + e(f.question || '') + '" maxlength="300"></div><div><label class="ob-label">Reponse</label><textarea class="ob-input kb-faq-a" rows="2" maxlength="1000">' + e(f.answer || '') + '</textarea></div><button class="btn-danger-outline kb-remove-faq" style="padding:4px 8px;font-size:12px;justify-self:end" type="button">Supprimer</button></div></div>';
+        }).join('')}
+        <button class="btn-export" data-action="add-faq" style="padding:4px 12px;font-size:12px;margin-top:4px" type="button">+ Ajouter une FAQ</button>
+      </div>
+    </fieldset>
+
+    <!-- Safety -->
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:16px">
+      <legend style="font-weight:600;font-size:14px;padding:0 8px">Securite anti-hallucination</legend>
+      <div style="display:grid;gap:12px">
+        <div><label class="ob-label">Claims interdits (1 par ligne)</label><textarea id="kb-forbidden" class="ob-input" rows="4">${e((kb.forbidden_claims || []).join('\\n'))}</textarea></div>
+        <div><label class="ob-label">Phrase de fallback (quand l'IA ne sait pas)</label><input type="text" id="kb-fallback" class="ob-input" value="${e(kb.fallback_phrase || '')}" maxlength="300"></div>
+        <div><label class="ob-label">Lien de booking (optionnel)</label><input type="url" id="kb-booking" class="ob-input" value="${e(kb.booking_url || '')}" maxlength="300" placeholder="https://calendly.com/..."></div>
+      </div>
+    </fieldset>
+  `;
+}
+
+function _collectKBData() {
+  const lines = (id) => (document.getElementById(id)?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const val = (id) => (document.getElementById(id)?.value || '').trim();
+
+  // Collect plans
+  const plans = [];
+  document.querySelectorAll('.kb-plan-row').forEach(row => {
+    const name = row.querySelector('.kb-plan-name')?.value?.trim() || '';
+    const price = row.querySelector('.kb-plan-price')?.value?.trim() || '';
+    const volume = row.querySelector('.kb-plan-vol')?.value?.trim() || '';
+    const desc = row.querySelector('.kb-plan-desc')?.value?.trim() || '';
+    if (name || price) plans.push({ name, price, volume, description: desc });
+  });
+
+  // Collect FAQ
+  const faq = [];
+  document.querySelectorAll('.kb-faq-row').forEach(row => {
+    const q = row.querySelector('.kb-faq-q')?.value?.trim() || '';
+    const a = row.querySelector('.kb-faq-a')?.value?.trim() || '';
+    if (q && a) faq.push({ question: q, answer: a });
+  });
+
+  return {
+    company: {
+      name: val('kb-co-name'), tagline: val('kb-co-tagline'), description: val('kb-co-desc'),
+      founder: val('kb-co-founder'), founderTitle: val('kb-co-title'),
+      website: val('kb-co-website'), email: val('kb-co-email')
+    },
+    services: {
+      main: val('kb-svc-main'), includes: lines('kb-svc-includes'), does_not_include: lines('kb-svc-excludes')
+    },
+    pricing: {
+      setup: val('kb-price-setup'), monthly_plans: plans,
+      engagement: val('kb-price-engagement'), guarantee: val('kb-price-guarantee')
+    },
+    process: {
+      steps: lines('kb-proc-steps'), what_client_provides: lines('kb-proc-provides'),
+      onboarding_time: val('kb-proc-time')
+    },
+    differentiators: lines('kb-differentiators'),
+    faq: faq,
+    forbidden_claims: lines('kb-forbidden'),
+    fallback_phrase: val('kb-fallback'),
+    booking_url: val('kb-booking')
+  };
+}
 
 function _showStatus(id, msg, ok) {
   const el = document.getElementById(id);
@@ -239,6 +410,48 @@ document.addEventListener('click', (ev) => {
   const target = ev.target.closest('[data-action]');
   if (!target) return;
   const action = target.dataset.action;
+
+  if (action === 'save-kb') {
+    const kbData = _collectKBData();
+    if (!kbData.company.name) { _showStatus('kb-status', 'Le nom de l\'entreprise est requis', false); return; }
+    target.disabled = true;
+    target.textContent = 'Sauvegarde...';
+    API.saveKb(kbData).then(res => {
+      target.disabled = false;
+      target.textContent = 'Sauvegarder la KB';
+      _showStatus('kb-status', res && res.success ? 'Knowledge Base sauvegardee !' : (res && res.error) || 'Erreur', res && res.success);
+    });
+  }
+
+  if (action === 'add-plan') {
+    const container = document.getElementById('kb-plans-container');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'kb-plan-row';
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr 2fr auto;gap:8px;margin-bottom:6px';
+    row.innerHTML = '<input class="ob-input kb-plan-name" placeholder="Nom"><input class="ob-input kb-plan-price" placeholder="Prix"><input class="ob-input kb-plan-vol" placeholder="Volume"><input class="ob-input kb-plan-desc" placeholder="Description"><button class="btn-danger-outline kb-remove-plan" style="padding:4px 8px;font-size:12px" type="button">X</button>';
+    container.insertBefore(row, container.querySelector('[data-action="add-plan"]'));
+  }
+
+  if (action === 'add-faq') {
+    const container = document.getElementById('kb-faq-container');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'kb-faq-row';
+    row.style.cssText = 'border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:8px';
+    row.innerHTML = '<div style="display:grid;gap:8px"><div><label class="ob-label">Question</label><input class="ob-input kb-faq-q" maxlength="300"></div><div><label class="ob-label">Reponse</label><textarea class="ob-input kb-faq-a" rows="2" maxlength="1000"></textarea></div><button class="btn-danger-outline kb-remove-faq" style="padding:4px 8px;font-size:12px;justify-self:end" type="button">Supprimer</button></div>';
+    container.insertBefore(row, container.querySelector('[data-action="add-faq"]'));
+  }
+
+  if (target.classList.contains('kb-remove-plan')) {
+    target.closest('.kb-plan-row')?.remove();
+    return;
+  }
+
+  if (target.classList.contains('kb-remove-faq')) {
+    target.closest('.kb-faq-row')?.remove();
+    return;
+  }
 
   if (action === 'save-icp') {
     target.disabled = true;
@@ -271,7 +484,9 @@ document.addEventListener('click', (ev) => {
     API.put('settings/notifications', {
       draftPending: !!document.getElementById('pref-draft')?.checked,
       hotLead: !!document.getElementById('pref-hotlead')?.checked,
-      campaignMilestone: !!document.getElementById('pref-milestone')?.checked
+      campaignMilestone: !!document.getElementById('pref-milestone')?.checked,
+      emailNotifications: !!document.getElementById('pref-email-notif')?.checked,
+      notificationEmail: (document.getElementById('pref-notif-email')?.value || '').trim()
     }).then(res => {
       target.disabled = false;
       _showStatus('notif-prefs-status', res && res.success ? 'Preferences sauvegardees' : (res && res.error) || 'Erreur', res && res.success);

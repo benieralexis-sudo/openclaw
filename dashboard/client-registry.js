@@ -135,7 +135,8 @@ function createClient(data) {
         company: null,
         icp: null,
         tone: null,
-        integrations: null
+        integrations: null,
+        kb: null
       }
     },
     icp: {

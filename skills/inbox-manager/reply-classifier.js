@@ -6,14 +6,41 @@ let _appConfig = null;
 try { _appConfig = require('../../gateway/app-config.js'); } catch (e) {}
 
 // --- Knowledge Base (grounding anti-hallucination) ---
+const fs = require('fs');
+const path = require('path');
 let _knowledgeBase = null;
+let _kbLoadedAt = 0;
+const KB_CACHE_TTL = 60000; // Reload KB every 60s (allows dashboard edits to take effect)
+
 function _loadKB() {
-  if (_knowledgeBase) return _knowledgeBase;
+  const now = Date.now();
+  if (_knowledgeBase && (now - _kbLoadedAt) < KB_CACHE_TTL) return _knowledgeBase;
+
+  // Priority 1: Per-client KB in data dir (written by dashboard)
+  const dataDir = process.env.INBOX_MANAGER_DATA_DIR || '/data/inbox-manager';
+  const clientKBPath = path.join(dataDir, 'knowledge-base.json');
   try {
+    if (fs.existsSync(clientKBPath)) {
+      _knowledgeBase = JSON.parse(fs.readFileSync(clientKBPath, 'utf8'));
+      _kbLoadedAt = now;
+      log.info('reply-classifier', 'KB chargee depuis ' + clientKBPath);
+      return _knowledgeBase;
+    }
+  } catch (e) {
+    log.warn('reply-classifier', 'Erreur lecture KB client: ' + e.message);
+  }
+
+  // Priority 2: Default KB bundled with code
+  try {
+    // Clear require cache so edits take effect
+    const defaultPath = require.resolve('./knowledge-base.json');
+    delete require.cache[defaultPath];
     _knowledgeBase = require('./knowledge-base.json');
+    _kbLoadedAt = now;
   } catch (e) {
     log.warn('reply-classifier', 'Knowledge base non trouvee — reponses sans grounding');
     _knowledgeBase = {};
+    _kbLoadedAt = now;
   }
   return _knowledgeBase;
 }

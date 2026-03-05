@@ -2286,6 +2286,8 @@ const healthServer = http.createServer(async (req, res) => {
           confidence: d.autoReply?.confidence || 0,
           qualityWarning: d.qualityWarning || null,
           company: d.originalEmail?.company || '',
+          grounded: d.grounded || false,
+          autoSendAt: d.autoSendAt || null,
           createdAt: d.createdAt || 0,
           expiresIn: Math.max(0, TTL - age)
         });

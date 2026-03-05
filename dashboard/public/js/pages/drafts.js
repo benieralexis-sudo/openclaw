@@ -30,6 +30,24 @@ function confidenceBadge(conf) {
   return `<span class="badge ${cls}">${pct}%</span>`;
 }
 
+function groundedBadge(grounded) {
+  if (grounded === true) {
+    return `<span class="badge badge-green" title="Reponse groundee dans la KB — envoi auto possible">KB</span>`;
+  }
+  if (grounded === false) {
+    return `<span class="badge badge-orange" title="Reponse non groundee — validation requise">HITL</span>`;
+  }
+  return '';
+}
+
+function autoSendCountdown(d) {
+  if (!d.grounded || !d.autoSendAt) return '';
+  const remaining = d.autoSendAt - Date.now();
+  if (remaining <= 0) return '<span class="badge badge-green" style="animation:pulse 1s infinite">Envoi imminent</span>';
+  const mins = Math.ceil(remaining / 60000);
+  return `<span class="badge badge-blue" title="Envoi automatique dans ${mins} min">Auto-send ${mins}min</span>`;
+}
+
 window.Pages = window.Pages || {};
 
 // Auto-refresh timer
@@ -129,6 +147,8 @@ function renderDraftCard(d) {
           ${sentimentBadge(d.sentiment)}
           ${d.subType ? `<span class="badge badge-gray">${e(d.subType)}</span>` : ''}
           ${confidenceBadge(d.confidence)}
+          ${groundedBadge(d.grounded)}
+          ${autoSendCountdown(d)}
           <span class="badge ${isExpiring ? 'badge-red' : 'badge-gray'}" title="Temps restant">${Utils.icon('clock', 12)} ${timeLeft}</span>
         </div>
       </div>
@@ -160,6 +180,9 @@ function renderDraftCard(d) {
       <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
         <button class="btn-danger-outline draft-action" data-action="reject-draft" data-draft-id="${e(d.id)}" title="Rejeter et blacklister">
           ${Utils.icon('x', 14)} Rejeter
+        </button>
+        <button class="btn-secondary draft-action" data-action="skip-draft" data-draft-id="${e(d.id)}" title="Ignorer sans blacklister" style="color:var(--text-muted)">
+          ${Utils.icon('skip-forward', 14)} Passer
         </button>
         <button class="btn-secondary draft-action" data-action="edit-draft" data-draft-id="${e(d.id)}" data-draft-to="${e(d.prospectEmail)}" data-draft-subject="${e(d.subject)}" data-draft-body="${e(d.body)}" title="Modifier avant envoi">
           ${Utils.icon('edit', 14)} Modifier
@@ -213,6 +236,23 @@ function bindDraftActions(container) {
         Utils.toast((res && res.error) || 'Erreur lors du rejet');
         btn.disabled = false;
         btn.innerHTML = `${Utils.icon('x', 14)} Rejeter`;
+      }
+    }
+
+    if (action === 'skip-draft' && draftId) {
+      btn.disabled = true;
+      btn.innerHTML = `${Utils.icon('loader', 14)} ...`;
+      const res = await API.post('drafts/' + encodeURIComponent(draftId) + '/skip', {});
+      if (res && res.success) {
+        Utils.toast('Brouillon ignore');
+        const card = container.querySelector(`[data-draft-id="${draftId}"].draft-card`);
+        if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+        App.updateBadges();
+        setTimeout(() => App.loadPage('drafts', true), 1000);
+      } else {
+        Utils.toast((res && res.error) || 'Erreur');
+        btn.disabled = false;
+        btn.innerHTML = `${Utils.icon('skip-forward', 14)} Passer`;
       }
     }
 

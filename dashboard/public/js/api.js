@@ -177,7 +177,12 @@ const API = {
   },
   approveDraft(id) { return this.post('drafts/' + encodeURIComponent(id) + '/approve', {}); },
   rejectDraft(id) { return this.post('drafts/' + encodeURIComponent(id) + '/reject', {}); },
-  editDraft(id, body) { return this.post('drafts/' + encodeURIComponent(id) + '/edit', { body }); }
+  editDraft(id, body) { return this.post('drafts/' + encodeURIComponent(id) + '/edit', { body }); },
+
+  // Knowledge Base
+  kb() { return this.get('/api/settings/kb'); },
+  saveKb(kb) { return this.put('settings/kb', kb); },
+  kbTemplate() { return this.get('/api/settings/kb/template'); }
 };
 
 // Auto-refresh every 60s (pause when tab hidden)

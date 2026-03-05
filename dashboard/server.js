@@ -489,14 +489,24 @@ app.post('/api/users', authRequired, adminRequired, async (req, res) => {
     if (!client) return res.status(400).json({ error: 'Client "' + clientId + '" introuvable' });
   }
 
+  const notificationEmail = validRole === 'client' && req.body.notificationEmail
+    ? String(req.body.notificationEmail).trim().substring(0, 200)
+    : null;
+
   users[uname] = {
     username: uname,
     passwordHash: await bcrypt.hash(password, 12),
     role: validRole,
     company: validRole === 'client' ? (company || null) : null,
     clientId: validRole === 'client' ? (clientId || null) : null,
+    notificationEmail: notificationEmail,
     createdAt: new Date().toISOString()
   };
+
+  // Register contact for email notifications
+  if (validRole === 'client' && clientId && notificationEmail) {
+    notificationManager.setClientContact(clientId, notificationEmail, uname);
+  }
   saveUsers(users);
   logAudit('user_created', req.ip, uname + ' (' + validRole + ')');
   log.info('dashboard', 'Utilisateur cree: ' + uname + ' (' + validRole + ')');
@@ -930,11 +940,176 @@ app.get('/api/settings/blacklist', authRequired, resolveClient, async (req, res)
 app.put('/api/settings/notifications', authRequired, resolveClient, (req, res) => {
   if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
   try {
-    clientRegistry.updateClient(req.clientId, { notificationPrefs: req.body });
+    const prefs = {
+      draftPending: !!req.body.draftPending,
+      hotLead: !!req.body.hotLead,
+      campaignMilestone: !!req.body.campaignMilestone,
+      emailNotifications: !!req.body.emailNotifications
+    };
+    // Update notification email if provided
+    if (typeof req.body.notificationEmail === 'string') {
+      const email = req.body.notificationEmail.trim().substring(0, 200);
+      prefs.notificationEmail = email;
+      if (email) {
+        const client = clientRegistry.getClient(req.clientId);
+        notificationManager.setClientContact(req.clientId, email, client ? client.name : req.clientId);
+      }
+    }
+    clientRegistry.updateClient(req.clientId, { notificationPrefs: prefs });
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
+});
+
+// --- Knowledge Base (per-client) ---
+
+const KB_TEMPLATE = {
+  _meta: { version: '1.0', description: 'Knowledge Base client — grounding des reponses IA' },
+  company: { name: '', tagline: '', description: '', founder: '', founderTitle: '', website: '', email: '' },
+  services: { main: '', includes: [], does_not_include: [] },
+  pricing: { setup: 'Pas de frais de setup', monthly_plans: [], engagement: '', guarantee: '' },
+  process: { steps: [], what_client_provides: [], onboarding_time: '' },
+  differentiators: [],
+  faq: [],
+  forbidden_claims: [
+    'Ne JAMAIS promettre un nombre precis de RDV ou de leads',
+    'Ne JAMAIS inventer de chiffres, statistiques ou resultats clients',
+    'Ne JAMAIS mentionner : IA, bot, automatisation, SDR, pipeline, machine learning'
+  ],
+  fallback_phrase: 'Bonne question — je vais me renseigner et je reviens vers toi rapidement.'
+};
+
+function _getClientKBPath(clientId) {
+  if (!clientId) return null;
+  return '/clients/' + clientId + '/data/inbox-manager/knowledge-base.json';
+}
+
+function _loadClientKB(clientId) {
+  const kbPath = _getClientKBPath(clientId);
+  if (!kbPath) return null;
+  try {
+    if (fs.existsSync(kbPath)) {
+      return JSON.parse(fs.readFileSync(kbPath, 'utf8'));
+    }
+  } catch (e) {
+    log.warn('dashboard', 'Erreur lecture KB client ' + clientId + ': ' + e.message);
+  }
+  return null;
+}
+
+function _saveClientKB(clientId, kb) {
+  const kbPath = _getClientKBPath(clientId);
+  if (!kbPath) throw new Error('Pas de clientId');
+  const dir = path.dirname(kbPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  kb._meta = kb._meta || {};
+  kb._meta.updatedAt = new Date().toISOString();
+  kb._meta.version = '1.0';
+  const tmp = kbPath + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(kb, null, 2), 'utf8');
+  fs.renameSync(tmp, kbPath);
+}
+
+function _validateKB(body) {
+  const kb = {};
+  // Company
+  if (body.company && typeof body.company === 'object') {
+    kb.company = {
+      name: String(body.company.name || '').substring(0, 100),
+      tagline: String(body.company.tagline || '').substring(0, 200),
+      description: String(body.company.description || '').substring(0, 1000),
+      founder: String(body.company.founder || '').substring(0, 100),
+      founderTitle: String(body.company.founderTitle || '').substring(0, 100),
+      website: String(body.company.website || '').substring(0, 200),
+      email: String(body.company.email || '').substring(0, 200)
+    };
+  }
+  // Services
+  if (body.services && typeof body.services === 'object') {
+    kb.services = {
+      main: String(body.services.main || '').substring(0, 500),
+      includes: Array.isArray(body.services.includes) ? body.services.includes.filter(s => typeof s === 'string').map(s => s.substring(0, 300)).slice(0, 20) : [],
+      does_not_include: Array.isArray(body.services.does_not_include) ? body.services.does_not_include.filter(s => typeof s === 'string').map(s => s.substring(0, 300)).slice(0, 20) : []
+    };
+  }
+  // Pricing
+  if (body.pricing && typeof body.pricing === 'object') {
+    kb.pricing = {
+      setup: String(body.pricing.setup || '').substring(0, 300),
+      monthly_plans: Array.isArray(body.pricing.monthly_plans) ? body.pricing.monthly_plans.slice(0, 10).map(p => ({
+        name: String(p.name || '').substring(0, 50),
+        price: String(p.price || '').substring(0, 50),
+        volume: String(p.volume || '').substring(0, 100),
+        description: String(p.description || '').substring(0, 200)
+      })) : [],
+      founder_pricing: String(body.pricing.founder_pricing || '').substring(0, 200),
+      engagement: String(body.pricing.engagement || '').substring(0, 300),
+      guarantee: String(body.pricing.guarantee || '').substring(0, 500)
+    };
+  }
+  // Process
+  if (body.process && typeof body.process === 'object') {
+    kb.process = {
+      steps: Array.isArray(body.process.steps) ? body.process.steps.filter(s => typeof s === 'string').map(s => s.substring(0, 300)).slice(0, 10) : [],
+      what_client_provides: Array.isArray(body.process.what_client_provides) ? body.process.what_client_provides.filter(s => typeof s === 'string').map(s => s.substring(0, 300)).slice(0, 10) : [],
+      onboarding_time: String(body.process.onboarding_time || '').substring(0, 200)
+    };
+  }
+  // Differentiators
+  if (Array.isArray(body.differentiators)) {
+    kb.differentiators = body.differentiators.filter(s => typeof s === 'string').map(s => s.substring(0, 300)).slice(0, 10);
+  }
+  // FAQ
+  if (Array.isArray(body.faq)) {
+    kb.faq = body.faq.slice(0, 20).map(f => ({
+      question: String(f.question || '').substring(0, 300),
+      answer: String(f.answer || '').substring(0, 1000)
+    })).filter(f => f.question && f.answer);
+  }
+  // Forbidden claims
+  if (Array.isArray(body.forbidden_claims)) {
+    kb.forbidden_claims = body.forbidden_claims.filter(s => typeof s === 'string').map(s => s.substring(0, 300)).slice(0, 20);
+  }
+  // Fallback phrase
+  if (typeof body.fallback_phrase === 'string') {
+    kb.fallback_phrase = body.fallback_phrase.substring(0, 300);
+  }
+  // Booking URL (convenience field)
+  if (typeof body.booking_url === 'string') {
+    kb.booking_url = body.booking_url.substring(0, 300);
+  }
+  return kb;
+}
+
+app.get('/api/settings/kb', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  const kb = _loadClientKB(req.clientId);
+  res.json({ kb: kb || KB_TEMPLATE, isDefault: !kb });
+});
+
+app.put('/api/settings/kb', authRequired, resolveClient, (req, res) => {
+  if (!req.clientId) return res.status(400).json({ error: 'Aucun client associe' });
+  try {
+    const validated = _validateKB(req.body);
+    if (!validated.company || !validated.company.name) {
+      return res.status(400).json({ error: 'Nom de l\'entreprise requis dans la Knowledge Base' });
+    }
+    _saveClientKB(req.clientId, validated);
+    // Mark onboarding step
+    clientRegistry.updateClient(req.clientId, {
+      onboarding: { steps: { kb: new Date().toISOString() } }
+    });
+    logAudit('kb_updated', req.ip || 'unknown', req.user.username + ' -> ' + req.clientId);
+    log.info('dashboard', 'KB mise a jour pour client ' + req.clientId);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/settings/kb/template', authRequired, (req, res) => {
+  res.json({ template: KB_TEMPLATE });
 });
 
 // --- Curated lists (public for frontend) ---
@@ -1716,6 +1891,23 @@ app.get('/api/drafts', authRequired, resolveClient, async (req, res) => {
 app.post('/api/drafts/:id/approve', authRequired, resolveClient, async (req, res) => {
   try {
     const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/approve', 'POST', null, req.clientId);
+    if (result.status === 200 && result.data.success && req.clientId) {
+      notificationManager.sendDraftSentConfirmation(req.clientId, {
+        prospectEmail: result.data.to,
+        prospectName: result.data.to,
+        subject: req.body.subject || '',
+        body: req.body.body || ''
+      });
+    }
+    res.status(result.status).json(result.data);
+  } catch (e) {
+    res.status(502).json({ error: 'Bot indisponible', details: e.message });
+  }
+});
+
+app.post('/api/drafts/:id/skip', authRequired, resolveClient, async (req, res) => {
+  try {
+    const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/skip', 'POST', null, req.clientId);
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });
@@ -1735,6 +1927,14 @@ app.post('/api/drafts/:id/edit', authRequired, resolveClient, async (req, res) =
   try {
     const body = JSON.stringify({ body: req.body.body });
     const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/edit', 'POST', body, req.clientId);
+    if (result.status === 200 && result.data.success && req.clientId) {
+      notificationManager.sendDraftSentConfirmation(req.clientId, {
+        prospectEmail: result.data.to,
+        prospectName: result.data.to,
+        subject: '',
+        body: req.body.body || ''
+      });
+    }
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });
@@ -2359,6 +2559,54 @@ setInterval(() => {
   }).catch(() => {});
 }, 3600000);
 
+// --- Draft polling for all clients (checks for new drafts every 2 min) ---
+setInterval(() => {
+  try {
+    const clients = clientRegistry.listClients();
+    for (const client of clients) {
+      if (client.status !== 'active') continue;
+      const routerUrl = clientRegistry.getClientRouterUrl(client.id);
+      notificationManager.checkForNewDrafts(client.id, routerUrl).catch(() => {});
+    }
+    // Also check main router (admin = ifind)
+    notificationManager.checkForNewDrafts('_admin', DEFAULT_ROUTER_URL).catch(() => {});
+  } catch (e) {
+    log.warn('dashboard', 'Draft polling error: ' + e.message);
+  }
+}, 2 * 60 * 1000); // Every 2 minutes
+
+// --- Load client contacts for email notifications ---
+function _initClientContacts() {
+  try {
+    const clients = clientRegistry.listClients();
+    for (const client of clients) {
+      // Priority 1: notificationPrefs.notificationEmail
+      const notifEmail = client.notificationPrefs && client.notificationPrefs.notificationEmail;
+      if (notifEmail) {
+        notificationManager.setClientContact(client.id, notifEmail, client.name);
+        continue;
+      }
+      // Priority 2: User with notificationEmail for this client
+      let foundUser = false;
+      for (const [, user] of Object.entries(users)) {
+        if (user.clientId === client.id && user.notificationEmail) {
+          notificationManager.setClientContact(client.id, user.notificationEmail, user.username);
+          foundUser = true;
+          break;
+        }
+      }
+      // Priority 3: Client sender email
+      if (!foundUser && client.config && client.config.senderEmail) {
+        notificationManager.setClientContact(client.id, client.config.senderEmail, client.config.senderName || client.name);
+      }
+    }
+    log.info('dashboard', 'Client contacts charges pour notifications email');
+  } catch (e) {
+    log.warn('dashboard', 'Erreur chargement contacts clients: ' + e.message);
+  }
+}
+
 app.listen(PORT, '0.0.0.0', () => {
-  log.info('dashboard', `Dashboard démarré sur le port ${PORT}`);
+  log.info('dashboard', `Dashboard demarre sur le port ${PORT}`);
+  _initClientContacts();
 });
