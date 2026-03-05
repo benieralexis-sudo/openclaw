@@ -1,0 +1,129 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "Knowledge Base pour grounding des reponses IA. L'IA ne peut repondre QU'avec des faits presents ici. Toute question hors KB = fallback humain.",
+    "updatedAt": "2026-03-05"
+  },
+
+  "company": {
+    "name": "iFIND",
+    "tagline": "Agence de prospection B2B propulsee par l'IA",
+    "description": "iFIND est une agence qui automatise la prospection B2B pour ses clients. Un agent IA trouve les bons contacts, redige des emails personnalises, envoie, relance, et qualifie les reponses. Le client recoit des RDV qualifies dans son calendrier.",
+    "founder": "Alexis Benier",
+    "founderTitle": "Fondateur",
+    "website": "ifind.fr",
+    "email": "alexis@getifind.fr"
+  },
+
+  "services": {
+    "main": "Prospection B2B automatisee par IA — de la recherche de prospects au RDV qualifie",
+    "includes": [
+      "Recherche et qualification de prospects (Apollo, enrichissement multi-sources)",
+      "Redaction d'emails personnalises par IA (contexte entreprise, actualites, chiffres publics)",
+      "Envoi multi-domaines avec warmup progressif",
+      "Relances intelligentes (3 steps adaptes au comportement)",
+      "Gestion des reponses (classification IA + proposition de RDV)",
+      "Tableau de bord temps reel (stats, leads, campagnes)",
+      "Rapport hebdomadaire par email"
+    ],
+    "does_not_include": [
+      "LinkedIn automation (en dev, pas encore disponible)",
+      "Appels telephoniques",
+      "Publicite payante (Google Ads, Meta Ads)",
+      "SEO / content marketing"
+    ]
+  },
+
+  "pricing": {
+    "setup": {
+      "amount": "990 EUR",
+      "includes": "Achat et configuration des domaines d'envoi, DNS (SPF/DKIM/DMARC), creation des boites email, warmup initial, configuration de l'agent IA, import de la cible"
+    },
+    "monthly_plans": [
+      {
+        "name": "Starter",
+        "price": "490 EUR/mois",
+        "volume": "~300 prospects/mois",
+        "description": "Ideal pour tester la prospection IA sur un segment"
+      },
+      {
+        "name": "Growth",
+        "price": "990 EUR/mois",
+        "volume": "~1000 prospects/mois",
+        "description": "Pour une prospection soutenue et multi-segments"
+      }
+    ],
+    "engagement": "Sans engagement, resiliable a tout moment",
+    "guarantee": "Pas de garantie de resultats chiffres — les performances dependent de l'offre, du marche et de la cible"
+  },
+
+  "process": {
+    "steps": [
+      "1. Appel decouverte 15 min — on definit ensemble ta cible ideale (industrie, taille, poste, zone geo)",
+      "2. Setup (1 semaine) — on achete les domaines, configure le DNS, prepare l'agent IA",
+      "3. Lancement — l'agent commence a envoyer, les premiers resultats arrivent en 2-3 semaines",
+      "4. Optimisation continue — l'IA s'ameliore automatiquement (angles, timing, longueur)"
+    ],
+    "what_client_provides": [
+      "Lien de reservation (Calendly, Cal.com, ou Google Calendar)",
+      "Sa cible : industrie, taille d'entreprise, titres, zone geographique",
+      "Son pitch : ce qu'il vend, a qui, pourquoi"
+    ],
+    "what_client_does_NOT_provide": [
+      "Pas d'acces a son Google Workspace",
+      "Pas de configuration DNS a faire",
+      "Pas de cle API a fournir"
+    ],
+    "onboarding_time": "10 minutes pour le client, 1 semaine pour le setup"
+  },
+
+  "differentiators": [
+    "Emails hyper-personnalises (contexte entreprise, actualites, chiffres publics) — pas de templates generiques",
+    "10 quality gates avant chaque envoi (aucun email generique ne passe)",
+    "Cout 5-10x inferieur aux solutions US (Artisan = 2400$/mois, 11x = 5000$/mois)",
+    "Controle total — tu sais exactement ce qui est envoye en ton nom",
+    "Optimisation automatique — l'IA analyse les performances et ajuste (longueur, ton, timing, angles)"
+  ],
+
+  "faq": [
+    {
+      "question": "Combien de RDV je peux esperer ?",
+      "answer": "Ca depend de ton offre et de ta cible. En general, avec un bon product-market fit, on observe 3-8% de taux de reponse et 30-40% de conversion reponse-en-RDV. Mais je ne fais pas de promesses chiffrees — chaque marche est different."
+    },
+    {
+      "question": "Comment les emails sont personnalises ?",
+      "answer": "L'IA recherche chaque prospect individuellement : site web, actualites, LinkedIn public, donnees entreprise. Chaque email est unique et mentionne un fait specifique au prospect."
+    },
+    {
+      "question": "Est-ce que ca va finir en spam ?",
+      "answer": "On prend la delivrabilite tres au serieux : domaines dedies avec DNS configure (SPF/DKIM/DMARC), warmup progressif, volume controle, et un lien de desabonnement dans chaque email."
+    },
+    {
+      "question": "Je peux voir les emails avant qu'ils partent ?",
+      "answer": "Tu as un tableau de bord en temps reel avec tous les emails envoyes, les stats, et les reponses. Tu peux aussi demander a valider les premiers emails avant le lancement."
+    },
+    {
+      "question": "Quelle est la difference avec Lemlist/Instantly ?",
+      "answer": "Lemlist et Instantly sont des outils self-service — tu dois tout faire toi-meme (trouver les prospects, ecrire les emails, gerer les relances). Chez nous, c'est 100% gere : tu recois des RDV dans ton calendrier, point."
+    },
+    {
+      "question": "Comment ca marche pour la facturation ?",
+      "answer": "Setup unique de 990 EUR + abonnement mensuel (490 ou 990 EUR/mois selon le volume). Sans engagement, resiliable a tout moment."
+    },
+    {
+      "question": "Combien de temps avant les premiers resultats ?",
+      "answer": "Compte 1 semaine de setup + 1-2 semaines de warmup des domaines. Les premiers emails partent a la semaine 2, les premieres reponses arrivent generalement en semaine 3."
+    }
+  ],
+
+  "forbidden_claims": [
+    "Ne JAMAIS promettre un nombre precis de RDV ou de leads",
+    "Ne JAMAIS inventer de chiffres, statistiques ou resultats clients",
+    "Ne JAMAIS mentionner : IA, bot, automatisation, SDR, pipeline, machine learning",
+    "Ne JAMAIS mentionner de clients existants (pas encore de case studies publiables)",
+    "Ne JAMAIS critiquer un concurrent nommement",
+    "Ne JAMAIS inventer de fonctionnalite qui n'existe pas"
+  ],
+
+  "fallback_phrase": "Bonne question — je vais me renseigner et je reviens vers toi rapidement."
+}

@@ -30,7 +30,7 @@ const InboxHandler = require('../skills/inbox-manager/inbox-handler.js');
 let InboxListener;
 try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
 const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
-const { classifyReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, generateInterestedReplyViaClaude, parseOOOReturnDate, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
+const { classifyReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, generateInterestedReplyViaClaude, parseOOOReturnDate, checkGrounding, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
@@ -347,32 +347,38 @@ const _cleanupInterval = setInterval(() => {
     }
   }
 
-  // 7. HITL drafts : rappel 4h, auto-send 12h, expire 24h
-  const HITL_TTL = 24 * 60 * 60 * 1000;
-  const HITL_REMINDER = 4 * 60 * 60 * 1000;
-  const HITL_AUTOSEND = 12 * 60 * 60 * 1000;
+  // 7. HITL drafts : auto-send 5 min (grounded) ou 24h (non-grounded), expire 48h
+  const HITL_TTL = 48 * 60 * 60 * 1000;
+  const HITL_AUTOSEND_GROUNDED = (parseFloat(process.env.HITL_AUTO_SEND_MINUTES) || 5) * 60 * 1000;
+  const HITL_AUTOSEND_UNGROUNDED = 24 * 60 * 60 * 1000; // Non-grounded = HITL classique
+  const HITL_REMINDER_GROUNDED = Math.max(HITL_AUTOSEND_GROUNDED - 2 * 60 * 1000, 60 * 1000); // 2 min avant auto-send
   for (const [id, draft] of _pendingDrafts) {
     const age = now - draft.createdAt;
+    const isGrounded = draft._grounded !== false; // true par defaut, false si explicitement non-grounded
+    const autoSendDelay = isGrounded ? HITL_AUTOSEND_GROUNDED : HITL_AUTOSEND_UNGROUNDED;
+
     if (age > HITL_TTL) {
-      log.info('hitl', 'Draft expire apres 24h: ' + id + ' pour ' + (draft.replyData && draft.replyData.from));
+      log.info('hitl', 'Draft expire apres 48h: ' + id + ' pour ' + (draft.replyData && draft.replyData.from));
       _pendingDrafts.delete(id);
       cleaned++;
-    } else if (age > HITL_AUTOSEND && !draft._autoSent) {
-      // Auto-send apres 12h sans action (seulement interested/question)
+    } else if (age > autoSendDelay && !draft._autoSent) {
+      // Auto-send (seulement interested/question, PAS not_interested)
       if (draft.sentiment === 'interested' || draft.sentiment === 'question') {
         draft._autoSent = true;
-        log.info('hitl', 'Auto-send 12h: ' + id + ' pour ' + (draft.replyData && draft.replyData.from) + ' (sentiment=' + draft.sentiment + ')');
+        const delayLabel = isGrounded ? (Math.round(HITL_AUTOSEND_GROUNDED / 60000) + ' min') : '24h';
+        log.info('hitl', 'Auto-send ' + delayLabel + ': ' + id + ' pour ' + (draft.replyData && draft.replyData.from) + ' (grounded=' + isGrounded + ')');
         _hitlSendReply(ADMIN_CHAT_ID, id).then(() => {
-          sendMessage(ADMIN_CHAT_ID, '🤖 *Auto-envoi 12h* — Reponse envoyee automatiquement a *' + escTg(draft.replyData.fromName || draft.replyData.from) + '* (pas d\'action en 12h).', 'Markdown').catch(() => {});
+          sendMessage(ADMIN_CHAT_ID, '⚡ *Auto-envoi ' + delayLabel + '* — Reponse envoyee a *' + escTg(draft.replyData.fromName || draft.replyData.from) + '*\n_Aucune action recue dans le delai._', 'Markdown').catch(() => {});
         }).catch(e => {
-          log.error('hitl', 'Auto-send 12h echoue pour ' + id + ': ' + e.message);
+          log.error('hitl', 'Auto-send echoue pour ' + id + ': ' + e.message);
         });
       }
-    } else if (age > HITL_REMINDER && !draft._reminded) {
-      // Rappel a 4h
+    } else if (isGrounded && age > HITL_REMINDER_GROUNDED && !draft._reminded) {
+      // Rappel 2 min avant auto-send (grounded seulement)
       draft._reminded = true;
+      const secsLeft = Math.max(0, Math.round((autoSendDelay - age) / 1000));
       const sentimentLabel = draft.sentiment === 'interested' ? '🔥 INTERESSE' : draft.sentiment === 'question' ? '❓ Question' : '💬 Objection';
-      sendMessage(ADMIN_CHAT_ID, '⏰ *Rappel HITL* — Brouillon en attente depuis 4h !\n\n' + sentimentLabel + ' de *' + escTg(draft.replyData.fromName || draft.replyData.from) + '*\n\n_Auto-envoi dans 8h si pas d\'action._', 'Markdown').catch(() => {});
+      sendMessage(ADMIN_CHAT_ID, '⏳ ' + sentimentLabel + ' de *' + escTg(draft.replyData.fromName || draft.replyData.from) + '* — envoi auto dans ~' + Math.ceil(secsLeft / 60) + ' min\n_\\[🛑 Annuler\\] ou \\[✏️ Modifier\\] dans le message original_', 'Markdown').catch(() => {});
     }
   }
 
@@ -742,7 +748,7 @@ inboxListener = InboxListener ? new InboxListener({
             }
           }
 
-          // --- Cas 2: Question → TOUJOURS HITL (une mauvaise reponse = client perdu) ---
+          // --- Cas 2: Question → HITL avec auto-send 5 min si grounded, sinon HITL 24h ---
           else if (sentiment === 'question' && score >= 0.4) {
             const snippetLen = (replyData.snippet || '').length;
             if (snippetLen < 1500) {
@@ -752,14 +758,20 @@ inboxListener = InboxListener ? new InboxListener({
                 const qualityWarning = _checkDraftQuality(autoReply);
                 if (qualityWarning) log.warn('hitl', 'Draft quality warning: ' + qualityWarning + ' pour ' + replyData.from);
 
+                // Grounding check : la reponse utilise-t-elle uniquement des faits du KB ?
+                const grounding = checkGrounding(autoReply.body);
+                const isGrounded = grounding.grounded && !qualityWarning;
+
                 const draftId = _hitlId();
                 _pendingDrafts.set(draftId, {
                   replyData, classification, subClass: { type: 'simple_question', objectionType: '' },
                   autoReply, originalEmail, originalMessageId, clientContext,
-                  sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
+                  sentiment, emailsToProcess, qualityWarning, createdAt: Date.now(),
+                  _grounded: isGrounded
                 });
                 hitlDraftCreated = true;
-                log.info('hitl', 'Draft HITL cree: ' + draftId + ' pour ' + replyData.from + ' (question — validation humaine obligatoire)');
+                const autoMin = isGrounded ? (parseFloat(process.env.HITL_AUTO_SEND_MINUTES) || 5) : 'HITL 24h';
+                log.info('hitl', 'Draft cree: ' + draftId + ' pour ' + replyData.from + ' (question, grounded=' + isGrounded + ', auto-send=' + autoMin + (isGrounded ? 'min' : '') + ')');
               }
             }
           }
@@ -857,16 +869,21 @@ inboxListener = InboxListener ? new InboxListener({
                   hitlDraftCreated = true;
                 }
               }
-              // LOW CONFIDENCE ou quality warning → HITL classique (validation humaine)
+              // LOW CONFIDENCE ou quality warning → HITL avec grounding check
               else {
+                const grounding = checkGrounding(autoReply.body);
+                const isGrounded = grounding.grounded && !qualityWarning;
+
                 const draftId = _hitlId();
                 _pendingDrafts.set(draftId, {
                   replyData, classification, subClass: { type: 'interested', objectionType: '' },
                   autoReply, originalEmail, originalMessageId, clientContext,
-                  sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
+                  sentiment, emailsToProcess, qualityWarning, createdAt: Date.now(),
+                  _grounded: isGrounded
                 });
                 hitlDraftCreated = true;
-                log.info('hitl', 'Draft HITL cree: ' + draftId + ' pour ' + replyData.from + ' (interested, score=' + score + ' < seuil ' + autoSendThreshold + ' ou quality warning)');
+                const autoMin = isGrounded ? (parseFloat(process.env.HITL_AUTO_SEND_MINUTES) || 5) : 'HITL 24h';
+                log.info('hitl', 'Draft cree: ' + draftId + ' pour ' + replyData.from + ' (interested, grounded=' + isGrounded + ', auto-send=' + autoMin + (isGrounded ? 'min' : '') + ')');
               }
             }
           }
@@ -1132,14 +1149,21 @@ inboxListener = InboxListener ? new InboxListener({
       }
 
       if (hitlDraft && hitlDraftId) {
+        const isGrounded = hitlDraft._grounded !== false;
+        const autoSendMin = isGrounded ? (parseFloat(process.env.HITL_AUTO_SEND_MINUTES) || 5) : null;
+
         notifLines.push('');
         notifLines.push('━━━━━━━━━━━━━━━━━━');
-        notifLines.push('📝 *Brouillon de reponse :*');
+        if (isGrounded && autoSendMin) {
+          notifLines.push('⚡ *ENVOI AUTO DANS ' + autoSendMin + ' MIN* — Annule ou modifie ci\\-dessous');
+        } else {
+          notifLines.push('📝 *Brouillon — validation requise*');
+        }
         notifLines.push('_Objet : ' + escTg(hitlDraft.autoReply.subject) + '_');
         notifLines.push('');
         notifLines.push(escTg(hitlDraft.autoReply.body));
         notifLines.push('');
-        notifLines.push('📊 Confiance : ' + (hitlDraft.autoReply.confidence || 0).toFixed(2));
+        notifLines.push('📊 Confiance : ' + (hitlDraft.autoReply.confidence || 0).toFixed(2) + (isGrounded ? ' \\| 🟢 Grounded KB' : ' \\| 🔴 Non\\-grounded'));
         if (hitlDraft.subClass && hitlDraft.subClass.objectionType) {
           notifLines.push('📋 Type : ' + escTg(hitlDraft.subClass.objectionType));
         }
@@ -1148,9 +1172,23 @@ inboxListener = InboxListener ? new InboxListener({
           notifLines.push('⚠️ *Quality gate :* ' + escTg(hitlDraft.qualityWarning));
         }
         notifLines.push('');
-        notifLines.push('⏳ _Expire dans 24h si pas d\'action._');
+        if (isGrounded && autoSendMin) {
+          notifLines.push('⏳ _Envoi auto dans ' + autoSendMin + ' min si pas d\'action\\._');
+        } else {
+          notifLines.push('🔒 _Reponse hors KB — validation humaine obligatoire\\. Expire dans 24h\\._');
+        }
 
-        const buttons = [
+        // Boutons : grounded = Annuler en premier (default = envoi), non-grounded = Accepter en premier (default = attente)
+        const buttons = isGrounded ? [
+          [
+            { text: '🛑 Annuler', callback_data: 'hitl_skip_' + hitlDraftId },
+            { text: '✏️ Modifier', callback_data: 'hitl_modify_' + hitlDraftId },
+          ],
+          [
+            { text: '⚡ Envoyer maintenant', callback_data: 'hitl_accept_' + hitlDraftId },
+            { text: '🚫 Blacklister', callback_data: 'hitl_ignore_' + hitlDraftId }
+          ]
+        ] : [
           [
             { text: '✅ Accepter', callback_data: 'hitl_accept_' + hitlDraftId },
             { text: '✏️ Modifier', callback_data: 'hitl_modify_' + hitlDraftId },

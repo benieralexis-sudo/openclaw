@@ -5,6 +5,69 @@ const log = require('../../gateway/logger.js');
 let _appConfig = null;
 try { _appConfig = require('../../gateway/app-config.js'); } catch (e) {}
 
+// --- Knowledge Base (grounding anti-hallucination) ---
+let _knowledgeBase = null;
+function _loadKB() {
+  if (_knowledgeBase) return _knowledgeBase;
+  try {
+    _knowledgeBase = require('./knowledge-base.json');
+  } catch (e) {
+    log.warn('reply-classifier', 'Knowledge base non trouvee — reponses sans grounding');
+    _knowledgeBase = {};
+  }
+  return _knowledgeBase;
+}
+
+function _buildKBContext() {
+  const kb = _loadKB();
+  if (!kb.company) return '';
+  const sections = [];
+  if (kb.company) sections.push('ENTREPRISE: ' + kb.company.name + ' — ' + kb.company.description);
+  if (kb.services) {
+    sections.push('SERVICES: ' + (kb.services.includes || []).join('; '));
+    if (kb.services.does_not_include) sections.push('NE FAIT PAS: ' + kb.services.does_not_include.join('; '));
+  }
+  if (kb.pricing) {
+    const plans = (kb.pricing.monthly_plans || []).map(p => p.name + ' ' + p.price + ' (' + p.volume + ')').join(', ');
+    sections.push('TARIFS: Setup ' + (kb.pricing.setup && kb.pricing.setup.amount) + '. Plans: ' + plans + '. ' + (kb.pricing.engagement || ''));
+  }
+  if (kb.process) sections.push('PROCESS: ' + (kb.process.steps || []).join(' → '));
+  if (kb.differentiators) sections.push('AVANTAGES: ' + kb.differentiators.join('; '));
+  if (kb.faq) {
+    const faqText = kb.faq.map(f => 'Q: ' + f.question + ' R: ' + f.answer).join('\n');
+    sections.push('FAQ:\n' + faqText);
+  }
+  if (kb.forbidden_claims) sections.push('INTERDIT: ' + kb.forbidden_claims.join('; '));
+  if (kb.fallback_phrase) sections.push('SI TU NE SAIS PAS: reponds exactement "' + kb.fallback_phrase + '"');
+  return sections.join('\n\n');
+}
+
+/**
+ * Verifie si une reponse generee est groundee dans le KB.
+ * Retourne { grounded: true } ou { grounded: false, reason: '...' }
+ */
+function checkGrounding(replyBody) {
+  const kb = _loadKB();
+  if (!kb.fallback_phrase) return { grounded: true };
+  // Check 1: la reponse contient la phrase fallback → l'IA ne sait pas → pas grounded pour auto-send
+  if (replyBody.toLowerCase().includes(kb.fallback_phrase.toLowerCase().substring(0, 30))) {
+    return { grounded: false, reason: 'fallback_phrase_detected' };
+  }
+  // Check 2: patterns d'hallucination (chiffres inventes, clients fictifs)
+  const hallucinationPatterns = [
+    /\b\d{2,3}\s*%\s*(de|d')\s*(nos|mes)\s*clients/i,
+    /\b(plus de|environ|pres de)\s+\d+\s+(clients|entreprises|societes)/i,
+    /\b(client|cas|exemple)\s*:\s*[A-Z][a-z]+/i,
+    /\b(garanti|garantie|assure)\b.*\b(resultats?|rdv|leads?)\b/i
+  ];
+  for (const pattern of hallucinationPatterns) {
+    if (pattern.test(replyBody)) {
+      return { grounded: false, reason: 'hallucination_pattern: ' + pattern.source.substring(0, 40) };
+    }
+  }
+  return { grounded: true };
+}
+
 const CLASSIFICATION_SYSTEM_PROMPT = `Tu es un analyseur de reponses email B2B. Tu recois un email de reponse d'un prospect a qui on a envoye un email de prospection.
 
 Analyse le SENTIMENT et l'INTENTION du prospect.
@@ -275,6 +338,11 @@ async function generateObjectionReply(callClaude, replyData, classification, sub
     }
   } catch (e) { /* AP non dispo */ }
 
+  const kbContext = _buildKBContext();
+  const kbRule = kbContext
+    ? '\n\nBASE DE CONNAISSANCES (reponds UNIQUEMENT avec ces infos):\n' + kbContext
+    : '';
+
   const systemPrompt = `Tu es ${senderName}, professionnel B2B. Tu reponds a un prospect qui a fait une objection a ton email de prospection.
 
 STRATEGIE: ${strategy}
@@ -287,8 +355,9 @@ REGLES ABSOLUES:
 - Si tu proposes un call, termine par un lien de booking si disponible
 - Reponds en francais
 - Sois HUMAIN, pas commercial. Tu es une vraie personne qui discute.
+- ANTI-HALLUCINATION: utilise UNIQUEMENT les faits de la base de connaissances. Si tu ne sais pas, dis "${(_loadKB().fallback_phrase || 'je me renseigne et reviens vers toi')}"
 ${forbiddenWordsRule}
-${bookingUrl ? 'Lien de booking si pertinent: ' + bookingUrl : ''}`;
+${bookingUrl ? 'Lien de booking si pertinent: ' + bookingUrl : ''}${kbRule}`;
 
   const userPrompt = `Email original envoye:
 Sujet: ${(originalEmail && originalEmail.subject) || '(inconnu)'}
@@ -337,6 +406,11 @@ async function generateQuestionReplyViaClaude(callClaude, replyData, classificat
     }
   } catch (e) { /* AP non dispo */ }
 
+  const kbContext = _buildKBContext();
+  const kbRule = kbContext
+    ? '\n\nBASE DE CONNAISSANCES (reponds UNIQUEMENT avec ces infos, RIEN d\'invente):\n' + kbContext
+    : '';
+
   const systemPrompt = `Tu es ${senderName}, professionnel B2B. Un prospect a pose une question en reponse a ton email de prospection.
 
 REGLES ABSOLUES:
@@ -347,8 +421,9 @@ REGLES ABSOLUES:
 - Pas de signature, pas de "Cordialement"
 - Reponds en francais
 - Sois concret: chiffres, exemples, pas de blabla
+- ANTI-HALLUCINATION: utilise UNIQUEMENT les faits de la base de connaissances ci-dessous. Si la question n'est pas couverte, reponds "${(_loadKB().fallback_phrase || 'je me renseigne et reviens vers toi')}"
 ${forbiddenWordsRule2}
-${bookingUrl ? 'Lien de booking pour le call: ' + bookingUrl : ''}`;
+${bookingUrl ? 'Lien de booking pour le call: ' + bookingUrl : ''}${kbRule}`;
 
   const userPrompt = `Email original envoye:
 Sujet: ${(originalEmail && originalEmail.subject) || '(inconnu)'}
@@ -417,6 +492,11 @@ async function generateInterestedReplyViaClaude(callClaude, replyData, classific
     }
   } catch (e) { /* AP non dispo */ }
 
+  const kbContext = _buildKBContext();
+  const kbRule = kbContext
+    ? '\n\nBASE DE CONNAISSANCES (reponds UNIQUEMENT avec ces infos):\n' + kbContext
+    : '';
+
   const systemPrompt = `Tu es ${senderName}, professionnel B2B. Un prospect a repondu POSITIVEMENT a ton email de prospection. Il est interesse.
 
 REGLES ABSOLUES:
@@ -427,8 +507,8 @@ REGLES ABSOLUES:
 - NE MENTIONNE JAMAIS: IA, bot, automatisation, SDR, pipeline, solution, outil, plateforme
 - Pas de signature, pas de "Cordialement"
 - Reponds en francais
-- ANTI-HALLUCINATION: N'invente JAMAIS un fait, un chiffre, ou une reference client
-${forbiddenWordsRule}`;
+- ANTI-HALLUCINATION: utilise UNIQUEMENT les faits de la base de connaissances. N'invente JAMAIS un fait, un chiffre, ou une reference client.
+${forbiddenWordsRule}${kbRule}`;
 
   const userPrompt = `Email original envoye:
 Sujet: ${(originalEmail && originalEmail.subject) || '(inconnu)'}
@@ -470,5 +550,6 @@ module.exports = {
   generateQuestionReplyViaClaude,
   generateInterestedReplyViaClaude,
   parseOOOReturnDate,
+  checkGrounding,
   REPLY_TEMPLATES
 };
