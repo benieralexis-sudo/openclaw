@@ -742,7 +742,7 @@ inboxListener = InboxListener ? new InboxListener({
             }
           }
 
-          // --- Cas 2: Question → AUTO-SEND si haute confiance, sinon HITL ---
+          // --- Cas 2: Question → TOUJOURS HITL (une mauvaise reponse = client perdu) ---
           else if (sentiment === 'question' && score >= 0.4) {
             const snippetLen = (replyData.snippet || '').length;
             if (snippetLen < 1500) {
@@ -752,64 +752,14 @@ inboxListener = InboxListener ? new InboxListener({
                 const qualityWarning = _checkDraftQuality(autoReply);
                 if (qualityWarning) log.warn('hitl', 'Draft quality warning: ' + qualityWarning + ' pour ' + replyData.from);
 
-                const questionAutoSendThreshold = parseFloat(process.env.AUTO_REPLY_QUESTION_THRESHOLD) || 0.6;
-                // HIGH CONFIDENCE question → auto-send (score >= 0.6, confidence >= 0.90, pas de warning)
-                if (score >= questionAutoSendThreshold && !qualityWarning && autoReply.confidence >= 0.90) {
-                  try {
-                    const ResendClient = require('../skills/automailer/resend-client.js');
-                    const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
-                    const sendResult = await resendClient.sendEmail(
-                      replyData.from,
-                      autoReply.subject,
-                      autoReply.body,
-                      { inReplyTo: originalMessageId, references: originalMessageId, fromName: clientContext.senderName }
-                    );
-                    if (sendResult && sendResult.success) {
-                      if (automailerStorageForInbox.setFirstSendDate) automailerStorageForInbox.setFirstSendDate();
-                      automailerStorageForInbox.incrementTodaySendCount();
-                      try {
-                        const inboxStorage = require('../skills/inbox-manager/storage.js');
-                        inboxStorage.addAutoReply({
-                          prospectEmail: replyData.from, prospectName: replyData.fromName,
-                          sentiment: 'question', subClassification: 'auto_question',
-                          objectionType: '', replyBody: autoReply.body, replySubject: autoReply.subject,
-                          originalEmailId: originalEmail && originalEmail.subject,
-                          confidence: autoReply.confidence, sendResult: sendResult
-                        });
-                      } catch (e) { log.warn('auto-reply', 'Record stats question: ' + e.message); }
-                      if (sendResult.messageId) {
-                        automailerStorageForInbox.addEmail({
-                          to: replyData.from, subject: autoReply.subject, body: autoReply.body,
-                          source: 'auto_reply_question', status: 'sent',
-                          messageId: sendResult.messageId, chatId: ADMIN_CHAT_ID
-                        });
-                      }
-                      autoReplyHandled = true;
-                      log.info('auto-reply', 'REPONSE AUTO QUESTION envoyee a ' + replyData.from + ' (score=' + score + ', conf=' + autoReply.confidence + ')');
-                    } else {
-                      throw new Error((sendResult && sendResult.error) || 'send failed');
-                    }
-                  } catch (sendErr) {
-                    log.warn('auto-reply', 'Echec auto question pour ' + replyData.from + ': ' + sendErr.message + ' — fallback HITL');
-                    const draftId = _hitlId();
-                    _pendingDrafts.set(draftId, {
-                      replyData, classification, subClass: { type: 'simple_question', objectionType: '' },
-                      autoReply, originalEmail, originalMessageId, clientContext,
-                      sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
-                    });
-                    hitlDraftCreated = true;
-                  }
-                } else {
-                  // LOW CONFIDENCE question → HITL classique
-                  const draftId = _hitlId();
-                  _pendingDrafts.set(draftId, {
-                    replyData, classification, subClass: { type: 'simple_question', objectionType: '' },
-                    autoReply, originalEmail, originalMessageId, clientContext,
-                    sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
-                  });
-                  hitlDraftCreated = true;
-                  log.info('hitl', 'Draft HITL cree: ' + draftId + ' pour ' + replyData.from + ' (question, score=' + score + ' < ' + questionAutoSendThreshold + ')');
-                }
+                const draftId = _hitlId();
+                _pendingDrafts.set(draftId, {
+                  replyData, classification, subClass: { type: 'simple_question', objectionType: '' },
+                  autoReply, originalEmail, originalMessageId, clientContext,
+                  sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
+                });
+                hitlDraftCreated = true;
+                log.info('hitl', 'Draft HITL cree: ' + draftId + ' pour ' + replyData.from + ' (question — validation humaine obligatoire)');
               }
             }
           }
