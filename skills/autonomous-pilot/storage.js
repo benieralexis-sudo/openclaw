@@ -747,6 +747,74 @@ function saveProspectResearch(email, intel) {
   _save();
 }
 
+// --- Data-Poor Queue (leads en attente de meilleures donnees) ---
+
+function addToDataPoorQueue(email, contact, reason) {
+  const data = _load();
+  if (!data.dataPoorQueue) data.dataPoorQueue = {};
+  const key = email.toLowerCase();
+  const existing = data.dataPoorQueue[key];
+  if (existing) {
+    existing.failCount = (existing.failCount || 1) + 1;
+    existing.lastFailAt = new Date().toISOString();
+    existing.reason = reason;
+  } else {
+    data.dataPoorQueue[key] = {
+      email: email,
+      contact: contact,
+      failCount: 1,
+      firstFailAt: new Date().toISOString(),
+      lastFailAt: new Date().toISOString(),
+      reason: reason
+    };
+  }
+  // Limiter a 200 entrees
+  const keys = Object.keys(data.dataPoorQueue);
+  if (keys.length > 200) {
+    const sorted = keys.sort((a, b) =>
+      new Date(data.dataPoorQueue[a].lastFailAt || 0) - new Date(data.dataPoorQueue[b].lastFailAt || 0)
+    );
+    for (const k of sorted.slice(0, keys.length - 200)) delete data.dataPoorQueue[k];
+  }
+  _save();
+}
+
+function getDataPoorLeadsReady() {
+  const data = _load();
+  if (!data.dataPoorQueue) return [];
+  const now = Date.now();
+  const ready = [];
+  for (const [key, entry] of Object.entries(data.dataPoorQueue)) {
+    // Cooldown progressif : 1 fail=7j, 2 fails=14j, 3+=skip definitif
+    if (entry.failCount >= 3) continue;
+    const cooldownDays = entry.failCount === 1 ? 7 : 14;
+    const elapsed = now - new Date(entry.lastFailAt).getTime();
+    if (elapsed >= cooldownDays * 24 * 60 * 60 * 1000) {
+      ready.push(entry);
+    }
+  }
+  return ready;
+}
+
+function removeFromDataPoorQueue(email) {
+  const data = _load();
+  if (!data.dataPoorQueue) return;
+  delete data.dataPoorQueue[email.toLowerCase()];
+  _save();
+}
+
+function getDataPoorStats() {
+  const data = _load();
+  if (!data.dataPoorQueue) return { total: 0, ready: 0, exhausted: 0 };
+  const entries = Object.values(data.dataPoorQueue);
+  const ready = getDataPoorLeadsReady();
+  return {
+    total: entries.length,
+    ready: ready.length,
+    exhausted: entries.filter(e => e.failCount >= 3).length
+  };
+}
+
 // --- Niche Performance Tracking (auto-pivot) ---
 
 function getNichePerformance() {
@@ -939,6 +1007,7 @@ module.exports = {
   getLearnings, addLearning, addExperiment, completeExperiment, getActiveExperiments,
   getPatterns, savePatterns, getCriteriaHistory, addCriteriaAdjustment,
   getProspectResearch, saveProspectResearch,
+  addToDataPoorQueue, getDataPoorLeadsReady, removeFromDataPoorQueue, getDataPoorStats,
   getNichePerformance, trackNicheEvent,
   getNicheHealth, updateNicheHealth, markNicheAlertSent, getNicheHealthSummary,
   trackUsedAngle, getRecentAnglesForIndustry,

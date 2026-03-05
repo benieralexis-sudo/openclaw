@@ -644,6 +644,48 @@ Format JSON strict :
     return { level, facts, reason };
   }
 
+  // Extrait le meilleur fait exploitable du brief prospect pour guider le retry
+  _extractBestFact(prospectIntel) {
+    if (!prospectIntel) return null;
+    const text = prospectIntel;
+
+    // Priorite 1 : Profil public (interview, podcast, conference)
+    const profileMatch = text.match(/PROFIL PUBLIC[^:]*:\s*\n-\s*\[[^\]]+\]\s*"([^"]+)"/i);
+    if (profileMatch) return profileMatch[1].substring(0, 100);
+
+    // Priorite 2 : News recente avec titre
+    const newsMatch = text.match(/NEWS RECENTES[^:]*:\s*\n-\s*"([^"]+)"/i);
+    if (newsMatch) return newsMatch[1].substring(0, 100);
+
+    // Priorite 3 : Intent signal
+    const intentMatch = text.match(/SIGNAUX INTENT:\s*\n-\s*\[[^\]]+\]\s*(.+)/i);
+    if (intentMatch) return intentMatch[1].trim().substring(0, 100);
+
+    // Priorite 4 : Signaux marche
+    const marketMatch = text.match(/SIGNAUX MARCHE:\s*\n-\s*\[[^\]]+\]\s*(.+)/i);
+    if (marketMatch) return marketMatch[1].trim().substring(0, 100);
+
+    // Priorite 5 : Clients/marques detectes
+    const clientMatch = text.match(/CLIENTS\/MARQUES DETECTES:\s*(.+)/i);
+    if (clientMatch && clientMatch[1].trim().length > 3) return 'Clients: ' + clientMatch[1].trim().substring(0, 80);
+
+    // Priorite 6 : Recrutement actif
+    const hiringMatch = text.match(/RECRUTEMENT ACTIF:\s*(.+)/i);
+    if (hiringMatch) return hiringMatch[1].trim().substring(0, 100);
+
+    // Priorite 7 : Stack technique
+    const techMatch = text.match(/STACK TECHNIQUE:\s*(.+)/i);
+    if (techMatch) return 'Stack: ' + techMatch[1].trim().substring(0, 80);
+
+    // Priorite 8 : Chiffre d'affaires ou effectif
+    const caMatch = text.match(/(?:CA|chiffre):\s*([^\n,)]+)/i);
+    if (caMatch) return caMatch[1].trim();
+    const empMatch = text.match(/(\d+)\s*employes/i);
+    if (empMatch) return empMatch[0];
+
+    return null;
+  }
+
   // --- Envoi d'email (apres confirmation) ---
   async _sendEmail(params) {
     // FORCE _generateFirst : TOUJOURS passer par ProspectResearcher + ClaudeEmailWriter
@@ -887,6 +929,13 @@ Format JSON strict :
       // Si le writer retourne skip:true = donnees insuffisantes pour personnalisation
       if (genResult.email.skip) {
         log.info('action-executor', 'Email skip pour ' + params.to + ': ' + (genResult.email.reason || 'donnees insuffisantes'));
+        // Action 3 : ajouter a la data-poor queue au lieu de perdre le lead
+        if (params.contact && params.to) {
+          try {
+            storage.addToDataPoorQueue(params.to, params.contact, genResult.email.reason || 'donnees insuffisantes');
+            log.info('action-executor', 'Lead ' + params.to + ' ajoute a la data-poor queue (re-recherche dans 7j)');
+          } catch (e) {}
+        }
         return { success: false, error: 'Donnees insuffisantes pour email personnalise', skipped: true };
       }
       params.subject = genResult.email.subject;
@@ -897,7 +946,17 @@ Format JSON strict :
         const specificity = this._checkEmailSpecificity(params.body, params.subject, params._prospectIntel);
         if (specificity.level === 'generic') {
           log.warn('action-executor', 'Quality gate FAIL pour ' + params.to + ': ' + specificity.reason + ' — regeneration');
-          params._prospectIntel += '\n\n=== INSTRUCTION CRITIQUE ===\nL\'email precedent etait TROP GENERIQUE. Tu DOIS citer un FAIT SPECIFIQUE tire des donnees prospect ci-dessus : un client, un chiffre, une technologie, un evenement recent, un service precis. Si aucun fait specifique n\'est disponible, retourne {"skip": true, "reason": "donnees insuffisantes pour email specifique"}.';
+          // Action 4 : extraire le meilleur fait exploitable du brief pour guider le retry
+          const bestFact = this._extractBestFact(params._prospectIntel);
+          let retryInstruction = '\n\n=== INSTRUCTION CRITIQUE ===\nL\'email precedent etait TROP GENERIQUE.';
+          if (bestFact) {
+            retryInstruction += '\nFAIT A UTILISER OBLIGATOIREMENT: "' + bestFact + '"';
+            retryInstruction += '\nConstruit ton email AUTOUR de ce fait. Cite-le explicitement dans le bloc 1.';
+          } else {
+            retryInstruction += '\nTu DOIS citer un FAIT SPECIFIQUE tire des donnees prospect ci-dessus : un client, un chiffre, une technologie, un evenement recent, un service precis.';
+          }
+          retryInstruction += '\nSi aucun fait specifique n\'est disponible, retourne {"skip": true, "reason": "donnees insuffisantes pour email specifique"}.';
+          params._prospectIntel += retryInstruction;
           params.subject = null;
           params.body = null;
           const retryResult = await this._generateEmail(params);
@@ -907,11 +966,19 @@ Format JSON strict :
             const retrySpecificity = this._checkEmailSpecificity(params.body, params.subject, params._prospectIntel);
             if (retrySpecificity.level === 'generic') {
               log.warn('action-executor', 'Quality gate STILL GENERIC apres retry pour ' + params.to + ' — skip');
+              if (params.contact && params.to) {
+                try { storage.addToDataPoorQueue(params.to, params.contact, 'email trop generique apres retry'); } catch (e) {}
+                log.info('action-executor', 'Lead ' + params.to + ' ajoute a la data-poor queue (re-recherche dans 7j)');
+              }
               return { success: false, error: 'Email trop generique meme apres retry', skipped: true };
             }
             log.info('action-executor', 'Quality gate OK apres retry pour ' + params.to + ': ' + retrySpecificity.facts.join(', '));
           } else if (retryResult.email && retryResult.email.skip) {
             log.info('action-executor', 'Quality gate → skip pour ' + params.to + ': donnees insuffisantes');
+            if (params.contact && params.to) {
+              try { storage.addToDataPoorQueue(params.to, params.contact, 'donnees insuffisantes apres quality gate'); } catch (e) {}
+              log.info('action-executor', 'Lead ' + params.to + ' ajoute a la data-poor queue (re-recherche dans 7j)');
+            }
             return { success: false, error: 'Skip: donnees insuffisantes pour email specifique', skipped: true };
           } else {
             return { success: false, error: 'Regeneration echouee apres quality gate' };
@@ -1250,6 +1317,9 @@ Format JSON strict :
         } catch (campErr) {
           log.warn('action-executor', 'Auto-campagne echouee pour ' + params.to + ': ' + campErr.message);
         }
+
+        // Retirer de la data-poor queue si present (re-essai reussi)
+        try { storage.removeFromDataPoorQueue(params.to); } catch (e) {}
 
         return {
           success: true,

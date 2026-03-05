@@ -345,9 +345,18 @@ class ProspectResearcher {
       const cached = apStorage.getProspectResearch ? apStorage.getProspectResearch(email) : null;
       if (cached && cached.cachedAt) {
         const cacheAge = Date.now() - new Date(cached.cachedAt).getTime();
-        if (cacheAge < 7 * 24 * 60 * 60 * 1000) { // 7 jours TTL
+        // Si le lead est dans la data-poor queue, forcer la re-recherche (cache expire)
+        let isDataPoor = false;
+        try {
+          const dpReady = apStorage.getDataPoorLeadsReady ? apStorage.getDataPoorLeadsReady() : [];
+          isDataPoor = dpReady.some(dp => dp.email && dp.email.toLowerCase() === email.toLowerCase());
+        } catch (e) {}
+        if (!isDataPoor && cacheAge < 7 * 24 * 60 * 60 * 1000) { // 7 jours TTL
           log.info('prospect-research', 'Cache hit pour ' + email);
           return cached;
+        }
+        if (isDataPoor) {
+          log.info('prospect-research', 'Cache ignore pour ' + email + ' (data-poor lead, re-recherche forcee)');
         }
       }
     }
@@ -473,13 +482,68 @@ class ProspectResearcher {
       researchedAt: new Date().toISOString()
     };
 
-    // Auto-intent signal : recrutement massif
+    // Auto-intent signals enrichis
     if (intel.jobPostings && intel.jobPostings.totalJobs >= 3) {
-      intel.intentSignals.push({
-        type: 'active_hiring',
-        detail: intel.jobPostings.totalJobs + ' postes ouverts' +
-          (intel.jobPostings.categories.sales > 0 ? ' (dont ' + intel.jobPostings.categories.sales + ' commerciaux)' : '')
+      // Recrutement massif — categoriser par signification business
+      let hiringDetail = intel.jobPostings.totalJobs + ' postes ouverts';
+      const cats = intel.jobPostings.categories;
+      if (cats.sales > 0 && cats.sales >= cats.tech) {
+        hiringDetail += ' (dont ' + cats.sales + ' commerciaux — signal de croissance revenue)';
+        intel.intentSignals.push({ type: 'scaling_sales', detail: hiringDetail });
+      } else if (cats.tech > 0 && cats.tech >= cats.sales) {
+        hiringDetail += ' (dont ' + cats.tech + ' tech — signal de build produit)';
+        intel.intentSignals.push({ type: 'building_product', detail: hiringDetail });
+      } else {
+        intel.intentSignals.push({ type: 'active_hiring', detail: hiringDetail });
+      }
+    }
+
+    // Croissance d'effectif (Apollo vs Pappers)
+    if (intel.apolloData && intel.pappersData) {
+      const apolloCount = intel.apolloData.employeeCount;
+      const pappersCount = typeof intel.pappersData.effectif === 'number' ? intel.pappersData.effectif : null;
+      if (apolloCount && pappersCount && apolloCount > pappersCount * 1.3) {
+        intel.intentSignals.push({
+          type: 'headcount_growth',
+          detail: 'Effectif en croissance: ' + pappersCount + ' (Pappers) → ' + apolloCount + ' (Apollo) — +' + Math.round((apolloCount / pappersCount - 1) * 100) + '%'
+        });
+      }
+    }
+
+    // Signaux dans les news recentes
+    if (intel.recentNews && intel.recentNews.length > 0) {
+      const newsSignalPatterns = [
+        { pattern: /lev[ée]e?\s+de\s+fonds?|funding|s[ée]rie\s+[A-D]|lève\s+\d/i, type: 'recent_funding', label: 'Levee de fonds' },
+        { pattern: /lance|lancement|nouveau\s+produit|nouvelle\s+offre|v2|version\s+\d/i, type: 'new_product', label: 'Nouveau produit/offre' },
+        { pattern: /s['']?implante|ouvre\s+un\s+bureau|expansion|s['']?installe\s+[àa]/i, type: 'geo_expansion', label: 'Expansion geographique' },
+        { pattern: /acquisition|rach[èe]te|rachat|absorbe/i, type: 'acquisition', label: 'Acquisition' },
+        { pattern: /partenariat|s['']?associe|collaboration\s+avec/i, type: 'partnership', label: 'Nouveau partenariat' },
+        { pattern: /nomm[ée]|rejoint|nouveau\s+directeur|nouvelle?\s+DG|prend\s+la\s+t[êe]te/i, type: 'leadership_change', label: 'Changement de direction' }
+      ];
+      for (const news of intel.recentNews.slice(0, 5)) {
+        const newsText = (news.title || '') + ' ' + (news.snippet || '');
+        for (const sp of newsSignalPatterns) {
+          if (sp.pattern.test(newsText) && !intel.intentSignals.some(s => s.type === sp.type)) {
+            intel.intentSignals.push({ type: sp.type, detail: sp.label + ': ' + (news.title || '').substring(0, 80) });
+            break; // un signal par news max
+          }
+        }
+      }
+    }
+
+    // Changement de direction recent (Pappers)
+    if (intel.pappersData && intel.pappersData.dirigeants) {
+      const recentDirs = intel.pappersData.dirigeants.filter(d => {
+        if (!d.dateDebut) return false;
+        const debut = new Date(d.dateDebut);
+        return (Date.now() - debut.getTime()) < 365 * 24 * 60 * 60 * 1000; // moins d'1 an
       });
+      if (recentDirs.length > 0 && !intel.intentSignals.some(s => s.type === 'leadership_change')) {
+        intel.intentSignals.push({
+          type: 'leadership_change',
+          detail: 'Nouveau dirigeant: ' + recentDirs[0].nom + (recentDirs[0].fonction ? ' (' + recentDirs[0].fonction + ')' : '') + ' depuis ' + recentDirs[0].dateDebut
+        });
+      }
     }
 
     // === GATE 2 : Coherence Niche / Site Web ===
@@ -561,16 +625,32 @@ class ProspectResearcher {
         textContent: ''
       };
 
-      // 2. Pages internes cibles (parallele, timeout 5s)
-      const targetPaths = [
-        '/clients', '/nos-clients', '/references', '/nos-references',
-        '/realisations', '/nos-realisations', '/portfolio', '/cas-clients',
-        '/about', '/a-propos', '/qui-sommes-nous',
-        '/services', '/nos-services', '/expertises',
-        '/temoignages', '/projets', '/equipe', '/team'
-      ];
+      // 2. Extraire les liens internes depuis la homepage (trouve les vraies pages au lieu de deviner)
+      let discoveredPaths = [];
+      if (result.rawHtml) {
+        const linkRegex = /href=["'](\/[a-z0-9\-\/]+)["']/gi;
+        const seen = new Set();
+        let lm;
+        const relevantKeywords = /about|a-propos|qui-sommes|equipe|team|services|nos-services|expertises|clients|nos-clients|references|realisations|portfolio|cas-clients|temoignages|projets|offres|solutions|partenaires|histoire|mission/i;
+        while ((lm = linkRegex.exec(result.rawHtml)) !== null) {
+          const path = lm[1].replace(/\/+$/, '').toLowerCase();
+          if (path && path.length > 1 && path.length < 50 && !seen.has(path) && relevantKeywords.test(path) && !path.includes('.') && path.split('/').length <= 3) {
+            seen.add(path);
+            discoveredPaths.push(path);
+          }
+        }
+      }
+
+      // Fallback : si peu de liens decouverts, ajouter les pages haute probabilite
+      const fallbackPaths = ['/about', '/a-propos', '/qui-sommes-nous', '/services', '/nos-services'];
+      for (const fp of fallbackPaths) {
+        if (!discoveredPaths.some(p => p === fp)) discoveredPaths.push(fp);
+      }
+      // Limiter a 8 pages max pour eviter trop de requetes
+      discoveredPaths = discoveredPaths.slice(0, 8);
+
       const internalResults = await Promise.allSettled(
-        targetPaths.slice(0, 6).map(p =>
+        discoveredPaths.map(p =>
           this._fetchInternalPage(fetcher, 'https://' + domain + p, p)
         )
       );

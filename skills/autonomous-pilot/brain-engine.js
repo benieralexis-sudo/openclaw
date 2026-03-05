@@ -1232,6 +1232,23 @@ Analyse et reponds en JSON:
         } else {
           prompt += '\n⚠️ AUCUN lead eligible pour envoi (tous deja contactes, score trop bas, ou recemment echoues). PRIORITE ABSOLUE: fais 2-3 search_leads dans des niches DIFFERENTES pour reconstituer le pool.\n';
         }
+        // Data-poor leads prets pour re-recherche (Action 3)
+        try {
+          const dataPoorReady = storage.getDataPoorLeadsReady();
+          if (dataPoorReady.length > 0) {
+            prompt += '\nLEADS DATA-POOR PRETS POUR RE-ESSAI (cooldown expire, nouvelles donnees potentielles):\n';
+            for (const dp of dataPoorReady.slice(0, 5)) {
+              const c = dp.contact || {};
+              prompt += '- ' + dp.email + ' | ' + (c.nom || '?') + ' @ ' + (c.entreprise || '?') + ' | echecs: ' + dp.failCount + ' | raison: ' + (dp.reason || '?') + '\n';
+            }
+            prompt += '→ Ces leads ont echoue par manque de donnees mais le cooldown est expire. Re-tente send_email — la recherche sera relancee avec cache expire.\n';
+          }
+          const dpStats = storage.getDataPoorStats();
+          if (dpStats.total > 0) {
+            prompt += '📊 Data-poor queue: ' + dpStats.total + ' leads (' + dpStats.ready + ' prets, ' + dpStats.exhausted + ' abandonnes)\n';
+          }
+        } catch (e) {}
+
         // Leads deja contactes sans reponse (pour follow-up)
         const contacted = Object.values(allLeadsEligible)
           .filter(l => l.email && alreadySent.has(l.email.toLowerCase()))
