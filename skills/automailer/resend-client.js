@@ -116,10 +116,12 @@ class ResendClient {
     options = options || {};
     const toEmail = Array.isArray(to) ? to[0] : to;
     const fromName = options.fromName || process.env.SENDER_NAME || 'Alexis';
-    // Utiliser la boîte passée en paramètre ou fallback sur this.gmailUser
-    const smtpUser = mailbox ? mailbox.user : this.gmailUser;
-    const smtpPass = mailbox ? mailbox.pass : this.gmailPass;
-    const smtpDomain = smtpUser.split('@')[1] || process.env.CLIENT_DOMAIN || 'ifind.fr';
+    // Adresse "From" (alias du domaine selectionne)
+    const fromEmail = mailbox ? mailbox.user : this.gmailUser;
+    // Auth SMTP : toujours avec le compte principal (les alias ne peuvent pas s'authentifier)
+    const smtpAuthUser = process.env.GMAIL_SMTP_USER || this.gmailUser;
+    const smtpAuthPass = mailbox ? mailbox.pass : this.gmailPass;
+    const smtpDomain = fromEmail.split('@')[1] || process.env.CLIENT_DOMAIN || 'ifind.fr';
 
     // Construire le message MIME
     const boundary = 'boundary_' + crypto.randomBytes(8).toString('hex');
@@ -127,10 +129,10 @@ class ResendClient {
     const htmlBody = options.html || this._minimalHtml(body, options.trackingId, toEmail);
     const trackingDomain = process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr';
 
-    const replyTo = options.replyTo || process.env.REPLY_TO_EMAIL || smtpUser;
+    const replyTo = options.replyTo || process.env.REPLY_TO_EMAIL || fromEmail;
 
     const mime = [
-      'From: ' + fromName + ' <' + smtpUser + '>',
+      'From: ' + fromName + ' <' + fromEmail + '>',
       'Reply-To: ' + replyTo,
       'To: ' + toEmail,
       'Subject: =?UTF-8?B?' + Buffer.from(subject).toString('base64') + '?=',
@@ -192,15 +194,15 @@ class ResendClient {
               // AUTH LOGIN
               const authResp = await this._smtpCommand(currentSocket, 'AUTH LOGIN');
               if (!authResp.startsWith('334')) { cleanup(); return safeReject(new Error('AUTH failed: ' + authResp)); }
-              // Username
-              const userResp = await this._smtpCommand(currentSocket, Buffer.from(smtpUser).toString('base64'));
+              // Username (auth avec compte principal)
+              const userResp = await this._smtpCommand(currentSocket, Buffer.from(smtpAuthUser).toString('base64'));
               if (!userResp.startsWith('334')) { cleanup(); return safeReject(new Error('AUTH user failed: ' + userResp)); }
               // Password
-              const passResp = await this._smtpCommand(currentSocket, Buffer.from(smtpPass).toString('base64'));
+              const passResp = await this._smtpCommand(currentSocket, Buffer.from(smtpAuthPass).toString('base64'));
               if (!passResp.startsWith('235')) { cleanup(); return safeReject(new Error('AUTH pass failed: ' + passResp)); }
 
-              // MAIL FROM
-              const fromResp = await this._smtpCommand(currentSocket, 'MAIL FROM:<' + smtpUser + '>');
+              // MAIL FROM (alias du domaine selectionne)
+              const fromResp = await this._smtpCommand(currentSocket, 'MAIL FROM:<' + fromEmail + '>');
               if (!fromResp.startsWith('250')) { cleanup(); return safeReject(new Error('MAIL FROM failed: ' + fromResp)); }
               // RCPT TO
               const rcptResp = await this._smtpCommand(currentSocket, 'RCPT TO:<' + toEmail + '>');
