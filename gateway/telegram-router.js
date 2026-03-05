@@ -764,7 +764,7 @@ inboxListener = InboxListener ? new InboxListener({
             }
           }
 
-          // --- Cas 3: Interested → HITL (NOUVEAU) ---
+          // --- Cas 3: Interested → AUTO-REPLY IMMEDIAT si haute confiance, sinon HITL ---
           else if (sentiment === 'interested') {
             const autoReply = await generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
 
@@ -772,14 +772,94 @@ inboxListener = InboxListener ? new InboxListener({
               const qualityWarning = _checkDraftQuality(autoReply);
               if (qualityWarning) log.warn('hitl', 'Draft quality warning: ' + qualityWarning + ' pour ' + replyData.from);
 
-              const draftId = _hitlId();
-              _pendingDrafts.set(draftId, {
-                replyData, classification, subClass: { type: 'interested', objectionType: '' },
-                autoReply, originalEmail, originalMessageId, clientContext,
-                sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
-              });
-              hitlDraftCreated = true;
-              log.info('hitl', 'Draft HITL cree: ' + draftId + ' pour ' + replyData.from + ' (interested)');
+              const autoSendThreshold = parseFloat(process.env.AUTO_REPLY_INTERESTED_THRESHOLD) || 0.85;
+
+              // HIGH CONFIDENCE + pas de warning → FULL AUTO (envoie immediatement)
+              if (score >= autoSendThreshold && !qualityWarning && autoReply.confidence >= 0.85) {
+                try {
+                  const ResendClient = require('../skills/automailer/resend-client.js');
+                  const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
+                  const sendResult = await resendClient.sendEmail(
+                    replyData.from,
+                    autoReply.subject,
+                    autoReply.body,
+                    {
+                      inReplyTo: originalMessageId,
+                      references: originalMessageId,
+                      fromName: clientContext.senderName
+                    }
+                  );
+
+                  if (sendResult && sendResult.success) {
+                    if (automailerStorageForInbox.setFirstSendDate) automailerStorageForInbox.setFirstSendDate();
+                    automailerStorageForInbox.incrementTodaySendCount();
+
+                    // Tracker dans inbox-manager storage
+                    try {
+                      const inboxStorage = require('../skills/inbox-manager/storage.js');
+                      inboxStorage.addAutoReply({
+                        prospectEmail: replyData.from,
+                        prospectName: replyData.fromName,
+                        sentiment: 'interested',
+                        subClassification: 'auto_instant',
+                        objectionType: '',
+                        replyBody: autoReply.body,
+                        replySubject: autoReply.subject,
+                        originalEmailId: originalEmail && originalEmail.subject,
+                        confidence: autoReply.confidence,
+                        sendResult: sendResult
+                      });
+                    } catch (e) { log.warn('auto-reply', 'Record stats: ' + e.message); }
+
+                    // Stocker messageId pour threading futur
+                    if (sendResult.messageId) {
+                      automailerStorageForInbox.addEmail({
+                        to: replyData.from,
+                        subject: autoReply.subject,
+                        body: autoReply.body,
+                        source: 'auto_reply_interested',
+                        status: 'sent',
+                        messageId: sendResult.messageId,
+                        chatId: ADMIN_CHAT_ID
+                      });
+                    }
+
+                    autoReplyHandled = true;
+                    log.info('auto-reply', 'REPONSE AUTO INSTANTANEE envoyee a ' + replyData.from + ' (score=' + score + ', conf=' + autoReply.confidence + ')');
+                  } else {
+                    log.error('auto-reply', 'Echec envoi auto pour ' + replyData.from + ': ' + (sendResult && sendResult.error));
+                    // Fallback HITL si l'envoi echoue
+                    const draftId = _hitlId();
+                    _pendingDrafts.set(draftId, {
+                      replyData, classification, subClass: { type: 'interested', objectionType: '' },
+                      autoReply, originalEmail, originalMessageId, clientContext,
+                      sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
+                    });
+                    hitlDraftCreated = true;
+                  }
+                } catch (sendErr) {
+                  log.error('auto-reply', 'Erreur envoi auto:', sendErr.message);
+                  // Fallback HITL
+                  const draftId = _hitlId();
+                  _pendingDrafts.set(draftId, {
+                    replyData, classification, subClass: { type: 'interested', objectionType: '' },
+                    autoReply, originalEmail, originalMessageId, clientContext,
+                    sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
+                  });
+                  hitlDraftCreated = true;
+                }
+              }
+              // LOW CONFIDENCE ou quality warning → HITL classique (validation humaine)
+              else {
+                const draftId = _hitlId();
+                _pendingDrafts.set(draftId, {
+                  replyData, classification, subClass: { type: 'interested', objectionType: '' },
+                  autoReply, originalEmail, originalMessageId, clientContext,
+                  sentiment, emailsToProcess, qualityWarning, createdAt: Date.now()
+                });
+                hitlDraftCreated = true;
+                log.info('hitl', 'Draft HITL cree: ' + draftId + ' pour ' + replyData.from + ' (interested, score=' + score + ' < seuil ' + autoSendThreshold + ' ou quality warning)');
+              }
             }
           }
 
@@ -986,6 +1066,7 @@ inboxListener = InboxListener ? new InboxListener({
       deferred_ooo: '🏖️ Reporte (OOO)',
       deferred_ooo_rescheduled: '🏖️📅 OOO — relance auto programmee',
       bounce_blacklist: '💀 Blackliste (bounce)',
+      auto_reply_interested: '🚀⚡ REPONSE AUTO INSTANTANEE — booking propose !',
       auto_reply_not_interested: '🤖💬 Bot a contre-argumente',
       auto_reply_question: '🤖💬 Bot a repondu a la question',
       auto_reply_out_of_office: '🤖📅 OOO — relance auto programmee',

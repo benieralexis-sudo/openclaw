@@ -97,7 +97,7 @@ Classifie le message en une action JSON.
 Actions :
 - "create_campaign" : veut creer/lancer une campagne ou sequence d'emails
   Ex: "lance une campagne", "sequence de 3 mails pour mes prospects", "je veux emailer ma liste", "nouvelle campagne de relance"
-  Params: {"name":"nom optionnel","steps":3,"interval_days":3}
+  Params: {"name":"nom optionnel","steps":4,"interval_days":3}
 
 - "list_campaigns" : veut voir ses campagnes / savoir ou en sont ses campagnes
   Ex: "mes campagnes", "ou en sont les envois ?", "comment se passent mes campagnes ?", "ca donne quoi les campagnes ?"
@@ -152,7 +152,7 @@ ${listContext}
 ${campaignContext}
 
 JSON strict, exemples :
-{"action":"create_campaign","params":{"name":"Ma campagne","steps":3,"interval_days":4}}
+{"action":"create_campaign","params":{"name":"Ma campagne","steps":4,"interval_days":3}}
 {"action":"send_single","params":{"to":"jean@example.com","context":"proposer une demo"}}
 {"action":"import_contacts","params":{"list_name":"Prospects"}}
 {"action":"confirm_yes"}
@@ -663,7 +663,7 @@ JSON strict, exemples :
         // Parser "3 emails tous les 4 jours" ou juste "3"
         const numMatch = text.match(/(\d+)/);
         const intervalMatch = text.match(/(\d+)\s*jours?/i);
-        conv.data.steps = numMatch ? parseInt(numMatch[1]) : 3;
+        conv.data.steps = numMatch ? parseInt(numMatch[1]) : 4;
         conv.data.intervalDays = intervalMatch ? parseInt(intervalMatch[1]) : 3;
         if (conv.data.steps < 1) conv.data.steps = 1;
         if (conv.data.steps > 10) conv.data.steps = 10;

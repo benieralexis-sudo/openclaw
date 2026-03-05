@@ -134,7 +134,7 @@ class ClaudeEmailWriter {
 
   async generateSingleEmail(contact, context) {
     // Lire les preferences depuis Self-Improve (si disponible)
-    let emailLengthHint = '30-50 mots max (JAMAIS plus de 50)';
+    let emailLengthHint = '50-80 mots (vise 65, JAMAIS plus de 80)';
     let subjectStyleHint = '';
     let siPrefs = null;
     try {
@@ -148,8 +148,8 @@ class ClaudeEmailWriter {
     }
     if (siPrefs) {
       // maxLength est un string "short"/"medium"/"long"
-      if (siPrefs.maxLength === 'short') emailLengthHint = '20-35 mots max (ultra-court)';
-      else if (siPrefs.maxLength === 'long') emailLengthHint = '40-60 mots max';
+      if (siPrefs.maxLength === 'short') emailLengthHint = '50-65 mots (court mais substantiel)';
+      else if (siPrefs.maxLength === 'long') emailLengthHint = '65-100 mots';
       // subjectStyle : directive pour le style d'objet
       if (siPrefs.subjectStyle) subjectStyleHint = '\nSTYLE OBJET RECOMMANDE : ' + siPrefs.subjectStyle;
       if (siPrefs.preferredSubjectLength) subjectStyleHint += ' (' + siPrefs.preferredSubjectLength + ' mots max)';
@@ -189,12 +189,13 @@ BUT UNIQUE : une REPONSE. Pas une ouverture, pas un clic — une reponse.
 
 === CE QUI FAIT UN 10/10 ===
 
-Un cold email parfait = 2 ELEMENTS et RIEN D'AUTRE :
+Un cold email parfait = 3 ELEMENTS :
 1. UN FAIT SPECIFIQUE (chiffre, nom, date, evenement — tire des donnees)
 2. UNE QUESTION IRRESISTIBLE (le prospect pense "tiens, bonne question")
+3. UN CTA SOFT (une ouverture naturelle, pas un pitch)
 
-30-50 mots MAXIMUM. Pas 51. Pas 60. Pas 80. TRENTE A CINQUANTE.
-ZERO analyse. ZERO lecon. ZERO explication. Tu CONSTATES un fait, tu POSES une question. POINT.
+50-80 mots. Pas 30 (trop sec), pas 120 (trop long). CINQUANTE A QUATRE-VINGTS.
+ZERO analyse. ZERO lecon. ZERO explication. Tu CONSTATES un fait, tu POSES une question, tu OUVRES la porte. POINT.
 ANTI-HALLUCINATION : N'invente JAMAIS un fait. Si un chiffre, un client, un evenement n'apparait PAS dans les donnees prospect, tu ne le cites PAS. Tu ne devines pas. Tu ne brodes pas. Chaque fait doit etre tracable dans les DONNEES PROSPECT ci-dessous.
 Si entre le fait et la question tu as envie d'ecrire un paragraphe qui commence par "Ce type de...", "Le vrai cap...", "Ce qui distingue..." → SUPPRIME-LE. Le prospect n'a pas besoin de ton analyse de son business.
 
@@ -231,10 +232,10 @@ Skip si tu n'as AUCUN de ces elements : nom d'entreprise, poste, ville, industri
 Si tu as AU MOINS entreprise + poste → tu DOIS ecrire (priorite 4.5 ci-dessus).
 → {"skip": true, "reason": "donnees insuffisantes"} UNIQUEMENT si l'email ne contient meme pas un nom d'entreprise.
 
-=== FORMAT STRICT : 2 BLOCS, ${emailLengthHint} ===
+=== FORMAT STRICT : 3 BLOCS, ${emailLengthHint} ===
 
-BLOC 1 — FAIT (1-2 lignes, PAS PLUS)
-UN fait tire des donnees. Chiffre, nom propre, date, evenement. EN UNE PHRASE.
+BLOC 1 — FAIT (1-3 lignes)
+UN fait tire des donnees. Chiffre, nom propre, date, evenement. Developpe JUSTE ASSEZ pour montrer que tu as fait tes devoirs.
 INTERDIT : "Ce type de...", "Ce qui distingue...", "Le vrai cap c'est...", "Ca veut dire que..."
 Tu ne COMMENTES pas le fait. Tu le POSES. Le prospect comprend tout seul.
 
@@ -245,9 +246,18 @@ UNE question courte qui donne envie de repondre. Formats :
 - Binaire : "Timing choisi ou impose ?"
 - Contextuelle : "Ca donne quoi depuis ?"
 
-REGLE ABSOLUE : 30-50 mots. Si tu depasses 50 mots, COUPE. Coupe le paragraphe d'analyse. Coupe la deuxieme phrase du bloc 1. Coupe l'explication. Vise 35 mots.
+BLOC 3 — CTA SOFT (1 ligne, APRES la question)
+UNE ouverture naturelle et decontractee. PAS de lien, PAS de "je te propose un call", PAS de pitch.
+Formats :
+- "Si le sujet te parle, je suis dispo pour en discuter."
+- "Dispo pour en parler si ca t'interesse."
+- "Curieux d'avoir ton retour la-dessus."
+- "Ca vaut un echange rapide ?"
+JAMAIS : "je te propose un RDV", "15 min pour en discuter ?", "voici mon calendrier"
 
-TEST MENTAL : si tu retires les 2 phrases du milieu et que l'email est MEILLEUR → elles n'auraient jamais du etre la.
+REGLE ABSOLUE : 50-80 mots. Vise 65 mots. Si tu depasses 80, COUPE le paragraphe d'analyse. Si tu es sous 50, developpe le fait avec un detail supplementaire.
+
+TEST MENTAL : si tu retires les phrases du milieu et que l'email est MEILLEUR → elles n'auraient jamais du etre la.
 
 === MICRO-VARIATIONS ANTI-REPETITION ===
 Chaque email DOIT avoir une structure unique. Varie subtilement :
@@ -257,23 +267,33 @@ Chaque email DOIT avoir une structure unique. Varie subtilement :
 - Structure : parfois observation PUIS question, parfois question EN PREMIER puis observation
 Ne JAMAIS utiliser la meme ouverture deux emails de suite.
 
-=== EXEMPLES 10/10 (COPIE CE NIVEAU) ===
+=== EXEMPLES 10/10 (COPIE CE NIVEAU — 50-80 mots) ===
 
-Avec NEWS (34 mots) :
-"Damien, 22M leves et depart aux US — les boites de vision francaises qui ont fait le move avant se sont toutes cassees les dents au meme endroit : zero notoriete la-bas.
+Avec NEWS + CTA (65 mots) :
+"Damien, 22M leves et depart aux US — les boites de vision francaises qui ont fait le move avant se sont toutes cassees les dents au meme endroit : zero notoriete la-bas. Le playbook classique (salons + partnerships) met 18 mois a produire du pipeline.
 
-Tu construis la presence comment ?"
+Tu construis la presence comment ?
 
-Avec CLIENTS (25 mots) :
-"Clement, Kiliba genere les campagnes pour 1000+ PME. L'ironie c'est que pour trouver ces PME, c'est probablement encore du manuel.
+Si le sujet te parle, dispo pour en discuter."
 
-C'est le cas ?"
+Avec CLIENTS + CTA (55 mots) :
+"Clement, Kiliba genere les campagnes pour 1000+ PME — belle traction sur le mid-market. L'ironie c'est que pour trouver ces PME, la plupart des SaaS a votre stade font encore du manuel ou du LinkedIn un par un.
 
-Avec PROFIL PUBLIC (30 mots) :
-"Damien, dans ton interview Son-Video tu parles du choix local vs cloud pour Audirvana. Les fabricants de DAC qui vous integrent — canal de distrib a part entiere ou co-branding ?"
+C'est le cas chez vous ?
 
-Avec TECHNO (22 mots) :
-"Sophie, Shopify Plus avec Klaviyo et Gorgias — stack e-commerce mature. L'acquisition c'est aussi carre ou c'est du bricolage ?"
+Curieux d'avoir ton retour."
+
+Avec PROFIL PUBLIC + CTA (62 mots) :
+"Damien, dans ton interview Son-Video tu parles du choix local vs cloud pour Audirvana. Le positionnement lecteur reseau haut de gamme, c'est un vrai pivot — les fabricants de DAC qui vous integrent, c'est un canal de distribution a part entiere ou du co-branding ?
+
+Dispo pour en parler si ca t'interesse."
+
+Avec TECHNO + CTA (58 mots) :
+"Sophie, Shopify Plus avec Klaviyo et Gorgias — stack e-commerce mature, c'est rare pour une marque de cette taille. Le fait que vous ayez pousse aussi loin cote outils, ca veut dire que l'acquisition client est aussi structuree ?
+
+Ou c'est encore le point de friction ?
+
+Ca vaut un echange rapide ?"
 
 === ERREURS FATALES — EXEMPLES REELS CORRIGES ===
 
@@ -282,14 +302,22 @@ AVANT (6/10 — trop long, donneur de lecon) :
 → POURQUOI C'EST NUL : paragraphe d'analyse LinkedIn + lecon sur son propre business
 
 APRES (10/10) :
-"Thibault, rachat HCS Pharma + nouvelle usine + partenariat Anses — trois chantiers en parallele. C'est un timing choisi ou le marche a impose le rythme ?" (25 mots)
+"Thibault, rachat HCS Pharma + nouvelle usine + partenariat Anses — trois chantiers en parallele. Le timing est serre et la pression pipeline ne va pas se regler toute seule.
+
+C'est un timing choisi ou le marche a impose le rythme ?
+
+Dispo si tu veux en parler." (55 mots)
 
 AVANT (6/10 — lecon au prospect) :
 "Ton site s'adresse aux promoteurs et aux commercialisateurs — deux profils avec des temporalites tres differentes. Le promoteur a besoin de visibilite tot. Le commercialisateur a besoin de contacts chauds."
 → POURQUOI C'EST NUL : tu expliques au mec son propre metier
 
 APRES (10/10) :
-"Emmanuel, promoteurs et commercialisateurs sur la meme plateforme — deux timings completement differents. C'est toi qui absorbes le decalage ou chaque partenaire gere ?" (22 mots)
+"Emmanuel, promoteurs et commercialisateurs sur la meme plateforme — deux timings completement differents. Le promoteur veut de la visibilite tot, le commercialisateur veut des contacts chauds.
+
+C'est toi qui absorbes le decalage ou chaque partenaire gere ?
+
+Curieux d'avoir ton retour." (52 mots)
 
 GENERIQUES A NE JAMAIS REPRODUIRE :
 - "Diriger une agence marketing, le plus dur c'est..." → CLICHE SECTORIEL
@@ -428,18 +456,20 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     const prompt = `Note cet email de prospection B2B de 1 a 10. Sois TRES STRICT.
 
 CRITERES 10/10 :
-- 30-50 mots (penalise si > 50)
+- 50-80 mots (penalise si < 40 ou > 100)
 - UN fait specifique (chiffre, nom propre, date, evenement)
 - UNE question irresistible
+- UN CTA soft naturel (pas de lien, pas de pitch)
 - ZERO paragraphe d'analyse entre le fait et la question
 - ZERO meta-prospection (ne demande PAS "comment tu prospectes/acquiers des clients/generes des leads")
 - ZERO lecon au prospect (pas de "Ce type de...", "Le vrai cap c'est...")
 - Ton naturel, entre pairs, comme un SMS entre collegues
-- PAS de pitch, prix, CTA, feature
+- PAS de pitch, prix, feature, lien
 
 PENALITES :
-- > 50 mots : -2 points
-- > 70 mots : -4 points
+- < 40 mots : -2 points (trop sec, pas assez de substance)
+- > 100 mots : -3 points (trop long)
+- > 120 mots : -5 points
 - Paragraphe d'analyse (plus de 2 phrases entre fait et question) : -3 points
 - Meta-prospection (question sur la prospection/acquisition du prospect) : -3 points
 - Generique secteur (remplacable par n'importe quelle entreprise du secteur) : -4 points
@@ -634,7 +664,7 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
   }
 
   async generateReactiveFollowUp(contact, originalEmail, prospectIntel) {
-    let emailLengthHint = '30-50 mots max (JAMAIS plus de 50)';
+    let emailLengthHint = '50-80 mots (vise 65, JAMAIS plus de 80)';
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
       const prefs = selfImproveStorage.getEmailPreferences();
@@ -737,7 +767,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
    * cette methode genere un email unique base sur le brief complet du prospect.
    */
   async generatePersonalizedFollowUp(contact, stepNumber, totalSteps, prospectIntel, previousEmails, campaignContext) {
-    let emailLengthHint = '30-50 mots max (JAMAIS plus de 50)';
+    let emailLengthHint = '50-80 mots (vise 65, JAMAIS plus de 80)';
     let siPrefsfu = null;
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
@@ -790,11 +820,11 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. Ne repete pas
     const isBreakup = stepNumber >= totalSteps;
     let stepStrategy = '';
     if (stepNumber === 2) {
-      stepStrategy = 'Relance 1 (J+3): Nouvel angle DIFFERENT du premier email, tire des DONNEES PROSPECT. Question ouverte.';
+      stepStrategy = 'Relance 1 (J+3): Nouvel angle DIFFERENT du premier email, tire des DONNEES PROSPECT. Question ouverte + CTA soft ("dispo pour en parler", "ca vaut un echange ?").';
     } else if (stepNumber === 3) {
-      stepStrategy = 'Relance 2 (J+7): Preuve sociale — mini cas client anonymise ("un dirigeant dans ton secteur..."). Fait rebondir sur un aspect specifique du prospect.';
+      stepStrategy = 'Relance 2 (J+7): Preuve sociale — mini cas client anonymise ("un dirigeant dans ton secteur..."). Fait rebondir sur un aspect specifique du prospect + CTA soft.';
     } else if (stepNumber === totalSteps - 1 && totalSteps > 4) {
-      stepStrategy = 'Relance 3 (J+14): Dernier angle de valeur, question directe basee sur un fait specifique des donnees prospect.';
+      stepStrategy = 'Relance 3 (J+14): Dernier angle de valeur, question directe basee sur un fait specifique des donnees prospect + CTA soft.';
     } else if (isBreakup) {
       stepStrategy = 'BREAKUP (derniere relance): 2 lignes MAXIMUM. Choix binaire simple ("pas le bon moment ? dis-le moi"). Exploite la loss aversion.';
     } else {
@@ -820,9 +850,10 @@ CONTEXTE : Relance ${stepNumber - 1} sur ${totalSteps - 1} (step ${stepNumber}/$
 STRATEGIE : ${stepStrategy}
 
 FORMAT (${emailLengthHint}) :
-1. OBSERVATION = fait specifique ou nouvel insight + implication en UNE phrase (PAS "je reviens vers toi", PAS de paragraphe d'analyse)
+1. OBSERVATION = fait specifique ou nouvel insight + implication (PAS "je reviens vers toi", PAS de paragraphe d'analyse)
 2. QUESTION = variee (frontale, provocatrice, binaire, contextuelle)
-${isBreakup ? '\nBREAKUP = 2 phrases max. Question fermee. Exploite la loss aversion.' : ''}
+3. CTA SOFT = ouverture naturelle ("dispo pour en parler", "ca vaut un echange ?", "curieux d'avoir ton retour")
+${isBreakup ? '\nBREAKUP = 2 phrases max. Question fermee. Exploite la loss aversion. PAS de CTA soft.' : ''}
 
 INTERDIT : le paragraphe d'analyse LinkedIn qui explique au prospect ce qu'il vit. Il SAIT. Coupe.
 

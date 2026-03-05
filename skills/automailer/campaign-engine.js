@@ -107,7 +107,7 @@ function _emailPassesQualityGate(subject, body) {
   // 2. Longueur body (2-8 lignes non vides, plus strict)
   const lines = body.split('\n').filter(l => l.trim().length > 0);
   if (lines.length < 2) return { pass: false, reason: 'too_short (' + lines.length + ' lignes)' };
-  if (lines.length > 8) return { pass: false, reason: 'too_long (' + lines.length + ' lignes)' };
+  if (lines.length > 12) return { pass: false, reason: 'too_long (' + lines.length + ' lignes)' };
   // 3. Mots interdits depuis config AP (si dispo)
   try {
     const apStorage = require('../autonomous-pilot/storage.js');

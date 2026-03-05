@@ -1506,7 +1506,7 @@ Format JSON strict :
     const adminChatId = apConfig.adminChatId || '1409505520';
     const fuConfig = apConfig.followUpConfig || {};
     const totalSteps = params.totalSteps || fuConfig.sequenceTotalSteps || 4;
-    const stepDays = fuConfig.sequenceStepDays || [3, 7, 14, 21];
+    const stepDays = fuConfig.sequenceStepDays || [3, 7, 14];
     // Legacy: si params.intervalDays est fourni, utiliser l'ancien mode (intervalles fixes)
     const intervalDays = params.intervalDays || null;
 
@@ -1577,10 +1577,9 @@ Format JSON strict :
       if (ep.tone) context += '\nTON: ' + ep.tone;
       context += '\nSIGNATURE: ' + (process.env.SENDER_NAME || 'Alexis') + ' — ' + (process.env.CLIENT_NAME || 'iFIND');
       context += '\nCONTEXTE: Ce sont des RELANCES (le prospect a deja recu un premier email sans repondre).';
-      context += '\nRelance 1 (J+' + stepDays[0] + '): Nouvel angle tire des DONNEES PROSPECT, question ouverte.';
-      context += '\nRelance 2 (J+' + stepDays[1] + '): Preuve sociale, mini cas client anonymise.';
-      context += '\nRelance 3 (J+' + stepDays[2] + '): Dernier angle de valeur, question directe.';
-      context += '\nRelance 4 (J+' + stepDays[3] + '): BREAKUP — 2 lignes max, choix binaire.';
+      context += '\nRelance 1 (J+' + stepDays[0] + '): Nouvel angle tire des DONNEES PROSPECT, question ouverte + CTA soft.';
+      context += '\nRelance 2 (J+' + stepDays[1] + '): Preuve sociale, mini cas client anonymise + CTA soft.';
+      context += '\nRelance 3 (J+' + (stepDays[2] || stepDays[stepDays.length - 1]) + '): BREAKUP — 2 lignes max, choix binaire.';
 
       const offer = apConfig.offer || {};
       if (offer.description) context += '\nOFFRE: ' + offer.description;
