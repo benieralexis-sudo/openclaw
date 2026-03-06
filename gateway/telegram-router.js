@@ -1664,6 +1664,10 @@ async function handleUpdate(update) {
   }
 
   if (statusAliases.some(a => textLower === a || textLower.replace(/[\u0300-\u036f]/g, '') === a)) {
+    if (String(chatId) !== String(ADMIN_CHAT_ID)) {
+      await sendMessage(chatId, 'Seul l\'administrateur peut voir le statut systeme.');
+      return;
+    }
     const statusMsg = buildSystemStatus();
     addToHistory(chatId, 'bot', 'Statut systeme', 'system');
     await sendMessage(chatId, statusMsg, 'Markdown');
@@ -2240,7 +2244,7 @@ async function processChatMessage(text, userId) {
 }
 
 const healthServer = http.createServer(async (req, res) => {
-  // Chat API
+  // Chat API (auth via dashboard password)
   if (req.url === '/api/chat' && req.method === 'POST') {
     let body = '';
     let bodySize = 0;
@@ -2248,6 +2252,13 @@ const healthServer = http.createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const data = JSON.parse(body);
+        // Auth check
+        const apiToken = (req.headers['x-api-token'] || req.headers['authorization'] || '').replace('Bearer ', '');
+        if (!apiToken || (apiToken !== process.env.DASHBOARD_PASSWORD && apiToken !== process.env.AUTOMAILER_DASHBOARD_PASSWORD)) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'unauthorized' }));
+          return;
+        }
         if (!data.message || typeof data.message !== 'string' || data.message.length > 2000) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'message requis (max 2000 chars)' }));
@@ -2264,8 +2275,14 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // --- HITL API (draft approval via dashboard) ---
+  // --- HITL API (draft approval via dashboard, auth required) ---
   if (req.url === '/api/hitl/drafts' && req.method === 'GET') {
+    const hitlToken = (req.headers['x-api-token'] || req.headers['authorization'] || '').replace('Bearer ', '');
+    if (!hitlToken || (hitlToken !== process.env.DASHBOARD_PASSWORD && hitlToken !== process.env.AUTOMAILER_DASHBOARD_PASSWORD)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'unauthorized' }));
+      return;
+    }
     const drafts = [];
     const now = Date.now();
     const TTL = 24 * 60 * 60 * 1000;

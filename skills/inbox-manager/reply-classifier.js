@@ -85,7 +85,7 @@ function checkGrounding(replyBody) {
   const hallucinationPatterns = [
     /\b\d{2,3}\s*%\s*(de|d')\s*(nos|mes)\s*clients/i,
     /\b(plus de|environ|pres de)\s+\d+\s+(clients|entreprises|societes)/i,
-    /\b(client|cas|exemple)\s*:\s*[A-Z][a-z]+/i,
+    /\b(nos?\s+clients?|un\s+cas|par\s+exemple)\s*:\s*[A-Z][a-z]{3,}\s+[A-Z]/i,
     /\b(garanti|garantie|assure)\b.*\b(resultats?|rdv|leads?)\b/i
   ];
   for (const pattern of hallucinationPatterns) {

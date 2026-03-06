@@ -68,8 +68,8 @@ class BrainEngine {
 
     // Daily briefing supprime — fusionne avec Proactive Morning Report a 8h (voir proactive-engine.js)
 
-    // Mini-cycle leger : 10h, 12h, 14h, 16h (4 fenetres — reduit latence hot lead de 3.5h a ~1h)
-    this.crons.push(new Cron('0 10,12,14,16 * * *', { timezone: tz }, withCronGuard('ap-mini-cycle', async () => {
+    // Mini-cycle leger : 10h, 12h, 15h, 17h (4 fenetres — evite collision avec brain 14h/18h)
+    this.crons.push(new Cron('0 10,12,15,17 * * *', { timezone: tz }, withCronGuard('ap-mini-cycle', async () => {
       try { await this._lightCycle(); }
       catch (e) { log.error('brain', 'Erreur mini-cycle:', e.message); }
     })));

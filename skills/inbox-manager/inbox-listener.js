@@ -307,13 +307,23 @@ class InboxListener {
             return normalizeLocal(leadEmail.split('@')[0]) === normalizedSenderLocal;
           });
 
-          // Niveau 2 : meme base de domaine (company.com == company.fr)
+          // Niveau 2 : meme base de domaine + local part similaire (evite faux positifs inter-prospects)
           if (!fuzzyMatch && senderDomainBase.length >= 3) {
             fuzzyMatch = knownLeads.find(l => {
               const leadEmail = (l.email || l.to || '').toLowerCase();
               if (!leadEmail.includes('@') || leadEmail === senderEmail) return false;
               const leadDomainBase = domainBase(leadEmail.split('@')[1] || '');
-              return leadDomainBase === senderDomainBase && leadDomainBase.length >= 3;
+              if (leadDomainBase !== senderDomainBase || leadDomainBase.length < 3) return false;
+              // Verifier aussi que le local part a une similarite (initiales, nom commun)
+              const leadLocal = normalizeLocal(leadEmail.split('@')[0]);
+              // Au moins 3 chars en commun au debut, OU meme nom from
+              if (normalizedSenderLocal.substring(0, 3) === leadLocal.substring(0, 3)) return true;
+              if (msg.fromName && (l.name || l.contactName || '')) {
+                const sName = msg.fromName.trim().toLowerCase();
+                const lName = (l.name || l.contactName || '').trim().toLowerCase();
+                return sName.length >= 4 && lName.length >= 4 && (sName.includes(lName) || lName.includes(sName));
+              }
+              return false;
             });
           }
 

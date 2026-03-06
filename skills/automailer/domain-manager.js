@@ -208,9 +208,14 @@ class DomainManager {
     const stats = this.data.domains[domain];
     stats.totalBounced = (stats.totalBounced || 0) + 1;
 
-    // Ajouter dans recentResults
+    // Remplacer le dernier success par un bounce (evite double-comptage send+bounce)
     if (!stats.recentResults) stats.recentResults = [];
-    stats.recentResults.push({ success: false, ts: Date.now(), bounce: true });
+    const lastSuccess = stats.recentResults.findLastIndex(r => r.success === true);
+    if (lastSuccess >= 0) {
+      stats.recentResults[lastSuccess] = { success: false, ts: Date.now(), bounce: true };
+    } else {
+      stats.recentResults.push({ success: false, ts: Date.now(), bounce: true });
+    }
     while (stats.recentResults.length > BOUNCE_WINDOW) stats.recentResults.shift();
 
     // Auto-pause si bounce rate > seuil
