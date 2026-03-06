@@ -1815,7 +1815,7 @@ app.post('/api/chat', authRequired, resolveClient, async (req, res) => {
     const payload = JSON.stringify({ message, userId });
 
     const result = await new Promise((resolve, reject) => {
-      const options = { hostname: ROUTER_HOST, port: ROUTER_PORT, path: '/api/chat', method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }, timeout: 50000 };
+      const options = { hostname: ROUTER_HOST, port: ROUTER_PORT, path: '/api/chat', method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload), 'x-api-token': process.env.DASHBOARD_PASSWORD || '' }, timeout: 50000 };
       const r = http.request(options, (resp) => {
         let data = '';
         resp.on('data', (c) => data += c);
@@ -1862,8 +1862,8 @@ function proxyToRouter(routerPath, method, body, clientId) {
   return new Promise((resolve, reject) => {
     const routerUrl = clientId ? clientRegistry.getClientRouterUrl(clientId) : DEFAULT_ROUTER_URL;
     const url = new URL(routerUrl + routerPath);
-    const opts = { hostname: url.hostname, port: url.port, path: url.pathname, method, timeout: 15000 };
-    if (body) opts.headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) };
+    const opts = { hostname: url.hostname, port: url.port, path: url.pathname, method, timeout: 15000, headers: { 'x-api-token': process.env.DASHBOARD_PASSWORD || '' } };
+    if (body) { opts.headers['Content-Type'] = 'application/json'; opts.headers['Content-Length'] = Buffer.byteLength(body); }
     const req = http.request(opts, (resp) => {
       let data = '';
       resp.on('data', c => { data += c; });

@@ -109,7 +109,7 @@ async function checkForNewDrafts(clientId, routerUrl) {
   const http = require('http');
   return new Promise((resolve) => {
     const url = new URL(routerUrl + '/api/hitl/drafts');
-    const req = http.get({ hostname: url.hostname, port: url.port, path: url.pathname, timeout: 5000 }, (res) => {
+    const req = http.get({ hostname: url.hostname, port: url.port, path: url.pathname, timeout: 5000, headers: { 'x-api-token': process.env.DASHBOARD_PASSWORD || '' } }, (res) => {
       let data = '';
       res.on('data', c => data += c);
       res.on('end', () => {
