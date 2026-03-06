@@ -294,7 +294,7 @@ SI le trigger est renseigne, utilise l'angle trigger plutot qu'un pain point gen
 BLOC 3 — SOCIAL PROOF (1 phrase, INTEGREE dans le flow)
 Montre que tu as la solution SANS pitcher. UNE phrase max, ton factuel.
 Formats :
-- "On automatise ca pour des [type similaire] — [resultat concret]."
+- "On genere [resultat concret] pour des [type similaire]."
 - "On fait exactement ca pour des [type] — [resultat]."
 JAMAIS : un paragraphe separe, un pitch detaille, des features, des prix.
 
@@ -316,21 +316,21 @@ ${nicheExampleBlock}
 Agence marketing + NEWS (62 mots) :
 "Thomas, 12 personnes chez [Agence] et un poste de bizdev ouvert — le delivery tourne mais cote acquisition c'est encore toi qui ramenes l'essentiel des clients ?
 
-On automatise la prospection outbound pour des agences growth — leads qualifies en continu sans y passer 2h/jour.
+On genere le pipe outbound pour des agences growth — des opportunites qualifiees en continu sans y passer 2h/jour.
 
 Je te montre le setup en 15 min si ca te parle."
 
 SaaS + LEVEE (58 mots) :
 "Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux — le pipe va suivre le rythme ou c'est encore founder-led sales ?
 
-On remplace le premier SDR pour des SaaS en scaling — meme volume, fraction du cout.
+On remplace le premier commercial outbound pour des SaaS en scaling — meme volume, fraction du cout.
 
 Je te montre comment ca marche en 15 min ?"
 
 ESN + CHIFFRES (55 mots) :
 "Marc, 150 personnes chez [ESN] et 4 missions en regie sur Welcome — ca tourne bien cote delivery. Cote pipe, c'est toujours 80% reseau et AO ou vous avez structure un canal outbound ?
 
-On automatise ca pour des ESN — du pipeline regulier sans dependre des AO.
+On genere ca pour des ESN — du volume regulier sans dependre des AO.
 
 Dispo si tu veux voir le setup."
 
@@ -343,7 +343,7 @@ AVANT (3/10 — ZERO value prop, question en l'air) :
 APRES (9/10) :
 "Gregory, Sully Immobilier qui pousse l'economie circulaire depuis Orleans — le pipe vendeurs suit le meme rythme que la croissance ?
 
-On automatise la prospection pour des agences immo — mandats qualifies en continu.
+On genere le pipe vendeur pour des agences immo — des mandats qualifies en continu.
 
 Je te montre en 15 min si ca te parle." (50 mots)
 
@@ -354,7 +354,7 @@ AVANT (6/10 — trop long, donneur de lecon) :
 APRES (10/10) :
 "Thibault, rachat HCS Pharma + nouvelle usine + partenariat Anses — trois chantiers en parallele. La pression pipeline ne va pas se regler toute seule.
 
-On genere du pipe pour des boites en phase d'acceleration comme la votre.
+On accompagne des boites en phase d'acceleration comme la votre sur ce sujet.
 
 Dispo si tu veux en parler." (52 mots)
 
