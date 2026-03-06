@@ -46,13 +46,17 @@ class DomainManager {
     if (raw) {
       this.domains = [];
       for (const entry of raw.split(',')) {
-        const parts = entry.trim().split(':');
-        if (parts.length >= 2) {
+        // Split limite a 4 : domain:type:user:password (password peut contenir ':')
+        const trimmed = entry.trim();
+        const firstColon = trimmed.indexOf(':');
+        const secondColon = firstColon >= 0 ? trimmed.indexOf(':', firstColon + 1) : -1;
+        const thirdColon = secondColon >= 0 ? trimmed.indexOf(':', secondColon + 1) : -1;
+        if (firstColon >= 0) {
           this.domains.push({
-            domain: parts[0].trim(),
-            type: parts[1].trim() || 'gmail',
-            smtpUser: parts[2] ? parts[2].trim() : '',
-            smtpPass: parts[3] ? parts[3].trim() : '',
+            domain: trimmed.substring(0, firstColon).trim(),
+            type: (secondColon >= 0 ? trimmed.substring(firstColon + 1, secondColon) : trimmed.substring(firstColon + 1)).trim() || 'gmail',
+            smtpUser: secondColon >= 0 ? (thirdColon >= 0 ? trimmed.substring(secondColon + 1, thirdColon) : trimmed.substring(secondColon + 1)).trim() : '',
+            smtpPass: thirdColon >= 0 ? trimmed.substring(thirdColon + 1).trim() : '',
             active: true
           });
         }
@@ -185,7 +189,14 @@ class DomainManager {
 
     // Associer ce prospect a ce domaine (coherence threading)
     if (recipientEmail) {
+      if (!this.data.prospectDomains) this.data.prospectDomains = {};
       this.data.prospectDomains[(recipientEmail || '').toLowerCase()] = domain;
+      // Cleanup : garder max 2000 prospects (LRU-like : supprimer les plus anciens)
+      const pdKeys = Object.keys(this.data.prospectDomains);
+      if (pdKeys.length > 2000) {
+        const toDelete = pdKeys.slice(0, pdKeys.length - 2000);
+        for (const k of toDelete) delete this.data.prospectDomains[k];
+      }
     }
 
     this._save();

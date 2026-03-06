@@ -2006,15 +2006,22 @@ Analyse et reponds en JSON:
     // 1. Chercher des leads si objectif non atteint — avec rotation de niches
     if (p.leadsFoundThisWeek < g.leadsToFind) {
       // Choisir une niche differente a chaque fallback (rotation basee sur le cycle courant)
-      const allNichesFb = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
-      const nichePerf = storage.getNichePerformance();
-      const testedSlugs = new Set(Object.keys(nichePerf));
-      // Priorite aux niches non testees
-      let targetNiches = allNichesFb.filter(n => !testedSlugs.has(n.slug) && !testedSlugs.has(n.slug.replace(/-/g, '_')));
-      if (targetNiches.length === 0) targetNiches = allNichesFb; // Toutes testees, rotation complete
-      // Rotation pseudo-aleatoire basee sur le jour
-      const dayIdx = new Date().getDate() % targetNiches.length;
-      const niche = targetNiches[dayIdx];
+      // Utiliser ICP loader (weighted) si disponible, sinon fallback ancien systeme
+      let niche = null;
+      try {
+        const icpLoaderFb = require('../../gateway/icp-loader.js');
+        niche = icpLoaderFb.getNicheForCycle();
+      } catch (e) {
+        try {
+          const icpLoaderFb = require('/app/gateway/icp-loader.js');
+          niche = icpLoaderFb.getNicheForCycle();
+        } catch (e2) {}
+      }
+      if (!niche) {
+        const allNichesFb = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
+        const dayIdx = new Date().getDate() % (allNichesFb.length || 1);
+        niche = allNichesFb[dayIdx];
+      }
       const fallbackCriteria = { ...state.goals.searchCriteria };
       if (niche) {
         fallbackCriteria.keywords = niche.keywords;

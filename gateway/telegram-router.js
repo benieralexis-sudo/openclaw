@@ -228,7 +228,7 @@ function _loadHitlDrafts() {
 _loadHitlDrafts();
 
 // Sauvegarde periodique des drafts HITL (toutes les 60s)
-setInterval(_saveHitlDrafts, 60 * 1000);
+const _hitlSaveInterval = setInterval(_saveHitlDrafts, 60 * 1000);
 
 // --- Persistance etat volatile (bans + historique) ---
 const VOLATILE_STATE_FILE = (process.env.APP_CONFIG_DIR || '/data/app-config') + '/volatile-state.json';
@@ -2591,9 +2591,11 @@ const healthServer = http.createServer(async (req, res) => {
           const leadNiche = (function() {
             if (email.industry) return email.industry;
             if (email.niche) return email.niche;
-            const leads = apStorage.getLeads ? apStorage.getLeads() : [];
-            const lead = leads.find(l => (l.email || '').toLowerCase() === (email.to || '').toLowerCase());
-            return lead ? (lead.niche || lead.industry || null) : null;
+            // Fallback: chercher la niche dans le CRM ou les emails stockes
+            const automailerSt = require('../skills/automailer/storage.js');
+            const allEmails = automailerSt.getEmails ? automailerSt.getEmails() : [];
+            const matchedEmail = allEmails.find(em => (em.to || '').toLowerCase() === (email.to || '').toLowerCase());
+            return matchedEmail ? (matchedEmail.niche || matchedEmail.industry || null) : null;
           })();
           if (leadNiche) {
             apStorage.trackNicheEvent(leadNiche, 'clicked');
@@ -2874,6 +2876,7 @@ function gracefulShutdown() {
   _botReady = false;
   clearInterval(_cleanupInterval);
   clearInterval(_metricsSaveInterval);
+  clearInterval(_hitlSaveInterval);
   cronManager.clearAllIntervals();
   try { _saveMetrics(); } catch (e) { log.error('router', 'Erreur save metrics:', e.message); }
   try { _saveVolatileState(); } catch (e) { log.error('router', 'Erreur save volatile-state:', e.message); }

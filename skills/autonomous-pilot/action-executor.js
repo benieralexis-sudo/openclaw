@@ -152,7 +152,7 @@ Format JSON strict :
         ? brainCriteria.titles
         : (siTargeting.preferredTitles && siTargeting.preferredTitles.length > 0 ? siTargeting.preferredTitles : configCriteria.titles),
       locations: brainCriteria.locations && brainCriteria.locations.length > 0 ? brainCriteria.locations : configCriteria.locations,
-      seniorities: configCriteria.seniorities && configCriteria.seniorities.length > 0 ? configCriteria.seniorities : brainCriteria.seniorities,
+      seniorities: brainCriteria.seniorities && brainCriteria.seniorities.length > 0 ? brainCriteria.seniorities : configCriteria.seniorities,
       companySize: brainCriteria.companySize && brainCriteria.companySize.length > 0
         ? brainCriteria.companySize
         : (siTargeting.preferredCompanySize && siTargeting.preferredCompanySize.length > 0 ? siTargeting.preferredCompanySize : configCriteria.companySize),
@@ -322,7 +322,7 @@ Format JSON strict :
     if (process.env.MULTI_THREAD_ENABLED !== 'false' && ffStorage && ffStorage.createCompanyGroup) {
       try {
         const maxContacts = parseInt(process.env.MULTI_THREAD_MAX_CONTACTS) || 3;
-        const qualifiedWithOrg = (result.leads || []).filter(l => l.email && l.organization && l.organization.name && l.score >= minScore);
+        const qualifiedWithOrg = (mappedLeads || []).filter(l => l.email && l.organization && l.organization.name && l.score >= minScore);
 
         // Grouper par entreprise
         const byCompany = {};
@@ -586,7 +586,7 @@ Format JSON strict :
     const facts = [];
 
     // 1. Nom d'entreprise/produit cite (pas juste "agence" ou "ESN")
-    const companyMatch = prospectIntel.match(/ENTREPRISE:\s*([^(\n]+)/);
+    const companyMatch = (prospectIntel || '').match(/ENTREPRISE:\s*([^(\n]+)/);
     if (companyMatch) {
       const companyName = companyMatch[1].trim().toLowerCase();
       // Verifier le nom complet ou les mots significatifs (> 3 chars)
@@ -1651,7 +1651,7 @@ Format JSON strict :
       const campaign = await this.campaignEngine.createCampaign(adminChatId, {
         name: 'Relance auto ' + new Date().toLocaleDateString('fr-FR'),
         contactListId: list.id,
-        totalContacts: contacts.length
+        totalContacts: addedCount
       });
 
       // 3. Construire le contexte pour la generation d'emails

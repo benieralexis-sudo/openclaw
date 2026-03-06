@@ -856,6 +856,7 @@ function trackNicheEvent(niche, event) {
   else if (event === 'sent') np.sent = (np.sent || 0) + 1;
   else if (event === 'opened') np.opened = (np.opened || 0) + 1;
   else if (event === 'replied') np.replied = (np.replied || 0) + 1;
+  else if (event === 'clicked') np.clicked = (np.clicked || 0) + 1;
   _save();
 }
 

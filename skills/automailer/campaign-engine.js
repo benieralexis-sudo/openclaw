@@ -1552,12 +1552,12 @@ class CampaignEngine {
       if (result.success && result.data.last_event) {
         const newStatus = result.data.last_event;
         if (newStatus !== email.status) {
-          storage.updateEmailStatus(email.id, newStatus);
-
           // Tracking des ouvertures multiples (incrementer openCount)
           if (newStatus === 'opened') {
             const openCount = (email.openCount || 0) + 1;
             storage.updateEmailStatus(email.id, newStatus, { openCount: openCount, openedAt: email.openedAt || new Date().toISOString() });
+          } else {
+            storage.updateEmailStatus(email.id, newStatus);
           }
 
           // Tracking des clics
@@ -1565,11 +1565,18 @@ class CampaignEngine {
             storage.updateEmailStatus(email.id, newStatus, { clickedAt: new Date().toISOString() });
           }
 
-          // FIX 14 : Bounce handling automatique
+          // FIX 14 : Bounce handling — soft vs hard
           if (newStatus === 'bounced') {
-            storage.addToBlacklist(email.to, 'hard_bounce');
+            const bounceType = (email.bounceType || '').toLowerCase();
+            if (bounceType === 'soft' || bounceType === 'temporary') {
+              // Soft bounce : retry via proactive follow-up, pas de blacklist
+              log.info('campaign-engine', 'Soft bounce detecte: ' + email.to + ' — retry prevu (pas de blacklist)');
+            } else {
+              // Hard bounce ou type inconnu via polling : blacklist
+              storage.addToBlacklist(email.to, 'hard_bounce');
+              log.info('campaign-engine', 'Hard bounce detecte: ' + email.to + ' — ajoute au blacklist');
+            }
             bounceCount++;
-            log.info('campaign-engine', 'Bounce detecte: ' + email.to + ' — ajoute au blacklist');
           }
 
           // UPGRADE 2 : Detection de reponses email

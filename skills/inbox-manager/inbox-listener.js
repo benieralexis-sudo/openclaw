@@ -400,18 +400,23 @@ class InboxListener {
   _isSystemEmail(email) {
     // Matcher sur le local part uniquement (avant @) pour eviter faux positifs
     const localPart = (email || '').split('@')[0].toLowerCase();
-    const systemLocalParts = [
+    // Exact match pour les local parts systeme (evite faux positifs: "newsham", "alertini", etc.)
+    const exactSystemParts = [
       'noreply', 'no-reply', 'mailer-daemon', 'postmaster',
-      'bounce', 'donotreply', 'do-not-reply', 'auto-reply',
+      'bounce', 'bounces', 'donotreply', 'do-not-reply', 'auto-reply',
       'calendar-notification', 'wordpress', 'notifications',
-      'newsletter', 'info', 'support', 'helpdesk', 'billing',
-      'invoice', 'receipt', 'alert', 'alerts', 'system',
-      'feedback', 'survey', 'marketing', 'security', 'abuse',
+      'newsletter', 'newsletters', 'info', 'support', 'helpdesk', 'billing',
+      'invoice', 'invoices', 'receipt', 'receipts', 'alerts', 'system',
+      'feedback', 'survey', 'surveys', 'marketing', 'security', 'abuse',
       'unsubscribe', 'admin', 'webmaster', 'daemon', 'robot',
       'automate', 'automated', 'news', 'updates', 'digest',
-      'orders', 'shipping', 'tracking', 'confirm', 'verification'
+      'orders', 'shipping', 'tracking', 'confirm', 'verification',
+      'notification', 'no_reply', 'noreply-comment'
     ];
-    if (systemLocalParts.some(p => localPart.includes(p))) return true;
+    if (exactSystemParts.includes(localPart)) return true;
+    // Prefix match pour les patterns courants (noreply+xxx, bounce-xxx, etc.)
+    const prefixPatterns = ['noreply', 'no-reply', 'bounce', 'mailer-daemon', 'donotreply', 'auto-reply'];
+    if (prefixPatterns.some(p => localPart.startsWith(p + '+') || localPart.startsWith(p + '-') || localPart.startsWith(p + '.'))) return true;
     // Emails specifiques (full match) pour les services connus
     const systemFullEmails = [
       'notifications@github.com', 'notifications@linkedin.com',

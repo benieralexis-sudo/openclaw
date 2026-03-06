@@ -460,7 +460,7 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       if (parsed.skip) {
         if (attempt === 0) {
           // Retry : Claude est stochastique, parfois il skip alors que les donnees suffisent
-          const retryPrompt = prompt + '\n\nATTENTION : tu as voulu skip mais tu as des donnees exploitables. REGLE : si tu as un nom d\'entreprise + un poste → tu DOIS ecrire un email. Utilise la PRIORITE 4.5 : ecris 25-35 mots sur un defi concret de ce type de poste dans cette entreprise. Exemple : "Marc, diriger la tech chez [Entreprise] a [Ville] — entre [defi 1] et [defi 2], tu priorises comment ?". Skip UNIQUEMENT si tu n\'as meme pas de nom d\'entreprise. Un email 7/10 > un skip.';
+          const retryPrompt = prompt + '\n\nATTENTION : tu as voulu skip mais tu as des donnees exploitables. REGLE : si tu as un nom d\'entreprise + un poste → tu DOIS ecrire un email. Utilise la PRIORITE 4.5 : 50-65 mots, 4 BLOCS (fait + pont probleme + social proof + CTA valeur). Skip UNIQUEMENT si tu n\'as meme pas de nom d\'entreprise. Un email 7/10 > un skip.';
           try {
             const retryResponse = await this.callClaude(
               [{ role: 'user', content: retryPrompt }],
@@ -612,10 +612,10 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
   async _scoreAndFilter(parsed, contact) {
     if (!parsed || parsed.skip) return parsed;
     try {
-      // Gate programmatique rapide : rejet automatique si > 60 mots (sans appeler le scorer)
+      // Gate programmatique rapide : rejet automatique si > 80 mots pour follow-ups (coherent avec prompt 30-50 + marge)
       const wordCount = (parsed.body || '').split(/\s+/).filter(w => w.length > 0).length;
-      if (wordCount > 60) {
-        return { skip: true, reason: 'too_many_words:' + wordCount + ' (max 60)' };
+      if (wordCount > 80) {
+        return { skip: true, reason: 'too_many_words:' + wordCount + ' (max 80)' };
       }
       const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
       if (score.note >= 6) return parsed;
@@ -814,16 +814,16 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
       const selfImproveStorage = require('../self-improve/storage.js');
       const prefs = selfImproveStorage.getEmailPreferences();
       if (prefs && prefs.maxLength) {
-        const chars = prefs.maxLength;
-        emailLengthHint = chars < 200 ? '20-35 mots max (ultra-court)' : chars < 400 ? '30-50 mots max (JAMAIS plus de 50)' : '40-60 mots max';
+        if (prefs.maxLength === 'short') emailLengthHint = '30-50 mots max (JAMAIS plus de 50)';
+        else if (prefs.maxLength === 'long') emailLengthHint = '40-60 mots max';
       }
     } catch (e) {
       try {
         const selfImproveStorage = require('/app/skills/self-improve/storage.js');
         const prefs = selfImproveStorage.getEmailPreferences();
         if (prefs && prefs.maxLength) {
-          const chars = prefs.maxLength;
-          emailLengthHint = chars < 200 ? '20-35 mots max (ultra-court)' : chars < 400 ? '30-50 mots max (JAMAIS plus de 50)' : '40-60 mots max';
+          if (prefs.maxLength === 'short') emailLengthHint = '30-50 mots max (JAMAIS plus de 50)';
+          else if (prefs.maxLength === 'long') emailLengthHint = '40-60 mots max';
         }
       } catch (e2) {}
     }
@@ -997,7 +997,7 @@ STRATEGIE : ${stepStrategy}
 FORMAT (${emailLengthHint}) :
 1. OBSERVATION = fait specifique ou nouvel insight + implication (PAS "je reviens vers toi", PAS de paragraphe d'analyse)
 2. QUESTION = variee (frontale, provocatrice, binaire, contextuelle)
-3. CTA SOFT = ouverture naturelle ("dispo pour en parler", "ca vaut un echange ?", "curieux d'avoir ton retour")
+3. CTA SOFT = ouverture naturelle ("dispo pour en parler", "ca vaut un echange ?", "je te montre en 15 min")
 ${isBreakup ? '\nBREAKUP = 2 phrases max. Question fermee. Exploite la loss aversion. PAS de CTA soft.' : ''}
 
 INTERDIT : le paragraphe d'analyse LinkedIn qui explique au prospect ce qu'il vit. Il SAIT. Coupe.

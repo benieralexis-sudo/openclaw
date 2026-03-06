@@ -408,7 +408,7 @@ class ResendClient {
   }
 
   async sendBatch(emails) {
-    // En mode Gmail, envoyer un par un avec rotation
+    // En mode Gmail, envoyer un par un avec rotation + warmup tracking
     if (this.mailboxes.length > 0) {
       const results = [];
       for (const e of emails) {
@@ -416,8 +416,19 @@ class ResendClient {
         try {
           const r = await this._sendViaGmail(e.to, e.subject, e.body, { fromName: e.fromName || process.env.SENDER_NAME || 'Alexis', trackingId: e.trackingId }, mailbox);
           results.push(r);
+          // Track dans domain-manager pour respecter warmup
+          try {
+            const dm = require('./domain-manager.js');
+            const domain = (mailbox.user || '').split('@')[1] || process.env.CLIENT_DOMAIN || '';
+            if (domain && dm.recordSend) dm.recordSend(domain, e.to, true);
+          } catch (dmErr) {}
         } catch (err) {
           results.push({ success: false, error: err.message });
+          try {
+            const dm = require('./domain-manager.js');
+            const domain = (mailbox.user || '').split('@')[1] || process.env.CLIENT_DOMAIN || '';
+            if (domain && dm.recordSend) dm.recordSend(domain, e.to, false);
+          } catch (dmErr) {}
         }
       }
       return { success: true, data: results };

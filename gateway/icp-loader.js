@@ -141,7 +141,11 @@ function detectTrigger(lead, niche) {
   const org = lead.organization || {};
   if (org.current_technologies && org.current_technologies.length > 0) data.tech = true;
 
-  // Check growth from employee count changes or job postings
+  // Check growth from employee count or headcount changes
+  if (org.estimated_num_employees && org.estimated_num_employees > 50) data.growth = true;
+  if (org.employee_count_by_country && Object.keys(org.employee_count_by_country).length > 1) data.growth = true;
+
+  // Check hiring from job postings
   if (lead.recrutementActif || (org.job_postings && org.job_postings > 0)) {
     data.hiring = true;
   }
