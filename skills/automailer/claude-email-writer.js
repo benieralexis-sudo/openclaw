@@ -484,18 +484,76 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
         return parsed; // skip confirme apres retry (ou 2e attempt)
       }
 
+      // === Pre-scoring programmatique (0 API call) ===
+      const preScore = this._programmaticPreScore(parsed.subject, parsed.body, contact);
+      if (preScore.block) {
+        if (preScore.note > bestScore) {
+          best = parsed;
+          bestScore = preScore.note;
+          best._scoreReason = preScore.reason;
+        }
+        continue;
+      }
+
       // Auto-scoring via GPT-4o-mini (cout: ~0.001$/email)
       const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
-      if (score.note >= 9) return parsed; // 9-10/10 → envoyer direct
-      if (score.note > bestScore) {
+      const adjustedNote = Math.min(10, Math.max(1, score.note + preScore.adjust));
+      const adjustedReason = preScore.adjust !== 0 ? score.reason + ' [prog:' + (preScore.adjust > 0 ? '+' : '') + preScore.adjust + ' ' + preScore.reason + ']' : score.reason;
+      if (adjustedNote >= 9) return parsed;
+      if (adjustedNote > bestScore) {
         best = parsed;
-        bestScore = score.note;
-        best._scoreReason = score.reason;
+        bestScore = adjustedNote;
+        best._scoreReason = adjustedReason;
       }
     }
     // Apres retries : envoyer si >= 7, sinon skip (abaisse de 8 a 7 — un 7/10 vaut mieux qu'un skip)
     if (bestScore >= 7) return best;
     return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
+  }
+
+  // Checks programmatiques rapides — detecte problemes structurels sans API call
+  _programmaticPreScore(subject, body, contact) {
+    const bodyLower = (body || '').toLowerCase();
+    const subjectLower = (subject || '').toLowerCase();
+    let adjust = 0;
+    const reasons = [];
+
+    // BLOCK : CTA sans valeur
+    const deadCTAs = ['curieux d\'avoir ton retour', 'curieux d\'avoir ton avis', 'curieux de savoir',
+      'qu\'en penses-tu', 'qu\'en pensez-vous', 'ton retour m\'interesse', 'dis-moi ce que tu en penses'];
+    for (const cta of deadCTAs) {
+      if (bodyLower.includes(cta)) return { block: true, adjust: -3, note: 4, reason: 'dead_cta:' + cta };
+    }
+
+    // MALUS : pas de social proof
+    const spMarkers = ['on genere', 'on fait', 'on remplace', 'on alimente', 'on accompagne',
+      'on bosse avec', 'on travaille avec', 'pour des agences', 'pour des esn', 'pour des editeurs',
+      'pour des cabinets', 'pour des startups', 'pour des organismes', 'pour des e-commerces',
+      'meme volume', 'en continu', 'chaque semaine', 'sans dependre', 'sans y passer', 'fraction du cout'];
+    const hasSP = spMarkers.some(m => bodyLower.includes(m));
+    if (!hasSP) { adjust -= 1; reasons.push('no_social_proof'); }
+
+    // BONUS : social proof + CTA oriente valeur
+    if (hasSP) {
+      const valueCTAs = ['je te montre', 'je t\'envoie', 'dispo pour', 'on en discute',
+        'te montrer', '15 min', 'voir le setup', 'comment ca marche'];
+      if (valueCTAs.some(m => bodyLower.includes(m))) { adjust += 1; reasons.push('sp+value_cta'); }
+    }
+
+    // MALUS : meta-prospection
+    const metaP = ['comment tu prospectes', 'comment vous prospectez', 'comment tu acquiers',
+      'comment tu generes', 'comment tu trouves de nouveaux clients', 'acquisition de clients',
+      'generer des leads', 'trouver de nouveaux clients'];
+    if (metaP.some(m => bodyLower.includes(m))) { adjust -= 2; reasons.push('meta_prospection'); }
+
+    // MALUS : sujet generique (ni prenom ni entreprise)
+    const fn = ((contact.firstName || contact.name || '').split(' ')[0] || '').toLowerCase();
+    const co = (contact.company || '').toLowerCase();
+    if (fn && fn.length > 2 && !subjectLower.includes(fn) && co && co.length > 2 && !subjectLower.includes(co.substring(0, Math.min(co.length, 15)))) {
+      adjust -= 1; reasons.push('generic_subject');
+    }
+
+    return { block: false, adjust, note: 7 + adjust, reason: reasons.join('+') || 'ok' };
   }
 
   async _scoreEmail(subject, body, contact) {
