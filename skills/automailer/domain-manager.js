@@ -112,13 +112,13 @@ class DomainManager {
       return this.domains[0] || null; // Fallback sur le premier meme pause
     }
 
-    // 3. Rotation intelligente : favoriser le domaine avec le plus de headroom warmup
+    // 3. Rotation intelligente avec priorite warmup pour nouveaux domaines
     const today = new Date().toISOString().slice(0, 10);
     const candidates = active.map(d => {
       const stats = this.data.domains[d.domain] || {};
       const todaySends = (stats.dailySends || {})[today] || 0;
       const warmupLimit = this._getWarmupLimit(d.domain);
-      return { ...d, todaySends, warmupLimit, headroom: warmupLimit - todaySends };
+      return { ...d, todaySends, warmupLimit, headroom: warmupLimit - todaySends, firstSendDate: stats.firstSendDate || null, totalSent: stats.totalSent || 0 };
     }).filter(c => c.headroom > 0);
 
     if (candidates.length === 0) {
@@ -126,11 +126,25 @@ class DomainManager {
       return null;
     }
 
-    // Weighted random : headroom^2 comme poids (plus de marge = plus de chances, mais pas 100%)
-    const totalWeight = candidates.reduce((sum, c) => sum + c.headroom * c.headroom, 0);
+    // Priorite : domaines jamais utilises (demarrer leur warmup)
+    const neverSent = candidates.filter(c => !c.firstSendDate);
+    if (neverSent.length > 0) {
+      const pick = neverSent[Math.floor(Math.random() * neverSent.length)];
+      log.info('domain-manager', 'Warmup kickstart: ' + pick.domain + ' (jamais envoye)');
+      return pick;
+    }
+
+    // Weighted random : poids = fillRate inverse (domaines les moins remplis = plus de chances)
+    // fillRate = todaySends / warmupLimit (0 = vide, 1 = plein)
+    // Poids = (1 - fillRate)^2 — equilibre la charge entre domaines
+    const totalWeight = candidates.reduce((sum, c) => {
+      const fillRate = c.warmupLimit > 0 ? c.todaySends / c.warmupLimit : 1;
+      return sum + Math.pow(1 - fillRate, 2);
+    }, 0);
     let random = Math.random() * totalWeight;
     for (const c of candidates) {
-      random -= c.headroom * c.headroom;
+      const fillRate = c.warmupLimit > 0 ? c.todaySends / c.warmupLimit : 1;
+      random -= Math.pow(1 - fillRate, 2);
       if (random <= 0) return c;
     }
     return candidates[0];
