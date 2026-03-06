@@ -373,6 +373,12 @@ class AutoMailerStorage {
       }
       // Re-ouvertures : tracker le compteur mais pas re-incrementer les stats
       email.openCount = (email.openCount || 0) + 1;
+    } else if (status === 'clicked') {
+      if (!email.clickedAt) {
+        email.clickedAt = new Date().toISOString();
+        this.data.stats.totalEmailsClicked = (this.data.stats.totalEmailsClicked || 0) + 1;
+      }
+      email.clickCount = (email.clickCount || 0) + 1;
     } else if (status === 'bounced' && prevStatus !== 'bounced') {
       this.data.stats.totalEmailsBounced++;
     }

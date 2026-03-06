@@ -2565,6 +2565,64 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // === CLICK TRACKING REDIRECT — GET /c/:trackingId?url=X ===
+  if (req.method === 'GET' && req.url && req.url.startsWith('/c/')) {
+    const clickMatch = req.url.match(/^\/c\/([a-f0-9]{32})/);
+    const clickUrlObj = new URL(req.url, 'http://localhost');
+    const redirectUrl = clickUrlObj.searchParams.get('url');
+    if (!clickMatch || !redirectUrl) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Bad request');
+      return;
+    }
+    const clickTrackingId = clickMatch[1];
+    // Redirect immediately
+    res.writeHead(302, { 'Location': redirectUrl, 'Cache-Control': 'no-store, no-cache', 'Pragma': 'no-cache' });
+    res.end();
+    // Record click asynchronously
+    try {
+      const email = automailerStorage.findEmailByTrackingId(clickTrackingId);
+      if (email) {
+        automailerStorage.updateEmailStatus(email.id, 'clicked', { lastClickedUrl: redirectUrl });
+        log.info('tracking', 'Click tracked: ' + email.to + ' -> ' + redirectUrl.substring(0, 80));
+        // Niche performance tracking
+        try {
+          const apStorage = require('../skills/autonomous-pilot/storage.js');
+          const leadNiche = (function() {
+            if (email.industry) return email.industry;
+            if (email.niche) return email.niche;
+            const leads = apStorage.getLeads ? apStorage.getLeads() : [];
+            const lead = leads.find(l => (l.email || '').toLowerCase() === (email.to || '').toLowerCase());
+            return lead ? (lead.niche || lead.industry || null) : null;
+          })();
+          if (leadNiche) {
+            apStorage.trackNicheEvent(leadNiche, 'clicked');
+            log.info('tracking', 'Niche tracking: clicked [' + leadNiche + '] pour ' + email.to);
+          }
+        } catch (ntErr) {}
+        // CRM sync (async, non-bloquant)
+        (async () => {
+          try {
+            const hubspot = _getHubSpotClient();
+            if (hubspot) {
+              const contact = await hubspot.findContactByEmail(email.to);
+              if (contact && contact.id) {
+                const noteBody = 'Email "' + (email.subject || '') + '" — Clic (click tracking)\nURL: ' + redirectUrl.substring(0, 200) + '\nDate : ' + new Date().toLocaleDateString('fr-FR');
+                const note = await hubspot.createNote(noteBody);
+                if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
+                const adv = await hubspot.advanceDealStage(contact.id, 'presentationscheduled', 'email_clicked');
+                if (adv > 0) log.info('tracking', 'Deal avance a presentationscheduled pour ' + email.to + ' (clic email)');
+              }
+            }
+          } catch (crmErr) { log.warn('tracking', 'CRM sync clic: ' + crmErr.message); }
+        })();
+      }
+    } catch (e) {
+      log.warn('tracking', 'Click tracking error: ' + e.message);
+    }
+    return;
+  }
+
   // Tracking pixel ouverture email — GET /t/:trackingId.gif
   if (req.method === 'GET' && req.url && req.url.startsWith('/t/')) {
     // 1x1 transparent GIF (43 bytes)

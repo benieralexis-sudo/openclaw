@@ -281,7 +281,7 @@ class ResendClient {
 
   // HTML minimal — ressemble a un email tape dans Gmail, zero branding
   _minimalHtml(body, trackingId, toEmail) {
-    const escaped = body
+    let escaped = body
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -301,6 +301,16 @@ class ResendClient {
       + senderFullName + '<br>'
       + senderTitle + sep + clientDomain
       + '</span>';
+
+    // Click tracking : rewrite URLs in body to redirect through /c/{trackingId}
+    if (trackingId) {
+      escaped = escaped.replace(/(https?:\/\/[^\s<>"']+)/g, (url) => {
+        // Decode &amp; back to & for the redirect target
+        const cleanUrl = url.replace(/&amp;/g, '&');
+        const trackUrl = 'https://' + trackingDomain + '/c/' + trackingId + '?url=' + encodeURIComponent(cleanUrl);
+        return '<a href="' + trackUrl + '" style="color:#1a73e8;text-decoration:none">' + url + '</a>';
+      });
+    }
 
     // Lien de desabonnement visible dans le footer
     const unsubLink = toEmail
