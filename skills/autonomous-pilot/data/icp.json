@@ -1,15 +1,15 @@
 {
-  "version": "1.0",
-  "clientDescription": "iFIND genere des opportunites commerciales B2B par IA — emails personnalises, contacts qualifies, meetings en continu. On remplace le premier commercial outbound pour une fraction du cout.",
-  "bookingUrl": "",
+  "version": "1.1",
+  "clientDescription": "iFIND genere des opportunites commerciales B2B — emails personnalises, contacts qualifies, meetings en continu. On remplace le premier commercial outbound pour une fraction du cout.",
+  "bookingUrl": "https://calendar.app.google/DoB1kfp3DtDpZ6WC8",
   "niches": [
     {
       "slug": "agences-marketing",
       "name": "Agences marketing & growth",
       "keywords": "agence marketing OR agence digitale OR agence growth",
-      "weight": 30,
+      "weight": 20,
       "matchPatterns": ["agence marketing", "agence digitale", "agence growth", "agence communication", "agence web", "agence seo", "growth hacking"],
-      "painPoint": "Le pipe de l'agence depend du fondateur — LinkedIn manuel, reseau, recommandations. Ca plafonne et c'est impossible a scaler.",
+      "painPoint": "Le pipe de l'agence depend du fondateur — LinkedIn manuel, reseau, recommandations. Ca plafonne et c'est impossible a faire grossir.",
       "socialProof": "on genere le pipe outbound pour des agences — des opportunites qualifiees en continu sans que le fondateur y passe 1h",
       "triggers": [
         {
@@ -25,13 +25,13 @@
           "angle": "Tes clients ont un pipe structure grace a toi, mais cote agence c'est encore du reseau ?"
         }
       ],
-      "exampleEmail": "Thomas, 12 personnes chez [Agence] et un poste de bizdev ouvert — le delivery tourne mais cote acquisition c'est encore toi qui ramenes l'essentiel des clients ?\n\nOn genere le pipe outbound pour des agences growth — des opportunites qualifiees en continu sans y passer 2h/jour.\n\nJe te montre le setup en 15 min si ca te parle."
+      "exampleEmail": "Thomas, 12 personnes chez [Agence] et un poste de bizdev ouvert — le delivery tourne mais cote acquisition c'est encore toi qui ramenes l'essentiel des clients ?\n\nOn genere le pipe outbound pour des agences — des opportunites qualifiees en continu sans y passer 2h/jour.\n\nJe te montre le setup en 15 min si ca te parle."
     },
     {
       "slug": "esn-ssii",
       "name": "ESN & conseil IT",
       "keywords": "ESN OR SSII OR conseil informatique",
-      "weight": 25,
+      "weight": 18,
       "matchPatterns": ["esn", "ssii", "conseil informatique", "services numeriques", "consulting it", "societe de services"],
       "painPoint": "80% du business vient de recommandations et d'AO. Le pipe est imprevisible et depend du reseau des associes.",
       "socialProof": "on genere le pipe commercial pour des ESN — des contacts qualifies sans dependre des AO ni du reseau",
@@ -55,10 +55,10 @@
       "slug": "saas-b2b",
       "name": "SaaS B2B en scaling",
       "keywords": "SaaS B2B OR editeur logiciel",
-      "weight": 20,
+      "weight": 15,
       "matchPatterns": ["saas", "logiciel", "editeur", "software", "plateforme", "cloud", "startup saas"],
       "painPoint": "Premier commercial = 50-60k/an pour 5-10 meetings/mois. Long a recruter, long a onboarder, cher a garder.",
-      "socialProof": "on remplace le premier commercial outbound pour des SaaS en scaling — meme volume, fraction du cout",
+      "socialProof": "on remplace le premier commercial outbound pour des editeurs en scaling — meme volume, fraction du cout",
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -73,13 +73,13 @@
           "angle": "A votre stade, recruter un commercial vs externaliser — le calcul change vite"
         }
       ],
-      "exampleEmail": "Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux — le pipe va suivre le rythme ou c'est encore founder-led sales ?\n\nOn remplace le premier commercial outbound pour des SaaS en scaling — meme volume, fraction du cout.\n\nJe te montre comment ca marche en 15 min ?"
+      "exampleEmail": "Clement, [Editeur] vient de lever et vous recrutez 2 commerciaux — le pipe va suivre le rythme ou c'est encore founder-led sales ?\n\nOn remplace le premier commercial outbound pour des editeurs en scaling — meme volume, fraction du cout.\n\nJe te montre comment ca marche en 15 min ?"
     },
     {
       "slug": "cabinet-recrutement",
       "name": "Cabinets de recrutement",
       "keywords": "cabinet recrutement OR chasseur tete",
-      "weight": 15,
+      "weight": 10,
       "matchPatterns": ["cabinet recrutement", "recrutement", "chasseur tete", "talent acquisition", "rh externalisee", "staffing"],
       "painPoint": "Les consultants passent autant de temps a sourcer des clients qu'a placer des candidats. Le bizdev mange le delivery.",
       "socialProof": "on genere les clients pour des cabinets de recrutement — les consultants se concentrent sur le placement",
@@ -99,7 +99,7 @@
       "slug": "cabinet-conseil",
       "name": "Cabinets de conseil & strategie",
       "keywords": "cabinet conseil OR consulting",
-      "weight": 10,
+      "weight": 8,
       "matchPatterns": ["cabinet conseil", "consulting", "conseil en strategie", "conseil management", "conseil en organisation"],
       "painPoint": "Les associes facturent 1000-1500/jour mais passent 30% de leur temps en bizdev non facture. C'est du CA perdu.",
       "socialProof": "on alimente le pipe commercial pour des cabinets conseil — les associes facturent au lieu de chercher des clients",
@@ -114,6 +114,110 @@
         }
       ],
       "exampleEmail": "Pierre, 6 associes chez [Cabinet] et 3 missions en cours — le pipe vient du reseau des associes ou vous avez structure quelque chose ?\n\nOn alimente le pipe pour des cabinets conseil — les associes restent sur les missions.\n\nJe te montre le setup en 15 min si ca te parle."
+    },
+    {
+      "slug": "startup-tech",
+      "name": "Startups tech en croissance",
+      "keywords": "startup OR tech company",
+      "weight": 8,
+      "matchPatterns": ["startup", "fintech", "proptech", "healthtech", "edtech", "legaltech", "regtech", "insurtech"],
+      "painPoint": "Le fondateur fait tout — produit, recrutement, vente. Le pipe depend de son LinkedIn et de son reseau. Recruter un commercial a ce stade coute plus cher que ca rapporte.",
+      "socialProof": "on genere le pipe commercial pour des startups tech — le fondateur reste sur le produit pendant que les meetings rentrent",
+      "triggers": [
+        {
+          "signal": "hiring_sales",
+          "angle": "Tu recrutes ton premier commercial — en attendant qu'il soit operationnel, on remplit le pipe"
+        },
+        {
+          "signal": "funding",
+          "angle": "Levee bouclée — maintenant faut que le go-to-market suive au meme rythme"
+        },
+        {
+          "signal": "default",
+          "angle": "A ce stade, c'est encore toi qui ramenes les deals ou vous avez structure un canal ?"
+        }
+      ],
+      "exampleEmail": "Julien, [Startup] vient de lever et vous etes 15 — le produit avance mais cote acquisition c'est encore founder-led sales ?\n\nOn genere le pipe pour des startups tech — le fondateur reste sur le produit.\n\nJe te montre en 15 min si ca te parle."
+    },
+    {
+      "slug": "formation-pro",
+      "name": "Organismes de formation",
+      "keywords": "formation professionnelle OR organisme formation",
+      "weight": 6,
+      "matchPatterns": ["formation professionnelle", "organisme formation", "centre formation", "formation continue", "formation entreprise"],
+      "painPoint": "Le remplissage des sessions depend du bouche-a-oreille et des appels entrants. Entre deux sessions pleines, le pipe est vide.",
+      "socialProof": "on genere des inscriptions B2B pour des organismes de formation — des entreprises interessees chaque semaine sans attendre le bouche-a-oreille",
+      "triggers": [
+        {
+          "signal": "hiring_sales",
+          "angle": "Vous recrutez un commercial pour remplir les sessions — on peut demarrer le pipe en attendant"
+        },
+        {
+          "signal": "default",
+          "angle": "Les sessions se remplissent par le bouche-a-oreille ou vous avez un canal structure ?"
+        }
+      ],
+      "exampleEmail": "Caroline, 12 formations au catalogue chez [Organisme] — les sessions se remplissent comment aujourd'hui, bouche-a-oreille ou vous avez un canal actif ?\n\nOn genere des demandes B2B pour des organismes de formation — des entreprises interessees chaque semaine.\n\nDispo pour te montrer comment ca marche."
+    },
+    {
+      "slug": "immobilier-pro",
+      "name": "Agences immobilieres & promoteurs",
+      "keywords": "immobilier professionnel OR agence immobiliere",
+      "weight": 5,
+      "matchPatterns": ["immobilier professionnel", "agence immobiliere", "promoteur immobilier", "immobilier commercial", "gestion locative", "immobilier"],
+      "painPoint": "Les mandats viennent du terrain et du reseau local. Quand le marche se tend, les mandats se rarefient et la prospection terrain ne suffit plus.",
+      "socialProof": "on genere des contacts vendeurs pour des agences immo — des mandats qualifies sans dependre uniquement du terrain",
+      "triggers": [
+        {
+          "signal": "hiring_sales",
+          "angle": "Tu recrutes un negociateur — en attendant, on peut alimenter le flux de mandats"
+        },
+        {
+          "signal": "default",
+          "angle": "Les mandats viennent du terrain et du reseau — c'est regulier ou ca depend des periodes ?"
+        }
+      ],
+      "exampleEmail": "Gregory, 3 agences [Immo] sur la region — les mandats rentrent comment en ce moment, terrain uniquement ou vous avez un canal complementaire ?\n\nOn genere des contacts vendeurs pour des agences immo — des mandats qualifies en continu.\n\nJe te montre en 15 min si ca te parle."
+    },
+    {
+      "slug": "cabinet-comptable",
+      "name": "Experts-comptables & cabinets",
+      "keywords": "expert comptable OR cabinet comptable",
+      "weight": 5,
+      "matchPatterns": ["expert comptable", "cabinet comptable", "expertise comptable", "comptabilite", "commissaire aux comptes"],
+      "painPoint": "Le portefeuille client se construit sur 10 ans de reseau et de recommandations. Quand un associe part, il emporte ses clients.",
+      "socialProof": "on genere des prospects pour des cabinets comptables — des entreprises qui cherchent un nouveau cabinet, sans attendre le bouche-a-oreille",
+      "triggers": [
+        {
+          "signal": "hiring_sales",
+          "angle": "Vous recrutez un charge de developpement — signe que le reseau seul ne suffit plus ?"
+        },
+        {
+          "signal": "default",
+          "angle": "Le portefeuille grandit par le reseau et les recommandations — c'est suffisant pour vos objectifs ?"
+        }
+      ],
+      "exampleEmail": "Laurent, 4 associes chez [Cabinet] et 200 dossiers — le portefeuille grandit comment aujourd'hui, recommandations uniquement ?\n\nOn genere des prospects pour des cabinets comptables — des entreprises en recherche active d'un cabinet.\n\nDispo pour en parler si ca te dit."
+    },
+    {
+      "slug": "ecommerce-b2b",
+      "name": "E-commerce & marketplace B2B",
+      "keywords": "e-commerce B2B OR marketplace B2B",
+      "weight": 5,
+      "matchPatterns": ["e-commerce", "ecommerce", "marketplace", "commerce en ligne", "boutique en ligne", "wholesale", "grossiste"],
+      "painPoint": "L'acquisition repose sur le paid (Google Ads, Meta) — le cout par client monte chaque trimestre. Le canal outbound direct est sous-exploite.",
+      "socialProof": "on genere des clients B2B pour des e-commerces — un canal direct qui ne depend pas du cout par clic",
+      "triggers": [
+        {
+          "signal": "growth",
+          "angle": "La croissance est la mais le cout d'acquisition monte — a quel moment le paid ne suffit plus ?"
+        },
+        {
+          "signal": "default",
+          "angle": "L'acquisition B2B repose sur le paid ou vous avez un canal direct en parallele ?"
+        }
+      ],
+      "exampleEmail": "Nicolas, [E-commerce] fait du B2B et le catalogue s'etoffe — l'acquisition repose uniquement sur le paid ou vous avez un canal direct ?\n\nOn genere des clients B2B pour des e-commerces — un canal qui ne depend pas du cout par clic.\n\nJe te montre le setup en 15 min ?"
     }
   ]
 }

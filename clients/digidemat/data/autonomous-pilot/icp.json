@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "clientDescription": "Digidemat este partener oficial Google Workspace cu suport local in limba romana — companiile primesc reducere 5%, asistenta dedicata si migrare completa.",
+  "bookingUrl": "",
+  "niches": [
+    {
+      "slug": "entreprises-moldavie-gws",
+      "name": "Companii din Moldova pe Google Workspace",
+      "keywords": "Google Workspace OR Gmail business OR G Suite Moldova",
+      "weight": 100,
+      "matchPatterns": ["google workspace", "gmail", "g suite", "google apps", "workspace", "google cloud"],
+      "painPoint": "Platesti Google Workspace direct, fara suport local — cand ai o problema, vorbesti cu un bot in engleza. Fara factura locala, fara cineva care sa te ajute in romana.",
+      "socialProof": "lucram cu companii din Moldova care au trecut pe Google Workspace prin noi — suport in romana, factura locala si pret mai bun",
+      "triggers": [
+        {
+          "signal": "growth",
+          "angle": "Echipa creste — fiecare cont nou e o ocazie sa treci pe un plan mai bun cu suport local"
+        },
+        {
+          "signal": "default",
+          "angle": "Platesti Google Workspace direct? Fara suport local, fara factura in lei, fara cineva care sa raspunda in romana?"
+        }
+      ],
+      "exampleEmail": "Andrei, [Companie] are 20 de oameni pe Google Workspace — platiti direct la Google sau aveti un partener local?\n\nLucram cu companii din Moldova — suport in romana, factura locala si un pret mai bun decat direct.\n\nIti arat in 15 min cum functioneaza daca te intereseaza."
+    }
+  ]
+}
