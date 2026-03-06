@@ -446,7 +446,7 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       let prompt = userMessage;
       if (attempt > 0 && best) {
-        prompt = userMessage + '\n\nATTENTION: l\'email precedent a ete note ' + bestScore + '/10. Problemes: ' + (best._scoreReason || 'qualite insuffisante') + '. Ecris un email MEILLEUR — plus court (30-50 mots max), un FAIT specifique, UNE question, ZERO analyse, ZERO meta-prospection.';
+        prompt = userMessage + '\n\nATTENTION: l\'email precedent a ete note ' + bestScore + '/10. Problemes: ' + (best._scoreReason || 'qualite insuffisante') + '. Ecris un email MEILLEUR — 50-80 mots, 4 BLOCS : FAIT specifique + PONT vers le probleme + SOCIAL PROOF (1 phrase) + CTA oriente valeur. ZERO analyse, ZERO meta-prospection.';
       }
       const response = await this.callClaude(
         [{ role: 'user', content: prompt }],
