@@ -101,8 +101,9 @@ function getWarmupDailyLimit(firstSendDate) {
   if (!firstSendDate) return 5;
   const daysSinceFirst = Math.floor((Date.now() - new Date(firstSendDate).getTime()) / 86400000);
   if (daysSinceFirst < 0) return 5;
-  // Schedule progressif : j0=5, j1=10, j2=15, j3=20, j4=25, j5=30, j6=35, j7-13=50, j14-27=75, j28+=100
-  const schedule = [5, 10, 15, 20, 25, 30, 35, 50, 50, 50, 50, 50, 50, 50, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75, 100];
+  // Schedule progressif lisse — evite les sauts brusques (35→50→75) qui declenchent spam filters
+  // j0-4: 5,8,12,16,20 | j5-6: 25,30 | j7-13: 34,38,42,46,50,55,60 | j14-20: 65-75 | j21-27: 80 | j28+: 100
+  const schedule = [5, 8, 12, 16, 20, 25, 30, 34, 38, 42, 46, 50, 55, 60, 65, 67, 70, 72, 75, 75, 75, 80, 80, 80, 80, 80, 80, 80, 100];
   return schedule[Math.min(daysSinceFirst, schedule.length - 1)] || 100;
 }
 

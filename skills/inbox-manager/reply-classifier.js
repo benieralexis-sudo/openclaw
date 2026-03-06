@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 let _knowledgeBase = null;
 let _kbLoadedAt = 0;
-const KB_CACHE_TTL = 60000; // Reload KB every 60s (allows dashboard edits to take effect)
+const KB_CACHE_TTL = 3600000; // Reload KB every 1h (dashboard edits prennent effet au prochain cycle)
 
 function _loadKB() {
   const now = Date.now();

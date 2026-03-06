@@ -126,8 +126,13 @@ class DomainManager {
       return null;
     }
 
-    // Trier par headroom decroissant (plus de marge = priorite)
-    candidates.sort((a, b) => b.headroom - a.headroom);
+    // Weighted random : headroom^2 comme poids (plus de marge = plus de chances, mais pas 100%)
+    const totalWeight = candidates.reduce((sum, c) => sum + c.headroom * c.headroom, 0);
+    let random = Math.random() * totalWeight;
+    for (const c of candidates) {
+      random -= c.headroom * c.headroom;
+      if (random <= 0) return c;
+    }
     return candidates[0];
   }
 
@@ -204,7 +209,24 @@ class DomainManager {
 
   _isDomainPaused(domain) {
     const stats = this.data.domains[domain];
-    return stats && stats.paused === true;
+    if (!stats || !stats.paused) return false;
+    // Auto-resume apres 48h si bounce rate s'est stabilise
+    if (stats.pausedAt) {
+      const pausedMs = Date.now() - new Date(stats.pausedAt).getTime();
+      if (pausedMs > 48 * 60 * 60 * 1000) {
+        const bounces = (stats.recentResults || []).filter(r => r.bounce).length;
+        const total = (stats.recentResults || []).length;
+        const currentRate = total > 0 ? bounces / total : 0;
+        if (currentRate <= BOUNCE_THRESHOLD) {
+          stats.paused = false;
+          stats.pauseReason = null;
+          this._save();
+          log.info('domain-manager', 'Auto-resume: ' + domain + ' apres 48h (bounce rate stabilise a ' + Math.round(currentRate * 100) + '%)');
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   // Stats pour le dashboard / monitoring

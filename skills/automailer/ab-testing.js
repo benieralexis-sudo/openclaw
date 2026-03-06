@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const log = require('../../gateway/logger.js');
 
 const MAX_VARIANTS = 3; // A, B, C
-const MIN_SENDS_AUTO_KILL = 20; // Minimum envois avant auto-kill
+const MIN_SENDS_AUTO_KILL = 15; // Minimum envois avant auto-kill (aligne avec chi-square n>=10)
 const UNDERPERFORM_THRESHOLD = 0.30; // 30% sous le leader = candidat auto-kill
 
 class ABTesting {
