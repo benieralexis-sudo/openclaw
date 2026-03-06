@@ -1312,13 +1312,17 @@ Analyse et reponds en JSON:
     const nichePerf = storage.getNichePerformance();
     const nicheKeys = Object.keys(nichePerf);
     if (nicheKeys.length > 0) {
+      // Compresser le prompt : ne montrer que les niches avec >= 1 envoi (les autres sont du bruit)
+      const activeNiches = nicheKeys.filter(nk => (nichePerf[nk].sent || 0) > 0);
+      const inactiveCount = nicheKeys.length - activeNiches.length;
       prompt += '\nPERFORMANCE PAR NICHE (auto-pivot):\n';
-      for (const nk of nicheKeys) {
+      for (const nk of activeNiches) {
         const np = nichePerf[nk];
         const openRate = np.sent > 0 ? Math.round((np.opened / np.sent) * 100) : 0;
         const replyRate = np.sent > 0 ? Math.round((np.replied / np.sent) * 100) : 0;
         prompt += '- ' + nk + ': ' + np.leads + ' leads, ' + np.sent + ' envoyes, ' + np.opened + ' ouverts (' + openRate + '%), ' + np.replied + ' reponses (' + replyRate + '%)\n';
       }
+      if (inactiveCount > 0) prompt += '(' + inactiveCount + ' niches avec 0 envoi omises)\n';
       prompt += '→ REGLE AUTO-PIVOT: Apres 15+ emails par niche, concentre 70% des envois sur la meilleure niche (open rate).\n';
       prompt += '→ Si une niche a < 5% open rate apres 20+ emails, ABANDONNE-LA et teste une niche de remplacement.\n';
       // Lister toutes les niches disponibles depuis la liste centralisee
