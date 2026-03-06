@@ -178,10 +178,34 @@ function createResendHandler(deps) {
       }
     }
 
-    // Bounce → blacklist automatique
+    // Bounce → differencier hard/soft bounce
     if (status === 'bounced') {
-      automailerStorage.addToBlacklist(email.to, 'hard_bounce_webhook');
-      log.info('webhook', 'Bounce: ' + email.to + ' ajoute au blacklist');
+      const bounceType = (data.bounce && data.bounce.type) || '';
+      const isHardBounce = !bounceType || bounceType === 'hard' || /invalid|not found|does not exist|rejected/i.test(data.bounce && data.bounce.message || '');
+      if (isHardBounce) {
+        automailerStorage.addToBlacklist(email.to, 'hard_bounce_webhook');
+        log.info('webhook', 'Hard bounce: ' + email.to + ' ajoute au blacklist');
+      } else {
+        // Soft bounce (mailbox full, temp DNS, rate limit) → retry dans 24-48h, PAS de blacklist
+        log.info('webhook', 'Soft bounce: ' + email.to + ' — retry prevu (pas de blacklist). Type: ' + bounceType + ', message: ' + ((data.bounce && data.bounce.message) || '').substring(0, 100));
+        try {
+          const proactiveStorage = require('../skills/proactive-agent/storage.js');
+          const retryDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          proactiveStorage.addPendingFollowUp({
+            prospectEmail: email.to,
+            prospectName: email.contactName || '',
+            prospectCompany: email.company || '',
+            originalSubject: email.subject || '',
+            originalBody: (email.body || '').substring(0, 300),
+            prospectIntel: 'Soft bounce (' + bounceType + '). Retry automatique apres 24h.',
+            scheduledAfter: retryDate,
+            isSoftBounceRetry: true
+          });
+          log.info('webhook', 'Soft bounce retry programme pour ' + email.to + ' a ' + retryDate.substring(0, 10));
+        } catch (sbErr) {
+          log.warn('webhook', 'Soft bounce retry schedule echoue: ' + sbErr.message);
+        }
+      }
     }
 
     // Complained (spam report) → blacklist automatique

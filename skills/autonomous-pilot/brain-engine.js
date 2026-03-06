@@ -68,8 +68,8 @@ class BrainEngine {
 
     // Daily briefing supprime — fusionne avec Proactive Morning Report a 8h (voir proactive-engine.js)
 
-    // Mini-cycle leger : 12h et 16h (Intelligence Reelle v5 — 0$ cout, pas d'appel Claude)
-    this.crons.push(new Cron('0 12,16 * * *', { timezone: tz }, withCronGuard('ap-mini-cycle', async () => {
+    // Mini-cycle leger : 10h, 12h, 14h, 16h (4 fenetres — reduit latence hot lead de 3.5h a ~1h)
+    this.crons.push(new Cron('0 10,12,14,16 * * *', { timezone: tz }, withCronGuard('ap-mini-cycle', async () => {
       try { await this._lightCycle(); }
       catch (e) { log.error('brain', 'Erreur mini-cycle:', e.message); }
     })));
@@ -80,7 +80,7 @@ class BrainEngine {
       catch (e) { log.error('brain', 'Erreur reset hebdo:', e.message); }
     })));
 
-    log.info('brain', 'Cerveau autonome demarre (5 crons — 3 brain + 2 mini)');
+    log.info('brain', 'Cerveau autonome demarre (7 crons — 3 brain + 4 mini)');
   }
 
   stop() {
@@ -373,8 +373,16 @@ class BrainEngine {
           alreadySentVal.add(email);
         }
         const gVal = storage.getGoals().weekly;
-        Object.values(allLeadsVal)
-          .filter(l => l.email && (l.score || 0) >= (gVal.minLeadScore || 5) && !alreadySentVal.has(l.email.toLowerCase()))
+        const configMinScore = gVal.minLeadScore || 5;
+        // Soft constraint: si assez de leads score >= 7, relever le seuil pour eviter les leads faibles (5-6)
+        const allLeadsList = Object.values(allLeadsVal).filter(l => l.email && !alreadySentVal.has(l.email.toLowerCase()));
+        const highScoreCount = allLeadsList.filter(l => (l.score || 0) >= 7).length;
+        const effectiveMinScore = highScoreCount >= 10 ? Math.max(configMinScore, 7) : configMinScore;
+        if (effectiveMinScore > configMinScore) {
+          log.info('brain', 'Soft constraint: ' + highScoreCount + ' leads score>=7 dispo → seuil releve de ' + configMinScore + ' a ' + effectiveMinScore);
+        }
+        allLeadsList
+          .filter(l => (l.score || 0) >= effectiveMinScore)
           .sort((a, b) => (b.score || 0) - (a.score || 0))
           .forEach(l => eligibleEmails.add(l.email.toLowerCase()));
       }

@@ -493,8 +493,10 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
       if (parsed && typeof parsed.note === 'number') {
         return { note: Math.min(10, Math.max(1, Math.round(parsed.note))), reason: parsed.reason || '' };
       }
-    } catch (e) { /* scoring echoue → score bas pour forcer prudence */ }
-    return { note: 5, reason: 'scoring_unavailable' }; // default prudent si scoring echoue
+    } catch (e) {
+      console.warn('[email-writer] Scoring OpenAI echoue: ' + e.message + ' — fallback score 7 (email potentiellement bon)');
+    }
+    return { note: 7, reason: 'scoring_unavailable' }; // Fallback 7: ne pas bloquer un email potentiellement bon
   }
 
   // Score leger pour les follow-ups/relances (pas de retry, juste reject si trop bas)
