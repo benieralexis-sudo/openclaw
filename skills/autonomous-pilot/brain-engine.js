@@ -1042,18 +1042,34 @@ Analyse et reponds en JSON:
       const emailsPct = goals.emailsToSend > 0 ? (progress.emailsSentThisWeek / goals.emailsToSend) * 100 : 100;
 
       if (leadsPct < 30 || emailsPct < 30) {
-        // Rotation de niche pour mini-cycle aussi
-        const allNichesMini = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
-        const nicheIdx = (new Date().getHours() + new Date().getDate()) % allNichesMini.length;
-        const miniNiche = allNichesMini[nicheIdx];
-        const miniCriteria = { ...state.goals.searchCriteria };
-        if (miniNiche) miniCriteria.keywords = miniNiche.keywords;
-        actions.push({
-          type: 'search_leads',
-          params: { criteria: miniCriteria, niche: miniNiche ? miniNiche.slug : null },
-          autoExecute: true,
-          preview: 'Recherche urgente (mini-cycle' + (miniNiche ? ' — niche: ' + miniNiche.slug : '') + ')'
-        });
+        // Selection de niche via ICP (weighted) au lieu de rotation aleatoire sur 22 niches
+        let miniIcpLoader = null;
+        try { miniIcpLoader = require('../../gateway/icp-loader.js'); } catch (e) {
+          try { miniIcpLoader = require('/app/gateway/icp-loader.js'); } catch (e2) {}
+        }
+        const miniNiche = miniIcpLoader ? miniIcpLoader.getNicheForCycle() : null;
+        if (!miniNiche) {
+          // Fallback ancien systeme
+          const allNichesMini = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
+          const nicheIdx = (new Date().getHours() + new Date().getDate()) % allNichesMini.length;
+          const fallbackNiche = allNichesMini[nicheIdx];
+          const miniCriteria = { ...state.goals.searchCriteria };
+          if (fallbackNiche) miniCriteria.keywords = fallbackNiche.keywords;
+          actions.push({
+            type: 'search_leads',
+            params: { criteria: miniCriteria, niche: fallbackNiche ? fallbackNiche.slug : null },
+            autoExecute: true,
+            preview: 'Recherche urgente (mini-cycle fallback' + (fallbackNiche ? ' — niche: ' + fallbackNiche.slug : '') + ')'
+          });
+        } else {
+          const miniCriteria = { ...state.goals.searchCriteria, keywords: miniNiche.keywords };
+          actions.push({
+            type: 'search_leads',
+            params: { criteria: miniCriteria, niche: miniNiche.slug, _nicheSlug: miniNiche.slug },
+            autoExecute: true,
+            preview: 'Recherche ICP (mini-cycle — niche: ' + miniNiche.slug + ', poids: ' + (miniNiche.weight || 10) + '%)'
+          });
+        }
       }
     }
 
@@ -1308,14 +1324,31 @@ Analyse et reponds en JSON:
     prompt += '- Open rate >= ' + g.minOpenRate + '%\n';
     prompt += '- Push CRM si score >= ' + g.pushToCrmAboveScore + '\n';
 
+    // --- ICP : NICHES CIBLES (remplace la rotation aleatoire sur 22 niches) ---
+    let icpLoader = null;
+    try { icpLoader = require('../../gateway/icp-loader.js'); } catch (e) {
+      try { icpLoader = require('/app/gateway/icp-loader.js'); } catch (e2) {}
+    }
+    const icpNiches = icpLoader ? icpLoader.getAllNiches() : [];
+
+    if (icpNiches.length > 0) {
+      prompt += '\n=== NICHES ICP (SEULES niches autorisees pour search_leads) ===\n';
+      prompt += 'REGLE ABSOLUE : tu ne cherches QUE dans ces ' + icpNiches.length + ' niches. PAS d\'autres secteurs.\n';
+      for (const n of icpNiches) {
+        prompt += '- "' + n.slug + '" (poids: ' + (n.weight || 10) + '%) → keywords: "' + n.keywords + '"\n';
+        if (n.painPoint) prompt += '  Pain point: ' + n.painPoint.substring(0, 100) + '\n';
+      }
+      prompt += '→ Pour chaque search_leads, ajoute params.niche ET params.criteria.keywords correspondant.\n';
+      prompt += '→ Repartis les recherches selon les poids (ex: 30% agences, 25% ESN, 20% SaaS...)\n';
+    }
+
     // --- PERFORMANCE PAR NICHE (Auto-Pivot) ---
     const nichePerf = storage.getNichePerformance();
     const nicheKeys = Object.keys(nichePerf);
     if (nicheKeys.length > 0) {
-      // Compresser le prompt : ne montrer que les niches avec >= 1 envoi (les autres sont du bruit)
       const activeNiches = nicheKeys.filter(nk => (nichePerf[nk].sent || 0) > 0);
       const inactiveCount = nicheKeys.length - activeNiches.length;
-      prompt += '\nPERFORMANCE PAR NICHE (auto-pivot):\n';
+      prompt += '\nPERFORMANCE PAR NICHE:\n';
       for (const nk of activeNiches) {
         const np = nichePerf[nk];
         const openRate = np.sent > 0 ? Math.round((np.opened / np.sent) * 100) : 0;
@@ -1323,54 +1356,26 @@ Analyse et reponds en JSON:
         prompt += '- ' + nk + ': ' + np.leads + ' leads, ' + np.sent + ' envoyes, ' + np.opened + ' ouverts (' + openRate + '%), ' + np.replied + ' reponses (' + replyRate + '%)\n';
       }
       if (inactiveCount > 0) prompt += '(' + inactiveCount + ' niches avec 0 envoi omises)\n';
-      prompt += '→ REGLE AUTO-PIVOT: Apres 15+ emails par niche, concentre 70% des envois sur la meilleure niche (open rate).\n';
-      prompt += '→ Si une niche a < 5% open rate apres 20+ emails, ABANDONNE-LA et teste une niche de remplacement.\n';
-      // Lister toutes les niches disponibles depuis la liste centralisee
-      const allNiches = storage.getNicheList ? storage.getNicheList() : [];
-      const testedNicheSlugs = new Set(nicheKeys.map(k => k.replace(/_/g, '-').toLowerCase()));
-      const untestedNiches = allNiches.filter(n => !testedNicheSlugs.has(n.slug.replace(/_/g, '-').toLowerCase()));
-      if (untestedNiches.length > 0) {
-        prompt += '→ NICHES PAS ENCORE TESTEES (' + untestedNiches.length + ' disponibles — TESTE-LES pour diversifier):\n';
-        for (const n of untestedNiches.slice(0, 10)) {
-          prompt += '  - "' + n.slug + '" → keywords: "' + n.keywords + '"\n';
-        }
-        if (untestedNiches.length > 10) {
-          prompt += '  ... et ' + (untestedNiches.length - 10) + ' autres niches disponibles.\n';
-        }
-      }
-      prompt += '→ Pour chaque search_leads, ajoute params.niche (ex: "cabinet-conseil", "formation-pro", "immobilier-pro") pour le tracking.\n';
-      prompt += '→ REGLE DIVERSIFICATION: Ne cherche PAS toujours dans les memes 2-3 niches. ALTERNE entre niches testees et nouvelles.\n';
-    } else {
-      // Pas de niche performance data — indiquer les niches disponibles pour demarrer
-      const allNichesInit = storage.getNicheList ? storage.getNicheList() : [];
-      if (allNichesInit.length > 0) {
-        prompt += '\nNICHES B2B DISPONIBLES POUR PROSPECTION (aucune testee encore — commence par 2-3 niches differentes):\n';
-        for (const n of allNichesInit.slice(0, 12)) {
-          prompt += '- "' + n.slug + '" → keywords: "' + n.keywords + '"\n';
-        }
-        prompt += '→ Pour chaque search_leads, ajoute params.niche et params.criteria.keywords correspondant.\n';
-        prompt += '→ REGLE: Teste AU MOINS 3 niches differentes par semaine pour trouver les meilleurs secteurs.\n';
-      }
+      prompt += '→ REGLE AUTO-PIVOT: Apres 15+ emails par niche, concentre 70% des envois sur la meilleure niche (reply rate).\n';
+      prompt += '→ Si une niche a 0% reply rate apres 20+ emails, REDUIS son poids et concentre sur les autres.\n';
     }
 
-    // --- SANTE DES NICHES (Niche Health Monitor) ---
-    const nicheHealth = state.nicheHealth || {};
-    const nhKeys = Object.keys(nicheHealth).filter(k => !k.startsWith('_'));
-    if (nhKeys.length > 0) {
-      prompt += '\nSANTE DES NICHES (scan quotidien Apollo):\n';
-      for (const slug of nhKeys) {
-        const h = nicheHealth[slug];
-        const emoji = h.status === 'exhausted' ? '🔴' : h.status === 'critical' ? '🟠' : h.status === 'warning' ? '🟡' : '🟢';
-        prompt += '- ' + emoji + ' ' + slug + ': ' + (h.contacted || 0) + '/' + (h.totalAvailable || '?') + ' contactes (' + (h.exhaustionPct || 0) + '%) — ' + h.status + '\n';
+    // Fallback : si pas d'ICP, utiliser l'ancienne liste (backward compat)
+    if (icpNiches.length === 0) {
+      const allNichesInit = storage.getNicheList ? storage.getNicheList() : [];
+      if (allNichesInit.length > 0) {
+        prompt += '\nNICHES B2B DISPONIBLES (pas d\'ICP configure — teste 2-3 niches):\n';
+        for (const n of allNichesInit.slice(0, 8)) {
+          prompt += '- "' + n.slug + '" → keywords: "' + n.keywords + '"\n';
+        }
+        prompt += '→ RECOMMANDATION: configure un fichier icp.json pour cibler les bonnes niches.\n';
       }
-      prompt += '→ REGLE: EVITE les niches critical/exhausted. PRIVILEGIE les niches healthy avec bon open rate.\n';
-      prompt += '→ Si une niche est a 80%+, bascule vers une niche healthy pas encore testee.\n';
     }
 
     prompt += '\nCRITERES DE RECHERCHE (VERROUILLES — NE PAS MODIFIER):\n';
     prompt += JSON.stringify(sc, null, 2) + '\n';
     prompt += '→ IMPORTANT: Ces criteres (titles, locations, companySize) sont VERROUILLES par la config.\n';
-    prompt += '→ Pour search_leads, tu peux UNIQUEMENT changer "keywords" pour tester differentes niches.\n';
+    prompt += '→ Pour search_leads, tu peux UNIQUEMENT changer "keywords" selon les niches ICP ci-dessus.\n';
     prompt += '→ REGLE CRITIQUE KEYWORDS: Maximum 2 mots par keyword. Apollo fait un AND implicite, donc 3+ mots = 0 resultats.\n';
     prompt += '→ CORRECT: keywords="agence marketing" ou keywords="ESN" ou keywords="SaaS B2B" (1-2 mots)\n';
     prompt += '→ INCORRECT: keywords="SaaS B2B editeur logiciel" (4 mots = 0 resultats!)\n';

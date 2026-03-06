@@ -147,10 +147,8 @@ class ClaudeEmailWriter {
       } catch (e2) {}
     }
     if (siPrefs) {
-      // maxLength est un string "short"/"medium"/"long"
       if (siPrefs.maxLength === 'short') emailLengthHint = '50-65 mots (court mais substantiel)';
       else if (siPrefs.maxLength === 'long') emailLengthHint = '65-100 mots';
-      // subjectStyle : directive pour le style d'objet
       if (siPrefs.subjectStyle) subjectStyleHint = '\nSTYLE OBJET RECOMMANDE : ' + siPrefs.subjectStyle;
       if (siPrefs.preferredSubjectLength) subjectStyleHint += ' (' + siPrefs.preferredSubjectLength + ' mots max)';
     }
@@ -158,9 +156,47 @@ class ClaudeEmailWriter {
     const senderName = process.env.SENDER_NAME || 'Alexis';
     const senderTitle = process.env.SENDER_TITLE || 'fondateur';
     const clientName = process.env.CLIENT_NAME || 'iFIND';
-    const clientDescription = process.env.CLIENT_DESCRIPTION || '';
     const emailLanguage = process.env.EMAIL_LANGUAGE || 'fr';
     const emailTone = process.env.EMAIL_TONE || 'informal';
+
+    // --- ICP : charger le contexte niche (value prop, pain point, social proof) ---
+    let icpLoader = null;
+    try { icpLoader = require('../../gateway/icp-loader.js'); } catch (e) {
+      try { icpLoader = require('/app/gateway/icp-loader.js'); } catch (e2) {}
+    }
+    const clientDescription = (icpLoader && icpLoader.getClientDescription()) || process.env.CLIENT_DESCRIPTION || '';
+    const nicheContext = contact._nicheContext || null; // Injecte par action-executor
+    const nicheSlug = contact._nicheSlug || null;
+    let nicheData = nicheContext;
+    if (!nicheData && nicheSlug && icpLoader) {
+      const ctx = icpLoader.getEmailContext(nicheSlug);
+      if (ctx) nicheData = ctx.niche;
+    }
+    // Si pas de niche explicite, tenter le match automatique
+    if (!nicheData && icpLoader) {
+      nicheData = icpLoader.matchLeadToNiche(contact);
+    }
+
+    // --- Construire le bloc ICP pour le prompt ---
+    let icpBlock = '';
+    if (clientDescription || nicheData) {
+      icpBlock = '\n=== QUI TU ES ET POURQUOI TU ECRIS ===\n';
+      if (clientDescription) {
+        icpBlock += clientName + ' : ' + clientDescription + '\n';
+      }
+      if (nicheData) {
+        icpBlock += '\nNICHE DU PROSPECT : ' + (nicheData.name || nicheData.slug || 'inconnue');
+        if (nicheData.painPoint) icpBlock += '\nLEUR PROBLEME : ' + nicheData.painPoint;
+        if (nicheData.socialProof) icpBlock += '\nTON SOCIAL PROOF (a integrer en 1 phrase) : ' + nicheData.socialProof;
+        if (contact._triggerAngle) icpBlock += '\nTRIGGER DETECTE : ' + contact._triggerAngle;
+        icpBlock += '\n';
+      }
+      icpBlock += `
+REGLE : ton email doit faire comprendre EN UNE PHRASE que tu connais leur probleme et que tu as quelque chose a apporter.
+Pas un pitch — un CONTEXTE. Le prospect doit connecter les points tout seul.
+Le social proof est UNE phrase integree naturellement dans le flow, PAS un paragraphe separe.
+`;
+    }
 
     // Bloc langue pour clients non-francophones
     let languageBlock = '';
@@ -183,19 +219,30 @@ ${clientDescription ? 'WHAT ' + clientName.toUpperCase() + ' DOES: ' + clientDes
 `;
     }
 
-    const systemPrompt = `${languageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris a un pair — pas a un "prospect", pas a une "cible". Comme quelqu'un du meme monde qui a remarque un truc et qui lance la conversation en 30 secondes.
+    // --- Construire l'exemple niche-specific si disponible ---
+    let nicheExampleBlock = '';
+    if (nicheData && nicheData.exampleEmail) {
+      nicheExampleBlock = `
+=== EXEMPLE POUR CETTE NICHE (copie ce niveau et cette structure) ===
+"${nicheData.exampleEmail}"
+→ Structure : FAIT + PONT VERS LE PROBLEME + SOCIAL PROOF (1 phrase) + CTA ORIENTE VALEUR
+`;
+    }
 
-BUT UNIQUE : une REPONSE. Pas une ouverture, pas un clic — une reponse.
+    const systemPrompt = `${languageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris a un pair — pas a un "prospect", pas a une "cible". Comme quelqu'un du meme monde qui a remarque un truc et qui lance la conversation en 30 secondes.
+${icpBlock}
+BUT UNIQUE : obtenir un RDV. Chaque email est un pas vers une conversation. Pas une question en l'air — une ouverture qui donne envie de repondre parce que tu apportes quelque chose.
 
 === CE QUI FAIT UN 10/10 ===
 
-Un cold email parfait = 3 ELEMENTS :
+Un cold email parfait = 4 ELEMENTS :
 1. UN FAIT SPECIFIQUE (chiffre, nom, date, evenement — tire des donnees)
-2. UNE QUESTION IRRESISTIBLE (le prospect pense "tiens, bonne question")
-3. UN CTA SOFT (une ouverture naturelle, pas un pitch)
+2. UN PONT VERS LE PROBLEME (relie le fait a un pain point concret de leur niche — 1 phrase)
+3. UN SOCIAL PROOF (montre que tu as la solution sans pitcher — 1 phrase)
+4. UN CTA ORIENTE VALEUR (pas "curieux d'avoir ton retour" mais "je te montre en 15 min")
 
 50-80 mots. Pas 30 (trop sec), pas 120 (trop long). CINQUANTE A QUATRE-VINGTS.
-ZERO analyse. ZERO lecon. ZERO explication. Tu CONSTATES un fait, tu POSES une question, tu OUVRES la porte. POINT.
+ZERO analyse. ZERO lecon. ZERO explication. Tu CONSTATES un fait, tu RELIES au probleme, tu MONTRES que tu as la solution, tu OUVRES la porte. POINT.
 ANTI-HALLUCINATION : N'invente JAMAIS un fait. Si un chiffre, un client, un evenement n'apparait PAS dans les donnees prospect, tu ne le cites PAS. Tu ne devines pas. Tu ne brodes pas. Chaque fait doit etre tracable dans les DONNEES PROSPECT ci-dessous.
 Si entre le fait et la question tu as envie d'ecrire un paragraphe qui commence par "Ce type de...", "Le vrai cap...", "Ce qui distingue..." → SUPPRIME-LE. Le prospect n'a pas besoin de ton analyse de son business.
 
@@ -220,11 +267,8 @@ Exemple : "150 personnes a Nantes, 4 postes commerciaux ouverts sur Welcome — 
 
 PRIORITE 4.5 — DONNEES MINIMALES (entreprise + poste seulement) :
 Si tu n'as PAS de news, profil public, clients ou techno — mais tu as le NOM DE L'ENTREPRISE + le POSTE :
-→ Ecris un email court (25-35 mots) sur un DEFI CONCRET de ce type de poste dans ce type d'entreprise.
-→ Utilise le nom de l'entreprise + la ville/taille si disponible.
-Exemples :
-"Marc, diriger la tech chez Acti-Immo a Toulouse — entre la conformite reglementaire et la digitalisation des mandats, tu priorises comment ?" (20 mots)
-"Sophie, DG d'un cabinet de 15 personnes — scaler sans perdre le cote boutique, c'est le dilemme permanent non ?" (18 mots)
+→ Ecris un email court (50-65 mots) en utilisant le PAIN POINT de la niche.
+→ Utilise le nom de l'entreprise + la ville/taille si disponible + le social proof.
 CE N'EST PAS un skip. C'est un email 7/10 et c'est SUFFISANT.
 
 PRIORITE 5 — SKIP (DERNIER RECOURS ABSOLU) :
@@ -232,103 +276,106 @@ Skip si tu n'as AUCUN de ces elements : nom d'entreprise, poste, ville, industri
 Si tu as AU MOINS entreprise + poste → tu DOIS ecrire (priorite 4.5 ci-dessus).
 → {"skip": true, "reason": "donnees insuffisantes"} UNIQUEMENT si l'email ne contient meme pas un nom d'entreprise.
 
-=== FORMAT STRICT : 3 BLOCS, ${emailLengthHint} ===
+=== FORMAT STRICT : 4 BLOCS, ${emailLengthHint} ===
 
-BLOC 1 — FAIT (1-3 lignes)
+BLOC 1 — FAIT SPECIFIQUE (1-2 lignes)
 UN fait tire des donnees. Chiffre, nom propre, date, evenement. Developpe JUSTE ASSEZ pour montrer que tu as fait tes devoirs.
 INTERDIT : "Ce type de...", "Ce qui distingue...", "Le vrai cap c'est...", "Ca veut dire que..."
 Tu ne COMMENTES pas le fait. Tu le POSES. Le prospect comprend tout seul.
 
-BLOC 2 — QUESTION (1 ligne)
-UNE question courte qui donne envie de repondre. Formats :
-- Frontale : "C'est quoi le plan cote US ?"
-- Provocatrice : "C'etait strategique ou c'est arrive comme ca ?"
-- Binaire : "Timing choisi ou impose ?"
-- Contextuelle : "Ca donne quoi depuis ?"
-
-BLOC 3 — CTA SOFT (1 ligne, APRES la question)
-UNE ouverture naturelle et decontractee. PAS de lien, PAS de "je te propose un call", PAS de pitch.
+BLOC 2 — PONT VERS LE PROBLEME (1 ligne)
+Connecte le fait a un PAIN POINT concret de leur niche. UNE phrase, naturelle, qui montre que tu comprends leur realite.
 Formats :
-- "Si le sujet te parle, je suis dispo pour en discuter."
-- "Dispo pour en parler si ca t'interesse."
-- "Curieux d'avoir ton retour la-dessus."
-- "Ca vaut un echange rapide ?"
-JAMAIS : "je te propose un RDV", "15 min pour en discuter ?", "voici mon calendrier"
+- "Le delivery suit mais cote acquisition c'est encore toi qui ramenes l'essentiel ?"
+- "Le pipe suit le rythme ou c'est toujours 80% reseau ?"
+- "A ce stade, le premier SDR coute plus cher que ce qu'il rapporte les 6 premiers mois non ?"
+SI le trigger est renseigne, utilise l'angle trigger plutot qu'un pain point generique.
 
-REGLE ABSOLUE : 50-80 mots. Vise 65 mots. Si tu depasses 80, COUPE le paragraphe d'analyse. Si tu es sous 50, developpe le fait avec un detail supplementaire.
+BLOC 3 — SOCIAL PROOF (1 phrase, INTEGREE dans le flow)
+Montre que tu as la solution SANS pitcher. UNE phrase max, ton factuel.
+Formats :
+- "On automatise ca pour des [type similaire] — [resultat concret]."
+- "On fait exactement ca pour des [type] — [resultat]."
+JAMAIS : un paragraphe separe, un pitch detaille, des features, des prix.
 
-TEST MENTAL : si tu retires les phrases du milieu et que l'email est MEILLEUR → elles n'auraient jamais du etre la.
+BLOC 4 — CTA ORIENTE VALEUR (1 ligne)
+UNE ouverture qui implique un ECHANGE DE VALEUR. Le prospect doit sentir qu'il va RECEVOIR quelque chose (pas juste "donner son avis").
+Formats :
+- "Je te montre le setup en 15 min si ca te parle."
+- "Dispo pour te montrer comment ca marche."
+- "Je t'envoie un exemple concret si tu veux."
+- "On en discute 15 min cette semaine ?"
+JAMAIS : "curieux d'avoir ton retour" (zero valeur), "voici mon calendrier" (trop direct step 1)
 
-=== MICRO-VARIATIONS ANTI-REPETITION ===
-Chaque email DOIT avoir une structure unique. Varie subtilement :
-- Salutation : parfois prenom + virgule, parfois juste prenom, parfois zero salutation (attaque directe)
-- Connecteur entre observation et question : saut de ligne seul, "Du coup —", "Bref,", rien (enchaine direct)
-- Ponctuation question : ? seul, ?! (rare), reformulation en affirmation interrogative
-- Structure : parfois observation PUIS question, parfois question EN PREMIER puis observation
-Ne JAMAIS utiliser la meme ouverture deux emails de suite.
+REGLE ABSOLUE : 50-80 mots. Vise 65 mots. Si tu depasses 80, COUPE. Si tu es sous 50, developpe le fait.
 
-=== EXEMPLES 10/10 (COPIE CE NIVEAU — 50-80 mots) ===
+TEST MENTAL : le prospect doit savoir EN 5 SECONDES (1) qui tu es, (2) pourquoi ca le concerne, (3) quoi faire ensuite.
+${nicheExampleBlock}
+=== EXEMPLES 10/10 (COPIE CE NIVEAU — 50-80 mots, AVEC value prop) ===
 
-Avec NEWS + CTA (65 mots) :
-"Damien, 22M leves et depart aux US — les boites de vision francaises qui ont fait le move avant se sont toutes cassees les dents au meme endroit : zero notoriete la-bas. Le playbook classique (salons + partnerships) met 18 mois a produire du pipeline.
+Agence marketing + NEWS (62 mots) :
+"Thomas, 12 personnes chez [Agence] et un poste de bizdev ouvert — le delivery tourne mais cote acquisition c'est encore toi qui ramenes l'essentiel des clients ?
 
-Tu construis la presence comment ?
+On automatise la prospection outbound pour des agences growth — leads qualifies en continu sans y passer 2h/jour.
 
-Si le sujet te parle, dispo pour en discuter."
+Je te montre le setup en 15 min si ca te parle."
 
-Avec CLIENTS + CTA (55 mots) :
-"Clement, Kiliba genere les campagnes pour 1000+ PME — belle traction sur le mid-market. L'ironie c'est que pour trouver ces PME, la plupart des SaaS a votre stade font encore du manuel ou du LinkedIn un par un.
+SaaS + LEVEE (58 mots) :
+"Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux — le pipe va suivre le rythme ou c'est encore founder-led sales ?
 
-C'est le cas chez vous ?
+On remplace le premier SDR pour des SaaS en scaling — meme volume, fraction du cout.
 
-Curieux d'avoir ton retour."
+Je te montre comment ca marche en 15 min ?"
 
-Avec PROFIL PUBLIC + CTA (62 mots) :
-"Damien, dans ton interview Son-Video tu parles du choix local vs cloud pour Audirvana. Le positionnement lecteur reseau haut de gamme, c'est un vrai pivot — les fabricants de DAC qui vous integrent, c'est un canal de distribution a part entiere ou du co-branding ?
+ESN + CHIFFRES (55 mots) :
+"Marc, 150 personnes chez [ESN] et 4 missions en regie sur Welcome — ca tourne bien cote delivery. Cote pipe, c'est toujours 80% reseau et AO ou vous avez structure un canal outbound ?
 
-Dispo pour en parler si ca t'interesse."
+On automatise ca pour des ESN — du pipeline regulier sans dependre des AO.
 
-Avec TECHNO + CTA (58 mots) :
-"Sophie, Shopify Plus avec Klaviyo et Gorgias — stack e-commerce mature, c'est rare pour une marque de cette taille. Le fait que vous ayez pousse aussi loin cote outils, ca veut dire que l'acquisition client est aussi structuree ?
-
-Ou c'est encore le point de friction ?
-
-Ca vaut un echange rapide ?"
+Dispo si tu veux voir le setup."
 
 === ERREURS FATALES — EXEMPLES REELS CORRIGES ===
 
+AVANT (3/10 — ZERO value prop, question en l'air) :
+"Sully Immobilier qui pousse l'economie circulaire — conviction ou differenciation ? Curieux d'avoir ton retour."
+→ POURQUOI C'EST NUL : le prospect ne sait pas qui tu es, pourquoi tu ecris, ni quoi faire. "Curieux d'avoir ton retour" = zero raison de repondre.
+
+APRES (9/10) :
+"Gregory, Sully Immobilier qui pousse l'economie circulaire depuis Orleans — le pipe vendeurs suit le meme rythme que la croissance ?
+
+On automatise la prospection pour des agences immo — mandats qualifies en continu.
+
+Je te montre en 15 min si ca te parle." (50 mots)
+
 AVANT (6/10 — trop long, donneur de lecon) :
-"La reprise des actifs de HCS Pharma — c'est un move qui fait sens sur le papier : vous absorbez une bibliotheque de modeles cellulaires 3D [...] Ce type d'acquisition accelere la credibilite scientifique, mais elle cree aussi une pression immediate sur le developpement commercial — les labos pharma et les agences reglementaires ne viennent pas tout seuls frapper a la porte." (108 mots)
+"La reprise des actifs de HCS Pharma — c'est un move qui fait sens sur le papier [...] Ce type d'acquisition accelere la credibilite scientifique..." (108 mots)
 → POURQUOI C'EST NUL : paragraphe d'analyse LinkedIn + lecon sur son propre business
 
 APRES (10/10) :
-"Thibault, rachat HCS Pharma + nouvelle usine + partenariat Anses — trois chantiers en parallele. Le timing est serre et la pression pipeline ne va pas se regler toute seule.
+"Thibault, rachat HCS Pharma + nouvelle usine + partenariat Anses — trois chantiers en parallele. La pression pipeline ne va pas se regler toute seule.
 
-C'est un timing choisi ou le marche a impose le rythme ?
+On genere du pipe pour des boites en phase d'acceleration comme la votre.
 
-Dispo si tu veux en parler." (55 mots)
-
-AVANT (6/10 — lecon au prospect) :
-"Ton site s'adresse aux promoteurs et aux commercialisateurs — deux profils avec des temporalites tres differentes. Le promoteur a besoin de visibilite tot. Le commercialisateur a besoin de contacts chauds."
-→ POURQUOI C'EST NUL : tu expliques au mec son propre metier
-
-APRES (10/10) :
-"Emmanuel, promoteurs et commercialisateurs sur la meme plateforme — deux timings completement differents. Le promoteur veut de la visibilite tot, le commercialisateur veut des contacts chauds.
-
-C'est toi qui absorbes le decalage ou chaque partenaire gere ?
-
-Curieux d'avoir ton retour." (52 mots)
+Dispo si tu veux en parler." (52 mots)
 
 GENERIQUES A NE JAMAIS REPRODUIRE :
 - "Diriger une agence marketing, le plus dur c'est..." → CLICHE SECTORIEL
 - "Tu geres la visibilite de tes clients mais toi, tu acquiers des clients comment ?" → META-PROSPECTION
 - "En agence, le pipe passe apres les projets en cours" → BANALITE
 - "Le cordonnier mal chausse" → METAPHORE USEE
-- "[Industrie] vit de recommandations et de reseaux — mais ces canaux ont un plafond" → TEMPLATE GENERIQUE (pas un fait sur EUX)
+- "[Industrie] vit de recommandations et de reseaux — mais ces canaux ont un plafond" → TEMPLATE GENERIQUE
 - "Comment [Company] genere de nouvelles opportunites ?" → META-PROSPECTION (on VEND ca)
 - "Quand le carnet de contacts est sature..." → TEMPLATE GENERIQUE
-- "Le cercle de prescripteurs est sature..." → TEMPLATE GENERIQUE
-- Toute structure repetable ou le seul changement est le nom de l'industrie/entreprise → C'EST UN TEMPLATE, PAS UN EMAIL PERSONNALISE
+- "Curieux d'avoir ton retour" → ZERO VALEUR (le prospect n'a aucune raison de repondre)
+- Toute structure repetable ou le seul changement est le nom de l'industrie/entreprise → C'EST UN TEMPLATE
+
+=== MICRO-VARIATIONS ANTI-REPETITION ===
+Chaque email DOIT avoir une structure unique. Varie subtilement :
+- Salutation : parfois prenom + virgule, parfois juste prenom, parfois zero salutation (attaque directe)
+- Connecteur entre blocs : saut de ligne seul, "Du coup —", "Bref,", rien (enchaine direct)
+- Position du social proof : parfois avant la question, parfois apres
+- Structure : parfois fait PUIS question, parfois question EN PREMIER puis fait
+Ne JAMAIS utiliser la meme ouverture deux emails de suite.
 
 === MOTS ET PATTERNS INTERDITS ===
 
@@ -343,8 +390,8 @@ INTERDITS partout :
 - "je me permets", "je me disais", "je suis tombe sur", "j'ai vu que" + generique
 - "et si vous...", "saviez-vous que...", "est-ce qu'un outil/solution..."
 - "cordonnier", "nerf de la guerre", "le plus dur c'est"
-- "curieux" : max 1 email sur 5
-- tout pitch, prix, offre, feature, CTA de meeting
+- "curieux d'avoir ton retour" : INTERDIT (zero valeur)
+- tout pitch detaille, prix, offre, feature liste
 - "en tant que [titre] de [entreprise]" → template SDR detecte, supprime
 - tout paragraphe de plus de 3 lignes → COUPE immediatement
 
@@ -458,13 +505,14 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
 CRITERES 10/10 :
 - 50-80 mots (penalise si < 40 ou > 100)
 - UN fait specifique (chiffre, nom propre, date, evenement)
-- UNE question irresistible
-- UN CTA soft naturel (pas de lien, pas de pitch)
+- UN pont vers le probleme (relie le fait a un pain point — 1 phrase)
+- UN social proof court (montre qu'on a la solution — 1 phrase, PAS un pitch)
+- UN CTA oriente valeur ("je te montre" / "dispo pour te montrer" — pas "curieux d'avoir ton retour")
 - ZERO paragraphe d'analyse entre le fait et la question
 - ZERO meta-prospection (ne demande PAS "comment tu prospectes/acquiers des clients/generes des leads")
 - ZERO lecon au prospect (pas de "Ce type de...", "Le vrai cap c'est...")
 - Ton naturel, entre pairs, comme un SMS entre collegues
-- PAS de pitch, prix, feature, lien
+- PAS de pitch detaille, prix, features, lien calendrier
 
 PENALITES :
 - < 40 mots : -2 points (trop sec, pas assez de substance)
@@ -473,7 +521,9 @@ PENALITES :
 - Paragraphe d'analyse (plus de 2 phrases entre fait et question) : -3 points
 - Meta-prospection (question sur la prospection/acquisition du prospect) : -3 points
 - Generique secteur (remplacable par n'importe quelle entreprise du secteur) : -4 points
-- Pitch/prix/CTA : -5 points
+- Pitch detaille/prix/features : -5 points
+- "Curieux d'avoir ton retour" ou CTA sans valeur (aucune raison de repondre) : -2 points
+- Social proof bien integre (1 phrase, naturel, pas un pitch) : +1 point BONUS
 
 EMAIL :
 Objet: ${subject}
@@ -595,33 +645,61 @@ Le breakup exploite la loss aversion. Format strict : 2 phrases max, question fe
 
     const senderName = process.env.SENDER_NAME || 'Alexis';
     const senderTitle = process.env.SENDER_TITLE || 'fondateur';
-    const systemPrompt = `Tu es ${senderName}, ${senderTitle}. Tu generes ${totalEmails} relances pour un prospect qui n'a pas repondu a ton premier email.
+    const clientName = process.env.CLIENT_NAME || 'iFIND';
 
-PHILOSOPHIE : Chaque relance apporte un NOUVEL ANGLE. Jamais "je reviens vers vous".
+    // --- ICP : charger le contexte niche pour les follow-ups ---
+    let icpLoaderFU = null;
+    try { icpLoaderFU = require('../../gateway/icp-loader.js'); } catch (e) {
+      try { icpLoaderFU = require('/app/gateway/icp-loader.js'); } catch (e2) {}
+    }
+    const clientDescFU = (icpLoaderFU && icpLoaderFU.getClientDescription()) || process.env.CLIENT_DESCRIPTION || '';
+    let nicheFU = null;
+    if (icpLoaderFU) {
+      nicheFU = icpLoaderFU.matchLeadToNiche(contact);
+    }
 
-STRUCTURE :
-- Relance 1 (J+3) : nouvel angle tire des DONNEES PROSPECT (fait DIFFERENT du premier email)
-- Relance 2 (J+7) : preuve sociale — mini cas client anonymise ("un dirigeant dans ton secteur...")
-- Relance 3 (J+14) : dernier angle de valeur, question directe
+    let nicheFollowUpBlock = '';
+    if (nicheFU || clientDescFU) {
+      nicheFollowUpBlock = '\n=== CONTEXTE ===\n';
+      if (clientDescFU) nicheFollowUpBlock += clientName + ' : ' + clientDescFU + '\n';
+      if (nicheFU) {
+        if (nicheFU.painPoint) nicheFollowUpBlock += 'PROBLEME DE CETTE NICHE : ' + nicheFU.painPoint + '\n';
+        if (nicheFU.socialProof) nicheFollowUpBlock += 'SOCIAL PROOF : ' + nicheFU.socialProof + '\n';
+      }
+    }
+
+    const systemPrompt = `Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu generes ${totalEmails} relances pour un prospect qui n'a pas repondu a ton premier email.
+${nicheFollowUpBlock}
+PHILOSOPHIE : Chaque relance a une MISSION DIFFERENTE. On avance vers le RDV, pas vers "je reviens vers vous".
+
+=== MISSION DE CHAQUE STEP ===
+
+STEP 1 — RELANCE 1 (J+3) : NOUVEL ANGLE + SOCIAL PROOF
+Mission : apporter une PREUVE que tu peux aider.
+- Nouveau fait tire des DONNEES PROSPECT (different du premier email)
+- Integre le social proof : "une [type d'entreprise similaire] a [resultat concret]"
+- CTA : "Dispo pour en parler"
+- 30-50 mots MAX.
+
+STEP 2 — RELANCE 2 (J+7) : CTA DIRECT + LIEN CALENDRIER
+Mission : convertir en RDV. C'est le moment d'etre direct.
+- 1 phrase de contexte (pas de repetition des emails precedents)
+- CTA DIRECT avec lien si disponible : "15 min pour te montrer — voici mon calendrier : [lien]"
+- Si pas de lien : "On se cale 15 min cette semaine ? Dis-moi tes dispos."
+- 25-40 mots MAX — court et direct.
 ${breakupInstruction}
-
-FORMAT DE CHAQUE RELANCE (sauf breakup) — 30-50 mots max (JAMAIS plus de 50) :
-1. OBSERVATION = fait specifique ou nouvel insight + implication en UNE phrase (PAS "je reviens vers toi")
-2. QUESTION = variee (frontale, provocatrice, binaire, contextuelle). PAS toujours "X ou Y ?"
-
-INTERDIT : le paragraphe d'analyse qui explique au prospect son propre business. Il SAIT. Coupe.
 
 INTERDITS ABSOLUS (TEMPLATES GENERIQUES) :
 - "[Industrie] vit de recommandations et de reseaux" → TEMPLATE
 - "Comment [Company] genere de nouvelles opportunites" → META-PROSPECTION
 - "Ces canaux ont un plafond" / "carnet de contacts sature" → TEMPLATE
-- Toute phrase ou seul le nom de l'industrie/entreprise change entre deux emails → C'EST UN TEMPLATE, PAS UNE RELANCE.
-- Chaque relance DOIT citer un fait SPECIFIQUE du prospect (news, chiffre, client, techno, produit, interview).
+- "Curieux d'avoir ton retour" → ZERO VALEUR
+- Toute phrase ou seul le nom de l'industrie/entreprise change → TEMPLATE, PAS UNE RELANCE.
 
 REGLES :
 - 30-50 mots par relance (JAMAIS plus de 50). Le breakup = 2 lignes MAX. ZERO paragraphe analytique.
 - Tutoiement startup/PME, vouvoiement corporate
-- JAMAIS : "je me permets", "suite a", "beau move", "potentiellement", "curieux" (max 1x sur 4)
+- JAMAIS : "je me permets", "suite a", "beau move", "potentiellement"
 ${meetingCTARule}
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients" dans l'email
 - Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise
@@ -650,10 +728,17 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
       let emails = JSON.parse(cleaned);
       if (!Array.isArray(emails)) throw new Error('Format invalide');
 
-      // Post-processing : garantir que le breakup (dernier email) contient le lien booking
+      // Post-processing : garantir que le lien booking est dans step 2 (CTA direct) ET breakup
       if (breakupBookingUrl && emails.length > 0) {
+        const bookingDomain = breakupBookingUrl.split('?')[0];
+        // Step 2 (index 1) = CTA direct — doit contenir le lien
+        if (emails.length >= 2 && emails[1].body && !emails[1].body.includes(bookingDomain)) {
+          emails[1].body = emails[1].body.trimEnd() + '\n\n' + breakupBookingUrl;
+          log.info('email-writer', 'Booking URL injecte dans step 2 (CTA direct)');
+        }
+        // Breakup (dernier) — doit aussi contenir le lien
         const last = emails[emails.length - 1];
-        if (last.body && !last.body.includes(breakupBookingUrl.split('?')[0])) {
+        if (last.body && !last.body.includes(bookingDomain)) {
           last.body = last.body.trimEnd() + '\n\n' + breakupBookingUrl;
         }
       }

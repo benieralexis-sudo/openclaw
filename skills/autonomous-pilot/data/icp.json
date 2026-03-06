@@ -1,0 +1,119 @@
+{
+  "version": "1.0",
+  "clientDescription": "iFIND automatise la prospection B2B par IA — emails personnalises, leads qualifies, RDV en autopilote. On remplace le premier SDR pour une fraction du cout.",
+  "bookingUrl": "",
+  "niches": [
+    {
+      "slug": "agences-marketing",
+      "name": "Agences marketing & growth",
+      "keywords": "agence marketing OR agence digitale OR agence growth",
+      "weight": 30,
+      "matchPatterns": ["agence marketing", "agence digitale", "agence growth", "agence communication", "agence web", "agence seo", "growth hacking"],
+      "painPoint": "Le pipe de l'agence depend du fondateur — LinkedIn manuel, reseau, recommandations. Ca plafonne et c'est impossible a scaler.",
+      "socialProof": "on automatise la prospection outbound pour des agences — leads qualifies en continu sans que le fondateur y passe 1h",
+      "triggers": [
+        {
+          "signal": "hiring_sales",
+          "angle": "Tu recrutes un commercial — le temps qu'il soit operationnel (3-6 mois), on peut deja remplir le pipe"
+        },
+        {
+          "signal": "growth",
+          "angle": "Vous passez a l'echelle cote equipe — le delivery suit mais le pipe client aussi ?"
+        },
+        {
+          "signal": "default",
+          "angle": "Tes clients ont un pipe structure grace a toi, mais cote agence c'est encore du reseau ?"
+        }
+      ],
+      "exampleEmail": "Thomas, 12 personnes chez [Agence] et un poste de bizdev ouvert — le delivery tourne mais cote acquisition c'est encore toi qui ramenes l'essentiel des clients ?\n\nOn automatise la prospection outbound pour des agences growth — leads qualifies en continu sans y passer 2h/jour.\n\nJe te montre le setup en 15 min si ca te parle."
+    },
+    {
+      "slug": "esn-ssii",
+      "name": "ESN & conseil IT",
+      "keywords": "ESN OR SSII OR conseil informatique",
+      "weight": 25,
+      "matchPatterns": ["esn", "ssii", "conseil informatique", "services numeriques", "consulting it", "societe de services"],
+      "painPoint": "80% du business vient de recommandations et d'appels d'offres. Le pipe est imprevisible et depend du reseau des associes.",
+      "socialProof": "on genere du pipeline outbound pour des ESN — des leads qualifies sans dependre des AO ni du reseau",
+      "triggers": [
+        {
+          "signal": "hiring_sales",
+          "angle": "Vous recrutez des commerciaux — le pipe de missions va suivre ou c'est toujours les associes qui ramenent ?"
+        },
+        {
+          "signal": "growth",
+          "angle": "X postes ouverts mais le pipe client suit le meme rythme ?"
+        },
+        {
+          "signal": "default",
+          "angle": "En ESN, le pipe depend souvent des associes et du reseau — ca plafonne a un moment non ?"
+        }
+      ],
+      "exampleEmail": "Marc, 150 personnes chez [ESN] et 4 missions en regie sur Welcome — ca tourne bien cote delivery. Cote pipe, c'est toujours 80% reseau et AO ou vous avez structure un canal outbound ?\n\nOn automatise ca pour des ESN — du pipeline regulier sans dependre des AO.\n\nDispo si tu veux voir le setup."
+    },
+    {
+      "slug": "saas-b2b",
+      "name": "SaaS B2B en scaling",
+      "keywords": "SaaS B2B OR editeur logiciel",
+      "weight": 20,
+      "matchPatterns": ["saas", "logiciel", "editeur", "software", "plateforme", "cloud", "startup saas"],
+      "painPoint": "Premier SDR = 50-60k/an pour 5-10 RDV/mois. Long a recruter, long a onboarder, cher a garder.",
+      "socialProof": "on remplace le premier SDR pour des SaaS en scaling — meme volume de leads qualifies, fraction du cout",
+      "triggers": [
+        {
+          "signal": "hiring_sales",
+          "angle": "Tu recrutes un SDR — 3-6 mois avant qu'il soit autonome. On peut remplir le pipe en attendant"
+        },
+        {
+          "signal": "funding",
+          "angle": "Levee recente — le go-to-market s'accelere. Le pipe suit ?"
+        },
+        {
+          "signal": "default",
+          "angle": "A votre stade, recruter un SDR vs automatiser — le calcul change vite"
+        }
+      ],
+      "exampleEmail": "Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux — le pipe va suivre le rythme ou c'est encore founder-led sales ?\n\nOn remplace le premier SDR pour des SaaS en scaling — meme volume, fraction du cout.\n\nJe te montre comment ca marche en 15 min ?"
+    },
+    {
+      "slug": "cabinet-recrutement",
+      "name": "Cabinets de recrutement",
+      "keywords": "cabinet recrutement OR chasseur tete",
+      "weight": 15,
+      "matchPatterns": ["cabinet recrutement", "recrutement", "chasseur tete", "talent acquisition", "rh externalisee", "staffing"],
+      "painPoint": "Les consultants passent autant de temps a sourcer des clients qu'a placer des candidats. Le bizdev mange le delivery.",
+      "socialProof": "on automatise le sourcing client pour des cabinets de recrutement — les consultants se concentrent sur le placement",
+      "triggers": [
+        {
+          "signal": "hiring_sales",
+          "angle": "Tu recrutes un bizdev — en attendant, on peut alimenter le pipe de missions automatiquement"
+        },
+        {
+          "signal": "default",
+          "angle": "X consultants — combien de temps sur le sourcing client vs le placement ?"
+        }
+      ],
+      "exampleEmail": "Sophie, 8 consultants chez [Cabinet] — entre le sourcing client et le placement candidat, c'est quoi le ratio temps aujourd'hui ?\n\nOn automatise la partie sourcing client pour des cabinets — les consultants restent sur le placement.\n\nDispo pour en parler si ca te dit."
+    },
+    {
+      "slug": "cabinet-conseil",
+      "name": "Cabinets de conseil & strategie",
+      "keywords": "cabinet conseil OR consulting",
+      "weight": 10,
+      "matchPatterns": ["cabinet conseil", "consulting", "conseil en strategie", "conseil management", "conseil en organisation"],
+      "painPoint": "Les associes facturent 1000-1500/jour mais passent 30% de leur temps en bizdev non facture. C'est du CA perdu.",
+      "socialProof": "on genere du pipeline pour des cabinets conseil — les associes facturent au lieu de prospecter",
+      "triggers": [
+        {
+          "signal": "hiring_sales",
+          "angle": "Vous recrutez un bizdev — signe que les associes n'arrivent plus a tout porter seuls ?"
+        },
+        {
+          "signal": "default",
+          "angle": "Associe qui facture 1200/jour mais passe 2 jours/semaine en developpement commercial — ca fait cher le lead"
+        }
+      ],
+      "exampleEmail": "Pierre, 6 associes chez [Cabinet] et 3 missions en cours — le pipe vient du reseau des associes ou vous avez structure quelque chose ?\n\nOn genere du pipeline pour des cabinets conseil — les associes restent sur les missions.\n\nJe te montre le setup en 15 min si ca te parle."
+    }
+  ]
+}

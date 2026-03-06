@@ -463,13 +463,50 @@ Format JSON strict :
     const rawContact = params.contact || {};
     const config = storage.getConfig();
 
+    // --- ICP : injecter le contexte niche dans le contact pour le prompt ---
+    let icpLoader = null;
+    try { icpLoader = require('../../gateway/icp-loader.js'); } catch (e) {
+      try { icpLoader = require('/app/gateway/icp-loader.js'); } catch (e2) {}
+    }
+    let nicheContext = null;
+    if (icpLoader) {
+      // 1. Niche explicite passee par le brain
+      if (params._nicheSlug) {
+        const ctx = icpLoader.getEmailContext(params._nicheSlug);
+        if (ctx && ctx.niche) nicheContext = ctx.niche;
+      }
+      // 2. Match automatique depuis les donnees du lead
+      if (!nicheContext) {
+        nicheContext = icpLoader.matchLeadToNiche({
+          entreprise: rawContact.entreprise || rawContact.company || params.company,
+          titre: rawContact.titre || rawContact.title,
+          industry: rawContact.industry || params.industry,
+          organization: rawContact.organization
+        });
+      }
+      // 3. Detect trigger si niche trouvee
+      if (nicheContext) {
+        const trigger = icpLoader.detectTrigger(rawContact, nicheContext);
+        if (trigger && trigger.signal !== 'default') {
+          rawContact._triggerAngle = trigger.angle;
+          log.info('action-executor', 'Trigger detecte pour ' + (params.to || '?') + ': ' + trigger.signal + ' → ' + trigger.angle.substring(0, 60));
+        }
+      }
+      if (nicheContext) {
+        log.info('action-executor', 'Niche ICP pour ' + (params.to || '?') + ': ' + nicheContext.slug);
+      }
+    }
+
     // Mapper les champs FR vers EN pour le writer
     const contact = {
       name: rawContact.nom || rawContact.name || '',
       firstName: (rawContact.nom || rawContact.name || '').split(' ')[0],
       title: rawContact.titre || rawContact.title || '',
       company: rawContact.entreprise || rawContact.company || '',
-      email: rawContact.email || params.to || ''
+      email: rawContact.email || params.to || '',
+      _nicheContext: nicheContext || null,
+      _nicheSlug: nicheContext ? nicheContext.slug : (params._nicheSlug || null),
+      _triggerAngle: rawContact._triggerAngle || null
     };
 
     // Contexte minimal — le systemPrompt du writer contient deja toutes les regles
