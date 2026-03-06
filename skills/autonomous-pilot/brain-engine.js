@@ -790,6 +790,33 @@ class BrainEngine {
       }
     } catch (e) {}
 
+    // Score decay : reduire le score des leads silencieux (pas d'ouverture/reply depuis 7+ jours)
+    try {
+      const ffDecay = getFlowFastStorage();
+      const amDecay = getAutomailerStorage();
+      if (ffDecay && amDecay) {
+        const allLeadsDecay = ffDecay.getAllLeads ? ffDecay.getAllLeads() : {};
+        let decayed = 0;
+        const cutoff7d = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        for (const [key, lead] of Object.entries(allLeadsDecay)) {
+          if (!lead.email || (lead.score || 0) <= 3) continue;
+          const events = amDecay.getEmailEventsForRecipient(lead.email);
+          const hasSent = events.some(e => e.status === 'sent' || e.status === 'delivered');
+          const hasEngagement = events.some(e => (e.status === 'opened' || e.status === 'replied') && e.sentAt && new Date(e.sentAt).getTime() > cutoff7d);
+          if (hasSent && !hasEngagement) {
+            const newScore = Math.max(3, (lead.score || 5) - 0.5);
+            if (newScore < lead.score) {
+              ffDecay.updateLeadScore(key, newScore, 'weekly_decay_no_engagement');
+              decayed++;
+            }
+          }
+        }
+        if (decayed > 0) log.info('brain', 'Score decay: ' + decayed + ' leads reduits de 0.5 (pas d\'engagement 7j)');
+      }
+    } catch (decayErr) {
+      log.warn('brain', 'Score decay echoue: ' + decayErr.message);
+    }
+
     // Sauvegarder les perf avant reset
     const oldProgress = storage.resetWeeklyProgress();
 

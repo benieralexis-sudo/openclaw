@@ -231,7 +231,7 @@ function _smtpVerify(email) {
         done = true;
         // Cache le resultat
         _smtpCache.set(key, { result, ts: Date.now() });
-        if (_smtpCache.size > 1000) {
+        if (_smtpCache.size > 5000) {
           const firstKey = _smtpCache.keys().next().value;
           _smtpCache.delete(firstKey);
         }
@@ -686,7 +686,11 @@ class CampaignEngine {
       }
 
       // Detecter timezone prospect (Apollo city/country ou fallback Paris)
+      const hasCityData = !!(contact.city || contact.state || contact.country);
       const prospectTz = getCityTimezone(contact.city || contact.state || '', contact.country || '');
+      if (!hasCityData && prospectTz === 'Europe/Paris') {
+        log.info('campaign-engine', 'Timezone fallback Paris pour ' + contact.email + ' (pas de city/country)');
+      }
 
       // FIX 4 : Re-verifier heures bureau dans la timezone du prospect
       if (!isBusinessHours(prospectTz)) {

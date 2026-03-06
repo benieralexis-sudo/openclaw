@@ -90,7 +90,7 @@ class SelfImproveStorage {
         adminChatId: '1409505520',
         analysisDay: 'sunday',
         analysisHour: 21,
-        autoApply: false,
+        autoApply: true,
         scoringWeights: null,
         emailPreferences: {
           maxLength: null,
