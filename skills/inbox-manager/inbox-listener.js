@@ -406,7 +406,10 @@ class InboxListener {
       'calendar-notification', 'wordpress', 'notifications',
       'newsletter', 'info', 'support', 'helpdesk', 'billing',
       'invoice', 'receipt', 'alert', 'alerts', 'system',
-      'feedback', 'survey', 'marketing'
+      'feedback', 'survey', 'marketing', 'security', 'abuse',
+      'unsubscribe', 'admin', 'webmaster', 'daemon', 'robot',
+      'automate', 'automated', 'news', 'updates', 'digest',
+      'orders', 'shipping', 'tracking', 'confirm', 'verification'
     ];
     if (systemLocalParts.some(p => localPart.includes(p))) return true;
     // Emails specifiques (full match) pour les services connus
