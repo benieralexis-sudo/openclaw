@@ -2570,7 +2570,7 @@ const healthServer = http.createServer(async (req, res) => {
     const clickMatch = req.url.match(/^\/c\/([a-f0-9]{32})/);
     const clickUrlObj = new URL(req.url, 'http://localhost');
     const redirectUrl = clickUrlObj.searchParams.get('url');
-    if (!clickMatch || !redirectUrl) {
+    if (!clickMatch || !redirectUrl || !/^https?:\/\//i.test(redirectUrl)) {
       res.writeHead(400, { 'Content-Type': 'text/plain' });
       res.end('Bad request');
       return;
@@ -2738,9 +2738,6 @@ const healthServer = http.createServer(async (req, res) => {
         } catch (rfErr3) {}
       }
       // Tracker l'ouverture dans Proactive Agent (hot lead detection — toujours, 1ère ou pas)
-      if (!wasAlreadyOpened) {
-        automailerStorage.updateEmailStatus(email.id, 'opened');
-      }
       try {
         const tracked = proactiveAgentStorage.trackEmailOpen(email.to, email.trackingId || trackingId);
         const paConfig = proactiveAgentStorage.getConfig();

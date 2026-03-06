@@ -360,6 +360,15 @@ class AutoMailerStorage {
     const email = this.data.emails.find(e => e.id === emailId);
     if (!email) return null;
     const prevStatus = email.status;
+    // Status priority : ne jamais downgrader replied/bounced/complained
+    const STATUS_RANK = { sent: 1, delivered: 2, opened: 3, clicked: 4, replied: 6, bounced: 5, complained: 5 };
+    if (STATUS_RANK[prevStatus] >= 5 && (STATUS_RANK[status] || 0) < STATUS_RANK[prevStatus]) {
+      // Allow tracking metadata update but don't downgrade status
+      email.lastEvent = status;
+      if (eventData) Object.assign(email, eventData);
+      this._save();
+      return email;
+    }
     email.status = status;
     email.lastEvent = status;
     if (status === 'delivered' && prevStatus !== 'delivered' && !email.deliveredAt) {

@@ -304,7 +304,7 @@ class ResendClient {
 
     // Click tracking : rewrite URLs in body to redirect through /c/{trackingId}
     if (trackingId) {
-      escaped = escaped.replace(/(https?:\/\/[^\s<>"']+)/g, (url) => {
+      escaped = escaped.replace(/(https?:\/\/[^\s<>"'()]+)/g, (url) => {
         // Decode &amp; back to & for the redirect target
         const cleanUrl = url.replace(/&amp;/g, '&');
         const trackUrl = 'https://' + trackingDomain + '/c/' + trackingId + '?url=' + encodeURIComponent(cleanUrl);
