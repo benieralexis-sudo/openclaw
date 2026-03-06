@@ -144,7 +144,7 @@
       "name": "Organismes de formation",
       "keywords": "formation professionnelle OR organisme formation",
       "weight": 6,
-      "matchPatterns": ["formation professionnelle", "organisme formation", "centre formation", "formation continue", "formation entreprise"],
+      "matchPatterns": ["formation professionnelle", "organisme formation", "centre formation", "formation continue", "formation entreprise", "formation", "ecole", "enseignement"],
       "painPoint": "Le remplissage des sessions depend du bouche-a-oreille et des appels entrants. Entre deux sessions pleines, le pipe est vide.",
       "socialProof": "on genere des inscriptions B2B pour des organismes de formation — des entreprises interessees chaque semaine sans attendre le bouche-a-oreille",
       "triggers": [
