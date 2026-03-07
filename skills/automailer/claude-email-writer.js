@@ -786,6 +786,18 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
       let emails = JSON.parse(cleaned);
       if (!Array.isArray(emails)) throw new Error('Format invalide');
 
+      // Garde-fou : si Claude retourne moins d'emails que demande, log warning
+      if (emails.length < totalEmails) {
+        log.warn('email-writer', 'Claude a genere ' + emails.length + '/' + totalEmails + ' emails — padding avec templates vides');
+        while (emails.length < totalEmails) {
+          const stepNum = emails.length + 1;
+          const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+          emails.push({
+            subject: 're: ' + (emails[0] && emails[0].subject || contact.company || ''),
+            body: firstName + ', je reviens vers toi sur mon dernier message.\n\nDispo pour en parler 15 min cette semaine ?'
+          });
+        }
+      }
       // Post-processing : garantir que le lien booking est dans step 2 (CTA direct) ET breakup
       if (breakupBookingUrl && emails.length > 0) {
         const bookingDomain = breakupBookingUrl.split('?')[0];
