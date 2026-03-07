@@ -1215,6 +1215,7 @@ Format JSON strict :
             contactName: params.contactName || '',
             company: params.company || '',
             score: params.score || 0,
+            industry: params._industryForAngles || params.industry || '',
             sentAt: new Date().toISOString()
           });
 
@@ -1373,10 +1374,10 @@ Format JSON strict :
                 firstName: (params.contactName || '').split(' ')[0],
                 company: params.company || '',
                 title: (params.contact && params.contact.titre) || '',
-                industry: (params.contact && params.contact.organization && params.contact.organization.industry) || ''
+                industry: params._industryForAngles || (params.contact && params.contact.organization && params.contact.organization.industry) || params.industry || ''
               });
               const campaign = await this.campaignEngine.createCampaign(adminChatId, {
-                name: 'Relance ' + (params.company || params.to),
+                name: 'Relance auto ' + (params.company || params.to),
                 contactListId: list.id,
                 totalContacts: 1
               });

@@ -1312,6 +1312,14 @@ class CampaignEngine {
         storage.setFirstSendDate();
         storage.incrementTodaySendCount();
 
+        // Niche tracking pour suivi performance par industrie
+        if (contact.industry) {
+          try {
+            const apStorage = require('../autonomous-pilot/storage.js');
+            if (apStorage.trackNicheEvent) apStorage.trackNicheEvent(contact.industry, 'sent');
+          } catch (e) {}
+        }
+
         // Push auto HubSpot : creer contact + deal au premier email
         if (stepNumber === 1) {
           try {

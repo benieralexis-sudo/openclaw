@@ -340,6 +340,7 @@ class AutoMailerStorage {
       openedAt: null,
       abVariant: record.abVariant || null,
       senderDomain: record.senderDomain || null,
+      industry: record.industry || '',
       createdAt: new Date().toISOString()
     };
     this.data.emails.push(entry);

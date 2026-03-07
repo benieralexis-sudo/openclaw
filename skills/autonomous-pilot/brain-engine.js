@@ -1431,11 +1431,12 @@ Analyse et reponds en JSON:
       }
     }
 
-    // Experiences en cours
+    // Experiences en cours (limiter a 5 les plus recentes pour eviter prompt bloat)
     if (state.experiments.length > 0) {
-      prompt += '\nEXPERIENCES EN COURS:\n';
-      for (const exp of state.experiments) {
-        prompt += '- ' + (exp.description || exp.type) + ' (depuis ' + exp.startedAt + ')\n';
+      const recentExps = state.experiments.slice(-5);
+      prompt += '\nEXPERIENCES EN COURS (' + state.experiments.length + ' total, 5 plus recentes):\n';
+      for (const exp of recentExps) {
+        prompt += '- ' + (exp.description || exp.type).substring(0, 120) + ' (depuis ' + (exp.startedAt || '?') + ')\n';
       }
     }
 

@@ -52,15 +52,18 @@ function createResendHandler(deps) {
   function _inferLeadNiche(emailRecord) {
     if (emailRecord.industry) return emailRecord.industry;
     if (emailRecord.niche) return emailRecord.niche;
-    // Chercher dans les leads stockes
+    // Chercher dans FlowFast (leads stockes)
     try {
-      const apStorage = require('../skills/autonomous-pilot/storage.js');
-      const leads = apStorage.getLeads ? apStorage.getLeads() : [];
-      const lead = leads.find(l => (l.email || '').toLowerCase() === (emailRecord.to || '').toLowerCase());
-      if (lead) {
-        if (lead.niche) return lead.niche;
-        if (lead.industry) return lead.industry;
-        if (lead.aiClassification && lead.aiClassification.industry) return lead.aiClassification.industry;
+      const ffStorage = require('../skills/flowfast/storage.js');
+      const leadsObj = ffStorage.data ? ffStorage.data.leads || {} : {};
+      for (const lid of Object.keys(leadsObj)) {
+        const lead = leadsObj[lid];
+        if ((lead.email || '').toLowerCase() === (emailRecord.to || '').toLowerCase()) {
+          if (lead.niche) return lead.niche;
+          if (lead.industry) return lead.industry;
+          if (lead.aiClassification && lead.aiClassification.industry) return lead.aiClassification.industry;
+          break;
+        }
       }
     } catch (e) {}
     return null;
