@@ -186,7 +186,10 @@ class ClaudeEmailWriter {
       if (nicheData) {
         icpBlock += '\nNICHE DU PROSPECT : ' + (nicheData.name || nicheData.slug || 'inconnue');
         if (nicheData.painPoint) icpBlock += '\nLEUR PROBLEME : ' + nicheData.painPoint;
-        if (nicheData.socialProof) icpBlock += '\nTON SOCIAL PROOF (a integrer en 1 phrase) : ' + nicheData.socialProof;
+        // Selectionner un social proof aleatoire parmi les variantes disponibles
+        const allProofs = nicheData.socialProofs || [nicheData.socialProof];
+        const selectedProof = allProofs[Math.floor(Math.random() * allProofs.length)];
+        if (selectedProof) icpBlock += '\nTON SOCIAL PROOF (adapte la formulation, ne copie pas mot pour mot) : ' + selectedProof;
         if (contact._triggerAngle) icpBlock += '\nTRIGGER DETECTE : ' + contact._triggerAngle;
         icpBlock += '\n';
       }
@@ -372,15 +375,17 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
       const adjustedNote = Math.min(10, Math.max(1, score.note + preScore.adjust));
       const adjustedReason = preScore.adjust !== 0 ? score.reason + ' [prog:' + (preScore.adjust > 0 ? '+' : '') + preScore.adjust + ' ' + preScore.reason + ']' : score.reason;
-      if (adjustedNote >= 9) return parsed;
+      // Si pre-score confirme sp+cta (structure OK), seuil GPT plus bas (GPT sous-note systematiquement)
+      const passThreshold = preScore.reason.includes('sp+value_cta') ? 6 : 9;
+      if (adjustedNote >= passThreshold) return parsed;
       if (adjustedNote > bestScore) {
         best = parsed;
         bestScore = adjustedNote;
         best._scoreReason = adjustedReason;
       }
     }
-    // Apres retries : envoyer si >= 8, sinon skip (remonte de 7 a 8 pour la qualite)
-    if (bestScore >= 8) return best;
+    // Apres retries : envoyer si >= 7 (les gates programmatiques sp+cta compensent le GPT sous-scoreur)
+    if (bestScore >= 7) return best;
     return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
   }
 
@@ -420,7 +425,14 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       'pour des cabinets', 'pour des startups', 'pour des organismes', 'pour des e-commerces',
       'meme volume', 'en continu', 'chaque semaine', 'sans dependre', 'sans y passer', 'fraction du cout',
       'un de nos clients', 'on a structure', 'on a genere', 'on a mis en place',
-      'pour des boites', 'pour des entreprises', 'dans le meme secteur'];
+      'pour des boites', 'pour des entreprises', 'dans le meme secteur',
+      // Social proofs avec cas client (variantes ICP)
+      'a double', 'a triple', 'a signe', 'a decroche', 'a rempli', 'a recupere', 'a reduit',
+      'avec nous', 'avec ifind', 'grace a nous', 'grace a ifind',
+      'une agence', 'un cabinet', 'une esn', 'un editeur', 'une startup', 'un e-commerce',
+      'un fondateur', 'un directeur', 'une fondatrice', 'une directrice',
+      'meetings par mois', 'meetings qualifies', 'demos qualifiees', 'mandats par mois',
+      'en 3 mois', 'en 6 semaines', 'en 2 mois', 'par semaine'];
     const hasSP = spMarkers.some(m => bodyLower.includes(m));
     if (!hasSP) return { block: true, adjust: -3, note: 4, reason: 'no_social_proof' };
 
@@ -507,6 +519,59 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
       console.warn('[email-writer] Scoring OpenAI echoue: ' + e.message + ' - fallback score 7');
     }
     return { note: 7, reason: 'scoring_unavailable' };
+  }
+
+  // Score adapte pour les follow-ups (criteres differents du step 1)
+  async _scoreFollowUpEmail(subject, body, contact) {
+    const wordCount = (body || '').split(/\s+/).filter(w => w.length > 0).length;
+    const prompt = `Note cette RELANCE de prospection B2B de 1 a 10. C'est un FOLLOW-UP, pas un premier email.
+
+CRITERES 10/10 POUR UN FOLLOW-UP :
+- 25-65 mots (plus court qu'un premier email)
+- Un nouvel angle ou insight (pas une reformulation)
+- Un social proof OU une preuve concrete (cas client, chiffre, resultat)
+- Un CTA oriente valeur ("dispo pour en parler", "15 min pour te montrer")
+- Ton naturel, entre pairs, pas de pitch
+- PAS de tirets cadratins
+- PAS de "je reviens vers toi", "suite a mon email"
+
+PENALITES :
+- Reformulation du premier email : -4 points
+- Pas de social proof/preuve : -2 points
+- "Curieux d'avoir ton retour" ou CTA sans valeur : -4 points
+- Meta-prospection ("comment tu prospectes") : -4 points
+- Trop long (>65 mots) : -2 points
+- Trop court (<20 mots sans substance) : -2 points
+- Tirets cadratins : -1 point par tiret
+- Template generique (remplacable par n'importe quelle entreprise) : -3 points
+
+BONUS :
+- Social proof avec chiffre concret : +1
+- CTA avec lien calendrier : +1
+- Reference specifique au prospect : +1
+
+FOLLOW-UP :
+Objet: ${subject}
+Corps: ${body}
+(${wordCount} mots)
+Prospect: ${contact.name || '?'} / ${contact.company || '?'}
+
+Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
+
+    try {
+      const response = await this.callOpenAIMini(
+        'Tu es un evaluateur de follow-ups B2B. Note de 1 a 10. Un follow-up de 40 mots avec social proof + CTA vaut minimum 7.',
+        prompt,
+        100
+      );
+      const parsed = this._parseJSON(response);
+      if (parsed && typeof parsed.note === 'number') {
+        return { note: Math.min(10, Math.max(1, Math.round(parsed.note))), reason: parsed.reason || '' };
+      }
+    } catch (e) {
+      console.warn('[email-writer] Follow-up scoring echoue: ' + e.message + ' - fallback 7');
+    }
+    return { note: 7, reason: 'fu_scoring_unavailable' };
   }
 
   // Score leger pour les follow-ups/relances (pas de retry, juste reject si trop bas)
@@ -832,7 +897,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
   }
 
   async generatePersonalizedFollowUp(contact, stepNumber, totalSteps, prospectIntel, previousEmails, campaignContext) {
-    let emailLengthHint = '50-80 mots (vise 65, JAMAIS plus de 80)';
+    let emailLengthHint = '40-65 mots (vise 50, JAMAIS plus de 65)';
     let siPrefsfu = null;
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
@@ -844,7 +909,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
       } catch (e2) {}
     }
     if (siPrefsfu) {
-      if (siPrefsfu.maxLength === 'short') emailLengthHint = '20-35 mots max (ultra-court)';
+      if (siPrefsfu.maxLength === 'short') emailLengthHint = '25-40 mots max (ultra-court)';
       else if (siPrefsfu.maxLength === 'long') emailLengthHint = '40-60 mots max';
     }
 
@@ -868,78 +933,149 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
       } catch (e2) {}
     }
 
+    // --- ICP : charger le contexte niche pour social proofs varies ---
+    let icpLoaderFU = null;
+    try { icpLoaderFU = require('../../gateway/icp-loader.js'); } catch (e) {
+      try { icpLoaderFU = require('/app/gateway/icp-loader.js'); } catch (e2) {}
+    }
+    let nicheFU = null;
+    if (icpLoaderFU) nicheFU = icpLoaderFU.matchLeadToNiche(contact);
+    const clientDescFU = (icpLoaderFU && icpLoaderFU.getClientDescription()) || process.env.CLIENT_DESCRIPTION || '';
+
+    // Selectionner un social proof DIFFERENT de ceux deja utilises
+    let socialProofInstruction = '';
+    if (nicheFU) {
+      const allProofs = nicheFU.socialProofs || [nicheFU.socialProof];
+      // Extraire les social proofs deja utilises dans les emails precedents
+      const usedProofsText = (previousEmails || []).map(e => (e.body || '').toLowerCase()).join(' ');
+      const availableProofs = allProofs.filter(sp => {
+        // Un proof est "utilise" si ses 6 premiers mots sont dans un email precedent
+        const words = sp.split(/\s+/).slice(0, 6).join(' ').toLowerCase();
+        return !usedProofsText.includes(words);
+      });
+      const selectedProof = availableProofs.length > 0
+        ? availableProofs[Math.floor(Math.random() * availableProofs.length)]
+        : allProofs[Math.floor(Math.random() * allProofs.length)];
+      socialProofInstruction = '\n\n=== SOCIAL PROOF A UTILISER (adapte la formulation, ne copie pas mot pour mot) ===\n"' + selectedProof + '"';
+      if (nicheFU.painPoint) socialProofInstruction += '\nPROBLEME DE CETTE NICHE : ' + nicheFU.painPoint;
+      if (clientDescFU) socialProofInstruction += '\n' + (process.env.CLIENT_NAME || 'iFIND') + ' : ' + clientDescFU;
+    }
+
     // Construire l'historique des emails precedents (anti-repetition)
     let previousEmailsContext = '';
     if (previousEmails && previousEmails.length > 0) {
-      previousEmailsContext = '\n\n=== EMAILS PRECEDENTS ENVOYES A CE PROSPECT (NE PAS REPETER CES ANGLES) ===';
+      previousEmailsContext = '\n\n=== EMAILS PRECEDENTS ENVOYES (NE PAS REPETER — ni l\'angle, ni le social proof, ni la structure) ===';
       for (const prev of previousEmails) {
         previousEmailsContext += '\n--- Email ' + prev.stepNumber + ' ---';
         previousEmailsContext += '\nObjet: ' + (prev.subject || '');
         previousEmailsContext += '\nCorps: ' + (prev.body || '').substring(0, 400);
       }
       previousEmailsContext += '\n=== FIN EMAILS PRECEDENTS ===';
-      previousEmailsContext += '\nTu DOIS utiliser un angle COMPLETEMENT DIFFERENT de tous les emails ci-dessus.';
+      previousEmailsContext += '\nTu DOIS utiliser un angle ET un social proof COMPLETEMENT DIFFERENTS de tous les emails ci-dessus.';
     }
 
-    // Strategie specifique par step
+    // Construire le lien booking pour step 3 (CTA direct)
+    let bookingUrlBlock = '';
+    const googleBookingUrl = process.env.GOOGLE_BOOKING_URL || '';
+    if (googleBookingUrl && stepNumber === 3) {
+      try {
+        const bpUrl = new URL(googleBookingUrl);
+        if (contact.email) bpUrl.searchParams.set('email', contact.email);
+        const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+        if (firstName) bpUrl.searchParams.set('name', firstName);
+        bookingUrlBlock = '\nLIEN CALENDRIER (a inclure en fin d\'email sur sa propre ligne) : ' + bpUrl.toString();
+      } catch (e) {
+        bookingUrlBlock = '\nLIEN CALENDRIER : ' + googleBookingUrl;
+      }
+    }
+
+    // Strategie specifique par step — beaucoup plus concrete
     const isBreakup = stepNumber >= totalSteps;
     let stepStrategy = '';
+    let stepExample = '';
     if (stepNumber === 2) {
-      stepStrategy = 'Relance 1 (J+3): Nouvel angle DIFFERENT du premier email, tire des DONNEES PROSPECT. Social proof + CTA soft ("dispo pour en parler", "ca vaut un echange ?").';
+      stepStrategy = `RELANCE 1 (J+3) — NOUVEL ANGLE + PREUVE CONCRETE
+Mission : apporter une PREUVE que tu peux aider. Un fait DIFFERENT du step 1.
+Structure : 1 fait prospect (different du step 1) + 1 social proof concret (cas client, chiffre, resultat) + 1 CTA soft.`;
+      stepExample = `EXEMPLE RELANCE 1 (note la structure differente du step 1) :
+"Thomas, 3 postes ouverts chez [Agence] sur Welcome — ca recrute mais le pipe client suit ?
+
+Une agence growth de 15 personnes a double son volume de leads en 3 mois avec nous, sans recruter de commercial.
+
+Dispo pour en parler si ca te dit."`;
     } else if (stepNumber === 3) {
-      stepStrategy = 'Relance 2 (J+7): Preuve sociale, mini cas client anonymise ("un dirigeant dans ton secteur..."). Fait rebondir sur un aspect specifique du prospect + CTA soft.';
-    } else if (stepNumber === totalSteps - 1 && totalSteps > 4) {
-      stepStrategy = 'Relance 3 (J+14): Dernier angle de valeur, question directe basee sur un fait specifique des donnees prospect + CTA soft.';
+      stepStrategy = `RELANCE 2 (J+7) — CTA DIRECT + LIEN CALENDRIER
+Mission : convertir en RDV. Sois DIRECT. Pas de longue intro.
+Structure : 1 phrase de contexte (rebondir sur un aspect specifique) + CTA DIRECT avec lien calendrier.
+COURT : 25-40 mots MAX.${bookingUrlBlock}`;
+      stepExample = `EXEMPLE RELANCE 2 :
+"Thomas, on accompagne des agences comme la tienne sur exactement ce sujet.
+
+15 min pour te montrer le setup, voici mon calendrier :
+[lien]"`;
     } else if (isBreakup) {
-      stepStrategy = 'BREAKUP (derniere relance): 2 lignes MAXIMUM. Choix binaire simple ("pas le bon moment ? dis-le moi"). Exploite la loss aversion.';
+      stepStrategy = `BREAKUP (derniere relance) — 2 LIGNES MAXIMUM
+Mission : exploiter la loss aversion. Question fermee. Pas de pitch.
+Structure : 1 phrase ("pas le bon moment ?") + 1 phrase (lien calendrier ou "dis-le moi").`;
+      stepExample = `EXEMPLE BREAKUP :
+"Thomas, pas le bon moment ? Pas de souci, je ne relancerai plus.
+
+Si le sujet revient : [lien calendrier]"`;
+      // Ajouter le lien booking au breakup aussi
+      if (googleBookingUrl && !bookingUrlBlock) {
+        try {
+          const bpUrl = new URL(googleBookingUrl);
+          if (contact.email) bpUrl.searchParams.set('email', contact.email);
+          const fn = contact.firstName || (contact.name || '').split(' ')[0] || '';
+          if (fn) bpUrl.searchParams.set('name', fn);
+          bookingUrlBlock = '\nLIEN CALENDRIER (a inclure dans le breakup) : ' + bpUrl.toString();
+        } catch (e) {
+          bookingUrlBlock = '\nLIEN CALENDRIER : ' + googleBookingUrl;
+        }
+      }
     } else {
-      stepStrategy = 'Relance ' + (stepNumber - 1) + ': Nouvel angle tire des DONNEES PROSPECT, question specifique + social proof.';
+      stepStrategy = `RELANCE ${stepNumber - 1} — NOUVEL ANGLE + SOCIAL PROOF DIFFERENT
+Mission : un angle encore different tire des DONNEES PROSPECT. Social proof + CTA soft.`;
+      stepExample = '';
     }
 
     const senderName = process.env.SENDER_NAME || 'Alexis';
     const senderTitle = process.env.SENDER_TITLE || 'fondateur';
     const clientName = process.env.CLIENT_NAME || 'iFIND';
     const fuEmailLanguage = process.env.EMAIL_LANGUAGE || 'fr';
-    const fuClientDescription = process.env.CLIENT_DESCRIPTION || '';
 
     let fuLanguageBlock = '';
     if (fuEmailLanguage === 'ro') {
-      fuLanguageBlock = `LIMBA: SCRIE IN ROMANA. Ton: tutuit, relaxat dar profesional.\n${fuClientDescription ? 'CE FACE ' + clientName.toUpperCase() + ': ' + fuClientDescription + '\n' : ''}`;
+      fuLanguageBlock = `LIMBA: SCRIE IN ROMANA. Ton: tutuit, relaxat dar profesional.\n${clientDescFU ? 'CE FACE ' + clientName.toUpperCase() + ': ' + clientDescFU + '\n' : ''}`;
     } else if (fuEmailLanguage !== 'fr') {
       fuLanguageBlock = `LANGUAGE: Write in ${fuEmailLanguage}.\n`;
     }
 
-    const systemPrompt = `${fuLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance personnalisee a un prospect specifique.
+    const systemPrompt = `${fuLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance UNIQUE et PERSONNALISEE.
 
-CONTEXTE : Relance ${stepNumber - 1} sur ${totalSteps - 1} (step ${stepNumber}/${totalSteps}).
-STRATEGIE : ${stepStrategy}
+=== STRATEGIE STEP ${stepNumber}/${totalSteps} ===
+${stepStrategy}
+${stepExample ? '\n' + stepExample : ''}
+${socialProofInstruction}${bookingUrlBlock}
 
-INTERDIT ABSOLU :
+=== INTERDITS ABSOLUS ===
 - JAMAIS de tiret cadratin ni de tiret long. Virgules, points, retours a la ligne.
-- JAMAIS "curieux d'avoir ton retour" ou question sans value prop.
+- JAMAIS "curieux d'avoir ton retour/avis" ou question sans value prop.
+- JAMAIS de paragraphe d'analyse LinkedIn qui explique au prospect ce qu'il vit.
+- JAMAIS "[Industrie] vit de recommandations et de reseaux"
+- JAMAIS "Comment [Company] genere de nouvelles opportunites"
+- JAMAIS "Ces canaux ont un plafond" / "carnet de contacts sature"
+- JAMAIS "suite a mon email", "je reviens vers vous", "je me permets de relancer"
+- JAMAIS : pitch, prix, offre, "beau move", "potentiellement", "prospection", "gen de leads", "acquisition de clients"
+- JAMAIS la meme structure que l'email precedent (si step 1 = fait+question, step 2 DOIT etre different)
 
-FORMAT (${emailLengthHint}) :
-1. OBSERVATION = fait specifique ou nouvel insight (PAS "je reviens vers toi")
-2. SOCIAL PROOF ou preuve (sauf breakup)
-3. CTA VALEUR = ouverture naturelle ("dispo pour en parler", "je te montre en 15 min")
-${isBreakup ? '\nBREAKUP = 2 phrases max. Question fermee. PAS de CTA soft.' : ''}
-
-INTERDIT : le paragraphe d'analyse LinkedIn qui explique au prospect ce qu'il vit.
-
-INTERDITS ABSOLUS :
-- "[Industrie] vit de recommandations et de reseaux"
-- "Comment [Company] genere de nouvelles opportunites"
-- "Ces canaux ont un plafond" / "carnet de contacts sature"
-- La relance DOIT citer un fait SPECIFIQUE tire des DONNEES PROSPECT ci-dessous.
-
-REGLES :
+=== QUALITE ===
 - ${emailLengthHint}. ${isBreakup ? '2 LIGNES MAXIMUM.' : ''} Ecris comme tu PARLES.
-- Tutoiement par defaut. Vouvoiement si +500 employes ou grand groupe cote.
-- JAMAIS : "suite a mon email", "je reviens vers vous", "je me permets de relancer"
-- JAMAIS : pitch, prix, offre, "beau move", "potentiellement"
-- JAMAIS : "prospection", "gen de leads", "acquisition de clients"
+- La relance DOIT citer un fait SPECIFIQUE tire des DONNEES PROSPECT.
+- Le social proof DOIT etre DIFFERENT de celui du/des email(s) precedent(s).
+- Tutoiement par defaut. Vouvoiement si +500 employes ou grand groupe.
 - Sujet : 2-4 mots, minuscules, comme un texto, contient nom/entreprise, DIFFERENT des precedents
-- PAS de "re:", pas de "relance", pas de signature${forbiddenWordsRule}
+- PAS de "re:", pas de "relance", pas de signature (ajoutee auto)${forbiddenWordsRule}
 
 JSON uniquement : {"subject":"...","body":"..."}`;
 
@@ -957,7 +1093,7 @@ CONTACT :
 
 Objectif campagne : ${campaignContext || 'prospection B2B'}
 
-Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base sur les DONNEES PROSPECT ci-dessus.${isBreakup ? ' FORMAT BREAKUP : 2 lignes max, choix binaire.' : ' OBLIGATOIRE : social proof + CTA valeur.'}`;
+Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base sur les DONNEES PROSPECT ci-dessus.${isBreakup ? ' FORMAT BREAKUP : 2 lignes max, choix binaire.' : ' OBLIGATOIRE : social proof DIFFERENT du step precedent + CTA valeur.'}`;
 
     const response = await this.callClaude(
       [{ role: 'user', content: userMessage }],
@@ -968,6 +1104,22 @@ Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base s
     // Post-process : supprimer tirets cadratins
     if (parsed && parsed.body) parsed.body = parsed.body.replace(/\u2014/g, ',').replace(/\u2013/g, ',');
     if (parsed && parsed.subject) parsed.subject = parsed.subject.replace(/\u2014/g, ' ').replace(/\u2013/g, ' ');
+
+    // Post-process : garantir le lien booking dans step 3 et breakup
+    if (parsed && parsed.body && (stepNumber === 3 || isBreakup) && googleBookingUrl) {
+      const bookingDomain = googleBookingUrl.split('?')[0];
+      if (!parsed.body.includes(bookingDomain)) {
+        try {
+          const bpUrl = new URL(googleBookingUrl);
+          if (contact.email) bpUrl.searchParams.set('email', contact.email);
+          if (firstName) bpUrl.searchParams.set('name', firstName);
+          parsed.body = parsed.body.trimEnd() + '\n\n' + bpUrl.toString();
+        } catch (e) {
+          parsed.body = parsed.body.trimEnd() + '\n\n' + googleBookingUrl;
+        }
+      }
+    }
+
     // Breakups : gate programmatique
     if (isBreakup) {
       if (!parsed || parsed.skip) return parsed;
@@ -976,7 +1128,75 @@ Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base s
       if (bwc < 8) return { skip: true, reason: 'breakup_too_short:' + bwc };
       return parsed;
     }
-    return this._scoreAndFilter(parsed, contact);
+    // Quality gate stricte pour les follow-ups (meme niveau que step 1)
+    return this._scoreAndFilterFollowUp(parsed, contact, previousEmails);
+  }
+
+  // Quality gate pour follow-ups — plus stricte que l'ancien _scoreAndFilter
+  async _scoreAndFilterFollowUp(parsed, contact, previousEmails) {
+    if (!parsed || parsed.skip) return parsed;
+    const body = parsed.body || '';
+    const subject = parsed.subject || '';
+    const bodyLower = body.toLowerCase();
+    const wordCount = body.split(/\s+/).filter(w => w.length > 0).length;
+
+    // BLOCK : trop long pour un follow-up
+    if (wordCount > 80) return { skip: true, reason: 'fu_too_long:' + wordCount };
+
+    // BLOCK : tirets cadratins
+    const emDashCount = body.split(/\u2014|\u2013/).length - 1;
+    if (emDashCount >= 2) return { skip: true, reason: 'fu_em_dash:' + emDashCount };
+
+    // BLOCK : dead CTAs
+    const deadCTAs = ['curieux d\'avoir ton retour', 'curieux d\'avoir ton avis', 'curieux de savoir',
+      'curieux d\'avoir votre retour', 'curieux d\'avoir votre avis', 'curieux d\'en savoir plus',
+      'c\'est quoi la strategie', 'c\'est quoi le plan', 'conviction ou differenciation'];
+    for (const cta of deadCTAs) {
+      if (bodyLower.includes(cta)) return { skip: true, reason: 'fu_dead_cta:' + cta };
+    }
+
+    // BLOCK : meta-prospection
+    const metaP = ['comment tu prospectes', 'comment vous prospectez', 'comment tu acquiers',
+      'comment tu generes', 'comment tu trouves de nouveaux clients', 'acquisition de clients',
+      'generer des leads', 'trouver de nouveaux clients'];
+    for (const mp of metaP) {
+      if (bodyLower.includes(mp)) return { skip: true, reason: 'fu_meta_prospection:' + mp };
+    }
+
+    // BLOCK : repetition du social proof du step precedent
+    if (previousEmails && previousEmails.length > 0) {
+      const lastBody = (previousEmails[previousEmails.length - 1].body || '').toLowerCase();
+      // Detecter si >50% des mots significatifs du social proof sont les memes
+      const spMarkers = ['on genere', 'on fait', 'on remplace', 'on alimente', 'on accompagne',
+        'on bosse avec', 'on travaille avec', 'un de nos clients', 'on a structure', 'on a genere'];
+      for (const marker of spMarkers) {
+        if (bodyLower.includes(marker) && lastBody.includes(marker)) {
+          // Meme marqueur de social proof = repetition probable
+          // Extraire la phrase contenant le marqueur dans les deux emails
+          const currentSP = bodyLower.split(/[.!?\n]/).find(s => s.includes(marker)) || '';
+          const prevSP = lastBody.split(/[.!?\n]/).find(s => s.includes(marker)) || '';
+          if (currentSP && prevSP) {
+            const currentWords = currentSP.split(/\s+/).filter(w => w.length > 3);
+            const prevWords = new Set(prevSP.split(/\s+/).filter(w => w.length > 3));
+            const overlap = currentWords.filter(w => prevWords.has(w)).length;
+            if (currentWords.length > 0 && overlap / currentWords.length > 0.5) {
+              return { skip: true, reason: 'fu_sp_repetition:' + marker };
+            }
+          }
+        }
+      }
+    }
+
+    // Score via GPT-4o-mini (adapte pour follow-ups)
+    try {
+      const score = await this._scoreFollowUpEmail(parsed.subject, parsed.body, contact);
+      if (score.note >= 7) return parsed;
+      return { skip: true, reason: 'fu_score_low:' + score.note + '/10 (' + (score.reason || '?') + ')' };
+    } catch (e) {
+      // Scoring indisponible — accepter si les gates programmatiques passent
+      if (wordCount <= 65 && wordCount >= 20) return parsed;
+      return { skip: true, reason: 'fu_scoring_unavailable_wc:' + wordCount };
+    }
   }
 
   async editEmail(currentEmail, instruction) {

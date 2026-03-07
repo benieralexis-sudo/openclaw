@@ -94,7 +94,18 @@ const GENERIC_PATTERNS = [
   /ce type de .{5,40} (?:souvent|generalement|habituellement)/i,
   /le vrai cap.{0,5} c.est/i,
   /ce qui distingue .{5,30} c.est/i,
-  /en tant que (?:CEO|founder|CTO|dirigeant|fondateur)/i
+  /en tant que (?:CEO|founder|CTO|dirigeant|fondateur)/i,
+  // Anti-question-journalistique (questions ouvertes sans rien proposer)
+  /c.est quoi (?:la|le|ta|ton|votre) (?:strategie|plan|prochain|vrai|prochaine)/i,
+  /(?:conviction|choix|decision) ou (?:differenciation|pragmatisme|strategie)/i,
+  /c.est (?:le|un) (?:debut|test|premier) .{0,20} ou /i,
+  // Anti-templates generiques des vieux follow-ups
+  /passai(?:t|ent) \d+% (?:de (?:leur|son)|du) temps/i,
+  /un (?:cabinet|directeur|dirigeant) .{5,40} avait le m[eê]me probl[eè]me/i,
+  /ils? (?:a|ont) externalis[eé]/i,
+  /r[eé]sultat\s*:/i,
+  // Anti-"curieux" en toutes formes
+  /curieux (?:de|d')/i
 ];
 
 function _emailPassesQualityGate(subject, body) {
@@ -900,11 +911,37 @@ class CampaignEngine {
               subject = personalized.subject;
               body = personalized.body;
               log.info('campaign-engine', 'Relance individualisee generee pour ' + contact.email + ' (step ' + stepNumber + ')');
-              // Check specificite follow-up (warn only, pas de block)
+              // Check specificite follow-up — block si generique (meme exigence que step 1)
               if (prospectIntel) {
                 const specFU = _checkEmailSpecificity(body, subject, prospectIntel);
                 if (specFU.level === 'generic') {
-                  log.warn('campaign-engine', 'Relance step ' + stepNumber + ' GENERIQUE pour ' + contact.email + ' — accepte (follow-up, monitoring)');
+                  log.warn('campaign-engine', 'Relance step ' + stepNumber + ' GENERIQUE pour ' + contact.email + ' — retry');
+                  // Retry une fois avec instruction critique
+                  try {
+                    const retryFU = await this.claude.generatePersonalizedFollowUp(
+                      contact, stepNumber, campaign.steps.length,
+                      prospectIntel + '\n\nATTENTION CRITIQUE: l\'email precedent etait GENERIQUE. Tu DOIS citer un fait SPECIFIQUE du prospect (chiffre, client, techno, evenement).',
+                      previousEmails, campaignContext
+                    );
+                    if (retryFU && retryFU.subject && retryFU.body && !retryFU.skip) {
+                      const spec2 = _checkEmailSpecificity(retryFU.body, retryFU.subject, prospectIntel);
+                      if (spec2.level !== 'generic') {
+                        subject = retryFU.subject;
+                        body = retryFU.body;
+                        log.info('campaign-engine', 'Relance step ' + stepNumber + ' retry OK pour ' + contact.email + ' — ' + spec2.reason);
+                      } else if (contact.company && contact.title) {
+                        subject = retryFU.subject;
+                        body = retryFU.body;
+                        log.info('campaign-engine', 'Relance step ' + stepNumber + ' generique acceptee pour ' + contact.email + ' (company+title dispo)');
+                      } else {
+                        log.warn('campaign-engine', 'Relance step ' + stepNumber + ' TOUJOURS generique pour ' + contact.email + ' — skip');
+                        skipped++;
+                        continue;
+                      }
+                    }
+                  } catch (retryErr) {
+                    log.warn('campaign-engine', 'Relance step ' + stepNumber + ' retry echoue: ' + retryErr.message);
+                  }
                 }
               }
             } else {
@@ -1695,8 +1732,8 @@ class CampaignEngine {
 
   async checkEmailStatuses() {
     const recentEmails = storage.getAllEmails()
-      .filter(e => e.resendId && (e.status === 'sent' || e.status === 'queued' || e.status === 'delivered' || e.status === 'opened'))
-      .slice(-100); // Verifier les 100 derniers
+      .filter(e => e.resendId && !String(e.resendId).startsWith('gmail_') && (e.status === 'sent' || e.status === 'queued' || e.status === 'delivered' || e.status === 'opened'))
+      .slice(-100); // Verifier les 100 derniers (Resend API uniquement — Gmail utilise le pixel tracking)
 
     let bounceCount = 0;
     let replyCount = 0;
