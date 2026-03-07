@@ -913,7 +913,7 @@ class CampaignEngine {
               if (prevEmails.length > 0 && this.claude.personalizeEmail) {
                 try {
                   const lastEmail = prevEmails[prevEmails.length - 1];
-                  const simpleContext = 'Email precedent envoye: "' + (lastEmail.subject || '') + '". Ecris une relance courte (20-30 mots) qui rebondit sur cet email, avec une question simple.';
+                  const simpleContext = 'Email precedent envoye: "' + (lastEmail.subject || '') + '". Ecris une relance courte (30-50 mots) qui rebondit sur cet email, avec une question simple.';
                   const simple = await this.claude.generatePersonalizedFollowUp(
                     contact, stepNumber, campaign.steps.length,
                     simpleContext, prevEmails, campaign.context || campaign.name || 'prospection B2B'

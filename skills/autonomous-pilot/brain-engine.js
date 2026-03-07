@@ -1628,7 +1628,8 @@ Analyse et reponds en JSON:
     prompt += '1. autoExecute=true pour TOUTES les actions, y compris send_email. Tu es en FULL AUTO.\n';
     prompt += '2. Pour send_email, mets TOUJOURS _generateFirst:true — la recherche prospect est OBLIGATOIRE avant chaque email.\n';
     prompt += '3. NE FOURNIS PAS subject/body dans send_email — le ProspectResearcher + ClaudeEmailWriter les generent automatiquement avec des infos fraiches.\n';
-    prompt += '4. Envoie jusqu\'a ' + dailyLimitGoals + ' emails PAR CYCLE. Priorise les leads score >= 8. Le systeme bloque au-dela de la limite warmup.\n';
+    const emailsPerCycle = Math.min(Math.ceil(remainingTodayGoals / 2), 15);
+    prompt += '4. Envoie MAX ' + emailsPerCycle + ' emails CE CYCLE (reste ' + remainingTodayGoals + '/jour, repartis sur 2 brain cycles). Priorise les leads score >= 8.\n';
     prompt += '5. JAMAIS de prix, d\'offre, de feature, de "pilote gratuit" dans le premier email. Le but = OUVRIR UNE CONVERSATION.\n';
     prompt += '6. Apres 3 jours sans reponse sur un lead contacte, cree automatiquement une sequence follow-up (create_followup_sequence).\n';
     prompt += '7. Sois strategique avec les credits Apollo (100/mois). Prefere des recherches ciblees.\n';
