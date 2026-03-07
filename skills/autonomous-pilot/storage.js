@@ -660,7 +660,21 @@ function completeExperiment(experimentId, results) {
 }
 
 function getActiveExperiments() {
-  return _load().learnings.experiments.filter(e => e.status === 'running');
+  const data = _load();
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  let cleaned = false;
+  for (const e of data.learnings.experiments) {
+    if (e.status !== 'running') continue;
+    const startedAt = e.startedAt ? new Date(e.startedAt).getTime() : 0;
+    if (startedAt && startedAt < cutoff) {
+      e.status = 'completed';
+      e.completedAt = new Date().toISOString();
+      e.result = 'auto-closed: stale > 7 days';
+      cleaned = true;
+    }
+  }
+  if (cleaned) _save();
+  return data.learnings.experiments.filter(e => e.status === 'running');
 }
 
 // --- Stats ---
