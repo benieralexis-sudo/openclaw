@@ -494,7 +494,7 @@ class ProactiveEngine {
     log.info('proactive-engine', 'Hot lead notifie: ' + email + ' (' + opens + ' opens)');
 
     // Auto-creer un reactive follow-up accelere pour les hot leads (delai 15-30 min au lieu de 2-4h)
-    if (opens >= 3 && !storage.hasFollowUpForProspect(email)) {
+    if (opens >= 3 && !storage.hasReactiveFollowUp(email)) {
       try {
         const amStorage = getAutomailerStorage();
         if (amStorage) {

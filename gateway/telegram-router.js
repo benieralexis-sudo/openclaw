@@ -1925,6 +1925,7 @@ async function _hitlSendReply(chatId, draftId) {
 
   // Nettoyage du draft apres envoi reussi
   _pendingDrafts.delete(draftId);
+  _saveHitlDrafts();
 }
 
 // --- Callback queries (boutons) ---
@@ -2303,8 +2304,8 @@ const healthServer = http.createServer(async (req, res) => {
           confidence: d.autoReply?.confidence || 0,
           qualityWarning: d.qualityWarning || null,
           company: d.originalEmail?.company || '',
-          grounded: d.grounded || false,
-          autoSendAt: d.autoSendAt || null,
+          grounded: d._grounded !== false,
+          autoSendAt: d.createdAt ? new Date(d.createdAt + ((d._grounded !== false) ? HITL_AUTOSEND_GROUNDED : HITL_AUTOSEND_UNGROUNDED)).toISOString() : null,
           createdAt: d.createdAt || 0,
           expiresIn: Math.max(0, TTL - age)
         });

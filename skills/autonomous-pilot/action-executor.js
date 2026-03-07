@@ -768,14 +768,16 @@ Format JSON strict :
         const stats = domainManager.getStats ? domainManager.getStats() : [];
         const activeStats = stats.filter(s => s.active);
         if (activeStats.length > 0) {
-          // Prendre la limite la plus basse parmi les domaines actifs (prudence warmup)
-          dailyLimit = Math.min(...activeStats.map(s => s.warmupLimit || 5));
+          // Somme des limites par domaine (chaque domaine a son propre warmup independant)
+          // domain-manager gere deja la rotation et le per-domain tracking
+          dailyLimit = activeStats.reduce((sum, s) => sum + (s.warmupLimit || 5), 0);
           sentToday = activeStats.reduce((sum, s) => sum + (s.todaySends || 0), 0);
-          const youngest = activeStats.reduce((min, s) => {
+          // Moyenne ponderee des ages domaines (pour affichage)
+          const totalLimit = dailyLimit || 1;
+          warmupDays = Math.round(activeStats.reduce((sum, s) => {
             const d = s.firstSendDate ? Math.floor((Date.now() - new Date(s.firstSendDate).getTime()) / 86400000) : 0;
-            return d < min ? d : min;
-          }, 999);
-          warmupDays = youngest;
+            return sum + d * (s.warmupLimit || 5);
+          }, 0) / totalLimit);
         } else {
           sentToday = amStorage.getTodaySendCount();
           const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
@@ -1105,14 +1107,14 @@ Format JSON strict :
       }
     }
 
-    // === GATE LONGUEUR : max 120 mots — au-dela c'est du LinkedIn, pas du cold email ===
+    // === GATE LONGUEUR : max 100 mots — cible 50-80, au-dela c'est trop long pour du cold email ===
     {
       const bodyWords = (params.body || '').trim().split(/\s+/).filter(w => w.length > 0);
-      if (bodyWords.length > 120) {
-        log.error('action-executor', 'GATE LONGUEUR BLOCK — Email trop long (' + bodyWords.length + ' mots, max 120) pour ' + params.to + ' — skip');
-        return { success: false, error: 'Email trop long: ' + bodyWords.length + ' mots (max 120)', gateBlocked: true };
+      if (bodyWords.length > 100) {
+        log.error('action-executor', 'GATE LONGUEUR BLOCK — Email trop long (' + bodyWords.length + ' mots, max 100) pour ' + params.to + ' — skip');
+        return { success: false, error: 'Email trop long: ' + bodyWords.length + ' mots (max 100)', gateBlocked: true };
       }
-      if (bodyWords.length > 90) {
+      if (bodyWords.length > 80) {
         log.warn('action-executor', 'GATE LONGUEUR WARN — Email long (' + bodyWords.length + ' mots) pour ' + params.to + ' — envoye mais sous-optimal');
       }
     }
@@ -1138,9 +1140,9 @@ Format JSON strict :
         log.error('action-executor', 'GATE 3 BLOCK — Body trop court (' + bodyTrimmed.length + ' chars) pour ' + params.to + ' — skip');
         return { success: false, error: 'Email incomplet: body trop court (' + bodyTrimmed.length + ' chars)', gateBlocked: true };
       }
-      if (bodyWordCount < 8) {
-        log.error('action-executor', 'GATE 3 BLOCK — Body trop peu de mots (' + bodyWordCount + ') pour ' + params.to + ' — skip');
-        return { success: false, error: 'Email incomplet: body trop court (' + bodyWordCount + ' mots)', gateBlocked: true };
+      if (bodyWordCount < 30) {
+        log.error('action-executor', 'GATE 3 BLOCK — Body trop peu de mots (' + bodyWordCount + ', min 30) pour ' + params.to + ' — skip');
+        return { success: false, error: 'Email incomplet: body trop court (' + bodyWordCount + ' mots, min 30)', gateBlocked: true };
       }
       if (!endsWithPunctuation || endsWithEllipsis) {
         log.error('action-executor', 'GATE 3 BLOCK — Body potentiellement tronque pour ' + params.to +

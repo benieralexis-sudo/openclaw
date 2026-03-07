@@ -629,7 +629,13 @@ class CampaignEngine {
       });
     }
 
-    storage.updateCampaign(campaignId, { steps: steps, context: context });
+    // Stocker le sampleContact pour detection de contamination a l'envoi
+    const sampleInfo = {
+      email: sampleContact.email || '',
+      firstName: (sampleContact.firstName || (sampleContact.name || '').split(' ')[0] || '').trim(),
+      company: (sampleContact.company || '').trim()
+    };
+    storage.updateCampaign(campaignId, { steps: steps, context: context, _sampleContact: sampleInfo });
     return steps;
   }
 
@@ -1139,6 +1145,63 @@ class CampaignEngine {
         }
       }
 
+      // GATE ANTI-CONTAMINATION : verifier que l'email ne contient pas les donnees d'un autre prospect
+      // Empeche d'envoyer "Neha — AeroConsultant" a herve@urbanhello.com
+      {
+        const contactFirstName = (firstName || '').toLowerCase().trim();
+        let contaminated = false;
+        let contaminationSource = '';
+
+        // Check 1 : contre le sampleContact stocke sur la campagne
+        if (campaign._sampleContact && campaign._sampleContact.email &&
+            campaign._sampleContact.email.toLowerCase() !== contact.email.toLowerCase()) {
+          const sampleName = (campaign._sampleContact.firstName || '').toLowerCase().trim();
+          const sampleCompany = (campaign._sampleContact.company || '').toLowerCase().trim();
+          const subjectLower = (subject || '').toLowerCase();
+          const bodyLower = (body || '').toLowerCase();
+
+          if (sampleName && sampleName.length >= 3 && sampleName !== contactFirstName) {
+            // Chercher le nom du sampleContact comme mot entier dans subject ou body
+            const nameRegex = new RegExp('\\b' + sampleName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+            if (nameRegex.test(subject) || nameRegex.test(body)) {
+              contaminated = true;
+              contaminationSource = 'prenom "' + sampleName + '" de ' + campaign._sampleContact.email;
+            }
+          }
+          if (!contaminated && sampleCompany && sampleCompany.length >= 4) {
+            const companyRegex = new RegExp('\\b' + sampleCompany.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+            if (companyRegex.test(body)) {
+              contaminated = true;
+              contaminationSource = 'entreprise "' + sampleCompany + '" de ' + campaign._sampleContact.email;
+            }
+          }
+        }
+
+        // Check 2 : contre tous les autres contacts de la campagne (pour les campagnes sans _sampleContact)
+        if (!contaminated && !campaign._sampleContact && list.contacts.length > 1) {
+          const subjectLower = (subject || '').toLowerCase();
+          const bodyLower = (body || '').toLowerCase();
+          for (const otherContact of list.contacts) {
+            if ((otherContact.email || '').toLowerCase() === contact.email.toLowerCase()) continue;
+            const otherName = (otherContact.firstName || (otherContact.name || '').split(' ')[0] || '').toLowerCase().trim();
+            if (otherName && otherName.length >= 3 && otherName !== contactFirstName) {
+              const nameRegex = new RegExp('\\b' + otherName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+              if (nameRegex.test(subject) || nameRegex.test(body)) {
+                contaminated = true;
+                contaminationSource = 'prenom "' + otherName + '" de ' + otherContact.email;
+                break;
+              }
+            }
+          }
+        }
+
+        if (contaminated) {
+          log.warn('campaign-engine', 'CONTAMINATION GATE: email pour ' + contact.email + ' contient ' + contaminationSource + ' — skip');
+          skipped++;
+          continue;
+        }
+      }
+
       // Quality gate post-generation — verifier avant envoi
       const qg = _emailPassesQualityGate(subject, body);
       if (!qg.pass) {
@@ -1432,6 +1495,8 @@ class CampaignEngine {
     if (this.schedulerInterval) return; // Guard anti-double start
     // Auto-repair: remettre en pending les steps force-completed avec 0 envois
     this._repairForceCompletedSteps();
+    // Auto-repair: calculer scheduledAt pour les steps qui en manquent (legacy auto-campaigns)
+    this._repairMissingScheduledAt();
     log.info('campaign-engine', 'Scheduler demarre (intervalle: 60s)');
     this.schedulerInterval = setInterval(() => this._processScheduled(), 60 * 1000);
     // Premier check immediat
@@ -1466,6 +1531,74 @@ class CampaignEngine {
     }
     if (repaired > 0) {
       log.info('campaign-engine', 'Auto-repair: ' + repaired + ' step(s) remis en pending');
+    }
+  }
+
+  // Auto-repair: calculer scheduledAt pour les steps pending qui en manquent
+  // Protege contre les legacy auto-campaigns creees sans generateCampaignEmails
+  _repairMissingScheduledAt() {
+    const campaigns = storage.getAllCampaigns().filter(c => c.status === 'active');
+    let repaired = 0;
+    let cancelled = 0;
+    let staggerIndex = 0;
+    const now = new Date();
+
+    for (const campaign of campaigns) {
+      let modified = false;
+      for (const step of campaign.steps) {
+        if (step.status !== 'pending') continue;
+        if (step.scheduledAt) continue;
+        if (step.delayDays == null) continue;
+
+        // Trouver la date de base : completedAt ou sentAt du step precedent, sinon createdAt campagne
+        const prevStep = campaign.steps.find(s => s.stepNumber === step.stepNumber - 1);
+        let baseDate = null;
+        if (prevStep && prevStep.completedAt) {
+          baseDate = new Date(prevStep.completedAt);
+        } else if (prevStep && prevStep.sentAt) {
+          baseDate = new Date(prevStep.sentAt);
+        } else if (campaign.startedAt) {
+          baseDate = new Date(campaign.startedAt);
+        } else if (campaign.createdAt) {
+          baseDate = new Date(campaign.createdAt);
+        }
+        if (!baseDate || isNaN(baseDate.getTime())) continue;
+
+        let scheduledDate = new Date(baseDate.getTime() + step.delayDays * 24 * 60 * 60 * 1000);
+        const daysPast = Math.floor((now - scheduledDate) / (24 * 60 * 60 * 1000));
+
+        if (daysPast > 30) {
+          // Trop ancien (>30j de retard) — annuler ce step
+          step.status = 'completed';
+          step._forceCompleted = true;
+          step._repairNote = 'auto-cancelled: ' + daysPast + ' days overdue';
+          modified = true;
+          cancelled++;
+          log.info('campaign-engine', 'Repair scheduledAt: step ' + step.stepNumber + ' de "' + campaign.name + '" annule (' + daysPast + 'j de retard)');
+          continue;
+        }
+
+        if (scheduledDate < now) {
+          // Date passee mais < 30j : etaler dans le futur (5 campagnes/jour, 2h d'ecart)
+          const staggerDays = Math.floor(staggerIndex / 5);
+          const staggerHours = (staggerIndex % 5) * 2;
+          scheduledDate = new Date(now.getTime() + (staggerDays * 24 + staggerHours + 1) * 60 * 60 * 1000);
+          staggerIndex++;
+        }
+
+        scheduledDate = _snapToPreferredSlot(scheduledDate);
+        step.scheduledAt = scheduledDate.toISOString();
+        step._adaptiveChecked = false;
+        modified = true;
+        repaired++;
+        log.info('campaign-engine', 'Repair scheduledAt: ' + campaign.name + ' step ' + step.stepNumber + ' → ' + step.scheduledAt);
+      }
+      if (modified) {
+        storage.updateCampaign(campaign.id, { steps: campaign.steps });
+      }
+    }
+    if (repaired > 0 || cancelled > 0) {
+      log.info('campaign-engine', 'Auto-repair scheduledAt: ' + repaired + ' step(s) repare(s), ' + cancelled + ' annule(s)');
     }
   }
 
@@ -1515,6 +1648,21 @@ class CampaignEngine {
             }
             step._adaptiveChecked = true;
             storage.updateCampaign(campaign.id, { steps: campaign.steps });
+          }
+        }
+
+        // Safety net runtime: auto-repair si scheduledAt manquant
+        if (!step.scheduledAt && step.delayDays != null) {
+          const prevStep = campaign.steps.find(s => s.stepNumber === step.stepNumber - 1);
+          const baseTs = prevStep && (prevStep.completedAt || prevStep.sentAt)
+            ? new Date(prevStep.completedAt || prevStep.sentAt).getTime()
+            : (campaign.startedAt ? new Date(campaign.startedAt).getTime() : null);
+          if (baseTs && !isNaN(baseTs)) {
+            const repairDate = _snapToPreferredSlot(new Date(baseTs + step.delayDays * 24 * 60 * 60 * 1000));
+            step.scheduledAt = repairDate.toISOString();
+            step._adaptiveChecked = false;
+            storage.updateCampaign(campaign.id, { steps: campaign.steps });
+            log.info('campaign-engine', 'Runtime repair: scheduledAt pour "' + campaign.name + '" step ' + step.stepNumber + ' → ' + step.scheduledAt);
           }
         }
 

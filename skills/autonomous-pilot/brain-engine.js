@@ -126,12 +126,27 @@ class BrainEngine {
       const am = getAutomailerStorage();
       if (am) {
         const stats = am.getStats ? am.getStats() : {};
+        // Warmup : compteurs par domaine pour informer le brain
+        let sentToday = 0, dailyLimit = 0;
+        try {
+          const domainManager = require('../automailer/domain-manager.js');
+          const dmStats = domainManager.getStats ? domainManager.getStats() : [];
+          const activeStats = dmStats.filter(s => s.active);
+          sentToday = activeStats.reduce((sum, s) => sum + (s.todaySends || 0), 0);
+          dailyLimit = activeStats.reduce((sum, s) => sum + (s.warmupLimit || 5), 0);
+        } catch (e) {
+          sentToday = am.getTodaySendCount ? am.getTodaySendCount() : 0;
+          dailyLimit = 5;
+        }
         state.skills.automailer = {
           totalEmails: stats.totalEmailsSent || 0,
           totalOpened: stats.totalEmailsOpened || 0,
           openRate: (stats.totalEmailsSent || 0) > 0
             ? Math.round(((stats.totalEmailsOpened || 0) / stats.totalEmailsSent) * 100) : 0,
-          activeCampaigns: stats.activeCampaigns || 0
+          activeCampaigns: stats.activeCampaigns || 0,
+          sentToday: sentToday,
+          dailyLimit: dailyLimit,
+          remainingToday: Math.max(0, dailyLimit - sentToday)
         };
 
         // FIX: Syncer TOUS les compteurs depuis automailer (source de verite)
@@ -443,7 +458,7 @@ class BrainEngine {
       const to = (action.params && action.params.to || '').trim();
       if (!to || !to.includes('@') || to.includes('{{') || to.includes('}}') || /^[a-z_-]+(lead|ceo|cto|founder|manager)[\d_]*$/i.test(to)) {
         log.warn('brain', 'Placeholder/email invalide rejete pre-execution: "' + to + '"');
-        storage.logAction({ type: 'send_email', params: action.params, result: { success: false, error: 'Email invalide/placeholder rejete: ' + to } });
+        storage.recordAction({ type: 'send_email', params: action.params, result: { success: false, error: 'Email invalide/placeholder rejete: ' + to } });
         return false;
       }
       return true;
@@ -1199,16 +1214,17 @@ Analyse et reponds en JSON:
       prompt += '\n';
     }
 
-    // Objectif email dynamique base sur le warmup (calcul avant utilisation)
-    const amGoals = getAutomailerStorage();
-    const firstSendDateGoals = amGoals && amGoals.getFirstSendDate ? amGoals.getFirstSendDate() : null;
-    const dailyLimitGoals = getWarmupDailyLimit(firstSendDateGoals);
+    // Objectif email dynamique base sur le warmup (domain-manager = source de verite)
+    const amState = state.skills.automailer || {};
+    const dailyLimitGoals = amState.dailyLimit || 5;
+    const sentTodayGoals = amState.sentToday || 0;
+    const remainingTodayGoals = amState.remainingToday || 0;
     const weeklyEmailTarget = Math.max(g.emailsToSend, dailyLimitGoals * 5);
 
     prompt += 'ETAT ACTUEL:\n';
     prompt += '- Leads trouves cette semaine: ' + p.leadsFoundThisWeek + '/' + g.leadsToFind + '\n';
-    // Leads enrichis supprime (FullEnrich retire)
-    prompt += '- Emails envoyes: ' + p.emailsSentThisWeek + '/' + weeklyEmailTarget + ' (limite warmup: ' + dailyLimitGoals + '/jour)\n';
+    prompt += '- Emails envoyes AUJOURD\'HUI: ' + sentTodayGoals + '/' + dailyLimitGoals + ' (reste ' + remainingTodayGoals + ' disponibles)\n';
+    prompt += '- Emails envoyes cette semaine: ' + p.emailsSentThisWeek + '/' + weeklyEmailTarget + '\n';
     prompt += '- Reponses: ' + (p.responsesThisWeek || 0) + '/' + g.responsesTarget + '\n';
     prompt += '- RDV: ' + (p.rdvBookedThisWeek || 0) + '/' + g.rdvTarget + '\n';
     prompt += '- Contacts CRM: ' + p.contactsPushedThisWeek + '\n';
