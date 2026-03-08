@@ -36,22 +36,9 @@ class AutoMailerHandler {
   // --- NLP ---
 
   async callOpenAI(messages, maxTokens) {
-    // Delegue au shared-nlp centralise (tracking budget + circuit breaker + keepAlive)
-    try {
-      const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
-      const result = await sharedCallOpenAI(this.openaiKey, messages, { maxTokens: maxTokens || 200, temperature: 0.3 });
-      return result.content;
-    } catch (e) {
-      // Fallback inline si shared-nlp indisponible
-      const https = require('https');
-      return new Promise((resolve, reject) => {
-        const postData = JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 0.3, max_tokens: maxTokens || 200 });
-        const req = https.request({ hostname: 'api.openai.com', path: '/v1/chat/completions', method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.openaiKey, 'Content-Length': Buffer.byteLength(postData) }
-        }, (res) => { let body = ''; res.on('data', c => body += c); res.on('end', () => { try { const r = JSON.parse(body); resolve(r.choices && r.choices[0] ? r.choices[0].message.content : ''); } catch (e2) { reject(e2); } }); });
-        req.on('error', reject); req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout OpenAI')); }); req.write(postData); req.end();
-      });
-    }
+    const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
+    const result = await sharedCallOpenAI(this.openaiKey, messages, { maxTokens: maxTokens || 200, temperature: 0.3 });
+    return result.content;
   }
 
   async classifyIntent(message, chatId) {

@@ -52,43 +52,15 @@ class ClaudeEmailWriter {
   }
 
   // GPT-4o-mini pour taches simples (edit, subject variant)
-  callOpenAIMini(systemPrompt, userMessage, maxTokens) {
+  async callOpenAIMini(systemPrompt, userMessage, maxTokens) {
     maxTokens = maxTokens || 500;
     if (!this.openaiKey) return this.callClaude([{ role: 'user', content: userMessage }], systemPrompt, maxTokens);
-    return new Promise((resolve, reject) => {
-      const postData = JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: maxTokens,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ]
-      });
-      const req = https.request({
-        hostname: 'api.openai.com',
-        path: '/v1/chat/completions',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + this.openaiKey,
-          'Content-Length': Buffer.byteLength(postData)
-        }
-      }, (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
-          try {
-            const r = JSON.parse(data);
-            if (r.choices && r.choices[0]) resolve(r.choices[0].message.content);
-            else reject(new Error('OpenAI invalide: ' + data.substring(0, 200)));
-          } catch (e) { reject(e); }
-        });
-      });
-      req.on('error', reject);
-      req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout OpenAI')); });
-      req.write(postData);
-      req.end();
-    });
+    const { callOpenAI } = require('../../gateway/shared-nlp.js');
+    const result = await callOpenAI(this.openaiKey, [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage }
+    ], { maxTokens, temperature: 0.2 });
+    return result.content;
   }
 
   _parseJSON(response) {

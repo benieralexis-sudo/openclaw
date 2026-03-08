@@ -119,36 +119,15 @@ class ProspectResearcher {
   // Pre-analyse IA du site web : texte brut → insights structures (GPT-4o-mini, ~0.001$/call)
   async _summarizeWebsite(rawText, companyName) {
     if (!rawText || rawText.length < 100 || !this.openaiKey) return null;
-    const https = require('https');
+    const { callOpenAI } = require('../../gateway/shared-nlp.js');
     const prompt = `Analyse ce site web de "${companyName || 'entreprise'}". Extrais en 3-5 bullets courts :\n- Proposition de valeur principale\n- Clients cibles (B2B/B2C, secteur)\n- Produit/service phare\n- Element differenciateur\n- Signal d'achat potentiel (recrutement, croissance, nouveau produit)\n\nSite web:\n${rawText.substring(0, 3000)}`;
-    return new Promise((resolve) => {
-      const postData = JSON.stringify({
-        model: 'gpt-4o-mini', max_tokens: 300, temperature: 0.2,
-        messages: [{ role: 'user', content: prompt }]
-      });
-      const req = https.request({
-        hostname: 'api.openai.com', path: '/v1/chat/completions', method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.openaiKey }
-      }, (res) => {
-        let data = '';
-        res.on('data', c => data += c);
-        res.on('end', () => {
-          try {
-            if (res.statusCode !== 200) {
-              log.warn('prospect-research', '_summarizeWebsite HTTP ' + res.statusCode + ': ' + (data || '').substring(0, 200));
-              resolve(null);
-              return;
-            }
-            const r = JSON.parse(data);
-            resolve(r.choices && r.choices[0] ? r.choices[0].message.content.trim() : null);
-          } catch (e) { log.warn('prospect-research', '_summarizeWebsite parse error: ' + e.message + ' — data: ' + (data || '').substring(0, 200)); resolve(null); }
-        });
-      });
-      req.on('error', (e) => { log.warn('prospect-research', '_summarizeWebsite error: ' + e.message); resolve(null); });
-      req.setTimeout(20000, () => { log.warn('prospect-research', '_summarizeWebsite timeout (20s)'); req.destroy(); resolve(null); });
-      req.write(postData);
-      req.end();
-    });
+    try {
+      const result = await callOpenAI(this.openaiKey, [{ role: 'user', content: prompt }], { maxTokens: 300, temperature: 0.2 });
+      return result.content || null;
+    } catch (e) {
+      log.warn('prospect-research', '_summarizeWebsite error: ' + e.message);
+      return null;
+    }
   }
 
   _nextUA() {
