@@ -345,8 +345,20 @@ class BrainEngine {
     storage.incrementStat('totalBrainCycles');
     storage.updateStat('lastBrainCycleAt', new Date().toISOString());
 
-    // 0. Nettoyage queue (TTL 48h)
+    // 0. Nettoyage queue (TTL 48h) + experiments > 7 jours
     storage.cleanupQueue();
+    try {
+      const oldExps = storage.getActiveExperiments();
+      let closedCount = 0;
+      for (const exp of oldExps) {
+        const age = (Date.now() - new Date(exp.startedAt).getTime()) / (24 * 60 * 60 * 1000);
+        if (age >= 7) {
+          storage.completeExperiment(exp.id, { summary: 'Auto-cloture apres ' + Math.round(age) + ' jours', duration: Math.round(age) + ' jours' });
+          closedCount++;
+        }
+      }
+      if (closedCount > 0) log.info('brain', 'Nettoyage: ' + closedCount + ' experience(s) > 7j cloturee(s)');
+    } catch (e) {}
 
     // 1. Collecter l'etat
     const state = this._collectState();
