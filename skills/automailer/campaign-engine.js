@@ -736,6 +736,31 @@ class CampaignEngine {
         continue;
       }
 
+      // B1 FIX : Verifier AVANT le rate-limit si l'email est deja envoye ou rattachable
+      // (evite que le rate-limit bloque un step deja complete par l'AP)
+      const contactEmails = campaignEmails.filter(e => e.to === contact.email);
+      const existing = contactEmails.find(e => e.stepNumber === stepNumber && e.status !== 'failed');
+      if (existing) continue;
+
+      // Rattacher un email orphelin existant au lieu de re-envoyer (step 1 uniquement)
+      if (stepNumber === 1) {
+        const allEmails = storage.getAllEmails();
+        const orphan = allEmails.find(e =>
+          (e.to || '').toLowerCase() === contact.email.toLowerCase() &&
+          !e.campaignId &&
+          e.status !== 'failed' &&
+          e.sentAt && (Date.now() - new Date(e.sentAt).getTime()) < 14 * 24 * 60 * 60 * 1000
+        );
+        if (orphan) {
+          orphan.campaignId = campaignId;
+          orphan.stepNumber = 1;
+          storage._save();
+          log.info('campaign-engine', 'Email orphelin rattache a campagne ' + campaignId + ' pour ' + contact.email + ' (id: ' + orphan.id + ')');
+          sent++;
+          continue;
+        }
+      }
+
       // Rate limiting inter-campagne : max 1 email/24h par contact (cross-campagne) + max 2/72h
       try {
         const allEmailsToContact = storage.getEmailEventsForRecipient(contact.email);
@@ -808,31 +833,6 @@ class CampaignEngine {
         }
       } catch (smtpErr) {
         log.info('campaign-engine', 'SMTP verify echoue pour ' + contact.email + ' (non bloquant): ' + smtpErr.message);
-      }
-
-      // Verifier si l'email a deja ete envoye pour ce contact/step
-      const contactEmails = campaignEmails.filter(e => e.to === contact.email);
-      const existing = contactEmails.find(e => e.stepNumber === stepNumber && e.status !== 'failed');
-      if (existing) continue;
-
-      // FIX RELANCES: Si step 1, rattacher un email orphelin existant au lieu de re-envoyer
-      if (stepNumber === 1) {
-        const allEmails = storage.getAllEmails();
-        const orphan = allEmails.find(e =>
-          (e.to || '').toLowerCase() === contact.email.toLowerCase() &&
-          !e.campaignId &&
-          e.status !== 'failed' &&
-          e.sentAt && (Date.now() - new Date(e.sentAt).getTime()) < 14 * 24 * 60 * 60 * 1000
-        );
-        if (orphan) {
-          // Rattacher l'email orphelin a cette campagne
-          orphan.campaignId = campaignId;
-          orphan.stepNumber = 1;
-          storage._save();
-          log.info('campaign-engine', 'Email orphelin rattache a campagne ' + campaignId + ' pour ' + contact.email + ' (id: ' + orphan.id + ')');
-          sent++;
-          continue;
-        }
       }
 
       // FIX 5 : Follow-up intelligent — skip si bounce ou reponse sur un email precedent
@@ -1540,6 +1540,8 @@ class CampaignEngine {
     if (this.schedulerInterval) return; // Guard anti-double start
     // Auto-repair: remettre en pending les steps force-completed avec 0 envois
     this._repairForceCompletedSteps();
+    // B2 FIX: reparer les campagnes phantom (step 1 pending sans templates)
+    this._repairPhantomCampaigns();
     // Auto-repair: calculer scheduledAt pour les steps qui en manquent (legacy auto-campaigns)
     this._repairMissingScheduledAt();
     log.info('campaign-engine', 'Scheduler demarre (intervalle: 60s)');
@@ -1576,6 +1578,74 @@ class CampaignEngine {
     }
     if (repaired > 0) {
       log.info('campaign-engine', 'Auto-repair: ' + repaired + ' step(s) remis en pending');
+    }
+  }
+
+  // B2 FIX: reparer les campagnes phantom (step 1 pending sans templates ou step 1 completed
+  // mais avec un email orphelin non rattache)
+  _repairPhantomCampaigns() {
+    const campaigns = storage.getAllCampaigns().filter(c => c.status === 'active');
+    let repaired = 0;
+    let cancelled = 0;
+
+    for (const campaign of campaigns) {
+      if (!campaign.steps || campaign.steps.length === 0) continue;
+      const step1 = campaign.steps[0];
+
+      // Cas 1: step 1 pending sans templates → chercher un orphelin ou annuler
+      if (step1.status === 'pending' && !step1.subjectTemplate) {
+        const list = storage.getContactList(campaign.contactListId);
+        if (!list || list.contacts.length === 0) {
+          // Pas de contacts → annuler la campagne
+          storage.updateCampaign(campaign.id, { status: 'completed', _repairNote: 'phantom: no contacts' });
+          cancelled++;
+          log.info('campaign-engine', 'Repair phantom: campagne "' + campaign.name + '" annulee (pas de contacts)');
+          continue;
+        }
+
+        const contact = list.contacts[0];
+        // Chercher un email orphelin pour ce contact
+        const allEmails = storage.getAllEmails();
+        const orphan = allEmails.find(e =>
+          (e.to || '').toLowerCase() === (contact.email || '').toLowerCase() &&
+          !e.campaignId &&
+          e.status !== 'failed' &&
+          e.sentAt
+        );
+        if (orphan) {
+          // Rattacher l'orphelin comme step 1
+          orphan.campaignId = campaign.id;
+          orphan.stepNumber = 1;
+          step1.status = 'completed';
+          step1.completedAt = orphan.sentAt;
+          step1.sentCount = 1;
+          step1.subjectTemplate = orphan.subject || '';
+          step1.bodyTemplate = orphan.body || '';
+          storage._save();
+          storage.updateCampaign(campaign.id, { steps: campaign.steps });
+          repaired++;
+          log.info('campaign-engine', 'Repair phantom: "' + campaign.name + '" step 1 rattache via orphelin (email ' + orphan.id + ')');
+        } else {
+          // Pas d'orphelin → annuler la campagne (email jamais envoye)
+          storage.updateCampaign(campaign.id, { status: 'completed', _repairNote: 'phantom: no template no orphan' });
+          cancelled++;
+          log.info('campaign-engine', 'Repair phantom: campagne "' + campaign.name + '" annulee (pas de template ni orphelin)');
+        }
+      }
+
+      // Cas 2: step 1 pending avec sentAt mais sentCount=0 → l'email a ete envoye, marquer completed
+      if (step1.status === 'pending' && step1.sentAt && (step1.sentCount || 0) === 0) {
+        step1.status = 'completed';
+        step1.completedAt = step1.sentAt;
+        step1.sentCount = 1;
+        storage.updateCampaign(campaign.id, { steps: campaign.steps });
+        repaired++;
+        log.info('campaign-engine', 'Repair phantom: "' + campaign.name + '" step 1 marque completed (avait sentAt)');
+      }
+    }
+
+    if (repaired > 0 || cancelled > 0) {
+      log.info('campaign-engine', 'Repair phantom: ' + repaired + ' repare(s), ' + cancelled + ' annule(s)');
     }
   }
 

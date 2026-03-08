@@ -1400,7 +1400,21 @@ Format JSON strict :
                 await this.campaignEngine.startCampaign(campaign.id);
                 log.info('action-executor', 'Auto-campagne creee et demarree: ' + campaign.id + ' pour ' + params.to + ' (' + totalSteps + ' steps)');
               } catch (genErr) {
-                log.warn('action-executor', 'Auto-campagne ' + campaign.id + ' creee mais generation/start echoue: ' + genErr.message);
+                // B2 FIX: marquer la campagne active avec step 1 completed meme si generation echoue
+                // Le repair phantom + le fallback dynamique des steps 2+ prendront le relais
+                log.warn('action-executor', 'Auto-campagne ' + campaign.id + ' generation echouee: ' + genErr.message + ' — creation steps minimaux');
+                try {
+                  const defaultStepDays = [3, 7, 14];
+                  const minimalSteps = defaultStepDays.map(function(d, i) {
+                    return { stepNumber: i + 2, delayDays: d, status: 'pending', sentAt: null, sentCount: 0, errorCount: 0 };
+                  });
+                  // Step 1 = completed (email deja envoye par l'AP)
+                  minimalSteps.unshift({ stepNumber: 1, status: 'completed', completedAt: new Date().toISOString(), sentCount: 1 });
+                  amStorage.updateCampaign(campaign.id, { steps: minimalSteps, status: 'active', currentStep: 2, startedAt: new Date().toISOString() });
+                  log.info('action-executor', 'Auto-campagne ' + campaign.id + ' creee avec steps minimaux (follow-ups generes dynamiquement)');
+                } catch (repairErr) {
+                  log.warn('action-executor', 'Auto-campagne ' + campaign.id + ' repair echoue: ' + repairErr.message);
+                }
               }
             }
           }
