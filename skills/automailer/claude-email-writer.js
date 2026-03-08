@@ -503,11 +503,18 @@ Corps: ${body}
 (${wordCount} mots)
 Prospect: ${contact.name || '?'} / ${contact.company || '?'}
 
+CALIBRAGE (exemples de notes attendues) :
+- "Salut [prenom], j'ai vu que [entreprise] recrutait. Dispo pour en discuter ?" → 2/10 (generique, pas de SP, CTA vide)
+- "Bonjour [prenom], [fait LinkedIn]. On aide des [niche] a [benefice]. Dispo pour un call ?" → 5/10 (structure OK mais generique, SP faible)
+- "[prenom], [fait precis avec chiffre]. On genere [X] meetings pour des [niche similaire]. Je te montre comment en 15 min ?" → 9/10 (tout est la, naturel, precis)
+
+IMPORTANT : la majorite des emails doivent etre entre 5 et 7. Un 8+ est rare et merite. Ne mets JAMAIS 8+ si le social proof est generique.
+
 Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
 
     try {
       const response = await this.callOpenAIMini(
-        'Tu es un evaluateur strict de cold emails B2B. Note de 1 a 10.',
+        'Tu es un evaluateur IMPITOYABLE de cold emails B2B. La moyenne de tes notes doit etre 5-6/10. Un 8+ est exceptionnel. Sois dur.',
         prompt,
         100
       );
@@ -518,7 +525,7 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
     } catch (e) {
       console.warn('[email-writer] Scoring OpenAI echoue: ' + e.message + ' - fallback score 7');
     }
-    return { note: 7, reason: 'scoring_unavailable' };
+    return { note: 5, reason: 'scoring_unavailable' };
   }
 
   // Score adapte pour les follow-ups (criteres differents du step 1)
@@ -556,11 +563,18 @@ Corps: ${body}
 (${wordCount} mots)
 Prospect: ${contact.name || '?'} / ${contact.company || '?'}
 
+CALIBRAGE :
+- "Re-[prenom], tu as eu le temps de regarder ?" → 2/10 (vide, pas de valeur)
+- "[prenom], un autre client [niche] vient de signer. Dispo 15 min ?" → 7/10 (nouvel angle + SP + CTA)
+- "[prenom], [fait nouveau]. [SP chiffre]. Lien calendar." → 9/10 (tout est la)
+
+IMPORTANT : la majorite des follow-ups doivent etre notes 5-6. Un 8+ est rare.
+
 Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
 
     try {
       const response = await this.callOpenAIMini(
-        'Tu es un evaluateur de follow-ups B2B. Note de 1 a 10. Un follow-up de 40 mots avec social proof + CTA vaut minimum 7.',
+        'Tu es un evaluateur IMPITOYABLE de follow-ups B2B. Moyenne attendue : 5-6/10. Un 8+ est exceptionnel.',
         prompt,
         100
       );
@@ -569,9 +583,9 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
         return { note: Math.min(10, Math.max(1, Math.round(parsed.note))), reason: parsed.reason || '' };
       }
     } catch (e) {
-      console.warn('[email-writer] Follow-up scoring echoue: ' + e.message + ' - fallback 7');
+      console.warn('[email-writer] Follow-up scoring echoue: ' + e.message + ' - fallback 5');
     }
-    return { note: 7, reason: 'fu_scoring_unavailable' };
+    return { note: 5, reason: 'fu_scoring_unavailable' };
   }
 
   // Score leger pour les follow-ups/relances (pas de retry, juste reject si trop bas)

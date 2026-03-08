@@ -186,7 +186,7 @@ class ApolloConnector {
         success: true,
         count: count,
         leads: result.people || [],
-        totalAvailable: (result.pagination && result.pagination.total_entries) || count
+        totalAvailable: result.total_entries || (result.pagination && result.pagination.total_entries) || count
       };
 
     } catch (error) {
@@ -293,7 +293,7 @@ class ApolloConnector {
       const result = await this.makeRequest('/v1/mixed_people/api_search', searchData);
       return {
         success: true,
-        totalAvailable: (result.pagination && result.pagination.total_entries) || 0
+        totalAvailable: result.total_entries || (result.pagination && result.pagination.total_entries) || 0
       };
     } catch (e) {
       return { success: false, totalAvailable: 0, error: e.message };
