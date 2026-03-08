@@ -428,7 +428,7 @@ class ProactiveEngine {
         }
 
         if (newOpens > 0) {
-          try { automailerStorage.save(); } catch (e) {}
+          try { automailerStorage.save(); } catch (e) { log.warn('proactive-engine', 'save echoue: ' + e.message); }
         }
       }
 
@@ -771,7 +771,7 @@ class ProactiveEngine {
       const toRemove = keys.slice(0, keys.length - 200);
       for (const k of toRemove) delete storage.data.lastAlertSent[k];
     }
-    try { storage._save(); } catch (e) {}
+    try { storage._save(); } catch (e) { log.warn('proactive-engine', 'storage save echoue: ' + e.message); }
   }
 
   _loadSmartAlertTracker() {
@@ -1054,7 +1054,7 @@ class ProactiveEngine {
         }
       }
 
-      try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) {}
+      try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) { log.warn('proactive-engine', 'sendTelegram echoue: ' + e.message); }
 
       storage.logAlert('visitor_digest', 'Digest: ' + recentVisits.length + ' visites, ' + sorted.length + ' entreprises, ' + knownCompanies.length + ' dans pipeline', {
         visits: recentVisits.length,
@@ -1307,7 +1307,7 @@ class ProactiveEngine {
           lines.push('');
         }
         lines.push('_' + checked + ' leads verifies, ' + creditsUsed + ' credits Apollo utilises_');
-        try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) {}
+        try { await this.options.sendTelegram(this.options.adminChatId, lines.join('\n')); } catch (e) { log.warn('proactive-engine', 'sendTelegram echoue: ' + e.message); }
       } else {
         log.info('proactive-engine', 'Job Change Detection: aucun changement detecte (' + checked + ' verifies, ' + creditsUsed + ' credits)');
       }

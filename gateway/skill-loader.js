@@ -28,7 +28,6 @@ const SKILL_MODULES = {
   'claude-email-writer': 'automailer/claude-email-writer.js',
   'campaign-engine': 'automailer/campaign-engine.js',
   'apollo-connector': 'flowfast/apollo-connector.js',
-  'apollo-enricher': 'lead-enrich/apollo-enricher.js',
   'ai-classifier': 'lead-enrich/ai-classifier.js',
   'web-fetcher': 'web-intelligence/web-fetcher.js',
   'prospect-researcher': 'autonomous-pilot/prospect-researcher.js',

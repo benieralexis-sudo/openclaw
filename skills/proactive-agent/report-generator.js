@@ -323,33 +323,6 @@ class ReportGenerator {
       log.info('proactive-report', 'Erreur Lead Enrich:', e.message);
     }
 
-    // Content Gen — Content Intelligence enrichie
-    try {
-      const cgStorage = getStorage('content-gen');
-      if (cgStorage && cgStorage.data) {
-        // generatedContents est un objet { chatId: [contents] }
-        const allContents = [];
-        const contentsMap = cgStorage.data.generatedContents || {};
-        for (const chatContents of Object.values(contentsMap)) {
-          if (Array.isArray(chatContents)) allContents.push(...chatContents);
-        }
-        data.content.generated = allContents.length;
-
-        // Contenus generes cette semaine
-        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const thisWeek = allContents.filter(c => c.createdAt && new Date(c.createdAt).getTime() > weekAgo);
-        data.content.thisWeek = thisWeek.length;
-
-        // Types les plus demandes
-        const byType = {};
-        for (const c of allContents) {
-          byType[c.type] = (byType[c.type] || 0) + 1;
-        }
-        data.content.byType = byType;
-      }
-    } catch (e) {
-      log.info('proactive-report', 'Erreur Content Gen:', e.message);
-    }
 
     // Invoice Bot
     try {
