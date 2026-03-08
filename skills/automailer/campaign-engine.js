@@ -1812,6 +1812,17 @@ class CampaignEngine {
   }
 
   async _processScheduled() {
+    // Mutex : eviter les executions paralleles si un cycle dure > 60s
+    if (this._schedulerRunning) return;
+    this._schedulerRunning = true;
+    try {
+      await this._processScheduledInner();
+    } finally {
+      this._schedulerRunning = false;
+    }
+  }
+
+  async _processScheduledInner() {
     // FIX 4 : Ne pas traiter les campagnes hors heures bureau
     if (!isBusinessHours()) return;
 

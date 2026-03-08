@@ -211,9 +211,10 @@ function createResendHandler(deps) {
       }
 
       // B6 FIX : notifier le domain-manager pour l'auto-pause a 3% bounce rate
+      // FIX: utiliser senderDomain (vrai domaine SMTP) au lieu de email.from (qui est souvent REPLY_TO)
       try {
         const domainManager = require('../skills/automailer/domain-manager.js');
-        const senderDomain = (email.from || '').split('@').pop() || '';
+        const senderDomain = email.senderDomain || (email.from || '').split('@').pop() || '';
         if (senderDomain && domainManager.recordBounce) {
           domainManager.recordBounce(senderDomain);
           log.info('webhook', 'Domain-manager: bounce enregistre pour ' + senderDomain);
@@ -231,9 +232,8 @@ function createResendHandler(deps) {
       // B7 FIX : notifier le domain-manager (complaint = pire qu'un bounce)
       try {
         const domainManager = require('../skills/automailer/domain-manager.js');
-        const senderDomain = (email.from || '').split('@').pop() || '';
+        const senderDomain = email.senderDomain || (email.from || '').split('@').pop() || '';
         if (senderDomain && domainManager.recordBounce) {
-          // Une complaint compte comme un bounce pour le tracking de reputation
           domainManager.recordBounce(senderDomain);
           log.info('webhook', 'Domain-manager: complaint enregistre pour ' + senderDomain);
         }

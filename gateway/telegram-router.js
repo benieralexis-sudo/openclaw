@@ -2834,7 +2834,16 @@ const healthServer = http.createServer(async (req, res) => {
           try {
             const automailerStorage = require('../skills/automailer/storage.js');
             automailerStorage.addToBlacklist(unsubEmail, 'unsubscribe_link');
-            log.info('unsubscribe', 'Desabonnement confirme: ' + unsubEmail);
+            // Stopper les follow-ups campagne en marquant hasReplied
+            try {
+              const allEmails = automailerStorage.getAllEmails();
+              for (const em of allEmails) {
+                if ((em.to || '').toLowerCase() === unsubEmail.toLowerCase() && !em.hasReplied) {
+                  automailerStorage.updateEmailStatus(em.id, em.status, { hasReplied: true, replyType: 'unsubscribed' });
+                }
+              }
+            } catch (ufErr) { /* non-bloquant */ }
+            log.info('unsubscribe', 'Desabonnement confirme (blacklist + follow-ups annules): ' + unsubEmail);
             sendMessage(ADMIN_CHAT_ID, '🚫 *Desabonnement* via lien email : `' + unsubEmail + '`', 'Markdown').catch(() => {});
           } catch (e) {
             log.error('unsubscribe', 'Erreur blacklist: ' + e.message);

@@ -240,20 +240,17 @@ class DomainManager {
   _isDomainPaused(domain) {
     const stats = this.data.domains[domain];
     if (!stats || !stats.paused) return false;
-    // Auto-resume apres 48h si bounce rate s'est stabilise
+    // Auto-resume apres 48h : reset les recentResults et reprendre avec quota reduit
     if (stats.pausedAt) {
       const pausedMs = Date.now() - new Date(stats.pausedAt).getTime();
       if (pausedMs > 48 * 60 * 60 * 1000) {
-        const bounces = (stats.recentResults || []).filter(r => r.bounce).length;
-        const total = (stats.recentResults || []).length;
-        const currentRate = total > 0 ? bounces / total : 0;
-        if (currentRate <= BOUNCE_THRESHOLD) {
-          stats.paused = false;
-          stats.pauseReason = null;
-          this._save();
-          log.info('domain-manager', 'Auto-resume: ' + domain + ' apres 48h (bounce rate stabilise a ' + Math.round(currentRate * 100) + '%)');
-          return false;
-        }
+        // Clear les bounces des recentResults pour donner une seconde chance
+        stats.recentResults = (stats.recentResults || []).filter(r => !r.bounce).slice(-20);
+        stats.paused = false;
+        stats.pauseReason = null;
+        this._save();
+        log.info('domain-manager', 'Auto-resume: ' + domain + ' apres 48h (recentResults reset, reprise progressive)');
+        return false;
       }
     }
     return true;

@@ -887,6 +887,16 @@ class AutoMailerStorage {
       score: score || 0,
       updatedAt: new Date().toISOString()
     };
+    // Cap a 2000 entrees (purger les plus anciennes)
+    const keys = Object.keys(this.data._sentiments);
+    if (keys.length > 2000) {
+      const sorted = keys.sort((a, b) =>
+        (this.data._sentiments[a].updatedAt || '').localeCompare(this.data._sentiments[b].updatedAt || '')
+      );
+      for (let i = 0; i < sorted.length - 2000; i++) {
+        delete this.data._sentiments[sorted[i]];
+      }
+    }
     this._save();
   }
 
