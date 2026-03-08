@@ -1332,12 +1332,40 @@ Analyse et reponds en JSON:
         const recentSkips = recentSendActions.filter(a => a.result && !a.result.success && (a.result.skipped || a.result.gateBlocked));
         const skipRate = recentSendActions.length > 0 ? Math.round(recentSkips.length / recentSendActions.length * 100) : 0;
 
+        // Enrichir les leads eligibles avec intent data depuis Lead Enrich
+        let intentMap = {};
+        try {
+          const leIntentStorage = getLeadEnrichStorage();
+          if (leIntentStorage) {
+            for (const l of eligible) {
+              const enriched = leIntentStorage.getEnrichedLead ? leIntentStorage.getEnrichedLead(l.email) : null;
+              if (enriched && enriched.intentData && enriched.intentData.score > 0) {
+                intentMap[l.email.toLowerCase()] = enriched.intentData;
+              }
+            }
+          }
+        } catch (e) {}
+
         if (eligible.length > 0) {
           prompt += '\nLEADS DISPONIBLES POUR ENVOI (emails REELS — utilise-les dans tes actions send_email):\n';
+          // Trier par intent score d'abord (a score egal, intent prime)
+          eligible.sort((a, b) => {
+            const intentA = intentMap[a.email.toLowerCase()]?.score || 0;
+            const intentB = intentMap[b.email.toLowerCase()]?.score || 0;
+            const scoreA = (a.score || 0) + intentA * 0.3;
+            const scoreB = (b.score || 0) + intentB * 0.3;
+            return scoreB - scoreA;
+          });
           for (const l of eligible) {
-            prompt += '- ' + l.email + ' | ' + (l.nom || '?') + ' | ' + (l.titre || '?') + ' @ ' + (l.entreprise || '?') + ' | score: ' + (l.score || '?') + '\n';
+            const intent = intentMap[l.email.toLowerCase()];
+            let line = '- ' + l.email + ' | ' + (l.nom || '?') + ' | ' + (l.titre || '?') + ' @ ' + (l.entreprise || '?') + ' | score: ' + (l.score || '?');
+            if (intent && intent.score >= 3) {
+              line += ' | INTENT: ' + intent.score + '/10 (' + intent.summary + ')';
+            }
+            prompt += line + '\n';
           }
           prompt += '→ IMPORTANT: Utilise UNIQUEMENT les adresses email ci-dessus dans tes actions send_email. NE JAMAIS inventer de placeholders ou de variables {{...}}.\n';
+          prompt += '→ REGLE INTENT: A score egal, TOUJOURS prioriser les leads avec INTENT >= 4. Un lead score 6 + intent 7 vaut MIEUX qu\'un lead score 8 + intent 0. Les signaux d\'intent (recrutement, levee, croissance) indiquent un BESOIN ACTIF.\n';
           if (skipRate > 40) {
             prompt += '⚠️ ATTENTION: ' + skipRate + '% des send_email recents ont ete SKIPPED (donnees insuffisantes). Le pool de leads actuel manque de donnees exploitables. PRIORITE: fais 1-2 search_leads dans de NOUVELLES niches avant d\'envoyer plus d\'emails.\n';
           } else {

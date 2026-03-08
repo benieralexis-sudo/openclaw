@@ -188,6 +188,19 @@ function getBookingUrl() {
   return (icp && icp.bookingUrl) || process.env.GOOGLE_BOOKING_URL || '';
 }
 
+// --- Intent Config par client ---
+// Retourne la config intent (hiringKeywords, hiringAngle) ou un default intelligent
+function getIntentConfig() {
+  const icp = loadICP();
+  if (icp && icp.intentConfig) return icp.intentConfig;
+  // Default : keywords commerciaux generiques (adapte a la majorite des clients)
+  return {
+    hiringKeywords: ['commercial', 'sales', 'sdr', 'bdr', 'business developer', 'account executive', 'responsable commercial', 'directeur commercial'],
+    hiringAngle: 'Vous recrutez cote commercial — on peut remplir le pipe pendant que le nouveau profil monte en competence',
+    minIntentScore: 3
+  };
+}
+
 // --- Force reload (apres edit) ---
 function invalidateCache() {
   _icpCache = null;
@@ -204,5 +217,6 @@ module.exports = {
   getAllNiches,
   getClientDescription,
   getBookingUrl,
+  getIntentConfig,
   invalidateCache
 };

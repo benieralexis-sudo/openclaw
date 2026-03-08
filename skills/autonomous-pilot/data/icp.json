@@ -1,7 +1,12 @@
 {
-  "version": "1.2",
+  "version": "1.3",
   "clientDescription": "iFIND genere des opportunites commerciales B2B. Emails personnalises, contacts qualifies, meetings en continu. On remplace le premier commercial outbound pour une fraction du cout.",
   "bookingUrl": "https://calendar.app.google/DoB1kfp3DtDpZ6WC8",
+  "intentConfig": {
+    "hiringKeywords": ["commercial", "sales", "sdr", "bdr", "business developer", "account executive", "responsable commercial", "directeur commercial", "bizdev"],
+    "hiringAngle": "Vous recrutez cote commercial — on peut remplir le pipe pendant que le nouveau profil monte en competence",
+    "minIntentScore": 3
+  },
   "niches": [
     {
       "slug": "agences-marketing",

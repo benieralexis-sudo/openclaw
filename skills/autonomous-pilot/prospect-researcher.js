@@ -12,6 +12,16 @@ function getWebFetcher() { return getModule('web-fetcher'); }
 function getWebIntelStorage() { return getStorage('web-intelligence'); }
 function getAPStorage() { return getStorage('autonomous-pilot'); }
 function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
+function getFlowFastStorage() { return getStorage('flowfast'); }
+
+// Intent scorer pour calcul de score unifie
+function getIntentScorer() {
+  try { return require('../lead-enrich/intent-scorer.js'); }
+  catch (e) {
+    try { return require('/app/skills/lead-enrich/intent-scorer.js'); }
+    catch (e2) { return null; }
+  }
+}
 
 // User-agents rotatifs pour eviter les 403 Google Cache
 const USER_AGENTS = [
@@ -541,6 +551,52 @@ class ProspectResearcher {
 
     // Construire le brief textuel (avec pre-analyse IA du site web si disponible)
     intel.brief = await this._buildProspectBrief(intel, contact);
+
+    // === INTENT SCORE : calcul unifie de tous les signaux ===
+    const intentScorer = getIntentScorer();
+    if (intentScorer) {
+      try {
+        intel.intentScore = intentScorer.calculateIntentScore(intel);
+        if (intel.intentScore.score > 0) {
+          log.info('prospect-research', 'Intent score pour ' + (contact.entreprise || email) + ': ' +
+            intel.intentScore.score + '/10 (' + intel.intentScore.summary + ')');
+        }
+        // Persister dans Lead Enrich storage
+        if (email) {
+          try {
+            const leStorage = getLeadEnrichStorage();
+            if (leStorage && leStorage.updateIntentData) {
+              leStorage.updateIntentData(email, intel.intentScore);
+            }
+          } catch (e) { log.warn('prospect-research', 'Intent persist echoue: ' + e.message); }
+        }
+        // Aussi mettre a jour le score FlowFast si intent significatif
+        if (intel.intentScore.score >= 4 && email) {
+          try {
+            const ffStorage = getFlowFastStorage();
+            if (ffStorage && ffStorage.data && ffStorage.data.leads) {
+              const leadKey = Object.keys(ffStorage.data.leads).find(k => k.toLowerCase() === email.toLowerCase());
+              if (leadKey) {
+                const lead = ffStorage.data.leads[leadKey];
+                const intentBoost = Math.min(2, Math.round(intel.intentScore.score / 4));
+                const oldScore = lead.score || 0;
+                const newScore = Math.min(10, oldScore + intentBoost);
+                if (newScore > oldScore) {
+                  lead.score = newScore;
+                  if (!lead.scoreHistory) lead.scoreHistory = [];
+                  lead.scoreHistory.push({ from: oldScore, to: newScore, reason: 'intent:' + intel.intentScore.summary, at: new Date().toISOString() });
+                  ffStorage._save ? ffStorage._save() : null;
+                  log.info('prospect-research', 'FlowFast score boost ' + email + ': ' + oldScore + ' → ' + newScore + ' (intent: ' + intel.intentScore.summary + ')');
+                }
+              }
+            }
+          } catch (e) { log.warn('prospect-research', 'FlowFast intent boost echoue: ' + e.message); }
+        }
+      } catch (e) {
+        log.warn('prospect-research', 'Intent scoring echoue: ' + e.message);
+        intel.intentScore = { score: 0, signals: [], topSignal: null, summary: 'erreur' };
+      }
+    }
 
     // Sauvegarder dans le cache
     if (apStorage && email && apStorage.saveProspectResearch) {

@@ -967,6 +967,29 @@ Format JSON strict :
           if (intel && intel.brief) {
             params._prospectIntel = intel.brief;
           }
+          // Injecter le contexte intent pour le writer
+          if (intel && intel.intentScore && intel.intentScore.score >= 3) {
+            try {
+              const intentScorer = require('../lead-enrich/intent-scorer.js');
+              if (intentScorer && intentScorer.formatIntentForWriter) {
+                // Recuperer le niche context pour le trigger mapping
+                let writerNicheCtx = null;
+                try {
+                  const icpLdr = require('../../gateway/icp-loader.js');
+                  if (leadNiche) writerNicheCtx = (icpLdr.getAllNiches() || []).find(n => n.slug === leadNiche);
+                  if (!writerNicheCtx) writerNicheCtx = icpLdr.matchLeadToNiche({
+                    entreprise: params.company || (params.contact && params.contact.entreprise),
+                    titre: params.contact && params.contact.titre
+                  });
+                } catch (e) {}
+                const intentContext = intentScorer.formatIntentForWriter(intel.intentScore, writerNicheCtx);
+                if (intentContext) {
+                  params._prospectIntel = (params._prospectIntel || '') + '\n\n' + intentContext;
+                  log.info('action-executor', 'Intent context injecte pour ' + params.to + ' (score: ' + intel.intentScore.score + ')');
+                }
+              }
+            } catch (e) { log.warn('action-executor', 'Intent writer context echoue: ' + e.message); }
+          }
           // === GATE 2 : Coherence Niche / Site Web ===
           if (intel && intel.nicheCoherent === false) {
             log.warn('action-executor', 'GATE 2 BLOCK — Niche mismatch pour ' + params.to +

@@ -441,6 +441,40 @@ Reponds UNIQUEMENT en JSON strict :
       }
     }
 
+    // --- Analyse Intent vs Non-Intent ---
+    try {
+      let leStorage = null;
+      try { leStorage = require('../lead-enrich/storage.js'); }
+      catch (e) { try { leStorage = require('/app/skills/lead-enrich/storage.js'); } catch (e2) {} }
+      if (leStorage) {
+        const intentEmails = sentEmails.filter(e => {
+          const enriched = leStorage.getEnrichedLead ? leStorage.getEnrichedLead(e.to) : null;
+          return enriched && enriched.intentData && enriched.intentData.score >= 3;
+        });
+        const noIntentEmails = sentEmails.filter(e => {
+          const enriched = leStorage.getEnrichedLead ? leStorage.getEnrichedLead(e.to) : null;
+          return !enriched || !enriched.intentData || enriched.intentData.score < 3;
+        });
+        if (intentEmails.length >= 3 && noIntentEmails.length >= 3) {
+          const intentOpenRate = Math.round((intentEmails.filter(e => !!e.openedAt).length / intentEmails.length) * 100);
+          const noIntentOpenRate = Math.round((noIntentEmails.filter(e => !!e.openedAt).length / noIntentEmails.length) * 100);
+          const intentReplyRate = Math.round((intentEmails.filter(e => !!e.repliedAt || e.hasReplied).length / intentEmails.length) * 100);
+          const noIntentReplyRate = Math.round((noIntentEmails.filter(e => !!e.repliedAt || e.hasReplied).length / noIntentEmails.length) * 100);
+          insights.push('Intent data: ' + intentEmails.length + ' emails avec intent (open: ' + intentOpenRate + '%, reply: ' + intentReplyRate +
+            '%) vs ' + noIntentEmails.length + ' sans intent (open: ' + noIntentOpenRate + '%, reply: ' + noIntentReplyRate + '%)');
+          if (intentReplyRate > noIntentReplyRate + 3) {
+            recommendations.push({
+              type: 'intent_targeting',
+              description: 'Leads avec intent data ont +' + (intentReplyRate - noIntentReplyRate) + '% reply rate — prioriser les leads avec signaux (recrutement, levee, croissance)',
+              action: 'prioritize_intent_leads',
+              params: { minIntentScore: 3 },
+              confidence: Math.min(0.9, 0.5 + (intentEmails.length + noIntentEmails.length) / 100)
+            });
+          }
+        }
+      }
+    } catch (e) { /* non bloquant */ }
+
     return {
       available: true,
       totalAnalyzed: sentEmails.length,

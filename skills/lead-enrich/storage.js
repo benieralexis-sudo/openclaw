@@ -192,6 +192,40 @@ class LeadEnrichStorage {
       .slice(0, limit);
   }
 
+  // --- Intent Data (cross-skill avec ProspectResearcher) ---
+
+  updateIntentData(email, intentData) {
+    const key = (email || '').toLowerCase();
+    if (!key) return null;
+    const lead = this.data.enrichedLeads[key];
+    if (!lead) return null;
+
+    lead.intentData = {
+      score: intentData.score || 0,
+      signals: intentData.signals || [],
+      topSignal: intentData.topSignal || null,
+      summary: intentData.summary || '',
+      calculatedAt: intentData.calculatedAt || new Date().toISOString()
+    };
+
+    // Recalculer combined score avec bonus intent
+    const staticScore = (lead.aiClassification && lead.aiClassification.score) || 0;
+    const behaviorBonus = lead.behaviorScore ? Math.round(lead.behaviorScore / 3) : 0;
+    const wiBonus = (lead.wiSignals && lead.wiSignals.hasNewsActivity && lead.wiSignals.lastArticleScore > 6) ? 1 : 0;
+    const intentBonus = Math.min(3, Math.round(intentData.score / 3));
+    lead.combinedScore = Math.min(10, staticScore + behaviorBonus + wiBonus + intentBonus);
+
+    this._save();
+    return lead;
+  }
+
+  getHighIntentLeads(minScore) {
+    minScore = minScore || 4;
+    return Object.values(this.data.enrichedLeads)
+      .filter(l => l.intentData && l.intentData.score >= minScore)
+      .sort((a, b) => (b.intentData.score || 0) - (a.intentData.score || 0));
+  }
+
   updateLeadWISignals(email, wiSignals) {
     const key = (email || '').toLowerCase();
     if (!key) return null;
