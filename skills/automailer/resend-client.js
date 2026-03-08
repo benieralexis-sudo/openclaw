@@ -356,7 +356,7 @@ class ResendClient {
         try {
           const dm = require('./domain-manager.js');
           dm.recordSend(usedDomain, toEmail, true);
-        } catch (e) {}
+        } catch (e) { log.warn('resend-client', 'domain-manager recordSend echoue: ' + e.message); }
         if (result) result.senderDomain = usedDomain;
         this._resetMailboxErrors(mailbox.user);
         return result;

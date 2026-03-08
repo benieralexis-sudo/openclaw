@@ -544,7 +544,7 @@ Format JSON strict :
         }
       }
       if (!industryForAngles && rawContact.industry) industryForAngles = rawContact.industry;
-    } catch (e) {}
+    } catch (e) { log.warn('action-executor', 'Industry extraction echoue: ' + e.message); }
 
     if (industryForAngles) {
       params._industryForAngles = industryForAngles;
@@ -948,7 +948,7 @@ Format JSON strict :
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { log.warn('action-executor', 'Niche inference echoue: ' + e.message); }
 
       // Recherche pre-envoi sur le prospect (scrape site, news, Apollo data)
       try {
@@ -991,7 +991,7 @@ Format JSON strict :
           try {
             storage.addToDataPoorQueue(params.to, params.contact, genResult.email.reason || 'donnees insuffisantes');
             log.info('action-executor', 'Lead ' + params.to + ' ajoute a la data-poor queue (re-recherche dans 7j)');
-          } catch (e) {}
+          } catch (e) { log.warn('action-executor', 'data-poor queue add echoue pour ' + params.to + ': ' + e.message); }
         }
         return { success: false, error: 'Donnees insuffisantes pour email personnalise', skipped: true };
       }
@@ -1024,7 +1024,7 @@ Format JSON strict :
             if (retrySpecificity.level === 'generic') {
               log.warn('action-executor', 'Quality gate STILL GENERIC apres retry pour ' + params.to + ' — skip');
               if (params.contact && params.to) {
-                try { storage.addToDataPoorQueue(params.to, params.contact, 'email trop generique apres retry'); } catch (e) {}
+                try { storage.addToDataPoorQueue(params.to, params.contact, 'email trop generique apres retry'); } catch (e) { log.warn('action-executor', 'data-poor queue add echoue: ' + e.message); }
                 log.info('action-executor', 'Lead ' + params.to + ' ajoute a la data-poor queue (re-recherche dans 7j)');
               }
               return { success: false, error: 'Email trop generique meme apres retry', skipped: true };
@@ -1033,7 +1033,7 @@ Format JSON strict :
           } else if (retryResult.email && retryResult.email.skip) {
             log.info('action-executor', 'Quality gate → skip pour ' + params.to + ': donnees insuffisantes');
             if (params.contact && params.to) {
-              try { storage.addToDataPoorQueue(params.to, params.contact, 'donnees insuffisantes apres quality gate'); } catch (e) {}
+              try { storage.addToDataPoorQueue(params.to, params.contact, 'donnees insuffisantes apres quality gate'); } catch (e) { log.warn('action-executor', 'data-poor queue add echoue: ' + e.message); }
               log.info('action-executor', 'Lead ' + params.to + ' ajoute a la data-poor queue (re-recherche dans 7j)');
             }
             return { success: false, error: 'Skip: donnees insuffisantes pour email specifique', skipped: true };
@@ -1429,7 +1429,7 @@ Format JSON strict :
         }
 
         // Retirer de la data-poor queue si present (re-essai reussi)
-        try { storage.removeFromDataPoorQueue(params.to); } catch (e) {}
+        try { storage.removeFromDataPoorQueue(params.to); } catch (e) { log.warn('action-executor', 'data-poor queue remove echoue: ' + e.message); }
 
         return {
           success: true,

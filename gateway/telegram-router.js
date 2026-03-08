@@ -2360,7 +2360,7 @@ const healthServer = http.createServer(async (req, res) => {
         try {
           const inboxStorage = require('../skills/inbox-manager/storage.js');
           inboxStorage.addAutoReply({ prospectEmail: draft.replyData.from, prospectName: draft.replyData.fromName, sentiment: draft.sentiment, subClassification: draft.subClass ? draft.subClass.type : 'hitl', objectionType: draft.subClass ? draft.subClass.objectionType : '', replyBody: draft.autoReply.body, replySubject: draft.autoReply.subject, originalEmailId: draft.originalEmail && draft.originalEmail.subject, confidence: draft.autoReply.confidence, sendResult });
-        } catch (e) {}
+        } catch (e) { log.warn('hitl', 'addAutoReply tracking echoue: ' + e.message); }
         if (sendResult.messageId) {
           automailerStorageForInbox.addEmail({ to: draft.replyData.from, subject: draft.autoReply.subject, body: draft.autoReply.body, source: 'hitl_reply', status: 'sent', messageId: sendResult.messageId, chatId: ADMIN_CHAT_ID });
         }
@@ -2419,7 +2419,7 @@ const healthServer = http.createServer(async (req, res) => {
       for (const ep of (draft.emailsToProcess || [draft.replyData.from])) {
         automailerStorageForInbox.addToBlacklist(ep, 'hitl_blacklisted: dashboard');
       }
-    } catch (e) {}
+    } catch (e) { log.error('hitl', 'Blacklist echoue pour ' + draft.replyData.from + ': ' + e.message); }
     log.info('hitl', 'Draft rejete+blackliste (dashboard): ' + draftId + ' pour ' + draft.replyData.from);
     _saveHitlDrafts();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2477,7 +2477,7 @@ const healthServer = http.createServer(async (req, res) => {
           try {
             const inboxStorage = require('../skills/inbox-manager/storage.js');
             inboxStorage.addAutoReply({ prospectEmail: draft.replyData.from, prospectName: draft.replyData.fromName, sentiment: draft.sentiment, subClassification: draft.subClass ? draft.subClass.type : 'hitl', objectionType: draft.subClass ? draft.subClass.objectionType : '', replyBody: draft.autoReply.body, replySubject: draft.autoReply.subject, originalEmailId: draft.originalEmail && draft.originalEmail.subject, confidence: draft.autoReply.confidence, sendResult });
-          } catch (e) {}
+          } catch (e) { log.warn('hitl', 'addAutoReply tracking (edit) echoue: ' + e.message); }
           if (sendResult.messageId) {
             automailerStorageForInbox.addEmail({ to: draft.replyData.from, subject: draft.autoReply.subject, body: draft.autoReply.body, source: 'hitl_reply_edited', status: 'sent', messageId: sendResult.messageId, chatId: ADMIN_CHAT_ID });
           }
@@ -2943,7 +2943,7 @@ process.on('uncaughtException', (err) => {
   log.error('router', 'UNCAUGHT EXCEPTION:', err.message);
   log.error('router', err.stack ? err.stack.substring(0, 500) : 'no stack');
   // Sauvegarder les drafts HITL avant exit
-  try { _saveHitlDrafts(); } catch (e) {}
+  try { _saveHitlDrafts(); } catch (e) { console.error('Emergency HITL save failed:', e.message); }
   gracefulShutdown();
 });
 process.on('unhandledRejection', (reason) => {
@@ -2974,6 +2974,6 @@ process.on('unhandledRejection', (reason) => {
   log.error('router', 'UNHANDLED REJECTION:', msg);
   log.error('router', stack ? stack.substring(0, 500) : 'no stack');
   // Sauvegarder les drafts HITL avant exit
-  try { _saveHitlDrafts(); } catch (e) {}
+  try { _saveHitlDrafts(); } catch (e) { console.error('Emergency HITL save failed:', e.message); }
   gracefulShutdown();
 });

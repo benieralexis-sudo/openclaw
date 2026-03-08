@@ -329,7 +329,7 @@ class ProspectResearcher {
         try {
           const dpReady = apStorage.getDataPoorLeadsReady ? apStorage.getDataPoorLeadsReady() : [];
           isDataPoor = dpReady.some(dp => dp.email && dp.email.toLowerCase() === email.toLowerCase());
-        } catch (e) {}
+        } catch (e) { log.warn('prospect-research', 'data-poor check echoue: ' + e.message); }
         if (!isDataPoor && cacheAge < 7 * 24 * 60 * 60 * 1000) { // 7 jours TTL
           log.info('prospect-research', 'Cache hit pour ' + email);
           return cached;
@@ -357,7 +357,7 @@ class ProspectResearcher {
           log.info('prospect-research', 'Donnees Lead Enrich trouvees pour ' + email);
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('prospect-research', 'Lead Enrich lookup echoue: ' + e.message); }
 
     log.info('prospect-research', 'Recherche pour ' + company + ' (' + (contact.nom || email) + ')');
 
@@ -392,7 +392,7 @@ class ProspectResearcher {
           return title.includes(companyLower) || signalCo.includes(companyLower);
         }).slice(0, 3);
       }
-    } catch (e) {}
+    } catch (e) { log.warn('prospect-research', 'Market signals echoue: ' + e.message); }
 
     const rawArticles = webIntelArticles.status === 'fulfilled' ? webIntelArticles.value : [];
 
@@ -428,7 +428,7 @@ class ProspectResearcher {
             .filter(c => c.name.toLowerCase() !== company.toLowerCase());
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('prospect-research', 'Competitors lookup echoue: ' + e.message); }
 
     const personProfile = personProfileResult.status === 'fulfilled' ? personProfileResult.value : null;
 
@@ -544,7 +544,7 @@ class ProspectResearcher {
 
     // Sauvegarder dans le cache
     if (apStorage && email && apStorage.saveProspectResearch) {
-      try { apStorage.saveProspectResearch(email, intel); } catch (e) {}
+      try { apStorage.saveProspectResearch(email, intel); } catch (e) { log.warn('prospect-research', 'Cache save echoue: ' + e.message); }
     }
 
     const sources = [
@@ -593,7 +593,7 @@ class ProspectResearcher {
             log.info('prospect-research', 'SPA fallback Google Cache pour ' + domain + ' (' + cacheResult.textContent.length + ' chars vs ' + (result.textContent || '').length + ')');
             result = cacheResult;
           }
-        } catch (e) {}
+        } catch (e) { log.warn('prospect-research', 'Google Cache fallback echoue: ' + e.message); }
       }
 
       if (!result) return null;
@@ -1384,7 +1384,7 @@ class ProspectResearcher {
             return cached.pappersData;
           }
         }
-      } catch (e) {}
+      } catch (e) { log.warn('prospect-research', 'Pappers cache lookup echoue: ' + e.message); }
     }
 
     const fetcher = this._getFetcher();
@@ -1426,7 +1426,7 @@ class ProspectResearcher {
 
       // Sauvegarder dans le cache (30 jours)
       if (apStorage && apStorage.saveProspectResearch) {
-        try { apStorage.saveProspectResearch(cacheKey, { pappersData, cachedAt: new Date().toISOString() }); } catch (e) {}
+        try { apStorage.saveProspectResearch(cacheKey, { pappersData, cachedAt: new Date().toISOString() }); } catch (e) { log.warn('prospect-research', 'Pappers cache save echoue: ' + e.message); }
       }
 
       log.info('prospect-research', 'Pappers OK pour ' + companyName + ': SIREN ' + (pappersData.siren || '?') + ', ' + (pappersData.effectif || '?') + ' salaries');

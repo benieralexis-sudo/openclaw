@@ -485,7 +485,7 @@ class CampaignEngine {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('campaign-engine', 'Intel AP cache echoue: ' + e.message); }
 
     // Source 2 : Proactive Agent cached intel (sauvegarde lors des opens/clicks)
     try {
@@ -499,7 +499,7 @@ class CampaignEngine {
           return cached.brief;
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('campaign-engine', 'Intel PA cache echoue: ' + e.message); }
 
     // Source 3 : Lead Enrich storage (donnees basiques enrichies)
     try {
@@ -534,7 +534,7 @@ class CampaignEngine {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('campaign-engine', 'Intel LE echoue: ' + e.message); }
 
     return null;
   }
@@ -1064,7 +1064,7 @@ class CampaignEngine {
                   }
                 }
               }
-            } catch (e) {}
+            } catch (e) { log.warn('campaign-engine', 'Enrichissement angles echoue: ' + e.message); }
             const generated = await this.claude.generateSingleEmail(contact, enrichedContext);
             if (generated && generated.subject && generated.body) {
               subject = generated.subject;
@@ -1382,7 +1382,7 @@ class CampaignEngine {
           try {
             const apStorage = require('../autonomous-pilot/storage.js');
             if (apStorage.trackNicheEvent) apStorage.trackNicheEvent(contact.industry, 'sent');
-          } catch (e) {}
+          } catch (e) { log.warn('campaign-engine', 'Niche tracking echoue: ' + e.message); }
         }
 
         // Push auto HubSpot : creer contact + deal au premier email
