@@ -42,6 +42,7 @@ const { createCronManager } = require('./cron-manager.js');
 const { createResendHandler, RESEND_EVENT_MAP } = require('./resend-handler.js');
 const { createUnsubscribeHandler } = require('./unsubscribe-handler.js');
 const { createEmailTracking } = require('./email-tracking.js');
+const { createHitlApi } = require('./hitl-api.js');
 
 // --- Metriques globales (partage memoire pour System Advisor) ---
 const METRICS_FILE = (process.env.APP_CONFIG_DIR || '/data/app-config') + '/ifind-metrics.json';
@@ -2210,6 +2211,22 @@ const handleUnsubscribe = createUnsubscribeHandler({
   adminChatId: ADMIN_CHAT_ID
 });
 
+// --- HITL API (module extrait) ---
+const handleHitlApi = createHitlApi({
+  getPendingDrafts: () => _pendingDrafts,
+  saveHitlDrafts: () => _saveHitlDrafts(),
+  getAutomailerStorage: () => automailerStorageForInbox,
+  getResendClient: () => {
+    const ResendClient = require('../skills/automailer/resend-client.js');
+    return new ResendClient(RESEND_KEY, SENDER_EMAIL);
+  },
+  adminChatId: ADMIN_CHAT_ID,
+  getHitlAutoSendDelays: () => ({
+    grounded: (parseFloat(process.env.HITL_AUTO_SEND_MINUTES) || 5) * 60 * 1000,
+    ungrounded: 24 * 60 * 60 * 1000
+  })
+});
+
 // --- Email Tracking (module extrait) ---
 const emailTracking = createEmailTracking({
   getAutomailerStorage: () => automailerStorage,
@@ -2311,212 +2328,8 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // --- HITL API (draft approval via dashboard, auth required) ---
-  if (req.url === '/api/hitl/drafts' && req.method === 'GET') {
-    const hitlToken = (req.headers['x-api-token'] || req.headers['authorization'] || '').replace('Bearer ', '');
-    if (!hitlToken || (hitlToken !== process.env.DASHBOARD_PASSWORD && hitlToken !== process.env.AUTOMAILER_DASHBOARD_PASSWORD)) {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'unauthorized' }));
-      return;
-    }
-    const drafts = [];
-    const now = Date.now();
-    const TTL = 24 * 60 * 60 * 1000;
-    for (const [id, d] of _pendingDrafts) {
-      const age = now - (d.createdAt || 0);
-      if (age < TTL) {
-        drafts.push({
-          id,
-          prospectEmail: d.replyData?.from || '',
-          prospectName: d.replyData?.fromName || '',
-          incomingSubject: d.replyData?.subject || '',
-          incomingSnippet: d.replyData?.snippet || '',
-          subject: d.autoReply?.subject || '',
-          body: d.autoReply?.body || '',
-          sentiment: d.sentiment || d.classification?.sentiment || '',
-          subType: d.subClass?.type || '',
-          objectionType: d.subClass?.objectionType || '',
-          confidence: d.autoReply?.confidence || 0,
-          qualityWarning: d.qualityWarning || null,
-          company: d.originalEmail?.company || '',
-          grounded: d._grounded !== false,
-          autoSendAt: d.createdAt ? new Date(d.createdAt + ((d._grounded !== false) ? HITL_AUTOSEND_GROUNDED : HITL_AUTOSEND_UNGROUNDED)).toISOString() : null,
-          createdAt: d.createdAt || 0,
-          expiresIn: Math.max(0, TTL - age)
-        });
-      }
-    }
-    drafts.sort((a, b) => b.createdAt - a.createdAt);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(drafts));
-    return;
-  }
-
-  if (req.url && req.url.match(/^\/api\/hitl\/drafts\/[^/]+\/approve$/) && req.method === 'POST') {
-    const draftId = req.url.split('/')[4];
-    try {
-      const draft = _pendingDrafts.get(draftId);
-      if (!draft) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Draft introuvable ou expiré' }));
-        return;
-      }
-      if (draft._inFlight) {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Draft en cours de traitement' }));
-        return;
-      }
-      draft._inFlight = true;
-      const ResendClient = require('../skills/automailer/resend-client.js');
-      const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
-      const sendResult = await resendClient.sendEmail(
-        draft.replyData.from, draft.autoReply.subject, draft.autoReply.body,
-        { inReplyTo: draft.originalMessageId, references: draft.originalMessageId, fromName: draft.clientContext?.senderName }
-      );
-      if (sendResult && sendResult.success) {
-        if (automailerStorageForInbox.setFirstSendDate) automailerStorageForInbox.setFirstSendDate();
-        automailerStorageForInbox.incrementTodaySendCount();
-        try {
-          const inboxStorage = require('../skills/inbox-manager/storage.js');
-          inboxStorage.addAutoReply({ prospectEmail: draft.replyData.from, prospectName: draft.replyData.fromName, sentiment: draft.sentiment, subClassification: draft.subClass ? draft.subClass.type : 'hitl', objectionType: draft.subClass ? draft.subClass.objectionType : '', replyBody: draft.autoReply.body, replySubject: draft.autoReply.subject, originalEmailId: draft.originalEmail && draft.originalEmail.subject, confidence: draft.autoReply.confidence, sendResult });
-        } catch (e) { log.warn('hitl', 'addAutoReply tracking echoue: ' + e.message); }
-        if (sendResult.messageId) {
-          automailerStorageForInbox.addEmail({ to: draft.replyData.from, subject: draft.autoReply.subject, body: draft.autoReply.body, source: 'hitl_reply', status: 'sent', messageId: sendResult.messageId, chatId: ADMIN_CHAT_ID });
-        }
-        log.info('hitl', 'Reponse HITL (dashboard) envoyee a ' + draft.replyData.from);
-        _pendingDrafts.delete(draftId);
-        _saveHitlDrafts();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, to: draft.replyData.from }));
-      } else {
-        draft._inFlight = false;
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Échec envoi: ' + (sendResult?.error || 'inconnu') }));
-      }
-    } catch (e) {
-      log.error('hitl', 'Erreur approve dashboard:', e.message);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
-    }
-    return;
-  }
-
-  // Skip (sans blacklist) — pour repondre manuellement
-  if (req.url && req.url.match(/^\/api\/hitl\/drafts\/[^/]+\/skip$/) && req.method === 'POST') {
-    const draftId = req.url.split('/')[4];
-    const draft = _pendingDrafts.get(draftId);
-    if (!draft) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Draft introuvable ou expiré' }));
-      return;
-    }
-    _pendingDrafts.delete(draftId);
-    log.info('hitl', 'Draft passe (dashboard, sans blacklist): ' + draftId + ' pour ' + draft.replyData.from);
-    _saveHitlDrafts();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, prospect: draft.replyData.from, action: 'skipped' }));
-    return;
-  }
-
-  // Reject (avec blacklist)
-  if (req.url && req.url.match(/^\/api\/hitl\/drafts\/[^/]+\/reject$/) && req.method === 'POST') {
-    const draftId = req.url.split('/')[4];
-    const draft = _pendingDrafts.get(draftId);
-    if (!draft) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Draft introuvable ou expiré' }));
-      return;
-    }
-    if (draft._inFlight) {
-      res.writeHead(409, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Draft en cours de traitement' }));
-      return;
-    }
-    draft._inFlight = true;
-    _pendingDrafts.delete(draftId);
-    try {
-      for (const ep of (draft.emailsToProcess || [draft.replyData.from])) {
-        automailerStorageForInbox.addToBlacklist(ep, 'hitl_blacklisted: dashboard');
-      }
-    } catch (e) { log.error('hitl', 'Blacklist echoue pour ' + draft.replyData.from + ': ' + e.message); }
-    log.info('hitl', 'Draft rejete+blackliste (dashboard): ' + draftId + ' pour ' + draft.replyData.from);
-    _saveHitlDrafts();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, prospect: draft.replyData.from, action: 'blacklisted' }));
-    return;
-  }
-
-  if (req.url && req.url.match(/^\/api\/hitl\/drafts\/[^/]+\/edit$/) && req.method === 'POST') {
-    const draftId = req.url.split('/')[4];
-    let body = '';
-    req.on('data', (chunk) => { if (body.length < 10240) body += chunk; });
-    req.on('end', async () => {
-      try {
-        const data = JSON.parse(body);
-        if (!data.body || typeof data.body !== 'string') {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'body requis' }));
-          return;
-        }
-        const draft = _pendingDrafts.get(draftId);
-        if (!draft) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Draft introuvable ou expiré' }));
-          return;
-        }
-        if (draft._inFlight) {
-          res.writeHead(409, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Draft en cours de traitement' }));
-          return;
-        }
-        draft._inFlight = true;
-        const editedBody = data.body.trim();
-        // Quality gate on edited draft
-        const qWarnings = [];
-        if (editedBody.length < 20) qWarnings.push('Message trop court (<20 caractères)');
-        const cDomain = (process.env.CLIENT_DOMAIN || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const safeDomainRe = new RegExp('https?:\\/\\/(?:' + (cDomain || 'x-no-match') + '|calendly\\.com|cal\\.com)', 'i');
-        if (/https?:\/\/[^\s]+/i.test(editedBody) && !safeDomainRe.test(editedBody)) qWarnings.push('Lien externe suspect');
-        const spamWords = ['gratuit', 'promotion', 'cliquez ici', 'offre exclusive', 'urgent', 'act now', 'free trial'];
-        const bodyLow = editedBody.toLowerCase();
-        for (const sw of spamWords) { if (bodyLow.includes(sw)) { qWarnings.push('Mot spam: ' + sw); break; } }
-        if (qWarnings.length > 0) {
-          log.warn('hitl', 'Quality warnings on dashboard edit ' + draftId + ': ' + qWarnings.join(', '));
-        }
-        draft.autoReply.body = editedBody;
-        const ResendClient = require('../skills/automailer/resend-client.js');
-        const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
-        const sendResult = await resendClient.sendEmail(
-          draft.replyData.from, draft.autoReply.subject, draft.autoReply.body,
-          { inReplyTo: draft.originalMessageId, references: draft.originalMessageId, fromName: draft.clientContext?.senderName }
-        );
-        if (sendResult && sendResult.success) {
-          if (automailerStorageForInbox.setFirstSendDate) automailerStorageForInbox.setFirstSendDate();
-          automailerStorageForInbox.incrementTodaySendCount();
-          try {
-            const inboxStorage = require('../skills/inbox-manager/storage.js');
-            inboxStorage.addAutoReply({ prospectEmail: draft.replyData.from, prospectName: draft.replyData.fromName, sentiment: draft.sentiment, subClassification: draft.subClass ? draft.subClass.type : 'hitl', objectionType: draft.subClass ? draft.subClass.objectionType : '', replyBody: draft.autoReply.body, replySubject: draft.autoReply.subject, originalEmailId: draft.originalEmail && draft.originalEmail.subject, confidence: draft.autoReply.confidence, sendResult });
-          } catch (e) { log.warn('hitl', 'addAutoReply tracking (edit) echoue: ' + e.message); }
-          if (sendResult.messageId) {
-            automailerStorageForInbox.addEmail({ to: draft.replyData.from, subject: draft.autoReply.subject, body: draft.autoReply.body, source: 'hitl_reply_edited', status: 'sent', messageId: sendResult.messageId, chatId: ADMIN_CHAT_ID });
-          }
-          log.info('hitl', 'Reponse HITL editee (dashboard) envoyee a ' + draft.replyData.from);
-          _pendingDrafts.delete(draftId);
-          _saveHitlDrafts();
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, to: draft.replyData.from }));
-        } else {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Échec envoi: ' + (sendResult?.error || 'inconnu') }));
-        }
-      } catch (e) {
-        log.error('hitl', 'Erreur edit dashboard:', e.message);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
-      }
-    });
-    return;
-  }
+  // --- HITL API (module extrait) ---
+  if (handleHitlApi(req, res)) return;
 
   // Healthcheck
   if (req.url === '/health' && req.method === 'GET') {
