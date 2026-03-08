@@ -60,16 +60,16 @@ class BrainEngine {
     this.running = true;
     const tz = 'Europe/Paris';
 
-    // Brain cycle : 9h, 14h et 18h (3 fenetres d'envoi pour maximiser le volume)
-    this.crons.push(new Cron('0 9,14,18 * * *', { timezone: tz }, withCronGuard('ap-brain-cycle', async () => {
+    // Brain cycle : 9h, 14h et 18h, lun-ven uniquement (pas de prospection le weekend)
+    this.crons.push(new Cron('0 9,14,18 * * 1-5', { timezone: tz }, withCronGuard('ap-brain-cycle', async () => {
       try { await this._brainCycle(); }
       catch (e) { log.error('brain', 'Erreur cycle:', e.message); }
     })));
 
     // Daily briefing supprime — fusionne avec Proactive Morning Report a 8h (voir proactive-engine.js)
 
-    // Mini-cycle leger : 10h, 12h, 15h, 17h (4 fenetres — evite collision avec brain 14h/18h)
-    this.crons.push(new Cron('0 10,12,15,17 * * *', { timezone: tz }, withCronGuard('ap-mini-cycle', async () => {
+    // Mini-cycle leger : 10h, 12h, 15h, 17h, lun-ven uniquement
+    this.crons.push(new Cron('0 10,12,15,17 * * 1-5', { timezone: tz }, withCronGuard('ap-mini-cycle', async () => {
       try { await this._lightCycle(); }
       catch (e) { log.error('brain', 'Erreur mini-cycle:', e.message); }
     })));

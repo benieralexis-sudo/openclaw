@@ -84,7 +84,8 @@ class ReportGenerator {
 
         for (const deal of data.hubspot.deals) {
           const amount = parseFloat(deal.amount) || 0;
-          const isClosed = deal.stage === 'closedwon' || deal.stage === 'closedlost';
+          const stageLower = (deal.stage || '').toLowerCase().replace(/[_\-\s]/g, '');
+          const isClosed = stageLower === 'closedwon' || stageLower === 'closedlost';
 
           // Determiner l'engagement via emails et stage
           const updatedAt = deal.updatedAt ? new Date(deal.updatedAt).getTime() : 0;
