@@ -209,12 +209,37 @@ function createResendHandler(deps) {
           log.warn('webhook', 'Soft bounce retry schedule echoue: ' + sbErr.message);
         }
       }
+
+      // B6 FIX : notifier le domain-manager pour l'auto-pause a 3% bounce rate
+      try {
+        const domainManager = require('../skills/automailer/domain-manager.js');
+        const senderDomain = (email.from || '').split('@').pop() || '';
+        if (senderDomain && domainManager.recordBounce) {
+          domainManager.recordBounce(senderDomain);
+          log.info('webhook', 'Domain-manager: bounce enregistre pour ' + senderDomain);
+        }
+      } catch (dmErr) {
+        log.warn('webhook', 'Domain-manager recordBounce echoue: ' + dmErr.message);
+      }
     }
 
     // Complained (spam report) → blacklist automatique
     if (status === 'complained') {
       automailerStorage.addToBlacklist(email.to, 'spam_complaint');
       log.info('webhook', 'Spam complaint: ' + email.to + ' ajoute au blacklist');
+
+      // B7 FIX : notifier le domain-manager (complaint = pire qu'un bounce)
+      try {
+        const domainManager = require('../skills/automailer/domain-manager.js');
+        const senderDomain = (email.from || '').split('@').pop() || '';
+        if (senderDomain && domainManager.recordBounce) {
+          // Une complaint compte comme un bounce pour le tracking de reputation
+          domainManager.recordBounce(senderDomain);
+          log.info('webhook', 'Domain-manager: complaint enregistre pour ' + senderDomain);
+        }
+      } catch (dmErr) {
+        log.warn('webhook', 'Domain-manager recordComplaint echoue: ' + dmErr.message);
+      }
     }
 
     // Sync CRM + avancement deal automatique pour les evenements importants
