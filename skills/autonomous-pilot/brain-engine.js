@@ -80,6 +80,9 @@ class BrainEngine {
       catch (e) { log.error('brain', 'Erreur reset hebdo:', e.message); }
     })));
 
+    // B5 FIX : backfill industry sur les leads FlowFast existants
+    this._backfillLeadIndustry();
+
     log.info('brain', 'Cerveau autonome demarre (7 crons — 3 brain + 4 mini)');
   }
 
@@ -90,6 +93,38 @@ class BrainEngine {
     }
     this.crons = [];
     log.info('brain', 'Cerveau autonome arrete');
+  }
+
+  // B5 FIX : backfill industry sur les leads FlowFast existants via matchLeadToNiche
+  _backfillLeadIndustry() {
+    try {
+      const ffStorage = getFlowFastStorage();
+      if (!ffStorage || !ffStorage.data || !ffStorage.data.leads) return;
+
+      const icpLoader = require('../../gateway/icp-loader.js');
+      if (!icpLoader || !icpLoader.matchLeadToNiche) return;
+
+      let backfilled = 0;
+      const leads = ffStorage.data.leads;
+      for (const key in leads) {
+        const lead = leads[key];
+        if (lead.industry && lead.industry !== 'unknown') continue;
+
+        const nicheMatch = icpLoader.matchLeadToNiche(lead);
+        if (nicheMatch) {
+          lead.industry = nicheMatch.name || nicheMatch.slug || '';
+          lead._nicheSlug = nicheMatch.slug || '';
+          backfilled++;
+        }
+      }
+
+      if (backfilled > 0) {
+        ffStorage._save();
+        log.info('brain', 'B5 backfill: ' + backfilled + ' leads enrichis avec industry via ICP matcher');
+      }
+    } catch (e) {
+      log.warn('brain', 'B5 backfill erreur: ' + e.message);
+    }
   }
 
   // --- Collecte de l'etat global ---

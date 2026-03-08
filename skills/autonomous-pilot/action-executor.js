@@ -241,6 +241,8 @@ Format JSON strict :
             // Ne sauvegarder que si le lead a un email OU un score suffisant
             // (evite de creer des entrees orphelines nom_entreprise)
             if (lead.email || scored.score >= minScore) {
+              // B5 FIX : propager industry depuis Apollo pour le niche tracking
+              const leadIndustry = (lead.organization && lead.organization.industry) || '';
               ffStorage.addLead({
                 nom: lead.nom || 'Inconnu',
                 titre: lead.titre,
@@ -248,6 +250,7 @@ Format JSON strict :
                 email: lead.email,
                 linkedin: lead.linkedin_url,
                 source: 'autonomous-pilot',
+                industry: leadIndustry,
                 raison: scored.raison || '',
                 recommandation: scored.recommandation || '',
                 searchCriteria: JSON.stringify(criteria).substring(0, 200),
@@ -286,6 +289,8 @@ Format JSON strict :
                 const oldKey = (lead.nom || '') + '_' + (lead.entreprise || '');
                 if (ffStorage.removeLead) ffStorage.removeLead(oldKey);
 
+                // B5 FIX : propager industry depuis Apollo pour le niche tracking
+                const revealIndustry = (lead.organization && lead.organization.industry) || '';
                 ffStorage.addLead({
                   nom: lead.nom,
                   titre: lead.titre,
@@ -293,6 +298,7 @@ Format JSON strict :
                   email: lead.email,
                   linkedin: lead.linkedin_url,
                   source: 'autonomous-pilot',
+                  industry: revealIndustry,
                   raison: lead.raison || '',
                   searchCriteria: JSON.stringify(criteria).substring(0, 200),
                   organizationData: JSON.stringify(lead.organization || {}).substring(0, 2000)
