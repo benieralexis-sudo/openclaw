@@ -1174,6 +1174,35 @@ Format JSON strict :
       log.warn('action-executor', 'GATE 4 skip (campaign-engine indisponible): ' + qgErr.message);
     }
 
+    // === GATE CONTAMINATION : verifier que l'email ne contient pas le prenom/entreprise d'un autre prospect ===
+    if (params.body && params.contactName) {
+      try {
+        const bodyLower = (params.body + ' ' + (params.subject || '')).toLowerCase();
+        const subjectLower = (params.subject || '').toLowerCase();
+        const ffStorageContam = getFlowFastStorage();
+        if (ffStorageContam && ffStorageContam.data && ffStorageContam.data.leads) {
+          const currentFirstName = (params.contactName || '').split(' ')[0].toLowerCase();
+          const currentCompany = (params.company || '').toLowerCase();
+          const leadsObj = ffStorageContam.data.leads;
+          for (const lid of Object.keys(leadsObj)) {
+            const otherLead = leadsObj[lid];
+            if ((otherLead.email || '').toLowerCase() === (params.to || '').toLowerCase()) continue;
+            const otherFirstName = ((otherLead.name || otherLead.firstName || '').split(' ')[0] || '').toLowerCase();
+            const otherCompany = (otherLead.company || otherLead.entreprise || '').toLowerCase();
+            if (otherFirstName && otherFirstName.length >= 3 && otherFirstName !== currentFirstName) {
+              const fnRegex = new RegExp('\\b' + otherFirstName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+              if (fnRegex.test(bodyLower) || fnRegex.test(subjectLower)) {
+                log.error('action-executor', 'GATE CONTAMINATION BLOCK — Prenom "' + otherFirstName + '" (de ' + otherLead.email + ') detecte dans email pour ' + params.to + ' — skip');
+                return { success: false, error: 'Contamination cross-prospect: prenom ' + otherFirstName + ' detecte', gateBlocked: true };
+              }
+            }
+          }
+        }
+      } catch (contamErr) {
+        log.warn('action-executor', 'Gate contamination check echoue (non bloquant): ' + contamErr.message);
+      }
+    }
+
     const ResendClient = getResendClient();
     if (!ResendClient) {
       return { success: false, error: 'Module automailer/resend-client introuvable' };
@@ -1404,6 +1433,26 @@ Format JSON strict :
                 const context = { company: params.company || '', industry: params.industry || '', contact: params.contactName || '' };
                 await this.campaignEngine.generateCampaignEmails(campaign.id, context, totalSteps, stepDays);
                 await this.campaignEngine.startCampaign(campaign.id);
+                // FIX FOLLOW-UPS: marquer step 1 comme completed immediatement
+                // car l'email a deja ete envoye par l'AP (sinon step 1 reste pending
+                // avec scheduledAt J+3 et les follow-ups ne se declenchent jamais)
+                const updatedCamp = amStorage.getCampaign(campaign.id);
+                if (updatedCamp && updatedCamp.steps) {
+                  const step1 = updatedCamp.steps.find(function(s) { return s.stepNumber === 1; });
+                  if (step1 && step1.status !== 'completed') {
+                    step1.status = 'completed';
+                    step1.completedAt = new Date().toISOString();
+                    step1.sentAt = new Date().toISOString();
+                    step1.sentCount = 1;
+                    // Recalculer scheduledAt des steps suivants depuis maintenant
+                    updatedCamp.steps.forEach(function(s) {
+                      if (s.stepNumber > 1 && s.delayDays != null) {
+                        s.scheduledAt = new Date(Date.now() + s.delayDays * 24 * 60 * 60 * 1000).toISOString();
+                      }
+                    });
+                    amStorage.updateCampaign(campaign.id, { steps: updatedCamp.steps, currentStep: 2 });
+                  }
+                }
                 log.info('action-executor', 'Auto-campagne creee et demarree: ' + campaign.id + ' pour ' + params.to + ' (' + totalSteps + ' steps)');
               } catch (genErr) {
                 // B2 FIX: marquer la campagne active avec step 1 completed meme si generation echoue

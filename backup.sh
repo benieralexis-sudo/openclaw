@@ -45,7 +45,21 @@ docker exec "$CONTAINER" tar czf /tmp/moltbot-data.tar.gz -C /data \
   web-intelligence/ \
   system-advisor/ \
   moltbot-config/ \
+  inbox-manager/ \
+  meeting-scheduler/ \
+  autonomous-pilot/ \
+  visitors/ \
+  dashboard/ \
   2>/dev/null
+
+# --- 3. Backup des donnees clients ---
+if [ -d "/opt/moltbot/clients" ]; then
+  tar czf "$BACKUP_DIR/moltbot-clients-$DATE.tar.gz" \
+    -C /opt/moltbot \
+    clients/ \
+    2>/dev/null
+  CLIENT_SIZE=$(du -sh "$BACKUP_DIR/moltbot-clients-$DATE.tar.gz" 2>/dev/null | cut -f1)
+fi
 
 docker cp "$CONTAINER":/tmp/moltbot-data.tar.gz "$BACKUP_DIR/moltbot-data-$DATE.tar.gz" 2>/dev/null
 docker exec "$CONTAINER" rm -f /tmp/moltbot-data.tar.gz 2>/dev/null
@@ -56,4 +70,4 @@ find "$BACKUP_DIR" -name "moltbot-*.tar.gz" -mtime +$RETENTION_DAYS -delete
 # Log
 CODE_SIZE=$(du -sh "$BACKUP_DIR/moltbot-code-$DATE.tar.gz" 2>/dev/null | cut -f1)
 DATA_SIZE=$(du -sh "$BACKUP_DIR/moltbot-data-$DATE.tar.gz" 2>/dev/null | cut -f1)
-echo "[$(date)] Backup OK: code=$CODE_SIZE data=$DATA_SIZE" >> "$BACKUP_DIR/backup.log"
+echo "[$(date)] Backup OK: code=$CODE_SIZE data=$DATA_SIZE clients=${CLIENT_SIZE:-N/A}" >> "$BACKUP_DIR/backup.log"

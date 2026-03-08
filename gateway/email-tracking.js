@@ -48,6 +48,9 @@ function createEmailTracking(deps) {
         _handleReopen(email, automailerStorage, proactiveAgentStorage);
       }
 
+      // FIX NICHE TRACKING: tracker l'open par niche (etait manquant — le brain etait aveugle)
+      _trackNicheEvent(email, 'opened');
+
       // Tracker dans Proactive Agent (hot lead detection — toujours)
       _trackHotLead(email, trackingId, proactiveAgentStorage);
 

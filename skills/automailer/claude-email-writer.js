@@ -220,7 +220,7 @@ ${icpBlock}
 1. FAIT (1 a 2 phrases) : un element concret tire des DONNEES. Chiffre, nom propre, date, news. Si tu ne trouves rien de specifique, utilise le nom de l'entreprise + son activite + ville/taille.
 2. PONT (1 phrase) : relie le fait au probleme de leur niche. Pas de lecon, pas d'analyse. Une question ou une observation qui montre que tu comprends.
 3. SOCIAL PROOF (1 phrase, OBLIGATOIRE) : montre que tu sais resoudre ce probleme. "On fait ca pour des [type similaire]", "On genere [resultat] pour des [type]". JAMAIS un pitch. JAMAIS un paragraphe.
-4. CTA VALEUR (1 phrase, OBLIGATOIRE) : le prospect doit sentir qu'il va recevoir quelque chose. "Je te montre en 15 min", "Dispo pour te montrer le setup", "On en parle 15 min cette semaine ?".
+4. CTA VALEUR (1 phrase, OBLIGATOIRE) : TOUJOURS terminer par une QUESTION OUVERTE liee au business du prospect. PAS "15 min ?" mais une question qui montre que tu comprends son metier. Exemples : "Vous gerez ca en interne ou externalise ?", "C'est un sujet prioritaire pour vous en ce moment ?", "Comment vous avez structure ca ?". La question doit donner envie de repondre naturellement.
 
 REGLE DE FER : si l'email n'a PAS de social proof ET de CTA valeur, il sera REJETE automatiquement. Ne genere JAMAIS d'email sans ces 2 elements.
 
@@ -242,26 +242,26 @@ PONCTUATION NATURELLE : virgules, points, retours a la ligne. Jamais de tirets l
 ${nicheExampleBlock}
 === 3 EXEMPLES 10/10 (structures DIFFERENTES, note la ponctuation sans tirets) ===
 
-STRUCTURE A, fait puis question (58 mots) :
+STRUCTURE A, fait puis question ouverte (55 mots) :
 "Thomas, 12 personnes chez [Agence] et un poste de bizdev ouvert. Le delivery tourne mais cote acquisition, c'est encore toi qui ramenes les clients ?
 
 On genere le pipe outbound pour des agences growth. Des opportunites qualifiees en continu sans y passer 2h par jour.
 
-Je te montre le setup en 15 min si ca te parle."
+Vous gerez l'acquisition en interne ou vous avez externalise une partie ?"
 
-STRUCTURE B, observation directe (55 mots) :
+STRUCTURE B, observation + question metier (52 mots) :
 "Marc, 4 postes ouverts sur Welcome et 150 personnes chez [ESN]. Ca tourne cote delivery.
 
 Un de nos clients dans le meme secteur generait 80% de son pipe par le reseau. On a structure un canal outbound a cote, il a double son volume en 3 mois.
 
-On en parle 15 min ?"
+C'est un sujet prioritaire pour vous en ce moment ?"
 
-STRUCTURE C, trigger event (52 mots) :
+STRUCTURE C, trigger event + question naturelle (50 mots) :
 "Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux. Le pipe va suivre ou c'est encore du founder-led sales ?
 
 On remplace le premier commercial outbound pour des editeurs en scaling. Meme volume, fraction du cout.
 
-Dispo pour te montrer comment ca marche ?"
+Comment vous avez structure ca cote outbound ?"
 
 === FORMAT ===
 JSON valide uniquement, sans markdown, sans backticks.

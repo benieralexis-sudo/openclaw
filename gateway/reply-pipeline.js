@@ -153,6 +153,23 @@ function createReplyPipeline(deps) {
       _stopRelancesForHitl(emailsToProcess);
     }
 
+    // FIX NICHE TRACKING: tracker la reply par niche
+    if (sentiment === 'interested' || sentiment === 'question') {
+      try {
+        const apStorageNiche = require('../skills/autonomous-pilot/storage.js');
+        if (apStorageNiche && apStorageNiche.trackNicheEvent) {
+          const automailerSt = require('../skills/automailer/storage.js');
+          const allEmails = automailerSt.getAllEmails ? automailerSt.getAllEmails() : [];
+          const matchedEmail = allEmails.find(function(em) { return (em.to || '').toLowerCase() === (replyData.from || '').toLowerCase(); });
+          const niche = matchedEmail ? (matchedEmail.industry || matchedEmail.niche) : null;
+          if (niche) {
+            apStorageNiche.trackNicheEvent(niche, 'replied');
+            log.info('inbox-manager', 'Niche tracking: replied [' + niche + '] pour ' + replyData.from);
+          }
+        }
+      } catch (ntErr) { log.warn('inbox-manager', 'Niche tracking reply echoue: ' + ntErr.message); }
+    }
+
     // === 5. Update storage ===
     _updateStorages(emailsToProcess, sentiment, score, classification, actionTaken);
 
