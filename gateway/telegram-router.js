@@ -790,11 +790,11 @@ inboxListener = InboxListener ? new InboxListener({
           else if (sentiment === 'interested') {
             // Check blacklist avant tout envoi
             const automailerStorageBL = require('../skills/automailer/storage.js');
-            if (automailerStorageBL.isBlacklisted && automailerStorageBL.isBlacklisted(replyData.from)) {
+            const _isBlacklisted = automailerStorageBL.isBlacklisted && automailerStorageBL.isBlacklisted(replyData.from);
+            if (_isBlacklisted) {
               log.info('hitl', 'Skip auto-reply: ' + replyData.from + ' est blackliste');
-              break;
             }
-            const autoReply = await generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
+            const autoReply = _isBlacklisted ? { body: null } : await generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
 
             if (autoReply.body) {
               const qualityWarning = _checkDraftQuality(autoReply);
