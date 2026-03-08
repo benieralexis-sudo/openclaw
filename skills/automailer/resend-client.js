@@ -140,6 +140,7 @@ class ResendClient {
       'Message-ID: ' + messageId,
       'List-Unsubscribe: <https://' + trackingDomain + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
       'List-Unsubscribe-Post: List-Unsubscribe=One-Click',
+      'Feedback-ID: ' + (options.campaignId || 'default') + ':' + (process.env.CLIENT_NAME || 'ifind') + ':' + smtpDomain + ':ifind',
       options.inReplyTo ? 'In-Reply-To: ' + options.inReplyTo : null,
       options.references ? 'References: ' + options.references : (options.inReplyTo ? 'References: ' + options.inReplyTo : null),
       'Content-Type: multipart/alternative; boundary="' + boundary + '"',
@@ -377,7 +378,8 @@ class ResendClient {
       html: options.html || this._minimalHtml(body, options.trackingId, toEmail),
       headers: {
         'List-Unsubscribe': '<https://' + trackingDomainResend + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'Feedback-ID': (options.campaignId || 'default') + ':' + (process.env.CLIENT_NAME || 'ifind') + ':' + (this.senderEmail.split('@')[1] || 'ifind.fr') + ':ifind'
       }
     };
     if (options.inReplyTo) {
@@ -448,7 +450,8 @@ class ResendClient {
         reply_to: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL,
         headers: {
           'List-Unsubscribe': '<https://' + (process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr') + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
-          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          'Feedback-ID': ((e.tags && e.tags.find(t => t.name === 'campaign_id') || {}).value || 'default') + ':' + (process.env.CLIENT_NAME || 'ifind') + ':' + (this.senderEmail.split('@')[1] || 'ifind.fr') + ':ifind'
         }
       };
     });

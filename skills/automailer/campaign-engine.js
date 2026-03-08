@@ -1335,6 +1335,7 @@ class CampaignEngine {
         replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL,
         fromName: process.env.SENDER_NAME || 'Alexis',
         trackingId: trackingId,
+        campaignId: campaignId,
         tags: [
           { name: 'campaign_id', value: campaignId },
           { name: 'step', value: String(stepNumber) }
