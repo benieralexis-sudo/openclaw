@@ -28,6 +28,18 @@ function _doWrite(filePath, data) {
     const tmpFile = filePath + '.tmp';
     fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf8');
     fs.renameSync(tmpFile, filePath);
+  } catch (writeErr) {
+    // Alerte disk full ou erreur I/O critique
+    const errMsg = writeErr.message || '';
+    console.error('[CRITICAL] atomicWriteSync FAILED for ' + filePath + ': ' + errMsg);
+    if (errMsg.includes('ENOSPC') && !_doWrite._diskAlertSent) {
+      _doWrite._diskAlertSent = true;
+      try {
+        const log = require('./logger.js');
+        log.error('storage', 'DISQUE PLEIN — ecriture impossible: ' + filePath);
+      } catch (e) {}
+    }
+    throw writeErr;
   } finally {
     _writeLocks[filePath] = false;
     // Si un write en attente, l'executer au prochain tick

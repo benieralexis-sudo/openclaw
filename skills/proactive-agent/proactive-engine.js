@@ -1436,14 +1436,28 @@ class ProactiveEngine {
           continue;
         }
 
-        // Verifier warmup quotidien
-        const todaySent = amStorage.getTodaySendCount ? amStorage.getTodaySendCount() : 0;
-        const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
-        const dailyLimit = getWarmupDailyLimit(firstSendDate);
-        if (todaySent >= dailyLimit) {
-          log.info('proactive-engine', 'Reactive FU: warmup limit (' + todaySent + '/' + dailyLimit + ') — reporte (retry #' + (followUp.retryCount || 0) + ')');
-          storage.incrementFollowUpRetry(followUp.id, 'warmup_daily_limit');
-          continue;
+        // Verifier warmup quotidien via domain-manager (source de verite)
+        let hasHeadroom = false;
+        try {
+          const domainManager = require('../../skills/automailer/domain-manager.js');
+          const dmStats = domainManager.getStats ? domainManager.getStats() : [];
+          const totalRemaining = dmStats.reduce((sum, d) => sum + Math.max(0, (d.warmupLimit || 0) - (d.todaySends || 0)), 0);
+          hasHeadroom = totalRemaining > 0;
+          if (!hasHeadroom) {
+            log.info('proactive-engine', 'Reactive FU: warmup limit (0 headroom sur tous les domaines) — reporte (retry #' + (followUp.retryCount || 0) + ')');
+            storage.incrementFollowUpRetry(followUp.id, 'warmup_daily_limit');
+            continue;
+          }
+        } catch (dmErr) {
+          // Fallback ancien systeme si domain-manager indisponible
+          const todaySent = amStorage.getTodaySendCount ? amStorage.getTodaySendCount() : 0;
+          const firstSendDate = amStorage.getFirstSendDate ? amStorage.getFirstSendDate() : null;
+          const dailyLimit = getWarmupDailyLimit(firstSendDate);
+          if (todaySent >= dailyLimit) {
+            log.info('proactive-engine', 'Reactive FU: warmup limit (' + todaySent + '/' + dailyLimit + ') — reporte');
+            storage.incrementFollowUpRetry(followUp.id, 'warmup_daily_limit');
+            continue;
+          }
         }
 
         // 2. Generer le follow-up via Claude

@@ -195,7 +195,17 @@ let offset = 0;
 // --- HITL : Brouillons de reponses en attente de validation humaine ---
 const _pendingDrafts = new Map();      // draftId -> { replyData, autoReply, classification, ... }
 const _hitlModifyState = new Map();    // chatId -> { draftId, ts }
-function _hitlId() { return 'h' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 5); }
+function _hitlId() {
+  // Cap a 100 drafts (purger les plus anciens si depasse)
+  if (_pendingDrafts.size >= 100) {
+    let oldest = null, oldestTs = Infinity;
+    for (const [id, d] of _pendingDrafts) {
+      if ((d.createdAt || 0) < oldestTs) { oldest = id; oldestTs = d.createdAt || 0; }
+    }
+    if (oldest) _pendingDrafts.delete(oldest);
+  }
+  return 'h' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 5);
+}
 
 // Persistance HITL drafts sur disque
 const HITL_DRAFTS_FILE = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/hitl-drafts.json';
@@ -778,6 +788,12 @@ inboxListener = InboxListener ? new InboxListener({
 
           // --- Cas 3: Interested → AUTO-REPLY IMMEDIAT si haute confiance, sinon HITL ---
           else if (sentiment === 'interested') {
+            // Check blacklist avant tout envoi
+            const automailerStorageBL = require('../skills/automailer/storage.js');
+            if (automailerStorageBL.isBlacklisted && automailerStorageBL.isBlacklisted(replyData.from)) {
+              log.info('hitl', 'Skip auto-reply: ' + replyData.from + ' est blackliste');
+              break;
+            }
             const autoReply = await generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
 
             if (autoReply.body) {

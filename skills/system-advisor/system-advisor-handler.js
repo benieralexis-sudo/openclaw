@@ -45,6 +45,12 @@ class SystemAdvisorHandler {
     })));
     log.info('system-advisor', 'Cron: health check toutes les heures');
 
+    // Backup quotidien des DB critiques a 3h du matin
+    this.crons.push(new Cron('0 3 * * *', { timezone: tz }, withCronGuard('sa-daily-backup', () => {
+      this._dailyBackup();
+    })));
+    log.info('system-advisor', 'Cron: backup quotidien 3h');
+
     // Rapport quotidien et hebdo : desactives (bruit technique pour le client)
     // Les fonctions _dailyReport() et _weeklyReport() restent accessibles via commande manuelle "rapport systeme"
 
@@ -635,6 +641,45 @@ Reponds UNIQUEMENT en JSON strict :
       const aggregate = this.monitor.aggregateSnapshots(snapshots);
       if (aggregate) storage.saveHourlyAggregate(aggregate);
     }
+  }
+
+  _dailyBackup() {
+    const fs = require('fs');
+    const path = require('path');
+    const backupDir = '/data/backups';
+    try { fs.mkdirSync(backupDir, { recursive: true }); } catch (e) {}
+    const date = new Date().toISOString().slice(0, 10);
+    const criticalFiles = [
+      '/data/automailer/automailer-db.json',
+      '/data/automailer/domain-manager.json',
+      '/data/autonomous-pilot/ap-storage.json',
+      '/data/flowfast/flowfast-db.json',
+      '/data/proactive-agent/proactive-db.json'
+    ];
+    let backed = 0;
+    for (const src of criticalFiles) {
+      try {
+        if (!fs.existsSync(src)) continue;
+        const name = path.basename(src, '.json');
+        const dest = path.join(backupDir, name + '.bak.' + date + '.json');
+        fs.copyFileSync(src, dest);
+        backed++;
+      } catch (e) {
+        log.warn('system-advisor', 'Backup echoue pour ' + src + ': ' + e.message);
+      }
+    }
+    // Rotation : garder 7 jours
+    try {
+      const files = fs.readdirSync(backupDir);
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      for (const f of files) {
+        const match = f.match(/\.bak\.(\d{4}-\d{2}-\d{2})\.json$/);
+        if (match && new Date(match[1]).getTime() < cutoff) {
+          fs.unlinkSync(path.join(backupDir, f));
+        }
+      }
+    } catch (e) {}
+    log.info('system-advisor', 'Backup quotidien: ' + backed + '/' + criticalFiles.length + ' fichiers sauvegardes');
   }
 
   async _hourlyHealthCheck() {
