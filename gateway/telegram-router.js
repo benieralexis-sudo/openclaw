@@ -40,6 +40,8 @@ const { fastClassify, classifySkill, checkStickiness } = require('./skill-router
 const { createUserContext } = require('./user-context.js');
 const { createCronManager } = require('./cron-manager.js');
 const { createResendHandler, RESEND_EVENT_MAP } = require('./resend-handler.js');
+const { createUnsubscribeHandler } = require('./unsubscribe-handler.js');
+const { createEmailTracking } = require('./email-tracking.js');
 
 // --- Metriques globales (partage memoire pour System Advisor) ---
 const METRICS_FILE = (process.env.APP_CONFIG_DIR || '/data/app-config') + '/ifind-metrics.json';
@@ -2201,7 +2203,24 @@ const resendHandlerModule = createResendHandler({
 });
 const { handleResendWebhook } = resendHandlerModule;
 
-// handleResendWebhook extrait dans resend-handler.js
+// --- Unsubscribe Handler (module extrait) ---
+const handleUnsubscribe = createUnsubscribeHandler({
+  getAutomailerStorage: () => automailerStorage,
+  sendTelegram: sendMessage,
+  adminChatId: ADMIN_CHAT_ID
+});
+
+// --- Email Tracking (module extrait) ---
+const emailTracking = createEmailTracking({
+  getAutomailerStorage: () => automailerStorage,
+  getProactiveAgentStorage: () => proactiveAgentStorage,
+  getFlowFastStorage: () => flowFastStorageRouter,
+  getLeadEnrichStorage: () => leadEnrichStorageRouter,
+  getHubSpotClient: _getHubSpotClient,
+  getProspectResearcher: () => ProspectResearcher,
+  enrichContactWithOrg: _enrichContactWithOrg,
+  claudeKey: CLAUDE_KEY
+});
 
 // --- Chat API : bridge Dashboard → NLP pipeline ---
 async function processChatMessage(text, userId) {
@@ -2599,282 +2618,14 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // === CLICK TRACKING REDIRECT — GET /c/:trackingId?url=X ===
-  if (req.method === 'GET' && req.url && req.url.startsWith('/c/')) {
-    const clickMatch = req.url.match(/^\/c\/([a-f0-9]{32})/);
-    const clickUrlObj = new URL(req.url, 'http://localhost');
-    const redirectUrl = clickUrlObj.searchParams.get('url');
-    if (!clickMatch || !redirectUrl || !/^https?:\/\//i.test(redirectUrl)) {
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.end('Bad request');
-      return;
-    }
-    const clickTrackingId = clickMatch[1];
-    // Redirect immediately
-    res.writeHead(302, { 'Location': redirectUrl, 'Cache-Control': 'no-store, no-cache', 'Pragma': 'no-cache' });
-    res.end();
-    // Record click asynchronously
-    try {
-      const email = automailerStorage.findEmailByTrackingId(clickTrackingId);
-      if (email) {
-        automailerStorage.updateEmailStatus(email.id, 'clicked', { lastClickedUrl: redirectUrl });
-        log.info('tracking', 'Click tracked: ' + email.to + ' -> ' + redirectUrl.substring(0, 80));
-        // Niche performance tracking
-        try {
-          const apStorage = require('../skills/autonomous-pilot/storage.js');
-          const leadNiche = (function() {
-            if (email.industry) return email.industry;
-            if (email.niche) return email.niche;
-            // Fallback: chercher la niche dans le CRM ou les emails stockes
-            const automailerSt = require('../skills/automailer/storage.js');
-            const allEmails = automailerSt.getEmails ? automailerSt.getEmails() : [];
-            const matchedEmail = allEmails.find(em => (em.to || '').toLowerCase() === (email.to || '').toLowerCase());
-            return matchedEmail ? (matchedEmail.niche || matchedEmail.industry || null) : null;
-          })();
-          if (leadNiche) {
-            apStorage.trackNicheEvent(leadNiche, 'clicked');
-            log.info('tracking', 'Niche tracking: clicked [' + leadNiche + '] pour ' + email.to);
-          }
-        } catch (ntErr) {}
-        // CRM sync (async, non-bloquant)
-        (async () => {
-          try {
-            const hubspot = _getHubSpotClient();
-            if (hubspot) {
-              const contact = await hubspot.findContactByEmail(email.to);
-              if (contact && contact.id) {
-                const noteBody = 'Email "' + (email.subject || '') + '" — Clic (click tracking)\nURL: ' + redirectUrl.substring(0, 200) + '\nDate : ' + new Date().toLocaleDateString('fr-FR');
-                const note = await hubspot.createNote(noteBody);
-                if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
-                const adv = await hubspot.advanceDealStage(contact.id, 'presentationscheduled', 'email_clicked');
-                if (adv > 0) log.info('tracking', 'Deal avance a presentationscheduled pour ' + email.to + ' (clic email)');
-              }
-            }
-          } catch (crmErr) { log.warn('tracking', 'CRM sync clic: ' + crmErr.message); }
-        })();
-      }
-    } catch (e) {
-      log.warn('tracking', 'Click tracking error: ' + e.message);
-    }
-    return;
-  }
+  // === CLICK TRACKING (module extrait) ===
+  if (emailTracking.handleClick(req, res)) return;
 
-  // Tracking pixel ouverture email — GET /t/:trackingId.gif
-  if (req.method === 'GET' && req.url && req.url.startsWith('/t/')) {
-    // 1x1 transparent GIF (43 bytes)
-    const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
-    // Extraire le trackingId (format: /t/abc123def456.gif)
-    const match = req.url.match(/^\/t\/([a-f0-9]{32})\.gif/);
-    if (!match) {
-      res.writeHead(200, { 'Content-Type': 'image/gif', 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' });
-      res.end(PIXEL);
-      return;
-    }
-    const trackingId = match[1];
-    // Toujours servir le pixel immediatement (ne pas bloquer le rendu email)
-    res.writeHead(200, { 'Content-Type': 'image/gif', 'Content-Length': PIXEL.length, 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' });
-    res.end(PIXEL);
-    // Traitement asynchrone de l'ouverture
-    try {
-      const email = automailerStorage.findEmailByTrackingId(trackingId);
-      if (!email) { return; }
-      const wasAlreadyOpened = !!email.openedAt;
-      if (!wasAlreadyOpened) {
-        automailerStorage.updateEmailStatus(email.id, 'opened');
-        log.info('tracking', 'Email ouvert (pixel) : ' + email.to + ' — ' + (email.subject || '').substring(0, 40));
-        // 1ère ouverture (pixel) : research + cache intel, PAS de reactive FU
-        if (ProspectResearcher) {
-          try {
-            const researcher = new ProspectResearcher({ claudeKey: CLAUDE_KEY });
-            let prospectTitle = '';
-            try {
-              if (flowFastStorageRouter && flowFastStorageRouter.data) {
-                const ffLeads = flowFastStorageRouter.data.leads || {};
-                for (const lid of Object.keys(ffLeads)) {
-                  if (ffLeads[lid].email === email.to) {
-                    prospectTitle = ffLeads[lid].title || ffLeads[lid].titre || '';
-                    break;
-                  }
-                }
-              }
-              if (!prospectTitle && leadEnrichStorageRouter) {
-                const leData = leadEnrichStorageRouter.data || {};
-                const enriched = leData.enrichedContacts || [];
-                const found = enriched.find(c => c.email === email.to);
-                if (found) prospectTitle = found.title || found.titre || '';
-              }
-            } catch (titleErr) {}
-            const contact = _enrichContactWithOrg(email.to, email.contactName || '', email.company || '', prospectTitle);
-            Promise.race([
-              researcher.researchProspect(contact),
-              new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout 30s')), 30000))
-            ]).then(intel => {
-              // Notification silencieuse — le hot lead alert notifiera si 3+ ouvertures
-              log.info('tracking', 'Email ouvert (1ere fois) par ' + email.to + ' — intel cache, notification silencieuse');
-              // Cache l'intel pour usage ultérieur (reactive FU, hot lead alert)
-              if (intel && intel.brief) {
-                try {
-                  proactiveAgentStorage.data._cachedIntel = proactiveAgentStorage.data._cachedIntel || {};
-                  proactiveAgentStorage.data._cachedIntel[email.to] = { brief: intel.brief.substring(0, 3500), cachedAt: new Date().toISOString() };
-                  var cKeys = Object.keys(proactiveAgentStorage.data._cachedIntel);
-                  if (cKeys.length > 100) { for (var ck = 0; ck < cKeys.length - 100; ck++) delete proactiveAgentStorage.data._cachedIntel[cKeys[ck]]; }
-                  proactiveAgentStorage._save();
-                } catch (cacheErr2) {}
-              }
-            }).catch(() => {
-              log.info('tracking', 'Email ouvert (1ere fois) par ' + email.to + ' — research timeout, pas de cache');
-            });
-          } catch (e) {
-            log.info('tracking', 'Email ouvert (1ere fois) par ' + email.to + ' — researcher non dispo');
-          }
-        } else {
-          log.info('tracking', 'Email ouvert (1ere fois) par ' + email.to + ' — ProspectResearcher non charge');
-        }
-      } else {
-        // 2ème+ ouverture pixel → signal d'intérêt fort → programmer reactive FU
-        log.info('tracking', 'Rouverture pixel detectee pour ' + email.to + ' — programmation reactive FU');
-        var pixelCachedIntel = '';
-        try {
-          var pCache = (proactiveAgentStorage.data._cachedIntel || {})[email.to];
-          if (pCache && pCache.brief) pixelCachedIntel = pCache.brief;
-        } catch (pce) {}
-        try {
-          var rfConfig3 = proactiveAgentStorage.getReactiveFollowUpConfig();
-          if (rfConfig3.enabled) {
-            // Guard 1 : blacklist automailer (human takeover, bounce, decline)
-            if (automailerStorage.isBlacklisted(email.to)) {
-              log.info('tracking', 'Skip reactive FU (reouvre pixel) pour ' + email.to + ' — blackliste');
-            }
-            // Guard 2 : ne PAS programmer de FU si le prospect a deja repondu (human takeover)
-            else if ((function() {
-              var pixelEvents = automailerStorage.getEmailEventsForRecipient(email.to);
-              return pixelEvents.some(function(e) { return e.status === 'replied' || e.hasReplied; });
-            })()) {
-              log.info('tracking', 'Skip reactive FU (reouvre pixel) pour ' + email.to + ' — deja repondu (human takeover)');
-            } else {
-              var delayMs3 = (rfConfig3.minDelayMinutes + Math.random() * (rfConfig3.maxDelayMinutes - rfConfig3.minDelayMinutes)) * 60 * 1000;
-              var scheduledAfter3 = new Date(Date.now() + delayMs3).toISOString();
-              var addedFU3 = proactiveAgentStorage.addPendingFollowUp({
-                prospectEmail: email.to,
-                prospectName: email.contactName || '',
-                prospectCompany: email.company || '',
-                originalEmailId: email.id,
-                originalSubject: email.subject || '',
-                originalBody: (email.body || '').substring(0, 500),
-                prospectIntel: pixelCachedIntel,
-                scheduledAfter: scheduledAfter3
-              });
-              if (addedFU3) {
-                log.info('tracking', 'Reactive FU programme (reouvre pixel) pour ' + email.to + ' — id: ' + addedFU3.id + ' — notification a l\'envoi');
-              } else {
-                log.info('tracking', 'Reactive FU deja programme pour ' + email.to + ' (dedup)');
-              }
-            }
-          }
-        } catch (rfErr3) {}
-      }
-      // Tracker l'ouverture dans Proactive Agent (hot lead detection — toujours, 1ère ou pas)
-      try {
-        const tracked = proactiveAgentStorage.trackEmailOpen(email.to, email.trackingId || trackingId);
-        const paConfig = proactiveAgentStorage.getConfig();
-        if (tracked.opens >= (paConfig.thresholds || {}).hotLeadOpens && !proactiveAgentStorage.isHotLeadNotified(email.to)) {
-          // Notification via smart alerts proactive (plus riche, avec infos lead) — pas de doublon ici
-          log.info('tracking', 'Hot lead detecte via pixel: ' + email.to + ' (' + tracked.opens + ' opens) — notification via smart alerts');
-          proactiveAgentStorage.markHotLeadNotified(email.to);
-          }
-        } catch (paErr) { log.warn('tracking', 'Proactive tracking: ' + paErr.message); }
-        // Sync CRM + avancement deal automatique (async, non-bloquant)
-        (async () => {
-          try {
-            const hubspot = _getHubSpotClient();
-            if (hubspot) {
-              const contact = await hubspot.findContactByEmail(email.to);
-              if (contact && contact.id) {
-                const noteBody = 'Email "' + (email.subject || '') + '" — Ouvert (pixel tracking)\nDate : ' + new Date().toLocaleDateString('fr-FR');
-                const note = await hubspot.createNote(noteBody);
-                if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
-                // Avancer le deal a "qualifiedtobuy" sur ouverture email
-                const advanced = await hubspot.advanceDealStage(contact.id, 'qualifiedtobuy', 'email_opened');
-                if (advanced > 0) log.info('tracking', 'Deal avance a qualifiedtobuy pour ' + email.to + ' (email ouvert)');
-              }
-            }
-          } catch (crmErr) { log.warn('tracking', 'CRM sync: ' + crmErr.message); }
-        })();
-    } catch (trackErr) {
-      log.warn('tracking', 'Erreur tracking pixel: ' + trackErr.message);
-    }
-    return;
-  }
+  // === PIXEL TRACKING (module extrait) ===
+  if (emailTracking.handlePixel(req, res)) return;
 
-  // === UNSUBSCRIBE ENDPOINT ===
-  if (req.url && req.url.startsWith('/unsubscribe')) {
-    const urlObj = new URL(req.url, 'http://localhost');
-    const email = decodeURIComponent(urlObj.searchParams.get('email') || '').trim().toLowerCase();
-
-    if (req.method === 'GET') {
-      // Page de confirmation de desabonnement
-      const pageHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Se desabonner</title>' +
-        '<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}' +
-        '.card{background:#fff;border-radius:12px;padding:40px;max-width:420px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,0.08)}' +
-        'h1{font-size:20px;color:#222;margin-bottom:12px}p{color:#666;font-size:15px;line-height:1.5}' +
-        'button{background:#dc3545;color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:15px;cursor:pointer;margin-top:16px}' +
-        'button:hover{background:#c82333}.ok{color:#28a745;font-size:48px;margin-bottom:8px}</style></head>' +
-        '<body><div class="card">' +
-        (email ? '<h1>Se desabonner ?</h1><p>Vous ne recevrez plus d\'emails de notre part a l\'adresse :</p><p><strong>' + email.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</strong></p>' +
-          '<form method="POST" action="/unsubscribe"><input type="hidden" name="email" value="' + email.replace(/"/g, '&quot;') + '">' +
-          '<button type="submit">Confirmer le desabonnement</button></form>' :
-          '<h1>Lien invalide</h1><p>Aucune adresse email fournie.</p>') +
-        '</div></body></html>';
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(pageHtml);
-      return;
-    }
-
-    if (req.method === 'POST') {
-      let postBody = '';
-      req.on('data', chunk => { postBody += chunk; if (postBody.length > 10240) req.destroy(); });
-      req.on('end', () => {
-        // Extraire email depuis form data ou one-click RFC 8058
-        let unsubEmail = email;
-        if (!unsubEmail) {
-          const match = postBody.match(/email=([^&\s]+)/);
-          if (match) unsubEmail = decodeURIComponent(match[1]).trim().toLowerCase();
-        }
-
-        const confirmHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Desabonne</title>' +
-          '<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5}' +
-          '.card{background:#fff;border-radius:12px;padding:40px;max-width:420px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,0.08)}' +
-          'h1{font-size:20px;color:#222;margin-bottom:12px}p{color:#666;font-size:15px;line-height:1.5}.ok{color:#28a745;font-size:48px;margin-bottom:8px}</style></head>';
-
-        if (unsubEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(unsubEmail)) {
-          try {
-            const automailerStorage = require('../skills/automailer/storage.js');
-            automailerStorage.addToBlacklist(unsubEmail, 'unsubscribe_link');
-            // Stopper les follow-ups campagne en marquant hasReplied
-            try {
-              const allEmails = automailerStorage.getAllEmails();
-              for (const em of allEmails) {
-                if ((em.to || '').toLowerCase() === unsubEmail.toLowerCase() && !em.hasReplied) {
-                  automailerStorage.updateEmailStatus(em.id, em.status, { hasReplied: true, replyType: 'unsubscribed' });
-                }
-              }
-            } catch (ufErr) { /* non-bloquant */ }
-            log.info('unsubscribe', 'Desabonnement confirme (blacklist + follow-ups annules): ' + unsubEmail);
-            sendMessage(ADMIN_CHAT_ID, '🚫 *Desabonnement* via lien email : `' + unsubEmail + '`', 'Markdown').catch(() => {});
-          } catch (e) {
-            log.error('unsubscribe', 'Erreur blacklist: ' + e.message);
-          }
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(confirmHtml + '<body><div class="card"><div class="ok">&#10003;</div><h1>Desabonnement confirme</h1>' +
-            '<p>Vous ne recevrez plus d\'emails de notre part.</p></div></body></html>');
-        } else {
-          res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(confirmHtml + '<body><div class="card"><h1>Erreur</h1><p>Adresse email invalide.</p></div></body></html>');
-        }
-      });
-      return;
-    }
-  }
+  // === UNSUBSCRIBE ENDPOINT (module extrait) ===
+  if (handleUnsubscribe(req, res)) return;
 
   res.writeHead(404);
   res.end();
