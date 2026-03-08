@@ -737,10 +737,37 @@ class CampaignEngine {
       }
 
       // B1 FIX : Verifier AVANT le rate-limit si l'email est deja envoye ou rattachable
-      // (evite que le rate-limit bloque un step deja complete par l'AP)
       const contactEmails = campaignEmails.filter(e => e.to === contact.email);
       const existing = contactEmails.find(e => e.stepNumber === stepNumber && e.status !== 'failed');
       if (existing) continue;
+
+      // B3 FIX : Guard cross-campagne — 1 prospect = 1 campagne active max
+      // Si ce prospect a des steps pending dans une AUTRE campagne plus recente, skip ici
+      if (stepNumber > 1) {
+        const allCampaigns = storage.getAllCampaigns().filter(c => c.status === 'active' && c.id !== campaignId);
+        const contactLower = (contact.email || '').toLowerCase();
+        let newerCampaignExists = false;
+        for (const otherCamp of allCampaigns) {
+          const otherList = storage.getContactList(otherCamp.contactListId);
+          if (!otherList || !otherList.contacts) continue;
+          const inOther = otherList.contacts.some(c => (c.email || '').toLowerCase() === contactLower);
+          if (inOther) {
+            // Verifier si l'autre campagne est plus recente (createdAt)
+            const thisCamp = storage.getCampaign(campaignId);
+            const thisCreated = thisCamp && thisCamp.createdAt ? new Date(thisCamp.createdAt).getTime() : 0;
+            const otherCreated = otherCamp.createdAt ? new Date(otherCamp.createdAt).getTime() : 0;
+            if (otherCreated > thisCreated) {
+              newerCampaignExists = true;
+              log.info('campaign-engine', 'B3 cross-dedup: ' + contact.email + ' a une campagne plus recente (' + otherCamp.name + ') — skip step ' + stepNumber + ' de ' + campaign.name);
+              break;
+            }
+          }
+        }
+        if (newerCampaignExists) {
+          skipped++;
+          continue;
+        }
+      }
 
       // Rattacher un email orphelin existant au lieu de re-envoyer (step 1 uniquement)
       if (stepNumber === 1) {
@@ -1542,6 +1569,8 @@ class CampaignEngine {
     this._repairForceCompletedSteps();
     // B2 FIX: reparer les campagnes phantom (step 1 pending sans templates)
     this._repairPhantomCampaigns();
+    // B3 FIX: dedupliquer les prospects dans plusieurs campagnes actives
+    this._deduplicateCrossCampaigns();
     // Auto-repair: calculer scheduledAt pour les steps qui en manquent (legacy auto-campaigns)
     this._repairMissingScheduledAt();
     log.info('campaign-engine', 'Scheduler demarre (intervalle: 60s)');
@@ -1646,6 +1675,62 @@ class CampaignEngine {
 
     if (repaired > 0 || cancelled > 0) {
       log.info('campaign-engine', 'Repair phantom: ' + repaired + ' repare(s), ' + cancelled + ' annule(s)');
+    }
+  }
+
+  // B3 FIX: dedupliquer les prospects qui sont dans plusieurs campagnes actives
+  // Garde la campagne la plus recente, annule les pending steps des anciennes
+  _deduplicateCrossCampaigns() {
+    const campaigns = storage.getAllCampaigns().filter(c => c.status === 'active');
+    const prospectCampaigns = {}; // email -> [{campaignId, createdAt}]
+    let deduped = 0;
+
+    for (const campaign of campaigns) {
+      const list = storage.getContactList(campaign.contactListId);
+      if (!list || !list.contacts) continue;
+      for (const contact of list.contacts) {
+        const email = (contact.email || '').toLowerCase();
+        if (!email) continue;
+        if (!prospectCampaigns[email]) prospectCampaigns[email] = [];
+        prospectCampaigns[email].push({
+          campaignId: campaign.id,
+          name: campaign.name,
+          createdAt: campaign.createdAt ? new Date(campaign.createdAt).getTime() : 0
+        });
+      }
+    }
+
+    // Pour chaque prospect dans 2+ campagnes, annuler les pending steps des plus anciennes
+    for (const email in prospectCampaigns) {
+      const entries = prospectCampaigns[email];
+      if (entries.length <= 1) continue;
+
+      // Trier par date de creation (plus recente en premier)
+      entries.sort(function(a, b) { return b.createdAt - a.createdAt; });
+      const keepCampaignId = entries[0].campaignId;
+
+      for (let i = 1; i < entries.length; i++) {
+        const oldCamp = storage.getCampaign(entries[i].campaignId);
+        if (!oldCamp || !oldCamp.steps) continue;
+        let modified = false;
+        for (const step of oldCamp.steps) {
+          if (step.status === 'pending') {
+            step.status = 'completed';
+            step._forceCompleted = true;
+            step._repairNote = 'B3 dedup: prospect ' + email + ' kept in ' + keepCampaignId;
+            modified = true;
+          }
+        }
+        if (modified) {
+          storage.updateCampaign(oldCamp.id, { steps: oldCamp.steps });
+          deduped++;
+          log.info('campaign-engine', 'B3 dedup: ' + email + ' — annule pending steps dans "' + entries[i].name + '" (garde "' + entries[0].name + '")');
+        }
+      }
+    }
+
+    if (deduped > 0) {
+      log.info('campaign-engine', 'B3 dedup: ' + deduped + ' campagne(s) nettoyee(s)');
     }
   }
 
