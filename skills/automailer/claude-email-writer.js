@@ -225,7 +225,16 @@ ${icpBlock}
 REGLE DE FER : si l'email n'a PAS de social proof ET de CTA valeur, il sera REJETE automatiquement. Ne genere JAMAIS d'email sans ces 2 elements.
 
 === ANTI-HALLUCINATION ===
-N'invente JAMAIS un fait. Si un chiffre ou evenement n'apparait PAS dans les donnees, ne le cite pas.
+N'invente JAMAIS un fait sur le PROSPECT. Si un chiffre ou evenement n'apparait PAS dans les donnees, ne le cite pas.
+ANNEE EN COURS : 2026. Ne cite JAMAIS "en 2024" ou "en 2023". Si tu cites une periode, dis "ces derniers mois" ou "recemment".
+
+=== SOCIAL PROOF : REGLES DE CREDIBILITE ===
+Tu peux inventer des case studies, mais RESPECTE ces regles absolues :
+1. COHERENCE SECTORIELLE : le social proof DOIT etre du MEME SECTEUR que le prospect. Pas de "fintech" pour une medtech, pas de "agence growth" pour un cabinet comptable.
+2. CHIFFRES REALISTES : max "4-8 contacts qualifies", "3-5 clients signes", "X% d'amelioration". Jamais "18 meetings le premier mois" (irrealiste et donc suspect).
+3. PROFIL SIMILAIRE : "une [type exact du prospect] de [taille similaire]". Ex : si le prospect est une ESN de 20 personnes, cite "une ESN d'une vingtaine de consultants".
+4. PAS DE NOM PROPRE INVENTE : utilise "un cabinet", "une agence", "un editeur" — jamais un faux nom.
+5. RESULTAT VERIFIABLE : le resultat doit etre POSSIBLE dans 2-3 mois, pas miraculeux.
 
 === HIERARCHIE DES DONNEES ===
 Utilise la meilleure dispo : profil public/interview > news recente > clients/projets detectes > stack/chiffres/employes > entreprise + poste (minimum, PAS un skip).
@@ -268,14 +277,19 @@ JSON valide uniquement, sans markdown, sans backticks.
 {"subject":"objet","body":"corps SANS signature"}
 OU {"skip": true, "reason": "explication"}`;
 
-    const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+    let firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+    // Anti-hallucination prenom : nettoyer les prenoms invalides
+    const invalidFirstNames = ['directeur', 'director', 'contact', 'info', 'admin', 'hello', 'commercial', 'support', 'manager', 'ceo', 'cto', 'cfo'];
+    if (!firstName || invalidFirstNames.includes(firstName.toLowerCase()) || contact.email.startsWith('contact@') || contact.email.startsWith('info@') || contact.email.startsWith('hello@')) {
+      firstName = '';
+    }
     const userMessage = `Ecris un email pour ce prospect. Utilise la MEILLEURE donnee disponible selon la hierarchie (profil public > news > clients > techno > chiffres).
 IMPORTANT : essaie TOUJOURS d'ecrire un email. Si tu as au moins un nom d'entreprise + un poste, tu peux ecrire sur l'activite de cette entreprise. Skip UNIQUEMENT si tu n'as AUCUNE info.
 RAPPEL CRITIQUE : l'email DOIT contenir un social proof (1 phrase "on fait/genere X pour des Y") ET un CTA valeur ("je te montre en 15 min"). Sans ces 2 elements, l'email sera rejete.
 RAPPEL : ZERO tiret long/cadratin dans le texte.
-
+${!firstName ? 'ATTENTION : le prenom du prospect est INCONNU. NE PAS inventer un prenom. Utilise le nom de l\'entreprise a la place dans le sujet et le body.' : ''}
 CONTACT :
-- Prenom : ${firstName}
+- Prenom : ${firstName || 'INCONNU (utiliser le nom d\'entreprise)'}
 - Nom complet : ${contact.name || ''}
 - Poste : ${contact.title || 'non precise'}
 - Entreprise : ${contact.company || 'non precisee'}
@@ -720,17 +734,26 @@ REGLES :
 ${meetingCTARule}
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients" dans l'email
 - Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise
-- PAS de signature (ajoutee automatiquement)${forbiddenWordsRule}${anglesRule}
+- PAS de signature (ajoutee automatiquement)
+- ANNEE EN COURS : 2026. Ne cite JAMAIS "en 2024" ou "en 2023".
+- COHERENCE : le social proof de chaque relance doit etre du MEME SECTEUR que le prospect. Chiffres realistes (4-8 contacts, 3-5 clients, jamais miraculeux).
+- CHAQUE relance doit etre coherente avec les precedentes (meme univers, nouvel argument).${forbiddenWordsRule}${anglesRule}
 
 JSON valide uniquement : [{"subject":"...","body":"..."},...]`;
 
+    let seqFirstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+    const seqInvalidNames = ['directeur', 'director', 'contact', 'info', 'admin', 'hello', 'commercial', 'support', 'manager', 'ceo', 'cto', 'cfo'];
+    if (!seqFirstName || seqInvalidNames.includes(seqFirstName.toLowerCase()) || contact.email.startsWith('contact@') || contact.email.startsWith('info@') || contact.email.startsWith('hello@')) {
+      seqFirstName = '';
+    }
     const userMessage = `Genere une sequence de ${totalEmails} emails pour :
 
 Nom : ${contact.name || ''}
-Prenom : ${contact.firstName || (contact.name || '').split(' ')[0]}
+Prenom : ${seqFirstName || 'INCONNU (utiliser le nom d\'entreprise)'}
 Poste : ${contact.title || 'non precise'}
 Entreprise : ${contact.company || 'non precisee'}
 Email : ${contact.email}
+${!seqFirstName ? '\nATTENTION : le prenom du prospect est INCONNU. NE PAS inventer un prenom. Utilise le nom de l\'entreprise.' : ''}
 ${options.prospectIntel ? '\nDONNEES PROSPECT :\n' + options.prospectIntel : ''}
 Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
 
@@ -1059,19 +1082,28 @@ ${socialProofInstruction}${bookingUrlBlock}
 - ${emailLengthHint}. ${isBreakup ? '2 LIGNES MAXIMUM.' : ''} Ecris comme tu PARLES.
 - La relance DOIT citer un fait SPECIFIQUE tire des DONNEES PROSPECT.
 - Le social proof DOIT etre DIFFERENT de celui du/des email(s) precedent(s).
+- COHERENCE SECTORIELLE OBLIGATOIRE : le social proof DOIT etre du MEME SECTEUR/TYPE que le prospect. Jamais de fintech pour une medtech, jamais d'agence pour un cabinet.
+- CHIFFRES REALISTES : max "4-8 contacts", "3-5 clients", "X% d'amelioration". Pas de chiffres miraculeux.
+- ANNEE EN COURS : 2026. Ne cite JAMAIS "en 2024" ou "en 2023". Dis "ces derniers mois" ou "recemment".
+- Le follow-up DOIT etre coherent avec l'email precedent (meme univers, meme angle general, nouvel argument).
 - Tutoiement par defaut. Vouvoiement si +500 employes ou grand groupe.
 - Sujet : 2-4 mots, minuscules, comme un texto, contient nom/entreprise, DIFFERENT des precedents
 - PAS de "re:", pas de "relance", pas de signature (ajoutee auto)${forbiddenWordsRule}
 
 JSON uniquement : {"subject":"...","body":"..."}`;
 
-    const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+    let firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+    // Anti-hallucination prenom
+    const invalidNames = ['directeur', 'director', 'contact', 'info', 'admin', 'hello', 'commercial', 'support', 'manager', 'ceo', 'cto', 'cfo'];
+    if (!firstName || invalidNames.includes(firstName.toLowerCase()) || contact.email.startsWith('contact@') || contact.email.startsWith('info@') || contact.email.startsWith('hello@')) {
+      firstName = '';
+    }
     const userMessage = `DONNEES PROSPECT (pour personnalisation PROFONDE) :
 ${prospectIntel || 'Aucune donnee supplementaire'}
 ${previousEmailsContext}
-
+${!firstName ? '\nATTENTION : le prenom du prospect est INCONNU. NE PAS inventer un prenom. Utilise le nom de l\'entreprise a la place.' : ''}
 CONTACT :
-- Prenom : ${firstName}
+- Prenom : ${firstName || 'INCONNU (utiliser le nom d\'entreprise)'}
 - Nom complet : ${contact.name || ''}
 - Poste : ${contact.title || 'non precise'}
 - Entreprise : ${contact.company || 'non precisee'}

@@ -297,10 +297,12 @@ class ResendClient {
     const dash = dashes[Math.floor(Math.random() * dashes.length)];
     const separators = [' \u2014 ', ' | ', ' \u2013 '];
     const sep = separators[Math.floor(Math.random() * separators.length)];
+    const clientTagline = process.env.CLIENT_TAGLINE || '';
     const signature = '<br><span style="color:#666;font-size:13px">'
       + dash + '<br>'
       + senderFullName + '<br>'
       + senderTitle + sep + clientDomain
+      + (clientTagline ? '<br><span style="font-size:12px;color:#888">' + clientTagline + '</span>' : '')
       + '</span>';
 
     // Click tracking : rewrite URLs in body to redirect through /c/{trackingId}

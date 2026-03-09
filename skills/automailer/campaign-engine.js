@@ -723,6 +723,27 @@ class CampaignEngine {
         continue;
       }
 
+      // GATE : Re-verifier Lead Enrich pour les follow-ups (evite d'envoyer des relances a des leads hors-cible)
+      if (stepNumber >= 2) {
+        try {
+          const leStorage = require('../lead-enrich/storage.js');
+          if (leStorage && leStorage.getEnrichedLead) {
+            const enrichedGate = leStorage.getEnrichedLead(contact.email);
+            if (enrichedGate && enrichedGate.aiClassification) {
+              const aiClass = enrichedGate.aiClassification;
+              const aiScore = aiClass.score != null ? aiClass.score : 10;
+              const aiIndustry = (aiClass.industry || '').toLowerCase();
+              if (aiScore <= 3 && aiIndustry === 'autre') {
+                log.warn('campaign-engine', 'GATE Lead Enrich BLOCK — ' + contact.email +
+                  ' hors-cible (score ' + aiScore + ', industrie ' + aiClass.industry + ') — skip follow-up');
+                skipped++;
+                continue;
+              }
+            }
+          }
+        } catch (leErr) { /* Lead Enrich indisponible — pas bloquant */ }
+      }
+
       // Filtre honeypot : exclure les adresses systeme/generiques qui ne repondront jamais
       const emailPrefix = (contact.email || '').split('@')[0].toLowerCase();
       // Vrais honeypots/system uniquement — info@, contact@, hello@ etc. sont de vrais emails B2B
@@ -1305,13 +1326,17 @@ class CampaignEngine {
       } catch (valErr) { /* AP storage indisponible — word count deja verifie ci-dessus */ }
 
       // Ajouter lien booking Google Calendar dans les relances (step 2+)
+      // UNIQUEMENT si le body ne contient PAS deja un lien calendar (evite le double lien)
       if (stepNumber >= 2) {
         try {
           const GoogleCalendarClient = require('../meeting-scheduler/google-calendar-client.js');
           const gcal = new GoogleCalendarClient();
           const bookingUrl = await gcal.getBookingLink(null, contact.email, firstName);
           if (bookingUrl) {
-            body += '\n\nSi ca te dit, voici mon lien pour caler un echange rapide : ' + bookingUrl;
+            const bookingDomain = (process.env.GOOGLE_BOOKING_URL || '').split('?')[0] || 'calendar.app.google';
+            if (!body.includes(bookingDomain) && !body.includes('calendar.app.google') && !body.includes('calendar.google.com')) {
+              body += '\n\n' + bookingUrl;
+            }
           }
         } catch (calErr) {
           // Google Calendar non dispo — pas bloquant, on envoie sans lien

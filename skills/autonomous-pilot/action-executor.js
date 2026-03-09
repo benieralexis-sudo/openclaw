@@ -897,6 +897,17 @@ Format JSON strict :
       }
     }
 
+    // === GATE 1.5 : Filtre taille entreprise — bloquer les tres grandes entreprises hors ICP ===
+    if (params.contact && params.contact.organization) {
+      const org = params.contact.organization;
+      const empCount = org.estimated_num_employees || org.employees || 0;
+      if (empCount > 500) {
+        log.warn('action-executor', 'GATE 1.5 BLOCK — Entreprise trop grande pour ' + params.to +
+          ' (' + (org.name || '') + ', ' + empCount + ' employes) — hors ICP');
+        return { success: false, error: 'Entreprise trop grande (' + empCount + ' employes, max 500)', gateBlocked: true };
+      }
+    }
+
     // === FIX : Recuperer organization Apollo + LinkedIn depuis FlowFast ===
     if (params._generateFirst && !(params.contact && params.contact.organization)) {
       try {
@@ -926,6 +937,17 @@ Format JSON strict :
         }
       } catch (orgErr) {
         log.info('action-executor', 'Recuperation org FlowFast skip: ' + orgErr.message);
+      }
+    }
+
+    // === GATE 1.5b : Re-verifier taille apres recuperation org FlowFast ===
+    if (params.contact && params.contact.organization) {
+      const orgCheck = params.contact.organization;
+      const empCheck = orgCheck.estimated_num_employees || orgCheck.employees || 0;
+      if (empCheck > 500) {
+        log.warn('action-executor', 'GATE 1.5b BLOCK — Entreprise trop grande pour ' + params.to +
+          ' (' + (orgCheck.name || '') + ', ' + empCheck + ' employes) — hors ICP');
+        return { success: false, error: 'Entreprise trop grande (' + empCheck + ' employes, max 500)', gateBlocked: true };
       }
     }
 
