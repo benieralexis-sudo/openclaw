@@ -783,7 +783,10 @@ class ProspectResearcher {
       city: organization.city || null,
       country: organization.country || null,
       linkedinUrl: organization.linkedin_url || null,
-      revenue: organization.annual_revenue_printed || null
+      revenue: organization.annual_revenue_printed || null,
+      lastFundingDate: organization.last_funding_date || organization.lastFundingDate || null,
+      lastFundingType: organization.last_funding_type || null,
+      lastFundingAmount: organization.total_funding_printed || organization.total_funding || null
     };
   }
 

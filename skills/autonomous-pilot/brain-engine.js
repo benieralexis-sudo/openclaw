@@ -2,6 +2,7 @@
 const { Cron } = require('croner');
 const storage = require('./storage.js');
 const ActionExecutor = require('./action-executor.js');
+const IntentMonitor = require('./intent-monitor.js');
 const diagnostic = require('./diagnostic.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const { withCronGuard, getWarmupDailyLimit } = require('../../gateway/utils.js');
@@ -51,6 +52,16 @@ class BrainEngine {
       campaignEngine: options.campaignEngine
     });
 
+    this.intentMonitor = new IntentMonitor({
+      apolloKey: options.apolloKey,
+      claudeKey: options.claudeKey,
+      openaiKey: options.openaiKey,
+      resendKey: options.resendKey,
+      senderEmail: options.senderEmail,
+      sendTelegram: options.sendTelegram,
+      campaignEngine: options.campaignEngine
+    });
+
     this.crons = [];
     this.running = false;
   }
@@ -68,7 +79,15 @@ class BrainEngine {
 
     // Daily briefing supprime — fusionne avec Proactive Morning Report a 8h (voir proactive-engine.js)
 
+    // Intent Monitor : scan toutes les 30 min pendant heures business (8h-19h, lun-ven)
+    // Detecte signaux d'intent en temps reel et declenche le pipeline immediat
+    this.crons.push(new Cron('*/30 8-18 * * 1-5', { timezone: tz }, withCronGuard('ap-intent-scan', async () => {
+      try { await this.intentMonitor.scan(); }
+      catch (e) { log.error('brain', 'Erreur intent scan:', e.message); }
+    })));
+
     // Mini-cycle leger : 10h, 12h, 15h, 17h, lun-ven uniquement
+    // Conserve pour : score boost signaux marche + email engagement + rattrapage objectifs
     this.crons.push(new Cron('0 10,12,15,17 * * 1-5', { timezone: tz }, withCronGuard('ap-mini-cycle', async () => {
       try { await this._lightCycle(); }
       catch (e) { log.error('brain', 'Erreur mini-cycle:', e.message); }
@@ -83,7 +102,7 @@ class BrainEngine {
     // B5 FIX : backfill industry sur les leads FlowFast existants
     this._backfillLeadIndustry();
 
-    log.info('brain', 'Cerveau autonome demarre (7 crons — 3 brain + 4 mini)');
+    log.info('brain', 'Cerveau autonome demarre (8 crons — 3 brain + 4 mini + 1 intent monitor 30min)');
   }
 
   stop() {
@@ -1348,24 +1367,54 @@ Analyse et reponds en JSON:
 
         if (eligible.length > 0) {
           prompt += '\nLEADS DISPONIBLES POUR ENVOI (emails REELS — utilise-les dans tes actions send_email):\n';
-          // Trier par intent score d'abord (a score egal, intent prime)
+
+          // Score composite deterministe : intent (45%) + quality (25%) + freshness (20%) + niche perf (10%)
+          // Remplace le tri arbitraire — reproductible, intent-first, zero cout
+          const nichePerf = {};
+          try {
+            const apNicheData = storage.getNichePerformance ? storage.getNichePerformance() : {};
+            for (const [slug, data] of Object.entries(apNicheData)) {
+              nichePerf[slug] = data.replyRate || 0;
+            }
+          } catch (e) {}
+          const maxNichePerf = Math.max(1, ...Object.values(nichePerf));
+
           eligible.sort((a, b) => {
             const intentA = intentMap[a.email.toLowerCase()]?.score || 0;
             const intentB = intentMap[b.email.toLowerCase()]?.score || 0;
-            const scoreA = (a.score || 0) + intentA * 0.3;
-            const scoreB = (b.score || 0) + intentB * 0.3;
-            return scoreB - scoreA;
+
+            // Freshness : source intent-monitor = +3, lead recent (< 48h) = +2, sinon 0
+            const freshnessA = a.source === 'intent-monitor' ? 3 : (a.addedAt && (Date.now() - new Date(a.addedAt).getTime()) < 48 * 3600000 ? 2 : 0);
+            const freshnessB = b.source === 'intent-monitor' ? 3 : (b.addedAt && (Date.now() - new Date(b.addedAt).getTime()) < 48 * 3600000 ? 2 : 0);
+
+            // Niche performance : historique reply rate normalise 0-10
+            const nicheA = a._nicheSlug ? (nichePerf[a._nicheSlug] || 0) / maxNichePerf * 10 : 5;
+            const nicheB = b._nicheSlug ? (nichePerf[b._nicheSlug] || 0) / maxNichePerf * 10 : 5;
+
+            // Score composite : intent (45%) + quality (25%) + freshness (20%) + niche (10%)
+            const compositeA = intentA * 0.45 + (a.score || 0) * 0.25 + freshnessA * 0.20 + nicheA * 0.10;
+            const compositeB = intentB * 0.45 + (b.score || 0) * 0.25 + freshnessB * 0.20 + nicheB * 0.10;
+            return compositeB - compositeA;
           });
+
           for (const l of eligible) {
             const intent = intentMap[l.email.toLowerCase()];
-            let line = '- ' + l.email + ' | ' + (l.nom || '?') + ' | ' + (l.titre || '?') + ' @ ' + (l.entreprise || '?') + ' | score: ' + (l.score || '?');
+            const intentA = intent?.score || 0;
+            const freshnessA = l.source === 'intent-monitor' ? 3 : (l.addedAt && (Date.now() - new Date(l.addedAt).getTime()) < 48 * 3600000 ? 2 : 0);
+            const nicheA = l._nicheSlug ? (nichePerf[l._nicheSlug] || 0) / maxNichePerf * 10 : 5;
+            const composite = Math.round((intentA * 0.45 + (l.score || 0) * 0.25 + freshnessA * 0.20 + nicheA * 0.10) * 10) / 10;
+
+            let line = '- ' + l.email + ' | ' + (l.nom || '?') + ' | ' + (l.titre || '?') + ' @ ' + (l.entreprise || '?') + ' | PRIORITY: ' + composite;
             if (intent && intent.score >= 3) {
               line += ' | INTENT: ' + intent.score + '/10 (' + intent.summary + ')';
+            }
+            if (l.source === 'intent-monitor') {
+              line += ' | ⚡ SIGNAL FRAIS';
             }
             prompt += line + '\n';
           }
           prompt += '→ IMPORTANT: Utilise UNIQUEMENT les adresses email ci-dessus dans tes actions send_email. NE JAMAIS inventer de placeholders ou de variables {{...}}.\n';
-          prompt += '→ REGLE INTENT: A score egal, TOUJOURS prioriser les leads avec INTENT >= 4. Un lead score 6 + intent 7 vaut MIEUX qu\'un lead score 8 + intent 0. Les signaux d\'intent (recrutement, levee, croissance) indiquent un BESOIN ACTIF.\n';
+          prompt += '→ REGLE: Les leads sont tries par PRIORITY (score composite = intent 45% + quality 25% + fraicheur 20% + niche perf 10%). ENVOIE DANS CET ORDRE. Les leads marques "SIGNAL FRAIS" ont ete detectes par l\'Intent Monitor — ils sont PRIORITAIRES car le timing est crucial.\n';
           if (skipRate > 40) {
             prompt += '⚠️ ATTENTION: ' + skipRate + '% des send_email recents ont ete SKIPPED (donnees insuffisantes). Le pool de leads actuel manque de donnees exploitables. PRIORITE: fais 1-2 search_leads dans de NOUVELLES niches avant d\'envoyer plus d\'emails.\n';
           } else {
