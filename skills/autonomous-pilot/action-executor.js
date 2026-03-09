@@ -1482,7 +1482,7 @@ Format JSON strict :
             contactName: params.contactName || '',
             company: params.company || '',
             score: params.score || 0,
-            industry: params._industryForAngles || params.industry || '',
+            industry: params._industryForAngles || (params.contact && params.contact.industry) || params.industry || '',
             sentAt: new Date().toISOString()
           });
 
@@ -1635,13 +1635,16 @@ Format JSON strict :
             if (!alreadyInCampaign) {
               const listName = 'Auto-' + (params.company || params.to.split('@')[0]) + '-' + Date.now().toString(36);
               const list = amStorage.createContactList(adminChatId, listName);
+              const rawIndustry = params._industryForAngles || (params.contact && params.contact.industry) || (params.contact && params.contact.organization && params.contact.organization.industry) || params.industry || '';
+              const rawNiche = (params.contact && params.contact._nicheSlug) || params._nicheSlug || '';
               amStorage.addContactToList(list.id, {
                 email: params.to,
                 name: params.contactName || '',
                 firstName: (params.contactName || '').split(' ')[0],
                 company: params.company || '',
                 title: (params.contact && params.contact.titre) || '',
-                industry: params._industryForAngles || (params.contact && params.contact.organization && params.contact.organization.industry) || params.industry || ''
+                industry: rawIndustry,
+                niche: rawNiche
               });
               const campaign = await this.campaignEngine.createCampaign(adminChatId, {
                 name: 'Relance auto ' + (params.company || params.to),
