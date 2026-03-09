@@ -293,8 +293,27 @@ ${clientDescription ? 'WHAT ' + clientName.toUpperCase() + ' DOES: ' + clientDes
 `;
     }
 
+    // FIX 10 : Injecter les patterns gagnants (emails qui ont recu des reponses)
+    let winningPatternsBlock = '';
+    try {
+      const amStorageWin = require('./storage.js');
+      if (amStorageWin && amStorageWin.data && amStorageWin.data.emails) {
+        const repliedEmails = amStorageWin.data.emails
+          .filter(function(e) { return (e.status === 'replied' || e.hasReplied) && e.body && e.stepNumber <= 1; })
+          .slice(-5);
+        if (repliedEmails.length >= 2) {
+          winningPatternsBlock = '\n=== EMAILS QUI ONT OBTENU DES REPONSES (inspire-toi du style et du pattern) ===\n';
+          for (const re of repliedEmails) {
+            winningPatternsBlock += '--- Email gagnant (reply recu) ---\nObjet: ' + (re.subject || '') + '\nCorps: ' + (re.body || '').substring(0, 300) + '\n\n';
+          }
+          winningPatternsBlock += 'ANALYSE: Ces emails ont un point commun — identifie-le et reproduis-le. Fait concret + question business specifique = reponse.\n';
+        }
+      }
+    } catch (winErr) { /* non bloquant */ }
+
     const systemPrompt = `${languageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris a un pair, pas a un prospect. Comme un fondateur qui a remarque un truc concret et qui lance la conversation.
 ${icpBlock}
+${winningPatternsBlock}
 === INTERDITS ===
 JAMAIS : tirets cadratins/longs, "curieux d'avoir ton retour/avis", meta-prospection ("comment tu acquiers/generes des clients"), "beau move/impressionnant/sacre parcours/potentiellement/je me permets", "Ce type de.../Le vrai cap c'est...", pitch/prix/features/bullet points/gras, "cordonnier mal chausse/nerf de la guerre", paragraphe > 2 lignes, question sans value prop.
 
@@ -412,7 +431,7 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       const adjustedNote = Math.min(10, Math.max(1, score.note + preScore.adjust));
       const adjustedReason = preScore.adjust !== 0 ? score.reason + ' [prog:' + (preScore.adjust > 0 ? '+' : '') + preScore.adjust + ' ' + preScore.reason + ']' : score.reason;
       // Si pre-score confirme sp+cta (structure OK), seuil GPT plus bas (GPT sous-note systematiquement)
-      const passThreshold = preScore.reason.includes('sp+value_cta') ? 6 : 9;
+      const passThreshold = preScore.reason.includes('sp+value_cta') ? 7 : 9;
       if (adjustedNote >= passThreshold) return parsed;
       if (adjustedNote > bestScore) {
         best = parsed;
@@ -420,8 +439,8 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
         best._scoreReason = adjustedReason;
       }
     }
-    // Apres retries : envoyer si >= 7 (les gates programmatiques sp+cta compensent le GPT sous-scoreur)
-    if (bestScore >= 7) return best;
+    // Apres retries : envoyer si >= 8 (qualite premium — on prefere skip que envoyer un email moyen)
+    if (bestScore >= 8) return best;
     return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
   }
 
@@ -647,7 +666,7 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
         return { skip: true, reason: 'em_dash_overuse:' + emDashCount };
       }
       const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
-      if (score.note >= 6) return parsed;
+      if (score.note >= 7) return parsed;
       return { skip: true, reason: 'auto_score_too_low:' + score.note + '/10 (' + (score.reason || '?') + ')' };
     } catch (e) {
       const wc = (parsed.body || '').split(/\s+/).filter(w => w.length > 0).length;
@@ -1270,7 +1289,7 @@ Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base s
     // Score via GPT-4o-mini (adapte pour follow-ups)
     try {
       const score = await this._scoreFollowUpEmail(parsed.subject, parsed.body, contact);
-      if (score.note >= 7) return parsed;
+      if (score.note >= 8) return parsed;
       return { skip: true, reason: 'fu_score_low:' + score.note + '/10 (' + (score.reason || '?') + ')' };
     } catch (e) {
       // Scoring indisponible — accepter si les gates programmatiques passent

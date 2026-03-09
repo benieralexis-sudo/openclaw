@@ -45,9 +45,31 @@ class IntentMonitor {
     this.campaignEngine = options.campaignEngine || null;
 
     this._keywordGroupIndex = 0;   // rotation des keyword tags
-    this._lastScan = {};           // cooldown par email
+    this._lastScan = this._loadCooldowns(); // cooldown par email (persistant)
     this._scanHistory = [];        // historique des scans
     this._knownLeadEmails = null;  // cache des leads deja en base
+  }
+
+  // Charger les cooldowns depuis le storage persistant (survit aux restarts Docker)
+  _loadCooldowns() {
+    try {
+      const config = storage.getConfig();
+      return config._intentCooldowns || {};
+    } catch (e) {
+      log.warn('intent-monitor', 'Chargement cooldowns echoue: ' + e.message);
+      return {};
+    }
+  }
+
+  // Persister les cooldowns sur disque (cleanup entries > 7 jours)
+  _persistCooldowns() {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    for (const key of Object.keys(this._lastScan)) {
+      if (this._lastScan[key] < cutoff) delete this._lastScan[key];
+    }
+    try {
+      storage.updateConfig({ _intentCooldowns: this._lastScan });
+    } catch (e) { log.warn('intent-monitor', 'Cooldown persist echoue: ' + e.message); }
   }
 
   // --- Point d'entree principal : scan toutes les 30 min ---
@@ -462,11 +484,7 @@ class IntentMonitor {
 
   _setCooldown(emailLower) {
     this._lastScan[emailLower] = Date.now();
-    // Cleanup old entries (> 7 jours)
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    for (const [email, ts] of Object.entries(this._lastScan)) {
-      if (ts < cutoff) delete this._lastScan[email];
-    }
+    this._persistCooldowns(); // Sauvegarder sur disque (survit restart)
   }
 
   // --- Stats pour le dashboard ---

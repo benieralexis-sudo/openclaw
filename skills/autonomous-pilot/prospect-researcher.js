@@ -36,7 +36,6 @@ class ProspectResearcher {
   constructor(options) {
     this.claudeKey = options.claudeKey;
     this.openaiKey = options.openaiKey || process.env.OPENAI_API_KEY || null;
-    this.pappersToken = options.pappersToken || process.env.PAPPERS_API_TOKEN || null;
     this.braveKey = options.braveKey || process.env.BRAVE_SEARCH_API_KEY || null;
     this._fetcher = null;
     this._uaIndex = Math.floor(Math.random() * USER_AGENTS.length);
@@ -377,7 +376,7 @@ class ProspectResearcher {
     // Executer toutes les recherches en parallele (11 sources — Dropcontact enrichit les donnees personne)
     const linkedinUrl = contact.linkedin_url || contact.linkedin || contact.linkedinUrl || '';
     const contactName = contact.nom || contact.name || '';
-    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, pappersResult, jobPostingsResult, dropcontactResult] = await Promise.allSettled([
+    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, jobPostingsResult, dropcontactResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
       Promise.resolve(this._extractApolloOrgData(contact.organization)),
@@ -385,7 +384,6 @@ class ProspectResearcher {
       this._fetchLinkedInData(linkedinUrl, contactName, company),
       this._searchCompanyClients(company),
       this._searchPersonProfile(contactName, company),
-      this._fetchPappersData(company),
       this._searchJobPostings(company),
       this._fetchDropcontactData(contact)
     ]);
@@ -463,7 +461,6 @@ class ProspectResearcher {
       clientSearch: clientSearchResult.status === 'fulfilled' ? clientSearchResult.value : null,
       personProfile: personProfile,
       personFromWebsite: personFromWebsite,
-      pappersData: pappersResult.status === 'fulfilled' ? pappersResult.value : null,
       jobPostings: jobPostingsResult.status === 'fulfilled' ? jobPostingsResult.value : null,
       intentSignals: personProfile ? (personProfile.intentSignals || []) : [],
       sectorCompetitors: sectorCompetitors,
@@ -489,18 +486,6 @@ class ProspectResearcher {
       }
     }
 
-    // Croissance d'effectif (Apollo vs Pappers)
-    if (intel.apolloData && intel.pappersData) {
-      const apolloCount = intel.apolloData.employeeCount;
-      const pappersCount = typeof intel.pappersData.effectif === 'number' ? intel.pappersData.effectif : null;
-      if (apolloCount && pappersCount && apolloCount > pappersCount * 1.3) {
-        intel.intentSignals.push({
-          type: 'headcount_growth',
-          detail: 'Effectif en croissance: ' + pappersCount + ' (Pappers) → ' + apolloCount + ' (Apollo) — +' + Math.round((apolloCount / pappersCount - 1) * 100) + '%'
-        });
-      }
-    }
-
     // Signaux dans les news recentes
     if (intel.recentNews && intel.recentNews.length > 0) {
       const newsSignalPatterns = [
@@ -519,21 +504,6 @@ class ProspectResearcher {
             break; // un signal par news max
           }
         }
-      }
-    }
-
-    // Changement de direction recent (Pappers)
-    if (intel.pappersData && intel.pappersData.dirigeants) {
-      const recentDirs = intel.pappersData.dirigeants.filter(d => {
-        if (!d.dateDebut) return false;
-        const debut = new Date(d.dateDebut);
-        return (Date.now() - debut.getTime()) < 365 * 24 * 60 * 60 * 1000; // moins d'1 an
-      });
-      if (recentDirs.length > 0 && !intel.intentSignals.some(s => s.type === 'leadership_change')) {
-        intel.intentSignals.push({
-          type: 'leadership_change',
-          detail: 'Nouveau dirigeant: ' + recentDirs[0].nom + (recentDirs[0].fonction ? ' (' + recentDirs[0].fonction + ')' : '') + ' depuis ' + recentDirs[0].dateDebut
-        });
       }
     }
 
@@ -614,7 +584,6 @@ class ProspectResearcher {
       intel.clientSearch ? 'DDG clients' : null,
       intel.personProfile ? intel.personProfile.items.length + ' profil' : null,
       intel.personFromWebsite ? intel.personFromWebsite.mentions.length + ' mentions site' : null,
-      intel.pappersData ? 'Pappers' : null,
       intel.jobPostings ? intel.jobPostings.totalJobs + ' offres emploi' : null,
       intel.techStack ? 'tech stack' : null,
       intel.sectorCompetitors.length > 0 ? intel.sectorCompetitors.length + ' concurrents' : null
@@ -1425,11 +1394,7 @@ class ProspectResearcher {
     }
   }
 
-  /**
-   * Recupere les donnees legales et financieres via Pappers.fr API (gratuit 100 req/mois).
-   * Recherche par nom d'entreprise. Cache 30 jours (donnees legales = stables).
-   */
-  // Source 11 : Dropcontact — enrichissement donnees personne (poste, LinkedIn, telephone, SIREN)
+  // Source 10 : Dropcontact — enrichissement donnees personne (poste, LinkedIn, telephone, SIREN)
   // Gratuit en parallele si DROPCONTACT_API_KEY configure, sinon skip silencieux
   async _fetchDropcontactData(contact) {
     const apiKey = process.env.DROPCONTACT_API_KEY;
@@ -1452,84 +1417,6 @@ class ProspectResearcher {
       return null;
     } catch (e) {
       log.info('prospect-research', 'Dropcontact enrichment skip: ' + e.message);
-      return null;
-    }
-  }
-
-  async _fetchPappersData(companyName) {
-    if (!companyName || !this.pappersToken) return null;
-
-    // Nettoyer le nom d'entreprise pour la recherche Pappers
-    // "BlueMarketing : Agence marketing digital 360°" → "BlueMarketing"
-    let cleanName = companyName
-      .replace(/\s*[-:–—|]\s*.{15,}$/g, '') // Supprimer les descriptions longues après : - | —
-      .replace(/\b(SAS|SARL|SA|EURL|SCI|SASU|GmbH|Ltd|LLC|Inc)\b/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (cleanName.length < 2) cleanName = companyName;
-
-    // Cache 30 jours
-    const cacheKey = 'pappers_' + cleanName.toLowerCase().trim();
-    const apStorage = getAPStorage();
-    if (apStorage && apStorage.getProspectResearch) {
-      try {
-        const cached = apStorage.getProspectResearch(cacheKey);
-        if (cached && cached.pappersData && cached.cachedAt) {
-          const age = Date.now() - new Date(cached.cachedAt).getTime();
-          if (age < 30 * 24 * 60 * 60 * 1000) {
-            log.info('prospect-research', 'Pappers cache hit pour ' + companyName);
-            return cached.pappersData;
-          }
-        }
-      } catch (e) { log.warn('prospect-research', 'Pappers cache lookup echoue: ' + e.message); }
-    }
-
-    const fetcher = this._getFetcher();
-    if (!fetcher) return null;
-
-    try {
-      const searchUrl = 'https://api.pappers.fr/v2/recherche?api_token=' + this.pappersToken +
-        '&q=' + encodeURIComponent(cleanName) + '&par_page=3&statut=A';
-
-      const result = await fetcher.fetchUrl(searchUrl);
-      if (!result || result.statusCode !== 200 || !result.body) return null;
-
-      let data;
-      try { data = JSON.parse(result.body); } catch (e) { return null; }
-
-      if (!data.resultats || data.resultats.length === 0) return null;
-
-      const best = data.resultats[0];
-      const pappersData = {
-        siren: best.siren || null,
-        nom: best.nom_entreprise || best.denomination || companyName,
-        formeJuridique: best.forme_juridique || null,
-        dateCreation: best.date_creation || null,
-        effectif: best.effectifs || best.tranche_effectif || null,
-        chiffreAffaires: best.chiffre_affaires || null,
-        resultatNet: best.resultat || null,
-        codeNAF: best.code_naf || null,
-        activite: best.objet_social || best.libelle_code_naf || null,
-        dirigeants: (best.representants || []).slice(0, 5).map(d => ({
-          nom: ((d.prenom || '') + ' ' + (d.nom || '')).trim(),
-          fonction: d.qualite || d.fonction || null
-        })),
-        siege: best.siege ? {
-          ville: best.siege.ville || null,
-          codePostal: best.siege.code_postal || null
-        } : null,
-        capital: best.capital || null
-      };
-
-      // Sauvegarder dans le cache (30 jours)
-      if (apStorage && apStorage.saveProspectResearch) {
-        try { apStorage.saveProspectResearch(cacheKey, { pappersData, cachedAt: new Date().toISOString() }); } catch (e) { log.warn('prospect-research', 'Pappers cache save echoue: ' + e.message); }
-      }
-
-      log.info('prospect-research', 'Pappers OK pour ' + companyName + ': SIREN ' + (pappersData.siren || '?') + ', ' + (pappersData.effectif || '?') + ' salaries');
-      return pappersData;
-    } catch (e) {
-      log.info('prospect-research', 'Pappers echoue pour ' + companyName + ': ' + e.message);
       return null;
     }
   }
@@ -1730,18 +1617,6 @@ class ProspectResearcher {
       if (intel.apolloData.city) meta.push(intel.apolloData.city);
       if (intel.apolloData.revenue) meta.push('CA: ' + intel.apolloData.revenue);
     }
-    // Merger Pappers si Apollo manque des infos
-    if (intel.pappersData) {
-      if (!intel.apolloData || !intel.apolloData.employeeCount) {
-        if (intel.pappersData.effectif) meta.push(intel.pappersData.effectif + (typeof intel.pappersData.effectif === 'number' ? ' salaries' : ''));
-      }
-      if (!intel.apolloData || !intel.apolloData.foundedYear) {
-        if (intel.pappersData.dateCreation) meta.push('fondee ' + intel.pappersData.dateCreation);
-      }
-      if (!intel.apolloData || !intel.apolloData.city) {
-        if (intel.pappersData.siege && intel.pappersData.siege.ville) meta.push(intel.pappersData.siege.ville);
-      }
-    }
     if (meta.length > 0) companyLine += ' (' + meta.join(', ') + ')';
     lines.push(companyLine);
 
@@ -1767,23 +1642,6 @@ class ProspectResearcher {
       if (dcOrg.website && !intel.apolloData) dcParts.push('Site: ' + dcOrg.website);
       if (dcOrg.industry && (!intel.apolloData || !intel.apolloData.industry)) dcParts.push('Secteur: ' + dcOrg.industry);
       if (dcParts.length > 0) lines.push('DROPCONTACT: ' + dcParts.join(', '));
-    }
-
-    // PRIORITE 0 : Donnees legales verifiees (Pappers.fr)
-    if (intel.pappersData) {
-      const pp = intel.pappersData;
-      const legalParts = [];
-      if (pp.formeJuridique) legalParts.push(pp.formeJuridique);
-      if (pp.dateCreation) legalParts.push('creee le ' + pp.dateCreation);
-      if (pp.effectif) legalParts.push(pp.effectif + (typeof pp.effectif === 'number' ? ' salaries' : ''));
-      if (pp.chiffreAffaires) legalParts.push('CA: ' + (typeof pp.chiffreAffaires === 'number' ? (pp.chiffreAffaires / 1000000).toFixed(1) + 'M€' : pp.chiffreAffaires));
-      if (pp.siege && pp.siege.ville) legalParts.push(pp.siege.ville);
-      if (legalParts.length > 0) lines.push('DONNEES LEGALES (Pappers.fr): ' + legalParts.join(', '));
-      if (pp.activite) lines.push('ACTIVITE NAF: ' + pp.activite);
-      if (pp.dirigeants && pp.dirigeants.length > 0) {
-        const dirList = pp.dirigeants.slice(0, 3).map(d => d.nom + (d.fonction ? ' (' + d.fonction + ')' : '')).join(', ');
-        lines.push('DIRIGEANTS: ' + dirList);
-      }
     }
 
     // PRIORITE 1 : News recentes — meilleure source d'observations specifiques et temporelles

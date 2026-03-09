@@ -338,9 +338,13 @@ class AutoMailerStorage {
       sentAt: record.status === 'sent' ? new Date().toISOString() : null,
       deliveredAt: null,
       openedAt: null,
+      openCount: 0,
       abVariant: record.abVariant || null,
       senderDomain: record.senderDomain || null,
       industry: record.industry || '',
+      angleType: record.angleType || '',
+      niche: record.niche || '',
+      sendHourParis: record.sendHourParis || '',
       createdAt: new Date().toISOString()
     };
     this.data.emails.push(entry);

@@ -383,17 +383,11 @@ function _snapToPreferredSlot(date, timezone) {
   timezone = timezone || 'Europe/Paris';
   const siPrefs = _getSelfImproveTimingPrefs();
 
-  // Heure preferentielle (default 13 = 13h30-14h29 avec jitter)
-  const targetHour = (siPrefs.preferredSendHour >= 7 && siPrefs.preferredSendHour <= 20)
-    ? siPrefs.preferredSendHour : 13;
+  // 2 vagues optimales B2B : matin (8h-9h30) et apres-midi (14h30-16h)
+  // Spread temporel pour maximiser inbox placement + eviter pattern anti-spam
 
   // Jours preferentiels : tous les jours ouvrables Lun-Ven (1-5)
-  // Avant: Set([2,3,4]) excluait Lun+Ven = -40% volume
-  const preferredDays = new Set([1, 2, 3, 4, 5]); // Lun-Ven
-  if (siPrefs.preferredSendDay) {
-    const siDay = _DAY_MAP[(siPrefs.preferredSendDay || '').toLowerCase()];
-    if (siDay >= 1 && siDay <= 5) preferredDays.add(siDay); // Ajouter le jour recommande (jours ouvrables only)
-  }
+  const preferredDays = new Set([1, 2, 3, 4, 5]);
 
   const localStr = date.toLocaleString('en-US', { timeZone: timezone });
   const localDate = new Date(localStr);
@@ -411,9 +405,18 @@ function _snapToPreferredSlot(date, timezone) {
     date = new Date(date.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
   }
 
-  // Fixer l'heure avec jitter (+/- 30min autour de targetHour) dans la timezone du prospect
+  // Assignation aleatoire 50/50 entre les 2 vagues
+  const isMorningWave = Math.random() < 0.5;
+  let targetHour, jitterMinutes;
+  if (isMorningWave) {
+    targetHour = 8;
+    jitterMinutes = Math.floor(Math.random() * 90); // 8h00 - 9h30
+  } else {
+    targetHour = 14;
+    jitterMinutes = 30 + Math.floor(Math.random() * 90); // 14h30 - 16h00
+  }
+
   const offset = _getTimezoneOffsetMs(date, timezone);
-  const jitterMinutes = Math.floor(Math.random() * 60); // 0-59 min apres targetHour
   const localTarget = new Date(date);
   localTarget.setUTCHours(0, 0, 0, 0);
   localTarget.setTime(localTarget.getTime() + (targetHour * 60 + jitterMinutes) * 60 * 1000 - offset);
@@ -976,6 +979,7 @@ class CampaignEngine {
       let body = step.bodyTemplate;
       const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
       let currentProspectIntel = ''; // Pour A/B variant B context
+      let cachedAnalysisForTracking = null; // Pour FIX 9 tracking angle
 
       if (stepNumber > 1) {
         // === RELANCES : generation individuelle avec brief complet ===
@@ -1008,6 +1012,7 @@ class CampaignEngine {
                 }
                 cachedAnalysis = await this.claude.analyzeProspect(contact, prospectIntel, fuNiche);
               }
+              cachedAnalysisForTracking = cachedAnalysis; // FIX 9 : sauvegarder pour tracking
               if (cachedAnalysis && cachedAnalysis.topAngles && cachedAnalysis.topAngles.length > 0) {
                 enrichedIntel = '=== ANALYSE STRATEGIQUE ===\n' +
                   'MEILLEUR ANGLE: ' + cachedAnalysis.topAngles[0].angle + '\n' +
@@ -1021,11 +1026,37 @@ class CampaignEngine {
               log.warn('campaign-engine', 'Strategic analysis FU echoue (non bloquant): ' + saErr.message);
             }
 
+            // FIX 6 : Follow-ups conditionnels selon engagement (opened/not opened/hot)
+            const allContactEmails = this.storage.data.emails.filter(function(e) {
+              return e.to === contact.email && e.campaignId === campaignId;
+            });
+            const openedEmails = allContactEmails.filter(function(e) { return e.openedAt; });
+            const hotEmails = allContactEmails.filter(function(e) { return (e.openCount || 0) >= 3; });
+
+            let engagementHint = '';
+            if (hotEmails.length > 0) {
+              engagementHint = '\n\n=== CONTEXTE ENGAGEMENT : HOT LEAD ===\n' +
+                'Le prospect a ouvert tes emails ' + hotEmails[0].openCount + ' fois — c\'est un signal d\'interet FORT.\n' +
+                'Sois direct et propose une action concrete (call rapide, demo). Urgence subtile, pas de pression.\n' +
+                'Pose UNE question binaire facile a repondre (oui/non).\n';
+            } else if (openedEmails.length > 0) {
+              engagementHint = '\n\n=== CONTEXTE ENGAGEMENT : A OUVERT MAIS PAS REPONDU ===\n' +
+                'Le prospect a lu ton email mais n\'a pas repondu. Il est interesse mais pas convaincu.\n' +
+                'Change d\'angle : nouveau social proof, nouvelle question business, nouvel element specifique.\n' +
+                'Garde le meme sujet/thread pour rester dans la conversation.\n';
+            } else {
+              engagementHint = '\n\n=== CONTEXTE ENGAGEMENT : N\'A PAS OUVERT ===\n' +
+                'Le prospect n\'a PAS ouvert tes emails precedents. Le sujet ne l\'a pas accroche.\n' +
+                'IMPORTANT: Change COMPLETEMENT le sujet (nouveau thread, pas de Re:).\n' +
+                'Ecris plus court (25-40 mots MAX). Accroche completement differente.\n' +
+                'Essaie un angle personnel (mention directe de son poste/son entreprise dans le sujet).\n';
+            }
+
             const personalized = await this.claude.generatePersonalizedFollowUp(
               contact,
               stepNumber,
               campaign.steps.length,
-              enrichedIntel,
+              enrichedIntel + engagementHint,
               previousEmails,
               campaignContext
             );
@@ -1442,11 +1473,17 @@ class CampaignEngine {
         ]
       };
       if (stepNumber > 0) {
-        const prevMessageId = storage.getMessageIdForRecipient(contact.email);
-        if (prevMessageId) {
-          sendOpts.inReplyTo = prevMessageId;
-          sendOpts.references = prevMessageId;
+        // Si le prospect n'a jamais ouvert → nouveau thread (pas de Re:) pour changer le sujet
+        const recipientEmails = storage.data.emails.filter(function(e) { return e.to === contact.email && e.campaignId === campaignId; });
+        const hasOpened = recipientEmails.some(function(e) { return e.openedAt; });
+        if (hasOpened) {
+          const prevMessageId = storage.getMessageIdForRecipient(contact.email);
+          if (prevMessageId) {
+            sendOpts.inReplyTo = prevMessageId;
+            sendOpts.references = prevMessageId;
+          }
         }
+        // Si !hasOpened → pas de inReplyTo → nouveau thread avec nouveau sujet
       }
 
       const result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
@@ -1466,7 +1503,10 @@ class CampaignEngine {
         abVariant: abVariant,
         industry: contact.industry || '',
         company: contact.company || '',
-        contactName: contact.name || contact.firstName || ''
+        contactName: contact.name || contact.firstName || '',
+        angleType: (cachedAnalysisForTracking && cachedAnalysisForTracking.topAngles && cachedAnalysisForTracking.topAngles[0]) ? cachedAnalysisForTracking.topAngles[0].angle : '',
+        niche: contact.niche || contact.industry || '',
+        sendHourParis: new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false })
       };
       storage.addEmail(emailRecord);
 

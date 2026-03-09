@@ -941,6 +941,15 @@ Format JSON strict :
       }
     }
 
+    // === GATE DROPCONTACT : verifier qualification email si donnees disponibles ===
+    if (params._prospectIntel && params._prospectIntel.dropcontactData) {
+      const dcData = params._prospectIntel.dropcontactData;
+      if (dcData._dropcontact && dcData._dropcontact.emailQualification === 'unqualified') {
+        log.info('action-executor', params.to + ' email UNQUALIFIED (Dropcontact) — skip');
+        return { success: false, error: 'Email non qualifie (Dropcontact)', invalidEmail: true };
+      }
+    }
+
     // === GATE 1 : Validation Lead Enrich — bloquer leads hors-cible avant de depenser un appel Claude ===
     if (leStorageCheck) {
       const enrichedGate = leStorageCheck.getEnrichedLead(params.to);
