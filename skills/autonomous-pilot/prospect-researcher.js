@@ -374,10 +374,10 @@ class ProspectResearcher {
     // Extraire le domaine depuis l'email
     const domain = email ? email.split('@')[1] : null;
 
-    // Executer toutes les recherches en parallele (10 sources)
+    // Executer toutes les recherches en parallele (11 sources — Dropcontact enrichit les donnees personne)
     const linkedinUrl = contact.linkedin_url || contact.linkedin || contact.linkedinUrl || '';
     const contactName = contact.nom || contact.name || '';
-    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, pappersResult, jobPostingsResult] = await Promise.allSettled([
+    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, pappersResult, jobPostingsResult, dropcontactResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
       Promise.resolve(this._extractApolloOrgData(contact.organization)),
@@ -386,7 +386,8 @@ class ProspectResearcher {
       this._searchCompanyClients(company),
       this._searchPersonProfile(contactName, company),
       this._fetchPappersData(company),
-      this._searchJobPostings(company)
+      this._searchJobPostings(company),
+      this._fetchDropcontactData(contact)
     ]);
 
     // Chercher market signals Web Intelligence pour cette entreprise
@@ -466,6 +467,7 @@ class ProspectResearcher {
       jobPostings: jobPostingsResult.status === 'fulfilled' ? jobPostingsResult.value : null,
       intentSignals: personProfile ? (personProfile.intentSignals || []) : [],
       sectorCompetitors: sectorCompetitors,
+      dropcontactData: dropcontactResult.status === 'fulfilled' ? dropcontactResult.value : null,
       leadEnrichData: leadEnrichData,
       marketSignals: marketSignals,
       researchedAt: new Date().toISOString()
@@ -1427,6 +1429,33 @@ class ProspectResearcher {
    * Recupere les donnees legales et financieres via Pappers.fr API (gratuit 100 req/mois).
    * Recherche par nom d'entreprise. Cache 30 jours (donnees legales = stables).
    */
+  // Source 11 : Dropcontact — enrichissement donnees personne (poste, LinkedIn, telephone, SIREN)
+  // Gratuit en parallele si DROPCONTACT_API_KEY configure, sinon skip silencieux
+  async _fetchDropcontactData(contact) {
+    const apiKey = process.env.DROPCONTACT_API_KEY;
+    if (!apiKey) return null;
+
+    const firstName = (contact.nom || contact.name || '').split(' ')[0];
+    const lastName = (contact.nom || contact.name || '').split(' ').slice(1).join(' ');
+    const company = contact.entreprise || '';
+
+    if (!firstName || !company) return null;
+
+    try {
+      const DropcontactEnricher = require('../lead-enrich/dropcontact-enricher.js');
+      const dc = new DropcontactEnricher(apiKey);
+      const result = await dc.enrichByNameAndCompany(firstName, lastName, company);
+      if (result.success) {
+        log.info('prospect-research', 'Dropcontact enrichment OK pour ' + (contact.nom || '') + ' @ ' + company);
+        return result;
+      }
+      return null;
+    } catch (e) {
+      log.info('prospect-research', 'Dropcontact enrichment skip: ' + e.message);
+      return null;
+    }
+  }
+
   async _fetchPappersData(companyName) {
     if (!companyName || !this.pappersToken) return null;
 
@@ -1719,7 +1748,25 @@ class ProspectResearcher {
     if (contact.nom || contact.titre) {
       let contactLine = 'CONTACT: ' + (contact.nom || '');
       if (contact.titre) contactLine += ' — ' + contact.titre;
+      // Enrichir avec Dropcontact si disponible (poste verifie, LinkedIn, telephone)
+      if (intel.dropcontactData && intel.dropcontactData.person) {
+        const dcp = intel.dropcontactData.person;
+        if (dcp.title && dcp.title.length > 3 && !contactLine.includes(dcp.title)) contactLine += ' (' + dcp.title + ')';
+        if (dcp.linkedinUrl && !contact.linkedin_url) contactLine += ' | LinkedIn: ' + dcp.linkedinUrl;
+        if (dcp.phone) contactLine += ' | Tel: ' + dcp.phone;
+        if (dcp.city) contactLine += ' | ' + dcp.city;
+      }
       lines.push(contactLine);
+    }
+
+    // Donnees Dropcontact entreprise (SIREN, donnees complementaires)
+    if (intel.dropcontactData && intel.dropcontactData.organization) {
+      const dcOrg = intel.dropcontactData.organization;
+      const dcParts = [];
+      if (dcOrg.siren) dcParts.push('SIREN: ' + dcOrg.siren);
+      if (dcOrg.website && !intel.apolloData) dcParts.push('Site: ' + dcOrg.website);
+      if (dcOrg.industry && (!intel.apolloData || !intel.apolloData.industry)) dcParts.push('Secteur: ' + dcOrg.industry);
+      if (dcParts.length > 0) lines.push('DROPCONTACT: ' + dcParts.join(', '));
     }
 
     // PRIORITE 0 : Donnees legales verifiees (Pappers.fr)
