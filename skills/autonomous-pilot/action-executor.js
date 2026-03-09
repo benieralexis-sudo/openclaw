@@ -538,9 +538,9 @@ Format JSON strict :
           sa.topAngles.slice(1).map(a => a.angle + ' [' + (a.strength || '?') + '/10]').join(' | ');
       }
       context += '\n=== FIN ANALYSE ===';
-      // Ajouter aussi le brief brut en dessous pour les faits detailles
+      // Ajouter le brief brut condense (l'analyste a deja extrait le meilleur, max 4000 chars)
       if (params._prospectIntel) {
-        context += '\n\nDONNEES BRUTES (reference si besoin):\n' + params._prospectIntel;
+        context += '\n\nDONNEES BRUTES (reference si besoin):\n' + params._prospectIntel.substring(0, 4000);
       }
     } else if (params._prospectIntel) {
       context += '\n\n' + params._prospectIntel;
@@ -1041,6 +1041,19 @@ Format JSON strict :
         log.warn('action-executor', 'Recherche prospect echouee (non bloquant):', e.message);
       }
 
+      // === GATE MINIMUM DONNEES : bloquer si brief trop pauvre ===
+      if (!params._prospectIntel || params._prospectIntel.length < 200) {
+        const sourcesCount = (params._prospectIntel || '').split(/(?:SITE WEB|NEWS|APOLLO|PAPPERS|LINKEDIN|TECHNO|EMPLOI|SIGNAL|CLIENTS|DESCRIPTION|WEB INTELLIGENCE)/i).length - 1;
+        if (sourcesCount < 2) {
+          log.warn('action-executor', 'GATE DONNEES BLOCK — Brief trop pauvre pour ' + params.to +
+            ' (brief: ' + (params._prospectIntel || '').length + ' chars, sources: ' + sourcesCount + ') — data-poor queue');
+          if (params.contact && params.to) {
+            try { storage.addToDataPoorQueue(params.to, params.contact, 'brief trop pauvre (' + (params._prospectIntel || '').length + ' chars, ' + sourcesCount + ' sources)'); } catch (e) {}
+          }
+          return { success: false, error: 'Donnees insuffisantes pour email de qualite (brief: ' + (params._prospectIntel || '').length + ' chars)', skipped: true };
+        }
+      }
+
       // === STRATEGIC ANALYST : analyse structuree avant redaction ===
       if (params._prospectIntel && params._prospectIntel.length >= 100) {
         try {
@@ -1067,7 +1080,28 @@ Format JSON strict :
               company: (params.contact && (params.contact.entreprise || params.contact.company)) || params.company || '',
               email: params.to || ''
             };
-            const analysis = await analystWriter.analyzeProspect(contactForAnalyst, params._prospectIntel, analystNiche);
+            // Verifier si une analyse est deja en cache (evite de re-analyser pour chaque step)
+            let analysis = null;
+            try {
+              const cachedResearch = storage.getProspectResearch ? storage.getProspectResearch(params.to) : null;
+              if (cachedResearch && cachedResearch.strategicAnalysis && cachedResearch.strategicAnalysis.topAngles) {
+                analysis = cachedResearch.strategicAnalysis;
+                log.info('action-executor', 'Strategic analysis CACHE HIT pour ' + params.to);
+              }
+            } catch (cacheErr) {}
+            if (!analysis) {
+              analysis = await analystWriter.analyzeProspect(contactForAnalyst, params._prospectIntel, analystNiche);
+              // Sauvegarder en cache pour les follow-ups
+              if (analysis && analysis.topAngles && analysis.topAngles.length > 0) {
+                try {
+                  const cachedResearch = storage.getProspectResearch ? storage.getProspectResearch(params.to) : null;
+                  if (cachedResearch) {
+                    cachedResearch.strategicAnalysis = analysis;
+                    storage.saveProspectResearch(params.to, cachedResearch);
+                  }
+                } catch (cacheErr) {}
+              }
+            }
             if (analysis && analysis.topAngles && analysis.topAngles.length > 0) {
               params._strategicAnalysis = analysis;
               log.info('action-executor', 'Strategic analysis OK pour ' + params.to +
@@ -1144,6 +1178,48 @@ Format JSON strict :
           }
         } else {
           log.info('action-executor', 'Quality gate OK pour ' + params.to + ': ' + specificity.facts.join(', '));
+        }
+      }
+
+      // === GATE ANTI-HALLUCINATION : verifier que les faits cites existent dans le brief ===
+      if (params.body && params._prospectIntel) {
+        const bodyLower = params.body.toLowerCase();
+        const briefLower = params._prospectIntel.toLowerCase();
+        // Extraire les chiffres specifiques de l'email (pas les generiques comme "15 min")
+        const emailNumbers = bodyLower.match(/\b(\d{2,})\s*(?:personnes|employes|collaborateurs|postes|bureaux|clients|projets|agences|millions?|m€|k€|%)\b/g) || [];
+        let hallucinationDetected = false;
+        for (const numPhrase of emailNumbers) {
+          // Verifier que le chiffre exact existe quelque part dans le brief
+          const numMatch = numPhrase.match(/\d+/);
+          if (numMatch && numMatch[0].length >= 2) {
+            const num = numMatch[0];
+            if (!briefLower.includes(num)) {
+              log.warn('action-executor', 'GATE ANTI-HALLUCINATION WARN — Chiffre "' + numPhrase.trim() + '" absent du brief pour ' + params.to);
+              hallucinationDetected = true;
+            }
+          }
+        }
+        // Verifier les noms propres : si l'email cite un nom d'entreprise qui n'est pas dans le brief
+        const companyName = (params.contact && (params.contact.company || params.contact.entreprise) || '').toLowerCase();
+        const emailProperNouns = params.body.match(/(?:chez|de|pour)\s+([A-Z][a-zA-ZÀ-ÿ]{2,}(?:\s+[A-Z][a-zA-ZÀ-ÿ]+)*)/g) || [];
+        for (const match of emailProperNouns) {
+          const noun = match.replace(/^(?:chez|de|pour)\s+/i, '').toLowerCase();
+          if (noun !== companyName && noun.length > 3 && !briefLower.includes(noun) && !['ifind', 'france', 'paris', 'google', 'linkedin'].includes(noun)) {
+            log.warn('action-executor', 'GATE ANTI-HALLUCINATION WARN — Nom propre "' + noun + '" absent du brief pour ' + params.to);
+            hallucinationDetected = true;
+          }
+        }
+        if (hallucinationDetected) {
+          log.warn('action-executor', 'GATE ANTI-HALLUCINATION — Faits potentiellement inventes detectes pour ' + params.to + ' — regeneration');
+          params._prospectIntel += '\n\n=== ANTI-HALLUCINATION ===\nL\'email precedent contenait des FAITS INVENTES (chiffres ou noms absents des donnees). Reecris en utilisant UNIQUEMENT des faits presents dans les donnees ci-dessus. Si un chiffre n\'apparait pas dans les donnees, NE LE CITE PAS.';
+          params.subject = null;
+          params.body = null;
+          const antiHalResult = await this._generateEmail(params);
+          if (antiHalResult.success && antiHalResult.email && !antiHalResult.email.skip) {
+            params.subject = antiHalResult.email.subject;
+            params.body = antiHalResult.email.body || antiHalResult.email.text || '';
+            log.info('action-executor', 'Anti-hallucination retry OK pour ' + params.to);
+          }
         }
       }
 

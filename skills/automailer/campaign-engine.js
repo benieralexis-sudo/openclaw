@@ -946,21 +946,33 @@ class CampaignEngine {
             const previousEmails = this._getPreviousEmails(campaignId, contact.email, stepNumber);
             const campaignContext = campaign.context || campaign.name || 'prospection B2B';
 
-            // Strategic Analyst pour les follow-ups aussi
+            // Strategic Analyst : charger depuis cache AP (analyse faite au step 1)
             let enrichedIntel = prospectIntel;
             try {
-              let fuNiche = null;
-              const icpLdr = require('../../gateway/icp-loader.js');
-              if (icpLdr && icpLdr.matchLeadToNiche) {
-                fuNiche = icpLdr.matchLeadToNiche({ entreprise: contact.company, titre: contact.title });
+              let cachedAnalysis = null;
+              try {
+                const apStorage = require('../autonomous-pilot/storage.js');
+                const cachedResearch = apStorage.getProspectResearch ? apStorage.getProspectResearch(contact.email) : null;
+                if (cachedResearch && cachedResearch.strategicAnalysis) {
+                  cachedAnalysis = cachedResearch.strategicAnalysis;
+                  log.info('campaign-engine', 'Strategic analysis CACHE HIT pour FU ' + contact.email);
+                }
+              } catch (cErr) {}
+              // Fallback : generer si pas en cache
+              if (!cachedAnalysis) {
+                let fuNiche = null;
+                const icpLdr = require('../../gateway/icp-loader.js');
+                if (icpLdr && icpLdr.matchLeadToNiche) {
+                  fuNiche = icpLdr.matchLeadToNiche({ entreprise: contact.company, titre: contact.title });
+                }
+                cachedAnalysis = await this.claude.analyzeProspect(contact, prospectIntel, fuNiche);
               }
-              const analysis = await this.claude.analyzeProspect(contact, prospectIntel, fuNiche);
-              if (analysis && analysis.topAngles && analysis.topAngles.length > 0) {
+              if (cachedAnalysis && cachedAnalysis.topAngles && cachedAnalysis.topAngles.length > 0) {
                 enrichedIntel = '=== ANALYSE STRATEGIQUE ===\n' +
-                  'MEILLEUR ANGLE: ' + analysis.topAngles[0].angle + '\n' +
-                  'FAIT CLE: ' + (analysis.topAngles[0].fact || analysis.bestFact || '') + '\n' +
-                  'SOCIAL PROOF: ' + (analysis.socialProof || '') + '\n' +
-                  'TON: ' + (analysis.recommendedTone || 'tutoiement') + '\n' +
+                  'MEILLEUR ANGLE: ' + cachedAnalysis.topAngles[0].angle + '\n' +
+                  'FAIT CLE: ' + (cachedAnalysis.topAngles[0].fact || cachedAnalysis.bestFact || '') + '\n' +
+                  'SOCIAL PROOF: ' + (cachedAnalysis.socialProof || '') + '\n' +
+                  'TON: ' + (cachedAnalysis.recommendedTone || 'tutoiement') + '\n' +
                   '=== FIN ANALYSE ===\n\n' + prospectIntel;
                 log.info('campaign-engine', 'Strategic analysis FU OK pour ' + contact.email);
               }
@@ -1347,9 +1359,9 @@ class CampaignEngine {
         }
       } catch (valErr) { /* AP storage indisponible — word count deja verifie ci-dessus */ }
 
-      // Ajouter lien booking Google Calendar dans les relances (step 2+)
-      // UNIQUEMENT si le body ne contient PAS deja un lien calendar (evite le double lien)
-      if (stepNumber >= 2) {
+      // Ajouter lien booking Google Calendar dans les relances (step 3+)
+      // Steps 1-2 = conversation pure, pas de lien. Step 3+ = CTA direct avec calendrier.
+      if (stepNumber >= 3) {
         try {
           const GoogleCalendarClient = require('../meeting-scheduler/google-calendar-client.js');
           const gcal = new GoogleCalendarClient();
