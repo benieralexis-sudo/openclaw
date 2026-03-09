@@ -1737,7 +1737,7 @@ Analyse et reponds en JSON:
     prompt += '5. update_search_criteria — Modifier les criteres de recherche (params: {titles?, locations?, industries?, seniorities?, companySize?, keywords?, limit?})\n';
     prompt += '6. update_goals — Modifier les objectifs (params: {leadsToFind?, emailsToSend?, responsesTarget?, rdvTarget?, minLeadScore?})\n';
     prompt += '7. record_learning — Enregistrer un apprentissage (params: {category: "bestSearchCriteria|bestEmailStyles|bestSendTimes", summary: "...", data: {}})\n';
-    prompt += '8. create_followup_sequence — Creer une sequence de 3 relances automatiques pour des leads deja contactes sans reponse (params: {contacts: [{email, nom, entreprise, titre}], totalSteps: 3, intervalDays: 4})\n';
+    prompt += '8. create_followup_sequence — Creer une sequence de 5 relances automatiques pour des leads deja contactes sans reponse (params: {contacts: [{email, nom, entreprise, titre}], totalSteps: 5, stepDays: [3, 7, 14, 21, 28]})\n';
 
     prompt += '\nMULTI-THREADING (contacts multiples par entreprise):\n';
     prompt += '- Tu peux contacter 2-3 decision-makers PAR entreprise avec des angles DIFFERENTS.\n';
@@ -2260,7 +2260,7 @@ Analyse et reponds en JSON:
           type: 'create_followup_sequence',
           params: {
             contacts: contacts,
-            totalSteps: 3,
+            totalSteps: 5,
             intervalDays: 4
           },
           autoExecute: true,

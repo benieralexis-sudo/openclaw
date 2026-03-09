@@ -1606,8 +1606,8 @@ Format JSON strict :
               try {
                 const apConfig = storage.getConfig();
                 const fuConfig = apConfig.followUpConfig || {};
-                const stepDays = fuConfig.sequenceStepDays || [3, 7, 14];
-                const totalSteps = fuConfig.sequenceTotalSteps || 3;
+                const stepDays = fuConfig.sequenceStepDays || [3, 7, 14, 21, 28];
+                const totalSteps = fuConfig.sequenceTotalSteps || 5;
                 const context = { company: params.company || '', industry: params.industry || '', contact: params.contactName || '' };
                 await this.campaignEngine.generateCampaignEmails(campaign.id, context, totalSteps, stepDays);
                 await this.campaignEngine.startCampaign(campaign.id);
@@ -1637,7 +1637,7 @@ Format JSON strict :
                 // Le repair phantom + le fallback dynamique des steps 2+ prendront le relais
                 log.warn('action-executor', 'Auto-campagne ' + campaign.id + ' generation echouee: ' + genErr.message + ' — creation steps minimaux');
                 try {
-                  const defaultStepDays = [3, 7, 14];
+                  const defaultStepDays = [3, 7, 14, 21, 28];
                   const minimalSteps = defaultStepDays.map(function(d, i) {
                     return { stepNumber: i + 2, delayDays: d, status: 'pending', sentAt: null, sentCount: 0, errorCount: 0 };
                   });
@@ -1842,8 +1842,8 @@ Format JSON strict :
     const apConfig = storage.getConfig();
     const adminChatId = apConfig.adminChatId || '1409505520';
     const fuConfig = apConfig.followUpConfig || {};
-    const totalSteps = params.totalSteps || fuConfig.sequenceTotalSteps || 4;
-    const stepDays = fuConfig.sequenceStepDays || [3, 7, 14];
+    const totalSteps = params.totalSteps || fuConfig.sequenceTotalSteps || 5;
+    const stepDays = fuConfig.sequenceStepDays || [3, 7, 14, 21, 28];
     // Legacy: si params.intervalDays est fourni, utiliser l'ancien mode (intervalles fixes)
     const intervalDays = params.intervalDays || null;
 
