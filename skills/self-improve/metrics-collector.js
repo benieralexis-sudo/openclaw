@@ -310,6 +310,7 @@ class MetricsCollector {
         email: email.to,
         score: lead.aiClassification.score || 0,
         industry: lead.aiClassification.industry || 'Inconnu',
+        companySize: lead.aiClassification.companySize || 'Inconnu',
         persona: lead.aiClassification.persona || 'Autre',
         opened: !!email.openedAt,
         bounced: email.status === 'bounced',
@@ -342,12 +343,21 @@ class MetricsCollector {
       if (item.opened) byPersona[item.persona].opened++;
     }
 
+    // Taux d'ouverture par taille d'entreprise
+    const byCompanySize = {};
+    for (const item of emailsWithScores) {
+      if (!byCompanySize[item.companySize]) byCompanySize[item.companySize] = { sent: 0, opened: 0 };
+      byCompanySize[item.companySize].sent++;
+      if (item.opened) byCompanySize[item.companySize].opened++;
+    }
+
     return {
       available: true,
       totalCrossed: emailsWithScores.length,
       byScoreRange: byScoreRange,
       byIndustry: byIndustry,
-      byPersona: byPersona
+      byPersona: byPersona,
+      byCompanySize: byCompanySize
     };
   }
 

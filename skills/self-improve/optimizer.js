@@ -279,7 +279,7 @@ class Optimizer {
 
       const result = this.applyRecommendation(reco);
       if (result.success) {
-        storage.markRecommendationApplied(id);
+        storage.markRecommendationApplied(id, { before: result.before, after: result.after });
       }
       results.push({ id: id, ...result });
     }

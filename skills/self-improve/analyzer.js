@@ -124,6 +124,13 @@ Reponds UNIQUEMENT en JSON strict :
         JSON.stringify(completedImpacts.map(t => ({ type: t.recoType, description: t.recoDescription, verdict: t.verdict, delta: t.delta })), null, 2)
       : '';
 
+    // Recos recemment appliquees (pour eviter de re-recommander la meme chose)
+    const recentApplied = storage.getAppliedRecommendations(10);
+    const recentAppliedContext = recentApplied.length > 0
+      ? '\n\nRECOMMANDATIONS DEJA APPLIQUEES (NE PAS RE-RECOMMANDER):\n' +
+        JSON.stringify(recentApplied.map(r => ({ type: r.type, action: r.action, description: r.description, appliedAt: r.appliedAt, params: r.params })), null, 2)
+      : '';
+
     // Performance par type
     const typePerf = storage.getTypePerformance();
     const typePerfContext = Object.keys(typePerf).length > 0
@@ -183,6 +190,7 @@ Reponds UNIQUEMENT en JSON strict :
       historyContext +
       overrideContext +
       impactContext +
+      recentAppliedContext +
       typePerfContext +
       funnelContext +
       brainContext +
@@ -399,6 +407,7 @@ Reponds UNIQUEMENT en JSON strict :
 
     const insights = [];
     const recommendations = [];
+    const currentPrefs = storage.getEmailPreferences() || {};
 
     // --- Analyse longueur des emails ---
     const shortEmails = sentEmails.filter(e => (e.body || '').split(/\s+/).length < 100);
@@ -413,13 +422,16 @@ Reponds UNIQUEMENT en JSON strict :
       if (shortOpenRate > longOpenRate + 10) {
         const diff = shortOpenRate - longOpenRate;
         insights.push('Les emails courts (< 100 mots) ont ' + diff + '% plus d\'ouvertures que les longs (' + shortOpenRate + '% vs ' + longOpenRate + '%)');
-        recommendations.push({
-          type: 'email_length',
-          description: 'Privilegier les emails courts (< 100 mots) — ' + diff + '% de meilleures ouvertures',
-          action: 'prefer_short_emails',
-          params: { maxWords: 100 },
-          confidence: Math.min(0.9, 0.5 + (shortEmails.length + longEmails.length) / 100)
-        });
+        // Ne recommander que si la config actuelle n'est pas deja "short"
+        if (currentPrefs.maxLength !== 'short') {
+          recommendations.push({
+            type: 'email_length',
+            description: 'Privilegier les emails courts (< 100 mots) — ' + diff + '% de meilleures ouvertures (actuel: ' + (currentPrefs.maxLength || '?') + ')',
+            action: 'prefer_short_emails',
+            params: { maxWords: 100 },
+            confidence: Math.min(0.9, 0.5 + (shortEmails.length + longEmails.length) / 100)
+          });
+        }
       } else if (longOpenRate > shortOpenRate + 10) {
         insights.push('Les emails longs (100+ mots) performent mieux : ' + longOpenRate + '% vs ' + shortOpenRate + '% pour les courts');
       }
@@ -433,12 +445,12 @@ Reponds UNIQUEMENT en JSON strict :
       const questionRate = Math.round((questionSubjects.filter(e => !!e.openedAt).length / questionSubjects.length) * 100);
       const statementRate = Math.round((statementSubjects.filter(e => !!e.openedAt).length / statementSubjects.length) * 100);
 
-      if (questionRate > statementRate + 5) {
+      if (questionRate > statementRate + 5 && currentPrefs.subjectStyle !== 'question') {
         const diff = questionRate - statementRate;
         insights.push('Les sujets avec question ont ' + diff + '% plus d\'ouvertures (' + questionRate + '% vs ' + statementRate + '%)');
         recommendations.push({
           type: 'email_style',
-          description: 'Utiliser des questions dans les sujets d\'email — +' + diff + '% d\'ouvertures',
+          description: 'Utiliser des questions dans les sujets d\'email — +' + diff + '% d\'ouvertures (actuel: ' + (currentPrefs.subjectStyle || 'aucun') + ')',
           action: 'prefer_question_subjects',
           params: { subjectStyle: 'question' },
           confidence: Math.min(0.85, 0.5 + (questionSubjects.length + statementSubjects.length) / 100)
@@ -455,7 +467,6 @@ Reponds UNIQUEMENT en JSON strict :
       if (email.openedAt) byHour[hour].opened++;
     }
 
-    // Trouver la meilleure plage horaire
     let bestSlot = null;
     let bestSlotRate = 0;
     let worstSlot = null;
@@ -471,12 +482,13 @@ Reponds UNIQUEMENT en JSON strict :
       }
     }
 
-    if (bestSlot !== null && bestSlotRate > globalOpenRate + 10) {
+    // Ne recommander que si different de l'heure actuelle (tolerance +/- 1h)
+    if (bestSlot !== null && bestSlotRate > globalOpenRate + 10 && Math.abs((currentPrefs.preferredSendHour || 0) - bestSlot) > 1) {
       const multiplier = globalOpenRate > 0 ? (bestSlotRate / globalOpenRate).toFixed(1) : '?';
       insights.push('Les emails envoyes entre ' + bestSlot + 'h-' + (bestSlot + 1) + 'h performent ' + multiplier + 'x mieux (' + bestSlotRate + '% vs ' + globalOpenRate + '% global)');
       recommendations.push({
         type: 'send_timing',
-        description: 'Envoyer les emails vers ' + bestSlot + 'h — ' + bestSlotRate + '% open rate (vs ' + globalOpenRate + '% global)',
+        description: 'Envoyer les emails vers ' + bestSlot + 'h — ' + bestSlotRate + '% open rate (vs ' + globalOpenRate + '% global, actuel: ' + (currentPrefs.preferredSendHour || '?') + 'h)',
         action: 'set_preferred_hour',
         params: { hour: bestSlot },
         confidence: Math.min(0.85, 0.5 + (byHour[bestSlot].sent / 20))

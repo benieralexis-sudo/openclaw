@@ -639,7 +639,7 @@ Reponds UNIQUEMENT en JSON strict :
               source: 'email_performance_analysis'
             }));
           if (extraRecos.length > 0) {
-            storage.savePendingRecommendations([...existingPending, ...extraRecos]);
+            storage.savePendingRecommendations([...existingPending, ...extraRecos], true);
             log.info('self-improve', 'Email perf analysis: ' + extraRecos.length + ' recos ajoutees (dedup: ' + (emailPerfAnalysis.recommendations.length - extraRecos.length) + ' ignorees)');
           }
         }

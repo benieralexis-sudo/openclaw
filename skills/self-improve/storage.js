@@ -226,7 +226,7 @@ class SelfImproveStorage {
     return this.data.analysis.lastAnalysis;
   }
 
-  savePendingRecommendations(recos) {
+  savePendingRecommendations(recos, replace) {
     // Deduplication : ne pas ajouter une reco si le meme type+action a ete appliquee dans les 14 derniers jours
     const applied = this.data.analysis.appliedRecommendations || [];
     const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
@@ -243,14 +243,26 @@ class SelfImproveStorage {
       return !isDuplicate;
     });
 
-    this.data.analysis.pendingRecommendations = deduplicated.map(r => ({
+    const newRecos = deduplicated.map(r => ({
       ...r,
       id: r.id || this._generateId(),
       createdAt: new Date().toISOString(),
       status: 'pending'
     }));
-    this.data.analysis.lastRecommendations = this.data.analysis.pendingRecommendations;
-    this.data.stats.totalRecommendations += deduplicated.length;
+
+    if (replace) {
+      // Mode replace : ecrase les pending (utilise par analyzeEmailPerformance qui merge manuellement)
+      this.data.analysis.pendingRecommendations = newRecos;
+    } else {
+      // Mode merge : fusionner avec les pending existantes en deduplication par type+action
+      const existing = this.data.analysis.pendingRecommendations || [];
+      const existingKeys = new Set(existing.map(r => r.type + '|' + (r.action || '')));
+      const toAdd = newRecos.filter(r => !existingKeys.has(r.type + '|' + (r.action || '')));
+      this.data.analysis.pendingRecommendations = [...existing, ...toAdd];
+    }
+
+    this.data.analysis.lastRecommendations = newRecos;
+    this.data.stats.totalRecommendations += newRecos.length;
     this._save();
   }
 
@@ -262,7 +274,7 @@ class SelfImproveStorage {
     return this.data.analysis.appliedRecommendations.slice(0, limit || 20);
   }
 
-  markRecommendationApplied(recoId) {
+  markRecommendationApplied(recoId, applyResult) {
     const pending = this.data.analysis.pendingRecommendations;
     const idx = pending.findIndex(r => r.id === recoId);
     if (idx === -1) return null;
@@ -270,8 +282,10 @@ class SelfImproveStorage {
     const reco = pending.splice(idx, 1)[0];
     reco.status = 'applied';
     reco.appliedAt = new Date().toISOString();
-    // Stocker les details dans la reco appliquee (before/after viennent de optimizer.applyRecommendation)
-    if (!reco.details) reco.details = {};
+    // Stocker le before/after de l'optimizer
+    if (applyResult) {
+      reco.details = { ...(reco.details || {}), before: applyResult.before, after: applyResult.after };
+    }
     this.data.analysis.appliedRecommendations.unshift(reco);
     if (this.data.analysis.appliedRecommendations.length > 100) {
       this.data.analysis.appliedRecommendations = this.data.analysis.appliedRecommendations.slice(0, 100);
