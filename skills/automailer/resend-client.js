@@ -289,21 +289,46 @@ class ResendClient {
       .replace(/\n/g, '<br>');
 
     const senderFullName = (process.env.SENDER_FULL_NAME || 'Alexis Bénier').replace(/é/g, '&eacute;').replace(/è/g, '&egrave;').replace(/ê/g, '&ecirc;').replace(/à/g, '&agrave;');
+    const senderFirstName = senderFullName.split(' ')[0];
     const senderTitle = process.env.SENDER_TITLE || 'Fondateur';
     const clientDomain = process.env.CLIENT_DOMAIN || 'ifind.fr';
     const trackingDomain = process.env.TRACKING_DOMAIN || clientDomain;
-    // Micro-variation signature (anti-fingerprint)
-    const dashes = ['\u2014', '\u2013', '--'];
+    // Micro-variation signature renforcee (anti-fingerprint + anti-spam pattern)
+    const dashes = ['\u2014', '\u2013', '--', '\u2015'];
     const dash = dashes[Math.floor(Math.random() * dashes.length)];
-    const separators = [' \u2014 ', ' | ', ' \u2013 '];
+    const separators = [' \u2014 ', ' | ', ' \u2013 ', ', '];
     const sep = separators[Math.floor(Math.random() * separators.length)];
+    // Variation du nom affiche (prenom seul vs nom complet)
+    const nameVariants = [senderFullName, senderFirstName, senderFullName];
+    const displayName = nameVariants[Math.floor(Math.random() * nameVariants.length)];
+    // Variation du titre (synonymes naturels)
+    const titleVariants = process.env.SENDER_TITLE_VARIANTS
+      ? process.env.SENDER_TITLE_VARIANTS.split(',').map(t => t.trim())
+      : [senderTitle, senderTitle];
+    const displayTitle = titleVariants[Math.floor(Math.random() * titleVariants.length)];
     const clientTagline = process.env.CLIENT_TAGLINE || '';
-    const signature = '<br><span style="color:#666;font-size:13px">'
-      + dash + '<br>'
-      + senderFullName + '<br>'
-      + senderTitle + sep + clientDomain
-      + (clientTagline ? '<br><span style="font-size:12px;color:#888">' + clientTagline + '</span>' : '')
-      + '</span>';
+    // Variation du format signature (3 layouts differents)
+    const sigFormat = Math.floor(Math.random() * 3);
+    let signature;
+    if (sigFormat === 0) {
+      // Format classique : dash + nom + titre | domaine
+      signature = '<br><span style="color:#666;font-size:13px">'
+        + dash + '<br>'
+        + displayName + '<br>'
+        + displayTitle + sep + clientDomain
+        + (clientTagline ? '<br><span style="font-size:12px;color:#888">' + clientTagline + '</span>' : '')
+        + '</span>';
+    } else if (sigFormat === 1) {
+      // Format compact : dash + nom, titre
+      signature = '<br><span style="color:#666;font-size:13px">'
+        + dash + ' ' + displayName + ', ' + displayTitle
+        + '</span>';
+    } else {
+      // Format minimaliste : juste prenom
+      signature = '<br><span style="color:#666;font-size:13px">'
+        + dash + ' ' + senderFirstName
+        + '</span>';
+    }
 
     // Click tracking : rewrite URLs in body to redirect through /c/{trackingId}
     if (trackingId) {
