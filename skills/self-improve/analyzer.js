@@ -20,7 +20,7 @@ class Analyzer {
     maxTokens = maxTokens || 2000;
     return new Promise((resolve, reject) => {
       const postData = JSON.stringify({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }]
@@ -215,6 +215,7 @@ Reponds UNIQUEMENT en JSON strict :
   _fallbackAnalysis(snapshot) {
     const recommendations = [];
     const insights = [];
+    const currentPrefs = storage.getEmailPreferences() || {};
 
     if (snapshot.email && snapshot.email.available) {
       const email = snapshot.email;
@@ -224,22 +225,24 @@ Reponds UNIQUEMENT en JSON strict :
         let bestDay = null;
         let bestRate = 0;
         for (const [day, data] of Object.entries(email.byDayOfWeek)) {
-          if (data.sent >= 20) { // Seuil minimum pour significativite statistique
+          if (data.sent >= 20) {
             const rate = data.opened / data.sent;
             if (rate > bestRate) { bestRate = rate; bestDay = day; }
           }
         }
         if (bestDay && bestRate > 0) {
           insights.push('Meilleur jour d\'envoi : ' + bestDay + ' (' + Math.round(bestRate * 100) + '% ouverture)');
-          if (bestRate > 0.3) {
+          // Ne recommander que si different du jour actuel
+          if (bestRate > 0.3 && currentPrefs.preferredSendDay !== bestDay) {
             recommendations.push({
               id: storage._generateId(),
               type: 'send_timing',
-              description: 'Privilegier les envois le ' + bestDay + ' pour un meilleur taux d\'ouverture',
+              description: 'Privilegier les envois le ' + bestDay + ' (actuel: ' + (currentPrefs.preferredSendDay || 'aucun') + ', suggere: ' + bestDay + ' a ' + Math.round(bestRate * 100) + '% open)',
               action: 'set_preferred_day',
               params: { day: bestDay },
               expectedImpact: '+' + Math.round(bestRate * 100 - (email.openRate || 0)) + '% ouvertures estimees',
-              confidence: 0.6
+              confidence: 0.6,
+              details: { currentDay: currentPrefs.preferredSendDay || null, suggestedDay: bestDay, bestDayOpenRate: Math.round(bestRate * 100), globalOpenRate: email.openRate || 0 }
             });
           }
         }
@@ -250,22 +253,25 @@ Reponds UNIQUEMENT en JSON strict :
         let bestHour = null;
         let bestRate = 0;
         for (const [hour, data] of Object.entries(email.byHourOfDay)) {
-          if (data.sent >= 20) { // Seuil minimum pour significativite statistique
+          if (data.sent >= 20) {
             const rate = data.opened / data.sent;
             if (rate > bestRate) { bestRate = rate; bestHour = hour; }
           }
         }
         if (bestHour) {
+          const bestHourInt = parseInt(bestHour);
           insights.push('Meilleure heure d\'envoi : ' + bestHour + 'h (' + Math.round(bestRate * 100) + '% ouverture)');
-          if (bestRate > 0.3) {
+          // Ne recommander que si different de l'heure actuelle (tolerance +/- 1h)
+          if (bestRate > 0.3 && Math.abs((currentPrefs.preferredSendHour || 0) - bestHourInt) > 1) {
             recommendations.push({
               id: storage._generateId(),
               type: 'send_timing',
-              description: 'Envoyer les emails vers ' + bestHour + 'h pour maximiser les ouvertures',
+              description: 'Envoyer les emails vers ' + bestHour + 'h (actuel: ' + (currentPrefs.preferredSendHour || '?') + 'h, suggere: ' + bestHour + 'h a ' + Math.round(bestRate * 100) + '% open)',
               action: 'set_preferred_hour',
-              params: { hour: parseInt(bestHour) },
+              params: { hour: bestHourInt },
               expectedImpact: '+' + Math.round(bestRate * 100 - (email.openRate || 0)) + '% ouvertures estimees',
-              confidence: 0.55
+              confidence: 0.55,
+              details: { currentHour: currentPrefs.preferredSendHour || null, suggestedHour: bestHourInt, bestHourOpenRate: Math.round(bestRate * 100), globalOpenRate: email.openRate || 0 }
             });
           }
         }
@@ -278,16 +284,18 @@ Reponds UNIQUEMENT en JSON strict :
         if (short.sent >= 15 && long.sent >= 15) {
           const shortRate = short.opened / short.sent;
           const longRate = long.opened / long.sent;
-          if (shortRate > longRate + 0.1) {
-            insights.push('Emails courts : ' + Math.round(shortRate * 100) + '% ouverture vs ' + Math.round(longRate * 100) + '% pour les longs');
+          const bestLength = shortRate > longRate + 0.1 ? 'short' : (longRate > shortRate + 0.1 ? 'long' : null);
+          if (bestLength && currentPrefs.maxLength !== bestLength) {
+            insights.push('Emails ' + (bestLength === 'short' ? 'courts' : 'longs') + ' : ' + Math.round((bestLength === 'short' ? shortRate : longRate) * 100) + '% ouverture vs ' + Math.round((bestLength === 'short' ? longRate : shortRate) * 100) + '%');
             recommendations.push({
               id: storage._generateId(),
               type: 'email_length',
-              description: 'Reduire la longueur des emails (les courts performent mieux)',
+              description: 'Passer en emails ' + bestLength + 's (actuel: ' + (currentPrefs.maxLength || '?') + ', ' + Math.round(shortRate * 100) + '% short vs ' + Math.round(longRate * 100) + '% long)',
               action: 'set_max_length',
-              params: { maxLength: 200 },
-              expectedImpact: '+' + Math.round((shortRate - longRate) * 100) + '% ouvertures estimees',
-              confidence: 0.65
+              params: { maxLength: bestLength },
+              expectedImpact: '+' + Math.round(Math.abs(shortRate - longRate) * 100) + '% ouvertures estimees',
+              confidence: 0.65,
+              details: { currentLength: currentPrefs.maxLength || null, suggestedLength: bestLength, shortOpenRate: Math.round(shortRate * 100), longOpenRate: Math.round(longRate * 100), shortSent: short.sent, longSent: long.sent }
             });
           }
         }
@@ -302,16 +310,18 @@ Reponds UNIQUEMENT en JSON strict :
       if (high.sent >= 2 && low.sent >= 2) {
         const highRate = high.opened / high.sent;
         const lowRate = low.opened / low.sent;
-        if (highRate > lowRate + 0.15) {
+        const currentMinScore = (storage.getTargetingCriteria() || {}).minScore;
+        if (highRate > lowRate + 0.15 && (!currentMinScore || currentMinScore < 6)) {
           insights.push('Leads score 8+ : ' + Math.round(highRate * 100) + '% ouverture vs ' + Math.round(lowRate * 100) + '% pour score < 6');
           recommendations.push({
             id: storage._generateId(),
             type: 'targeting_criteria',
-            description: 'Augmenter le score minimum de ciblage a 6 pour envoyer aux leads les plus qualifies',
+            description: 'Augmenter le score minimum a 6 (actuel: ' + (currentMinScore || 'aucun') + ', leads 8+ = ' + Math.round(highRate * 100) + '% open vs <6 = ' + Math.round(lowRate * 100) + '%)',
             action: 'set_min_score',
             params: { minScore: 6 },
             expectedImpact: '+' + Math.round((highRate - lowRate) * 100) + '% qualite des envois',
-            confidence: 0.6
+            confidence: 0.6,
+            details: { currentMinScore: currentMinScore || null, highScoreOpenRate: Math.round(highRate * 100), lowScoreOpenRate: Math.round(lowRate * 100) }
           });
         }
       }

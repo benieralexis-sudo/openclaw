@@ -366,7 +366,7 @@ app.post('/login', loginLimiter, async (req, res) => {
       clientId: user ? (user.clientId || null) : null
     });
     saveSessions();
-    res.cookie('sid', sid, { httpOnly: true, maxAge: SESSION_TTL, sameSite: 'lax', secure: true });
+    res.cookie('sid', sid, { httpOnly: true, maxAge: SESSION_TTL, sameSite: 'lax', secure: req.secure || req.headers['x-forwarded-proto'] === 'https' });
     logAudit('login_success', req.ip || 'unknown', (user ? user.username : 'admin') + ' (' + (user ? user.role : 'admin') + ')');
     log.info('dashboard', 'Login OK: ' + (user ? user.username : 'admin') + ' from ' + (req.ip || 'unknown'));
     return res.redirect('/');

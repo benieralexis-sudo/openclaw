@@ -227,14 +227,30 @@ class SelfImproveStorage {
   }
 
   savePendingRecommendations(recos) {
-    this.data.analysis.pendingRecommendations = recos.map(r => ({
+    // Deduplication : ne pas ajouter une reco si le meme type+action a ete appliquee dans les 14 derniers jours
+    const applied = this.data.analysis.appliedRecommendations || [];
+    const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    const recentApplied = applied.filter(r => r.appliedAt && new Date(r.appliedAt).getTime() > twoWeeksAgo);
+
+    const deduplicated = recos.filter(r => {
+      const isDuplicate = recentApplied.some(a =>
+        a.type === r.type && a.action === r.action &&
+        JSON.stringify(a.params || {}) === JSON.stringify(r.params || {})
+      );
+      if (isDuplicate) {
+        console.log('[self-improve-storage] Reco dedupliquee (deja appliquee recemment): ' + r.type + '/' + (r.action || '?'));
+      }
+      return !isDuplicate;
+    });
+
+    this.data.analysis.pendingRecommendations = deduplicated.map(r => ({
       ...r,
       id: r.id || this._generateId(),
       createdAt: new Date().toISOString(),
       status: 'pending'
     }));
     this.data.analysis.lastRecommendations = this.data.analysis.pendingRecommendations;
-    this.data.stats.totalRecommendations += recos.length;
+    this.data.stats.totalRecommendations += deduplicated.length;
     this._save();
   }
 
@@ -254,6 +270,8 @@ class SelfImproveStorage {
     const reco = pending.splice(idx, 1)[0];
     reco.status = 'applied';
     reco.appliedAt = new Date().toISOString();
+    // Stocker les details dans la reco appliquee (before/after viennent de optimizer.applyRecommendation)
+    if (!reco.details) reco.details = {};
     this.data.analysis.appliedRecommendations.unshift(reco);
     if (this.data.analysis.appliedRecommendations.length > 100) {
       this.data.analysis.appliedRecommendations = this.data.analysis.appliedRecommendations.slice(0, 100);
