@@ -907,16 +907,31 @@ class CampaignEngine {
           }
         }
 
-        // Stop sur inactivite : skip si zero ouverture (step 3+ seulement)
+        // Stop sur inactivite : engagement-based auto-pause progressif
+        // Step 3+ : skip si zero ouverture sur tous les emails precedents
+        // Step 4+ : skip meme si 1 seule ouverture sans clic (engagement faible)
         // NOTE: ~40% des clients bloquent le pixel de tracking, donc
         // on n'utilise PAS l'ouverture comme critere pour step 2
-        if (stepNumber >= 3 && stepNumber < campaign.steps.length) {
+        if (stepNumber >= 3) {
           const prevEmails = contactEmails.filter(e => e.stepNumber < stepNumber && e.status !== 'failed');
-          if (prevEmails.length > 0 && !prevEmails.some(e => e.openedAt || e.status === 'opened')) {
+          const anyOpened = prevEmails.some(e => e.openedAt || e.status === 'opened');
+          const anyClicked = prevEmails.some(e => e.clickedAt || e.status === 'clicked');
+          if (prevEmails.length > 0 && !anyOpened) {
             log.info('campaign-engine', 'Skip ' + contact.email + ' (inactif: zero ouverture sur ' + prevEmails.length + ' emails — step ' + stepNumber + ')');
             skippedInactive++;
             skipped++;
             continue;
+          }
+          // Step 4+ : engagement tres faible (ouvert mais jamais clique sur 3+ emails)
+          if (stepNumber >= 4 && prevEmails.length >= 3 && anyOpened && !anyClicked) {
+            // Verifier qu'il n'y a pas eu de reponse non detectee (open multiple = interesse)
+            const multipleOpens = prevEmails.filter(e => (e.openCount || 0) >= 2).length;
+            if (multipleOpens === 0) {
+              log.info('campaign-engine', 'Skip ' + contact.email + ' (engagement faible: opens sans clic sur ' + prevEmails.length + ' emails — step ' + stepNumber + ')');
+              skippedInactive++;
+              skipped++;
+              continue;
+            }
           }
         }
 

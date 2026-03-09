@@ -312,6 +312,51 @@ Format JSON strict :
         log.info('action-executor', revealed + '/' + toReveal.length + ' leads reveles avec email');
         storage.incrementProgress('leadsEnrichedThisWeek', revealed);
       }
+
+      // --- WATERFALL DROPCONTACT : fallback pour les leads qualifies sans email apres Apollo ---
+      const dropcontactKey = process.env.DROPCONTACT_API_KEY;
+      if (dropcontactKey) {
+        const stillNoEmail = mappedLeads.filter(l => !l.email && l.score >= minScore && l.first_name && l.last_name && l.entreprise);
+        if (stillNoEmail.length > 0) {
+          log.info('action-executor', 'Dropcontact waterfall: ' + stillNoEmail.length + ' leads qualifies sans email apres Apollo');
+          let dcRevealed = 0;
+          try {
+            const DropcontactEnricher = require('../lead-enrich/dropcontact-enricher.js');
+            const dc = new DropcontactEnricher(dropcontactKey);
+            for (const lead of stillNoEmail) {
+              try {
+                const dcResult = await dc.enrichByNameAndCompany(lead.first_name, lead.last_name, lead.entreprise);
+                if (dcResult.success && dcResult.person && dcResult.person.email) {
+                  lead.email = dcResult.person.email;
+                  lead.linkedin_url = lead.linkedin_url || dcResult.person.linkedinUrl;
+                  dcRevealed++;
+                  log.info('action-executor', 'Dropcontact: email trouve pour ' + lead.nom + ' → ' + dcResult.person.email);
+                  // Sauvegarder dans FlowFast
+                  if (ffStorage) {
+                    const dcIndustry = (lead.organization && lead.organization.industry) || '';
+                    ffStorage.addLead({
+                      nom: lead.nom, titre: lead.titre, entreprise: lead.entreprise,
+                      email: lead.email, linkedin: lead.linkedin_url,
+                      source: 'dropcontact-waterfall', industry: dcIndustry,
+                      raison: lead.raison || '', searchCriteria: JSON.stringify(criteria).substring(0, 200)
+                    }, lead.score, 'brain-cycle-dropcontact');
+                  }
+                }
+                // Rate limit Dropcontact
+                await new Promise(r => setTimeout(r, 1200));
+              } catch (dcErr) {
+                log.warn('action-executor', 'Dropcontact erreur pour ' + lead.nom + ': ' + dcErr.message);
+              }
+            }
+            if (dcRevealed > 0) {
+              log.info('action-executor', 'Dropcontact waterfall: ' + dcRevealed + '/' + stillNoEmail.length + ' emails trouves');
+              storage.incrementProgress('leadsEnrichedThisWeek', dcRevealed);
+            }
+          } catch (dcLoadErr) {
+            log.warn('action-executor', 'Dropcontact module non disponible: ' + dcLoadErr.message);
+          }
+        }
+      }
     }
 
     storage.incrementProgress('leadsFoundThisWeek', result.leads?.length || 0);
