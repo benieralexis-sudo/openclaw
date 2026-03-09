@@ -14,19 +14,19 @@ function getAutomailerStorage() { return getStorage('automailer'); }
 function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
 function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
-// Intent topics Apollo mappes aux niches iFIND
-// Ces IDs sont resolus dynamiquement au premier run via listIntentTopics()
-const INTENT_TOPIC_QUERIES = [
-  'sales automation',
-  'lead generation',
-  'cold email',
-  'outbound sales',
-  'B2B prospecting',
-  'CRM software',
-  'sales engagement',
-  'marketing automation',
-  'appointment setting',
-  'business development'
+// Funding stages qui indiquent du budget frais (filtre Apollo VERIFIE fonctionnel)
+const FUNDING_STAGES = ['seed', 'angel', 'series_a', 'series_b', 'series_c', 'series_d'];
+
+// Rotation de keyword tags par scan (evite de toujours trouver les memes leads)
+const KEYWORD_TAG_GROUPS = [
+  ['SaaS', 'software'],
+  ['startup', 'tech'],
+  ['digital', 'marketing automation'],
+  ['e-commerce', 'marketplace'],
+  ['consulting', 'conseil'],
+  ['fintech', 'insurtech'],
+  ['healthtech', 'medtech'],
+  ['edtech', 'formation']
 ];
 
 // Seuil minimum pour declencher le pipeline immediat
@@ -44,9 +44,10 @@ class IntentMonitor {
     this.sendTelegram = options.sendTelegram;
     this.campaignEngine = options.campaignEngine || null;
 
-    this._resolvedTopicIds = null; // cache des topic IDs Apollo
+    this._keywordGroupIndex = 0;   // rotation des keyword tags
     this._lastScan = {};           // cooldown par email
     this._scanHistory = [];        // historique des scans
+    this._knownLeadEmails = null;  // cache des leads deja en base
   }
 
   // --- Point d'entree principal : scan toutes les 30 min ---
@@ -93,10 +94,16 @@ class IntentMonitor {
       }
     } catch (e) {}
 
+    // Charger les leads deja en base (pour ne pas re-proposer)
+    this._refreshKnownLeads();
+
     // Lancer les 3 sources de signaux en parallele
+    // Source 1: Apollo funded companies (VERIFIE: reduit 54k→480 leads)
+    // Source 2: Apollo revenue-qualified PMEs (VERIFIE: reduit 54k→2994 leads)
+    // Source 3: Market signals Web Intelligence (trigger events < 24h)
     const results = await Promise.allSettled([
-      this._scanApolloIntent(config),
-      this._scanApolloJobChanges(config),
+      this._scanApolloFunded(config),
+      this._scanApolloRevenueQualified(config),
       this._scanGoogleAlerts()
     ]);
 
@@ -246,98 +253,122 @@ class IntentMonitor {
     return { scanned: detectedLeads.length, actionable: uniqueLeads.length, processed: processed, duration: duration };
   }
 
-  // --- Source 1 : Apollo Intent Topics ---
-  async _scanApolloIntent(config) {
+  // --- Source 1 : Apollo Recently Funded Companies (filtre VERIFIE fonctionnel) ---
+  // Cible les entreprises avec funding recent (seed → series D) = budget frais + besoin de scaler
+  // Filtre organization_latest_funding_stage_cd : reduit de 54k à 480 leads = REEL filtre
+  async _scanApolloFunded(config) {
     const leads = [];
     try {
       const ApolloConnector = require('../flowfast/apollo-connector.js');
       const apollo = new ApolloConnector(this.apolloKey);
 
-      // Resoudre les topic IDs si pas encore fait
-      if (!this._resolvedTopicIds) {
-        await this._resolveIntentTopics(apollo);
-      }
-
-      if (!this._resolvedTopicIds || this._resolvedTopicIds.length === 0) {
-        log.warn('intent-monitor', 'Aucun intent topic resolu — skip Apollo intent scan');
-        return leads;
-      }
-
-      // Charger les criteres ICP
       const goals = storage.getGoals();
-      const criteria = {
-        ...goals.searchCriteria,
-        intentTopics: this._resolvedTopicIds,
-        intentStrength: 'high',
-        limit: 10,
-        verifiedEmails: true
+      const baseCriteria = goals.searchCriteria || {};
+
+      // Construire la requete avec funding stage filter
+      const https = require('https');
+      const searchData = {
+        person_titles: baseCriteria.titles || ['CEO', 'Founder', 'CTO', 'Directeur General'],
+        person_locations: baseCriteria.locations || ['France'],
+        person_seniorities: baseCriteria.seniorities || ['founder', 'c_suite', 'director'],
+        organization_latest_funding_stage_cd: FUNDING_STAGES,
+        contact_email_status: ['verified'],
+        per_page: 10,
+        page: 1
       };
 
-      const result = await apollo.searchLeadsWithIntent(criteria);
-      if (result.success && result.leads) {
-        for (const p of result.leads) {
-          if (!p.email) continue;
-          leads.push({
-            email: p.email,
-            nom: ((p.first_name || '') + ' ' + (p.last_name || '')).trim(),
-            titre: p.title || '',
-            entreprise: (p.organization && p.organization.name) || '',
-            apolloId: p.id,
-            linkedin_url: p.linkedin_url || '',
-            organization: p.organization || null,
-            intentScore: 7, // high intent = score 7 minimum
-            signalType: 'apollo_intent_topic',
-            signalDetail: 'Recherche active: ' + (this._resolvedTopicNames || []).slice(0, 3).join(', '),
-            freshness: 2,  // boost fraicheur (signal temps reel)
-            detectedAt: new Date().toISOString()
-          });
-        }
+      // Ajouter keyword tags en rotation (un groupe different a chaque scan)
+      const tagGroup = KEYWORD_TAG_GROUPS[this._keywordGroupIndex % KEYWORD_TAG_GROUPS.length];
+      searchData.q_organization_keyword_tags = tagGroup;
+      this._keywordGroupIndex++;
+
+      const result = await apollo.makeRequest('/v1/mixed_people/api_search', searchData);
+      const people = result.people || [];
+
+      for (const p of people) {
+        if (!p.email) continue;
+
+        // Verifier si lead est NOUVEAU (pas deja en base FlowFast)
+        if (this._isKnownLead(p.email)) continue;
+
+        const fundingInfo = p.organization ? (p.organization.latest_funding_stage || p.organization.last_funding_type || 'funded') : 'funded';
+        leads.push({
+          email: p.email,
+          nom: ((p.first_name || '') + ' ' + (p.last_name || '')).trim(),
+          titre: p.title || '',
+          entreprise: (p.organization && p.organization.name) || '',
+          apolloId: p.id,
+          linkedin_url: p.linkedin_url || '',
+          organization: p.organization || null,
+          intentScore: 7, // funded company = strong intent signal
+          signalType: 'recent_funding',
+          signalDetail: 'Entreprise financee (' + fundingInfo + ') — tags: ' + tagGroup.join(', '),
+          freshness: 2,
+          detectedAt: new Date().toISOString()
+        });
       }
-      log.info('intent-monitor', 'Apollo intent: ' + leads.length + ' leads high-intent');
+
+      log.info('intent-monitor', 'Apollo funded: ' + leads.length + ' nouveaux leads finances (tags: ' + tagGroup.join(', ') + ', total: ' + (result.total_entries || people.length) + ')');
     } catch (e) {
-      log.error('intent-monitor', 'Apollo intent scan echoue: ' + e.message);
+      log.error('intent-monitor', 'Apollo funded scan echoue: ' + e.message);
     }
     return leads;
   }
 
-  // --- Source 2 : Apollo Job Changes (nouveaux postes = budget frais) ---
-  async _scanApolloJobChanges(config) {
+  // --- Source 2 : Apollo Revenue-Qualified (PME en croissance) ---
+  // Cible les PME avec revenue 1M-50M + keyword tags sectoriels = entreprise etablie qui investit
+  async _scanApolloRevenueQualified(config) {
     const leads = [];
     try {
       const ApolloConnector = require('../flowfast/apollo-connector.js');
       const apollo = new ApolloConnector(this.apolloKey);
 
       const goals = storage.getGoals();
-      const criteria = {
-        ...goals.searchCriteria,
-        jobChangeDays: 30, // changement de poste dans les 30 derniers jours
-        limit: 10,
-        verifiedEmails: true
+      const baseCriteria = goals.searchCriteria || {};
+
+      const searchData = {
+        person_titles: baseCriteria.titles || ['CEO', 'Founder', 'Directeur Commercial', 'Head of Sales'],
+        person_locations: baseCriteria.locations || ['France'],
+        person_seniorities: baseCriteria.seniorities || ['founder', 'c_suite', 'director'],
+        revenue_range: { min: 1000000, max: 50000000 },
+        organization_num_employees_ranges: baseCriteria.companySize || ['11-50', '51-200'],
+        contact_email_status: ['verified'],
+        per_page: 10,
+        page: 1
       };
 
-      const result = await apollo.searchJobChanges(criteria);
-      if (result.success && result.leads) {
-        for (const p of result.leads) {
-          if (!p.email) continue;
-          leads.push({
-            email: p.email,
-            nom: ((p.first_name || '') + ' ' + (p.last_name || '')).trim(),
-            titre: p.title || '',
-            entreprise: (p.organization && p.organization.name) || '',
-            apolloId: p.id,
-            linkedin_url: p.linkedin_url || '',
-            organization: p.organization || null,
-            intentScore: 6, // job change = bon signal
-            signalType: 'job_change',
-            signalDetail: 'Nouveau poste: ' + (p.title || '?') + ' @ ' + ((p.organization && p.organization.name) || '?'),
-            freshness: 1.5,
-            detectedAt: new Date().toISOString()
-          });
-        }
+      // Keywords tags en rotation (decale de 4 par rapport a source 1 pour diversifier)
+      const tagIdx = (this._keywordGroupIndex + 4) % KEYWORD_TAG_GROUPS.length;
+      const tagGroup = KEYWORD_TAG_GROUPS[tagIdx];
+      searchData.q_organization_keyword_tags = tagGroup;
+
+      const result = await apollo.makeRequest('/v1/mixed_people/api_search', searchData);
+      const people = result.people || [];
+
+      for (const p of people) {
+        if (!p.email) continue;
+        if (this._isKnownLead(p.email)) continue;
+
+        const revenue = p.organization ? (p.organization.annual_revenue_printed || 'PME') : 'PME';
+        leads.push({
+          email: p.email,
+          nom: ((p.first_name || '') + ' ' + (p.last_name || '')).trim(),
+          titre: p.title || '',
+          entreprise: (p.organization && p.organization.name) || '',
+          apolloId: p.id,
+          linkedin_url: p.linkedin_url || '',
+          organization: p.organization || null,
+          intentScore: 5, // revenue-qualified = moderate intent
+          signalType: 'revenue_qualified',
+          signalDetail: 'PME qualifiee (CA: ' + revenue + ') — tags: ' + tagGroup.join(', '),
+          freshness: 1,
+          detectedAt: new Date().toISOString()
+        });
       }
-      log.info('intent-monitor', 'Apollo job changes: ' + leads.length + ' leads');
+
+      log.info('intent-monitor', 'Apollo revenue: ' + leads.length + ' nouveaux leads revenue-qualified (tags: ' + tagGroup.join(', ') + ')');
     } catch (e) {
-      log.error('intent-monitor', 'Apollo job changes scan echoue: ' + e.message);
+      log.error('intent-monitor', 'Apollo revenue scan echoue: ' + e.message);
     }
     return leads;
   }
@@ -401,32 +432,25 @@ class IntentMonitor {
     return leads;
   }
 
-  // --- Resolution des intent topic IDs Apollo (cache) ---
-  async _resolveIntentTopics(apollo) {
+  // --- Known leads cache (evite de re-proposer des leads deja en base) ---
+  _refreshKnownLeads() {
     try {
-      const allTopicIds = [];
-      const allTopicNames = [];
-
-      // Chercher chaque query et collecter les IDs
-      for (const query of INTENT_TOPIC_QUERIES) {
-        const result = await apollo.listIntentTopics(query);
-        if (result.success && result.topics.length > 0) {
-          // Prendre le premier match (le plus pertinent)
-          allTopicIds.push(result.topics[0].id);
-          allTopicNames.push(result.topics[0].name);
+      this._knownLeadEmails = new Set();
+      const ffStorage = getFlowFastStorage();
+      if (ffStorage) {
+        const allLeads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : {};
+        for (const [key, lead] of Object.entries(allLeads)) {
+          if (lead.email) this._knownLeadEmails.add(lead.email.toLowerCase());
         }
-        // Rate limit
-        await new Promise(r => setTimeout(r, 300));
       }
-
-      this._resolvedTopicIds = [...new Set(allTopicIds)]; // dedup
-      this._resolvedTopicNames = [...new Set(allTopicNames)];
-      log.info('intent-monitor', 'Intent topics resolus: ' + this._resolvedTopicIds.length + ' topics (' + this._resolvedTopicNames.slice(0, 5).join(', ') + ')');
     } catch (e) {
-      log.error('intent-monitor', 'Resolution intent topics echouee: ' + e.message);
-      this._resolvedTopicIds = [];
-      this._resolvedTopicNames = [];
+      this._knownLeadEmails = new Set();
     }
+  }
+
+  _isKnownLead(email) {
+    if (!email || !this._knownLeadEmails) return false;
+    return this._knownLeadEmails.has(email.toLowerCase());
   }
 
   // --- Cooldown management ---
@@ -449,9 +473,9 @@ class IntentMonitor {
   getStats() {
     return {
       lastScans: this._scanHistory.slice(-10),
-      resolvedTopics: (this._resolvedTopicNames || []).length,
+      keywordGroupIndex: this._keywordGroupIndex,
       cooldownActive: Object.keys(this._lastScan).length,
-      topicNames: this._resolvedTopicNames || []
+      knownLeads: this._knownLeadEmails ? this._knownLeadEmails.size : 0
     };
   }
 }
