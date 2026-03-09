@@ -920,13 +920,39 @@ class CampaignEngine {
           }
         }
 
-        // Stop si sentiment "not_interested" detecte par inbox-manager
+        // GLOBAL REPLY STOP: si ce prospect a repondu dans N'IMPORTE quelle campagne → stop partout
+        try {
+          const allEmailsGlobal = storage.getAllEmails();
+          const hasRepliedAnywhere = allEmailsGlobal.some(e =>
+            (e.to || '').toLowerCase() === contact.email.toLowerCase() &&
+            (e.status === 'replied' || e.hasReplied)
+          );
+          if (hasRepliedAnywhere) {
+            log.info('campaign-engine', 'Skip ' + contact.email + ' (a repondu dans une autre campagne — global reply stop)');
+            skippedSentiment++;
+            skipped++;
+            continue;
+          }
+        } catch (grsErr) {
+          log.info('campaign-engine', 'Global reply stop check skip: ' + grsErr.message);
+        }
+
+        // Stop si sentiment negatif detecte par inbox-manager (not_interested OU score eleve)
         const sentimentData = storage.getSentiment ? storage.getSentiment(contact.email) : null;
-        if (sentimentData && sentimentData.sentiment === 'not_interested') {
-          log.info('campaign-engine', 'Skip ' + contact.email + ' (sentiment: not_interested — score ' + sentimentData.score + ')');
-          skippedSentiment++;
-          skipped++;
-          continue;
+        if (sentimentData) {
+          if (sentimentData.sentiment === 'not_interested') {
+            log.info('campaign-engine', 'Skip ' + contact.email + ' (sentiment: not_interested — score ' + sentimentData.score + ')');
+            skippedSentiment++;
+            skipped++;
+            continue;
+          }
+          // Stop aussi si score de desinteressement >= 0.7 meme si le label est "question" ou autre
+          if (sentimentData.score >= 0.7 && sentimentData.sentiment !== 'interested') {
+            log.info('campaign-engine', 'Skip ' + contact.email + ' (sentiment score eleve: ' + sentimentData.score + ' / ' + sentimentData.sentiment + ')');
+            skippedSentiment++;
+            skipped++;
+            continue;
+          }
         }
       }
 
