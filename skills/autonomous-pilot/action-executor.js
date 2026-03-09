@@ -523,8 +523,26 @@ Format JSON strict :
       context += 'MOTS INTERDITS: ' + ep.forbiddenWords.join(', ');
     }
 
-    // Injecter les donnees prospect
-    if (params._prospectIntel) {
+    // Injecter les donnees prospect — avec analyse strategique si disponible
+    if (params._strategicAnalysis) {
+      const sa = params._strategicAnalysis;
+      context += '\n\n=== ANALYSE STRATEGIQUE (SUIS CES DIRECTIVES) ===';
+      context += '\nMEILLEUR ANGLE: ' + (sa.topAngles[0] ? sa.topAngles[0].angle : '');
+      context += '\nFAIT CLE A UTILISER: ' + (sa.topAngles[0] ? sa.topAngles[0].fact : sa.bestFact || '');
+      context += '\nFAIT LE PLUS SPECIFIQUE: ' + (sa.bestFact || '');
+      context += '\nSOCIAL PROOF A UTILISER (adapte la formulation): ' + (sa.socialProof || '');
+      context += '\nTON: ' + (sa.recommendedTone || 'tutoiement');
+      context += '\nPOURQUOI CE PROSPECT: ' + (sa.briefSummary || '');
+      if (sa.topAngles && sa.topAngles.length > 1) {
+        context += '\nANGLES ALTERNATIFS (si retry ou si le premier angle est trop faible): ' +
+          sa.topAngles.slice(1).map(a => a.angle + ' [' + (a.strength || '?') + '/10]').join(' | ');
+      }
+      context += '\n=== FIN ANALYSE ===';
+      // Ajouter aussi le brief brut en dessous pour les faits detailles
+      if (params._prospectIntel) {
+        context += '\n\nDONNEES BRUTES (reference si besoin):\n' + params._prospectIntel;
+      }
+    } else if (params._prospectIntel) {
       context += '\n\n' + params._prospectIntel;
     }
 
@@ -1021,6 +1039,45 @@ Format JSON strict :
         }
       } catch (e) {
         log.warn('action-executor', 'Recherche prospect echouee (non bloquant):', e.message);
+      }
+
+      // === STRATEGIC ANALYST : analyse structuree avant redaction ===
+      if (params._prospectIntel && params._prospectIntel.length >= 100) {
+        try {
+          const ClaudeEmailWriter = getClaudeEmailWriter();
+          if (ClaudeEmailWriter && this.claudeKey) {
+            const analystWriter = new ClaudeEmailWriter(this.claudeKey);
+            // Recuperer le niche context pour l'analyste
+            let analystNiche = null;
+            try {
+              const icpLdr = require('../../gateway/icp-loader.js');
+              if (leadNiche) analystNiche = (icpLdr.getAllNiches() || []).find(n => n.slug === leadNiche);
+              if (!analystNiche && params.contact) {
+                analystNiche = icpLdr.matchLeadToNiche({
+                  entreprise: params.contact.entreprise || params.contact.company,
+                  titre: params.contact.titre || params.contact.title,
+                  industry: params.contact.industry
+                });
+              }
+            } catch (e) {}
+            const contactForAnalyst = {
+              name: (params.contact && (params.contact.nom || params.contact.name)) || '',
+              firstName: (params.contact && (params.contact.nom || params.contact.name || '')).split(' ')[0] || '',
+              title: (params.contact && (params.contact.titre || params.contact.title)) || '',
+              company: (params.contact && (params.contact.entreprise || params.contact.company)) || params.company || '',
+              email: params.to || ''
+            };
+            const analysis = await analystWriter.analyzeProspect(contactForAnalyst, params._prospectIntel, analystNiche);
+            if (analysis && analysis.topAngles && analysis.topAngles.length > 0) {
+              params._strategicAnalysis = analysis;
+              log.info('action-executor', 'Strategic analysis OK pour ' + params.to +
+                ' — angle: ' + (analysis.topAngles[0].angle || '').substring(0, 60) +
+                ' (force: ' + (analysis.topAngles[0].strength || '?') + '/10)');
+            }
+          }
+        } catch (e) {
+          log.warn('action-executor', 'Strategic analysis echoue (non bloquant): ' + e.message);
+        }
       }
 
       log.info('action-executor', 'Generation email avant envoi pour ' + params.to);

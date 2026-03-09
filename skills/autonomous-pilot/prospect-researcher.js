@@ -130,9 +130,9 @@ class ProspectResearcher {
   async _summarizeWebsite(rawText, companyName) {
     if (!rawText || rawText.length < 100 || !this.openaiKey) return null;
     const { callOpenAI } = require('../../gateway/shared-nlp.js');
-    const prompt = `Analyse ce site web de "${companyName || 'entreprise'}". Extrais en 3-5 bullets courts :\n- Proposition de valeur principale\n- Clients cibles (B2B/B2C, secteur)\n- Produit/service phare\n- Element differenciateur\n- Signal d'achat potentiel (recrutement, croissance, nouveau produit)\n\nSite web:\n${rawText.substring(0, 3000)}`;
+    const prompt = `Analyse ce site web de "${companyName || 'entreprise'}". Extrais en bullets courts et CONCRETS :\n- Proposition de valeur principale (1 phrase)\n- Clients cibles (B2B/B2C, secteur, taille)\n- Produit/service phare\n- Element differenciateur vs concurrents\n- CLIENTS NOTABLES ou marques citees sur le site (liste)\n- CHIFFRES CLES : CA, nombre employes, annees d'existence, nombre de clients, projets realises\n- Signaux de croissance (recrutement actif, nouveaux produits, expansion geo)\n- PROBLEME PROBABLE que cette entreprise cherche a resoudre\n\nSite web:\n${rawText.substring(0, 4000)}`;
     try {
-      const result = await callOpenAI(this.openaiKey, [{ role: 'user', content: prompt }], { maxTokens: 300, temperature: 0.2 });
+      const result = await callOpenAI(this.openaiKey, [{ role: 'user', content: prompt }], { maxTokens: 600, temperature: 0.2 });
       return result.content || null;
     } catch (e) {
       log.warn('prospect-research', '_summarizeWebsite error: ' + e.message);
@@ -729,7 +729,7 @@ class ProspectResearcher {
       const fetch = fetcher.scrapeWebPage(url);
       const result = await Promise.race([fetch, timeout]);
       if (!result || !result.textContent || result.textContent.length < 50) return null;
-      return { path: path, text: result.textContent.substring(0, 500) };
+      return { path: path, text: result.textContent.substring(0, 800) };
     } catch (e) {
       return null;
     }
@@ -1427,8 +1427,17 @@ class ProspectResearcher {
   async _fetchPappersData(companyName) {
     if (!companyName || !this.pappersToken) return null;
 
+    // Nettoyer le nom d'entreprise pour la recherche Pappers
+    // "BlueMarketing : Agence marketing digital 360°" → "BlueMarketing"
+    let cleanName = companyName
+      .replace(/\s*[-:–—|]\s*.{15,}$/g, '') // Supprimer les descriptions longues après : - | —
+      .replace(/\b(SAS|SARL|SA|EURL|SCI|SASU|GmbH|Ltd|LLC|Inc)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (cleanName.length < 2) cleanName = companyName;
+
     // Cache 30 jours
-    const cacheKey = 'pappers_' + companyName.toLowerCase().trim();
+    const cacheKey = 'pappers_' + cleanName.toLowerCase().trim();
     const apStorage = getAPStorage();
     if (apStorage && apStorage.getProspectResearch) {
       try {
@@ -1448,7 +1457,7 @@ class ProspectResearcher {
 
     try {
       const searchUrl = 'https://api.pappers.fr/v2/recherche?api_token=' + this.pappersToken +
-        '&q=' + encodeURIComponent(companyName) + '&par_page=3&statut=A';
+        '&q=' + encodeURIComponent(cleanName) + '&par_page=3&statut=A';
 
       const result = await fetcher.fetchUrl(searchUrl);
       if (!result || result.statusCode !== 200 || !result.body) return null;
@@ -1910,7 +1919,7 @@ class ProspectResearcher {
     }
 
     const brief = lines.join('\n');
-    return brief.substring(0, 5500);
+    return brief.substring(0, 8000);
   }
 }
 

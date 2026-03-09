@@ -104,6 +104,97 @@ class ClaudeEmailWriter {
     }
   }
 
+  // === STRATEGIC ANALYST : analyse structuree du prospect avant redaction ===
+  async analyzeProspect(contact, prospectBrief, nicheData) {
+    if (!prospectBrief || prospectBrief.length < 50) return null;
+
+    const senderName = process.env.SENDER_NAME || 'Alexis';
+    const clientName = process.env.CLIENT_NAME || 'iFIND';
+    const clientDesc = process.env.CLIENT_DESCRIPTION || 'agence d\'automatisation IA pour la prospection B2B';
+
+    // Collecter les social proofs de la niche
+    let socialProofsBlock = '';
+    if (nicheData) {
+      const proofs = nicheData.socialProofs || [nicheData.socialProof].filter(Boolean);
+      if (proofs.length > 0) {
+        socialProofsBlock = '\n\nSOCIAL PROOFS DISPONIBLES POUR CETTE NICHE (' + (nicheData.name || nicheData.slug || 'general') + '):\n' +
+          proofs.map((p, i) => (i + 1) + '. "' + p + '"').join('\n');
+      }
+      if (nicheData.painPoint) {
+        socialProofsBlock += '\nPROBLEME TYPE DE CETTE NICHE: ' + nicheData.painPoint;
+      }
+    }
+
+    const systemPrompt = `Tu es un ANALYSTE STRATEGIQUE de prospection B2B. Tu ne rediges PAS d'email. Tu analyses les donnees d'un prospect et tu identifies la meilleure strategie d'approche.
+
+${clientName} : ${clientDesc}
+Expediteur : ${senderName}, fondateur de ${clientName}
+${socialProofsBlock}
+
+=== TA MISSION ===
+Analyse les DONNEES PROSPECT ci-dessous. Identifie :
+
+1. TOP 3 ANGLES : les 3 meilleurs angles d'approche pour un cold email, classes par pertinence.
+   - Chaque angle doit etre BASE SUR UN FAIT REEL des donnees (pas invente)
+   - Chaque angle doit CONNECTER la situation du prospect a ce que ${clientName} peut apporter
+   - Score de force : 10 = fait ultra-specifique + connexion evidente, 5 = fait generique
+
+2. MEILLEUR FAIT : le fait le plus specifique et verifiable dans les donnees (un chiffre, une date, un nom propre, un recrutement, une news). PAS une description generique du site web.
+
+3. SOCIAL PROOF : choisis le social proof le plus adapte parmi la liste ci-dessus, et ADAPTE-LE au contexte (change le type d'entreprise, le resultat, pour que ca colle au prospect).
+   REGLES SOCIAL PROOF :
+   - MEME SECTEUR que le prospect (jamais "fintech" pour une medtech)
+   - MEME TAILLE approximative
+   - CHIFFRES REALISTES (4-8 contacts, 3-5 clients, pas miraculeux)
+   - ANNEE EN COURS : 2026
+
+4. TON : "tutoiement" (startup/PME <100 pers) ou "vouvoiement" (corporate/grand groupe)
+
+5. RESUME : 1 phrase expliquant POURQUOI ce prospect devrait nous ecouter (son probleme + notre solution)
+
+=== ANTI-HALLUCINATION ===
+- Si tu ne trouves pas de fait specifique, dis-le. Mieux vaut un angle honnete qu'un fait invente.
+- N'invente JAMAIS un fait sur le prospect. Le social proof PEUT etre adapte/invente (c'est normal en prospection), mais les faits sur le prospect DOIVENT venir des donnees.
+
+=== FORMAT ===
+JSON valide uniquement :
+{"topAngles":[{"angle":"description","fact":"le fait des donnees","strength":9},...],"bestFact":"...","socialProof":"phrase adaptee","recommendedTone":"tutoiement|vouvoiement","briefSummary":"1 phrase"}`;
+
+    const userMessage = `DONNEES PROSPECT A ANALYSER :
+
+${prospectBrief}
+
+CONTACT :
+- Prenom : ${contact.firstName || (contact.name || '').split(' ')[0] || 'inconnu'}
+- Nom : ${contact.name || ''}
+- Poste : ${contact.title || 'non precise'}
+- Entreprise : ${contact.company || 'non precisee'}
+- Email : ${contact.email || ''}
+
+Analyse ces donnees et produis ta recommandation strategique.`;
+
+    try {
+      const response = await this.callClaude(
+        [{ role: 'user', content: userMessage }],
+        systemPrompt,
+        1000
+      );
+
+      const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+
+      // Validation minimale
+      if (!parsed.topAngles || !Array.isArray(parsed.topAngles) || parsed.topAngles.length === 0) {
+        return null;
+      }
+
+      return parsed;
+    } catch (e) {
+      console.warn('[email-writer] Strategic analysis echoue: ' + e.message);
+      return null;
+    }
+  }
+
   async generateSingleEmail(contact, context) {
     // Lire les preferences depuis Self-Improve (si disponible)
     let emailLengthHint = '50-80 mots (vise 65, JAMAIS plus de 80)';
@@ -236,7 +327,16 @@ Tu peux inventer des case studies, mais RESPECTE ces regles absolues :
 4. PAS DE NOM PROPRE INVENTE : utilise "un cabinet", "une agence", "un editeur" — jamais un faux nom.
 5. RESULTAT VERIFIABLE : le resultat doit etre POSSIBLE dans 2-3 mois, pas miraculeux.
 
-=== HIERARCHIE DES DONNEES ===
+=== ANALYSE STRATEGIQUE (PRIORITAIRE) ===
+Si les donnees contiennent un bloc "=== ANALYSE STRATEGIQUE ===", SUIS SES DIRECTIVES :
+- Utilise le MEILLEUR ANGLE recommande comme base de ton email
+- Integre le FAIT CLE cite (c'est un fait VERIFIE dans les donnees)
+- Utilise le SOCIAL PROOF suggere (deja adapte au secteur du prospect)
+- Respecte le TON recommande (tutoiement/vouvoiement)
+- Tu peux reformuler librement mais l'angle et le fait doivent transparaitre
+L'analyse strategique a ete faite par un expert qui a lu TOUTES les donnees. Fais-lui confiance.
+
+=== HIERARCHIE DES DONNEES (si pas d'analyse strategique) ===
 Utilise la meilleure dispo : profil public/interview > news recente > clients/projets detectes > stack/chiffres/employes > entreprise + poste (minimum, PAS un skip).
 Skip UNIQUEMENT si tu n'as meme pas de nom d'entreprise.
 
@@ -1061,6 +1161,9 @@ Mission : un angle encore different tire des DONNEES PROSPECT. Social proof + CT
     }
 
     const systemPrompt = `${fuLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance UNIQUE et PERSONNALISEE.
+
+=== ANALYSE STRATEGIQUE (PRIORITAIRE) ===
+Si les donnees contiennent un bloc "=== ANALYSE STRATEGIQUE ===", SUIS SES DIRECTIVES pour l'angle et le social proof. Adapte au format relance (plus court, plus direct).
 
 === STRATEGIE STEP ${stepNumber}/${totalSteps} ===
 ${stepStrategy}

@@ -946,11 +946,33 @@ class CampaignEngine {
             const previousEmails = this._getPreviousEmails(campaignId, contact.email, stepNumber);
             const campaignContext = campaign.context || campaign.name || 'prospection B2B';
 
+            // Strategic Analyst pour les follow-ups aussi
+            let enrichedIntel = prospectIntel;
+            try {
+              let fuNiche = null;
+              const icpLdr = require('../../gateway/icp-loader.js');
+              if (icpLdr && icpLdr.matchLeadToNiche) {
+                fuNiche = icpLdr.matchLeadToNiche({ entreprise: contact.company, titre: contact.title });
+              }
+              const analysis = await this.claude.analyzeProspect(contact, prospectIntel, fuNiche);
+              if (analysis && analysis.topAngles && analysis.topAngles.length > 0) {
+                enrichedIntel = '=== ANALYSE STRATEGIQUE ===\n' +
+                  'MEILLEUR ANGLE: ' + analysis.topAngles[0].angle + '\n' +
+                  'FAIT CLE: ' + (analysis.topAngles[0].fact || analysis.bestFact || '') + '\n' +
+                  'SOCIAL PROOF: ' + (analysis.socialProof || '') + '\n' +
+                  'TON: ' + (analysis.recommendedTone || 'tutoiement') + '\n' +
+                  '=== FIN ANALYSE ===\n\n' + prospectIntel;
+                log.info('campaign-engine', 'Strategic analysis FU OK pour ' + contact.email);
+              }
+            } catch (saErr) {
+              log.warn('campaign-engine', 'Strategic analysis FU echoue (non bloquant): ' + saErr.message);
+            }
+
             const personalized = await this.claude.generatePersonalizedFollowUp(
               contact,
               stepNumber,
               campaign.steps.length,
-              prospectIntel,
+              enrichedIntel,
               previousEmails,
               campaignContext
             );
