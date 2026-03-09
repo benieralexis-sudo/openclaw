@@ -80,7 +80,7 @@ REGLES :
 - Inclus l'impact attendu en pourcentage
 - Score de confiance entre 0 et 1
 - Types de recommandations possibles :
-  * "scoring_weight" : modifier les poids du scoring IA des leads
+  * "scoring_weight" : modifier les poids du scoring IA des leads (params: {seniority: {ceo: 1.5, vp: 1.2, ...}, companySize: {pme: 1.5, ...}, industry: {tech: 1.5, ...}})
   * "send_timing" : optimiser jour/heure d'envoi des emails
   * "email_length" : ajuster la longueur des emails
   * "targeting_criteria" : ajuster les criteres de ciblage (score minimum)
@@ -327,6 +327,51 @@ Reponds UNIQUEMENT en JSON strict :
             details: { currentMinScore: currentMinScore || null, highScoreOpenRate: Math.round(highRate * 100), lowScoreOpenRate: Math.round(lowRate * 100) }
           });
         }
+      }
+    }
+
+    // Scoring weights : generer des poids basiques si cross-metrics disponibles et weights vides
+    const currentWeights = storage.getScoringWeights() || {};
+    if (Object.keys(currentWeights).length === 0 && snapshot.cross && snapshot.cross.available) {
+      const cross = snapshot.cross;
+      const newWeights = {};
+
+      // Poids par taille d'entreprise (si dispo)
+      if (cross.byCompanySize) {
+        const sizeWeights = {};
+        for (const [size, data] of Object.entries(cross.byCompanySize)) {
+          if (data.sent >= 5) {
+            const rate = data.opened / data.sent;
+            sizeWeights[size.toLowerCase().replace(/[^a-z0-9]/g, '_')] = Math.round(Math.min(2, Math.max(0.5, rate * 3)) * 10) / 10;
+          }
+        }
+        if (Object.keys(sizeWeights).length > 0) newWeights.companySize = sizeWeights;
+      }
+
+      // Poids par industrie (si dispo)
+      if (cross.byIndustry) {
+        const industryWeights = {};
+        for (const [ind, data] of Object.entries(cross.byIndustry)) {
+          if (data.sent >= 5) {
+            const rate = data.opened / data.sent;
+            industryWeights[ind.toLowerCase().replace(/[^a-z0-9]/g, '_')] = Math.round(Math.min(2, Math.max(0.5, rate * 3)) * 10) / 10;
+          }
+        }
+        if (Object.keys(industryWeights).length > 0) newWeights.industry = industryWeights;
+      }
+
+      if (Object.keys(newWeights).length > 0) {
+        insights.push('Scoring weights generes automatiquement a partir des performances par segment');
+        recommendations.push({
+          id: storage._generateId(),
+          type: 'scoring_weight',
+          description: 'Ajuster les poids du scoring IA selon les performances observees (companySize/industry)',
+          action: 'set_scoring_weights',
+          params: newWeights,
+          expectedImpact: 'Meilleur ciblage des leads performants',
+          confidence: 0.6,
+          details: { currentWeights: currentWeights, suggestedWeights: newWeights }
+        });
       }
     }
 

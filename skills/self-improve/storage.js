@@ -379,7 +379,7 @@ class SelfImproveStorage {
       recoDescription,
       appliedAt: new Date().toISOString(),
       baselineSnapshot,
-      measureAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      measureAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       measured: false,
       impactSnapshot: null,
       delta: null,

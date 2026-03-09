@@ -487,7 +487,7 @@ Reponds UNIQUEMENT en JSON strict :
 
     const lines = [
       '*Self-Improve :* ' + (config.enabled ? 'ACTIF' : 'DESACTIF'),
-      '*Auto-Apply :* ' + (config.autoApply ? 'ACTIF (confiance >= 70%)' : 'DESACTIF (mode manuel)'),
+      '*Auto-Apply :* ' + (config.autoApply ? 'ACTIF (confiance >= 60%)' : 'DESACTIF (mode manuel)'),
       '*Crons :* ' + this.crons.length + ' actif(s)',
       ''
     ];
@@ -625,19 +625,23 @@ Reponds UNIQUEMENT en JSON strict :
         const timingData = this._analyzeTimingOptimization();
         const frequencyData = this._analyzeFrequencyOptimization();
 
-        // 8. Email Performance Analysis (4a) — enrichir les recommandations
+        // 8. Email Performance Analysis (4a) — enrichir les recommandations (avec deduplication)
         const emailPerfAnalysis = this.analyzer.analyzeEmailPerformance();
         if (emailPerfAnalysis.available && emailPerfAnalysis.recommendations.length > 0) {
-          // Ajouter les recommandations email perf aux pending
-          const extraRecos = emailPerfAnalysis.recommendations.map(r => ({
-            ...r,
-            id: storage._generateId(),
-            source: 'email_performance_analysis'
-          }));
           const existingPending = storage.getPendingRecommendations();
-          storage.savePendingRecommendations([...existingPending, ...extraRecos]);
-
-          log.info('self-improve', 'Email perf analysis: ' + emailPerfAnalysis.insights.length + ' insights, ' + extraRecos.length + ' recos ajoutees');
+          // Deduplication : ne pas ajouter si meme type+action deja pending
+          const existingKeys = new Set(existingPending.map(r => r.type + '|' + (r.action || '')));
+          const extraRecos = emailPerfAnalysis.recommendations
+            .filter(r => !existingKeys.has(r.type + '|' + (r.action || '')))
+            .map(r => ({
+              ...r,
+              id: storage._generateId(),
+              source: 'email_performance_analysis'
+            }));
+          if (extraRecos.length > 0) {
+            storage.savePendingRecommendations([...existingPending, ...extraRecos]);
+            log.info('self-improve', 'Email perf analysis: ' + extraRecos.length + ' recos ajoutees (dedup: ' + (emailPerfAnalysis.recommendations.length - extraRecos.length) + ' ignorees)');
+          }
         }
 
         // Envoyer un complement de rapport si des optimisations timing/frequency
@@ -678,7 +682,7 @@ Reponds UNIQUEMENT en JSON strict :
           if (autoApplyResult.applied > 0 && this.sendTelegram) {
             const autoMsg = 'Auto-Improve : ' + autoApplyResult.applied + '/' +
               autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
-              ' (confiance >= 70%).\nDis _"rollback"_ pour annuler.';
+              ' (confiance >= 60%).\nDis _"rollback"_ pour annuler.';
             await this.sendTelegram(config.adminChatId, autoMsg);
           }
         }
@@ -691,10 +695,10 @@ Reponds UNIQUEMENT en JSON strict :
     }
   }
 
-  // FIX 16 : Auto-appliquer les recommandations a haute confiance (>= 0.7)
-  // FIX 21 : Bloquer auto-apply sur email_length/email_style si < 100 emails (evite flip-flop)
+  // Auto-appliquer les recommandations (>= 0.6 pour fallback, >= 0.7 pour IA)
+  // Bloquer auto-apply sur email_length/email_style si < 100 emails (evite flip-flop)
   _autoApplyRecommendations(recommendations) {
-    const MIN_CONFIDENCE = 0.7;
+    const MIN_CONFIDENCE = 0.6;
     const MIN_EMAILS_FOR_STYLE_CHANGE = 100;
     const pending = storage.getPendingRecommendations();
     if (pending.length === 0) return { applied: 0, total: 0, results: [] };
@@ -731,7 +735,7 @@ Reponds UNIQUEMENT en JSON strict :
     const applied = results.filter(r => r.success).length;
 
     log.info('self-improve', 'Auto-apply: ' + applied + '/' + highConfidence.length +
-      ' recommandation(s) appliquee(s) (confiance >= ' + (MIN_CONFIDENCE * 100) + '%)');
+      ' recommandation(s) appliquee(s) (confiance >= 60%)');
 
     return { applied: applied, total: pending.length, results: results };
   }
