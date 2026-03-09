@@ -1,7 +1,7 @@
-// Intent Monitor — Detection temps reel de signaux d'intent
+// Intent Monitor v2 — Detection temps reel de signaux d'intent pour marche FR
 // Tourne toutes les 30 min via cron, bypass le brain cycle pour action immediate
-// Sources : Apollo intent topics, Apollo job changes, Google Alerts RSS, visiteurs web
-// Cout : 0$ extra (Apollo deja paye, le reste est gratuit)
+// Sources : Apollo entreprises recentes, Apollo PME en croissance, Apollo funded tech, Web Intel
+// Cout : ~3-5 credits Apollo par scan (reveal emails)
 
 'use strict';
 
@@ -14,25 +14,30 @@ function getAutomailerStorage() { return getStorage('automailer'); }
 function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
 function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
-// Funding stages qui indiquent du budget frais (filtre Apollo VERIFIE fonctionnel)
+// Funding stages (garde pour startups tech FR)
 const FUNDING_STAGES = ['seed', 'angel', 'series_a', 'series_b', 'series_c', 'series_d'];
 
-// Rotation de keyword tags par scan (evite de toujours trouver les memes leads)
+// Keyword tags adaptes au marche FR — alignes sur nos niches reelles
+// Chaque groupe est scanne en rotation (1 groupe par scan)
 const KEYWORD_TAG_GROUPS = [
+  ['agence digitale', 'agence marketing'],
+  ['agence communication', 'agence web'],
+  ['cabinet conseil', 'consulting'],
+  ['cabinet recrutement', 'ressources humaines'],
+  ['ESN', 'societe de services informatiques'],
   ['SaaS', 'software'],
   ['startup', 'tech'],
-  ['digital', 'marketing automation'],
   ['e-commerce', 'marketplace'],
-  ['consulting', 'conseil'],
-  ['fintech', 'insurtech'],
-  ['healthtech', 'medtech'],
-  ['edtech', 'formation']
+  ['formation', 'edtech'],
+  ['immobilier', 'promotion immobiliere'],
+  ['comptabilite', 'expertise comptable'],
+  ['architecture', 'design']
 ];
 
-// Seuil minimum pour declencher le pipeline immediat
-const INTENT_PIPELINE_THRESHOLD = 5; // score intent >= 5 → action immediate
+// Config
 const MAX_IMMEDIATE_ACTIONS = 3;     // max 3 leads par scan (pas de spam)
-const COOLDOWN_HOURS = 24;           // ne pas re-scanner le meme lead avant 24h
+const MAX_REVEALS_PER_SCAN = 5;      // max 5 credits Apollo par scan
+const COOLDOWN_HOURS = 72;           // 72h cooldown (evite re-scan trop frequent)
 
 class IntentMonitor {
   constructor(options) {
@@ -119,17 +124,19 @@ class IntentMonitor {
     // Charger les leads deja en base (pour ne pas re-proposer)
     this._refreshKnownLeads();
 
-    // Lancer les 3 sources de signaux en parallele
-    // Source 1: Apollo funded companies (VERIFIE: reduit 54k→480 leads)
-    // Source 2: Apollo revenue-qualified PMEs (VERIFIE: reduit 54k→2994 leads)
-    // Source 3: Market signals Web Intelligence (trigger events < 24h)
+    // Lancer les 4 sources de signaux en parallele
+    // Source 1: Entreprises recentes FR (founded recent = besoin de clients)
+    // Source 2: PME en croissance FR (11-200 emp = budget + ambition)
+    // Source 3: Startups funded FR (funding = budget frais)
+    // Source 4: Market signals Web Intelligence (trigger events < 24h)
     const results = await Promise.allSettled([
-      this._scanApolloFunded(config),
-      this._scanApolloRevenueQualified(config),
+      this._scanRecentCompanies(config),
+      this._scanGrowingPMEs(config),
+      this._scanFundedStartups(config),
       this._scanGoogleAlerts()
     ]);
 
-    // Agreger tous les leads detectes
+    // Agreger tous les leads detectes (avec ou sans email — on reveal apres)
     const detectedLeads = [];
     for (const r of results) {
       if (r.status === 'fulfilled' && r.value && r.value.length > 0) {
@@ -137,34 +144,72 @@ class IntentMonitor {
       }
     }
 
-    // Filtrer : pas deja contacte, pas en cooldown, email valide
-    const actionableLeads = detectedLeads.filter(lead => {
-      if (!lead.email) return false;
-      const emailLower = lead.email.toLowerCase();
-      if (alreadyContacted.has(emailLower)) return false;
-      if (this._isInCooldown(emailLower)) return false;
+    // Dedup par apolloId (avant reveal pour economiser des credits)
+    const seenIds = new Set();
+    const dedupedLeads = detectedLeads.filter(function(l) {
+      const key = l.apolloId || l.email || '';
+      if (seenIds.has(key)) return false;
+      seenIds.add(key);
+      // Filtrer les leads deja en base ou en cooldown
+      if (l.email) {
+        const emailLower = l.email.toLowerCase();
+        if (alreadyContacted.has(emailLower)) return false;
+        if (this._isInCooldown(emailLower)) return false;
+      }
       return true;
-    });
-
-    // Deduplication par email
-    const seen = new Set();
-    const uniqueLeads = actionableLeads.filter(l => {
-      const e = l.email.toLowerCase();
-      if (seen.has(e)) return false;
-      seen.add(e);
-      return true;
-    });
+    }.bind(this));
 
     // Trier par score intent decroissant + fraicheur
-    uniqueLeads.sort((a, b) => {
-      const scoreA = (a.intentScore || 0) + (a.freshness || 0);
-      const scoreB = (b.intentScore || 0) + (b.freshness || 0);
+    dedupedLeads.sort(function(a, b) {
+      var scoreA = (a.intentScore || 0) + (a.freshness || 0);
+      var scoreB = (b.intentScore || 0) + (b.freshness || 0);
       return scoreB - scoreA;
     });
 
+    // Reveal les emails Apollo (max MAX_REVEALS_PER_SCAN credits)
+    // C'est le FIX CRITIQUE : Apollo search ne retourne PAS les emails, il faut les reveal
+    const ApolloConnector = require('../flowfast/apollo-connector.js');
+    const apollo = new ApolloConnector(this.apolloKey);
+    let revealCount = 0;
+
+    for (var i = 0; i < dedupedLeads.length && revealCount < MAX_REVEALS_PER_SCAN; i++) {
+      var lead = dedupedLeads[i];
+      if (lead.email) continue; // deja un email (source Web Intel)
+      if (lead.apolloId) {
+        try {
+          var revealed = await apollo.revealLead(lead.apolloId);
+          revealCount++;
+          if (revealed.success && revealed.lead && revealed.lead.email) {
+            lead.email = revealed.lead.email;
+            lead.nom = revealed.lead.nom || lead.nom;
+            lead.linkedin_url = revealed.lead.linkedin_url || lead.linkedin_url;
+            log.info('intent-monitor', 'Reveal OK: ' + lead.email + ' (' + lead.entreprise + ')');
+          } else {
+            log.info('intent-monitor', 'Reveal VIDE: ' + lead.apolloId + ' (' + lead.entreprise + ')');
+          }
+          // Rate limit entre reveals
+          await new Promise(function(r) { setTimeout(r, 1200); });
+        } catch (e) {
+          log.warn('intent-monitor', 'Reveal echoue: ' + e.message);
+        }
+      }
+    }
+
+    log.info('intent-monitor', 'Reveals: ' + revealCount + ' credits utilises');
+
+    // Filtrer : email requis + pas deja contacte + pas en cooldown
+    const actionableLeads = dedupedLeads.filter(function(lead) {
+      if (!lead.email) return false;
+      var emailLower = lead.email.toLowerCase();
+      if (alreadyContacted.has(emailLower)) return false;
+      if (this._isInCooldown(emailLower)) return false;
+      if (this._isKnownLead(lead.email)) return false;
+      return true;
+    }.bind(this));
+
     // Prendre les top N (limites par headroom warmup)
-    const maxActions = Math.min(MAX_IMMEDIATE_ACTIONS, headroom, uniqueLeads.length);
-    const toProcess = uniqueLeads.slice(0, maxActions);
+    const maxActions = Math.min(MAX_IMMEDIATE_ACTIONS, headroom, actionableLeads.length);
+    const toProcess = actionableLeads.slice(0, maxActions);
 
     if (toProcess.length === 0) {
       log.info('intent-monitor', 'Scan termine — aucun lead actionable (' + detectedLeads.length + ' detectes, ' + actionableLeads.length + ' filtrables)');
@@ -260,11 +305,12 @@ class IntentMonitor {
     }
 
     const duration = Math.round((Date.now() - startTime) / 1000);
-    log.info('intent-monitor', 'Scan termine en ' + duration + 's — ' + detectedLeads.length + ' detectes, ' + processed + '/' + toProcess.length + ' envoyes');
+    log.info('intent-monitor', 'Scan termine en ' + duration + 's — ' + detectedLeads.length + ' detectes, ' + revealCount + ' reveals, ' + actionableLeads.length + ' actionables, ' + processed + '/' + toProcess.length + ' envoyes');
 
     this._scanHistory.push({
       timestamp: new Date().toISOString(),
       detected: detectedLeads.length,
+      revealed: revealCount,
       actionable: actionableLeads.length,
       processed: processed,
       duration: duration
@@ -272,13 +318,13 @@ class IntentMonitor {
     // Garder 100 derniers scans
     if (this._scanHistory.length > 100) this._scanHistory = this._scanHistory.slice(-100);
 
-    return { scanned: detectedLeads.length, actionable: uniqueLeads.length, processed: processed, duration: duration };
+    return { scanned: detectedLeads.length, revealed: revealCount, actionable: actionableLeads.length, processed: processed, duration: duration };
   }
 
-  // --- Source 1 : Apollo Recently Funded Companies (filtre VERIFIE fonctionnel) ---
-  // Cible les entreprises avec funding recent (seed → series D) = budget frais + besoin de scaler
-  // Filtre organization_latest_funding_stage_cd : reduit de 54k à 480 leads = REEL filtre
-  async _scanApolloFunded(config) {
+  // --- Source 1 : Entreprises recentes FR (founded recent = besoin de clients) ---
+  // Signal : une entreprise creee recemment a besoin de trouver des clients → forte receptivite
+  // ~17k resultats avec founded>=2023 + tags agence/digital
+  async _scanRecentCompanies(config) {
     const leads = [];
     try {
       const ApolloConnector = require('../flowfast/apollo-connector.js');
@@ -286,60 +332,58 @@ class IntentMonitor {
 
       const goals = storage.getGoals();
       const baseCriteria = goals.searchCriteria || {};
+      const currentYear = new Date().getFullYear();
 
-      // Construire la requete avec funding stage filter
-      const https = require('https');
-      const searchData = {
-        person_titles: baseCriteria.titles || ['CEO', 'Founder', 'CTO', 'Directeur General'],
-        person_locations: baseCriteria.locations || ['France'],
-        person_seniorities: baseCriteria.seniorities || ['founder', 'c_suite', 'director'],
-        organization_latest_funding_stage_cd: FUNDING_STAGES,
-        contact_email_status: ['verified'],
-        per_page: 10,
-        page: 1
-      };
-
-      // Ajouter keyword tags en rotation (un groupe different a chaque scan)
+      // Keyword tags en rotation (1 groupe par scan)
       const tagGroup = KEYWORD_TAG_GROUPS[this._keywordGroupIndex % KEYWORD_TAG_GROUPS.length];
-      searchData.q_organization_keyword_tags = tagGroup;
       this._keywordGroupIndex++;
 
+      const searchData = {
+        person_titles: baseCriteria.titles || ['CEO', 'Founder', 'Fondateur', 'Gerant', 'Directeur'],
+        person_locations: baseCriteria.locations || ['France'],
+        person_seniorities: baseCriteria.seniorities || ['founder', 'c_suite', 'owner', 'director'],
+        organization_founded_year_min: currentYear - 2, // 2-3 ans max = entreprise recente
+        organization_num_employees_ranges: ['1-10', '11-50'],
+        q_organization_keyword_tags: tagGroup,
+        per_page: 15,
+        page: 1 + Math.floor(Math.random() * 5) // rotation pages aleatoire
+      };
+
       const result = await apollo.makeRequest('/v1/mixed_people/api_search', searchData);
-      const people = result.people || [];
+      var people = result.people || [];
 
-      for (const p of people) {
-        if (!p.email) continue;
-
-        // Verifier si lead est NOUVEAU (pas deja en base FlowFast)
+      for (var j = 0; j < people.length; j++) {
+        var p = people[j];
+        // PAS de check p.email ici — on le reveal apres dans scan()
         if (this._isKnownLead(p.email)) continue;
 
-        const fundingInfo = p.organization ? (p.organization.latest_funding_stage || p.organization.last_funding_type || 'funded') : 'funded';
+        var foundedYear = p.organization ? p.organization.founded_year : null;
         leads.push({
-          email: p.email,
+          email: p.email || null, // peut etre null, sera reveal
           nom: ((p.first_name || '') + ' ' + (p.last_name || '')).trim(),
           titre: p.title || '',
           entreprise: (p.organization && p.organization.name) || '',
           apolloId: p.id,
           linkedin_url: p.linkedin_url || '',
           organization: p.organization || null,
-          intentScore: 7, // funded company = strong intent signal
-          signalType: 'recent_funding',
-          signalDetail: 'Entreprise financee (' + fundingInfo + ') — tags: ' + tagGroup.join(', '),
-          freshness: 2,
+          intentScore: 6, // entreprise recente = bon signal
+          signalType: 'recent_company',
+          signalDetail: 'Entreprise recente' + (foundedYear ? ' (' + foundedYear + ')' : '') + ' — ' + tagGroup.join(', '),
+          freshness: foundedYear >= currentYear ? 2.5 : 1.5,
           detectedAt: new Date().toISOString()
         });
       }
 
-      log.info('intent-monitor', 'Apollo funded: ' + leads.length + ' nouveaux leads finances (tags: ' + tagGroup.join(', ') + ', total: ' + (result.total_entries || people.length) + ')');
+      log.info('intent-monitor', 'Recentes FR: ' + leads.length + ' leads (tags: ' + tagGroup.join(', ') + ', pool: ' + (result.total_entries || 0) + ')');
     } catch (e) {
-      log.error('intent-monitor', 'Apollo funded scan echoue: ' + e.message);
+      log.error('intent-monitor', 'Scan recentes echoue: ' + e.message);
     }
     return leads;
   }
 
-  // --- Source 2 : Apollo Revenue-Qualified (PME en croissance) ---
-  // Cible les PME avec revenue 1M-50M + keyword tags sectoriels = entreprise etablie qui investit
-  async _scanApolloRevenueQualified(config) {
+  // --- Source 2 : PME en croissance FR (11-200 emp = entreprise etablie avec budget) ---
+  // Signal : PME de taille moyenne dans nos niches = cible ideale pour prospection B2B
+  async _scanGrowingPMEs(config) {
     const leads = [];
     try {
       const ApolloConnector = require('../flowfast/apollo-connector.js');
@@ -348,49 +392,99 @@ class IntentMonitor {
       const goals = storage.getGoals();
       const baseCriteria = goals.searchCriteria || {};
 
+      // Tags decales de 6 par rapport a source 1 (diversification)
+      const tagIdx = (this._keywordGroupIndex + 6) % KEYWORD_TAG_GROUPS.length;
+      const tagGroup = KEYWORD_TAG_GROUPS[tagIdx];
+
       const searchData = {
-        person_titles: baseCriteria.titles || ['CEO', 'Founder', 'Directeur Commercial', 'Head of Sales'],
+        person_titles: baseCriteria.titles || ['CEO', 'Founder', 'Fondateur', 'Directeur General', 'Gerant'],
         person_locations: baseCriteria.locations || ['France'],
-        person_seniorities: baseCriteria.seniorities || ['founder', 'c_suite', 'director'],
-        revenue_range: { min: 1000000, max: 50000000 },
-        organization_num_employees_ranges: baseCriteria.companySize || ['11-50', '51-200'],
-        contact_email_status: ['verified'],
-        per_page: 10,
-        page: 1
+        person_seniorities: baseCriteria.seniorities || ['founder', 'c_suite', 'owner', 'director'],
+        organization_num_employees_ranges: ['11-50', '51-200'],
+        q_organization_keyword_tags: tagGroup,
+        per_page: 15,
+        page: 1 + Math.floor(Math.random() * 10) // plus de pages dispo = plus de rotation
       };
 
-      // Keywords tags en rotation (decale de 4 par rapport a source 1 pour diversifier)
-      const tagIdx = (this._keywordGroupIndex + 4) % KEYWORD_TAG_GROUPS.length;
-      const tagGroup = KEYWORD_TAG_GROUPS[tagIdx];
-      searchData.q_organization_keyword_tags = tagGroup;
-
       const result = await apollo.makeRequest('/v1/mixed_people/api_search', searchData);
-      const people = result.people || [];
+      var people = result.people || [];
 
-      for (const p of people) {
-        if (!p.email) continue;
+      for (var j = 0; j < people.length; j++) {
+        var p = people[j];
         if (this._isKnownLead(p.email)) continue;
 
-        const revenue = p.organization ? (p.organization.annual_revenue_printed || 'PME') : 'PME';
+        var empCount = p.organization ? p.organization.estimated_num_employees : null;
         leads.push({
-          email: p.email,
+          email: p.email || null,
           nom: ((p.first_name || '') + ' ' + (p.last_name || '')).trim(),
           titre: p.title || '',
           entreprise: (p.organization && p.organization.name) || '',
           apolloId: p.id,
           linkedin_url: p.linkedin_url || '',
           organization: p.organization || null,
-          intentScore: 5, // revenue-qualified = moderate intent
-          signalType: 'revenue_qualified',
-          signalDetail: 'PME qualifiee (CA: ' + revenue + ') — tags: ' + tagGroup.join(', '),
+          intentScore: 5, // PME etablie = signal modere
+          signalType: 'growing_pme',
+          signalDetail: 'PME ' + (empCount ? empCount + ' emp' : '') + ' — ' + tagGroup.join(', '),
           freshness: 1,
           detectedAt: new Date().toISOString()
         });
       }
 
-      log.info('intent-monitor', 'Apollo revenue: ' + leads.length + ' nouveaux leads revenue-qualified (tags: ' + tagGroup.join(', ') + ')');
+      log.info('intent-monitor', 'PME croissance: ' + leads.length + ' leads (tags: ' + tagGroup.join(', ') + ', pool: ' + (result.total_entries || 0) + ')');
     } catch (e) {
-      log.error('intent-monitor', 'Apollo revenue scan echoue: ' + e.message);
+      log.error('intent-monitor', 'Scan PME echoue: ' + e.message);
+    }
+    return leads;
+  }
+
+  // --- Source 3 : Startups funded FR (funding = budget frais, garde pour tech) ---
+  // Signal : levee de fonds = budget + besoin de scaler rapidement
+  async _scanFundedStartups(config) {
+    const leads = [];
+    try {
+      const ApolloConnector = require('../flowfast/apollo-connector.js');
+      const apollo = new ApolloConnector(this.apolloKey);
+
+      const goals = storage.getGoals();
+      const baseCriteria = goals.searchCriteria || {};
+
+      const searchData = {
+        person_titles: ['CEO', 'Founder', 'CTO', 'Co-founder', 'Fondateur', 'Directeur General'],
+        person_locations: baseCriteria.locations || ['France'],
+        person_seniorities: ['founder', 'c_suite', 'owner'],
+        organization_latest_funding_stage_cd: FUNDING_STAGES,
+        per_page: 10,
+        page: 1 + Math.floor(Math.random() * 5)
+      };
+      // PAS de keyword tags ici — on ratisse large sur les funded FR
+
+      const result = await apollo.makeRequest('/v1/mixed_people/api_search', searchData);
+      var people = result.people || [];
+
+      for (var j = 0; j < people.length; j++) {
+        var p = people[j];
+        if (this._isKnownLead(p.email)) continue;
+
+        var fundingInfo = p.organization ? (p.organization.latest_funding_stage || 'funded') : 'funded';
+        leads.push({
+          email: p.email || null,
+          nom: ((p.first_name || '') + ' ' + (p.last_name || '')).trim(),
+          titre: p.title || '',
+          entreprise: (p.organization && p.organization.name) || '',
+          apolloId: p.id,
+          linkedin_url: p.linkedin_url || '',
+          organization: p.organization || null,
+          intentScore: 7, // funded = strong signal
+          signalType: 'recent_funding',
+          signalDetail: 'Startup funded (' + fundingInfo + ')',
+          freshness: 2,
+          detectedAt: new Date().toISOString()
+        });
+      }
+
+      log.info('intent-monitor', 'Funded FR: ' + leads.length + ' leads (pool: ' + (result.total_entries || 0) + ')');
+    } catch (e) {
+      log.error('intent-monitor', 'Scan funded echoue: ' + e.message);
     }
     return leads;
   }
