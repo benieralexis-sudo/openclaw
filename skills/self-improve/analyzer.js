@@ -43,8 +43,10 @@ class Analyzer {
             const response = JSON.parse(body);
             if (response.content && response.content[0]) {
               resolve(response.content[0].text.trim());
+            } else if (response.error) {
+              reject(new Error('Claude API error ' + (response.error.type || '?') + ': ' + (response.error.message || JSON.stringify(response.error)).substring(0, 200)));
             } else {
-              reject(new Error('Reponse Claude invalide: ' + JSON.stringify(response).substring(0, 200)));
+              reject(new Error('Reponse Claude invalide (status ' + res.statusCode + '): ' + JSON.stringify(response).substring(0, 200)));
             }
           } catch (e) { reject(e); }
         });
@@ -190,8 +192,8 @@ Reponds UNIQUEMENT en JSON strict :
       cohortContext;
 
     try {
-      const breaker = getBreaker('claude-opus', { failureThreshold: 3, cooldownMs: 120000 });
-      const response = await breaker.call(() => retryAsync(() => this.callClaude(systemPrompt, userMessage, 2000), 2, 3000));
+      const breaker = getBreaker('claude-sonnet-si', { failureThreshold: 5, cooldownMs: 60000 });
+      const response = await breaker.call(() => retryAsync(() => this.callClaude(systemPrompt, userMessage, 2000), 3, 5000));
       const cleaned = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const analysis = JSON.parse(cleaned);
 
@@ -204,9 +206,10 @@ Reponds UNIQUEMENT en JSON strict :
         id: storage._generateId()
       }));
 
+      log.info('self-improve', 'Analyse Claude OK: ' + analysis.recommendations.length + ' reco(s), qualite=' + (analysis.dataQuality || '?'));
       return analysis;
     } catch (error) {
-      log.error('self-improve', 'Erreur analyse Claude:', error.message);
+      log.error('self-improve', 'Erreur analyse Claude (fallback actif): ' + error.message);
       return this._fallbackAnalysis(snapshot);
     }
   }
