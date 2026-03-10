@@ -428,7 +428,9 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
         return parsed;
       }
 
-      // === Pre-scoring programmatique (0 API call) ===
+      // === Scoring 100% programmatique (0 API call, 0 latence, 0 tokens) ===
+      // Le pre-score couvre : dead CTA, em-dash, longueur, social proof, value CTA, meta-prospection, sujet generique
+      // GPT-4o-mini supprime : sous-notait de 1-2 pts en FR, ajoutait 2-5s latence, coutait ~2000 tokens/email
       const preScore = this._programmaticPreScore(parsed.subject, parsed.body, contact);
       if (preScore.block) {
         if (preScore.note > bestScore) {
@@ -439,22 +441,17 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
         continue;
       }
 
-      // Auto-scoring via GPT-4o-mini
-      const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
-      const adjustedNote = Math.min(10, Math.max(1, score.note + preScore.adjust));
-      const adjustedReason = preScore.adjust !== 0 ? score.reason + ' [prog:' + (preScore.adjust > 0 ? '+' : '') + preScore.adjust + ' ' + preScore.reason + ']' : score.reason;
-      // Si pre-score confirme sp+cta (structure OK), seuil GPT plus bas
-      // GPT-4o-mini sous-note systematiquement de 1-2 points (calibre sur des emails EN, pas FR)
-      const passThreshold = preScore.reason.includes('sp+value_cta') ? 6 : 9;
-      if (adjustedNote >= passThreshold) return parsed;
-      if (adjustedNote > bestScore) {
+      // Pre-score non-block = email structurellement bon (SP + CTA + longueur OK)
+      // Note programmatique >= 7 (base 7 + adjust) = envoyer
+      if (preScore.note >= 7) return parsed;
+      if (preScore.note > bestScore) {
         best = parsed;
-        bestScore = adjustedNote;
-        best._scoreReason = adjustedReason;
+        bestScore = preScore.note;
+        best._scoreReason = preScore.reason;
       }
     }
-    // Apres retries : envoyer si >= 7 (qualite suffisante avec sp+cta confirme par prescore)
-    if (bestScore >= 7) return best;
+    // Apres retries : envoyer si note programmatique >= 6 (sp+cta confirme mais malus mineurs)
+    if (bestScore >= 6) return best;
     return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
   }
 
@@ -1077,6 +1074,24 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
       previousEmailsContext += '\nTu DOIS utiliser un angle ET un social proof COMPLETEMENT DIFFERENTS de tous les emails ci-dessus.';
     }
 
+    // Injecter les winning patterns (emails qui ont recu des reponses) — meme logique que step 1
+    let winningPatternsBlockFU = '';
+    try {
+      const amStorageWin = require('./storage.js');
+      if (amStorageWin && amStorageWin.data && amStorageWin.data.emails) {
+        const repliedEmails = amStorageWin.data.emails
+          .filter(function(e) { return (e.status === 'replied' || e.hasReplied) && e.body; })
+          .slice(-5);
+        if (repliedEmails.length >= 2) {
+          winningPatternsBlockFU = '\n\n=== EMAILS GAGNANTS (ont recu des reponses — reproduis le STYLE et le PATTERN, pas le contenu) ===\n';
+          for (const re of repliedEmails) {
+            winningPatternsBlockFU += '- [Step ' + (re.stepNumber || '?') + '] Objet: ' + (re.subject || '') + ' | Corps: ' + (re.body || '').substring(0, 200) + '\n';
+          }
+          winningPatternsBlockFU += 'PATTERN COMMUN : fait concret + social proof court + question business = reponse.\n';
+        }
+      }
+    } catch (winErr) { /* non bloquant */ }
+
     // Construire le lien booking pour step 3 (CTA direct)
     let bookingUrlBlock = '';
     const googleBookingUrl = process.env.GOOGLE_BOOKING_URL || '';
@@ -1155,7 +1170,7 @@ Mission : un angle encore different tire des DONNEES PROSPECT. Social proof + CT
     }
 
     const systemPrompt = `${fuLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance UNIQUE et PERSONNALISEE.
-
+${winningPatternsBlockFU}
 === ANALYSE STRATEGIQUE (PRIORITAIRE) ===
 Si les donnees contiennent un bloc "=== ANALYSE STRATEGIQUE ===", SUIS SES DIRECTIVES pour l'angle et le social proof. Adapte au format relance (plus court, plus direct).
 
@@ -1302,16 +1317,15 @@ Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base s
       }
     }
 
-    // Score via GPT-4o-mini (adapte pour follow-ups)
-    try {
-      const score = await this._scoreFollowUpEmail(parsed.subject, parsed.body, contact);
-      if (score.note >= 6) return parsed;
-      return { skip: true, reason: 'fu_score_low:' + score.note + '/10 (' + (score.reason || '?') + ')' };
-    } catch (e) {
-      // Scoring indisponible — accepter si les gates programmatiques passent
-      if (wordCount <= 65 && wordCount >= 20) return parsed;
-      return { skip: true, reason: 'fu_scoring_unavailable_wc:' + wordCount };
+    // Scoring 100% programmatique — plus fiable que GPT-4o-mini qui sous-note le FR de 1-2 pts
+    // Les gates ci-dessus couvrent tous les cas critiques (longueur, em-dash, dead CTA, meta-prospection, SP repetition)
+    // Un FU qui passe toutes ces gates est un bon FU — pas besoin de payer GPT pour confirmer
+    if (wordCount < 20) return { skip: true, reason: 'fu_too_short:' + wordCount };
+    if (wordCount > 65) {
+      // Tolerance 65-80 : penalite log mais pas block (deja gate a 80 au-dessus)
+      log.info('email-writer', 'FU slightly long: ' + wordCount + ' mots (tolerant 65-80)');
     }
+    return parsed;
   }
 
   async editEmail(currentEmail, instruction) {

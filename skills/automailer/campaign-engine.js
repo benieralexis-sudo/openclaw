@@ -405,8 +405,25 @@ function _snapToPreferredSlot(date, timezone) {
     date = new Date(date.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
   }
 
-  // Assignation aleatoire 50/50 entre les 2 vagues
-  const isMorningWave = Math.random() < 0.5;
+  // Assignation ponderee matin/apres-midi basee sur les open rates reels
+  // Donnee marche B2B FR : 8h-9h30 = meilleur open rate (inbox fraiche), 14h30-16h = 2eme fenetre
+  // On pondere 60/40 matin par defaut, ajustable si les donnees montrent autre chose
+  let morningWeight = 0.6;
+  try {
+    const amStorage = require('./storage.js');
+    if (amStorage && amStorage.data && amStorage.data.emails) {
+      const recentEmails = amStorage.data.emails.filter(e => e.sendHourParis && e.openedAt);
+      if (recentEmails.length >= 20) {
+        const morning = recentEmails.filter(e => e.sendHourParis >= 8 && e.sendHourParis < 12);
+        const afternoon = recentEmails.filter(e => e.sendHourParis >= 12 && e.sendHourParis < 18);
+        const morningOpenRate = morning.length > 0 ? morning.filter(e => e.openedAt).length / morning.length : 0.5;
+        const afternoonOpenRate = afternoon.length > 0 ? afternoon.filter(e => e.openedAt).length / afternoon.length : 0.5;
+        const total = morningOpenRate + afternoonOpenRate;
+        if (total > 0) morningWeight = Math.max(0.3, Math.min(0.8, morningOpenRate / total));
+      }
+    }
+  } catch (e) { /* fallback 60/40 */ }
+  const isMorningWave = Math.random() < morningWeight;
   let targetHour, jitterMinutes;
   if (isMorningWave) {
     targetHour = 8;
@@ -727,6 +744,7 @@ class CampaignEngine {
       }
 
       // GATE : Re-verifier Lead Enrich pour les follow-ups (evite d'envoyer des relances a des leads hors-cible)
+      // MAIS : bypass si le lead a deja ouvert un email (engagement reel > score theorique)
       if (stepNumber >= 2) {
         try {
           const leStorage = require('../lead-enrich/storage.js');
@@ -737,10 +755,18 @@ class CampaignEngine {
               const aiScore = aiClass.score != null ? aiClass.score : 10;
               const aiIndustry = (aiClass.industry || '').toLowerCase();
               if (aiScore <= 3 && aiIndustry === 'autre') {
-                log.warn('campaign-engine', 'GATE Lead Enrich BLOCK — ' + contact.email +
-                  ' hors-cible (score ' + aiScore + ', industrie ' + aiClass.industry + ') — skip follow-up');
-                skipped++;
-                continue;
+                // Verifier engagement reel avant de bloquer
+                const contactEmails = (storage.data.emails || []).filter(e => e.to === contact.email);
+                const hasOpened = contactEmails.some(e => e.openCount > 0 || e.status === 'opened' || e.status === 'clicked');
+                if (hasOpened) {
+                  log.info('campaign-engine', 'GATE Lead Enrich BYPASS — ' + contact.email +
+                    ' hors-cible (score ' + aiScore + ') mais A OUVERT — engagement > score');
+                } else {
+                  log.warn('campaign-engine', 'GATE Lead Enrich BLOCK — ' + contact.email +
+                    ' hors-cible (score ' + aiScore + ', industrie ' + aiClass.industry + ') — skip follow-up');
+                  skipped++;
+                  continue;
+                }
               }
             }
           }
@@ -1083,10 +1109,11 @@ class CampaignEngine {
                         subject = retryFU.subject;
                         body = retryFU.body;
                         log.info('campaign-engine', 'Relance step ' + stepNumber + ' retry OK pour ' + contact.email + ' — ' + spec2.reason);
-                      } else if (contact.company && contact.title) {
+                      } else if (contact.company || contact.title || contact.email) {
+                        // Follow-ups tolerent le generique si on a au moins un identifiant — un FU court generique > pas de FU du tout
                         subject = retryFU.subject;
                         body = retryFU.body;
-                        log.info('campaign-engine', 'Relance step ' + stepNumber + ' generique acceptee pour ' + contact.email + ' (company+title dispo)');
+                        log.info('campaign-engine', 'Relance step ' + stepNumber + ' generique acceptee pour ' + contact.email + ' (follow-up > silence)');
                       } else {
                         log.warn('campaign-engine', 'Relance step ' + stepNumber + ' TOUJOURS generique pour ' + contact.email + ' — skip');
                         skipped++;
@@ -1588,8 +1615,8 @@ class CampaignEngine {
       // Step reellement traite (emails envoyes ou aucun contact eligible)
       step.status = 'completed';
       step.sentAt = new Date().toISOString();
-    } else if ((step._retryCount || 0) >= 10) {
-      // Max retries atteint (10 tentatives sur ~10h) — forcer completed + notifier
+    } else if ((step._retryCount || 0) >= ((list.contacts || []).length <= 1 ? 3 : 10)) {
+      // Max retries atteint — 3 pour mono-contact (evite 10h de retry pour 1 lead), 10 pour multi-contact
       step.status = 'completed';
       step.sentAt = new Date().toISOString();
       step._forceCompleted = true;
