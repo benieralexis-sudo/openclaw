@@ -251,14 +251,23 @@ class IntentMonitor {
         }
 
         // Executer send_email (inclut research + generation + envoi)
+        // FIX: action-executor attend contactName, company, contact:{} (meme format que brain-engine)
         const result = await executor.executeAction({
           type: 'send_email',
           params: {
             to: lead.email,
-            nom: lead.nom,
-            titre: lead.titre,
-            entreprise: lead.entreprise,
-            organization: lead.organization,
+            contactName: lead.nom || '',
+            company: lead.entreprise || '',
+            score: Math.max(7, lead.intentScore || 7),
+            _generateFirst: true,
+            contact: {
+              email: lead.email,
+              nom: lead.nom || '',
+              titre: lead.titre || '',
+              entreprise: lead.entreprise || '',
+              linkedin_url: lead.linkedin_url || '',
+              organization: lead.organization || null
+            },
             _intentTriggered: true,
             _intentSignal: lead.signalType,
             _intentDetail: lead.signalDetail
