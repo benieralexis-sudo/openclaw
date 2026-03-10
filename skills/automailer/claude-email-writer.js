@@ -443,8 +443,9 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
       const adjustedNote = Math.min(10, Math.max(1, score.note + preScore.adjust));
       const adjustedReason = preScore.adjust !== 0 ? score.reason + ' [prog:' + (preScore.adjust > 0 ? '+' : '') + preScore.adjust + ' ' + preScore.reason + ']' : score.reason;
-      // Si pre-score confirme sp+cta (structure OK), seuil GPT plus bas (GPT sous-note systematiquement)
-      const passThreshold = preScore.reason.includes('sp+value_cta') ? 7 : 9;
+      // Si pre-score confirme sp+cta (structure OK), seuil GPT plus bas
+      // GPT-4o-mini sous-note systematiquement de 1-2 points (calibre sur des emails EN, pas FR)
+      const passThreshold = preScore.reason.includes('sp+value_cta') ? 6 : 9;
       if (adjustedNote >= passThreshold) return parsed;
       if (adjustedNote > bestScore) {
         best = parsed;
@@ -452,8 +453,8 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
         best._scoreReason = adjustedReason;
       }
     }
-    // Apres retries : envoyer si >= 8 (qualite premium — on prefere skip que envoyer un email moyen)
-    if (bestScore >= 8) return best;
+    // Apres retries : envoyer si >= 7 (qualite suffisante avec sp+cta confirme par prescore)
+    if (bestScore >= 7) return best;
     return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
   }
 
