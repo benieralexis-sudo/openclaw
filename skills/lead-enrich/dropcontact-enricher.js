@@ -254,14 +254,23 @@ class DropcontactEnricher {
         email: bestEmail,
         phone: (d.phone && d.phone[0] && d.phone[0].number) || '',
         linkedinUrl: d.linkedin || '',
-        city: d.city || '',
+        city: d.siret_city || d.city || '',
+        location: d.location || '',
         country: d.country || ''
       },
       organization: {
-        name: d.company_name || '',
+        name: d.company || d.company_name || '',
         website: d.website || '',
         siren: d.siren || '',
-        siret: d.siret || ''
+        siret: d.siret || '',
+        address: d.siret_address || '',
+        zip: d.siret_zip || '',
+        city: d.siret_city || '',
+        nafCode: d.naf5_code || '',
+        nafLabel: d.naf5_des || '',
+        vat: d.vat || '',
+        nbEmployees: d.nb_employees || '',
+        linkedinUrl: d.company_linkedin || ''
       },
       _dropcontact: {
         emailQualification: emailQual,

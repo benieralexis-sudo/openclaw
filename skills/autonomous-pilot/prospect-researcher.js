@@ -1693,14 +1693,25 @@ class ProspectResearcher {
       lines.push(contactLine);
     }
 
-    // Donnees Dropcontact entreprise (SIREN, donnees complementaires)
+    // Donnees Dropcontact entreprise — donnees legales FR uniques (toujours injecter, complementaire Apollo)
     if (intel.dropcontactData && intel.dropcontactData.organization) {
       const dcOrg = intel.dropcontactData.organization;
       const dcParts = [];
+      if (dcOrg.nafLabel) dcParts.push('Activite: ' + dcOrg.nafLabel + (dcOrg.nafCode ? ' (' + dcOrg.nafCode + ')' : ''));
+      if (dcOrg.nbEmployees) dcParts.push('Effectif: ' + dcOrg.nbEmployees);
       if (dcOrg.siren) dcParts.push('SIREN: ' + dcOrg.siren);
+      if (dcOrg.siret) dcParts.push('SIRET: ' + dcOrg.siret);
+      if (dcOrg.city && dcOrg.zip) dcParts.push('Siege: ' + dcOrg.city + ' (' + dcOrg.zip + ')');
+      else if (dcOrg.city) dcParts.push('Siege: ' + dcOrg.city);
+      if (dcOrg.address) dcParts.push('Adresse: ' + dcOrg.address);
+      if (dcOrg.vat) dcParts.push('TVA: ' + dcOrg.vat);
       if (dcOrg.website && !intel.apolloData) dcParts.push('Site: ' + dcOrg.website);
-      if (dcOrg.industry && (!intel.apolloData || !intel.apolloData.industry)) dcParts.push('Secteur: ' + dcOrg.industry);
-      if (dcParts.length > 0) lines.push('DROPCONTACT: ' + dcParts.join(', '));
+      if (dcOrg.linkedinUrl) dcParts.push('LinkedIn: ' + dcOrg.linkedinUrl);
+      if (dcParts.length > 0) lines.push('DONNEES LEGALES FR: ' + dcParts.join(' | '));
+    }
+    // Civilite Dropcontact (utile pour personnalisation)
+    if (intel.dropcontactData && intel.dropcontactData._dropcontact && intel.dropcontactData._dropcontact.civility) {
+      lines.push('Civilite: ' + intel.dropcontactData._dropcontact.civility);
     }
 
     // PRIORITE 1 : News recentes — meilleure source d'observations specifiques et temporelles
