@@ -125,14 +125,16 @@ class DropcontactEnricher {
   // INTERFACE PUBLIQUE
   // ============================================================
 
-  // Enrichir par nom + entreprise (cas principal : Apollo a le nom mais pas l'email)
-  async enrichByNameAndCompany(firstName, lastName, company) {
+  // Enrichir par nom + entreprise + website (cas principal : Apollo a le nom mais pas l'email)
+  async enrichByNameAndCompany(firstName, lastName, company, website) {
     try {
-      const result = await this._submitBatch([{
+      const entry = {
         first_name: firstName,
         last_name: lastName,
         company_name: company
-      }]);
+      };
+      if (website) entry.website = website;
+      const result = await this._submitBatch([entry]);
 
       if (!result.request_id) {
         return { success: false, error: 'Pas de request_id retourne' };
@@ -235,12 +237,15 @@ class DropcontactEnricher {
       bestEmail = emails;
     }
 
-    if (!bestEmail && !d.first_name && !d.last_name) {
+    if (!bestEmail && !d.first_name && !d.last_name && !d.siren && !d.phone) {
       return { success: false, error: 'Aucune donnee trouvee' };
     }
 
+    // success = true si email trouvé OU données enrichissement utiles (tel, SIREN, LinkedIn, ville)
+    const hasUsefulData = !!bestEmail || !!(d.phone && d.phone[0]) || !!d.siren || !!d.linkedin || !!d.city || !!(d.job && d.job.length > 3);
+
     return {
-      success: !!bestEmail,
+      success: hasUsefulData,
       person: {
         firstName: d.first_name || '',
         lastName: d.last_name || '',

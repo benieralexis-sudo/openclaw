@@ -397,6 +397,11 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       const parsed = this._parseJSON(response);
       if (!parsed) return parsed;
 
+      // Post-process automatique : supprimer tirets cadratins AVANT scoring (Claude les ajoute malgre les instructions)
+      if (parsed.body) {
+        parsed.body = parsed.body.replace(/\u2014/g, ',').replace(/\u2013/g, ',');
+      }
+
       // Si Claude skip au premier essai, retry UNE FOIS avec un prompt plus insistant
       if (parsed.skip) {
         if (attempt === 0) {

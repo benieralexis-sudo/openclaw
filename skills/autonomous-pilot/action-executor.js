@@ -251,6 +251,8 @@ Format JSON strict :
                 linkedin: lead.linkedin_url,
                 source: 'autonomous-pilot',
                 industry: leadIndustry,
+                localisation: lead.localisation || '',
+                headline: lead.titre || lead.title || '',
                 raison: scored.raison || '',
                 recommandation: scored.recommandation || '',
                 searchCriteria: JSON.stringify(criteria).substring(0, 200),
@@ -289,8 +291,9 @@ Format JSON strict :
                 const oldKey = (lead.nom || '') + '_' + (lead.entreprise || '');
                 if (ffStorage.removeLead) ffStorage.removeLead(oldKey);
 
-                // B5 FIX : propager industry depuis Apollo pour le niche tracking
-                const revealIndustry = (lead.organization && lead.organization.industry) || '';
+                // Propager industry + localisation + org data complete depuis Apollo reveal
+                const revealOrg = revealResult.lead.organization || lead.organization || {};
+                const revealIndustry = revealOrg.industry || (lead.organization && lead.organization.industry) || '';
                 ffStorage.addLead({
                   nom: lead.nom,
                   titre: lead.titre,
@@ -299,9 +302,11 @@ Format JSON strict :
                   linkedin: lead.linkedin_url,
                   source: 'autonomous-pilot',
                   industry: revealIndustry,
+                  localisation: revealResult.lead.city || lead.localisation || '',
+                  headline: revealResult.lead.title || lead.titre || '',
                   raison: lead.raison || '',
                   searchCriteria: JSON.stringify(criteria).substring(0, 200),
-                  organizationData: JSON.stringify(lead.organization || {}).substring(0, 2000)
+                  organizationData: JSON.stringify(revealOrg).substring(0, 2000)
                 }, lead.score, 'brain-cycle-revealed');
               }
             }
@@ -1067,6 +1072,7 @@ Format JSON strict :
         const ProspectResearcher = getProspectResearcher();
         if (ProspectResearcher) {
           const researcher = new ProspectResearcher({ claudeKey: this.claudeKey });
+          log.info('action-executor', 'Lancement ProspectResearcher pour ' + (params.to || '?') + ' (claudeKey: ' + (this.claudeKey ? 'present' : 'MANQUANT') + ')');
           const intel = await researcher.researchProspect({
             email: params.to,
             nom: params.contactName || (params.contact && params.contact.nom),
@@ -1078,6 +1084,9 @@ Format JSON strict :
           });
           if (intel && intel.brief) {
             params._prospectIntel = intel.brief;
+            log.info('action-executor', 'ProspectResearcher OK pour ' + (params.to || '?') + ' — brief: ' + intel.brief.length + ' chars');
+          } else {
+            log.warn('action-executor', 'ProspectResearcher retourne brief vide pour ' + (params.to || '?') + ' — intel: ' + (intel ? Object.keys(intel).join(',') : 'null'));
           }
           // Injecter le contexte intent pour le writer
           if (intel && intel.intentScore && intel.intentScore.score >= 3) {
@@ -1110,7 +1119,7 @@ Format JSON strict :
           }
         }
       } catch (e) {
-        log.warn('action-executor', 'Recherche prospect echouee (non bloquant):', e.message);
+        log.warn('action-executor', 'Recherche prospect echouee pour ' + (params.to || '?') + ': ' + e.message + (e.stack ? ' | stack: ' + e.stack.split('\n').slice(0, 3).join(' → ') : ''));
       }
 
       // === GATE MINIMUM DONNEES : bloquer si brief trop pauvre ===

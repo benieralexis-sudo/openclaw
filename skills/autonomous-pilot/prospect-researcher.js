@@ -379,9 +379,9 @@ class ProspectResearcher {
     const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, jobPostingsResult, dropcontactResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
-      Promise.resolve(this._extractApolloOrgData(contact.organization)),
+      Promise.resolve(this._extractApolloOrgData(contact.organization, contact)),
       Promise.resolve(this._checkExistingWebIntelArticles(company)),
-      this._fetchLinkedInData(linkedinUrl, contactName, company),
+      this._fetchLinkedInData(linkedinUrl, contactName, company, contact),
       this._searchCompanyClients(company),
       this._searchPersonProfile(contactName, company),
       this._searchJobPostings(company),
@@ -740,24 +740,40 @@ class ProspectResearcher {
   /**
    * Extrait les donnees utiles de l'objet organization Apollo (deja paye)
    */
-  _extractApolloOrgData(organization) {
-    if (!organization) return null;
+  _extractApolloOrgData(organization, contact) {
+    // Fusionner l'objet organization direct + organizationData stringifie + donnees contact
+    let org = organization || {};
+
+    // Si pas d'org directe, essayer de parser organizationData (stocke en JSON string dans FlowFast)
+    if ((!org.name || Object.keys(org).length <= 2) && contact) {
+      const rawOrgData = contact.organizationData;
+      if (rawOrgData) {
+        try {
+          const parsed = typeof rawOrgData === 'string' ? JSON.parse(rawOrgData) : rawOrgData;
+          // Fusionner : les vraies valeurs ecrasent les booleans
+          org = { ...org, ...parsed };
+        } catch (e) { /* ignore parse errors */ }
+      }
+    }
+
+    if (!org || (!org.name && !contact)) return null;
+
     return {
-      name: organization.name || null,
-      websiteUrl: organization.website_url || null,
-      industry: organization.industry || null,
-      employeeCount: organization.estimated_num_employees || null,
-      foundedYear: organization.founded_year || null,
-      shortDescription: (organization.short_description || '').substring(0, 300),
-      keywords: (organization.keywords || []).slice(0, 15),
-      technologies: (organization.technologies || []).slice(0, 15),
-      city: organization.city || null,
-      country: organization.country || null,
-      linkedinUrl: organization.linkedin_url || null,
-      revenue: organization.annual_revenue_printed || null,
-      lastFundingDate: organization.last_funding_date || organization.lastFundingDate || null,
-      lastFundingType: organization.last_funding_type || null,
-      lastFundingAmount: organization.total_funding_printed || organization.total_funding || null
+      name: org.name || (contact && contact.entreprise) || null,
+      websiteUrl: org.website_url || null,
+      industry: org.industry || (contact && contact.industry) || null,
+      employeeCount: org.estimated_num_employees || null,
+      foundedYear: org.founded_year || null,
+      shortDescription: (org.short_description || '').substring(0, 300),
+      keywords: (org.keywords || []).slice(0, 15),
+      technologies: (org.technologies || []).slice(0, 15),
+      city: org.city || (contact && contact.localisation) || null,
+      country: org.country || null,
+      linkedinUrl: org.linkedin_url || null,
+      revenue: org.annual_revenue_printed || null,
+      lastFundingDate: org.last_funding_date || org.lastFundingDate || null,
+      lastFundingType: org.last_funding_type || null,
+      lastFundingAmount: org.total_funding_printed || org.total_funding || null
     };
   }
 
@@ -999,8 +1015,25 @@ class ProspectResearcher {
    * Ordre optimise : Brave Search (pas de rate-limit) > DuckDuckGo > Bing > Google Cache > Google search.
    * Chaque requete utilise un user-agent different pour eviter les 403.
    */
-  async _fetchLinkedInData(linkedinUrl, name, company) {
+  async _fetchLinkedInData(linkedinUrl, name, company, apolloPerson) {
     if ((!linkedinUrl || !linkedinUrl.includes('linkedin.com/in/')) && !name) return null;
+
+    // Strategie -1 (IMMEDIAT) : Extraire headline depuis donnees contact existantes (0 requete HTTP)
+    // FlowFast stocke le titre Apollo dans 'titre' ou 'title', et l'URL LinkedIn dans 'linkedin'
+    if (apolloPerson) {
+      const apHeadline = apolloPerson.headline || apolloPerson.titre || apolloPerson.title || '';
+      const apLinkedin = apolloPerson.linkedin_url || apolloPerson.linkedin || apolloPerson.linkedinUrl || '';
+      if (apHeadline && apHeadline.length > 5) {
+        log.info('prospect-research', 'LinkedIn via donnees contact pour ' + name + ': ' + apHeadline.substring(0, 60));
+        return {
+          headline: apHeadline.substring(0, 200),
+          linkedinUrl: apLinkedin || linkedinUrl || '',
+          source: 'contact_data'
+        };
+      }
+      // Mettre a jour linkedinUrl si disponible
+      if (apLinkedin && !linkedinUrl) linkedinUrl = apLinkedin;
+    }
 
     const fetcher = this._getFetcher();
     if (!fetcher) return null;
@@ -1394,8 +1427,9 @@ class ProspectResearcher {
     }
   }
 
-  // Source 10 : Dropcontact — enrichissement donnees personne (poste, LinkedIn, telephone, SIREN)
-  // Gratuit en parallele si DROPCONTACT_API_KEY configure, sinon skip silencieux
+  // Source 10 : Dropcontact — enrichissement complet personne + entreprise
+  // Double strategie : enrichByEmail (si email connu) + enrichByNameAndCompany (fallback)
+  // Retourne les donnees meme sans email (tel, SIREN, LinkedIn, ville = precieux pour le brief)
   async _fetchDropcontactData(contact) {
     const apiKey = process.env.DROPCONTACT_API_KEY;
     if (!apiKey) return null;
@@ -1403,17 +1437,38 @@ class ProspectResearcher {
     const firstName = (contact.nom || contact.name || '').split(' ')[0];
     const lastName = (contact.nom || contact.name || '').split(' ').slice(1).join(' ');
     const company = contact.entreprise || '';
-
-    if (!firstName || !company) return null;
+    const email = contact.email || '';
+    const website = email ? email.split('@')[1] : '';
 
     try {
       const DropcontactEnricher = require('../lead-enrich/dropcontact-enricher.js');
       const dc = new DropcontactEnricher(apiKey);
-      const result = await dc.enrichByNameAndCompany(firstName, lastName, company);
-      if (result.success) {
-        log.info('prospect-research', 'Dropcontact enrichment OK pour ' + (contact.nom || '') + ' @ ' + company);
-        return result;
+      let result = null;
+
+      // Strategie 1 : enrichByEmail si on a deja l'email (reverse lookup = telephone, SIREN, poste, LinkedIn)
+      if (email && email.includes('@')) {
+        result = await dc.enrichByEmail(email);
+        if (result && (result.success || (result.person && (result.person.phone || result.person.city || result.person.linkedinUrl || result.person.title)))) {
+          log.info('prospect-research', 'Dropcontact enrichByEmail OK pour ' + email + ' (tel:' + (result.person.phone ? 'oui' : 'non') + ', city:' + (result.person.city || 'non') + ')');
+          return result;
+        }
       }
+
+      // Strategie 2 : enrichByNameAndCompany avec website (meilleur taux de match)
+      if (firstName && company) {
+        result = await dc.enrichByNameAndCompany(firstName, lastName, company, website);
+        if (result) {
+          // Retourner meme si success=false — les donnees partielles (ville, SIREN) sont utiles
+          const hasAnyData = result.person && (result.person.title || result.person.phone || result.person.city || result.person.linkedinUrl) ||
+            result.organization && (result.organization.siren || result.organization.website);
+          if (result.success || hasAnyData) {
+            log.info('prospect-research', 'Dropcontact enrichByName OK pour ' + firstName + ' ' + lastName + ' @ ' + company + ' (email:' + (result.person && result.person.email ? 'oui' : 'non') + ', data:' + (hasAnyData ? 'oui' : 'non') + ')');
+            return result;
+          }
+        }
+      }
+
+      log.info('prospect-research', 'Dropcontact: aucune donnee pour ' + (contact.nom || email || company));
       return null;
     } catch (e) {
       log.info('prospect-research', 'Dropcontact enrichment skip: ' + e.message);
