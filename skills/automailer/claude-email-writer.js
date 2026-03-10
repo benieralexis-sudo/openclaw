@@ -1297,7 +1297,7 @@ Ecris la relance ${stepNumber - 1}/${totalSteps - 1} avec un NOUVEL ANGLE base s
     // Score via GPT-4o-mini (adapte pour follow-ups)
     try {
       const score = await this._scoreFollowUpEmail(parsed.subject, parsed.body, contact);
-      if (score.note >= 8) return parsed;
+      if (score.note >= 6) return parsed;
       return { skip: true, reason: 'fu_score_low:' + score.note + '/10 (' + (score.reason || '?') + ')' };
     } catch (e) {
       // Scoring indisponible — accepter si les gates programmatiques passent
