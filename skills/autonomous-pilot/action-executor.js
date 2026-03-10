@@ -604,18 +604,20 @@ Format JSON strict :
     if (params._strategicAnalysis) {
       const sa = params._strategicAnalysis;
       context += '\n\n=== ANALYSE STRATEGIQUE (SUIS CES DIRECTIVES) ===';
-      context += '\nMEILLEUR ANGLE: ' + (sa.topAngles[0] ? sa.topAngles[0].angle : '');
-      context += '\nFAIT CLE A UTILISER: ' + (sa.topAngles[0] ? sa.topAngles[0].fact : sa.bestFact || '');
-      context += '\nFAIT LE PLUS SPECIFIQUE: ' + (sa.bestFact || '');
-      context += '\nSOCIAL PROOF A UTILISER (adapte la formulation): ' + (sa.socialProof || '');
+      // Nouveau format : signal/hypothesis/angle
+      if (sa.signal) {
+        context += '\nSIGNAL: ' + sa.signal;
+        context += '\nHYPOTHESE BUSINESS: ' + (sa.hypothesis || '');
+        context += '\nACCROCHE SUGGEREE: ' + (sa.angle || (sa.topAngles && sa.topAngles[0] ? sa.topAngles[0].angle : ''));
+      } else if (sa.topAngles && sa.topAngles[0]) {
+        // Compat ancien format
+        context += '\nSIGNAL: ' + (sa.topAngles[0].fact || sa.bestFact || '');
+        context += '\nACCROCHE SUGGEREE: ' + sa.topAngles[0].angle;
+      }
       context += '\nTON: ' + (sa.recommendedTone || 'tutoiement');
       context += '\nPOURQUOI CE PROSPECT: ' + (sa.briefSummary || '');
-      if (sa.topAngles && sa.topAngles.length > 1) {
-        context += '\nANGLES ALTERNATIFS (si retry ou si le premier angle est trop faible): ' +
-          sa.topAngles.slice(1).map(a => a.angle + ' [' + (a.strength || '?') + '/10]').join(' | ');
-      }
       context += '\n=== FIN ANALYSE ===';
-      // Ajouter le brief brut condense (l'analyste a deja extrait le meilleur, max 4000 chars)
+      // Brief brut condense (reference)
       if (params._prospectIntel) {
         context += '\n\nDONNEES BRUTES (reference si besoin):\n' + params._prospectIntel.substring(0, 4000);
       }
@@ -777,8 +779,10 @@ Format JSON strict :
       }
     }
 
-    const level = facts.length >= 1 ? 'specific' : 'generic';
-    const reason = facts.length === 0 ? 'Aucun fait specifique du brief dans l\'email' : facts.length + ' fait(s)';
+    // Exiger au moins 1 fait specifique (entreprise seule ne suffit plus si c'est le seul)
+    const realFacts = facts.filter(f => !f.startsWith('entreprise_partiel'));
+    const level = (realFacts.length >= 1 || facts.length >= 2) ? 'specific' : 'generic';
+    const reason = facts.length === 0 ? 'Aucun fait specifique du brief dans l\'email' : facts.length + ' fait(s): ' + facts.join(', ');
     return { level, facts, reason };
   }
 
@@ -1221,8 +1225,12 @@ Format JSON strict :
             }
           }
         } catch (e) {
-          log.warn('action-executor', 'Strategic analysis echoue (non bloquant): ' + e.message);
+          log.warn('action-executor', 'Strategic analysis echoue: ' + e.message + ' — email sera genere sans analyse');
         }
+      }
+      // Si analyse echouee ou pas de donnees suffisantes, on continue — le writer gere
+      if (!params._strategicAnalysis) {
+        log.warn('action-executor', 'Pas d\'analyse strategique pour ' + params.to + ' — le writer devra travailler sans');
       }
 
       log.info('action-executor', 'Generation email avant envoi pour ' + params.to);

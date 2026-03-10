@@ -103,12 +103,11 @@ function _defaultData() {
         language: 'fr',
         tone: 'direct',
         forbiddenWords: [
-          'SDR', 'pipeline', 'pilote', 'automatisation', 'solution', 'offre', 'plateforme',
+          'SDR', 'pipeline', 'automatisation', 'solution', 'offre', 'plateforme',
           'outil', 'logiciel', 'SaaS', 'innovation', 'revolutionner', 'transformer',
-          'optimiser', 'booster', 'scaler', 'ROI', 'KPI', 'growth', 'hack',
+          'optimiser', 'booster', 'scaler', 'ROI', 'KPI', 'growth hack',
           'synergie', 'levier', 'disruptif', 'game-changer', 'next-gen',
-          'intelligence artificielle', 'machine learning', 'IA',
-          'demo', 'essai gratuit', 'pilote gratuit'
+          'essai gratuit', 'pilote gratuit'
         ],
         hookStyle: 'problem-first',
         signatureStyle: ''

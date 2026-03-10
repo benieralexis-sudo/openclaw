@@ -104,61 +104,40 @@ class ClaudeEmailWriter {
     }
   }
 
-  // === STRATEGIC ANALYST : analyse structuree du prospect avant redaction ===
+  // === STRATEGIC ANALYST : diagnostic business du prospect avant redaction ===
   async analyzeProspect(contact, prospectBrief, nicheData) {
     if (!prospectBrief || prospectBrief.length < 50) return null;
 
     const senderName = process.env.SENDER_NAME || 'Alexis';
     const clientName = process.env.CLIENT_NAME || 'iFIND';
-    const clientDesc = process.env.CLIENT_DESCRIPTION || 'agence d\'automatisation IA pour la prospection B2B';
 
-    // Collecter les social proofs de la niche
-    let socialProofsBlock = '';
+    let nicheBlock = '';
     if (nicheData) {
-      const proofs = nicheData.socialProofs || [nicheData.socialProof].filter(Boolean);
-      if (proofs.length > 0) {
-        socialProofsBlock = '\n\nSOCIAL PROOFS DISPONIBLES POUR CETTE NICHE (' + (nicheData.name || nicheData.slug || 'general') + '):\n' +
-          proofs.map((p, i) => (i + 1) + '. "' + p + '"').join('\n');
-      }
-      if (nicheData.painPoint) {
-        socialProofsBlock += '\nPROBLEME TYPE DE CETTE NICHE: ' + nicheData.painPoint;
-      }
+      if (nicheData.painPoint) nicheBlock += '\nPROBLEME TYPE DE CETTE NICHE: ' + nicheData.painPoint;
     }
 
-    const systemPrompt = `Tu es un ANALYSTE STRATEGIQUE de prospection B2B. Tu ne rediges PAS d'email. Tu analyses les donnees d'un prospect et tu identifies la meilleure strategie d'approche.
+    const systemPrompt = `Tu es un analyste B2B. Tu ne rediges PAS d'email. Tu produis un DIAGNOSTIC BUSINESS.
 
-${clientName} : ${clientDesc}
-Expediteur : ${senderName}, fondateur de ${clientName}
-${socialProofsBlock}
+${clientName} = agent de prospection autonome. Il prospecte seul : analyse qui contacter, personnalise chaque email, relance. L'humain n'a rien a faire.
+${nicheBlock}
 
-=== TA MISSION ===
-Analyse les DONNEES PROSPECT ci-dessous. Identifie :
+=== MISSION ===
+A partir des donnees prospect, reponds a UNE question :
+"Quel PROBLEME BUSINESS ce prospect a probablement, que ${clientName} peut resoudre ?"
 
-1. TOP 3 ANGLES : les 3 meilleurs angles d'approche pour un cold email, classes par pertinence.
-   - Chaque angle doit etre BASE SUR UN FAIT REEL des donnees (pas invente)
-   - Chaque angle doit CONNECTER la situation du prospect a ce que ${clientName} peut apporter
-   - Score de force : 10 = fait ultra-specifique + connexion evidente, 5 = fait generique
+Methode :
+1. SIGNAL : trouve le fait le plus SPECIFIQUE (chiffre, news, recrutement, changement, event). Pas une description de site web.
+2. HYPOTHESE : transforme ce signal en probleme business probable. Ex: "3 postes sales ouverts" → "le pipe depend encore du fondateur et ca ne scale pas"
+3. TON : "tutoiement" (startup/PME) ou "vouvoiement" (corporate)
 
-2. MEILLEUR FAIT : le fait le plus specifique et verifiable dans les donnees (un chiffre, une date, un nom propre, un recrutement, une news). PAS une description generique du site web.
-
-3. SOCIAL PROOF : choisis le social proof le plus adapte parmi la liste ci-dessus, et ADAPTE-LE au contexte (change le type d'entreprise, le resultat, pour que ca colle au prospect).
-   REGLES SOCIAL PROOF :
-   - MEME SECTEUR que le prospect (jamais "fintech" pour une medtech)
-   - MEME TAILLE approximative
-   - CHIFFRES REALISTES (4-8 contacts, 3-5 clients, pas miraculeux)
-   - ANNEE EN COURS : 2026
-
-4. TON : "tutoiement" (startup/PME <100 pers) ou "vouvoiement" (corporate/grand groupe)
-
-5. RESUME : 1 phrase expliquant POURQUOI ce prospect devrait nous ecouter (son probleme + notre solution)
-
-=== ANTI-HALLUCINATION ===
-- Si tu ne trouves pas de fait specifique, dis-le. Mieux vaut un angle honnete qu'un fait invente.
-- N'invente JAMAIS un fait sur le prospect. Le social proof PEUT etre adapte/invente (c'est normal en prospection), mais les faits sur le prospect DOIVENT venir des donnees.
+=== REGLES ===
+- N'invente JAMAIS un fait sur le prospect. Si aucun signal fort, dis-le.
+- Le diagnostic doit etre SPECIFIQUE a CE prospect, pas generique au secteur.
+- Annee en cours : 2026.
 
 === FORMAT ===
 JSON valide uniquement :
-{"topAngles":[{"angle":"description","fact":"le fait des donnees","strength":9},...],"bestFact":"...","socialProof":"phrase adaptee","recommendedTone":"tutoiement|vouvoiement","briefSummary":"1 phrase"}`;
+{"signal":"le fait specifique tire des donnees","hypothesis":"le probleme business probable en 1 phrase","angle":"l'accroche email en 1 phrase (observation, pas pitch)","recommendedTone":"tutoiement|vouvoiement","strength":8,"briefSummary":"pourquoi ce prospect est pertinent en 1 phrase"}`;
 
     const userMessage = `DONNEES PROSPECT A ANALYSER :
 
@@ -191,9 +170,20 @@ Analyse ces donnees et produis ta recommandation strategique.`;
         parsed = JSON.parse(jsonMatch[0]);
       }
 
-      // Validation minimale
-      if (!parsed.topAngles || !Array.isArray(parsed.topAngles) || parsed.topAngles.length === 0) {
+      // Validation minimale — nouveau format (signal/hypothesis/angle)
+      if (!parsed.signal && !parsed.hypothesis && !parsed.angle) {
+        // Compat ancien format (topAngles)
+        if (parsed.topAngles && Array.isArray(parsed.topAngles) && parsed.topAngles.length > 0) {
+          return parsed;
+        }
         return null;
+      }
+
+      // Normaliser vers le format attendu par le writer
+      if (!parsed.topAngles) {
+        parsed.topAngles = [{ angle: parsed.angle || '', fact: parsed.signal || '', strength: parsed.strength || 7 }];
+        parsed.bestFact = parsed.signal || '';
+        parsed.briefSummary = parsed.briefSummary || parsed.hypothesis || '';
       }
 
       return parsed;
@@ -249,26 +239,12 @@ Analyse ces donnees et produis ta recommandation strategique.`;
 
     // --- Construire le bloc ICP pour le prompt ---
     let icpBlock = '';
-    if (clientDescription || nicheData) {
-      icpBlock = '\n=== QUI TU ES ET POURQUOI TU ECRIS ===\n';
-      if (clientDescription) {
-        icpBlock += clientName + ' : ' + clientDescription + '\n';
-      }
-      if (nicheData) {
-        icpBlock += '\nNICHE DU PROSPECT : ' + (nicheData.name || nicheData.slug || 'inconnue');
-        if (nicheData.painPoint) icpBlock += '\nLEUR PROBLEME : ' + nicheData.painPoint;
-        // Selectionner un social proof aleatoire parmi les variantes disponibles
-        const allProofs = nicheData.socialProofs || [nicheData.socialProof];
-        const selectedProof = allProofs[Math.floor(Math.random() * allProofs.length)];
-        if (selectedProof) icpBlock += '\nTON SOCIAL PROOF (adapte la formulation, ne copie pas mot pour mot) : ' + selectedProof;
-        if (contact._triggerAngle) icpBlock += '\nTRIGGER DETECTE : ' + contact._triggerAngle;
-        icpBlock += '\n';
-      }
-      icpBlock += `
-REGLE : ton email doit faire comprendre EN UNE PHRASE que tu connais leur probleme et que tu as quelque chose a apporter.
-Pas un pitch. Un CONTEXTE. Le prospect connecte les points tout seul.
-Le social proof est UNE phrase integree naturellement dans le flow, PAS un paragraphe separe.
-`;
+    if (nicheData) {
+      icpBlock = '\n=== CONTEXTE NICHE ===\n';
+      icpBlock += 'NICHE : ' + (nicheData.name || nicheData.slug || 'inconnue');
+      if (nicheData.painPoint) icpBlock += '\nPROBLEME TYPIQUE : ' + nicheData.painPoint;
+      if (contact._triggerAngle) icpBlock += '\nTRIGGER DETECTE : ' + contact._triggerAngle;
+      icpBlock += '\nUtilise le probleme typique UNIQUEMENT si les donnees prospect le confirment. Ne force pas.\n';
     }
 
     // Bloc langue pour clients non-francophones
@@ -319,35 +295,42 @@ ${clientDescription ? 'WHAT ' + clientName.toUpperCase() + ' DOES: ' + clientDes
       }
     } catch (winErr) { /* non bloquant */ }
 
-    const systemPrompt = `${languageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris a un pair, pas a un prospect. Comme un fondateur qui a remarque un truc concret et qui lance la conversation.
-${icpBlock}
-${winningPatternsBlock}
-=== INTERDITS ===
-JAMAIS : tirets cadratins/longs, "curieux d'avoir ton retour/avis", meta-prospection ("comment tu acquiers/generes des clients"), "beau move/impressionnant/sacre parcours/potentiellement/je me permets", "Ce type de.../Le vrai cap c'est...", pitch/prix/features/bullet points/gras, "cordonnier mal chausse/nerf de la guerre", paragraphe > 2 lignes, question sans value prop.
+    const systemPrompt = `${languageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris un cold email a un pair.
 
-=== STRUCTURE (30-80 mots, vise la CONCISION) ===
-1. FAIT : element concret des DONNEES (chiffre, nom propre, news). Minimum = entreprise + activite.
-2. PONT : relie le fait au probleme de la niche. 1 phrase, pas de lecon.
-3. SOCIAL PROOF (OPTIONNEL) : Si tu l'inclus, 1 phrase courte. "On fait ca pour des [type similaire]". Meme secteur, chiffres realistes. MAIS un email court SANS social proof avec un fait + question naturelle marche MIEUX qu'un email long avec SP force.
-4. CTA VALEUR (OBLIGATOIRE) : question ouverte sur le business du prospect. PAS "15 min ?" mais une question naturelle. "Vous gerez ca en interne ?", "C'est un sujet chez vous ?"
-OBJECTIF : naturalite > structure. Les emails qui marchent le mieux font 36-60 mots, fait + question business.
+=== CE QUE FAIT ${clientName} ===
+Agent de prospection autonome. Il analyse qui contacter et quand, personnalise chaque email, relance. Le client n'a rien a faire.
 
-=== ANALYSE STRATEGIQUE (PRIORITAIRE) ===
-Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS SES DIRECTIVES : angle, fait cle, social proof, ton. L'analyste a lu TOUTES les donnees, fais-lui confiance.
-Sans analyse : profil public > news > clients > techno > chiffres > entreprise+poste.
+=== FRAMEWORK (Observation → Hypothese → Question) ===
+1. OBSERVATION (1-2 phrases) : un fait CONCRET tire des donnees. Pas "j'ai vu que vous faites du marketing", mais un signal precis (recrutement, news, chiffre, projet).
+2. HYPOTHESE (1 phrase) : transforme ce fait en probleme business probable. C'est la que tu montres que tu COMPRENDS leur situation. Ex: "Ca veut souvent dire que le pipe depend encore du fondateur."
+3. QUESTION OUVERTE (1 phrase) : invite a la conversation. Pas "dispo 15 min ?" mais une vraie question business : "C'est le cas chez vous ?", "Vous avez structure quelque chose ?", "C'est un sujet en ce moment ?"
+
+=== ANALYSE STRATEGIQUE ===
+Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : signal, hypothese, angle. L'analyste a deja identifie le meilleur angle.
 
 === REGLES ===
-- ANTI-HALLUCINATION : n'invente JAMAIS un fait sur le PROSPECT. Annee en cours : 2026.
-- SOCIAL PROOF : invente si besoin mais MEME SECTEUR, chiffres realistes, pas de nom propre.
-- OBJET : 2-4 mots, minuscules, contient prenom OU entreprise.${subjectStyleHint}
-- TON : comme un pote entrepreneur. Tutoiement (<100 pers), vouvoiement (grand groupe). Pas de signature. Pas de "Bonjour".
+- 50-80 mots. Ecris comme tu parles a un pote entrepreneur.
+- PAS de social proof invente. PAS de "un client similaire a signe X clients en Y mois". Si tu n'as pas de cas reel, n'en invente pas.
+- PAS de pitch, prix, features, bullet points.
+- PAS de tirets cadratins. PAS de "Bonjour". PAS de signature.
+- PAS de meta-prospection ("comment tu acquiers des clients").
+- PAS de phrases creuses : "beau move", "impressionnant", "sacre parcours", "je me permets", "potentiellement", "cordonnier mal chausse".
+- N'invente JAMAIS un fait sur le prospect. Annee : 2026.
+- Tutoiement (PME <100 pers), vouvoiement (corporate).
+- Objet : 2-4 mots, minuscules, contient prenom OU entreprise.${subjectStyleHint}
 ${nicheExampleBlock}
-=== EXEMPLE 10/10 (50 mots) ===
-"Thomas, 12 personnes chez [Agence] et un poste de bizdev ouvert. Le delivery tourne mais cote acquisition, c'est encore toi qui ramenes les clients ?
+=== EXEMPLES 10/10 ===
+Exemple 1 (signal recrutement, 52 mots) :
+"Thomas, 3 postes de commerciaux ouverts chez [Agence]. Ca veut souvent dire que le pipe depend encore du fondateur et que le delivery absorbe tout le monde.
 
-On genere le pipe outbound pour des agences growth. Des opportunites qualifiees en continu sans y passer 2h par jour.
+On structure l'outbound pour des boites comme la tienne. Le pipe tourne sans que tu y passes tes journees.
 
-Vous gerez l'acquisition en interne ou vous avez externalise une partie ?"
+C'est un sujet en ce moment ?"
+
+Exemple 2 (signal news, 45 mots) :
+"Sophie, je vois que [Cabinet] vient de lancer une offre data. Beau virage, mais cote acquisition des premiers clients sur ce segment, c'est souvent le fondateur qui porte tout.
+
+Vous avez deja structure un canal ou c'est encore du reseau ?"
 
 === FORMAT ===
 JSON valide uniquement, sans markdown, sans backticks.
@@ -360,18 +343,11 @@ OU {"skip": true, "reason": "explication"}`;
     if (!firstName || invalidFirstNames.includes(firstName.toLowerCase()) || contact.email.startsWith('contact@') || contact.email.startsWith('info@') || contact.email.startsWith('hello@')) {
       firstName = '';
     }
-    const userMessage = `Ecris un email pour ce prospect. Utilise la MEILLEURE donnee disponible selon la hierarchie (profil public > news > clients > techno > chiffres).
-IMPORTANT : essaie TOUJOURS d'ecrire un email. Si tu as au moins un nom d'entreprise + un poste, tu peux ecrire sur l'activite de cette entreprise. Skip UNIQUEMENT si tu n'as AUCUNE info.
-RAPPEL : l'email DOIT contenir un CTA valeur (question ouverte sur le business du prospect). Le social proof est un BONUS, pas obligatoire. Un email court naturel (fait + question) est prefere a un email long avec SP force.
-RAPPEL : ZERO tiret long/cadratin dans le texte.
-${!firstName ? 'ATTENTION : le prenom du prospect est INCONNU. NE PAS inventer un prenom. Utilise le nom de l\'entreprise a la place dans le sujet et le body.' : ''}
-CONTACT :
-- Prenom : ${firstName || 'INCONNU (utiliser le nom d\'entreprise)'}
-- Nom complet : ${contact.name || ''}
-- Poste : ${contact.title || 'non precise'}
-- Entreprise : ${contact.company || 'non precisee'}
-- Email : ${contact.email}
-${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
+    const userMessage = `Ecris un email pour ce prospect en suivant le framework Observation → Hypothese → Question.
+${!firstName ? 'Le prenom est INCONNU. Utilise le nom de l\'entreprise.' : ''}
+CONTACT : ${firstName || '[entreprise]'} ${contact.name ? '(' + contact.name + ')' : ''} — ${contact.title || '?'} chez ${contact.company || '?'}
+${context ? '\nDONNEES :\n' + context : ''}
+Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
 
     // Generation + auto-scoring + retry
     const result = await this._generateAndScore(contact, context, systemPrompt, userMessage);
@@ -387,7 +363,7 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       let prompt = userMessage;
       if (attempt > 0 && best) {
-        prompt = userMessage + '\n\nATTENTION: l\'email precedent a ete note ' + bestScore + '/10. Problemes: ' + (best._scoreReason || 'qualite insuffisante') + '. Ecris un email MEILLEUR avec les 4 BLOCS OBLIGATOIRES : FAIT specifique + PONT vers le probleme + SOCIAL PROOF (1 phrase) + CTA oriente valeur. ZERO tiret cadratin. ZERO question journalistique sans value prop.';
+        prompt = userMessage + '\n\nATTENTION: l\'email precedent a ete note ' + bestScore + '/10. Problemes: ' + (best._scoreReason || 'qualite insuffisante') + '. Ecris un email MEILLEUR : OBSERVATION concrete + HYPOTHESE business + QUESTION ouverte. 50-80 mots. PAS de case study invente. ZERO tiret cadratin.';
       }
       const response = await this.callClaude(
         [{ role: 'user', content: prompt }],
@@ -450,8 +426,8 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
         best._scoreReason = preScore.reason;
       }
     }
-    // Apres retries : envoyer si note programmatique >= 6 (sp+cta confirme mais malus mineurs)
-    if (bestScore >= 6) return best;
+    // Apres retries : seuil strict — chaque email doit etre excellent
+    if (bestScore >= 7) return best;
     return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
   }
 
@@ -487,22 +463,14 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     // Penalite legere si > 90 mots (pas un block, juste -1)
     if (wordCount > 90) { adjust -= 1; reasons.push('slightly_long:' + wordCount); }
 
-    // PENALITE (pas BLOCK) : social proof absent — les 3 emails avec replies n'en avaient pas
+    // NOTE: social proof n'est PLUS penalise. Un email sans SP avec un bon insight vaut mieux qu'un SP invente.
     const spMarkers = ['on genere', 'on fait', 'on remplace', 'on alimente', 'on accompagne',
-      'on bosse avec', 'on travaille avec', 'pour des agences', 'pour des esn', 'pour des editeurs',
-      'pour des cabinets', 'pour des startups', 'pour des organismes', 'pour des e-commerces',
-      'meme volume', 'en continu', 'chaque semaine', 'sans dependre', 'sans y passer', 'fraction du cout',
-      'un de nos clients', 'on a structure', 'on a genere', 'on a mis en place',
-      'pour des boites', 'pour des entreprises', 'dans le meme secteur',
-      // Social proofs avec cas client (variantes ICP)
-      'a double', 'a triple', 'a signe', 'a decroche', 'a rempli', 'a recupere', 'a reduit',
-      'avec nous', 'avec ifind', 'grace a nous', 'grace a ifind',
-      'une agence', 'un cabinet', 'une esn', 'un editeur', 'une startup', 'un e-commerce',
-      'un fondateur', 'un directeur', 'une fondatrice', 'une directrice',
-      'meetings par mois', 'meetings qualifies', 'demos qualifiees', 'mandats par mois',
-      'en 3 mois', 'en 6 semaines', 'en 2 mois', 'par semaine'];
+      'on bosse avec', 'on travaille avec', 'on structure', 'on a structure',
+      'pour des agences', 'pour des esn', 'pour des editeurs', 'pour des cabinets',
+      'pour des boites', 'pour des entreprises'];
     const hasSP = spMarkers.some(m => bodyLower.includes(m));
-    if (!hasSP) { adjust -= 2; reasons.push('no_social_proof'); }
+    // Pas de penalite si absent, mais bonus si present et naturel
+    // (le SP invente est penalise plus bas via fake_case_study)
 
     // BLOCK : pas de CTA valeur (OBLIGATOIRE)
     const valueCTAs = ['je te montre', 'je t\'envoie', 'dispo pour', 'on en discute',
@@ -521,8 +489,18 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     const endsWithQuestion = bodyLower.trim().endsWith('?');
     if (!hasCTA && !endsWithQuestion) return { block: true, adjust: -3, note: 4, reason: 'no_value_cta' };
 
-    // BONUS : social proof + CTA valeur ensemble = bon email
-    if (hasSP && hasCTA) { adjust += 1; reasons.push('sp+value_cta'); }
+    // BONUS : hypothese business presente (transformation du signal en probleme) = bon email
+    const hypothesisMarkers = ['ca veut souvent dire', 'ca veut dire', 'ca signifie', 'le probleme',
+      'le risque', 'le defi', 'la difficulte', 'depend encore', 'repose encore', 'porte encore',
+      'absorbe tout', 'ne scale pas', 'plafonne', 'impossible a', 'du mal a'];
+    const hasHypothesis = hypothesisMarkers.some(m => bodyLower.includes(m));
+    if (hasHypothesis && hasCTA) { adjust += 1; reasons.push('insight+question'); }
+
+    // BLOCK : case study invente (pattern "X clients/contacts/meetings en Y mois/semaines")
+    const fakeCaseStudy = /\d+\s*(?:nouveaux?\s+)?(?:clients?|contacts?|meetings?|mandats?|dossiers?|missions?|comptes?|rdv|rendez-vous)\s+(?:en|par)\s+\d+\s*(?:mois|semaines?|jours?)/i;
+    if (fakeCaseStudy.test(body || '')) {
+      adjust -= 3; reasons.push('fake_case_study');
+    }
 
     // MALUS : meta-prospection
     const metaP = ['comment tu prospectes', 'comment vous prospectez', 'comment tu acquiers',
@@ -547,32 +525,26 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
 
   async _scoreEmail(subject, body, contact) {
     const wordCount = (body || '').split(/\s+/).filter(w => w.length > 0).length;
-    const prompt = `Note cet email de prospection B2B de 1 a 10. Sois TRES STRICT.
+    const prompt = `Note cet email de prospection B2B de 1 a 10. Framework : Observation → Hypothese → Question.
 
 CRITERES 10/10 :
-- 30-70 mots (les meilleurs font 36-60). Penalise si < 30 ou > 100.
-- UN fait specifique (chiffre, nom propre, date, evenement)
-- UN pont vers le probleme (1 phrase, pas de lecon)
-- Social proof OPTIONNEL (un email court naturel sans SP peut etre un 10/10)
-- UN CTA valeur : question ouverte business ("c'est un sujet chez vous ?", pas "curieux d'avoir ton retour")
-- ZERO paragraphe d'analyse entre le fait et la question
-- ZERO meta-prospection (ne demande PAS "comment tu prospectes/acquiers des clients")
-- ZERO lecon au prospect
-- Ton naturel, entre pairs (comme un pote entrepreneur)
-- PAS de tirets cadratins (marqueur IA)
-- PAS de pitch detaille, prix, features
+- 50-80 mots, ton naturel entre pairs
+- OBSERVATION : un fait SPECIFIQUE du prospect (chiffre, news, recrutement, projet)
+- HYPOTHESE : le fait est TRANSFORME en probleme business ("ca veut dire que...")
+- QUESTION : ouverte, sur le business du prospect. Pas "dispo 15 min ?"
+- PAS de case study invente ("X clients en Y mois")
+- PAS de pitch, prix, features
+- PAS de tirets cadratins, pas de "Bonjour"
+- PAS de meta-prospection
 
 PENALITES :
-- < 30 mots : -3 points (manque substance)
-- > 100 mots : -3 points (trop long)
-- Pas de social proof : -2 points (penalite, pas eliminatoire — un email court naturel avec question business peut etre excellent sans SP)
-- Pas de CTA valeur (pas de "je te montre/dispo pour") : -3 points
-- "Curieux d'avoir ton retour" ou CTA sans valeur : -4 points
-- Question journalistique sans proposer rien ("c'est quoi la strategie ?") : -3 points
-- Tirets cadratins : -1 point par tiret
-- Meta-prospection : -4 points
-- Generique secteur (remplacable par n'importe quelle entreprise) : -4 points
-- Paragraphe d'analyse LinkedIn : -3 points
+- Case study visiblement invente ("4 clients en 3 mois", chiffres ronds) : -4
+- Information dumping (balancer des faits sans insight) : -3
+- Generique (remplacable par n'importe quelle entreprise) : -4
+- Pas de question ouverte : -3
+- > 100 mots : -3
+- Tirets cadratins : -2
+- Meta-prospection : -4
 
 EMAIL :
 Objet: ${subject}
@@ -580,12 +552,9 @@ Corps: ${body}
 (${wordCount} mots)
 Prospect: ${contact.name || '?'} / ${contact.company || '?'}
 
-CALIBRAGE (exemples de notes attendues) :
-- "Salut [prenom], j'ai vu que [entreprise] recrutait. Dispo pour en discuter ?" → 2/10 (generique, pas de SP, CTA vide)
-- "Bonjour [prenom], [fait LinkedIn]. On aide des [niche] a [benefice]. Dispo pour un call ?" → 5/10 (structure OK mais generique, SP faible)
-- "[prenom], [fait precis avec chiffre]. On genere [X] meetings pour des [niche similaire]. Je te montre comment en 15 min ?" → 9/10 (tout est la, naturel, precis)
-
-IMPORTANT : la majorite des emails doivent etre entre 5 et 7. Un 8+ est rare et merite. Ne mets JAMAIS 8+ si le social proof est generique.
+CALIBRAGE :
+- "[prenom], j'ai vu que [entreprise] fait [activite]. Un client similaire a signe 4 clients. C'est un sujet ?" → 3/10 (info dump + case study invente)
+- "[prenom], [fait specifique]. Ca veut souvent dire [hypothese]. Vous avez structure quelque chose ?" → 9/10 (signal + insight + question)
 
 Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
 

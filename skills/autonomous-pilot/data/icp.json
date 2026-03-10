@@ -1,10 +1,10 @@
 {
-  "version": "1.3",
-  "clientDescription": "iFIND genere des opportunites commerciales B2B. Emails personnalises, contacts qualifies, meetings en continu. On remplace le premier commercial outbound pour une fraction du cout.",
+  "version": "2.0",
+  "clientDescription": "iFIND est un agent de prospection autonome. Il analyse qui contacter et quand, personnalise chaque email, relance automatiquement. Le client n'a rien a faire.",
   "bookingUrl": "https://calendar.app.google/DoB1kfp3DtDpZ6WC8",
   "intentConfig": {
     "hiringKeywords": ["commercial", "sales", "sdr", "bdr", "business developer", "account executive", "responsable commercial", "directeur commercial", "bizdev"],
-    "hiringAngle": "Vous recrutez cote commercial — on peut remplir le pipe pendant que le nouveau profil monte en competence",
+    "hiringAngle": "Vous recrutez cote commercial. Le temps que le profil soit operationnel, le pipe peut deja tourner",
     "minIntentScore": 3
   },
   "niches": [
@@ -14,30 +14,23 @@
       "keywords": "agence marketing OR agence digitale OR agence growth",
       "weight": 20,
       "matchPatterns": ["agence marketing", "agence digitale", "agence growth", "agence communication", "agence web", "agence seo", "growth hacking"],
-      "painPoint": "Le pipe de l'agence depend du fondateur. LinkedIn manuel, reseau, recommandations. Ca plafonne et c'est impossible a faire grossir.",
-      "socialProof": "on genere le pipe outbound pour des agences. Des opportunites qualifiees en continu sans que le fondateur y passe 1h",
-      "socialProofs": [
-        "on genere le pipe outbound pour des agences. Des opportunites qualifiees en continu sans que le fondateur y passe 1h",
-        "une agence growth de 15 personnes a signe 4 nouveaux clients en 2 mois avec notre pipe",
-        "on a structure le canal outbound pour une agence digitale. 6 meetings qualifies le premier mois",
-        "un fondateur d'agence nous a dit : je ne prospecte plus, les meetings rentrent tout seuls",
-        "une agence SEO a double son pipe en externalisant l'outbound. Les consultants restent sur les missions"
-      ],
+      "painPoint": "Le pipe depend du fondateur. LinkedIn, reseau, reco. Ca plafonne et c'est impossible a scaler sans embaucher.",
+      "socialProof": "on structure l'outbound pour des agences. Le pipe tourne sans que le fondateur y passe ses journees",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes un commercial. Le temps qu'il soit operationnel (3-6 mois), on peut deja remplir le pipe"
+          "angle": "Tu recrutes un commercial. 3-6 mois avant qu'il soit autonome. Le pipe peut tourner en attendant"
         },
         {
           "signal": "growth",
-          "angle": "Vous passez a l'echelle cote equipe. Le delivery suit mais le pipe client aussi ?"
+          "angle": "L'equipe grandit. Le delivery suit mais cote acquisition, c'est toujours le fondateur qui porte ?"
         },
         {
           "signal": "default",
-          "angle": "Tes clients ont un pipe structure grace a toi, mais cote agence c'est encore du reseau ?"
+          "angle": "Le pipe client vient du reseau et du bouche-a-oreille. C'est regulier ou ca depend des periodes ?"
         }
       ],
-      "exampleEmail": "Thomas, 12 personnes chez [Agence] et un poste de bizdev ouvert. Le delivery tourne mais cote acquisition, c'est encore toi qui ramenes les clients ?\n\nOn genere le pipe outbound pour des agences growth. Des opportunites qualifiees en continu sans y passer 2h par jour.\n\nJe te montre le setup en 15 min si ca te parle."
+      "exampleEmail": "Thomas, 3 postes ouverts chez [Agence] et une offre data qui se lance. Ca veut souvent dire que le delivery absorbe tout le monde et que le pipe client passe en second plan.\n\nVous avez structure un canal acquisition ou c'est encore du reseau ?"
     },
     {
       "slug": "esn-ssii",
@@ -45,30 +38,23 @@
       "keywords": "ESN OR SSII OR conseil informatique",
       "weight": 18,
       "matchPatterns": ["esn", "ssii", "conseil informatique", "services numeriques", "consulting it", "societe de services"],
-      "painPoint": "80% du business vient de recommandations et d'AO. Le pipe est imprevisible et depend du reseau des associes.",
-      "socialProof": "on genere le pipe commercial pour des ESN. Des contacts qualifies sans dependre des AO ni du reseau",
-      "socialProofs": [
-        "on genere le pipe commercial pour des ESN. Des contacts qualifies sans dependre des AO ni du reseau",
-        "une ESN de 150 personnes a double son volume de missions en 3 mois avec un canal outbound structure",
-        "on a mis en place le pipe pour une SSII. 5 nouveaux contacts decision par semaine",
-        "un directeur commercial d'ESN a reduit sa dependance aux AO de 80% a 40%",
-        "une ESN conseil a signe 3 missions en 6 semaines grace a l'outbound"
-      ],
+      "painPoint": "80% du business vient de reco et d'AO. Le pipe est imprevisible et depend du reseau des associes.",
+      "socialProof": "on structure le pipe commercial pour des ESN. Un canal qui ne depend ni des AO ni du carnet d'adresses",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez des commerciaux. Le pipe de missions va suivre ou c'est toujours les associes qui ramenent ?"
+          "angle": "Vous recrutez des commerciaux. Signe que le reseau seul ne suffit plus pour remplir le pipe de missions ?"
         },
         {
           "signal": "growth",
-          "angle": "X postes ouverts mais le pipe client suit le meme rythme ?"
+          "angle": "L'equipe grandit mais le pipe de missions suit le meme rythme ?"
         },
         {
           "signal": "default",
-          "angle": "En ESN, le pipe depend souvent des associes et du reseau. Ca plafonne a un moment non ?"
+          "angle": "Le pipe de missions depend du reseau des associes. Ca plafonne a un moment non ?"
         }
       ],
-      "exampleEmail": "Marc, 4 postes ouverts sur Welcome et 150 personnes chez [ESN]. Ca tourne cote delivery.\n\nUn de nos clients dans le meme secteur generait 80% de son pipe par le reseau. On a structure un canal outbound a cote, il a double son volume en 3 mois.\n\nOn en parle 15 min ?"
+      "exampleEmail": "Marc, 4 postes ouverts chez [ESN] et 150 personnes. Ca veut dire que le delivery tourne, mais si le pipe de missions depend encore du reseau des associes, ca va plafonner.\n\nVous avez structure un canal outbound ou c'est toujours du reco ?"
     },
     {
       "slug": "saas-b2b",
@@ -76,30 +62,23 @@
       "keywords": "SaaS B2B OR editeur logiciel",
       "weight": 15,
       "matchPatterns": ["saas", "logiciel", "editeur", "software", "plateforme", "cloud", "startup saas"],
-      "painPoint": "Premier commercial = 50-60k/an pour 5-10 meetings/mois. Long a recruter, long a onboarder, cher a garder.",
-      "socialProof": "on remplace le premier commercial outbound pour des editeurs en scaling. Meme volume, fraction du cout",
-      "socialProofs": [
-        "on remplace le premier commercial outbound pour des editeurs en scaling. Meme volume, fraction du cout",
-        "un SaaS B2B a genere 8 meetings qualifies le premier mois sans recruter de commercial",
-        "on a structure l'outbound pour un editeur en serie A. Le fondateur est sorti du founder-led sales en 6 semaines",
-        "un editeur logiciel a signe 3 nouveaux comptes en 2 mois avec notre pipe",
-        "une startup SaaS a remplace son premier SDR par notre service. Meme volume, 3x moins cher"
-      ],
+      "painPoint": "Le fondateur porte les ventes. Recruter un commercial = 50-60k + 3-6 mois avant qu'il soit autonome. C'est cher et lent.",
+      "socialProof": "on structure l'outbound pour des editeurs. Le fondateur reste sur le produit pendant que le pipe tourne",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes un commercial. 3-6 mois avant qu'il soit autonome. On peut remplir le pipe en attendant"
+          "angle": "Tu recrutes un commercial. 3-6 mois de ramp-up. Le pipe peut tourner pendant ce temps"
         },
         {
           "signal": "funding",
-          "angle": "Levee recente. Le go-to-market s'accelere. Le pipe suit ?"
+          "angle": "Levee bouclee. Le go-to-market doit suivre mais le fondateur ne peut pas tout porter"
         },
         {
           "signal": "default",
-          "angle": "A votre stade, recruter un commercial vs externaliser. Le calcul change vite"
+          "angle": "A votre stade, c'est encore du founder-led sales ou vous avez structure un canal ?"
         }
       ],
-      "exampleEmail": "Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux. Le pipe va suivre ou c'est encore du founder-led sales ?\n\nOn remplace le premier commercial outbound pour des editeurs en scaling. Meme volume, fraction du cout.\n\nDispo pour te montrer comment ca marche ?"
+      "exampleEmail": "Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux. Ca veut souvent dire que le pipe repose encore sur le fondateur et que ca ne scale pas.\n\nVous avez structure l'outbound ou c'est encore toi qui ramenes les deals ?"
     },
     {
       "slug": "cabinet-recrutement",
@@ -108,24 +87,18 @@
       "weight": 10,
       "matchPatterns": ["cabinet recrutement", "recrutement", "chasseur tete", "talent acquisition", "rh externalisee", "staffing"],
       "painPoint": "Les consultants passent autant de temps a sourcer des clients qu'a placer des candidats. Le bizdev mange le delivery.",
-      "socialProof": "on genere les clients pour des cabinets de recrutement. Les consultants se concentrent sur le placement",
-      "socialProofs": [
-        "on genere les clients pour des cabinets de recrutement. Les consultants se concentrent sur le placement",
-        "un cabinet de 8 consultants a recupere 4 nouveaux mandats en 6 semaines sans que les recruteurs prospectent",
-        "on a structure le canal client pour un chasseur de tetes. 5 entreprises contactees par semaine",
-        "un cabinet RH a arrete le bizdev fondateur. Les mandats rentrent en continu maintenant"
-      ],
+      "socialProof": "on structure l'acquisition client pour des cabinets de recrutement. Les consultants se concentrent sur le placement",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes un bizdev. En attendant, on peut alimenter le pipe de missions"
+          "angle": "Tu recrutes un bizdev. Signe que les consultants passent trop de temps a chercher des clients ?"
         },
         {
           "signal": "default",
-          "angle": "X consultants. Combien de temps sur le sourcing client vs le placement ?"
+          "angle": "Entre le sourcing client et le placement, c'est quoi le ratio temps aujourd'hui ?"
         }
       ],
-      "exampleEmail": "Sophie, 8 consultants chez [Cabinet]. Entre le sourcing client et le placement candidat, c'est quoi le ratio temps aujourd'hui ?\n\nOn genere les clients pour des cabinets. Les consultants restent sur le placement.\n\nDispo pour en parler si ca te dit."
+      "exampleEmail": "Sophie, 8 consultants chez [Cabinet] et un poste de bizdev ouvert. Ca veut souvent dire que les recruteurs passent trop de temps sur le sourcing client au lieu du placement.\n\nC'est le cas chez vous ?"
     },
     {
       "slug": "cabinet-conseil",
@@ -133,25 +106,19 @@
       "keywords": "cabinet conseil OR consulting",
       "weight": 8,
       "matchPatterns": ["cabinet conseil", "consulting", "conseil en strategie", "conseil management", "conseil en organisation"],
-      "painPoint": "Les associes facturent 1000-1500/jour mais passent 30% de leur temps en bizdev non facture. C'est du CA perdu.",
-      "socialProof": "on alimente le pipe commercial pour des cabinets conseil. Les associes facturent au lieu de chercher des clients",
-      "socialProofs": [
-        "on alimente le pipe commercial pour des cabinets conseil. Les associes facturent au lieu de chercher des clients",
-        "un cabinet de 6 associes a recupere 2 jours/semaine de facturation en externalisant le bizdev",
-        "on a genere 5 meetings decision pour un cabinet conseil en 3 semaines",
-        "un cabinet strategie a signe 2 nouvelles missions grace a l'outbound structure"
-      ],
+      "painPoint": "Les associes facturent 1000-1500/jour mais passent 30% de leur temps en bizdev non facture.",
+      "socialProof": "on structure le pipe commercial pour des cabinets conseil. Les associes facturent au lieu de prospecter",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez un bizdev. Signe que les associes n'arrivent plus a tout porter seuls ?"
+          "angle": "Vous recrutez un charge de developpement. Signe que les associes n'arrivent plus a tout porter ?"
         },
         {
           "signal": "default",
-          "angle": "Associe qui facture 1200/jour mais passe 2 jours/semaine en developpement commercial. Ca fait cher"
+          "angle": "Les missions viennent du reseau des associes. C'est suffisant ou ca plafonne ?"
         }
       ],
-      "exampleEmail": "Pierre, 6 associes chez [Cabinet] et 3 missions en cours. Le pipe vient du reseau des associes ou vous avez structure quelque chose ?\n\nOn alimente le pipe pour des cabinets conseil. Les associes restent sur les missions.\n\nJe te montre le setup en 15 min si ca te parle."
+      "exampleEmail": "Pierre, 6 associes chez [Cabinet] qui facturent 1200/jour. Le probleme c'est quand ils passent 2 jours par semaine a chercher la prochaine mission au lieu de facturer.\n\nLe pipe vient du reseau ou vous avez structure quelque chose a cote ?"
     },
     {
       "slug": "startup-tech",
@@ -159,29 +126,23 @@
       "keywords": "startup OR tech company",
       "weight": 8,
       "matchPatterns": ["startup", "fintech", "proptech", "healthtech", "edtech", "legaltech", "regtech", "insurtech"],
-      "painPoint": "Le fondateur fait tout. Produit, recrutement, vente. Le pipe depend de son LinkedIn et de son reseau. Recruter un commercial a ce stade coute plus cher que ca rapporte.",
-      "socialProof": "on genere le pipe commercial pour des startups tech. Le fondateur reste sur le produit pendant que les meetings rentrent",
-      "socialProofs": [
-        "on genere le pipe commercial pour des startups tech. Le fondateur reste sur le produit pendant que les meetings rentrent",
-        "une fintech post-seed a signe 3 clients en 2 mois sans que le CEO prospecte",
-        "on a remplace le founder-led sales pour une startup de 20 personnes. 6 meetings/mois",
-        "un CTO devenu CEO a delegue tout l'outbound. Il code a nouveau"
-      ],
+      "painPoint": "Le fondateur fait tout : produit, recrutement, vente. Le pipe depend de son LinkedIn et de son reseau.",
+      "socialProof": "on structure l'outbound pour des startups tech. Le fondateur reste sur le produit",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes ton premier commercial. En attendant qu'il soit operationnel, on remplit le pipe"
+          "angle": "Tu recrutes ton premier commercial. 3-6 mois de ramp-up. Le pipe peut tourner en attendant"
         },
         {
           "signal": "funding",
-          "angle": "Levee bouclee. Maintenant faut que le go-to-market suive au meme rythme"
+          "angle": "Levee bouclee. Le go-to-market doit accelerer mais le fondateur ne peut pas tout faire"
         },
         {
           "signal": "default",
-          "angle": "A ce stade, c'est encore toi qui ramenes les deals ou vous avez structure un canal ?"
+          "angle": "C'est encore toi qui ramenes les deals ou vous avez structure un canal ?"
         }
       ],
-      "exampleEmail": "Julien, [Startup] vient de lever et vous etes 15. Le produit avance mais cote acquisition, c'est encore du founder-led sales ?\n\nOn genere le pipe pour des startups tech. Le fondateur reste sur le produit.\n\nJe te montre en 15 min si ca te parle."
+      "exampleEmail": "Julien, [Startup] vient de lever et vous etes 15. Ca veut souvent dire que le produit avance mais que le pipe client repose encore sur le fondateur.\n\nC'est le cas ou vous avez deja structure l'acquisition ?"
     },
     {
       "slug": "formation-pro",
@@ -190,24 +151,18 @@
       "weight": 6,
       "matchPatterns": ["formation professionnelle", "organisme formation", "centre formation", "formation continue", "formation entreprise", "formation", "ecole", "enseignement"],
       "painPoint": "Le remplissage des sessions depend du bouche-a-oreille et des appels entrants. Entre deux sessions pleines, le pipe est vide.",
-      "socialProof": "on genere des inscriptions B2B pour des organismes de formation. Des entreprises interessees chaque semaine sans attendre le bouche-a-oreille",
-      "socialProofs": [
-        "on genere des inscriptions B2B pour des organismes de formation. Des entreprises interessees chaque semaine sans attendre le bouche-a-oreille",
-        "un organisme de formation a rempli 3 sessions en avance grace a l'outbound direct",
-        "on a structure le pipe pour un centre de formation pro. 4 demandes qualifiees par semaine",
-        "un organisme certifie a arrete de dependre des appels entrants. Les inscriptions B2B arrivent en continu"
-      ],
+      "socialProof": "on structure l'acquisition B2B pour des organismes de formation",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez un commercial pour remplir les sessions. On peut demarrer le pipe en attendant"
+          "angle": "Vous recrutez un commercial pour remplir les sessions. Le pipe peut demarrer en attendant"
         },
         {
           "signal": "default",
           "angle": "Les sessions se remplissent par le bouche-a-oreille ou vous avez un canal structure ?"
         }
       ],
-      "exampleEmail": "Caroline, 12 formations au catalogue chez [Organisme]. Les sessions se remplissent comment aujourd'hui, bouche-a-oreille ou canal actif ?\n\nOn genere des demandes B2B pour des organismes de formation. Des entreprises interessees chaque semaine.\n\nDispo pour te montrer comment ca marche."
+      "exampleEmail": "Caroline, 12 formations au catalogue et 3 nouvelles cette annee. Ca veut souvent dire que le remplissage devient un enjeu, surtout si ca depend encore du bouche-a-oreille.\n\nVous avez un canal actif pour remplir les sessions B2B ?"
     },
     {
       "slug": "immobilier-pro",
@@ -215,25 +170,19 @@
       "keywords": "immobilier professionnel OR agence immobiliere",
       "weight": 5,
       "matchPatterns": ["immobilier professionnel", "agence immobiliere", "promoteur immobilier", "immobilier commercial", "gestion locative", "immobilier"],
-      "painPoint": "Les mandats viennent du terrain et du reseau local. Quand le marche se tend, les mandats se rarefient et la prospection terrain ne suffit plus.",
-      "socialProof": "on genere des contacts vendeurs pour des agences immo. Des mandats qualifies sans dependre uniquement du terrain",
-      "socialProofs": [
-        "on genere des contacts vendeurs pour des agences immo. Des mandats qualifies sans dependre uniquement du terrain",
-        "une agence immo de 3 agences a recupere 5 mandats exclusifs en 6 semaines via l'outbound",
-        "on a structure un canal digital pour un promoteur. Des contacts vendeurs qualifies chaque semaine",
-        "un negociateur a arrete le porte-a-porte. Les mandats arrivent par email maintenant"
-      ],
+      "painPoint": "Les mandats viennent du terrain et du reseau local. Quand le marche se tend, ca se rarefie.",
+      "socialProof": "on structure un canal complementaire au terrain pour des agences immo",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes un negociateur. En attendant, on peut alimenter le flux de mandats"
+          "angle": "Tu recrutes un negociateur. Ca veut dire que le flux de mandats doit suivre"
         },
         {
           "signal": "default",
           "angle": "Les mandats viennent du terrain et du reseau. C'est regulier ou ca depend des periodes ?"
         }
       ],
-      "exampleEmail": "Gregory, 3 agences [Immo] sur la region. Les mandats rentrent comment en ce moment, terrain uniquement ou canal complementaire ?\n\nOn genere des contacts vendeurs pour des agences immo. Des mandats qualifies en continu.\n\nJe te montre en 15 min si ca te parle."
+      "exampleEmail": "Gregory, 3 agences sur la region et le marche qui se tend. Ca veut souvent dire que la prospection terrain seule ne suffit plus pour maintenir le flux de mandats.\n\nVous avez un canal complementaire ou c'est 100% terrain ?"
     },
     {
       "slug": "cabinet-comptable",
@@ -241,14 +190,8 @@
       "keywords": "expert comptable OR cabinet comptable",
       "weight": 5,
       "matchPatterns": ["expert comptable", "cabinet comptable", "expertise comptable", "comptabilite", "commissaire aux comptes"],
-      "painPoint": "Le portefeuille client se construit sur 10 ans de reseau et de recommandations. Quand un associe part, il emporte ses clients.",
-      "socialProof": "on genere des prospects pour des cabinets comptables. Des entreprises qui cherchent un nouveau cabinet, sans attendre le bouche-a-oreille",
-      "socialProofs": [
-        "on genere des prospects pour des cabinets comptables. Des entreprises qui cherchent un nouveau cabinet, sans attendre le bouche-a-oreille",
-        "un cabinet de 4 associes a recupere 8 nouveaux dossiers en 3 mois grace a l'outbound",
-        "on a structure le developpement pour un expert-comptable. 3 entreprises interessees par semaine",
-        "un cabinet comptable a diversifie ses sources. Le portefeuille ne depend plus que du reseau"
-      ],
+      "painPoint": "Le portefeuille se construit sur 10 ans de reseau et de reco. Quand un associe part, il emporte ses clients.",
+      "socialProof": "on structure l'acquisition pour des cabinets comptables. Un canal qui ne depend pas que du reseau",
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -256,10 +199,10 @@
         },
         {
           "signal": "default",
-          "angle": "Le portefeuille grandit par le reseau et les recommandations. C'est suffisant pour vos objectifs ?"
+          "angle": "Le portefeuille grandit par le reseau et les reco. C'est suffisant ou ca ralentit ?"
         }
       ],
-      "exampleEmail": "Laurent, 4 associes chez [Cabinet] et 200 dossiers. Le portefeuille grandit comment aujourd'hui, recommandations uniquement ?\n\nOn genere des prospects pour des cabinets comptables. Des entreprises en recherche active d'un cabinet.\n\nDispo pour en parler si ca te dit."
+      "exampleEmail": "Laurent, 4 associes et 200 dossiers chez [Cabinet]. Le probleme classique c'est quand le portefeuille depend a 100% du reseau des associes, ca rend la croissance imprevisible.\n\nVous avez structure quelque chose a cote ou c'est encore du bouche-a-oreille ?"
     },
     {
       "slug": "ecommerce-b2b",
@@ -267,25 +210,19 @@
       "keywords": "e-commerce B2B OR marketplace B2B",
       "weight": 5,
       "matchPatterns": ["e-commerce", "ecommerce", "marketplace", "commerce en ligne", "boutique en ligne", "wholesale", "grossiste"],
-      "painPoint": "L'acquisition repose sur le paid (Google Ads, Meta). Le cout par client monte chaque trimestre. Le canal outbound direct est sous-exploite.",
-      "socialProof": "on genere des clients B2B pour des e-commerces. Un canal direct qui ne depend pas du cout par clic",
-      "socialProofs": [
-        "on genere des clients B2B pour des e-commerces. Un canal direct qui ne depend pas du cout par clic",
-        "un e-commerce B2B a reduit son CPA de 40% en ajoutant un canal outbound direct",
-        "on a structure l'acquisition directe pour une marketplace. 5 nouveaux comptes B2B par mois",
-        "un grossiste en ligne a diversifie ses sources. Le pipe ne depend plus que du paid"
-      ],
+      "painPoint": "L'acquisition repose sur le paid. Le cout par client monte chaque trimestre. Le canal outbound direct est sous-exploite.",
+      "socialProof": "on structure un canal outbound direct pour des e-commerces B2B. Un complement au paid",
       "triggers": [
         {
           "signal": "growth",
-          "angle": "La croissance est la mais le cout d'acquisition monte. A quel moment le paid ne suffit plus ?"
+          "angle": "La croissance est la mais le CPA monte. A quel moment le paid ne suffit plus ?"
         },
         {
           "signal": "default",
-          "angle": "L'acquisition B2B repose sur le paid ou vous avez un canal direct en parallele ?"
+          "angle": "L'acquisition B2B repose sur le paid ou vous avez un canal direct ?"
         }
       ],
-      "exampleEmail": "Nicolas, [E-commerce] fait du B2B et le catalogue s'etoffe. L'acquisition repose uniquement sur le paid ou vous avez un canal direct ?\n\nOn genere des clients B2B pour des e-commerces. Un canal qui ne depend pas du cout par clic.\n\nJe te montre le setup en 15 min ?"
+      "exampleEmail": "Nicolas, le catalogue s'etoffe chez [E-commerce] et vous recrutez cote marketing. Ca veut souvent dire que le paid plafonne et que le CPA monte.\n\nVous avez teste un canal outbound direct ou c'est 100% paid ?"
     }
   ]
 }
