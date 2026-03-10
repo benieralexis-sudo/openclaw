@@ -181,7 +181,15 @@ Analyse ces donnees et produis ta recommandation strategique.`;
       );
 
       const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const parsed = JSON.parse(cleaned);
+      // Extraire le JSON meme si Claude ajoute du texte apres
+      let parsed;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (_) {
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No JSON found in Claude response');
+        parsed = JSON.parse(jsonMatch[0]);
+      }
 
       // Validation minimale
       if (!parsed.topAngles || !Array.isArray(parsed.topAngles) || parsed.topAngles.length === 0) {

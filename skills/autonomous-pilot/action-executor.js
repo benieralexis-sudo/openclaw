@@ -1096,15 +1096,36 @@ Format JSON strict :
       }
 
       // === GATE MINIMUM DONNEES : bloquer si brief trop pauvre ===
-      if (!params._prospectIntel || params._prospectIntel.length < 200) {
-        const sourcesCount = (params._prospectIntel || '').split(/(?:SITE WEB|NEWS|APOLLO|PAPPERS|LINKEDIN|TECHNO|EMPLOI|SIGNAL|CLIENTS|DESCRIPTION|WEB INTELLIGENCE)/i).length - 1;
-        if (sourcesCount < 2) {
+      if (!params._prospectIntel || params._prospectIntel.length < 80) {
+        log.warn('action-executor', 'GATE DONNEES BLOCK — Brief quasi-vide pour ' + params.to +
+          ' (brief: ' + (params._prospectIntel || '').length + ' chars) — data-poor queue');
+        if (params.contact && params.to) {
+          try { storage.addToDataPoorQueue(params.to, params.contact, 'brief quasi-vide (' + (params._prospectIntel || '').length + ' chars)'); } catch (e) {}
+        }
+        return { success: false, error: 'Donnees insuffisantes pour email de qualite (brief: ' + (params._prospectIntel || '').length + ' chars)', skipped: true };
+      }
+      // Gate sources : compter les vraies sections presentes (pas juste regex mots-cles)
+      if (params._prospectIntel && params._prospectIntel.length < 200) {
+        const brief = params._prospectIntel;
+        let sourcesCount = 0;
+        if (/ENTREPRISE:/i.test(brief) && brief.match(/ENTREPRISE:.*\(/)) sourcesCount++; // Apollo data presente (meta entre parentheses)
+        if (/CONTACT:.*—/i.test(brief)) sourcesCount++; // Contact avec titre
+        if (/DROPCONTACT:/i.test(brief)) sourcesCount++;
+        if (/NEWS RECENTES/i.test(brief)) sourcesCount++;
+        if (/SITE WEB/i.test(brief)) sourcesCount++;
+        if (/LINKEDIN/i.test(brief)) sourcesCount++;
+        if (/TECHNO/i.test(brief)) sourcesCount++;
+        if (/EMPLOI|RECRUTEMENT/i.test(brief)) sourcesCount++;
+        if (/SIGNAL|WEB INTELLIGENCE/i.test(brief)) sourcesCount++;
+        if (/DESCRIPTION/i.test(brief)) sourcesCount++;
+        if (/CLIENTS/i.test(brief)) sourcesCount++;
+        if (sourcesCount < 1) {
           log.warn('action-executor', 'GATE DONNEES BLOCK — Brief trop pauvre pour ' + params.to +
-            ' (brief: ' + (params._prospectIntel || '').length + ' chars, sources: ' + sourcesCount + ') — data-poor queue');
+            ' (brief: ' + brief.length + ' chars, sources: ' + sourcesCount + ') — data-poor queue');
           if (params.contact && params.to) {
-            try { storage.addToDataPoorQueue(params.to, params.contact, 'brief trop pauvre (' + (params._prospectIntel || '').length + ' chars, ' + sourcesCount + ' sources)'); } catch (e) {}
+            try { storage.addToDataPoorQueue(params.to, params.contact, 'brief trop pauvre (' + brief.length + ' chars, ' + sourcesCount + ' sources)'); } catch (e) {}
           }
-          return { success: false, error: 'Donnees insuffisantes pour email de qualite (brief: ' + (params._prospectIntel || '').length + ' chars)', skipped: true };
+          return { success: false, error: 'Donnees insuffisantes pour email de qualite (brief: ' + brief.length + ' chars)', skipped: true };
         }
       }
 

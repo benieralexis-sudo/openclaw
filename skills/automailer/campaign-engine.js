@@ -1027,7 +1027,7 @@ class CampaignEngine {
             }
 
             // FIX 6 : Follow-ups conditionnels selon engagement (opened/not opened/hot)
-            const allContactEmails = this.storage.data.emails.filter(function(e) {
+            const allContactEmails = storage.data.emails.filter(function(e) {
               return e.to === contact.email && e.campaignId === campaignId;
             });
             const openedEmails = allContactEmails.filter(function(e) { return e.openedAt; });

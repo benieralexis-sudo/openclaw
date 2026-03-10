@@ -1619,6 +1619,10 @@ class ProspectResearcher {
     }
     if (meta.length > 0) companyLine += ' (' + meta.join(', ') + ')';
     lines.push(companyLine);
+    // Label APOLLO explicite pour le comptage de sources
+    if (intel.apolloData && meta.length > 0) {
+      lines.push('APOLLO: donnees organisation confirmees');
+    }
 
     if (contact.nom || contact.titre) {
       let contactLine = 'CONTACT: ' + (contact.nom || '');

@@ -87,7 +87,7 @@ class IntentMonitor {
     // Verifier heures business (8h-19h Paris, lun-ven)
     const now = new Date();
     const parisHour = parseInt(now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }));
-    const parisDay = parseInt(now.toLocaleString('en-US', { timeZone: 'Europe/Paris', weekday: 'numeric' }));
+    const parisDay = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay();
     if (parisHour < 8 || parisHour >= 19 || parisDay === 0 || parisDay === 6) {
       log.info('intent-monitor', 'Hors heures business — skip');
       return { skipped: true, reason: 'hors heures business' };
