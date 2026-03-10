@@ -548,6 +548,23 @@ Format JSON strict :
       }
     }
 
+    // Enrichir industry/niche depuis FlowFast si absent du contact brain
+    if (!rawContact.industry && !rawContact._nicheSlug) {
+      try {
+        const ffStorage = require('../flowfast/storage.js');
+        const ffLeads = ffStorage.data ? ffStorage.data.leads || {} : {};
+        const email = (rawContact.email || params.to || '').toLowerCase();
+        for (const lid of Object.keys(ffLeads)) {
+          const fl = ffLeads[lid];
+          if ((fl.email || '').toLowerCase() === email) {
+            if (fl.industry) rawContact.industry = fl.industry;
+            if (fl._nicheSlug) rawContact._nicheSlug = fl._nicheSlug;
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
     // Mapper les champs FR vers EN pour le writer
     const contact = {
       name: rawContact.nom || rawContact.name || '',
@@ -555,8 +572,9 @@ Format JSON strict :
       title: rawContact.titre || rawContact.title || '',
       company: rawContact.entreprise || rawContact.company || '',
       email: rawContact.email || params.to || '',
+      industry: rawContact.industry || (nicheContext ? nicheContext.name || nicheContext.slug : '') || '',
       _nicheContext: nicheContext || null,
-      _nicheSlug: nicheContext ? nicheContext.slug : (params._nicheSlug || null),
+      _nicheSlug: nicheContext ? nicheContext.slug : (rawContact._nicheSlug || params._nicheSlug || null),
       _triggerAngle: rawContact._triggerAngle || null
     };
 
