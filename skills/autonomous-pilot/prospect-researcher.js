@@ -57,14 +57,19 @@ class ProspectResearcher {
   }
 
   /**
-   * Filtre les news Google News RSS : ne garde que celles dont le titre ou snippet
-   * contient le nom de l'entreprise (au moins un mot significatif > 3 chars, case-insensitive).
+   * Filtre les news Google News RSS : ne garde que celles VRAIMENT pertinentes.
+   * 3 niveaux de filtrage :
+   * 1. Le titre/snippet DOIT mentionner l'entreprise (au moins un mot significatif)
+   * 2. Anti-homonyme : exclure les faux positifs (ex: "Let it be" Beatles, "Impact" generic)
+   * 3. Fraicheur : priorite aux news < 90 jours
    */
   _filterRelevantNews(newsItems, companyName) {
     if (!newsItems || newsItems.length === 0 || !companyName) return newsItems;
 
     // Extraire les mots significatifs du nom d'entreprise (> 3 chars, pas les stop words)
-    const stopWords = new Set(['sarl', 'sas', 'eurl', 'the', 'and', 'les', 'des', 'group', 'groupe', 'france', 'paris', 'consulting', 'conseil', 'international']);
+    const stopWords = new Set(['sarl', 'sas', 'eurl', 'the', 'and', 'les', 'des', 'group', 'groupe',
+      'france', 'paris', 'consulting', 'conseil', 'international', 'digital', 'agency', 'agence',
+      'studio', 'solutions', 'services', 'tech', 'company', 'corp', 'ltd', 'gmbh']);
     const companyWords = companyName.toLowerCase()
       .split(/[\s\-_&.,;:'"()]+/)
       .filter(w => w.length > 3 && !stopWords.has(w));
@@ -72,13 +77,53 @@ class ProspectResearcher {
     // Si le nom complet est court (ex: "IFFP"), aussi matcher en entier
     const companyLower = companyName.toLowerCase().trim();
 
+    // Mots communs qui generent des homonymes (noms d'entreprises qui sont aussi des mots courants)
+    const ambiguousNames = new Set(['impact', 'vision', 'alpha', 'beta', 'delta', 'omega', 'zen',
+      'boost', 'pulse', 'spark', 'flow', 'smart', 'pixel', 'open', 'next', 'first', 'prime',
+      'core', 'edge', 'link', 'base', 'rise', 'peak', 'wave', 'shift', 'cloud', 'data']);
+    const isAmbiguous = ambiguousNames.has(companyLower) ||
+      (companyWords.length === 1 && ambiguousNames.has(companyWords[0]));
+
+    // Domaines/contextes qui sont des faux positifs frequents
+    const noiseContexts = [
+      /\b(?:cinema|film|serie|album|chanson|concert|festival|exposition|musee|sport|match|ligue|championnat)\b/i,
+      /\b(?:meteo|horoscope|recette|cuisine|mode|beaute|voyage|tourisme|vacances)\b/i
+    ];
+
     return newsItems.filter(item => {
-      const titleAndSnippet = ((item.title || '') + ' ' + (item.snippet || '')).toLowerCase();
+      const title = (item.title || '').toLowerCase();
+      const snippet = (item.snippet || '').toLowerCase();
+      const titleAndSnippet = title + ' ' + snippet;
+
+      // --- FILTRE 1 : mention entreprise ---
+      let nameMatch = false;
       // Match exact du nom complet
-      if (titleAndSnippet.includes(companyLower)) return true;
+      if (titleAndSnippet.includes(companyLower)) nameMatch = true;
       // Match d'au moins un mot significatif du nom
-      if (companyWords.length > 0 && companyWords.some(w => titleAndSnippet.includes(w))) return true;
-      return false;
+      if (!nameMatch && companyWords.length > 0 && companyWords.some(w => titleAndSnippet.includes(w))) nameMatch = true;
+      if (!nameMatch) return false;
+
+      // --- FILTRE 2 : anti-homonyme pour noms ambigus ---
+      if (isAmbiguous) {
+        // Pour les noms ambigus, exiger un contexte business (pas culturel/sport/etc)
+        const hasBusinessContext = /\b(?:entreprise|startup|saas|lev[ée]e|recrutement|croissance|chiffre|employ|client|partenaire|fondateur|directeur|ceo|cto|nomm[ée]|rejoint|bureau|siege)\b/i.test(titleAndSnippet);
+        if (!hasBusinessContext) {
+          // Verifier aussi si c'est un contexte bruit
+          if (noiseContexts.some(rx => rx.test(titleAndSnippet))) return false;
+        }
+      }
+
+      // --- FILTRE 3 : fraicheur (< 90 jours prioritaire, > 180 jours exclus) ---
+      if (item.pubDate) {
+        const pubDate = new Date(item.pubDate);
+        if (!isNaN(pubDate.getTime())) {
+          const ageMs = Date.now() - pubDate.getTime();
+          const ageDays = ageMs / (24 * 60 * 60 * 1000);
+          if (ageDays > 180) return false; // news > 6 mois = pas pertinente
+        }
+      }
+
+      return true;
     });
   }
 
@@ -376,7 +421,7 @@ class ProspectResearcher {
     // Executer toutes les recherches en parallele (11 sources — Dropcontact enrichit les donnees personne)
     const linkedinUrl = contact.linkedin_url || contact.linkedin || contact.linkedinUrl || '';
     const contactName = contact.nom || contact.name || '';
-    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, jobPostingsResult, dropcontactResult] = await Promise.allSettled([
+    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, jobPostingsResult, dropcontactResult, sireneResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
       Promise.resolve(this._extractApolloOrgData(contact.organization, contact)),
@@ -385,7 +430,8 @@ class ProspectResearcher {
       this._searchCompanyClients(company),
       this._searchPersonProfile(contactName, company),
       this._searchJobPostings(company),
-      this._fetchDropcontactData(contact)
+      this._fetchDropcontactData(contact),
+      this._fetchSireneData(company)
     ]);
 
     // Chercher market signals Web Intelligence pour cette entreprise
@@ -465,6 +511,7 @@ class ProspectResearcher {
       intentSignals: personProfile ? (personProfile.intentSignals || []) : [],
       sectorCompetitors: sectorCompetitors,
       dropcontactData: dropcontactResult.status === 'fulfilled' ? dropcontactResult.value : null,
+      sireneData: sireneResult.status === 'fulfilled' ? sireneResult.value : null,
       leadEnrichData: leadEnrichData,
       marketSignals: marketSignals,
       researchedAt: new Date().toISOString()
@@ -586,6 +633,7 @@ class ProspectResearcher {
       intel.personFromWebsite ? intel.personFromWebsite.mentions.length + ' mentions site' : null,
       intel.jobPostings ? intel.jobPostings.totalJobs + ' offres emploi' : null,
       intel.techStack ? 'tech stack' : null,
+      intel.sireneData ? 'SIRENE' : null,
       intel.sectorCompetitors.length > 0 ? intel.sectorCompetitors.length + ' concurrents' : null
     ].filter(Boolean);
 
@@ -1641,6 +1689,88 @@ class ProspectResearcher {
   }
 
   /**
+   * API SIRENE (INSEE) — Donnees legales FR gratuites.
+   * Recherche par nom d'entreprise → retourne SIREN, date creation, effectif, NAF, siege.
+   * Endpoint : https://api.insee.fr/entreprises/sirene/V3.11/siren (ouvert sans cle)
+   * Fallback : https://recherche-entreprises.api.gouv.fr/search (Data.gouv, 100% gratuit)
+   */
+  async _fetchSireneData(companyName) {
+    if (!companyName || companyName.length < 3) return null;
+    const https = require('https');
+
+    // Utiliser l'API recherche-entreprises (data.gouv.fr) — gratuite, sans cle, sans rate limit agressif
+    return new Promise((resolve) => {
+      const query = encodeURIComponent(companyName.trim());
+      const url = '/search?q=' + query + '&page=1&per_page=1';
+      const req = https.request({
+        hostname: 'recherche-entreprises.api.gouv.fr',
+        path: url,
+        method: 'GET',
+        headers: { 'Accept': 'application/json', 'User-Agent': 'iFIND-Bot/1.0' }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            if (!json.results || json.results.length === 0) { resolve(null); return; }
+            const r = json.results[0];
+            const siege = r.siege || {};
+
+            // Mapper les tranches effectifs INSEE vers des labels lisibles
+            const trancheMap = {
+              '00': '0 salarie', '01': '1-2', '02': '3-5', '03': '6-9',
+              '11': '10-19', '12': '20-49', '21': '50-99', '22': '100-199',
+              '31': '200-249', '32': '250-499', '41': '500-999', '42': '1000-1999',
+              '51': '2000-4999', '52': '5000-9999', '53': '10000+'
+            };
+
+            // Mapper les categories juridiques courantes
+            const catJurMap = {
+              '1000': 'Entrepreneur individuel', '5498': 'EURL', '5499': 'SAS',
+              '5710': 'SAS', '5720': 'SASU', '5599': 'SA', '5710': 'SAS',
+              '5485': 'SARL', '5498': 'EURL unipersonnelle'
+            };
+
+            const result = {
+              siren: r.siren || null,
+              nom: r.nom_complet || r.nom_raison_sociale || null,
+              dateCreation: r.date_creation || null,
+              trancheEffectifs: trancheMap[r.tranche_effectif_salarie] || (r.tranche_effectif_salarie ? 'tranche ' + r.tranche_effectif_salarie : null),
+              activitePrincipale: (siege.activite_principale ? siege.activite_principale + (siege.libelle_activite_principale ? ' — ' + siege.libelle_activite_principale : '') : null),
+              categorieJuridique: catJurMap[r.nature_juridique] || (r.nature_juridique || null),
+              adresse: siege.commune ? (siege.commune + (siege.code_postal ? ' (' + siege.code_postal + ')' : '')) : null,
+              nombreEtablissements: r.nombre_etablissements || null,
+              dirigeants: (r.dirigeants || []).slice(0, 2).map(d => (d.prenom || '') + ' ' + (d.nom || '') + (d.qualite ? ' (' + d.qualite + ')' : '')).filter(Boolean)
+            };
+
+            // Verifier que le resultat correspond bien a l'entreprise (anti-faux positif)
+            const resultName = (result.nom || '').toLowerCase();
+            const searchName = companyName.toLowerCase().trim();
+            // Si le nom retourne ne contient aucun mot significatif du nom recherche, ignorer
+            const searchWords = searchName.split(/[\s\-_&.,;:'"()]+/).filter(w => w.length > 2);
+            const matchCount = searchWords.filter(w => resultName.includes(w)).length;
+            if (searchWords.length > 0 && matchCount === 0) {
+              log.info('prospect-research', 'SIRENE faux positif: recherche "' + companyName + '" → "' + result.nom + '" (aucun mot commun)');
+              resolve(null);
+              return;
+            }
+
+            log.info('prospect-research', 'SIRENE OK pour "' + companyName + '": SIREN=' + result.siren + ', effectif=' + (result.trancheEffectifs || '?') + ', creation=' + (result.dateCreation || '?'));
+            resolve(result);
+          } catch (e) {
+            log.info('prospect-research', 'SIRENE parse error: ' + e.message);
+            resolve(null);
+          }
+        });
+      });
+      req.on('error', (e) => { log.info('prospect-research', 'SIRENE error: ' + e.message); resolve(null); });
+      req.setTimeout(8000, () => { req.destroy(); resolve(null); });
+      req.end();
+    });
+  }
+
+  /**
    * Compile toutes les donnees en un brief textuel structure.
    * Ordre par UTILITE pour la personnalisation email :
    * 1. News recentes (observations temporelles specifiques)
@@ -1738,6 +1868,19 @@ class ProspectResearcher {
     // Civilite Dropcontact (utile pour personnalisation)
     if (intel.dropcontactData && intel.dropcontactData._dropcontact && intel.dropcontactData._dropcontact.civility) {
       lines.push('Civilite: ' + intel.dropcontactData._dropcontact.civility);
+    }
+
+    // Donnees API SIRENE (INSEE) — donnees legales FR gratuites
+    if (intel.sireneData) {
+      const sir = intel.sireneData;
+      const sirParts = [];
+      if (sir.dateCreation) sirParts.push('Creee le ' + sir.dateCreation);
+      if (sir.trancheEffectifs) sirParts.push('Effectif: ' + sir.trancheEffectifs);
+      if (sir.activitePrincipale) sirParts.push('Activite NAF: ' + sir.activitePrincipale);
+      if (sir.categorieJuridique) sirParts.push('Forme: ' + sir.categorieJuridique);
+      if (sir.adresse) sirParts.push('Siege: ' + sir.adresse);
+      if (sir.siren) sirParts.push('SIREN: ' + sir.siren);
+      if (sirParts.length > 0) lines.push('INSEE SIRENE: ' + sirParts.join(' | '));
     }
 
     // PRIORITE 1 : News recentes — meilleure source d'observations specifiques et temporelles

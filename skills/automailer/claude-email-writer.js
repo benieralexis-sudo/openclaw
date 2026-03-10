@@ -308,8 +308,16 @@ Agent de prospection autonome. Il analyse qui contacter et quand, personnalise c
 === ANALYSE STRATEGIQUE ===
 Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : signal, hypothese, angle. L'analyste a deja identifie le meilleur angle.
 
+=== METHODE LAVENDER (6 SECRETS — +35% REPLY RATE) ===
+1. 40-60 MOTS MAX (pas 80, pas 100 — les emails <50 mots ont 65% de reply rate vs 2% pour >125 mots)
+2. NIVEAU CM1 : phrases de 5-8 mots. Mots de 2 syllabes max. Pas de jargon. "On fait tourner le pipe" > "Nous optimisons le pipeline commercial".
+3. TON HESITANT (+35% replies) : "je me trompe peut-etre", "c'est peut-etre pas le cas", "je me demandais si", "c'est un sujet ou pas du tout ?". Le doute invite a corriger → reponse. L'affirmation invite a ignorer.
+4. CTC (Call To Curiosity), PAS CTA : "C'est le cas chez vous ?" > "Dispo 15 min mardi ?". La question ouverte > le calendrier.
+5. OBJET ENNUYEUX : 2-3 mots, minuscules, pas de majuscules, pas de ponctuation. Comme un email entre collegues. "${contact.firstName || contact.company || 'question'}" et c'est tout.
+6. RATIO JE/TU : parle du prospect 2x plus que de toi. Chaque "je" doit etre precede ou suivi d'un "tu/vous". Si tu comptes plus de "je" que de "tu", reecris.
+
 === REGLES ===
-- 50-80 mots. Ecris comme tu parles a un pote entrepreneur.
+- 40-60 mots STRICT. Ecris comme tu parles a un pote entrepreneur. Chaque mot doit meriter sa place.
 - PAS de social proof invente. PAS de "un client similaire a signe X clients en Y mois". Si tu n'as pas de cas reel, n'en invente pas.
 - PAS de pitch, prix, features, bullet points.
 - PAS de tirets cadratins. PAS de "Bonjour". PAS de signature.
@@ -317,24 +325,26 @@ Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : 
 - PAS de phrases creuses : "beau move", "impressionnant", "sacre parcours", "je me permets", "potentiellement", "cordonnier mal chausse".
 - N'invente JAMAIS un fait sur le prospect. Annee : 2026.
 - Tutoiement (PME <100 pers), vouvoiement (corporate).
-- Objet : 2-4 mots, minuscules, contient prenom OU entreprise.${subjectStyleHint}
 ${nicheExampleBlock}
-=== EXEMPLES 10/10 ===
-Exemple 1 (signal recrutement, 52 mots) :
-"Thomas, 3 postes de commerciaux ouverts chez [Agence]. Ca veut souvent dire que le pipe depend encore du fondateur et que le delivery absorbe tout le monde.
+=== EXEMPLES 10/10 (TON HESITANT + COURT) ===
+Exemple 1 (signal recrutement, 38 mots) :
+"Thomas, 3 postes commerciaux ouverts chez [Agence]. Ca veut souvent dire que le pipe depend encore du fondateur.
 
-On structure l'outbound pour des boites comme la tienne. Le pipe tourne sans que tu y passes tes journees.
+On structure l'outbound pour des boites comme la tienne. C'est le cas ou je me trompe ?"
 
-C'est un sujet en ce moment ?"
+Exemple 2 (signal news, 42 mots) :
+"Sophie, [Cabinet] lance une offre data. Souvent, le fondateur porte seul l'acquisition des premiers clients sur un nouveau segment.
 
-Exemple 2 (signal news, 45 mots) :
-"Sophie, je vois que [Cabinet] vient de lancer une offre data. Beau virage, mais cote acquisition des premiers clients sur ce segment, c'est souvent le fondateur qui porte tout.
+C'est peut-etre pas votre cas, mais vous avez structure un canal ou c'est encore du reseau ?"
 
-Vous avez deja structure un canal ou c'est encore du reseau ?"
+Exemple 3 (signal croissance, 35 mots) :
+"Marc, 40 personnes chez [ESN] et 5 postes ouverts. L'equipe grandit mais le pipe de missions suit pas toujours.
+
+C'est un sujet en ce moment ou pas du tout ?"
 
 === FORMAT ===
 JSON valide uniquement, sans markdown, sans backticks.
-{"subject":"objet","body":"corps SANS signature"}
+{"subject":"objet 2-3 mots minuscules","body":"corps SANS signature, 40-60 mots"}
 OU {"skip": true, "reason": "explication"}`;
 
     let firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
@@ -363,7 +373,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       let prompt = userMessage;
       if (attempt > 0 && best) {
-        prompt = userMessage + '\n\nATTENTION: l\'email precedent a ete note ' + bestScore + '/10. Problemes: ' + (best._scoreReason || 'qualite insuffisante') + '. Ecris un email MEILLEUR : OBSERVATION concrete + HYPOTHESE business + QUESTION ouverte. 50-80 mots. PAS de case study invente. ZERO tiret cadratin.';
+        prompt = userMessage + '\n\nATTENTION: l\'email precedent a ete note ' + bestScore + '/10. Problemes: ' + (best._scoreReason || 'qualite insuffisante') + '. Ecris un email MEILLEUR : 40-60 mots MAX. Ton HESITANT ("je me trompe peut-etre", "c\'est le cas ou pas ?"). OBSERVATION + HYPOTHESE + QUESTION. PAS de case study invente. ZERO tiret cadratin.';
       }
       const response = await this.callClaude(
         [{ role: 'user', content: prompt }],
@@ -455,13 +465,26 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     if (emDashCount >= 2) return { block: true, adjust: -3, note: 4, reason: 'em_dash_overuse:' + emDashCount };
     if (emDashCount === 1) { adjust -= 1; reasons.push('em_dash'); }
 
-    // BLOCK : trop court (les meilleurs emails font 36 mots — seuil abaisse)
-    if (wordCount < 30) return { block: true, adjust: -3, note: 4, reason: 'too_short:' + wordCount + '_words' };
+    // BLOCK : trop court (les meilleurs emails font 35-45 mots)
+    if (wordCount < 25) return { block: true, adjust: -3, note: 4, reason: 'too_short:' + wordCount + '_words' };
 
-    // BLOCK : trop long (marge a 120 — un email 4 blocs avec social proof fait 70-110 mots)
-    if (wordCount > 120) return { block: true, adjust: -3, note: 4, reason: 'too_long:' + wordCount + '_words' };
-    // Penalite legere si > 90 mots (pas un block, juste -1)
-    if (wordCount > 90) { adjust -= 1; reasons.push('slightly_long:' + wordCount); }
+    // BLOCK : trop long (Lavender : <50 mots = 65% reply rate, >125 mots = 2%)
+    if (wordCount > 80) return { block: true, adjust: -3, note: 4, reason: 'too_long:' + wordCount + '_words' };
+    // Penalite si > 60 mots (objectif Lavender : 40-60)
+    if (wordCount > 60) { adjust -= 1; reasons.push('slightly_long:' + wordCount); }
+    // Bonus si dans la zone optimale Lavender (35-50 mots)
+    if (wordCount >= 35 && wordCount <= 50) { adjust += 1; reasons.push('optimal_length'); }
+
+    // CHECK : ratio Je/Tu (Lavender secret #6 — parler du prospect 2x plus que de soi)
+    const jeCount = (bodyLower.match(/\bje\b|\bj'/g) || []).length + (bodyLower.match(/\bnous\b|\bon\b/g) || []).length;
+    const tuCount = (bodyLower.match(/\btu\b|\bt'/g) || []).length + (bodyLower.match(/\bvous\b|\bvotre\b|\bvos\b|\bton\b|\bta\b|\btes\b/g) || []).length;
+    if (jeCount > 0 && tuCount > 0 && jeCount > tuCount * 1.5) { adjust -= 1; reasons.push('je_tu_ratio:' + jeCount + '/' + tuCount); }
+
+    // BONUS : ton hesitant (Lavender secret #3 — +35% reply rate)
+    const hesitantMarkers = ['peut-etre', 'je me trompe', 'c\'est peut-etre pas', 'je me demandais',
+      'pas du tout', 'ou pas', 'c\'est le cas', 'je me permets pas'];
+    const hasHesitantTone = hesitantMarkers.some(m => bodyLower.includes(m));
+    if (hasHesitantTone) { adjust += 1; reasons.push('hesitant_tone'); }
 
     // NOTE: social proof n'est PLUS penalise. Un email sans SP avec un bon insight vaut mieux qu'un SP invente.
     const spMarkers = ['on genere', 'on fait', 'on remplace', 'on alimente', 'on accompagne',
@@ -525,24 +548,26 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
 
   async _scoreEmail(subject, body, contact) {
     const wordCount = (body || '').split(/\s+/).filter(w => w.length > 0).length;
-    const prompt = `Note cet email de prospection B2B de 1 a 10. Framework : Observation → Hypothese → Question.
+    const prompt = `Note cet email de prospection B2B de 1 a 10. Framework : Observation → Hypothese → Question + Methode Lavender.
 
 CRITERES 10/10 :
-- 50-80 mots, ton naturel entre pairs
+- 40-60 mots (zone optimale Lavender). <50 = ideal.
+- Ton HESITANT : "peut-etre", "je me trompe", "ou pas du tout ?" (+35% reply rate)
 - OBSERVATION : un fait SPECIFIQUE du prospect (chiffre, news, recrutement, projet)
 - HYPOTHESE : le fait est TRANSFORME en probleme business ("ca veut dire que...")
-- QUESTION : ouverte, sur le business du prospect. Pas "dispo 15 min ?"
-- PAS de case study invente ("X clients en Y mois")
-- PAS de pitch, prix, features
-- PAS de tirets cadratins, pas de "Bonjour"
-- PAS de meta-prospection
+- QUESTION OUVERTE (CTC) : invite a la reflexion, pas au calendrier
+- Ratio Je/Tu : parle du prospect plus que de soi
+- Niveau CM1 : phrases courtes, mots simples
+- Objet : 2-3 mots, minuscules, comme un email entre collegues
+- PAS de case study invente, pitch, tirets cadratins, "Bonjour", meta-prospection
 
 PENALITES :
-- Case study visiblement invente ("4 clients en 3 mois", chiffres ronds) : -4
-- Information dumping (balancer des faits sans insight) : -3
+- Case study invente ("4 clients en 3 mois") : -4
+- Information dumping (faits sans insight) : -3
 - Generique (remplacable par n'importe quelle entreprise) : -4
-- Pas de question ouverte : -3
-- > 100 mots : -3
+- > 60 mots : -2, > 80 mots : -4
+- Ton affirmatif (0 hesitation) : -1
+- Trop de "je/nous/on" vs "tu/vous" : -2
 - Tirets cadratins : -2
 - Meta-prospection : -4
 
@@ -553,8 +578,8 @@ Corps: ${body}
 Prospect: ${contact.name || '?'} / ${contact.company || '?'}
 
 CALIBRAGE :
-- "[prenom], j'ai vu que [entreprise] fait [activite]. Un client similaire a signe 4 clients. C'est un sujet ?" → 3/10 (info dump + case study invente)
-- "[prenom], [fait specifique]. Ca veut souvent dire [hypothese]. Vous avez structure quelque chose ?" → 9/10 (signal + insight + question)
+- "[prenom], j'ai vu que [entreprise] fait [activite]. Un client similaire a signe 4 clients. C'est un sujet ?" → 3/10 (info dump + case study invente + 0 hesitation)
+- "[prenom], [fait specifique]. Ca veut souvent dire [hypothese]. C'est le cas ou je me trompe ?" → 9/10 (signal + insight + hesitant + court)
 
 Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
 
