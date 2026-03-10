@@ -571,17 +571,26 @@ Format JSON strict :
     }
 
     // Mapper les champs FR vers EN pour le writer
+    const nicheIndustry = nicheContext ? nicheContext.name || nicheContext.slug : '';
     const contact = {
       name: rawContact.nom || rawContact.name || '',
       firstName: (rawContact.nom || rawContact.name || '').split(' ')[0],
       title: rawContact.titre || rawContact.title || '',
       company: rawContact.entreprise || rawContact.company || '',
       email: rawContact.email || params.to || '',
-      industry: rawContact.industry || (nicheContext ? nicheContext.name || nicheContext.slug : '') || '',
+      industry: rawContact.industry || nicheIndustry || '',
+      niche: nicheContext ? nicheContext.slug : (rawContact._nicheSlug || rawContact.niche || params._nicheSlug || null),
       _nicheContext: nicheContext || null,
-      _nicheSlug: nicheContext ? nicheContext.slug : (rawContact._nicheSlug || params._nicheSlug || null),
-      _triggerAngle: rawContact._triggerAngle || null
+      _nicheSlug: nicheContext ? nicheContext.slug : (rawContact._nicheSlug || rawContact.niche || params._nicheSlug || null),
+      _triggerAngle: rawContact._triggerAngle || null,
+      organization: rawContact.organization || null,
+      organizationData: rawContact.organizationData || null,
+      headline: rawContact.headline || rawContact.titre || rawContact.title || null,
+      localisation: rawContact.localisation || null
     };
+    // Propager niche vers params pour que campaign-engine l'ait
+    if (contact.niche && !params._nicheSlug) params._nicheSlug = contact.niche;
+    if (contact.industry && !params.industry) params.industry = contact.industry;
 
     // Contexte minimal — le systemPrompt du writer contient deja toutes les regles
     let context = '';
@@ -1516,6 +1525,17 @@ Format JSON strict :
         const apConfig = storage.getConfig();
         const adminChatId = apConfig.adminChatId || process.env.ADMIN_CHAT_ID || '1409505520';
 
+        // Calculer le score de qualite email
+        let emailQualityScore = 0;
+        try {
+          const ClaudeWriter = getClaudeEmailWriter();
+          if (ClaudeWriter) {
+            const scorer = new ClaudeWriter();
+            const preScore = scorer._programmaticPreScore(params.subject, params.body, params.contact || {});
+            emailQualityScore = preScore.note || 0;
+          }
+        } catch (scoreErr) { /* non bloquant */ }
+
         if (amStorage) {
           amStorage.addEmail({
             chatId: adminChatId,
@@ -1529,7 +1549,8 @@ Format JSON strict :
             source: 'autonomous-pilot',
             contactName: params.contactName || '',
             company: params.company || '',
-            score: params.score || 0,
+            score: emailQualityScore || params.score || 0,
+            niche: params._nicheSlug || (params.contact && params.contact.niche) || params.industry || '',
             industry: params._industryForAngles || (params.contact && params.contact.industry) || params.industry || '',
             sentAt: new Date().toISOString()
           });
@@ -1541,15 +1562,23 @@ Format JSON strict :
 
         storage.incrementProgress('emailsSentThisWeek', 1);
 
-        // Tracker la niche de ce lead pour l'auto-pivot
+        // Tracker la niche de ce lead pour l'auto-pivot + propager dans FlowFast
         const ffStorageNiche = getFlowFastStorage();
         if (ffStorageNiche && ffStorageNiche.data) {
           const leadsObj2 = ffStorageNiche.data.leads || {};
           for (const lid of Object.keys(leadsObj2)) {
             if (leadsObj2[lid].email === params.to) {
-              const leadNiche = this._inferLeadNiche(leadsObj2[lid]);
+              let leadNiche = this._inferLeadNiche(leadsObj2[lid]);
+              // Fallback : utiliser la niche detectee par ICP matcher si _inferLeadNiche echoue
+              if (!leadNiche && contact && contact._nicheSlug) leadNiche = contact._nicheSlug;
               if (leadNiche) {
                 storage.trackNicheEvent(leadNiche, 'sent');
+                // Propager la niche dans FlowFast pour les futurs envois
+                if (!leadsObj2[lid].industry || !leadsObj2[lid]._nicheSlug) {
+                  if (!leadsObj2[lid].industry) leadsObj2[lid].industry = leadNiche;
+                  leadsObj2[lid]._nicheSlug = leadNiche;
+                  try { ffStorageNiche._save ? ffStorageNiche._save() : null; } catch (e) {}
+                }
                 log.info('action-executor', 'Niche tracking: email sent [' + leadNiche + '] pour ' + params.to);
               }
               break;

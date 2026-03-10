@@ -1515,6 +1515,15 @@ class CampaignEngine {
 
       const result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
 
+      // Calculer le score de qualite email post-generation
+      let emailQualityScore = 0;
+      try {
+        const ClaudeWriter = require('./claude-email-writer.js');
+        const scorer = new ClaudeWriter();
+        const preScore = scorer._programmaticPreScore(subject, body, contact);
+        emailQualityScore = preScore.note || 0;
+      } catch (scoreErr) { /* non bloquant */ }
+
       const emailRecord = {
         chatId: campaign.chatId,
         campaignId: campaignId,
@@ -1532,7 +1541,8 @@ class CampaignEngine {
         company: contact.company || '',
         contactName: contact.name || contact.firstName || '',
         angleType: (cachedAnalysisForTracking && cachedAnalysisForTracking.topAngles && cachedAnalysisForTracking.topAngles[0]) ? cachedAnalysisForTracking.topAngles[0].angle : '',
-        niche: contact.niche || contact.industry || '',
+        niche: contact.niche || contact._nicheSlug || contact.industry || '',
+        score: emailQualityScore,
         sendHourParis: new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false })
       };
       storage.addEmail(emailRecord);

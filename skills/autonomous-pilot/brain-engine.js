@@ -2199,7 +2199,13 @@ Analyse et reponds en JSON:
                 nom: lead.nom,
                 titre: lead.titre,
                 entreprise: lead.entreprise,
-                linkedin_url: lead.linkedin || lead.linkedinUrl || ''
+                linkedin_url: lead.linkedin || lead.linkedinUrl || '',
+                organization: lead.organization || null,
+                organizationData: lead.organizationData || null,
+                industry: lead.industry || null,
+                niche: lead.niche || lead._nicheSlug || null,
+                localisation: lead.localisation || null,
+                headline: lead.headline || lead.titre || null
               }
             },
             autoExecute: true, // FULL AUTO — machine de guerre

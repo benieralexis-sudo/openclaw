@@ -741,7 +741,7 @@ class ProspectResearcher {
    * Extrait les donnees utiles de l'objet organization Apollo (deja paye)
    */
   _extractApolloOrgData(organization, contact) {
-    // Fusionner l'objet organization direct + organizationData stringifie + donnees contact
+    // Fusionner l'objet organization direct + organizationData stringifie + donnees contact + FlowFast
     let org = organization || {};
 
     // Si pas d'org directe, essayer de parser organizationData (stocke en JSON string dans FlowFast)
@@ -750,10 +750,36 @@ class ProspectResearcher {
       if (rawOrgData) {
         try {
           const parsed = typeof rawOrgData === 'string' ? JSON.parse(rawOrgData) : rawOrgData;
-          // Fusionner : les vraies valeurs ecrasent les booleans
-          org = { ...org, ...parsed };
+          // Filtrer les champs "has_*" booleens (Apollo search lite) — ne garder que les vraies valeurs
+          const filtered = {};
+          for (const [k, v] of Object.entries(parsed)) {
+            if (!k.startsWith('has_') && v !== true && v !== false) filtered[k] = v;
+          }
+          org = { ...org, ...filtered };
         } catch (e) { /* ignore parse errors */ }
       }
+    }
+
+    // Fallback : chercher dans FlowFast si organization est quasi-vide
+    if ((!org.industry && !org.short_description) && contact) {
+      try {
+        const ffStorage = require('../flowfast/storage.js');
+        const email = (contact.email || '').toLowerCase();
+        if (email && ffStorage.data && ffStorage.data.leads) {
+          for (const lid of Object.keys(ffStorage.data.leads)) {
+            const fl = ffStorage.data.leads[lid];
+            if ((fl.email || '').toLowerCase() === email) {
+              // Enrichir avec les donnees FlowFast disponibles
+              if (fl.industry && !org.industry) org.industry = fl.industry;
+              if (fl.headline && !org.headline) org.headline = fl.headline;
+              if (fl.localisation && !org.city) org.city = fl.localisation;
+              if (fl.entreprise && !org.name) org.name = fl.entreprise;
+              if (fl.tailleEstimee && !org.estimated_num_employees) org.estimated_num_employees = fl.tailleEstimee;
+              break;
+            }
+          }
+        }
+      } catch (e) { /* FlowFast indisponible */ }
     }
 
     if (!org || (!org.name && !contact)) return null;
