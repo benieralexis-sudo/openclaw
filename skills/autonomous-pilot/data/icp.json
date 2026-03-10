@@ -16,6 +16,13 @@
       "matchPatterns": ["agence marketing", "agence digitale", "agence growth", "agence communication", "agence web", "agence seo", "growth hacking"],
       "painPoint": "Le pipe de l'agence depend du fondateur. LinkedIn manuel, reseau, recommandations. Ca plafonne et c'est impossible a faire grossir.",
       "socialProof": "on genere le pipe outbound pour des agences. Des opportunites qualifiees en continu sans que le fondateur y passe 1h",
+      "socialProofs": [
+        "on genere le pipe outbound pour des agences. Des opportunites qualifiees en continu sans que le fondateur y passe 1h",
+        "une agence growth de 15 personnes a signe 4 nouveaux clients en 2 mois avec notre pipe",
+        "on a structure le canal outbound pour une agence digitale. 6 meetings qualifies le premier mois",
+        "un fondateur d'agence nous a dit : je ne prospecte plus, les meetings rentrent tout seuls",
+        "une agence SEO a double son pipe en externalisant l'outbound. Les consultants restent sur les missions"
+      ],
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -40,6 +47,13 @@
       "matchPatterns": ["esn", "ssii", "conseil informatique", "services numeriques", "consulting it", "societe de services"],
       "painPoint": "80% du business vient de recommandations et d'AO. Le pipe est imprevisible et depend du reseau des associes.",
       "socialProof": "on genere le pipe commercial pour des ESN. Des contacts qualifies sans dependre des AO ni du reseau",
+      "socialProofs": [
+        "on genere le pipe commercial pour des ESN. Des contacts qualifies sans dependre des AO ni du reseau",
+        "une ESN de 150 personnes a double son volume de missions en 3 mois avec un canal outbound structure",
+        "on a mis en place le pipe pour une SSII. 5 nouveaux contacts decision par semaine",
+        "un directeur commercial d'ESN a reduit sa dependance aux AO de 80% a 40%",
+        "une ESN conseil a signe 3 missions en 6 semaines grace a l'outbound"
+      ],
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -64,6 +78,13 @@
       "matchPatterns": ["saas", "logiciel", "editeur", "software", "plateforme", "cloud", "startup saas"],
       "painPoint": "Premier commercial = 50-60k/an pour 5-10 meetings/mois. Long a recruter, long a onboarder, cher a garder.",
       "socialProof": "on remplace le premier commercial outbound pour des editeurs en scaling. Meme volume, fraction du cout",
+      "socialProofs": [
+        "on remplace le premier commercial outbound pour des editeurs en scaling. Meme volume, fraction du cout",
+        "un SaaS B2B a genere 8 meetings qualifies le premier mois sans recruter de commercial",
+        "on a structure l'outbound pour un editeur en serie A. Le fondateur est sorti du founder-led sales en 6 semaines",
+        "un editeur logiciel a signe 3 nouveaux comptes en 2 mois avec notre pipe",
+        "une startup SaaS a remplace son premier SDR par notre service. Meme volume, 3x moins cher"
+      ],
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -88,6 +109,12 @@
       "matchPatterns": ["cabinet recrutement", "recrutement", "chasseur tete", "talent acquisition", "rh externalisee", "staffing"],
       "painPoint": "Les consultants passent autant de temps a sourcer des clients qu'a placer des candidats. Le bizdev mange le delivery.",
       "socialProof": "on genere les clients pour des cabinets de recrutement. Les consultants se concentrent sur le placement",
+      "socialProofs": [
+        "on genere les clients pour des cabinets de recrutement. Les consultants se concentrent sur le placement",
+        "un cabinet de 8 consultants a recupere 4 nouveaux mandats en 6 semaines sans que les recruteurs prospectent",
+        "on a structure le canal client pour un chasseur de tetes. 5 entreprises contactees par semaine",
+        "un cabinet RH a arrete le bizdev fondateur. Les mandats rentrent en continu maintenant"
+      ],
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -108,6 +135,12 @@
       "matchPatterns": ["cabinet conseil", "consulting", "conseil en strategie", "conseil management", "conseil en organisation"],
       "painPoint": "Les associes facturent 1000-1500/jour mais passent 30% de leur temps en bizdev non facture. C'est du CA perdu.",
       "socialProof": "on alimente le pipe commercial pour des cabinets conseil. Les associes facturent au lieu de chercher des clients",
+      "socialProofs": [
+        "on alimente le pipe commercial pour des cabinets conseil. Les associes facturent au lieu de chercher des clients",
+        "un cabinet de 6 associes a recupere 2 jours/semaine de facturation en externalisant le bizdev",
+        "on a genere 5 meetings decision pour un cabinet conseil en 3 semaines",
+        "un cabinet strategie a signe 2 nouvelles missions grace a l'outbound structure"
+      ],
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -128,6 +161,12 @@
       "matchPatterns": ["startup", "fintech", "proptech", "healthtech", "edtech", "legaltech", "regtech", "insurtech"],
       "painPoint": "Le fondateur fait tout. Produit, recrutement, vente. Le pipe depend de son LinkedIn et de son reseau. Recruter un commercial a ce stade coute plus cher que ca rapporte.",
       "socialProof": "on genere le pipe commercial pour des startups tech. Le fondateur reste sur le produit pendant que les meetings rentrent",
+      "socialProofs": [
+        "on genere le pipe commercial pour des startups tech. Le fondateur reste sur le produit pendant que les meetings rentrent",
+        "une fintech post-seed a signe 3 clients en 2 mois sans que le CEO prospecte",
+        "on a remplace le founder-led sales pour une startup de 20 personnes. 6 meetings/mois",
+        "un CTO devenu CEO a delegue tout l'outbound. Il code a nouveau"
+      ],
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -152,6 +191,12 @@
       "matchPatterns": ["formation professionnelle", "organisme formation", "centre formation", "formation continue", "formation entreprise", "formation", "ecole", "enseignement"],
       "painPoint": "Le remplissage des sessions depend du bouche-a-oreille et des appels entrants. Entre deux sessions pleines, le pipe est vide.",
       "socialProof": "on genere des inscriptions B2B pour des organismes de formation. Des entreprises interessees chaque semaine sans attendre le bouche-a-oreille",
+      "socialProofs": [
+        "on genere des inscriptions B2B pour des organismes de formation. Des entreprises interessees chaque semaine sans attendre le bouche-a-oreille",
+        "un organisme de formation a rempli 3 sessions en avance grace a l'outbound direct",
+        "on a structure le pipe pour un centre de formation pro. 4 demandes qualifiees par semaine",
+        "un organisme certifie a arrete de dependre des appels entrants. Les inscriptions B2B arrivent en continu"
+      ],
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -172,6 +217,12 @@
       "matchPatterns": ["immobilier professionnel", "agence immobiliere", "promoteur immobilier", "immobilier commercial", "gestion locative", "immobilier"],
       "painPoint": "Les mandats viennent du terrain et du reseau local. Quand le marche se tend, les mandats se rarefient et la prospection terrain ne suffit plus.",
       "socialProof": "on genere des contacts vendeurs pour des agences immo. Des mandats qualifies sans dependre uniquement du terrain",
+      "socialProofs": [
+        "on genere des contacts vendeurs pour des agences immo. Des mandats qualifies sans dependre uniquement du terrain",
+        "une agence immo de 3 agences a recupere 5 mandats exclusifs en 6 semaines via l'outbound",
+        "on a structure un canal digital pour un promoteur. Des contacts vendeurs qualifies chaque semaine",
+        "un negociateur a arrete le porte-a-porte. Les mandats arrivent par email maintenant"
+      ],
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -192,6 +243,12 @@
       "matchPatterns": ["expert comptable", "cabinet comptable", "expertise comptable", "comptabilite", "commissaire aux comptes"],
       "painPoint": "Le portefeuille client se construit sur 10 ans de reseau et de recommandations. Quand un associe part, il emporte ses clients.",
       "socialProof": "on genere des prospects pour des cabinets comptables. Des entreprises qui cherchent un nouveau cabinet, sans attendre le bouche-a-oreille",
+      "socialProofs": [
+        "on genere des prospects pour des cabinets comptables. Des entreprises qui cherchent un nouveau cabinet, sans attendre le bouche-a-oreille",
+        "un cabinet de 4 associes a recupere 8 nouveaux dossiers en 3 mois grace a l'outbound",
+        "on a structure le developpement pour un expert-comptable. 3 entreprises interessees par semaine",
+        "un cabinet comptable a diversifie ses sources. Le portefeuille ne depend plus que du reseau"
+      ],
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -212,6 +269,12 @@
       "matchPatterns": ["e-commerce", "ecommerce", "marketplace", "commerce en ligne", "boutique en ligne", "wholesale", "grossiste"],
       "painPoint": "L'acquisition repose sur le paid (Google Ads, Meta). Le cout par client monte chaque trimestre. Le canal outbound direct est sous-exploite.",
       "socialProof": "on genere des clients B2B pour des e-commerces. Un canal direct qui ne depend pas du cout par clic",
+      "socialProofs": [
+        "on genere des clients B2B pour des e-commerces. Un canal direct qui ne depend pas du cout par clic",
+        "un e-commerce B2B a reduit son CPA de 40% en ajoutant un canal outbound direct",
+        "on a structure l'acquisition directe pour une marketplace. 5 nouveaux comptes B2B par mois",
+        "un grossiste en ligne a diversifie ses sources. Le pipe ne depend plus que du paid"
+      ],
       "triggers": [
         {
           "signal": "growth",

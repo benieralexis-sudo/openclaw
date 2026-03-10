@@ -325,12 +325,12 @@ ${winningPatternsBlock}
 === INTERDITS ===
 JAMAIS : tirets cadratins/longs, "curieux d'avoir ton retour/avis", meta-prospection ("comment tu acquiers/generes des clients"), "beau move/impressionnant/sacre parcours/potentiellement/je me permets", "Ce type de.../Le vrai cap c'est...", pitch/prix/features/bullet points/gras, "cordonnier mal chausse/nerf de la guerre", paragraphe > 2 lignes, question sans value prop.
 
-=== STRUCTURE (4 BLOCS, ${emailLengthHint}) ===
+=== STRUCTURE (30-80 mots, vise la CONCISION) ===
 1. FAIT : element concret des DONNEES (chiffre, nom propre, news). Minimum = entreprise + activite.
 2. PONT : relie le fait au probleme de la niche. 1 phrase, pas de lecon.
-3. SOCIAL PROOF (OBLIGATOIRE) : 1 phrase. "On fait ca pour des [type similaire]". Meme secteur, chiffres realistes (4-8 contacts, 3-5 clients), profil similaire, jamais de nom invente.
-4. CTA VALEUR (OBLIGATOIRE) : question ouverte sur le business du prospect. PAS "15 min ?" mais "Vous gerez ca en interne ?", "C'est prioritaire pour vous ?".
-Sans social proof + CTA valeur = REJETE.
+3. SOCIAL PROOF (OPTIONNEL) : Si tu l'inclus, 1 phrase courte. "On fait ca pour des [type similaire]". Meme secteur, chiffres realistes. MAIS un email court SANS social proof avec un fait + question naturelle marche MIEUX qu'un email long avec SP force.
+4. CTA VALEUR (OBLIGATOIRE) : question ouverte sur le business du prospect. PAS "15 min ?" mais une question naturelle. "Vous gerez ca en interne ?", "C'est un sujet chez vous ?"
+OBJECTIF : naturalite > structure. Les emails qui marchent le mieux font 36-60 mots, fait + question business.
 
 === ANALYSE STRATEGIQUE (PRIORITAIRE) ===
 Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS SES DIRECTIVES : angle, fait cle, social proof, ton. L'analyste a lu TOUTES les donnees, fais-lui confiance.
@@ -362,7 +362,7 @@ OU {"skip": true, "reason": "explication"}`;
     }
     const userMessage = `Ecris un email pour ce prospect. Utilise la MEILLEURE donnee disponible selon la hierarchie (profil public > news > clients > techno > chiffres).
 IMPORTANT : essaie TOUJOURS d'ecrire un email. Si tu as au moins un nom d'entreprise + un poste, tu peux ecrire sur l'activite de cette entreprise. Skip UNIQUEMENT si tu n'as AUCUNE info.
-RAPPEL CRITIQUE : l'email DOIT contenir un social proof (1 phrase "on fait/genere X pour des Y") ET un CTA valeur ("je te montre en 15 min"). Sans ces 2 elements, l'email sera rejete.
+RAPPEL : l'email DOIT contenir un CTA valeur (question ouverte sur le business du prospect). Le social proof est un BONUS, pas obligatoire. Un email court naturel (fait + question) est prefere a un email long avec SP force.
 RAPPEL : ZERO tiret long/cadratin dans le texte.
 ${!firstName ? 'ATTENTION : le prenom du prospect est INCONNU. NE PAS inventer un prenom. Utilise le nom de l\'entreprise a la place dans le sujet et le body.' : ''}
 CONTACT :
@@ -479,15 +479,15 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     if (emDashCount >= 2) return { block: true, adjust: -3, note: 4, reason: 'em_dash_overuse:' + emDashCount };
     if (emDashCount === 1) { adjust -= 1; reasons.push('em_dash'); }
 
-    // BLOCK : trop court (pas assez de substance, manque social proof)
-    if (wordCount < 40) return { block: true, adjust: -3, note: 4, reason: 'too_short:' + wordCount + '_words' };
+    // BLOCK : trop court (les meilleurs emails font 36 mots — seuil abaisse)
+    if (wordCount < 30) return { block: true, adjust: -3, note: 4, reason: 'too_short:' + wordCount + '_words' };
 
     // BLOCK : trop long (marge a 120 — un email 4 blocs avec social proof fait 70-110 mots)
     if (wordCount > 120) return { block: true, adjust: -3, note: 4, reason: 'too_long:' + wordCount + '_words' };
     // Penalite legere si > 90 mots (pas un block, juste -1)
     if (wordCount > 90) { adjust -= 1; reasons.push('slightly_long:' + wordCount); }
 
-    // BLOCK : pas de social proof (OBLIGATOIRE)
+    // PENALITE (pas BLOCK) : social proof absent — les 3 emails avec replies n'en avaient pas
     const spMarkers = ['on genere', 'on fait', 'on remplace', 'on alimente', 'on accompagne',
       'on bosse avec', 'on travaille avec', 'pour des agences', 'pour des esn', 'pour des editeurs',
       'pour des cabinets', 'pour des startups', 'pour des organismes', 'pour des e-commerces',
@@ -502,7 +502,7 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
       'meetings par mois', 'meetings qualifies', 'demos qualifiees', 'mandats par mois',
       'en 3 mois', 'en 6 semaines', 'en 2 mois', 'par semaine'];
     const hasSP = spMarkers.some(m => bodyLower.includes(m));
-    if (!hasSP) return { block: true, adjust: -3, note: 4, reason: 'no_social_proof' };
+    if (!hasSP) { adjust -= 2; reasons.push('no_social_proof'); }
 
     // BLOCK : pas de CTA valeur (OBLIGATOIRE)
     const valueCTAs = ['je te montre', 'je t\'envoie', 'dispo pour', 'on en discute',
@@ -550,22 +550,22 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     const prompt = `Note cet email de prospection B2B de 1 a 10. Sois TRES STRICT.
 
 CRITERES 10/10 :
-- 50-80 mots (penalise si < 40 ou > 100)
+- 30-70 mots (les meilleurs font 36-60). Penalise si < 30 ou > 100.
 - UN fait specifique (chiffre, nom propre, date, evenement)
-- UN pont vers le probleme (relie le fait a un pain point, 1 phrase)
-- UN social proof court (montre qu'on a la solution, 1 phrase, PAS un pitch)
-- UN CTA oriente valeur ("je te montre" / "dispo pour te montrer", pas "curieux d'avoir ton retour")
+- UN pont vers le probleme (1 phrase, pas de lecon)
+- Social proof OPTIONNEL (un email court naturel sans SP peut etre un 10/10)
+- UN CTA valeur : question ouverte business ("c'est un sujet chez vous ?", pas "curieux d'avoir ton retour")
 - ZERO paragraphe d'analyse entre le fait et la question
 - ZERO meta-prospection (ne demande PAS "comment tu prospectes/acquiers des clients")
 - ZERO lecon au prospect
-- Ton naturel, entre pairs
+- Ton naturel, entre pairs (comme un pote entrepreneur)
 - PAS de tirets cadratins (marqueur IA)
 - PAS de pitch detaille, prix, features
 
 PENALITES :
-- < 40 mots : -3 points (manque substance, probablement pas de social proof)
+- < 30 mots : -3 points (manque substance)
 - > 100 mots : -3 points (trop long)
-- Pas de social proof (aucune phrase "on fait/genere X pour des Y") : -4 points
+- Pas de social proof : -2 points (penalite, pas eliminatoire — un email court naturel avec question business peut etre excellent sans SP)
 - Pas de CTA valeur (pas de "je te montre/dispo pour") : -3 points
 - "Curieux d'avoir ton retour" ou CTA sans valeur : -4 points
 - Question journalistique sans proposer rien ("c'est quoi la strategie ?") : -3 points
@@ -611,21 +611,20 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
     const prompt = `Note cette RELANCE de prospection B2B de 1 a 10. C'est un FOLLOW-UP, pas un premier email.
 
 CRITERES 10/10 POUR UN FOLLOW-UP :
-- 25-65 mots (plus court qu'un premier email)
+- 15-35 mots (ultra-court, comme un SMS entre pros)
+- 1-2 phrases MAX. Pas de structure en blocs.
 - Un nouvel angle ou insight (pas une reformulation)
-- Un social proof OU une preuve concrete (cas client, chiffre, resultat)
-- Un CTA oriente valeur ("dispo pour en parler", "15 min pour te montrer")
 - Ton naturel, entre pairs, pas de pitch
 - PAS de tirets cadratins
 - PAS de "je reviens vers toi", "suite a mon email"
 
 PENALITES :
 - Reformulation du premier email : -4 points
-- Pas de social proof/preuve : -2 points
 - "Curieux d'avoir ton retour" ou CTA sans valeur : -4 points
 - Meta-prospection ("comment tu prospectes") : -4 points
-- Trop long (>65 mots) : -2 points
-- Trop court (<20 mots sans substance) : -2 points
+- Trop long (>40 mots) : -3 points (les meilleurs follow-ups font 15-25 mots)
+- Structure en 3+ blocs (un FU est un bump, pas un mini-email) : -3 points
+- Trop court (<10 mots sans substance) : -2 points
 - Tirets cadratins : -1 point par tiret
 - Template generique (remplacable par n'importe quelle entreprise) : -3 points
 
@@ -670,8 +669,8 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
     if (!parsed || parsed.skip) return parsed;
     try {
       const wordCount = (parsed.body || '').split(/\s+/).filter(w => w.length > 0).length;
-      if (wordCount > 80) {
-        return { skip: true, reason: 'too_many_words:' + wordCount + ' (max 80)' };
+      if (wordCount > 50) {
+        return { skip: true, reason: 'too_many_words:' + wordCount + ' (max 50 for follow-ups)' };
       }
       // Block tirets cadratins dans les follow-ups aussi
       const emDashCount = (parsed.body || '').split(/\u2014|\u2013/).length - 1;
@@ -796,19 +795,18 @@ PHILOSOPHIE : Chaque relance a une MISSION DIFFERENTE. On avance vers le RDV.
 
 === MISSION DE CHAQUE STEP ===
 
-STEP 1, RELANCE 1 (J+3) : NOUVEL ANGLE + SOCIAL PROOF
-Mission : apporter une PREUVE que tu peux aider.
-Nouveau fait tire des DONNEES PROSPECT (different du premier email).
-Integre le social proof : "une [type d'entreprise similaire] a [resultat concret]"
-CTA : "Dispo pour en parler"
-30-50 mots MAX.
+PHILOSOPHIE FOLLOW-UP : chaque relance = 1-2 phrases MAX. Comme un SMS entre pros. ZERO structure en blocs.
 
-STEP 2, RELANCE 2 (J+7) : CTA DIRECT + LIEN CALENDRIER
-Mission : convertir en RDV. C'est le moment d'etre direct.
-1 phrase de contexte (pas de repetition des emails precedents).
-CTA DIRECT avec lien si disponible : "15 min pour te montrer, voici mon calendrier : [lien]"
-Si pas de lien : "On se cale 15 min cette semaine ? Dis-moi tes dispos."
-25-40 mots MAX, court et direct.
+STEP 1, RELANCE 1 (J+3) : BUMP NATUREL
+1-2 phrases. Nouvel angle OU fait concret + question business.
+PAS de social proof. PAS de pitch. Juste une relance naturelle.
+Exemple : "[Prenom], j'ai vu que [fait nouveau]. [Question business courte] ?"
+15-30 mots MAX.
+
+STEP 2, RELANCE 2 (J+7) : PREUVE RAPIDE
+1-2 phrases. Un mini cas client + CTA direct.
+Exemple : "Un [type similaire] a [resultat]. Dispo 15 min si ca te parle."
+15-30 mots MAX.
 ${breakupInstruction}
 
 INTERDITS ABSOLUS (TEMPLATES GENERIQUES) :
@@ -817,9 +815,10 @@ INTERDITS ABSOLUS (TEMPLATES GENERIQUES) :
 - "Ces canaux ont un plafond" / "carnet de contacts sature"
 - "Curieux d'avoir ton retour"
 - Toute phrase ou seul le nom de l'industrie/entreprise change
+- Structure en 3-4 blocs (fait/pont/SP/CTA) — les FU sont des BUMPS pas des mini-emails
 
 REGLES :
-- 30-50 mots par relance (JAMAIS plus de 50). Le breakup = 2 lignes MAX.
+- 15-30 mots par relance (JAMAIS plus de 35). Le breakup = 2 lignes MAX.
 - Tutoiement startup/PME, vouvoiement corporate
 - JAMAIS : "je me permets", "suite a", "beau move", "potentiellement"
 ${meetingCTARule}
