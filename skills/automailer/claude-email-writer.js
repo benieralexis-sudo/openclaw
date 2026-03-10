@@ -484,8 +484,10 @@ ${context ? '\nDONNEES PROSPECT :\n' + context : ''}`;
     // BLOCK : trop court (pas assez de substance, manque social proof)
     if (wordCount < 40) return { block: true, adjust: -3, note: 4, reason: 'too_short:' + wordCount + '_words' };
 
-    // BLOCK : trop long
-    if (wordCount > 100) return { block: true, adjust: -3, note: 4, reason: 'too_long:' + wordCount + '_words' };
+    // BLOCK : trop long (marge a 120 — un email 4 blocs avec social proof fait 70-110 mots)
+    if (wordCount > 120) return { block: true, adjust: -3, note: 4, reason: 'too_long:' + wordCount + '_words' };
+    // Penalite legere si > 90 mots (pas un block, juste -1)
+    if (wordCount > 90) { adjust -= 1; reasons.push('slightly_long:' + wordCount); }
 
     // BLOCK : pas de social proof (OBLIGATOIRE)
     const spMarkers = ['on genere', 'on fait', 'on remplace', 'on alimente', 'on accompagne',
