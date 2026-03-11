@@ -421,7 +421,7 @@ class ProspectResearcher {
     // Executer toutes les recherches en parallele (11 sources — Dropcontact enrichit les donnees personne)
     const linkedinUrl = contact.linkedin_url || contact.linkedin || contact.linkedinUrl || '';
     const contactName = contact.nom || contact.name || '';
-    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, jobPostingsResult, dropcontactResult, sireneResult] = await Promise.allSettled([
+    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, jobPostingsResult, dropcontactResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
       Promise.resolve(this._extractApolloOrgData(contact.organization, contact)),
@@ -430,8 +430,7 @@ class ProspectResearcher {
       this._searchCompanyClients(company),
       this._searchPersonProfile(contactName, company),
       this._searchJobPostings(company),
-      this._fetchDropcontactData(contact),
-      this._fetchSireneData(company)
+      this._fetchDropcontactData(contact)
     ]);
 
     // Chercher market signals Web Intelligence pour cette entreprise
@@ -511,7 +510,6 @@ class ProspectResearcher {
       intentSignals: personProfile ? (personProfile.intentSignals || []) : [],
       sectorCompetitors: sectorCompetitors,
       dropcontactData: dropcontactResult.status === 'fulfilled' ? dropcontactResult.value : null,
-      sireneData: sireneResult.status === 'fulfilled' ? sireneResult.value : null,
       leadEnrichData: leadEnrichData,
       marketSignals: marketSignals,
       researchedAt: new Date().toISOString()
@@ -1849,44 +1847,18 @@ class ProspectResearcher {
       lines.push(contactLine);
     }
 
-    // Donnees Dropcontact entreprise — donnees legales FR uniques (toujours injecter, complementaire Apollo)
+    // Ville Dropcontact (utile pour personnalisation geographique)
     if (intel.dropcontactData && intel.dropcontactData.organization) {
       const dcOrg = intel.dropcontactData.organization;
-      const dcParts = [];
-      if (dcOrg.nafLabel) dcParts.push('Activite: ' + dcOrg.nafLabel + (dcOrg.nafCode ? ' (' + dcOrg.nafCode + ')' : ''));
-      if (dcOrg.nbEmployees) dcParts.push('Effectif: ' + dcOrg.nbEmployees);
-      if (dcOrg.siren) dcParts.push('SIREN: ' + dcOrg.siren);
-      if (dcOrg.siret) dcParts.push('SIRET: ' + dcOrg.siret);
-      if (dcOrg.city && dcOrg.zip) dcParts.push('Siege: ' + dcOrg.city + ' (' + dcOrg.zip + ')');
-      else if (dcOrg.city) dcParts.push('Siege: ' + dcOrg.city);
-      if (dcOrg.address) dcParts.push('Adresse: ' + dcOrg.address);
-      if (dcOrg.vat) dcParts.push('TVA: ' + dcOrg.vat);
-      if (dcOrg.website && !intel.apolloData) dcParts.push('Site: ' + dcOrg.website);
-      if (dcOrg.linkedinUrl) dcParts.push('LinkedIn: ' + dcOrg.linkedinUrl);
-      if (dcParts.length > 0) lines.push('DONNEES LEGALES FR: ' + dcParts.join(' | '));
-    }
-    // Civilite Dropcontact (utile pour personnalisation)
-    if (intel.dropcontactData && intel.dropcontactData._dropcontact && intel.dropcontactData._dropcontact.civility) {
-      lines.push('Civilite: ' + intel.dropcontactData._dropcontact.civility);
-    }
-
-    // Donnees API SIRENE (INSEE) — donnees legales FR gratuites
-    if (intel.sireneData) {
-      const sir = intel.sireneData;
-      const sirParts = [];
-      if (sir.dateCreation) sirParts.push('Creee le ' + sir.dateCreation);
-      if (sir.trancheEffectifs) sirParts.push('Effectif: ' + sir.trancheEffectifs);
-      if (sir.activitePrincipale) sirParts.push('Activite NAF: ' + sir.activitePrincipale);
-      if (sir.categorieJuridique) sirParts.push('Forme: ' + sir.categorieJuridique);
-      if (sir.adresse) sirParts.push('Siege: ' + sir.adresse);
-      if (sir.siren) sirParts.push('SIREN: ' + sir.siren);
-      if (sirParts.length > 0) lines.push('INSEE SIRENE: ' + sirParts.join(' | '));
+      if (dcOrg.city && !meta.some(m => m.includes(dcOrg.city))) {
+        lines.push('LOCALISATION: ' + dcOrg.city + (dcOrg.zip ? ' (' + dcOrg.zip + ')' : ''));
+      }
     }
 
     // PRIORITE 1 : News recentes — meilleure source d'observations specifiques et temporelles
     if (intel.recentNews.length > 0) {
       lines.push('NEWS RECENTES (pour observations specifiques):');
-      for (const news of intel.recentNews.slice(0, 4)) {
+      for (const news of intel.recentNews.slice(0, 2)) {
         const dateStr = news.pubDate ? ' (' + new Date(news.pubDate).toLocaleDateString('fr-FR') + ')' : '';
         // Nettoyer le titre (enlever "- Source" en fin si deja dans news.source)
         let cleanTitle = news.title || '';
@@ -1970,29 +1942,7 @@ class ProspectResearcher {
       }
     }
 
-    // PRIORITE 3 : Technologies — faits verifiables pour observations techniques
-    if (intel.apolloData && intel.apolloData.technologies && intel.apolloData.technologies.length > 0) {
-      lines.push('STACK TECHNIQUE: ' + intel.apolloData.technologies.slice(0, 10).join(', '));
-    }
-
-    // PRIORITE 3a : Tech stack detecte depuis le HTML du site (complement Apollo)
-    if (intel.techStack) {
-      const ts = intel.techStack;
-      const tsParts = [];
-      if (ts.cms) tsParts.push('CMS: ' + ts.cms);
-      if (ts.frameworks.length > 0) tsParts.push('Front: ' + ts.frameworks.join(', '));
-      if (ts.marketing.length > 0) tsParts.push('Marketing: ' + ts.marketing.join(', '));
-      if (ts.analytics.length > 0) tsParts.push('Analytics: ' + ts.analytics.join(', '));
-      if (ts.ecommerce.length > 0) tsParts.push('Paiement: ' + ts.ecommerce.join(', '));
-      if (tsParts.length > 0) lines.push('TECH STACK DETECTE: ' + tsParts.join(' | '));
-    }
-
-    // PRIORITE 3b : Keywords Apollo — services/produits proposes
-    if (intel.apolloData && intel.apolloData.keywords && intel.apolloData.keywords.length > 0) {
-      lines.push('MOTS-CLES: ' + intel.apolloData.keywords.slice(0, 10).join(', '));
-    }
-
-    // PRIORITE 3c : Clients/projets trouves via recherche web (noms de marques = tres specifique)
+    // Clients/projets trouves via recherche web (noms de marques = tres specifique pour personnalisation)
     if (intel.clientSearch) {
       if (intel.clientSearch.clientNames && intel.clientSearch.clientNames.length > 0) {
         lines.push('CLIENTS/MARQUES DETECTES: ' + intel.clientSearch.clientNames.join(', '));
@@ -2009,7 +1959,7 @@ class ProspectResearcher {
       lines.push('SITE WEB: "' + intel.websiteInsights.description.substring(0, 250) + '"');
     }
 
-    // Contenu du site web : pre-analyse IA si assez de texte, sinon injection brute
+    // Contenu site web : uniquement resume IA court (pas de dump brut)
     if (intel.websiteInsights && intel.websiteInsights.textContent) {
       const rawSiteText = intel.websiteInsights.textContent.replace(/\s+/g, ' ').trim();
       if (rawSiteText.length > 500) {
@@ -2017,17 +1967,9 @@ class ProspectResearcher {
           const companyName = contact.company || contact.entreprise || '';
           const summary = await this._summarizeWebsite(rawSiteText, companyName);
           if (summary && summary.length > 30) {
-            lines.push('ANALYSE SITE WEB:\n' + summary.substring(0, 500));
-            log.info('prospect-research', 'Pre-analyse IA site web OK pour ' + companyName + ' (' + summary.length + ' chars)');
-          } else {
-            lines.push('CONTENU SITE: ' + rawSiteText.substring(0, 400));
-            log.info('prospect-research', 'Pre-analyse IA echouee pour ' + companyName + ' — fallback texte brut');
+            lines.push('ANALYSE SITE WEB: ' + summary.substring(0, 300));
           }
-        } catch (e) {
-          lines.push('CONTENU SITE: ' + rawSiteText.substring(0, 400));
-        }
-      } else if (rawSiteText.length > 50) {
-        lines.push('CONTENU SITE: ' + rawSiteText.substring(0, 300));
+        } catch (e) { /* pas de fallback brut */ }
       }
     }
 
@@ -2041,18 +1983,7 @@ class ProspectResearcher {
       }
     }
 
-    // PRIORITE 6 : Enrichissement Lead Enrich
-    if (intel.leadEnrichData) {
-      const le = intel.leadEnrichData;
-      const leParts = [];
-      if (le.industry) leParts.push('industrie: ' + le.industry);
-      if (le.persona) leParts.push('persona: ' + le.persona);
-      if (le.score) leParts.push('score: ' + le.score + '/10');
-      if (le.technologies && le.technologies.length > 0) leParts.push('tech: ' + le.technologies.slice(0, 3).join(', '));
-      if (leParts.length > 0) lines.push('ENRICHISSEMENT: ' + leParts.join(', '));
-    }
-
-    // PRIORITE 7 : Contexte sectoriel (inter-prospect memory)
+    // Contexte sectoriel (inter-prospect memory)
     if (intel.sectorCompetitors && intel.sectorCompetitors.length > 0) {
       const industryLabel = (intel.leadEnrichData && intel.leadEnrichData.industry) || (intel.apolloData && intel.apolloData.industry) || 'meme secteur';
       lines.push('CONTEXTE SECTORIEL (' + industryLabel + '): ' + intel.sectorCompetitors.length + ' autres entreprises contactees');
