@@ -1533,14 +1533,16 @@ Format JSON strict :
         const apConfig = storage.getConfig();
         const adminChatId = apConfig.adminChatId || process.env.ADMIN_CHAT_ID || '1409505520';
 
-        // Calculer le score de qualite email
+        // Calculer le score de qualite email (Lavender /100)
         let emailQualityScore = 0;
+        let lavenderDetails = null;
         try {
           const ClaudeWriter = getClaudeEmailWriter();
           if (ClaudeWriter) {
             const scorer = new ClaudeWriter();
-            const preScore = scorer._programmaticPreScore(params.subject, params.body, params.contact || {});
-            emailQualityScore = preScore.note || 0;
+            const lav = scorer._lavenderScore(params.subject, params.body, params.contact || {});
+            emailQualityScore = lav.score || 0;
+            lavenderDetails = lav.details || null;
           }
         } catch (scoreErr) { /* non bloquant */ }
 

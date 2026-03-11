@@ -365,8 +365,9 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     return result;
   }
 
-  // Auto-scoring : note l'email 1-10, retry si < 9, skip si < 8 apres retry
+  // Auto-scoring Lavender /100 : grade A (90+) = envoyer, B (75-89) = retry, C (<75) = skip
   async _generateAndScore(contact, context, systemPrompt, userMessage) {
+    const log = require('../../gateway/logger.js');
     const maxAttempts = 2;
     let best = null;
     let bestScore = 0;
@@ -374,7 +375,14 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       let prompt = userMessage;
       if (attempt > 0 && best) {
-        prompt = userMessage + '\n\nATTENTION: l\'email precedent a ete note ' + bestScore + '/10. Problemes: ' + (best._scoreReason || 'qualite insuffisante') + '. Ecris un email MEILLEUR : 40-60 mots MAX. Ton HESITANT ("je me trompe peut-etre", "c\'est le cas ou pas ?"). OBSERVATION + HYPOTHESE + QUESTION. PAS de case study invente. ZERO tiret cadratin.';
+        const d = best._scoreDetails || {};
+        const weakPoints = [];
+        if ((d.ton || 0) < 14) weakPoints.push('ton hesitant manquant ("je me trompe", "ou pas du tout ?")');
+        if ((d.clarte || 0) < 12) weakPoints.push('phrases trop longues ou mots trop complexes');
+        if ((d.perso || 0) < 10) weakPoints.push('pas assez personnalise (ajoute un fait specifique du prospect)');
+        if ((d.mobile || 0) < 7) weakPoints.push('ajoute un double saut de ligne entre les paragraphes');
+        if ((d.mots || 0) < 8) weakPoints.push('vise 35-50 mots');
+        prompt = userMessage + '\n\nATTENTION: l\'email precedent a ete note ' + bestScore + '/100 (grade ' + (best._scoreGrade || '?') + '). Points faibles: ' + (weakPoints.join(', ') || best._scoreReason || 'qualite insuffisante') + '. Ecris un email MEILLEUR. Cible 90+/100.';
       }
       const response = await this.callClaude(
         [{ role: 'user', content: prompt }],
@@ -384,15 +392,15 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
       const parsed = this._parseJSON(response);
       if (!parsed) return parsed;
 
-      // Post-process automatique : supprimer tirets cadratins AVANT scoring (Claude les ajoute malgre les instructions)
+      // Post-process automatique : supprimer tirets cadratins AVANT scoring
       if (parsed.body) {
         parsed.body = parsed.body.replace(/\u2014/g, ',').replace(/\u2013/g, ',');
       }
 
-      // Si Claude skip au premier essai, retry UNE FOIS avec un prompt plus insistant
+      // Si Claude skip au premier essai, retry UNE FOIS
       if (parsed.skip) {
         if (attempt === 0) {
-          const retryPrompt = prompt + '\n\nATTENTION : tu as voulu skip mais tu as des donnees exploitables. REGLE : si tu as un nom d\'entreprise + un poste, tu DOIS ecrire un email avec social proof + CTA valeur. Un email 7/10 > un skip.';
+          const retryPrompt = prompt + '\n\nATTENTION : tu as voulu skip mais tu as des donnees exploitables. REGLE : si tu as un nom d\'entreprise + un poste, tu DOIS ecrire un email. Un email 75/100 > un skip.';
           try {
             const retryResponse = await this.callClaude(
               [{ role: 'user', content: retryPrompt }],
@@ -401,56 +409,72 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
             );
             const retryParsed = this._parseJSON(retryResponse);
             if (retryParsed && !retryParsed.skip) {
-              const retryScore = await this._scoreEmail(retryParsed.subject, retryParsed.body, contact);
-              if (retryScore.note >= 9) return retryParsed;
-              if (retryScore.note > bestScore) {
+              if (retryParsed.body) retryParsed.body = retryParsed.body.replace(/\u2014/g, ',').replace(/\u2013/g, ',');
+              const retryLav = this._lavenderScore(retryParsed.subject, retryParsed.body, contact);
+              log.info('scoring', retryLav.score + '/100 (grade ' + retryLav.grade + ') retry pour ' + (contact.email || '?') + ' — ton:' + (retryLav.details.ton||0) + ' clarte:' + (retryLav.details.clarte||0) + ' phrases:' + (retryLav.details.phrases||0) + ' perso:' + (retryLav.details.perso||0) + ' mots:' + (retryLav.details.mots||0) + ' mobile:' + (retryLav.details.mobile||0) + ' objet:' + (retryLav.details.objet||0));
+              if (!retryLav.block && retryLav.score >= 90) { retryParsed._lavenderScore = retryLav.score; retryParsed._lavenderGrade = retryLav.grade; retryParsed._lavenderDetails = retryLav.details; return retryParsed; }
+              if (retryLav.score > bestScore) {
                 best = retryParsed;
-                bestScore = retryScore.note;
-                best._scoreReason = retryScore.reason;
+                bestScore = retryLav.score;
+                best._scoreReason = retryLav.reason;
+                best._scoreDetails = retryLav.details;
+                best._scoreGrade = retryLav.grade;
               }
               continue;
             }
-          } catch (e) { /* retry echoue, on garde le skip original */ }
+          } catch (e) { /* retry echoue */ }
         }
         return parsed;
       }
 
-      // === Scoring 100% programmatique (0 API call, 0 latence, 0 tokens) ===
-      // Le pre-score couvre : dead CTA, em-dash, longueur, social proof, value CTA, meta-prospection, sujet generique
-      // GPT-4o-mini supprime : sous-notait de 1-2 pts en FR, ajoutait 2-5s latence, coutait ~2000 tokens/email
-      const preScore = this._programmaticPreScore(parsed.subject, parsed.body, contact);
-      if (preScore.block) {
-        if (preScore.note > bestScore) {
-          best = parsed;
-          bestScore = preScore.note;
-          best._scoreReason = preScore.reason;
-        }
+      // === Scoring Lavender /100 ===
+      const lav = this._lavenderScore(parsed.subject, parsed.body, contact);
+      log.info('scoring', lav.score + '/100 (grade ' + lav.grade + ') pour ' + (contact.email || '?') + ' — ton:' + (lav.details.ton||0) + ' clarte:' + (lav.details.clarte||0) + ' phrases:' + (lav.details.phrases||0) + ' perso:' + (lav.details.perso||0) + ' mots:' + (lav.details.mots||0) + ' mobile:' + (lav.details.mobile||0) + ' objet:' + (lav.details.objet||0));
+
+      if (lav.block) {
+        if (0 > bestScore) { best = parsed; bestScore = 0; best._scoreReason = lav.reason; best._scoreDetails = {}; best._scoreGrade = 'F'; }
         continue;
       }
 
-      // Pre-score non-block = email structurellement bon (SP + CTA + longueur OK)
-      // Note programmatique >= 7 (base 7 + adjust) = envoyer
-      if (preScore.note >= 7) return parsed;
-      if (preScore.note > bestScore) {
+      // Grade A (90+) = envoyer direct
+      if (lav.score >= 90) {
+        parsed._lavenderScore = lav.score;
+        parsed._lavenderGrade = lav.grade;
+        parsed._lavenderDetails = lav.details;
+        return parsed;
+      }
+
+      if (lav.score > bestScore) {
         best = parsed;
-        bestScore = preScore.note;
-        best._scoreReason = preScore.reason;
+        bestScore = lav.score;
+        best._scoreReason = lav.reason;
+        best._scoreDetails = lav.details;
+        best._scoreGrade = lav.grade;
       }
     }
-    // Apres retries : seuil strict — chaque email doit etre excellent
-    if (bestScore >= 7) return best;
-    return { skip: true, reason: 'auto_score_too_low:' + bestScore + '/10 (' + (best && best._scoreReason || '?') + ')' };
+
+    // Apres retries : Grade B (75+) = acceptable, Grade C (<75) = skip
+    if (bestScore >= 75) {
+      best._lavenderScore = bestScore;
+      best._lavenderGrade = best._scoreGrade || 'B';
+      best._lavenderDetails = best._scoreDetails || {};
+      return best;
+    }
+    return { skip: true, reason: 'lavender_score_too_low:' + bestScore + '/100 (grade ' + (best && best._scoreGrade || '?') + ') — ' + (best && best._scoreReason || '?') };
   }
 
-  // Checks programmatiques rapides - detecte problemes structurels sans API call
-  _programmaticPreScore(subject, body, contact) {
+  // === SCORING LAVENDER /100 ===
+  // Base sur les donnees Lavender (28.3M emails analyses) : impact reply rate par critere
+  // Poids proportionnels a l'impact mesure : formality 2.11x > clarity 1.66x > sentences 1.57x > mobile +24% > words +23%
+  // 100% programmatique, 0 API call, 0 cout, 0 latence
+  _lavenderScore(subject, body, contact) {
     const bodyLower = (body || '').toLowerCase();
     const subjectLower = (subject || '').toLowerCase();
-    const wordCount = (body || '').split(/\s+/).filter(w => w.length > 0).length;
-    let adjust = 0;
-    const reasons = [];
+    const words = (body || '').split(/\s+/).filter(w => w.length > 0);
+    const wordCount = words.length;
+    const details = {};
 
-    // BLOCK : CTA sans valeur
+    // === BLOCKS DIRECTS (score 0, skip immediat) ===
     const deadCTAs = ['curieux d\'avoir ton retour', 'curieux d\'avoir ton avis', 'curieux de savoir',
       'qu\'en penses-tu', 'qu\'en pensez-vous', 'ton retour m\'interesse', 'dis-moi ce que tu en penses',
       'curieux d\'avoir votre retour', 'curieux d\'avoir votre avis',
@@ -458,100 +482,188 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
       'c\'est quoi la strategie', 'c\'est quoi le plan',
       'conviction ou differenciation', 'choix strategique ou'];
     for (const cta of deadCTAs) {
-      if (bodyLower.includes(cta)) return { block: true, adjust: -4, note: 3, reason: 'dead_cta:' + cta };
+      if (bodyLower.includes(cta)) return { block: true, score: 0, grade: 'F', reason: 'dead_cta:' + cta, details: {} };
     }
 
-    // MALUS : jargon anglais business (niveau CM1 = francais simple)
-    const jargonWords = ['\\bpipe\\b', '\\bpipeline\\b', '\\boutbound\\b', '\\binbound\\b', '\\bscale\\b', '\\bscaler\\b',
-      '\\bleads?\\b', '\\bfunnel\\b', '\\bchurn\\b', '\\bgrowth\\b', '\\bonboarding\\b', '\\bdeal flow\\b', '\\bcrm\\b'];
-    const jargonFound = jargonWords.filter(j => new RegExp(j, 'i').test(body || ''));
-    if (jargonFound.length >= 2) return { block: true, adjust: -3, note: 4, reason: 'jargon_anglais:' + jargonFound.join('+') };
-    if (jargonFound.length === 1) { adjust -= 1; reasons.push('jargon:' + jargonFound[0]); }
-
-    // BLOCK : tirets cadratins (marqueur IA)
-    const emDashCount = (body || '').split(/\u2014|\u2013/).length - 1;
-    if (emDashCount >= 2) return { block: true, adjust: -3, note: 4, reason: 'em_dash_overuse:' + emDashCount };
-    if (emDashCount === 1) { adjust -= 1; reasons.push('em_dash'); }
-
-    // BLOCK : trop court (les meilleurs emails font 35-45 mots)
-    if (wordCount < 25) return { block: true, adjust: -3, note: 4, reason: 'too_short:' + wordCount + '_words' };
-
-    // BLOCK : trop long (Lavender : <50 mots = 65% reply rate, >125 mots = 2%)
-    if (wordCount > 80) return { block: true, adjust: -3, note: 4, reason: 'too_long:' + wordCount + '_words' };
-    // Penalite si > 60 mots (objectif Lavender : 40-60)
-    if (wordCount > 60) { adjust -= 1; reasons.push('slightly_long:' + wordCount); }
-    // Bonus si dans la zone optimale Lavender (35-50 mots)
-    if (wordCount >= 35 && wordCount <= 50) { adjust += 1; reasons.push('optimal_length'); }
-
-    // CHECK : ratio Je/Tu (Lavender secret #6 — parler du prospect 2x plus que de soi)
-    const jeCount = (bodyLower.match(/\bje\b|\bj'/g) || []).length + (bodyLower.match(/\bnous\b|\bon\b/g) || []).length;
-    const tuCount = (bodyLower.match(/\btu\b|\bt'/g) || []).length + (bodyLower.match(/\bvous\b|\bvotre\b|\bvos\b|\bton\b|\bta\b|\btes\b/g) || []).length;
-    if (jeCount > 0 && tuCount > 0 && jeCount > tuCount * 1.5) { adjust -= 1; reasons.push('je_tu_ratio:' + jeCount + '/' + tuCount); }
-
-    // BONUS : ton hesitant (Lavender secret #3 — +35% reply rate)
-    const hesitantMarkers = ['peut-etre', 'je me trompe', 'c\'est peut-etre pas', 'je me demandais',
-      'pas du tout', 'ou pas', 'c\'est le cas', 'je me permets pas'];
-    const hasHesitantTone = hesitantMarkers.some(m => bodyLower.includes(m));
-    if (hasHesitantTone) { adjust += 1; reasons.push('hesitant_tone'); }
-
-    // NOTE: social proof n'est PLUS penalise. Un email sans SP avec un bon insight vaut mieux qu'un SP invente.
-    const spMarkers = ['on genere', 'on fait', 'on remplace', 'on alimente', 'on accompagne',
-      'on bosse avec', 'on travaille avec', 'on structure', 'on a structure',
-      'pour des agences', 'pour des esn', 'pour des editeurs', 'pour des cabinets',
-      'pour des boites', 'pour des entreprises'];
-    const hasSP = spMarkers.some(m => bodyLower.includes(m));
-    // Pas de penalite si absent, mais bonus si present et naturel
-    // (le SP invente est penalise plus bas via fake_case_study)
-
-    // BLOCK : pas de CTA valeur (OBLIGATOIRE)
-    const valueCTAs = ['je te montre', 'je t\'envoie', 'dispo pour', 'on en discute',
-      'te montrer', '15 min', 'voir le setup', 'comment ca marche',
-      'on en parle', 'je te fais', 'on se cale', 'on planifie',
-      'dispo si tu veux', 'dispo si ca',
-      // Variantes vouvoiement
-      'je vous montre', 'je vous envoie', 'vous montrer',
-      // Questions ouvertes (CTA valeur)
-      'en interne', 'externalise', 'prioritaire pour vous', 'prioritaire pour toi',
-      'structure ca', 'c\'est un sujet', 'comment vous', 'comment tu geres',
-      'ca vous parle', 'ca te parle', 'un sujet chez vous', 'un sujet chez toi',
-      'ca t\'interesse', 'ca vous interesse'];
-    const hasCTA = valueCTAs.some(m => bodyLower.includes(m));
-    // Fallback : toute question en fin d'email = CTA acceptable
-    const endsWithQuestion = bodyLower.trim().endsWith('?');
-    if (!hasCTA && !endsWithQuestion) return { block: true, adjust: -3, note: 4, reason: 'no_value_cta' };
-
-    // BONUS : hypothese business presente (transformation du signal en probleme) = bon email
-    const hypothesisMarkers = ['ca veut souvent dire', 'ca veut dire', 'ca signifie', 'le probleme',
-      'le risque', 'le defi', 'la difficulte', 'depend encore', 'repose encore', 'porte encore',
-      'absorbe tout', 'ne suit pas', 'plafonne', 'impossible a', 'du mal a'];
-    const hasHypothesis = hypothesisMarkers.some(m => bodyLower.includes(m));
-    if (hasHypothesis && hasCTA) { adjust += 1; reasons.push('insight+question'); }
-
-    // BLOCK : case study invente (pattern "X clients/contacts/meetings en Y mois/semaines")
-    const fakeCaseStudy = /\d+\s*(?:nouveaux?\s+)?(?:clients?|contacts?|meetings?|mandats?|dossiers?|missions?|comptes?|rdv|rendez-vous)\s+(?:en|par)\s+\d+\s*(?:mois|semaines?|jours?)/i;
-    if (fakeCaseStudy.test(body || '')) {
-      adjust -= 3; reasons.push('fake_case_study');
-    }
-
-    // MALUS : meta-prospection
     const metaP = ['comment tu prospectes', 'comment vous prospectez', 'comment tu acquiers',
       'comment tu generes', 'comment tu trouves de nouveaux clients', 'acquisition de clients',
       'generer des leads', 'trouver de nouveaux clients'];
-    if (metaP.some(m => bodyLower.includes(m))) return { block: true, adjust: -3, note: 3, reason: 'meta_prospection' };
+    if (metaP.some(m => bodyLower.includes(m))) return { block: true, score: 0, grade: 'F', reason: 'meta_prospection', details: {} };
 
-    // MALUS : question journalistique sans value prop (termine par ? sans social proof apres)
-    const sentences = (body || '').split(/[.!?]\s+/);
-    const lastSentence = sentences[sentences.length - 1] || '';
-    if (lastSentence.includes('?') && !hasCTA) { adjust -= 2; reasons.push('ends_with_question_no_cta'); }
+    const fakeCaseStudy = /\d+\s*(?:nouveaux?\s+)?(?:clients?|contacts?|meetings?|mandats?|dossiers?|missions?|comptes?|rdv|rendez-vous)\s+(?:en|par)\s+\d+\s*(?:mois|semaines?|jours?)/i;
+    if (fakeCaseStudy.test(body || '')) return { block: true, score: 0, grade: 'F', reason: 'fake_case_study', details: {} };
 
-    // MALUS : sujet generique (ni prenom ni entreprise)
+    const jargonWords = ['\\bpipe\\b', '\\bpipeline\\b', '\\boutbound\\b', '\\binbound\\b', '\\bscale\\b', '\\bscaler\\b',
+      '\\bleads?\\b', '\\bfunnel\\b', '\\bchurn\\b', '\\bgrowth\\b', '\\bonboarding\\b', '\\bdeal flow\\b', '\\bcrm\\b'];
+    const jargonFound = jargonWords.filter(j => new RegExp(j, 'i').test(body || ''));
+    if (jargonFound.length >= 2) return { block: true, score: 0, grade: 'F', reason: 'jargon_anglais:' + jargonFound.join('+'), details: {} };
+
+    const emDashCount = (body || '').split(/\u2014|\u2013/).length - 1;
+    if (emDashCount >= 2) return { block: true, score: 0, grade: 'F', reason: 'em_dash_overuse:' + emDashCount, details: {} };
+
+    if (wordCount < 15) return { block: true, score: 0, grade: 'F', reason: 'too_short:' + wordCount, details: {} };
+    if (wordCount > 100) return { block: true, score: 0, grade: 'F', reason: 'too_long:' + wordCount, details: {} };
+
+    // === 1. TON / FORMALITE — /20 (impact 2.11x replies) ===
+    let ton = 0;
+    // Ton hesitant (+35% replies) — le critere le plus impactant
+    const hesitantMarkers = ['peut-etre', 'je me trompe', 'c\'est peut-etre pas', 'je me demandais',
+      'pas du tout', 'ou pas', 'c\'est le cas', 'je me permets pas', 'je sais pas si',
+      'j\'ignore si', 'c\'est un sujet ou', 'ou c\'est encore', 'ou pas du tout',
+      'c\'est le cas chez', 'vous avez quelque chose'];
+    const hesitantCount = hesitantMarkers.filter(m => bodyLower.includes(m)).length;
+    if (hesitantCount >= 2) ton += 9;
+    else if (hesitantCount === 1) ton += 6;
+
+    // Casual / contractions / fragments (Lavender : "slightly casual" = 2.11x)
+    const casualMarkers = ['t\'', 'j\'', 'c\'est', 'y\'a', 'l\'', 'd\'', 'qu\'', 'n\''];
+    const casualCount = casualMarkers.filter(m => bodyLower.includes(m)).length;
+    if (casualCount >= 3) ton += 5;
+    else if (casualCount >= 1) ton += 3;
+
+    // Ratio Je/Tu (parler du prospect 2x plus que de soi) — "on" = neutre, pas compte comme "je"
+    const jeCount = (bodyLower.match(/\bje\b|\bj'/g) || []).length + (bodyLower.match(/\bnous\b/g) || []).length;
+    const tuCount = (bodyLower.match(/\btu\b|\bt'/g) || []).length + (bodyLower.match(/\bvous\b|\bvotre\b|\bvos\b|\bton\b|\bta\b|\btes\b/g) || []).length;
+    if (tuCount > 0 && tuCount >= jeCount) ton += 5;
+    else if (tuCount > 0 && jeCount <= tuCount * 1.5) ton += 3;
+    else if (jeCount > 0 && tuCount === 0) ton += 0;
+
+    // Em-dash residuel (1 seul = malus leger)
+    if (emDashCount === 1) ton = Math.max(0, ton - 3);
+    // Jargon residuel (1 seul = malus)
+    if (jargonFound.length === 1) ton = Math.max(0, ton - 3);
+
+    // Voix passive / conditionnels (Lavender penalise)
+    const passiveConditional = (bodyLower.match(/\bserait\b|\bpourrait\b|\bdevrait\b|\baurait\b/g) || []).length;
+    if (passiveConditional >= 2) ton = Math.max(0, ton - 3);
+
+    ton = Math.min(20, ton);
+    details.ton = ton;
+
+    // === 2. CLARTE / LISIBILITE — /18 (impact 1.66x replies, 3rd-5th grade) ===
+    let clarte = 0;
+    // Longueur moyenne des phrases — seuils adaptes au francais (plus long que l'anglais)
+    const sentences = (body || '').split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const avgSentenceLen = sentences.length > 0 ? wordCount / sentences.length : wordCount;
+    if (avgSentenceLen <= 10) clarte += 8;
+    else if (avgSentenceLen <= 14) clarte += 6;
+    else if (avgSentenceLen <= 18) clarte += 3;
+
+    // Mots courts (< 3 syllabes) — approximation par longueur de mot
+    const shortWords = words.filter(w => w.length <= 6).length;
+    const shortRatio = wordCount > 0 ? shortWords / wordCount : 0;
+    if (shortRatio >= 0.8) clarte += 6;
+    else if (shortRatio >= 0.65) clarte += 4;
+    else if (shortRatio >= 0.5) clarte += 2;
+
+    // Pas de mots complexes / jargon FR
+    const complexWords = ['neanmoins', 'toutefois', 'cependant', 'effectivement', 'fondamentalement',
+      'potentiellement', 'strategiquement', 'systematiquement', 'problematique', 'optimiser',
+      'implementation', 'transformation', 'digitalisation', 'accompagnement'];
+    const complexFound = complexWords.filter(w => bodyLower.includes(w)).length;
+    if (complexFound === 0) clarte += 4;
+    else if (complexFound === 1) clarte += 2;
+
+    clarte = Math.min(18, clarte);
+    details.clarte = clarte;
+
+    // === 3. PHRASES LONGUES — /15 (impact 1.57x replies, cible 0 phrase longue) ===
+    // Seuil 18 mots pour le francais (naturellement plus long que l'anglais)
+    let phrases = 0;
+    const longSentences = sentences.filter(s => s.trim().split(/\s+/).length > 18).length;
+    if (longSentences === 0) phrases = 15;
+    else if (longSentences === 1) phrases = 8;
+    else if (longSentences === 2) phrases = 3;
+    details.phrases = phrases;
+
+    // === 4. PERSONNALISATION — /15 ===
+    let perso = 0;
     const fn = ((contact.firstName || contact.name || '').split(' ')[0] || '').toLowerCase();
     const co = (contact.company || '').toLowerCase();
-    if (fn && fn.length > 2 && !subjectLower.includes(fn) && co && co.length > 2 && !subjectLower.includes(co.substring(0, Math.min(co.length, 15)))) {
-      adjust -= 1; reasons.push('generic_subject');
+    // Prenom dans le body
+    if (fn && fn.length > 2 && bodyLower.includes(fn)) perso += 4;
+    // Entreprise dans le body
+    if (co && co.length > 2 && bodyLower.includes(co.substring(0, Math.min(co.length, 15)).toLowerCase())) perso += 4;
+    // Fait specifique (hypothese business = personnalisation profonde)
+    const hypothesisMarkers = ['ca veut souvent dire', 'ca veut dire', 'ca signifie',
+      'depend encore', 'repose encore', 'reposent encore', 'porte encore', 'portent encore',
+      'absorbe tout', 'ne suit pas', 'suivent pas',
+      'plafonne', 'du mal a', 'le risque', 'le defi', 'la difficulte',
+      'souvent ca', 'souvent le', 'souvent les', 'souvent c\'est'];
+    const hasHypothesis = hypothesisMarkers.some(m => bodyLower.includes(m));
+    if (hasHypothesis) perso += 7;
+    else {
+      // Fallback : chercher des signaux de personnalisation (chiffres, postes, noms propres)
+      const hasNumbers = /\d+\s*(?:personnes?|postes?|salaries?|collaborateurs?|%|euros?|millions?|M€)/.test(body || '');
+      if (hasNumbers) perso += 4;
+    }
+    perso = Math.min(15, perso);
+    details.perso = perso;
+
+    // === 5. WORD COUNT — /12 (impact +23% replies, sweet spot 25-50 mots) ===
+    let mots = 0;
+    if (wordCount >= 25 && wordCount <= 50) mots = 12;
+    else if (wordCount >= 20 && wordCount <= 60) mots = 8;
+    else if (wordCount >= 15 && wordCount <= 80) mots = 4;
+    details.mots = mots;
+
+    // === 6. MOBILE OPTIMIZED — /10 (impact +24% replies) ===
+    let mobile = 0;
+    // Double saut de ligne (espacement entre paragraphes)
+    const hasDoubleNewline = (body || '').includes('\n\n');
+    if (hasDoubleNewline) mobile += 5;
+    else if (wordCount <= 40) mobile += 3; // si tres court, pas besoin de double saut
+    // Aucun paragraphe > 4 lignes (sur mobile ~6-8 mots/ligne)
+    const paragraphs = (body || '').split(/\n\n+/).filter(p => p.trim().length > 0);
+    const longParagraphs = paragraphs.filter(p => p.trim().split(/\s+/).length > 30).length;
+    if (longParagraphs === 0) mobile += 5;
+    else if (longParagraphs === 1) mobile += 2;
+    details.mobile = mobile;
+
+    // === 7. OBJET — /10 ===
+    let objet = 0;
+    if (subject) {
+      const subjectWords = subject.split(/\s+/).filter(w => w.length > 0).length;
+      // 2-4 mots
+      if (subjectWords >= 2 && subjectWords <= 4) objet += 4;
+      else if (subjectWords === 1 || subjectWords === 5) objet += 2;
+      // Minuscules (pas de majuscule sauf premiere lettre du prenom)
+      const hasUpperCase = /[A-Z]/.test(subject.substring(1));
+      const isJustName = fn && subject.toLowerCase() === fn;
+      if (!hasUpperCase || isJustName) objet += 3;
+      else objet += 1;
+      // Pas de ponctuation (! ? : ...)
+      if (!/[!?:;]/.test(subject)) objet += 3;
+      else objet += 1;
+    }
+    // Bonus : objet contient prenom ou entreprise
+    if (fn && fn.length > 2 && subjectLower.includes(fn)) objet = Math.min(10, objet + 1);
+    objet = Math.min(10, objet);
+    details.objet = objet;
+
+    // === SCORE FINAL ===
+    const score = ton + clarte + phrases + perso + mots + mobile + objet;
+
+    // Question ouverte en fin d'email (CTC) — pas dans le score mais verification
+    const endsWithQuestion = (body || '').trim().endsWith('?');
+    const valueCTAs = ['c\'est un sujet', 'c\'est le cas', 'ou pas', 'pas du tout',
+      'ca vous parle', 'ca te parle', 'un sujet chez', 'comment tu', 'comment vous',
+      'vous avez', 'tu as', 'structure', 'en interne', 'externalise',
+      'je te montre', 'je vous montre', 'on en parle', 'on en discute',
+      'dispo si', 'ca t\'interesse', 'ca vous interesse'];
+    const hasCTA = valueCTAs.some(m => bodyLower.includes(m)) || endsWithQuestion;
+    if (!hasCTA) {
+      // Pas de question = email mort, malus fort
+      details._noCTA = true;
+      return { block: false, score: Math.max(0, score - 20), grade: score - 20 >= 75 ? 'B' : 'C', reason: 'no_question_ending', details };
     }
 
-    return { block: false, adjust, note: 7 + adjust, reason: reasons.join('+') || 'ok' };
+    // Grade
+    let grade = 'C';
+    if (score >= 90) grade = 'A';
+    else if (score >= 75) grade = 'B';
+
+    return { block: false, score, grade, reason: 'ok', details };
   }
 
   async _scoreEmail(subject, body, contact) {
@@ -666,7 +778,7 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
     return { note: 5, reason: 'fu_scoring_unavailable' };
   }
 
-  // Score leger pour les follow-ups/relances (pas de retry, juste reject si trop bas)
+  // Score leger pour les follow-ups/relances (Lavender /100, seuil 65 pour FU)
   async _scoreAndFilter(parsed, contact) {
     if (!parsed || parsed.skip) return parsed;
     try {
@@ -679,9 +791,11 @@ Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
       if (emDashCount >= 2) {
         return { skip: true, reason: 'em_dash_overuse:' + emDashCount };
       }
-      const score = await this._scoreEmail(parsed.subject, parsed.body, contact);
-      if (score.note >= 7) return parsed;
-      return { skip: true, reason: 'auto_score_too_low:' + score.note + '/10 (' + (score.reason || '?') + ')' };
+      const lav = this._lavenderScore(parsed.subject || '', parsed.body, contact);
+      if (lav.block) return { skip: true, reason: 'lavender_block:' + lav.reason };
+      // Seuil plus bas pour les follow-ups (65 vs 75 pour les premiers emails)
+      if (lav.score >= 65) { parsed._lavenderScore = lav.score; parsed._lavenderGrade = lav.grade; return parsed; }
+      return { skip: true, reason: 'lavender_score_too_low:' + lav.score + '/100 (grade ' + lav.grade + ')' };
     } catch (e) {
       const wc = (parsed.body || '').split(/\s+/).filter(w => w.length > 0).length;
       if (wc > 55) {

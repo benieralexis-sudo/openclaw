@@ -1515,13 +1515,15 @@ class CampaignEngine {
 
       const result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
 
-      // Calculer le score de qualite email post-generation
+      // Calculer le score de qualite email (Lavender /100)
       let emailQualityScore = 0;
+      let lavenderDetails = null;
       try {
         const ClaudeWriter = require('./claude-email-writer.js');
         const scorer = new ClaudeWriter();
-        const preScore = scorer._programmaticPreScore(subject, body, contact);
-        emailQualityScore = preScore.note || 0;
+        const lav = scorer._lavenderScore(subject, body, contact);
+        emailQualityScore = lav.score || 0;
+        lavenderDetails = lav.details || null;
       } catch (scoreErr) { /* non bloquant */ }
 
       const emailRecord = {
