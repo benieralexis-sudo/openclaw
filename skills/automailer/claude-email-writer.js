@@ -302,7 +302,7 @@ Agent de prospection autonome. Il analyse qui contacter et quand, personnalise c
 
 === FRAMEWORK (Observation → Hypothese → Question) ===
 1. OBSERVATION (1-2 phrases) : un fait CONCRET tire des donnees. Pas "j'ai vu que vous faites du marketing", mais un signal precis (recrutement, news, chiffre, projet).
-2. HYPOTHESE (1 phrase) : transforme ce fait en probleme business probable. C'est la que tu montres que tu COMPRENDS leur situation. Ex: "Ca veut souvent dire que le pipe depend encore du fondateur."
+2. HYPOTHESE (1 phrase) : transforme ce fait en probleme business probable. C'est la que tu montres que tu COMPRENDS leur situation. Ex: "Ca veut souvent dire que les nouveaux clients reposent encore sur toi."
 3. QUESTION OUVERTE (1 phrase) : invite a la conversation. Pas "dispo 15 min ?" mais une vraie question business : "C'est le cas chez vous ?", "Vous avez structure quelque chose ?", "C'est un sujet en ce moment ?"
 
 === ANALYSE STRATEGIQUE ===
@@ -310,7 +310,7 @@ Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : 
 
 === METHODE LAVENDER (6 SECRETS — +35% REPLY RATE) ===
 1. 40-60 MOTS MAX (pas 80, pas 100 — les emails <50 mots ont 65% de reply rate vs 2% pour >125 mots)
-2. NIVEAU CM1 : phrases de 5-8 mots. Mots de 2 syllabes max. Pas de jargon. "On fait tourner le pipe" > "Nous optimisons le pipeline commercial".
+2. NIVEAU CM1 : phrases de 5-8 mots. Mots de 2 syllabes max. Pas de jargon. "On t'aide a trouver des clients" > "Nous optimisons le pipeline commercial". ZERO mot anglais business (pipe, outbound, scale, pipeline, lead, CRM, deal flow, funnel, churn).
 3. TON HESITANT (+35% replies) : "je me trompe peut-etre", "c'est peut-etre pas le cas", "je me demandais si", "c'est un sujet ou pas du tout ?". Le doute invite a corriger → reponse. L'affirmation invite a ignorer.
 4. CTC (Call To Curiosity), PAS CTA : "C'est le cas chez vous ?" > "Dispo 15 min mardi ?". La question ouverte > le calendrier.
 5. OBJET ENNUYEUX : 2-3 mots, minuscules, pas de majuscules, pas de ponctuation. Comme un email entre collegues. "${contact.firstName || contact.company || 'question'}" et c'est tout.
@@ -323,22 +323,23 @@ Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : 
 - PAS de tirets cadratins. PAS de "Bonjour". PAS de signature.
 - PAS de meta-prospection ("comment tu acquiers des clients").
 - PAS de phrases creuses : "beau move", "impressionnant", "sacre parcours", "je me permets", "potentiellement", "cordonnier mal chausse".
+- PAS de jargon anglais : pipe, pipeline, outbound, inbound, scale, lead, CRM, deal flow, funnel, churn, growth, onboarding. Parle en francais simple.
 - N'invente JAMAIS un fait sur le prospect. Annee : 2026.
 - Tutoiement (PME <100 pers), vouvoiement (corporate).
 ${nicheExampleBlock}
 === EXEMPLES 10/10 (TON HESITANT + COURT) ===
 Exemple 1 (signal recrutement, 38 mots) :
-"Thomas, 3 postes commerciaux ouverts chez [Agence]. Ca veut souvent dire que le pipe depend encore du fondateur.
+"Thomas, 3 postes commerciaux ouverts chez [Agence]. Ca veut souvent dire que les nouveaux clients reposent encore sur toi.
 
-On structure l'outbound pour des boites comme la tienne. C'est le cas ou je me trompe ?"
+On aide des boites comme la tienne a trouver des clients sans y penser. C'est le cas ou je me trompe ?"
 
 Exemple 2 (signal news, 42 mots) :
-"Sophie, [Cabinet] lance une offre data. Souvent, le fondateur porte seul l'acquisition des premiers clients sur un nouveau segment.
+"Sophie, [Cabinet] lance une offre data. Souvent, le fondateur porte seul la recherche des premiers clients sur un nouveau segment.
 
-C'est peut-etre pas votre cas, mais vous avez structure un canal ou c'est encore du reseau ?"
+C'est peut-etre pas votre cas, mais vous avez un moyen structure ou c'est encore du reseau ?"
 
 Exemple 3 (signal croissance, 35 mots) :
-"Marc, 40 personnes chez [ESN] et 5 postes ouverts. L'equipe grandit mais le pipe de missions suit pas toujours.
+"Marc, 40 personnes chez [ESN] et 5 postes ouverts. L'equipe grandit mais les nouvelles missions suivent pas toujours.
 
 C'est un sujet en ce moment ou pas du tout ?"
 
@@ -460,6 +461,13 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
       if (bodyLower.includes(cta)) return { block: true, adjust: -4, note: 3, reason: 'dead_cta:' + cta };
     }
 
+    // MALUS : jargon anglais business (niveau CM1 = francais simple)
+    const jargonWords = ['\\bpipe\\b', '\\bpipeline\\b', '\\boutbound\\b', '\\binbound\\b', '\\bscale\\b', '\\bscaler\\b',
+      '\\bleads?\\b', '\\bfunnel\\b', '\\bchurn\\b', '\\bgrowth\\b', '\\bonboarding\\b', '\\bdeal flow\\b', '\\bcrm\\b'];
+    const jargonFound = jargonWords.filter(j => new RegExp(j, 'i').test(body || ''));
+    if (jargonFound.length >= 2) return { block: true, adjust: -3, note: 4, reason: 'jargon_anglais:' + jargonFound.join('+') };
+    if (jargonFound.length === 1) { adjust -= 1; reasons.push('jargon:' + jargonFound[0]); }
+
     // BLOCK : tirets cadratins (marqueur IA)
     const emDashCount = (body || '').split(/\u2014|\u2013/).length - 1;
     if (emDashCount >= 2) return { block: true, adjust: -3, note: 4, reason: 'em_dash_overuse:' + emDashCount };
@@ -515,7 +523,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     // BONUS : hypothese business presente (transformation du signal en probleme) = bon email
     const hypothesisMarkers = ['ca veut souvent dire', 'ca veut dire', 'ca signifie', 'le probleme',
       'le risque', 'le defi', 'la difficulte', 'depend encore', 'repose encore', 'porte encore',
-      'absorbe tout', 'ne scale pas', 'plafonne', 'impossible a', 'du mal a'];
+      'absorbe tout', 'ne suit pas', 'plafonne', 'impossible a', 'du mal a'];
     const hasHypothesis = hypothesisMarkers.some(m => bodyLower.includes(m));
     if (hasHypothesis && hasCTA) { adjust += 1; reasons.push('insight+question'); }
 
