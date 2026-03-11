@@ -938,29 +938,18 @@ class CampaignEngine {
 
         // Stop sur inactivite : engagement-based auto-pause progressif
         // Step 3+ : skip si zero ouverture sur tous les emails precedents
-        // Step 4+ : skip meme si 1 seule ouverture sans clic (engagement faible)
         // NOTE: ~40% des clients bloquent le pixel de tracking, donc
         // on n'utilise PAS l'ouverture comme critere pour step 2
+        // NOTE 2: on n'utilise PLUS le "clicked" car nos emails sont en plain text sans liens
         if (stepNumber >= 3) {
           const prevEmails = contactEmails.filter(e => e.stepNumber < stepNumber && e.status !== 'failed');
           const anyOpened = prevEmails.some(e => e.openedAt || e.status === 'opened');
-          const anyClicked = prevEmails.some(e => e.clickedAt || e.status === 'clicked');
-          if (prevEmails.length > 0 && !anyOpened) {
+          // Skip si zero ouverture sur 2+ emails (vraiment mort — mais 40% bloquent le pixel)
+          if (prevEmails.length >= 2 && !anyOpened) {
             log.info('campaign-engine', 'Skip ' + contact.email + ' (inactif: zero ouverture sur ' + prevEmails.length + ' emails — step ' + stepNumber + ')');
             skippedInactive++;
             skipped++;
             continue;
-          }
-          // Step 4+ : engagement tres faible (ouvert mais jamais clique sur 3+ emails)
-          if (stepNumber >= 4 && prevEmails.length >= 3 && anyOpened && !anyClicked) {
-            // Verifier qu'il n'y a pas eu de reponse non detectee (open multiple = interesse)
-            const multipleOpens = prevEmails.filter(e => (e.openCount || 0) >= 2).length;
-            if (multipleOpens === 0) {
-              log.info('campaign-engine', 'Skip ' + contact.email + ' (engagement faible: opens sans clic sur ' + prevEmails.length + ' emails — step ' + stepNumber + ')');
-              skippedInactive++;
-              skipped++;
-              continue;
-            }
           }
         }
 
@@ -1436,8 +1425,9 @@ class CampaignEngine {
       }
 
       // Validation programmatique : word count + forbidden words (word boundary)
-      // Word count + subject length toujours verifies (independant de AP storage)
-      const validationBase = validateEmailOutput(subject, body, { forbiddenWords: [] });
+      // Follow-ups (step 2+) ont un seuil plus bas (15 mots) car breakups/relances sont naturellement courts
+      const fuMinWords = stepNumber >= 2 ? 15 : 30;
+      const validationBase = validateEmailOutput(subject, body, { forbiddenWords: [], minWords: fuMinWords });
       if (!validationBase.pass) {
         log.warn('campaign-engine', 'Validation base FAIL pour ' + contact.email + ': ' + validationBase.reasons.join(', ') + ' — skip');
         skipped++;
@@ -1457,6 +1447,24 @@ class CampaignEngine {
           }
         }
       } catch (valErr) { /* AP storage indisponible — word count deja verifie ci-dessus */ }
+
+      // Scoring Lavender /100 sur les follow-ups (seuil 65, plus tolerant que step 1)
+      try {
+        const ClaudeWriter = require('./claude-email-writer.js');
+        const scorer = new ClaudeWriter();
+        const lavFU = scorer._lavenderScore(subject, body, contact);
+        if (lavFU.block) {
+          log.warn('campaign-engine', 'Lavender BLOCK FU pour ' + contact.email + ': ' + lavFU.reason + ' — skip');
+          skipped++;
+          continue;
+        }
+        log.info('campaign-engine', 'Lavender FU ' + lavFU.score + '/100 (grade ' + lavFU.grade + ') pour ' + contact.email + ' step ' + stepNumber);
+        if (lavFU.score < 55) {
+          log.warn('campaign-engine', 'Lavender FU trop bas ' + lavFU.score + '/100 pour ' + contact.email + ' — skip');
+          skipped++;
+          continue;
+        }
+      } catch (lavErr) { /* non bloquant si scorer indisponible */ }
 
       // Ajouter lien booking Google Calendar dans les relances (step 3+)
       // Steps 1-2 = conversation pure, pas de lien. Step 3+ = CTA direct avec calendrier.
@@ -1627,27 +1635,30 @@ class CampaignEngine {
       // Step reellement traite (emails envoyes ou aucun contact eligible)
       step.status = 'completed';
       step.sentAt = new Date().toISOString();
-    } else if ((step._retryCount || 0) >= ((list.contacts || []).length <= 1 ? 3 : 10)) {
-      // Max retries atteint — 3 pour mono-contact (evite 10h de retry pour 1 lead), 10 pour multi-contact
+    } else if ((step._retryCount || 0) >= ((list.contacts || []).length <= 1 ? 5 : 15)) {
+      // Max retries atteint — 5 pour mono-contact, 15 pour multi-contact
+      // Ne force complete QUE si tous les skips sont des inactifs (vraiment morts)
+      const allInactive = skippedInactive >= skipped && skipped > 0;
       step.status = 'completed';
       step.sentAt = new Date().toISOString();
       step._forceCompleted = true;
       const contactList = list.contacts || [];
       const contactNames = contactList.map(c => c.email || c.name || '?').slice(0, 5).join(', ');
-      log.warn('campaign-engine', 'Step ' + stepNumber + ' FORCE completed apres ' + step._retryCount + ' retries sans envoi (contacts: ' + contactNames + ')');
+      log.warn('campaign-engine', 'Step ' + stepNumber + ' FORCE completed apres ' + step._retryCount + ' retries sans envoi (' + (allInactive ? 'tous inactifs' : 'generation echouee') + ', contacts: ' + contactNames + ')');
       try {
         const chatId = process.env.ADMIN_CHAT_ID || '1409505520';
         const TelegramBot = require('node-telegram-bot-api');
         const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
-        bot.sendMessage(chatId, '⚠️ Relance step ' + stepNumber + ' echouee apres ' + step._retryCount + ' tentatives pour : ' + contactNames + '\nLa qualite etait insuffisante. Tu peux relancer manuellement.');
+        bot.sendMessage(chatId, '⚠️ Relance step ' + stepNumber + ' echouee apres ' + step._retryCount + ' tentatives pour : ' + contactNames + '\n' + (allInactive ? 'Tous les contacts sont inactifs (0 ouverture).' : 'La qualite etait insuffisante.'));
       } catch (notifErr) {}
     } else {
       // Aucun envoi mais des contacts restent — remettre en pending pour retry
       step.status = 'pending';
       step._retryCount = (step._retryCount || 0) + 1;
-      // Reporter a +1h minimum pour eviter de bruler les retries en boucle rapide (rate-limit 24h/72h)
-      step.scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-      log.info('campaign-engine', 'Step ' + stepNumber + ' remis en pending (retry ' + step._retryCount + '/10, sent=' + sent + ', skipped=' + skipped + ', errors=' + errors + ') — prochain essai dans 1h');
+      const maxRetries = (list.contacts || []).length <= 1 ? 5 : 15;
+      // Reporter a +2h pour laisser le temps entre les tentatives
+      step.scheduledAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+      log.info('campaign-engine', 'Step ' + stepNumber + ' remis en pending (retry ' + step._retryCount + '/' + maxRetries + ', sent=' + sent + ', skipped=' + skipped + ', errors=' + errors + ') — prochain essai dans 2h');
     }
 
     // Avancer le currentStep seulement si step completed

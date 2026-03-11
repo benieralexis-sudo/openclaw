@@ -1222,38 +1222,33 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
       }
     }
 
-    // Strategie specifique par step — beaucoup plus concrete
+    // Strategie specifique par step — framework Lavender adapte aux follow-ups
     const isBreakup = stepNumber >= totalSteps;
     let stepStrategy = '';
     let stepExample = '';
     if (stepNumber === 2) {
-      stepStrategy = `RELANCE 1 (J+3) — NOUVEL ANGLE + PREUVE CONCRETE
-Mission : apporter une PREUVE que tu peux aider. Un fait DIFFERENT du step 1.
-Structure : 1 fait prospect (different du step 1) + 1 social proof concret (cas client, chiffre, resultat) + 1 CTA soft.`;
-      stepExample = `EXEMPLE RELANCE 1 (note la structure differente du step 1) :
-"Thomas, 3 postes ouverts chez [Agence] sur Welcome — ca recrute mais le pipe client suit ?
+      stepStrategy = `RELANCE 1 (J+5) — REBOND LEGER + NOUVEL ANGLE
+Mission : rebondir avec un angle DIFFERENT du step 1. Ton hesitant, 25-40 mots MAX.
+Structure : 1 phrase de rebond (nouveau fait ou nouvel angle) + 1 question ouverte differente.
+PAS de social proof invente. Si tu n'as pas de cas reel, n'en mets pas.`;
+      stepExample = `EXEMPLE RELANCE 1 :
+"Thomas, je repensais a tes recrutements chez [Agence]. Souvent les premiers mois c'est le fondateur qui forme et qui vend en meme temps.
 
-Une agence growth de 15 personnes a double son volume de leads en 3 mois avec nous, sans recruter de commercial.
-
-Dispo pour en parler si ca te dit."`;
+C'est le cas ou vous avez deja quelqu'un dessus ?"`;
     } else if (stepNumber === 3) {
-      stepStrategy = `RELANCE 2 (J+7) — CTA DIRECT + LIEN CALENDRIER
-Mission : convertir en RDV. Sois DIRECT. Pas de longue intro.
-Structure : 1 phrase de contexte (rebondir sur un aspect specifique) + CTA DIRECT avec lien calendrier.
-COURT : 25-40 mots MAX.${bookingUrlBlock}`;
+      stepStrategy = `RELANCE 2 (J+12) — ULTRA-COURT + QUESTION SIMPLE
+Mission : dernier essai avant breakup. Ultra-court, 15-25 mots MAX. Question fermee ou presque.
+Structure : 1 phrase qui rebondit + 1 question simple (oui/non).${bookingUrlBlock}`;
       stepExample = `EXEMPLE RELANCE 2 :
-"Thomas, on accompagne des agences comme la tienne sur exactement ce sujet.
+"Thomas, toujours d'actualite les recrutements ?
 
-15 min pour te montrer le setup, voici mon calendrier :
-[lien]"`;
+Si c'est le bon moment je te montre comment on fait, sinon pas de souci."`;
     } else if (isBreakup) {
-      stepStrategy = `BREAKUP (derniere relance) — 2 LIGNES MAXIMUM
-Mission : exploiter la loss aversion. Question fermee. Pas de pitch.
-Structure : 1 phrase ("pas le bon moment ?") + 1 phrase (lien calendrier ou "dis-le moi").`;
+      stepStrategy = `BREAKUP (derniere relance) — 2 LIGNES MAXIMUM, 10-20 mots
+Mission : loss aversion. Question fermee. C'est la derniere, sois humain.
+Structure : 1 question ("pas le bon moment ?") + 1 phrase de cloture.`;
       stepExample = `EXEMPLE BREAKUP :
-"Thomas, pas le bon moment ? Pas de souci, je ne relancerai plus.
-
-Si le sujet revient : [lien calendrier]"`;
+"Thomas, je ne relancerai plus. Si le sujet revient un jour, je suis la."`;
       // Ajouter le lien booking au breakup aussi
       if (googleBookingUrl && !bookingUrlBlock) {
         try {
@@ -1267,8 +1262,8 @@ Si le sujet revient : [lien calendrier]"`;
         }
       }
     } else {
-      stepStrategy = `RELANCE ${stepNumber - 1} — NOUVEL ANGLE + SOCIAL PROOF DIFFERENT
-Mission : un angle encore different tire des DONNEES PROSPECT. Social proof + CTA soft.`;
+      stepStrategy = `RELANCE ${stepNumber - 1} — NOUVEL ANGLE COURT
+Mission : un angle different tire des DONNEES PROSPECT. 25-40 mots. Ton hesitant + question ouverte.`;
       stepExample = '';
     }
 
@@ -1284,38 +1279,30 @@ Mission : un angle encore different tire des DONNEES PROSPECT. Social proof + CT
       fuLanguageBlock = `LANGUAGE: Write in ${fuEmailLanguage}.\n`;
     }
 
-    const systemPrompt = `${fuLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance UNIQUE et PERSONNALISEE.
+    const systemPrompt = `${fuLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance.
 ${winningPatternsBlockFU}
-=== ANALYSE STRATEGIQUE (PRIORITAIRE) ===
-Si les donnees contiennent un bloc "=== ANALYSE STRATEGIQUE ===", SUIS SES DIRECTIVES pour l'angle et le social proof. Adapte au format relance (plus court, plus direct).
-
 === STRATEGIE STEP ${stepNumber}/${totalSteps} ===
 ${stepStrategy}
 ${stepExample ? '\n' + stepExample : ''}
-${socialProofInstruction}${bookingUrlBlock}
+${bookingUrlBlock}
 
-=== INTERDITS ABSOLUS ===
-- JAMAIS de tiret cadratin ni de tiret long. Virgules, points, retours a la ligne.
-- JAMAIS "curieux d'avoir ton retour/avis" ou question sans value prop.
-- JAMAIS de paragraphe d'analyse LinkedIn qui explique au prospect ce qu'il vit.
-- JAMAIS "[Industrie] vit de recommandations et de reseaux"
-- JAMAIS "Comment [Company] genere de nouvelles opportunites"
-- JAMAIS "Ces canaux ont un plafond" / "carnet de contacts sature"
-- JAMAIS "suite a mon email", "je reviens vers vous", "je me permets de relancer"
-- JAMAIS : pitch, prix, offre, "beau move", "potentiellement", "prospection", "gen de leads", "acquisition de clients"
-- JAMAIS la meme structure que l'email precedent (si step 1 = fait+question, step 2 DOIT etre different)
+=== METHODE LAVENDER (OBLIGATOIRE — meme pour les relances) ===
+1. ${isBreakup ? '10-20 MOTS' : stepNumber === 3 ? '15-25 MOTS' : '25-40 MOTS'} MAX. Plus court que le step 1. Chaque mot doit meriter sa place.
+2. NIVEAU CM1 : phrases courtes, mots simples. Pas de jargon anglais (pipe, outbound, scale, lead, funnel).
+3. TON HESITANT : "je me trompe peut-etre", "c'est peut-etre pas le cas", "ou pas du tout ?". Meme sur les relances.
+4. QUESTION OUVERTE en fin d'email. Pas "dispo 15 min ?".
+5. OBJET : 2-3 mots, minuscules, contient prenom ou entreprise. DIFFERENT des precedents.
+6. RATIO JE/TU : parle du prospect plus que de toi.
 
-=== QUALITE ===
-- ${emailLengthHint}. ${isBreakup ? '2 LIGNES MAXIMUM.' : ''} Ecris comme tu PARLES.
-- La relance DOIT citer un fait SPECIFIQUE tire des DONNEES PROSPECT.
-- Le social proof DOIT etre DIFFERENT de celui du/des email(s) precedent(s).
-- COHERENCE SECTORIELLE OBLIGATOIRE : le social proof DOIT etre du MEME SECTEUR/TYPE que le prospect. Jamais de fintech pour une medtech, jamais d'agence pour un cabinet.
-- CHIFFRES REALISTES : max "4-8 contacts", "3-5 clients", "X% d'amelioration". Pas de chiffres miraculeux.
-- ANNEE EN COURS : 2026. Ne cite JAMAIS "en 2024" ou "en 2023". Dis "ces derniers mois" ou "recemment".
-- Le follow-up DOIT etre coherent avec l'email precedent (meme univers, meme angle general, nouvel argument).
-- Tutoiement par defaut. Vouvoiement si +500 employes ou grand groupe.
-- Sujet : 2-4 mots, minuscules, comme un texto, contient nom/entreprise, DIFFERENT des precedents
-- PAS de "re:", pas de "relance", pas de signature (ajoutee auto)${forbiddenWordsRule}
+=== INTERDITS ===
+- PAS de tiret cadratin. PAS de "Bonjour". PAS de signature.
+- PAS de social proof invente. PAS de "un client similaire a fait X en Y mois".
+- PAS de "suite a mon email", "je reviens vers vous", "je me permets de relancer".
+- PAS de meta-prospection, pitch, prix, bullet points.
+- PAS de phrases creuses : "beau move", "impressionnant", "potentiellement".
+- PAS de jargon : pipe, pipeline, outbound, lead, funnel, scale, growth, CRM.
+- DIFFERENT du/des email(s) precedent(s) (nouvel angle, nouvelle question).
+- N'invente JAMAIS un fait. Annee : 2026. Tutoiement (PME), vouvoiement (corporate).${forbiddenWordsRule}
 
 JSON uniquement : {"subject":"...","body":"..."}`;
 
