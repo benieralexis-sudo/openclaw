@@ -200,6 +200,152 @@ class GoogleCalendarClient {
     }
   }
 
+  /**
+   * Cree un meeting Google Calendar avec un prospect.
+   * @param {string} leadEmail
+   * @param {string} leadName
+   * @param {Date|string} startTime - Date de debut du meeting
+   * @param {number} durationMinutes - Duree en minutes (default 15)
+   * @returns {Promise<{success: boolean, eventId: string, meetingUrl: string, startTime: string, endTime: string}|null>}
+   */
+  async createMeeting(leadEmail, leadName, startTime, durationMinutes = 15) {
+    if (!this.isApiConfigured()) {
+      log.warn('gcal', 'API non configuree — impossible de creer un meeting');
+      return null;
+    }
+
+    try {
+      const cal = this._getCalendarApi();
+      const start = new Date(startTime);
+      if (isNaN(start.getTime())) {
+        log.warn('gcal', 'Date invalide pour createMeeting: ' + startTime);
+        return null;
+      }
+      const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+      const senderName = process.env.SENDER_NAME || 'Alexis';
+      const senderEmail = process.env.SENDER_EMAIL || process.env.EMAIL || '';
+
+      const event = {
+        summary: 'Appel decouverte — ' + (leadName || leadEmail),
+        description: 'Appel decouverte ' + durationMinutes + ' min avec ' + (leadName || leadEmail) + '\nOrganise automatiquement suite a l\'interet du prospect.',
+        start: { dateTime: start.toISOString(), timeZone: 'Europe/Paris' },
+        end: { dateTime: end.toISOString(), timeZone: 'Europe/Paris' },
+        attendees: [
+          { email: leadEmail, displayName: leadName || '' },
+          ...(senderEmail ? [{ email: senderEmail, displayName: senderName }] : [])
+        ],
+        conferenceData: {
+          createRequest: {
+            requestId: 'ifind-' + Date.now(),
+            conferenceSolutionKey: { type: 'hangoutsMeet' }
+          }
+        },
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: 'email', minutes: 30 },
+            { method: 'popup', minutes: 10 }
+          ]
+        }
+      };
+
+      const res = await cal.events.insert({
+        calendarId: this.calendarId,
+        resource: event,
+        conferenceDataVersion: 1,
+        sendUpdates: 'all' // Envoie invitation par email au prospect
+      });
+
+      const meetingUrl = res.data.hangoutLink ||
+        ((res.data.conferenceData && res.data.conferenceData.entryPoints) || [])
+          .filter(ep => ep.entryPointType === 'video')
+          .map(ep => ep.uri)[0] || null;
+
+      log.info('gcal', 'Meeting cree: ' + res.data.id + ' avec ' + leadEmail + ' le ' + start.toISOString());
+
+      return {
+        success: true,
+        eventId: res.data.id,
+        meetingUrl,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        htmlLink: res.data.htmlLink
+      };
+    } catch (e) {
+      log.error('gcal', 'Erreur createMeeting: ' + e.message);
+      return null;
+    }
+  }
+
+  /**
+   * Resout un texte de disponibilite ("mardi 15h", "demain 10h") en Date.
+   * @param {string} dayText - ex: "mardi", "demain", "jeudi"
+   * @param {string} timeText - ex: "15h", "10h30", "14:00"
+   * @returns {Date|null}
+   */
+  static resolveAvailability(dayText, timeText) {
+    if (!dayText) return null;
+
+    const now = new Date();
+    let targetDate = null;
+    const dayLower = (dayText || '').toLowerCase().trim();
+
+    // Jours de la semaine
+    const dayMap = { lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6, dimanche: 0 };
+    if (dayMap[dayLower] !== undefined) {
+      const targetDay = dayMap[dayLower];
+      const currentDay = now.getDay();
+      let daysAhead = targetDay - currentDay;
+      if (daysAhead <= 0) daysAhead += 7; // Prochain occurrence
+      targetDate = new Date(now);
+      targetDate.setDate(now.getDate() + daysAhead);
+    } else if (dayLower === 'demain') {
+      targetDate = new Date(now);
+      targetDate.setDate(now.getDate() + 1);
+    } else if (dayLower.includes('apres-demain') || dayLower.includes('apres demain')) {
+      targetDate = new Date(now);
+      targetDate.setDate(now.getDate() + 2);
+    } else if (dayLower.includes('semaine prochaine') || dayLower.includes('debut de semaine')) {
+      targetDate = new Date(now);
+      const daysToMonday = (8 - now.getDay()) % 7 || 7;
+      targetDate.setDate(now.getDate() + daysToMonday);
+    } else {
+      // Essai date DD/MM
+      const dateMatch = dayText.match(/(\d{1,2})[\/\-](\d{1,2})/);
+      if (dateMatch) {
+        targetDate = new Date(now.getFullYear(), parseInt(dateMatch[2]) - 1, parseInt(dateMatch[1]));
+        if (targetDate < now) targetDate.setFullYear(now.getFullYear() + 1);
+      }
+    }
+
+    if (!targetDate) return null;
+
+    // Parser l'heure
+    let hours = 10, minutes = 0; // Default 10h
+    if (timeText) {
+      const timeLower = (timeText || '').toLowerCase();
+      const hMatch = timeLower.match(/(\d{1,2})\s*[hH:]\s*(\d{0,2})/);
+      if (hMatch) {
+        hours = parseInt(hMatch[1]);
+        minutes = hMatch[2] ? parseInt(hMatch[2]) : 0;
+      } else if (timeLower.includes('matin')) {
+        hours = 10; minutes = 0;
+      } else if (timeLower.includes('apres') || timeLower.includes('aprem')) {
+        hours = 14; minutes = 30;
+      } else if (timeLower.includes('fin de journee')) {
+        hours = 17; minutes = 0;
+      }
+    }
+
+    targetDate.setHours(hours, minutes, 0, 0);
+
+    // Verifier que c'est dans le futur et heures business (8h-18h)
+    if (targetDate <= now) return null;
+    if (hours < 8 || hours >= 19) return null;
+
+    return targetDate;
+  }
+
   // --- METHODES PRIVEES ---
 
   _getCalendarApi() {
@@ -215,7 +361,7 @@ class GoogleCalendarClient {
         : this.serviceAccountKey;
       auth = new google.auth.GoogleAuth({
         credentials: key,
-        scopes: ['https://www.googleapis.com/auth/calendar.readonly']
+        scopes: ['https://www.googleapis.com/auth/calendar']
       });
     } else {
       // OAuth2 avec refresh token

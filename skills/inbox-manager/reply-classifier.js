@@ -98,9 +98,9 @@ function checkGrounding(replyBody) {
 
 const CLASSIFICATION_SYSTEM_PROMPT = `Tu es un analyseur de reponses email B2B. Tu recois un email de reponse d'un prospect a qui on a envoye un email de prospection.
 
-Analyse le SENTIMENT et l'INTENTION du prospect.
+Analyse le SENTIMENT, l'INTENTION et le TON du prospect.
 
-Categories :
+Categories sentiment :
 - "interested" : le prospect exprime de l'interet, veut en savoir plus, demande des infos, accepte un echange
   Ex: "Oui ca m'interesse", "On peut en discuter", "Envoyez-moi plus d'infos", "Pourquoi pas", "Dites-moi en plus"
   Score: 0.7 a 1.0
@@ -121,8 +121,15 @@ Categories :
   Ex: "Undeliverable", "Mailbox not found", "Address rejected", "Delivery failed"
   Score: 0.0
 
+Categories ton :
+- "enthusiastic" : le prospect est enthousiaste, excite, utilise des "!" ou mots positifs forts
+- "neutral" : ton professionnel standard, ni chaud ni froid
+- "hesitant" : le prospect hesite, utilise "peut-etre", "je ne sais pas", "pourquoi pas"
+- "urgent" : le prospect est presse, veut une reponse rapide, mentionne un deadline
+- "irritated" : le prospect est agace, sec, utilise des mots forts ou des majuscules
+
 Reponds UNIQUEMENT en JSON strict :
-{"sentiment":"interested|question|not_interested|out_of_office|bounce","score":0.0,"reason":"explication courte en francais","key_phrases":["phrase 1"]}
+{"sentiment":"interested|question|not_interested|out_of_office|bounce","score":0.0,"tone":"enthusiastic|neutral|hesitant|urgent|irritated","reason":"explication courte en francais","key_phrases":["phrase 1"]}
 
 IMPORTANT :
 - "pourquoi pas" ou "dites-moi en plus" = interested, pas question
@@ -208,6 +215,8 @@ async function classifyReply(openaiKey, replyData) {
     parsed.score = Math.max(0, Math.min(1, parseFloat(parsed.score) || 0.5));
     parsed.key_phrases = Array.isArray(parsed.key_phrases) ? parsed.key_phrases : [];
     parsed.reason = parsed.reason || '';
+    const VALID_TONES = ['enthusiastic', 'neutral', 'hesitant', 'urgent', 'irritated'];
+    parsed.tone = VALID_TONES.includes(parsed.tone) ? parsed.tone : 'neutral';
 
     log.info('reply-classifier', 'Classification: ' + parsed.sentiment +
       ' (score=' + parsed.score + ') pour ' + from + ' — ' + parsed.reason);
@@ -340,7 +349,7 @@ function parseOOOReturnDate(snippet) {
  * @param {Object} clientContext - {senderName, senderTitle, clientDomain, bookingUrl}
  * @returns {Promise<{body: string, subject: string, confidence: number}>}
  */
-async function generateObjectionReply(callClaude, replyData, classification, subClass, originalEmail, clientContext) {
+async function generateObjectionReply(callClaude, replyData, classification, subClass, originalEmail, clientContext, options = {}) {
   const firstName = (replyData.fromName || '').trim().split(' ')[0] || '';
   const senderName = clientContext.senderName || process.env.SENDER_NAME || 'Alexis';
   const bookingUrl = clientContext.bookingUrl || '';
@@ -371,9 +380,15 @@ async function generateObjectionReply(callClaude, replyData, classification, sub
     ? '\n\nBASE DE CONNAISSANCES (reponds UNIQUEMENT avec ces infos):\n' + kbContext
     : '';
 
+  const tone = (options.tone) || (classification && classification.tone) || 'neutral';
+  const toneRule = _getToneInstruction(tone);
+  const convContext = _buildConversationContext(options.conversationHistory);
+
   const systemPrompt = `Tu es ${senderName}, professionnel B2B. Tu reponds a un prospect qui a fait une objection a ton email de prospection.
 
 STRATEGIE: ${strategy}
+
+ADAPTATION TON: ${toneRule}
 
 REGLES ABSOLUES:
 - 3-5 lignes MAX, ton naturel pair-a-pair
@@ -387,7 +402,7 @@ REGLES ABSOLUES:
 ${forbiddenWordsRule}
 ${bookingUrl ? 'Lien de booking si pertinent: ' + bookingUrl : ''}${kbRule}`;
 
-  const userPrompt = `Email original envoye:
+  const userPrompt = `${convContext ? convContext + '\n\n' : ''}Email original envoye:
 Sujet: ${(originalEmail && originalEmail.subject) || '(inconnu)'}
 Contenu: ${(originalEmail && originalEmail.body || '').substring(0, 300)}
 
@@ -418,7 +433,7 @@ Redige ta reponse (3-5 lignes):`;
  * Genere une reponse a une question simple via Claude Sonnet.
  * @param {Function} callClaude - callClaude(systemPrompt, userMessage, maxTokens)
  */
-async function generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext) {
+async function generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext, options = {}) {
   const firstName = (replyData.fromName || '').trim().split(' ')[0] || '';
   const senderName = clientContext.senderName || process.env.SENDER_NAME || 'Alexis';
   const bookingUrl = clientContext.bookingUrl || '';
@@ -439,7 +454,13 @@ async function generateQuestionReplyViaClaude(callClaude, replyData, classificat
     ? '\n\nBASE DE CONNAISSANCES (reponds UNIQUEMENT avec ces infos, RIEN d\'invente):\n' + kbContext
     : '';
 
+  const tone = (options.tone) || (classification && classification.tone) || 'neutral';
+  const toneRule = _getToneInstruction(tone);
+  const convContext = _buildConversationContext(options.conversationHistory);
+
   const systemPrompt = `Tu es ${senderName}, professionnel B2B. Un prospect a pose une question en reponse a ton email de prospection.
+
+ADAPTATION TON: ${toneRule}
 
 REGLES ABSOLUES:
 - Reponds a sa question en 3-5 lignes MAX, concret et utile
@@ -453,7 +474,7 @@ REGLES ABSOLUES:
 ${forbiddenWordsRule2}
 ${bookingUrl ? 'Lien de booking pour le call: ' + bookingUrl : ''}${kbRule}`;
 
-  const userPrompt = `Email original envoye:
+  const userPrompt = `${convContext ? convContext + '\n\n' : ''}Email original envoye:
 Sujet: ${(originalEmail && originalEmail.subject) || '(inconnu)'}
 Contenu: ${(originalEmail && originalEmail.body || '').substring(0, 300)}
 
@@ -504,7 +525,7 @@ const REPLY_TEMPLATES = {
  * Genere une reponse pour un prospect INTERESSE via Claude Sonnet.
  * Inclut le lien Cal.com si disponible. Ton enthousiaste mais naturel.
  */
-async function generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext) {
+async function generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext, options = {}) {
   const firstName = (replyData.fromName || '').trim().split(' ')[0] || '';
   const senderName = clientContext.senderName || process.env.SENDER_NAME || 'Alexis';
   const bookingUrl = clientContext.bookingUrl || '';
@@ -525,11 +546,31 @@ async function generateInterestedReplyViaClaude(callClaude, replyData, classific
     ? '\n\nBASE DE CONNAISSANCES (reponds UNIQUEMENT avec ces infos):\n' + kbContext
     : '';
 
+  const tone = (options.tone) || (classification && classification.tone) || 'neutral';
+  const toneRule = _getToneInstruction(tone);
+  const convContext = _buildConversationContext(options.conversationHistory);
+  const needsQualification = options.needsQualification || false;
+  const qualificationQuestion = options.qualificationQuestion || '';
+  const meetingConfirmed = options.meetingConfirmed || false;
+
+  let goalInstruction;
+  if (meetingConfirmed) {
+    goalInstruction = 'Le meeting est CONFIRME. Confirme le creneau dans ta reponse et dis que tu te rejouis de l\'echange.';
+  } else if (needsQualification && qualificationQuestion) {
+    goalInstruction = `AVANT de proposer un call, pose cette question de qualification de maniere naturelle: "${qualificationQuestion}". Termine par "On pourra caler un call ensuite pour en discuter concretement." NE propose PAS encore de lien de booking.`;
+  } else {
+    goalInstruction = bookingUrl
+      ? 'Propose un call de 15 min et inclus ce lien de booking: ' + bookingUrl
+      : 'Propose un call de 15 min et demande ses dispos';
+  }
+
   const systemPrompt = `Tu es ${senderName}, professionnel B2B. Un prospect a repondu POSITIVEMENT a ton email de prospection. Il est interesse.
+
+ADAPTATION TON: ${toneRule}
 
 REGLES ABSOLUES:
 - Reponds en 3-5 lignes MAX, ton naturel et enthousiaste mais PAS excessif
-- ${bookingUrl ? 'Propose un call de 15 min et inclus ce lien de booking: ' + bookingUrl : 'Propose un call de 15 min et demande ses dispos'}
+- ${goalInstruction}
 - Si le prospect pose aussi une question, reponds-y BRIEVEMENT avant de proposer le call
 - Tutoie si le prospect tutoie, vouvoie si il vouvoie
 - NE MENTIONNE JAMAIS: IA, bot, automatisation, SDR, pipeline, solution, outil, plateforme
@@ -538,7 +579,7 @@ REGLES ABSOLUES:
 - ANTI-HALLUCINATION: utilise UNIQUEMENT les faits de la base de connaissances. N'invente JAMAIS un fait, un chiffre, ou une reference client.
 ${forbiddenWordsRule}${kbRule}`;
 
-  const userPrompt = `Email original envoye:
+  const userPrompt = `${convContext ? convContext + '\n\n' : ''}Email original envoye:
 Sujet: ${(originalEmail && originalEmail.subject) || '(inconnu)'}
 Contenu: ${(originalEmail && originalEmail.body || '').substring(0, 300)}
 
@@ -547,7 +588,7 @@ Reponse positive du prospect ${firstName || replyData.from}:
 
 Mots-cles: ${(classification.key_phrases || []).join(', ')}
 
-Redige ta reponse (3-5 lignes + proposition call):`;
+Redige ta reponse (3-5 lignes):`;
 
   try {
     const result = await callClaude(systemPrompt, userPrompt, 300);
@@ -555,8 +596,8 @@ Redige ta reponse (3-5 lignes + proposition call):`;
       return { body: null, subject: null, confidence: 0 };
     }
     let body = result.trim();
-    // POST-PROCESSING: garantir que le lien de booking est present
-    if (bookingUrl && !body.includes(bookingUrl)) {
+    // POST-PROCESSING: garantir que le lien de booking est present (sauf si qualification ou meeting confirme)
+    if (bookingUrl && !body.includes(bookingUrl) && !needsQualification && !meetingConfirmed) {
       body += '\n\nVoici mon lien pour caler un creneau : ' + bookingUrl;
       log.info('reply-classifier', 'Booking URL ajoute en post-processing (Claude l\'avait omis)');
     }
@@ -571,6 +612,89 @@ Redige ta reponse (3-5 lignes + proposition call):`;
   }
 }
 
+/**
+ * Extrait une disponibilite mentionnee par le prospect.
+ * Ex: "dispo mardi 15h", "ok pour jeudi", "semaine prochaine"
+ * @param {string} snippet
+ * @returns {{hasAvailability: boolean, dayText: string|null, timeText: string|null}}
+ */
+function extractAvailability(snippet) {
+  if (!snippet) return { hasAvailability: false, dayText: null, timeText: null };
+  const text = snippet.toLowerCase();
+
+  // Patterns de jours
+  const dayPatterns = [
+    /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i,
+    /\b(demain|apres[- ]demain)\b/i,
+    /\b(semaine prochaine|la semaine prochaine|debut de semaine|fin de semaine)\b/i,
+    /\b(\d{1,2})[\/\-](\d{1,2})\b/,
+    /\b(\d{1,2})\s+(janv|fevr|mars|avri|mai|juin|juil|aout|sept|octo|nove|dece)\w*/i
+  ];
+
+  // Patterns d'heure
+  const timePatterns = [
+    /\b(\d{1,2})\s*[hH]\s*(\d{0,2})\b/,
+    /\b(\d{1,2})\s*:\s*(\d{2})\b/,
+    /\b(matin|apres[- ]midi|aprem|fin de journee|debut d.apres[- ]midi)\b/i
+  ];
+
+  let dayText = null;
+  let timeText = null;
+
+  for (const p of dayPatterns) {
+    const m = text.match(p);
+    if (m) { dayText = m[0].trim(); break; }
+  }
+
+  for (const p of timePatterns) {
+    const m = text.match(p);
+    if (m) { timeText = m[0].trim(); break; }
+  }
+
+  // Patterns combinés ("dispo", "ok pour", "ca marche pour", "libre")
+  const availKeywords = /\b(dispo|disponible|libre|ok pour|ca marche|convient|je peux|on peut se voir|on se cale|calons)\b/i;
+  const hasAvailKeyword = availKeywords.test(text);
+
+  return {
+    hasAvailability: !!(dayText && (hasAvailKeyword || timeText)),
+    dayText,
+    timeText
+  };
+}
+
+// --- TONE ADAPTATION helpers ---
+const TONE_INSTRUCTIONS = {
+  enthusiastic: 'Le prospect est enthousiaste — matche son energie ! Sois dynamique et direct, avec des points d\'exclamation mesures.',
+  neutral: 'Le prospect est professionnel et neutre — reste professionnel, concis et factuel.',
+  hesitant: 'Le prospect hesite — rassure-le SANS pression. Propose sans insister. Utilise "aucun engagement", "15 min", "simplement echanger".',
+  urgent: 'Le prospect est presse — va DROIT AU BUT. Phrases courtes. Pas de blabla. Propose un creneau precis immediatement.',
+  irritated: 'Le prospect est agace — sois ultra-respectueux, bref, et propose de ne plus le contacter si il le souhaite. NE SOIS PAS insistant.'
+};
+
+function _getToneInstruction(tone) {
+  return TONE_INSTRUCTIONS[tone] || TONE_INSTRUCTIONS.neutral;
+}
+
+/**
+ * Construit le contexte de conversation pour les prompts (threading).
+ * @param {Array} conversationHistory - [{role: 'sent'|'received', subject, body, date}]
+ * @returns {string}
+ */
+function _buildConversationContext(conversationHistory) {
+  if (!conversationHistory || conversationHistory.length === 0) return '';
+  const lines = ['HISTORIQUE DE LA CONVERSATION (du plus ancien au plus recent):'];
+  for (const msg of conversationHistory.slice(-6)) { // Max 6 messages pour rester dans les limites
+    const role = msg.role === 'sent' ? 'TOI' : 'PROSPECT';
+    const date = msg.date ? new Date(msg.date).toLocaleDateString('fr-FR') : '';
+    lines.push('--- ' + role + ' (' + date + ') ---');
+    lines.push('Sujet: ' + (msg.subject || ''));
+    lines.push((msg.body || '').substring(0, 300));
+    lines.push('');
+  }
+  lines.push('IMPORTANT: Ta reponse doit etre coherente avec TOUT l\'historique ci-dessus. Ne repete pas ce qui a deja ete dit. Fais reference aux echanges precedents si pertinent.');
+  return lines.join('\n');
+}
+
 module.exports = {
   classifyReply,
   subClassifyObjection,
@@ -579,5 +703,8 @@ module.exports = {
   generateInterestedReplyViaClaude,
   parseOOOReturnDate,
   checkGrounding,
-  REPLY_TEMPLATES
+  extractAvailability,
+  REPLY_TEMPLATES,
+  _getToneInstruction,
+  _buildConversationContext
 };

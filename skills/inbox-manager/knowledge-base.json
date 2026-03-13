@@ -132,5 +132,15 @@
     "Ne JAMAIS inventer de fonctionnalite qui n'existe pas"
   ],
 
+  "qualification": {
+    "questions": [
+      "Pour preparer un echange utile — tu prospectes comment aujourd'hui ? (cold email, LinkedIn, bouche-a-oreille ?)",
+      "Juste pour avoir le contexte — tu geres combien de prospects par mois actuellement ?",
+      "Avant qu'on se cale un call — c'est quoi ton plus gros frein cote prospection aujourd'hui ?"
+    ],
+    "when": "before_booking",
+    "max_questions": 1
+  },
+
   "fallback_phrase": "Bonne question — je vais me renseigner et je reviens vers toi rapidement."
 }

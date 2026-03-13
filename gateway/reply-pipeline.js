@@ -6,7 +6,8 @@ const log = require('./logger.js');
 const {
   classifyReply, subClassifyObjection,
   generateObjectionReply, generateQuestionReplyViaClaude,
-  generateInterestedReplyViaClaude, parseOOOReturnDate, checkGrounding
+  generateInterestedReplyViaClaude, parseOOOReturnDate, checkGrounding,
+  extractAvailability, _getToneInstruction, _buildConversationContext
 } = require('../skills/inbox-manager/reply-classifier.js');
 
 /**
@@ -52,8 +53,52 @@ function createReplyPipeline(deps) {
       log.warn('inbox-manager', 'markAsReplied echoue:', e.message);
     }
 
-    // === 2. Classification IA du sentiment ===
-    let classification = { sentiment: 'question', score: 0.5, reason: 'Non classifie', key_phrases: [] };
+    // === 1b. Construire l'historique de conversation (THREADING) ===
+    let conversationHistory = [];
+    try {
+      let existingEmails = [];
+      for (const ep of emailsToProcess) {
+        existingEmails = existingEmails.concat(automailerStorage.getEmailEventsForRecipient(ep));
+      }
+      // Ajouter les emails envoyes
+      for (const em of existingEmails.filter(e => e.status !== 'bounced')) {
+        conversationHistory.push({
+          role: 'sent',
+          subject: em.subject || '',
+          body: (em.body || '').substring(0, 400),
+          date: em.sentAt || em.createdAt || ''
+        });
+      }
+      // Ajouter les reponses recues precedentes
+      try {
+        const inboxStorageThread = require('../skills/inbox-manager/storage.js');
+        const previousReplies = (inboxStorageThread.getMatchedReplies ? inboxStorageThread.getMatchedReplies() : [])
+          .filter(r => emailsToProcess.includes((r.from || '').toLowerCase()));
+        for (const r of previousReplies) {
+          conversationHistory.push({
+            role: 'received',
+            subject: r.subject || '',
+            body: (r.text || r.snippet || '').substring(0, 400),
+            date: r.date || r.receivedAt || ''
+          });
+        }
+      } catch (e) { /* inbox storage non dispo */ }
+      // Ajouter la reponse actuelle
+      conversationHistory.push({
+        role: 'received',
+        subject: replyData.subject || '',
+        body: (replyData.snippet || '').substring(0, 400),
+        date: replyData.date || new Date().toISOString()
+      });
+      // Trier par date
+      conversationHistory.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+      log.info('inbox-manager', 'Conversation history: ' + conversationHistory.length + ' messages pour ' + replyData.from);
+    } catch (e) {
+      log.warn('inbox-manager', 'Construction historique echouee:', e.message);
+    }
+
+    // === 2. Classification IA du sentiment + tone ===
+    let classification = { sentiment: 'question', score: 0.5, reason: 'Non classifie', key_phrases: [], tone: 'neutral' };
     try {
       classification = await classifyReply(openaiKey, {
         from: replyData.from,
@@ -66,13 +111,27 @@ function createReplyPipeline(deps) {
     }
     const sentiment = classification.sentiment;
     const score = classification.score;
-    log.info('inbox-manager', 'Sentiment: ' + sentiment + ' (score=' + score + ') pour ' + replyData.from);
+    const tone = classification.tone || 'neutral';
+    log.info('inbox-manager', 'Sentiment: ' + sentiment + ' (score=' + score + ', tone=' + tone + ') pour ' + replyData.from);
 
     // === 3. Update CRM HubSpot avec sentiment ===
     _syncCrmSentiment(replyData, classification, emailsToProcess, getHubSpotClient);
 
     // === 3a-bis. FEEDBACK LOOP ===
     _trackFeedbackLoop(replyData, sentiment);
+
+    // === 3a-ter. REAL-TIME LEARNING ===
+    if (sentiment === 'interested' || sentiment === 'not_interested') {
+      try {
+        let origEmail = null;
+        for (const ep of emailsToProcess) {
+          const events = automailerStorage.getEmailEventsForRecipient(ep);
+          const lastSent = events.filter(e => e.status === 'sent' || e.status === 'delivered' || e.status === 'opened').pop();
+          if (lastSent) { origEmail = lastSent; break; }
+        }
+        _recordRealtimeOutcome(replyData, classification, origEmail, null, 'reply_' + sentiment);
+      } catch (e) { /* non bloquant */ }
+    }
 
     // === 3b. HITL AUTO-REPLY : generer draft, soumettre pour validation humaine ===
     let autoReplyHandled = false;
@@ -117,19 +176,22 @@ function createReplyPipeline(deps) {
 
           const _pendingDrafts = getPendingDrafts();
 
+          // Options partagees (threading + tone)
+          const pipelineOptions = { conversationHistory, tone };
+
           // --- Cas 1: Objection douce (not_interested) → HITL ---
           if (sentiment === 'not_interested' && score >= 0.15) {
-            const result = await _handleNotInterested(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts);
+            const result = await _handleNotInterested(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts, pipelineOptions);
             hitlDraftCreated = result.hitlDraftCreated;
           }
           // --- Cas 2: Question → HITL ---
           else if (sentiment === 'question' && score >= 0.4) {
-            const result = await _handleQuestion(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts);
+            const result = await _handleQuestion(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts, pipelineOptions);
             hitlDraftCreated = result.hitlDraftCreated;
           }
           // --- Cas 3: Interested → AUTO-REPLY ou HITL ---
           else if (sentiment === 'interested') {
-            const result = await _handleInterested(replyData, classification, score, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, firstName, _pendingDrafts);
+            const result = await _handleInterested(replyData, classification, score, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, firstName, _pendingDrafts, pipelineOptions);
             hitlDraftCreated = result.hitlDraftCreated;
             autoReplyHandled = result.autoReplyHandled;
           }
@@ -210,12 +272,12 @@ function createReplyPipeline(deps) {
     return warning;
   }
 
-  async function _handleNotInterested(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts) {
+  async function _handleNotInterested(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts, pipelineOptions) {
     const subClass = await subClassifyObjection(openaiKey, replyData, classification);
     log.info('inbox-manager', 'Sub-classification: ' + subClass.type + ' / ' + subClass.objectionType + ' (conf=' + subClass.confidence + ')');
 
     if (subClass.type === 'soft_objection' && subClass.confidence >= autoReplyConfidence) {
-      const autoReply = await generateObjectionReply(callClaude, replyData, classification, subClass, originalEmail, clientContext);
+      const autoReply = await generateObjectionReply(callClaude, replyData, classification, subClass, originalEmail, clientContext, pipelineOptions || {});
 
       if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
         const qualityWarning = _checkDraftQuality(autoReply);
@@ -235,10 +297,10 @@ function createReplyPipeline(deps) {
     return { hitlDraftCreated: false };
   }
 
-  async function _handleQuestion(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts) {
+  async function _handleQuestion(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts, pipelineOptions) {
     const snippetLen = (replyData.snippet || '').length;
     if (snippetLen < 1500) {
-      const autoReply = await generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
+      const autoReply = await generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext, pipelineOptions || {});
 
       if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
         const qualityWarning = _checkDraftQuality(autoReply);
@@ -263,16 +325,94 @@ function createReplyPipeline(deps) {
     return { hitlDraftCreated: false };
   }
 
-  async function _handleInterested(replyData, classification, score, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, firstName, _pendingDrafts) {
+  async function _handleInterested(replyData, classification, score, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, firstName, _pendingDrafts, pipelineOptions) {
     // Check blacklist avant tout envoi
     const _isBlacklisted = automailerStorage.isBlacklisted && automailerStorage.isBlacklisted(replyData.from);
     if (_isBlacklisted) {
       log.info('hitl', 'Skip auto-reply: ' + replyData.from + ' est blackliste');
       return { hitlDraftCreated: false, autoReplyHandled: false };
     }
-    const autoReply = await generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext);
+
+    const opts = pipelineOptions || {};
+
+    // === QUALIFICATION CHECK ===
+    let needsQualification = false;
+    let qualificationQuestion = '';
+    try {
+      const inboxStorageQual = require('../skills/inbox-manager/storage.js');
+      const previousAutoReplies = (inboxStorageQual.getAutoReplies ? inboxStorageQual.getAutoReplies(50) : [])
+        .filter(ar => ar.prospectEmail === replyData.from && ar.sentiment === 'interested');
+      const alreadyQualified = previousAutoReplies.length > 0; // Deja eu un echange interested
+
+      if (!alreadyQualified) {
+        // Charger les questions de qualification depuis la KB
+        const kb = require('../skills/inbox-manager/knowledge-base.json');
+        const qualConfig = kb.qualification;
+        if (qualConfig && qualConfig.questions && qualConfig.questions.length > 0) {
+          needsQualification = true;
+          // Choisir une question aleatoire
+          qualificationQuestion = qualConfig.questions[Math.floor(Math.random() * qualConfig.questions.length)];
+          log.info('inbox-manager', 'Qualification requise pour ' + replyData.from + ' — question: ' + qualificationQuestion);
+        }
+      } else {
+        log.info('inbox-manager', 'Prospect ' + replyData.from + ' deja qualifie (' + previousAutoReplies.length + ' interactions) — skip qualification');
+      }
+    } catch (e) { log.warn('inbox-manager', 'Qualification check: ' + e.message); }
+
+    // === BOOKING AUTO : detecter disponibilite ===
+    let meetingCreated = null;
+    const availability = extractAvailability(replyData.snippet);
+    if (availability.hasAvailability && !needsQualification) {
+      try {
+        const GoogleCalendarClient = require('../skills/meeting-scheduler/google-calendar-client.js');
+        const resolvedDate = GoogleCalendarClient.resolveAvailability(availability.dayText, availability.timeText);
+        if (resolvedDate && meetingHandler && meetingHandler.gcal && meetingHandler.gcal.isApiConfigured()) {
+          meetingCreated = await meetingHandler.gcal.createMeeting(
+            replyData.from, replyData.fromName || firstName, resolvedDate, 15
+          );
+          if (meetingCreated && meetingCreated.success) {
+            log.info('inbox-manager', 'BOOKING AUTO: meeting cree pour ' + replyData.from + ' le ' + resolvedDate.toISOString());
+          }
+        }
+      } catch (e) { log.warn('inbox-manager', 'Booking auto echoue:', e.message); }
+    }
+
+    // === GENERER LA REPONSE avec options enrichies ===
+    const replyOpts = {
+      ...opts,
+      needsQualification,
+      qualificationQuestion,
+      meetingConfirmed: !!(meetingCreated && meetingCreated.success)
+    };
+    const autoReply = await generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext, replyOpts);
 
     if (!autoReply.body) return { hitlDraftCreated: false, autoReplyHandled: false };
+
+    // === A/B TEST sur les reponses ===
+    let abVariant = 'A';
+    let autoReplyB = null;
+    try {
+      const ABTesting = require('../skills/automailer/ab-testing.js');
+      const abTester = new ABTesting(automailerStorage);
+      abVariant = abTester.assignVariant(replyData.from, 'reply_interested', 2);
+
+      if (abVariant === 'B') {
+        // Generer variante B avec un angle different
+        const variantOpts = { ...replyOpts };
+        const variantPromptSuffix = '\n\nGENERE UNE VARIANTE DIFFERENTE: angle plus direct, ou plus chaleureux, ou plus axe data. Pas la meme approche que d\'habitude.';
+        autoReplyB = await generateInterestedReplyViaClaude(callClaude, {
+          ...replyData,
+          snippet: (replyData.snippet || '') + variantPromptSuffix
+        }, classification, originalEmail, clientContext, variantOpts);
+
+        if (autoReplyB && autoReplyB.body) {
+          log.info('ab-testing', 'Variante B generee pour ' + replyData.from);
+          // Utiliser variante B
+          autoReply.body = autoReplyB.body;
+          autoReply.subject = autoReplyB.subject || autoReply.subject;
+        }
+      }
+    } catch (e) { log.warn('ab-testing', 'A/B test reply: ' + e.message); }
 
     const qualityWarning = _checkDraftQuality(autoReply);
     if (qualityWarning) log.warn('hitl', 'Draft quality warning: ' + qualityWarning + ' pour ' + replyData.from);
@@ -297,38 +437,50 @@ function createReplyPipeline(deps) {
             const inboxStorage = require('../skills/inbox-manager/storage.js');
             inboxStorage.addAutoReply({
               prospectEmail: replyData.from, prospectName: replyData.fromName,
-              sentiment: 'interested', subClassification: 'auto_instant', objectionType: '',
+              sentiment: 'interested', subClassification: needsQualification ? 'qualification' : 'auto_instant',
+              objectionType: '', abVariant,
               replyBody: autoReply.body, replySubject: autoReply.subject,
               originalEmailId: originalEmail && originalEmail.subject,
-              confidence: autoReply.confidence, sendResult
+              confidence: autoReply.confidence, sendResult,
+              meetingCreated: meetingCreated ? { eventId: meetingCreated.eventId, startTime: meetingCreated.startTime } : null,
+              tone: opts.tone || 'neutral'
             });
           } catch (e) { log.warn('auto-reply', 'Record stats: ' + e.message); }
 
           if (sendResult.messageId) {
             automailerStorage.addEmail({
               to: replyData.from, subject: autoReply.subject, body: autoReply.body,
-              source: 'auto_reply_interested', status: 'sent',
+              source: needsQualification ? 'auto_reply_qualification' : 'auto_reply_interested',
+              status: 'sent', abVariant,
               messageId: sendResult.messageId, chatId: adminChatId
             });
           }
 
-          try {
-            if (meetingHandler) {
-              const company = (originalEmail && originalEmail.company) || '';
-              await meetingHandler.proposeAutoMeeting(replyData.from, replyData.fromName || firstName, company);
-            }
-          } catch (mtgErr) { log.warn('auto-reply', 'Auto-meeting proposal: ' + mtgErr.message); }
+          // Proposer auto-meeting seulement si pas deja cree et pas en qualification
+          if (!meetingCreated && !needsQualification) {
+            try {
+              if (meetingHandler) {
+                const company = (originalEmail && originalEmail.company) || '';
+                await meetingHandler.proposeAutoMeeting(replyData.from, replyData.fromName || firstName, company);
+              }
+            } catch (mtgErr) { log.warn('auto-reply', 'Auto-meeting proposal: ' + mtgErr.message); }
+          }
 
-          log.info('auto-reply', 'REPONSE AUTO INSTANTANEE envoyee a ' + replyData.from + ' (score=' + score + ', conf=' + autoReply.confidence + ')');
+          // Real-time learning : enregistrer l'outcome
+          _recordRealtimeOutcome(replyData, classification, originalEmail, abVariant, 'auto_sent');
+
+          const meetingInfo = meetingCreated ? ' + MEETING CREE le ' + new Date(meetingCreated.startTime).toLocaleDateString('fr-FR') : '';
+          const qualInfo = needsQualification ? ' (QUALIFICATION)' : '';
+          log.info('auto-reply', 'REPONSE AUTO INSTANTANEE envoyee a ' + replyData.from + ' (score=' + score + ', conf=' + autoReply.confidence + ', tone=' + (opts.tone || 'neutral') + ', variant=' + abVariant + qualInfo + meetingInfo + ')');
           return { hitlDraftCreated: false, autoReplyHandled: true };
         } else {
           log.error('auto-reply', 'Echec envoi auto pour ' + replyData.from + ': ' + (sendResult && sendResult.error));
-          // Fallback HITL
           const draftId = hitlId();
           _pendingDrafts.set(draftId, {
             replyData, classification, subClass: { type: 'interested', objectionType: '' },
             autoReply, originalEmail, originalMessageId, clientContext,
-            sentiment: 'interested', emailsToProcess, qualityWarning, createdAt: Date.now()
+            sentiment: 'interested', emailsToProcess, qualityWarning, createdAt: Date.now(),
+            abVariant, meetingCreated, needsQualification
           });
           saveHitlDrafts();
           return { hitlDraftCreated: true, autoReplyHandled: false };
@@ -339,7 +491,8 @@ function createReplyPipeline(deps) {
         _pendingDrafts.set(draftId, {
           replyData, classification, subClass: { type: 'interested', objectionType: '' },
           autoReply, originalEmail, originalMessageId, clientContext,
-          sentiment: 'interested', emailsToProcess, qualityWarning, createdAt: Date.now()
+          sentiment: 'interested', emailsToProcess, qualityWarning, createdAt: Date.now(),
+          abVariant, meetingCreated, needsQualification
         });
         saveHitlDrafts();
         return { hitlDraftCreated: true, autoReplyHandled: false };
@@ -355,11 +508,11 @@ function createReplyPipeline(deps) {
       replyData, classification, subClass: { type: 'interested', objectionType: '' },
       autoReply, originalEmail, originalMessageId, clientContext,
       sentiment: 'interested', emailsToProcess, qualityWarning, createdAt: Date.now(),
-      _grounded: isGrounded
+      _grounded: isGrounded, abVariant, meetingCreated, needsQualification
     });
     saveHitlDrafts();
     const autoMin = isGrounded ? (parseFloat(process.env.HITL_AUTO_SEND_MINUTES) || 5) : 'HITL 24h';
-    log.info('hitl', 'Draft cree: ' + draftId + ' pour ' + replyData.from + ' (interested, grounded=' + isGrounded + ', auto-send=' + autoMin + (isGrounded ? 'min' : '') + ')');
+    log.info('hitl', 'Draft cree: ' + draftId + ' pour ' + replyData.from + ' (interested, grounded=' + isGrounded + ', auto-send=' + autoMin + (isGrounded ? 'min' : '') + ', variant=' + abVariant + ')');
     return { hitlDraftCreated: true, autoReplyHandled: false };
   }
 
@@ -534,6 +687,100 @@ function createReplyPipeline(deps) {
     } catch (e) { log.warn('hitl', 'Cancel follow-ups: ' + e.message); }
   }
 
+  // === REAL-TIME LEARNING : enregistrer chaque outcome pour patterns ===
+  function _recordRealtimeOutcome(replyData, classification, originalEmail, abVariant, action) {
+    try {
+      const rtlPath = '/data/inbox-manager/realtime-learner.json';
+      const fs = require('fs');
+      let data = { outcomes: [], patterns: {}, lastAnalysis: null };
+      try {
+        if (fs.existsSync(rtlPath)) {
+          data = JSON.parse(fs.readFileSync(rtlPath, 'utf8'));
+        }
+      } catch (e) { /* fichier vide ou corrompu */ }
+
+      // Extraire features de l'email original
+      const origBody = (originalEmail && originalEmail.body) || '';
+      const wordCount = origBody.split(/\s+/).filter(w => w.length > 0).length;
+      const hasQuestion = /\?/.test(origBody);
+      const subjectLength = ((originalEmail && originalEmail.subject) || '').length;
+
+      // Detecter l'heure d'envoi de l'email original
+      let sendHour = null;
+      try {
+        const emailEvents = automailerStorage.getEmailEventsForRecipient(replyData.from);
+        const lastSent = emailEvents.filter(e => e.sentAt).pop();
+        if (lastSent) sendHour = new Date(lastSent.sentAt).getHours();
+      } catch (e) {}
+
+      const outcome = {
+        timestamp: Date.now(),
+        prospectEmail: replyData.from,
+        sentiment: classification.sentiment,
+        tone: classification.tone || 'neutral',
+        score: classification.score,
+        abVariant: abVariant || 'A',
+        action,
+        features: { wordCount, hasQuestion, subjectLength, sendHour }
+      };
+
+      data.outcomes.push(outcome);
+      // Garder max 200 outcomes
+      if (data.outcomes.length > 200) data.outcomes = data.outcomes.slice(-200);
+
+      // Analyse patterns en temps reel (si >= 10 outcomes)
+      if (data.outcomes.length >= 10) {
+        const interested = data.outcomes.filter(o => o.sentiment === 'interested');
+        const notInterested = data.outcomes.filter(o => o.sentiment === 'not_interested');
+        const total = data.outcomes.length;
+
+        // Pattern heure d'envoi
+        if (interested.length >= 5) {
+          const hourCounts = {};
+          for (const o of interested) {
+            const h = o.features.sendHour;
+            if (h !== null) hourCounts[h] = (hourCounts[h] || 0) + 1;
+          }
+          const bestHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0];
+          if (bestHour) {
+            data.patterns.bestSendHour = { hour: parseInt(bestHour[0]), count: bestHour[1], total: interested.length };
+          }
+        }
+
+        // Pattern longueur email
+        if (interested.length >= 5 && notInterested.length >= 3) {
+          const avgWordCountInterested = interested.reduce((s, o) => s + (o.features.wordCount || 0), 0) / interested.length;
+          const avgWordCountNot = notInterested.reduce((s, o) => s + (o.features.wordCount || 0), 0) / notInterested.length;
+          data.patterns.wordCount = {
+            interestedAvg: Math.round(avgWordCountInterested),
+            notInterestedAvg: Math.round(avgWordCountNot),
+            recommendation: avgWordCountInterested < avgWordCountNot ? 'shorter_better' : 'longer_ok'
+          };
+        }
+
+        // Pattern A/B variants
+        const variantA = data.outcomes.filter(o => o.abVariant === 'A');
+        const variantB = data.outcomes.filter(o => o.abVariant === 'B');
+        if (variantA.length >= 5 && variantB.length >= 5) {
+          const replyRateA = variantA.filter(o => o.sentiment === 'interested').length / variantA.length;
+          const replyRateB = variantB.filter(o => o.sentiment === 'interested').length / variantB.length;
+          data.patterns.abReply = {
+            variantA: { total: variantA.length, replyRate: Math.round(replyRateA * 100) },
+            variantB: { total: variantB.length, replyRate: Math.round(replyRateB * 100) },
+            winner: replyRateA >= replyRateB ? 'A' : 'B'
+          };
+        }
+
+        data.lastAnalysis = Date.now();
+        log.info('realtime-learner', 'Patterns mis a jour: ' + JSON.stringify(data.patterns));
+      }
+
+      fs.writeFileSync(rtlPath, JSON.stringify(data, null, 2));
+    } catch (e) {
+      log.warn('realtime-learner', 'Record outcome echoue: ' + e.message);
+    }
+  }
+
   function _syncCrmSentiment(replyData, classification, emailsToProcess, getHubSpotClient) {
     (async () => {
       try {
@@ -621,7 +868,8 @@ function createReplyPipeline(deps) {
       '👤 *' + escTg(replyData.fromName || replyData.from) + '*',
       '📧 ' + escTg(replyData.from),
       '📋 ' + escTg(replyData.subject || '(sans sujet)'),
-      '📊 Score : ' + score + '/1.0'
+      '📊 Score : ' + score + '/1.0',
+      '🎭 Ton : ' + (tone || 'neutral')
     ];
     if (replyData.snippet) {
       notifLines.push('');
