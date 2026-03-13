@@ -108,7 +108,73 @@ const GENERIC_PATTERNS = [
   /curieux (?:de|d')/i
 ];
 
+// --- Spam trigger patterns (deliverabilite) ---
+const SPAM_TRIGGER_PATTERNS = [
+  // Mots trigger classiques
+  /\b(gratuit|gratis|free|offre speciale|offre exclusive|offre limitee)\b/i,
+  /\b(cliquez ici|click here|agissez maintenant|act now|urgent)\b/i,
+  /\b(garanti|100%|sans risque|risk free|money back)\b/i,
+  /\b(felicitations|congratulations|vous avez gagne|you won)\b/i,
+  /\b(achetez|acheter maintenant|buy now|order now|commander)\b/i,
+  /\b(promotion|promo|soldes?|reduction|remise|discount)\b/i,
+  /\b(pas cher|meilleur prix|lowest price|best price)\b/i,
+  /\b(revenu passif|passive income|gagner de l.argent|make money)\b/i,
+  /\b(millionnaire|fortune|richesse|wealth)\b/i,
+  /\b(credit|pret|loan|mortgage|hypotheque)\b/i,
+  /\b(viagra|casino|pharma|lottery|loterie)\b/i,
+  /\b(double your|doublez|triple your|triplez)\b/i,
+  /\b(limited time|temps limite|derniere chance|last chance)\b/i,
+  /\b(no obligation|sans obligation|sans engagement)\b/i,
+  /\b(unbelievable|incroyable deal|deal exclusif)\b/i
+];
+
+function _spamScoreCheck(subject, body) {
+  const fullText = (subject || '') + ' ' + (body || '');
+  const issues = [];
+  let score = 0;
+
+  // 1. Spam trigger words (2 points chacun)
+  for (const pattern of SPAM_TRIGGER_PATTERNS) {
+    if (pattern.test(fullText)) {
+      score += 2;
+      issues.push('spam_word: ' + pattern.source.substring(0, 30));
+    }
+  }
+
+  // 2. Trop de liens (>2 = suspect)
+  const linkCount = (fullText.match(/https?:\/\//g) || []).length;
+  if (linkCount > 2) { score += 2; issues.push('too_many_links: ' + linkCount); }
+
+  // 3. Trop de MAJUSCULES (>20% du texte = spam)
+  const upperRatio = (fullText.replace(/[^A-Z]/g, '').length) / Math.max(fullText.length, 1);
+  if (upperRatio > 0.2) { score += 2; issues.push('excessive_caps: ' + Math.round(upperRatio * 100) + '%'); }
+
+  // 4. Points d'exclamation excessifs (>2 = spam)
+  const exclamCount = (fullText.match(/!/g) || []).length;
+  if (exclamCount > 2) { score += 1; issues.push('excessive_exclamations: ' + exclamCount); }
+
+  // 5. Subject trop long (>60 chars = penalite delivrabilite)
+  if ((subject || '').length > 60) { score += 1; issues.push('subject_too_long: ' + subject.length + ' chars'); }
+
+  // 6. Emojis dans le sujet (penalise par Gmail)
+  if (/[\u{1F600}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(subject || '')) {
+    score += 1; issues.push('emoji_in_subject');
+  }
+
+  return {
+    score,
+    pass: score < 4, // Block si score >= 4
+    issues,
+    level: score === 0 ? 'clean' : score < 3 ? 'low_risk' : score < 4 ? 'medium_risk' : 'high_risk'
+  };
+}
+
 function _emailPassesQualityGate(subject, body) {
+  // 0. Spam score check (delivrabilite)
+  const spamCheck = _spamScoreCheck(subject, body);
+  if (!spamCheck.pass) {
+    return { pass: false, reason: 'spam_score_' + spamCheck.score + ': ' + spamCheck.issues.join(', ') };
+  }
   // 1. Patterns generiques + meta-prospection
   for (const pattern of GENERIC_PATTERNS) {
     if (pattern.test(body) || pattern.test(subject)) {
@@ -132,7 +198,7 @@ function _emailPassesQualityGate(subject, body) {
       }
     }
   } catch (e) { /* AP storage non dispo, skip */ }
-  return { pass: true };
+  return { pass: true, spamScore: spamCheck };
 }
 
 // --- Cache MX par domaine (1h TTL) ---

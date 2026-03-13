@@ -343,9 +343,16 @@ Exemple 3 (signal croissance, 35 mots) :
 
 C'est un sujet en ce moment ou pas du tout ?"
 
+=== VARIATION STRUCTURELLE (SPINTAX) ===
+Pour eviter que les emails se ressemblent structurellement, utilise la syntaxe {variante1|variante2|variante3} dans ton email :
+- Accroche : {${contact.firstName || contact.company},|${contact.firstName || contact.company} —|Salut ${contact.firstName || ''},}
+- Transitions : {Du coup|Concretement|En fait|D'ailleurs}
+- Question finale : {C'est le cas chez vous ?|C'est un sujet en ce moment ?|Vous avez structure quelque chose ?|C'est prevu ou pas du tout ?|Je me trompe ?}
+IMPORTANT : utilise 2-3 spintax par email (pas plus), sur des parties NON personnalisees. Le contenu personnalise (fait prospect, hypothese) reste fixe.
+
 === FORMAT ===
 JSON valide uniquement, sans markdown, sans backticks.
-{"subject":"objet 2-3 mots minuscules","body":"corps SANS signature, 40-60 mots"}
+{"subject":"objet 2-3 mots minuscules","body":"corps SANS signature, 40-60 mots, avec 2-3 spintax {var1|var2}"}
 OU {"skip": true, "reason": "explication"}`;
 
     let firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
@@ -1304,7 +1311,13 @@ ${bookingUrlBlock}
 - DIFFERENT du/des email(s) precedent(s) (nouvel angle, nouvelle question).
 - N'invente JAMAIS un fait. Annee : 2026. Tutoiement (PME), vouvoiement (corporate).${forbiddenWordsRule}
 
-JSON uniquement : {"subject":"...","body":"..."}`;
+=== VARIATION STRUCTURELLE (SPINTAX) ===
+Utilise 1-2 spintax {variante1|variante2} sur des parties non personnalisees :
+- Question : {C'est le cas ?|C'est un sujet ?|Je me trompe ?|Ou pas du tout ?}
+- Transition : {Du coup|D'ailleurs|En fait}
+Le contenu personnalise reste fixe.
+
+JSON uniquement : {"subject":"...","body":"... avec 1-2 spintax {var1|var2}"}`;
 
     let firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
     // Anti-hallucination prenom
