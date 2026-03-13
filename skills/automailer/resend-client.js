@@ -126,8 +126,16 @@ class ResendClient {
     // Construire le message MIME
     const boundary = 'boundary_' + crypto.randomBytes(8).toString('hex');
     const messageId = '<' + crypto.randomBytes(12).toString('hex') + '@' + smtpDomain + '>';
-    const htmlBody = options.html || this._minimalHtml(body, options.trackingId, toEmail);
-    const trackingDomain = process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr';
+    const htmlBody = options.html || this._minimalHtml(body, options.trackingId, toEmail, {
+      senderDomain: smtpDomain,
+      stepNumber: options.stepNumber || 0
+    });
+    // Tracking domain per-domaine (via domain-manager)
+    let trackingDomain = process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr';
+    try {
+      const dm = require('./domain-manager.js');
+      trackingDomain = dm.getTrackingDomain(smtpDomain);
+    } catch (e) { /* fallback global */ }
 
     const replyTo = options.replyTo || process.env.REPLY_TO_EMAIL || fromEmail;
 
@@ -281,7 +289,10 @@ class ResendClient {
   }
 
   // HTML minimal — ressemble a un email tape dans Gmail, zero branding
-  _minimalHtml(body, trackingId, toEmail) {
+  // options.senderDomain = domaine d'envoi (pour tracking domain per-domaine + age check)
+  // options.stepNumber = numero du step (pour skip liens step 1)
+  _minimalHtml(body, trackingId, toEmail, options) {
+    const opts = options || {};
     let escaped = body
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -292,63 +303,81 @@ class ResendClient {
     const senderFirstName = senderFullName.split(' ')[0];
     const senderTitle = process.env.SENDER_TITLE || 'Fondateur';
     const clientDomain = process.env.CLIENT_DOMAIN || 'ifind.fr';
-    const trackingDomain = process.env.TRACKING_DOMAIN || clientDomain;
-    // Micro-variation signature renforcee (anti-fingerprint + anti-spam pattern)
+
+    // === DELIVERABILITY FIX 1 : Tracking domain per-domaine ===
+    // Chaque domaine d'envoi utilise son propre tracking domain au lieu d'un global partage
+    let trackingDomain = process.env.TRACKING_DOMAIN || clientDomain;
+    let isYoungDomain = false;
+    try {
+      const dm = require('./domain-manager.js');
+      if (opts.senderDomain) {
+        trackingDomain = dm.getTrackingDomain(opts.senderDomain);
+        isYoungDomain = dm.isDomainYoung(opts.senderDomain);
+      }
+    } catch (e) { /* domain-manager non dispo */ }
+
+    // === DELIVERABILITY FIX 2 : Signature minimale sur domaines jeunes ===
+    // Domaines < 45 jours = prenom seul, pas de titre/domaine/tagline
     const dashes = ['\u2014', '\u2013', '--', '\u2015'];
     const dash = dashes[Math.floor(Math.random() * dashes.length)];
-    const separators = [' \u2014 ', ' | ', ' \u2013 ', ', '];
-    const sep = separators[Math.floor(Math.random() * separators.length)];
-    // Variation du nom affiche (prenom seul vs nom complet)
-    const nameVariants = [senderFullName, senderFirstName, senderFullName];
-    const displayName = nameVariants[Math.floor(Math.random() * nameVariants.length)];
-    // Variation du titre (synonymes naturels)
-    const titleVariants = process.env.SENDER_TITLE_VARIANTS
-      ? process.env.SENDER_TITLE_VARIANTS.split(',').map(t => t.trim())
-      : [senderTitle, senderTitle];
-    const displayTitle = titleVariants[Math.floor(Math.random() * titleVariants.length)];
-    const clientTagline = process.env.CLIENT_TAGLINE || '';
-    // Variation du format signature (3 layouts differents)
-    const sigFormat = Math.floor(Math.random() * 3);
     let signature;
-    if (sigFormat === 0) {
-      // Format classique : dash + nom + titre | domaine
-      signature = '<br><span style="color:#666;font-size:13px">'
-        + dash + '<br>'
-        + displayName + '<br>'
-        + displayTitle + sep + clientDomain
-        + (clientTagline ? '<br><span style="font-size:12px;color:#888">' + clientTagline + '</span>' : '')
-        + '</span>';
-    } else if (sigFormat === 1) {
-      // Format compact : dash + nom, titre
-      signature = '<br><span style="color:#666;font-size:13px">'
-        + dash + ' ' + displayName + ', ' + displayTitle
-        + '</span>';
-    } else {
-      // Format minimaliste : juste prenom
+    if (isYoungDomain) {
+      // FORCE signature minimale : juste prenom (comme un vrai email entre humains)
       signature = '<br><span style="color:#666;font-size:13px">'
         + dash + ' ' + senderFirstName
         + '</span>';
+    } else {
+      const separators = [' \u2014 ', ' | ', ' \u2013 ', ', '];
+      const sep = separators[Math.floor(Math.random() * separators.length)];
+      const nameVariants = [senderFullName, senderFirstName, senderFullName];
+      const displayName = nameVariants[Math.floor(Math.random() * nameVariants.length)];
+      const titleVariants = process.env.SENDER_TITLE_VARIANTS
+        ? process.env.SENDER_TITLE_VARIANTS.split(',').map(t => t.trim())
+        : [senderTitle, senderTitle];
+      const displayTitle = titleVariants[Math.floor(Math.random() * titleVariants.length)];
+      const clientTagline = process.env.CLIENT_TAGLINE || '';
+      const sigFormat = Math.floor(Math.random() * 3);
+      if (sigFormat === 0) {
+        signature = '<br><span style="color:#666;font-size:13px">'
+          + dash + '<br>'
+          + displayName + '<br>'
+          + displayTitle + sep + clientDomain
+          + (clientTagline ? '<br><span style="font-size:12px;color:#888">' + clientTagline + '</span>' : '')
+          + '</span>';
+      } else if (sigFormat === 1) {
+        signature = '<br><span style="color:#666;font-size:13px">'
+          + dash + ' ' + displayName + ', ' + displayTitle
+          + '</span>';
+      } else {
+        signature = '<br><span style="color:#666;font-size:13px">'
+          + dash + ' ' + senderFirstName
+          + '</span>';
+      }
     }
 
-    // Click tracking : rewrite URLs in body to redirect through /c/{trackingId}
-    if (trackingId) {
+    // === DELIVERABILITY FIX 3 : Pas de click tracking sur liens si domaine jeune ===
+    // Click tracking = URL redirect via tracking domain = signal spam
+    if (trackingId && !isYoungDomain) {
       escaped = escaped.replace(/(https?:\/\/[^\s<>"'()]+)/g, (url) => {
-        // Decode &amp; back to & for the redirect target
         const cleanUrl = url.replace(/&amp;/g, '&');
         const trackUrl = 'https://' + trackingDomain + '/c/' + trackingId + '?url=' + encodeURIComponent(cleanUrl);
         return '<a href="' + trackUrl + '" style="color:#1a73e8;text-decoration:none">' + url + '</a>';
       });
     }
 
-    // Lien de desabonnement visible dans le footer
+    // Lien de desabonnement visible dans le footer (obligatoire legalement, meme sur domaines jeunes)
     const unsubLink = toEmail
       ? '<br><br><span style="font-size:11px;color:#999"><a href="https://' + trackingDomain + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '" style="color:#999;text-decoration:underline">Se desabonner</a></span>'
       : '';
 
-    // Pixel de tracking ouverture (invisible)
-    const pixel = trackingId
-      ? '<img src="https://' + trackingDomain + '/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">'
-      : '';
+    // === DELIVERABILITY FIX 4 : Pas de pixel tracking sur domaines jeunes ===
+    // Le pixel = image invisible = Google le detecte = signal spam sur domaines sans reputation
+    let pixel = '';
+    if (trackingId && !isYoungDomain) {
+      pixel = '<img src="https://' + trackingDomain + '/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">';
+    } else if (trackingId && isYoungDomain) {
+      log.info('resend-client', 'Pixel tracking SKIP (domaine jeune < 45j) pour ' + (opts.senderDomain || '?'));
+    }
 
     return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + unsubLink + '</div>' + pixel;
   }
@@ -396,13 +425,21 @@ class ResendClient {
     // Fallback Resend API
     options = options || {};
     const fromName = options.fromName || process.env.SENDER_NAME || 'Alexis';
-    const trackingDomainResend = process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr';
+    const fallbackDomain = (this.senderEmail || '').split('@')[1] || process.env.CLIENT_DOMAIN || 'ifind.fr';
+    let trackingDomainResend = process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr';
+    try {
+      const dm = require('./domain-manager.js');
+      trackingDomainResend = dm.getTrackingDomain(fallbackDomain);
+    } catch (e) { /* fallback global */ }
     const payload = {
       from: fromName + ' <' + this.senderEmail + '>',
       to: Array.isArray(to) ? to : [to],
       subject: subject,
       text: body,
-      html: options.html || this._minimalHtml(body, options.trackingId, toEmail),
+      html: options.html || this._minimalHtml(body, options.trackingId, toEmail, {
+        senderDomain: fallbackDomain,
+        stepNumber: options.stepNumber || 0
+      }),
       headers: {
         'List-Unsubscribe': '<https://' + trackingDomainResend + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',

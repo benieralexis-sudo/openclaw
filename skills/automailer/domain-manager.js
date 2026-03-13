@@ -9,6 +9,7 @@ const DATA_DIR = process.env.AUTOMAILER_DATA_DIR || '/data/automailer';
 const DOMAIN_DB = path.join(DATA_DIR, 'domain-manager.json');
 const BOUNCE_THRESHOLD = 0.03; // 3% bounce rate → auto-pause
 const BOUNCE_WINDOW = 100; // Calcule sur les 100 derniers envois
+const YOUNG_DOMAIN_DAYS = 45; // Domaine < 45 jours = jeune (pas de pixel, signature mini, pas de lien step 1)
 
 class DomainManager {
   constructor() {
@@ -256,6 +257,48 @@ class DomainManager {
     return true;
   }
 
+  /**
+   * Retourne l'age du domaine en jours depuis le premier envoi.
+   * @param {string} domain
+   * @returns {number} Jours depuis le premier envoi, 0 si jamais envoye
+   */
+  getDomainAgeDays(domain) {
+    const stats = this.data.domains[domain];
+    if (!stats || !stats.firstSendDate) return 0;
+    return Math.floor((Date.now() - new Date(stats.firstSendDate).getTime()) / 86400000);
+  }
+
+  /**
+   * Determine si un domaine est "jeune" (< 45 jours d'envoi).
+   * Les domaines jeunes doivent : pas de pixel tracking, signature minimale, pas de lien step 1.
+   * @param {string} domain
+   * @returns {boolean}
+   */
+  isDomainYoung(domain) {
+    return this.getDomainAgeDays(domain) < YOUNG_DOMAIN_DAYS;
+  }
+
+  /**
+   * Retourne le tracking domain pour un domaine d'envoi.
+   * Chaque domaine utilise son propre sous-domaine de tracking (track.domaine.com)
+   * au lieu d'un tracking domain global partage.
+   * @param {string} domain - Le domaine d'envoi (ex: getifind.fr)
+   * @returns {string} Le tracking domain (ex: track.getifind.fr ou le domaine lui-meme)
+   */
+  getTrackingDomain(domain) {
+    // Si un TRACKING_DOMAIN_MAP est configure : domaine1:track1,domaine2:track2
+    const mapEnv = (process.env.TRACKING_DOMAIN_MAP || '').trim();
+    if (mapEnv) {
+      for (const entry of mapEnv.split(',')) {
+        const [d, td] = entry.trim().split(':');
+        if (d && td && d.trim() === domain) return td.trim();
+      }
+    }
+    // Fallback : utiliser le domaine d'envoi comme tracking domain
+    // (le serveur ecoute deja sur ce domaine via nginx)
+    return domain;
+  }
+
   // Stats pour le dashboard / monitoring
   getStats() {
     const today = new Date().toISOString().slice(0, 10);
@@ -265,6 +308,7 @@ class DomainManager {
       const warmupLimit = this._getWarmupLimit(d.domain);
       const bounces = (stats.recentResults || []).filter(r => r.bounce).length;
       const total = (stats.recentResults || []).length;
+      const ageDays = this.getDomainAgeDays(d.domain);
       return {
         domain: d.domain,
         type: d.type,
@@ -277,7 +321,11 @@ class DomainManager {
         totalSent: stats.totalSent || 0,
         totalBounced: stats.totalBounced || 0,
         bounceRate: total > 0 ? Math.round((bounces / total) * 100) : 0,
-        firstSendDate: stats.firstSendDate
+        firstSendDate: stats.firstSendDate,
+        ageDays,
+        isYoung: ageDays < YOUNG_DOMAIN_DAYS,
+        trackingDomain: this.getTrackingDomain(d.domain),
+        deliverabilityMode: ageDays < YOUNG_DOMAIN_DAYS ? 'stealth (no pixel, no click track, min signature)' : 'full tracking'
       };
     });
   }

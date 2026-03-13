@@ -1562,12 +1562,32 @@ class CampaignEngine {
       // Generer un tracking ID unique pour le pixel d'ouverture
       const trackingId = require('crypto').randomBytes(16).toString('hex');
 
+      // === DELIVERABILITY FIX 5 : Supprimer les liens du step 1 sur domaines jeunes ===
+      // Les liens dans step 1 = signal spam fort. Pas de booking link, pas de lien site.
+      // Le lien arrive dans les follow-ups ou dans la reponse auto.
+      if (stepNumber <= 1) {
+        try {
+          const dm = require('./domain-manager.js');
+          const selectedDomForLink = dm.selectDomain(contact.email);
+          if (selectedDomForLink && dm.isDomainYoung(selectedDomForLink.domain)) {
+            // Retirer tous les liens du body (sauf domaines d'email mentionnes dans le texte)
+            const linksBefore = (body.match(/https?:\/\/[^\s)]+/g) || []).length;
+            if (linksBefore > 0) {
+              body = body.replace(/\n*https?:\/\/[^\s)]+/g, '');
+              body = body.trim();
+              log.info('campaign-engine', 'DELIVERABILITY: ' + linksBefore + ' lien(s) retire(s) du step 1 pour ' + contact.email + ' (domaine jeune)');
+            }
+          }
+        } catch (dmErr) { /* domain-manager non dispo */ }
+      }
+
       // Threading : recuperer le messageId du dernier email envoye a ce prospect
       const sendOpts = {
         replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL,
         fromName: process.env.SENDER_NAME || 'Alexis',
         trackingId: trackingId,
         campaignId: campaignId,
+        stepNumber: stepNumber,
         tags: [
           { name: 'campaign_id', value: campaignId },
           { name: 'step', value: String(stepNumber) }
@@ -1629,6 +1649,14 @@ class CampaignEngine {
         // FIX 3 : Tracker envoi warmup + date du premier envoi
         storage.setFirstSendDate();
         storage.incrementTodaySendCount();
+
+        // === DELIVERABILITY FIX 6 : Spread horaire entre chaque envoi ===
+        // Delai aleatoire 30-90 secondes entre chaque email (paraître humain)
+        // Les envois en rafale (0s entre chaque) = signal spam fort
+        if (batchSentCount < list.contacts.length) {
+          const spreadDelay = 30000 + Math.floor(Math.random() * 60000); // 30-90s
+          await new Promise(r => setTimeout(r, spreadDelay));
+        }
 
         // Niche tracking pour suivi performance par industrie
         if (contact.industry) {
