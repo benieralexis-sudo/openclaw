@@ -1,3 +1,13 @@
 User-agent: *
 Allow: /
+Disallow: /node_modules/
+Disallow: /prospects.json
+Disallow: /package.json
+Disallow: /package-lock.json
+Disallow: /tracker.js
+Disallow: /visitor-storage.js
+Disallow: /proposition.html
+Disallow: /script-vente.html
+Disallow: /api/
+
 Sitemap: https://ifind.fr/sitemap.xml
