@@ -213,7 +213,9 @@ section{padding:120px 0}
 .pr-list{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
 .pr-list li{display:flex;align-items:flex-start;gap:8px;font-size:14px;color:var(--text-2)}
 .pr-list li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.pr-cost-rdv{font-size:14px;font-weight:600;color:var(--accent);margin-bottom:24px;padding:8px 12px;background:var(--accent-bg);border-radius:var(--r);display:inline-block}
 .pr-note{text-align:center;margin-top:32px;font-size:14px;color:var(--text-3);padding:16px;border:1px solid var(--border);border-radius:var(--r);max-width:500px;margin-left:auto;margin-right:auto}
+.pr-guarantee{text-align:center;margin-top:16px;font-size:15px;font-weight:600;color:var(--green);max-width:500px;margin-left:auto;margin-right:auto}
 
 /* ===== FAQ ===== */
 .faq-list{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:4px}
