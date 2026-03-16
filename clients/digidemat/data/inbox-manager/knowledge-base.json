@@ -1,0 +1,116 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "Knowledge Base Digidemat — grounding reponses IA. Limba: romana. Toute question hors KB = fallback Andreea.",
+    "updatedAt": "2026-03-16"
+  },
+
+  "company": {
+    "name": "Digidemat",
+    "tagline": "Partener oficial Google Workspace in Moldova",
+    "description": "Digidemat este partener oficial Google Workspace. Oferim companiilor din Moldova un pret mai bun decat direct de la Google, suport local in limba romana, formare echipe si tips & tricks pentru a profita la maxim de Google Workspace.",
+    "accountManager": "Andreea Nicoara",
+    "accountManagerTitle": "Account Manager",
+    "managingDirector": "Frederic Flandrin",
+    "website": "digidemat.com",
+    "email": "andreea@digidemat.com",
+    "location": "Romania / Moldova"
+  },
+
+  "services": {
+    "main": "Revendeur oficial Google Workspace — pret redus, suport local in romana, formare echipe",
+    "includes": [
+      "Pret mai mic decat direct de la Google (reducere 5%)",
+      "Suport local in limba romana (nu un bot in engleza)",
+      "Formare echipe — tips & tricks Google Workspace (Gmail, Drive, Calendar, Meet)",
+      "Account manager dedicat (Andreea)",
+      "Ajutor la migrare de la alte sisteme email",
+      "Configurare securitate (2FA, control dispozitive)"
+    ],
+    "does_not_include": [
+      "Dezvoltare software",
+      "Hosting web",
+      "Publicitate online",
+      "Reparatii hardware"
+    ]
+  },
+
+  "target": {
+    "geography": "Moldova (Chisinau si alte orase)",
+    "company_size": "Minimum 10 angajati",
+    "decision_maker": "CEO (PME) sau Director IT (companii mai mari)",
+    "languages": ["romana", "engleza"],
+    "sectors": "Toate sectoarele — nu exista restrictie de industrie"
+  },
+
+  "process": {
+    "steps": [
+      "1. Call rapid cu Andreea — intelegem nevoia (10 min)",
+      "2. Semnare directa — fara demo lunga, fara perioada de test",
+      "3. Migrare si configurare (daca e cazul)",
+      "4. Suport continuu in romana"
+    ],
+    "what_client_gets": [
+      "Pret mai bun decat direct Google",
+      "Un numar de telefon si un email unde raspunde cineva in romana",
+      "Formare echipe pentru a folosi Google Workspace eficient",
+      "Factura locala"
+    ]
+  },
+
+  "differentiators": [
+    "Suport local in limba romana — nu un chatbot Google in engleza",
+    "Account manager dedicat (Andreea) care raspunde rapid",
+    "Formare echipe inclusa — tips & tricks ca sa profiti la maxim de Google Workspace",
+    "Pret mai mic decat direct de la Google (reducere 5%)",
+    "Nu exista alt revendeur Google Workspace in Moldova — suntem singurii cu suport local"
+  ],
+
+  "faq": [
+    {
+      "question": "De ce sa trec prin voi si nu direct prin Google?",
+      "answer": "Platesti mai putin decat direct la Google, ai suport in romana (nu un bot in engleza), si te ajutam cu formarea echipei. Practic primesti mai mult si platesti mai putin."
+    },
+    {
+      "question": "Cat dureaza migrarea?",
+      "answer": "Depinde de cati utilizatori aveti. In general, cateva zile. Ne ocupam noi de tot — voi continuati sa lucrati normal."
+    },
+    {
+      "question": "Ce se intampla daca am o problema?",
+      "answer": "Suni sau scrii la Andreea — raspundem in romana, rapid. Nu mai stai la coada cu suportul Google in engleza."
+    },
+    {
+      "question": "Functioneaza si cu email pe server propriu?",
+      "answer": "Da, putem migra de pe orice sistem — server propriu, Outlook, Exchange, Yahoo. Toate emailurile si contactele se pastreaza."
+    },
+    {
+      "question": "Cat costa?",
+      "answer": "Pretul e mai mic decat direct de la Google. Depinde de numarul de utilizatori si de planul ales. Cel mai simplu e sa discutam 10 minute si iti dau pretul exact."
+    },
+    {
+      "question": "Sunt obligat sa semnez un contract pe termen lung?",
+      "answer": "Intrebare buna — cel mai bine sa discutam conditiile direct cu Andreea, ca sa gasim formula potrivita."
+    }
+  ],
+
+  "forbidden_claims": [
+    "Nu INVENTA cifre, statistici sau rezultate clienti",
+    "Nu MENTIONA: bot, automatizare, IA, machine learning",
+    "Nu CRITICA Google direct — suntem parteneri Google",
+    "Nu PROMITE functionalitati care nu exista",
+    "Nu MENTIONA clienti existenti (nu avem inca case studies)",
+    "Nu DA pretul exact per utilizator — redirectioneaza catre call"
+  ],
+
+  "qualification": {
+    "questions": [
+      "Inainte sa stabilim un call — cati oameni din echipa folosesc email in fiecare zi?",
+      "Folositi deja Google Workspace sau aveti alt sistem de email acum?",
+      "Ce va deranjeaza cel mai mult la sistemul actual de email si colaborare?"
+    ],
+    "when": "before_booking",
+    "max_questions": 1
+  },
+
+  "fallback_phrase": "Intrebare buna — verific si revin catre tine rapid."
+}

@@ -1,27 +1,88 @@
 {
-  "version": "1.0",
-  "clientDescription": "Digidemat este partener oficial Google Workspace cu suport local in limba romana — companiile primesc reducere 5%, asistenta dedicata si migrare completa.",
+  "version": "2.0",
+  "clientDescription": "Digidemat este partener oficial Google Workspace in Moldova — suport local in romana, formare echipe, tips & tricks, pret mai bun decat direct de la Google.",
   "bookingUrl": "",
+  "intentConfig": {
+    "hiringKeywords": ["it manager", "administrator sistem", "director it", "sysadmin", "helpdesk"],
+    "hiringAngle": "Recrutezi pe IT. Echipa creste — momentul perfect sa treci pe un plan Google Workspace cu suport local",
+    "minIntentScore": 3
+  },
   "niches": [
     {
-      "slug": "entreprises-moldavie-gws",
-      "name": "Companii din Moldova pe Google Workspace",
+      "slug": "companii-moldave-gws-direct",
+      "name": "Companii din Moldova pe Google Workspace fara partener",
       "keywords": "Google Workspace OR Gmail business OR G Suite Moldova",
-      "weight": 100,
+      "weight": 40,
       "matchPatterns": ["google workspace", "gmail", "g suite", "google apps", "workspace", "google cloud"],
-      "painPoint": "Platesti Google Workspace direct, fara suport local — cand ai o problema, vorbesti cu un bot in engleza. Fara factura locala, fara cineva care sa te ajute in romana.",
-      "socialProof": "lucram cu companii din Moldova care au trecut pe Google Workspace prin noi — suport in romana, factura locala si pret mai bun",
+      "painPoint": "Platesti Google Workspace direct — fara suport in romana, fara cineva care sa te ajute cand ai o problema. Doar un bot in engleza.",
+      "socialProof": "lucram cu companii din Moldova care au trecut pe Google Workspace prin noi — suport in romana si pret mai bun",
       "triggers": [
         {
           "signal": "growth",
-          "angle": "Echipa creste — fiecare cont nou e o ocazie sa treci pe un plan mai bun cu suport local"
+          "angle": "Echipa creste — fiecare cont nou e o ocazie sa treci pe un plan cu suport local si pret mai bun"
+        },
+        {
+          "signal": "hiring",
+          "angle": "Recrutezi — mai multi oameni pe Google Workspace inseamna mai multe intrebari IT. Cine le raspunde azi?"
         },
         {
           "signal": "default",
-          "angle": "Platesti Google Workspace direct? Fara suport local, fara factura in lei, fara cineva care sa raspunda in romana?"
+          "angle": "Platesti Google Workspace direct la Google? Fara suport in romana, fara formare echipe?"
         }
       ],
-      "exampleEmail": "Andrei, [Companie] are 20 de oameni pe Google Workspace — platiti direct la Google sau aveti un partener local?\n\nLucram cu companii din Moldova — suport in romana, factura locala si un pret mai bun decat direct.\n\nIti arat in 15 min cum functioneaza daca te intereseaza."
+      "exampleEmail": "Andrei, [Companie] are 25 de oameni pe Google Workspace — cand cineva din echipa are o problema, cum se rezolva azi?\n\nLucram cu companii din Moldova — suport in romana, formare echipe si un pret mai bun decat direct.\n\nMerita o discutie de 10 minute?"
+    },
+    {
+      "slug": "companii-moldave-fara-gws",
+      "name": "Companii din Moldova care nu folosesc inca Google Workspace",
+      "keywords": "companie Moldova OR firma Chisinau OR SRL Moldova",
+      "weight": 25,
+      "matchPatterns": ["outlook", "exchange", "office 365", "microsoft 365", "email propriu", "webmail"],
+      "painPoint": "Emailurile pe servere locale sau Outlook vechi — se pierd, nu ai colaborare in timp real, backup nesigur.",
+      "socialProof": "companiile care trec pe Google Workspace castiga in medie 2h/zi pe echipa in productivitate",
+      "triggers": [
+        {
+          "signal": "growth",
+          "angle": "Echipa creste — cu emailuri pe servere locale, colaborarea devine un cosmar. Google Workspace rezolva asta"
+        },
+        {
+          "signal": "default",
+          "angle": "Echipa foloseste email pe server propriu sau Outlook? Colaborarea in timp real e complicata asa"
+        }
+      ],
+      "exampleEmail": "Maria, [Companie] are 15 oameni si vad ca folositi email pe server propriu. Intrebare sincera — cand doi colegi lucreaza pe acelasi document, cum faceti azi?\n\nGoogle Workspace rezolva asta — si cu un partener local, migrarea e simpla."
+    },
+    {
+      "slug": "companii-moldave-it-security",
+      "name": "Companii care au nevoie de securitate IT",
+      "keywords": "securitate IT Moldova OR GDPR Moldova OR protectie date",
+      "weight": 20,
+      "matchPatterns": ["securitate", "gdpr", "protectie date", "2fa", "autentificare", "phishing", "ransomware"],
+      "painPoint": "Emailuri pe servere locale = risc de phishing, pierdere date, zero control pe dispozitive. Google Workspace + partener local = securitate enterprise.",
+      "socialProof": "Google Workspace include 2FA, control dispozitive, anti-phishing — si cu un partener local, configurarea e corecta",
+      "triggers": [
+        {
+          "signal": "default",
+          "angle": "Cu emailuri pe servere locale, un singur click pe un link gresit poate bloca toata firma. Ati verificat securitatea email recent?"
+        }
+      ],
+      "exampleEmail": "Ion, [Companie] are 30 de oameni — intrebare directa: aveti 2FA activat pe emailurile echipei?\n\nVedem multe companii din Moldova vulnerabile la phishing. Google Workspace rezolva asta nativ, si noi ajutam la configurare."
+    },
+    {
+      "slug": "cabinete-contabile",
+      "name": "Cabinete contabile si firme de audit",
+      "keywords": "contabilitate Moldova OR cabinet contabil OR audit Moldova",
+      "weight": 15,
+      "matchPatterns": ["contabilitate", "cabinet contabil", "audit", "expert contabil", "consultanta fiscala", "firma contabilitate"],
+      "painPoint": "Documente confidentiale trimise pe email nesecurizat. Google Workspace = stocare securizata, partajare controlata, backup automat.",
+      "socialProof": "cabinetele contabile care trec pe Google Workspace elimina riscul de pierdere documente si castiga timp pe colaborare",
+      "triggers": [
+        {
+          "signal": "default",
+          "angle": "Gestionezi documente financiare confidentiale pe email clasic? Google Workspace securizeaza totul nativ"
+        }
+      ],
+      "exampleEmail": "Elena, [Cabinet] gestioneaza documente financiare pentru zeci de clienti. Intrebare simpla — cum protejati azi fisierele partajate intre echipa?\n\nGoogle Workspace rezolva asta cu stocare securizata si control acces. Merita 10 minute?"
     }
   ]
 }
