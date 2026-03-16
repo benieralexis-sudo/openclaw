@@ -125,7 +125,14 @@ const SPAM_TRIGGER_PATTERNS = [
   /\b(double your|doublez|triple your|triplez)\b/i,
   /\b(limited time|temps limite|derniere chance|last chance)\b/i,
   /\b(no obligation|sans obligation|sans engagement)\b/i,
-  /\b(unbelievable|incroyable deal|deal exclusif)\b/i
+  /\b(unbelievable|incroyable deal|deal exclusif)\b/i,
+  // Patterns roumains
+  /\b(oferta speciala|oferta exclusiva|oferta limitata)\b/i,
+  /\b(apasati aici|actionati acum)\b/i,
+  /\b(felicitari|ati castigat)\b/i,
+  /\b(cumpara acum|comanda acum)\b/i,
+  /\b(venit pasiv|castiga bani)\b/i,
+  /\b(timp limitat|ultima sansa|fara obligatii)\b/i
 ];
 
 function _spamScoreCheck(subject, body) {

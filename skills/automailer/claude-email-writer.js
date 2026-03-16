@@ -1,6 +1,80 @@
 // AutoMailer - Redaction IA d'emails via Claude API (+ OpenAI GPT-4o-mini pour taches simples)
 const https = require('https');
 
+// === LANG_PATTERNS : listes de mots par langue pour le scoring Lavender ===
+const LANG_PATTERNS = {
+  fr: {
+    deadCTAs: ['curieux d\'avoir ton retour', 'curieux d\'avoir ton avis', 'curieux de savoir',
+      'qu\'en penses-tu', 'qu\'en pensez-vous', 'ton retour m\'interesse', 'dis-moi ce que tu en penses',
+      'curieux d\'avoir votre retour', 'curieux d\'avoir votre avis',
+      'curieux d\'en savoir plus', 'ton avis m\'interesse',
+      'c\'est quoi la strategie', 'c\'est quoi le plan',
+      'conviction ou differenciation', 'choix strategique ou'],
+    metaP: ['comment tu prospectes', 'comment vous prospectez', 'comment tu acquiers',
+      'comment tu generes', 'comment tu trouves de nouveaux clients', 'acquisition de clients',
+      'generer des leads', 'trouver de nouveaux clients'],
+    fakeCaseStudy: /\d+\s*(?:nouveaux?\s+)?(?:clients?|contacts?|meetings?|mandats?|dossiers?|missions?|comptes?|rdv|rendez-vous)\s+(?:en|par)\s+\d+\s*(?:mois|semaines?|jours?)/i,
+    hesitant: ['peut-etre', 'je me trompe', 'c\'est peut-etre pas', 'je me demandais',
+      'pas du tout', 'ou pas', 'c\'est le cas', 'je me permets pas', 'je sais pas si',
+      'j\'ignore si', 'c\'est un sujet ou', 'ou c\'est encore', 'ou pas du tout',
+      'c\'est le cas chez', 'vous avez quelque chose'],
+    casual: ['t\'', 'j\'', 'c\'est', 'y\'a', 'l\'', 'd\'', 'qu\'', 'n\''],
+    jePatterns: /\bje\b|\bj'/g,
+    nousPatterns: /\bnous\b/g,
+    tuPatterns: /\btu\b|\bt'/g,
+    vousPatterns: /\bvous\b|\bvotre\b|\bvos\b|\bton\b|\bta\b|\btes\b/g,
+    passiveConditional: /\bserait\b|\bpourrait\b|\bdevrait\b|\baurait\b/g,
+    complexWords: ['neanmoins', 'toutefois', 'cependant', 'effectivement', 'fondamentalement',
+      'potentiellement', 'strategiquement', 'systematiquement', 'problematique', 'optimiser',
+      'implementation', 'transformation', 'digitalisation', 'accompagnement'],
+    hypothesis: ['ca veut souvent dire', 'ca veut dire', 'ca signifie',
+      'depend encore', 'repose encore', 'reposent encore', 'porte encore', 'portent encore',
+      'absorbe tout', 'ne suit pas', 'suivent pas',
+      'plafonne', 'du mal a', 'le risque', 'le defi', 'la difficulte',
+      'souvent ca', 'souvent le', 'souvent les', 'souvent c\'est'],
+    numbersPattern: /\d+\s*(?:personnes?|postes?|salaries?|collaborateurs?|%|euros?|millions?|M€)/,
+    valueCTAs: ['c\'est un sujet', 'c\'est le cas', 'ou pas', 'pas du tout',
+      'ca vous parle', 'ca te parle', 'un sujet chez', 'comment tu', 'comment vous',
+      'vous avez', 'tu as', 'structure', 'en interne', 'externalise',
+      'je te montre', 'je vous montre', 'on en parle', 'on en discute',
+      'dispo si', 'ca t\'interesse', 'ca vous interesse']
+  },
+  ro: {
+    deadCTAs: ['curios sa aflu parerea ta', 'curios sa stiu', 'ce parere ai',
+      'ce credeti', 'parerea ta ma intereseaza', 'spune-mi ce crezi',
+      'curios sa aflu mai multe', 'alegere strategica sau',
+      'ce strategie aveti', 'care e planul'],
+    metaP: ['cum prospectezi', 'cum achizitionezi clienti', 'cum generezi',
+      'cum gasesti clienti noi', 'achizitie de clienti', 'generare de leaduri',
+      'gasirea de clienti noi', 'cum atragi clienti'],
+    fakeCaseStudy: /\d+\s*(?:noi\s+)?(?:clienti?|contacte?|intalniri?|mandate?|dosare?|misiuni?|conturi?)\s+(?:in|pe)\s+\d+\s*(?:luni?|saptamani?|zile?)/i,
+    hesitant: ['poate', 'ma insel', 'poate nu e cazul', 'ma intrebam',
+      'deloc', 'sau nu', 'e cazul', 'nu stiu daca', 'oare',
+      's-ar putea', 'sau poate nu', 'e cazul la',
+      'aveti ceva', 'sau deloc', 'poate gresesc'],
+    casual: ['n-am', 'nu-i', 'ce-i', 'n-ai', 'nu-s', 'mi-e', 'ti-e', 'asa-i', 'e ok', 'da\''],
+    jePatterns: /\beu\b/g,
+    nousPatterns: /\bnoi\b/g,
+    tuPatterns: /\btu\b/g,
+    vousPatterns: /\bdumneavoastra\b|\bechipa\s+ta\b|\bechipa\s+voastra\b|\bvoi\b|\bfirma\s+ta\b|\bcompania\s+ta\b/g,
+    passiveConditional: /\bar fi\b|\bar putea\b|\bar trebui\b|\bs-ar\b/g,
+    complexWords: ['cu toate acestea', 'in mod fundamental', 'in mod sistematic',
+      'din punct de vedere strategic', 'problematica', 'implementare',
+      'transformare', 'digitalizare', 'acompaniament', 'potentialul',
+      'semnificativ', 'substantialmente'],
+    hypothesis: ['asta inseamna ca', 'asta inseamna', 'inseamna ca',
+      'depinde inca de', 'se bazeaza inca pe', 'absoarbe tot',
+      'nu urmareste', 'stagneaza', 'dificultatea', 'riscul', 'provocarea',
+      'de obicei asta', 'de obicei', 'adesea', 'in general'],
+    numbersPattern: /\d+\s*(?:persoane?|posturi?|angajati?|colaboratori?|%|euro?|lei|milioane?)/,
+    valueCTAs: ['e un subiect', 'e cazul', 'sau nu', 'deloc',
+      'va vorbeste', 'iti vorbeste', 'un subiect la', 'cum',
+      'aveti', 'ai', 'intern', 'externalizat',
+      'iti arat', 'va arat', 'discutam', 'vorbim',
+      'te intereseaza', 'va intereseaza', 'merita', 'sau deloc']
+  }
+};
+
 class ClaudeEmailWriter {
   constructor(apiKey) {
     this.apiKey = apiKey;
@@ -327,7 +401,28 @@ Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : 
 - N'invente JAMAIS un fait sur le prospect. Annee : 2026.
 - Tutoiement (PME <100 pers), vouvoiement (corporate).
 ${nicheExampleBlock}
-=== EXEMPLES 10/10 (TON HESITANT + COURT) ===
+${emailLanguage === 'ro' ? `=== EXEMPLE 10/10 (TON EZITANT + SCURT) ===
+Exemplu 1 (semnal crestere, 38 cuvinte) :
+"Andrei, [Companie] are 25 de oameni pe Google Workspace. Asta inseamna de obicei ca echipa foloseste doar Gmail si Drive, dar Calendar partajat, Spaces, regulile automate — nimeni nu le-a configurat.
+
+E cazul sau ma insel?"
+
+Exemplu 2 (semnal securitate, 35 cuvinte) :
+"Maria, [Companie] are 30 de oameni — intrebare rapida: aveti 2FA activat pe toate conturile Google Workspace?
+
+Vedem multe firme unde un singur cont fara 2FA compromite totul. Poate nu e cazul la voi?"
+
+Exemplu 3 (semnal general, 32 cuvinte) :
+"Ion, [Companie] foloseste Google Workspace direct de la Google. Fara suport in romana, fara cineva care sa te ajute cand ai o problema.
+
+E un subiect sau deloc?"
+
+=== VARIATIE STRUCTURALA (SPINTAX) ===
+Ca emailurile sa nu se asemene structural, foloseste sintaxa {varianta1|varianta2|varianta3} :
+- Deschidere : {${contact.firstName || contact.company},|${contact.firstName || contact.company} —|Salut ${contact.firstName || ''},}
+- Tranzitii : {Deci|De altfel|De fapt|Concret}
+- Intrebare finala : {E cazul?|E un subiect?|Ma insel?|Sau deloc?|Merita o discutie?}
+IMPORTANT : foloseste 2-3 spintax pe email (nu mai mult), pe parti NEpersonalizate. Continutul personalizat ramane fix.` : `=== EXEMPLES 10/10 (TON HESITANT + COURT) ===
 Exemple 1 (signal recrutement, 38 mots) :
 "Thomas, 3 postes commerciaux ouverts chez [Agence]. Ca veut souvent dire que les nouveaux clients reposent encore sur toi.
 
@@ -348,11 +443,11 @@ Pour eviter que les emails se ressemblent structurellement, utilise la syntaxe {
 - Accroche : {${contact.firstName || contact.company},|${contact.firstName || contact.company} —|Salut ${contact.firstName || ''},}
 - Transitions : {Du coup|Concretement|En fait|D'ailleurs}
 - Question finale : {C'est le cas chez vous ?|C'est un sujet en ce moment ?|Vous avez structure quelque chose ?|C'est prevu ou pas du tout ?|Je me trompe ?}
-IMPORTANT : utilise 2-3 spintax par email (pas plus), sur des parties NON personnalisees. Le contenu personnalise (fait prospect, hypothese) reste fixe.
+IMPORTANT : utilise 2-3 spintax par email (pas plus), sur des parties NON personnalisees. Le contenu personnalise (fait prospect, hypothese) reste fixe.`}
 
 === FORMAT ===
 JSON valide uniquement, sans markdown, sans backticks.
-{"subject":"objet 2-3 mots minuscules","body":"corps SANS signature, 40-60 mots, avec 2-3 spintax {var1|var2}"}
+{"subject":"${emailLanguage === 'ro' ? 'subiect 2-3 cuvinte litere mici' : 'objet 2-3 mots minuscules'}","body":"${emailLanguage === 'ro' ? 'corp FARA semnatura, 40-60 cuvinte, cu 2-3 spintax {var1|var2}' : 'corps SANS signature, 40-60 mots, avec 2-3 spintax {var1|var2}'}"}
 OU {"skip": true, "reason": "explication"}`;
 
     let firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
@@ -475,6 +570,9 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
   // Poids proportionnels a l'impact mesure : formality 2.11x > clarity 1.66x > sentences 1.57x > mobile +24% > words +23%
   // 100% programmatique, 0 API call, 0 cout, 0 latence
   _lavenderScore(subject, body, contact) {
+    const lang = process.env.EMAIL_LANGUAGE || 'fr';
+    const L = LANG_PATTERNS[lang] || LANG_PATTERNS.fr;
+
     const bodyLower = (body || '').toLowerCase();
     const subjectLower = (subject || '').toLowerCase();
     const words = (body || '').split(/\s+/).filter(w => w.length > 0);
@@ -482,23 +580,13 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     const details = {};
 
     // === BLOCKS DIRECTS (score 0, skip immediat) ===
-    const deadCTAs = ['curieux d\'avoir ton retour', 'curieux d\'avoir ton avis', 'curieux de savoir',
-      'qu\'en penses-tu', 'qu\'en pensez-vous', 'ton retour m\'interesse', 'dis-moi ce que tu en penses',
-      'curieux d\'avoir votre retour', 'curieux d\'avoir votre avis',
-      'curieux d\'en savoir plus', 'ton avis m\'interesse',
-      'c\'est quoi la strategie', 'c\'est quoi le plan',
-      'conviction ou differenciation', 'choix strategique ou'];
-    for (const cta of deadCTAs) {
+    for (const cta of L.deadCTAs) {
       if (bodyLower.includes(cta)) return { block: true, score: 0, grade: 'F', reason: 'dead_cta:' + cta, details: {} };
     }
 
-    const metaP = ['comment tu prospectes', 'comment vous prospectez', 'comment tu acquiers',
-      'comment tu generes', 'comment tu trouves de nouveaux clients', 'acquisition de clients',
-      'generer des leads', 'trouver de nouveaux clients'];
-    if (metaP.some(m => bodyLower.includes(m))) return { block: true, score: 0, grade: 'F', reason: 'meta_prospection', details: {} };
+    if (L.metaP.some(m => bodyLower.includes(m))) return { block: true, score: 0, grade: 'F', reason: 'meta_prospection', details: {} };
 
-    const fakeCaseStudy = /\d+\s*(?:nouveaux?\s+)?(?:clients?|contacts?|meetings?|mandats?|dossiers?|missions?|comptes?|rdv|rendez-vous)\s+(?:en|par)\s+\d+\s*(?:mois|semaines?|jours?)/i;
-    if (fakeCaseStudy.test(body || '')) return { block: true, score: 0, grade: 'F', reason: 'fake_case_study', details: {} };
+    if (L.fakeCaseStudy.test(body || '')) return { block: true, score: 0, grade: 'F', reason: 'fake_case_study', details: {} };
 
     const jargonWords = ['\\bpipe\\b', '\\bpipeline\\b', '\\boutbound\\b', '\\binbound\\b', '\\bscale\\b', '\\bscaler\\b',
       '\\bleads?\\b', '\\bfunnel\\b', '\\bchurn\\b', '\\bgrowth\\b', '\\bonboarding\\b', '\\bdeal flow\\b', '\\bcrm\\b'];
@@ -514,23 +602,18 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     // === 1. TON / FORMALITE — /20 (impact 2.11x replies) ===
     let ton = 0;
     // Ton hesitant (+35% replies) — le critere le plus impactant
-    const hesitantMarkers = ['peut-etre', 'je me trompe', 'c\'est peut-etre pas', 'je me demandais',
-      'pas du tout', 'ou pas', 'c\'est le cas', 'je me permets pas', 'je sais pas si',
-      'j\'ignore si', 'c\'est un sujet ou', 'ou c\'est encore', 'ou pas du tout',
-      'c\'est le cas chez', 'vous avez quelque chose'];
-    const hesitantCount = hesitantMarkers.filter(m => bodyLower.includes(m)).length;
+    const hesitantCount = L.hesitant.filter(m => bodyLower.includes(m)).length;
     if (hesitantCount >= 2) ton += 9;
     else if (hesitantCount === 1) ton += 6;
 
     // Casual / contractions / fragments (Lavender : "slightly casual" = 2.11x)
-    const casualMarkers = ['t\'', 'j\'', 'c\'est', 'y\'a', 'l\'', 'd\'', 'qu\'', 'n\''];
-    const casualCount = casualMarkers.filter(m => bodyLower.includes(m)).length;
+    const casualCount = L.casual.filter(m => bodyLower.includes(m)).length;
     if (casualCount >= 3) ton += 5;
     else if (casualCount >= 1) ton += 3;
 
-    // Ratio Je/Tu (parler du prospect 2x plus que de soi) — "on" = neutre, pas compte comme "je"
-    const jeCount = (bodyLower.match(/\bje\b|\bj'/g) || []).length + (bodyLower.match(/\bnous\b/g) || []).length;
-    const tuCount = (bodyLower.match(/\btu\b|\bt'/g) || []).length + (bodyLower.match(/\bvous\b|\bvotre\b|\bvos\b|\bton\b|\bta\b|\btes\b/g) || []).length;
+    // Ratio Je/Tu (parler du prospect 2x plus que de soi)
+    const jeCount = (bodyLower.match(L.jePatterns) || []).length + (bodyLower.match(L.nousPatterns) || []).length;
+    const tuCount = (bodyLower.match(L.tuPatterns) || []).length + (bodyLower.match(L.vousPatterns) || []).length;
     if (tuCount > 0 && tuCount >= jeCount) ton += 5;
     else if (tuCount > 0 && jeCount <= tuCount * 1.5) ton += 3;
     else if (jeCount > 0 && tuCount === 0) ton += 0;
@@ -541,7 +624,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     if (jargonFound.length === 1) ton = Math.max(0, ton - 3);
 
     // Voix passive / conditionnels (Lavender penalise)
-    const passiveConditional = (bodyLower.match(/\bserait\b|\bpourrait\b|\bdevrait\b|\baurait\b/g) || []).length;
+    const passiveConditional = (bodyLower.match(L.passiveConditional) || []).length;
     if (passiveConditional >= 2) ton = Math.max(0, ton - 3);
 
     ton = Math.min(20, ton);
@@ -549,7 +632,6 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
 
     // === 2. CLARTE / LISIBILITE — /18 (impact 1.66x replies, 3rd-5th grade) ===
     let clarte = 0;
-    // Longueur moyenne des phrases — seuils adaptes au francais (plus long que l'anglais)
     const sentences = (body || '').split(/[.!?]+/).filter(s => s.trim().length > 0);
     const avgSentenceLen = sentences.length > 0 ? wordCount / sentences.length : wordCount;
     if (avgSentenceLen <= 10) clarte += 8;
@@ -563,11 +645,8 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     else if (shortRatio >= 0.65) clarte += 4;
     else if (shortRatio >= 0.5) clarte += 2;
 
-    // Pas de mots complexes / jargon FR
-    const complexWords = ['neanmoins', 'toutefois', 'cependant', 'effectivement', 'fondamentalement',
-      'potentiellement', 'strategiquement', 'systematiquement', 'problematique', 'optimiser',
-      'implementation', 'transformation', 'digitalisation', 'accompagnement'];
-    const complexFound = complexWords.filter(w => bodyLower.includes(w)).length;
+    // Pas de mots complexes
+    const complexFound = L.complexWords.filter(w => bodyLower.includes(w)).length;
     if (complexFound === 0) clarte += 4;
     else if (complexFound === 1) clarte += 2;
 
@@ -575,7 +654,6 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     details.clarte = clarte;
 
     // === 3. PHRASES LONGUES — /15 (impact 1.57x replies, cible 0 phrase longue) ===
-    // Seuil 18 mots pour le francais (naturellement plus long que l'anglais)
     let phrases = 0;
     const longSentences = sentences.filter(s => s.trim().split(/\s+/).length > 18).length;
     if (longSentences === 0) phrases = 15;
@@ -587,21 +665,13 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     let perso = 0;
     const fn = ((contact.firstName || contact.name || '').split(' ')[0] || '').toLowerCase();
     const co = (contact.company || '').toLowerCase();
-    // Prenom dans le body
     if (fn && fn.length > 2 && bodyLower.includes(fn)) perso += 4;
-    // Entreprise dans le body
     if (co && co.length > 2 && bodyLower.includes(co.substring(0, Math.min(co.length, 15)).toLowerCase())) perso += 4;
     // Fait specifique (hypothese business = personnalisation profonde)
-    const hypothesisMarkers = ['ca veut souvent dire', 'ca veut dire', 'ca signifie',
-      'depend encore', 'repose encore', 'reposent encore', 'porte encore', 'portent encore',
-      'absorbe tout', 'ne suit pas', 'suivent pas',
-      'plafonne', 'du mal a', 'le risque', 'le defi', 'la difficulte',
-      'souvent ca', 'souvent le', 'souvent les', 'souvent c\'est'];
-    const hasHypothesis = hypothesisMarkers.some(m => bodyLower.includes(m));
+    const hasHypothesis = L.hypothesis.some(m => bodyLower.includes(m));
     if (hasHypothesis) perso += 7;
     else {
-      // Fallback : chercher des signaux de personnalisation (chiffres, postes, noms propres)
-      const hasNumbers = /\d+\s*(?:personnes?|postes?|salaries?|collaborateurs?|%|euros?|millions?|M€)/.test(body || '');
+      const hasNumbers = L.numbersPattern.test(body || '');
       if (hasNumbers) perso += 4;
     }
     perso = Math.min(15, perso);
@@ -653,12 +723,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
 
     // Question ouverte en fin d'email (CTC) — pas dans le score mais verification
     const endsWithQuestion = (body || '').trim().endsWith('?');
-    const valueCTAs = ['c\'est un sujet', 'c\'est le cas', 'ou pas', 'pas du tout',
-      'ca vous parle', 'ca te parle', 'un sujet chez', 'comment tu', 'comment vous',
-      'vous avez', 'tu as', 'structure', 'en interne', 'externalise',
-      'je te montre', 'je vous montre', 'on en parle', 'on en discute',
-      'dispo si', 'ca t\'interesse', 'ca vous interesse'];
-    const hasCTA = valueCTAs.some(m => bodyLower.includes(m)) || endsWithQuestion;
+    const hasCTA = L.valueCTAs.some(m => bodyLower.includes(m)) || endsWithQuestion;
     if (!hasCTA) {
       // Pas de question = email mort, malus fort
       details._noCTA = true;
@@ -1286,22 +1351,39 @@ Mission : un angle different tire des DONNEES PROSPECT. 25-40 mots. Ton hesitant
       fuLanguageBlock = `LANGUAGE: Write in ${fuEmailLanguage}.\n`;
     }
 
-    const systemPrompt = `${fuLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance.
-${winningPatternsBlockFU}
-=== STRATEGIE STEP ${stepNumber}/${totalSteps} ===
-${stepStrategy}
-${stepExample ? '\n' + stepExample : ''}
-${bookingUrlBlock}
-
-=== METHODE LAVENDER (OBLIGATOIRE — meme pour les relances) ===
+    // Blocs Lavender et interdits adaptes a la langue
+    let lavenderBlockFU, interditsBlockFU, spintaxBlockFU;
+    if (fuEmailLanguage === 'ro') {
+      lavenderBlockFU = `=== METODA LAVENDER (OBLIGATORIU — chiar si pentru follow-upuri) ===
+1. ${isBreakup ? '10-20 CUVINTE' : stepNumber === 3 ? '15-25 CUVINTE' : '25-40 CUVINTE'} MAX. Mai scurt decat emailul initial. Fiecare cuvant trebuie sa merite locul.
+2. NIVEL SIMPLU : propozitii scurte, cuvinte simple. Fara jargon englezesc (pipe, outbound, scale, lead, funnel).
+3. TON EZITANT : "poate ma insel", "poate nu e cazul", "sau deloc?". Chiar si la follow-upuri.
+4. INTREBARE DESCHISA la finalul emailului. Nu "ai 15 min?".
+5. SUBIECT : 2-3 cuvinte, litere mici, contine prenume sau companie. DIFERIT de cele anterioare.
+6. RAPORT EU/TU : vorbeste despre prospect mai mult decat despre tine.`;
+      interditsBlockFU = `=== INTERZIS ===
+- FARA linie lunga (em dash). FARA "Buna ziua" formal. FARA semnatura.
+- FARA social proof inventat. FARA "un client similar a facut X in Y luni".
+- FARA "referitor la emailul meu", "revin catre tine", "imi permit sa revin".
+- FARA meta-prospectare, pitch, preturi, bullet points.
+- FARA fraze goale : "impresionant", "potential", "frumos".
+- FARA jargon : pipe, pipeline, outbound, lead, funnel, scale, growth, CRM.
+- DIFERIT de emailul/emailurile anterioare (unghi nou, intrebare noua).
+- Nu INVENTA niciodata un fapt. Anul: 2026. Tutuit (PME), cu dumneavoastra (corporate).${forbiddenWordsRule}`;
+      spintaxBlockFU = `=== VARIATIE STRUCTURALA (SPINTAX) ===
+Foloseste 1-2 spintax {varianta1|varianta2} pe parti nepersonalizate :
+- Intrebare : {E cazul?|E un subiect?|Ma insel?|Sau deloc?}
+- Tranzitie : {Deci|De altfel|De fapt}
+Continutul personalizat ramane fix.`;
+    } else {
+      lavenderBlockFU = `=== METHODE LAVENDER (OBLIGATOIRE — meme pour les relances) ===
 1. ${isBreakup ? '10-20 MOTS' : stepNumber === 3 ? '15-25 MOTS' : '25-40 MOTS'} MAX. Plus court que le step 1. Chaque mot doit meriter sa place.
 2. NIVEAU CM1 : phrases courtes, mots simples. Pas de jargon anglais (pipe, outbound, scale, lead, funnel).
 3. TON HESITANT : "je me trompe peut-etre", "c'est peut-etre pas le cas", "ou pas du tout ?". Meme sur les relances.
 4. QUESTION OUVERTE en fin d'email. Pas "dispo 15 min ?".
 5. OBJET : 2-3 mots, minuscules, contient prenom ou entreprise. DIFFERENT des precedents.
-6. RATIO JE/TU : parle du prospect plus que de toi.
-
-=== INTERDITS ===
+6. RATIO JE/TU : parle du prospect plus que de toi.`;
+      interditsBlockFU = `=== INTERDITS ===
 - PAS de tiret cadratin. PAS de "Bonjour". PAS de signature.
 - PAS de social proof invente. PAS de "un client similaire a fait X en Y mois".
 - PAS de "suite a mon email", "je reviens vers vous", "je me permets de relancer".
@@ -1309,13 +1391,26 @@ ${bookingUrlBlock}
 - PAS de phrases creuses : "beau move", "impressionnant", "potentiellement".
 - PAS de jargon : pipe, pipeline, outbound, lead, funnel, scale, growth, CRM.
 - DIFFERENT du/des email(s) precedent(s) (nouvel angle, nouvelle question).
-- N'invente JAMAIS un fait. Annee : 2026. Tutoiement (PME), vouvoiement (corporate).${forbiddenWordsRule}
-
-=== VARIATION STRUCTURELLE (SPINTAX) ===
+- N'invente JAMAIS un fait. Annee : 2026. Tutoiement (PME), vouvoiement (corporate).${forbiddenWordsRule}`;
+      spintaxBlockFU = `=== VARIATION STRUCTURELLE (SPINTAX) ===
 Utilise 1-2 spintax {variante1|variante2} sur des parties non personnalisees :
 - Question : {C'est le cas ?|C'est un sujet ?|Je me trompe ?|Ou pas du tout ?}
 - Transition : {Du coup|D'ailleurs|En fait}
-Le contenu personnalise reste fixe.
+Le contenu personnalise reste fixe.`;
+    }
+
+    const systemPrompt = `${fuLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris une relance.
+${winningPatternsBlockFU}
+=== STRATEGIE STEP ${stepNumber}/${totalSteps} ===
+${stepStrategy}
+${stepExample ? '\n' + stepExample : ''}
+${bookingUrlBlock}
+
+${lavenderBlockFU}
+
+${interditsBlockFU}
+
+${spintaxBlockFU}
 
 JSON uniquement : {"subject":"...","body":"... avec 1-2 spintax {var1|var2}"}`;
 

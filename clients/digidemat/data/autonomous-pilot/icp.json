@@ -15,7 +15,7 @@
       "weight": 50,
       "matchPatterns": ["google workspace", "gmail", "g suite", "google apps", "workspace", "google cloud"],
       "painPoint": "Echipa foloseste Google Workspace dar cunoaste doar Gmail si Drive basic. 80% din features raman nefolosite — Calendar partajat, Spaces, reguli automate, shortcuturi.",
-      "socialProof": "lucram cu companii din Moldova care au trecut pe Google Workspace prin noi — suport in romana si formare echipe",
+      "socialProof": "suntem singurul partener Google Workspace din Moldova cu suport complet in romana si formare echipe",
       "triggers": [
         {
           "signal": "growth",
@@ -39,7 +39,7 @@
       "weight": 20,
       "matchPatterns": ["outlook", "exchange", "office 365", "microsoft 365", "email propriu", "webmail"],
       "painPoint": "Emailurile pe servere locale sau Outlook vechi — se pierd, nu ai colaborare in timp real, backup nesigur.",
-      "socialProof": "companiile care trec pe Google Workspace castiga timp pe colaborare si elimina problemele de email",
+      "socialProof": "partener oficial Google Workspace — migrare completa, suport in romana, formare echipe inclusa",
       "triggers": [
         {
           "signal": "growth",
@@ -59,7 +59,7 @@
       "weight": 15,
       "matchPatterns": ["securitate", "gdpr", "protectie date", "2fa", "autentificare", "phishing", "ransomware", "google workspace"],
       "painPoint": "Google Workspace e instalat dar 2FA dezactivat, partajarea fisierelor pe 'oricine cu linkul', fara reguli de securitate. Un click gresit si totul e compromis.",
-      "socialProof": "ajutam companii din Moldova sa configureze corect Google Workspace — 2FA, control dispozitive, reguli de partajare",
+      "socialProof": "partener Google Workspace — configurare 2FA, control dispozitive, reguli de partajare incluse",
       "triggers": [
         {
           "signal": "default",
@@ -75,7 +75,7 @@
       "weight": 15,
       "matchPatterns": ["contabilitate", "cabinet contabil", "audit", "expert contabil", "consultanta fiscala", "firma contabilitate"],
       "painPoint": "Documente financiare partajate pe email sau USB. Google Workspace = stocare securizata, partajare controlata, backup automat. Dar trebuie configurat corect.",
-      "socialProof": "cabinetele contabile care folosesc corect Google Workspace elimina riscul de pierdere documente",
+      "socialProof": "Google Workspace cu stocare securizata, backup automat si control acces — configurare corecta inclusa",
       "triggers": [
         {
           "signal": "default",
