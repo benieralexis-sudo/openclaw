@@ -1,7 +1,7 @@
 {
   "version": "2.1",
   "clientDescription": "Digidemat este partener oficial Google Workspace in Moldova. Oferim sesiuni gratuite de tips & tricks pentru echipe, suport in romana si pret mai bun decat direct de la Google.",
-  "bookingUrl": "",
+  "bookingUrl": "https://calendar.app.google/8avr3LTVuXuZG5Gj8",
   "intentConfig": {
     "hiringKeywords": ["it manager", "administrator sistem", "director it", "sysadmin", "helpdesk"],
     "hiringAngle": "Recrutezi pe IT. Echipa creste — momentul perfect sa treci pe un plan Google Workspace cu suport local",
