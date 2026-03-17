@@ -66,8 +66,15 @@ Pages.drafts = async function(container) {
   <div class="page-enter stagger">
     <div class="page-header">
       <h1 class="page-title">${Utils.icon('inbox')} Approbations</h1>
-      <div class="page-actions">
+      <div class="page-actions" style="display:flex;align-items:center;gap:10px">
         <span style="color:var(--text-muted);font-size:13px">${count} email${count !== 1 ? 's' : ''} en attente</span>
+        ${count > 1 ? `
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-secondary);cursor:pointer">
+            <input type="checkbox" id="drafts-select-all"> Tout
+          </label>
+          <button class="btn-sm" id="bulk-approve-btn" style="display:none;padding:4px 10px;font-size:12px;background:var(--accent-green-dim);color:var(--accent-green);border:1px solid var(--accent-green);border-radius:var(--radius-sm);cursor:pointer" data-action="bulk-approve-drafts">✓ Approuver selection</button>
+          <button class="btn-sm" id="bulk-reject-btn" style="display:none;padding:4px 10px;font-size:12px;background:var(--accent-red-dim);color:var(--accent-red);border:1px solid var(--accent-red);border-radius:var(--radius-sm);cursor:pointer" data-action="bulk-reject-drafts">✕ Rejeter selection</button>
+        ` : ''}
       </div>
     </div>
 
@@ -117,6 +124,25 @@ Pages.drafts = async function(container) {
   // Bind events
   bindDraftActions(container);
 
+  // Bulk select all checkbox
+  const selectAll = document.getElementById('drafts-select-all');
+  if (selectAll) {
+    const updateBulkButtons = () => {
+      const checked = document.querySelectorAll('.draft-checkbox:checked').length;
+      const approveBtn = document.getElementById('bulk-approve-btn');
+      const rejectBtn = document.getElementById('bulk-reject-btn');
+      if (approveBtn) approveBtn.style.display = checked > 0 ? '' : 'none';
+      if (rejectBtn) rejectBtn.style.display = checked > 0 ? '' : 'none';
+    };
+    selectAll.addEventListener('change', () => {
+      document.querySelectorAll('.draft-checkbox').forEach(cb => { cb.checked = selectAll.checked; });
+      updateBulkButtons();
+    });
+    container.addEventListener('change', (ev) => {
+      if (ev.target.classList.contains('draft-checkbox')) updateBulkButtons();
+    });
+  }
+
   // SSE-driven refresh for drafts
   function _onDraftUpdate() {
     if (App.currentPage !== 'drafts') return;
@@ -146,6 +172,7 @@ function renderDraftCard(d) {
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="checkbox" class="draft-checkbox" data-id="${e(d.id)}" style="width:16px;height:16px;cursor:pointer">
           <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-blue-dim);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:var(--accent-blue)">${Utils.initials(d.prospectName || d.prospectEmail)}</div>
           <div>
             <div style="font-weight:600;font-size:14px;color:var(--text-primary)">${e(d.prospectName || d.prospectEmail)}</div>

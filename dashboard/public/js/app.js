@@ -491,6 +491,21 @@ document.addEventListener('click', (ev) => {
       });
       break;
     }
+    case 'bulk-approve-drafts':
+    case 'bulk-reject-drafts': {
+      const bulkAction = action === 'bulk-approve-drafts' ? 'approve' : 'reject';
+      const checked = document.querySelectorAll('.draft-checkbox:checked');
+      const ids = Array.from(checked).map(cb => cb.dataset.id).filter(Boolean);
+      if (ids.length === 0) { Utils.toast('Aucun brouillon selectionne'); break; }
+      if (!confirm((bulkAction === 'approve' ? 'Approuver' : 'Rejeter') + ' ' + ids.length + ' brouillon(s) ?')) break;
+      API.post('drafts/bulk', { action: bulkAction, ids }).then(res => {
+        if (res && res.success) {
+          Utils.toast(res.processed + ' brouillon(s) ' + (bulkAction === 'approve' ? 'approuves' : 'rejetes'));
+          App.loadPage('drafts');
+        }
+      });
+      break;
+    }
     case 'set-reply-mode': {
       if (!param) break;
       API.put('settings/reply-mode', { mode: param }).then(res => {

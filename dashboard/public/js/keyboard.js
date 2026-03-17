@@ -99,11 +99,10 @@ const Keyboard = {
       if (search) search.focus();
     }, 'Rechercher');
 
-    // Ctrl+K — Command Palette (placeholder for F22)
+    // Ctrl+K — Command Palette
     this.register('ctrl+k', () => {
-      const search = document.getElementById('global-search');
-      if (search) { search.focus(); search.select(); }
-    }, 'Recherche rapide');
+      if (typeof CommandPalette !== 'undefined') CommandPalette.open();
+    }, 'Command Palette');
   },
 
   toggleHelp() {
