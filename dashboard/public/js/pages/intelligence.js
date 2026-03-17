@@ -20,6 +20,7 @@ Pages.intelligence = async function(container) {
       <button class="tab-btn ${tab === 'alerts' ? 'active' : ''}" data-action="set-intel-tab" data-param="alerts">${Utils.icon('bell', 14)} Alertes</button>
       <button class="tab-btn ${tab === 'web-intel' ? 'active' : ''}" data-action="set-intel-tab" data-param="web-intel">${Utils.icon('globe', 14)} Veille Web</button>
       <button class="tab-btn ${tab === 'optimization' ? 'active' : ''}" data-action="set-intel-tab" data-param="optimization">${Utils.icon('trending-up', 14)} Optimisation</button>
+      <button class="tab-btn ${tab === 'learning' ? 'active' : ''}" data-action="set-intel-tab" data-param="learning">${Utils.icon('brain', 14)} Apprentissage IA</button>
     </div>
     <div id="intel-content"></div>
   </div>`;
@@ -30,6 +31,8 @@ Pages.intelligence = async function(container) {
     await renderAlerts(content);
   } else if (tab === 'web-intel') {
     await renderWebIntel(content);
+  } else if (tab === 'learning') {
+    await renderLearningFeed(content);
   } else {
     await renderOptimization(content);
   }
@@ -336,5 +339,53 @@ async function renderOptimization(content) {
     const color = lastAccuracy >= 70 ? '#22c55e' : lastAccuracy >= 40 ? '#f59e0b' : '#ef4444';
     Charts.doughnutChart('chart-health-score', lastAccuracy, 100, color);
   }
+}
+
+// ===== Onglet Apprentissage IA (F12) =====
+async function renderLearningFeed(content) {
+  const data = await API.fetch('ai-insights');
+  const insights = (data && data.insights) || [];
+
+  content.innerHTML = `
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi-card">
+        <div class="kpi-header"><div class="kpi-icon purple">${Utils.icon('brain')}</div></div>
+        <div class="kpi-value" data-count="${insights.length}">${insights.length}</div>
+        <div class="kpi-label">Patterns appris</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header"><div class="kpi-icon green">${Utils.icon('check-circle')}</div></div>
+        <div class="kpi-value" data-count="${insights.filter(i => i.type === 'positive_reply' || i.type === 'meeting_booked').length}">${insights.filter(i => i.type === 'positive_reply' || i.type === 'meeting_booked').length}</div>
+        <div class="kpi-label">Succes detectes</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header"><div class="kpi-icon blue">${Utils.icon('trending-up')}</div></div>
+        <div class="kpi-value">${insights.length > 0 ? Utils.formatDate(insights[0].date) : '—'}</div>
+        <div class="kpi-label">Dernier apprentissage</div>
+      </div>
+    </div>
+
+    <div class="grid-full">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">${Utils.icon('brain', 16)} Feed d'apprentissage IA</div>
+          <span class="badge badge-purple">${insights.length} insights</span>
+        </div>
+        <div class="card-body" style="max-height:500px;overflow-y:auto">
+          ${insights.length > 0 ? insights.map(i => {
+            const icons = { positive_reply: '✅', negative_reply: '❌', meeting_booked: '📅', objection_handled: '💬', tone_adjusted: '🎨', pattern_learned: '🧠' };
+            const icon = icons[i.type] || '📊';
+            const dateStr = i.date ? new Date(i.date).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+            return '<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">' +
+              '<span style="font-size:18px">' + icon + '</span>' +
+              '<div style="flex:1;min-width:0">' +
+                '<div style="font-size:13px;color:var(--text-primary)">' + e(i.description || i.type || 'Pattern detecte') + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">' + e(i.type || '') + ' · ' + dateStr + '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('') : '<div class="empty-state"><p>Aucun apprentissage enregistre. Le bot apprend au fur et a mesure des interactions.</p></div>'}
+        </div>
+      </div>
+    </div>`;
 }
 }

@@ -1528,6 +1528,89 @@ app.post('/api/conversations/bulk', authRequired, resolveClient, async (req, res
   res.json({ success: true, processed });
 });
 
+// --- AI Learning Feed (F12) ---
+app.get('/api/ai-insights', authRequired, resolveClient, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+    let learnerPath;
+    if (req.clientId) {
+      const clientPaths = clientRegistry.getClientDataPaths(req.clientId);
+      learnerPath = clientPaths ? clientPaths['inbox-manager'].replace('inbox-manager-db.json', 'realtime-learner.json') : null;
+    } else {
+      learnerPath = (process.env.INBOX_MANAGER_DATA_DIR || '/data/inbox-manager') + '/realtime-learner.json';
+    }
+    let insights = [];
+    if (learnerPath) {
+      try {
+        const raw = await fsp.readFile(learnerPath, 'utf8');
+        const data = JSON.parse(raw);
+        const outcomes = data.outcomes || data.patterns || [];
+        insights = outcomes.slice(-limit).reverse().map(o => ({
+          date: o.recordedAt || o.date || o.timestamp,
+          type: o.outcomeType || o.type || 'pattern_learned',
+          description: o.summary || o.insight || o.description || ''
+        }));
+      } catch (e) { /* file doesn't exist yet */ }
+    }
+    res.json({ insights });
+  } catch (err) {
+    res.json({ insights: [] });
+  }
+});
+
+// --- Heatmap Engagement (F20) ---
+app.get('/api/analytics/heatmap', authRequired, resolveClient, async (req, res) => {
+  try {
+    const am = await readData('automailer', req.clientId) || {};
+    const emails = am.emails || [];
+    const im = await readData('inbox-manager', req.clientId) || {};
+    const received = im.receivedEmails || [];
+
+    // Matrix 7 (days) x 24 (hours) for opens
+    const openMatrix = Array.from({ length: 7 }, () => Array(24).fill(0));
+    const replyMatrix = Array.from({ length: 7 }, () => Array(24).fill(0));
+
+    for (const em of emails) {
+      if (em.openedAt) {
+        const d = new Date(em.openedAt);
+        openMatrix[d.getDay()][d.getHours()]++;
+      }
+    }
+    for (const r of received) {
+      const dateField = r.date || r.receivedAt || r.matchedAt;
+      if (dateField) {
+        const d = new Date(dateField);
+        replyMatrix[d.getDay()][d.getHours()]++;
+      }
+    }
+
+    res.json({ openMatrix, replyMatrix });
+  } catch (err) {
+    res.json({ openMatrix: [], replyMatrix: [] });
+  }
+});
+
+// --- White-label Branding (F13) ---
+app.get('/api/clients/:id/branding', authRequired, async (req, res) => {
+  const client = clientRegistry.getClient(req.params.id);
+  if (!client) return res.status(404).json({ error: 'Client introuvable' });
+  res.json({ branding: client.branding || {} });
+});
+
+app.put('/api/clients/:id/branding', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin requis' });
+  const { logoUrl, primaryColor, secondaryColor, companyName } = req.body || {};
+  const branding = {};
+  if (companyName) branding.companyName = String(companyName).substring(0, 100);
+  if (logoUrl && /^https:\/\//.test(logoUrl)) branding.logoUrl = String(logoUrl).substring(0, 500);
+  if (primaryColor && /^#[0-9a-fA-F]{6}$/.test(primaryColor)) branding.primaryColor = primaryColor;
+  if (secondaryColor && /^#[0-9a-fA-F]{6}$/.test(secondaryColor)) branding.secondaryColor = secondaryColor;
+
+  clientRegistry.updateClient(req.params.id, { branding });
+  logAudit('branding_updated', req.ip, { clientId: req.params.id, by: req.user.username });
+  res.json({ success: true, branding });
+});
+
 // Overview / KPIs globaux
 app.get('/api/overview', authRequired, resolveClient, async (req, res) => {
   const all = await readAllData(req.clientId);
