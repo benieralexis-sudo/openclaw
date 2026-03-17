@@ -45,9 +45,20 @@ window.Pages = window.Pages || {};
 
   function initials(name) {
     if (!name) return '?';
-    const parts = name.trim().split(/\s+/);
+    var parts = name.trim().split(/\s+/);
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return parts[0].substring(0, 2).toUpperCase();
+  }
+
+  function nameFromEmail(email) {
+    if (!email) return '?';
+    var local = email.split('@')[0] || '';
+    // Try to parse first.last or first_last
+    var parts = local.split(/[._-]/);
+    if (parts.length >= 2) {
+      return parts.map(function(p) { return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase(); }).join(' ');
+    }
+    return local.charAt(0).toUpperCase() + local.slice(1);
   }
 
   function sentimentBadge(sentiment) {
@@ -58,15 +69,16 @@ window.Pages = window.Pages || {};
 
   function renderConversationList(conversations) {
     if (!conversations || conversations.length === 0) {
-      return '<div class="ub-empty"><div class="ub-empty-icon">📭</div><p>Aucune conversation</p><p class="ub-empty-sub">Les conversations apparaîtront ici quand les prospects répondront.</p></div>';
+      return '<div class="ub-empty"><div class="ub-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 8 12 14 22 8"/></svg></div><p>Aucune conversation</p><p class="ub-empty-sub">Les conversations apparaîtront ici quand les prospects répondront à vos emails.</p></div>';
     }
 
     return conversations.map(function(c) {
       const isActive = _selectedEmail === c.prospectEmail;
       const unreadClass = c.unread ? ' ub-conv-unread' : '';
       const activeClass = isActive ? ' ub-conv-active' : '';
-      const name = c.prospectName || c.prospectEmail.split('@')[0];
-      const companyText = c.company ? '<span class="ub-conv-company">' + Utils.escapeHtml(c.company) + '</span>' : '';
+      const name = c.prospectName || nameFromEmail(c.prospectEmail);
+      const companyDisplay = c.company || (c.prospectEmail.split('@')[1] || '').replace(/\.(com|fr|io|co|net|org)$/i, '');
+      const companyText = companyDisplay ? '<span class="ub-conv-company">' + Utils.escapeHtml(companyDisplay) + '</span>' : '';
       const lastMsg = c.lastMessage ? Utils.escapeHtml(c.lastMessage.substring(0, 80)) : '';
       const msgIcon = c.lastMessageType === 'received' ? '←' : c.lastMessageType === 'auto_reply' ? '⟲' : '→';
 
@@ -94,7 +106,7 @@ window.Pages = window.Pages || {};
 
   function renderThread(data) {
     if (!data || !data.messages || data.messages.length === 0) {
-      return '<div class="ub-thread-empty"><p>Sélectionne une conversation à gauche</p></div>';
+      return '<div class="ub-thread-empty"><div class="ub-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><p>Aucun message dans cette conversation</p></div>';
     }
 
     const p = data.prospect || {};
@@ -230,14 +242,23 @@ window.Pages = window.Pages || {};
             }).join('') +
           '</div>' +
           '<div id="ub-conv-list" class="ub-conv-list">' +
-            '<div class="ub-loading"><div class="spinner"></div></div>' +
+            Array.from({length: 6}, function() {
+              return '<div class="ub-skeleton-item">' +
+                '<div class="ub-skeleton-avatar"></div>' +
+                '<div class="ub-skeleton-lines">' +
+                  '<div class="ub-skeleton-line"></div>' +
+                  '<div class="ub-skeleton-line"></div>' +
+                  '<div class="ub-skeleton-line"></div>' +
+                '</div>' +
+              '</div>';
+            }).join('') +
           '</div>' +
         '</div>' +
         '<div id="ub-thread" class="ub-thread">' +
           '<div class="ub-thread-empty">' +
-            '<div class="ub-empty-icon">💬</div>' +
+            '<div class="ub-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>' +
             '<p>Sélectionne une conversation</p>' +
-            '<p class="ub-empty-sub">Clique sur un prospect à gauche pour voir l\'historique complet.</p>' +
+            '<p class="ub-empty-sub">Clique sur un prospect à gauche pour voir l\'historique complet des échanges.</p>' +
           '</div>' +
         '</div>' +
       '</div>' +

@@ -59,6 +59,9 @@
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.4);
   --sidebar-width: 240px;
   --header-height: 56px;
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ===== RESET ===== */
@@ -1379,6 +1382,7 @@ input, select, textarea { font-family: inherit; }
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--bg-card);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.02), var(--shadow-lg);
 }
 .ub-sidebar {
   border-right: 1px solid var(--border);
@@ -1454,7 +1458,8 @@ input, select, textarea { font-family: inherit; }
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  position: relative;
 }
 .ub-conv-item:hover {
   background: var(--bg-card-hover);
@@ -1463,6 +1468,13 @@ input, select, textarea { font-family: inherit; }
   background: var(--bg-card) !important;
   border-left: 3px solid var(--accent-blue);
   padding-left: 13px;
+}
+.ub-conv-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--accent-blue-dim), transparent);
+  pointer-events: none;
 }
 .ub-conv-unread .ub-conv-name {
   font-weight: 700;
@@ -1711,6 +1723,71 @@ input, select, textarea { font-family: inherit; }
   animation: spin 0.6s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Message entrance animations */
+.ub-msg {
+  animation: msgSlideIn 0.25s var(--transition-smooth) both;
+}
+@keyframes msgSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ub-conv-item {
+  animation: convFadeIn 0.2s ease both;
+}
+@keyframes convFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Skeleton loading for Unibox */
+.ub-skeleton-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.ub-skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+.ub-skeleton-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ub-skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+.ub-skeleton-line:nth-child(1) { width: 60%; }
+.ub-skeleton-line:nth-child(2) { width: 90%; }
+.ub-skeleton-line:nth-child(3) { width: 40%; }
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* Pipeline card hover premium */
+.pl-card {
+  transition: all var(--transition-base);
+}
+.pl-card:hover {
+  border-color: var(--accent-blue);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.1);
+}
+
+/* Badge accent style */
+.badge-accent {
+  background: var(--accent-green) !important;
+}
 
 /* ===== PIPELINE ===== */
 .pl-page-header { margin-bottom: 24px; }

@@ -38,7 +38,12 @@ window.Pages = window.Pages || {};
         '</div>' +
       '</div>' +
       '<div class="pl-board" id="pl-board">' +
-        '<div class="ub-loading"><div class="spinner"></div></div>' +
+        '<div class="pl-summary" style="opacity:0.4">' +
+          '<div class="pl-summary-item"><div class="ub-skeleton-line" style="width:60px;height:28px;margin:0 auto 8px"></div><div class="ub-skeleton-line" style="width:80px;height:12px;margin:0 auto"></div></div>'.repeat(4) +
+        '</div>' +
+        '<div class="pl-columns" style="opacity:0.4">' +
+          '<div class="pl-column"><div class="pl-column-header"><div class="ub-skeleton-line" style="width:80px;height:14px"></div></div></div>'.repeat(5) +
+        '</div>' +
       '</div>' +
     '</div>';
 
@@ -78,7 +83,12 @@ window.Pages = window.Pages || {};
         boardHtml += '<div class="pl-empty-col">Aucun prospect</div>';
       } else {
         items.forEach(function(c) {
-          var name = c.prospectName || c.prospectEmail.split('@')[0];
+          var name = c.prospectName || (function(email) {
+            var local = (email || '').split('@')[0] || '';
+            var parts = local.split(/[._-]/);
+            if (parts.length >= 2) return parts.map(function(p) { return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase(); }).join(' ');
+            return local.charAt(0).toUpperCase() + local.slice(1);
+          })(c.prospectEmail);
           var sentimentColor = stage.color;
 
           boardHtml += '<div class="pl-card" data-email="' + Utils.escapeHtml(c.prospectEmail) + '">' +
