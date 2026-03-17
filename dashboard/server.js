@@ -1857,6 +1857,299 @@ app.get('/api/inbox', authRequired, resolveClient, async (req, res) => {
   });
 });
 
+// --- Unibox: Conversations list ---
+app.get('/api/conversations', authRequired, resolveClient, async (req, res) => {
+  try {
+    const [am, im] = await Promise.all([
+      readData('automailer', req.clientId),
+      readData('inbox-manager', req.clientId)
+    ]);
+
+    const emails = (am || {}).emails || [];
+    const receivedEmails = (im || {}).receivedEmails || [];
+    const autoReplies = (im || {}).autoReplies || [];
+
+    // Group by prospect email (normalized lowercase)
+    const convMap = new Map();
+
+    function getOrCreate(email) {
+      const key = (email || '').toLowerCase().trim();
+      if (!key) return null;
+      if (!convMap.has(key)) {
+        convMap.set(key, {
+          prospectEmail: key,
+          prospectName: null,
+          company: null,
+          sentEmails: [],
+          received: [],
+          autoReplied: [],
+          lastSentiment: null,
+          lastSentimentScore: null
+        });
+      }
+      return convMap.get(key);
+    }
+
+    // Index sent emails
+    for (const e of emails) {
+      const conv = getOrCreate(e.to);
+      if (!conv) continue;
+      conv.sentEmails.push(e);
+      if (!conv.prospectName && e.contactName) conv.prospectName = e.contactName;
+      if (!conv.company && e.company) conv.company = e.company;
+    }
+
+    // Index received emails
+    for (const r of receivedEmails) {
+      const conv = getOrCreate(r.from);
+      if (!conv) continue;
+      conv.received.push(r);
+      if (r.sentiment) conv.lastSentiment = r.sentiment;
+      if (r.sentimentScore != null) conv.lastSentimentScore = r.sentimentScore;
+    }
+
+    // Index auto-replies
+    for (const ar of autoReplies) {
+      const conv = getOrCreate(ar.prospectEmail);
+      if (!conv) continue;
+      conv.autoReplied.push(ar);
+    }
+
+    // Build conversation summaries
+    let conversations = [];
+    for (const [, conv] of convMap) {
+      // Collect all messages with dates for sorting
+      const allMessages = [];
+      for (const e of conv.sentEmails) {
+        allMessages.push({ date: e.sentAt || e.createdAt || '', type: 'sent', body: e.body || e.subject || '' });
+      }
+      for (const r of conv.received) {
+        allMessages.push({ date: r.date || r.processedAt || '', type: 'received', body: r.snippet || r.subject || '', sentiment: r.sentiment, sentimentScore: r.sentimentScore });
+      }
+      for (const ar of conv.autoReplied) {
+        allMessages.push({ date: ar.sentAt || '', type: 'auto_reply', body: ar.replyBody || ar.replySubject || '' });
+      }
+
+      if (allMessages.length === 0) continue;
+
+      allMessages.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      const last = allMessages[allMessages.length - 1];
+
+      // Determine status
+      let status = 'contacted';
+      const hasOpened = conv.sentEmails.some(e => e.openedAt);
+      const hasReply = conv.received.length > 0;
+      if (hasOpened) status = 'opened';
+      if (hasReply) status = 'replied';
+      // Check sentiment for higher statuses
+      const latestReply = conv.received.length > 0
+        ? conv.received.sort((a, b) => (b.date || b.processedAt || '').localeCompare(a.date || a.processedAt || ''))[0]
+        : null;
+      const sentiment = latestReply ? latestReply.sentiment : null;
+      if (sentiment === 'interested' || sentiment === 'positive') status = 'interested';
+      if (sentiment === 'meeting' || sentiment === 'booking') status = 'meeting';
+
+      // Unread = last received with no sent/auto_reply after it
+      let unread = false;
+      if (conv.received.length > 0) {
+        const lastReceivedDate = conv.received.reduce((max, r) => {
+          const d = r.date || r.processedAt || '';
+          return d > max ? d : max;
+        }, '');
+        const lastSentDate = [...conv.sentEmails, ...conv.autoReplied].reduce((max, e) => {
+          const d = e.sentAt || e.createdAt || '';
+          return d > max ? d : max;
+        }, '');
+        unread = lastReceivedDate > lastSentDate;
+      }
+
+      conversations.push({
+        prospectEmail: conv.prospectEmail,
+        prospectName: conv.prospectName || null,
+        company: conv.company || null,
+        lastMessage: (last.body || '').substring(0, 200),
+        lastMessageAt: last.date || null,
+        lastMessageType: last.type,
+        sentiment: sentiment || null,
+        sentimentScore: latestReply ? (latestReply.sentimentScore != null ? latestReply.sentimentScore : null) : null,
+        totalSent: conv.sentEmails.length,
+        totalReceived: conv.received.length,
+        unread,
+        status
+      });
+    }
+
+    // Filter by sentiment/status
+    const filter = (req.query.filter || '').toLowerCase();
+    if (filter && filter !== 'all') {
+      conversations = conversations.filter(c =>
+        c.sentiment === filter || c.status === filter
+      );
+    }
+
+    // Search query
+    const q = (req.query.q || '').toLowerCase().trim();
+    if (q) {
+      conversations = conversations.filter(c =>
+        (c.prospectEmail || '').toLowerCase().includes(q) ||
+        (c.prospectName || '').toLowerCase().includes(q) ||
+        (c.company || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Filter by company for client users
+    conversations = filterByCompany(conversations, req.user, 'company');
+
+    // Sort by lastMessageAt DESC
+    conversations.sort((a, b) => (b.lastMessageAt || '').localeCompare(a.lastMessageAt || ''));
+
+    const total = conversations.length;
+
+    // Paginate with page/limit
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const startIdx = (page - 1) * limit;
+    const paginated = conversations.slice(startIdx, startIdx + limit);
+
+    res.json({ conversations: paginated, total });
+  } catch (err) {
+    log.error('dashboard', 'Conversations list error: ' + err.message);
+    res.status(500).json({ error: 'Erreur serveur', details: err.message });
+  }
+});
+
+// --- Unibox: Conversation thread for a specific prospect ---
+app.get('/api/conversations/:email', authRequired, resolveClient, async (req, res) => {
+  try {
+    const email = (req.params.email || '').toLowerCase().trim();
+    if (!email) {
+      return res.status(400).json({ error: 'Email requis' });
+    }
+
+    const [am, im, le] = await Promise.all([
+      readData('automailer', req.clientId),
+      readData('inbox-manager', req.clientId),
+      readData('lead-enrich', req.clientId)
+    ]);
+
+    const allEmails = (am || {}).emails || [];
+    const receivedEmails = (im || {}).receivedEmails || [];
+    const autoReplies = (im || {}).autoReplies || [];
+
+    // Filter for this prospect
+    const sentForProspect = allEmails.filter(e => (e.to || '').toLowerCase().trim() === email);
+    const receivedForProspect = receivedEmails.filter(r => (r.from || '').toLowerCase().trim() === email);
+    const autoRepliesForProspect = autoReplies.filter(ar => (ar.prospectEmail || '').toLowerCase().trim() === email);
+
+    // Build prospect info from available data
+    const firstSent = sentForProspect[0] || {};
+    let prospectName = firstSent.contactName || null;
+    let prospectCompany = firstSent.company || null;
+    let prospectTitle = null;
+    let prospectScore = firstSent.score != null ? firstSent.score : null;
+
+    // Try to enrich from lead-enrich data
+    if (le) {
+      const leads = le.leads || le.enrichedLeads || [];
+      const enriched = Array.isArray(leads)
+        ? leads.find(l => (l.email || '').toLowerCase() === email)
+        : null;
+      if (enriched) {
+        if (!prospectName && enriched.name) prospectName = enriched.name;
+        if (!prospectCompany && enriched.company) prospectCompany = enriched.company;
+        if (enriched.title) prospectTitle = enriched.title;
+        if (enriched.jobTitle) prospectTitle = enriched.jobTitle;
+      }
+    }
+
+    // Determine sentiment from latest received
+    const sortedReceived = receivedForProspect.sort((a, b) => (b.date || b.processedAt || '').localeCompare(a.date || a.processedAt || ''));
+    const latestReply = sortedReceived[0] || null;
+    const sentiment = latestReply ? (latestReply.sentiment || null) : null;
+
+    // Determine status
+    let status = 'contacted';
+    if (sentForProspect.some(e => e.openedAt)) status = 'opened';
+    if (receivedForProspect.length > 0) status = 'replied';
+    if (sentiment === 'interested' || sentiment === 'positive') status = 'interested';
+    if (sentiment === 'meeting' || sentiment === 'booking') status = 'meeting';
+
+    // Build messages array
+    const messages = [];
+
+    for (const e of sentForProspect) {
+      messages.push({
+        id: e.id || null,
+        type: 'sent',
+        subject: e.subject || null,
+        body: e.body || null,
+        date: e.sentAt || e.createdAt || null,
+        stepNumber: e.stepNumber != null ? e.stepNumber : null,
+        status: e.status || null,
+        openedAt: e.openedAt || null,
+        campaignId: e.campaignId || null,
+        abVariant: e.abVariant || null
+      });
+    }
+
+    for (const r of receivedForProspect) {
+      messages.push({
+        id: r.id || null,
+        type: 'received',
+        subject: r.subject || null,
+        body: r.snippet || r.body || null,
+        date: r.date || r.processedAt || null,
+        sentiment: r.sentiment || null,
+        sentimentScore: r.sentimentScore != null ? r.sentimentScore : null,
+        actionTaken: r.actionTaken || null
+      });
+    }
+
+    for (const ar of autoRepliesForProspect) {
+      messages.push({
+        id: ar.id || null,
+        type: 'auto_reply',
+        subject: ar.replySubject || null,
+        body: ar.replyBody || null,
+        date: ar.sentAt || null,
+        confidence: ar.confidence != null ? ar.confidence : null,
+        sentiment: ar.sentiment || null
+      });
+    }
+
+    // Sort chronologically ASC
+    messages.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    // Check for handoff (look in inbox-manager data)
+    let handoff = null;
+    if (im && im.handoffs) {
+      const h = Array.isArray(im.handoffs)
+        ? im.handoffs.find(ho => (ho.prospectEmail || '').toLowerCase() === email)
+        : im.handoffs[email] || null;
+      if (h) {
+        handoff = { at: h.at || h.handoffAt || null, by: h.by || h.handoffBy || null };
+      }
+    }
+
+    res.json({
+      prospect: {
+        email,
+        name: prospectName,
+        company: prospectCompany,
+        title: prospectTitle,
+        sentiment,
+        score: prospectScore,
+        status
+      },
+      messages,
+      handoff
+    });
+  } catch (err) {
+    log.error('dashboard', 'Conversation thread error: ' + err.message);
+    res.status(500).json({ error: 'Erreur serveur', details: err.message });
+  }
+});
+
 // --- HITL Drafts (proxy vers telegram-router) ---
 function proxyToRouter(routerPath, method, body, clientId) {
   return new Promise((resolve, reject) => {
