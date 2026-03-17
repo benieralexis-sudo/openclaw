@@ -491,6 +491,16 @@ document.addEventListener('click', (ev) => {
       });
       break;
     }
+    case 'set-reply-mode': {
+      if (!param) break;
+      API.put('settings/reply-mode', { mode: param }).then(res => {
+        if (res && res.success) {
+          Utils.toast('Mode IA change : ' + param);
+          App.loadPage('settings');
+        }
+      });
+      break;
+    }
     case 'open-prospect': {
       if (param && typeof ProspectDrawer !== 'undefined') ProspectDrawer.open(param);
       break;

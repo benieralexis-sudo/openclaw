@@ -4,8 +4,8 @@ const e = (s) => Utils.escapeHtml(s);
 window.Pages = window.Pages || {};
 
 Pages.campaigns = async function(container) {
-  // Charger emails + inbox en parallèle
-  const [data, inboxData] = await Promise.all([API.emails(), API.inbox()]);
+  // Charger emails + inbox + health + ab en parallèle
+  const [data, inboxData, healthData, abData] = await Promise.all([API.emails(), API.inbox(), API.fetch('email-health/score'), API.fetch('ab-tests')]);
   if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
 
   const campaigns = data.campaigns || [];
@@ -67,6 +67,43 @@ Pages.campaigns = async function(container) {
         <div class="kpi-label">Réponses reçues</div>
       </div>
     </div>
+
+    ${healthData && healthData.score != null ? `
+    <div class="grid-full">
+      <div class="card" style="border-left:3px solid ${healthData.score >= 80 ? 'var(--accent-green)' : healthData.score >= 50 ? 'var(--accent-orange)' : 'var(--accent-red)'}">
+        <div class="card-header">
+          <div class="card-title">Health Score</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:28px;font-weight:700;color:${healthData.score >= 80 ? 'var(--accent-green)' : healthData.score >= 50 ? 'var(--accent-orange)' : 'var(--accent-red)'}">${healthData.score}/100</span>
+            <span class="badge badge-${healthData.grade === 'A' ? 'green' : healthData.grade === 'B' ? 'blue' : healthData.grade === 'C' ? 'orange' : 'red'}" style="font-size:14px;padding:4px 10px">${healthData.grade}</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px">
+            ${[
+              {label: 'Delivrabilite', s: healthData.breakdown.deliverability, color: 'blue'},
+              {label: 'Engagement', s: healthData.breakdown.engagement, color: 'green'},
+              {label: 'Contenu', s: healthData.breakdown.content, color: 'purple'},
+              {label: 'Timing', s: healthData.breakdown.timing, color: 'cyan'}
+            ].map(b => `
+              <div style="text-align:center">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">${b.label}</div>
+                <div style="background:var(--bg-primary);border-radius:4px;height:6px;overflow:hidden">
+                  <div style="height:100%;width:${Math.round((b.s.score/b.s.max)*100)}%;background:var(--accent-${b.color});border-radius:4px;transition:width 0.8s ease"></div>
+                </div>
+                <div style="font-size:12px;font-weight:600;margin-top:4px;color:var(--text-primary)">${b.s.score}/${b.s.max}</div>
+              </div>
+            `).join('')}
+          </div>
+          ${healthData.recommendations && healthData.recommendations.length > 0 ? `
+            <div style="font-size:12px;color:var(--text-muted)">
+              ${healthData.recommendations.map(r => '<div style="margin-top:4px">⚠ ' + e(r) + '</div>').join('')}
+            </div>
+          ` : '<div style="font-size:12px;color:var(--accent-green)">✓ Aucune recommandation — tout va bien</div>'}
+        </div>
+      </div>
+    </div>
+    ` : ''}
 
     <div class="grid-full">
       <div class="card">
@@ -147,6 +184,37 @@ Pages.campaigns = async function(container) {
                     <td>${e(Utils.truncate(r.subject || r.originalSubject || '—', 50))}</td>
                     <td>${r.sentiment ? `<span class="badge badge-${r.sentiment === 'positive' ? 'green' : r.sentiment === 'negative' ? 'red' : 'gray'}">${e(r.sentiment)}</span>` : '—'}</td>
                     <td>${Utils.formatDateTime(r.matchedAt || r.processedAt)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
+    ${abData && abData.variants && abData.variants.length > 1 ? `
+    <div class="grid-full">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Tests A/B</div>
+          ${abData.winner ? '<span class="badge badge-green">Winner: Variant ' + e(abData.winner) + '</span>' : ''}
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead><tr><th>Variant</th><th>Envoyes</th><th>Ouverts</th><th>Taux ouv.</th><th>Reponses</th><th>Taux rep.</th><th></th></tr></thead>
+              <tbody>
+                ${abData.variants.sort((a,b) => b.replyRate - a.replyRate).map(v => `
+                  <tr>
+                    <td style="font-weight:600;color:var(--text-primary)">Variant ${e(v.name)}</td>
+                    <td>${v.sent}</td>
+                    <td>${v.opened}</td>
+                    <td>${v.openRate}%</td>
+                    <td>${v.replied}</td>
+                    <td style="font-weight:600;color:${v.replyRate > 3 ? 'var(--accent-green)' : 'var(--text-primary)'}">${v.replyRate}%</td>
+                    <td>${abData.winner === v.name ? '<span class="badge badge-green">Winner</span>' : ''}</td>
                   </tr>
                 `).join('')}
               </tbody>

@@ -3,8 +3,14 @@ const _e = (s) => Utils.escapeHtml(s);
 window.Pages = window.Pages || {};
 
 Pages.dashboard = async function(container) {
-  const data = await API.overview(App.currentPeriod);
+  const [data, prioritiesData, modeData] = await Promise.all([
+    API.overview(App.currentPeriod),
+    API.fetch('priorities').catch(() => null),
+    API.fetch('settings/reply-mode').catch(() => null)
+  ]);
   if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
+  const priorities = (prioritiesData && prioritiesData.priorities) || [];
+  const replyMode = (modeData && modeData.mode) || 'copilot';
 
   const k = data.kpis;
   const cn = _e(data.clientName || 'iFIND');
@@ -34,6 +40,30 @@ Pages.dashboard = async function(container) {
     ` : data.appStatus && data.appStatus.mode === 'production' ? `
     <div class="production-banner">
       ${cn} en <strong>production</strong> &mdash; ${data.appStatus.cronsActive ? 'crons actifs' : 'crons en pause'}
+    </div>
+    ` : ''}
+
+    ${priorities.length > 0 ? `
+    <div class="card priorities-card" style="margin-bottom:20px;border-left:3px solid var(--accent-purple)">
+      <div class="card-header">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px">
+          ${Utils.icon('zap', 16)} Tes priorites
+          <span class="badge badge-${replyMode === 'autopilot' ? 'green' : replyMode === 'copilot' ? 'blue' : 'orange'}" style="font-size:10px">${replyMode === 'autopilot' ? '🤖 Autopilot' : replyMode === 'copilot' ? '🤝 Copilot' : '✋ Manuel'}</span>
+        </div>
+      </div>
+      <div class="card-body" style="padding:12px 16px">
+        ${priorities.map(p => {
+          const iconMap = { hot_lead: '🔥', stale_draft: '📝', handoff: '🤝', low_campaign: '📉', meeting_prep: '📅' };
+          return '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">' +
+            '<span style="font-size:18px">' + (iconMap[p.type] || '⚡') + '</span>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-size:13px;font-weight:500;color:var(--text-primary)">' + _e(p.title) + '</div>' +
+              '<div style="font-size:11px;color:var(--text-muted)">' + _e(p.description) + '</div>' +
+            '</div>' +
+            '<a href="' + (p.link || '#') + '" style="font-size:12px;color:var(--accent-blue);text-decoration:none;white-space:nowrap">' + _e(p.action) + ' →</a>' +
+          '</div>';
+        }).join('')}
+      </div>
     </div>
     ` : ''}
 

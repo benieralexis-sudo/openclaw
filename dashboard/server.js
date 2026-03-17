@@ -1329,6 +1329,113 @@ app.get('/api/audit/export', authRequired, adminRequired, async (req, res) => {
   }
 });
 
+// --- Reply Mode: Autopilot / Copilot / Manual (F7) ---
+app.get('/api/settings/reply-mode', authRequired, resolveClient, (req, res) => {
+  let mode = 'copilot';
+  if (req.clientId) {
+    const client = clientRegistry.getClient(req.clientId);
+    mode = (client && client.replyMode) || 'copilot';
+  }
+  res.json({ mode });
+});
+
+app.put('/api/settings/reply-mode', authRequired, resolveClient, (req, res) => {
+  const validModes = ['autopilot', 'copilot', 'manual'];
+  const mode = validModes.includes(req.body.mode) ? req.body.mode : 'copilot';
+  if (req.clientId) {
+    clientRegistry.updateClient(req.clientId, { replyMode: mode });
+  }
+  logAudit('reply_mode_changed', req.ip, { mode, by: req.user.username });
+  sseEmitToClient(req.clientId, 'badge_update', { type: 'settings' });
+  res.json({ success: true, mode });
+});
+
+// --- Conductor IA: Priorities (F8) ---
+const _prioritiesCache = new Map();
+app.get('/api/priorities', authRequired, resolveClient, async (req, res) => {
+  try {
+    const cacheKey = req.clientId || '_admin';
+    const cached = _prioritiesCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < 60000) return res.json(cached.data);
+
+    const [am, im, draftsResult] = await Promise.all([
+      readData('automailer', req.clientId),
+      readData('inbox-manager', req.clientId),
+      proxyToRouter('/api/hitl/drafts', 'GET', null, req.clientId).catch(() => ({ data: [] }))
+    ]);
+
+    const priorities = [];
+    const receivedEmails = (im || {}).receivedEmails || [];
+    const handoffs = (im || {}).handoffs || {};
+
+    // 1. Unread positive replies (score 100)
+    const positiveUnread = receivedEmails.filter(r =>
+      !r.readAt && (r.sentiment === 'interested' || r.sentiment === 'positive' || r.sentiment === 'meeting')
+    );
+    for (const r of positiveUnread.slice(0, 3)) {
+      priorities.push({
+        type: 'hot_lead',
+        title: 'Lead chaud : ' + (r.fromName || r.from || 'inconnu'),
+        description: (r.subject || '').substring(0, 80),
+        score: 100,
+        action: 'Voir conversation',
+        link: '#unibox'
+      });
+    }
+
+    // 2. Pending drafts > 30 min (score 80)
+    const drafts = Array.isArray(draftsResult.data) ? draftsResult.data : [];
+    if (drafts.length > 0) {
+      priorities.push({
+        type: 'stale_draft',
+        title: drafts.length + ' brouillon' + (drafts.length > 1 ? 's' : '') + ' en attente',
+        description: 'Approbation requise',
+        score: 80,
+        action: 'Approuver',
+        link: '#drafts'
+      });
+    }
+
+    // 3. Active handoffs needing attention (score 70)
+    const handoffCount = Object.keys(handoffs).length;
+    if (handoffCount > 0) {
+      priorities.push({
+        type: 'handoff',
+        title: handoffCount + ' handoff' + (handoffCount > 1 ? 's' : '') + ' actif' + (handoffCount > 1 ? 's' : ''),
+        description: 'Conversations en attente de reponse humaine',
+        score: 70,
+        action: 'Voir',
+        link: '#unibox'
+      });
+    }
+
+    // 4. Low open rate warning (score 50)
+    const emails = (am || {}).emails || [];
+    const recentSent = emails.filter(e => e.sentAt && (Date.now() - new Date(e.sentAt).getTime()) < 604800000);
+    const recentOpened = recentSent.filter(e => e.openedAt);
+    if (recentSent.length >= 10) {
+      const openRate = recentOpened.length / recentSent.length;
+      if (openRate < 0.2) {
+        priorities.push({
+          type: 'low_campaign',
+          title: 'Taux d\'ouverture bas : ' + Math.round(openRate * 100) + '%',
+          description: 'Les 7 derniers jours — revoir les sujets',
+          score: 50,
+          action: 'Voir campagnes',
+          link: '#campaigns'
+        });
+      }
+    }
+
+    priorities.sort((a, b) => b.score - a.score);
+    const result = { priorities: priorities.slice(0, 5), generatedAt: new Date().toISOString() };
+    _prioritiesCache.set(cacheKey, { data: result, ts: Date.now() });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur priorities', priorities: [] });
+  }
+});
+
 // Overview / KPIs globaux
 app.get('/api/overview', authRequired, resolveClient, async (req, res) => {
   const all = await readAllData(req.clientId);
@@ -2650,6 +2757,108 @@ app.get('/api/email-health', authRequired, adminRequired, resolveClient, async (
     dailySends
   });
 });
+
+// --- Campaign Health Score /100 (F4) ---
+app.get('/api/email-health/score', authRequired, resolveClient, async (req, res) => {
+  try {
+    const am = await readData('automailer', req.clientId) || {};
+    const emails = am.emails || [];
+    const im = await readData('inbox-manager', req.clientId) || {};
+
+    const totalSent = emails.filter(e => ['sent', 'delivered', 'opened', 'clicked', 'replied'].includes(e.status) || e.sentAt).length;
+    const bounced = emails.filter(e => e.status === 'bounced').length;
+    const opened = emails.filter(e => e.openedAt).length;
+    const replied = ((im.receivedEmails || []).length) + emails.filter(e => e.status === 'replied').length;
+
+    const bounceRate = totalSent > 0 ? bounced / totalSent : 0;
+    const openRate = totalSent > 0 ? opened / totalSent : 0;
+    const replyRate = totalSent > 0 ? replied / totalSent : 0;
+
+    // Deliverability /25 (bounce < 2% = 25, > 10% = 0)
+    const delivScore = Math.max(0, Math.round(25 * (1 - Math.min(bounceRate / 0.1, 1))));
+
+    // Engagement /30 (open 40% = 30, reply 5% = bonus)
+    const openScore = Math.min(20, Math.round(20 * Math.min(openRate / 0.4, 1)));
+    const replyScore = Math.min(10, Math.round(10 * Math.min(replyRate / 0.05, 1)));
+    const engScore = openScore + replyScore;
+
+    // Content /25 (based on spam scores if available)
+    const spamScores = emails.filter(e => e.spamScore != null).map(e => e.spamScore);
+    const avgSpam = spamScores.length > 0 ? spamScores.reduce((a, b) => a + b, 0) / spamScores.length : 0;
+    const contentScore = Math.max(0, Math.round(25 * (1 - Math.min(avgSpam / 6, 1))));
+
+    // Timing /20 (regularity — simple: have we sent in last 7 days?)
+    const recentEmails = emails.filter(e => e.sentAt && (Date.now() - new Date(e.sentAt).getTime()) < 604800000);
+    const timingScore = recentEmails.length > 0 ? (recentEmails.length >= 5 ? 20 : Math.round(20 * recentEmails.length / 5)) : 5;
+
+    const score = Math.min(100, delivScore + engScore + contentScore + timingScore);
+    const grade = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 40 ? 'D' : 'F';
+
+    const recommendations = [];
+    if (bounceRate > 0.05) recommendations.push('Taux de bounce eleve (' + Math.round(bounceRate * 100) + '%) — verifier la qualite des emails');
+    if (openRate < 0.2) recommendations.push('Taux d\'ouverture bas (' + Math.round(openRate * 100) + '%) — ameliorer les sujets');
+    if (replyRate < 0.02) recommendations.push('Taux de reponse bas (' + Math.round(replyRate * 100) + '%) — personnaliser davantage');
+    if (avgSpam > 3) recommendations.push('Score spam moyen eleve (' + Math.round(avgSpam) + ') — reduire les mots spam');
+
+    res.json({
+      score, grade,
+      breakdown: {
+        deliverability: { score: delivScore, max: 25, bounceRate: Math.round(bounceRate * 10000) / 100 },
+        engagement: { score: engScore, max: 30, openRate: Math.round(openRate * 10000) / 100, replyRate: Math.round(replyRate * 10000) / 100 },
+        content: { score: contentScore, max: 25, avgSpamScore: Math.round(avgSpam * 10) / 10 },
+        timing: { score: timingScore, max: 20, recentCount: recentEmails.length }
+      },
+      recommendations,
+      totalSent
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur calcul health score', details: err.message });
+  }
+});
+
+// --- A/B Test Results (F11) ---
+app.get('/api/ab-tests', authRequired, resolveClient, async (req, res) => {
+  try {
+    const am = await readData('automailer', req.clientId) || {};
+    const emails = am.emails || [];
+    const im = await readData('inbox-manager', req.clientId) || {};
+    const receivedEmails = im.receivedEmails || [];
+
+    // Group by variant
+    const variants = {};
+    for (const e of emails) {
+      const v = e.abVariant || e.variant || 'A';
+      if (!variants[v]) variants[v] = { name: v, sent: 0, opened: 0, replied: 0 };
+      variants[v].sent++;
+      if (e.openedAt) variants[v].opened++;
+      if (e.status === 'replied') variants[v].replied++;
+    }
+
+    // Count replies from inbox-manager per variant (match by email)
+    for (const r of receivedEmails) {
+      const matchedEmail = emails.find(e => (e.to || '').toLowerCase() === (r.from || '').toLowerCase());
+      if (matchedEmail) {
+        const v = matchedEmail.abVariant || matchedEmail.variant || 'A';
+        if (variants[v]) variants[v].replied++;
+      }
+    }
+
+    const variantList = Object.values(variants).map(v => ({
+      ...v,
+      openRate: v.sent > 0 ? Math.round((v.opened / v.sent) * 10000) / 100 : 0,
+      replyRate: v.sent > 0 ? Math.round((v.replied / v.sent) * 10000) / 100 : 0
+    }));
+
+    // Determine winner (highest reply rate with min 5 samples)
+    const qualified = variantList.filter(v => v.sent >= 5);
+    const winner = qualified.length > 0 ? qualified.sort((a, b) => b.replyRate - a.replyRate)[0].name : null;
+
+    res.json({ variants: variantList, winner, totalEmails: emails.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur A/B tests', details: err.message });
+  }
+});
+
 
 // Finance (admin only)
 app.get('/api/finance', authRequired, adminRequired, resolveClient, async (req, res) => {
