@@ -8,6 +8,7 @@ window.Pages = window.Pages || {};
   let _selectedEmail = null;
   let _conversations = [];
   let _searchTimeout = null;
+  let _refreshInterval = null;
 
   const SENTIMENT_MAP = {
     interested: { label: 'Intéressé', color: 'var(--accent-green)', bg: 'var(--accent-green-dim)', icon: '●' },
@@ -59,6 +60,17 @@ window.Pages = window.Pages || {};
       return parts.map(function(p) { return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase(); }).join(' ');
     }
     return local.charAt(0).toUpperCase() + local.slice(1);
+  }
+
+  function sanitizeBody(text) {
+    if (!text) return '';
+    // Escape HTML entities then convert newlines
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/\n/g, '<br>');
   }
 
   function sentimentBadge(sentiment) {
@@ -113,6 +125,9 @@ window.Pages = window.Pages || {};
     const s = STATUS_MAP[p.status] || STATUS_MAP.contacted;
 
     let html = '<div class="ub-thread-header">' +
+      '<button class="ub-back-btn" onclick="document.getElementById(\'ub-thread\').classList.remove(\'ub-thread-mobile-active\')" aria-label="Retour">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+      '</button>' +
       '<div class="ub-thread-prospect">' +
         '<div class="ub-thread-avatar" style="background:' + (SENTIMENT_MAP[p.sentiment] || {}).bg + ';color:' + ((SENTIMENT_MAP[p.sentiment] || {}).color || 'var(--text-muted)') + '">' + initials(p.name) + '</div>' +
         '<div class="ub-thread-info">' +
@@ -148,7 +163,7 @@ window.Pages = window.Pages || {};
         metaInfo = 'Confiance ' + Math.round(msg.confidence * 100) + '%';
       }
 
-      const bodyHtml = (msg.body || '').replace(/\n/g, '<br>');
+      const bodyHtml = sanitizeBody(msg.body);
 
       html += '<div class="ub-msg ' + bubbleClass + '">' +
         '<div class="ub-msg-bubble">' +
@@ -168,7 +183,7 @@ window.Pages = window.Pages || {};
     return html;
   }
 
-  async function loadConversations() {
+  async function loadConversations(silent) {
     const data = await API.conversations(_currentFilter, _searchQuery);
     if (!data) return;
     _conversations = data.conversations || [];
@@ -178,9 +193,15 @@ window.Pages = window.Pages || {};
       listEl.innerHTML = renderConversationList(_conversations);
     }
 
+    // Update header count
+    var countEl = document.getElementById('ub-count');
+    if (countEl) {
+      countEl.textContent = data.total > 0 ? '(' + data.total + ')' : '';
+    }
+
     // Update unibox badge
-    const unreadCount = _conversations.filter(function(c) { return c.unread; }).length;
-    const badge = document.getElementById('badge-unibox');
+    var unreadCount = _conversations.filter(function(c) { return c.unread; }).length;
+    var badge = document.getElementById('badge-unibox');
     if (badge) {
       if (unreadCount > 0) {
         badge.textContent = unreadCount;
@@ -188,6 +209,13 @@ window.Pages = window.Pages || {};
       } else {
         badge.style.display = 'none';
       }
+    }
+
+    // Re-highlight selected conversation if we have one
+    if (_selectedEmail && !silent) {
+      document.querySelectorAll('.ub-conv-item').forEach(function(el) {
+        el.classList.toggle('ub-conv-active', el.dataset.email === _selectedEmail);
+      });
     }
   }
 
@@ -223,10 +251,13 @@ window.Pages = window.Pages || {};
       { key: 'not_interested', label: 'Pas intéressés' }
     ];
 
+    // Clear previous refresh interval
+    if (_refreshInterval) { clearInterval(_refreshInterval); _refreshInterval = null; }
+
     container.innerHTML = '<div class="page-enter">' +
       '<div class="ub-page-header">' +
         '<div>' +
-          '<h1 class="page-title">Unibox</h1>' +
+          '<h1 class="page-title">Unibox <span id="ub-count" class="ub-header-count"></span></h1>' +
           '<p class="page-subtitle">Toutes les conversations avec vos prospects</p>' +
         '</div>' +
       '</div>' +
@@ -303,6 +334,31 @@ window.Pages = window.Pages || {};
       });
     }
 
+    // Bind keyboard navigation
+    var _keyHandler = function(ev) {
+      if (App.currentPage !== 'unibox') return;
+      if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return;
+
+      if (ev.key === 'ArrowDown' || ev.key === 'j') {
+        ev.preventDefault();
+        var idx = _conversations.findIndex(function(c) { return c.prospectEmail === _selectedEmail; });
+        if (idx < _conversations.length - 1) {
+          loadThread(_conversations[idx + 1].prospectEmail);
+        }
+      } else if (ev.key === 'ArrowUp' || ev.key === 'k') {
+        ev.preventDefault();
+        var idx2 = _conversations.findIndex(function(c) { return c.prospectEmail === _selectedEmail; });
+        if (idx2 > 0) {
+          loadThread(_conversations[idx2 - 1].prospectEmail);
+        }
+      } else if (ev.key === 'Escape') {
+        // Mobile: go back to list
+        var threadEl = document.getElementById('ub-thread');
+        if (threadEl) threadEl.classList.remove('ub-thread-mobile-active');
+      }
+    };
+    document.addEventListener('keydown', _keyHandler);
+
     // Load conversations
     await loadConversations();
 
@@ -310,5 +366,12 @@ window.Pages = window.Pages || {};
     if (_conversations.length > 0 && window.innerWidth >= 768) {
       loadThread(_conversations[0].prospectEmail);
     }
+
+    // Auto-refresh every 30s (only when on unibox page)
+    _refreshInterval = setInterval(function() {
+      if (App.currentPage !== 'unibox') { clearInterval(_refreshInterval); _refreshInterval = null; return; }
+      if (document.visibilityState === 'hidden') return;
+      loadConversations(true);
+    }, 30000);
   };
 })();

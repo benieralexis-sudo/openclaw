@@ -1671,6 +1671,35 @@ input, select, textarea { font-family: inherit; }
 .ub-msg-meta {
   margin-left: auto;
 }
+/* Header count */
+.ub-header-count {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+/* Back button mobile */
+.ub-back-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.ub-back-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+@media (max-width: 768px) {
+  .ub-back-btn { display: flex; }
+}
 .ub-handoff-badge {
   padding: 4px 12px;
   border-radius: 100px;
