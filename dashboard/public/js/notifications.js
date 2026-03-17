@@ -3,6 +3,7 @@
 const Notifications = {
   _pollInterval: null,
   _lastCount: 0,
+  _sseAttached: false,
 
   init() {
     const bell = document.getElementById('notif-bell');
@@ -39,10 +40,13 @@ const Notifications = {
       });
     }
 
-    // Initial load + SSE-driven updates
+    // Initial load + SSE-driven updates (once only)
     this.poll();
-    API.onEvent('notification', () => this.poll());
-    API.onEvent('badge_update', () => this.poll());
+    if (!this._sseAttached) {
+      this._sseAttached = true;
+      API.onEvent('notification', () => this.poll());
+      API.onEvent('badge_update', () => this.poll());
+    }
 
     // Fallback polling every 90s
     this._pollInterval = setInterval(() => {

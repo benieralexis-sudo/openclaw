@@ -68,7 +68,7 @@ Pages.campaigns = async function(container) {
       </div>
     </div>
 
-    ${healthData && healthData.score != null ? `
+    ${healthData && healthData.score != null && healthData.breakdown ? `
     <div class="grid-full">
       <div class="card" style="border-left:3px solid ${healthData.score >= 80 ? 'var(--accent-green)' : healthData.score >= 50 ? 'var(--accent-orange)' : 'var(--accent-red)'}">
         <div class="card-header">
@@ -244,8 +244,10 @@ Pages.campaigns = async function(container) {
   if (heatmapData && heatmapData.openMatrix && heatmapData.openMatrix.length > 0) {
     const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
     const matrix = heatmapData.openMatrix;
+    // Ensure all 7 days have 24 hours
+    for (let d = 0; d < 7; d++) { if (!matrix[d]) matrix[d] = Array(24).fill(0); }
     let maxVal = 0;
-    for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) if (matrix[d] && matrix[d][h] > maxVal) maxVal = matrix[d][h];
+    for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) if (matrix[d][h] > maxVal) maxVal = matrix[d][h];
 
     let html = '<table style="border-collapse:collapse;width:100%;font-size:11px">';
     html += '<tr><td></td>';

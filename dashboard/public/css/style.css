@@ -2983,3 +2983,20 @@ kbd {
   color: var(--text-muted);
   font-size: 13px;
 }
+
+/* ===== REPLY MODE TOGGLE (F7) ===== */
+.mode-option {
+  flex: 1;
+  min-width: 140px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+.mode-option:hover { border-color: var(--border-hover); background: var(--bg-card-hover); }
+.mode-option.mode-active-autopilot { border-color: var(--accent-green); background: var(--accent-green-dim); }
+.mode-option.mode-active-copilot { border-color: var(--accent-blue); background: var(--accent-blue-dim); }
+.mode-option.mode-active-manual { border-color: var(--accent-orange); background: var(--accent-orange-dim); }

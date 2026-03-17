@@ -4,6 +4,7 @@ const CommandPalette = {
   _visible: false,
   _activeIndex: 0,
   _results: [],
+  _searchTimer: null,
 
   open() {
     if (this._visible) { this.close(); return; }
@@ -28,7 +29,10 @@ const CommandPalette = {
     const input = document.getElementById('cp-input');
     if (input) {
       input.focus();
-      input.addEventListener('input', () => this._search(input.value));
+      input.addEventListener('input', () => {
+        clearTimeout(this._searchTimer);
+        this._searchTimer = setTimeout(() => this._search(input.value), 200);
+      });
       input.addEventListener('keydown', (ev) => this._handleKey(ev));
     }
     overlay.addEventListener('click', (ev) => {
@@ -109,7 +113,7 @@ const CommandPalette = {
       } catch (e) {}
     }
 
-    this._results = [...matchedPages, ...serverResults];
+    this._results = [...matchedPages, ...serverResults].slice(0, 12);
     this._activeIndex = 0;
     this._render();
   },

@@ -87,17 +87,17 @@ Pages.settings = async function(container) {
       <div class="card" style="border-left:3px solid var(--accent-purple)">
         <div class="card-header"><div class="card-title">Mode de reponse IA</div></div>
         <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap">
-          <button class="mode-option ${currentMode === 'autopilot' ? 'mode-active' : ''}" data-action="set-reply-mode" data-param="autopilot" style="flex:1;min-width:140px;padding:12px;border-radius:var(--radius-md);border:1px solid ${currentMode === 'autopilot' ? 'var(--accent-green)' : 'var(--border)'};background:${currentMode === 'autopilot' ? 'var(--accent-green-dim)' : 'var(--bg-card)'};cursor:pointer;text-align:center">
+          <button class="mode-option ${currentMode === 'autopilot' ? 'mode-active-autopilot' : ''}" data-action="set-reply-mode" data-param="autopilot">
             <div style="font-size:20px;margin-bottom:4px">🤖</div>
             <div style="font-weight:600;font-size:13px;color:var(--text-primary)">Autopilot</div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:2px">L'IA repond seule si confiance &gt; 80%</div>
           </button>
-          <button class="mode-option ${currentMode === 'copilot' ? 'mode-active' : ''}" data-action="set-reply-mode" data-param="copilot" style="flex:1;min-width:140px;padding:12px;border-radius:var(--radius-md);border:1px solid ${currentMode === 'copilot' ? 'var(--accent-blue)' : 'var(--border)'};background:${currentMode === 'copilot' ? 'var(--accent-blue-dim)' : 'var(--bg-card)'};cursor:pointer;text-align:center">
+          <button class="mode-option ${currentMode === 'copilot' ? 'mode-active-copilot' : ''}" data-action="set-reply-mode" data-param="copilot">
             <div style="font-size:20px;margin-bottom:4px">🤝</div>
             <div style="font-weight:600;font-size:13px;color:var(--text-primary)">Copilot</div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:2px">L'IA propose, vous validez</div>
           </button>
-          <button class="mode-option ${currentMode === 'manual' ? 'mode-active' : ''}" data-action="set-reply-mode" data-param="manual" style="flex:1;min-width:140px;padding:12px;border-radius:var(--radius-md);border:1px solid ${currentMode === 'manual' ? 'var(--accent-orange)' : 'var(--border)'};background:${currentMode === 'manual' ? 'var(--accent-orange-dim)' : 'var(--bg-card)'};cursor:pointer;text-align:center">
+          <button class="mode-option ${currentMode === 'manual' ? 'mode-active-manual' : ''}" data-action="set-reply-mode" data-param="manual">
             <div style="font-size:20px;margin-bottom:4px">✋</div>
             <div style="font-weight:600;font-size:13px;color:var(--text-primary)">Manuel</div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Aucune auto-reponse</div>

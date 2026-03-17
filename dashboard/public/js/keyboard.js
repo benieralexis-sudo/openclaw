@@ -90,6 +90,32 @@ const Keyboard = {
     this.register('g i', () => { window.location.hash = 'intelligence'; }, 'Intelligence');
     this.register('g f', () => { window.location.hash = 'finances'; }, 'Finances');
 
+    // Page-specific shortcuts (Unibox)
+    this.register('r', () => {
+      if (App.currentPage === 'unibox') { const el = document.getElementById('ub-reply-input'); if (el) { el.focus(); el.scrollIntoView({ behavior: 'smooth' }); } }
+      else if (App.currentPage === 'drafts') { const first = document.querySelector('.draft-checkbox'); if (first) first.closest('.draft-card').querySelector('[data-action="reject-draft"]')?.click(); }
+    }, 'Repondre (Unibox)');
+
+    this.register('h', () => {
+      if (App.currentPage === 'unibox') { const btn = document.getElementById('ub-handoff-toggle'); if (btn) btn.click(); }
+    }, 'Handoff (Unibox)');
+
+    this.register('a', () => {
+      if (App.currentPage === 'drafts') { const first = document.querySelector('.draft-card [data-action="approve-draft"]'); if (first) first.click(); }
+    }, 'Approuver (Drafts)');
+
+    this.register('x', () => {
+      if (App.currentPage === 'drafts') { const first = document.querySelector('.draft-card [data-action="reject-draft"]'); if (first) first.click(); }
+    }, 'Rejeter (Drafts)');
+
+    this.register('s', () => {
+      if (App.currentPage === 'drafts') { const first = document.querySelector('.draft-card [data-action="skip-draft"]'); if (first) first.click(); }
+    }, 'Passer (Drafts)');
+
+    this.register('e', () => {
+      if (App.currentPage === 'drafts') { const first = document.querySelector('.draft-card [data-action="edit-draft"]'); if (first) first.click(); }
+    }, 'Modifier (Drafts)');
+
     // Help
     this.register('?', () => this.toggleHelp(), 'Aide raccourcis');
 
