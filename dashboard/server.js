@@ -1990,14 +1990,30 @@ app.get('/api/conversations', authRequired, resolveClient, async (req, res) => {
       );
     }
 
-    // Search query
+    // Search query (enhanced: also search in lastMessage and lastSubject)
     const q = (req.query.q || '').toLowerCase().trim();
     if (q) {
       conversations = conversations.filter(c =>
         (c.prospectEmail || '').toLowerCase().includes(q) ||
         (c.prospectName || '').toLowerCase().includes(q) ||
-        (c.company || '').toLowerCase().includes(q)
+        (c.company || '').toLowerCase().includes(q) ||
+        (c.lastMessage || '').toLowerCase().includes(q) ||
+        (c.lastSubject || '').toLowerCase().includes(q)
       );
+    }
+
+    // Advanced filters (F3)
+    const dateFrom = req.query.dateFrom;
+    const dateTo = req.query.dateTo;
+    if (dateFrom) {
+      conversations = conversations.filter(c => (c.lastMessageAt || '') >= dateFrom);
+    }
+    if (dateTo) {
+      conversations = conversations.filter(c => (c.lastMessageAt || '') <= dateTo + 'T23:59:59');
+    }
+    const confMin = parseFloat(req.query.sentimentConfidence);
+    if (!isNaN(confMin) && confMin > 0) {
+      conversations = conversations.filter(c => (c.sentimentScore || 0) >= confMin);
     }
 
     // Filter by company for client users
@@ -2153,6 +2169,251 @@ app.get('/api/conversations/:email', authRequired, resolveClient, async (req, re
   }
 });
 
+// --- Unibox: Reply from dashboard ---
+app.post('/api/conversations/:email/reply', authRequired, resolveClient, async (req, res) => {
+  try {
+    const email = (req.params.email || '').toLowerCase().trim();
+    const { body: replyBody, subject } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email requis' });
+    if (!replyBody || !replyBody.trim()) return res.status(400).json({ error: 'Corps du message requis' });
+    if (replyBody.length > 5000) return res.status(400).json({ error: 'Message trop long (max 5000 caractères)' });
+
+    // Find the original email to get threading info (inReplyTo, references)
+    const am = await readData('automailer', req.clientId);
+    const allEmails = (am || {}).emails || [];
+    const sentToProspect = allEmails.filter(e => (e.to || '').toLowerCase().trim() === email);
+    const lastSent = sentToProspect.sort((a, b) => (b.sentAt || b.createdAt || '').localeCompare(a.sentAt || a.createdAt || ''))[0];
+
+    // Also check inbox-manager for last received (to reply to that)
+    const im = await readData('inbox-manager', req.clientId);
+    const receivedFromProspect = ((im || {}).receivedEmails || []).filter(r => (r.from || '').toLowerCase().trim() === email);
+    const lastReceived = receivedFromProspect.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+
+    // Determine reply-to messageId (prefer last received, fallback to last sent)
+    const replyToMsg = lastReceived || lastSent;
+    const inReplyTo = replyToMsg ? (replyToMsg.messageId || replyToMsg.id || null) : null;
+    const replySubject = subject || (replyToMsg ? 'Re: ' + (replyToMsg.subject || '').replace(/^Re:\s*/i, '') : 'Re: ');
+
+    // Proxy to router for actual sending
+    const sendPayload = JSON.stringify({
+      to: email,
+      subject: replySubject,
+      body: replyBody.trim(),
+      inReplyTo: inReplyTo,
+      references: inReplyTo,
+      source: 'dashboard_reply',
+      replyBy: req.user.username
+    });
+    const result = await proxyToRouter('/api/send-reply', 'POST', sendPayload, req.clientId);
+
+    if (result.status >= 200 && result.status < 300 && result.data && result.data.success) {
+      logAudit('conversation_reply', req.ip, { to: email, subject: replySubject, bodyLength: replyBody.length, by: req.user.username });
+      sseEmitToClient(req.clientId, 'conversation_update', { email, action: 'reply' });
+      sseEmitToClient(req.clientId, 'badge_update', { type: 'unibox' });
+      res.json({ success: true, to: email });
+    } else {
+      // Fallback: if router doesn't have /api/send-reply, try direct SMTP via HITL edit pattern
+      res.status(result.status || 500).json(result.data || { error: 'Envoi échoué' });
+    }
+  } catch (err) {
+    log.error('dashboard', 'Reply error: ' + err.message);
+    res.status(500).json({ error: 'Erreur serveur', details: err.message });
+  }
+});
+
+// --- Unibox: AI reply suggestions ---
+app.post('/api/conversations/:email/suggest', authRequired, resolveClient, async (req, res) => {
+  try {
+    const email = (req.params.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Email requis' });
+
+    // Build conversation context
+    const [am, im] = await Promise.all([
+      readData('automailer', req.clientId),
+      readData('inbox-manager', req.clientId)
+    ]);
+
+    const sentEmails = ((am || {}).emails || []).filter(e => (e.to || '').toLowerCase().trim() === email);
+    const received = ((im || {}).receivedEmails || []).filter(r => (r.from || '').toLowerCase().trim() === email);
+    const autoReplies = ((im || {}).autoReplies || []).filter(ar => (ar.prospectEmail || '').toLowerCase().trim() === email);
+
+    // Build thread for context
+    const allMessages = [];
+    sentEmails.forEach(e => allMessages.push({ role: 'sent', body: e.body || '', date: e.sentAt || '' }));
+    received.forEach(r => allMessages.push({ role: 'received', body: r.snippet || '', date: r.date || '' }));
+    autoReplies.forEach(ar => allMessages.push({ role: 'auto_reply', body: ar.replyBody || '', date: ar.sentAt || '' }));
+    allMessages.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    // Get KB for client
+    let kb = null;
+    try {
+      let kbPath;
+      if (req.clientId) {
+        const clientPaths = clientRegistry.getClientDataPaths(req.clientId);
+        kbPath = clientPaths ? clientPaths['inbox-manager'].replace('-db.json', '/knowledge-base.json').replace('inbox-manager-db.json', 'knowledge-base.json') : null;
+        if (!kbPath) {
+          // Try direct path
+          kbPath = path.join('/opt/moltbot/clients', req.clientId, 'data/inbox-manager/knowledge-base.json');
+        }
+      } else {
+        kbPath = (DATA_PATHS['inbox-manager'] || '').replace('inbox-manager-db.json', 'knowledge-base.json');
+      }
+      if (kbPath) kb = JSON.parse(await fsp.readFile(kbPath, 'utf8'));
+    } catch (e) {}
+
+    const threadText = allMessages.map(m => (m.role === 'received' ? 'PROSPECT: ' : 'NOUS: ') + m.body).join('\n\n');
+    const kbText = kb ? JSON.stringify(kb.company || {}) + '\n' + JSON.stringify(kb.services || {}) : '';
+
+    // Proxy to router for AI generation
+    const suggestPayload = JSON.stringify({
+      thread: threadText,
+      kb: kbText,
+      prospectEmail: email
+    });
+    const result = await proxyToRouter('/api/ai-suggest', 'POST', suggestPayload, req.clientId);
+
+    if (result.status >= 200 && result.status < 300) {
+      res.json(result.data);
+    } else {
+      // Fallback: generate simple suggestions locally
+      const lastMsg = received.sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+      const sentiment = lastMsg ? lastMsg.sentiment : 'unknown';
+      const suggestions = generateFallbackSuggestions(sentiment, sentEmails[0]);
+      res.json({ suggestions });
+    }
+  } catch (err) {
+    log.error('dashboard', 'AI suggest error: ' + err.message);
+    res.status(500).json({ error: 'Erreur serveur', details: err.message });
+  }
+});
+
+function generateFallbackSuggestions(sentiment, firstEmail) {
+  const name = firstEmail ? (firstEmail.contactName || '').split(' ')[0] : '';
+  const prefix = name ? name + ', ' : '';
+  if (sentiment === 'interested' || sentiment === 'positive') {
+    return [
+      { body: prefix + 'super, je te propose qu\'on en discute rapidement. Voici mon lien pour réserver un créneau :', tone: 'direct', confidence: 0.8 },
+      { body: prefix + 'merci pour ton retour ! Une question rapide avant qu\'on se cale un call : c\'est quoi ton plus gros frein côté prospection aujourd\'hui ?', tone: 'curieux', confidence: 0.75 },
+      { body: prefix + 'content que ça t\'intéresse. Je t\'envoie 2-3 infos par email et on se cale un appel cette semaine ?', tone: 'décontracté', confidence: 0.7 }
+    ];
+  } else if (sentiment === 'question') {
+    return [
+      { body: prefix + 'bonne question ! En résumé, on s\'occupe de tout : recherche de prospects, rédaction personnalisée, envoi et relances. Tu reçois des RDV dans ton calendrier.', tone: 'informatif', confidence: 0.8 },
+      { body: prefix + 'je comprends la question. Le plus simple serait qu\'on en parle 10 min — je pourrai te montrer concrètement comment ça marche.', tone: 'direct', confidence: 0.75 }
+    ];
+  } else if (sentiment === 'objection') {
+    return [
+      { body: prefix + 'je comprends. C\'est souvent la réaction au début. Ce qui convainc en général, c\'est de voir les résultats sur les premières semaines. On peut en discuter ?', tone: 'empathique', confidence: 0.7 },
+      { body: prefix + 'merci pour ton honnêteté. Si le timing n\'est pas bon, je peux revenir vers toi dans quelques semaines ?', tone: 'respectueux', confidence: 0.7 }
+    ];
+  }
+  return [
+    { body: prefix + 'merci pour ton retour. On peut en discuter plus en détail si tu veux ?', tone: 'neutre', confidence: 0.6 }
+  ];
+}
+
+// --- Unibox: Handoff IA → Humain ---
+app.post('/api/conversations/:email/handoff', authRequired, resolveClient, async (req, res) => {
+  try {
+    const email = (req.params.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Email requis' });
+    const { active } = req.body || {};
+
+    // Read inbox-manager data and update handoffs
+    let filePath;
+    if (req.clientId) {
+      const clientPaths = clientRegistry.getClientDataPaths(req.clientId);
+      filePath = clientPaths ? clientPaths['inbox-manager'] : null;
+    } else {
+      filePath = DATA_PATHS['inbox-manager'];
+    }
+    if (!filePath) return res.status(500).json({ error: 'Chemin données introuvable' });
+
+    let data = {};
+    try { data = JSON.parse(await fsp.readFile(filePath, 'utf8')); } catch (e) {}
+    if (!data.handoffs) data.handoffs = {};
+
+    if (active === false) {
+      delete data.handoffs[email];
+    } else {
+      data.handoffs[email] = {
+        at: new Date().toISOString(),
+        by: req.user.username,
+        reason: 'dashboard_manual'
+      };
+    }
+
+    // Atomic write
+    const tmpPath = filePath + '.tmp.' + Date.now();
+    await fsp.writeFile(tmpPath, JSON.stringify(data, null, 2));
+    await fsp.rename(tmpPath, filePath);
+    // Invalidate cache
+    const cacheKey = req.clientId ? req.clientId + ':inbox-manager' : 'inbox-manager';
+    dataCache.delete(cacheKey);
+
+    logAudit(active === false ? 'handoff_release' : 'handoff_activate', req.ip, { email, by: req.user.username });
+    sseEmitToClient(req.clientId, 'conversation_update', { email, action: active === false ? 'handoff_release' : 'handoff_activate' });
+    res.json({ success: true, handoff: data.handoffs[email] || null });
+  } catch (err) {
+    log.error('dashboard', 'Handoff error: ' + err.message);
+    res.status(500).json({ error: 'Erreur serveur', details: err.message });
+  }
+});
+
+// --- SSE: Real-time event stream ---
+const sseClients = new Map();
+
+app.get('/api/events', authRequired, (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+
+  const clientKey = req.user.username + '_' + Date.now();
+  sseClients.set(clientKey, { res, user: req.user });
+
+  // Send initial connection event
+  res.write('event: connected\ndata: {"status":"ok"}\n\n');
+
+  // Heartbeat every 30s
+  const heartbeat = setInterval(() => {
+    try { res.write('event: heartbeat\ndata: {"t":' + Date.now() + '}\n\n'); }
+    catch (e) { clearInterval(heartbeat); sseClients.delete(clientKey); }
+  }, 30000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(clientKey);
+  });
+});
+
+// Helper: broadcast SSE event to all connected clients
+function sseBroadcast(event, data) {
+  for (const [key, client] of sseClients) {
+    try {
+      client.res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n');
+    } catch (e) {
+      sseClients.delete(key);
+    }
+  }
+}
+
+// Helper: broadcast SSE to specific client (by clientId)
+function sseEmitToClient(clientId, event, data) {
+  for (const [key, client] of sseClients) {
+    try {
+      const cId = client.user.clientId || '_admin';
+      if (cId === (clientId || '_admin') || client.user.role === 'admin') {
+        client.res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n');
+      }
+    } catch (e) {
+      sseClients.delete(key);
+    }
+  }
+}
+
 // --- HITL Drafts (proxy vers telegram-router) ---
 function proxyToRouter(routerPath, method, body, clientId) {
   return new Promise((resolve, reject) => {
@@ -2195,6 +2456,9 @@ app.post('/api/drafts/:id/approve', authRequired, resolveClient, async (req, res
         body: req.body.body || ''
       });
     }
+    // SSE: notify draft approved
+    sseEmitToClient(req.clientId, 'draft_update', { action: 'approved', id: req.params.id });
+    sseEmitToClient(req.clientId, 'badge_update', { type: 'drafts' });
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });
@@ -2204,6 +2468,8 @@ app.post('/api/drafts/:id/approve', authRequired, resolveClient, async (req, res
 app.post('/api/drafts/:id/skip', authRequired, resolveClient, async (req, res) => {
   try {
     const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/skip', 'POST', null, req.clientId);
+    sseEmitToClient(req.clientId, 'draft_update', { action: 'skipped', id: req.params.id });
+    sseEmitToClient(req.clientId, 'badge_update', { type: 'drafts' });
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });
@@ -2213,6 +2479,8 @@ app.post('/api/drafts/:id/skip', authRequired, resolveClient, async (req, res) =
 app.post('/api/drafts/:id/reject', authRequired, resolveClient, async (req, res) => {
   try {
     const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/reject', 'POST', null, req.clientId);
+    sseEmitToClient(req.clientId, 'draft_update', { action: 'rejected', id: req.params.id });
+    sseEmitToClient(req.clientId, 'badge_update', { type: 'drafts' });
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });
@@ -2231,6 +2499,8 @@ app.post('/api/drafts/:id/edit', authRequired, resolveClient, async (req, res) =
         body: req.body.body || ''
       });
     }
+    sseEmitToClient(req.clientId, 'draft_update', { action: 'edited', id: req.params.id });
+    sseEmitToClient(req.clientId, 'badge_update', { type: 'drafts' });
     res.status(result.status).json(result.data);
   } catch (e) {
     res.status(502).json({ error: 'Bot indisponible', details: e.message });

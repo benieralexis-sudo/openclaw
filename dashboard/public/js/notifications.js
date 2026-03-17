@@ -39,11 +39,15 @@ const Notifications = {
       });
     }
 
-    // Initial load + polling
+    // Initial load + SSE-driven updates
     this.poll();
+    API.onEvent('notification', () => this.poll());
+    API.onEvent('badge_update', () => this.poll());
+
+    // Fallback polling every 90s
     this._pollInterval = setInterval(() => {
       if (document.visibilityState !== 'hidden') this.poll();
-    }, 30000);
+    }, 90000);
   },
 
   async poll() {

@@ -20,6 +20,7 @@ const App = {
     window.addEventListener('hashchange', () => this.routeFromHash());
     startAutoRefresh();
     this.updateBadges();
+    if (typeof Keyboard !== 'undefined') Keyboard.init();
   },
 
   async loadUserInfo() {
@@ -145,6 +146,11 @@ const App = {
     const loadId = ++this._loadId;
 
     const container = document.getElementById('page-container');
+    if (!silent && container.children.length > 0) {
+      container.classList.add('page-exit');
+      await new Promise(function(r) { setTimeout(r, 120); });
+      container.classList.remove('page-exit');
+    }
     if (!silent) {
       container.innerHTML = `<div class="page-enter stagger">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">
@@ -483,6 +489,10 @@ document.addEventListener('click', (ev) => {
         }
         setTimeout(() => { target.textContent = 'Restart'; target.style.color = ''; }, 3000);
       });
+      break;
+    }
+    case 'open-prospect': {
+      if (param && typeof ProspectDrawer !== 'undefined') ProspectDrawer.open(param);
       break;
     }
     case 'delete-client': {

@@ -185,11 +185,16 @@ const API = {
   kbTemplate() { return this.get('/api/settings/kb/template'); },
 
   // Unibox — conversations (no cache, time-sensitive)
-  async conversations(filter, q, page) {
+  async conversations(filter, q, page, advancedFilters) {
     let url = 'conversations?limit=50';
     if (filter && filter !== 'all') url += '&filter=' + encodeURIComponent(filter);
     if (q) url += '&q=' + encodeURIComponent(q);
     if (page && page > 1) url += '&page=' + page;
+    if (advancedFilters) {
+      if (advancedFilters.dateFrom) url += '&dateFrom=' + encodeURIComponent(advancedFilters.dateFrom);
+      if (advancedFilters.dateTo) url += '&dateTo=' + encodeURIComponent(advancedFilters.dateTo);
+      if (advancedFilters.sentimentConfidence) url += '&sentimentConfidence=' + advancedFilters.sentimentConfidence;
+    }
     try {
       const res = await fetch('/api/' + url);
       if (res.status === 401) { window.location.href = '/login'; return null; }
@@ -213,25 +218,91 @@ const API = {
   },
   async pipeline() {
     return this.fetch('pipeline');
+  },
+
+  // SSE — real-time events with pub/sub
+  _eventSource: null,
+  _sseListeners: {},
+  _sseConnected: false,
+
+  connectSSE() {
+    if (this._eventSource) this._eventSource.close();
+    try {
+      this._eventSource = new EventSource('/api/events');
+      const self = this;
+      const eventTypes = ['new_reply', 'new_draft', 'hot_lead', 'draft_update', 'conversation_update', 'badge_update', 'notification', 'connected', 'heartbeat'];
+      eventTypes.forEach(function(type) {
+        self._eventSource.addEventListener(type, function(e) {
+          try {
+            const data = JSON.parse(e.data);
+            self._fireEvent(type, data);
+          } catch (err) {}
+        });
+      });
+      this._eventSource.onerror = function() {
+        self._sseConnected = false;
+        // Auto-reconnect handled by browser
+      };
+      this._sseConnected = true;
+    } catch (e) {
+      console.error('[API] SSE error:', e);
+    }
+  },
+
+  onEvent(type, callback) {
+    if (!this._sseListeners[type]) this._sseListeners[type] = [];
+    this._sseListeners[type].push(callback);
+    return this; // chainable
+  },
+
+  offEvent(type, callback) {
+    if (!this._sseListeners[type]) return;
+    if (callback) {
+      this._sseListeners[type] = this._sseListeners[type].filter(function(cb) { return cb !== callback; });
+    } else {
+      delete this._sseListeners[type];
+    }
+  },
+
+  _fireEvent(type, data) {
+    const listeners = this._sseListeners[type];
+    if (listeners) {
+      listeners.forEach(function(cb) { try { cb(data); } catch (e) {} });
+    }
+  },
+
+  disconnectSSE() {
+    if (this._eventSource) { this._eventSource.close(); this._eventSource = null; }
+    this._sseConnected = false;
   }
 };
 
-// Auto-refresh every 60s (pause when tab hidden)
+// SSE-driven refresh + fallback polling 120s
 let _refreshInterval = null;
 function startAutoRefresh() {
+  // Connect SSE for real-time updates
+  API.connectSSE();
+
+  // Listen for badge updates via SSE
+  API.onEvent('badge_update', function() {
+    if (typeof App !== 'undefined') App.updateBadges();
+  });
+
+  // Fallback polling every 120s (longer interval since SSE handles real-time)
   if (_refreshInterval) clearInterval(_refreshInterval);
-  _refreshInterval = setInterval(() => {
+  _refreshInterval = setInterval(function() {
     if (document.visibilityState === 'hidden') return;
     API.invalidateAll();
     if (typeof App !== 'undefined' && App.currentPage) {
       App.loadPage(App.currentPage, true);
     }
-  }, 60000);
+  }, 120000);
 
-  document.addEventListener('visibilitychange', () => {
+  document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible' && typeof App !== 'undefined' && App.currentPage) {
       API.invalidateAll();
       App.loadPage(App.currentPage, true);
+      App.updateBadges();
     }
   });
 }

@@ -141,6 +141,7 @@ window.Pages = window.Pages || {};
         '</div>' +
       '</div>' +
       '<div class="ub-thread-actions">' +
+        '<button class="ub-profile-btn" data-action="open-prospect" data-param="' + Utils.escapeHtml(p.email) + '" title="Voir profil"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>' +
         (data.handoff ? '<span class="ub-handoff-badge">🤝 Handoff actif</span>' : '') +
       '</div>' +
     '</div>';
@@ -180,11 +181,33 @@ window.Pages = window.Pages || {};
 
     html += '</div>';
 
+    // Reply zone
+    html += '<div class="ub-reply-zone">' +
+      '<div class="ub-reply-actions-top">' +
+        '<button class="ub-suggest-btn" id="ub-suggest-btn" title="Suggestions IA">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"/><line x1="9" y1="21" x2="15" y2="21"/></svg>' +
+          ' Suggestions IA' +
+        '</button>' +
+        '<button class="ub-handoff-toggle' + (data.handoff ? ' ub-handoff-active' : '') + '" id="ub-handoff-toggle" data-email="' + Utils.escapeHtml(p.email) + '" title="' + (data.handoff ? 'Relâcher au bot' : 'Prendre en main') + '">' +
+          (data.handoff ? '🤝 Handoff actif — Cliquer pour relâcher' : '🤖 Bot actif — Prendre en main') +
+        '</button>' +
+      '</div>' +
+      '<div id="ub-suggestions" class="ub-suggestions" style="display:none"></div>' +
+      '<div class="ub-reply-input-wrap">' +
+        '<textarea id="ub-reply-input" class="ub-reply-input" placeholder="Écrire une réponse..." rows="3"></textarea>' +
+        '<button id="ub-send-btn" class="ub-send-btn" title="Envoyer">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
     return html;
   }
 
+  let _advancedFilters = {};
+
   async function loadConversations(silent) {
-    const data = await API.conversations(_currentFilter, _searchQuery);
+    const data = await API.conversations(_currentFilter, _searchQuery, null, _advancedFilters);
     if (!data) return;
     _conversations = data.conversations || [];
 
@@ -237,8 +260,104 @@ window.Pages = window.Pages || {};
     if (threadEl) {
       threadEl.innerHTML = renderThread(data);
       // Scroll to bottom of messages
-      const msgsEl = threadEl.querySelector('.ub-thread-messages');
+      var msgsEl = threadEl.querySelector('.ub-thread-messages');
       if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+
+      // Bind send button
+      var sendBtn = document.getElementById('ub-send-btn');
+      var replyInput = document.getElementById('ub-reply-input');
+      if (sendBtn && replyInput) {
+        sendBtn.addEventListener('click', async function() {
+          var body = replyInput.value.trim();
+          if (!body) return;
+          sendBtn.disabled = true;
+          sendBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px"></div>';
+          var result = await API.post('conversations/' + encodeURIComponent(email) + '/reply', { body: body });
+          if (result && result.success) {
+            replyInput.value = '';
+            if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Réponse envoyée');
+            // Reload thread to show the new message
+            setTimeout(function() { loadThread(email); }, 1000);
+          } else {
+            if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Erreur d\'envoi : ' + ((result && result.error) || 'inconnue'));
+          }
+          sendBtn.disabled = false;
+          sendBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+        });
+
+        // Ctrl+Enter to send
+        replyInput.addEventListener('keydown', function(ev) {
+          if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
+            ev.preventDefault();
+            sendBtn.click();
+          }
+        });
+      }
+
+      // Bind AI suggestions button
+      var suggestBtn = document.getElementById('ub-suggest-btn');
+      if (suggestBtn) {
+        suggestBtn.addEventListener('click', async function() {
+          var sugBox = document.getElementById('ub-suggestions');
+          if (!sugBox) return;
+          suggestBtn.disabled = true;
+          suggestBtn.textContent = 'Génération...';
+          sugBox.style.display = '';
+          sugBox.innerHTML = '<div class="ub-loading" style="padding:12px"><div class="spinner"></div></div>';
+
+          var result = await API.post('conversations/' + encodeURIComponent(email) + '/suggest', {});
+          suggestBtn.disabled = false;
+          suggestBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"/><line x1="9" y1="21" x2="15" y2="21"/></svg> Suggestions IA';
+
+          if (result && result.suggestions && result.suggestions.length > 0) {
+            sugBox.innerHTML = result.suggestions.map(function(s, i) {
+              return '<div class="ub-suggestion" data-idx="' + i + '">' +
+                '<div class="ub-suggestion-body">' + Utils.escapeHtml(s.body) + '</div>' +
+                '<div class="ub-suggestion-meta">' +
+                  '<span class="ub-suggestion-tone">' + (s.tone || '') + '</span>' +
+                  '<span class="ub-suggestion-conf">' + Math.round((s.confidence || 0) * 100) + '% confiance</span>' +
+                '</div>' +
+              '</div>';
+            }).join('');
+
+            // Click suggestion → insert in textarea
+            sugBox.querySelectorAll('.ub-suggestion').forEach(function(el) {
+              el.addEventListener('click', function() {
+                var idx = parseInt(el.dataset.idx);
+                if (replyInput && result.suggestions[idx]) {
+                  replyInput.value = result.suggestions[idx].body;
+                  replyInput.focus();
+                  sugBox.style.display = 'none';
+                }
+              });
+            });
+          } else {
+            sugBox.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:13px">Aucune suggestion disponible</div>';
+          }
+        });
+      }
+
+      // Bind handoff toggle
+      var handoffBtn = document.getElementById('ub-handoff-toggle');
+      if (handoffBtn) {
+        handoffBtn.addEventListener('click', async function() {
+          var isActive = handoffBtn.classList.contains('ub-handoff-active');
+          handoffBtn.disabled = true;
+          var result = await API.post('conversations/' + encodeURIComponent(email) + '/handoff', { active: !isActive });
+          handoffBtn.disabled = false;
+          if (result && result.success) {
+            if (isActive) {
+              handoffBtn.classList.remove('ub-handoff-active');
+              handoffBtn.textContent = '🤖 Bot actif — Prendre en main';
+              if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Bot réactivé');
+            } else {
+              handoffBtn.classList.add('ub-handoff-active');
+              handoffBtn.textContent = '🤝 Handoff actif — Cliquer pour relâcher';
+              if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Handoff activé — le bot ne répondra plus');
+            }
+          }
+        });
+      }
     }
   }
 
@@ -271,6 +390,18 @@ window.Pages = window.Pages || {};
             filterButtons.map(function(f) {
               return '<button class="ub-filter-btn' + (f.key === _currentFilter ? ' ub-filter-active' : '') + '" data-filter="' + f.key + '">' + f.label + '</button>';
             }).join('') +
+            '<button class="ub-filter-btn ub-filter-advanced-toggle" id="ub-toggle-advanced" title="Filtres avances">⚙</button>' +
+          '</div>' +
+          '<div id="ub-advanced-filters" class="ub-advanced-filters" style="display:none">' +
+            '<div class="ub-af-row">' +
+              '<label class="ub-af-label">Du</label>' +
+              '<input type="date" id="ub-filter-from" class="ub-af-input">' +
+              '<label class="ub-af-label">Au</label>' +
+              '<input type="date" id="ub-filter-to" class="ub-af-input">' +
+            '</div>' +
+            '<div class="ub-af-row">' +
+              '<button class="ub-af-clear" id="ub-clear-advanced">Effacer filtres</button>' +
+            '</div>' +
           '</div>' +
           '<div id="ub-conv-list" class="ub-conv-list">' +
             Array.from({length: 6}, function() {
@@ -314,6 +445,38 @@ window.Pages = window.Pages || {};
           _searchQuery = searchInput.value.trim();
           loadConversations();
         }, 300);
+      });
+    }
+
+    // Bind advanced filters toggle
+    var toggleAdvanced = document.getElementById('ub-toggle-advanced');
+    if (toggleAdvanced) {
+      toggleAdvanced.addEventListener('click', function() {
+        var panel = document.getElementById('ub-advanced-filters');
+        if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+      });
+    }
+    var filterFrom = document.getElementById('ub-filter-from');
+    var filterTo = document.getElementById('ub-filter-to');
+    if (filterFrom) {
+      filterFrom.addEventListener('change', function() {
+        _advancedFilters.dateFrom = filterFrom.value || undefined;
+        loadConversations();
+      });
+    }
+    if (filterTo) {
+      filterTo.addEventListener('change', function() {
+        _advancedFilters.dateTo = filterTo.value || undefined;
+        loadConversations();
+      });
+    }
+    var clearAdvanced = document.getElementById('ub-clear-advanced');
+    if (clearAdvanced) {
+      clearAdvanced.addEventListener('click', function() {
+        _advancedFilters = {};
+        if (filterFrom) filterFrom.value = '';
+        if (filterTo) filterTo.value = '';
+        loadConversations();
       });
     }
 
@@ -367,11 +530,20 @@ window.Pages = window.Pages || {};
       loadThread(_conversations[0].prospectEmail);
     }
 
-    // Auto-refresh every 30s (only when on unibox page)
-    _refreshInterval = setInterval(function() {
-      if (App.currentPage !== 'unibox') { clearInterval(_refreshInterval); _refreshInterval = null; return; }
+    // SSE-driven refresh instead of polling
+    function _onConversationUpdate() {
+      if (App.currentPage !== 'unibox') return;
       if (document.visibilityState === 'hidden') return;
       loadConversations(true);
-    }, 30000);
+    }
+    API.onEvent('conversation_update', _onConversationUpdate);
+    API.onEvent('new_reply', _onConversationUpdate);
+
+    // Fallback: light polling every 60s
+    _refreshInterval = setInterval(function() {
+      if (App.currentPage !== 'unibox') { clearInterval(_refreshInterval); _refreshInterval = null; API.offEvent('conversation_update', _onConversationUpdate); API.offEvent('new_reply', _onConversationUpdate); return; }
+      if (document.visibilityState === 'hidden') return;
+      loadConversations(true);
+    }, 60000);
   };
 })();

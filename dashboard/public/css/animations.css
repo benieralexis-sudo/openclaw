@@ -235,6 +235,70 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
 }
 
+/* ===== PAGE TRANSITIONS (PREMIUM) ===== */
+.page-exit {
+  animation: pageExit 0.12s ease forwards;
+}
+@keyframes pageExit {
+  to { opacity: 0; transform: translateY(-6px); }
+}
+.page-enter {
+  animation: pageEnter 0.2s ease forwards;
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== CARD HOVER LIFT (PREMIUM) ===== */
+.kpi-card:hover,
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2), 0 0 0 1px var(--border-hover);
+}
+.pipeline-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
+
+/* ===== BUTTON PRESS (PREMIUM) ===== */
+button:active, .btn:active, [data-action]:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease;
+}
+
+/* ===== TOAST SLIDE-IN ===== */
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.toast { animation: toastSlideIn 0.25s ease forwards; }
+
+/* ===== DRAWER SLIDE ===== */
+@keyframes drawerSlide {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* ===== BADGE SCALE PULSE ===== */
+@keyframes badgeScalePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.nav-badge { animation: badgeScalePulse 2s ease-in-out infinite; }
+
+/* ===== SHIMMER IMPROVED ===== */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-card-hover) 40%, var(--bg-card-hover) 60%, var(--bg-card) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ===== GPU ACCELERATION ===== */
+.kpi-card, .card, .pipeline-card, .drawer, .kbd-modal, .toast {
+  will-change: transform, opacity;
+}
+
 /* ===== REDUCED MOTION ===== */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

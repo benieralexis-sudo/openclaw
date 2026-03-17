@@ -117,14 +117,23 @@ Pages.drafts = async function(container) {
   // Bind events
   bindDraftActions(container);
 
-  // Auto-refresh every 30s
-  _draftsRefreshTimer = setInterval(() => {
+  // SSE-driven refresh for drafts
+  function _onDraftUpdate() {
+    if (App.currentPage !== 'drafts') return;
     if (document.visibilityState === 'hidden') return;
-    if (App.currentPage !== 'drafts') { clearInterval(_draftsRefreshTimer); return; }
-    // Only refresh if no modal is open
     if (document.getElementById('draft-edit-modal')?.style.display !== 'none') return;
     App.loadPage('drafts', true);
-  }, 30000);
+  }
+  API.onEvent('draft_update', _onDraftUpdate);
+  API.onEvent('new_draft', _onDraftUpdate);
+
+  // Fallback: light polling every 60s
+  _draftsRefreshTimer = setInterval(() => {
+    if (document.visibilityState === 'hidden') return;
+    if (App.currentPage !== 'drafts') { clearInterval(_draftsRefreshTimer); API.offEvent('draft_update', _onDraftUpdate); API.offEvent('new_draft', _onDraftUpdate); return; }
+    if (document.getElementById('draft-edit-modal')?.style.display !== 'none') return;
+    App.loadPage('drafts', true);
+  }, 60000);
 };
 
 function renderDraftCard(d) {
