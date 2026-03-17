@@ -5,7 +5,7 @@ window.Pages = window.Pages || {};
 
 Pages.campaigns = async function(container) {
   // Charger emails + inbox + health + ab en parallèle
-  const [data, inboxData, healthData, abData] = await Promise.all([API.emails(), API.inbox(), API.fetch('email-health/score'), API.fetch('ab-tests')]);
+  const [data, inboxData, healthData, abData, heatmapData] = await Promise.all([API.emails(), API.inbox(), API.fetch('email-health/score'), API.fetch('ab-tests'), API.fetch('analytics/heatmap')]);
   if (!data) return container.innerHTML = '<div class="empty-state"><p>Impossible de charger les données</p></div>';
 
   const campaigns = data.campaigns || [];
@@ -224,7 +224,47 @@ Pages.campaigns = async function(container) {
       </div>
     </div>
     ` : ''}
+
+    ${heatmapData && heatmapData.openMatrix && heatmapData.openMatrix.length > 0 ? `
+    <div class="grid-full">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">${Utils.icon('clock', 16)} Heatmap Engagement</div>
+          <span class="badge badge-purple">Ouvertures par jour/heure</span>
+        </div>
+        <div class="card-body">
+          <div id="heatmap-container" style="overflow-x:auto"></div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
   </div>`;
+
+  // Render heatmap
+  if (heatmapData && heatmapData.openMatrix && heatmapData.openMatrix.length > 0) {
+    const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    const matrix = heatmapData.openMatrix;
+    let maxVal = 0;
+    for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) if (matrix[d] && matrix[d][h] > maxVal) maxVal = matrix[d][h];
+
+    let html = '<table style="border-collapse:collapse;width:100%;font-size:11px">';
+    html += '<tr><td></td>';
+    for (let h = 0; h < 24; h++) html += '<td style="text-align:center;color:var(--text-muted);padding:2px">' + h + 'h</td>';
+    html += '</tr>';
+    for (let d = 0; d < 7; d++) {
+      html += '<tr><td style="padding:4px 8px;color:var(--text-secondary);font-weight:500;white-space:nowrap">' + days[d] + '</td>';
+      for (let h = 0; h < 24; h++) {
+        const val = (matrix[d] && matrix[d][h]) || 0;
+        const intensity = maxVal > 0 ? val / maxVal : 0;
+        const bg = intensity === 0 ? 'var(--bg-card)' : 'rgba(59,130,246,' + (0.15 + intensity * 0.75).toFixed(2) + ')';
+        html += '<td style="padding:0"><div style="width:100%;height:24px;background:' + bg + ';border-radius:2px;margin:1px" title="' + days[d] + ' ' + h + 'h: ' + val + ' ouverture' + (val > 1 ? 's' : '') + '"></div></td>';
+      }
+      html += '</tr>';
+    }
+    html += '</table>';
+    const heatmapEl = document.getElementById('heatmap-container');
+    if (heatmapEl) heatmapEl.innerHTML = html;
+  }
 
   // Graphique taux d'ouverture
   if (data.dailyOpenRate) {

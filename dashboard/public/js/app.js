@@ -21,6 +21,25 @@ const App = {
     startAutoRefresh();
     this.updateBadges();
     if (typeof Keyboard !== 'undefined') Keyboard.init();
+    this.applyBranding();
+  },
+
+  applyBranding() {
+    // Check if server injected branding via window.__BRANDING__
+    const b = window.__BRANDING__;
+    if (!b) return;
+    const root = document.documentElement;
+    if (b.primaryColor) root.style.setProperty('--accent-blue', b.primaryColor);
+    if (b.secondaryColor) root.style.setProperty('--accent-purple', b.secondaryColor);
+    if (b.companyName) {
+      const logoText = document.querySelector('.logo-text');
+      if (logoText) logoText.textContent = b.companyName;
+      document.title = b.companyName;
+    }
+    if (b.logoUrl) {
+      const logoMark = document.querySelector('.logo-mark');
+      if (logoMark) logoMark.innerHTML = '<img src="' + b.logoUrl + '" alt="Logo" style="width:28px;height:28px;border-radius:7px;object-fit:cover">';
+    }
   },
 
   async loadUserInfo() {

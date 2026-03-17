@@ -72,9 +72,58 @@
     renderWidgetMessages();
   }
 
+  // Command autocomplete for /commands
+  const CHAT_COMMANDS = [
+    { cmd: '/stats', desc: 'Statistiques du jour' },
+    { cmd: '/approve', desc: 'Approuver le premier brouillon' },
+    { cmd: '/leads', desc: 'Nombre de leads' },
+    { cmd: '/pipeline', desc: 'Status pipeline' },
+    { cmd: '/rapport', desc: 'Generer un rapport' },
+    { cmd: '/pause', desc: 'Mettre en pause' },
+    { cmd: '/resume', desc: 'Reprendre' }
+  ];
+
+  function showCommandHints(query) {
+    let hintsEl = document.getElementById('cw-cmd-hints');
+    if (!hintsEl) {
+      hintsEl = document.createElement('div');
+      hintsEl.id = 'cw-cmd-hints';
+      hintsEl.style.cssText = 'position:absolute;bottom:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);max-height:160px;overflow-y:auto;z-index:10;margin-bottom:4px';
+      input.parentElement.style.position = 'relative';
+      input.parentElement.appendChild(hintsEl);
+    }
+    const q = query.toLowerCase();
+    const matches = CHAT_COMMANDS.filter(c => c.cmd.includes(q));
+    if (matches.length === 0) { hintsEl.style.display = 'none'; return; }
+    hintsEl.style.display = '';
+    hintsEl.innerHTML = matches.map(c =>
+      '<div class="cw-cmd-hint" data-cmd="' + c.cmd + '" style="padding:6px 10px;cursor:pointer;font-size:12px;display:flex;gap:8px;transition:background 0.1s">' +
+        '<span style="color:var(--accent-blue);font-weight:500">' + c.cmd + '</span>' +
+        '<span style="color:var(--text-muted)">' + c.desc + '</span>' +
+      '</div>'
+    ).join('');
+    hintsEl.querySelectorAll('.cw-cmd-hint').forEach(el => {
+      el.addEventListener('click', () => {
+        input.value = el.dataset.cmd + ' ';
+        input.focus();
+        hintsEl.style.display = 'none';
+      });
+      el.addEventListener('mouseenter', () => { el.style.background = 'var(--bg-card-hover)'; });
+      el.addEventListener('mouseleave', () => { el.style.background = ''; });
+    });
+  }
+
   if (input) {
     input.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') { ev.preventDefault(); sendWidgetMessage(); }
+      if (ev.key === 'Enter') { ev.preventDefault(); sendWidgetMessage(); const h = document.getElementById('cw-cmd-hints'); if (h) h.style.display = 'none'; }
+    });
+    input.addEventListener('input', () => {
+      const val = input.value;
+      if (val.startsWith('/') && val.length >= 1) {
+        showCommandHints(val);
+      } else {
+        const h = document.getElementById('cw-cmd-hints'); if (h) h.style.display = 'none';
+      }
     });
   }
   if (sendBtn) {
