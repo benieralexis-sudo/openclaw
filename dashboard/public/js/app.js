@@ -60,18 +60,32 @@ const App = {
 
   applyRoleVisibility() {
     const adminPages = ['finances', 'intelligence', 'system', 'clients'];
+    const isAdmin = this.userRole === 'admin';
+    const isViewer = this.userRole === 'viewer';
+
     document.querySelectorAll('.nav-item').forEach(item => {
       const page = item.dataset.page;
       if (adminPages.includes(page)) {
-        item.style.display = this.userRole === 'admin' ? '' : 'none';
+        item.style.display = isAdmin ? '' : 'none';
       }
     });
-    // Masquer aussi le label "ADMIN" pour les clients
+    // Masquer le label "ADMIN" pour les non-admins
     document.querySelectorAll('.nav-section-label').forEach(label => {
       if (label.textContent.trim() === 'ADMIN') {
-        label.style.display = this.userRole === 'admin' ? '' : 'none';
+        label.style.display = isAdmin ? '' : 'none';
       }
     });
+    // Masquer CRM si pas de HubSpot configuré (éviter page vide)
+    if (!isAdmin) {
+      const crmNav = document.querySelector('.nav-item[data-page="crm"]');
+      if (crmNav && !this._hasHubspot) crmNav.style.display = 'none';
+    }
+    // Masquer les actions pour les viewers
+    if (isViewer) {
+      document.querySelectorAll('[data-action="approve-draft"], [data-action="reject-draft"], [data-action="edit-draft"], [data-action="skip-draft"]').forEach(el => {
+        el.style.display = 'none';
+      });
+    }
   },
 
   bindNav() {
@@ -533,6 +547,25 @@ document.addEventListener('click', (ev) => {
           App.loadPage('settings');
         }
       });
+      break;
+    }
+    case 'propose-meeting': {
+      if (!param) break;
+      API.post('conversations/' + encodeURIComponent(param) + '/propose-meeting', { duration: 30 }).then(res => {
+        if (res && res.text) {
+          // Insert meeting text into rich editor or textarea
+          const editor = document.querySelector('.re-content');
+          if (editor) { editor.innerHTML = res.text; editor.focus(); }
+          Utils.toast('Creneaux inseres dans la reponse');
+        } else {
+          Utils.toast('Erreur : impossible de proposer un RDV');
+        }
+      });
+      break;
+    }
+    case 'export-conversation': {
+      if (!param) break;
+      window.open('/api/conversations/' + encodeURIComponent(param) + '/export', '_blank');
       break;
     }
     case 'open-prospect': {

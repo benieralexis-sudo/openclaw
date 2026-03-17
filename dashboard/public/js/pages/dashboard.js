@@ -24,7 +24,8 @@ Pages.dashboard = async function(container) {
         <h1>Bonjour${data.ownerName ? ' ' + _e(data.ownerName) : ''}</h1>
         <div class="date">${Utils.todayString()}</div>
       </div>
-      <div class="page-actions">
+      <div class="page-actions" style="display:flex;align-items:center;gap:10px">
+        <a href="/api/reports/weekly" target="_blank" class="ub-action-sm" title="Telecharger rapport PDF de la semaine">📄 Rapport PDF</a>
         <div class="period-selector">
           <button class="period-btn ${App.currentPeriod === '1d' ? 'active' : ''}" data-action="set-period" data-param="1d">Aujourd'hui</button>
           <button class="period-btn ${App.currentPeriod === '7d' ? 'active' : ''}" data-action="set-period" data-param="7d">7 jours</button>

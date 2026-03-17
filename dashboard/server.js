@@ -13,6 +13,7 @@ const log = require('../gateway/logger.js');
 const clientRegistry = require('./client-registry.js');
 const notificationManager = require('./notification-manager.js');
 const curatedLists = require('./curated-lists.js');
+const pdfGenerator = require('./pdf-generator.js');
 
 const DEFAULT_ROUTER_URL = process.env.ROUTER_URL || 'http://telegram-router:9090';
 
@@ -306,10 +307,19 @@ function adminRequired(req, res, next) {
   next();
 }
 
+// Editor or admin required (blocks viewers from mutations)
+function editorRequired(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Non authentifie' });
+  if (req.user.role === 'viewer') {
+    return res.status(403).json({ error: 'Acces en lecture seule — contactez votre administrateur' });
+  }
+  next();
+}
+
 // --- Multi-tenant client resolution ---
 function resolveClient(req, res, next) {
-  if (req.user.role === 'client') {
-    // Client users are locked to their own clientId
+  if (req.user.role === 'client' || req.user.role === 'editor' || req.user.role === 'viewer') {
+    // Client/editor/viewer users are locked to their own clientId
     req.clientId = req.user.clientId || null;
   } else if (req.user.role === 'admin' && req.query.clientId) {
     // Admin can switch context via ?clientId=
@@ -1342,6 +1352,10 @@ app.get('/api/settings/reply-mode', authRequired, resolveClient, (req, res) => {
 app.put('/api/settings/reply-mode', authRequired, resolveClient, (req, res) => {
   const validModes = ['autopilot', 'copilot', 'manual'];
   const mode = validModes.includes(req.body.mode) ? req.body.mode : 'copilot';
+  // Autopilot = admin only (security: client can't enable full auto without understanding)
+  if (mode === 'autopilot' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Le mode Autopilot ne peut etre active que par un administrateur' });
+  }
   if (req.clientId) {
     clientRegistry.updateClient(req.clientId, { replyMode: mode });
   }
@@ -1609,6 +1623,136 @@ app.put('/api/clients/:id/branding', authRequired, async (req, res) => {
   clientRegistry.updateClient(req.params.id, { branding });
   logAudit('branding_updated', req.ip, { clientId: req.params.id, by: req.user.username });
   res.json({ success: true, branding });
+});
+
+// --- PDF Weekly Report (F14) ---
+app.get('/api/reports/weekly', authRequired, resolveClient, async (req, res) => {
+  try {
+    const [am, im, proData] = await Promise.all([
+      readData('automailer', req.clientId),
+      readData('inbox-manager', req.clientId),
+      readData('autonomous-pilot', req.clientId).catch(() => null)
+    ]);
+    const emails = (am || {}).emails || [];
+    const received = (im || {}).receivedEmails || [];
+    const weekAgo = Date.now() - 604800000;
+    const weekEmails = emails.filter(e => e.sentAt && new Date(e.sentAt).getTime() > weekAgo);
+    const weekOpened = weekEmails.filter(e => e.openedAt);
+    const weekBounced = weekEmails.filter(e => e.status === 'bounced');
+    const weekReplies = received.filter(r => {
+      const d = r.date || r.receivedAt || r.matchedAt;
+      return d && new Date(d).getTime() > weekAgo;
+    });
+
+    const hotLeads = ((proData || {}).hotLeads || []).filter(l => (l.opens || 0) >= 3);
+    const recommendations = [];
+    const openRate = weekEmails.length > 0 ? Math.round((weekOpened.length / weekEmails.length) * 100) : 0;
+    const replyRate = weekEmails.length > 0 ? Math.round((weekReplies.length / weekEmails.length) * 100) : 0;
+    if (openRate < 20) recommendations.push('Taux ouverture bas (' + openRate + '%) — tester des sujets plus courts et personnalises');
+    if (replyRate < 2) recommendations.push('Taux reponse bas (' + replyRate + '%) — augmenter la personnalisation');
+    if (weekBounced.length > weekEmails.length * 0.05) recommendations.push('Trop de bounces — verifier la qualite des emails');
+    if (hotLeads.length > 0) recommendations.push(hotLeads.length + ' lead(s) chaud(s) a contacter en priorite');
+    if (recommendations.length === 0) recommendations.push('Tout va bien ! Continuez comme ca.');
+
+    const clientName = req.clientId ? (clientRegistry.getClient(req.clientId) || {}).name : 'iFIND';
+    const stats = {
+      sent: weekEmails.length, openRate, replyRate,
+      replies: weekReplies.length, hotLeads: hotLeads.length,
+      bounced: weekBounced.length, bounceRate: weekEmails.length > 0 ? Math.round((weekBounced.length / weekEmails.length) * 100) : 0,
+      hotLeadsList: hotLeads.slice(0, 8).map(l => ({
+        name: l.apolloData?.name || l.email, company: l.apolloData?.organization?.name || '',
+        opens: l.opens || 0, score: l.aiClassification?.score || 0
+      })),
+      recommendations
+    };
+
+    const pdfBuffer = await pdfGenerator.generateWeeklyReport(stats, clientName);
+    const week = req.query.week || new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="rapport-hebdo-' + week + '.pdf"');
+    res.send(pdfBuffer);
+  } catch (err) {
+    log.error('dashboard', 'PDF report error: ' + err.message);
+    res.status(500).json({ error: 'Erreur generation PDF', details: err.message });
+  }
+});
+
+// --- Export Conversation PDF (F15) ---
+app.get('/api/conversations/:email/export', authRequired, resolveClient, async (req, res) => {
+  try {
+    const email = (req.params.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Email requis' });
+
+    const threadData = await buildConversationThread(email, req.clientId);
+    if (!threadData || !threadData.messages || threadData.messages.length === 0) {
+      return res.status(404).json({ error: 'Conversation introuvable' });
+    }
+
+    const pdfBuffer = await pdfGenerator.generateConversationExport(threadData.prospect, threadData.messages);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="conversation-' + email.split('@')[0] + '.pdf"');
+    res.send(pdfBuffer);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur export PDF', details: err.message });
+  }
+});
+
+// Helper: build conversation thread (reused from /api/conversations/:email)
+async function buildConversationThread(email, clientId) {
+  const [am, im] = await Promise.all([
+    readData('automailer', clientId),
+    readData('inbox-manager', clientId)
+  ]);
+  const allEmails = (am || {}).emails || [];
+  const sentToProspect = allEmails.filter(e => (e.to || '').toLowerCase().trim() === email);
+  const receivedEmails = ((im || {}).receivedEmails || []).filter(r => (r.from || '').toLowerCase().trim() === email);
+  const autoReplies = ((im || {}).autoReplies || []).filter(r => (r.to || '').toLowerCase().trim() === email);
+
+  const messages = [];
+  for (const e of sentToProspect) { messages.push({ type: 'sent', date: e.sentAt || e.createdAt, subject: e.subject, body: e.body, status: e.status, openedAt: e.openedAt, stepNumber: e.step }); }
+  for (const r of receivedEmails) { messages.push({ type: 'received', date: r.date || r.receivedAt, subject: r.subject, body: r.body, sentiment: r.sentiment }); }
+  for (const a of autoReplies) { messages.push({ type: 'auto_reply', date: a.sentAt || a.date, subject: a.subject, body: a.body, confidence: a.confidence }); }
+  messages.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  const prospect = { email, name: sentToProspect[0]?.contactName || email.split('@')[0], company: sentToProspect[0]?.company || '' };
+  return { prospect, messages };
+}
+
+// --- Meeting Scheduling (F10) ---
+app.post('/api/conversations/:email/propose-meeting', authRequired, resolveClient, async (req, res) => {
+  try {
+    const email = (req.params.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Email requis' });
+    const { duration, timezone } = req.body || {};
+
+    const payload = JSON.stringify({
+      prospectEmail: email,
+      duration: Math.min(parseInt(duration) || 30, 120),
+      timezone: timezone || 'Europe/Paris'
+    });
+
+    const result = await proxyToRouter('/api/meeting/propose', 'POST', payload, req.clientId);
+    if (result.status >= 200 && result.status < 300) {
+      res.json(result.data);
+    } else {
+      // Fallback: generate generic meeting text
+      const slots = [];
+      const now = new Date();
+      for (let i = 1; i <= 3; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + i);
+        if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+        if (d.getDay() === 6) d.setDate(d.getDate() + 2);
+        d.setHours(10, 0, 0, 0);
+        slots.push({ start: d.toISOString(), label: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' a 10h' });
+        d.setHours(14, 0, 0, 0);
+        slots.push({ start: d.toISOString(), label: d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' a 14h' });
+      }
+      res.json({ slots: slots.slice(0, 4), text: 'Seriez-vous disponible ' + slots.slice(0, 3).map(s => s.label).join(', ') + ' ?' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur meeting', details: err.message });
+  }
 });
 
 // Overview / KPIs globaux
@@ -2452,7 +2596,7 @@ app.get('/api/conversations/:email', authRequired, resolveClient, async (req, re
 });
 
 // --- Unibox: Reply from dashboard ---
-app.post('/api/conversations/:email/reply', authRequired, resolveClient, async (req, res) => {
+app.post('/api/conversations/:email/reply', authRequired, editorRequired, resolveClient, async (req, res) => {
   try {
     const email = (req.params.email || '').toLowerCase().trim();
     const { body: replyBody, subject } = req.body || {};
@@ -2595,7 +2739,7 @@ function generateFallbackSuggestions(sentiment, firstEmail) {
 }
 
 // --- Unibox: Handoff IA → Humain ---
-app.post('/api/conversations/:email/handoff', authRequired, resolveClient, async (req, res) => {
+app.post('/api/conversations/:email/handoff', authRequired, editorRequired, resolveClient, async (req, res) => {
   try {
     const email = (req.params.email || '').toLowerCase().trim();
     if (!email) return res.status(400).json({ error: 'Email requis' });
@@ -2727,7 +2871,7 @@ app.get('/api/drafts', authRequired, resolveClient, async (req, res) => {
   }
 });
 
-app.post('/api/drafts/:id/approve', authRequired, resolveClient, async (req, res) => {
+app.post('/api/drafts/:id/approve', authRequired, editorRequired, resolveClient, async (req, res) => {
   try {
     const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/approve', 'POST', null, req.clientId);
     if (result.status === 200 && result.data.success && req.clientId) {
@@ -2758,7 +2902,7 @@ app.post('/api/drafts/:id/skip', authRequired, resolveClient, async (req, res) =
   }
 });
 
-app.post('/api/drafts/:id/reject', authRequired, resolveClient, async (req, res) => {
+app.post('/api/drafts/:id/reject', authRequired, editorRequired, resolveClient, async (req, res) => {
   try {
     const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/reject', 'POST', null, req.clientId);
     sseEmitToClient(req.clientId, 'draft_update', { action: 'rejected', id: req.params.id });
@@ -2769,7 +2913,7 @@ app.post('/api/drafts/:id/reject', authRequired, resolveClient, async (req, res)
   }
 });
 
-app.post('/api/drafts/:id/edit', authRequired, resolveClient, async (req, res) => {
+app.post('/api/drafts/:id/edit', authRequired, editorRequired, resolveClient, async (req, res) => {
   try {
     const body = JSON.stringify({ body: req.body.body });
     const result = await proxyToRouter('/api/hitl/drafts/' + req.params.id + '/edit', 'POST', body, req.clientId);

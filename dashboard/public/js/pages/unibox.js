@@ -193,11 +193,17 @@ window.Pages = window.Pages || {};
         '</button>' +
       '</div>' +
       '<div id="ub-suggestions" class="ub-suggestions" style="display:none"></div>' +
-      '<div class="ub-reply-input-wrap">' +
-        '<textarea id="ub-reply-input" class="ub-reply-input" placeholder="Écrire une réponse..." rows="3"></textarea>' +
-        '<button id="ub-send-btn" class="ub-send-btn" title="Envoyer">' +
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
-        '</button>' +
+      '<div id="ub-rich-editor-wrap" class="ub-reply-input-wrap" style="flex-direction:column;gap:0">' +
+        '<div id="ub-rich-editor-container"></div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-top:1px solid var(--border);background:var(--bg-card)">' +
+          '<div style="display:flex;gap:6px">' +
+            '<button class="ub-action-sm" data-action="propose-meeting" data-param="' + Utils.escapeHtml(p.email) + '" title="Proposer un RDV">📅 RDV</button>' +
+            '<button class="ub-action-sm" data-action="export-conversation" data-param="' + Utils.escapeHtml(p.email) + '" title="Exporter PDF">📄 PDF</button>' +
+          '</div>' +
+          '<button id="ub-send-btn" class="ub-send-btn" title="Envoyer (Ctrl+Enter)">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
+          '</button>' +
+        '</div>' +
       '</div>' +
     '</div>';
 
@@ -263,20 +269,25 @@ window.Pages = window.Pages || {};
       var msgsEl = threadEl.querySelector('.ub-thread-messages');
       if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
 
+      // Initialize Rich Editor
+      var _editor = null;
+      var editorContainer = document.getElementById('ub-rich-editor-container');
+      if (typeof RichEditor !== 'undefined' && editorContainer) {
+        _editor = RichEditor.create('ub-rich-editor-container', { placeholder: 'Ecrire une reponse...' });
+      }
+
       // Bind send button
       var sendBtn = document.getElementById('ub-send-btn');
-      var replyInput = document.getElementById('ub-reply-input');
-      if (sendBtn && replyInput) {
+      if (sendBtn) {
         sendBtn.addEventListener('click', async function() {
-          var body = replyInput.value.trim();
+          var body = _editor ? _editor.getText().trim() : '';
           if (!body) return;
           sendBtn.disabled = true;
           sendBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px"></div>';
           var result = await API.post('conversations/' + encodeURIComponent(email) + '/reply', { body: body });
           if (result && result.success) {
-            replyInput.value = '';
-            if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Réponse envoyée');
-            // Reload thread to show the new message
+            if (_editor) _editor.clear();
+            if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Reponse envoyee');
             setTimeout(function() { loadThread(email); }, 1000);
           } else {
             if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast('Erreur d\'envoi : ' + ((result && result.error) || 'inconnue'));
@@ -285,13 +296,15 @@ window.Pages = window.Pages || {};
           sendBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
         });
 
-        // Ctrl+Enter to send
-        replyInput.addEventListener('keydown', function(ev) {
-          if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
-            ev.preventDefault();
-            sendBtn.click();
-          }
-        });
+        // Ctrl+Enter to send from editor
+        if (_editor && _editor.element) {
+          _editor.element.addEventListener('keydown', function(ev) {
+            if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
+              ev.preventDefault();
+              sendBtn.click();
+            }
+          });
+        }
       }
 
       // Bind AI suggestions button

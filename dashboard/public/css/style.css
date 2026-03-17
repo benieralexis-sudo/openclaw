@@ -3000,3 +3000,67 @@ kbd {
 .mode-option.mode-active-autopilot { border-color: var(--accent-green); background: var(--accent-green-dim); }
 .mode-option.mode-active-copilot { border-color: var(--accent-blue); background: var(--accent-blue-dim); }
 .mode-option.mode-active-manual { border-color: var(--accent-orange); background: var(--accent-orange-dim); }
+
+/* ===== RICH TEXT EDITOR (F5) ===== */
+.re-wrapper {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+.re-wrapper:focus-within { border-color: var(--accent-blue); }
+.re-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+.re-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all var(--transition-fast);
+}
+.re-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.re-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+.re-btn-clear { font-size: 11px; color: var(--text-muted); }
+.re-content {
+  min-height: 80px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  outline: none;
+}
+.re-content:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Unibox action mini buttons */
+.ub-action-sm {
+  padding: 3px 8px;
+  font-size: 11px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.ub-action-sm:hover { background: var(--accent-blue-dim); color: var(--accent-blue); border-color: var(--accent-blue); }
