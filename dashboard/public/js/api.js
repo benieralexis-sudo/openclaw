@@ -182,7 +182,38 @@ const API = {
   // Knowledge Base
   kb() { return this.get('/api/settings/kb'); },
   saveKb(kb) { return this.put('settings/kb', kb); },
-  kbTemplate() { return this.get('/api/settings/kb/template'); }
+  kbTemplate() { return this.get('/api/settings/kb/template'); },
+
+  // Unibox — conversations (no cache, time-sensitive)
+  async conversations(filter, q, page) {
+    let url = 'conversations?limit=50';
+    if (filter && filter !== 'all') url += '&filter=' + encodeURIComponent(filter);
+    if (q) url += '&q=' + encodeURIComponent(q);
+    if (page && page > 1) url += '&page=' + page;
+    try {
+      const res = await fetch('/api/' + url);
+      if (res.status === 401) { window.location.href = '/login'; return null; }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (err) {
+      console.error('[API] conversations:', err);
+      return null;
+    }
+  },
+  async conversationThread(email) {
+    try {
+      const res = await fetch('/api/conversations/' + encodeURIComponent(email));
+      if (res.status === 401) { window.location.href = '/login'; return null; }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (err) {
+      console.error('[API] conversation thread:', err);
+      return null;
+    }
+  },
+  async pipeline() {
+    return this.fetch('pipeline');
+  }
 };
 
 // Auto-refresh every 60s (pause when tab hidden)

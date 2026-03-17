@@ -36,6 +36,16 @@
       <svg class="nav-icon"><use href="/public/assets/icons.svg#home"/></svg>
       <span>Dashboard</span>
     </a>
+    <a href="#unibox" class="nav-item" data-page="unibox">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#message-circle"/></svg>
+      <span>Unibox</span>
+      <span class="nav-badge" id="badge-unibox" style="display:none">0</span>
+    </a>
+    <a href="#pipeline" class="nav-item" data-page="pipeline">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#bar-chart"/></svg>
+      <span>Pipeline</span>
+      <span class="nav-badge badge-accent" id="badge-pipeline" style="display:none">0</span>
+    </a>
     <a href="#leads" class="nav-item" data-page="leads">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#target"/></svg>
       <span>Leads</span>
@@ -50,13 +60,13 @@
       <span>Approbations</span>
       <span class="nav-badge" id="badge-drafts" style="display:none">0</span>
     </a>
+
+    <div class="nav-separator"></div>
+    <div class="nav-section-label">GESTION</div>
+
     <a href="#crm" class="nav-item" data-page="crm">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#bar-chart"/></svg>
       <span>CRM</span>
-    </a>
-    <a href="#chat" class="nav-item" data-page="chat">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#message-circle"/></svg>
-      <span>Chat</span>
     </a>
     <a href="#settings" class="nav-item" data-page="settings">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#settings"/></svg>
@@ -161,6 +171,8 @@
 <script src="/public/js/pages/leads.js"></script>
 <script src="/public/js/pages/campaigns.js"></script>
 <script src="/public/js/pages/drafts.js"></script>
+<script src="/public/js/pages/unibox.js"></script>
+<script src="/public/js/pages/pipeline.js"></script>
 <script src="/public/js/pages/crm.js"></script>
 <script src="/public/js/pages/chat.js"></script>
 <script src="/public/js/pages/finances.js"></script>

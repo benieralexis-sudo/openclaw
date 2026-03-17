@@ -109,7 +109,9 @@ const App = {
     'self-improve': 'intelligence',
     'web-intel': 'intelligence',
     'users': 'clients',
-    'setup': 'onboarding'
+    'setup': 'onboarding',
+    'inbox': 'unibox',
+    'conversations': 'unibox'
   },
 
   routeFromHash() {
@@ -243,10 +245,11 @@ const App = {
   // ===== Dynamic sidebar badges =====
   async updateBadges() {
     try {
-      const [proData, sysData, draftsData] = await Promise.all([
+      const [proData, sysData, draftsData, convData] = await Promise.all([
         API.proactive().catch(() => null),
         App.userRole === 'admin' ? API.system().catch(() => null) : Promise.resolve(null),
-        API.drafts().catch(() => null)
+        API.drafts().catch(() => null),
+        API.conversations('all', '').catch(() => null)
       ]);
       if (proData) {
         const hotCount = (proData.hotLeads || []).filter(l => (l.opens || 0) >= 3).length;
@@ -276,6 +279,22 @@ const App = {
           draftsBadge.style.display = '';
         } else {
           draftsBadge.style.display = 'none';
+        }
+      }
+      // Unibox badge (unread conversations)
+      if (convData && convData.conversations) {
+        const unreadCount = convData.conversations.filter(function(c) { return c.unread; }).length;
+        const ubBadge = document.getElementById('badge-unibox');
+        if (ubBadge) {
+          if (unreadCount > 0) { ubBadge.textContent = unreadCount; ubBadge.style.display = ''; }
+          else { ubBadge.style.display = 'none'; }
+        }
+        // Pipeline badge (interested count)
+        const intCount = convData.conversations.filter(function(c) { return c.status === 'interested' || c.status === 'meeting'; }).length;
+        const plBadge = document.getElementById('badge-pipeline');
+        if (plBadge) {
+          if (intCount > 0) { plBadge.textContent = intCount; plBadge.style.display = ''; }
+          else { plBadge.style.display = 'none'; }
         }
       }
     } catch (e) {}
@@ -324,6 +343,8 @@ document.addEventListener('input', (ev) => {
     }
     const pageKeywords = {
       'dashboard': 'vue ensemble accueil dashboard kpi overview',
+      'unibox': 'unibox inbox conversations messages replies reponses prospects chat email',
+      'pipeline': 'pipeline kanban funnel etapes contacted opened replied interested meeting rdv',
       'leads': 'leads prospects recherche flowfast apollo prospection enrichissement',
       'campaigns': 'email campagne automailer envoi ouverture emails',
       'drafts': 'approbation brouillon hitl draft validation email reponse',
