@@ -1918,6 +1918,9 @@ app.get('/api/conversations', authRequired, resolveClient, async (req, res) => {
     // Build conversation summaries
     let conversations = [];
     for (const [, conv] of convMap) {
+      // Skip warmup/spam conversations (received only, no sent emails = not a real prospect)
+      if (conv.sentEmails.length === 0 && conv.autoReplied.length === 0) continue;
+
       // Collect all messages with dates for sorting
       const allMessages = [];
       for (const e of conv.sentEmails) {
