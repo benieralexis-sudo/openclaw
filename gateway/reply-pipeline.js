@@ -153,6 +153,7 @@ function createReplyPipeline(deps) {
         const inboxStorage = require('../skills/inbox-manager/storage.js');
         const todayCount = inboxStorage.getTodayAutoReplyCount();
 
+        // IMPORTANT: check limite AVANT toute generation de draft (evite de gaspiller des tokens API)
         if (todayCount < autoReplyMaxPerDay) {
           // Recuperer l'email original envoye a ce prospect
           let originalEmail = null;
@@ -446,6 +447,14 @@ function createReplyPipeline(deps) {
     const autoSendThreshold = parseFloat(process.env.AUTO_REPLY_INTERESTED_THRESHOLD) || 0.85;
 
     // HIGH CONFIDENCE + pas de warning → FULL AUTO
+    // Double-check limite AVANT envoi auto (defense-in-depth contre race conditions)
+    const inboxStorageCheck = require('../skills/inbox-manager/storage.js');
+    const currentDayCount = inboxStorageCheck.getTodayAutoReplyCount();
+    const maxPerDay = parseInt(process.env.AUTO_REPLY_MAX_PER_DAY) || 10;
+    if (currentDayCount >= maxPerDay) {
+      log.warn('hitl', 'Auto-reply limite atteinte au moment de l\'envoi (' + currentDayCount + '/' + maxPerDay + ') — skip auto-send pour ' + replyData.from);
+      return { hitlDraftCreated: false, autoReplyHandled: false };
+    }
     if (score >= autoSendThreshold && !qualityWarning && autoReply.confidence >= 0.85) {
       try {
         const ResendClient = require('../skills/automailer/resend-client.js');

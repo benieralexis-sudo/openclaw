@@ -57,6 +57,22 @@ class CircuitBreaker {
     }
   }
 
+  /**
+   * Verifie si le circuit est ouvert (service indisponible).
+   * Retourne true si OPEN et cooldown pas encore expire.
+   * @returns {boolean}
+   */
+  isBroken() {
+    if (this.state !== 'OPEN') return false;
+    const elapsed = Date.now() - this.lastFailureAt;
+    if (elapsed > this.cooldownMs) {
+      // Cooldown expire, passer en HALF_OPEN
+      this.state = 'HALF_OPEN';
+      return false;
+    }
+    return true;
+  }
+
   getStatus() {
     return { name: this.name, state: this.state, failures: this.failures };
   }

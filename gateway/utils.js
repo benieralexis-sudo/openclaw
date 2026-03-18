@@ -3,27 +3,34 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Ecriture atomique avec write lock par fichier.
+ * Ecriture atomique avec write lock par fichier + queue.
  * - Ecrit dans un fichier temporaire puis renomme (anti-corruption crash).
  * - Un seul write a la fois par fichier (anti-race condition async).
- * - Debounce 50ms : si plusieurs _save() arrivent en rafale, seul le dernier gagne.
+ * - Queue FIFO : si plusieurs writes arrivent pendant un lock, tous sont executes dans l'ordre.
+ *   (ancien code = debounce, seul le dernier gagnait → perte de writes intermediaires)
  */
 const _writeLocks = {};    // filePath → true si ecriture en cours
-const _pendingWrites = {}; // filePath → data a ecrire (debounce)
-const _debounceTimers = {}; // filePath → timer
+const _writeQueue = {};    // filePath → [data, data, ...] queue FIFO
 
 function atomicWriteSync(filePath, data) {
-  // Si un write est en cours, planifier un write differe
+  // Si un write est en cours, ajouter a la queue au lieu d'ecraser
   if (_writeLocks[filePath]) {
-    _pendingWrites[filePath] = data;
+    if (!_writeQueue[filePath]) _writeQueue[filePath] = [];
+    _writeQueue[filePath].push(data);
     return;
   }
 
+  _writeLocks[filePath] = true;
   _doWrite(filePath, data);
+  // Traiter la queue (writes arrives pendant l'ecriture)
+  while (_writeQueue[filePath] && _writeQueue[filePath].length > 0) {
+    const nextData = _writeQueue[filePath].shift();
+    _doWrite(filePath, nextData);
+  }
+  _writeLocks[filePath] = false;
 }
 
 function _doWrite(filePath, data) {
-  _writeLocks[filePath] = true;
   try {
     const tmpFile = filePath + '.tmp';
     fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf8');
@@ -40,14 +47,6 @@ function _doWrite(filePath, data) {
       } catch (e) {}
     }
     throw writeErr;
-  } finally {
-    _writeLocks[filePath] = false;
-    // Si un write en attente, l'executer au prochain tick
-    if (_pendingWrites[filePath]) {
-      const pendingData = _pendingWrites[filePath];
-      delete _pendingWrites[filePath];
-      process.nextTick(() => _doWrite(filePath, pendingData));
-    }
   }
 }
 
@@ -298,4 +297,19 @@ function validateEmailOutput(subject, body, options) {
   return { pass: reasons.length === 0, reasons };
 }
 
-module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit, withCronGuard, applySpintax, validateEmailOutput, getCityTimezone };
+/**
+ * Timeout wrapper pour promises API.
+ * Race entre la promise originale et un timer — evite les appels qui restent bloques indefiniment.
+ * @param {Promise} promise - La promise a wrapper
+ * @param {number} ms - Timeout en millisecondes
+ * @param {string} label - Label pour le message d'erreur
+ * @returns {Promise} Resultat de la promise ou rejet timeout
+ */
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' timeout (' + ms + 'ms)')), ms))
+  ]);
+}
+
+module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit, withCronGuard, applySpintax, validateEmailOutput, getCityTimezone, withTimeout };
