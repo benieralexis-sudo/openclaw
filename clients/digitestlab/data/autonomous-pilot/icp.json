@@ -1,0 +1,108 @@
+{
+  "version": "2.1",
+  "clientDescription": "DigitestLab est une societe de QA/testing nearshore basee en Roumanie. Equipes dediees de testeurs, integration agile, couverture complete (fonctionnel, regression, performance, securite). Panier moyen 3-10k EUR/mois.",
+  "bookingUrl": "",
+  "intentConfig": {
+    "hiringKeywords": ["qa engineer", "testeur", "qa manager", "quality assurance", "sdet", "test automation", "ingenieur qualite", "responsable qualite logicielle"],
+    "hiringAngle": "Vous recrutez en QA. Le temps de trouver le bon profil, vos releases passent sans filet. On peut couvrir en attendant",
+    "minIntentScore": 3
+  },
+  "niches": [
+    {
+      "slug": "saas-scale-ups",
+      "name": "SaaS & Scale-ups France 50-500 employes",
+      "keywords": "SaaS OR scale-up OR startup B2B France",
+      "weight": 30,
+      "matchPatterns": ["saas", "scale-up", "startup", "b2b", "product-led", "cloud", "plateforme"],
+      "painPoint": "Le produit sort des features tous les sprints mais la QA est le goulot. Les devs testent eux-memes — ils passent 30% de leur temps a verifier au lieu de coder.",
+      "socialProof": "equipes QA nearshore integrees en sprint, memes outils, meme fuseau horaire",
+      "triggers": [
+        {
+          "signal": "hiring_qa",
+          "angle": "Vous recrutez un QA. En attendant de trouver le bon profil, qui couvre les releases ?"
+        },
+        {
+          "signal": "growth",
+          "angle": "L'equipe dev grandit mais la QA suit le meme rythme ?"
+        },
+        {
+          "signal": "default",
+          "angle": "Chaque sprint qui part en prod sans QA dediee, c'est un risque client. Comment vous gerez ca aujourd'hui ?"
+        }
+      ],
+      "exampleEmail": "Marc, [Entreprise] pousse 2 releases par semaine. Question directe — qui teste avant la prod ? Si ce sont les devs eux-memes, ils perdent du temps de dev.\n\nOn integre des testeurs dedies directement dans vos sprints. Meme fuseau, memes outils. Ca vous parle ?"
+    },
+    {
+      "slug": "editeurs-logiciels",
+      "name": "Editeurs de logiciels France",
+      "keywords": "editeur logiciel OR software company France OR ISV France",
+      "weight": 25,
+      "matchPatterns": ["editeur", "logiciel", "software", "erp", "crm", "solution metier", "isv"],
+      "painPoint": "Le backlog de bugs grossit, les clients remontent des regressions, mais l'equipe QA interne est sous-dimensionnee. Embaucher en France coute cher et prend 3+ mois.",
+      "socialProof": "testeurs nearshore Roumanie formes a vos process, operationnels en 2 semaines",
+      "triggers": [
+        {
+          "signal": "hiring_qa",
+          "angle": "Un poste QA ouvert depuis des semaines ? Un testeur nearshore est operationnel en 2 semaines"
+        },
+        {
+          "signal": "default",
+          "angle": "Les regressions en prod, c'est le genre de truc qui erode la confiance client silencieusement. Comment vous les detectez aujourd'hui ?"
+        }
+      ],
+      "exampleEmail": "Sophie, [Editeur] a un ERP utilise par 200+ clients. Chaque mise a jour est un risque de regression — comment vous assurez la couverture aujourd'hui ?\n\nSi c'est principalement les devs qui testent, on peut en discuter 15 min."
+    },
+    {
+      "slug": "fintech-healthtech",
+      "name": "FinTech & HealthTech (reglemente)",
+      "keywords": "fintech France OR healthtech France OR regtech France",
+      "weight": 20,
+      "matchPatterns": ["fintech", "healthtech", "regtech", "assurtech", "banque", "paiement", "sante", "medical", "compliance"],
+      "painPoint": "Environnement reglemente — chaque bug en prod peut couter une amende ou un incident client critique. La QA n'est pas optionnelle, c'est une obligation.",
+      "socialProof": "testeurs formes aux exigences reglementaires, documentation de test audit-ready",
+      "triggers": [
+        {
+          "signal": "default",
+          "angle": "En environnement reglemente, un bug en prod c'est potentiellement un incident regulateur. Votre couverture QA est dimensionnee pour ca ?"
+        }
+      ],
+      "exampleEmail": "Pierre, [FinTech] gere des transactions — chaque release doit etre impeccable. Qui s'assure que rien ne casse cote conformite quand vous deployez ?\n\nSi la QA repose sur les devs, c'est un risque. 15 min pour en discuter ?"
+    },
+    {
+      "slug": "agences-dev",
+      "name": "Agences de developpement & ESN",
+      "keywords": "agence dev OR ESN OR SSII France",
+      "weight": 15,
+      "matchPatterns": ["agence dev", "agence developpement", "esn", "ssii", "prestataire it", "consulting dev"],
+      "painPoint": "Les projets clients s'empilent, les devs jonglent entre projets, la QA passe a la trappe. Les clients recoivent des livrables avec des bugs.",
+      "socialProof": "renfort QA nearshore elastique — montez en charge sur un projet, reduisez apres",
+      "triggers": [
+        {
+          "signal": "growth",
+          "angle": "Plus de projets clients mais la QA ne scale pas avec ? Les devs absorbent en testant eux-memes ?"
+        },
+        {
+          "signal": "default",
+          "angle": "Quand un projet client prend du retard, c'est souvent la QA qui saute en premier. Comment vous gerez ca ?"
+        }
+      ],
+      "exampleEmail": "Nicolas, [ESN] livre 3 projets en parallele — qui s'assure de la qualite de chaque livrable ? Si les devs testent entre eux, ca finit toujours par des bugs en recette client.\n\nOn peut mettre des testeurs dedies le temps d'un projet. Flexible, sans embauche. Ca vous parle ?"
+    },
+    {
+      "slug": "ecommerce-marketplace",
+      "name": "E-commerce & Marketplaces",
+      "keywords": "ecommerce France OR marketplace France OR plateforme e-commerce",
+      "weight": 10,
+      "matchPatterns": ["ecommerce", "e-commerce", "marketplace", "boutique en ligne", "plateforme", "commerce en ligne"],
+      "painPoint": "Chaque bug sur le parcours d'achat = perte directe de CA. Les tests manuels avant les periodes de rush (soldes, Black Friday) ne suffisent pas.",
+      "socialProof": "tests parcours d'achat, performance sous charge, compatibilite multi-device",
+      "triggers": [
+        {
+          "signal": "default",
+          "angle": "Un bug sur le checkout, c'est du CA qui part. Comment vous testez le parcours d'achat avant chaque mise en prod ?"
+        }
+      ],
+      "exampleEmail": "Julie, [E-commerce] a probablement connu un jour ou le checkout a plante — chaque minute de downtime c'est du CA perdu.\n\nComment vous testez le parcours d'achat aujourd'hui avant chaque deploy ? 15 min pour comparer les approches ?"
+    }
+  ]
+}

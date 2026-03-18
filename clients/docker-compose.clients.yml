@@ -60,3 +60,65 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  router-digitestlab:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    user: "root"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    env_file: ./clients/digitestlab/.env
+    volumes:
+      # Code source (read-only, partage)
+      - ./gateway:/app/gateway:ro
+      - ./skills/flowfast:/app/skills/flowfast:ro
+      - ./skills/automailer:/app/skills/automailer:ro
+      - ./skills/crm-pilot:/app/skills/crm-pilot:ro
+      - ./skills/lead-enrich:/app/skills/lead-enrich:ro
+      - ./skills/invoice-bot:/app/skills/invoice-bot:ro
+      - ./skills/proactive-agent:/app/skills/proactive-agent:ro
+      - ./skills/self-improve:/app/skills/self-improve:ro
+      - ./skills/web-intelligence:/app/skills/web-intelligence:ro
+      - ./skills/system-advisor:/app/skills/system-advisor:ro
+      - ./skills/autonomous-pilot:/app/skills/autonomous-pilot:ro
+      - ./skills/inbox-manager:/app/skills/inbox-manager:ro
+      - ./skills/meeting-scheduler:/app/skills/meeting-scheduler:ro
+      # Donnees isolees (par client)
+      - ./clients/digitestlab/data/flowfast:/data/flowfast
+      - ./clients/digitestlab/data/automailer:/data/automailer
+      - ./clients/digitestlab/data/crm-pilot:/data/crm-pilot
+      - ./clients/digitestlab/data/lead-enrich:/data/lead-enrich
+      - ./clients/digitestlab/data/invoice-bot:/data/invoice-bot
+      - ./clients/digitestlab/data/proactive-agent:/data/proactive-agent
+      - ./clients/digitestlab/data/self-improve:/data/self-improve
+      - ./clients/digitestlab/data/web-intelligence:/data/web-intelligence
+      - ./clients/digitestlab/data/system-advisor:/data/system-advisor
+      - ./clients/digitestlab/data/autonomous-pilot:/data/autonomous-pilot
+      - ./clients/digitestlab/data/inbox-manager:/data/inbox-manager
+      - ./clients/digitestlab/data/meeting-scheduler:/data/meeting-scheduler
+      - ./clients/digitestlab/data/app-config:/data/app-config
+      - ./clients/digitestlab/data/visitors:/data/visitors
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config /data/visitors && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config /data/visitors && cd /app && (node -e \"require('mailparser')\" 2>/dev/null || npx pnpm add -w mailparser@3.9.3 --ignore-scripts 2>/dev/null) && (node -e \"require('googleapis')\" 2>/dev/null || npx pnpm add -w googleapis@^171.4.0 --ignore-scripts 2>/dev/null) && exec runuser -u node -- node /app/gateway/telegram-router.js"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:9090/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

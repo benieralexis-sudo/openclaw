@@ -1796,6 +1796,145 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // === WEBHOOK CLAY — Reception leads enrichis ===
+  if (req.url && req.url.startsWith('/webhook/clay') && req.method === 'POST') {
+    let body = '';
+    let bodySize = 0;
+    const MAX_BODY = 512 * 1024; // 512 KB max (batch possible)
+    req.on('data', (chunk) => {
+      bodySize += chunk.length;
+      if (bodySize > MAX_BODY) { req.destroy(); return; }
+      body += chunk;
+    });
+    req.on('end', async () => {
+      if (bodySize > MAX_BODY) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'payload too large' }));
+        return;
+      }
+
+      // Auth: verifier X-Clay-Secret
+      const claySecret = process.env.CLAY_WEBHOOK_SECRET || '';
+      const headerSecret = req.headers['x-clay-secret'] || '';
+      if (!claySecret || headerSecret !== claySecret) {
+        log.warn('webhook-clay', 'Secret invalide ou non configure');
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'unauthorized — invalid or missing X-Clay-Secret' }));
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(body);
+        // Support batch (array) ou single lead (object)
+        const leads = Array.isArray(parsed) ? parsed : [parsed];
+        const results = [];
+        const automailerStorage = require('../skills/automailer/storage.js');
+        const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
+
+        for (const lead of leads) {
+          // Validation champs requis
+          if (!lead.email || typeof lead.email !== 'string' || !lead.email.includes('@')) {
+            results.push({ email: lead.email || null, error: 'email requis et invalide', success: false });
+            continue;
+          }
+          if (!lead.firstName || !lead.lastName || !lead.company) {
+            results.push({ email: lead.email, error: 'firstName, lastName et company requis', success: false });
+            continue;
+          }
+
+          // Verifier blacklist
+          if (automailerStorage.isBlacklisted(lead.email)) {
+            results.push({ email: lead.email, error: 'email blackliste', success: false });
+            continue;
+          }
+
+          // Verifier doublon dans toutes les listes
+          const allLists = automailerStorage.getAllContactLists();
+          let duplicate = false;
+          for (const list of allLists) {
+            if (list.contacts.some(c => (c.email || '').toLowerCase() === lead.email.toLowerCase())) {
+              duplicate = true;
+              break;
+            }
+          }
+          if (duplicate) {
+            results.push({ email: lead.email, error: 'doublon — deja dans une liste', success: false });
+            continue;
+          }
+
+          // Trouver ou creer la liste "Clay Imports"
+          let clayList = automailerStorage.findContactListByName(ADMIN_CHAT_ID, 'Clay Imports');
+          if (!clayList) {
+            clayList = automailerStorage.createContactList(ADMIN_CHAT_ID, 'Clay Imports');
+            log.info('webhook-clay', 'Liste "Clay Imports" creee: ' + clayList.id);
+          }
+
+          // Inserer le contact
+          const contact = automailerStorage.addContactToList(clayList.id, {
+            email: lead.email.toLowerCase().trim(),
+            firstName: lead.firstName || '',
+            lastName: lead.lastName || '',
+            name: ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim(),
+            company: lead.company || '',
+            title: lead.title || '',
+            industry: lead.industry || ''
+          });
+
+          // Stocker les metadonnees enrichies dans un fichier separe (pour le pipeline)
+          const enrichmentDir = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/clay-enrichments';
+          try {
+            if (!fs.existsSync(enrichmentDir)) fs.mkdirSync(enrichmentDir, { recursive: true });
+            const enrichmentFile = enrichmentDir + '/' + lead.email.toLowerCase().replace(/[^a-z0-9@._-]/g, '_') + '.json';
+            const enrichmentData = {
+              email: lead.email.toLowerCase().trim(),
+              firstName: lead.firstName,
+              lastName: lead.lastName,
+              company: lead.company,
+              title: lead.title || '',
+              linkedin: lead.linkedin || '',
+              website: lead.website || '',
+              industry: lead.industry || '',
+              employeeCount: lead.employeeCount || null,
+              location: lead.location || '',
+              phone: lead.phone || '',
+              enrichment: lead.enrichment || {},
+              source: 'clay',
+              importedAt: new Date().toISOString()
+            };
+            atomicWriteSync(enrichmentFile, enrichmentData);
+          } catch (e) {
+            log.warn('webhook-clay', 'Erreur sauvegarde enrichment pour ' + lead.email + ': ' + e.message);
+          }
+
+          const leadId = contact ? (clayList.id + ':' + lead.email) : null;
+          results.push({ email: lead.email, leadId: leadId, success: true });
+          log.info('webhook-clay', 'Lead importe: ' + lead.email + ' (' + lead.company + ')');
+        }
+
+        const successCount = results.filter(r => r.success).length;
+        const errorCount = results.filter(r => !r.success).length;
+        log.info('webhook-clay', 'Batch: ' + successCount + ' importes, ' + errorCount + ' erreurs sur ' + leads.length + ' leads');
+
+        // Reponse
+        if (leads.length === 1) {
+          // Single lead — reponse plate
+          const r = results[0];
+          res.writeHead(r.success ? 200 : 400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(r));
+        } else {
+          // Batch — reponse array
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, imported: successCount, errors: errorCount, results: results }));
+        }
+      } catch (e) {
+        log.error('webhook-clay', 'Erreur parsing payload: ' + e.message);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid JSON payload' }));
+      }
+    });
+    return;
+  }
+
   // === CLICK TRACKING (module extrait) ===
   if (emailTracking.handleClick(req, res)) return;
 
