@@ -2570,4 +2570,14 @@ class CampaignEngine {
 CampaignEngine.checkMX = _checkMX;
 CampaignEngine.emailPassesQualityGate = _emailPassesQualityGate;
 CampaignEngine.subjectPassesGate = _subjectPassesGate;
+// Exports internes pour tests unitaires
+CampaignEngine._isB2CDomain = _isB2CDomain;
+CampaignEngine._isCompanyRecentlyContacted = _isCompanyRecentlyContacted;
+CampaignEngine._recordCompanyContact = _recordCompanyContact;
+CampaignEngine._recentCompanyDomains = _recentCompanyDomains;
+CampaignEngine._spamScoreCheck = _spamScoreCheck;
+CampaignEngine._isFrenchHoliday = _isFrenchHoliday;
+CampaignEngine.isBusinessHours = isBusinessHours;
+CampaignEngine._evictOldest = _evictOldest;
+CampaignEngine._mxCache = _mxCache;
 module.exports = CampaignEngine;
