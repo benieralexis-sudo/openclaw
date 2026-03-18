@@ -467,7 +467,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     return result;
   }
 
-  // Auto-scoring Lavender /100 : grade A (90+) = envoyer, B (75-89) = retry, C (<75) = skip
+  // Auto-scoring Lavender /100 : grade A (85+) = envoyer, B (75-84) = retry, C (<75) = skip
   async _generateAndScore(contact, context, systemPrompt, userMessage) {
     const log = require('../../gateway/logger.js');
     const maxAttempts = 2;
@@ -514,7 +514,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
               if (retryParsed.body) retryParsed.body = retryParsed.body.replace(/\u2014/g, ',').replace(/\u2013/g, ',');
               const retryLav = this._lavenderScore(retryParsed.subject, retryParsed.body, contact);
               log.info('scoring', retryLav.score + '/100 (grade ' + retryLav.grade + ') retry pour ' + (contact.email || '?') + ' — ton:' + (retryLav.details.ton||0) + ' clarte:' + (retryLav.details.clarte||0) + ' phrases:' + (retryLav.details.phrases||0) + ' perso:' + (retryLav.details.perso||0) + ' mots:' + (retryLav.details.mots||0) + ' mobile:' + (retryLav.details.mobile||0) + ' objet:' + (retryLav.details.objet||0));
-              if (!retryLav.block && retryLav.score >= 90) { retryParsed._lavenderScore = retryLav.score; retryParsed._lavenderGrade = retryLav.grade; retryParsed._lavenderDetails = retryLav.details; return retryParsed; }
+              if (!retryLav.block && retryLav.score >= 85) { retryParsed._lavenderScore = retryLav.score; retryParsed._lavenderGrade = retryLav.grade; retryParsed._lavenderDetails = retryLav.details; return retryParsed; }
               if (retryLav.score > bestScore) {
                 best = retryParsed;
                 bestScore = retryLav.score;
@@ -538,8 +538,8 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
         continue;
       }
 
-      // Grade A (90+) = envoyer direct
-      if (lav.score >= 90) {
+      // Grade A (85+) = envoyer direct
+      if (lav.score >= 85) {
         parsed._lavenderScore = lav.score;
         parsed._lavenderGrade = lav.grade;
         parsed._lavenderDetails = lav.details;
@@ -611,12 +611,12 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     if (casualCount >= 3) ton += 5;
     else if (casualCount >= 1) ton += 3;
 
-    // Ratio Je/Tu (parler du prospect 2x plus que de soi)
+    // Ratio Je/Tu (parler du prospect 1.5x+ plus que de soi)
     const jeCount = (bodyLower.match(L.jePatterns) || []).length + (bodyLower.match(L.nousPatterns) || []).length;
     const tuCount = (bodyLower.match(L.tuPatterns) || []).length + (bodyLower.match(L.vousPatterns) || []).length;
-    if (tuCount > 0 && tuCount >= jeCount) ton += 5;
-    else if (tuCount > 0 && jeCount <= tuCount * 1.5) ton += 3;
-    else if (jeCount > 0 && tuCount === 0) ton += 0;
+    if (tuCount > jeCount * 1.5) ton += 7;  // prospect mentionné 1.5x+ plus que soi
+    else if (tuCount > jeCount) ton += 4;   // prospect plus que soi
+    else ton = Math.max(0, ton - 3);        // trop de je/nous = pénalité
 
     // Em-dash residuel (1 seul = malus leger)
     if (emDashCount === 1) ton = Math.max(0, ton - 3);
@@ -674,7 +674,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
       const hasNumbers = L.numbersPattern.test(body || '');
       if (hasNumbers) perso += 4;
     }
-    perso = Math.min(15, perso);
+    perso = Math.min(20, perso);
     details.perso = perso;
 
     // === 5. WORD COUNT — /12 (impact +23% replies, sweet spot 25-50 mots) ===
@@ -732,7 +732,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
 
     // Grade
     let grade = 'C';
-    if (score >= 90) grade = 'A';
+    if (score >= 85) grade = 'A';
     else if (score >= 75) grade = 'B';
 
     return { block: false, score, grade, reason: 'ok', details };
@@ -985,13 +985,13 @@ PHILOSOPHIE : Chaque relance a une MISSION DIFFERENTE. On avance vers le RDV.
 
 PHILOSOPHIE FOLLOW-UP : chaque relance = 1-2 phrases MAX. Comme un SMS entre pros. ZERO structure en blocs.
 
-STEP 1, RELANCE 1 (J+3) : BUMP NATUREL
+STEP 1, RELANCE 1 (J+4) : BUMP NATUREL
 1-2 phrases. Nouvel angle OU fait concret + question business.
 PAS de social proof. PAS de pitch. Juste une relance naturelle.
 Exemple : "[Prenom], j'ai vu que [fait nouveau]. [Question business courte] ?"
 15-30 mots MAX.
 
-STEP 2, RELANCE 2 (J+7) : PREUVE RAPIDE
+STEP 2, RELANCE 2 (J+8) : PREUVE RAPIDE
 1-2 phrases. Un mini cas client + CTA direct.
 Exemple : "Un [type similaire] a [resultat]. Dispo 15 min si ca te parle."
 15-30 mots MAX.
@@ -1157,7 +1157,7 @@ JSON uniquement : {"subject":"...","body":"..."}`;
 
     const userMessage = `PREMIER EMAIL ENVOYE :
 Objet : ${originalEmail.subject || '(sans objet)'}
-Corps : ${(originalEmail.body || '').substring(0, 400)}
+Corps : ${(originalEmail.body || '').substring(0, 1000)}
 
 DONNEES PROSPECT (pour trouver un nouvel angle) :
 ${prospectIntel || 'Aucune donnee supplementaire'}
@@ -1255,7 +1255,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
       for (const prev of previousEmails) {
         previousEmailsContext += '\n--- Email ' + prev.stepNumber + ' ---';
         previousEmailsContext += '\nObjet: ' + (prev.subject || '');
-        previousEmailsContext += '\nCorps: ' + (prev.body || '').substring(0, 400);
+        previousEmailsContext += '\nCorps: ' + (prev.body || '').substring(0, 1000);
       }
       previousEmailsContext += '\n=== FIN EMAILS PRECEDENTS ===';
       previousEmailsContext += '\nTu DOIS utiliser un angle ET un social proof COMPLETEMENT DIFFERENTS de tous les emails ci-dessus.';
@@ -1299,7 +1299,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
     let stepStrategy = '';
     let stepExample = '';
     if (stepNumber === 2) {
-      stepStrategy = `RELANCE 1 (J+5) — REBOND LEGER + NOUVEL ANGLE
+      stepStrategy = `RELANCE 1 (J+4) — REBOND LEGER + NOUVEL ANGLE
 Mission : rebondir avec un angle DIFFERENT du step 1. Ton hesitant, 25-40 mots MAX.
 Structure : 1 phrase de rebond (nouveau fait ou nouvel angle) + 1 question ouverte differente.
 PAS de social proof invente. Si tu n'as pas de cas reel, n'en mets pas.`;
@@ -1308,7 +1308,7 @@ PAS de social proof invente. Si tu n'as pas de cas reel, n'en mets pas.`;
 
 C'est le cas ou vous avez deja quelqu'un dessus ?"`;
     } else if (stepNumber === 3) {
-      stepStrategy = `RELANCE 2 (J+12) — ULTRA-COURT + QUESTION SIMPLE
+      stepStrategy = `RELANCE 2 (J+8) — ULTRA-COURT + QUESTION SIMPLE
 Mission : dernier essai avant breakup. Ultra-court, 15-25 mots MAX. Question fermee ou presque.
 Structure : 1 phrase qui rebondit + 1 question simple (oui/non).${bookingUrlBlock}`;
       stepExample = `EXEMPLE RELANCE 2 :

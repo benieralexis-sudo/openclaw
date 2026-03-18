@@ -701,7 +701,7 @@ class CampaignEngine {
     return allEmails.map(e => ({
       stepNumber: e.stepNumber,
       subject: e.subject || '',
-      body: (e.body || '').substring(0, 400)
+      body: (e.body || '').substring(0, 1000)
     }));
   }
 

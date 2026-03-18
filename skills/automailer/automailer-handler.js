@@ -631,7 +631,7 @@ JSON strict, exemples :
         const numMatch = text.match(/(\d+)/);
         const intervalMatch = text.match(/(\d+)\s*jours?/i);
         conv.data.steps = numMatch ? parseInt(numMatch[1]) : 4;
-        conv.data.intervalDays = intervalMatch ? parseInt(intervalMatch[1]) : 3;
+        conv.data.intervalDays = intervalMatch ? parseInt(intervalMatch[1]) : 4;
         if (conv.data.steps < 1) conv.data.steps = 1;
         if (conv.data.steps > 10) conv.data.steps = 10;
         conv.step = 'awaiting_context';

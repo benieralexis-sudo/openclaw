@@ -3,6 +3,8 @@
 'use strict';
 
 const log = require('./logger.js');
+const { getBreaker } = require('./circuit-breaker.js');
+const { withTimeout } = require('./utils.js');
 const {
   classifyReply, subClassifyObjection,
   generateObjectionReply, generateQuestionReplyViaClaude,
@@ -65,7 +67,7 @@ function createReplyPipeline(deps) {
         conversationHistory.push({
           role: 'sent',
           subject: em.subject || '',
-          body: (em.body || '').substring(0, 400),
+          body: (em.body || '').substring(0, 1000),
           date: em.sentAt || em.createdAt || ''
         });
       }
@@ -78,7 +80,7 @@ function createReplyPipeline(deps) {
           conversationHistory.push({
             role: 'received',
             subject: r.subject || '',
-            body: (r.text || r.snippet || '').substring(0, 400),
+            body: (r.text || r.snippet || '').substring(0, 1000),
             date: r.date || r.receivedAt || ''
           });
         }
@@ -87,7 +89,7 @@ function createReplyPipeline(deps) {
       conversationHistory.push({
         role: 'received',
         subject: replyData.subject || '',
-        body: (replyData.snippet || '').substring(0, 400),
+        body: (replyData.snippet || '').substring(0, 1000),
         date: replyData.date || new Date().toISOString()
       });
       // Trier par date
@@ -99,15 +101,21 @@ function createReplyPipeline(deps) {
 
     // === 2. Classification IA du sentiment + tone ===
     let classification = { sentiment: 'question', score: 0.5, reason: 'Non classifie', key_phrases: [], tone: 'neutral' };
-    try {
-      classification = await classifyReply(openaiKey, {
-        from: replyData.from,
-        fromName: replyData.fromName,
-        subject: replyData.subject,
-        snippet: replyData.snippet || ''
-      });
-    } catch (e) {
-      log.error('inbox-manager', 'Classification echouee pour ' + replyData.from + ':', e.message);
+    // Circuit breaker check AVANT appel API classification
+    const openaiBreaker = getBreaker('openai', { failureThreshold: 5, cooldownMs: 30000 });
+    if (openaiBreaker.isBroken()) {
+      log.warn('inbox-manager', 'Circuit breaker OpenAI ouvert — skip classification pour ' + replyData.from);
+    } else {
+      try {
+        classification = await withTimeout(classifyReply(openaiKey, {
+          from: replyData.from,
+          fromName: replyData.fromName,
+          subject: replyData.subject,
+          snippet: replyData.snippet || ''
+        }), 30000, 'OpenAI classifyReply');
+      } catch (e) {
+        log.error('inbox-manager', 'Classification echouee pour ' + replyData.from + ':', e.message);
+      }
     }
     const sentiment = classification.sentiment;
     const score = classification.score;
@@ -277,7 +285,13 @@ function createReplyPipeline(deps) {
     log.info('inbox-manager', 'Sub-classification: ' + subClass.type + ' / ' + subClass.objectionType + ' (conf=' + subClass.confidence + ')');
 
     if (subClass.type === 'soft_objection' && subClass.confidence >= autoReplyConfidence) {
-      const autoReply = await generateObjectionReply(callClaude, replyData, classification, subClass, originalEmail, clientContext, pipelineOptions || {});
+      // Circuit breaker check AVANT generation Claude
+      const claudeBreaker = getBreaker('claude-sonnet', { failureThreshold: 5, cooldownMs: 30000 });
+      if (claudeBreaker.isBroken()) {
+        log.warn('hitl', 'Circuit breaker Claude ouvert — skip generation objection pour ' + replyData.from);
+        return { hitlDraftCreated: false };
+      }
+      const autoReply = await withTimeout(generateObjectionReply(callClaude, replyData, classification, subClass, originalEmail, clientContext, pipelineOptions || {}), 30000, 'Claude generateObjectionReply');
 
       if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
         const qualityWarning = _checkDraftQuality(autoReply);
@@ -300,7 +314,13 @@ function createReplyPipeline(deps) {
   async function _handleQuestion(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts, pipelineOptions) {
     const snippetLen = (replyData.snippet || '').length;
     if (snippetLen < 1500) {
-      const autoReply = await generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext, pipelineOptions || {});
+      // Circuit breaker check AVANT generation Claude
+      const claudeBreakerQ = getBreaker('claude-sonnet', { failureThreshold: 5, cooldownMs: 30000 });
+      if (claudeBreakerQ.isBroken()) {
+        log.warn('hitl', 'Circuit breaker Claude ouvert — skip generation question pour ' + replyData.from);
+        return { hitlDraftCreated: false };
+      }
+      const autoReply = await withTimeout(generateQuestionReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext, pipelineOptions || {}), 30000, 'Claude generateQuestionReply');
 
       if (autoReply.body && autoReply.confidence >= autoReplyConfidence) {
         const qualityWarning = _checkDraftQuality(autoReply);
@@ -378,13 +398,19 @@ function createReplyPipeline(deps) {
     }
 
     // === GENERER LA REPONSE avec options enrichies ===
+    // Circuit breaker check AVANT generation Claude
+    const claudeBreakerI = getBreaker('claude-sonnet', { failureThreshold: 5, cooldownMs: 30000 });
+    if (claudeBreakerI.isBroken()) {
+      log.warn('hitl', 'Circuit breaker Claude ouvert — skip generation interested pour ' + replyData.from);
+      return { hitlDraftCreated: false, autoReplyHandled: false };
+    }
     const replyOpts = {
       ...opts,
       needsQualification,
       qualificationQuestion,
       meetingConfirmed: !!(meetingCreated && meetingCreated.success)
     };
-    const autoReply = await generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext, replyOpts);
+    const autoReply = await withTimeout(generateInterestedReplyViaClaude(callClaude, replyData, classification, originalEmail, clientContext, replyOpts), 30000, 'Claude generateInterestedReply');
 
     if (!autoReply.body) return { hitlDraftCreated: false, autoReplyHandled: false };
 
@@ -400,10 +426,10 @@ function createReplyPipeline(deps) {
         // Generer variante B avec un angle different
         const variantOpts = { ...replyOpts };
         const variantPromptSuffix = '\n\nGENERE UNE VARIANTE DIFFERENTE: angle plus direct, ou plus chaleureux, ou plus axe data. Pas la meme approche que d\'habitude.';
-        autoReplyB = await generateInterestedReplyViaClaude(callClaude, {
+        autoReplyB = await withTimeout(generateInterestedReplyViaClaude(callClaude, {
           ...replyData,
           snippet: (replyData.snippet || '') + variantPromptSuffix
-        }, classification, originalEmail, clientContext, variantOpts);
+        }, classification, originalEmail, clientContext, variantOpts), 30000, 'Claude generateInterestedReply-B');
 
         if (autoReplyB && autoReplyB.body) {
           log.info('ab-testing', 'Variante B generee pour ' + replyData.from);
@@ -978,7 +1004,7 @@ function createReplyPipeline(deps) {
         if (recentAR.length > 0 && recentAR[0].replyBody) {
           notifLines.push('');
           notifLines.push('🤖 *Reponse du bot :*');
-          notifLines.push('_' + escTg(recentAR[0].replyBody.substring(0, 400)) + '_');
+          notifLines.push('_' + escTg(recentAR[0].replyBody.substring(0, 1000)) + '_');
           if (recentAR[0].objectionType) {
             notifLines.push('📋 Type: ' + escTg(recentAR[0].objectionType));
           }
