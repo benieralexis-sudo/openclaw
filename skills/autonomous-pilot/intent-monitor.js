@@ -124,15 +124,13 @@ class IntentMonitor {
     // Charger les leads deja en base (pour ne pas re-proposer)
     this._refreshKnownLeads();
 
-    // Lancer les 4 sources de signaux en parallele
-    // Source 1: Entreprises recentes FR (founded recent = besoin de clients)
-    // Source 2: PME en croissance FR (11-200 emp = budget + ambition)
-    // Source 3: Startups funded FR (funding = budget frais)
+    // Lancer les sources de signaux en parallele
+    // Sources Apollo (1-3) DESACTIVEES — Apollo resilie (mars 2026), remplace par Clay
     // Source 4: Market signals Web Intelligence (trigger events < 24h)
     const results = await Promise.allSettled([
-      this._scanRecentCompanies(config),
-      this._scanGrowingPMEs(config),
-      this._scanFundedStartups(config),
+      // this._scanRecentCompanies(config),   // Apollo resilie
+      // this._scanGrowingPMEs(config),        // Apollo resilie
+      // this._scanFundedStartups(config),     // Apollo resilie
       this._scanGoogleAlerts()
     ]);
 
@@ -166,36 +164,10 @@ class IntentMonitor {
       return scoreB - scoreA;
     });
 
-    // Reveal les emails Apollo (max MAX_REVEALS_PER_SCAN credits)
-    // C'est le FIX CRITIQUE : Apollo search ne retourne PAS les emails, il faut les reveal
-    const ApolloConnector = require('../flowfast/apollo-connector.js');
-    const apollo = new ApolloConnector(this.apolloKey);
+    // Reveal Apollo DESACTIVE — Apollo resilie (mars 2026)
+    // Les leads viennent maintenant uniquement de Web Intel (ont deja un email)
     let revealCount = 0;
-
-    for (var i = 0; i < dedupedLeads.length && revealCount < MAX_REVEALS_PER_SCAN; i++) {
-      var lead = dedupedLeads[i];
-      if (lead.email) continue; // deja un email (source Web Intel)
-      if (lead.apolloId) {
-        try {
-          var revealed = await apollo.revealLead(lead.apolloId);
-          revealCount++;
-          if (revealed.success && revealed.lead && revealed.lead.email) {
-            lead.email = revealed.lead.email;
-            lead.nom = revealed.lead.nom || lead.nom;
-            lead.linkedin_url = revealed.lead.linkedin_url || lead.linkedin_url;
-            log.info('intent-monitor', 'Reveal OK: ' + lead.email + ' (' + lead.entreprise + ')');
-          } else {
-            log.info('intent-monitor', 'Reveal VIDE: ' + lead.apolloId + ' (' + lead.entreprise + ')');
-          }
-          // Rate limit entre reveals
-          await new Promise(function(r) { setTimeout(r, 1200); });
-        } catch (e) {
-          log.warn('intent-monitor', 'Reveal echoue: ' + e.message);
-        }
-      }
-    }
-
-    log.info('intent-monitor', 'Reveals: ' + revealCount + ' credits utilises');
+    log.info('intent-monitor', 'Reveals: skip (Apollo resilie)');
 
     // Filtrer : email requis + pas deja contacte + pas en cooldown
     const actionableLeads = dedupedLeads.filter(function(lead) {
