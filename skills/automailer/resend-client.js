@@ -336,21 +336,23 @@ class ResendClient {
         : [senderTitle, senderTitle];
       const displayTitle = titleVariants[Math.floor(Math.random() * titleVariants.length)];
       const clientTagline = process.env.CLIENT_TAGLINE || '';
+      const senderLocation = process.env.SENDER_LOCATION || 'Clermont-Ferrand';
       const sigFormat = Math.floor(Math.random() * 3);
       if (sigFormat === 0) {
         signature = '<br><span style="color:#666;font-size:13px">'
           + dash + '<br>'
-          + displayName + '<br>'
+          + displayName + ' &mdash; ' + senderLocation + '<br>'
           + displayTitle + sep + clientDomain
           + (clientTagline ? '<br><span style="font-size:12px;color:#888">' + clientTagline + '</span>' : '')
           + '</span>';
       } else if (sigFormat === 1) {
         signature = '<br><span style="color:#666;font-size:13px">'
-          + dash + ' ' + displayName + ', ' + displayTitle
+          + dash + ' ' + displayName + ' &mdash; ' + senderLocation + '<br>'
+          + '<span style="font-size:12px;color:#888">' + displayTitle + '</span>'
           + '</span>';
       } else {
         signature = '<br><span style="color:#666;font-size:13px">'
-          + dash + ' ' + senderFirstName
+          + dash + ' ' + senderFirstName + ' &mdash; ' + senderLocation
           + '</span>';
       }
     }
@@ -374,7 +376,8 @@ class ResendClient {
     // Le pixel = image invisible = Google le detecte = signal spam sur domaines sans reputation
     let pixel = '';
     if (trackingId && !isYoungDomain) {
-      pixel = '<img src="https://' + trackingDomain + '/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">';
+      pixel = '<div style="font-size:10px;color:#bbb;margin-top:8px">Cet email contient un pixel de suivi d\'ouverture. Vous pouvez vous d&eacute;sabonner ci-dessus.</div>'
+        + '<img src="https://' + trackingDomain + '/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">';
     } else if (trackingId && isYoungDomain) {
       log.info('resend-client', 'Pixel tracking SKIP (domaine jeune < 45j) pour ' + (opts.senderDomain || '?'));
     }

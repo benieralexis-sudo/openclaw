@@ -1700,6 +1700,102 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // === RGPD : Data Access (droit d'acces) ===
+  if (req.url && req.url.startsWith('/api/rgpd/data-access') && req.method === 'GET') {
+    const apiToken = (req.headers['x-api-token'] || req.headers['authorization'] || '').replace('Bearer ', '');
+    if (!apiToken || (apiToken !== process.env.DASHBOARD_PASSWORD && apiToken !== process.env.AUTOMAILER_DASHBOARD_PASSWORD)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'unauthorized' }));
+      return;
+    }
+    const urlObj = new URL(req.url, 'http://localhost');
+    const email = (urlObj.searchParams.get('email') || '').toLowerCase().trim();
+    if (!email || !email.includes('@')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'email requis' }));
+      return;
+    }
+    try {
+      const automailerStorage = require('../skills/automailer/storage.js');
+      const emails = automailerStorage.getEmailEventsForRecipient(email);
+      const isBlacklisted = automailerStorage.isBlacklisted(email);
+      const sentiment = automailerStorage.getSentiment ? automailerStorage.getSentiment(email) : null;
+      // Chercher dans les listes de contacts
+      const contactLists = automailerStorage.getAllContactLists().filter(l => l.contacts.some(c => (c.email || '').toLowerCase() === email));
+      const contactData = contactLists.map(l => ({ listName: l.name, contact: l.contacts.find(c => (c.email || '').toLowerCase() === email) }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        email: email,
+        emailsSent: emails.length,
+        emails: emails,
+        blacklisted: isBlacklisted,
+        sentiment: sentiment,
+        contactLists: contactData
+      }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // === RGPD : Delete Me (droit a l'effacement) ===
+  if (req.url === '/api/rgpd/delete-me' && req.method === 'POST') {
+    let body = '';
+    let bodySize = 0;
+    req.on('data', (chunk) => { bodySize += chunk.length; if (bodySize > 4096) { req.destroy(); return; } body += chunk; });
+    req.on('end', () => {
+      try {
+        const apiToken = (req.headers['x-api-token'] || req.headers['authorization'] || '').replace('Bearer ', '');
+        if (!apiToken || (apiToken !== process.env.DASHBOARD_PASSWORD && apiToken !== process.env.AUTOMAILER_DASHBOARD_PASSWORD)) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'unauthorized' }));
+          return;
+        }
+        const data = JSON.parse(body);
+        const email = (data.email || '').toLowerCase().trim();
+        if (!email || !email.includes('@')) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'email requis' }));
+          return;
+        }
+        const automailerStorage = require('../skills/automailer/storage.js');
+        // 1. Supprimer tous les emails envoyes a cette adresse
+        const before = automailerStorage.data.emails.length;
+        automailerStorage.data.emails = automailerStorage.data.emails.filter(e => (e.to || '').toLowerCase() !== email);
+        const deletedEmails = before - automailerStorage.data.emails.length;
+        // 2. Supprimer des listes de contacts
+        let deletedFromLists = 0;
+        for (const list of Object.values(automailerStorage.data.contactLists || {})) {
+          const beforeLen = list.contacts.length;
+          list.contacts = list.contacts.filter(c => (c.email || '').toLowerCase() !== email);
+          deletedFromLists += (beforeLen - list.contacts.length);
+        }
+        // 3. Supprimer le sentiment
+        if (automailerStorage.data._sentiments && automailerStorage.data._sentiments[email]) {
+          delete automailerStorage.data._sentiments[email];
+        }
+        // 4. Ajouter a la blacklist RGPD (ne plus jamais contacter)
+        automailerStorage.addToBlacklist(email, 'rgpd_delete_request');
+        automailerStorage.save();
+        log.info('rgpd', 'RGPD delete-me: ' + email + ' — ' + deletedEmails + ' emails supprimes, ' + deletedFromLists + ' entrees contacts supprimees, blacklist RGPD ajoutee');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          email: email,
+          deletedEmails: deletedEmails,
+          deletedFromLists: deletedFromLists,
+          blacklisted: true,
+          message: 'Toutes les donnees ont ete supprimees et l\'email a ete ajoute a la blacklist RGPD.'
+        }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
   // === CLICK TRACKING (module extrait) ===
   if (emailTracking.handleClick(req, res)) return;
 

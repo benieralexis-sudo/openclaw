@@ -635,6 +635,18 @@ class AutoMailerStorage {
       console.error('[automailer-storage] Erreur lecture archive:', e.message);
     }
 
+    // RGPD : Purger les archives de plus de 3 ans (1095 jours)
+    const purgeCutoff = Date.now() - 1095 * 24 * 60 * 60 * 1000;
+    const beforePurge = archive.length;
+    archive = archive.filter(e => {
+      const ts = e.sentAt || e.createdAt;
+      return ts && new Date(ts).getTime() >= purgeCutoff;
+    });
+    const purged = beforePurge - archive.length;
+    if (purged > 0) {
+      console.log('[automailer-storage] RGPD Purge: ' + purged + ' emails archives > 3 ans supprimes');
+    }
+
     // Ajouter les emails a archiver
     archive.push(...toArchive);
     // Garder max 50000 emails en archive

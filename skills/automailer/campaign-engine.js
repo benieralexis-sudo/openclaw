@@ -42,6 +42,21 @@ if (!_checkEmailSpecificity) {
   };
 }
 
+// --- RGPD : Filtre domaines B2C (emails personnels interdits en prospection B2B) ---
+const B2C_DOMAINS = new Set([
+  'gmail.com', 'gmail.fr', 'yahoo.com', 'yahoo.fr', 'hotmail.com', 'hotmail.fr',
+  'outlook.com', 'outlook.fr', 'live.com', 'live.fr', 'aol.com', 'aol.fr',
+  'icloud.com', 'me.com', 'mac.com', 'protonmail.com', 'proton.me',
+  'orange.fr', 'wanadoo.fr', 'free.fr', 'sfr.fr', 'laposte.net',
+  'msn.com', 'ymail.com', 'mail.com', 'gmx.com', 'gmx.fr'
+]);
+
+function _isB2CDomain(email) {
+  if (!email || typeof email !== 'string') return false;
+  const domain = email.toLowerCase().trim().split('@')[1];
+  return domain ? B2C_DOMAINS.has(domain) : false;
+}
+
 // --- Patterns sujets interdits dans les campagnes ---
 const SUBJECT_BANS = [
   'prospection', 'acquisition', 'gen de leads', 'generation de leads',
@@ -812,6 +827,13 @@ class CampaignEngine {
       // FIX 2 : Verifier blacklist
       if (storage.isBlacklisted(contact.email)) {
         log.info('campaign-engine', 'Skip ' + contact.email + ' (blackliste)');
+        skipped++;
+        continue;
+      }
+
+      // RGPD : Bloquer les domaines B2C (emails personnels)
+      if (_isB2CDomain(contact.email)) {
+        log.warn('campaign-engine', 'RGPD Skip ' + contact.email + ' — domaine B2C (email personnel interdit en prospection B2B)');
         skipped++;
         continue;
       }
