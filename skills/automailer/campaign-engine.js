@@ -5,6 +5,18 @@ const net = require('net');
 const log = require('../../gateway/logger.js');
 const { getWarmupDailyLimit, applySpintax, validateEmailOutput, getCityTimezone } = require('../../gateway/utils.js');
 
+// --- LRU eviction helper : supprime les 20% plus anciennes entrees quand la Map depasse maxSize ---
+function _evictOldest(map, maxSize) {
+  if (map.size <= maxSize) return;
+  const toDelete = Math.floor(map.size * 0.2);
+  let i = 0;
+  for (const key of map.keys()) {
+    if (i >= toDelete) break;
+    map.delete(key);
+    i++;
+  }
+}
+
 // --- Quality gate : specificite email (delegue a action-executor pour eviter divergences) ---
 let _checkEmailSpecificity = null;
 try {
@@ -40,6 +52,26 @@ if (!_checkEmailSpecificity) {
     if (clientMatch) { for (const c of clientMatch[1].split(',').map(c => c.trim().toLowerCase()).filter(c => c.length > 2)) { if (emailText.includes(c)) { facts.push('client:' + c); break; } } }
     return { level: facts.length >= 1 ? 'specific' : 'generic', facts, reason: facts.length === 0 ? 'Aucun fait specifique' : facts.length + ' fait(s)' };
   };
+}
+
+// --- Dedup domaine entreprise : evite d'envoyer a 2 personnes de la meme entreprise dans les 72h ---
+const _recentCompanyDomains = new Map(); // domain -> timestamp
+
+function _isCompanyRecentlyContacted(emailDomain, windowMs = 72 * 60 * 60 * 1000) {
+  const lastContact = _recentCompanyDomains.get(emailDomain);
+  if (lastContact && (Date.now() - lastContact) < windowMs) return true;
+  return false;
+}
+
+function _recordCompanyContact(emailDomain) {
+  _recentCompanyDomains.set(emailDomain, Date.now());
+  // Cleanup old entries
+  if (_recentCompanyDomains.size > 10000) {
+    const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+    for (const [d, t] of _recentCompanyDomains) {
+      if (t < cutoff) _recentCompanyDomains.delete(d);
+    }
+  }
 }
 
 // --- RGPD : Filtre domaines B2C (emails personnels interdits en prospection B2B) ---
@@ -185,9 +217,9 @@ function _spamScoreCheck(subject, body) {
 
   return {
     score,
-    pass: score < 4, // Block si score >= 4
+    pass: score < 6, // Block si score >= 6
     issues,
-    level: score === 0 ? 'clean' : score < 3 ? 'low_risk' : score < 4 ? 'medium_risk' : 'high_risk'
+    level: score === 0 ? 'clean' : score < 3 ? 'low_risk' : score < 6 ? 'medium_risk' : 'high_risk'
   };
 }
 
@@ -242,11 +274,7 @@ function _checkMX(email) {
     dns.resolveMx(domain, (err, addresses) => {
       const valid = !err && Array.isArray(addresses) && addresses.length > 0;
       _mxCache.set(domain, { valid, ts: Date.now() });
-      // Limiter le cache a 500 domaines
-      if (_mxCache.size > 500) {
-        const firstKey = _mxCache.keys().next().value;
-        _mxCache.delete(firstKey);
-      }
+      _evictOldest(_mxCache, 500);
       resolve(valid);
     });
   });
@@ -278,9 +306,7 @@ function _checkGoogleWorkspace(email) {
         return GOOGLE_MX_PATTERNS.some(p => exchange.includes(p));
       });
       _googleMxCache.set(domain, { isGoogle, ts: Date.now() });
-      if (_googleMxCache.size > 500) {
-        _googleMxCache.delete(_googleMxCache.keys().next().value);
-      }
+      _evictOldest(_googleMxCache, 500);
       resolve(isGoogle);
     });
   });
@@ -330,10 +356,7 @@ function _smtpVerify(email) {
         done = true;
         // Cache le resultat
         _smtpCache.set(key, { result, ts: Date.now() });
-        if (_smtpCache.size > 5000) {
-          const firstKey = _smtpCache.keys().next().value;
-          _smtpCache.delete(firstKey);
-        }
+        _evictOldest(_smtpCache, 5000);
         try { socket.destroy(); } catch (e) {}
         resolve(result);
       };
@@ -377,10 +400,12 @@ function _smtpVerify(email) {
             const catchCode = parseInt(catchResp.substring(0, 3), 10);
             if (catchCode === 250 || catchCode === 251) {
               _catchAllCache.set(domain, { isCatchAll: true, ts: Date.now() });
+              _evictOldest(_catchAllCache, 500);
               sendCommand('QUIT');
               return finish({ valid: null, reason: 'catch_all' });
             }
             _catchAllCache.set(domain, { isCatchAll: false, ts: Date.now() });
+            _evictOldest(_catchAllCache, 500);
           }
 
           sendCommand('RCPT TO:<' + key + '>');
@@ -437,7 +462,25 @@ const STATUS_LABELS = {
   complained: 'Spam'
 };
 
-// --- FIX 4 : Heures bureau (Europe/Paris, lun-ven 9h-18h) ---
+// --- Jours feries francais (dates fixes) ---
+const FRENCH_HOLIDAYS = [
+  '01-01', // Nouvel An
+  '05-01', // Fete du Travail
+  '05-08', // Victoire 1945
+  '07-14', // Fete nationale
+  '08-15', // Assomption
+  '11-01', // Toussaint
+  '11-11', // Armistice
+  '12-25', // Noel
+];
+
+function _isFrenchHoliday(date) {
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return FRENCH_HOLIDAYS.includes(mm + '-' + dd);
+}
+
+// --- FIX 4 : Heures bureau (Europe/Paris, lun-ven 9h-18h, hors jours feries) ---
 function isBusinessHours(timezone) {
   timezone = timezone || 'Europe/Paris';
   const now = new Date();
@@ -445,6 +488,7 @@ function isBusinessHours(timezone) {
   const localDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
   const localDay = localDate.getDay(); // 0=dimanche, 6=samedi
   if (localDay === 0 || localDay === 6) return false; // weekend
+  if (_isFrenchHoliday(localDate)) return false; // jour ferie francais
   if (localHour < 9 || localHour >= 18) return false; // envois 9h-17h59 dans la timezone du prospect
   return true;
 }
@@ -836,6 +880,16 @@ class CampaignEngine {
         log.warn('campaign-engine', 'RGPD Skip ' + contact.email + ' — domaine B2C (email personnel interdit en prospection B2B)');
         skipped++;
         continue;
+      }
+
+      // Dedup domaine entreprise : eviter 2 contacts de la meme boite dans les 72h
+      const contactDomain = (contact.email || '').toLowerCase().split('@')[1];
+      if (contactDomain && !_isB2CDomain(contact.email) && stepNumber === 0) {
+        if (_isCompanyRecentlyContacted(contactDomain)) {
+          log.warn('campaign-engine', 'DEDUP Skip ' + contact.email + ' — domaine ' + contactDomain + ' deja contacte dans les 72h');
+          skipped++;
+          continue;
+        }
       }
 
       // GATE : Re-verifier Lead Enrich pour les follow-ups (evite d'envoyer des relances a des leads hors-cible)
@@ -1612,7 +1666,7 @@ class CampaignEngine {
 
       // Threading : recuperer le messageId du dernier email envoye a ce prospect
       const sendOpts = {
-        replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL,
+        // Reply-To per-domaine : ne pas forcer REPLY_TO_EMAIL global, laisser resend-client utiliser fromEmail
         fromName: process.env.SENDER_NAME || 'Alexis',
         trackingId: trackingId,
         campaignId: campaignId,
@@ -1623,17 +1677,13 @@ class CampaignEngine {
         ]
       };
       if (stepNumber > 0) {
-        // Si le prospect n'a jamais ouvert → nouveau thread (pas de Re:) pour changer le sujet
-        const recipientEmails = storage.data.emails.filter(function(e) { return e.to === contact.email && e.campaignId === campaignId; });
-        const hasOpened = recipientEmails.some(function(e) { return e.openedAt; });
-        if (hasOpened) {
-          const prevMessageId = storage.getMessageIdForRecipient(contact.email);
-          if (prevMessageId) {
-            sendOpts.inReplyTo = prevMessageId;
-            sendOpts.references = prevMessageId;
-          }
+        // Threading systematique : TOUJOURS threader les follow-ups avec le Message-ID du step precedent
+        // Les follow-ups non-threades arrivent comme des cold emails separes = signal spam
+        const prevMessageId = storage.getMessageIdForRecipient(contact.email);
+        if (prevMessageId) {
+          sendOpts.inReplyTo = prevMessageId;
+          sendOpts.references = prevMessageId;
         }
-        // Si !hasOpened → pas de inReplyTo → nouveau thread avec nouveau sujet
       }
 
       const result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
@@ -1675,6 +1725,8 @@ class CampaignEngine {
       if (result.success) {
         sent++;
         batchSentCount++;
+        // Enregistrer le domaine entreprise pour dedup 72h
+        if (contactDomain) _recordCompanyContact(contactDomain);
         // FIX 3 : Tracker envoi warmup + date du premier envoi
         storage.setFirstSendDate();
         storage.incrementTodaySendCount();

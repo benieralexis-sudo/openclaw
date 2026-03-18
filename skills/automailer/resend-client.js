@@ -137,7 +137,8 @@ class ResendClient {
       trackingDomain = dm.getTrackingDomain(smtpDomain);
     } catch (e) { /* fallback global */ }
 
-    const replyTo = options.replyTo || process.env.REPLY_TO_EMAIL || fromEmail;
+    // Reply-To per-domaine : toujours utiliser fromEmail (meme adresse que FROM)
+    const replyTo = options.replyTo || fromEmail;
 
     const mime = [
       'From: ' + fromName + ' <' + fromEmail + '>',
@@ -454,7 +455,8 @@ class ResendClient {
       payload.headers['References'] = options.references || options.inReplyTo;
     }
     if (options.tags) payload.tags = options.tags;
-    payload.reply_to = options.replyTo || process.env.REPLY_TO_EMAIL || this.senderEmail;
+    // Reply-To per-domaine : utiliser fromEmail (= senderEmail Resend) au lieu de REPLY_TO_EMAIL global
+    payload.reply_to = options.replyTo || this.senderEmail;
 
     // Retry avec backoff exponentiel sur 429 (rate limit)
     let result;
@@ -514,7 +516,7 @@ class ResendClient {
         text: e.body,
         html: this._minimalHtml(e.body, e.trackingId, toEmail),
         tags: e.tags || [],
-        reply_to: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL,
+        reply_to: this.senderEmail, // Reply-To = FROM (per-domaine)
         headers: {
           'List-Unsubscribe': '<https://' + (process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr') + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
