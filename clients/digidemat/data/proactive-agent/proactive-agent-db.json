@@ -1,0 +1,71 @@
+{
+  "config": {
+    "enabled": true,
+    "adminChatId": "1409505520",
+    "alerts": {
+      "morningReport": {
+        "enabled": true,
+        "hour": 8,
+        "minute": 0
+      },
+      "pipelineAlerts": {
+        "enabled": true,
+        "hour": 9,
+        "minute": 0
+      },
+      "weeklyReport": {
+        "enabled": true,
+        "dayOfWeek": 1,
+        "hour": 9,
+        "minute": 0
+      },
+      "monthlyReport": {
+        "enabled": true,
+        "dayOfMonth": 1,
+        "hour": 9,
+        "minute": 0
+      },
+      "emailStatusCheck": {
+        "enabled": true,
+        "intervalMinutes": 30
+      },
+      "nightlyAnalysis": {
+        "enabled": true,
+        "hour": 2,
+        "minute": 0
+      }
+    },
+    "thresholds": {
+      "stagnantDealDays": 7,
+      "hotLeadOpens": 3,
+      "dealCloseWarningDays": 3
+    }
+  },
+  "alertHistory": [],
+  "hotLeads": {},
+  "reactiveFollowUps": {
+    "pending": [],
+    "sent": [],
+    "config": {
+      "enabled": true,
+      "minDelayMinutes": 30,
+      "maxDelayMinutes": 60
+    }
+  },
+  "nightlyBriefing": null,
+  "metrics": {
+    "dailySnapshots": [],
+    "weeklySnapshots": [],
+    "monthlySnapshots": []
+  },
+  "stats": {
+    "totalReportsSent": 0,
+    "totalAlertsSent": 0,
+    "lastMorningReport": null,
+    "lastWeeklyReport": null,
+    "lastMonthlyReport": null,
+    "lastNightlyAnalysis": null,
+    "lastEmailCheck": null,
+    "createdAt": "2026-03-18T19:33:29.068Z"
+  }
+}

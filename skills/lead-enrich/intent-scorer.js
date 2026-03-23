@@ -32,7 +32,10 @@ const SIGNAL_WEIGHTS = {
   market_hiring: 1.5,
   market_acquisition: 2.0,
   market_product_launch: 1.0,
-  market_leadership_change: 1.0
+  market_leadership_change: 1.0,
+
+  // Clay signals (v9.0)
+  tech_stack_clay: 0.5
 };
 
 // Decay temporel : les signaux recents valent plus
@@ -131,6 +134,42 @@ function calculateIntentScore(intel) {
           contribution: Math.round(contribution * 100) / 100
         });
       }
+    }
+  }
+
+  // 5. Clay signals (v9.0) — headcount growth et funding depuis Clay
+  if (intel.clayData) {
+    const enr = intel.clayData.enrichment || {};
+
+    // Headcount growth from Clay
+    const hcGrowth = intel.clayData.headcountGrowth || enr.headcountGrowth || enr.headcount_growth || null;
+    if (hcGrowth && typeof hcGrowth === 'number' && hcGrowth > 10 && !scoredSignals.some(s => s.type === 'headcount_growth')) {
+      const weight = SIGNAL_WEIGHTS.headcount_growth || 1.5;
+      const contribution = weight;
+      rawScore += contribution;
+      scoredSignals.push({
+        type: 'headcount_growth',
+        detail: '+' + hcGrowth + '% croissance effectif (Clay)',
+        weight: weight,
+        decay: 1.0,
+        contribution: Math.round(contribution * 100) / 100
+      });
+    }
+
+    // Funding from Clay
+    const funding = intel.clayData.funding || enr.funding || null;
+    if (funding && !scoredSignals.some(s => s.type === 'recent_funding')) {
+      const weight = SIGNAL_WEIGHTS.recent_funding || 2.5;
+      const fundingDetail = typeof funding === 'object' ? ('Levee ' + (funding.type || '') + ' ' + (funding.amount || '')).trim() : String(funding);
+      const contribution = weight;
+      rawScore += contribution;
+      scoredSignals.push({
+        type: 'recent_funding',
+        detail: 'Funding Clay: ' + fundingDetail,
+        weight: weight,
+        decay: 1.0,
+        contribution: Math.round(contribution * 100) / 100
+      });
     }
   }
 

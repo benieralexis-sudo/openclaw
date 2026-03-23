@@ -1,0 +1,15 @@
+{
+  "mode": "standby",
+  "cronsActive": false,
+  "startedAt": "2026-03-18T19:33:30.504Z",
+  "lastModeChange": "2026-03-18T19:33:30.504Z",
+  "budget": {
+    "dailyLimit": 3,
+    "todaySpent": 0,
+    "todayDate": "2026-03-18",
+    "history": []
+  },
+  "quietMode": false,
+  "timezone": "Europe/Paris",
+  "clientName": "Digidemat"
+}

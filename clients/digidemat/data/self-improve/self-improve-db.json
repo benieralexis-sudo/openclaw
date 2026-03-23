@@ -1,0 +1,78 @@
+{
+  "version": 2,
+  "config": {
+    "enabled": true,
+    "adminChatId": "1409505520",
+    "analysisDay": "sunday",
+    "analysisHour": 21,
+    "autoApply": true,
+    "scoringWeights": null,
+    "emailPreferences": {
+      "maxLength": null,
+      "preferredSendHour": null,
+      "preferredSendDay": null
+    },
+    "targetingCriteria": {
+      "minScore": null
+    }
+  },
+  "metrics": {
+    "weeklySnapshots": [],
+    "emailDetails": []
+  },
+  "analysis": {
+    "lastAnalysis": null,
+    "lastRecommendations": [],
+    "pendingRecommendations": [],
+    "appliedRecommendations": []
+  },
+  "feedback": {
+    "predictions": [],
+    "accuracyHistory": []
+  },
+  "backups": [],
+  "stats": {
+    "totalAnalyses": 0,
+    "totalRecommendations": 0,
+    "totalApplied": 0,
+    "totalRollbacks": 0,
+    "currentAccuracy": null,
+    "lastAnalysisAt": null,
+    "createdAt": "2026-03-18T19:33:29.072Z"
+  },
+  "impactTracking": {
+    "activeTracking": [],
+    "completedTracking": []
+  },
+  "typePerformance": {},
+  "funnel": {
+    "weeklyFunnelSnapshots": []
+  },
+  "anomalyHistory": [],
+  "brainInsights": {
+    "lastCollectedAt": null,
+    "nichePerformance": {},
+    "learnings": {},
+    "weeklyPerformance": []
+  },
+  "abTestInsights": {
+    "lastCollectedAt": null,
+    "campaignResults": [],
+    "summary": null
+  },
+  "temporalPatterns": {
+    "lastAnalyzedAt": null,
+    "dayHourGrid": {},
+    "bestSlots": [],
+    "worstSlots": [],
+    "totalAnalyzed": 0
+  },
+  "cohortInsights": {
+    "lastAnalyzedAt": null,
+    "byIndustry": {},
+    "byCompanySize": {},
+    "byRole": {},
+    "topCohorts": [],
+    "bottomCohorts": []
+  }
+}

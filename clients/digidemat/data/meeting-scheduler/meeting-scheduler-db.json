@@ -1,0 +1,29 @@
+{
+  "config": {
+    "enabled": false,
+    "googleCalendarId": "",
+    "googleBookingUrl": "",
+    "defaultEventTypeId": null,
+    "defaultDurationMinutes": 30,
+    "autoPropose": false
+  },
+  "meetings": [],
+  "eventTypes": [
+    {
+      "id": 0,
+      "title": "Appel decouverte",
+      "slug": "appel-decouverte",
+      "length": 15,
+      "description": "Appel decouverte 15 min"
+    }
+  ],
+  "stats": {
+    "totalProposed": 0,
+    "totalBooked": 0,
+    "totalCancelled": 0,
+    "totalNoShow": 0,
+    "totalCompleted": 0,
+    "totalExpired": 0,
+    "createdAt": "2026-03-18T19:33:29.289Z"
+  }
+}

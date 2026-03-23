@@ -41,6 +41,32 @@ class ProspectResearcher {
     this._uaIndex = Math.floor(Math.random() * USER_AGENTS.length);
   }
 
+  // --- Clay enrichment loader (v9.0) ---
+
+  /**
+   * Charge les donnees d'enrichissement Clay depuis le fichier JSON genere par le webhook.
+   * @param {string} email — email du prospect
+   * @returns {Object|null} — donnees Clay parsees ou null
+   */
+  _loadClayEnrichment(email) {
+    if (!email) return null;
+    const filePath = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/clay-enrichments/' + email.toLowerCase().replace(/[^a-z0-9@._-]/g, '_') + '.json';
+    try {
+      const fs = require('fs');
+      if (!fs.existsSync(filePath)) {
+        log.info('prospect-research', 'Clay enrichment non trouve pour ' + email);
+        return null;
+      }
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(raw);
+      log.info('prospect-research', 'Clay enrichment charge pour ' + email + ' (source: ' + (data.source || 'clay') + ')');
+      return data;
+    } catch (e) {
+      log.info('prospect-research', 'Clay enrichment erreur lecture pour ' + email + ': ' + e.message);
+      return null;
+    }
+  }
+
   // --- Filtres anti-bruit pour sources de donnees ---
 
   /**
@@ -418,19 +444,19 @@ class ProspectResearcher {
     // Extraire le domaine depuis l'email
     const domain = email ? email.split('@')[1] : null;
 
-    // Executer toutes les recherches en parallele (11 sources — Dropcontact enrichit les donnees personne)
+    // === Clay enrichment (v9.0) — charger AVANT les sources web ===
+    const clayData = this._loadClayEnrichment(email);
+
+    // Executer les 6 sources web en parallele (v9.0 — Apollo, Dropcontact, LinkedIn DDG retires)
     const linkedinUrl = contact.linkedin_url || contact.linkedin || contact.linkedinUrl || '';
     const contactName = contact.nom || contact.name || '';
-    const [websiteResult, newsResult, apolloData, webIntelArticles, linkedinResult, clientSearchResult, personProfileResult, jobPostingsResult, dropcontactResult] = await Promise.allSettled([
+    const [websiteResult, newsResult, webIntelArticles, clientSearchResult, personProfileResult, jobPostingsResult] = await Promise.allSettled([
       this._scrapeCompanyWebsite(domain),
       this._fetchCompanyNews(company),
-      Promise.resolve(this._extractApolloOrgData(contact.organization, contact)),
       Promise.resolve(this._checkExistingWebIntelArticles(company)),
-      this._fetchLinkedInData(linkedinUrl, contactName, company, contact),
       this._searchCompanyClients(company),
       this._searchPersonProfile(contactName, company),
-      this._searchJobPostings(company),
-      this._fetchDropcontactData(contact)
+      this._searchJobPostings(company)
     ]);
 
     // Chercher market signals Web Intelligence pour cette entreprise
@@ -468,6 +494,42 @@ class ProspectResearcher {
       }
     }
 
+    // === Clay org data (v9.0) — compatible avec format apolloData pour retrocompat ===
+    let clayOrgData = null;
+    let clayLinkedinData = null;
+    if (clayData) {
+      const enr = clayData.enrichment || {};
+      clayOrgData = {
+        name: clayData.company || null,
+        websiteUrl: clayData.website || null,
+        industry: clayData.industry || (enr.industry || null),
+        employeeCount: clayData.employeeCount || (enr.employeeCount || null),
+        foundedYear: enr.foundedYear || null,
+        shortDescription: (enr.shortDescription || enr.description || '').substring(0, 300),
+        keywords: enr.keywords || [],
+        technologies: enr.technologies || [],
+        city: clayData.location || (enr.city || null),
+        country: enr.country || null,
+        linkedinUrl: enr.linkedinUrl || (clayData.linkedin || null),
+        revenue: enr.revenue || enr.annualRevenue || null,
+        lastFundingDate: enr.lastFundingDate || (enr.funding && enr.funding.lastDate) || null,
+        lastFundingType: enr.lastFundingType || (enr.funding && enr.funding.type) || null,
+        lastFundingAmount: enr.lastFundingAmount || (enr.funding && enr.funding.amount) || null
+      };
+      log.info('prospect-research', 'Clay org data construite pour ' + (clayData.company || email));
+
+      // LinkedIn data depuis Clay
+      if (clayData.linkedin || (enr.linkedinBio || enr.linkedinHeadline)) {
+        clayLinkedinData = {
+          headline: enr.linkedinHeadline || clayData.title || null,
+          summary: (enr.linkedinBio || '').substring(0, 400),
+          linkedinUrl: clayData.linkedin || enr.linkedinUrl || '',
+          source: 'clay'
+        };
+        log.info('prospect-research', 'Clay LinkedIn data construite pour ' + (contactName || email));
+      }
+    }
+
     // Chercher les concurrents dans le meme secteur (inter-prospect memory)
     let sectorCompetitors = [];
     try {
@@ -475,8 +537,7 @@ class ProspectResearcher {
       if (apStorage2 && apStorage2.getCompetitorsInIndustry) {
         let industry = '';
         if (leadEnrichData && leadEnrichData.industry) industry = leadEnrichData.industry;
-        const apolloResolved = apolloData.status === 'fulfilled' ? apolloData.value : null;
-        if (!industry && apolloResolved && apolloResolved.industry) industry = apolloResolved.industry;
+        if (!industry && clayOrgData && clayOrgData.industry) industry = clayOrgData.industry;
         if (industry) {
           sectorCompetitors = apStorage2.getCompetitorsInIndustry(industry, 5)
             .filter(c => c.name.toLowerCase() !== company.toLowerCase());
@@ -500,20 +561,55 @@ class ProspectResearcher {
       websiteInsights: websiteResult.status === 'fulfilled' ? websiteResult.value : null,
       techStack: (websiteResult.status === 'fulfilled' && websiteResult.value) ? websiteResult.value.techStack || null : null,
       recentNews: newsResult.status === 'fulfilled' ? newsResult.value : [],
-      apolloData: apolloData.status === 'fulfilled' ? apolloData.value : null,
+      apolloData: clayOrgData, // v9.0: Clay remplace Apollo (retrocompat)
       existingArticles: rawArticles,
-      linkedinData: linkedinResult.status === 'fulfilled' ? linkedinResult.value : null,
+      linkedinData: clayLinkedinData, // v9.0: Clay remplace LinkedIn DDG
       clientSearch: clientSearchResult.status === 'fulfilled' ? clientSearchResult.value : null,
       personProfile: personProfile,
       personFromWebsite: personFromWebsite,
       jobPostings: jobPostingsResult.status === 'fulfilled' ? jobPostingsResult.value : null,
       intentSignals: personProfile ? (personProfile.intentSignals || []) : [],
       sectorCompetitors: sectorCompetitors,
-      dropcontactData: dropcontactResult.status === 'fulfilled' ? dropcontactResult.value : null,
+      clayData: clayData, // v9.0: donnees Clay brutes
       leadEnrichData: leadEnrichData,
       marketSignals: marketSignals,
       researchedAt: new Date().toISOString()
     };
+
+    // === Clay intent signals (v9.0) ===
+    if (clayData) {
+      const enr = clayData.enrichment || {};
+
+      // BuiltWith / tech stack
+      const builtWith = clayData.builtWith || enr.builtWith || enr.technologies || null;
+      if (builtWith && Array.isArray(builtWith) && builtWith.length > 0) {
+        if (!intel.intentSignals.some(s => s.type === 'tech_stack_clay')) {
+          intel.intentSignals.push({ type: 'tech_stack_clay', detail: 'Tech stack Clay: ' + builtWith.slice(0, 5).join(', '), detectedAt: clayData.importedAt });
+        }
+      }
+
+      // Headcount growth
+      const hcGrowth = clayData.headcountGrowth || enr.headcountGrowth || enr.headcount_growth || null;
+      if (hcGrowth && !intel.intentSignals.some(s => s.type === 'headcount_growth')) {
+        const growthDetail = typeof hcGrowth === 'number' ? (hcGrowth > 0 ? '+' : '') + hcGrowth + '% croissance effectif' : String(hcGrowth);
+        intel.intentSignals.push({ type: 'headcount_growth', detail: growthDetail, detectedAt: clayData.importedAt });
+      }
+
+      // Funding
+      const funding = clayData.funding || enr.funding || null;
+      if (funding && !intel.intentSignals.some(s => s.type === 'recent_funding')) {
+        const fundingDetail = typeof funding === 'object' ? ('Levee ' + (funding.type || '') + ' ' + (funding.amount || '')).trim() : String(funding);
+        intel.intentSignals.push({ type: 'recent_funding', detail: 'Funding Clay: ' + fundingDetail, detectedAt: clayData.importedAt });
+      }
+
+      // LinkedIn posts
+      const posts = clayData.linkedinPosts || enr.linkedinPosts || null;
+      if (posts && Array.isArray(posts) && posts.length > 0 && !intel.intentSignals.some(s => s.type === 'content_creator')) {
+        intel.intentSignals.push({ type: 'content_creator', detail: posts.length + ' posts LinkedIn recents', detectedAt: clayData.importedAt });
+      }
+
+      log.info('prospect-research', 'Clay intent signals injectes pour ' + (company || email) + ': ' + intel.intentSignals.filter(s => s.detail && s.detail.includes('Clay')).length + ' signaux');
+    }
 
     // Auto-intent signals enrichis
     if (intel.jobPostings && intel.jobPostings.totalJobs >= 3) {
@@ -786,7 +882,9 @@ class ProspectResearcher {
   /**
    * Extrait les donnees utiles de l'objet organization Apollo (deja paye)
    */
+  /* DEPRECATED v9.0 — Clay replaces */
   _extractApolloOrgData(organization, contact) {
+    return null;
     // Fusionner l'objet organization direct + organizationData stringifie + donnees contact + FlowFast
     let org = organization || {};
 
@@ -1087,7 +1185,9 @@ class ProspectResearcher {
    * Ordre optimise : Brave Search (pas de rate-limit) > DuckDuckGo > Bing > Google Cache > Google search.
    * Chaque requete utilise un user-agent different pour eviter les 403.
    */
+  /* DEPRECATED v9.0 — Clay replaces */
   async _fetchLinkedInData(linkedinUrl, name, company, apolloPerson) {
+    return null;
     if ((!linkedinUrl || !linkedinUrl.includes('linkedin.com/in/')) && !name) return null;
 
     // Strategie -1 (IMMEDIAT) : Extraire headline depuis donnees contact existantes (0 requete HTTP)
@@ -1251,7 +1351,9 @@ class ProspectResearcher {
   /**
    * Parse les resultats Brave Search (pseudo-HTML) pour extraire les infos LinkedIn.
    */
+  /* DEPRECATED v9.0 — Clay replaces */
   _parseBraveLinkedInResults(html, name) {
+    return null;
     if (!html || html.length < 50) return null;
 
     // Brave pseudo-HTML: <a href="...linkedin.com/in/...">Title</a><span class="snippet">...</span>
@@ -1276,7 +1378,9 @@ class ProspectResearcher {
   /**
    * Parse les resultats Bing pour extraire les infos LinkedIn.
    */
+  /* DEPRECATED v9.0 — Clay replaces */
   _parseBingLinkedInResults(html, name) {
+    return null;
     if (!html || html.length < 200) return null;
 
     // Bing met le titre dans <h2><a ...>Title</a></h2> ou <li class="b_algo"><h2><a>
@@ -1306,7 +1410,9 @@ class ProspectResearcher {
   /**
    * Parse les resultats DuckDuckGo HTML pour extraire les infos LinkedIn.
    */
+  /* DEPRECATED v9.0 — Clay replaces */
   _parseDDGLinkedInResults(html, name) {
+    return null;
     if (!html || html.length < 200) return null;
 
     const result = { headline: null, summary: '' };
@@ -1502,7 +1608,9 @@ class ProspectResearcher {
   // Source 10 : Dropcontact — enrichissement complet personne + entreprise
   // Double strategie : enrichByEmail (si email connu) + enrichByNameAndCompany (fallback)
   // Retourne les donnees meme sans email (tel, SIREN, LinkedIn, ville = precieux pour le brief)
+  /* DEPRECATED v9.0 — Clay replaces */
   async _fetchDropcontactData(contact) {
+    return null;
     const apiKey = process.env.DROPCONTACT_API_KEY;
     if (!apiKey) return null;
 
@@ -1828,31 +1936,28 @@ class ProspectResearcher {
     }
     if (meta.length > 0) companyLine += ' (' + meta.join(', ') + ')';
     lines.push(companyLine);
-    // Label APOLLO explicite pour le comptage de sources
+    // Label source explicite pour le comptage de sources (v9.0: CLAY remplace APOLLO)
     if (intel.apolloData && meta.length > 0) {
-      lines.push('APOLLO: donnees organisation confirmees');
+      lines.push(intel.clayData ? 'CLAY: donnees organisation confirmees' : 'APOLLO: donnees organisation confirmees');
     }
 
     if (contact.nom || contact.titre) {
       let contactLine = 'CONTACT: ' + (contact.nom || '');
       if (contact.titre) contactLine += ' — ' + contact.titre;
-      // Enrichir avec Dropcontact si disponible (poste verifie, LinkedIn, telephone)
-      if (intel.dropcontactData && intel.dropcontactData.person) {
-        const dcp = intel.dropcontactData.person;
-        if (dcp.title && dcp.title.length > 3 && !contactLine.includes(dcp.title)) contactLine += ' (' + dcp.title + ')';
-        if (dcp.linkedinUrl && !contact.linkedin_url) contactLine += ' | LinkedIn: ' + dcp.linkedinUrl;
-        if (dcp.phone) contactLine += ' | Tel: ' + dcp.phone;
-        if (dcp.city) contactLine += ' | ' + dcp.city;
+      // Enrichir avec Clay si disponible (v9.0)
+      if (intel.clayData) {
+        const cd = intel.clayData;
+        if (cd.title && cd.title.length > 3 && !contactLine.includes(cd.title)) contactLine += ' (' + cd.title + ')';
+        if (cd.linkedin && !contact.linkedin_url) contactLine += ' | LinkedIn: ' + cd.linkedin;
+        if (cd.phone) contactLine += ' | Tel: ' + cd.phone;
+        if (cd.location) contactLine += ' | ' + cd.location;
       }
       lines.push(contactLine);
     }
 
-    // Ville Dropcontact (utile pour personnalisation geographique)
-    if (intel.dropcontactData && intel.dropcontactData.organization) {
-      const dcOrg = intel.dropcontactData.organization;
-      if (dcOrg.city && !meta.some(m => m.includes(dcOrg.city))) {
-        lines.push('LOCALISATION: ' + dcOrg.city + (dcOrg.zip ? ' (' + dcOrg.zip + ')' : ''));
-      }
+    // Localisation Clay (utile pour personnalisation geographique)
+    if (intel.clayData && intel.clayData.location && !meta.some(m => m.includes(intel.clayData.location))) {
+      lines.push('LOCALISATION: ' + intel.clayData.location);
     }
 
     // PRIORITE 1 : News recentes — meilleure source d'observations specifiques et temporelles
@@ -1905,6 +2010,26 @@ class ProspectResearcher {
       if (intel.linkedinData.headline) liLine += intel.linkedinData.headline;
       if (intel.linkedinData.summary) liLine += ' — ' + intel.linkedinData.summary.substring(0, 350);
       lines.push(liLine);
+    }
+
+    // PRIORITE 2a-bis : Posts LinkedIn recents (Clay v9.0)
+    if (intel.clayData) {
+      const posts = intel.clayData.linkedinPosts || (intel.clayData.enrichment && intel.clayData.enrichment.linkedinPosts) || null;
+      if (posts && Array.isArray(posts) && posts.length > 0) {
+        lines.push('POSTS LINKEDIN RECENTS:');
+        for (const post of posts.slice(0, 2)) {
+          const postText = typeof post === 'string' ? post : (post.text || post.content || JSON.stringify(post));
+          lines.push('- "' + postText.substring(0, 200) + '"');
+        }
+      }
+    }
+
+    // PRIORITE 2a-ter : Tech Stack BuiltWith (Clay v9.0)
+    if (intel.clayData) {
+      const builtWith = intel.clayData.builtWith || (intel.clayData.enrichment && (intel.clayData.enrichment.builtWith || intel.clayData.enrichment.technologies)) || null;
+      if (builtWith && Array.isArray(builtWith) && builtWith.length > 0) {
+        lines.push('TECH STACK (BuiltWith): ' + builtWith.slice(0, 10).join(', '));
+      }
     }
 
     // PRIORITE 2b : Profil public — interviews, podcasts, conferences (PERSONNE, pas entreprise)

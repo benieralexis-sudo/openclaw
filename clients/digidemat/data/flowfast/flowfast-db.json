@@ -1,0 +1,15 @@
+{
+  "users": {},
+  "searches": [],
+  "leads": {},
+  "emails": [],
+  "stats": {
+    "totalSearches": 0,
+    "totalLeadsFound": 0,
+    "totalLeadsQualified": 0,
+    "totalLeadsPushed": 0,
+    "totalEmailsSent": 0,
+    "totalEmailsDrafted": 0,
+    "createdAt": "2026-03-18T19:33:30.502Z"
+  }
+}

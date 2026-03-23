@@ -1,0 +1,18 @@
+{
+  "users": {},
+  "contactLists": {},
+  "templates": {},
+  "campaigns": {},
+  "emails": [],
+  "blacklist": {},
+  "stats": {
+    "totalCampaigns": 0,
+    "totalEmailsSent": 0,
+    "totalEmailsDelivered": 0,
+    "totalEmailsOpened": 0,
+    "totalEmailsBounced": 0,
+    "totalContactsImported": 0,
+    "totalTemplatesCreated": 0,
+    "createdAt": "2026-03-18T19:33:29.045Z"
+  }
+}

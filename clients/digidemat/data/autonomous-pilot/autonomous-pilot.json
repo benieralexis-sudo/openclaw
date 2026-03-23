@@ -1,0 +1,143 @@
+{
+  "config": {
+    "enabled": true,
+    "adminChatId": "1409505520",
+    "businessContext": "",
+    "autonomyLevel": "semi",
+    "offer": {
+      "setup": 0,
+      "monthly": 0,
+      "commitment": "",
+      "trial": "",
+      "description": ""
+    },
+    "emailPreferences": {
+      "maxLines": 5,
+      "language": "fr",
+      "tone": "direct",
+      "forbiddenWords": [
+        "SDR",
+        "pipeline",
+        "automatisation",
+        "solution",
+        "offre",
+        "plateforme",
+        "outil",
+        "logiciel",
+        "SaaS",
+        "innovation",
+        "revolutionner",
+        "transformer",
+        "optimiser",
+        "booster",
+        "scaler",
+        "ROI",
+        "KPI",
+        "growth hack",
+        "synergie",
+        "levier",
+        "disruptif",
+        "game-changer",
+        "next-gen",
+        "essai gratuit",
+        "pilote gratuit"
+      ],
+      "hookStyle": "problem-first",
+      "signatureStyle": ""
+    },
+    "followUpConfig": {
+      "sequenceStepDays": [
+        3,
+        7,
+        14,
+        21
+      ],
+      "sequenceTotalSteps": 4,
+      "reactiveMinDelayMinutes": 120,
+      "reactiveMaxDelayMinutes": 240
+    },
+    "brainSchedule": {
+      "enabled": true,
+      "businessHoursOnly": true,
+      "intervalHours": 4,
+      "dailyBriefingHour": 7
+    }
+  },
+  "goals": {
+    "weekly": {
+      "leadsToFind": 20,
+      "emailsToSend": 10,
+      "responsesTarget": 2,
+      "rdvTarget": 1,
+      "minOpenRate": 25,
+      "minLeadScore": 7,
+      "pushToCrmAboveScore": 7
+    },
+    "searchCriteria": {
+      "titles": [
+        "CEO",
+        "Founder",
+        "Co-founder",
+        "CTO",
+        "Fondateur",
+        "Directeur",
+        "Gerant",
+        "Associe",
+        "Directeur General",
+        "President",
+        "DG"
+      ],
+      "locations": [
+        "France"
+      ],
+      "seniorities": [
+        "founder",
+        "c_suite",
+        "director",
+        "owner"
+      ],
+      "industries": [],
+      "keywords": "",
+      "companySize": [
+        "1-10",
+        "11-50",
+        "51-200"
+      ],
+      "limit": 10
+    }
+  },
+  "progress": {
+    "weekStart": "2026-03-18",
+    "leadsFoundThisWeek": 0,
+    "leadsEnrichedThisWeek": 0,
+    "emailsSentThisWeek": 0,
+    "emailsOpenedThisWeek": 0,
+    "responsesThisWeek": 0,
+    "rdvBookedThisWeek": 0,
+    "contactsPushedThisWeek": 0,
+    "dealsPushedThisWeek": 0
+  },
+  "actionQueue": [],
+  "actionHistory": [],
+  "diagnostic": {
+    "items": [],
+    "lastCheckAt": null
+  },
+  "learnings": {
+    "bestSearchCriteria": [],
+    "bestEmailStyles": [],
+    "bestSendTimes": [],
+    "experiments": [],
+    "weeklyPerformance": []
+  },
+  "stats": {
+    "totalBrainCycles": 0,
+    "totalActionsExecuted": 0,
+    "totalActionsConfirmed": 0,
+    "totalActionsRejected": 0,
+    "totalDiagnosticItems": 0,
+    "totalCriteriaUpdates": 0,
+    "createdAt": "2026-03-18T19:33:30.487Z",
+    "lastBrainCycleAt": null
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "users": {},
+  "enrichedLeads": {},
+  "enrichUsage": {
+    "creditsUsed": 0,
+    "provider": "fullenrich",
+    "lastResetAt": "2026-03-18T19:33:30.504Z",
+    "history": []
+  },
+  "activityLog": [],
+  "stats": {
+    "totalEnrichments": 0,
+    "totalHubspotEnrichments": 0,
+    "totalAutomailerEnrichments": 0,
+    "totalTelegramEnrichments": 0,
+    "totalScored": 0,
+    "createdAt": "2026-03-18T19:33:30.504Z"
+  }
+}

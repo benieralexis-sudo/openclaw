@@ -1885,6 +1885,8 @@ const healthServer = http.createServer(async (req, res) => {
           try {
             if (!fs.existsSync(enrichmentDir)) fs.mkdirSync(enrichmentDir, { recursive: true });
             const enrichmentFile = enrichmentDir + '/' + lead.email.toLowerCase().replace(/[^a-z0-9@._-]/g, '_') + '.json';
+            // v9.0: Accept both top-level and enrichment.* nested fields
+            const nestedEnr = lead.enrichment || {};
             const enrichmentData = {
               email: lead.email.toLowerCase().trim(),
               firstName: lead.firstName,
@@ -1897,6 +1899,11 @@ const healthServer = http.createServer(async (req, res) => {
               employeeCount: lead.employeeCount || null,
               location: lead.location || '',
               phone: lead.phone || '',
+              builtWith: lead.builtWith || nestedEnr.builtWith || nestedEnr.technologies || null,
+              funding: lead.funding || nestedEnr.funding || null,
+              headcountGrowth: lead.headcountGrowth || nestedEnr.headcountGrowth || nestedEnr.headcount_growth || null,
+              linkedinBio: lead.linkedinBio || nestedEnr.linkedinBio || null,
+              linkedinPosts: lead.linkedinPosts || nestedEnr.linkedinPosts || null,
               enrichment: lead.enrichment || {},
               source: 'clay',
               importedAt: new Date().toISOString()
@@ -1904,6 +1911,23 @@ const healthServer = http.createServer(async (req, res) => {
             atomicWriteSync(enrichmentFile, enrichmentData);
           } catch (e) {
             log.warn('webhook-clay', 'Erreur sauvegarde enrichment pour ' + lead.email + ': ' + e.message);
+          }
+
+          // v9.0: Injection FlowFast — ajouter le lead dans le pipeline
+          try {
+            const ffStorage = require('../skills/flowfast/storage.js');
+            ffStorage.addLead({
+              email: lead.email.toLowerCase().trim(),
+              nom: ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim(),
+              entreprise: lead.company || '',
+              titre: lead.title || '',
+              industry: lead.industry || '',
+              linkedin: lead.linkedin || '',
+              localisation: lead.location || ''
+            }, 7, 'clay');
+            log.info('webhook-clay', 'FlowFast lead ajoute: ' + lead.email + ' (score 7, source clay)');
+          } catch (e) {
+            log.warn('webhook-clay', 'FlowFast injection echouee pour ' + lead.email + ': ' + e.message);
           }
 
           const leadId = contact ? (clayList.id + ':' + lead.email) : null;
