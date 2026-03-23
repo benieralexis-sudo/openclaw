@@ -197,11 +197,35 @@ function mapRowToLead(row) {
   const phone = pick(row, 'Phone', 'phone', 'Phone Number', 'phone_number', 'Direct Phone', 'direct_phone');
 
   // Enrichment data
-  const linkedinBio = pick(row, 'Summarize LinkedIn', 'summarize_linkedin', 'LinkedIn Bio', 'linkedin_bio', 'LinkedIn Summary', 'linkedin_summary');
-  const linkedinPosts = pick(row, 'Professional Posts', 'professional_posts', 'LinkedIn Posts', 'linkedin_posts', 'Recent Posts', 'recent_posts');
+  const linkedinBio = pick(row, 'Summarize LinkedIn', 'summarize_linkedin', 'Summarize LinkedIn profile', 'LinkedIn Bio', 'linkedin_bio', 'LinkedIn Summary', 'linkedin_summary');
+  const linkedinPosts = pick(row, 'Professional Posts', 'professional_posts', 'Get professional posts and shares', 'LinkedIn Posts', 'linkedin_posts', 'Recent Posts', 'recent_posts');
   const builtWith = pick(row, 'BuiltWith', 'builtwith', 'Technologies', 'technologies', 'Tech Stack', 'tech_stack') || null;
   const funding = pick(row, 'Funding', 'funding', 'Total Funding', 'total_funding') || null;
-  const headcountGrowth = pick(row, 'Headcount Growth', 'headcount_growth', 'Growth', 'growth') || null;
+
+  // Headcount Growth field returns object with employee_count + history
+  const hgRaw = pick(row, 'Headcount Growth', 'headcount_growth', 'Growth', 'growth') || null;
+  let headcountGrowth = null;
+  let headcountData = null;
+  if (hgRaw && typeof hgRaw === 'object') {
+    headcountData = {
+      employeeCount: hgRaw.employee_count || null,
+      employeeCount6moAgo: hgRaw.employee_count_6_months_ago || null,
+      employeeCount12moAgo: hgRaw.employee_count_12_months_ago || null,
+      companyLinkedIn: hgRaw.url || null
+    };
+    if (headcountData.employeeCount && headcountData.employeeCount6moAgo) {
+      headcountGrowth = Math.round((headcountData.employeeCount - headcountData.employeeCount6moAgo) / headcountData.employeeCount6moAgo * 100);
+    }
+  } else if (hgRaw) {
+    headcountGrowth = hgRaw;
+  }
+
+  // Lead Score and Priority from Clay formulas
+  const leadScore = pick(row, 'Lead Score', 'lead_score', 'Score') || null;
+  const priority = pick(row, 'Priority', 'priority') || null;
+
+  // Use headcount data for employee count if not found separately
+  const finalEmployeeCount = employeeCount || (headcountData && headcountData.employeeCount) || null;
 
   return {
     email: email.toLowerCase().trim(),
@@ -212,14 +236,17 @@ function mapRowToLead(row) {
     linkedin: linkedin || '',
     website: website || '',
     industry: industry || '',
-    employeeCount: employeeCount,
+    employeeCount: finalEmployeeCount,
     location: location || '',
     phone: phone || '',
     linkedinBio: linkedinBio || null,
     linkedinPosts: linkedinPosts || null,
     builtWith: builtWith,
     funding: funding,
-    headcountGrowth: headcountGrowth
+    headcountGrowth: headcountGrowth,
+    headcountData: headcountData,
+    leadScore: leadScore,
+    priority: priority
   };
 }
 
@@ -272,6 +299,14 @@ async function syncNewLeads(tableId) {
         // Validation minimum
         if (!lead.firstName || !lead.lastName || !lead.company) {
           log.warn('clay-connector', 'Lead skip (champs manquants): ' + lead.email);
+          skipped++;
+          continue;
+        }
+
+        // Skip Priority C leads (hors ICP — trop gros ou mauvais profil)
+        if (lead.priority && lead.priority.toUpperCase() === 'C') {
+          log.info('clay-connector', 'Lead skip (Priority C): ' + lead.email + ' — ' + lead.company + ' (' + (lead.employeeCount || '?') + ' emp)');
+          syncedSet.add(lead.email);
           skipped++;
           continue;
         }
