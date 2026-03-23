@@ -28,6 +28,7 @@ function createCronManager(deps) {
   let _bookingSyncInterval = null;
   let _retryQueueInterval = null;
   let _archiveInterval = null;
+  let _claySyncInterval = null;
 
   function startAllCrons() {
     // Activer les configs internes (chaque start() verifie config.enabled)
@@ -89,7 +90,23 @@ function createCronManager(deps) {
       log.info('router', 'Sync bookings Google Calendar toutes les 5 min');
     }
 
-    log.info('router', '21 crons demarres (production)');
+    // Clay API sync toutes les 30 min (si CLAY_API_KEY configure)
+    if (process.env.CLAY_API_KEY) {
+      if (_claySyncInterval) clearInterval(_claySyncInterval);
+      const clayConnector = require('../skills/clay-connector.js');
+      _claySyncInterval = setInterval(async () => {
+        try {
+          await clayConnector.syncNewLeads();
+        } catch (e) { log.error('router', 'Clay sync echoue: ' + e.message); }
+      }, 30 * 60 * 1000);
+      // Premier sync apres 60s (laisser le bot demarrer)
+      setTimeout(async () => {
+        try { await clayConnector.syncNewLeads(); } catch (e) { log.warn('router', 'Clay sync initial: ' + e.message); }
+      }, 60000);
+      log.info('router', 'Clay sync toutes les 30 min');
+    }
+
+    log.info('router', '22 crons demarres (production)');
   }
 
   function stopAllCrons() {
@@ -102,6 +119,7 @@ function createCronManager(deps) {
     if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
     if (_retryQueueInterval) { clearInterval(_retryQueueInterval); _retryQueueInterval = null; }
     if (_archiveInterval) { clearInterval(_archiveInterval); _archiveInterval = null; }
+    if (_claySyncInterval) { clearInterval(_claySyncInterval); _claySyncInterval = null; }
 
     // Desactiver les configs internes (double securite)
     try { storages.proactiveAgentStorage.updateConfig({ enabled: false }); } catch (e) { log.error('router', 'Erreur toggle cron proactive:', e.message); }
@@ -114,7 +132,7 @@ function createCronManager(deps) {
 
   // Exposer les intervals pour le graceful shutdown
   function getIntervals() {
-    return { _emailPollingInterval, _bookingSyncInterval, _retryQueueInterval, _archiveInterval };
+    return { _emailPollingInterval, _bookingSyncInterval, _retryQueueInterval, _archiveInterval, _claySyncInterval };
   }
 
   function clearAllIntervals() {
@@ -122,6 +140,7 @@ function createCronManager(deps) {
     if (_bookingSyncInterval) { clearInterval(_bookingSyncInterval); _bookingSyncInterval = null; }
     if (_retryQueueInterval) { clearInterval(_retryQueueInterval); _retryQueueInterval = null; }
     if (_archiveInterval) { clearInterval(_archiveInterval); _archiveInterval = null; }
+    if (_claySyncInterval) { clearInterval(_claySyncInterval); _claySyncInterval = null; }
   }
 
   return { startAllCrons, stopAllCrons, getIntervals, clearAllIntervals };
