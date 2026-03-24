@@ -1,11 +1,11 @@
 {
   "config": {
-    "enabled": false,
-    "googleCalendarId": "",
-    "googleBookingUrl": "",
-    "defaultEventTypeId": null,
-    "defaultDurationMinutes": 30,
-    "autoPropose": false
+    "enabled": true,
+    "googleCalendarId": "andreea@digidemat.com",
+    "googleBookingUrl": "https://calendar.app.google/XzzKcZRwfhNzRn5F9",
+    "defaultEventTypeId": 0,
+    "defaultDurationMinutes": 15,
+    "autoPropose": true
   },
   "meetings": [],
   "eventTypes": [
