@@ -200,7 +200,13 @@ A partir des donnees prospect, reponds a UNE question :
 "Quel PROBLEME BUSINESS ce prospect a probablement, que ${clientName} peut resoudre ?"
 
 Methode :
-1. SIGNAL : trouve le fait le plus SPECIFIQUE (chiffre, news, recrutement, changement, event). Pas une description de site web.
+1. SIGNAL : trouve le fait le plus RECENT et SPECIFIQUE. PRIORITE TIMELINE (×2.3 reply rate) :
+   a) Post LinkedIn recent du prospect
+   b) Offre d'emploi / recrutement actif
+   c) News recente (levee, lancement, partenariat, acquisition)
+   d) Changement de poste du prospect
+   e) DERNIER RECOURS : fait statique (titre, taille, secteur)
+   Privilegie TOUJOURS un event date (a-d) plutot qu'une description generique (e).
 2. HYPOTHESE : transforme ce signal en probleme business probable. Ex: "3 postes sales ouverts" → "le pipe depend encore du fondateur et ca ne scale pas"
 3. TON : "tutoiement" (startup/PME) ou "vouvoiement" (corporate)
 
@@ -375,7 +381,13 @@ ${clientDescription ? 'WHAT ' + clientName.toUpperCase() + ' DOES: ' + clientDes
 Agent de prospection autonome. Il analyse qui contacter et quand, personnalise chaque email, relance. Le client n'a rien a faire.
 
 === FRAMEWORK (Observation → Hypothese → Question) ===
-1. OBSERVATION (1-2 phrases) : un fait CONCRET tire des donnees. Pas "j'ai vu que vous faites du marketing", mais un signal precis (recrutement, news, chiffre, projet).
+1. OBSERVATION (1-2 phrases) : un fait CONCRET et RECENT tire des donnees. TIMELINE HOOKS OBLIGATOIRES — utilise en priorite :
+   a) Post LinkedIn recent du prospect (si dispo dans les donnees)
+   b) Offre d'emploi en cours / recrutement actif
+   c) News recente de l'entreprise (levee, lancement, partenariat)
+   d) Changement de poste recent du prospect
+   e) DERNIER RECOURS : observation sur le profil/entreprise (titre, taille, secteur)
+   Les hooks timeline (a-d) generent 2.3x plus de reponses que les observations statiques (e). TOUJOURS privilegier un evenement DATE plutot qu'un fait generique.
 2. HYPOTHESE (1 phrase) : transforme ce fait en probleme business probable. C'est la que tu montres que tu COMPRENDS leur situation. Ex: "Ca veut souvent dire que les nouveaux clients reposent encore sur toi."
 3. QUESTION OUVERTE (1 phrase) : invite a la conversation. Pas "dispo 15 min ?" mais une vraie question business : "C'est le cas chez vous ?", "Vous avez structure quelque chose ?", "C'est un sujet en ce moment ?"
 
@@ -597,7 +609,8 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     if (emDashCount >= 2) return { block: true, score: 0, grade: 'F', reason: 'em_dash_overuse:' + emDashCount, details: {} };
 
     if (wordCount < 15) return { block: true, score: 0, grade: 'F', reason: 'too_short:' + wordCount, details: {} };
-    if (wordCount > 100) return { block: true, score: 0, grade: 'F', reason: 'too_long:' + wordCount, details: {} };
+    // OPTIM 2 : hard block abaissé de 100 à 80 mots (benchmark: <80 mots = sweet spot cold email)
+    if (wordCount > 80) return { block: true, score: 0, grade: 'F', reason: 'too_long:' + wordCount, details: {} };
 
     // === 1. TON / FORMALITE — /20 (impact 2.11x replies) ===
     let ton = 0;
@@ -677,11 +690,12 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     perso = Math.min(20, perso);
     details.perso = perso;
 
-    // === 5. WORD COUNT — /12 (impact +23% replies, sweet spot 25-50 mots) ===
+    // === 5. WORD COUNT — /12 (OPTIM 2 : sweet spot resserré 25-50, hard block 80) ===
     let mots = 0;
     if (wordCount >= 25 && wordCount <= 50) mots = 12;
     else if (wordCount >= 20 && wordCount <= 60) mots = 8;
-    else if (wordCount >= 15 && wordCount <= 80) mots = 4;
+    else if (wordCount >= 15 && wordCount <= 70) mots = 4;
+    // >70 mots = 0 points (pénalité naturelle avant le hard block à 80)
     details.mots = mots;
 
     // === 6. MOBILE OPTIMIZED — /10 (impact +24% replies) ===

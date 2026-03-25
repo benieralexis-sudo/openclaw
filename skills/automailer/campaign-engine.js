@@ -735,6 +735,15 @@ class CampaignEngine {
     const list = storage.getContactList(config.contactListId);
     if (!list) throw new Error('Liste de contacts introuvable');
 
+    // OPTIM 1 : Warning cohortes > 50 contacts (×2.76 reply rate — benchmark Instantly 700k+ businesses)
+    // Les listes > 50 contacts génèrent des emails trop génériques + patterns anti-spam ESPs
+    const MAX_COHORT_SIZE = 50;
+    if (list.contacts.length > MAX_COHORT_SIZE) {
+      log.warn('campaign-engine', 'OPTIM COHORTE: liste "' + config.name + '" a ' + list.contacts.length
+        + ' contacts (max recommande: ' + MAX_COHORT_SIZE + '). '
+        + 'Segmenter par industrie/persona pour de meilleurs resultats.');
+    }
+
     const campaign = storage.createCampaign(chatId, {
       name: config.name,
       contactListId: config.contactListId,
@@ -752,13 +761,15 @@ class CampaignEngine {
     const list = storage.getContactList(campaign.contactListId);
     if (!list || list.contacts.length === 0) throw new Error('Liste de contacts vide');
 
-    // Fallback Self-Improve : si pas de steps/cadence explicite, utiliser les recos
+    // OPTIM 4 : Cadence optimale = 3 steps max (step1 + 2 follow-ups), espacement [3, 10]
+    // Benchmark : au-delà de 3 emails, reply marginal s'effondre + risque plainte spam
+    // Fallback Self-Improve : si pas de steps/cadence explicite, utiliser les defaults optimisés
     const siPrefs = _getSelfImproveTimingPrefs();
-    if (!totalSteps && siPrefs.recommendedMaxSteps) {
-      totalSteps = siPrefs.recommendedMaxSteps;
+    if (!totalSteps) {
+      totalSteps = siPrefs.recommendedMaxSteps || 3; // 3 steps par défaut (était 4-5)
     }
-    if (!intervalDaysOrStepDays && siPrefs.recommendedStepDays) {
-      intervalDaysOrStepDays = siPrefs.recommendedStepDays;
+    if (!intervalDaysOrStepDays) {
+      intervalDaysOrStepDays = siPrefs.recommendedStepDays || [0, 3, 10]; // J0, J+3, J+10 (était [3,7,14,21])
     }
 
     // Generer les emails pour le premier contact (les memes seront personalises pour chaque contact a l'envoi)
@@ -846,7 +857,13 @@ class CampaignEngine {
     const campaignEmails = storage.getEmailsByCampaign(campaignId);
 
     let batchSentCount = 0; // Compteur local pour refleter les envois du batch en cours
+    const MAX_BATCH_PER_CYCLE = 50; // OPTIM 1 : max 50 envois par cycle (cohorte optimale)
     for (const contact of list.contacts) {
+      // OPTIM 1 : limiter à 50 envois par cycle pour rester dans la cohorte optimale
+      if (batchSentCount >= MAX_BATCH_PER_CYCLE) {
+        log.info('campaign-engine', 'OPTIM COHORTE: ' + MAX_BATCH_PER_CYCLE + ' envois atteints — suite au prochain cycle');
+        break;
+      }
       // FIX 3 : Verifier quota warmup journalier via domain-manager
       const remainingHeadroom = getDailyLimit() - batchSentCount;
       if (remainingHeadroom <= 0) {

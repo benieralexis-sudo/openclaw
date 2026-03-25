@@ -358,9 +358,11 @@ class ResendClient {
       }
     }
 
-    // === DELIVERABILITY FIX 3 : Pas de click tracking sur liens si domaine jeune ===
-    // Click tracking = URL redirect via tracking domain = signal spam
-    if (trackingId && !isYoungDomain) {
+    // === OPTIM 5 : Click tracking DÉSACTIVÉ partout ===
+    // Benchmark Instantly 2026 : tracking pixels/clicks = -10-15% reply rate
+    // Les URL redirects via tracking domain sont un signal spam fort pour Gmail/Outlook
+    // On garde les liens bruts (meilleure délivrabilité)
+    if (false && trackingId && !isYoungDomain) {
       escaped = escaped.replace(/(https?:\/\/[^\s<>"'()]+)/g, (url) => {
         const cleanUrl = url.replace(/&amp;/g, '&');
         const trackUrl = 'https://' + trackingDomain + '/c/' + trackingId + '?url=' + encodeURIComponent(cleanUrl);
@@ -373,14 +375,13 @@ class ResendClient {
       ? '<br><br><span style="font-size:11px;color:#999"><a href="https://' + trackingDomain + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '" style="color:#999;text-decoration:underline">Se desabonner</a></span>'
       : '';
 
-    // === DELIVERABILITY FIX 4 : Pas de pixel tracking sur domaines jeunes ===
-    // Le pixel = image invisible = Google le detecte = signal spam sur domaines sans reputation
+    // === OPTIM 5 : Pixel tracking DÉSACTIVÉ partout ===
+    // Benchmark : pixel tracking = -10-15% reply rate (tous domaines confondus)
+    // Apple Mail Privacy Protection fausse les open rates de toute façon
+    // Seule métrique fiable = reply rate → on n'a plus besoin du pixel
     let pixel = '';
-    if (trackingId && !isYoungDomain) {
-      pixel = '<div style="font-size:10px;color:#bbb;margin-top:8px">Cet email contient un pixel de suivi d\'ouverture. Vous pouvez vous d&eacute;sabonner ci-dessus.</div>'
-        + '<img src="https://' + trackingDomain + '/t/' + trackingId + '.gif" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0">';
-    } else if (trackingId && isYoungDomain) {
-      log.info('resend-client', 'Pixel tracking SKIP (domaine jeune < 45j) pour ' + (opts.senderDomain || '?'));
+    if (trackingId) {
+      log.info('resend-client', 'Pixel tracking SKIP (désactivé globalement) pour ' + (opts.senderDomain || '?'));
     }
 
     return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + unsubLink + '</div>' + pixel;
