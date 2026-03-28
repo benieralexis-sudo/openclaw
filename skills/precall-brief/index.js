@@ -124,41 +124,41 @@ Genere le brief avec cette structure exacte :
 }
 
 /**
- * Formate le brief pour Telegram
+ * Formate le brief pour Telegram (Markdown v1, comme le reste du bot)
  */
 function formatTelegramBrief(prospectData, aiBrief) {
   const lines = [
     '━━━━━━━━━━━━━━━━━━━━━━━━',
-    '📋 *BRIEF PRE\\-CALL*',
+    '📋 *BRIEF PRE-CALL*',
     '━━━━━━━━━━━━━━━━━━━━━━━━',
     '',
-    '👤 *' + escTg(prospectData.name || 'Inconnu') + '*',
-    '💼 ' + escTg(prospectData.title || '?') + ' @ ' + escTg(prospectData.company || '?'),
+    '👤 *' + (prospectData.name || 'Inconnu') + '*',
+    '💼 ' + (prospectData.title || '?') + ' @ ' + (prospectData.company || '?'),
   ];
 
   if (prospectData.industry) {
-    lines.push('🏭 ' + escTg(prospectData.industry));
+    lines.push('🏭 ' + prospectData.industry);
   }
   if (prospectData.employeeCount) {
     lines.push('👥 ' + prospectData.employeeCount + ' employes');
   }
   if (prospectData.location) {
-    lines.push('📍 ' + escTg(prospectData.location));
+    lines.push('📍 ' + prospectData.location);
   }
   if (prospectData.website) {
-    lines.push('🌐 ' + escTg(prospectData.website));
+    lines.push('🌐 ' + prospectData.website);
   }
   if (prospectData.linkedin) {
-    lines.push('🔗 ' + escTg(prospectData.linkedin));
+    lines.push('🔗 ' + prospectData.linkedin);
   }
 
   lines.push('');
   lines.push('📤 *Email envoye :*');
-  lines.push('_' + escTg((prospectData.emailSubject || '').substring(0, 100)) + '_');
+  lines.push('_' + (prospectData.emailSubject || '').substring(0, 100) + '_');
 
   lines.push('');
   lines.push('💬 *Sa reponse :*');
-  lines.push('_' + escTg((prospectData.replySnippet || '').substring(0, 300)) + '_');
+  lines.push('_' + (prospectData.replySnippet || '').substring(0, 300) + '_');
 
   if (aiBrief) {
     lines.push('');
@@ -166,21 +166,13 @@ function formatTelegramBrief(prospectData, aiBrief) {
     lines.push('🧠 *ANALYSE IA*');
     lines.push('━━━━━━━━━━━━━━━━━━━━━━━━');
     lines.push('');
-    lines.push(escTg(aiBrief));
+    lines.push(aiBrief);
   }
 
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━');
 
   return lines.join('\n');
-}
-
-/**
- * Escape Telegram MarkdownV2 special characters
- */
-function escTg(str) {
-  if (!str) return '';
-  return String(str).replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
 }
 
 /**
@@ -237,39 +229,10 @@ async function sendPrecallBrief(deps, replyData, classification) {
   const message = formatTelegramBrief(prospectData, aiBrief);
 
   try {
-    await sendMessage(adminChatId, message, 'MarkdownV2');
+    await sendMessage(adminChatId, message, 'Markdown');
     log.info('precall-brief', 'Brief pre-call envoye sur Telegram pour ' + email);
   } catch (e) {
-    // Fallback sans MarkdownV2 si erreur de formatage
-    log.warn('precall-brief', 'Envoi MarkdownV2 echoue, fallback texte brut: ' + e.message);
-    const plainMessage = [
-      '━━━━━━━━━━━━━━━━━━━━━━━━',
-      'BRIEF PRE-CALL',
-      '━━━━━━━━━━━━━━━━━━━━━━━━',
-      '',
-      'Prospect: ' + prospectData.name,
-      'Poste: ' + prospectData.title + ' @ ' + prospectData.company,
-      'Industrie: ' + prospectData.industry,
-      'Taille: ' + (prospectData.employeeCount || '?') + ' employes',
-      'Site: ' + prospectData.website,
-      'LinkedIn: ' + prospectData.linkedin,
-      '',
-      'Email envoye: ' + (prospectData.emailSubject || '?'),
-      '',
-      'Sa reponse: ' + (prospectData.replySnippet || '?').substring(0, 300),
-      '',
-      '━━━━━━━━━━━━━━━━━━━━━━━━',
-      'ANALYSE IA',
-      '━━━━━━━━━━━━━━━━━━━━━━━━',
-      '',
-      aiBrief || '(generation echouee)',
-    ].join('\n');
-
-    try {
-      await sendMessage(adminChatId, plainMessage);
-    } catch (e2) {
-      log.error('precall-brief', 'Envoi Telegram echoue totalement: ' + e2.message);
-    }
+    log.error('precall-brief', 'Envoi Telegram echoue: ' + e.message);
   }
 }
 
