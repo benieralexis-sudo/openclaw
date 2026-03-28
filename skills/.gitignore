@@ -25,6 +25,8 @@
 !proactive-agent/**
 !web-intelligence/
 !web-intelligence/**
+!precall-brief/
+!precall-brief/**
 
 # Ignorer les fichiers temporaires
 *.save

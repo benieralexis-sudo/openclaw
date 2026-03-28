@@ -246,6 +246,19 @@ function createReplyPipeline(deps) {
 
     // === 6. Notification Telegram enrichie ===
     await _sendTelegramNotification(replyData, classification, sentiment, score, emailsToProcess, actionTaken, autoReplyHandled, hitlDraftCreated);
+
+    // === 7. Brief pre-call si reply interessee (score >= 0.85) ou booking ===
+    if (sentiment === 'interested' && score >= 0.85) {
+      try {
+        const { sendPrecallBrief } = require('../skills/precall-brief/index.js');
+        await sendPrecallBrief(
+          { callClaude, automailerStorage, sendMessage, adminChatId },
+          replyData, classification
+        );
+      } catch (briefErr) {
+        log.warn('precall-brief', 'Brief generation echouee: ' + briefErr.message);
+      }
+    }
   };
 
   // ========== Internal helpers ==========
