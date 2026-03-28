@@ -67,6 +67,8 @@ services:
       VISITOR_DATA_DIR: /data/visitors
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
       AUTOMAILER_DASHBOARD_PASSWORD: ${AUTOMAILER_DASHBOARD_PASSWORD:-}
+      CLAY_WEBHOOK_SECRET: ${CLAY_WEBHOOK_SECRET:-}
+      CLAY_API_KEY: ${CLAY_API_KEY:-}
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -83,6 +85,8 @@ services:
       - ./skills/autonomous-pilot:/app/skills/autonomous-pilot
       - ./skills/inbox-manager:/app/skills/inbox-manager
       - ./skills/meeting-scheduler:/app/skills/meeting-scheduler
+      - ./skills/clay-connector.js:/app/skills/clay-connector.js:ro
+      - ./skills/package.json:/app/skills/package.json:ro
       - flowfast-data:/data/flowfast
       - automailer-data:/data/automailer
       - crm-pilot-data:/data/crm-pilot
