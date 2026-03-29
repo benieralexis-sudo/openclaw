@@ -1,5 +1,6 @@
-// iFIND — Clay API Connector
+// iFIND — Clay API Connector v2
 // Auto-sync enriched leads from Clay tables every 30 min
+// Uses Clay v3 API (cookie session auth) + fallback to API key
 // CommonJS module
 
 const fs = require('fs');
@@ -8,51 +9,64 @@ const https = require('https');
 const log = require('../gateway/logger.js');
 const { atomicWriteSync } = require('../gateway/utils.js');
 
-const CLAY_API_BASE = 'https://api.clay.com/v1';
+const CLAY_API_BASE = 'https://api.clay.com';
 const SYNC_STATE_FILE = '/data/automailer/clay-sync-state.json';
 const ENRICHMENT_DIR = '/data/automailer/clay-enrichments';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
 
-// ---- HTTP helper ----
+// ---- HTTP helper (v3 with cookie + API key fallback) ----
 
-function clayRequest(method, endpoint, retries) {
+function clayRequest(method, endpoint, body, retries) {
+  if (typeof body === 'number') { retries = body; body = null; }
   retries = retries === undefined ? 1 : retries;
+
   const apiKey = process.env.CLAY_API_KEY;
-  if (!apiKey) return Promise.reject(new Error('CLAY_API_KEY non configure'));
+  const cookie = process.env.CLAY_SESSION_COOKIE;
+  if (!apiKey && !cookie) return Promise.reject(new Error('CLAY_API_KEY ou CLAY_SESSION_COOKIE requis'));
 
   const url = CLAY_API_BASE + endpoint;
 
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+
+    // Cookie auth takes priority (v3 endpoints need it)
+    if (cookie) {
+      headers['Cookie'] = cookie;
+    }
+    // API key as Bearer fallback
+    if (apiKey) {
+      headers['Authorization'] = 'Bearer ' + apiKey;
+    }
+
     const options = {
       hostname: parsedUrl.hostname,
       port: 443,
       path: parsedUrl.pathname + parsedUrl.search,
       method: method,
-      headers: {
-        'Authorization': 'Bearer ' + apiKey,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
+      headers: headers
     };
 
     const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
+      let respBody = '';
+      res.on('data', (chunk) => { respBody += chunk; });
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           try {
-            resolve(JSON.parse(body));
+            resolve(JSON.parse(respBody));
           } catch (e) {
-            reject(new Error('Clay API: reponse JSON invalide — ' + body.slice(0, 200)));
+            reject(new Error('Clay API: reponse JSON invalide — ' + respBody.slice(0, 200)));
           }
         } else if (retries > 0 && res.statusCode >= 500) {
           log.warn('clay-connector', 'Clay API ' + res.statusCode + ', retry dans 3s...');
           setTimeout(() => {
-            clayRequest(method, endpoint, retries - 1).then(resolve).catch(reject);
+            clayRequest(method, endpoint, body, retries - 1).then(resolve).catch(reject);
           }, 3000);
         } else {
-          reject(new Error('Clay API ' + res.statusCode + ': ' + body.slice(0, 300)));
+          reject(new Error('Clay API ' + res.statusCode + ': ' + respBody.slice(0, 300)));
         }
       });
     });
@@ -61,7 +75,7 @@ function clayRequest(method, endpoint, retries) {
       if (retries > 0) {
         log.warn('clay-connector', 'Clay API erreur reseau, retry dans 3s: ' + e.message);
         setTimeout(() => {
-          clayRequest(method, endpoint, retries - 1).then(resolve).catch(reject);
+          clayRequest(method, endpoint, body, retries - 1).then(resolve).catch(reject);
         }, 3000);
       } else {
         reject(new Error('Clay API erreur reseau: ' + e.message));
@@ -73,6 +87,9 @@ function clayRequest(method, endpoint, retries) {
       reject(new Error('Clay API timeout 30s'));
     });
 
+    if (body) {
+      req.write(JSON.stringify(body));
+    }
     req.end();
   });
 }
@@ -100,52 +117,32 @@ function saveSyncState(state) {
   }
 }
 
-// ---- Table ID helper ----
+// ---- Table ID ----
 
-let _cachedTableId = null;
-
-async function getTableId() {
-  if (_cachedTableId) return _cachedTableId;
-
-  // Try /v1/tables first (standard pattern)
-  const endpoints = ['/tables'];
-  for (const ep of endpoints) {
-    try {
-      const data = await clayRequest('GET', ep);
-      // Response could be { data: [...] } or { tables: [...] } or just [...]
-      let tables = null;
-      if (Array.isArray(data)) tables = data;
-      else if (data && Array.isArray(data.data)) tables = data.data;
-      else if (data && Array.isArray(data.tables)) tables = data.tables;
-
-      if (tables && tables.length > 0) {
-        _cachedTableId = tables[0].id || tables[0]._id || tables[0].tableId;
-        log.info('clay-connector', 'Table trouvee: ' + (tables[0].name || _cachedTableId) + ' (id: ' + _cachedTableId + ')');
-        return _cachedTableId;
-      }
-    } catch (e) {
-      log.warn('clay-connector', 'Endpoint ' + ep + ' echoue: ' + e.message);
-    }
-  }
-  throw new Error('Aucune table Clay trouvee — verifier API key et permissions');
+function getTableId() {
+  const tableId = process.env.CLAY_TABLE_ID;
+  if (tableId) return Promise.resolve(tableId);
+  return Promise.reject(new Error('CLAY_TABLE_ID non configure dans .env — ajouter l\'ID de la table Clay'));
 }
 
-// ---- Fetch table rows ----
+// ---- Fetch table rows (v3 API) ----
 
 async function fetchTableRows(tableId) {
-  // Try multiple endpoint patterns (Clay API varies)
+  // v3 endpoint: /v3/tables/{tableId}/records
+  // Also try /v3/sources/{tableId}/rows as fallback
   const endpoints = [
-    '/tables/' + tableId + '/rows',
-    '/sources/' + tableId + '/rows'
+    '/v3/tables/' + tableId + '/records',
+    '/v3/tables/' + tableId + '/rows'
   ];
 
   for (const ep of endpoints) {
     try {
       const data = await clayRequest('GET', ep);
-      // Response could be { data: [...] } or { rows: [...] } or just [...]
+      // Response format varies
       if (Array.isArray(data)) return data;
       if (data && Array.isArray(data.data)) return data.data;
       if (data && Array.isArray(data.rows)) return data.rows;
+      if (data && Array.isArray(data.records)) return data.records;
       if (data && Array.isArray(data.results)) return data.results;
       log.warn('clay-connector', 'Endpoint ' + ep + ' reponse inattendue: ' + JSON.stringify(data).slice(0, 200));
     } catch (e) {
@@ -155,15 +152,61 @@ async function fetchTableRows(tableId) {
   throw new Error('Impossible de recuperer les rows de la table ' + tableId);
 }
 
+// ---- Create webhook action field in Clay table ----
+
+async function createWebhookField(tableId) {
+  const webhookUrl = 'https://srv1319748.hstgr.cloud/webhook/clay';
+  const secret = process.env.CLAY_WEBHOOK_SECRET || '';
+
+  // Create an HTTP API enrichment field that POSTs lead data to our webhook
+  const fieldConfig = {
+    name: 'Push to iFIND Bot',
+    type: 'enrichment',
+    typeSettings: {
+      actionKey: 'http-api-v2',
+      inputsBinding: {
+        method: 'POST',
+        url: webhookUrl,
+        headers: JSON.stringify({ 'X-Clay-Secret': secret, 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          email: '{{Work Email}}',
+          firstName: '{{First Name}}',
+          lastName: '{{Last Name}}',
+          company: '{{Company}}',
+          title: '{{Title}}',
+          industry: '{{Industry}}',
+          linkedin: '{{Person LinkedIn URL}}',
+          website: '{{Website}}',
+          location: '{{Location}}',
+          employeeCount: '{{Employee Count}}',
+          phone: '{{Phone}}',
+          linkedinBio: '{{Summarize LinkedIn}}',
+          funding: '{{Funding Data}}',
+          headcountGrowth: '{{Headcount Growth}}',
+          leadScore: '{{Lead Score}}',
+          priority: '{{Priority}}',
+          intentSignal: '{{Intent Signal}}'
+        })
+      }
+    }
+  };
+
+  try {
+    const result = await clayRequest('POST', '/v3/tables/' + tableId + '/fields', fieldConfig);
+    log.info('clay-connector', 'Webhook field cree dans Clay: ' + JSON.stringify(result).slice(0, 200));
+    return result;
+  } catch (e) {
+    log.error('clay-connector', 'Erreur creation webhook field Clay: ' + e.message);
+    throw e;
+  }
+}
+
 // ---- Column mapping ----
 
 function mapRowToLead(row) {
-  // Clay columns may have various naming conventions
-  // Try multiple possible column names for each field
   function pick(row, ...names) {
     for (const name of names) {
       if (row[name] !== undefined && row[name] !== null && row[name] !== '') return row[name];
-      // Also try case-insensitive
       const lower = name.toLowerCase();
       for (const key of Object.keys(row)) {
         if (key.toLowerCase() === lower) return row[key];
@@ -175,7 +218,6 @@ function mapRowToLead(row) {
   const email = pick(row, 'Work Email', 'work_email', 'Email', 'email', 'Waterfall Email', 'waterfall_email', 'Email Address', 'email_address');
   if (!email || typeof email !== 'string' || !email.includes('@')) return null;
 
-  // Parse full name if no separate first/last
   let firstName = pick(row, 'First Name', 'first_name', 'firstName', 'prenom');
   let lastName = pick(row, 'Last Name', 'last_name', 'lastName', 'nom');
   if (!firstName && !lastName) {
@@ -196,13 +238,11 @@ function mapRowToLead(row) {
   const location = pick(row, 'Location', 'location', 'City', 'city', 'Country', 'country', 'localisation');
   const phone = pick(row, 'Phone', 'phone', 'Phone Number', 'phone_number', 'Direct Phone', 'direct_phone');
 
-  // Enrichment data
   const linkedinBio = pick(row, 'Summarize LinkedIn', 'summarize_linkedin', 'Summarize LinkedIn profile', 'LinkedIn Bio', 'linkedin_bio', 'LinkedIn Summary', 'linkedin_summary');
   const linkedinPosts = pick(row, 'Professional Posts', 'professional_posts', 'Get professional posts and shares', 'LinkedIn Posts', 'linkedin_posts', 'Recent Posts', 'recent_posts');
   const builtWith = pick(row, 'BuiltWith', 'builtwith', 'Technologies', 'technologies', 'Tech Stack', 'tech_stack') || null;
-  const funding = pick(row, 'Funding', 'funding', 'Total Funding', 'total_funding') || null;
+  const funding = pick(row, 'Funding', 'funding', 'Total Funding', 'total_funding', 'Funding Data', 'funding_data') || null;
 
-  // Headcount Growth field returns object with employee_count + history
   const hgRaw = pick(row, 'Headcount Growth', 'headcount_growth', 'Growth', 'growth') || null;
   let headcountGrowth = null;
   let headcountData = null;
@@ -220,11 +260,10 @@ function mapRowToLead(row) {
     headcountGrowth = hgRaw;
   }
 
-  // Lead Score and Priority from Clay formulas
   const leadScore = pick(row, 'Lead Score', 'lead_score', 'Score') || null;
   const priority = pick(row, 'Priority', 'priority') || null;
+  const intentSignal = pick(row, 'Intent Signal', 'intent_signal') || null;
 
-  // Use headcount data for employee count if not found separately
   const finalEmployeeCount = employeeCount || (headcountData && headcountData.employeeCount) || null;
 
   return {
@@ -246,35 +285,34 @@ function mapRowToLead(row) {
     headcountGrowth: headcountGrowth,
     headcountData: headcountData,
     leadScore: leadScore,
-    priority: priority
+    priority: priority,
+    intentSignal: intentSignal
   };
 }
 
 // ---- Main sync function ----
 
 async function syncNewLeads(tableId) {
-  if (!process.env.CLAY_API_KEY) {
-    log.warn('clay-connector', 'CLAY_API_KEY non configure — sync skip');
+  const apiKey = process.env.CLAY_API_KEY;
+  const cookie = process.env.CLAY_SESSION_COOKIE;
+  if (!apiKey && !cookie) {
+    log.warn('clay-connector', 'CLAY_API_KEY ou CLAY_SESSION_COOKIE requis — sync skip');
     return { imported: 0, skipped: 0 };
   }
 
   try {
-    // Resolve table ID if not provided
     if (!tableId) {
       tableId = await getTableId();
     }
 
     log.info('clay-connector', 'Debut sync Clay table ' + tableId);
 
-    // Fetch all rows
     const rows = await fetchTableRows(tableId);
     log.info('clay-connector', 'Clay API: ' + rows.length + ' rows recuperees');
 
-    // Load sync state
     const state = loadSyncState();
     const syncedSet = new Set(state.syncedEmails || []);
 
-    // Load dependencies
     const automailerStorage = require('./automailer/storage.js');
     const ffStorage = require('./flowfast/storage.js');
 
@@ -290,28 +328,25 @@ async function syncNewLeads(tableId) {
           continue;
         }
 
-        // Already synced?
         if (syncedSet.has(lead.email)) {
           skipped++;
           continue;
         }
 
-        // Validation minimum
         if (!lead.firstName || !lead.lastName || !lead.company) {
           log.warn('clay-connector', 'Lead skip (champs manquants): ' + lead.email);
           skipped++;
           continue;
         }
 
-        // Skip Priority C leads (hors ICP — trop gros ou mauvais profil)
+        // Skip Priority C leads (hors ICP)
         if (lead.priority && lead.priority.toUpperCase() === 'C') {
-          log.info('clay-connector', 'Lead skip (Priority C): ' + lead.email + ' — ' + lead.company + ' (' + (lead.employeeCount || '?') + ' emp)');
+          log.info('clay-connector', 'Lead skip (Priority C): ' + lead.email + ' — ' + lead.company);
           syncedSet.add(lead.email);
           skipped++;
           continue;
         }
 
-        // Check blacklist
         if (automailerStorage.isBlacklisted(lead.email)) {
           log.info('clay-connector', 'Lead skip (blacklist): ' + lead.email);
           syncedSet.add(lead.email);
@@ -319,7 +354,6 @@ async function syncNewLeads(tableId) {
           continue;
         }
 
-        // Check duplicate across all lists
         const allLists = automailerStorage.getAllContactLists();
         let duplicate = false;
         for (const list of allLists) {
@@ -335,14 +369,12 @@ async function syncNewLeads(tableId) {
           continue;
         }
 
-        // Find or create "Clay Imports" list
         let clayList = automailerStorage.findContactListByName(ADMIN_CHAT_ID, 'Clay Imports');
         if (!clayList) {
           clayList = automailerStorage.createContactList(ADMIN_CHAT_ID, 'Clay Imports');
           log.info('clay-connector', 'Liste "Clay Imports" creee: ' + clayList.id);
         }
 
-        // Add contact to automailer list
         automailerStorage.addContactToList(clayList.id, {
           email: lead.email,
           firstName: lead.firstName,
@@ -353,7 +385,6 @@ async function syncNewLeads(tableId) {
           industry: lead.industry
         });
 
-        // Store enrichment file (same format as webhook handler)
         try {
           if (!fs.existsSync(ENRICHMENT_DIR)) fs.mkdirSync(ENRICHMENT_DIR, { recursive: true });
           const enrichmentFile = ENRICHMENT_DIR + '/' + lead.email.replace(/[^a-z0-9@._-]/g, '_') + '.json';
@@ -374,6 +405,9 @@ async function syncNewLeads(tableId) {
             headcountGrowth: lead.headcountGrowth,
             linkedinBio: lead.linkedinBio,
             linkedinPosts: lead.linkedinPosts,
+            leadScore: lead.leadScore,
+            priority: lead.priority,
+            intentSignal: lead.intentSignal,
             enrichment: {},
             source: 'clay',
             importedAt: new Date().toISOString()
@@ -383,7 +417,6 @@ async function syncNewLeads(tableId) {
           log.warn('clay-connector', 'Erreur sauvegarde enrichment pour ' + lead.email + ': ' + e.message);
         }
 
-        // Add to FlowFast
         try {
           ffStorage.addLead({
             email: lead.email,
@@ -393,13 +426,12 @@ async function syncNewLeads(tableId) {
             industry: lead.industry,
             linkedin: lead.linkedin,
             localisation: lead.location
-          }, 7, 'clay');
-          log.info('clay-connector', 'FlowFast lead ajoute: ' + lead.email + ' (score 7, source clay)');
+          }, lead.leadScore ? parseInt(lead.leadScore) : 7, 'clay');
+          log.info('clay-connector', 'FlowFast lead ajoute: ' + lead.email + ' (score ' + (lead.leadScore || 7) + ', source clay)');
         } catch (e) {
           log.warn('clay-connector', 'FlowFast injection echouee pour ' + lead.email + ': ' + e.message);
         }
 
-        // Mark as synced
         syncedSet.add(lead.email);
         imported++;
         log.info('clay-connector', 'Lead importe: ' + lead.email + ' (' + lead.company + ')');
@@ -410,7 +442,6 @@ async function syncNewLeads(tableId) {
       }
     }
 
-    // Save sync state
     saveSyncState({
       lastSync: new Date().toISOString(),
       syncedEmails: Array.from(syncedSet)
@@ -425,4 +456,4 @@ async function syncNewLeads(tableId) {
   }
 }
 
-module.exports = { fetchTableRows, syncNewLeads, getTableId };
+module.exports = { fetchTableRows, syncNewLeads, getTableId, createWebhookField, clayRequest };
