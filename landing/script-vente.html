@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>iFIND &mdash; Script d'appel de vente</title>
+<title>iFIND &mdash; Script de vente CLOSER</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232563EB'/%3E%3Cstop offset='100%25' stop-color='%231e40af'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Ctext x='16' y='22.5' text-anchor='middle' fill='white' font-family='Inter,system-ui,sans-serif' font-size='21' font-weight='600'%3Ei%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,8 +33,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-b);line-heigh
 .phase:last-of-type{border-bottom:none}
 .phase-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
 .phase-num{width:36px;height:36px;border-radius:10px;background:rgba(59,130,246,0.1);color:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-weight:800;font-size:16px;flex-shrink:0}
+.phase-letter{font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--accent);opacity:0.7;margin-top:2px}
 .phase-title{font-family:var(--font-d);font-size:20px;font-weight:700;letter-spacing:-0.02em}
-.phase-time{font-size:13px;color:var(--text-3);margin-left:auto;font-weight:500}
+.phase-time{font-size:13px;color:var(--text-3);margin-left:auto;font-weight:500;white-space:nowrap}
 
 /* Script blocks */
 .say{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:12px;position:relative}
@@ -43,9 +44,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-b);line-heigh
 .say p strong{color:var(--accent);font-style:normal}
 
 .note{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:12px;padding:16px 20px;margin-bottom:12px}
-.note::before{content:'';display:none}
 .note-label{font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--amber);margin-bottom:6px;text-transform:uppercase}
-.note p{font-size:14px;color:var(--text-2);line-height:1.7}
+.note p,.note ul{font-size:14px;color:var(--text-2);line-height:1.7}
 
 .tip{background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);border-radius:12px;padding:16px 20px;margin-bottom:12px}
 .tip-label{font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--green);margin-bottom:6px;text-transform:uppercase}
@@ -62,14 +62,35 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-b);line-heigh
 
 /* Objections */
 .objection{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:12px}
-.objection-q{font-size:14px;font-weight:600;color:var(--red);margin-bottom:10px;display:flex;gap:8px;align-items:flex-start}
+.objection-q{font-size:14px;font-weight:600;color:var(--red);margin-bottom:6px;display:flex;gap:8px;align-items:flex-start}
 .objection-q::before{content:'"';font-family:var(--font-d);font-size:24px;color:var(--red);line-height:1;margin-top:-2px}
-.objection-a{font-size:14px;color:var(--text-2);line-height:1.8;padding-left:20px;border-left:2px solid var(--green)}
+.aaa{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.aaa-step{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--text-2);line-height:1.7}
+.aaa-tag{flex-shrink:0;font-size:10px;font-weight:700;letter-spacing:0.06em;padding:2px 8px;border-radius:4px;margin-top:3px}
+.aaa-tag.agree{background:rgba(59,130,246,0.15);color:var(--accent)}
+.aaa-tag.align{background:rgba(245,158,11,0.15);color:var(--amber)}
+.aaa-tag.ask{background:rgba(34,197,94,0.15);color:var(--green)}
 
 /* Checklist */
 .checklist{list-style:none;display:flex;flex-direction:column;gap:8px;margin:12px 0}
 .checklist li{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--text-2);line-height:1.6}
 .checklist li::before{content:'\2713';color:var(--green);font-weight:700;flex-shrink:0}
+
+/* Steps inline */
+.steps{list-style:none;display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.steps li{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--text-2);line-height:1.7}
+.step-n{width:22px;height:22px;border-radius:6px;background:rgba(59,130,246,0.1);color:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-weight:800;font-size:11px;flex-shrink:0;margin-top:2px}
+
+/* Silence block */
+.silence{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:12px;padding:14px 20px;margin-bottom:12px;text-align:center}
+.silence p{font-size:16px;font-weight:800;color:var(--red);letter-spacing:0.04em;font-family:var(--font-d)}
+
+/* Timeline */
+.timeline{display:flex;flex-direction:column;gap:12px;margin:12px 0;padding-left:16px;border-left:2px solid var(--accent)}
+.timeline-item{padding-left:16px}
+.timeline-time{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:2px}
+.timeline-text{font-size:14px;color:var(--text-2);line-height:1.6}
+.timeline-text strong{color:var(--text)}
 
 /* Print */
 @media print{
@@ -80,6 +101,11 @@ body{background:#fff;color:#000}
 .note{background:#fffbeb;border-color:#fde68a}
 .tip{background:#f0fdf4;border-color:#bbf7d0}
 .danger{background:#fef2f2;border-color:#fecaca}
+.objection{background:#f9f9f9;border-color:#ddd}
+.silence{background:#fef2f2;border-color:#fecaca}
+.aaa-tag.agree{background:#e0e7ff}
+.aaa-tag.align{background:#fef3c7}
+.aaa-tag.ask{background:#dcfce7}
 }
 
 /* Responsive */
@@ -87,6 +113,7 @@ body{background:#fff;color:#000}
 .header h1{font-size:24px}
 .phase-header{flex-wrap:wrap}
 .phase-time{margin-left:0;margin-top:4px;width:100%}
+.aaa-step{flex-wrap:wrap}
 }
 </style>
 </head>
@@ -95,12 +122,14 @@ body{background:#fff;color:#000}
 <div class="container">
 
 <div class="header">
-  <div class="badge">Document interne</div>
-  <h1>Script d'appel de vente</h1>
-  <p>Appel de d&eacute;couverte &mdash; 20 &agrave; 30 minutes &mdash; Objectif : signer</p>
+  <div class="badge">Document interne &mdash; Imprimer et garder sous les yeux</div>
+  <h1>Script de vente CLOSER</h1>
+  <p>Fiche op&eacute;rationnelle &mdash; 20 min d'appel &mdash; Scripts mot &agrave; mot</p>
 </div>
 
-<!-- AVANT L'APPEL -->
+<!-- ======================================== -->
+<!-- PHASE 0 : AVANT L'APPEL -->
+<!-- ======================================== -->
 <div class="phase">
   <div class="phase-header">
     <div class="phase-num">0</div>
@@ -108,229 +137,362 @@ body{background:#fff;color:#000}
     <div class="phase-time">5 min de pr&eacute;p</div>
   </div>
 
-  <div class="note">
-    <div class="note-label">Pr&eacute;paration</div>
-    <p>Avant chaque appel, cherche 2 minutes sur le prospect :</p>
-  </div>
-
   <ul class="checklist">
-    <li>Son site web — son offre est claire ?</li>
-    <li>Son LinkedIn — son poste, son parcours</li>
-    <li>Son entreprise — taille, secteur, localisation</li>
-    <li>Son probl&egrave;me probable — pas de commercial ? croissance bloqu&eacute;e ?</li>
+    <li>LinkedIn du prospect &mdash; poste, anciennet&eacute;, contenu r&eacute;cent</li>
+    <li>Site de l'entreprise &mdash; offre, taille, secteur (ESN, SaaS, IT)</li>
+    <li>Actualit&eacute;s &mdash; lev&eacute;e de fonds, recrutement, nouveau produit</li>
+    <li>Taille d'&eacute;quipe &mdash; ont-ils un commercial ? un SDR ?</li>
   </ul>
 
+  <div class="note">
+    <div class="note-label">Pr&eacute;parer le co&ucirc;t de l'inaction</div>
+    <p>Calcule avant l'appel : heures/semaine prospect &times; taux horaire + outils = co&ucirc;t mensuel actuel. Note-le sur un post-it.</p>
+  </div>
+
   <div class="tip">
-    <div class="tip-label">Astuce</div>
-    <p>Prends une note de 2 phrases sur ce que tu as trouv&eacute;. Tu l'utiliseras dans l'ouverture pour montrer que tu t'es renseign&eacute;.</p>
+    <div class="tip-label">Si Audit Pipeline demand&eacute;</div>
+    <p>Avoir les 5 emails personnalis&eacute;s pr&ecirc;ts &agrave; montrer pendant l'appel. C'est ton arme principale.</p>
+  </div>
+
+  <div class="note">
+    <div class="note-label">Post-it 2 lignes</div>
+    <p>Exemple : &laquo; ESN 30 pers, pas de commercial, CEO prospecte lui-m&ecirc;me, recrute 2 devs &raquo;</p>
   </div>
 </div>
 
-<!-- PHASE 1 : OUVERTURE -->
+<!-- ======================================== -->
+<!-- PHASE 1 : C — CLARIFY -->
+<!-- ======================================== -->
 <div class="phase">
   <div class="phase-header">
     <div class="phase-num">1</div>
-    <div class="phase-title">Ouverture &mdash; Cr&eacute;er le lien</div>
+    <div class="phase-title">C &mdash; Clarifier la situation</div>
     <div class="phase-time">2 min</div>
   </div>
 
   <div class="say">
-    <p>&laquo; Salut <strong>[Pr&eacute;nom]</strong>, merci d'avoir pris le temps. Avant de commencer, j'ai regard&eacute; ce que vous faites chez <strong>[Entreprise]</strong> &mdash; <strong>[d&eacute;tail personnalis&eacute;]</strong>, c'est int&eacute;ressant. &raquo;</p>
-  </div>
-
-  <div class="say">
-    <p>&laquo; Je vais &ecirc;tre direct : on a 20 minutes. L'id&eacute;e c'est que je comprenne votre situation, et si je peux vous aider, je vous explique comment. Si c'est pas le bon fit, on se dit au revoir sans pression. &Ccedil;a vous va ? &raquo;</p>
+    <p>&laquo; <strong>[Pr&eacute;nom]</strong>, merci d'avoir pris le temps. Avant de commencer &mdash; qu'est-ce qui vous a pouss&eacute; &agrave; r&eacute;server cet appel aujourd'hui ? &raquo;</p>
   </div>
 
   <div class="tip">
-    <div class="tip-label">Pourquoi &ccedil;a marche</div>
-    <p>Tu poses le cadre. Le prospect sait que c'est court, sans pression. Il baisse sa garde.</p>
+    <div class="tip-label">Cl&eacute;</div>
+    <p>Laisse-le parler. Sa r&eacute;ponse te donne sa douleur principale. Note-la mot pour mot.</p>
+  </div>
+
+  <div class="say">
+    <p>&laquo; OK, je comprends. On va prendre 15-20 minutes. Je vais vous poser quelques questions pour comprendre votre situation, et si je pense pouvoir vous aider, je vous explique comment. Si c'est pas le bon fit, pas de probl&egrave;me du tout. &Ccedil;a vous va ? &raquo;</p>
+  </div>
+
+  <div class="note">
+    <div class="note-label">Version courte si press&eacute;</div>
+    <p>&laquo; On va faire court et efficace. 3 questions rapides pour voir si on peut vous aider, et si oui, je vous montre comment. &raquo;</p>
   </div>
 </div>
 
-<!-- PHASE 2 : DECOUVERTE -->
+<!-- ======================================== -->
+<!-- PHASE 2 : L + O — LABEL + OVERVIEW -->
+<!-- ======================================== -->
 <div class="phase">
   <div class="phase-header">
     <div class="phase-num">2</div>
-    <div class="phase-title">D&eacute;couverte &mdash; Comprendre la douleur</div>
+    <div class="phase-title">L+O &mdash; D&eacute;couverte &amp; Reformulation</div>
     <div class="phase-time">8 min</div>
   </div>
 
-  <div class="note">
-    <div class="note-label">R&egrave;gle d'or</div>
-    <p>Toi tu parles 20%, lui 80%. Pose les questions et &eacute;coute. Prends des notes.</p>
+  <div class="danger">
+    <div class="danger-label">R&egrave;gle absolue</div>
+    <p>Toi 20%, lui 80%. Pose la question, FERME-LA, et &eacute;coute.</p>
   </div>
 
   <ul class="questions">
-    <li>Aujourd'hui, comment vous trouvez vos clients ? Qu'est-ce qui fonctionne le mieux ?</li>
+    <li>Aujourd'hui, comment vous trouvez vos clients ? Qu'est-ce qui marche le mieux ?</li>
     <li>Vous avez quelqu'un d&eacute;di&eacute; &agrave; la prospection, ou c'est vous qui g&eacute;rez ?</li>
-    <li>Combien de rendez-vous qualifi&eacute;s vous prenez par mois en moyenne ?</li>
-    <li>C'est quoi votre objectif ? Si vous pouviez avoir X rendez-vous par mois, &ccedil;a changerait quoi ?</li>
-    <li>Vous avez d&eacute;j&agrave; test&eacute; du cold email ou de la prospection outbound ? Comment &ccedil;a s'est pass&eacute; ?</li>
+    <li>Combien de RDV qualifi&eacute;s vous prenez par mois en ce moment ?</li>
+    <li>C'est quoi votre objectif r&eacute;aliste ? X RDV/mois, &ccedil;a changerait quoi pour vous ?</li>
+    <li>Vous avez d&eacute;j&agrave; test&eacute; du cold email ou de la prospection outbound ? R&eacute;sultat ?</li>
   </ul>
 
+  <div class="note">
+    <div class="note-label">Le LABEL &mdash; Reformuler la douleur mieux que lui</div>
+    <p>Apr&egrave;s les questions, reformule avec plus de pr&eacute;cision que ce qu'il a dit lui-m&ecirc;me.</p>
+  </div>
+
+  <div class="say">
+    <p>&laquo; Donc si je comprends bien, vous &ecirc;tes coinc&eacute; &mdash; <strong>[douleur sp&eacute;cifique reformul&eacute;e]</strong>. Vous passez <strong>[X heures]</strong> par semaine &agrave; prospecter pour <strong>[Y RDV]</strong>, et c'est du temps que vous ne passez pas sur <strong>[ce qui compte : delivery, produit, &eacute;quipe]</strong>. C'est &ccedil;a ? &raquo;</p>
+  </div>
+
   <div class="tip">
-    <div class="tip-label">Questions de suivi cl&eacute;s</div>
-    <p>Quand il dit &laquo; on prospecte un peu &raquo; : <strong>&laquo; Un peu c'est combien ? 5 par semaine ? 50 ? &raquo;</strong><br>
-    Quand il dit &laquo; on manque de temps &raquo; : <strong>&laquo; Concr&egrave;tement, combien d'heures par semaine vous y passez ? &raquo;</strong><br>
-    Quand il dit &laquo; les r&eacute;sultats sont moyens &raquo; : <strong>&laquo; C'est quoi moyen pour vous ? Quel taux de r&eacute;ponse ? &raquo;</strong></p>
+    <div class="tip-label">Il doit dire &laquo; oui, exactement &raquo;</div>
+    <p>Si tu obtiens cette r&eacute;action, t'es en position. Il se sent compris. Continue.</p>
+  </div>
+
+  <div class="note">
+    <div class="note-label">Co&ucirc;t de l'inaction &mdash; Calcul en live</div>
+    <p>Fais le calcul avec lui, &agrave; voix haute :</p>
+  </div>
+
+  <div class="say">
+    <p>&laquo; Faisons le calcul : vous passez <strong>[X]</strong> heures par semaine &agrave; prospecter. &Agrave; votre taux horaire, c'est environ <strong>[Y]&euro;</strong>/mois. Plus les outils, c'est <strong>[Z]&euro;</strong>/mois. Et &ccedil;a vous g&eacute;n&egrave;re <strong>[N]</strong> RDV. &Ccedil;a fait cher le rendez-vous, non ? &raquo;</p>
   </div>
 </div>
 
-<!-- PHASE 3 : AMPLIFIER LA DOULEUR -->
+<!-- ======================================== -->
+<!-- PHASE 3 : S — SELL THE VACATION -->
+<!-- ======================================== -->
 <div class="phase">
   <div class="phase-header">
     <div class="phase-num">3</div>
-    <div class="phase-title">Amplifier &mdash; Faire sentir le co&ucirc;t</div>
+    <div class="phase-title">S &mdash; Vendre la destination</div>
     <div class="phase-time">3 min</div>
-  </div>
-
-  <div class="say">
-    <p>&laquo; OK donc si je r&eacute;sume : vous faites <strong>[r&eacute;p&eacute;ter ce qu'il a dit]</strong>, mais le probl&egrave;me c'est <strong>[son probl&egrave;me]</strong>. &raquo;</p>
-  </div>
-
-  <div class="say">
-    <p>&laquo; Et du coup, les mois o&ugrave; vous ne prospectez pas, votre pipeline est vide ? &raquo;</p>
-  </div>
-
-  <div class="say">
-    <p>&laquo; Si on fait le calcul : un client chez vous vaut combien en moyenne ? <strong>[il r&eacute;pond X &euro;]</strong>. OK, donc 10 rendez-vous par mois, m&ecirc;me si vous en signez que 2 ou 3, c'est <strong>[2-3 &times; X]</strong> de CA suppl&eacute;mentaire. C'est significatif non ? &raquo;</p>
   </div>
 
   <div class="danger">
-    <div class="danger-label">Ne jamais dire</div>
-    <p>&laquo; Vous perdez de l'argent &raquo; ou &laquo; Votre m&eacute;thode ne marche pas &raquo;. Laisse-le arriver &agrave; cette conclusion lui-m&ecirc;me.</p>
+    <div class="danger-label">Ordre</div>
+    <p>D'ABORD visualiser le r&eacute;sultat, ENSUITE montrer comment.</p>
+  </div>
+
+  <div class="say">
+    <p>&laquo; Imaginez lundi matin. Vous ouvrez votre boite, et vous avez 3 notifications : un directeur IT d'une ETI qui veut un call, un CTO de SaaS qui demande un devis, et un DSI qui r&eacute;pond &laquo; int&eacute;ress&eacute;, dispo mardi &raquo;. Vous n'avez rien fait. Votre seul job c'est de closer. &raquo;</p>
+  </div>
+
+  <div class="note">
+    <div class="note-label">Montrer &mdash; pas expliquer</div>
+    <p>Si tu as l'Audit Pipeline : montre les 5 emails maintenant. Si non : fais une d&eacute;mo live sur un de ses prospects.</p>
+  </div>
+
+  <div class="say">
+    <p>&laquo; Tenez, j'ai pr&eacute;par&eacute; 5 emails sur vos vrais prospects. Regardez celui-ci &mdash; on mentionne <strong>[d&eacute;tail sp&eacute;cifique du prospect]</strong>. C'est pas un template. C'est &eacute;crit individuellement. &raquo;</p>
+  </div>
+
+  <div class="tip">
+    <div class="tip-label">Le process en 30 secondes</div>
+    <p>Si on te demande &laquo; comment &ccedil;a marche &raquo; :</p>
+  </div>
+
+  <ol class="steps">
+    <li><span class="step-n">1</span><span>Vous me d&eacute;crivez votre client id&eacute;al &mdash; secteur, taille, poste</span></li>
+    <li><span class="step-n">2</span><span>On configure votre pipeline &mdash; domaines, ciblage, r&eacute;daction</span></li>
+    <li><span class="step-n">3</span><span>Vous recevez des r&eacute;ponses int&eacute;ress&eacute;es, vous closez</span></li>
+  </ol>
+
+  <div class="say">
+    <p>&laquo; C'est un service cl&eacute; en main. Vous ne touchez &agrave; rien. Vous recevez des rendez-vous. &raquo;</p>
   </div>
 </div>
 
-<!-- PHASE 4 : SOLUTION -->
+<!-- ======================================== -->
+<!-- PHASE 4 : L'OFFRE + PRIX -->
+<!-- ======================================== -->
 <div class="phase">
   <div class="phase-header">
     <div class="phase-num">4</div>
-    <div class="phase-title">Pr&eacute;senter la solution</div>
-    <div class="phase-time">5 min</div>
+    <div class="phase-title">L'offre + prix</div>
+    <div class="phase-time">2 min</div>
   </div>
 
   <div class="say">
-    <p>&laquo; Ce qu'on fait chez iFIND, c'est simple : <strong>on remplit votre agenda de rendez-vous qualifi&eacute;s</strong>. Vous ne touchez &agrave; rien. &raquo;</p>
-  </div>
-
-  <div class="say">
-    <p>&laquo; Concr&egrave;tement : vous me d&eacute;crivez votre client id&eacute;al &mdash; secteur, taille, poste d&eacute;cisionnel. Moi je configure un agent commercial d&eacute;di&eacute; qui va identifier les bons contacts, &eacute;crire un email personnalis&eacute; pour chacun, envoyer, relancer intelligemment, et quand quelqu'un r&eacute;pond positivement, vous recevez une notification. &raquo;</p>
-  </div>
-
-  <div class="say">
-    <p>&laquo; La diff&eacute;rence avec un outil comme Lemlist ou un SDR ? Chaque email est &eacute;crit individuellement. Pas de template. L'agent va sur le site du prospect, lit ses actus, et r&eacute;dige un message qui a l'air d'avoir &eacute;t&eacute; &eacute;crit par vous. Les taux de r&eacute;ponse sont 3 &agrave; 5 fois plus &eacute;lev&eacute;s que du mass mailing. &raquo;</p>
-  </div>
-
-  <div class="say">
-    <p>&laquo; Et vous avez un tableau de bord pour tout suivre en temps r&eacute;el : combien d'emails envoy&eacute;s, qui a ouvert, qui a r&eacute;pondu, vos leads chauds. &raquo;</p>
+    <p>&laquo; Le plan qui correspond &agrave; votre besoin, c'est le <strong>Pipeline</strong> &mdash; 500 prospects contact&eacute;s par mois, emails hyper-personnalis&eacute;s, dashboard temps r&eacute;el, service cl&eacute; en main. <strong>890&euro; par mois, sans engagement.</strong> &raquo;</p>
   </div>
 
   <div class="note">
-    <div class="note-label">Adapter au profil</div>
-    <p><strong>Si PME sans commercial :</strong> insiste sur &laquo; vous n'avez rien &agrave; faire, c'est cl&eacute; en main &raquo;<br>
-    <strong>Si entreprise avec &eacute;quipe :</strong> insiste sur &laquo; &ccedil;a compl&egrave;te votre &eacute;quipe, pas de conflit &raquo;<br>
-    <strong>Si d&eacute;j&agrave; test&eacute; du cold email :</strong> insiste sur la personnalisation &laquo; pas de template, chaque email est unique &raquo;</p>
-  </div>
-</div>
-
-<!-- PHASE 5 : OBJECTIONS -->
-<div class="phase">
-  <div class="phase-header">
-    <div class="phase-num">5</div>
-    <div class="phase-title">G&eacute;rer les objections</div>
-    <div class="phase-time">5 min</div>
-  </div>
-
-  <div class="objection">
-    <div class="objection-q">C'est trop cher</div>
-    <div class="objection-a">&laquo; Je comprends. Un SDR co&ucirc;te 3 000 &agrave; 5 000&euro; par mois, et il met 3 mois &agrave; &ecirc;tre op&eacute;rationnel. Nous c'est 890&euro; pour 500 prospects contact&eacute;s par mois, et l'agent est lanc&eacute; en 48h. Si vous signez ne serait-ce qu'un seul client gr&acirc;ce &agrave; nous, combien &ccedil;a vous rapporte ? &raquo;</div>
-  </div>
-
-  <div class="objection">
-    <div class="objection-q">Je veux r&eacute;fl&eacute;chir</div>
-    <div class="objection-a">&laquo; Bien s&ucirc;r. Qu'est-ce qui vous fait h&eacute;siter pr&eacute;cis&eacute;ment ? Si c'est le prix, le timing, ou autre chose, dites-le moi franchement. Je pr&eacute;f&egrave;re qu'on en parle maintenant plut&ocirc;t que vous restiez avec un doute. &raquo;</div>
-  </div>
-
-  <div class="objection">
-    <div class="objection-q">J'ai d&eacute;j&agrave; test&eacute; du cold email, &ccedil;a marche pas</div>
-    <div class="objection-a">&laquo; La plupart des outils envoient le m&ecirc;me template &agrave; des milliers de contacts. Normal que &ccedil;a ne marche pas &mdash; tout le monde re&ccedil;oit le m&ecirc;me email. Nous, chaque message est &eacute;crit individuellement. C'est la diff&eacute;rence entre un email g&eacute;n&eacute;rique et un email qui mentionne la derni&egrave;re actu de l'entreprise du prospect. Les taux de r&eacute;ponse sont 3 &agrave; 5x plus &eacute;lev&eacute;s. &raquo;</div>
-  </div>
-
-  <div class="objection">
-    <div class="objection-q">C'est pas spam ?</div>
-    <div class="objection-a">&laquo; Non, et c'est justement notre diff&eacute;rence. On n'envoie pas 10 000 emails. On en envoie 10 &agrave; 20 par jour, ultra-personnalis&eacute;s, depuis votre propre domaine. Chaque email a un lien de d&eacute;sabonnement. On est RGPD compliant. Les prospects r&eacute;pondent parce que le message est pertinent, pas parce qu'on les bombarde. &raquo;</div>
-  </div>
-
-  <div class="objection">
-    <div class="objection-q">Je n'ai pas le temps de g&eacute;rer un outil de plus</div>
-    <div class="objection-a">&laquo; C'est exactement le point : vous n'avez rien &agrave; g&eacute;rer. C'est moi qui configure tout. Vous, vous recevez des rendez-vous. C'est un service, pas un outil. &raquo;</div>
-  </div>
-
-  <div class="objection">
-    <div class="objection-q">Et si &ccedil;a ne marche pas ?</div>
-    <div class="objection-a">&laquo; On a une garantie simple : si vous n'avez aucune r&eacute;ponse en 30 jours, je vous rembourse int&eacute;gralement. Z&eacute;ro risque de votre c&ocirc;t&eacute;. &raquo;</div>
-  </div>
-</div>
-
-<!-- PHASE 6 : CLOSE -->
-<div class="phase">
-  <div class="phase-header">
-    <div class="phase-num">6</div>
-    <div class="phase-title">Fermer &mdash; Signer</div>
-    <div class="phase-time">3 min</div>
+    <div class="note-label">Ancrage</div>
+    <p>&laquo; Pour vous donner un rep&egrave;re : un commercial junior, c'est 3 500&euro;/mois charges comprises. Et il met 3 mois avant d'&ecirc;tre productif. L&agrave;, c'est op&eacute;rationnel en 48h. &raquo;</p>
   </div>
 
   <div class="say">
-    <p>&laquo; OK <strong>[Pr&eacute;nom]</strong>, r&eacute;capitulons. Votre probl&egrave;me c'est <strong>[son probl&egrave;me]</strong>. Votre objectif c'est <strong>[son objectif]</strong>. Ce qu'on propose c'est de vous livrer des rendez-vous qualifi&eacute;s tous les mois, sans que vous ne leviez le petit doigt. &raquo;</p>
+    <p>&laquo; Et on a la <strong>Garantie Pipeline</strong> : si apr&egrave;s 30 jours vous n'avez aucune r&eacute;ponse, je vous rembourse int&eacute;gralement. Z&eacute;ro risque. &raquo;</p>
   </div>
 
-  <div class="say">
-    <p>&laquo; Le plan qui correspond &agrave; votre besoin c'est le <strong>[Starter/Growth/Scale]</strong> &agrave; <strong>[890/1 490/2 490]&euro;</strong> par mois, engagement 3 mois, z&eacute;ro frais de setup. On d&eacute;marre sous 48h. Est-ce qu'on lance ? &raquo;</p>
-  </div>
-
-  <div class="note">
-    <div class="note-label">Si il dit oui</div>
-    <p>&laquo; Parfait. Je vous envoie la proposition par email dans les 5 minutes. Il me faudra juste quelques infos pour configurer votre agent : votre client id&eacute;al, le ton que vous souhaitez, et un acc&egrave;s &agrave; vos DNS si vous avez un domaine. On planifie un call de setup de 15 min cette semaine ? &raquo;</p>
-  </div>
-
-  <div class="note">
-    <div class="note-label">Si il h&eacute;site encore</div>
-    <p>&laquo; Pas de souci. Je vous envoie la proposition quand m&ecirc;me, prenez le temps de la lire. On se rappelle en fin de semaine ? Je vous bloque un cr&eacute;neau. &raquo; <strong>Envoie la proposition dans l'heure.</strong></p>
+  <div class="silence">
+    <p>ANNONCE LE PRIX, PUIS TAIS-TOI.</p>
   </div>
 
   <div class="danger">
     <div class="danger-label">Ne jamais</div>
-    <p>Ne supplie pas. Ne baisse pas le prix. Ne prolonge pas l'appel au-del&agrave; de 30 min. Si c'est non, c'est non. Remercie et passe au suivant.</p>
+    <p>Ne justifie pas le prix. Ne baisse pas le prix. Ne comble pas le silence. Laisse-le r&eacute;fl&eacute;chir.</p>
+  </div>
+
+  <div class="tip">
+    <div class="tip-label">Raret&eacute;</div>
+    <p>&laquo; On prend 8 clients maximum pour garantir la qualit&eacute;. Il reste <strong>[X]</strong> places au tarif actuel &mdash; apr&egrave;s, le Pipeline passe &agrave; 1 190&euro;. &raquo;</p>
+  </div>
+
+  <div class="note">
+    <div class="note-label">Si besoin Multicanal ou D&eacute;di&eacute;</div>
+    <p><strong>Multicanal</strong> (1 490&euro;/mois, 3 mois) : email + LinkedIn + 1 500 prospects/mois<br>
+    <strong>D&eacute;di&eacute;</strong> (sur mesure) : multi-canal, volume illimit&eacute;, strat&eacute;gie d&eacute;di&eacute;e</p>
   </div>
 </div>
 
-<!-- APRES L'APPEL -->
+<!-- ======================================== -->
+<!-- PHASE 5 : E — EXPLAIN (AAA) -->
+<!-- ======================================== -->
 <div class="phase">
   <div class="phase-header">
-    <div class="phase-num">7</div>
-    <div class="phase-title">Apr&egrave;s l'appel</div>
+    <div class="phase-num">5</div>
+    <div class="phase-title">E &mdash; Objections (m&eacute;thode AAA)</div>
     <div class="phase-time">5 min</div>
   </div>
 
-  <ul class="checklist">
-    <li>Envoie la proposition commerciale dans les 5 minutes</li>
-    <li>Note le r&eacute;sum&eacute; de l'appel (besoin, objections, d&eacute;cision)</li>
-    <li>Si &laquo; je r&eacute;fl&eacute;chis &raquo; : relance &agrave; J+2 par email court</li>
-    <li>Si sign&eacute; : planifie le call de setup dans les 48h</li>
-    <li>Si refus&eacute; : note la raison, peut &ecirc;tre utile dans 3 mois</li>
-  </ul>
+  <div class="note">
+    <div class="note-label">M&eacute;thode AAA</div>
+    <p><strong>Agree</strong> (valide l'&eacute;motion) &rarr; <strong>Align</strong> (montre que d'autres ont pens&eacute; pareil) &rarr; <strong>Ask</strong> (question qui fait r&eacute;fl&eacute;chir)</p>
+  </div>
 
-  <div class="tip">
-    <div class="tip-label">Email de relance J+2</div>
-    <p>&laquo; Salut [Pr&eacute;nom], suite &agrave; notre &eacute;change de mardi, je voulais juste savoir si tu avais pu regarder la proposition. Si tu as des questions, je suis dispo. Bonne journ&eacute;e. &raquo;</p>
+  <!-- Objection 1 -->
+  <div class="objection">
+    <div class="objection-q">C'est trop cher</div>
+    <div class="aaa">
+      <div class="aaa-step"><span class="aaa-tag agree">AGREE</span><span>&laquo; Je comprends, 890&euro;/mois c'est un budget. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag align">ALIGN</span><span>&laquo; La plupart de mes clients ont eu la m&ecirc;me r&eacute;action au d&eacute;part. Puis ils ont calcul&eacute; : un commercial c'est 3 500&euro;/mois, et il prospecte moins. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag ask">ASK</span><span>&laquo; Si on vous g&eacute;n&egrave;re ne serait-ce qu'un seul client &agrave; <strong>[valeur de son client moyen]</strong>&euro;, c'est rentabilis&eacute; en combien de temps ? &raquo;</span></div>
+    </div>
+  </div>
+
+  <!-- Objection 2 -->
+  <div class="objection">
+    <div class="objection-q">Vous n'avez pas de r&eacute;f&eacute;rences / c'est nouveau</div>
+    <div class="aaa">
+      <div class="aaa-step"><span class="aaa-tag agree">AGREE</span><span>&laquo; C'est l&eacute;gitime de vouloir des preuves. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag align">ALIGN</span><span>&laquo; C'est justement pour &ccedil;a qu'on a la Garantie Pipeline : 30 jours, z&eacute;ro r&eacute;sultat = rembours&eacute; int&eacute;gralement. Aucune agence ne propose &ccedil;a. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag ask">ASK</span><span>&laquo; Si je vous montre des r&eacute;sultats en 30 jours avec z&eacute;ro risque, qu'est-ce qui vous emp&ecirc;cherait de tester ? &raquo;</span></div>
+    </div>
+  </div>
+
+  <!-- Objection 3 -->
+  <div class="objection">
+    <div class="objection-q">Je veux r&eacute;fl&eacute;chir</div>
+    <div class="aaa">
+      <div class="aaa-step"><span class="aaa-tag agree">AGREE</span><span>&laquo; Bien s&ucirc;r, c'est normal de vouloir prendre le temps. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag align">ALIGN</span><span>&laquo; En g&eacute;n&eacute;ral, quand quelqu'un me dit &ccedil;a, c'est qu'il y a un point pr&eacute;cis qui bloque &mdash; le prix, le timing, ou la confiance. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag ask">ASK</span><span>&laquo; C'est lequel des trois chez vous ? Comme &ccedil;a on en parle maintenant plut&ocirc;t que vous restiez avec un doute. &raquo;</span></div>
+    </div>
+  </div>
+
+  <!-- Objection 4 -->
+  <div class="objection">
+    <div class="objection-q">C'est pas le bon moment</div>
+    <div class="aaa">
+      <div class="aaa-step"><span class="aaa-tag agree">AGREE</span><span>&laquo; Je comprends, le timing c'est important. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag align">ALIGN</span><span>&laquo; Ce que j'observe, c'est que la prospection met 3 &agrave; 6 semaines avant de produire des RDV. Donc si vous attendez le &laquo; bon moment &raquo;, vous aurez des r&eacute;sultats dans 2 mois, pas demain. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag ask">ASK</span><span>&laquo; Si on lance maintenant, vos premiers RDV tombent dans 3 semaines. C'est quand pour vous le bon moment, concr&egrave;tement ? &raquo;</span></div>
+    </div>
+  </div>
+
+  <!-- Objection 5 -->
+  <div class="objection">
+    <div class="objection-q">Je peux le faire moi-m&ecirc;me</div>
+    <div class="aaa">
+      <div class="aaa-step"><span class="aaa-tag agree">AGREE</span><span>&laquo; Absolument, c'est faisable soi-m&ecirc;me. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag align">ALIGN</span><span>&laquo; La question c'est pas si vous pouvez, c'est si vous devez. Configurer les domaines, le warmup, Clay, l'IA, la d&eacute;livrabilit&eacute; &mdash; c'est 40h de setup + 5h/semaine de maintenance. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag ask">ASK</span><span>&laquo; Votre heure vaut combien ? Est-ce que c'est le meilleur usage de votre temps, ou vous pr&eacute;f&eacute;rez closer des clients ? &raquo;</span></div>
+    </div>
+  </div>
+
+  <!-- Objection 6 -->
+  <div class="objection">
+    <div class="objection-q">Et si &ccedil;a marche pas ?</div>
+    <div class="aaa">
+      <div class="aaa-step"><span class="aaa-tag agree">AGREE</span><span>&laquo; C'est la bonne question &agrave; poser. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag align">ALIGN</span><span>&laquo; On a deux garanties. <strong>Garantie Pipeline</strong> : 30 jours sans r&eacute;sultat, rembours&eacute;. <strong>Garantie Qualit&eacute;</strong> : si apr&egrave;s 60 jours les r&eacute;sultats sont en dessous de nos standards, on retravaille gratuitement jusqu'&agrave; ce que &ccedil;a fonctionne. &raquo;</span></div>
+      <div class="aaa-step"><span class="aaa-tag ask">ASK</span><span>&laquo; Concr&egrave;tement, le seul sc&eacute;nario o&ugrave; vous perdez, c'est si vous ne testez pas. On y va ? &raquo;</span></div>
+    </div>
   </div>
 </div>
 
+<!-- ======================================== -->
+<!-- PHASE 6 : CLOSING -->
+<!-- ======================================== -->
+<div class="phase">
+  <div class="phase-header">
+    <div class="phase-num">6</div>
+    <div class="phase-title">Closing</div>
+    <div class="phase-time">2 min</div>
+  </div>
+
+  <div class="note">
+    <div class="note-label">3 techniques &mdash; dans l'ordre</div>
+    <p>Essaie la premi&egrave;re. Si &ccedil;a prend pas, passe &agrave; la suivante.</p>
+  </div>
+
+  <div class="say">
+    <p><strong>Direct :</strong> &laquo; On part sur le Pipeline ? &raquo;</p>
+  </div>
+
+  <div class="say">
+    <p><strong>Choix :</strong> &laquo; Vous pr&eacute;f&eacute;rez le Pipeline &agrave; 890&euro; ou le Multicanal &agrave; 1 490&euro; ? &raquo;</p>
+  </div>
+
+  <div class="say">
+    <p><strong>Projection :</strong> &laquo; Imaginez : dans 3 semaines, vos premiers RDV qualifi&eacute;s tombent. Vous n'avez rien fait &agrave; part d&eacute;crire votre client id&eacute;al. On lance ? &raquo;</p>
+  </div>
+
+  <div class="silence">
+    <p>POSE LA QUESTION DE CLOSING, PUIS TAIS-TOI.</p>
+  </div>
+
+  <div class="tip">
+    <div class="tip-label">Si OUI</div>
+    <p>&laquo; Parfait. Je vous envoie le contrat dans les 5 minutes. Il me faut juste votre client id&eacute;al, et on planifie le call de setup cette semaine. &raquo; &rarr; Phase 7</p>
+  </div>
+
+  <div class="note">
+    <div class="note-label">Si h&eacute;site</div>
+    <p>&laquo; Pas de souci. Je vous envoie la proposition, prenez le temps de la lire. On se rappelle <strong>[jour J+2]</strong> &agrave; <strong>[heure]</strong> ? &raquo; &mdash; Envoie dans l'heure. Bloque le cr&eacute;neau.</p>
+  </div>
+
+  <div class="danger">
+    <div class="danger-label">Ne jamais</div>
+    <p>Ne supplie pas. Ne baisse pas le prix. Ne prolonge pas au-del&agrave; de 25 min. Si c'est non, remercie et passe au suivant.</p>
+  </div>
+</div>
+
+<!-- ======================================== -->
+<!-- PHASE 7 : R — REINFORCE (POST-SIGNATURE) -->
+<!-- ======================================== -->
+<div class="phase">
+  <div class="phase-header">
+    <div class="phase-num">7</div>
+    <div class="phase-title">R &mdash; Renforcer (post-signature)</div>
+    <div class="phase-time">48h apr&egrave;s</div>
+  </div>
+
+  <div class="note">
+    <div class="note-label">Objectif</div>
+    <p>&Eacute;liminer le &laquo; buyer's remorse &raquo;. Chaque interaction renforce qu'il a fait le bon choix.</p>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="timeline-time">5 min apr&egrave;s signature</div>
+      <div class="timeline-text"><strong>WhatsApp de bienvenue</strong> &mdash; &laquo; Bienvenue [Pr&eacute;nom] ! On d&eacute;marre la config de votre pipeline. Je reviens vers vous dans l'heure avec le contrat + vos acc&egrave;s dashboard. &raquo;</div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-time">1h apr&egrave;s</div>
+      <div class="timeline-text"><strong>Email contrat + acc&egrave;s</strong> &mdash; Contrat sign&eacute;, lien dashboard, recap de ce qui a &eacute;t&eacute; dit en appel.</div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-time">24h apr&egrave;s &mdash; POPSICLE MOMENT</div>
+      <div class="timeline-text"><strong>5 emails sur ses vrais prospects</strong> &mdash; C'est le moment &laquo; wow &raquo;. Il voit que c'est r&eacute;el, personnalis&eacute;, et que &ccedil;a tourne d&eacute;j&agrave;. Il en parle &agrave; ses associ&eacute;s.</div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-time">48h apr&egrave;s</div>
+      <div class="timeline-text"><strong>Call de setup (15 min)</strong> &mdash; ICP final, ton souhait&eacute;, acc&egrave;s DNS. Apr&egrave;s ce call, le pipeline tourne en autonomie.</div>
+    </div>
+  </div>
+
+  <div class="tip">
+    <div class="tip-label">R&egrave;gle</div>
+    <p>Les 48 premi&egrave;res heures font la diff&eacute;rence entre un client qui reste 12 mois et un qui churn &agrave; M2. Sur-d&eacute;livrez.</p>
+  </div>
+</div>
+
+<!-- ======================================== -->
+<!-- FOOTER -->
+<!-- ======================================== -->
 <div style="text-align:center;padding:48px 0;color:var(--text-3);font-size:13px;border-top:1px solid var(--border)">
-  <p>iFIND &mdash; Document interne, usage commercial</p>
-  <p style="margin-top:8px">Le meilleur script c'est celui que tu adaptes &agrave; ta personnalit&eacute;. Sois toi-m&ecirc;me.</p>
+  <p style="margin-bottom:12px;font-size:14px;color:var(--text-2)">Le meilleur script c'est celui que tu adaptes &agrave; ta personnalit&eacute;. Sois toi-m&ecirc;me.</p>
+  <p>iFIND &mdash; Alexis B&eacute;nier &mdash; Document interne, usage commercial</p>
 </div>
 
 </div>
