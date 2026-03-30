@@ -8,7 +8,6 @@ Disallow: /tracker.js
 Disallow: /visitor-storage.js
 Disallow: /proposition.html
 Disallow: /script-vente.html
-Disallow: /guide-closing.html
 Disallow: /api/
 
 Sitemap: https://ifind.fr/sitemap.xml

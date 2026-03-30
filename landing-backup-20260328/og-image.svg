@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="440" y="200" width="64" height="64" rx="14" fill="url(#b)"/>
+  <text x="472" y="243" text-anchor="middle" fill="white" font-family="Inter,system-ui,sans-serif" font-size="42" font-weight="600">i</text>
+  <text x="520" y="248" fill="white" font-family="Inter,system-ui,sans-serif" font-size="50" font-weight="500">find</text>
+  <text x="600" y="320" text-anchor="middle" fill="white" font-family="Inter,system-ui,sans-serif" font-size="28" font-weight="600">Prospection B2B intelligente</text>
+  <text x="600" y="370" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-family="Inter,system-ui,sans-serif" font-size="20" font-weight="400">Un agent IA qui prospecte pour vous 24h/24</text>
+  <rect x="200" y="430" width="600" height="4" rx="2" fill="rgba(255,255,255,0.1)"/>
+  <text x="600" y="480" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-family="Inter,system-ui,sans-serif" font-size="16" font-weight="400">ifind.fr</text>
+</svg>

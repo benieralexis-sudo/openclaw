@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proposition commerciale &mdash; iFIND</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232563EB'/%3E%3Cstop offset='100%25' stop-color='%231e40af'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Ctext x='16' y='22.5' text-anchor='middle' fill='white' font-family='Inter,system-ui,sans-serif' font-size='21' font-weight='600'%3Ei%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#ffffff;--surface:#f9fafb;--card:#f3f4f6;
+--border:#e5e7eb;--border-h:#d1d5db;
+--text:#111827;--text-2:#4b5563;--text-3:#9ca3af;
+--accent:#1D4ED8;--accent-l:#3B82F6;--accent-bg:rgba(29,78,216,0.04);
+--green:#16A34A;--green-bg:rgba(22,163,74,0.06);
+--font-d:'Space Grotesk',system-ui,sans-serif;
+--font-b:'Inter',system-ui,sans-serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-b);line-height:1.7;-webkit-font-smoothing:antialiased}
+
+/* Page layout */
+.page{max-width:780px;margin:0 auto;padding:48px 40px}
+
+/* Header */
+.prop-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:32px;border-bottom:2px solid var(--accent);margin-bottom:48px}
+.brand{display:flex;align-items:center;gap:0}
+.brand-i{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;background:linear-gradient(135deg,#2563EB,#1e40af);border-radius:10px;color:#fff;font-family:var(--font-b);font-weight:600;font-size:24px;margin-right:6px;box-shadow:0 2px 8px rgba(29,78,216,0.3)}
+.brand-find{font-family:var(--font-b);font-weight:500;font-size:28px;color:var(--text)}
+.prop-meta{text-align:right;font-size:13px;color:var(--text-3);line-height:1.8}
+.prop-meta strong{color:var(--text);font-weight:600}
+
+/* Sections */
+.section{margin-bottom:48px}
+.section-title{font-family:var(--font-d);font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--text);margin-bottom:6px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.section-subtitle{font-size:14px;color:var(--text-3);margin-bottom:20px}
+
+/* Intro block */
+.intro{background:var(--accent-bg);border:1px solid rgba(29,78,216,0.1);border-radius:12px;padding:28px 32px;margin-bottom:48px}
+.intro h2{font-family:var(--font-d);font-size:24px;font-weight:800;letter-spacing:-0.03em;margin-bottom:12px;color:var(--text)}
+.intro p{font-size:15px;color:var(--text-2);line-height:1.8}
+.intro p strong{color:var(--accent)}
+
+/* Feature list */
+.features{list-style:none;display:flex;flex-direction:column;gap:12px}
+.features li{display:flex;gap:12px;align-items:flex-start;font-size:15px;color:var(--text-2);line-height:1.7}
+.features li strong{color:var(--text);font-weight:600}
+.feat-icon{width:28px;height:28px;border-radius:8px;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;margin-top:2px}
+
+/* Pricing card */
+.pricing-card{background:var(--surface);border:2px solid var(--accent);border-radius:16px;padding:36px;margin-bottom:24px;position:relative}
+.pricing-badge{position:absolute;top:-12px;left:32px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:4px 16px;border-radius:100px}
+.pricing-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.pricing-label{font-size:15px;color:var(--text-2)}
+.pricing-value{font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--text)}
+.pricing-total{margin-top:20px;padding-top:20px;border-top:2px solid var(--accent);display:flex;justify-content:space-between;align-items:center}
+.pricing-total .pricing-label{font-size:17px;font-weight:600;color:var(--text)}
+.pricing-total .pricing-value{font-size:28px;color:var(--accent)}
+.pricing-note{font-size:13px;color:var(--text-3);margin-top:12px;text-align:center}
+
+/* Comparison */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+.compare-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center}
+.compare-card.highlight{border-color:var(--accent);background:var(--accent-bg)}
+.compare-price{font-family:var(--font-d);font-size:28px;font-weight:800;margin:8px 0 4px}
+.compare-price.accent{color:var(--accent)}
+.compare-label{font-size:13px;color:var(--text-3)}
+.compare-desc{font-size:12px;color:var(--text-3);margin-top:8px}
+
+/* Timeline */
+.timeline{display:flex;flex-direction:column;gap:0;position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:7px;top:8px;bottom:8px;width:2px;background:var(--border)}
+.tl-item{position:relative;padding:0 0 24px 24px}
+.tl-item:last-child{padding-bottom:0}
+.tl-dot{position:absolute;left:-20px;top:6px;width:14px;height:14px;border-radius:50%;background:var(--accent);border:3px solid var(--bg)}
+.tl-title{font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--text);margin-bottom:2px}
+.tl-desc{font-size:14px;color:var(--text-2);line-height:1.7}
+
+/* Guarantee */
+.guarantee{background:var(--green-bg);border:1px solid rgba(22,163,74,0.15);border-radius:12px;padding:24px 32px;text-align:center;margin-top:24px}
+.guarantee h3{font-family:var(--font-d);font-size:17px;font-weight:700;color:var(--green);margin-bottom:6px}
+.guarantee p{font-size:14px;color:var(--text-2)}
+
+/* Signature */
+.signature{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:48px;padding-top:32px;border-top:1px solid var(--border)}
+.sig-block h4{font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.05em}
+.sig-line{border-bottom:1px solid var(--border-h);padding-bottom:48px;margin-bottom:8px}
+.sig-label{font-size:12px;color:var(--text-3)}
+
+/* Editable fields */
+.editable{border:none;background:rgba(29,78,216,0.04);border-radius:4px;padding:2px 6px;font-family:inherit;font-size:inherit;color:var(--accent);font-weight:inherit;min-width:120px;outline:none;border-bottom:1px dashed var(--accent)}
+.editable:focus{background:rgba(29,78,216,0.08)}
+.editable-block{border:none;background:rgba(29,78,216,0.04);border-radius:4px;padding:4px 8px;font-family:inherit;font-size:inherit;color:var(--text-2);width:100%;min-height:40px;outline:none;border-bottom:1px dashed var(--accent);resize:none;line-height:1.7}
+
+/* Print styles */
+@media print{
+body{background:#fff}
+.page{padding:24px 0}
+.editable,.editable-block{background:none;border-bottom:none;padding:0;color:var(--text)}
+.no-print{display:none !important}
+.pricing-card{break-inside:avoid}
+.signature{break-inside:avoid}
+.section{break-inside:avoid}
+}
+
+/* Toolbar */
+.toolbar{position:fixed;bottom:24px;right:24px;display:flex;gap:8px;z-index:100}
+.toolbar button{padding:12px 20px;border:none;border-radius:10px;font-family:var(--font-b);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+.btn-print{background:var(--accent);color:#fff}
+.btn-print:hover{background:#1e40af;transform:translateY(-2px)}
+
+@media(max-width:640px){
+.page{padding:24px 16px}
+.prop-header{flex-direction:column;gap:16px}
+.prop-meta{text-align:left}
+.compare{grid-template-columns:1fr}
+.signature{grid-template-columns:1fr;gap:32px}
+.toolbar{bottom:12px;right:12px}
+}
+</style>
+</head>
+<body>
+
+<div class="page" id="proposal">
+
+<!-- HEADER -->
+<div class="prop-header">
+  <div class="brand">
+    <span class="brand-i">i</span><span class="brand-find">find</span>
+  </div>
+  <div class="prop-meta">
+    <strong>Proposition commerciale</strong><br>
+    R&eacute;f : PRO-<input class="editable" value="001" style="width:40px;text-align:center"> &mdash; <input class="editable" value="Mars 2026" style="width:90px"><br>
+    Pr&eacute;par&eacute;e pour <input class="editable" value="[Nom du contact]" style="width:160px"><br>
+    <input class="editable" value="[Nom de l'entreprise]" style="width:160px">
+  </div>
+</div>
+
+<!-- INTRO -->
+<div class="intro">
+  <h2>Remplissez votre agenda de rendez-vous qualifi&eacute;s.<br>Sans prospecter vous-m&ecirc;me.</h2>
+  <p>Suite &agrave; notre &eacute;change, voici une proposition adapt&eacute;e &agrave; <strong><input class="editable" value="[Entreprise]" style="width:130px"></strong> pour d&eacute;l&eacute;guer enti&egrave;rement votre prospection B2B et recevoir des rendez-vous qualifi&eacute;s chaque mois.</p>
+</div>
+
+<!-- VOTRE BESOIN -->
+<div class="section">
+  <h2 class="section-title">Votre situation</h2>
+  <p style="font-size:15px;color:var(--text-2);line-height:1.8;margin-top:16px">
+    <textarea class="editable-block" rows="3" style="width:100%">Vous cherchez &agrave; d&eacute;velopper votre activit&eacute; en trouvant de nouveaux clients B2B de mani&egrave;re r&eacute;guli&egrave;re, sans y consacrer vos journ&eacute;es ni embaucher un commercial d&eacute;di&eacute;.</textarea>
+  </p>
+</div>
+
+<!-- CE QU'ON FAIT POUR VOUS -->
+<div class="section">
+  <h2 class="section-title">Notre service</h2>
+  <p class="section-subtitle">Tout est inclus, cl&eacute; en main. Vous ne touchez &agrave; rien.</p>
+
+  <ul class="features">
+    <li>
+      <span class="feat-icon">&#10003;</span>
+      <div><strong>Agent commercial d&eacute;di&eacute; 24h/24</strong><br>Un agent commercial intelligent prospecte pour vous en continu. Il identifie les d&eacute;cideurs de votre cible, les contacte et g&egrave;re les relances.</div>
+    </li>
+    <li>
+      <span class="feat-icon">&#10003;</span>
+      <div><strong>Emails hyper-personnalis&eacute;s</strong><br>Chaque email est r&eacute;dig&eacute; individuellement. L'agent analyse le site, les actualit&eacute;s et le profil de chaque prospect avant d'&eacute;crire.</div>
+    </li>
+    <li>
+      <span class="feat-icon">&#10003;</span>
+      <div><strong>Relances intelligentes</strong><br>Jusqu'&agrave; 3 relances par prospect, d&eacute;clench&eacute;es par le comportement (ouverture, clic). Pas de relance aveugle.</div>
+    </li>
+    <li>
+      <span class="feat-icon">&#10003;</span>
+      <div><strong>Tableau de bord d&eacute;di&eacute;</strong><br>Suivez en temps r&eacute;el tous vos indicateurs : emails envoy&eacute;s, taux d'ouverture, r&eacute;ponses, leads chauds, pipeline.</div>
+    </li>
+    <li>
+      <span class="feat-icon">&#10003;</span>
+      <div><strong>CRM int&eacute;gr&eacute;</strong><br>Les contacts et les deals sont synchronis&eacute;s automatiquement. Aucune saisie manuelle.</div>
+    </li>
+    <li>
+      <span class="feat-icon">&#10003;</span>
+      <div><strong>Prise de RDV int&eacute;gr&eacute;e</strong><br>Lien de prise de rendez-vous inclus dans chaque s&eacute;quence. Les prospects int&eacute;ress&eacute;s r&eacute;servent directement dans votre agenda.</div>
+    </li>
+    <li>
+      <span class="feat-icon">&#10003;</span>
+      <div><strong>Configuration cl&eacute; en main</strong><br>Nous g&eacute;rons tout : domaines d'envoi, warmup, configuration technique. Vous n'avez aucune action technique &agrave; r&eacute;aliser.</div>
+    </li>
+    <li>
+      <span class="feat-icon">&#10003;</span>
+      <div><strong>Conforme RGPD</strong><br>Donn&eacute;es h&eacute;berg&eacute;es en France. Lien de d&eacute;sabonnement dans chaque email. Prospection propre et l&eacute;gale.</div>
+    </li>
+  </ul>
+</div>
+
+<!-- TARIF -->
+<div class="section">
+  <h2 class="section-title">Investissement</h2>
+
+  <div class="pricing-card">
+    <div class="pricing-badge">Tarif fondateur</div>
+    <div style="margin-top:8px"></div>
+    <div class="pricing-row">
+      <span class="pricing-label">Abonnement mensuel &mdash; Plan <input class="editable" value="Growth" style="width:80px"></span>
+      <span class="pricing-value"><input class="editable" value="1 490" style="width:60px;text-align:right">&euro; HT / mois</span>
+    </div>
+    <div class="pricing-row">
+      <span class="pricing-label">Frais de mise en place</span>
+      <span class="pricing-value">0&euro; (inclus)</span>
+    </div>
+    <div class="pricing-row">
+      <span class="pricing-label">Volume de prospection</span>
+      <span class="pricing-value">~<input class="editable" value="1 000" style="width:50px;text-align:right"> prospects / mois</span>
+    </div>
+    <div class="pricing-row">
+      <span class="pricing-label">Engagement</span>
+      <span class="pricing-value">3 mois</span>
+    </div>
+    <div class="pricing-total">
+      <span class="pricing-label">Total mensuel</span>
+      <span class="pricing-value accent"><input class="editable" value="1 490" style="width:70px;text-align:right;font-size:28px">&euro; <span style="font-size:16px;color:var(--text-3);font-weight:400">HT / mois</span></span>
+    </div>
+    <p class="pricing-note">Tarif fondateur bloqu&eacute; &agrave; vie &bull; Engagement 3 mois &bull; 0&euro; de setup</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare-card highlight">
+      <div class="compare-label">iFIND</div>
+      <div class="compare-price accent">1 490&euro;</div>
+      <div class="compare-label">/ mois</div>
+      <div class="compare-desc">Op&eacute;rationnel en 48h<br>1 000 prospects / mois<br>24h/24, 7j/7</div>
+    </div>
+    <div class="compare-card">
+      <div class="compare-label">SDR junior</div>
+      <div class="compare-price">3 500&euro;</div>
+      <div class="compare-label">/ mois charg&eacute;</div>
+      <div class="compare-desc">3-6 mois de formation<br>~80 prospects / mois<br>8h/jour, 5j/7</div>
+    </div>
+  </div>
+
+  <div class="guarantee">
+    <h3>Garantie r&eacute;sultat</h3>
+    <p>Pas de r&eacute;ponse en 30 jours = rembours&eacute; int&eacute;gralement. Z&eacute;ro risque.</p>
+  </div>
+</div>
+
+<!-- CALENDRIER -->
+<div class="section">
+  <h2 class="section-title">Calendrier de d&eacute;marrage</h2>
+
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-title">Jour 1 &mdash; Call de lancement (15 min)</div>
+      <div class="tl-desc">On d&eacute;finit votre cible id&eacute;ale, le ton des emails, et vos objectifs.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-title">Jour 1-2 &mdash; Configuration technique</div>
+      <div class="tl-desc">Mise en place des domaines d'envoi, warmup, et int&eacute;gration CRM. Vous n'avez rien &agrave; faire.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-title">Jour 3 &mdash; Premiers emails envoy&eacute;s</div>
+      <div class="tl-desc">L'agent commence &agrave; prospecter. Phase de warmup progressive (5-10 emails/jour).</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-title">Semaine 2 &mdash; Mont&eacute;e en puissance</div>
+      <div class="tl-desc">Volume croissant. Premi&egrave;res ouvertures et r&eacute;ponses. Vous acc&eacute;dez au tableau de bord.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-title">Semaine 3-4 &mdash; Pleine capacit&eacute;</div>
+      <div class="tl-desc">L'agent tourne &agrave; plein r&eacute;gime. Rendez-vous qualifi&eacute;s dans votre agenda.</div>
+    </div>
+  </div>
+</div>
+
+<!-- CONDITIONS -->
+<div class="section">
+  <h2 class="section-title">Conditions</h2>
+  <ul class="features" style="gap:8px">
+    <li><span class="feat-icon" style="font-size:12px">1</span><div>Engagement minimum de 3 mois. R&eacute;siliable avec 30 jours de pr&eacute;avis apr&egrave;s la p&eacute;riode d'engagement.</div></li>
+    <li><span class="feat-icon" style="font-size:12px">2</span><div>Tarif fondateur garanti &agrave; vie tant que l'abonnement est actif.</div></li>
+    <li><span class="feat-icon" style="font-size:12px">3</span><div>0&euro; de frais de mise en place. Domaines, warmup et configuration technique inclus.</div></li>
+    <li><span class="feat-icon" style="font-size:12px">4</span><div>Facturation mensuelle par pr&eacute;l&egrave;vement ou virement. Premier mois d&ucirc; &agrave; la signature.</div></li>
+    <li><span class="feat-icon" style="font-size:12px">5</span><div>Donn&eacute;es h&eacute;berg&eacute;es en France, conformit&eacute; RGPD.</div></li>
+    <li><span class="feat-icon" style="font-size:12px">6</span><div>Support direct avec Alexis B&eacute;nier, fondateur d'iFIND.</div></li>
+  </ul>
+</div>
+
+<!-- PROCHAINES ETAPES -->
+<div class="section">
+  <h2 class="section-title">Prochaine &eacute;tape</h2>
+  <p style="font-size:15px;color:var(--text-2);line-height:1.8;margin-top:16px">
+    Pour d&eacute;marrer, il suffit de valider cette proposition et de planifier un call de lancement de 15 minutes. L'agent sera op&eacute;rationnel sous 48 heures.
+  </p>
+  <p style="font-size:15px;color:var(--text-2);line-height:1.8;margin-top:12px">
+    <strong style="color:var(--text)">Alexis B&eacute;nier</strong><br>
+    alexis@getifind.fr &bull; 07 66 34 40 93<br>
+    <a href="https://cal.eu/alexis-benier-sarxqi" style="color:var(--accent);text-decoration:underline" target="_blank">Planifier un appel</a>
+  </p>
+</div>
+
+<!-- SIGNATURE -->
+<div class="signature">
+  <div class="sig-block">
+    <h4>iFIND</h4>
+    <p style="font-size:14px;color:var(--text-2);margin-bottom:24px">Alexis B&eacute;nier, Fondateur</p>
+    <div class="sig-line"></div>
+    <p class="sig-label">Date et signature</p>
+  </div>
+  <div class="sig-block">
+    <h4><input class="editable" value="[Entreprise]" style="width:180px;text-transform:uppercase;letter-spacing:0.05em;font-size:14px"></h4>
+    <p style="font-size:14px;color:var(--text-2);margin-bottom:24px"><input class="editable" value="[Nom et titre]" style="width:200px"></p>
+    <div class="sig-line"></div>
+    <p class="sig-label">Date et signature</p>
+  </div>
+</div>
+
+<div style="text-align:center;padding:32px 0 0;margin-top:32px;border-top:1px solid var(--border)">
+  <p style="font-size:12px;color:var(--text-3)">iFIND &mdash; Micro-entreprise &bull; SIRET &agrave; compl&eacute;ter &bull; ifind.fr</p>
+  <p style="font-size:12px;color:var(--text-3);margin-top:4px">Proposition valable 30 jours &agrave; compter de la date d'&eacute;mission.</p>
+</div>
+
+</div>
+
+<!-- Toolbar (non imprimé) -->
+<div class="toolbar no-print">
+  <button class="btn-print" onclick="window.print()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Imprimer / PDF
+  </button>
+</div>
+
+</body>
+</html>

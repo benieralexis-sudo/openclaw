@@ -90,21 +90,10 @@ function createCronManager(deps) {
       log.info('router', 'Sync bookings Google Calendar toutes les 5 min');
     }
 
-    // Clay API sync toutes les 30 min (si CLAY_API_KEY configure)
-    if (process.env.CLAY_API_KEY) {
-      if (_claySyncInterval) clearInterval(_claySyncInterval);
-      const clayConnector = require('../skills/clay-connector.js');
-      _claySyncInterval = setInterval(async () => {
-        try {
-          await clayConnector.syncNewLeads();
-        } catch (e) { log.error('router', 'Clay sync echoue: ' + e.message); }
-      }, 30 * 60 * 1000);
-      // Premier sync apres 60s (laisser le bot demarrer)
-      setTimeout(async () => {
-        try { await clayConnector.syncNewLeads(); } catch (e) { log.warn('router', 'Clay sync initial: ' + e.message); }
-      }, 60000);
-      log.info('router', 'Clay sync toutes les 30 min');
-    }
+    // Clay polling desactive — le webhook push (POST /webhook/clay) est le seul flux actif
+    // Le clay-connector.js reste disponible si besoin d'un sync manuel ponctuel
+    // if (process.env.CLAY_API_KEY) { ... }
+    log.info('router', 'Clay: webhook push uniquement (polling desactive)');
 
     log.info('router', '22 crons demarres (production)');
   }
