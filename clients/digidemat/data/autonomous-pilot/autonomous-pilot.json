@@ -47,12 +47,11 @@
     },
     "followUpConfig": {
       "sequenceStepDays": [
+        0,
         3,
-        7,
-        14,
-        21
+        10
       ],
-      "sequenceTotalSteps": 4,
+      "sequenceTotalSteps": 3,
       "reactiveMinDelayMinutes": 120,
       "reactiveMaxDelayMinutes": 240
     },

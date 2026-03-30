@@ -427,28 +427,29 @@ class ResendClient {
       }
     }
 
-    // Fallback Resend API
+    // Fallback Resend API — utiliser le domaine selectionne par domain-manager si disponible
     options = options || {};
     const fromName = options.fromName || process.env.SENDER_NAME || 'Alexis';
-    const fallbackDomain = (this.senderEmail || '').split('@')[1] || process.env.CLIENT_DOMAIN || 'ifind.fr';
+    const resendSender = selectedDomain ? (fromName.split(' ')[0].toLowerCase() + '@' + selectedDomain.domain) : this.senderEmail;
+    const resendDomain = selectedDomain ? selectedDomain.domain : ((this.senderEmail || '').split('@')[1] || process.env.CLIENT_DOMAIN || 'ifind.fr');
     let trackingDomainResend = process.env.TRACKING_DOMAIN || process.env.CLIENT_DOMAIN || 'ifind.fr';
     try {
       const dm = require('./domain-manager.js');
-      trackingDomainResend = dm.getTrackingDomain(fallbackDomain);
+      trackingDomainResend = dm.getTrackingDomain(resendDomain);
     } catch (e) { /* fallback global */ }
     const payload = {
-      from: fromName + ' <' + this.senderEmail + '>',
+      from: fromName + ' <' + resendSender + '>',
       to: Array.isArray(to) ? to : [to],
       subject: subject,
       text: body,
       html: options.html || this._minimalHtml(body, options.trackingId, toEmail, {
-        senderDomain: fallbackDomain,
+        senderDomain: resendDomain,
         stepNumber: options.stepNumber || 0
       }),
       headers: {
         'List-Unsubscribe': '<https://' + trackingDomainResend + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '>',
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        'Feedback-ID': (options.campaignId || 'default') + ':' + (process.env.CLIENT_NAME || 'ifind') + ':' + (this.senderEmail.split('@')[1] || 'ifind.fr') + ':ifind'
+        'Feedback-ID': (options.campaignId || 'default') + ':' + (process.env.CLIENT_NAME || 'ifind') + ':' + resendDomain + ':ifind'
       }
     };
     if (options.inReplyTo) {
@@ -456,8 +457,7 @@ class ResendClient {
       payload.headers['References'] = options.references || options.inReplyTo;
     }
     if (options.tags) payload.tags = options.tags;
-    // Reply-To per-domaine : utiliser fromEmail (= senderEmail Resend) au lieu de REPLY_TO_EMAIL global
-    payload.reply_to = options.replyTo || this.senderEmail;
+    payload.reply_to = options.replyTo || resendSender;
 
     // Retry avec backoff exponentiel sur 429 (rate limit)
     let result;
@@ -473,7 +473,12 @@ class ResendClient {
       if (_appConfig && _appConfig.recordServiceUsage) {
         _appConfig.recordServiceUsage('resend', { emails: 1 });
       }
-      return { success: true, id: result.data.id };
+      // Tracker l'envoi Resend dans le domain manager
+      try {
+        const dm = require('./domain-manager.js');
+        dm.recordSend(resendDomain, toEmail, true);
+      } catch (e) { log.warn('resend-client', 'domain-manager recordSend (Resend fallback) echoue: ' + e.message); }
+      return { success: true, id: result.data.id, senderDomain: resendDomain };
     }
     const errorMsg = result.data.message || result.data.error || ('Resend erreur ' + result.statusCode);
     return { success: false, error: errorMsg, statusCode: result.statusCode };
@@ -529,6 +534,15 @@ class ResendClient {
     const result = await this._request('POST', '/emails/batch', payload);
 
     if (result.statusCode === 200 || result.statusCode === 201) {
+      // Tracker les envois batch dans le domain manager
+      try {
+        const dm = require('./domain-manager.js');
+        for (const e of emails) {
+          const toEmail = Array.isArray(e.to) ? e.to[0] : e.to;
+          const domain = (this.senderEmail || '').split('@')[1] || process.env.CLIENT_DOMAIN || '';
+          if (domain && dm.recordSend) dm.recordSend(domain, toEmail, true);
+        }
+      } catch (dmErr) { log.warn('resend-client', 'domain-manager recordSend (Resend batch) echoue: ' + dmErr.message); }
       return { success: true, data: result.data };
     }
     return { success: false, error: result.data.message || ('Resend batch erreur ' + result.statusCode) };

@@ -89,7 +89,9 @@ class ClaudeEmailWriter {
         max_tokens: maxTokens,
         messages: messages
       };
-      if (systemPrompt) body.system = systemPrompt;
+      if (systemPrompt) {
+        body.system = [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }];
+      }
 
       const postData = JSON.stringify(body);
       const req = https.request({
@@ -100,6 +102,7 @@ class ClaudeEmailWriter {
           'Content-Type': 'application/json',
           'x-api-key': this.apiKey,
           'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31',
           'Content-Length': Buffer.byteLength(postData)
         }
       }, (res) => {
@@ -268,14 +271,14 @@ Analyse ces donnees et produis ta recommandation strategique.`;
 
       return parsed;
     } catch (e) {
-      console.warn('[email-writer] Strategic analysis echoue: ' + e.message);
+      log.warn('email-writer', 'Strategic analysis echoue: ' + e.message);
       return null;
     }
   }
 
   async generateSingleEmail(contact, context) {
     // Lire les preferences depuis Self-Improve (si disponible)
-    let emailLengthHint = '50-80 mots (vise 65, JAMAIS plus de 80)';
+    let emailLengthHint = '40-60 mots (vise 50, JAMAIS plus de 80)';
     let subjectStyleHint = '';
     let siPrefs = null;
     try {
@@ -770,118 +773,6 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     return { block: false, score, grade, reason: 'ok', details };
   }
 
-  async _scoreEmail(subject, body, contact) {
-    const wordCount = (body || '').split(/\s+/).filter(w => w.length > 0).length;
-    const prompt = `Note cet email de prospection B2B de 1 a 10. Framework : Observation → Hypothese → Question + Methode Lavender.
-
-CRITERES 10/10 :
-- 40-60 mots (zone optimale Lavender). <50 = ideal.
-- Ton HESITANT : "peut-etre", "je me trompe", "ou pas du tout ?" (+35% reply rate)
-- OBSERVATION : un fait SPECIFIQUE du prospect (chiffre, news, recrutement, projet)
-- HYPOTHESE : le fait est TRANSFORME en probleme business ("ca veut dire que...")
-- QUESTION OUVERTE (CTC) : invite a la reflexion, pas au calendrier
-- Ratio Je/Tu : parle du prospect plus que de soi
-- Niveau CM1 : phrases courtes, mots simples
-- Objet : 2-3 mots, minuscules, comme un email entre collegues
-- PAS de case study invente, pitch, tirets cadratins, "Bonjour", meta-prospection
-
-PENALITES :
-- Case study invente ("4 clients en 3 mois") : -4
-- Information dumping (faits sans insight) : -3
-- Generique (remplacable par n'importe quelle entreprise) : -4
-- > 60 mots : -2, > 80 mots : -4
-- Ton affirmatif (0 hesitation) : -1
-- Trop de "je/nous/on" vs "tu/vous" : -2
-- Tirets cadratins : -2
-- Meta-prospection : -4
-
-EMAIL :
-Objet: ${subject}
-Corps: ${body}
-(${wordCount} mots)
-Prospect: ${contact.name || '?'} / ${contact.company || '?'}
-
-CALIBRAGE :
-- "[prenom], j'ai vu que [entreprise] fait [activite]. Un client similaire a signe 4 clients. C'est un sujet ?" → 3/10 (info dump + case study invente + 0 hesitation)
-- "[prenom], [fait specifique]. Ca veut souvent dire [hypothese]. C'est le cas ou je me trompe ?" → 9/10 (signal + insight + hesitant + court)
-
-Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
-
-    try {
-      const response = await this.callOpenAIMini(
-        'Tu es un evaluateur IMPITOYABLE de cold emails B2B. La moyenne de tes notes doit etre 5-6/10. Un 8+ est exceptionnel. Sois dur.',
-        prompt,
-        100
-      );
-      const parsed = this._parseJSON(response);
-      if (parsed && typeof parsed.note === 'number') {
-        return { note: Math.min(10, Math.max(1, Math.round(parsed.note))), reason: parsed.reason || '' };
-      }
-    } catch (e) {
-      console.warn('[email-writer] Scoring OpenAI echoue: ' + e.message + ' - fallback score 7');
-    }
-    return { note: 5, reason: 'scoring_unavailable' };
-  }
-
-  // Score adapte pour les follow-ups (criteres differents du step 1)
-  async _scoreFollowUpEmail(subject, body, contact) {
-    const wordCount = (body || '').split(/\s+/).filter(w => w.length > 0).length;
-    const prompt = `Note cette RELANCE de prospection B2B de 1 a 10. C'est un FOLLOW-UP, pas un premier email.
-
-CRITERES 10/10 POUR UN FOLLOW-UP :
-- 15-35 mots (ultra-court, comme un SMS entre pros)
-- 1-2 phrases MAX. Pas de structure en blocs.
-- Un nouvel angle ou insight (pas une reformulation)
-- Ton naturel, entre pairs, pas de pitch
-- PAS de tirets cadratins
-- PAS de "je reviens vers toi", "suite a mon email"
-
-PENALITES :
-- Reformulation du premier email : -4 points
-- "Curieux d'avoir ton retour" ou CTA sans valeur : -4 points
-- Meta-prospection ("comment tu prospectes") : -4 points
-- Trop long (>40 mots) : -3 points (les meilleurs follow-ups font 15-25 mots)
-- Structure en 3+ blocs (un FU est un bump, pas un mini-email) : -3 points
-- Trop court (<10 mots sans substance) : -2 points
-- Tirets cadratins : -1 point par tiret
-- Template generique (remplacable par n'importe quelle entreprise) : -3 points
-
-BONUS :
-- Social proof avec chiffre concret : +1
-- CTA avec lien calendrier : +1
-- Reference specifique au prospect : +1
-
-FOLLOW-UP :
-Objet: ${subject}
-Corps: ${body}
-(${wordCount} mots)
-Prospect: ${contact.name || '?'} / ${contact.company || '?'}
-
-CALIBRAGE :
-- "Re-[prenom], tu as eu le temps de regarder ?" → 2/10 (vide, pas de valeur)
-- "[prenom], un autre client [niche] vient de signer. Dispo 15 min ?" → 7/10 (nouvel angle + SP + CTA)
-- "[prenom], [fait nouveau]. [SP chiffre]. Lien calendar." → 9/10 (tout est la)
-
-IMPORTANT : la majorite des follow-ups doivent etre notes 5-6. Un 8+ est rare.
-
-Reponds UNIQUEMENT en JSON : {"note":X,"reason":"explication en 10 mots max"}`;
-
-    try {
-      const response = await this.callOpenAIMini(
-        'Tu es un evaluateur IMPITOYABLE de follow-ups B2B. Moyenne attendue : 5-6/10. Un 8+ est exceptionnel.',
-        prompt,
-        100
-      );
-      const parsed = this._parseJSON(response);
-      if (parsed && typeof parsed.note === 'number') {
-        return { note: Math.min(10, Math.max(1, Math.round(parsed.note))), reason: parsed.reason || '' };
-      }
-    } catch (e) {
-      console.warn('[email-writer] Follow-up scoring echoue: ' + e.message + ' - fallback 5');
-    }
-    return { note: 5, reason: 'fu_scoring_unavailable' };
-  }
-
   // Score leger pour les follow-ups/relances (Lavender /100, seuil 65 pour FU)
   async _scoreAndFilter(parsed, contact) {
     if (!parsed || parsed.skip) return parsed;
@@ -1079,7 +970,7 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
       if (!Array.isArray(emails)) throw new Error('Format invalide');
 
       if (emails.length < totalEmails) {
-        console.warn('[email-writer] Claude a genere ' + emails.length + '/' + totalEmails + ' emails, padding');
+        log.warn('email-writer', 'Claude a genere ' + emails.length + '/' + totalEmails + ' emails, padding');
         while (emails.length < totalEmails) {
           const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
           emails.push({
@@ -1113,7 +1004,7 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
   }
 
   async generateReactiveFollowUp(contact, originalEmail, prospectIntel) {
-    let emailLengthHint = '50-80 mots (vise 65, JAMAIS plus de 80)';
+    let emailLengthHint = '40-60 mots (vise 50, JAMAIS plus de 80)';
     try {
       const selfImproveStorage = require('../self-improve/storage.js');
       const prefs = selfImproveStorage.getEmailPreferences();
