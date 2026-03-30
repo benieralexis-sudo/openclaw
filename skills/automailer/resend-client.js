@@ -362,13 +362,7 @@ class ResendClient {
     // Benchmark Instantly 2026 : tracking pixels/clicks = -10-15% reply rate
     // Les URL redirects via tracking domain sont un signal spam fort pour Gmail/Outlook
     // On garde les liens bruts (meilleure délivrabilité)
-    if (false && trackingId && !isYoungDomain) {
-      escaped = escaped.replace(/(https?:\/\/[^\s<>"'()]+)/g, (url) => {
-        const cleanUrl = url.replace(/&amp;/g, '&');
-        const trackUrl = 'https://' + trackingDomain + '/c/' + trackingId + '?url=' + encodeURIComponent(cleanUrl);
-        return '<a href="' + trackUrl + '" style="color:#1a73e8;text-decoration:none">' + url + '</a>';
-      });
-    }
+    // Click tracking desactive (v8.5 — -10-15% reply rate, signal spam Gmail/Outlook)
 
     // Lien de desabonnement visible dans le footer (obligatoire legalement, meme sur domaines jeunes)
     const unsubLink = toEmail
