@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guide de Closing iFIND &mdash; Le manuel complet</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg:#fff;
+  --text:#1a1a1a;
+  --text-2:#555;
+  --text-3:#888;
+  --accent:#2563EB;
+  --accent-bg:#EFF6FF;
+  --green:#16a34a;
+  --green-bg:#f0fdf4;
+  --red:#dc2626;
+  --red-bg:#fef2f2;
+  --amber:#d97706;
+  --amber-bg:#fffbeb;
+  --border:#e5e7eb;
+  --surface:#f9fafb;
+}
+
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text);line-height:1.8;max-width:800px;margin:0 auto;padding:40px 24px;font-size:15px}
+
+h1{font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:800;letter-spacing:-0.03em;margin-bottom:8px;color:var(--text)}
+h2{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:48px 0 20px;color:var(--text);padding-bottom:12px;border-bottom:2px solid var(--accent)}
+h3{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;margin:32px 0 12px;color:var(--text)}
+h4{font-size:16px;font-weight:700;margin:24px 0 8px;color:var(--text)}
+
+p{margin-bottom:12px}
+strong{font-weight:700}
+em{font-style:italic;color:var(--text-2)}
+
+.subtitle{font-size:18px;color:var(--text-2);margin-bottom:32px}
+.page-label{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:8px}
+
+/* Cards */
+.tip{background:var(--accent-bg);border-left:4px solid var(--accent);padding:16px 20px;border-radius:0 8px 8px 0;margin:20px 0;font-size:14px}
+.tip strong{color:var(--accent)}
+.warning{background:var(--red-bg);border-left:4px solid var(--red);padding:16px 20px;border-radius:0 8px 8px 0;margin:20px 0;font-size:14px}
+.warning strong{color:var(--red)}
+.success{background:var(--green-bg);border-left:4px solid var(--green);padding:16px 20px;border-radius:0 8px 8px 0;margin:20px 0;font-size:14px}
+.success strong{color:var(--green)}
+
+/* Script blocks */
+.script{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin:16px 0;font-size:14px;position:relative}
+.script::before{content:'SCRIPT';position:absolute;top:-10px;left:16px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 10px;border-radius:4px;letter-spacing:.06em}
+.script p{margin-bottom:8px}
+.script p:last-child{margin-bottom:0}
+.you{color:var(--accent);font-weight:600}
+.prospect{color:var(--text-3);font-style:italic}
+
+/* Objection table */
+.obj{margin:16px 0;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.obj-header{background:var(--red-bg);padding:14px 20px;font-weight:700;font-size:14px;color:var(--red);border-bottom:1px solid var(--border)}
+.obj-body{padding:16px 20px;font-size:14px;background:var(--green-bg)}
+.obj-body strong{color:var(--green)}
+
+/* Checklist */
+.checklist{list-style:none;margin:16px 0}
+.checklist li{padding:8px 0;padding-left:28px;position:relative;font-size:14px}
+.checklist li::before{content:'&#9744;';position:absolute;left:0;font-size:18px;color:var(--accent)}
+
+/* Steps */
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:var(--accent);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;border-radius:8px;margin-right:10px}
+
+/* Table */
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+th{background:var(--surface);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-2)}
+tr:hover td{background:var(--surface)}
+
+/* Timeline */
+.timeline{position:relative;padding-left:40px;margin:20px 0}
+.timeline::before{content:'';position:absolute;left:14px;top:0;bottom:0;width:2px;background:var(--accent)}
+.timeline-item{position:relative;padding:12px 0}
+.timeline-item::before{content:'';position:absolute;left:-33px;top:16px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:3px solid var(--bg)}
+.timeline-item h4{margin:0 0 4px;font-size:15px}
+.timeline-item p{margin:0;font-size:14px;color:var(--text-2)}
+
+/* Print */
+@media print{
+  body{padding:20px;font-size:13px;max-width:100%}
+  h2{page-break-before:always;margin-top:0}
+  h2:first-of-type{page-break-before:avoid}
+  .script,.tip,.warning,.success,.obj{break-inside:avoid}
+  @page{margin:2cm}
+}
+
+/* Separator */
+hr{border:none;height:1px;background:var(--border);margin:40px 0}
+
+/* TOC */
+.toc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px 28px;margin:24px 0}
+.toc h3{margin:0 0 16px;font-size:16px}
+.toc ol{padding-left:20px}
+.toc li{padding:4px 0;font-size:14px}
+.toc a{color:var(--accent);text-decoration:none;font-weight:500}
+.toc a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<p class="page-label">Guide interne &mdash; iFIND</p>
+<h1>Le Guide Complet de Closing</h1>
+<p class="subtitle">Comment transformer un appel de 15 minutes en client &agrave; 890-2 490&euro;/mois. Script mot-&agrave;-mot, objections, techniques, suivi.</p>
+
+<div class="toc">
+<h3>Sommaire</h3>
+<ol>
+  <li><a href="#part1">Ce que vous vendez (vraiment)</a></li>
+  <li><a href="#part2">Avant le call &mdash; pr&eacute;paration</a></li>
+  <li><a href="#part3">Les 3 premi&egrave;res minutes &mdash; cr&eacute;er la confiance</a></li>
+  <li><a href="#part4">La d&eacute;couverte &mdash; comprendre le vrai probl&egrave;me</a></li>
+  <li><a href="#part5">La d&eacute;mo &mdash; montrer, pas expliquer</a></li>
+  <li><a href="#part6">L'offre &mdash; pr&eacute;senter le prix</a></li>
+  <li><a href="#part7">Les objections &mdash; chaque r&eacute;ponse</a></li>
+  <li><a href="#part8">Le closing &mdash; conclure</a></li>
+  <li><a href="#part9">Apr&egrave;s le call &mdash; transformer &laquo; je r&eacute;fl&eacute;chis &raquo; en oui</a></li>
+  <li><a href="#part10">R&eacute;sum&eacute; en 1 page</a></li>
+</ol>
+</div>
+
+<!-- ============================================ -->
+<h2 id="part1"><span class="step-num">1</span> Ce que vous vendez (vraiment)</h2>
+
+<p>Avant d'apprendre &agrave; closer, il faut comprendre ce que le client ach&egrave;te. <strong>Il n'ach&egrave;te pas des emails. Il n'ach&egrave;te pas un logiciel. Il n'ach&egrave;te pas des leads.</strong></p>
+
+<h3>Ce que le client ach&egrave;te r&eacute;ellement :</h3>
+
+<table>
+<tr><th>Ce que vous dites</th><th>Ce que le client entend</th></tr>
+<tr><td>&laquo; Agent IA de prospection &raquo;</td><td>&laquo; Je n'ai plus &agrave; prospecter moi-m&ecirc;me &raquo;</td></tr>
+<tr><td>&laquo; 500 prospects contact&eacute;s/mois &raquo;</td><td>&laquo; Mon pipeline ne sera plus jamais vide &raquo;</td></tr>
+<tr><td>&laquo; Emails hyper-personnalis&eacute;s &raquo;</td><td>&laquo; Ma r&eacute;putation est prot&eacute;g&eacute;e &raquo;</td></tr>
+<tr><td>&laquo; Dashboard temps r&eacute;el &raquo;</td><td>&laquo; Je garde le contr&ocirc;le sans rien faire &raquo;</td></tr>
+<tr><td>&laquo; 890&euro;/mois &raquo;</td><td>&laquo; 4x moins cher qu'un commercial, et &ccedil;a travaille le weekend &raquo;</td></tr>
+</table>
+
+<div class="tip">
+<strong>R&egrave;gle d'or :</strong> Ne vendez jamais des fonctionnalit&eacute;s. Vendez le r&eacute;sultat. Le prospect se fiche de savoir comment &ccedil;a marche. Il veut savoir : &laquo; Est-ce que je vais avoir des RDV sans y passer mes journ&eacute;es ? &raquo;
+</div>
+
+<h3>Votre proposition de valeur en une phrase :</h3>
+<div class="script">
+<p><span class="you">&laquo; On remplace 10h de prospection par semaine et 5 outils diff&eacute;rents par un seul agent IA qui travaille pour vous 24h/24. Vous ne touchez &agrave; rien, vous recevez des opportunit&eacute;s dans votre agenda. &raquo;</span></p>
+</div>
+
+<h3>Les 3 profils de prospects que vous allez rencontrer :</h3>
+
+<table>
+<tr><th>Profil</th><th>Ce qu'il veut entendre</th><th>Comment le closer</th></tr>
+<tr><td><strong>Le fondateur d&eacute;bord&eacute;</strong><br><em>Il prospecte lui-m&ecirc;me, n'a pas le temps</em></td><td>&laquo; Vous n'aurez plus &agrave; y penser &raquo;</td><td>Insister sur le temps lib&eacute;r&eacute; et le z&eacute;ro effort</td></tr>
+<tr><td><strong>Le directeur commercial frustr&eacute;</strong><br><em>Il a essay&eacute; des agences/outils, &ccedil;a n'a pas march&eacute;</em></td><td>&laquo; On est diff&eacute;rents, voici pourquoi &raquo;</td><td>Montrer la comparaison email g&eacute;n&eacute;rique vs iFIND</td></tr>
+<tr><td><strong>Le CEO qui veut scaler</strong><br><em>Il a d&eacute;j&agrave; des clients, veut acc&eacute;l&eacute;rer</em></td><td>&laquo; On peut tripler votre volume sans recruter &raquo;</td><td>Parler des plans Growth/Scale et du multi-canal</td></tr>
+</table>
+
+<!-- ============================================ -->
+<h2 id="part2"><span class="step-num">2</span> Avant le call &mdash; pr&eacute;paration</h2>
+
+<p>Un call pr&eacute;par&eacute; a <strong>3x plus de chances de closer</strong> qu'un call improvis&eacute;. Voici exactement ce que vous devez faire <strong>10 minutes avant chaque appel</strong>.</p>
+
+<h3>Checklist de pr&eacute;paration (10 min)</h3>
+
+<ul class="checklist">
+<li>Ouvrir le profil LinkedIn du prospect &mdash; noter son poste, depuis combien de temps, son parcours</li>
+<li>Ouvrir le site web de son entreprise &mdash; comprendre ce qu'ils vendent, &agrave; qui, et comment</li>
+<li>Chercher une actualit&eacute; r&eacute;cente &mdash; lev&eacute;e de fonds, recrutement, nouveau produit, post LinkedIn</li>
+<li>Identifier la taille de l'entreprise &mdash; combien d'employ&eacute;s, quel stade (startup, PME, scale-up)</li>
+<li>Pr&eacute;parer 1 question personnalis&eacute;e &mdash; bas&eacute;e sur ce que vous avez trouv&eacute;</li>
+<li>Ouvrir le dashboard iFIND &mdash; pr&ecirc;t pour la d&eacute;mo</li>
+<li>V&eacute;rifier votre micro, cam&eacute;ra, connexion &mdash; rien de pire qu'un probl&egrave;me technique</li>
+</ul>
+
+<div class="tip">
+<strong>Astuce :</strong> Notez 3 mots-cl&eacute;s sur un post-it avant le call. Exemple : &laquo; SaaS RH &mdash; 25 employ&eacute;s &mdash; recrute 3 commerciaux &raquo;. &Ccedil;a vous permet de personnaliser votre pitch en 3 secondes.
+</div>
+
+<h3>Votre &eacute;tat d'esprit</h3>
+
+<p>Vous n'&ecirc;tes <strong>pas un vendeur qui supplie</strong>. Vous &ecirc;tes un <strong>expert qui offre une solution</strong>. Le prospect a un probl&egrave;me (pas assez de clients). Vous avez la solution (un agent IA qui prospecte pour lui).</p>
+
+<div class="warning">
+<strong>&Agrave; ne JAMAIS faire :</strong>
+<br>&bull; Commencer par pitcher votre produit
+<br>&bull; Parler plus que le prospect
+<br>&bull; Baisser le prix avant qu'on vous le demande
+<br>&bull; Dire &laquo; on est une startup &raquo; ou &laquo; on d&eacute;bute &raquo;
+<br>&bull; S'excuser pour le prix
+</div>
+
+<!-- ============================================ -->
+<h2 id="part3"><span class="step-num">3</span> Les 3 premi&egrave;res minutes &mdash; cr&eacute;er la confiance</h2>
+
+<p>Les 3 premi&egrave;res minutes d&eacute;terminent tout. Si le prospect ne vous fait pas confiance &agrave; la minute 3, il n'ach&egrave;tera pas &agrave; la minute 15. Votre objectif ici : <strong>&ecirc;tre humain, pas commercial</strong>.</p>
+
+<h3>Script d'ouverture</h3>
+
+<div class="script">
+<p><span class="you">Vous :</span> &laquo; Bonjour [Pr&eacute;nom], merci d'avoir pris le temps. Avant de commencer &mdash; vous &ecirc;tes bien install&eacute;, on est bons c&ocirc;t&eacute; son ? &raquo;</p>
+<p><span class="prospect">Prospect :</span> &laquo; Oui c'est bon &raquo;</p>
+<p><span class="you">Vous :</span> &laquo; Parfait. Alors &eacute;coutez, l'id&eacute;e c'est de faire connaissance. J'aimerais d'abord comprendre comment vous g&eacute;rez votre prospection aujourd'hui, quels sont vos enjeux, et ensuite je vous montre comment on peut vous aider. Si &agrave; la fin on se dit que c'est pas le bon fit, aucun souci &mdash; pas de pression. &Ccedil;a vous va ? &raquo;</p>
+<p><span class="prospect">Prospect :</span> &laquo; Oui parfait &raquo;</p>
+</div>
+
+<div class="tip">
+<strong>Pourquoi &ccedil;a marche :</strong>
+<br>&bull; <strong>&laquo; Merci d'avoir pris le temps &raquo;</strong> &mdash; vous montrez du respect
+<br>&bull; <strong>&laquo; J'aimerais d'abord comprendre &raquo;</strong> &mdash; vous &eacute;coutez avant de parler
+<br>&bull; <strong>&laquo; Si c'est pas le bon fit, aucun souci &raquo;</strong> &mdash; vous enlevez la pression, le prospect se d&eacute;tend
+<br>&bull; <strong>&laquo; &Ccedil;a vous va ? &raquo;</strong> &mdash; vous lui donnez le contr&ocirc;le
+</div>
+
+<h3>Si le prospect est press&eacute;</h3>
+
+<div class="script">
+<p><span class="prospect">Prospect :</span> &laquo; Je n'ai que 10 minutes &raquo;</p>
+<p><span class="you">Vous :</span> &laquo; Pas de probl&egrave;me. Deux questions rapides pour comprendre votre situation, et je vous montre en 5 minutes comment on peut vous aider. On va droit au but. &raquo;</p>
+</div>
+
+<!-- ============================================ -->
+<h2 id="part4"><span class="step-num">4</span> La d&eacute;couverte &mdash; comprendre le vrai probl&egrave;me</h2>
+
+<p>C'est la partie la plus importante du call. <strong>Celui qui pose les questions contr&ocirc;le la conversation.</strong> Votre objectif : que le prospect vous dise lui-m&ecirc;me qu'il a un probl&egrave;me.</p>
+
+<h3>Les 5 questions cl&eacute;s (dans l'ordre)</h3>
+
+<h4>Question 1 &mdash; La situation actuelle</h4>
+<div class="script">
+<p><span class="you">&laquo; Comment vous faites pour trouver de nouveaux clients aujourd'hui ? &raquo;</span></p>
+</div>
+<p><em>Laissez-le parler. Ne l'interrompez pas. Prenez des notes. Cette question r&eacute;v&egrave;le s'il prospecte lui-m&ecirc;me, s'il a une &eacute;quipe, s'il utilise des outils, ou s'il ne fait rien du tout.</em></p>
+
+<h4>Question 2 &mdash; Le temps invest</h4>
+<div class="script">
+<p><span class="you">&laquo; Et combien de temps &ccedil;a vous prend par semaine, concr&egrave;tement ? &raquo;</span></p>
+</div>
+<p><em>La r&eacute;ponse est presque toujours &laquo; trop &raquo;. C'est cette douleur que vous allez r&eacute;soudre.</em></p>
+
+<h4>Question 3 &mdash; Les r&eacute;sultats</h4>
+<div class="script">
+<p><span class="you">&laquo; Et en termes de r&eacute;sultats, &ccedil;a donne quoi ? Combien de RDV par mois environ ? &raquo;</span></p>
+</div>
+<p><em>La plupart diront &laquo; pas assez &raquo; ou &laquo; c'est irr&eacute;gulier &raquo;. C'est exactement ce que vous voulez entendre.</em></p>
+
+<h4>Question 4 &mdash; Les tentatives pass&eacute;es</h4>
+<div class="script">
+<p><span class="you">&laquo; Vous avez d&eacute;j&agrave; essay&eacute; un outil ou une agence pour la prospection ? &raquo;</span></p>
+</div>
+<p><em>S'il a essay&eacute; et &eacute;chou&eacute; : vous savez quoi &eacute;viter. S'il n'a rien essay&eacute; : il est m&ucirc;r pour une premi&egrave;re solution.</em></p>
+
+<h4>Question 5 &mdash; L'objectif</h4>
+<div class="script">
+<p><span class="you">&laquo; Dans un monde id&eacute;al, combien de nouveaux RDV qualifi&eacute;s par mois &ccedil;a changerait la donne pour vous ? &raquo;</span></p>
+</div>
+<p><em>Cette question fait r&ecirc;ver le prospect. Il se projette. Et il vous donne un chiffre que vous pourrez r&eacute;utiliser plus tard.</em></p>
+
+<div class="success">
+<strong>La phrase magique apr&egrave;s la d&eacute;couverte :</strong>
+<br><br>&laquo; OK, donc si je r&eacute;sume : vous passez [X heures] par semaine &agrave; prospecter, vous obtenez [X RDV] par mois, et id&eacute;alement vous aimeriez atteindre [Y RDV] sans y passer vos journ&eacute;es. C'est bien &ccedil;a ? &raquo;
+<br><br>Le prospect dit &laquo; oui &raquo;. <strong>Vous venez de lui faire valider son propre probl&egrave;me.</strong> Maintenant il est pr&ecirc;t &agrave; entendre votre solution.
+</div>
+
+<h3>Ce que vous &eacute;coutez (et notez)</h3>
+
+<table>
+<tr><th>Ce que le prospect dit</th><th>Ce que &ccedil;a signifie</th><th>Comment l'utiliser</th></tr>
+<tr><td>&laquo; Je fais tout moi-m&ecirc;me &raquo;</td><td>Il manque de temps, il est &eacute;puis&eacute;</td><td>Insister sur &laquo; 0h de votre temps &raquo;</td></tr>
+<tr><td>&laquo; J'ai essay&eacute; une agence, c'&eacute;tait nul &raquo;</td><td>Il a &eacute;t&eacute; d&eacute;&ccedil;u, il est m&eacute;fiant</td><td>Montrer la diff&eacute;rence template vs iFIND</td></tr>
+<tr><td>&laquo; On n'a pas de process &raquo;</td><td>Il part de z&eacute;ro</td><td>Insister sur le cl&eacute; en main, il ne touche &agrave; rien</td></tr>
+<tr><td>&laquo; C'est irr&eacute;gulier &raquo;</td><td>Quand il prospecte &ccedil;a marche, mais il arr&ecirc;te</td><td>&laquo; L'agent ne s'arr&ecirc;te jamais, m&ecirc;me le weekend &raquo;</td></tr>
+<tr><td>&laquo; J'ai un budget limit&eacute; &raquo;</td><td>Il n&eacute;gocie d&eacute;j&agrave;</td><td>Comparer au co&ucirc;t d'un commercial (3 500&euro;)</td></tr>
+</table>
+
+<!-- ============================================ -->
+<h2 id="part5"><span class="step-num">5</span> La d&eacute;mo &mdash; montrer, pas expliquer</h2>
+
+<p>Apr&egrave;s la d&eacute;couverte, le prospect a valid&eacute; son probl&egrave;me. <strong>Maintenant vous montrez la solution.</strong> Pas en expliquant pendant 10 minutes. En montrant en 5 minutes.</p>
+
+<h3>Transition vers la d&eacute;mo</h3>
+
+<div class="script">
+<p><span class="you">&laquo; OK, je comprends bien votre situation. Laissez-moi vous montrer concr&egrave;tement comment &ccedil;a fonctionne &mdash; en 5 minutes vous aurez une id&eacute;e pr&eacute;cise. Je partage mon &eacute;cran. &raquo;</span></p>
+</div>
+
+<h3>Ce que vous montrez (dans cet ordre)</h3>
+
+<div class="timeline">
+<div class="timeline-item">
+<h4>1. Le dashboard &mdash; 1 minute</h4>
+<p>Montrez le tableau de bord avec les stats en direct. Le prospect voit : emails envoy&eacute;s, taux d'ouverture (43%), taux de r&eacute;ponse, leads chauds. <strong>&laquo; Voici ce que vous verriez dans votre propre dashboard. Tout est en temps r&eacute;el. &raquo;</strong></p>
+</div>
+<div class="timeline-item">
+<h4>2. Un exemple d'email &mdash; 2 minutes</h4>
+<p>Montrez un vrai email g&eacute;n&eacute;r&eacute; par l'IA. Puis montrez un template g&eacute;n&eacute;rique &agrave; c&ocirc;t&eacute;. <strong>&laquo; Voici la diff&eacute;rence. &Agrave; gauche, ce que font 95% des agences. &Agrave; droite, ce que notre IA r&eacute;dige. Lequel vous ouvririez ? &raquo;</strong> Le prospect r&eacute;pond toujours &laquo; celui de droite &raquo;.</p>
+</div>
+<div class="timeline-item">
+<h4>3. Le process &mdash; 2 minutes</h4>
+<p><strong>&laquo; Voici comment &ccedil;a se passe si on travaille ensemble : Semaine 1, on fait un deep dive sur votre cible. Semaine 2, on configure tout. Semaine 3, les premiers emails partent. Vous ne touchez &agrave; rien. &raquo;</strong></p>
+</div>
+</div>
+
+<div class="warning">
+<strong>Pi&egrave;ges &agrave; &eacute;viter pendant la d&eacute;mo :</strong>
+<br>&bull; Ne montrez pas trop de fonctionnalit&eacute;s &mdash; 3 &eacute;l&eacute;ments suffisent
+<br>&bull; Ne parlez pas de technique (IA, Clay, API) &mdash; le prospect s'en fiche
+<br>&bull; Ne montrez pas de chiffres que vous ne pouvez pas expliquer
+<br>&bull; Ne dites jamais &laquo; c'est un peu technique &raquo; &mdash; gardez tout simple
+</div>
+
+<!-- ============================================ -->
+<h2 id="part6"><span class="step-num">6</span> L'offre &mdash; pr&eacute;senter le prix</h2>
+
+<p>C'est le moment o&ugrave; beaucoup de gens paniquent. <strong>Pas vous.</strong> Le prix est l&eacute;gitime. 890&euro; c'est 4x moins qu'un commercial. Voici comment le pr&eacute;senter sans h&eacute;siter.</p>
+
+<h3>La transition</h3>
+
+<div class="script">
+<p><span class="you">&laquo; Bon, vous avez vu comment &ccedil;a marche. La question maintenant c'est : est-ce que &ccedil;a fait sens pour [nom de l'entreprise] ? Je vous explique comment on travaille. &raquo;</span></p>
+</div>
+
+<h3>Pr&eacute;senter l'offre</h3>
+
+<div class="script">
+<p><span class="you">&laquo; On a 3 plans. Le plus adapt&eacute; &agrave; votre situation, c'est le [Starter/Growth]. Voici pourquoi : &raquo;</span></p>
+<p><span class="you">&laquo; Le plan [Starter], c'est [500] prospects qualifi&eacute;s contact&eacute;s chaque mois. Emails personnalis&eacute;s par l'IA, relances intelligentes, dashboard en temps r&eacute;el. On s'occupe de tout. Vous, vous ne faites rien &agrave; part r&eacute;pondre quand un prospect est int&eacute;ress&eacute;. &raquo;</span></p>
+<p><span class="you">&laquo; C'est 890&euro; par mois, avec un engagement de 3 mois. Et c'est le tarif fondateur &mdash; il est bloqu&eacute; &agrave; vie pour les premiers clients. &raquo;</span></p>
+</div>
+
+<h3>La technique de l'ancrage</h3>
+
+<div class="script">
+<p><span class="you">&laquo; Pour mettre &ccedil;a en perspective : un commercial junior co&ucirc;te 3 500&euro; par mois, il met 3 &agrave; 6 mois &agrave; &ecirc;tre productif, et il a un turnover de 14 mois. L&agrave;, pour 890&euro;, vous avez un agent qui travaille 24h/24, 7 jours sur 7, et qui s'am&eacute;liore chaque semaine. &raquo;</span></p>
+</div>
+
+<div class="tip">
+<strong>R&egrave;gle absolue :</strong> Apr&egrave;s avoir annonc&eacute; le prix, <strong>TAISEZ-VOUS</strong>. Ne comblez pas le silence. Le premier qui parle perd. Le prospect r&eacute;fl&eacute;chit. Laissez-le r&eacute;fl&eacute;chir. Attendez sa r&eacute;action.
+</div>
+
+<h3>Quel plan recommander ?</h3>
+
+<table>
+<tr><th>Profil du prospect</th><th>Plan recommand&eacute;</th><th>Pourquoi</th></tr>
+<tr><td>Petit budget, veut tester</td><td><strong>Starter (890&euro;)</strong></td><td>Faible risque, premier contact avec l'IA</td></tr>
+<tr><td>A d&eacute;j&agrave; une &eacute;quipe sales, veut scaler</td><td><strong>Growth (1 490&euro;)</strong></td><td>Multi-canal email+LinkedIn, plus de volume</td></tr>
+<tr><td>Grosse ambition, veut dominer son march&eacute;</td><td><strong>Scale (2 490&euro;)</strong></td><td>Volume max, account manager d&eacute;di&eacute;</td></tr>
+</table>
+
+<div class="success">
+<strong>Technique &laquo; Growth par d&eacute;faut &raquo; :</strong> Pr&eacute;sentez toujours le Growth en premier (&laquo; c'est le plus adapt&eacute; &agrave; votre situation &raquo;). Si le prospect h&eacute;site sur le prix, descendez au Starter. Il a l'impression d'avoir n&eacute;goci&eacute; et d'obtenir un bon deal.
+</div>
+
+<!-- ============================================ -->
+<h2 id="part7"><span class="step-num">7</span> Les objections &mdash; chaque r&eacute;ponse</h2>
+
+<p>Les objections ne sont pas des refus. Ce sont des <strong>questions d&eacute;guis&eacute;es</strong>. Le prospect veut &ecirc;tre rassur&eacute;. Voici chaque objection que vous entendrez et la r&eacute;ponse exacte.</p>
+
+<h3>Objection #1 &mdash; Le prix</h3>
+
+<div class="obj">
+<div class="obj-header">&laquo; C'est trop cher &raquo; / &laquo; J'ai pas le budget &raquo;</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Je comprends. Mais posons la question autrement : combien vous co&ucirc;te le fait de ne PAS avoir de pipeline r&eacute;gulier ? Si vous signez un seul client &agrave; [montant moyen de son offre] gr&acirc;ce &agrave; iFIND, le retour sur investissement est de combien ? Pour 890&euro;, il suffit d'un seul deal pour que &ccedil;a soit rentable. Et un commercial qui fait le m&ecirc;me travail co&ucirc;te 3 500&euro; par mois. &raquo;
+</div>
+</div>
+
+<h3>Objection #2 &mdash; La confiance (3 niveaux)</h3>
+
+<div class="obj">
+<div class="obj-header">Niveau 1 &mdash; &laquo; Vous avez des r&eacute;f&eacute;rences ? &raquo; (question vague)</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; On est en phase de lancement &mdash; c'est justement pour &ccedil;a qu'on a ce tarif fondateur &agrave; 890&euro; au lieu de 1 290&euro;. Ce que je peux vous montrer, c'est le dashboard en live. Vous voyez exactement les emails qui partent, les taux d'ouverture, les r&eacute;ponses. Rien n'est opaque. Et ce que vous avez re&ccedil;u comme email de notre part &mdash; c'est exactement ce que recevront vos prospects. Vous avez vu la qualit&eacute; vous-m&ecirc;me. &raquo;
+</div>
+</div>
+
+<div class="tip"><strong>Cl&eacute; :</strong> Retourner la faiblesse en avantage (tarif fondateur). Utiliser l'email re&ccedil;u par le prospect comme preuve vivante.</div>
+
+<div class="obj">
+<div class="obj-header">Niveau 2 &mdash; &laquo; Oui mais concr&egrave;tement, combien de clients ? &raquo; (insistance)</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Aujourd'hui, on travaille avec 2 entreprises. On est d&eacute;lib&eacute;r&eacute;ment en petit nombre parce que chaque client a un agent d&eacute;di&eacute; et je veux que les 3-5 premiers aient un accompagnement irr&eacute;prochable. C'est pour &ccedil;a que le pricing est bloqu&eacute; pour les premiers clients &mdash; vous b&eacute;n&eacute;ficiez d'un niveau d'attention qu'on ne pourra plus offrir &agrave; 890&euro; quand on aura 20 clients. &raquo;
+</div>
+</div>
+
+<div class="tip"><strong>Cl&eacute; :</strong> &laquo; Peu de clients &raquo; = &laquo; attention exclusive &raquo;. Transformer le petit nombre en avantage pour le prospect.</div>
+
+<div class="obj">
+<div class="obj-header">Niveau 3 &mdash; &laquo; J'ai besoin de plus de preuves &raquo; (scepticisme fort)</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Je comprends totalement. Voici ce que je vous propose : on lance sur 50 prospects pendant 3 semaines. Vous voyez tout dans le dashboard &mdash; les emails, les taux, les r&eacute;ponses. Si les r&eacute;sultats ne vous convainquent pas apr&egrave;s 30 jours, on s'arr&ecirc;te l&agrave;. Mais si &ccedil;a marche &mdash; et je suis confiant &mdash; vous serez parmi les premiers &agrave; avoir bloqu&eacute; le tarif fondateur. &raquo;
+</div>
+</div>
+
+<div class="tip"><strong>Cl&eacute; :</strong> R&eacute;duire le risque per&ccedil;u. Le prospect peut voir les r&eacute;sultats en temps r&eacute;el. Quasi impossible &agrave; refuser si le besoin est r&eacute;el.</div>
+
+<div class="warning"><strong>Framework &agrave; retenir :</strong> &Agrave; chaque niveau, m&ecirc;me structure : 1. Reconna&icirc;tre (&laquo; C'est l&eacute;gitime &raquo;) &rarr; 2. Retourner (faiblesse &rarr; avantage) &rarr; 3. Prouver (dashboard, email re&ccedil;u, test) &rarr; 4. Ancrer (tarif fondateur = opportunit&eacute; limit&eacute;e)</div>
+
+<h3>Objection #3 &mdash; Les r&eacute;sultats</h3>
+
+<div class="obj">
+<div class="obj-header">&laquo; Combien de RDV je vais avoir ? &raquo; / &laquo; Vous garantissez des r&eacute;sultats ? &raquo;</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Je ne vais pas vous promettre un chiffre magique &mdash; quiconque le fait vous ment. Ce que je peux vous dire : 500 prospects qualifi&eacute;s contact&eacute;s chaque mois, avec des messages personnalis&eacute;s qui obtiennent un taux d'ouverture de 43%, c'est 3 fois la moyenne du march&eacute;. Les r&eacute;sultats concrets d&eacute;pendent de votre offre et de votre march&eacute;. Mais les conditions pour r&eacute;ussir sont l&agrave;. &raquo;
+</div>
+</div>
+
+<h3>Objection #4 &mdash; L'engagement</h3>
+
+<div class="obj">
+<div class="obj-header">&laquo; 3 mois c'est long &raquo; / &laquo; Je pr&eacute;f&egrave;re tester 1 mois &raquo;</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Je comprends. Mais voil&agrave; pourquoi 3 mois : les 2 premi&egrave;res semaines, on configure tout. En semaine 3, les premiers emails partent. Le vrai potentiel se voit au mois 2, quand l'IA a appris de vos retours. Si on faisait 1 mois, vous partiriez au moment o&ugrave; &ccedil;a commence &agrave; marcher. C'est comme embaucher un commercial et le virer au bout de 2 semaines &mdash; personne ne juge un commercial sur ses 2 premi&egrave;res semaines. &raquo;
+</div>
+</div>
+
+<h3>Objection #5 &mdash; La concurrence</h3>
+
+<div class="obj">
+<div class="obj-header">&laquo; Quelle diff&eacute;rence avec Lemlist / Instantly / [agence X] ? &raquo;</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Lemlist et Instantly sont des outils. Vous devez tout faire vous-m&ecirc;me : trouver les contacts, r&eacute;diger les messages, configurer les s&eacute;quences, analyser les r&eacute;sultats. C'est facilement 10h par semaine. Avec iFIND, vous ne touchez &agrave; rien. On est un service cl&eacute; en main. C'est comme comparer Photoshop et engager un graphiste &mdash; l'un est un outil, l'autre fait le travail pour vous. &raquo;
+</div>
+</div>
+
+<h3>Objection #6 &mdash; Le timing</h3>
+
+<div class="obj">
+<div class="obj-header">&laquo; C'est pas le bon moment &raquo; / &laquo; On verra plus tard &raquo;</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Je comprends. Mais laissez-moi vous poser une question : si on lance maintenant, dans 3 mois vous avez un pipeline r&eacute;gulier. Si on attend 3 mois, dans 6 mois vous &ecirc;tes au m&ecirc;me point. Le meilleur moment pour planter un arbre c'&eacute;tait il y a 10 ans, le deuxi&egrave;me meilleur moment c'est maintenant. Et le tarif fondateur &agrave; 890&euro; ne sera pas l&agrave; &eacute;ternellement. &raquo;
+</div>
+</div>
+
+<h3>Objection #7 &mdash; La d&eacute;cision</h3>
+
+<div class="obj">
+<div class="obj-header">&laquo; Je dois en parler &agrave; mon associ&eacute; / mon &eacute;quipe &raquo;</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Bien s&ucirc;r. Est-ce qu'il serait possible de faire un rapide call &agrave; 3 ? Comme &ccedil;a je r&eacute;ponds directement &agrave; ses questions, et vous gagnez du temps. Sinon, je peux vous envoyer un r&eacute;cap&eacute; d&eacute;taill&eacute; par email que vous pourrez lui transf&eacute;rer &mdash; avec les points cl&eacute;s qu'on a discut&eacute;s. &raquo;
+</div>
+</div>
+
+<h3>Objection #8 &mdash; Le DIY</h3>
+
+<div class="obj">
+<div class="obj-header">&laquo; Je peux le faire moi-m&ecirc;me &raquo; / &laquo; J'ai d&eacute;j&agrave; les outils &raquo;</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Absolument. Mais faisons le calcul : Sales Navigator c'est 100&euro;, un outil d'enrichissement c'est 200-500&euro;, un outil d'envoi c'est 80&euro;, plus 10-15h de votre temps chaque semaine. Si votre heure vaut 50&euro;, c'est 2 000-3 000&euro; par mois de co&ucirc;t r&eacute;el. Nous, on fait tout pour 890&euro; et 0h de votre temps. Le vrai co&ucirc;t, c'est votre temps. &raquo;
+</div>
+</div>
+
+<h3>Objection #9 &mdash; Le spam</h3>
+
+<div class="obj">
+<div class="obj-header">&laquo; Je ne veux pas spammer &raquo; / &laquo; J'ai peur pour ma r&eacute;putation &raquo;</div>
+<div class="obj-body">
+<strong>R&eacute;ponse :</strong> &laquo; Et vous avez raison &mdash; c'est justement pour &ccedil;a qu'on existe. Notre IA r&eacute;dige chaque message individuellement, bas&eacute; sur une recherche approfondie du prospect. Rien &agrave; voir avec un template envoy&eacute; &agrave; 10 000 personnes. Nos taux d'ouverture sont &agrave; 43% &mdash; les spammeurs sont &agrave; 5%. La diff&eacute;rence c'est la qualit&eacute;, pas la quantit&eacute;. Et chaque email a un lien de d&eacute;sinscription, on est 100% RGPD. &raquo;
+</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="part8"><span class="step-num">8</span> Le closing &mdash; conclure</h2>
+
+<p>Vous avez fait la d&eacute;couverte, montr&eacute; la d&eacute;mo, pr&eacute;sent&eacute; l'offre, r&eacute;pondu aux objections. <strong>Maintenant il faut conclure.</strong></p>
+
+<h3>Technique #1 &mdash; Le closing direct</h3>
+<p>La plus simple. Apr&egrave;s avoir r&eacute;pondu &agrave; la derni&egrave;re question :</p>
+
+<div class="script">
+<p><span class="you">&laquo; Bon, &ccedil;a r&eacute;pond &agrave; vos questions ? ... Super. On part sur le plan [Starter/Growth] alors ? Je peux envoyer le contrat d&egrave;s cet apr&egrave;s-midi et on lance le deep dive d&egrave;s la semaine prochaine. &raquo;</span></p>
+</div>
+
+<h3>Technique #2 &mdash; Le closing par le choix</h3>
+<p>Vous ne demandez pas &laquo; oui ou non &raquo;. Vous demandez &laquo; lequel &raquo; :</p>
+
+<div class="script">
+<p><span class="you">&laquo; Pour votre situation, je vois deux options : le Starter &agrave; 890&euro; pour commencer tranquillement, ou le Growth &agrave; 1 490&euro; si vous voulez aussi le LinkedIn. Qu'est-ce qui vous parle le plus ? &raquo;</span></p>
+</div>
+
+<h3>Technique #3 &mdash; Le closing par la projection</h3>
+<p>Faites-le se projeter dans le futur :</p>
+
+<div class="script">
+<p><span class="you">&laquo; Imaginez : dans 3 semaines, votre agent IA tourne. Chaque matin vous ouvrez votre dashboard et vous voyez les prospects qui ont r&eacute;pondu. Vous n'avez rien fait, c'est automatique. Comment &ccedil;a changerait votre quotidien ? ... On lance quand ? &raquo;</span></p>
+</div>
+
+<h3>Technique #4 &mdash; Le closing par l'urgence l&eacute;gitime</h3>
+
+<div class="script">
+<p><span class="you">&laquo; Les tarifs fondateurs sont pour nos premiers clients. Une fois qu'on a atteint notre capacit&eacute;, les prix passent au tarif normal. Je ne peux pas vous garantir que le 890&euro; sera encore disponible le mois prochain. Si c'est quelque chose qui vous int&eacute;resse, c'est maintenant qu'il faut se positionner. &raquo;</span></p>
+</div>
+
+<div class="tip">
+<strong>La r&egrave;gle d'or du closing :</strong> Apr&egrave;s avoir pos&eacute; la question de closing, <strong>TAISEZ-VOUS</strong>. Le silence est votre meilleur alli&eacute;. M&ecirc;me si c'est inconfortable. M&ecirc;me si &ccedil;a dure 10 secondes. Le premier qui parle perd.
+</div>
+
+<h3>Si le prospect dit &laquo; OUI &raquo;</h3>
+
+<div class="script">
+<p><span class="you">&laquo; Super ! Voil&agrave; comment on proc&egrave;de : je vous envoie le contrat et la facture par email dans l'heure. D&egrave;s que c'est sign&eacute;, on planifie le call de deep dive cette semaine ou la semaine prochaine &mdash; c'est ce qui vous arrange le mieux ? &raquo;</span></p>
+</div>
+
+<h3>Si le prospect dit &laquo; JE R&Eacute;FL&Eacute;CHIS &raquo;</h3>
+
+<p>Ne paniquez pas. C'est normal. Allez &agrave; la partie 9.</p>
+
+<!-- ============================================ -->
+<h2 id="part9"><span class="step-num">9</span> Apr&egrave;s le call &mdash; transformer &laquo; je r&eacute;fl&eacute;chis &raquo; en oui</h2>
+
+<p>50% des deals se closent <strong>apr&egrave;s</strong> le call, pas pendant. Voici le process de suivi exact.</p>
+
+<h3>Imm&eacute;diatement apr&egrave;s le call (dans l'heure)</h3>
+
+<p>Envoyez un email de r&eacute;cap. Voici le template :</p>
+
+<div class="script">
+<p><strong>Objet :</strong> R&eacute;cap de notre &eacute;change &mdash; [Nom de l'entreprise]</p>
+<p>Bonjour [Pr&eacute;nom],</p>
+<p>Merci pour l'&eacute;change. Voici un r&eacute;cap de ce qu'on a discut&eacute; :</p>
+<p><strong>Votre situation :</strong><br>
+&bull; [R&eacute;sumer en 1-2 lignes ce qu'il vous a dit &mdash; sa douleur]<br>
+&bull; Objectif : [X] RDV qualifi&eacute;s par mois</p>
+<p><strong>Ce qu'on propose :</strong><br>
+&bull; Plan [Starter/Growth] &mdash; [500/1500] prospects contact&eacute;s/mois<br>
+&bull; Agent IA d&eacute;di&eacute;, emails hyper-personnalis&eacute;s, dashboard temps r&eacute;el<br>
+&bull; [890/1 490]&euro;/mois &mdash; tarif fondateur bloqu&eacute; &agrave; vie<br>
+&bull; Engagement 3 mois, 0&euro; de setup</p>
+<p><strong>Prochaine &eacute;tape :</strong><br>
+Si c'est bon pour vous, je vous envoie le contrat et on planifie le deep dive cette semaine.</p>
+<p>Je reste disponible si vous avez des questions.</p>
+<p>Alexis<br>iFIND &mdash; Agent IA de Prospection B2B</p>
+</div>
+
+<h3>Calendrier de suivi</h3>
+
+<div class="timeline">
+<div class="timeline-item">
+<h4>J+0 (apr&egrave;s le call) &mdash; Email de r&eacute;cap</h4>
+<p>Le template ci-dessus. Envoyez-le dans l'heure.</p>
+</div>
+<div class="timeline-item">
+<h4>J+2 &mdash; Relance douce</h4>
+<p>&laquo; Bonjour [Pr&eacute;nom], je voulais juste m'assurer que vous aviez bien re&ccedil;u mon email. Des questions depuis notre &eacute;change ? &raquo;</p>
+</div>
+<div class="timeline-item">
+<h4>J+5 &mdash; Relance valeur</h4>
+<p>Envoyez un contenu utile &mdash; un article, une statistique, un exemple d'email personnalis&eacute; que votre IA pourrait envoyer &agrave; SES prospects. <strong>Ne demandez rien.</strong> Donnez de la valeur.</p>
+</div>
+<div class="timeline-item">
+<h4>J+8 &mdash; Relance d&eacute;cision</h4>
+<p>&laquo; [Pr&eacute;nom], je voulais vous faire un point rapide : on lance l'onboarding de 2 nouveaux clients cette semaine. Si vous voulez qu'on d&eacute;marre ensemble, c'est le bon moment. Sinon, aucun souci &mdash; dites-le-moi et je ne vous emb&ecirc;te plus. &raquo;</p>
+</div>
+<div class="timeline-item">
+<h4>J+14 &mdash; Dernier message</h4>
+<p>&laquo; [Pr&eacute;nom], je comprends que le timing n'est peut-&ecirc;tre pas id&eacute;al. Je mets votre dossier en pause. Si un jour vous voulez relancer la discussion, je suis l&agrave;. Bonne continuation ! &raquo;</p>
+</div>
+</div>
+
+<div class="warning">
+<strong>Ne faites JAMAIS :</strong>
+<br>&bull; Plus de 4 relances &mdash; au-del&agrave;, vous harcelez
+<br>&bull; Baisser le prix dans un email &mdash; la n&eacute;gociation se fait en live
+<br>&bull; Envoyer un message passif-agressif (&laquo; je suppose que &ccedil;a ne vous int&eacute;resse plus &raquo;)
+<br>&bull; Relancer le weekend
+</div>
+
+<!-- ============================================ -->
+<h2 id="part10"><span class="step-num">10</span> R&eacute;sum&eacute; en 1 page</h2>
+
+<p>Imprimez cette page et gardez-la sous les yeux pendant vos calls.</p>
+
+<h3>Le call en 15 minutes</h3>
+
+<table>
+<tr><th>Minute</th><th>Quoi</th><th>Phrase cl&eacute;</th></tr>
+<tr><td><strong>0-2</strong></td><td>Ouvrir + cadrer</td><td>&laquo; J'aimerais d'abord comprendre votre situation &raquo;</td></tr>
+<tr><td><strong>2-7</strong></td><td>D&eacute;couverte (5 questions)</td><td>&laquo; Comment trouvez-vous vos clients aujourd'hui ? &raquo;</td></tr>
+<tr><td><strong>7-8</strong></td><td>R&eacute;sumer le probl&egrave;me</td><td>&laquo; Si je r&eacute;sume : [X douleur]. C'est bien &ccedil;a ? &raquo;</td></tr>
+<tr><td><strong>8-12</strong></td><td>D&eacute;mo (dashboard + email + process)</td><td>&laquo; Voici ce que vous verriez dans votre dashboard &raquo;</td></tr>
+<tr><td><strong>12-13</strong></td><td>Pr&eacute;senter l'offre</td><td>&laquo; C'est 890&euro;/mois &mdash; 4x moins qu'un commercial &raquo;</td></tr>
+<tr><td><strong>13-15</strong></td><td>R&eacute;pondre aux objections + closer</td><td>&laquo; On part sur le Starter alors ? &raquo;</td></tr>
+</table>
+
+<h3>Les 5 r&egrave;gles d'or</h3>
+
+<table>
+<tr><td><strong>1.</strong></td><td>Posez des questions, &eacute;coutez plus que vous parlez</td></tr>
+<tr><td><strong>2.</strong></td><td>Ne vendez pas des features, vendez le r&eacute;sultat (0h, pipeline r&eacute;gulier)</td></tr>
+<tr><td><strong>3.</strong></td><td>Ancrez le prix sur le co&ucirc;t d'un commercial (3 500&euro;)</td></tr>
+<tr><td><strong>4.</strong></td><td>Apr&egrave;s avoir annonc&eacute; le prix : taisez-vous</td></tr>
+<tr><td><strong>5.</strong></td><td>Envoyez le r&eacute;cap dans l'heure, relancez &agrave; J+2, J+5, J+8</td></tr>
+</table>
+
+<h3>Anti-s&egrave;che objections</h3>
+
+<table>
+<tr><th>Objection</th><th>R&eacute;ponse en 1 ligne</th></tr>
+<tr><td>&laquo; Trop cher &raquo;</td><td>Un commercial co&ucirc;te 3 500&euro;. Un seul deal rembourse 3 mois d'iFIND.</td></tr>
+<tr><td>&laquo; Pas de r&eacute;f&eacute;rences &raquo;</td><td>Tarif fondateur = prix pr&eacute;f&eacute;rentiel &agrave; vie. Dashboard transparent.</td></tr>
+<tr><td>&laquo; Combien de RDV ? &raquo;</td><td>D&eacute;pend de votre march&eacute;. 500 prospects, 43% ouverture, 3x la moyenne.</td></tr>
+<tr><td>&laquo; 3 mois c'est long &raquo;</td><td>2 semaines de setup, mois 2 = optimisation. Comme un commercial.</td></tr>
+<tr><td>&laquo; Diff&eacute;rence vs Lemlist ? &raquo;</td><td>Outil vs service cl&eacute; en main. Photoshop vs graphiste.</td></tr>
+<tr><td>&laquo; Pas le bon moment &raquo;</td><td>Dans 3 mois vous aurez un pipeline. Ou pas. Le tarif fondateur ne dure pas.</td></tr>
+<tr><td>&laquo; Mon associ&eacute; doit valider &raquo;</td><td>On fait un call &agrave; 3, ou j'envoie un r&eacute;cap d&eacute;taill&eacute;.</td></tr>
+<tr><td>&laquo; Je fais moi-m&ecirc;me &raquo;</td><td>5 outils + 10h/semaine = 2 000-3 000&euro; r&eacute;els. iFIND = 890&euro; + 0h.</td></tr>
+<tr><td>&laquo; C'est du spam &raquo;</td><td>43% ouverture vs 5% spam. Messages individuels, RGPD, d&eacute;sinscription.</td></tr>
+</table>
+
+<hr>
+
+<p style="text-align:center;color:var(--text-3);font-size:13px;margin-top:40px">
+  iFIND &mdash; Guide de Closing v1.0 &mdash; Mars 2026<br>
+  Document interne. Ne pas diffuser.<br><br>
+  <strong style="color:var(--accent)">ifind.fr</strong>
+</p>
+
+</body>
+</html>

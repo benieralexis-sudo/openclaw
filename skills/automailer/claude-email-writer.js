@@ -300,6 +300,17 @@ Analyse ces donnees et produis ta recommandation strategique.`;
     const emailLanguage = process.env.EMAIL_LANGUAGE || 'fr';
     const emailTone = process.env.EMAIL_TONE || 'formal';
 
+    // === A/B TEST OBJET ===
+    // Variante A : question courte universelle ("{prénom}, une question")
+    // Variante B : signal spécifique ("{signal principal du prospect}")
+    const abVariant = Math.random() < 0.5 ? 'A' : 'B';
+    let abSubjectInstruction = '';
+    if (abVariant === 'A') {
+      abSubjectInstruction = '\n=== A/B TEST — VARIANTE A : OBJET QUESTION COURTE ===\nL\'objet DOIT etre une question courte et universelle de 2-3 mots. Exemples : "{prenom}, une question", "{prenom}, rapide question", "question {entreprise}". Ne mentionne PAS le signal dans l\'objet.\n';
+    } else {
+      abSubjectInstruction = '\n=== A/B TEST — VARIANTE B : OBJET SIGNAL SPECIFIQUE ===\nL\'objet DOIT mentionner le signal specifique du prospect en 2-4 mots minuscules. Exemples : "3 recrutements chez {entreprise}", "votre offre data", "{entreprise} et la levee". L\'objet doit etre unique a ce prospect.\n';
+    }
+
     // --- ICP : charger le contexte niche (value prop, pain point, social proof) ---
     let icpLoader = null;
     try { icpLoader = require('../../gateway/icp-loader.js'); } catch (e) {
@@ -457,6 +468,7 @@ Pour eviter que les emails se ressemblent structurellement, utilise la syntaxe {
 - Question finale : {C'est le cas chez vous ?|C'est un sujet en ce moment ?|Vous avez structure quelque chose ?|C'est prevu ou pas du tout ?|Je me trompe ?}
 IMPORTANT : utilise 2-3 spintax par email (pas plus), sur des parties NON personnalisees. Le contenu personnalise (fait prospect, hypothese) reste fixe.`}
 
+${abSubjectInstruction}
 === FORMAT ===
 JSON valide uniquement, sans markdown, sans backticks.
 {"subject":"${emailLanguage === 'ro' ? 'subiect 2-3 cuvinte litere mici' : 'objet 2-3 mots minuscules'}","body":"${emailLanguage === 'ro' ? 'corp FARA semnatura, 40-60 cuvinte, cu 2-3 spintax {var1|var2}' : 'corps SANS signature, 40-60 mots, avec 2-3 spintax {var1|var2}'}"}
@@ -476,6 +488,12 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
 
     // Generation + auto-scoring + retry
     const result = await this._generateAndScore(contact, context, systemPrompt, userMessage);
+    // Tag A/B variant for tracking
+    if (result && !result.skip) {
+      result._abVariant = abVariant;
+      const log = require('../../gateway/logger.js');
+      log.info('ab-test', 'Email genere variante ' + abVariant + ' pour ' + (contact.email || '?') + ' — objet: ' + (result.subject || '?'));
+    }
     return result;
   }
 
