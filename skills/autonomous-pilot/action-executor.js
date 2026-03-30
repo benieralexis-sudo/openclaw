@@ -614,7 +614,7 @@ Format JSON strict :
         context += '\nSIGNAL: ' + (sa.topAngles[0].fact || sa.bestFact || '');
         context += '\nACCROCHE SUGGEREE: ' + sa.topAngles[0].angle;
       }
-      context += '\nTON: ' + (sa.recommendedTone || 'tutoiement');
+      context += '\nTON: ' + (sa.recommendedTone || 'vouvoiement');
       context += '\nPOURQUOI CE PROSPECT: ' + (sa.briefSummary || '');
       context += '\n=== FIN ANALYSE ===';
       // Brief brut condense (reference)

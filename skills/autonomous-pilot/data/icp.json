@@ -1,7 +1,7 @@
 {
   "version": "2.0",
-  "clientDescription": "iFIND est un agent de prospection autonome. Il analyse qui contacter et quand, personnalise chaque email, relance automatiquement. Le client n'a rien a faire.",
-  "bookingUrl": "https://calendar.app.google/DoB1kfp3DtDpZ6WC8",
+  "clientDescription": "iFIND est un agent IA de prospection B2B. Il identifie les bons prospects, recherche chacun en profondeur, redige des emails hyper-personnalises, et relance automatiquement. Le client ne touche a rien.",
+  "bookingUrl": "https://cal.eu/alexis-benier-sarxqi",
   "intentConfig": {
     "hiringKeywords": ["commercial", "sales", "sdr", "bdr", "business developer", "account executive", "responsable commercial", "directeur commercial", "bizdev"],
     "hiringAngle": "Vous recrutez cote commercial. Le temps que le profil soit operationnel, le pipe peut deja tourner",
@@ -19,7 +19,7 @@
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes un commercial. 3-6 mois avant qu'il soit autonome. Le pipe peut tourner en attendant"
+          "angle": "Vous recrutez un commercial. 3-6 mois avant qu'il soit autonome. Le pipe peut tourner en attendant"
         },
         {
           "signal": "growth",
@@ -67,7 +67,7 @@
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes un commercial. 3-6 mois de ramp-up. Le pipe peut tourner pendant ce temps"
+          "angle": "Vous recrutez un commercial. 3-6 mois de ramp-up. Le pipe peut tourner pendant ce temps"
         },
         {
           "signal": "funding",
@@ -78,7 +78,7 @@
           "angle": "A votre stade, c'est encore du founder-led sales ou vous avez structure un canal ?"
         }
       ],
-      "exampleEmail": "Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux. Ca veut souvent dire que le pipe repose encore sur le fondateur et que ca ne scale pas.\n\nVous avez structure l'outbound ou c'est encore toi qui ramenes les deals ?"
+      "exampleEmail": "Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux. Ca veut souvent dire que le pipe repose encore sur le fondateur et que ca ne scale pas.\n\nVous avez structure l'outbound ou c'est encore le fondateur qui ramene les deals ?"
     },
     {
       "slug": "cabinet-recrutement",
@@ -91,7 +91,7 @@
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes un bizdev. Signe que les consultants passent trop de temps a chercher des clients ?"
+          "angle": "Vous recrutez un bizdev. Signe que les consultants passent trop de temps a chercher des clients ?"
         },
         {
           "signal": "default",
@@ -131,7 +131,7 @@
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes ton premier commercial. 3-6 mois de ramp-up. Le pipe peut tourner en attendant"
+          "angle": "Vous recrutez votre premier commercial. 3-6 mois de ramp-up. Le pipe peut tourner en attendant"
         },
         {
           "signal": "funding",
@@ -139,7 +139,7 @@
         },
         {
           "signal": "default",
-          "angle": "C'est encore toi qui ramenes les deals ou vous avez structure un canal ?"
+          "angle": "C'est encore du founder-led sales ou vous avez structure un canal ?"
         }
       ],
       "exampleEmail": "Julien, [Startup] vient de lever et vous etes 15. Ca veut souvent dire que le produit avance mais que le pipe client repose encore sur le fondateur.\n\nC'est le cas ou vous avez deja structure l'acquisition ?"
@@ -175,7 +175,7 @@
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Tu recrutes un negociateur. Ca veut dire que le flux de mandats doit suivre"
+          "angle": "Vous recrutez un negociateur. Ca veut dire que le flux de mandats doit suivre"
         },
         {
           "signal": "default",

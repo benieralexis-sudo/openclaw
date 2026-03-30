@@ -208,7 +208,7 @@ Methode :
    e) DERNIER RECOURS : fait statique (titre, taille, secteur)
    Privilegie TOUJOURS un event date (a-d) plutot qu'une description generique (e).
 2. HYPOTHESE : transforme ce signal en probleme business probable. Ex: "3 postes sales ouverts" → "le pipe depend encore du fondateur et ca ne scale pas"
-3. TON : "tutoiement" (startup/PME) ou "vouvoiement" (corporate)
+3. TON : "vouvoiement" par defaut. Tutoiement UNIQUEMENT si le prospect tutoie en premier.
 
 === REGLES ===
 - N'invente JAMAIS un fait sur le prospect. Si aucun signal fort, dis-le.
@@ -298,7 +298,7 @@ Analyse ces donnees et produis ta recommandation strategique.`;
     const senderTitle = process.env.SENDER_TITLE || 'fondateur';
     const clientName = process.env.CLIENT_NAME || 'iFIND';
     const emailLanguage = process.env.EMAIL_LANGUAGE || 'fr';
-    const emailTone = process.env.EMAIL_TONE || 'informal';
+    const emailTone = process.env.EMAIL_TONE || 'formal';
 
     // --- ICP : charger le contexte niche (value prop, pain point, social proof) ---
     let icpLoader = null;
@@ -411,7 +411,7 @@ Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : 
 - PAS de phrases creuses : "beau move", "impressionnant", "sacre parcours", "je me permets", "potentiellement", "cordonnier mal chausse".
 - PAS de jargon anglais : pipe, pipeline, outbound, inbound, scale, lead, CRM, deal flow, funnel, churn, growth, onboarding. Parle en francais simple.
 - N'invente JAMAIS un fait sur le prospect. Annee : 2026.
-- Tutoiement (PME <100 pers), vouvoiement (corporate).
+- Vouvoiement par defaut. Tutoiement uniquement si le prospect tutoie en premier.
 ${nicheExampleBlock}
 ${emailLanguage === 'ro' ? `=== EXEMPLE 10/10 (TON EZITANT + SCURT) ===
 Exemplu 1 (semnal crestere, 38 cuvinte) :
@@ -1021,7 +1021,7 @@ INTERDITS ABSOLUS (TEMPLATES GENERIQUES) :
 
 REGLES :
 - 15-30 mots par relance (JAMAIS plus de 35). Le breakup = 2 lignes MAX.
-- Tutoiement startup/PME, vouvoiement corporate
+- Vouvoiement par defaut
 - JAMAIS : "je me permets", "suite a", "beau move", "potentiellement"
 ${meetingCTARule}
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients" dans l'email
@@ -1161,7 +1161,7 @@ INTERDITS ABSOLUS :
 - "Ces canaux ont un plafond" / "carnet de contacts sature"
 
 REGLES :
-- ${emailLengthHint}. Ecris comme tu parles. Tutoiement par defaut, vouvoiement si +500 employes.
+- ${emailLengthHint}. Ecris comme tu parles. Vouvoiement par defaut.
 - JAMAIS : pitch, prix, offre, "beau move", "potentiellement"
 - JAMAIS : "prospection", "gen de leads", "acquisition de clients"
 - Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise, DIFFERENT du premier
@@ -1405,7 +1405,7 @@ Continutul personalizat ramane fix.`;
 - PAS de phrases creuses : "beau move", "impressionnant", "potentiellement".
 - PAS de jargon : pipe, pipeline, outbound, lead, funnel, scale, growth, CRM.
 - DIFFERENT du/des email(s) precedent(s) (nouvel angle, nouvelle question).
-- N'invente JAMAIS un fait. Annee : 2026. Tutoiement (PME), vouvoiement (corporate).${forbiddenWordsRule}`;
+- N'invente JAMAIS un fait. Annee : 2026. Vouvoiement par defaut.${forbiddenWordsRule}`;
       spintaxBlockFU = `=== VARIATION STRUCTURELLE (SPINTAX) ===
 Utilise 1-2 spintax {variante1|variante2} sur des parties non personnalisees :
 - Question : {C'est le cas ?|C'est un sujet ?|Je me trompe ?|Ou pas du tout ?}

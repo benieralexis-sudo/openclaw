@@ -1,14 +1,14 @@
 {
   "_meta": {
-    "version": "1.0",
+    "version": "2.0",
     "description": "Knowledge Base pour grounding des reponses IA. L'IA ne peut repondre QU'avec des faits presents ici. Toute question hors KB = fallback humain.",
-    "updatedAt": "2026-03-05"
+    "updatedAt": "2026-03-30"
   },
 
   "company": {
     "name": "iFIND",
-    "tagline": "Agence de prospection B2B propulsee par l'IA",
-    "description": "iFIND est une agence qui automatise la prospection B2B pour ses clients. Un agent IA trouve les bons contacts, redige des emails personnalises, envoie, relance, et qualifie les reponses. Le client recoit des RDV qualifies dans son calendrier.",
+    "tagline": "Agent IA de prospection B2B",
+    "description": "iFIND est un agent IA qui automatise la prospection B2B de A a Z. Il identifie les bons prospects, effectue une recherche approfondie sur chacun (site web, actualites, LinkedIn, recrutements), redige des emails hyper-personnalises, envoie au moment optimal, et relance intelligemment. Le client ne touche a rien — il recoit des notifications quand un prospect repond.",
     "founder": "Alexis Benier",
     "founderTitle": "Fondateur",
     "website": "ifind.fr",
@@ -16,18 +16,18 @@
   },
 
   "services": {
-    "main": "Prospection B2B automatisee par IA — de la recherche de prospects au RDV qualifie",
+    "main": "Agent IA de prospection B2B — de l'identification du prospect au rendez-vous qualifie",
     "includes": [
-      "Recherche et qualification de prospects (Apollo, enrichissement multi-sources)",
-      "Redaction d'emails personnalises par IA (contexte entreprise, actualites, chiffres publics)",
-      "Envoi multi-domaines avec warmup progressif",
-      "Relances intelligentes (3 steps adaptes au comportement)",
+      "Recherche et qualification de prospects (enrichissement multi-sources)",
+      "Redaction d'emails hyper-personnalises par IA (contexte entreprise, actualites, signaux marche)",
+      "Envoi multi-domaines avec warmup progressif et rotation",
+      "Relances intelligentes (3 steps adaptes au comportement du prospect)",
       "Gestion des reponses (classification IA + proposition de RDV)",
-      "Tableau de bord temps reel (stats, leads, campagnes)",
-      "Rapport hebdomadaire par email"
+      "Tableau de bord temps reel dedie (stats, leads, campagnes)",
+      "Auto-amelioration continue (l'agent optimise ses angles, timing et longueur)"
     ],
     "does_not_include": [
-      "LinkedIn automation (en dev, pas encore disponible)",
+      "LinkedIn automation (prevu prochainement)",
       "Appels telephoniques",
       "Publicite payante (Google Ads, Meta Ads)",
       "SEO / content marketing"
@@ -35,41 +35,42 @@
   },
 
   "pricing": {
-    "setup": "Pas de frais de setup",
+    "setup": "0 EUR de setup — tout est inclus",
     "monthly_plans": [
       {
         "name": "Starter",
-        "price": "490 EUR/mois",
-        "regular_price": "690 EUR/mois",
-        "volume": "300 prospects/mois",
-        "description": "Ideal pour TPE et solopreneurs"
+        "price": "890 EUR/mois",
+        "regular_price": "1290 EUR/mois",
+        "volume": "500 prospects contactes par mois",
+        "channels": "Email",
+        "description": "Prospection email automatisee avec recherche approfondie par prospect"
       },
       {
         "name": "Growth",
-        "price": "890 EUR/mois",
-        "regular_price": "1290 EUR/mois",
-        "volume": "600 prospects/mois",
-        "description": "Pour une prospection soutenue et multi-segments"
+        "price": "1490 EUR/mois",
+        "volume": "1500 prospects contactes par mois",
+        "channels": "Email + LinkedIn",
+        "description": "Prospection multi-canal avec auto-amelioration"
       },
       {
         "name": "Scale",
-        "price": "1390 EUR/mois",
-        "regular_price": "1990 EUR/mois",
-        "volume": "1100+ prospects/mois",
-        "description": "Pour les equipes commerciales ambitieuses"
+        "price": "2490 EUR/mois",
+        "volume": "3000 prospects contactes par mois",
+        "channels": "Multi-canal + suivi dedie",
+        "description": "Volume maximum avec accompagnement dedie"
       }
     ],
-    "founder_pricing": "Tarif fondateur — prix bloque a vie",
-    "engagement": "Sans engagement, resiliable a tout moment",
+    "founder_pricing": "Tarif Fondateur — 890 EUR au lieu de 1290 EUR pour les premiers clients",
+    "engagement": "Engagement 3 mois — l'agent a besoin de 2-3 semaines pour atteindre son plein potentiel",
     "guarantee": "Pas de garantie de resultats chiffres — les performances dependent de l'offre, du marche et de la cible"
   },
 
   "process": {
     "steps": [
-      "1. Appel decouverte 15 min — on definit ensemble ta cible ideale (industrie, taille, poste, zone geo)",
-      "2. Setup (1 semaine) — on achete les domaines, configure le DNS, prepare l'agent IA",
-      "3. Lancement — l'agent commence a envoyer, les premiers resultats arrivent en 2-3 semaines",
-      "4. Optimisation continue — l'IA s'ameliore automatiquement (angles, timing, longueur)"
+      "1. Appel decouverte 15 min — on definit ensemble votre cible ideale (industrie, taille, poste, zone geo)",
+      "2. Setup (2 semaines) — on configure l'infrastructure email, les domaines, et on personnalise l'agent IA",
+      "3. Lancement — l'agent commence a prospecter, les premiers emails partent en semaine 3",
+      "4. Optimisation continue — l'agent s'ameliore automatiquement (angles, timing, longueur)"
     ],
     "what_client_provides": [
       "Lien de reservation (Calendly, Cal.com, ou Google Calendar)",
@@ -81,25 +82,25 @@
       "Pas de configuration DNS a faire",
       "Pas de cle API a fournir"
     ],
-    "onboarding_time": "10 minutes pour le client, 1 semaine pour le setup"
+    "onboarding_time": "15 minutes pour le client (un appel), 2 semaines pour le setup complet"
   },
 
   "differentiators": [
-    "Emails hyper-personnalises (contexte entreprise, actualites, chiffres publics) — pas de templates generiques",
-    "10 quality gates avant chaque envoi (aucun email generique ne passe)",
-    "Cout 5-10x inferieur aux solutions US (Artisan = 2400$/mois, 11x = 5000$/mois)",
-    "Controle total — tu sais exactement ce qui est envoye en ton nom",
-    "Optimisation automatique — l'IA analyse les performances et ajuste (longueur, ton, timing, angles)"
+    "Emails hyper-personnalises (contexte entreprise, actualites, signaux marche) — pas de templates generiques",
+    "10 quality gates avant chaque envoi — aucun email generique ne passe",
+    "Cout 5x inferieur a un commercial junior (890 EUR vs 3500 EUR/mois)",
+    "Controle total — vous savez exactement ce qui est envoye en votre nom via le dashboard",
+    "Optimisation automatique — l'agent analyse les performances et ajuste en continu"
   ],
 
   "faq": [
     {
       "question": "Combien de RDV je peux esperer ?",
-      "answer": "Ca depend de ton offre et de ta cible. En general, avec un bon product-market fit, on observe 3-8% de taux de reponse et 30-40% de conversion reponse-en-RDV. Mais je ne fais pas de promesses chiffrees — chaque marche est different."
+      "answer": "Ca depend de votre offre et de votre cible. Les performances varient selon le marche, le positionnement et le timing. On ne fait pas de promesses chiffrees — on discute des objectifs realistes lors de l'appel decouverte."
     },
     {
       "question": "Comment les emails sont personnalises ?",
-      "answer": "L'IA recherche chaque prospect individuellement : site web, actualites, LinkedIn public, donnees entreprise. Chaque email est unique et mentionne un fait specifique au prospect."
+      "answer": "L'agent recherche chaque prospect individuellement : site web, actualites recentes, LinkedIn public, donnees entreprise, signaux de recrutement. Chaque email est unique et mentionne un fait specifique au prospect."
     },
     {
       "question": "Est-ce que ca va finir en spam ?",
@@ -107,40 +108,45 @@
     },
     {
       "question": "Je peux voir les emails avant qu'ils partent ?",
-      "answer": "Tu as un tableau de bord en temps reel avec tous les emails envoyes, les stats, et les reponses. Tu peux aussi demander a valider les premiers emails avant le lancement."
+      "answer": "Vous avez un tableau de bord en temps reel avec tous les emails envoyes, les stats, et les reponses. Vous pouvez aussi demander a valider les premiers emails avant le lancement."
     },
     {
       "question": "Quelle est la difference avec Lemlist/Instantly ?",
-      "answer": "Lemlist et Instantly sont des outils self-service — tu dois tout faire toi-meme (trouver les prospects, ecrire les emails, gerer les relances). Chez nous, c'est 100% gere : tu recois des RDV dans ton calendrier, point."
+      "answer": "Lemlist et Instantly sont des outils self-service — vous devez tout faire vous-meme (trouver les prospects, ecrire les emails, gerer les relances). Chez nous, c'est 100% gere : vous recevez des notifications quand un prospect repond, point."
     },
     {
       "question": "Comment ca marche pour la facturation ?",
-      "answer": "Pas de frais de setup. Trois formules : Starter a 490 EUR/mois (300 prospects), Growth a 890 EUR/mois (600 prospects), ou Scale a 1390 EUR/mois (1100+ prospects). Tarif fondateur bloque a vie. Sans engagement, resiliable a tout moment."
+      "answer": "0 EUR de setup. Trois formules : Starter a 890 EUR/mois (500 prospects), Growth a 1490 EUR/mois (1500 prospects, email + LinkedIn), ou Scale a 2490 EUR/mois (3000 prospects, multi-canal). Tarif Fondateur pour les premiers clients. Engagement 3 mois."
     },
     {
       "question": "Combien de temps avant les premiers resultats ?",
-      "answer": "Compte 1 semaine de setup + 1-2 semaines de warmup des domaines. Les premiers emails partent a la semaine 2, les premieres reponses arrivent generalement en semaine 3."
+      "answer": "Comptez 2 semaines de setup et configuration. Les premiers emails partent en semaine 3. Les premieres reponses arrivent generalement dans les jours suivants."
+    },
+    {
+      "question": "Pourquoi un engagement de 3 mois ?",
+      "answer": "Les 2 premieres semaines servent au setup et a la configuration. Le vrai potentiel se voit a partir du mois 2 quand l'agent s'est optimise sur vos retours. 1 mois ne suffit pas pour juger."
     }
   ],
 
   "forbidden_claims": [
     "Ne JAMAIS promettre un nombre precis de RDV ou de leads",
     "Ne JAMAIS inventer de chiffres, statistiques ou resultats clients",
-    "Ne JAMAIS mentionner : IA, bot, automatisation, SDR, pipeline, machine learning",
+    "Ne JAMAIS mentionner : IA, bot, automatisation, SDR, pipeline, machine learning (dans les emails de prospection)",
     "Ne JAMAIS mentionner de clients existants (pas encore de case studies publiables)",
     "Ne JAMAIS critiquer un concurrent nommement",
-    "Ne JAMAIS inventer de fonctionnalite qui n'existe pas"
+    "Ne JAMAIS inventer de fonctionnalite qui n'existe pas",
+    "TOUJOURS vouvoyer le prospect"
   ],
 
   "qualification": {
     "questions": [
-      "Pour preparer un echange utile — tu prospectes comment aujourd'hui ? (cold email, LinkedIn, bouche-a-oreille ?)",
-      "Juste pour avoir le contexte — tu geres combien de prospects par mois actuellement ?",
-      "Avant qu'on se cale un call — c'est quoi ton plus gros frein cote prospection aujourd'hui ?"
+      "Pour preparer un echange utile — vous prospectez comment aujourd'hui ? (cold email, LinkedIn, bouche-a-oreille ?)",
+      "Juste pour avoir le contexte — vous gerez combien de prospects par mois actuellement ?",
+      "Avant qu'on se cale un call — c'est quoi votre plus gros frein cote prospection aujourd'hui ?"
     ],
     "when": "before_booking",
     "max_questions": 1
   },
 
-  "fallback_phrase": "Bonne question — je vais me renseigner et je reviens vers toi rapidement."
+  "fallback_phrase": "Bonne question — je vais me renseigner et je reviens vers vous rapidement."
 }

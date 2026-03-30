@@ -147,7 +147,7 @@ function createClient(data) {
       geography: []
     },
     tone: {
-      formality: 'decontracte',
+      formality: 'formel',
       valueProposition: '',
       forbiddenWords: []
     },
