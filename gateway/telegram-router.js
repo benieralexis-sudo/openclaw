@@ -1929,8 +1929,8 @@ const healthServer = http.createServer(async (req, res) => {
               industry: lead.industry || '',
               linkedin: lead.linkedin || '',
               localisation: lead.location || ''
-            }, 7, 'clay');
-            log.info('webhook-clay', 'FlowFast lead ajoute: ' + lead.email + ' (score 7, source clay)');
+            }, lead.leadScore ? parseInt(lead.leadScore) : 7, 'clay');
+            log.info('webhook-clay', 'FlowFast lead ajoute: ' + lead.email + ' (score ' + (lead.leadScore || 7) + ', source clay)');
           } catch (e) {
             log.warn('webhook-clay', 'FlowFast injection echouee pour ' + lead.email + ': ' + e.message);
           }
