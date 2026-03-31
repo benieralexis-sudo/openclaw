@@ -1904,6 +1904,11 @@ const healthServer = http.createServer(async (req, res) => {
               headcountGrowth: lead.headcountGrowth || nestedEnr.headcountGrowth || nestedEnr.headcount_growth || null,
               linkedinBio: lead.linkedinBio || nestedEnr.linkedinBio || null,
               linkedinPosts: lead.linkedinPosts || nestedEnr.linkedinPosts || null,
+              jobListings: lead.jobListings || nestedEnr.jobListings || null,
+              googleNews: lead.googleNews || nestedEnr.googleNews || null,
+              revenueData: lead.revenueData || nestedEnr.revenueData || null,
+              growthInsights: lead.growthInsights || nestedEnr.growthInsights || null,
+              enrichCompany: lead.enrichCompany || nestedEnr.enrichCompany || null,
               enrichment: lead.enrichment || {},
               source: 'clay',
               importedAt: new Date().toISOString()
