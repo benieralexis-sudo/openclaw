@@ -30,15 +30,16 @@ function clayRequest(method, endpoint, body, retries) {
     const parsedUrl = new URL(url);
     const headers = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'Referer': 'https://app.clay.com/',
+      'Origin': 'https://app.clay.com'
     };
 
     // Cookie auth takes priority (v3 endpoints need it)
+    // IMPORTANT: Ne PAS envoyer Authorization + Cookie ensemble — Clay rejette en 401
     if (cookie) {
       headers['Cookie'] = cookie;
-    }
-    // API key as Bearer fallback
-    if (apiKey) {
+    } else if (apiKey) {
       headers['Authorization'] = 'Bearer ' + apiKey;
     }
 
