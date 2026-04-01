@@ -1,0 +1,124 @@
+{
+  "_template_instructions": [
+    "TEMPLATE KNOWLEDGE BASE v1.0 — iFIND Bot",
+    "Remplacer chaque [TALLY_QX: description] par la reponse du questionnaire Tally.",
+    "Supprimer cette section _template_instructions avant mise en production.",
+    "Les // commentaires dans les valeurs sont des indications — les retirer aussi."
+  ],
+
+  "_meta": {
+    "version": "1.0",
+    "description": "Knowledge Base [NOM_CLIENT] — grounding reponses IA. Langue: francais. Toute question hors KB = fallback vers [TALLY_Q31: nom contact].",
+    "updatedAt": "[DATE_CREATION] // Format YYYY-MM-DD"
+  },
+
+  "company": {
+    "name": "[NOM_CLIENT]",
+    "tagline": "[TALLY_Q25: pitch 15 sec] // Ex: 'QA/Testing nearshore — equipes dediees, integration agile'",
+    "description": "[TALLY_Q7: offre pour la prospection] // 2-3 phrases decrivant l offre principale",
+    "accountManager": "[TALLY_Q31: qui prend les appels] // Ex: 'Jean Dupont'",
+    "accountManagerTitle": "[TITRE_CONTACT] // Ex: 'Account Manager', 'Directeur Commercial'",
+    "managingDirector": "[NOM_DIRIGEANT]",
+    "website": "[URL_SITE_CLIENT]",
+    "email": "[EMAIL_EXPEDITEUR] // Email utilise pour envoyer les campagnes",
+    "location": "[TALLY_Q17: zone geographique]"
+  },
+
+  "services": {
+    "main": "[TALLY_Q7: offre principale] // 1 phrase resumant le service phare",
+    "includes": [
+      "[TALLY_Q8: argument differenciant #1]",
+      "[TALLY_Q8: argument differenciant #2]",
+      "[TALLY_Q8: argument differenciant #3]",
+      "[TALLY_Q11: contenu gratuit / lead magnet] // Si applicable"
+    ],
+    "does_not_include": [
+      "Tout service hors du scope principal du client",
+      "Services que le prospect pourrait confondre avec l offre",
+      "Ajuster selon le metier du client"
+    ]
+  },
+
+  "target": {
+    "geography": "[TALLY_Q17: zone geographique] // Ex: 'France metropolitaine'",
+    "company_size": "[TALLY_Q14: taille entreprise] // Ex: '50 a 500 employes'",
+    "decision_maker": "[TALLY_Q13: postes/fonctions cibles] // Ex: 'CTO, VP Engineering, DSI'",
+    "languages": ["francais"],
+    "sectors": "[TALLY_Q15: industries ciblees] // Ex: 'SaaS, FinTech, ESN, Editeurs logiciels'"
+  },
+
+  "process": {
+    "steps": [
+      "1. [TALLY_Q29: CTA prefere] — [description courte] // Ex: 'Call decouverte — comprendre le contexte (15 min)'",
+      "2. [ETAPE_2] // Ex: 'Proposition sur mesure — profils, planning, tarif'",
+      "3. [ETAPE_3] // Ex: 'Demarrage en X semaines'",
+      "4. [ETAPE_4] // Ex: 'Suivi continu et reporting'"
+    ],
+    "what_client_gets": [
+      "[TALLY_Q8: argument #1 reformule en benefice client]",
+      "[TALLY_Q8: argument #2 reformule en benefice client]",
+      "[TALLY_Q8: argument #3 reformule en benefice client]",
+      "[TALLY_Q10: fourchette prix reformulee en avantage] // Ex: 'Cout 40-60% inferieur au recrutement interne'"
+    ]
+  },
+
+  "differentiators": [
+    "[TALLY_Q8: argument differenciant #1]",
+    "[TALLY_Q8: argument differenciant #2]",
+    "[TALLY_Q8: argument differenciant #3]",
+    "[TALLY_Q9: element vs concurrents] // Ce qui distingue le client de ses 2-3 concurrents principaux"
+  ],
+
+  "pricing": {
+    "range": "[TALLY_Q10: fourchette de prix] // Ex: '3 a 10k EUR/mois'",
+    "policy": "Ne jamais donner de prix exact par email — rediriger vers un call"
+  },
+
+  "faq": [
+    {
+      "question": "[TALLY_Q33: objection #1]",
+      "answer": "[TALLY_Q33: reponse objection #1]"
+    },
+    {
+      "question": "[TALLY_Q33: objection #2]",
+      "answer": "[TALLY_Q33: reponse objection #2]"
+    },
+    {
+      "question": "[TALLY_Q33: objection #3]",
+      "answer": "[TALLY_Q33: reponse objection #3]"
+    },
+    {
+      "question": "Combien ca coute ?",
+      "answer": "[TALLY_Q10: fourchette de prix]. Le plus simple est de discuter [TALLY_Q29: CTA] pour dimensionner — chaque contexte est different."
+    },
+    {
+      "question": "Comment ca se passe concretement ?",
+      "answer": "On commence par [TALLY_Q29: CTA prefere]. Ensuite [ETAPE_2]. [TALLY_Q37: objectif RDV/mois] rendez-vous par mois c est notre cible."
+    }
+  ],
+
+  "forbidden_claims": [
+    "Ne JAMAIS inventer de chiffres, statistiques ou noms de clients",
+    "Ne JAMAIS mentionner : bot, automatisation email, IA, machine learning, intelligence artificielle",
+    "Ne JAMAIS promettre des resultats specifiques sans preuve",
+    "Ne JAMAIS critiquer le prospect ou son equipe",
+    "Ne JAMAIS donner de prix exact — rediriger vers un call",
+    "[TALLY_Q27: mots a eviter #1]",
+    "[TALLY_Q27: mots a eviter #2]",
+    "[TALLY_Q27: mots a eviter #3]"
+  ],
+
+  "qualification": {
+    "questions": [
+      "[TALLY_Q28: phrase aha moment] reformulee en question de qualification // Ex: 'Avant de planifier un call — combien de devs avez-vous ?'",
+      "[QUESTION_QUALIFICATION_2] // Question qui aide a qualifier le prospect avant le call",
+      "[QUESTION_QUALIFICATION_3] // Question liee au pain point principal"
+    ],
+    "when": "before_booking",
+    "max_questions": 1
+  },
+
+  "fallback_phrase": "Bonne question — je verifie et je reviens vers vous rapidement.",
+
+  "booking_url": "[BOOKING_URL] // Meme URL que dans icp.json"
+}

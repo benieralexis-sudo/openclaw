@@ -1,0 +1,83 @@
+{
+  "_template_instructions": [
+    "TEMPLATE ICP v2.1 — iFIND Bot",
+    "Remplacer chaque [TALLY_QX: description] par la reponse du questionnaire Tally.",
+    "Supprimer cette section _template_instructions avant mise en production.",
+    "Les // commentaires dans les valeurs sont des indications — les retirer aussi."
+  ],
+
+  "version": "2.1",
+
+  "clientDescription": "[TALLY_Q7: Offre pour la prospection] // Ex: 'DigitestLab est une societe de QA/testing nearshore basee en Roumanie...'",
+
+  "bookingUrl": "[BOOKING_URL] // Lien Calendly/Cal.com du client",
+
+  "intentConfig": {
+    "hiringKeywords": ["[TALLY_Q13: poste cible 1]", "[TALLY_Q13: poste cible 2]", "[TALLY_Q13: poste cible 3]"],
+    "hiringAngle": "[TALLY_Q18: trigger d'achat] adapte au recrutement // Ex: 'Vous recrutez un QA. En attendant, qui couvre les releases ?'",
+    "minIntentScore": 3
+  },
+
+  "niches": [
+    {
+      "slug": "[NICHE_1_SLUG] // ex: saas-scale-ups",
+      "name": "[TALLY_Q15: industrie principale] + [TALLY_Q14: taille] // Ex: 'SaaS & Scale-ups France 50-500 employes'",
+      "keywords": "[TALLY_Q15: mots-cles industrie] // Ex: 'SaaS OR scale-up OR startup B2B France'",
+      "weight": 50,
+      "matchPatterns": ["[mot-cle-1]", "[mot-cle-2]", "[mot-cle-3]"],
+      "painPoint": "[TALLY_Q6: probleme #1 resolu] // La douleur principale de cette niche, formulee du point de vue du prospect",
+      "socialProof": "[TALLY_Q21: cas client avant/apres] + [TALLY_Q22: verbatim] // Ex: 'equipes QA nearshore integrees en sprint, meme fuseau horaire'",
+      "triggers": [
+        {
+          "signal": "growth",
+          "angle": "[TALLY_Q18: trigger d'achat] adapte a la croissance // Ex: 'L equipe dev grandit mais la QA suit le meme rythme ?'"
+        },
+        {
+          "signal": "hiring",
+          "angle": "[TALLY_Q18: trigger] + [TALLY_Q13: postes] // Ex: 'Vous recrutez un QA. En attendant de trouver le bon profil, qui couvre les releases ?'"
+        },
+        {
+          "signal": "default",
+          "angle": "[TALLY_Q6: probleme #1] formule en question ouverte // Utilise quand aucun signal specifique n est detecte"
+        }
+      ],
+      "exampleEmail": "[PRENOM], [Entreprise] [TALLY_Q6: probleme formule comme observation]. [TALLY_Q25: pitch 15 sec adapte].\n\n[TALLY_Q11: lead magnet OU TALLY_Q29: CTA prefere]. [TALLY_Q26: ton tutoiement/vouvoiement]"
+    },
+    {
+      "slug": "[NICHE_2_SLUG] // ex: editeurs-logiciels",
+      "name": "[TALLY_Q15: industrie secondaire] + [TALLY_Q14: taille]",
+      "keywords": "[mots-cles industrie secondaire]",
+      "weight": 30,
+      "matchPatterns": ["[mot-cle-1]", "[mot-cle-2]", "[mot-cle-3]"],
+      "painPoint": "[TALLY_Q6: probleme #1] adapte a cette niche specifique",
+      "socialProof": "[TALLY_Q21: cas client] + [TALLY_Q23: noms/logos mentionnables]",
+      "triggers": [
+        {
+          "signal": "growth",
+          "angle": "[angle croissance adapte niche 2]"
+        },
+        {
+          "signal": "default",
+          "angle": "[TALLY_Q6: probleme] formule en question pour niche 2"
+        }
+      ],
+      "exampleEmail": "[PRENOM], [Entreprise] [observation specifique niche 2]. [TALLY_Q25: pitch adapte].\n\n[TALLY_Q29: CTA prefere] ?"
+    },
+    {
+      "slug": "[NICHE_3_SLUG] // ex: agences-dev",
+      "name": "[TALLY_Q15: industrie tertiaire] + [TALLY_Q14: taille]",
+      "keywords": "[mots-cles industrie tertiaire]",
+      "weight": 20,
+      "matchPatterns": ["[mot-cle-1]", "[mot-cle-2]", "[mot-cle-3]"],
+      "painPoint": "[TALLY_Q6: probleme #1] adapte a cette niche specifique",
+      "socialProof": "[TALLY_Q22: verbatim client] OU [TALLY_Q8: argument differenciant #1]",
+      "triggers": [
+        {
+          "signal": "default",
+          "angle": "[TALLY_Q6: probleme] formule en question pour niche 3"
+        }
+      ],
+      "exampleEmail": "[PRENOM], [Entreprise] [observation specifique niche 3]. [TALLY_Q25: pitch adapte].\n\n[TALLY_Q29: CTA prefere] ?"
+    }
+  ]
+}
