@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contrat de Prestation de Services — iFIND</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --blue: #2563eb;
+    --dark: #111827;
+    --gray: #6b7280;
+    --light-gray: #e5e7eb;
+    --highlight: #fef9c3;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--dark);
+    font-size: 11pt;
+    line-height: 1.6;
+    padding: 0;
+    margin: 0;
+  }
+
+  @media print {
+    body { padding: 0; margin: 0; }
+    .page-break { page-break-before: always; }
+    .no-print { display: none; }
+    @page {
+      margin: 20mm 18mm 25mm 18mm;
+      size: A4;
+    }
+    .container { padding: 0; max-width: 100%; }
+  }
+
+  @media screen {
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 50px;
+      background: #fff;
+    }
+    body { background: #f3f4f6; }
+  }
+
+  /* En-tete */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 3px solid var(--blue);
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+  }
+
+  .logo {
+    font-size: 28pt;
+    font-weight: 700;
+    color: var(--blue);
+    letter-spacing: -1px;
+  }
+
+  .logo span {
+    color: var(--dark);
+  }
+
+  .header-info {
+    text-align: right;
+    font-size: 9pt;
+    color: var(--gray);
+    line-height: 1.5;
+  }
+
+  /* Titre */
+  .title {
+    text-align: center;
+    font-size: 18pt;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 30px 0 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 11pt;
+    color: var(--gray);
+    margin-bottom: 30px;
+  }
+
+  /* Articles */
+  .article {
+    margin-bottom: 22px;
+  }
+
+  .article-title {
+    font-size: 12pt;
+    font-weight: 700;
+    color: var(--blue);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--light-gray);
+  }
+
+  .article-content {
+    margin-left: 0;
+  }
+
+  .article-content p {
+    margin-bottom: 8px;
+  }
+
+  .article-content ul {
+    margin: 6px 0 10px 20px;
+  }
+
+  .article-content li {
+    margin-bottom: 4px;
+  }
+
+  .sub-title {
+    font-weight: 600;
+    color: var(--dark);
+    margin-top: 10px;
+    margin-bottom: 4px;
+  }
+
+  /* Champs a remplir */
+  .field {
+    background-color: var(--highlight);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 500;
+    border-bottom: 1px dashed var(--gray);
+  }
+
+  /* Tableaux */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 10pt;
+  }
+
+  table th {
+    background-color: var(--blue);
+    color: #fff;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+  }
+
+  @media print {
+    table th {
+      background-color: #fff !important;
+      color: var(--dark) !important;
+      border: 1px solid var(--dark);
+      font-weight: 700;
+    }
+  }
+
+  table td {
+    padding: 8px 12px;
+    border: 1px solid var(--light-gray);
+    vertical-align: top;
+  }
+
+  table tr:nth-child(even) td {
+    background-color: #f9fafb;
+  }
+
+  @media print {
+    table tr:nth-child(even) td { background-color: #fff !important; }
+  }
+
+  /* Checkbox plan */
+  .plan-check {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--dark);
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* Signatures */
+  .signatures {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 40px;
+    gap: 40px;
+  }
+
+  .sig-block {
+    flex: 1;
+    border: 1px solid var(--light-gray);
+    padding: 20px;
+    border-radius: 4px;
+  }
+
+  .sig-block h4 {
+    font-size: 10pt;
+    color: var(--blue);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .sig-line {
+    border-bottom: 1px solid var(--dark);
+    height: 60px;
+    margin: 10px 0 5px;
+  }
+
+  .sig-label {
+    font-size: 9pt;
+    color: var(--gray);
+  }
+
+  /* Mentions */
+  .mention-manuscrite {
+    font-style: italic;
+    color: var(--gray);
+    font-size: 9pt;
+    margin-top: 4px;
+  }
+
+  /* Separateur */
+  hr {
+    border: none;
+    border-top: 1px solid var(--light-gray);
+    margin: 20px 0;
+  }
+
+  /* Footer page */
+  .footer {
+    text-align: center;
+    font-size: 8pt;
+    color: var(--gray);
+    margin-top: 40px;
+    padding-top: 15px;
+    border-top: 1px solid var(--light-gray);
+  }
+
+  /* Alertes / encadres */
+  .encadre {
+    border: 1px solid var(--blue);
+    border-left: 4px solid var(--blue);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 4px;
+    font-size: 10pt;
+  }
+
+  .encadre-title {
+    font-weight: 700;
+    color: var(--blue);
+    margin-bottom: 4px;
+  }
+
+  strong { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- EN-TETE -->
+  <div class="header">
+    <div>
+      <div class="logo">i<span>FIND</span></div>
+      <div style="font-size: 9pt; color: var(--gray); margin-top: 2px;">Prospection B2B automatisee par IA</div>
+    </div>
+    <div class="header-info">
+      Alexis Benier<br>
+      benieralexis@gmail.com<br>
+      ifind.fr<br>
+      SIRET : <span class="field">[SIRET iFIND]</span>
+    </div>
+  </div>
+
+  <!-- TITRE -->
+  <div class="title">Contrat de Prestation de Services</div>
+  <div class="subtitle">Prospection B2B automatis&eacute;e par Intelligence Artificielle</div>
+
+  <p style="text-align: center; font-size: 10pt; color: var(--gray); margin-bottom: 30px;">
+    R&eacute;f&eacute;rence : <span class="field">[REF-AAAA-XXX]</span> &mdash; Date : <span class="field">[JJ/MM/AAAA]</span>
+  </p>
+
+  <!-- ARTICLE 1 — PARTIES -->
+  <div class="article">
+    <div class="article-title">Article 1 &mdash; Parties</div>
+    <div class="article-content">
+      <p><strong>Le Prestataire :</strong></p>
+      <p>
+        iFIND &mdash; Alexis B&eacute;nier<br>
+        Adresse : <span class="field">[ADRESSE iFIND]</span><br>
+        SIRET : <span class="field">[SIRET iFIND]</span><br>
+        Email : benieralexis@gmail.com<br>
+        Ci-apr&egrave;s d&eacute;nomm&eacute; &laquo;&nbsp;le Prestataire&nbsp;&raquo; ou &laquo;&nbsp;iFIND&nbsp;&raquo;
+      </p>
+      <br>
+      <p><strong>Le Client :</strong></p>
+      <p>
+        Soci&eacute;t&eacute; : <span class="field">[RAISON SOCIALE]</span><br>
+        Forme juridique : <span class="field">[SAS / SARL / EI / ...]</span><br>
+        Adresse du si&egrave;ge : <span class="field">[ADRESSE CLIENT]</span><br>
+        SIRET : <span class="field">[SIRET CLIENT]</span><br>
+        Repr&eacute;sent&eacute;e par : <span class="field">[NOM ET PRENOM DU REPRESENTANT]</span>, en qualit&eacute; de <span class="field">[FONCTION]</span><br>
+        Email : <span class="field">[EMAIL CLIENT]</span><br>
+        T&eacute;l&eacute;phone : <span class="field">[TELEPHONE CLIENT]</span><br>
+        Ci-apr&egrave;s d&eacute;nomm&eacute; &laquo;&nbsp;le Client&nbsp;&raquo;
+      </p>
+      <p style="margin-top: 10px;">Ensemble d&eacute;sign&eacute;s &laquo;&nbsp;les Parties&nbsp;&raquo;.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 2 — OBJET -->
+  <div class="article">
+    <div class="article-title">Article 2 &mdash; Objet du contrat</div>
+    <div class="article-content">
+      <p>Le pr&eacute;sent contrat a pour objet de d&eacute;finir les conditions dans lesquelles iFIND fournit au Client des services de <strong>prospection B2B automatis&eacute;e par intelligence artificielle</strong>, incluant l'identification de prospects qualifi&eacute;s, l'enrichissement de donn&eacute;es, la r&eacute;daction personnalis&eacute;e d'emails par IA, l'envoi automatis&eacute; et le suivi des r&eacute;ponses.</p>
+      <p>Selon le plan souscrit, le service peut &eacute;galement inclure l'automation de la prospection via LinkedIn.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 3 — PLAN SOUSCRIT -->
+  <div class="article">
+    <div class="article-title">Article 3 &mdash; Plan souscrit</div>
+    <div class="article-content">
+      <p>Le Client souscrit au plan suivant (cocher la case correspondante) :</p>
+      <br>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 30px;"></th>
+            <th>Plan</th>
+            <th>Tarif HT/mois</th>
+            <th>Engagement</th>
+            <th>Canaux</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="text-align: center;"><span class="plan-check"></span></td>
+            <td><strong>Pipeline</strong></td>
+            <td>890 &euro;</td>
+            <td>Sans engagement</td>
+            <td>Email</td>
+          </tr>
+          <tr>
+            <td style="text-align: center;"><span class="plan-check"></span></td>
+            <td><strong>Multicanal</strong></td>
+            <td>1 490 &euro;</td>
+            <td>3 mois minimum</td>
+            <td>Email + LinkedIn</td>
+          </tr>
+          <tr>
+            <td style="text-align: center;"><span class="plan-check"></span></td>
+            <td><strong>D&eacute;di&eacute;</strong></td>
+            <td><span class="field">[MONTANT]</span> &euro;</td>
+            <td>Sur devis</td>
+            <td>Sur mesure</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ARTICLE 4 — SCOPE OF WORK -->
+  <div class="article">
+    <div class="article-title">Article 4 &mdash; Description d&eacute;taill&eacute;e des prestations</div>
+    <div class="article-content">
+
+      <p class="sub-title">4.1 &mdash; Plan Pipeline (email uniquement)</p>
+      <p>Le plan Pipeline comprend les prestations suivantes :</p>
+      <ul>
+        <li><strong>Identification de prospects</strong> : ciblage et constitution de listes de prospects qualifi&eacute;s selon le profil client id&eacute;al (ICP) d&eacute;fini avec le Client</li>
+        <li><strong>Enrichissement des donn&eacute;es</strong> : recherche et v&eacute;rification des coordonn&eacute;es professionnelles (email, entreprise, poste, actualit&eacute;s)</li>
+        <li><strong>R&eacute;daction IA personnalis&eacute;e</strong> : r&eacute;daction de chaque email par intelligence artificielle, personnalis&eacute; en fonction du profil du prospect et de son actualit&eacute;</li>
+        <li><strong>Envoi automatis&eacute;</strong> : envoi des s&eacute;quences d'emails via des domaines d&eacute;di&eacute;s, dans le respect des bonnes pratiques de d&eacute;livrabilit&eacute;</li>
+        <li><strong>Suivi des r&eacute;ponses</strong> : d&eacute;tection et cat&eacute;gorisation des r&eacute;ponses (int&eacute;ress&eacute;, pas int&eacute;ress&eacute;, demande d'info, etc.)</li>
+        <li><strong>Dashboard temps r&eacute;el</strong> : acc&egrave;s &agrave; un tableau de bord en ligne affichant les statistiques de campagne en temps r&eacute;el</li>
+        <li><strong>Reporting mensuel</strong> : synth&egrave;se mensuelle des performances et recommandations</li>
+      </ul>
+
+      <p class="sub-title">4.2 &mdash; Plan Multicanal (email + LinkedIn)</p>
+      <p>Le plan Multicanal comprend l'ensemble des prestations du plan Pipeline, auxquelles s'ajoutent :</p>
+      <ul>
+        <li><strong>Automation LinkedIn</strong> : envoi automatis&eacute; de demandes de connexion personnalis&eacute;es</li>
+        <li><strong>S&eacute;quences LinkedIn</strong> : messages de suivi automatis&eacute;s apr&egrave;s acceptation de connexion</li>
+        <li><strong>Synchronisation multicanale</strong> : coordination entre les campagnes email et LinkedIn pour &eacute;viter la sur-sollicitation</li>
+        <li><strong>Respect des limites de s&eacute;curit&eacute;</strong> : nombre de connexions et messages quotidiens calibr&eacute;s pour minimiser les risques de restriction</li>
+      </ul>
+
+      <p class="sub-title">4.3 &mdash; Plan D&eacute;di&eacute;</p>
+      <p>Le plan D&eacute;di&eacute; fait l'objet d'un cahier des charges sp&eacute;cifique annex&eacute; au pr&eacute;sent contrat (Annexe A), d&eacute;taillant les prestations sur mesure convenues entre les Parties.</p>
+
+      <p class="sub-title">4.4 &mdash; Exclusions</p>
+      <p>Les prestations suivantes ne sont <strong>pas incluses</strong> dans le service iFIND :</p>
+      <ul>
+        <li>Le closing des rendez-vous g&eacute;n&eacute;r&eacute;s (la conversion des leads en clients)</li>
+        <li>La mise en place ou la gestion d'un CRM</li>
+        <li>La gestion du pipeline commercial et des deals</li>
+        <li>La publicit&eacute; en ligne (SEA, Social Ads, etc.)</li>
+        <li>La cr&eacute;ation de contenus marketing (site web, blog, r&eacute;seaux sociaux)</li>
+        <li>Toute prestation non explicitement mentionn&eacute;e dans le pr&eacute;sent article</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ARTICLE 5 — DUREE -->
+  <div class="article">
+    <div class="article-title">Article 5 &mdash; Dur&eacute;e et reconduction</div>
+    <div class="article-content">
+      <p><strong>5.1 &mdash; Date d'effet :</strong> Le pr&eacute;sent contrat prend effet &agrave; la date de sa signature par les deux Parties.</p>
+
+      <p><strong>5.2 &mdash; Dur&eacute;e initiale :</strong></p>
+      <ul>
+        <li><strong>Plan Pipeline :</strong> le contrat est conclu pour une dur&eacute;e ind&eacute;termin&eacute;e, sans engagement minimum.</li>
+        <li><strong>Plan Multicanal :</strong> le contrat est conclu pour une dur&eacute;e initiale de <strong>trois (3) mois</strong> &agrave; compter de la date d'effet.</li>
+        <li><strong>Plan D&eacute;di&eacute; :</strong> la dur&eacute;e initiale est pr&eacute;cis&eacute;e dans le devis annex&eacute; (Annexe A).</li>
+      </ul>
+
+      <p><strong>5.3 &mdash; Reconduction tacite :</strong> &Agrave; l'issue de la dur&eacute;e initiale, le contrat est reconduit tacitement par p&eacute;riodes successives d'un (1) mois, sauf r&eacute;siliation par l'une des Parties dans les conditions pr&eacute;vues &agrave; l'Article 13.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 6 — PRIX ET PAIEMENT -->
+  <div class="article">
+    <div class="article-title">Article 6 &mdash; Prix et modalit&eacute;s de paiement</div>
+    <div class="article-content">
+      <p><strong>6.1 &mdash; Tarif mensuel :</strong> Le tarif applicable est celui correspondant au plan souscrit tel que d&eacute;fini &agrave; l'Article 3. Les prix sont exprim&eacute;s en euros, hors taxes (HT). La TVA applicable sera ajout&eacute;e conform&eacute;ment &agrave; la r&eacute;glementation en vigueur.</p>
+
+      <p><strong>6.2 &mdash; Facturation :</strong> La facturation est mensuelle. La premi&egrave;re facture est &eacute;mise &agrave; la date de signature du contrat. Les factures suivantes sont &eacute;mises &agrave; date anniversaire.</p>
+
+      <p><strong>6.3 &mdash; Mode de paiement :</strong> Le paiement s'effectue par carte bancaire via la plateforme s&eacute;curis&eacute;e Stripe, ou par virement bancaire sur demande.</p>
+
+      <p><strong>6.4 &mdash; D&eacute;lai de paiement :</strong> Le paiement est d&ucirc; &agrave; r&eacute;ception de la facture, et au plus tard dans un d&eacute;lai de sept (7) jours calendaires &agrave; compter de la date d'&eacute;mission.</p>
+
+      <p><strong>6.5 &mdash; P&eacute;nalit&eacute;s de retard :</strong> En cas de retard de paiement, des p&eacute;nalit&eacute;s de retard seront appliqu&eacute;es de plein droit, sans qu'un rappel soit n&eacute;cessaire, au taux annuel de trois (3) fois le taux d'int&eacute;r&ecirc;t l&eacute;gal en vigueur. Une indemnit&eacute; forfaitaire de quarante (40) euros pour frais de recouvrement sera &eacute;galement due conform&eacute;ment aux articles L.441-10 et D.441-5 du Code de commerce.</p>
+
+      <p><strong>6.6 &mdash; R&eacute;vision tarifaire :</strong> Le Prestataire se r&eacute;serve le droit de r&eacute;viser ses tarifs une fois par an. Toute modification sera notifi&eacute;e au Client avec un pr&eacute;avis de trente (30) jours. Le Client disposera alors de la facult&eacute; de r&eacute;silier le contrat sans p&eacute;nalit&eacute;.</p>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ARTICLE 7 — RESPONSABILITES CLIENT -->
+  <div class="article">
+    <div class="article-title">Article 7 &mdash; Responsabilit&eacute;s du Client</div>
+    <div class="article-content">
+      <p>Le Client s'engage &agrave; :</p>
+      <ul>
+        <li><strong>Remplir le questionnaire d'onboarding</strong> dans un d&eacute;lai de sept (7) jours suivant la signature du contrat, incluant notamment la description de son activit&eacute;, son profil client id&eacute;al (ICP), sa proposition de valeur (USP) et ses exclusions &eacute;ventuelles ;</li>
+        <li><strong>Fournir l'ensemble des informations</strong> n&eacute;cessaires &agrave; la bonne ex&eacute;cution des prestations dans les d&eacute;lais convenus ;</li>
+        <li><strong>R&eacute;pondre aux questions</strong> du Prestataire dans un d&eacute;lai raisonnable de quarante-huit (48) heures ouvr&eacute;es ;</li>
+        <li><strong>Traiter les leads g&eacute;n&eacute;r&eacute;s</strong> dans des d&eacute;lais raisonnables afin de maximiser les r&eacute;sultats de la prospection ;</li>
+        <li><strong>Informer le Prestataire</strong> de tout changement dans son offre, son ICP ou ses conditions commerciales pouvant impacter les campagnes en cours.</li>
+      </ul>
+
+      <p class="sub-title">Dispositions sp&eacute;cifiques au plan Multicanal :</p>
+      <ul>
+        <li><strong>Autoriser l'acc&egrave;s &agrave; son compte LinkedIn</strong> via l'invitation s&eacute;curis&eacute;e de la plateforme Expandi. Le Client entre lui-m&ecirc;me ses identifiants ; iFIND n'a jamais acc&egrave;s au mot de passe LinkedIn du Client ;</li>
+        <li><strong>Disposer d'un profil LinkedIn actif</strong> et d'un abonnement Sales Navigator actif pendant toute la dur&eacute;e du contrat ;</li>
+        <li><strong>Ne pas effectuer de campagnes d'automation LinkedIn parall&egrave;les</strong> avec un autre outil pendant la dur&eacute;e de la prestation, afin de ne pas compromettre la s&eacute;curit&eacute; du compte.</li>
+      </ul>
+
+      <p>Le non-respect de ces obligations pourra entra&icirc;ner un retard dans la mise en place des campagnes ou une r&eacute;duction de leur efficacit&eacute;, sans que la responsabilit&eacute; d'iFIND puisse &ecirc;tre engag&eacute;e. En particulier, le non-respect du d&eacute;lai de sept (7) jours pour le questionnaire d'onboarding lib&egrave;re iFIND de la Garantie Pipeline d&eacute;finie &agrave; l'Article 8.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 8 — RESPONSABILITES IFIND -->
+  <div class="article">
+    <div class="article-title">Article 8 &mdash; Responsabilit&eacute;s du Prestataire</div>
+    <div class="article-content">
+      <p>iFIND s'engage &agrave; :</p>
+      <ul>
+        <li><strong>Setup technique complet :</strong> configuration des domaines d'envoi, warmup des adresses email, mise en place de l'authentification (SPF, DKIM, DMARC), enrichissement des donn&eacute;es prospects ;</li>
+        <li><strong>R&eacute;daction IA personnalis&eacute;e :</strong> chaque email est r&eacute;dig&eacute; individuellement par intelligence artificielle en fonction du profil et de l'actualit&eacute; du prospect ;</li>
+        <li><strong>Envoi et suivi automatis&eacute; :</strong> envoi des s&eacute;quences d'emails selon les bonnes pratiques anti-spam (cohortes limit&eacute;es, espacement des envois, warmup pr&eacute;alable) ;</li>
+        <li><strong>Dashboard de suivi en temps r&eacute;el :</strong> mise &agrave; disposition d'un acc&egrave;s au tableau de bord de suivi des campagnes ;</li>
+        <li><strong>Reporting mensuel :</strong> envoi d'un rapport de synth&egrave;se mensuel comprenant les indicateurs cl&eacute;s de performance (emails envoy&eacute;s, taux d'ouverture, taux de r&eacute;ponse, leads qualifi&eacute;s) ;</li>
+        <li><strong>Support :</strong> r&eacute;ponse aux demandes du Client dans un d&eacute;lai de quarante-huit (48) heures ouvr&eacute;es ;</li>
+        <li><strong>Respect de la r&eacute;glementation :</strong> conformit&eacute; des pratiques de prospection avec la r&eacute;glementation en vigueur, notamment le RGPD.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ARTICLE 9 — GARANTIES -->
+  <div class="article">
+    <div class="article-title">Article 9 &mdash; Garanties</div>
+    <div class="article-content">
+
+      <div class="encadre">
+        <div class="encadre-title">Garantie Pipeline &mdash; Remboursement int&eacute;gral sous 30 jours</div>
+        <p>Si le Client ne re&ccedil;oit <strong>aucune r&eacute;ponse qualifi&eacute;e</strong> apr&egrave;s trente (30) jours de campagne active, iFIND s'engage &agrave; rembourser int&eacute;gralement le premier mois de prestation.</p>
+        <p style="margin-top: 6px;"><strong>Conditions d'&eacute;ligibilit&eacute; :</strong></p>
+        <ul>
+          <li>Le Client a rempli le questionnaire d'onboarding et fourni tous les acc&egrave;s n&eacute;cessaires dans les sept (7) jours suivant la signature du contrat ;</li>
+          <li>Le Client a r&eacute;pondu aux demandes d'iFIND dans les d&eacute;lais convenus ;</li>
+          <li>La campagne a &eacute;t&eacute; active pendant au moins trente (30) jours calendaires cons&eacute;cutifs ;</li>
+          <li>Le Client n'a pas modifi&eacute; unilat&eacute;ralement les param&egrave;tres de campagne valid&eacute;s par iFIND.</li>
+        </ul>
+        <p style="margin-top: 6px;">On entend par &laquo;&nbsp;r&eacute;ponse qualifi&eacute;e&nbsp;&raquo; toute r&eacute;ponse d'un prospect exprimant un int&eacute;r&ecirc;t, une demande d'information ou acceptant un &eacute;change (hors d&eacute;sinscriptions et r&eacute;ponses n&eacute;gatives).</p>
+      </div>
+
+      <div class="encadre" style="margin-top: 15px;">
+        <div class="encadre-title">Garantie Qualit&eacute; &mdash; Continuation gratuite apr&egrave;s 60 jours</div>
+        <p>Si, apr&egrave;s soixante (60) jours de campagne active, les objectifs d&eacute;finis lors de l'onboarding ne sont pas atteints, iFIND s'engage &agrave; <strong>poursuivre la prestation gratuitement</strong> jusqu'&agrave; l'atteinte desdits objectifs.</p>
+        <p style="margin-top: 6px;"><strong>Conditions d'&eacute;ligibilit&eacute; :</strong></p>
+        <ul>
+          <li>Les conditions de la Garantie Pipeline (ci-dessus) sont remplies ;</li>
+          <li>Les objectifs ont &eacute;t&eacute; d&eacute;finis par &eacute;crit et valid&eacute;s par les deux Parties lors de l'onboarding ;</li>
+          <li>Le Client est &agrave; jour de ses paiements.</li>
+        </ul>
+        <p style="margin-top: 6px;">Cette garantie est limit&eacute;e &agrave; une dur&eacute;e maximale de trente (30) jours suppl&eacute;mentaires de prestation gratuite.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARTICLE 10 — LINKEDIN -->
+  <div class="article">
+    <div class="article-title">Article 10 &mdash; Dispositions sp&eacute;cifiques &agrave; LinkedIn (plan Multicanal)</div>
+    <div class="article-content">
+      <p>Les dispositions du pr&eacute;sent article s'appliquent exclusivement aux plans incluant le canal LinkedIn.</p>
+
+      <p><strong>10.1 &mdash; Autorisation :</strong> Le Client autorise express&eacute;ment iFIND &agrave; op&eacute;rer des campagnes de prospection automatis&eacute;e via son compte LinkedIn professionnel, dans le cadre et les limites d&eacute;finis au pr&eacute;sent contrat.</p>
+
+      <p><strong>10.2 &mdash; Acc&egrave;s s&eacute;curis&eacute; :</strong> L'acc&egrave;s au compte LinkedIn du Client se fait exclusivement via l'invitation s&eacute;curis&eacute;e de la plateforme Expandi. Le Client entre lui-m&ecirc;me ses identifiants dans l'interface s&eacute;curis&eacute;e. &Agrave; aucun moment iFIND n'a connaissance du mot de passe LinkedIn du Client. Le Client conserve le contr&ocirc;le total de ses identifiants et peut r&eacute;voquer l'acc&egrave;s &agrave; tout moment.</p>
+
+      <p><strong>10.3 &mdash; Limites de s&eacute;curit&eacute; :</strong> iFIND s'engage &agrave; respecter les limites de s&eacute;curit&eacute; recommand&eacute;es par la profession en mati&egrave;re d'automation LinkedIn, notamment concernant le nombre quotidien de demandes de connexion, de messages et de visites de profils.</p>
+
+      <p><strong>10.4 &mdash; Information sur les risques :</strong> Le Client est inform&eacute; et reconna&icirc;t que :</p>
+      <ul>
+        <li>L'utilisation d'outils d'automation LinkedIn comporte un risque de restriction temporaire du compte LinkedIn, estim&eacute; &agrave; environ 5 &agrave; 10% des cas ;</li>
+        <li>Dans 89% des cas, ces restrictions sont r&eacute;versibles via une proc&eacute;dure de v&eacute;rification d'identit&eacute; aupr&egrave;s de LinkedIn ;</li>
+        <li>iFIND assistera le Client dans les d&eacute;marches de r&eacute;cup&eacute;ration du compte le cas &eacute;ch&eacute;ant.</li>
+      </ul>
+
+      <p><strong>10.5 &mdash; Limitation de responsabilit&eacute; LinkedIn :</strong> iFIND ne pourra &ecirc;tre tenu responsable d'une restriction, suspension ou fermeture du compte LinkedIn du Client r&eacute;sultant de l'utilisation normale du service dans le respect des limites d&eacute;finies au pr&eacute;sent article. En cas de restriction du compte, le Client ne pourra pr&eacute;tendre &agrave; un remboursement des sommes d&eacute;j&agrave; vers&eacute;es au titre du pr&eacute;sent contrat.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 11 — CONFIDENTIALITE -->
+  <div class="article">
+    <div class="article-title">Article 11 &mdash; Confidentialit&eacute;</div>
+    <div class="article-content">
+      <p><strong>11.1</strong> Chaque Partie s'engage &agrave; consid&eacute;rer comme confidentielles l'ensemble des informations et donn&eacute;es de toute nature, communiqu&eacute;es par l'autre Partie dans le cadre de l'ex&eacute;cution du pr&eacute;sent contrat.</p>
+
+      <p><strong>11.2 &mdash; Donn&eacute;es prospects :</strong> Les listes de prospects, donn&eacute;es de contact et r&eacute;sultats de campagne sont la <strong>propri&eacute;t&eacute; exclusive du Client</strong>. iFIND s'engage &agrave; ne jamais utiliser les donn&eacute;es d'un client au profit d'un autre client.</p>
+
+      <p><strong>11.3 &mdash; Identifiants LinkedIn :</strong> Dans le cadre du plan Multicanal, les identifiants LinkedIn du Client sont prot&eacute;g&eacute;s par le m&eacute;canisme d'acc&egrave;s s&eacute;curis&eacute; d&eacute;crit &agrave; l'Article 10.2. iFIND n'a jamais acc&egrave;s au mot de passe du Client.</p>
+
+      <p><strong>11.4 &mdash; Strat&eacute;gies et contenus :</strong> Les strat&eacute;gies de prospection, angles d'approche, contenus d'emails et param&egrave;tres de campagne d&eacute;finis pour le Client sont couverts par la pr&eacute;sente obligation de confidentialit&eacute;.</p>
+
+      <p><strong>11.5</strong> Cette obligation de confidentialit&eacute; survivra &agrave; la fin du contrat pour une dur&eacute;e de deux (2) ans.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 12 — PROPRIETE INTELLECTUELLE -->
+  <div class="article">
+    <div class="article-title">Article 12 &mdash; Propri&eacute;t&eacute; intellectuelle</div>
+    <div class="article-content">
+      <p><strong>12.1 &mdash; Contenus r&eacute;dig&eacute;s pour le Client :</strong> Les emails, messages LinkedIn et tout contenu r&eacute;dig&eacute; sp&eacute;cifiquement pour le Client dans le cadre du pr&eacute;sent contrat sont <strong>la propri&eacute;t&eacute; du Client</strong>. Ce dernier dispose d'un droit d'utilisation, de reproduction et de modification sans restriction.</p>
+
+      <p><strong>12.2 &mdash; Technologie iFIND :</strong> La technologie iFIND, incluant sans limitation le bot de prospection, les algorithmes d'intelligence artificielle, les templates g&eacute;n&eacute;riques, les processus d'enrichissement, le dashboard et l'ensemble des outils d&eacute;velopp&eacute;s par le Prestataire, <strong>restent la propri&eacute;t&eacute; exclusive d'iFIND</strong>. Le Client ne dispose d'aucun droit sur ces &eacute;l&eacute;ments au-del&agrave; de leur utilisation dans le cadre du pr&eacute;sent contrat.</p>
+
+      <p><strong>12.3 &mdash; R&eacute;f&eacute;rencement :</strong> Sauf opposition &eacute;crite du Client, iFIND se r&eacute;serve le droit de mentionner le nom et le logo du Client en tant que r&eacute;f&eacute;rence commerciale.</p>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ARTICLE 13 — LIMITATION DE RESPONSABILITE -->
+  <div class="article">
+    <div class="article-title">Article 13 &mdash; Limitation de responsabilit&eacute;</div>
+    <div class="article-content">
+      <p><strong>13.1 &mdash; Obligation de moyens :</strong> Les prestations d'iFIND constituent une <strong>obligation de moyens</strong> et non de r&eacute;sultat. iFIND ne garantit pas un nombre d&eacute;termin&eacute; de rendez-vous, de r&eacute;ponses ou de conversions.</p>
+
+      <p><strong>13.2 &mdash; Plafond de responsabilit&eacute; :</strong> En tout &eacute;tat de cause, la responsabilit&eacute; totale d'iFIND au titre du pr&eacute;sent contrat est <strong>limit&eacute;e au montant total des sommes effectivement vers&eacute;es par le Client au cours des trois (3) derniers mois pr&eacute;c&eacute;dant le fait g&eacute;n&eacute;rateur</strong>.</p>
+
+      <p><strong>13.3 &mdash; Exclusions :</strong> iFIND ne peut &ecirc;tre tenu responsable :</p>
+      <ul>
+        <li>Des d&eacute;cisions commerciales prises par le Client suite aux rendez-vous ou leads g&eacute;n&eacute;r&eacute;s ;</li>
+        <li>Des dommages indirects, y compris la perte de chiffre d'affaires, de b&eacute;n&eacute;fices, de clients ou de donn&eacute;es ;</li>
+        <li>Des dysfonctionnements li&eacute;s aux plateformes tierces (Instantly, Expandi, LinkedIn, Clay, etc.) ;</li>
+        <li>Des retards ou d&eacute;faillances imputables au Client (non-fourniture d'informations, retard dans les validations, etc.).</li>
+      </ul>
+
+      <p><strong>13.4 &mdash; Force majeure :</strong> Aucune Partie ne pourra &ecirc;tre tenue responsable d'un manquement &agrave; ses obligations r&eacute;sultant d'un cas de force majeure tel que d&eacute;fini par l'article 1218 du Code civil.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 14 — RESILIATION -->
+  <div class="article">
+    <div class="article-title">Article 14 &mdash; R&eacute;siliation</div>
+    <div class="article-content">
+      <p><strong>14.1 &mdash; R&eacute;siliation &agrave; l'initiative du Client :</strong></p>
+      <ul>
+        <li><strong>Plan Pipeline :</strong> le Client peut r&eacute;silier le contrat &agrave; tout moment, sous r&eacute;serve d'un pr&eacute;avis de quinze (15) jours calendaires notifi&eacute; par &eacute;crit (email avec accus&eacute; de r&eacute;ception) ;</li>
+        <li><strong>Plan Multicanal :</strong> le Client peut r&eacute;silier le contrat &agrave; l'issue de la p&eacute;riode d'engagement initiale de trois (3) mois, sous r&eacute;serve d'un pr&eacute;avis de quinze (15) jours calendaires. Toute r&eacute;siliation anticip&eacute;e pendant la p&eacute;riode d'engagement entra&icirc;ne le paiement des mensualit&eacute;s restantes jusqu'au terme de l'engagement ;</li>
+        <li><strong>Plan D&eacute;di&eacute; :</strong> les conditions de r&eacute;siliation sont pr&eacute;cis&eacute;es dans le devis annex&eacute; (Annexe A).</li>
+      </ul>
+
+      <p><strong>14.2 &mdash; R&eacute;siliation &agrave; l'initiative du Prestataire :</strong> iFIND peut r&eacute;silier le contrat avec un pr&eacute;avis de quinze (15) jours calendaires, sans indemnit&eacute;, en cas de modification substantielle de ses conditions d'exploitation.</p>
+
+      <p><strong>14.3 &mdash; R&eacute;siliation pour faute grave :</strong> Chaque Partie peut r&eacute;silier le contrat de plein droit et sans pr&eacute;avis en cas de manquement grave de l'autre Partie &agrave; ses obligations, apr&egrave;s mise en demeure rest&eacute;e infructueuse pendant huit (8) jours. Sont notamment consid&eacute;r&eacute;s comme fautes graves :</p>
+      <ul>
+        <li>Le non-paiement d'une facture apr&egrave;s mise en demeure ;</li>
+        <li>La violation des obligations de confidentialit&eacute; ;</li>
+        <li>L'utilisation abusive ou d&eacute;tournement de la technologie iFIND.</li>
+      </ul>
+
+      <p><strong>14.4 &mdash; Effets de la r&eacute;siliation :</strong> En cas de r&eacute;siliation, iFIND transmettra au Client l'ensemble de ses donn&eacute;es (listes de prospects, r&eacute;sultats de campagne, historique) dans un d&eacute;lai de quinze (15) jours suivant la date effective de r&eacute;siliation. L'acc&egrave;s au dashboard sera maintenu pendant cette p&eacute;riode.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 15 — RGPD -->
+  <div class="article">
+    <div class="article-title">Article 15 &mdash; Protection des donn&eacute;es personnelles (RGPD)</div>
+    <div class="article-content">
+      <p><strong>15.1 &mdash; R&ocirc;les :</strong> Dans le cadre du pr&eacute;sent contrat, le Client agit en qualit&eacute; de <strong>responsable de traitement</strong> et iFIND agit en qualit&eacute; de <strong>sous-traitant</strong> au sens du R&egrave;glement G&eacute;n&eacute;ral sur la Protection des Donn&eacute;es (RGPD &mdash; R&egrave;glement UE 2016/679).</p>
+
+      <p><strong>15.2 &mdash; Nature des donn&eacute;es :</strong> Les donn&eacute;es trait&eacute;es sont limit&eacute;es aux <strong>informations professionnelles publiquement accessibles</strong> : nom, pr&eacute;nom, poste, entreprise, email professionnel, profil LinkedIn, actualit&eacute;s professionnelles.</p>
+
+      <p><strong>15.3 &mdash; Finalit&eacute; :</strong> Le traitement a pour seule finalit&eacute; la prospection commerciale B2B pour le compte du Client.</p>
+
+      <p><strong>15.4 &mdash; Engagements d'iFIND :</strong></p>
+      <ul>
+        <li>Traiter les donn&eacute;es uniquement sur instruction document&eacute;e du Client ;</li>
+        <li>Garantir la confidentialit&eacute; des donn&eacute;es trait&eacute;es ;</li>
+        <li>Mettre en &oelig;uvre les mesures techniques et organisationnelles appropri&eacute;es pour assurer la s&eacute;curit&eacute; des donn&eacute;es ;</li>
+        <li>Ne pas transf&eacute;rer de donn&eacute;es hors de l'Union europ&eacute;enne sans accord pr&eacute;alable du Client et garanties ad&eacute;quates ;</li>
+        <li>Assister le Client dans le respect de ses obligations au titre du RGPD (droits des personnes concern&eacute;es, notification de violation, etc.) ;</li>
+        <li>Supprimer ou restituer l'ensemble des donn&eacute;es personnelles au terme du contrat, selon le choix du Client.</li>
+      </ul>
+
+      <p><strong>15.5 &mdash; Droits des personnes :</strong> Tout prospect souhaitant exercer ses droits (acc&egrave;s, rectification, suppression, opposition) pourra en faire la demande. iFIND s'engage &agrave; traiter toute demande de suppression dans un d&eacute;lai de quarante-huit (48) heures.</p>
+
+      <p><strong>15.6 &mdash; Sous-traitants ult&eacute;rieurs :</strong> iFIND est autoris&eacute; &agrave; recourir aux sous-traitants techniques n&eacute;cessaires &agrave; l'ex&eacute;cution du service (h&eacute;bergement, outils d'enrichissement, plateformes d'envoi). La liste des sous-traitants sera communiqu&eacute;e au Client sur demande.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 16 — DROIT APPLICABLE -->
+  <div class="article">
+    <div class="article-title">Article 16 &mdash; Droit applicable et juridiction comp&eacute;tente</div>
+    <div class="article-content">
+      <p><strong>16.1</strong> Le pr&eacute;sent contrat est soumis au <strong>droit fran&ccedil;ais</strong>.</p>
+
+      <p><strong>16.2</strong> En cas de diff&eacute;rend relatif &agrave; l'interpr&eacute;tation ou &agrave; l'ex&eacute;cution du pr&eacute;sent contrat, les Parties s'engagent &agrave; rechercher une solution amiable dans un d&eacute;lai de trente (30) jours.</p>
+
+      <p><strong>16.3</strong> &Agrave; d&eacute;faut de r&eacute;solution amiable, tout litige sera soumis &agrave; la comp&eacute;tence exclusive des <strong>tribunaux de <span class="field">[VILLE]</span></strong>, nonobstant pluralit&eacute; de d&eacute;fendeurs ou appel en garantie.</p>
+    </div>
+  </div>
+
+  <!-- ARTICLE 17 — DISPOSITIONS GENERALES -->
+  <div class="article">
+    <div class="article-title">Article 17 &mdash; Dispositions g&eacute;n&eacute;rales</div>
+    <div class="article-content">
+      <p><strong>17.1 &mdash; Int&eacute;gralit&eacute; :</strong> Le pr&eacute;sent contrat, y compris ses annexes &eacute;ventuelles, constitue l'int&eacute;gralit&eacute; de l'accord entre les Parties et remplace tout accord ant&eacute;rieur, &eacute;crit ou oral, portant sur le m&ecirc;me objet.</p>
+
+      <p><strong>17.2 &mdash; Modifications :</strong> Toute modification du pr&eacute;sent contrat devra faire l'objet d'un avenant &eacute;crit sign&eacute; par les deux Parties.</p>
+
+      <p><strong>17.3 &mdash; Nullit&eacute; partielle :</strong> Si l'une des clauses du pr&eacute;sent contrat &eacute;tait d&eacute;clar&eacute;e nulle ou inapplicable, les autres clauses resteraient en vigueur.</p>
+
+      <p><strong>17.4 &mdash; Cession :</strong> Le pr&eacute;sent contrat ne peut &ecirc;tre c&eacute;d&eacute; par le Client sans l'accord pr&eacute;alable &eacute;crit d'iFIND.</p>
+
+      <p><strong>17.5 &mdash; Non-renonciation :</strong> Le fait pour l'une des Parties de ne pas exercer un droit pr&eacute;vu au pr&eacute;sent contrat ne constitue pas une renonciation &agrave; ce droit.</p>
+
+      <p><strong>17.6 &mdash; Notifications :</strong> Toute notification au titre du pr&eacute;sent contrat sera valablement faite par email avec accus&eacute; de r&eacute;ception aux adresses indiqu&eacute;es &agrave; l'Article 1.</p>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- SIGNATURES -->
+  <p style="text-align: center; font-weight: 600; margin: 30px 0 10px; font-size: 12pt;">Signatures</p>
+  <p style="text-align: center; color: var(--gray); font-size: 10pt; margin-bottom: 25px;">
+    Fait en deux exemplaires originaux, &agrave; <span class="field">[VILLE]</span>, le <span class="field">[JJ/MM/AAAA]</span>.
+  </p>
+
+  <div class="signatures">
+    <div class="sig-block">
+      <h4>Le Prestataire &mdash; iFIND</h4>
+      <p>Alexis B&eacute;nier</p>
+      <p class="mention-manuscrite">Mention manuscrite : &laquo;&nbsp;Lu et approuv&eacute;&nbsp;&raquo;</p>
+      <div class="sig-line"></div>
+      <div class="sig-label">Signature pr&eacute;c&eacute;d&eacute;e de la mention &laquo;&nbsp;Lu et approuv&eacute;&nbsp;&raquo;</div>
+      <br>
+      <div class="sig-label">Date : ____________________</div>
+    </div>
+    <div class="sig-block">
+      <h4>Le Client</h4>
+      <p><span class="field">[NOM ET PRENOM]</span></p>
+      <p><span class="field">[FONCTION]</span></p>
+      <p class="mention-manuscrite">Mention manuscrite : &laquo;&nbsp;Lu et approuv&eacute;&nbsp;&raquo;</p>
+      <div class="sig-line"></div>
+      <div class="sig-label">Signature pr&eacute;c&eacute;d&eacute;e de la mention &laquo;&nbsp;Lu et approuv&eacute;&nbsp;&raquo;</div>
+      <br>
+      <div class="sig-label">Date : ____________________</div>
+    </div>
+  </div>
+
+  <hr style="margin-top: 40px;">
+
+  <p style="text-align: center; font-weight: 600; margin: 25px 0 10px; font-size: 11pt;">Paraphes</p>
+  <p style="text-align: center; color: var(--gray); font-size: 9pt; margin-bottom: 15px;">
+    Chaque page du pr&eacute;sent contrat doit &ecirc;tre paraph&eacute;e par les deux Parties.
+  </p>
+
+  <div class="signatures">
+    <div class="sig-block" style="text-align: center;">
+      <div class="sig-label">Paraphe du Prestataire</div>
+      <div class="sig-line" style="height: 40px;"></div>
+    </div>
+    <div class="sig-block" style="text-align: center;">
+      <div class="sig-label">Paraphe du Client</div>
+      <div class="sig-line" style="height: 40px;"></div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    iFIND &mdash; Prospection B2B automatis&eacute;e par IA &mdash; ifind.fr &mdash; benieralexis@gmail.com<br>
+    SIRET : <span class="field">[SIRET iFIND]</span>
+  </div>
+
+</div>
+
+</body>
+</html>
