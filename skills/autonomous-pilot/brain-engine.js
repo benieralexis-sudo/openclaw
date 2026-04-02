@@ -99,10 +99,16 @@ class BrainEngine {
       catch (e) { log.error('brain', 'Erreur reset hebdo:', e.message); }
     })));
 
+    // Re-engagement 90j : checker chaque jour a 10h30 les leads "timing" a re-contacter
+    this.crons.push(new Cron('30 10 * * 1-5', { timezone: tz }, withCronGuard('ap-re-engagement', async () => {
+      try { await this._processReEngagements(); }
+      catch (e) { log.error('brain', 'Erreur re-engagement:', e.message); }
+    })));
+
     // B5 FIX : backfill industry sur les leads FlowFast existants
     this._backfillLeadIndustry();
 
-    log.info('brain', 'Cerveau autonome demarre (8 crons — 3 brain + 4 mini + 1 intent monitor 30min)');
+    log.info('brain', 'Cerveau autonome demarre (9 crons — 3 brain + 4 mini + 1 intent + 1 re-engage)');
   }
 
   stop() {
@@ -143,6 +149,58 @@ class BrainEngine {
       }
     } catch (e) {
       log.warn('brain', 'B5 backfill erreur: ' + e.message);
+    }
+  }
+
+  // --- Re-engagement 90j : re-injecter les leads "timing" dans le pipeline ---
+  async _processReEngagements() {
+    try {
+      const inboxStorage = require('../inbox-manager/storage.js');
+      const automailerStorage = getAutomailerStorage();
+      const pending = inboxStorage.getPendingReEngagements();
+
+      if (pending.length === 0) return;
+
+      const config = storage.getConfig();
+      const chatId = config.adminChatId;
+      let reEngaged = 0;
+
+      for (const entry of pending) {
+        // Verifier que le prospect n'est pas blackliste
+        if (automailerStorage && automailerStorage.isBlacklisted(entry.email)) {
+          inboxStorage.markReEngaged(entry.id); // Skip sans re-engagement
+          log.info('brain', 'Re-engagement skip (blacklist): ' + entry.email);
+          continue;
+        }
+
+        // Retirer le prospect de la blacklist automailer (s'il y etait pour "not_interested")
+        if (automailerStorage && automailerStorage.removeFromBlacklist) {
+          automailerStorage.removeFromBlacklist(entry.email);
+        }
+
+        // Re-injecter dans FlowFast avec un score neutre (le brain re-evaluera)
+        const ffStorage = getFlowFastStorage();
+        if (ffStorage) {
+          ffStorage.addLead({
+            email: entry.email,
+            nom: entry.firstName || entry.company || '',
+            entreprise: entry.company || '',
+            re_engagement: true,
+            previousObjection: entry.objectionType,
+            originalDetectedAt: entry.detectedAt
+          }, 6, 're-engagement');
+        }
+
+        inboxStorage.markReEngaged(entry.id);
+        reEngaged++;
+        log.info('brain', 'Re-engagement: ' + entry.email + ' re-injecte dans le pipeline (' + entry.objectionType + ', apres ' + Math.round((Date.now() - new Date(entry.detectedAt).getTime()) / 86400000) + 'j)');
+      }
+
+      if (reEngaged > 0 && this.sendTelegram) {
+        await this.sendTelegram(chatId, '🔄 *Re-engagement 90j* : ' + reEngaged + ' prospect(s) re-injecte(s) dans le pipeline.\n_Objections initiales depassees — nouveau cycle de prospection._', 'Markdown');
+      }
+    } catch (e) {
+      log.warn('brain', 'Re-engagement processing erreur: ' + e.message);
     }
   }
 

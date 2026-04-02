@@ -391,7 +391,7 @@ class ResendClient {
     let domainMailbox = null;
     try {
       const domainManager = require('./domain-manager.js');
-      selectedDomain = domainManager.selectDomain(toEmail);
+      selectedDomain = await domainManager.selectDomain(toEmail);
       if (selectedDomain) {
         domainMailbox = domainManager.getMailboxForDomain(selectedDomain.domain);
       }

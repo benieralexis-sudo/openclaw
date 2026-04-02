@@ -1668,7 +1668,7 @@ class CampaignEngine {
       if (stepNumber <= 1) {
         try {
           const dm = require('./domain-manager.js');
-          const selectedDomForLink = dm.selectDomain(contact.email);
+          const selectedDomForLink = dm.selectDomainSync ? dm.selectDomainSync(contact.email) : dm.selectDomain(contact.email);
           if (selectedDomForLink && dm.isDomainYoung(selectedDomForLink.domain)) {
             // Retirer tous les liens du body (sauf domaines d'email mentionnes dans le texte)
             const linksBefore = (body.match(/https?:\/\/[^\s)]+/g) || []).length;
@@ -1748,12 +1748,21 @@ class CampaignEngine {
         storage.setFirstSendDate();
         storage.incrementTodaySendCount();
 
-        // === DELIVERABILITY FIX 6 : Spread horaire entre chaque envoi ===
-        // Delai aleatoire 30-90 secondes entre chaque email (paraître humain)
-        // Les envois en rafale (0s entre chaque) = signal spam fort
+        // === DELIVERABILITY FIX 6 : Spread gaussien entre chaque envoi ===
+        // Distribution gaussienne 30-180s (moyenne ~90s, ecart-type ~30s)
+        // Imite le pattern humain : la plupart des envois autour de 90s, quelques-uns plus rapides ou lents
+        // Un spread uniforme est detectable par les ESP — le gaussien est plus naturel
         if (batchSentCount < list.contacts.length) {
-          const spreadDelay = 30000 + Math.floor(Math.random() * 60000); // 30-90s
-          await new Promise(r => setTimeout(r, spreadDelay));
+          const gaussRandom = () => {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+          };
+          const mean = 90000; // 90s moyenne
+          const stddev = 30000; // 30s ecart-type
+          const delay = Math.max(30000, Math.min(180000, Math.round(mean + gaussRandom() * stddev)));
+          await new Promise(r => setTimeout(r, delay));
         }
 
         // Niche tracking pour suivi performance par industrie
@@ -2307,16 +2316,30 @@ class CampaignEngine {
             storage.updateEmailStatus(email.id, newStatus, { clickedAt: new Date().toISOString() });
           }
 
-          // FIX 14 : Bounce handling — soft vs hard
+          // FIX 14 : Bounce handling — soft vs hard + catch-all detection
           if (newStatus === 'bounced') {
-            const bounceType = (email.bounceType || '').toLowerCase();
+            const bounceType = (email.bounceType || result.data.bounce_type || '').toLowerCase();
+            const bounceReason = (result.data.bounce_reason || result.data.last_event_message || '').toLowerCase();
+            const dm = require('./domain-manager.js');
+
             if (bounceType === 'soft' || bounceType === 'temporary') {
-              // Soft bounce : retry via proactive follow-up, pas de blacklist
-              log.info('campaign-engine', 'Soft bounce detecte: ' + email.to + ' — retry prevu (pas de blacklist)');
+              // Soft bounce : programmer un retry 24h plus tard, pas de blacklist
+              log.info('campaign-engine', 'Soft bounce: ' + email.to + ' — retry 24h (pas de blacklist)');
+              storage.updateEmailStatus(email.id, 'bounced', {
+                bounceType: 'soft',
+                retryAfter: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+              });
+            } else if (bounceReason.includes('catch') || bounceReason.includes('accept-all')) {
+              // Catch-all bounce : le domaine accepte tout mais l'adresse n'existe pas
+              // Reduire le volume sur ce domaine d'envoi mais ne pas blacklister immediatement
+              log.warn('campaign-engine', 'Catch-all bounce: ' + email.to + ' — volume reduit, pas de blacklist immediate');
+              if (email.senderDomain && dm.recordBounce) dm.recordBounce(email.senderDomain);
+              storage.updateEmailStatus(email.id, 'bounced', { bounceType: 'catch_all' });
             } else {
-              // Hard bounce ou type inconnu via polling : blacklist
+              // Hard bounce : blacklist immediate + enregistrer sur le domaine d'envoi
               storage.addToBlacklist(email.to, 'hard_bounce');
-              log.info('campaign-engine', 'Hard bounce detecte: ' + email.to + ' — ajoute au blacklist');
+              if (email.senderDomain && dm.recordBounce) dm.recordBounce(email.senderDomain);
+              log.info('campaign-engine', 'Hard bounce: ' + email.to + ' — blacklist + domaine ' + (email.senderDomain || 'unknown'));
             }
             bounceCount++;
           }

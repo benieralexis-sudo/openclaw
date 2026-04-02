@@ -173,8 +173,19 @@ function calculateIntentScore(intel) {
     }
   }
 
-  // Normaliser sur 0-10 (le max theorique serait ~15 avec tous les signaux)
-  const score = Math.min(10, Math.round(rawScore * 10) / 10);
+  // Signal Stacking : multiplicateur quand 3+ signaux DISTINCTS convergent
+  // Un lead avec 3+ signaux est exponentiellement plus qualifie qu'un lead avec 1 signal fort
+  // Ex: recrute + funding + headcount growth = lead chaud ×1.5
+  const uniqueSignalTypes = new Set(scoredSignals.map(s => s.type.replace(/^market_/, '')));
+  const signalCount = uniqueSignalTypes.size;
+  const stackingMultiplier = signalCount >= 4 ? 1.8 : signalCount >= 3 ? 1.5 : 1.0;
+  if (stackingMultiplier > 1.0) {
+    log.info('intent-scorer', 'Signal Stacking: ' + signalCount + ' signaux distincts → ×' + stackingMultiplier);
+  }
+  const adjustedScore = rawScore * stackingMultiplier;
+
+  // Normaliser sur 0-10
+  const score = Math.min(10, Math.round(adjustedScore * 10) / 10);
 
   // Trier par contribution decroissante
   scoredSignals.sort((a, b) => b.contribution - a.contribution);
@@ -183,13 +194,16 @@ function calculateIntentScore(intel) {
   const topSignal = scoredSignals.length > 0 ? scoredSignals[0] : null;
 
   // Summary lisible
+  const stackLabel = stackingMultiplier > 1.0 ? ' [×' + stackingMultiplier + ' stacking]' : '';
   const summary = scoredSignals.length === 0
     ? 'aucun signal'
-    : scoredSignals.slice(0, 3).map(s => s.type.replace(/_/g, ' ')).join(' + ');
+    : scoredSignals.slice(0, 3).map(s => s.type.replace(/_/g, ' ')).join(' + ') + stackLabel;
 
   return {
     score: score,
     signals: scoredSignals,
+    signalCount: signalCount,
+    stackingMultiplier: stackingMultiplier,
     topSignal: topSignal ? topSignal.type : null,
     summary: summary,
     calculatedAt: new Date().toISOString()

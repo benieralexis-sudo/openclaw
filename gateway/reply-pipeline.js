@@ -298,6 +298,26 @@ function createReplyPipeline(deps) {
     const subClass = await subClassifyObjection(openaiKey, replyData, classification);
     log.info('inbox-manager', 'Sub-classification: ' + subClass.type + ' / ' + subClass.objectionType + ' (conf=' + subClass.confidence + ')');
 
+    // Re-engagement 90j : scheduler un re-contact pour les objections "timing" et "budget"
+    // Ces prospects ont exprime un interet potentiel mais pas au bon moment
+    if (subClass.type === 'soft_objection' && ['timing', 'budget', 'competitor'].includes(subClass.objectionType)) {
+      try {
+        const inboxStorage = require('../skills/inbox-manager/storage.js');
+        const delayDays = subClass.objectionType === 'timing' ? 90 : subClass.objectionType === 'budget' ? 120 : 180;
+        const entry = inboxStorage.addReEngagement({
+          email: replyData.from,
+          company: replyData.fromName || '',
+          firstName: '',
+          objectionType: subClass.objectionType,
+          delayDays: delayDays
+        });
+        if (entry) {
+          const reEngageDate = new Date(entry.reEngageAfter).toLocaleDateString('fr-FR');
+          log.info('inbox-manager', 'Re-engagement programme: ' + replyData.from + ' → ' + reEngageDate + ' (' + subClass.objectionType + ', ' + delayDays + 'j)');
+        }
+      } catch (e) { log.warn('inbox-manager', 'Re-engagement scheduling echoue: ' + e.message); }
+    }
+
     if (subClass.type === 'soft_objection' && subClass.confidence >= autoReplyConfidence) {
       // Circuit breaker check AVANT generation Claude
       const claudeBreaker = getBreaker('claude-sonnet', { failureThreshold: 5, cooldownMs: 30000 });

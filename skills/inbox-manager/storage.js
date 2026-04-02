@@ -26,6 +26,7 @@ class InboxManagerStorage {
       matchedReplies: [],   // Emails qui matchent un lead connu
       autoReplies: [],      // [{id, prospectEmail, sentiment, subClassification, replyBody, replySubject, originalEmailId, confidence, sentAt, sendResult}]
       oooReschedules: [],    // [{id, prospectEmail, returnDate, scheduledFollowUpAt, status}]
+      reEngagements: [],     // [{email, company, objectionType, detectedAt, reEngageAfter, status: 'pending'|'re-engaged'|'skipped'}]
       stats: {
         totalReceived: 0,
         totalMatched: 0,
@@ -321,6 +322,59 @@ class InboxManagerStorage {
       this._save();
     }
     return entry;
+  }
+
+  // --- Re-engagement 90j tracking ---
+  // Les leads "timing" (pas le moment) sont re-engages apres 90 jours automatiquement
+
+  addReEngagement(data) {
+    if (!this.data.reEngagements) this.data.reEngagements = [];
+    const reEngageAfter = new Date(Date.now() + (data.delayDays || 90) * 24 * 60 * 60 * 1000).toISOString();
+    const entry = {
+      id: 're_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      email: (data.email || '').toLowerCase(),
+      company: data.company || '',
+      firstName: data.firstName || '',
+      objectionType: data.objectionType || 'timing',
+      detectedAt: new Date().toISOString(),
+      reEngageAfter: reEngageAfter,
+      status: 'pending'
+    };
+    // Eviter les doublons
+    const existing = this.data.reEngagements.find(r => r.email === entry.email && r.status === 'pending');
+    if (existing) return existing;
+    this.data.reEngagements.push(entry);
+    if (this.data.reEngagements.length > 500) {
+      this.data.reEngagements = this.data.reEngagements.slice(-500);
+    }
+    this._save();
+    return entry;
+  }
+
+  getPendingReEngagements() {
+    if (!this.data.reEngagements) return [];
+    const now = new Date().toISOString();
+    return this.data.reEngagements.filter(r => r.status === 'pending' && r.reEngageAfter <= now);
+  }
+
+  markReEngaged(id) {
+    if (!this.data.reEngagements) return null;
+    const entry = this.data.reEngagements.find(r => r.id === id);
+    if (entry) {
+      entry.status = 're-engaged';
+      entry.reEngagedAt = new Date().toISOString();
+      this._save();
+    }
+    return entry;
+  }
+
+  getReEngagementStats() {
+    if (!this.data.reEngagements) return { total: 0, pending: 0, reEngaged: 0 };
+    return {
+      total: this.data.reEngagements.length,
+      pending: this.data.reEngagements.filter(r => r.status === 'pending').length,
+      reEngaged: this.data.reEngagements.filter(r => r.status === 're-engaged').length
+    };
   }
 
   getSentimentBreakdown() {

@@ -1862,11 +1862,16 @@ const healthServer = http.createServer(async (req, res) => {
             continue;
           }
 
-          // Trouver ou creer la liste "Clay Imports"
-          let clayList = automailerStorage.findContactListByName(ADMIN_CHAT_ID, 'Clay Imports');
+          // Determiner la liste cible : "Clay Imports" ou "Clay Catch-All" (volume reduit)
+          const isCatchAll = lead.catchAll === true || lead.catchAll === 'true' || lead.isCatchAll === true || lead.isCatchAll === 'true';
+          const listName = isCatchAll ? 'Clay Catch-All' : 'Clay Imports';
+          let clayList = automailerStorage.findContactListByName(ADMIN_CHAT_ID, listName);
           if (!clayList) {
-            clayList = automailerStorage.createContactList(ADMIN_CHAT_ID, 'Clay Imports');
-            log.info('webhook-clay', 'Liste "Clay Imports" creee: ' + clayList.id);
+            clayList = automailerStorage.createContactList(ADMIN_CHAT_ID, listName);
+            log.info('webhook-clay', 'Liste "' + listName + '" creee: ' + clayList.id);
+          }
+          if (isCatchAll) {
+            log.info('webhook-clay', 'Lead catch-all detecte: ' + lead.email + ' → liste separee (volume reduit)');
           }
 
           // Inserer le contact
@@ -1909,6 +1914,7 @@ const healthServer = http.createServer(async (req, res) => {
               revenueData: lead.revenueData || nestedEnr.revenueData || null,
               growthInsights: lead.growthInsights || nestedEnr.growthInsights || null,
               enrichCompany: lead.enrichCompany || nestedEnr.enrichCompany || null,
+              catchAll: isCatchAll,
               enrichment: lead.enrichment || {},
               source: 'clay',
               importedAt: new Date().toISOString()

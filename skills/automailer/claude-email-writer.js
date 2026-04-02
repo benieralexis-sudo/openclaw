@@ -331,14 +331,65 @@ Analyse ces donnees et produis ta recommandation strategique.`;
       nicheData = icpLoader.matchLeadToNiche(contact);
     }
 
+    // --- Pain point mapping par role (top 1% agencies) ---
+    // Les top agencies personnalisent par ROLE, pas seulement par niche
+    const ROLE_PAIN_POINTS = {
+      ceo: {
+        keywords: ['ceo', 'pdg', 'fondateur', 'founder', 'co-founder', 'president', 'directeur general', 'gerant', 'proprietaire', 'owner', 'managing director'],
+        painPoint: 'pas le temps de prospecter — focus produit/strategie, la croissance depend de l\'acquisition mais c\'est pas leur zone de genie',
+        angle: 'liberation du temps fondateur'
+      },
+      cto: {
+        keywords: ['cto', 'vp engineering', 'directeur technique', 'tech lead', 'head of engineering', 'chief technology'],
+        painPoint: 'recruter des devs, gerer la dette technique, scaler l\'equipe — pas le temps/expertise pour le business development',
+        angle: 'pipeline technique sans distraction'
+      },
+      sales: {
+        keywords: ['directeur commercial', 'vp sales', 'head of sales', 'chief revenue', 'cro', 'directeur des ventes', 'sales director', 'responsable commercial'],
+        painPoint: 'equipe SDR sous-performante ou inexistante, cout par lead trop eleve, pipeline irregulier, pression sur les objectifs trimestriels',
+        angle: 'pipeline previsible et regulier'
+      },
+      marketing: {
+        keywords: ['cmo', 'directeur marketing', 'head of marketing', 'vp marketing', 'responsable marketing'],
+        painPoint: 'le marketing genere du trafic mais pas assez de leads qualifies pour les commerciaux, attribution floue entre marketing et ventes',
+        angle: 'leads qualifies directement en pipeline'
+      },
+      operations: {
+        keywords: ['coo', 'directeur des operations', 'operations director', 'head of operations', 'directeur general adjoint'],
+        painPoint: 'processes manuels, scaling difficile, besoin d\'automatiser l\'acquisition sans recruter',
+        angle: 'automatisation acquisition sans overhead'
+      }
+    };
+
+    // Detecter le role du prospect
+    let detectedRole = null;
+    const titleLower = (contact.title || '').toLowerCase();
+    for (const [role, config] of Object.entries(ROLE_PAIN_POINTS)) {
+      if (config.keywords.some(kw => titleLower.includes(kw))) {
+        detectedRole = { role, ...config };
+        break;
+      }
+    }
+
     // --- Construire le bloc ICP pour le prompt ---
     let icpBlock = '';
     if (nicheData) {
       icpBlock = '\n=== CONTEXTE NICHE ===\n';
       icpBlock += 'NICHE : ' + (nicheData.name || nicheData.slug || 'inconnue');
-      if (nicheData.painPoint) icpBlock += '\nPROBLEME TYPIQUE : ' + nicheData.painPoint;
+      if (nicheData.painPoint) icpBlock += '\nPROBLEME TYPIQUE NICHE : ' + nicheData.painPoint;
+      if (detectedRole) {
+        icpBlock += '\nROLE DETECTE : ' + detectedRole.role.toUpperCase();
+        icpBlock += '\nPROBLEME SPECIFIQUE AU ROLE : ' + detectedRole.painPoint;
+        icpBlock += '\nANGLE RECOMMANDE : ' + detectedRole.angle;
+      }
       if (contact._triggerAngle) icpBlock += '\nTRIGGER DETECTE : ' + contact._triggerAngle;
       icpBlock += '\nUtilise le probleme typique UNIQUEMENT si les donnees prospect le confirment. Ne force pas.\n';
+    } else if (detectedRole) {
+      icpBlock = '\n=== CONTEXTE ROLE ===\n';
+      icpBlock += 'ROLE DETECTE : ' + detectedRole.role.toUpperCase();
+      icpBlock += '\nPROBLEME SPECIFIQUE : ' + detectedRole.painPoint;
+      icpBlock += '\nANGLE RECOMMANDE : ' + detectedRole.angle;
+      icpBlock += '\nUtilise ce contexte UNIQUEMENT si les donnees prospect le confirment. Ne force pas.\n';
     }
 
     // Bloc langue pour clients non-francophones
