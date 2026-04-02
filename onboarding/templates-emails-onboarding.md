@@ -1,15 +1,33 @@
 # Templates Emails Onboarding — iFIND
 
-> 4 emails automatisés post-paiement. Ton : tutoiement, chaleureux, direct, pas corporate.
-> Philosophie : Popsicle Moment, Results in Advance, Speed to Value (Hormozi).
+> 3 emails post-paiement + 1 email post-kickoff. Ton : tutoiement, chaleureux, direct, pas corporate.
+> Philosophie : Speed to Value, puis Popsicle Moment après le kickoff (Hormozi).
 
 ---
 
-## Email 1 — Bienvenue
+## Séquence complète
 
-**Objet :** Bienvenue chez iFIND — on demarre maintenant
+```
+Paiement Stripe reçu
+  ↓ immédiat
+Email 1 — Bienvenue + questionnaire + lien Cal.com
+  ↓ +72h (si questionnaire pas rempli)
+Email 2 — Reminder questionnaire
+  ↓ questionnaire reçu → client booke le kickoff
+Kickoff call (30 min)
+  ↓ +2-4h après le kickoff
+Email 3 — Popsicle Moment (5 emails personnalisés)
+  ↓ +7 jours après lancement
+Email 4 — Update #1 (domaines chauffent, premiers prospects)
+```
 
-**Variables :** `[PRENOM_CLIENT]`, `[NOM_ENTREPRISE]`, `[LIEN_DASHBOARD]`
+---
+
+## Email 1 — Bienvenue + Questionnaire
+
+**Objet :** Bienvenue chez iFIND — on démarre maintenant
+
+**Variables :** `[PRENOM_CLIENT]`, `[NOM_ENTREPRISE]`, `[LIEN_DASHBOARD]`, `[LIEN_QUESTIONNAIRE]`, `[LIEN_CALCOM]`, `[DATE_LIMITE]`
 
 **Corps :**
 
@@ -19,32 +37,72 @@
 >
 > Tu fais maintenant partie des entreprises qui ne laissent plus leur pipeline au hasard. On va construire ensemble une machine de prospection qui tourne pendant que tu te concentres sur ce que tu fais le mieux.
 >
-> Voici ce qui se passe dans les prochaines 48h :
+> **Voici les 2 choses à faire maintenant :**
 >
-> 1. **Aujourd'hui** — On configure tes domaines d'envoi et on lance le warmup
-> 2. **Dans 2-4h** — Tu recois tes 5 premiers emails de prospection (oui, deja)
-> 3. **Demain** — Un court questionnaire pour affiner ta cible
-> 4. **Sous 5 jours** — Kickoff call de 30 min, puis lancement
+> **1. Remplis le questionnaire d'onboarding (15 min) :**
+> [LIEN_QUESTIONNAIRE]
+> Tes réponses permettent à notre IA de rédiger des emails qui sonnent comme toi, pas comme un robot.
 >
-> Ton dashboard est deja accessible :
+> **2. Booke ton kickoff call (30 min) :**
+> [LIEN_CALCOM]
+> On valide ensemble ta cible, ton ton et ta stratégie de lancement.
+>
+> **Idéalement avant le [DATE_LIMITE]** — plus tu remplis vite, plus on lance vite.
+>
+> En parallèle, on configure déjà tes domaines d'envoi et on lance le warmup.
+>
+> Ton dashboard est accessible ici :
 > [LIEN_DASHBOARD]
 >
-> Si tu as la moindre question, reponds directement a cet email — c'est moi qui lis.
+> Si tu as la moindre question, réponds directement à cet email — c'est moi qui lis.
 >
 > Alexis
 > Fondateur, iFIND
 > benieralexis@gmail.com
 
 **Notes d'envoi :**
-- **Timing :** Immediatement apres paiement Stripe
+- **Timing :** Immédiatement après paiement Stripe
 - **Trigger :** Webhook Stripe `checkout.session.completed`
+- **Canal :** Email transactionnel
+- **`[DATE_LIMITE]`** : Date du paiement + 3 jours
+
+---
+
+## Email 2 — Reminder questionnaire
+
+**Objet :** On attend plus que toi pour lancer
+
+**Variables :** `[PRENOM_CLIENT]`, `[LIEN_QUESTIONNAIRE]`, `[LIEN_CALCOM]`
+
+**Corps :**
+
+> [PRENOM_CLIENT],
+>
+> Petit point rapide : tout est prêt de notre côté.
+>
+> Domaines configurés. Warmup lancé. IA calibrée.
+>
+> Il manque juste tes réponses au questionnaire pour qu'on personnalise tout à fond :
+> [LIEN_QUESTIONNAIRE]
+>
+> Ça prend 15 minutes et ça fait la différence entre une campagne OK et une campagne qui déchire.
+>
+> Si tu es bloqué sur une question, réponds simplement à cet email — on en discute.
+>
+> Alexis
+>
+> PS — N'oublie pas de booker ton kickoff : [LIEN_CALCOM]. 30 min et on lance.
+
+**Notes d'envoi :**
+- **Timing :** J+3 après le paiement (matin, 9h)
+- **Trigger :** Conditionnel — envoyé uniquement si le questionnaire n'a pas été rempli
 - **Canal :** Email transactionnel
 
 ---
 
-## Email 2 — Popsicle Moment
+## Email 3 — Popsicle Moment (après le kickoff)
 
-**Objet :** Tes 5 premiers emails de prospection sont prets
+**Objet :** Tes 5 premiers emails de prospection sont prêts
 
 **Variables :** `[PRENOM_CLIENT]`, `[NOM_ENTREPRISE]`, `[EMAILS]`
 
@@ -52,9 +110,9 @@
 
 > [PRENOM_CLIENT],
 >
-> On n'a pas attendu.
+> On vient de raccrocher et notre IA s'est déjà mise au travail.
 >
-> Pendant que tu lisais l'email de bienvenue, notre IA a analyse [NOM_ENTREPRISE] et redige 5 emails de prospection personnalises. Les voici :
+> Voici 5 emails de prospection personnalisés pour [NOM_ENTREPRISE], basés sur tout ce qu'on a validé ensemble :
 >
 > ---
 >
@@ -62,86 +120,50 @@
 >
 > ---
 >
-> Ce sont des premiers jets bases sur ce qu'on sait de ton entreprise. On les affinera ensemble au kickoff — mais tu vois deja le niveau de personnalisation.
+> C'est le niveau de personnalisation que chaque prospect va recevoir. Pas de template générique — chaque email est rédigé sur mesure.
 >
-> Pas mal pour quelques heures, non ?
->
-> Si quelque chose te saute aux yeux, reponds a cet email. Sinon, on ajuste tout au kickoff.
+> Si quelque chose te saute aux yeux, réponds à cet email. Sinon, on lance dès que les domaines sont chauds.
 >
 > Alexis
 >
-> PS — Le meilleur retour qu'on recoit : "J'aurais jamais ecrit ca moi-meme, mais c'est exactement le bon ton." C'est ce qu'on vise pour toi.
+> PS — Le retour qu'on reçoit le plus souvent : "J'aurais jamais écrit ça moi-même, mais c'est exactement le bon ton." C'est ce qu'on vise pour toi.
 
 **Notes d'envoi :**
-- **Timing :** 2 a 4h apres le paiement
-- **Trigger :** Delai programme apres Email 1
+- **Timing :** 2 à 4h après le kickoff call
+- **Trigger :** Manuel — après avoir généré les 5 emails avec les infos du questionnaire + kickoff
 - **Canal :** Email transactionnel
-- **Prerequis :** Les 5 emails doivent etre generes avant l'envoi (placeholder `[EMAILS]` remplace par le contenu reel)
+- **Prérequis :** Questionnaire rempli + kickoff fait + 5 emails générés par le bot
 
 ---
 
-## Email 3 — Questionnaire onboarding
+## Email 4 — Update #1
 
-**Objet :** Une derniere etape avant le lancement
+**Objet :** Vos premiers prospects sont identifiés
 
-**Variables :** `[PRENOM_CLIENT]`, `[LIEN_QUESTIONNAIRE]`, `[LIEN_CALENDLY]`, `[DATE_LIMITE]`
+**Variables :** `[PRENOM_CLIENT]`, `[NB_PROSPECTS]`, `[LIEN_DASHBOARD]`
 
 **Corps :**
 
 > [PRENOM_CLIENT],
 >
-> Tout avance bien de notre cote — domaines en warmup, IA calibree sur ton secteur.
+> Point d'avancement rapide :
 >
-> Pour qu'on cible exactement les bonnes personnes, j'ai besoin de 15 minutes de ton temps :
+> - Tes domaines sont en warmup (score en hausse chaque jour)
+> - **[NB_PROSPECTS] prospects** ont été identifiés et enrichis pour ta première campagne
+> - L'IA a analysé chaque profil et prépare des emails personnalisés
 >
-> **1. Remplis le questionnaire :**
-> [LIEN_QUESTIONNAIRE]
-> (ICP, ton de communication, objections frequentes — ca nous permet de tout personnaliser)
+> Tu peux suivre tout ça en temps réel sur ton dashboard :
+> [LIEN_DASHBOARD]
 >
-> **2. Booke ton kickoff call :**
-> [LIEN_CALENDLY]
-> (30 min — on valide ensemble ta cible, ton ton, et ta strategie de lancement)
+> Lancement prévu dans ~2 semaines (quand les domaines atteignent 90%+ de délivrabilité).
 >
-> Plus tu remplis vite, plus on lance vite. Idealement avant le **[DATE_LIMITE]**.
+> Je te tiens au courant. D'ici là, si tu as des questions → réponds à cet email.
 >
 > Alexis
 
 **Notes d'envoi :**
-- **Timing :** J+1, 24h apres le paiement (matin, 9h)
-- **Trigger :** Delai programme apres Email 1
-- **Canal :** Email transactionnel
-- **`[DATE_LIMITE]`** : Date du paiement + 3 jours
-
----
-
-## Email 4 — Reminder questionnaire
-
-**Objet :** On attend plus que toi pour lancer
-
-**Variables :** `[PRENOM_CLIENT]`, `[LIEN_QUESTIONNAIRE]`, `[LIEN_CALENDLY]`
-
-**Corps :**
-
-> [PRENOM_CLIENT],
->
-> Petit point rapide : tout est pret de notre cote.
->
-> Domaines configures. Warmup lance. IA calibree.
->
-> Il manque juste tes reponses au questionnaire pour qu'on personnalise tout a fond :
-> [LIEN_QUESTIONNAIRE]
->
-> Ca prend 15 minutes et ca fait la difference entre une campagne OK et une campagne qui dechire.
->
-> Si tu es bloque sur une question, reponds simplement a cet email — on en discute.
->
-> Alexis
->
-> PS — N'oublie pas de booker ton kickoff : [LIEN_CALENDLY]. 30 min et on lance.
-
-**Notes d'envoi :**
-- **Timing :** J+3 apres le paiement (matin, 9h)
-- **Trigger :** Conditionnel — envoye uniquement si le questionnaire n'a pas ete rempli
+- **Timing :** ~J+7 après le kickoff
+- **Trigger :** Manuel ou semi-auto (quand les premiers prospects sont enrichis dans Clay)
 - **Canal :** Email transactionnel
 
 ---
@@ -150,22 +172,22 @@
 
 | Variable | Description | Exemple |
 |---|---|---|
-| `[PRENOM_CLIENT]` | Prenom du client | Frederic |
+| `[PRENOM_CLIENT]` | Prénom du client | Frédéric |
 | `[NOM_ENTREPRISE]` | Nom de l'entreprise du client | DigitestLab |
 | `[LIEN_DASHBOARD]` | URL du dashboard client | https://srv1319748.hstgr.cloud/client/xxx |
-| `[LIEN_QUESTIONNAIRE]` | Lien Tally du formulaire onboarding | https://tally.so/r/xxx |
-| `[LIEN_CALENDLY]` | Lien Calendly pour le kickoff call | https://calendly.com/alexis-ifind/kickoff |
+| `[LIEN_QUESTIONNAIRE]` | Lien Tally du formulaire onboarding | https://tally.so/r/QKYA6Y |
+| `[LIEN_CALCOM]` | Lien Cal.com pour le kickoff call | https://cal.eu/alexis-benier-sarxqi |
 | `[DATE_LIMITE]` | Date paiement + 3 jours | 4 avril 2026 |
-| `[DATE_LANCEMENT_ESTIMEE]` | Date estimee du lancement campagne | 10 avril 2026 |
-| `[EMAILS]` | 5 emails de prospection personnalises (generes par l'IA) | Bloc formate avec les 5 emails |
+| `[NB_PROSPECTS]` | Nombre de prospects enrichis | 50 |
+| `[EMAILS]` | 5 emails de prospection personnalisés (générés par l'IA) | Bloc formaté avec les 5 emails |
 
 ---
 
-## Sequence resumee
+## Séquence résumée
 
 | # | Email | Timing | Trigger | Condition |
 |---|---|---|---|---|
-| 1 | Bienvenue | T+0 | Paiement Stripe | Toujours |
-| 2 | Popsicle Moment | T+2-4h | Delai apres E1 | Toujours |
-| 3 | Questionnaire | T+24h | Delai apres E1 | Toujours |
-| 4 | Reminder | T+72h | Delai apres E1 | Si questionnaire non rempli |
+| 1 | Bienvenue + Questionnaire | T+0 (paiement) | Webhook Stripe | Toujours |
+| 2 | Reminder | T+72h | Délai après E1 | Si questionnaire non rempli |
+| 3 | Popsicle Moment | +2-4h après kickoff | Manuel | Après kickoff + questionnaire |
+| 4 | Update #1 | ~J+7 après kickoff | Manuel/semi-auto | Quand prospects enrichis |

@@ -1,0 +1,110 @@
+{
+  "email": "engincecen@shoppingmalldova.md",
+  "firstName": "Engin",
+  "lastName": "Cecen",
+  "company": "Shopping MallDova",
+  "title": "General Manager",
+  "linkedin": "https://www.linkedin.com/in/engin-cecen-46b29246",
+  "website": "http://www.shoppingmalldova.md",
+  "industry": "Retail",
+  "employeeCount": 26,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "1 month ago",
+        "link": "https://logos-pres.md/en/news/taco-bell-chain-intends-to-open-its-restaurant-in-chisinau/",
+        "position": 1,
+        "snippet": "Sphera Franchise Group brings the US fast-food brand to Moldova, with the first location set to open at MallDova in Q2 2026.",
+        "source": "logos-pres.md",
+        "title": "Taco Bell chain intends to open its restaurant in Chisinau"
+      },
+      {
+        "date": "May 8, 2019",
+        "link": "https://www.romania-insider.com/banca-transilvania-victoriabank-loan-mall-chisinau",
+        "position": 2,
+        "snippet": "Romania's largest lender Banca Transilvania and its Moldovan subsidiary Victoriabank awarded the first cross-border syndication credit worth...",
+        "source": "Romania Insider",
+        "title": "Banca Transilvania, Victoriabank extend EUR 21 mln loan for shopping mall in Chisinau"
+      },
+      {
+        "date": "Apr 18, 2018",
+        "link": "http://www.infotag.md/culture-en/262145/",
+        "position": 3,
+        "snippet": "An exhibition of photos of Moldovan and Swedish fathers, who give special attention to their children, will be opened in Chisinau on Wednesday.",
+        "source": "Infotag",
+        "title": "SWEDISH GOVERNMENT TO ORGANIZE PHOTO EXHIBITION ABOUT REAL MEN"
+      },
+      {
+        "date": "Aug 13, 2020",
+        "link": "https://moldfootball.com/ru/news/fmf-sovmestno-s-jako-otkroet-magazin-v-shopping-malldova",
+        "position": 4,
+        "snippet": "Технический партнер сборной Молдовы бренд Jako в ближайшее время откроет новый магазин совместно с Федерацией футбола Молдовы. Располагаться...",
+        "source": "moldfootball.com",
+        "title": "FMF совместно с Jako откроет магазин в Shopping MallDova"
+      },
+      {
+        "date": "Oct 21, 2024",
+        "link": "https://agora.md/2024/10/21/de-halloween-shopping-malldova-devine-bantuit",
+        "position": 5,
+        "snippet": "Fantomele și monștrii fioroși pun stăpânire pe centrul comercial Shopping MallDova, iar tu ești invitat să te alături celei mai terifiante...",
+        "source": "Agora.md",
+        "title": "De Halloween, Shopping MallDova devine... bântuit!"
+      },
+      {
+        "date": "Nov 12, 2018",
+        "link": "https://noi.md/ru/biznes/shopping-malldova-prazdnuet-10-letie-na-desyatku-kakie-syurprizy-zhdut-posetitelej-c",
+        "position": 6,
+        "snippet": "В этом году Shopping MallDova отмечает 10-летие своей деятельности на десятку! В день рождения торгового центра состоится юбилейный концерт,...",
+        "source": "noi.md",
+        "title": "Shopping MallDova празднует 10-летие на десятку! Какие сюрпризы ждут посетителей ©"
+      },
+      {
+        "date": "Feb 18, 2016",
+        "link": "https://www.md.kp.media/daily/26495.4/3363906/",
+        "position": 7,
+        "snippet": "Проект социальной ответственности «Детские улыбки в Shopping MallDova», который в 2015 году осчастливил около 200 детей из школ-интернатов,...",
+        "source": "MD.KP.MEDIA",
+        "title": "Новые «Детские улыбки в торговом центре Shopping MallDova» в 2016 году!"
+      },
+      {
+        "date": "Aug 4, 2022",
+        "link": "https://agora.md/stiri/105730/la-shopping-malldova-continua-mega-reducerile-de-vara",
+        "position": 8,
+        "snippet": "Ai reușit să profiți de Prețurile Relaxate de prin magazinele celui mai mare centru comercial din țară? La Shopping MallDova continuă Mega...",
+        "source": "Agora.md",
+        "title": "La Shopping MallDova continuă MEGA reducerile de vară!"
+      },
+      {
+        "date": "Aug 13, 2020",
+        "link": "https://moldfootball.com/ro/news/fmf-sovmestno-s-jako-otkroet-magazin-v-shopping-malldova",
+        "position": 9,
+        "snippet": "Recunoscut la nivel mondial, brandul german de echipament sportiv Jako, partenerul tehnic al echipei naționale de fotbal a Moldovei,...",
+        "source": "moldfootball.com",
+        "title": "FMF împreună cu Jako va inaugura în august un magazin sportiv la Shopping MallDova"
+      },
+      {
+        "date": "Oct 30, 2015",
+        "link": "https://www.md.kp.media/daily/26452/3322723/",
+        "position": 10,
+        "snippet": "Торговый центр Shopping MallDova продолжает делиться радостью с детьми из неблагополучных семей. Новая группа из 30 детей,...",
+        "source": "MD.KP.MEDIA",
+        "title": "Улыбки супергероев в торговом центре Shopping MallDova"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-01T16:24:37.308Z"
+}

@@ -12,7 +12,7 @@
       "slug": "companii-moldave-gws-direct",
       "name": "Companii din Moldova pe Google Workspace fara partener",
       "keywords": "Google Workspace OR Gmail business OR G Suite Moldova",
-      "weight": 50,
+      "weight": 45,
       "matchPatterns": ["google workspace", "gmail", "g suite", "google apps", "workspace", "google cloud"],
       "painPoint": "Echipa foloseste Google Workspace dar cunoaste doar Gmail si Drive basic. 80% din features raman nefolosite — Calendar partajat, Spaces, reguli automate, shortcuturi.",
       "socialProof": "suntem singurul partener Google Workspace din Moldova cu suport complet in romana si formare echipe",
@@ -33,24 +33,24 @@
       "exampleEmail": "Andrei, [Companie] are 25 de oameni pe Google Workspace. Intrebare sincera — echipa foloseste doar Gmail si Drive, sau si Calendar partajat, Spaces, regulile automate?\n\nFacem sesiuni gratuite de tips & tricks in romana — 30 min, zero engagement. Merita?"
     },
     {
-      "slug": "companii-moldave-fara-gws",
-      "name": "Companii din Moldova care nu folosesc inca Google Workspace",
+      "slug": "companii-moldave-gws-neoptimizat",
+      "name": "Companii din Moldova pe Google Workspace dar slab configurat",
       "keywords": "companie Moldova OR firma Chisinau OR SRL Moldova",
       "weight": 20,
-      "matchPatterns": ["outlook", "exchange", "office 365", "microsoft 365", "email propriu", "webmail"],
-      "painPoint": "Emailurile pe servere locale sau Outlook vechi — se pierd, nu ai colaborare in timp real, backup nesigur.",
-      "socialProof": "partener oficial Google Workspace — migrare completa, suport in romana, formare echipe inclusa",
+      "matchPatterns": ["google workspace", "gmail", "g suite", "google apps", "companie", "srl", "firma"],
+      "painPoint": "Google Workspace e platit dar echipa foloseste doar Gmail si Drive. Calendar partajat, Spaces, reguli automate, rapoarte admin — totul e ignorat. Bani aruncati pe features nefolosite.",
+      "socialProof": "partener oficial Google Workspace — formare echipe si optimizare configurare incluse",
       "triggers": [
         {
           "signal": "growth",
-          "angle": "Echipa creste — cu emailuri pe servere locale, colaborarea devine un cosmar. Google Workspace rezolva asta"
+          "angle": "Echipa creste — fiecare om nou pierde 2 saptamani sa invete singur Google Workspace. O sesiune de formare rezolva asta"
         },
         {
           "signal": "default",
-          "angle": "Echipa foloseste email pe server propriu? Colaborarea in timp real e complicata asa. Am putea arata in 30 min cum functioneaza Google Workspace"
+          "angle": "Echipa ta plateste Google Workspace dar foloseste doar Gmail si Drive? Normal — 80% din features sunt ascunse. Aratam totul in 30 min"
         }
       ],
-      "exampleEmail": "Maria, [Companie] are 15 oameni si vad ca folositi email pe server propriu. Intrebare sincera — cand doi colegi lucreaza pe acelasi document, cum faceti azi?\n\nGoogle Workspace rezolva asta. Facem o prezentare scurta in romana daca te intereseaza — 30 min, fara engagement."
+      "exampleEmail": "Maria, [Companie] are 15 oameni pe Google Workspace. Intrebare sincera — echipa foloseste Calendar partajat, Spaces, regulile automate, sau doar Gmail si Drive?\n\nMajoritatea companiilor folosesc 20% din ce platesc. Facem o sesiune gratuita de 30 min in romana — aratam tot ce pierdeti. Merita?"
     },
     {
       "slug": "companii-moldave-it-security",

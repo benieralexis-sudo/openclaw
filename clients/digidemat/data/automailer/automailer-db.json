@@ -1,6 +1,36 @@
 {
   "users": {},
-  "contactLists": {},
+  "contactLists": {
+    "lst_mngpnnjjak86": {
+      "id": "lst_mngpnnjjak86",
+      "chatId": "1409505520",
+      "name": "Clay Imports",
+      "contacts": [
+        {
+          "email": "test@test.md",
+          "name": "Test Test",
+          "firstName": "Test",
+          "lastName": "Test",
+          "company": "TestMD",
+          "title": "",
+          "industry": "",
+          "addedAt": "2026-04-02T00:02:36.656Z"
+        },
+        {
+          "email": "test-debug@example.md",
+          "name": "Debug Test",
+          "firstName": "Debug",
+          "lastName": "Test",
+          "company": "TestCorp",
+          "title": "CEO",
+          "industry": "",
+          "addedAt": "2026-04-02T16:51:03.784Z"
+        }
+      ],
+      "createdAt": "2026-04-02T00:02:36.655Z",
+      "updatedAt": "2026-04-02T16:51:03.784Z"
+    }
+  },
   "templates": {},
   "campaigns": {},
   "emails": [],
@@ -11,7 +41,7 @@
     "totalEmailsDelivered": 0,
     "totalEmailsOpened": 0,
     "totalEmailsBounced": 0,
-    "totalContactsImported": 0,
+    "totalContactsImported": 2,
     "totalTemplatesCreated": 0,
     "createdAt": "2026-03-18T19:33:29.045Z"
   }

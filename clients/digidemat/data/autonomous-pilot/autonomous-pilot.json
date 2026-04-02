@@ -13,7 +13,7 @@
     },
     "emailPreferences": {
       "maxLines": 5,
-      "language": "fr",
+      "language": "ro",
       "tone": "direct",
       "forbiddenWords": [
         "SDR",
@@ -87,7 +87,7 @@
         "DG"
       ],
       "locations": [
-        "France"
+        "Moldova"
       ],
       "seniorities": [
         "founder",
@@ -98,7 +98,6 @@
       "industries": [],
       "keywords": "",
       "companySize": [
-        "1-10",
         "11-50",
         "51-200"
       ],
