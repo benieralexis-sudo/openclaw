@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
-const { getWarmupDailyLimit } = require('../../gateway/utils.js');
+const { getWarmupDailyLimit, applySpintax } = require('../../gateway/utils.js');
 
 // --- Cross-skill imports via skill-loader centralise ---
 const { getStorage, getModule } = require('../../gateway/skill-loader.js');
@@ -1394,6 +1394,10 @@ Format JSON strict :
         return { success: false, error: 'Mots interdits persistants apres ' + MAX_FORBIDDEN_RETRIES + ' tentatives: ' + foundWords.join(', ') };
       }
     }
+
+    // === SPINTAX : expansion avant validation des gates ===
+    if (params.body) params.body = applySpintax(params.body);
+    if (params.subject) params.subject = applySpintax(params.subject);
 
     // === GATE SUJET : Patterns interdits dans le subject ===
     {
