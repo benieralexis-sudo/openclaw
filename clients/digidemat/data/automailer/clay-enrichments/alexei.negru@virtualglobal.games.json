@@ -1,0 +1,111 @@
+{
+  "email": "alexei.negru@virtualglobal.games",
+  "firstName": "Alexei",
+  "lastName": "Negru",
+  "company": "Virtual Global Games",
+  "title": "Principal CEO",
+  "linkedin": "https://www.linkedin.com/in/alexei-negru-671aba262",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Jan 14, 2026",
+        "link": "https://www.nba.com/magic/videos/desmond-bane-orlando-magic-nba-global-games-practice-berlin-germany-interview-20260114",
+        "position": 1,
+        "snippet": "Watch this latest video | Orlando Magic.",
+        "source": "NBA",
+        "title": "Global Games Practice: Desmond Bane (1/14) | Orlando Magic"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://thekoalanews.com/qs-impact-launches-third-global-games-for-good-skills-challenge/",
+        "position": 2,
+        "snippet": "QS ImpACT has launched the third edition of its global Games for Good Skills Challenge, inviting young people aged 18–35 to design playable...",
+        "source": "The Koala News",
+        "title": "QS ImpACT launches third global “Games for Good” Skills Challenge"
+      },
+      {
+        "date": "Sep 12, 2025",
+        "link": "https://www.pocketgamer.biz/why-korea-matters-to-the-global-games-industry/",
+        "position": 3,
+        "snippet": "A top five games market in the world, Korea is proving a major global exporter, advancing above and beyond by adopting new technologies,...",
+        "source": "Pocket Gamer.biz",
+        "title": "Why Korea matters to the global games industry"
+      },
+      {
+        "date": "Aug 11, 2025",
+        "link": "https://www.tencent.com/en-us/articles/2202142.html",
+        "position": 4,
+        "snippet": "Tencent Games, a leading global platform for game development, publishing and operations, is thrilled to announce its participation in...",
+        "source": "Tencent 腾讯",
+        "title": "Tencent Games Returns to Gamescom 2025 with its Biggest Ever Lineup of Global Games"
+      },
+      {
+        "date": "Nov 27, 2025",
+        "link": "https://www.statista.com/statistics/1060239/game-developers-vr-ar-platforms/",
+        "position": 5,
+        "snippet": "The gaming world is rapidly changing and virtual reality and alternate reality gaming is no longer thing of the future.",
+        "source": "Statista",
+        "title": "Share of game developers worldwide working on game projects for select VR/AR platforms in 2024"
+      },
+      {
+        "date": "Jun 28, 2025",
+        "link": "https://gamesbeat.com/game-sales-to-reach-113b-in-2018-about-three-quarters-of-all-revenues-this-year-will-be-digital/",
+        "position": 6,
+        "snippet": "China will take over as the top game market in the world this year, according to the upcoming 2015 Global Games Market Report by analyst firm Newzoo.",
+        "source": "GamesBeat",
+        "title": "Game sales to reach $113B in 2018; about three-quarters of all revenues this year will be digital"
+      },
+      {
+        "date": "Aug 8, 2023",
+        "link": "https://newzoo.com/resources/blog/explore-the-global-games-market-in-2023",
+        "position": 7,
+        "snippet": "The 2023 edition of the Global Games Market Report is finally here. PC and console gaming is booming once again after a more corrective 2022.",
+        "source": "Newzoo",
+        "title": "New free report: Explore the global games market in 2023"
+      },
+      {
+        "date": "Apr 9, 2025",
+        "link": "https://www.kansascityfed.org/research/payments-system-research-briefings/game-changer-the-evolution-of-video-games-payments-infrastructure/",
+        "position": 8,
+        "snippet": "The video game industry has become a significant economic force, generating nearly $60 billion in revenue in 2024 in the United States alone...",
+        "source": "Kansas City Fed",
+        "title": "Game Changer: The Evolution of Video Games’ Payments Infrastructure"
+      },
+      {
+        "date": "Oct 21, 2025",
+        "link": "https://www.pocketgamer.biz/pocket-gamer-connects-summit-korea-virtual-tickets-now-available/",
+        "position": 9,
+        "snippet": "Our inaugural Pocket Gamer Connects Summit Korea takes place in ten days, on October 31st. If you can't attend in person, we've launched...",
+        "source": "Pocket Gamer.biz",
+        "title": "Pocket Gamer Connects Summit Korea virtual tickets now available"
+      },
+      {
+        "date": "Jan 13, 2026",
+        "link": "https://orlandomagic.com/news/top-five-orlando-magic-storylines-ahead-of-nba-global-games-20260113",
+        "position": 10,
+        "snippet": "Check out some of the top storylines for the Orlando Magic as they get set to take part in the NBA Global Games against the Memphis...",
+        "source": "NBA",
+        "title": "Top 5 Orlando Magic Storylines Ahead of NBA Global Games"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:32:23.270Z"
+}

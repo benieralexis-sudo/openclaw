@@ -1,0 +1,111 @@
+{
+  "email": "alexandru.filimon@enter.online",
+  "firstName": "Alexandru",
+  "lastName": "Filimon",
+  "company": "Darwin.md",
+  "title": "Chief Executive Officer",
+  "linkedin": "https://www.linkedin.com/in/alexandru-filimon-344047164",
+  "website": "http://www.darwin.md",
+  "industry": "Retail",
+  "employeeCount": 65,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "1 month ago",
+        "link": "https://www.ahajournals.org/doi/full/10.1161/SVIN.125.002111",
+        "position": 1,
+        "snippet": "Intracranial atherosclerotic disease is associated with up to 10% of ischemic strokes and a high risk of recurrence. Endovascular treatments including...",
+        "source": "American Heart Association Journals",
+        "title": "Paclitaxel Drug-Coated Balloon Angioplasty for Medically Refractory Intracranial Atherosclerotic Disease: A US Single-Center Experience With the AGENT Balloon"
+      },
+      {
+        "date": "Mar 6, 2023",
+        "link": "https://uknow.uky.edu/uk-healthcare/uk-half-pancreatologist-darwin-conwell-importance-research",
+        "position": 2,
+        "snippet": "University of Kentucky HealthCare medical pancreatologist Darwin Conwell, MD, discusses the importance of research in a doctor's training as well one of his...",
+        "source": "UKNow",
+        "title": "‘UK at the Half’: Pancreatologist Darwin Conwell on importance of research"
+      },
+      {
+        "date": "May 5, 2022",
+        "link": "https://www.staufferfuneralhome.com/obituaries/darwin-lawson",
+        "position": 3,
+        "snippet": "Darwin Gene Lawson, 84, of Mount Airy, passed from this life on Thursday, May 5, 2022 at his home. He was the husband of Sue Lawson.",
+        "source": "Stauffer Funeral Homes",
+        "title": "Darwin Lawson Obituary May 5, 2022"
+      },
+      {
+        "date": "Jan 26, 2022",
+        "link": "https://www.cataldofuneralhome.com/obituaries/darwin-wille",
+        "position": 4,
+        "snippet": "Darwin Dwayne Wille, 90, of Sun City, AZ passed away on Wednesday, January 26, 2022, at Banner University Medical Center in Phoenix, AZ.",
+        "source": "Cataldo Funeral Home",
+        "title": "Darwin Wille Obituary January 26, 2022"
+      },
+      {
+        "date": "May 22, 2023",
+        "link": "https://news.feinberg.northwestern.edu/2023/05/22/investigating-the-benefits-of-salt-substitutes-in-elderly-patients/",
+        "position": 5,
+        "snippet": "Salt substitutes may be effective in lowering blood pressure and reducing cardiovascular events in residents of elderly care facilities,...",
+        "source": "Northwestern University",
+        "title": "Investigating the Benefits of Salt Substitutes in Elderly Patients"
+      },
+      {
+        "date": "Dec 13, 2023",
+        "link": "https://www.dignitymemorial.com/obituaries/sarasota-fl/dana-hummel-11581692",
+        "position": 6,
+        "snippet": "Celebrate the life of Dana Hummel, leave a kind word or memory and get funeral service information care of Robert Toale and Sons Funeral...",
+        "source": "Dignity Memorial",
+        "title": "Dana Hummel Obituary - Sarasota, FL"
+      },
+      {
+        "date": "Aug 29, 2012",
+        "link": "https://www.genome.gov/27529500/2009-news-feature-darwin--200",
+        "position": 7,
+        "snippet": "February 12, 2009, marked the 200th birthday of Charles Darwin (1809-1882) and the 150 th year since publication of his seminal work, On the Origin of Species.",
+        "source": "National Human Genome Research Institute (.gov)",
+        "title": "Darwin at 200: How Geneticists View Him Today"
+      },
+      {
+        "date": "Oct 4, 2023",
+        "link": "https://nyulangone.org/news/after-double-lung-transplant-teenager-reclaims-his-independence",
+        "position": 8,
+        "snippet": "Darwin Del Carmen Rosso is enjoying being a teen again and catching up on things he missed out on earlier in his childhood.",
+        "source": "NYU Langone Health",
+        "title": "After a Double Lung Transplant, a Teenager Reclaims His Independence"
+      },
+      {
+        "date": "Oct 13, 2025",
+        "link": "https://www.nature.com/articles/s41598-025-18809-x",
+        "position": 9,
+        "snippet": "Patient satisfaction is a crucial measure of healthcare quality, influencing both health outcomes and care experiences.",
+        "source": "Nature",
+        "title": "Identifying key influencers of patient satisfaction using an explainable machine learning approach"
+      },
+      {
+        "date": "Oct 7, 2024",
+        "link": "https://www.heraldmailmedia.com/obituaries/phag0962900",
+        "position": 10,
+        "snippet": "Darwin “Dave” Wayne Ashburn, 89, of Hagerstown, MD, passed away, Sunday, October 6, 2024. Born Thursday, September 12, 1935, in Bretz, WV.",
+        "source": "The Herald-Mail",
+        "title": "Darwin \"Dave\"Ashburn Obituary"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:31:09.811Z"
+}

@@ -1,0 +1,111 @@
+{
+  "email": "victor.taulean@jobber.md",
+  "firstName": "Victor",
+  "lastName": "Taulean",
+  "company": "Jobber.md",
+  "title": "Chief Executive Officer",
+  "linkedin": "https://www.linkedin.com/in/victortaulean",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Aug 26, 2025",
+        "link": "https://www.prnewswire.com/news-releases/15-home-service-entrepreneurs-awarded-150-000-in-jobber-grants-for-business-excellence-and-community-leadership-302538104.html",
+        "position": 1,
+        "snippet": "PRNewswire/ - Jobber, the leading provider of home service software, today announced the 15 recipients of its 2025 Jobber Grants program,...",
+        "source": "PR Newswire",
+        "title": "15 Home Service Entrepreneurs Awarded $150,000 in Jobber Grants for Business Excellence and Community Leadership"
+      },
+      {
+        "date": "Dec 15, 2025",
+        "link": "https://www.newswire.ca/news-releases/jobber-brings-fast-access-to-capital-to-canadian-home-service-businesses-836973187.html",
+        "position": 2,
+        "snippet": "With Jobber Capital, eligible Canadian service providers can access funding without bank appointments or external applications. Everything...",
+        "source": "Newswire Canada",
+        "title": "Jobber Brings Fast Access to Capital to Canadian Home Service Businesses"
+      },
+      {
+        "date": "May 29, 2025",
+        "link": "https://www.prnewswire.com/news-releases/jobber-releases-q1-2025-home-service-economic-report-highlighting-stabilization-digital-adoption-and-strategic-growth-shifts-302468510.html",
+        "position": 3,
+        "snippet": "Home Service Proves Resilient in Q4 2025 as Stabilization Sets the Stage for Steady 2026. Jobber's latest report finds repairs, higher-value...",
+        "source": "PR Newswire",
+        "title": "Jobber Releases Q1 2025 Home Service Economic Report Highlighting Stabilization, Digital Adoption, and Strategic Growth Shifts"
+      },
+      {
+        "date": "Oct 21, 2022",
+        "link": "http://post-trash.com/news/2022/10/21/jobber-hell-in-a-cell-album-review",
+        "position": 4,
+        "snippet": "On their debut EP Hell in a Cell (out on Exploding in Sound), Jobber adopt wrestling's insider language to explore workplace discontent and the...",
+        "source": "POST-TRASH",
+        "title": "Jobber - \"Hell In A Cell\"| Album Review"
+      },
+      {
+        "date": "Sep 1, 2025",
+        "link": "https://www.recruiter.co.uk/news/2025/09/triple-jobber-agency-worker-receives-deferred-sentence",
+        "position": 5,
+        "snippet": "An agency worker who was employed full-time by three local authorities simultaneously has been ordered to reimburse one of her former...",
+        "source": "Recruiter Magazine",
+        "title": "Triple-jobber agency worker receives deferred sentence"
+      },
+      {
+        "date": "Feb 7, 2023",
+        "link": "https://www.forbes.com/sites/jonathankeane/2023/02/07/jobber-raises-100-million-to-help-home-services-go-digital/",
+        "position": 6,
+        "snippet": "According to the company, it has more than 200,000 users in 60 countries using the platform to manage their business by running features like...",
+        "source": "Forbes",
+        "title": "Jobber Raises $100 Million To Help Home Services Go Digital"
+      },
+      {
+        "date": "Aug 20, 2020",
+        "link": "https://www.repairerdrivennews.com/2020/08/20/pe-backed-painters-supply-continues-expansion-with-5-location-jobber-nyquist/",
+        "position": 7,
+        "snippet": "Painters Supply and Equipment last week announced it had purchased the five-location distributor Nyquist.",
+        "source": "Repairer Driven News",
+        "title": "PE-backed Painters Supply continues expansion with 5-location jobber Nyquist"
+      },
+      {
+        "date": "Aug 3, 2023",
+        "link": "https://stereogum.com/2232060/jobber-summerslam/music",
+        "position": 8,
+        "snippet": "Last year, the wrestling-obsessed New York band Jobber released their debut EP, Hell In A Cell, which landed on our great EPs from 2022 list...",
+        "source": "Stereogum",
+        "title": "Jobber – “Summerslam”"
+      },
+      {
+        "date": "Feb 7, 2023",
+        "link": "https://techcrunch.com/2023/02/07/jobber-fixes-on-100m-as-its-platform-for-home-services-pros-hits-200k-users/",
+        "position": 9,
+        "snippet": "Jobber fixes on $100M as its platform for home services pros hits 200K users ... This Series D is being led by new backer General Atlantic, with...",
+        "source": "TechCrunch",
+        "title": "Jobber fixes on $100M as its platform for home services pros hits 200K users"
+      },
+      {
+        "date": "Feb 7, 2023",
+        "link": "https://betakit.com/jobber-closes-100-million-usd-series-d-amid-strong-demand-for-home-services/",
+        "position": 10,
+        "snippet": "General Atlantic is a first-time investor in Jobber and the round also saw participation from existing Jobber backers Summit Partners, Version...",
+        "source": "BetaKit",
+        "title": "Jobber closes $100 million USD Series D amid strong demand for home services"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:22.622Z"
+}

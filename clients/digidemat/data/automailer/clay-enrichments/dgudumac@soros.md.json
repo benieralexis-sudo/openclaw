@@ -1,0 +1,111 @@
+{
+  "email": "dgudumac@soros.md",
+  "firstName": "Dumitru",
+  "lastName": "Gudumac",
+  "company": "Soros Foundation Moldova",
+  "title": "Director of Communications",
+  "linkedin": "https://www.linkedin.com/in/dumitru-gudumac",
+  "website": "http://www.soros.md",
+  "industry": "Civic and Social Organizations",
+  "employeeCount": 25,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "1 month ago",
+        "link": "https://www.iar-gwu.org/print-archive/64g7lshepy1awksgtiyvj3bsqfipw0",
+        "position": 1,
+        "snippet": "This paper focuses on messaging and its evolution from two outlets that often serve as starting points for the spread of disinformation: Sputnik and RT.",
+        "source": "THE INTERNATIONAL AFFAIRS REVIEW",
+        "title": "Two Case Studies of Russian Propaganda in Romania and Hungary"
+      },
+      {
+        "date": "Nov 19, 2025",
+        "link": "https://euneighbourseast.eu/opportunities/eu-funded-project-offers-strategic-support-grants-for-moldovan-media-sector/",
+        "position": 2,
+        "snippet": "The project on 'Supporting Independent Media and Quality Journalism in Moldova (SMIR)' has announced a grant call for strategic support for...",
+        "source": "EU NEIGHBOURS east",
+        "title": "EU-funded project offers strategic support grants for Moldovan media sector"
+      },
+      {
+        "date": "3 weeks ago",
+        "link": "https://ipn.md/en/online-risks-for-consumers-discussed-by-experts-from-several-countries-in-chisinau/",
+        "position": 3,
+        "snippet": "Consumers are increasingly facing risks in the online environment, from non-compliant products to insecure digital services or deceptive...",
+        "source": "ipn.md",
+        "title": "Online risks for consumers, discussed by experts from several countries in Chisinau"
+      },
+      {
+        "date": "Jun 22, 2023",
+        "link": "https://www.opensocietyfoundations.org/voices/q-and-a-moldova-s-path-to-a-european-future",
+        "position": 4,
+        "snippet": "We spoke with Iulian Groza, executive director of the Moldovan think tank Institute for European Policies and Reforms about the impact of Russian aggression on...",
+        "source": "Open Society Foundations",
+        "title": "Moldova’s Past and European Future"
+      },
+      {
+        "date": "May 19, 2022",
+        "link": "https://reliefweb.int/report/moldova/open-society-foundations-moldova",
+        "position": 5,
+        "snippet": "When the Soros Foundation–Moldova began its work in 1992, the country had just emerged from the former Soviet Union as an independent state.",
+        "source": "ReliefWeb",
+        "title": "The Open Society Foundations in Moldova"
+      },
+      {
+        "date": "Nov 26, 2020",
+        "link": "https://www.undp.org/moldova/press-releases/soros-foundation-moldova-and-undp-provide-essential-medical-equipment-hospitals-treat-covid-19-cases",
+        "position": 6,
+        "snippet": "UNDP and Soros Foundation Moldova join forces in the response to the novel coronavirus by providing much-needed medical equipment to hospitals.",
+        "source": "United Nations Development Programme",
+        "title": "Soros Foundation Moldova and UNDP provide essential medical equipment to hospitals that treat COVID-19 cases"
+      },
+      {
+        "date": "Oct 1, 2021",
+        "link": "https://www.opensocietyfoundations.org/voices/governments-should-follow-moldova-s-lead-and-ensure-universal-access-to-palliative-care",
+        "position": 7,
+        "snippet": "The Moldovan parliament recognized palliative care as an essential health service to be included in its universal health care program.",
+        "source": "Open Society Foundations",
+        "title": "Palliative Care Must Be Public and Universal"
+      },
+      {
+        "date": "Sep 26, 2025",
+        "link": "https://www.context.news/big-tech/before-moldova-vote-anti-lgbtq-content-spikes-online",
+        "position": 8,
+        "snippet": "Anti-LGBTQ+ rhetoric floods TikTok, Telegram, Facebook, Instagram as pro-Russian parties seek to erode support for pro-EU party.",
+        "source": "Context News",
+        "title": "Before Moldova vote, anti-LGBTQ+ content spikes online"
+      },
+      {
+        "date": "Mar 7, 2024",
+        "link": "https://euneighbourseast.eu/news/latest-news/eu-and-soros-foundation-moldova-launch-grant-programme-for-energy-efficiency-in-social-services/",
+        "position": 9,
+        "snippet": "EU and Soros Foundation Moldova launch grant programme for energy efficiency in social services. At least 35 grants, amounting to approximately...",
+        "source": "EU NEIGHBOURS east",
+        "title": "EU and Soros Foundation Moldova launch grant programme for energy efficiency in social services"
+      },
+      {
+        "date": "Oct 20, 2025",
+        "link": "https://ipn.md/en/natalia-stercul-the-thesis-of-european-integration-was-a-beneficial-one-for-pas/",
+        "position": 10,
+        "snippet": "The thesis of European integration was a significant advantage for the Action and Solidarity Party in the September parliamentary elections,...",
+        "source": "ipn.md",
+        "title": "Natalia Stercul: The thesis of European integration was a beneficial one for PAS"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:13.092Z"
+}

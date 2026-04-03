@@ -1,0 +1,79 @@
+{
+  "email": "alexandru.andronic@lafarge.com",
+  "firstName": "Alexandru",
+  "lastName": "Andronic",
+  "company": "Holcim Moldova",
+  "title": "Chief Commercial Officer",
+  "linkedin": "https://www.linkedin.com/in/aandronic",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "2 weeks ago",
+        "link": "https://newsmaker.md/ru/lafarge-stanovitsya-holcim-v-respublike-moldova-i-otkryvaet-novyi-etap-razvitiya-kompanii",
+        "position": 1,
+        "snippet": "Кишинёв, 17 марта 2026 г. – Компания, известная на рынке Республики Молдова на протяжении 27 лет под названием «Lafarge Ciment (Moldova)»...",
+        "source": "NewsMaker",
+        "title": "Lafarge становится Holcim в Республике Молдова и открывает новый этап развития компании"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://noi.md/ru/biznes/lafarge-stanovitsya-holcim-v-respublike-moldova-i-otkryvaet-novyj-jetap-razvitiya-kompanii?prev=1&rb_clickid=93839004-1631626137-256984910&utm_campaign=44016986&utm_content=93839004&utm_medium=cpm&utm_source=mytarget",
+        "position": 2,
+        "snippet": "Кишинёв, 17 марта 2026 г. – Компания, известная на рынке Республики Молдова на протяжении 27 лет под названием «Lafarge Ciment (Moldova)»...",
+        "source": "noi.md",
+        "title": "Lafarge становится Holcim в Республике Молдова и открывает новый этап развития компании"
+      },
+      {
+        "date": "Oct 29, 2025",
+        "link": "https://newsmaker.md/ro/perchezitii-pe-intreg-teritoriul-r-moldova-intr-un-dosar-privind-activitatea-mercenarilor",
+        "position": 3,
+        "snippet": "Pe 29 octombrie, polițiștii și procurorii desfășoară percheziții pe întreg teritoriul Republicii Moldova. Acțiunile au loc într-o cauză...",
+        "source": "NewsMaker",
+        "title": "Percheziții pe întreg teritoriul R. Moldova într-un dosar privind „activitatea mercenarilor”"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://unimedia.info/ro/advertoriale/0381d56272148987/lafarge-devine-holcim-in-republica-moldova-s-i-marcheaza-o-noua-etapa-in-dezvoltarea-companiei.html",
+        "position": 4,
+        "snippet": "Chișinău, 17 martie 2026 – Compania cunoscută timp de 27 de ani pe piața din Republica Moldova sub numele de „Lafarge Ciment (Moldova)” S.A....",
+        "source": "Unimedia",
+        "title": "Lafarge devine Holcim în Republica Moldova și marchează o nouă etapă în dezvoltarea companiei"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://noi.md/md/business/lafarge-devine-holcim-in-republica-moldova-si-marcheaza-o-noua-etapa-in-dezvoltarea-companiei?prev=1&mibextid=tejx2t%7C",
+        "position": 5,
+        "snippet": "Chișinău, 17 martie 2026 – Compania cunoscută timp de 27 de ani pe piața din Republica Moldova sub numele de „Lafarge Ciment (Moldova)” S.A....",
+        "source": "noi.md",
+        "title": "Lafarge devine Holcim în Republica Moldova și marchează o nouă etapă în dezvoltarea companiei"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://noi.md/md/in-lume/topul-celor-mai-fericite-tari-2026-pe-ce-loc-s-a-clasat-moldova?prev=1%3Fcache_renew_now%3D1&ocid=ansMSNMoney11",
+        "position": 6,
+        "snippet": "Republica Moldova a înregistrat o creștere semnificativă în Raportul Mondial al Fericirii 2026, clasîndu-se pe locul 77, cu trei poziții mai...",
+        "source": "noi.md",
+        "title": "Topul celor mai fericite țări 2026: Pe ce loc s-a clasat Moldova"
+      }
+    ],
+    "total_news_results": 6
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:36.722Z"
+}

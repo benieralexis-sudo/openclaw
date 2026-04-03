@@ -1,0 +1,111 @@
+{
+  "email": "fiodor@sapec.md",
+  "firstName": "Fiodor",
+  "lastName": "Songurov",
+  "company": "Sapec Software",
+  "title": "Chief Technology Officer",
+  "linkedin": "https://www.linkedin.com/in/songurov",
+  "website": "https://sapec.md",
+  "industry": "Software Development",
+  "employeeCount": 19,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "May 6, 2021",
+        "link": "https://www.panoramaaudiovisual.com/en/2021/05/06/miguel-angel-cristobal-sapec-interview/",
+        "position": 1,
+        "snippet": "Talking about solutions for the transport of television signals with the highest quality is talking about the Spanish company Sapec,...",
+        "source": "Panorama Audiovisual",
+        "title": "Sapec celebrates 45 years of innovation in signal coding"
+      },
+      {
+        "date": "Jan 25, 2023",
+        "link": "https://www.panoramaaudiovisual.com/en/2023/01/25/mog-unveils-line-of-software-hardware-solutions/",
+        "position": 2,
+        "snippet": "MOG Technologies unveils a complete line the release of its new product line for media broadcast professionals with tools and software.",
+        "source": "Panorama Audiovisual",
+        "title": "MOG unveils complete line of software and hardware solutions"
+      },
+      {
+        "date": "Jun 15, 2021",
+        "link": "https://www.panoramaaudiovisual.com/en/2021/06/15/sapec-sivac-one-compact-portable-solution-uhd-contributions-4k/",
+        "position": 3,
+        "snippet": "Sapec now launches Sivac-one Compact, a portable solution designed for HEVC/H.265 4:2:2/4:2:0 and 10 bits per pixel video transport,",
+        "source": "Panorama Audiovisual",
+        "title": "Sapec unveils Sivac-one Compact, a new portable solution for UHD contributions (4K)"
+      },
+      {
+        "date": "May 20, 2016",
+        "link": "https://www.panoramaaudiovisual.com/en/2016/05/20/televisa-digitaliza-su-emision-atsc-con-tecnologia-de-sapec/",
+        "position": 4,
+        "snippet": "Tras el apagón analógico televisivo que se realizó en diciembre del año pasado, Televisa valoró entre varias opciones de cara a adquirir...",
+        "source": "Panorama Audiovisual",
+        "title": "Televisa digitaliza su emisión ATSC con tecnología de Sapec"
+      },
+      {
+        "date": "Oct 6, 2020",
+        "link": "https://www.panoramaaudiovisual.com/en/2020/10/06/laguna-single-sapec-contribuciones-mono-canal/",
+        "position": 5,
+        "snippet": "Con Sapec Laguna Single, los broadcasters cuentan con un equipo mono canal para contribuciones tanto en codificación como decodificación.",
+        "source": "Panorama Audiovisual",
+        "title": "Laguna Single: Sapec's new bet for single channel contributions"
+      },
+      {
+        "date": "Aug 21, 2019",
+        "link": "https://www.panoramaaudiovisual.com/2019/08/21/sapec-multicodificador-laguna-procesador-media-virtual/",
+        "position": 6,
+        "snippet": "Laguna Media Processor (LMP) ofrece ahora múltiples posibilidades a los broadcasters, ya que permite reconfigurar la plataforma mediante...",
+        "source": "Panorama Audiovisual",
+        "title": "Sapec convierte el multicodificador Laguna en un procesador de media virtual"
+      },
+      {
+        "date": "Sep 12, 2022",
+        "link": "https://www.panoramaaudiovisual.com/2022/09/12/sapec-ibc-2022-foco-laguna-sivac-one/",
+        "position": 7,
+        "snippet": "Laguna Media Processor (LMP) y Sivac-One Media Processor (SMP) son los protagonistas del stand de Sapec en IBC 2022.",
+        "source": "Panorama Audiovisual",
+        "title": "Sapec regresa a IBC 2022 poniendo el foco en Laguna y Sivac-One"
+      },
+      {
+        "date": "Sep 4, 2014",
+        "link": "https://www.panoramaaudiovisual.com/2014/09/04/sapec-presenta-junto-a-su-partner-videoflow-en-ibc-2014-la-transmision-perfecta-de-video-de-alta-calidad-sobre-redes-ip-no-gestionadas/",
+        "position": 8,
+        "snippet": "Sapec lanzará su última gama de codificadores y decodificadores High-End en IBC 2014, dentro de un nuevo stand que se ubica en un nuevo...",
+        "source": "Panorama Audiovisual",
+        "title": "Sapec presentará junto a VideoFlow en IBC transmisión de vídeo de alta calidad sobre redes IP no gestionadas"
+      },
+      {
+        "date": "Apr 8, 2015",
+        "link": "https://www.panoramaaudiovisual.com/2015/04/08/sapec-estrena-sivac-one-un-nuevo-sistema-mpeg-2-h-264-modular-que-permite-hasta-3-codificadores-en-1ru/",
+        "position": 9,
+        "snippet": "Sapec acude este año a Las Vegas con grandes novedades con las que dar completa cobertura a todos los broadcasters y telcos del continente...",
+        "source": "Panorama Audiovisual",
+        "title": "Sapec estrena Sivac One, un nuevo sistema MPEG-2 / H.264 modular que permite hasta 3 codificadores en 1RU"
+      },
+      {
+        "date": "Jul 28, 2021",
+        "link": "https://www.panoramaaudiovisual.com/ja/2021/07/28/rtve-laguna-octal-sapec-recepcion-senal-tokio-2020/",
+        "position": 10,
+        "snippet": "Sapec ha suministrado a RTVE nueve equipos Laguna Octal, los cuales están recibiendo hasta 18 señales de Tokio 2020.",
+        "source": "Panorama Audiovisual",
+        "title": "RTVE confía en Laguna Octal de Sapec para la recepción de la señal de Tokio 2020"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:11.623Z"
+}

@@ -1,0 +1,111 @@
+{
+  "email": "andrei.curararu@watchdog.md",
+  "firstName": "Andrei",
+  "lastName": "Curararu",
+  "company": "WatchDog.MD Community",
+  "title": "Co-Founder",
+  "linkedin": "https://www.linkedin.com/in/andrei-curăraru-36742743",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "3 weeks ago",
+        "link": "https://www.bbc.com/news/articles/c9dn4674ge4o",
+        "position": 1,
+        "snippet": "The Care Quality Commission (CQC) raised concerns in two of the five areas it inspected at Sturdee Community Hospital in Leicester last summer -...",
+        "source": "BBC",
+        "title": "Sturdee Community Hospital told to improve by watchdog"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.tucsonsentinel.com/opinion/report/021826_idea_reporter/",
+        "position": 2,
+        "snippet": "Join our award-winning team that's rebuilding local news from the ground up ... The Tucson Sentinel is accepting applications for a new fulltime...",
+        "source": "Tucson Sentinel",
+        "title": "We're hiring: Sentinel's IDEA reporter is a community watchdog"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.timesunion.com/opinion/article/editorial-watchdog-disarray-21940871.php",
+        "position": 3,
+        "snippet": "Many people are responsible for the ongoing chaos at Albany's Community Police Review Board, which for months has been beset by resignations...",
+        "source": "Times Union",
+        "title": "Editorial: A watchdog in disarray"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.cbsnews.com/baltimore/news/maryland-representative-watchdog-group-ice-vehicles-detention-hagerstown/",
+        "position": 4,
+        "snippet": "The Trump administration's mass deportation program may be set to ramp up in Maryland, according to a watchdog group and a member of the...",
+        "source": "CBS News",
+        "title": "Maryland lawmaker pushes back as ICE vehicles reportedly arrive at future detention center"
+      },
+      {
+        "date": "Nov 6, 2025",
+        "link": "https://avlwatchdog.org/generous-community-support-not-nearly-enough-to-fill-gap-in-snap-funding-food-advocates-say/",
+        "position": 5,
+        "snippet": "In a typical month, the program pays for nine times as many meals as MANNA provides, Beckler said. “We're going to do our level...",
+        "source": "Asheville Watchdog",
+        "title": "Generous community support not nearly enough to fill gap in SNAP funding, food advocates say"
+      },
+      {
+        "date": "Feb 3, 2026",
+        "link": "https://www.cbsnews.com/news/intelligence-watchdog-sensitive-whistleblower-complaint-congress-monthslong-delay/",
+        "position": 6,
+        "snippet": "The complaint was closed administratively by the intelligence community inspector general's office in June 2025, under prior leadership,...",
+        "source": "CBS News",
+        "title": "Intelligence watchdog shares whistleblower complaint involving Gabbard with Congress after monthslong delay"
+      },
+      {
+        "date": "Nov 16, 2021",
+        "link": "https://www.gmfus.org/news/keeping-watchdog-awake-shifting-new-ways-reinforcing-civil-society-moldova",
+        "position": 7,
+        "snippet": "The German Marshall Fund's Black Sea Trust is committed to strengthening civil society and supporting democratic foundations in the Black...",
+        "source": "German Marshall Fund of the United States",
+        "title": "Shifting to New Ways of Reinforcing Civil Society in Moldova"
+      },
+      {
+        "date": "Sep 4, 2025",
+        "link": "https://marylandmatters.org/2025/09/04/trump-is-back-so-is-watchdog-board-a-prince-georges-schools-oversight-report-more-notes/",
+        "position": 8,
+        "snippet": "Look up the Maryland Health Insurance Coverage Protection Commission in the online version of the Maryland Manual, and it directs you to the...",
+        "source": "Maryland Matters",
+        "title": "Trump is back, so is watchdog board; a Prince George's schools oversight report; more notes"
+      },
+      {
+        "date": "Oct 22, 2025",
+        "link": "https://www.spotlightnsp.co.za/2025/10/22/ritshidze-worlds-biggest-community-led-health-watchdog-falters-as-us-funding-fades/",
+        "position": 9,
+        "snippet": "World's biggest community-led health watchdog falters as US backs out ... Ritshidze, South Africa's powerhouse community-led healthcare monitor,...",
+        "source": "Spotlight",
+        "title": "World’s biggest community-led health watchdog falters as US backs out"
+      },
+      {
+        "date": "Oct 2, 2025",
+        "link": "https://floridaphoenix.com/briefs/watchdog-hopes-new-florida-psc-members-prioritize-community-need/",
+        "position": 10,
+        "snippet": "The new commissioners must break the pattern of neglect by prioritizing community need above corporate greed. Today's appointees must usher in a...",
+        "source": "Florida Phoenix",
+        "title": "Watchdog hopes new Florida PSC members prioritize ‘community need’"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:36.246Z"
+}

@@ -1,0 +1,111 @@
+{
+  "email": "alex@thenoughtyfox.com",
+  "firstName": "Alex",
+  "lastName": "Culeva",
+  "company": "The Noughty Fox",
+  "title": "Co-Founder & CEO",
+  "linkedin": "https://www.linkedin.com/in/s2dent",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Jul 18, 2025",
+        "link": "https://cowboystatedaily.com/2025/07/18/fox-turned-shoe-bandit-makes-grand-tetons-most-wanted-list/",
+        "position": 1,
+        "snippet": "At least one naughty fox has been making off with people's shoes from a campground in Grand Teton National Park. At least 32 shoes have been...",
+        "source": "Cowboy State Daily",
+        "title": "Fox-Turned-Shoe Bandit Makes Grand Teton’s ‘Most Wanted’ List"
+      },
+      {
+        "date": "Aug 8, 2025",
+        "link": "https://timesofindia.indiatimes.com/sports/nba/top-stories/its-entertainment-chill-out-fans-defend-ddo-toss-incident-at-wnba-game-after-adult-toy-companies-speak-out/articleshow/123180022.cms",
+        "position": 2,
+        "snippet": "NBA News: Adult toy companies like Twisted Fantasies and Naughty Fox condemned the dildo-throwing incidents at WNBA games.",
+        "source": "The Times of India",
+        "title": "“It's entertainment chill out!” - Fans defend D**do toss incident at WNBA game after adult toy companies"
+      },
+      {
+        "date": "Aug 7, 2025",
+        "link": "https://www.tmz.com/2025/08/07/wnba-dildo-adult-sex-toy-company/",
+        "position": 3,
+        "snippet": "Some fans are laughin' their asses off at the recent dildo throwing trend at WNBA games, but several companies that make the sex toys don't...",
+        "source": "TMZ",
+        "title": "Adult Toy Companies Rip WNBA Fans for Throwing Sex Toys, 'Disrespectful!'"
+      },
+      {
+        "date": "Mar 12, 2024",
+        "link": "https://theknockturnal.com/travel-diaries-catalina-island/",
+        "position": 4,
+        "snippet": "Catalina Island is a picturesque oasis only an hour ferry ride away from LA County, and I got a front row seat to witness it's beauty.",
+        "source": "The Knockturnal",
+        "title": "Travel Diaries: Catalina Island"
+      },
+      {
+        "date": "May 1, 2022",
+        "link": "https://www.independent.com/2022/05/01/cuisine-cocktails-and-cruising-on-catalina-island/",
+        "position": 5,
+        "snippet": "We scoured the menu of Italian fare and signature cocktails, opting for the burrata, fried calamari, and large Cadillac margaritas as appetizers.",
+        "source": "The Santa Barbara Independent",
+        "title": "Cuisine, Cocktails, and Cruising on Catalina Island"
+      },
+      {
+        "date": "Sep 30, 2025",
+        "link": "https://www.fox10phoenix.com/news/globe-flooding-community-comes-together-businesses-recount-harrowing-moments",
+        "position": 6,
+        "snippet": "PHOENIX - Even as the Globe community continues to come together in the aftermath of a devastating flood that killed three people,...",
+        "source": "FOX 10 Phoenix",
+        "title": "Globe flooding: Community comes together as businesses recount harrowing moments"
+      },
+      {
+        "date": "Jun 30, 2022",
+        "link": "https://la.eater.com/2022/6/30/23179353/where-eat-what-to-do-catalina-island-california-avalon",
+        "position": 7,
+        "snippet": "On a clear enough day from just about any vantage point with real elevation around Los Angeles, the coastline of Catalina Island is visible...",
+        "source": "Eater Los Angeles",
+        "title": "Where to Actually Eat on Catalina Island This Summer"
+      },
+      {
+        "date": "Dec 13, 2024",
+        "link": "https://thecatalinaislander.com/avalon-kicks-off-holiday-season/",
+        "position": 8,
+        "snippet": "On December 7, 2024, residents and visitors gathered to enjoy a community event brought to you by Love Catalina Island Tourism Authority.",
+        "source": "The Catalina Islander",
+        "title": "Avalon Kicks off Holiday Season"
+      },
+      {
+        "date": "May 25, 2023",
+        "link": "https://www.latimes.com/travel/newsletter/2023-05-25/catalina-island-thru-hike-trans-catalina-trail-the-wild",
+        "position": 9,
+        "snippet": "On Catalina Island, the 38.5-mile Trans-Catalina Trail goes through coastal shrublands and has stunning ocean views.",
+        "source": "Los Angeles Times",
+        "title": "Mingle with foxes and soak in ocean views on this under-the-radar Catalina Island hike"
+      },
+      {
+        "date": "Nov 23, 2021",
+        "link": "https://www.pasadenanow.com/weekendr/gift-the-gift-of-travel-tower23-and-bellanca-hotel-2/",
+        "position": 10,
+        "snippet": "With supply chain issues affecting retailers and consumers this holiday season, gift giving can be a lot more challenging and make you feel...",
+        "source": "Pasadena Now",
+        "title": "Gift the Gift of Travel: Give Wonderful Experiences at Tower23 and Bellanca Hotel"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:18.778Z"
+}

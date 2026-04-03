@@ -113,8 +113,8 @@ function _defaultData() {
         signatureStyle: ''
       },
       followUpConfig: {
-        sequenceStepDays: [3, 7, 14, 21],
-        sequenceTotalSteps: 4,
+        sequenceStepDays: [0, 3, 10],
+        sequenceTotalSteps: 3,
         reactiveMinDelayMinutes: 120,
         reactiveMaxDelayMinutes: 240
       },

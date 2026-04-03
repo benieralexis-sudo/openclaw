@@ -1,0 +1,55 @@
+{
+  "email": "robert.claicnet@verum.md",
+  "firstName": "Robert",
+  "lastName": "Claicnet",
+  "company": "VERUM GROUP MD",
+  "title": "Chief Executive Officer",
+  "linkedin": "https://www.linkedin.com/in/robert-claicnet-ab56b662",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Feb 22, 2024",
+        "link": "https://www.medpagetoday.com/psychiatry/anxietystress/108851",
+        "position": 1,
+        "snippet": "Acupuncture outperformed sham needling in clinical and biological measures of combat-related post-traumatic stress disorder (PTSD) in veterans.",
+        "source": "MedPage Today",
+        "title": "Acupuncture Tops Sham for Easing PTSD in Combat Veterans"
+      },
+      {
+        "date": "Oct 14, 2010",
+        "link": "https://www.ahajournals.org/doi/10.1161/strokeaha.110.579508",
+        "position": 2,
+        "snippet": "Background and Purpose—Granulocyte colony-stimulating factor (G-CSF) is a promising stroke drug candidate. The present phase IIa study...",
+        "source": "American Heart Association Journals",
+        "title": "AXIS | Stroke"
+      },
+      {
+        "date": "Feb 28, 2024",
+        "link": "https://www.healthday.com/healthpro-news/alternative-medicine/acupuncture-helps-alleviate-ptsd-symptoms-in-combat-veterans",
+        "position": 3,
+        "snippet": "Acupuncture may be clinically efficacious in combat veterans seeking treatment for posttraumatic stress disorder.",
+        "source": "HealthDay",
+        "title": "Acupuncture Helps Alleviate PTSD Symptoms in Combat Veterans"
+      }
+    ],
+    "total_news_results": 3
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:39.875Z"
+}

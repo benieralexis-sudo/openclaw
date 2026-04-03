@@ -1,0 +1,111 @@
+{
+  "email": "stella.ostrovetchi@transoilcorp.com",
+  "firstName": "Stella",
+  "lastName": "Ostrovetchi",
+  "company": "Trans-Oil Group of Companies",
+  "title": "General manager S.A. FLOAREA SOARELUI",
+  "linkedin": "https://www.linkedin.com/in/stella-ostrovetchi-53197a214",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Bălţi, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Oct 30, 2025",
+        "link": "https://www.romania-insider.com/trans-oil-bucharest-exchange-listing-media-oct-2025",
+        "position": 1,
+        "snippet": "The agro-industrial conglomerate Trans-Oil Group, one of the largest players in the Black Sea region, with a focus on the Republic of...",
+        "source": "Romania Insider",
+        "title": "Moldova's agro-industrial conglomerate Trans-Oil reportedly ponders Bucharest Exchange listing"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://logos-pres.md/en/news/argentine-sunflower-has-been-bought-by-trans-oil-group/",
+        "position": 2,
+        "snippet": "Information about the potential import of sunflower from Argentina to Moldova is supplemented with important details. Indeed, Trans Oil...",
+        "source": "logos-pres.md",
+        "title": "Argentine sunflower has been bought by Trans Oil Group"
+      },
+      {
+        "date": "Nov 15, 2025",
+        "link": "https://logos-pres.md/en/news/trans-oil-reported-revenues-and-profits/",
+        "position": 3,
+        "snippet": "Moldova's largest agribusiness holding and a major agribusiness operator in the Black Sea region, Trans-Oil Group, generated revenues of...",
+        "source": "logos-pres.md",
+        "title": "Trans-Oil reported revenues and profits"
+      },
+      {
+        "date": "Oct 30, 2025",
+        "link": "https://logos-pres.md/en/news/trans-oil-considers-listing-on-the-bucharest-stock-exchange/",
+        "position": 4,
+        "snippet": "Agro-industrial conglomerate Trans-Oil Group, one of the largest players in the Black Sea region, focused on Moldova but also active in...",
+        "source": "logos-pres.md",
+        "title": "Trans-Oil considers listing on the Bucharest Stock Exchange"
+      },
+      {
+        "date": "Dec 16, 2021",
+        "link": "https://gb.readly.com/magazines/time-magazine-europe/2021-12-16/61b86afeb8e1428f7a3315df",
+        "position": 5,
+        "snippet": "One day in the summer of 1995, georgian- born businessman vaja jhashi landed at the italian port of civitavecchia hoping to sell a cargo of...",
+        "source": "Readly | All magazines - one magazine app subscription",
+        "title": "Moldova before and after trans-oil group - 16 Dec 2021 - Time Magazine Europe"
+      },
+      {
+        "date": "Apr 14, 2020",
+        "link": "https://news.mongabay.com/2020/04/former-u-s-envoy-under-scrutiny-for-links-to-sanctioned-moldovan-oligarch-land-baron/",
+        "position": 6,
+        "snippet": "A former U.S. ambassador to Moldova who is employed by the country's top commodities baron, Vaja Jhashi, has come under scrutiny for the...",
+        "source": "Mongabay",
+        "title": "Former U.S. envoy under scrutiny for links to sanctioned Moldovan oligarch, land baron"
+      },
+      {
+        "date": "Jun 10, 2025",
+        "link": "https://atmos.earth/political-landscapes/fossil-fuel-billionaires-are-bankrolling-the-anti-trans-movement/",
+        "position": 7,
+        "snippet": "An investigation shared exclusively with Atmos finds that 80% of anti-trans organizations receive fossil fuel funding.",
+        "source": "Atmos.earth",
+        "title": "Fossil Fuel Billionaires Are Bankrolling the Anti-Trans Movement"
+      },
+      {
+        "date": "May 16, 2025",
+        "link": "https://seenews.com/news/trans-oil-to-invest-30-mln-euro-in-first-phase-of-serbian-starch-plant-mayor-1275363",
+        "position": 8,
+        "snippet": "Moldova's agri-industrial group Trans-Oil will invest over 30 million euro ($34 million) in its corn starch processing facility in Serbia's...",
+        "source": "SeeNews",
+        "title": "Trans-Oil to invest 30 mln euro in first phase of Serbian starch plant - mayor"
+      },
+      {
+        "date": "Oct 29, 2024",
+        "link": "https://www.romaniajournal.ro/business/trans-oil-group-owned-by-vaja-jhashi-acquires-frial-terminal-in-constanta-port/",
+        "position": 9,
+        "snippet": "The Trans-Oil Group, which is owned by Vaja Jhashi, CEO, acquired Frial Terminal, located in the Port of Constan?a, Romania.",
+        "source": "The Romania Journal",
+        "title": "Trans-Oil Group, Owned by Vaja Jhashi, Acquires Frial Terminal in Constanta Port"
+      },
+      {
+        "date": "May 11, 2024",
+        "link": "https://unn.ua/en/news/only-debtors-see-the-russian-footprint-how-the-label-of-cooperation-with-russia-is-used-in-business-wars",
+        "position": 10,
+        "snippet": "The multinational company Trans-Oil, which has been successfully operating for many years not only in Ukraine, but also in Moldova, Romania and Serbia, has...",
+        "source": "Українські Національні Новини (УНН)",
+        "title": "Only debtors see the Russian footprint: how the label of cooperation with russia is used in business wars"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:24.639Z"
+}

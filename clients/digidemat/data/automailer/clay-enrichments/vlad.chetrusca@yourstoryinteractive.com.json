@@ -1,0 +1,111 @@
+{
+  "email": "vlad.chetrusca@yourstoryinteractive.com",
+  "firstName": "Vlad",
+  "lastName": "Chetrusca",
+  "company": "Your Story Interactive",
+  "title": "Founder & CEO",
+  "linkedin": "https://www.linkedin.com/in/vlad-chetrusca-85b3737",
+  "website": "http://yourstoryinteractive.com/",
+  "industry": "Computer Games",
+  "employeeCount": 66,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Nov 25, 2025",
+        "link": "https://blog.hootsuite.com/instagram-stories/",
+        "position": 1,
+        "snippet": "Are you a Feed-commitment-phobe? Do you love GIFs, stickers, and a little creative chaos? Then Instagram Stories are most definitely for you...",
+        "source": "Hootsuite Blog",
+        "title": "Instagram Stories: Tips, tricks, and new features for 2025"
+      },
+      {
+        "date": "Apr 10, 2025",
+        "link": "https://www.smartbrief.com/original/how-visual-novel-apps-provide-new-opportunities-for-marketers",
+        "position": 2,
+        "snippet": "Visual novel apps tap into new, more diverse gaming markets with users who will pay to see more ads, expanding marketing opportunities.",
+        "source": "SmartBrief",
+        "title": "Visual novel apps: Earning your (and maybe their) happy ending"
+      },
+      {
+        "date": "Dec 28, 2024",
+        "link": "https://winteriscoming.net/the-10-scariest-free-interactive-fiction-games-to-enjoy-this-winter",
+        "position": 3,
+        "snippet": "Want a new way to to scare yourself this winter? All of these terrifying interactive fiction games can be played right in your browser.",
+        "source": "Winter Is Coming",
+        "title": "The 10 scariest free interactive fiction games to enjoy this winter"
+      },
+      {
+        "date": "Aug 21, 2025",
+        "link": "https://sproutsocial.com/insights/instagram-story-ideas/",
+        "position": 4,
+        "snippet": "Looking for creative Instagram story ideas to engage your followers? Check out these ideas for creators and brands for inspiration.",
+        "source": "Sprout Social",
+        "title": "31 best Instagram Story ideas for brands and creators"
+      },
+      {
+        "date": "Apr 23, 2025",
+        "link": "https://latamjournalismreview.org/articles/bring-your-stories-to-life-with-interactive-maps-no-coding-required/",
+        "position": 5,
+        "snippet": "a four-week online course running from June 2 to 29, 2025, where you'll learn how to turn raw data into interactive, customizable maps—no coding...",
+        "source": "LatAm Journalism Review",
+        "title": "Bring your stories to life with interactive maps — no coding required!"
+      },
+      {
+        "date": "Jun 26, 2015",
+        "link": "https://arstechnica.com/gaming/2015/06/her-story-is-a-compelling-new-type-of-interactive-storytelling/",
+        "position": 6,
+        "snippet": "Her Story is a compelling new type of interactive storytelling. Complex, gripping crime drama proves FMV games don't have to be awful.",
+        "source": "Ars Technica",
+        "title": "Her Story is a compelling new type of interactive storytelling"
+      },
+      {
+        "date": "Jun 24, 2024",
+        "link": "https://novayagazeta.eu/articles/2024/06/24/role-playing-mobile-app-quits-russian-platforms-after-refusing-to-remove-lgbt-content-en-news",
+        "position": 7,
+        "snippet": "The developers of Romance Club, a choice-based mobile game, have refused to cut LGBT content from the popular online game and have instead opted to remove the...",
+        "source": "Новая газета Европа",
+        "title": "Role-playing mobile app quits Russian platforms after refusing to remove LGBT content"
+      },
+      {
+        "date": "Jun 10, 2020",
+        "link": "https://www.businessofapps.com/insights/female-gamers-interactive-story-games-covid19/",
+        "position": 8,
+        "snippet": "Top interactive story games in the current market are Pocket Gem's Episode-Choose Your Story, Pixelberry's Choices: Stories You Play, and Crazy Maple Studio's...",
+        "source": "Business of Apps",
+        "title": "Female gamers are boosting interactive story games during COVID-19"
+      },
+      {
+        "date": "Jun 16, 2023",
+        "link": "https://www.gamedeveloper.com/game-platforms/the-best-free-tools-for-narrative-games",
+        "position": 9,
+        "snippet": "The best free tools for writing and creating narrative games, from Twine to Ren'Py to Decker and much more.",
+        "source": "Game Developer",
+        "title": "The best free tools for narrative games"
+      },
+      {
+        "date": "Jul 24, 2020",
+        "link": "https://www.businessinsider.com/reference/how-to-add-stickers-on-instagram",
+        "position": 10,
+        "snippet": "To add stickers on Instagram, you'll need to open the Stories screen and tap the square smiley icon in the top-right. Instagram stickers allow...",
+        "source": "Business Insider",
+        "title": "How to add stickers on Instagram to make your Story interactive with polls, music, gifs, and more"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:44.076Z"
+}

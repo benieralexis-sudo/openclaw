@@ -1,0 +1,111 @@
+{
+  "email": "natalia.bejan@invest.gov.md",
+  "firstName": "Natalia",
+  "lastName": "Bejan",
+  "company": "Invest Moldova",
+  "title": "Director",
+  "linkedin": "https://www.linkedin.com/in/natalia-bejan-03a5902a",
+  "website": "http://www.invest.gov.md",
+  "industry": "Government Administration",
+  "employeeCount": 58,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "2 days ago",
+        "link": "https://seenews.com/news/interview-moldova-hopes-for-500-mln-net-fdi-in-2026-1292256",
+        "position": 1,
+        "snippet": "Moldova is aiming to attract between $450 and $500 million (434 million euro) in net foreign direct investment (FDI) in 2026, supported by...",
+        "source": "SeeNews",
+        "title": "INTERVIEW – Moldova hopes for $500 mln net FDI in 2026"
+      },
+      {
+        "date": "23 hours ago",
+        "link": "https://www.moldpres.md/eng/official/premierul-alexandru-munteanu-a-invitat-membrii-camerei-de-comert-americane-in-romania-sa-investeasca-in-republica-moldova-eng",
+        "position": 2,
+        "snippet": "Prime Minister Alexandru Munteanu, during a today's visit to Bucharest, held a meeting with representatives of the American Chamber of...",
+        "source": "Moldpres",
+        "title": "Moldovan PM invites members of American Chamber of Commerce in Romania to invest in Moldova"
+      },
+      {
+        "date": "Jan 30, 2026",
+        "link": "https://www.bbc.com/storyworks/invest-moldova-2025-campaign/invest-moldova",
+        "position": 3,
+        "snippet": "How Moldova's wine and fruit industries are aligning with international trade rules to grow exports across Europe and beyond.",
+        "source": "BBC",
+        "title": "Wine cellars to fruit orchards: Moldovan products are finding fans abroad"
+      },
+      {
+        "date": "Jan 29, 2026",
+        "link": "https://www.ebrd.com/home/news-and-events/news/2026/more-than-half-total-ebrd-investment-in-moldova-has-been-in-past.html",
+        "position": 4,
+        "snippet": "EBRD investment in Moldova accelerates, rising to €508 million in 2025 ... The European Bank for Reconstruction and Development (EBRD) invested €...",
+        "source": "EBRD",
+        "title": "EBRD investment in Moldova accelerates, rising to €508 million in 2025"
+      },
+      {
+        "date": "Dec 17, 2025",
+        "link": "https://www.eqs-news.com/news/corporate/invest-moldova-fruit-imports-from-the-republic-of-moldova-have-increased-by-over-50-in-the-last-5-years-and-the-upward-trend-continues/245680a1-9848-45e3-87a5-071933bffa82_en",
+        "position": 5,
+        "snippet": "Invest Moldova / Key word(s): ESG/Miscellaneous Invest Moldova : Fruit imports from the Republic of Moldova have increased by over 50% in...",
+        "source": "EQS News",
+        "title": "Invest Moldova : Fruit imports from the Republic of Moldova have increased by over 50% in the last 5 years, and the upward trend continues | Corporate"
+      },
+      {
+        "date": "Dec 16, 2025",
+        "link": "https://www.prnewswire.com/de/pressemitteilungen/invest-moldova-the-architecture-of-the-swiss-success---the-innovation-niche-and-components-manufactured-in-eastern-europe-302642224.html",
+        "position": 6,
+        "snippet": "InformBusiness products are used in trolleybuses, electric buses and trams, being integrated into a complete production chain, from design to...",
+        "source": "PR Newswire",
+        "title": "Invest Moldova: The architecture of the Swiss success - the innovation niche and components manufactured in Eastern Europe"
+      },
+      {
+        "date": "Jan 27, 2026",
+        "link": "https://www.electronicsweekly.com/news/business/cornelius-to-invest-in-moldova-2026-01/",
+        "position": 7,
+        "snippet": "“Cornelius Electronics SRL is a fast-growing business built on passion, dedication, and the desire to deliver real value to our clients. Through...",
+        "source": "Electronics Weekly",
+        "title": "Cornelius to invest in Moldova"
+      },
+      {
+        "date": "Dec 19, 2025",
+        "link": "https://www.undp.org/moldova/press-releases/undp-moldova-contributes-launch-buy-diaspora-programme-new-support-mechanism-moldovan-entrepreneurs-abroad",
+        "position": 8,
+        "snippet": "Moldovan entrepreneurs living abroad now have more opportunities to expand their businesses and connect directly with producers in the...",
+        "source": "United Nations Development Programme",
+        "title": "UNDP Moldova contributes to the launch of the “Buy Diaspora” programme – a new support mechanism for Moldovan entrepreneurs abroad"
+      },
+      {
+        "date": "3 weeks ago",
+        "link": "https://logos-pres.md/en/news/moldova-develops-medical-tourism-to-the-detriment-of-its-citizens/",
+        "position": 9,
+        "snippet": "Rising medical tourism attracts foreign patients, but higher costs are making essential healthcare services less affordable for Moldovan citizens.",
+        "source": "logos-pres.md",
+        "title": "Moldova develops medical tourism to the detriment of its citizens"
+      },
+      {
+        "date": "Nov 25, 2025",
+        "link": "https://asiafoodjournal.com/axedum-becomes-the-countrys-first-poultry-producer-authorized-to-export-to-the-eu/",
+        "position": 10,
+        "snippet": "Invest Moldova announces a landmark achievement for the country's agri-food sector with Axedum as it becomes the first Moldovan poultry...",
+        "source": "Asia Food Journal",
+        "title": "Invest Moldova highlights major milestone as Axedum becomes the country’s first poultry producer authorized to export to the EU"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:15.814Z"
+}

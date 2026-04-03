@@ -1,0 +1,111 @@
+{
+  "email": "irina.caliman@qubo.md",
+  "firstName": "Irina",
+  "lastName": "Caliman",
+  "company": "QUBO Communications",
+  "title": "Partner, Communications&Media Expert",
+  "linkedin": "https://www.linkedin.com/in/irina-caliman-92b8bb10",
+  "website": "http://qubo.md",
+  "industry": "Public Relations and Communications Services",
+  "employeeCount": 10,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Dec 18, 2025",
+        "link": "https://www.media.stellantis.com/em-en/corporate-communications/press/stellantis-at-the-brussels-motor-show-62-vehicles-on-display-representing-11-brands-featuring-2-world-premieres-and-2-concept-cars",
+        "position": 1,
+        "snippet": "At the 102nd edition of the Brussels Motor Show, Stellantis will make a grand entrance with a 5200 m² stand showcasing 62 vehicles across 11...",
+        "source": "Stellantis Media",
+        "title": "Stellantis at the Brussels Motor Show: 62 Vehicles on Display Representing 11 Brands, Featuring 2 World Premieres and 2 Concept Cars"
+      },
+      {
+        "date": "Jan 12, 2026",
+        "link": "https://www.fonearena.com/blog/473322/qubo-dashcam-4g-live-dashcam-trio-price-features.html",
+        "position": 2,
+        "snippet": "Qubo, the smart devices brand from the Hero Group, has launched two new dashcams in India—Dashcam 4G Live and Dashcam Trio.",
+        "source": "FoneArena.com",
+        "title": "Qubo Dashcam 4G Live and 3-Channel Dashcam Trio launched"
+      },
+      {
+        "date": "Mar 31, 2025",
+        "link": "https://www.nature.com/articles/s41467-025-58231-5",
+        "position": 3,
+        "snippet": "We introduce NeuroSA, a neuromorphic architecture specifically designed to ensure asymptotic convergence to the ground state of an Ising problem.",
+        "source": "Nature",
+        "title": "ON-OFF neuromorphic ISING machines using Fowler-Nordheim annealers"
+      },
+      {
+        "date": "Mar 18, 2024",
+        "link": "https://www.nature.com/articles/s41467-024-46640-x",
+        "position": 4,
+        "snippet": "Here we report a ferroelectric field effect transistor (FeFET) based compute-in-memory (CiM) annealer for solving larger-scale COPs efficiently.",
+        "source": "Nature",
+        "title": "Ferroelectric compute-in-memory annealer for combinatorial optimization problems"
+      },
+      {
+        "date": "Jan 12, 2026",
+        "link": "https://ackodrive.com/news/qubo-launches-connected-dashcam-4-g-live-and-3-channel-dashcam-trio/",
+        "position": 5,
+        "snippet": "Qubo launches Dashcam 4G Live with connected features and Dashcam Trio with 3-channel recording, for enhanced road safety and vehicle...",
+        "source": "ACKO Drive",
+        "title": "Qubo Launches Connected Dashcam 4G Live and 3-Channel Dashcam Trio"
+      },
+      {
+        "date": "Jan 9, 2026",
+        "link": "https://quantumzeitgeist.com/quantum-computing-networks-achieves-scalable-multiway-cut-optimisation/",
+        "position": 6,
+        "snippet": "Research comparing three distinct quantum computing methods reveals that, for assessing the resilience of telecommunication networks via the...",
+        "source": "Quantum Zeitgeist",
+        "title": "Quantum Computing Achieves Scalable Multiway Cut Optimisation for Telecommunication Networks"
+      },
+      {
+        "date": "May 2, 2025",
+        "link": "https://mediabrief.com/former-vahdam-india-exec-nikhil-sareen-joins-qubo-as-co-founder/",
+        "position": 7,
+        "snippet": "Qubo, growing smart devices brands, announced the appointment of Nikhil Sareen as Co-founder, strengthening its leadership team as the...",
+        "source": "Mediabrief.com",
+        "title": "Former Vahdam India exec Nikhil Sareen joins Qubo as Co-founder"
+      },
+      {
+        "date": "Jan 8, 2025",
+        "link": "https://www.nature.com/articles/s41467-024-55346-z",
+        "position": 8,
+        "snippet": "Quantum computers hold the promise of more efficient combinatorial optimization solvers, which could be game-changing for a broad range of...",
+        "source": "Nature",
+        "title": "Towards large-scale quantum optimization solvers with few qubits"
+      },
+      {
+        "date": "Aug 10, 2024",
+        "link": "https://www.financialexpress.com/business/brandwagon/brandwagon-adtalk-with-qubos-rachit-mehra/3578965/",
+        "position": 9,
+        "snippet": "Rachit Mehra, head of brand and marketing, Qubo talks to BrandWagon Online, about the dos and don'ts of digital marketing, best marketing...",
+        "source": "The Financial Express",
+        "title": "BrandWagon Adtalk with Qubo’s Rachit Mehra"
+      },
+      {
+        "date": "May 22, 2025",
+        "link": "https://www.media.stellantis.com/uk-en/fiat/press/andrea-laura-siro-brigiano-appointed-fiat-and-abarth-brands-press-communications-danilo-coglianese-to-become-responsible-for-events-management-within-the-stellantis-enlarged-europe-region",
+        "position": 10,
+        "snippet": "FIAT announces a change in its Press Communications at FIAT and Abarth. Andrea Laura Siro Brigiano will take over the role from Danilo...",
+        "source": "Stellantis Media",
+        "title": "Andrea Laura Siro Brigiano appointed FIAT and Abarth Brands Press Communications. Danilo Coglianese to become Responsible for Events Management within the Stellantis Enlarged Europe Region."
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:12.711Z"
+}

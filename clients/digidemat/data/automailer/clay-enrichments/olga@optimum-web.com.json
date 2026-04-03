@@ -1,0 +1,111 @@
+{
+  "email": "olga@optimum-web.com",
+  "firstName": "Olga",
+  "lastName": "Pascal",
+  "company": "Optimum-Web | Software Development Company",
+  "title": "Managing Director",
+  "linkedin": "https://www.linkedin.com/in/olgapascal",
+  "website": "https://www.optimum-web.com",
+  "industry": "Software Development",
+  "employeeCount": 44,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "2 days ago",
+        "link": "https://techfundingnews.com/best-custom-software-development-companies-in-2026/",
+        "position": 1,
+        "snippet": "In 2026, the best custom software development companies are not the loudest brands. They are teams with proven delivery,...",
+        "source": "Tech Funding News",
+        "title": "Best custom software development companies in 2026"
+      },
+      {
+        "date": "1 day ago",
+        "link": "https://www.cio.com/article/4151988/ai-is-altering-the-economics-of-software-development-but-who-gets-a-cut.html",
+        "position": 2,
+        "snippet": "With AI assistants improving programmer productivity, software customers are smart to seek their share of the benefits. But cost cuts aren't...",
+        "source": "CIO",
+        "title": "AI is altering the economics of software development, but who gets a cut?"
+      },
+      {
+        "date": "1 day ago",
+        "link": "https://www.businessinsider.com/software-engineer-pivoted-to-welding-because-ai-happier-now-2026-3",
+        "position": 3,
+        "snippet": "A former software engineer in Oklahoma transitioned to welding after a tech industry layoff, finding stability and job satisfaction in her...",
+        "source": "Business Insider",
+        "title": "I was a laid-off software engineer who pivoted into blue-collar work because of AI. One year in, I couldn't be happier."
+      },
+      {
+        "date": "3 days ago",
+        "link": "https://venturebeat.com/orchestration/when-ai-turns-software-development-inside-out-170-throughput-at-80-headcount",
+        "position": 4,
+        "snippet": "Many people have tried AI tools and walked away unimpressed. I get it — many demos promise magic, but in practice, the results can feel...",
+        "source": "VentureBeat",
+        "title": "When AI turns software development inside-out: 170% throughput at 80% headcount"
+      },
+      {
+        "date": "1 day ago",
+        "link": "https://www.wsj.com/tech/ai/meet-the-startup-that-used-ai-and-openclaw-to-automate-its-own-developers-9e733351?gaa_at=eafs&gaa_n=AWEtsqfFEeJU1uy55VvaFV_FJPPWBlgb-Cg6vtnA0BH8N3Joaw1zxPcFTqZX&gaa_ts=69cd4a2e&gaa_sig=lzsCWYMr4dd2BM4Qk5YwhUh3INTwmVToHfYYt-h-D9oRSrc_v7r58RzXNLLxgzQ7hgabFT1w3659utpN0TslOw%3D%3D",
+        "position": 5,
+        "snippet": "As the OpenClaw craze takes over Silicon Valley, some startups are combining the tech with AI coding tools to fully automate developers'...",
+        "source": "WSJ",
+        "title": "Meet the Startup That Used AI and OpenClaw to Automate Its Own Developers"
+      },
+      {
+        "date": "1 day ago",
+        "link": "https://www.claimsjournal.com/news/national/2026/03/31/336615.htm",
+        "position": 6,
+        "snippet": "Axios, a tool widely used to develop software applications, was compromised overnight, introducing a vulnerability in a key part of the...",
+        "source": "Claims Journal",
+        "title": "Axios Software Tool Used by Millions Compromised in Hack"
+      },
+      {
+        "date": "3 hours ago",
+        "link": "https://www.mexc.co/en-PH/news/997511",
+        "position": 7,
+        "snippet": "Building a successful product is no longer about launching everything at once, it's about validating ideas quickly and efficiently.",
+        "source": "www.mexc.co",
+        "title": "Top 10 MVP Development Companies in USA for Startups 2026"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://www.smdailyjournal.com/sponsored/best-polish-software-development-companies-for-scale-ups-2026-review/article_bb12a757-22fc-4647-a15e-036c228fdbd2.html",
+        "position": 8,
+        "snippet": "Discover the best Polish software development companies for scale-ups in 2026, with The Software House leading the way as the top-rated...",
+        "source": "San Mateo Daily Journal",
+        "title": "Best Polish Software Development Companies for Scale-Ups [2026 Review]"
+      },
+      {
+        "date": "2 days ago",
+        "link": "https://nerdbot.com/2026/03/30/leading-ai-software-development-companies-in-the-usa-to-watch/",
+        "position": 9,
+        "snippet": "Artificial Intelligence is changing the business world's operations, innovations, and value delivery. Industries are investing in the...",
+        "source": "nerdbot",
+        "title": "Leading AI Software Development Companies in the USA to Watch"
+      },
+      {
+        "date": "3 weeks ago",
+        "link": "https://energiesmedia.com/top-10-energy-software-development-companies-for-2026/",
+        "position": 10,
+        "snippet": "Explore the top 10 energy software development companies. Compare experienced providers delivering custom solutions for utilities,...",
+        "source": "Energies Media",
+        "title": "Top 10 Energy Software Development Companies for 2026"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:13.843Z"
+}

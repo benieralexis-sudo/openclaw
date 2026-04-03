@@ -25,10 +25,1640 @@
           "title": "CEO",
           "industry": "",
           "addedAt": "2026-04-02T16:51:03.784Z"
+        },
+        {
+          "email": "roman.voronovschii@gbs.md",
+          "name": "Roman Voronovschii",
+          "firstName": "Roman",
+          "lastName": "Voronovschii",
+          "company": "GBS S.R.L.",
+          "title": "Head of Purchasing Department",
+          "industry": "Wholesale Motor Vehicles and Parts",
+          "addedAt": "2026-04-02T21:30:09.818Z"
+        },
+        {
+          "email": "valeriu.crudu@moldstud.com",
+          "name": "Valeriu Crudu",
+          "firstName": "Valeriu",
+          "lastName": "Crudu",
+          "company": "MoldStud",
+          "title": "Co-CEO",
+          "industry": "Software Development",
+          "addedAt": "2026-04-02T21:30:10.345Z"
+        },
+        {
+          "email": "vasile.crudu@moldstud.com",
+          "name": "Vasile Crudu",
+          "firstName": "Vasile",
+          "lastName": "Crudu",
+          "company": "MoldStud",
+          "title": "CEO & Founder",
+          "industry": "Software Development",
+          "addedAt": "2026-04-02T21:30:10.367Z"
+        },
+        {
+          "email": "ion.turcan@viorica.md",
+          "name": "Ion Turcan",
+          "firstName": "Ion",
+          "lastName": "Turcan",
+          "company": "Viorica Cosmetic",
+          "title": "Chief Commercial Officer",
+          "industry": "Personal Care Product Manufacturing",
+          "addedAt": "2026-04-02T21:30:10.418Z"
+        },
+        {
+          "email": "olga.petrascu@ebs-integrator.com",
+          "name": "Olga Petrascu",
+          "firstName": "Olga",
+          "lastName": "Petrascu",
+          "company": "EBS Integrator",
+          "title": "Commercial Business Partner",
+          "industry": "Information Technology and Services",
+          "addedAt": "2026-04-02T21:30:10.449Z"
+        },
+        {
+          "email": "alexandru.stroia@hisky.aero",
+          "name": "Alexandru Stroia",
+          "firstName": "Alexandru",
+          "lastName": "Stroia",
+          "company": "HiSky",
+          "title": "Director of Flight Operations",
+          "industry": "Airlines and Aviation",
+          "addedAt": "2026-04-02T21:30:10.794Z"
+        },
+        {
+          "email": "liliana.cimbir@dreamups.md",
+          "name": "Liliana Cimbir",
+          "firstName": "Liliana",
+          "lastName": "Cimbir",
+          "company": "Dreamups",
+          "title": "Chief Operating Officer",
+          "industry": "Education Administration Programs",
+          "addedAt": "2026-04-02T21:30:10.796Z"
+        },
+        {
+          "email": "alexander.turcan@turcanlaw.md",
+          "name": "Alexander Turcan",
+          "firstName": "Alexander",
+          "lastName": "Turcan",
+          "company": "Turcan Cazac",
+          "title": "Managing Partner",
+          "industry": "Law Practice",
+          "addedAt": "2026-04-02T21:30:10.798Z"
+        },
+        {
+          "email": "v.peresnicenco@wetrade.md",
+          "name": "Veaceslav Peresnicenco",
+          "firstName": "Veaceslav",
+          "lastName": "Peresnicenco",
+          "company": "WeTrade",
+          "title": "Group Chief Financial Officer",
+          "industry": "Farming",
+          "addedAt": "2026-04-02T21:30:10.801Z"
+        },
+        {
+          "email": "diana@funeasylearn.com",
+          "name": "Diana Andronic",
+          "firstName": "Diana",
+          "lastName": "Andronic",
+          "company": "FunEasyLearn",
+          "title": "CEO & Co-Founder",
+          "industry": "E-Learning",
+          "addedAt": "2026-04-02T21:30:10.923Z"
+        },
+        {
+          "email": "andrey.aydov@qsystemsglobal.com",
+          "name": "Andrey Aydov",
+          "firstName": "Andrey",
+          "lastName": "Aydov",
+          "company": "QSystems",
+          "title": "Director",
+          "industry": "Software Development",
+          "addedAt": "2026-04-02T21:30:11.063Z"
+        },
+        {
+          "email": "mariana.godoroja@grafit.com",
+          "name": "Mariana Godoroja",
+          "firstName": "Mariana",
+          "lastName": "Godoroja",
+          "company": "Grafit Holding",
+          "title": "Member Board of Directors",
+          "industry": "Wholesale Import and Export",
+          "addedAt": "2026-04-02T21:30:11.098Z"
+        },
+        {
+          "email": "reghina.tudosan@dita.md",
+          "name": "Reghina Tudosan",
+          "firstName": "Reghina",
+          "lastName": "Tudosan",
+          "company": "Dita EstFarm",
+          "title": "Head of tender department, main pharmacist",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:11.609Z"
+        },
+        {
+          "email": "fiodor@sapec.md",
+          "name": "Fiodor Songurov",
+          "firstName": "Fiodor",
+          "lastName": "Songurov",
+          "company": "Sapec Software",
+          "title": "Chief Technology Officer",
+          "industry": "Software Development",
+          "addedAt": "2026-04-02T21:30:11.623Z"
+        },
+        {
+          "email": "serghei.ciumac@daac-system.md",
+          "name": "Serghei Ciumac",
+          "firstName": "Serghei",
+          "lastName": "Ciumac",
+          "company": "DAAC System Integrator",
+          "title": "Director of Technical IT Service Department",
+          "industry": "Information Technology and Services",
+          "addedAt": "2026-04-02T21:30:11.634Z"
+        },
+        {
+          "email": "elena.maevski@acem.md",
+          "name": "Elena Maevski",
+          "firstName": "Elena",
+          "lastName": "Maevski",
+          "company": "Moldova Electronics Association ACEM",
+          "title": "Executive Director",
+          "industry": "Appliances, Electrical, and Electronics Manufacturing",
+          "addedAt": "2026-04-02T21:30:11.643Z"
+        },
+        {
+          "email": "lilia.boico@energbank.com",
+          "name": "Lilia Boico",
+          "firstName": "Lilia",
+          "lastName": "Boico",
+          "company": "BC \"ENERGBANK\"​ SA",
+          "title": "Chief Executive Officer",
+          "industry": "Banking",
+          "addedAt": "2026-04-02T21:30:11.645Z"
+        },
+        {
+          "email": "atabuica@globcom.md",
+          "name": "Andrei Tabuica",
+          "firstName": "Andrei",
+          "lastName": "Tabuica",
+          "company": "GlobCom Company",
+          "title": "Chief Executive Officer",
+          "industry": "Motor Vehicle Manufacturing",
+          "addedAt": "2026-04-02T21:30:11.647Z"
+        },
+        {
+          "email": "andrei@smartdata.solutions",
+          "name": "Andrei Martinenco",
+          "firstName": "Andrei",
+          "lastName": "Martinenco",
+          "company": "www.SmartData.Solutions",
+          "title": "CEO, Founder and Partner",
+          "industry": "Technology, Information and Internet",
+          "addedAt": "2026-04-02T21:30:11.658Z"
+        },
+        {
+          "email": "vitalii.mocanu@daac-system.md",
+          "name": "Vitalii Mocanu",
+          "firstName": "Vitalii",
+          "lastName": "Mocanu",
+          "company": "DAAC System Integrator",
+          "title": "Director of software development department",
+          "industry": "Information Technology and Services",
+          "addedAt": "2026-04-02T21:30:11.675Z"
+        },
+        {
+          "email": "asavinov@daac-system.md",
+          "name": "Alexandru Savinov",
+          "firstName": "Alexandru",
+          "lastName": "Savinov",
+          "company": "DAAC System Integrator",
+          "title": "Sales Director",
+          "industry": "Information Technology and Services",
+          "addedAt": "2026-04-02T21:30:11.753Z"
+        },
+        {
+          "email": "i.manole@internationaltobacco.md",
+          "name": "Igor Manole",
+          "firstName": "Igor",
+          "lastName": "Manole",
+          "company": "International Tobacco",
+          "title": "Head of International Development",
+          "industry": "Tobacco Manufacturing",
+          "addedAt": "2026-04-02T21:30:11.795Z"
+        },
+        {
+          "email": "alexey@daac-system.md",
+          "name": "Alexey Shulenkov",
+          "firstName": "Alexey",
+          "lastName": "Shulenkov",
+          "company": "DAAC System Integrator",
+          "title": "Head of Cyber Security",
+          "industry": "Information Technology and Services",
+          "addedAt": "2026-04-02T21:30:11.820Z"
+        },
+        {
+          "email": "stefan.cosovan@realist.md",
+          "name": "Stefan Cosovan",
+          "firstName": "Stefan",
+          "lastName": "Cosovan",
+          "company": "Realist Estate Agency",
+          "title": "Chief Executive Officer",
+          "industry": "Real Estate",
+          "addedAt": "2026-04-02T21:30:11.937Z"
+        },
+        {
+          "email": "v.tabuci@wippo.md",
+          "name": "Victor Tabuci",
+          "firstName": "Victor",
+          "lastName": "Tabuci",
+          "company": "Wippo IT",
+          "title": "CEO, Founder",
+          "industry": "IT Services and IT Consulting",
+          "addedAt": "2026-04-02T21:30:12.021Z"
+        },
+        {
+          "email": "simion.levitchi@agepi.gov.md",
+          "name": "Simion Levitchi",
+          "firstName": "Simion",
+          "lastName": "Levitchi",
+          "company": "State Agency on Intellectual Property of the Republic of Moldova (AGEPI)",
+          "title": "Head of trademarks and industrial design Department",
+          "industry": "Legal Services",
+          "addedAt": "2026-04-02T21:30:12.032Z"
+        },
+        {
+          "email": "sergiu.malai@hisky.aero",
+          "name": "Sergiu Malai",
+          "firstName": "Sergiu",
+          "lastName": "Malai",
+          "company": "HiSky",
+          "title": "Director (Postholder) Ground Operations",
+          "industry": "Airlines and Aviation",
+          "addedAt": "2026-04-02T21:30:12.041Z"
+        },
+        {
+          "email": "mihaela.gherasim@egov.md",
+          "name": "Mihaela Gherasim",
+          "firstName": "Mihaela",
+          "lastName": "Gherasim",
+          "company": "e-Governance Agency Moldova",
+          "title": "Head of Adoption & Inclusion, Marketing and Communications",
+          "industry": "Government Administration",
+          "addedAt": "2026-04-02T21:30:12.051Z"
+        },
+        {
+          "email": "igor.carlasuc@orhei-vit.com",
+          "name": "Igor Carlasuc",
+          "firstName": "Igor",
+          "lastName": "Carlasuc",
+          "company": "Orhei-Vit",
+          "title": "Human Resources Director",
+          "industry": "Food and Beverage Services",
+          "addedAt": "2026-04-02T21:30:12.054Z"
+        },
+        {
+          "email": "ion.gilea@ook.group",
+          "name": "Ion Gîlea",
+          "firstName": "Ion",
+          "lastName": "Gîlea",
+          "company": "OOK Group",
+          "title": "CEO",
+          "industry": "Technology, Information and Internet",
+          "addedAt": "2026-04-02T21:30:12.142Z"
+        },
+        {
+          "email": "alexei.munteanu@viorica.md",
+          "name": "Alexei Munteanu",
+          "firstName": "Alexei",
+          "lastName": "Munteanu",
+          "company": "Viorica Cosmetic",
+          "title": "Chief Marketing Officer",
+          "industry": "Personal Care Product Manufacturing",
+          "addedAt": "2026-04-02T21:30:12.148Z"
+        },
+        {
+          "email": "constanta.bontea@energbank.com",
+          "name": "Constanta Bontea",
+          "firstName": "Constanta",
+          "lastName": "Bontea",
+          "company": "BC \"ENERGBANK\"​ SA",
+          "title": "Specilist principal administrare fraude carduri",
+          "industry": "Banking",
+          "addedAt": "2026-04-02T21:30:12.150Z"
+        },
+        {
+          "email": "boris.cojocari@felicia.md",
+          "name": "Boris Cojocari",
+          "firstName": "Boris",
+          "lastName": "Cojocari",
+          "company": "Felicia Healthcare Group",
+          "title": "Head of Marketing, Optica Felicia Unit",
+          "industry": "Wellness and Fitness Services",
+          "addedAt": "2026-04-02T21:30:12.197Z"
+        },
+        {
+          "email": "alex@smartdata.solutions",
+          "name": "Alex Scutaru",
+          "firstName": "Alex",
+          "lastName": "Scutaru",
+          "company": "www.SmartData.Solutions",
+          "title": "CTO, Co Founder and Partner",
+          "industry": "Technology, Information and Internet",
+          "addedAt": "2026-04-02T21:30:12.324Z"
+        },
+        {
+          "email": "alexa.iulian@alsodev.com",
+          "name": "Alexa Iulian",
+          "firstName": "Alexa",
+          "lastName": "Iulian",
+          "company": "AlsoDev",
+          "title": "CEO & Founder",
+          "industry": "IT Services and IT Consulting",
+          "addedAt": "2026-04-02T21:30:12.672Z"
+        },
+        {
+          "email": "natalia.sturza@felicia.md",
+          "name": "Natalia Sturza",
+          "firstName": "Natalia",
+          "lastName": "Sturza",
+          "company": "Felicia Healthcare Group",
+          "title": "Chief Executive Officer",
+          "industry": "Wellness and Fitness Services",
+          "addedAt": "2026-04-02T21:30:12.681Z"
+        },
+        {
+          "email": "vitalie.tataru@ac-tech.com",
+          "name": "Vitalie Tataru",
+          "firstName": "Vitalie",
+          "lastName": "Tataru",
+          "company": "AC Technologies LTD",
+          "title": "Founder & CEO",
+          "industry": "IT Services and IT Consulting",
+          "addedAt": "2026-04-02T21:30:12.696Z"
+        },
+        {
+          "email": "g.karagheaur@unifun.com",
+          "name": "George Karagheaur",
+          "firstName": "George",
+          "lastName": "Karagheaur",
+          "company": "Unifun",
+          "title": "CEO",
+          "industry": "Telecommunications",
+          "addedAt": "2026-04-02T21:30:12.709Z"
+        },
+        {
+          "email": "irina.caliman@qubo.md",
+          "name": "Irina Caliman",
+          "firstName": "Irina",
+          "lastName": "Caliman",
+          "company": "QUBO Communications",
+          "title": "Partner, Communications&Media Expert",
+          "industry": "Public Relations and Communications Services",
+          "addedAt": "2026-04-02T21:30:12.711Z"
+        },
+        {
+          "email": "mihaela.oineagra@invest.gov.md",
+          "name": "Mihaela Oineagra",
+          "firstName": "Mihaela",
+          "lastName": "Oineagra",
+          "company": "Invest Moldova Agency",
+          "title": "Specialist principal",
+          "industry": "Government Administration",
+          "addedAt": "2026-04-02T21:30:12.799Z"
+        },
+        {
+          "email": "ddumbraveanu@ambianta.md",
+          "name": "Dorin Dumbraveanu",
+          "firstName": "Dorin",
+          "lastName": "Dumbraveanu",
+          "company": "Ambianta Group",
+          "title": "General Director",
+          "industry": "Furniture",
+          "addedAt": "2026-04-02T21:30:13.077Z"
+        },
+        {
+          "email": "dgudumac@soros.md",
+          "name": "Dumitru Gudumac",
+          "firstName": "Dumitru",
+          "lastName": "Gudumac",
+          "company": "Soros Foundation Moldova",
+          "title": "Director of Communications",
+          "industry": "Civic and Social Organizations",
+          "addedAt": "2026-04-02T21:30:13.092Z"
+        },
+        {
+          "email": "victor.baciu@rapidlink.md",
+          "name": "Victor Baciu",
+          "firstName": "Victor",
+          "lastName": "Baciu",
+          "company": "SC Rapid Link SRL",
+          "title": "Owner",
+          "industry": "IT Services and IT Consulting",
+          "addedAt": "2026-04-02T21:30:13.111Z"
+        },
+        {
+          "email": "sergiu.creciun@energbank.com",
+          "name": "Sergiu Creciun",
+          "firstName": "Sergiu",
+          "lastName": "Creciun",
+          "company": "JSCB \"ENERGBANK\"​",
+          "title": "Director of Risk Management",
+          "industry": "Banking",
+          "addedAt": "2026-04-02T21:30:13.748Z"
+        },
+        {
+          "email": "valentin.pinzaru@sapico.md",
+          "name": "Valentin PÎNZARU",
+          "firstName": "Valentin",
+          "lastName": "PÎNZARU",
+          "company": "SAPICO",
+          "title": "Director of Strategic Sourcing",
+          "industry": "Food and Beverage Manufacturing",
+          "addedAt": "2026-04-02T21:30:13.771Z"
+        },
+        {
+          "email": "pt@una.md",
+          "name": "Pavel Tuhari",
+          "firstName": "Pavel",
+          "lastName": "Tuhari",
+          "company": "UNISIM-SOFT SRL",
+          "title": "Owner, Director",
+          "industry": "Software Development",
+          "addedAt": "2026-04-02T21:30:13.772Z"
+        },
+        {
+          "email": "alexandrina.albot@energbank.com",
+          "name": "Alexandrina Albot",
+          "firstName": "Alexandrina",
+          "lastName": "Albot",
+          "company": "JSCB \"ENERGBANK\"​",
+          "title": "Head of Marketing and Communications",
+          "industry": "Banking",
+          "addedAt": "2026-04-02T21:30:13.781Z"
+        },
+        {
+          "email": "r.cojocaru@donaris.md",
+          "name": "Roman Cojocaru",
+          "firstName": "Roman",
+          "lastName": "Cojocaru",
+          "company": "Donaris Vienna Insurance Group",
+          "title": "Head of IT",
+          "industry": "Insurance",
+          "addedAt": "2026-04-02T21:30:13.792Z"
+        },
+        {
+          "email": "olga@optimum-web.com",
+          "name": "Olga Pascal",
+          "firstName": "Olga",
+          "lastName": "Pascal",
+          "company": "Optimum-Web | Software Development Company",
+          "title": "Managing Director",
+          "industry": "Software Development",
+          "addedAt": "2026-04-02T21:30:13.842Z"
+        },
+        {
+          "email": "nicoleta.colomeet@egov.md",
+          "name": "Nicoleta Colomeeț",
+          "firstName": "Nicoleta",
+          "lastName": "Colomeeț",
+          "company": "e-Governance Agency Moldova",
+          "title": "Director",
+          "industry": "Government Administration",
+          "addedAt": "2026-04-02T21:30:13.886Z"
+        },
+        {
+          "email": "andrey.morozov@mayo.edu",
+          "name": "Andrey Morozov",
+          "firstName": "Andrey",
+          "lastName": "Morozov",
+          "company": "Azamet",
+          "title": "CMO",
+          "industry": "International Trade and Development",
+          "addedAt": "2026-04-02T21:30:13.891Z"
+        },
+        {
+          "email": "boris.efimov@orhei-vit.com",
+          "name": "Boris Efimov",
+          "firstName": "Boris",
+          "lastName": "Efimov",
+          "company": "Orhei-Vit",
+          "title": "CEO",
+          "industry": "Food and Beverage Services",
+          "addedAt": "2026-04-02T21:30:13.917Z"
+        },
+        {
+          "email": "achirita@ict.md",
+          "name": "Ana CHIRITA",
+          "firstName": "Ana",
+          "lastName": "CHIRITA",
+          "company": "ATIC",
+          "title": "Strategic Projects Director",
+          "industry": "IT Services and IT Consulting",
+          "addedAt": "2026-04-02T21:30:13.918Z"
+        },
+        {
+          "email": "v.oleineac@wetrade.md",
+          "name": "Veronica Oleineac",
+          "firstName": "Veronica",
+          "lastName": "Oleineac",
+          "company": "WeTrade",
+          "title": "Group Human Resources Director",
+          "industry": "Farming",
+          "addedAt": "2026-04-02T21:30:14.019Z"
+        },
+        {
+          "email": "edediu@globcom.md",
+          "name": "Eugeniu Dediu",
+          "firstName": "Eugeniu",
+          "lastName": "Dediu",
+          "company": "GlobCom Company",
+          "title": "Chief Operating Officer",
+          "industry": "Motor Vehicle Manufacturing",
+          "addedAt": "2026-04-02T21:30:14.391Z"
+        },
+        {
+          "email": "mihail.curchi@sapico.md",
+          "name": "Mihail CURCHI",
+          "firstName": "Mihail",
+          "lastName": "CURCHI",
+          "company": "SAPICO",
+          "title": "General Manager",
+          "industry": "Food and Beverage Manufacturing",
+          "addedAt": "2026-04-02T21:30:14.401Z"
+        },
+        {
+          "email": "victoria.rusu@sapico.md",
+          "name": "Victoria Rusu",
+          "firstName": "Victoria",
+          "lastName": "Rusu",
+          "company": "SAPICO",
+          "title": "Director of Business Development",
+          "industry": "Food and Beverage Manufacturing",
+          "addedAt": "2026-04-02T21:30:14.407Z"
+        },
+        {
+          "email": "ana.agachi@dita.md",
+          "name": "Ana Agachi",
+          "firstName": "Ana",
+          "lastName": "Agachi",
+          "company": "Dita EstFarm",
+          "title": "Head of Import Department",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:15.051Z"
+        },
+        {
+          "email": "vera.bucuci@felicia.md",
+          "name": "Vera Bucuci",
+          "firstName": "Vera",
+          "lastName": "Bucuci",
+          "company": "Felicia Healthcare Group",
+          "title": "Chief Operating Officer",
+          "industry": "Wellness and Fitness Services",
+          "addedAt": "2026-04-02T21:30:15.075Z"
+        },
+        {
+          "email": "a.untilov@donaris.md",
+          "name": "Alexei Untilov",
+          "firstName": "Alexei",
+          "lastName": "Untilov",
+          "company": "Donaris Vienna Insurance Group",
+          "title": "Deputy Head of Underwriting and Reinsurance Department",
+          "industry": "Insurance",
+          "addedAt": "2026-04-02T21:30:15.186Z"
+        },
+        {
+          "email": "nicolae.russu@energbank.com",
+          "name": "Nicolae RUSSU",
+          "firstName": "Nicolae",
+          "lastName": "RUSSU",
+          "company": "КБ \"ENERGBANK\"​ АО",
+          "title": "Директор",
+          "industry": "Banking",
+          "addedAt": "2026-04-02T21:30:15.206Z"
+        },
+        {
+          "email": "irina.tolstousov@invest.gov.md",
+          "name": "Irina Tolstousov",
+          "firstName": "Irina",
+          "lastName": "Tolstousov",
+          "company": "Invest Moldova Agency",
+          "title": "Deputy Director",
+          "industry": "Government Administration",
+          "addedAt": "2026-04-02T21:30:15.223Z"
+        },
+        {
+          "email": "dumitru.sasu@addgrup.com",
+          "name": "Dumitru Sasu",
+          "firstName": "Dumitru",
+          "lastName": "Sasu",
+          "company": "ADD Grup",
+          "title": "Head Of Procurement",
+          "industry": "Appliances, Electrical, and Electronics Manufacturing",
+          "addedAt": "2026-04-02T21:30:15.701Z"
+        },
+        {
+          "email": "natalia.bejan@invest.gov.md",
+          "name": "Natalia Bejan",
+          "firstName": "Natalia",
+          "lastName": "Bejan",
+          "company": "Invest Moldova",
+          "title": "Director",
+          "industry": "Government Administration",
+          "addedAt": "2026-04-02T21:30:15.814Z"
+        },
+        {
+          "email": "mircea@justdigital.ro",
+          "name": "Mircea Țîra",
+          "firstName": "Mircea",
+          "lastName": "Țîra",
+          "company": "Kooperativa Moldova",
+          "title": "Chief Executive Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:16.464Z"
+        },
+        {
+          "email": "djalba@felicia.md",
+          "name": "Diana Jalba",
+          "firstName": "Diana",
+          "lastName": "Jalba",
+          "company": "Felicia Healthcare Group",
+          "title": "Director Sales Department",
+          "industry": "Wellness and Fitness Services",
+          "addedAt": "2026-04-02T21:30:16.706Z"
+        },
+        {
+          "email": "dumitru.strogoteanu@microinvest.md",
+          "name": "Dumitru Strogoteanu",
+          "firstName": "Dumitru",
+          "lastName": "Strogoteanu",
+          "company": "OCN \"Microinvest\"​ SRL",
+          "title": "CFO",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:16.916Z"
+        },
+        {
+          "email": "alexei.demidiuc@gbs.md",
+          "name": "Alexei Demidiuc",
+          "firstName": "Alexei",
+          "lastName": "Demidiuc",
+          "company": "GBS S.R.L.",
+          "title": "Начальник Департамента Закупок",
+          "industry": "Wholesale Motor Vehicles and Parts",
+          "addedAt": "2026-04-02T21:30:17.095Z"
+        },
+        {
+          "email": "s.zabolotnii@paynet.md",
+          "name": "Sergey Zabolotnii",
+          "firstName": "Sergey",
+          "lastName": "Zabolotnii",
+          "company": "Paynet",
+          "title": "Chief Financial Officer",
+          "industry": "Financial Services",
+          "addedAt": "2026-04-02T21:30:17.593Z"
+        },
+        {
+          "email": "s.cusnir@donaris.md",
+          "name": "Cusnir Sergiu",
+          "firstName": "Cusnir",
+          "lastName": "Sergiu",
+          "company": "Donaris Vienna Insurance Group",
+          "title": "Director of Sales & Marketing",
+          "industry": "Insurance",
+          "addedAt": "2026-04-02T21:30:18.761Z"
+        },
+        {
+          "email": "victor.marchitan@thenoughtyfox.com",
+          "name": "Victor MARCHITAN",
+          "firstName": "Victor",
+          "lastName": "MARCHITAN",
+          "company": "The Noughty Fox",
+          "title": "Chief Business Development Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:18.765Z"
+        },
+        {
+          "email": "vlada.medvedcova@lh47arch.com",
+          "name": "Vlada Medvedcova",
+          "firstName": "Vlada",
+          "lastName": "Medvedcova",
+          "company": "LH47 ARCH",
+          "title": "Chief Operating Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:18.775Z"
+        },
+        {
+          "email": "alex@thenoughtyfox.com",
+          "name": "Alex Culeva",
+          "firstName": "Alex",
+          "lastName": "Culeva",
+          "company": "The Noughty Fox",
+          "title": "Co-Founder & CEO",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:18.777Z"
+        },
+        {
+          "email": "igincu@backstage-it.nl",
+          "name": "Iana Gincu",
+          "firstName": "Iana",
+          "lastName": "Gincu",
+          "company": "BackstageIT",
+          "title": "Operations Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:18.890Z"
+        },
+        {
+          "email": "engincecen@shoppingmalldova.md",
+          "name": "Engin Cecen",
+          "firstName": "Engin",
+          "lastName": "Cecen",
+          "company": "Shopping MallDova",
+          "title": "General Manager",
+          "industry": "Retail",
+          "addedAt": "2026-04-02T21:30:18.951Z"
+        },
+        {
+          "email": "m.brinza@cet-nord.md",
+          "name": "Marian Brinza",
+          "firstName": "Marian",
+          "lastName": "Brinza",
+          "company": "S.A. „CET-Nord\"​",
+          "title": "Chief Executive Officer",
+          "industry": "Electric Power Generation",
+          "addedAt": "2026-04-02T21:30:20.463Z"
+        },
+        {
+          "email": "a.plamadeala@donaris.md",
+          "name": "Andrei Plamadeala",
+          "firstName": "Andrei",
+          "lastName": "Plamadeala",
+          "company": "DONARIS Vienna Insurance Group",
+          "title": "Member of the Managing Board, CFO",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:20.507Z"
+        },
+        {
+          "email": "m.girleanu@asbc.md",
+          "name": "Mihai Gîrleanu",
+          "firstName": "Mihai",
+          "lastName": "Gîrleanu",
+          "company": "ASBC Moldova",
+          "title": "Head of Ecommerce",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:20.581Z"
+        },
+        {
+          "email": "eugen.mosanu@snt.md",
+          "name": "Eugen Mosanu",
+          "firstName": "Eugen",
+          "lastName": "Mosanu",
+          "company": "ATIC",
+          "title": "Member Board of Directors",
+          "industry": "IT Services and IT Consulting",
+          "addedAt": "2026-04-02T21:30:20.894Z"
+        },
+        {
+          "email": "anastasia.prokopov@brilicmedia.com",
+          "name": "Anastasia Prokopov",
+          "firstName": "Anastasia",
+          "lastName": "Prokopov",
+          "company": "Brilic Media",
+          "title": "HR Recruitment Partner",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:21.809Z"
+        },
+        {
+          "email": "oxana.miron@farmaciafamiliei.md",
+          "name": "Miron Oxana",
+          "firstName": "Miron",
+          "lastName": "Oxana",
+          "company": "Farmacia Familiei",
+          "title": "Chief Executive Officer",
+          "industry": "Pharmaceutical Manufacturing",
+          "addedAt": "2026-04-02T21:30:21.814Z"
+        },
+        {
+          "email": "dumitru@indieridge.com",
+          "name": "Dumitru Curea",
+          "firstName": "Dumitru",
+          "lastName": "Curea",
+          "company": "CreativSoft",
+          "title": "Founder & CEO",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:21.817Z"
+        },
+        {
+          "email": "abraniste@noction.com",
+          "name": "Andrian Braniste",
+          "firstName": "Andrian",
+          "lastName": "Braniste",
+          "company": "Noction Moldova",
+          "title": "Head of Operations",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:21.822Z"
+        },
+        {
+          "email": "tatiana.popa@heritage.md",
+          "name": "Tatiana Popa",
+          "firstName": "Tatiana",
+          "lastName": "Popa",
+          "company": "Heritage International School",
+          "title": "Head of Secondary",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:21.825Z"
+        },
+        {
+          "email": "victor.taulean@jobber.md",
+          "name": "Victor Taulean",
+          "firstName": "Victor",
+          "lastName": "Taulean",
+          "company": "Jobber.md",
+          "title": "Chief Executive Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:22.621Z"
+        },
+        {
+          "email": "renita@profmet.md",
+          "name": "Radu Renita",
+          "firstName": "Radu",
+          "lastName": "Renita",
+          "company": "Profmet Grup SRL",
+          "title": "Marketing Director",
+          "industry": "Wholesale Building Materials",
+          "addedAt": "2026-04-02T21:30:22.644Z"
+        },
+        {
+          "email": "radu@iticket.md",
+          "name": "Radu Cheltuiala",
+          "firstName": "Radu",
+          "lastName": "Cheltuiala",
+          "company": "iTicket.md",
+          "title": "CEO",
+          "industry": "Entertainment Providers",
+          "addedAt": "2026-04-02T21:30:22.665Z"
+        },
+        {
+          "email": "d.cornea@purcari.wine",
+          "name": "Dumitru Cornea",
+          "firstName": "Dumitru",
+          "lastName": "Cornea",
+          "company": "Purcari Wineries Plc",
+          "title": "Director Purcari Wineries Ukraine (subsidiary of Purcari Wineries Group)",
+          "industry": "Beverage Manufacturing",
+          "addedAt": "2026-04-02T21:30:22.669Z"
+        },
+        {
+          "email": "ina@bend.dev",
+          "name": "Ina Brailean",
+          "firstName": "Ina",
+          "lastName": "Brailean",
+          "company": "bend.dev",
+          "title": "Human Capital Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:22.855Z"
+        },
+        {
+          "email": "o.prado@gpg-callcenter.com",
+          "name": "Olivier Prado",
+          "firstName": "Olivier",
+          "lastName": "Prado",
+          "company": "Belgian Luxembourg Romanian Moldovan Chamber of Commerce",
+          "title": "Board Member",
+          "industry": "Non-profit Organization Management",
+          "addedAt": "2026-04-02T21:30:22.863Z"
+        },
+        {
+          "email": "veaceslav@deeplace.md",
+          "name": "Veaceslav Сunev",
+          "firstName": "Veaceslav",
+          "lastName": "Сunev",
+          "company": "ATIC",
+          "title": "Chairman of the Board",
+          "industry": "IT Services and IT Consulting",
+          "addedAt": "2026-04-02T21:30:24.598Z"
+        },
+        {
+          "email": "marina.magulciac@ultra.md",
+          "name": "Marina Magulciac",
+          "firstName": "Marina",
+          "lastName": "Magulciac",
+          "company": "ULTRA",
+          "title": "Marketing Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:24.604Z"
+        },
+        {
+          "email": "vb@comsales.md",
+          "name": "Vladimir Balaban",
+          "firstName": "Vladimir",
+          "lastName": "Balaban",
+          "company": "Comsales Grup SRL",
+          "title": "Co-Owner",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:24.616Z"
+        },
+        {
+          "email": "spetrea@premierenergy.md",
+          "name": "Sergiu Petrea",
+          "firstName": "Sergiu",
+          "lastName": "Petrea",
+          "company": "Premier Energy Distribution",
+          "title": "Energy Management Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:24.619Z"
+        },
+        {
+          "email": "aliona.stratan@maib.md",
+          "name": "Stratan Aliona",
+          "firstName": "Stratan",
+          "lastName": "Aliona",
+          "company": "MAIB-Leasing",
+          "title": "Chair of the Supervisory Board",
+          "industry": "Banking",
+          "addedAt": "2026-04-02T21:30:24.632Z"
+        },
+        {
+          "email": "stella.ostrovetchi@transoilcorp.com",
+          "name": "Stella Ostrovetchi",
+          "firstName": "Stella",
+          "lastName": "Ostrovetchi",
+          "company": "Trans-Oil Group of Companies",
+          "title": "General manager S.A. FLOAREA SOARELUI",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:24.636Z"
+        },
+        {
+          "email": "mihai.lupascu@ncsc.md",
+          "name": "Mihai Lupascu",
+          "firstName": "Mihai",
+          "lastName": "Lupascu",
+          "company": "Agenția pentru Securitate Cibernetică",
+          "title": "Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:24.642Z"
+        },
+        {
+          "email": "dorin.vidrascu@itcare.net",
+          "name": "Dorin Vidrașcu",
+          "firstName": "Dorin",
+          "lastName": "Vidrașcu",
+          "company": "ITcare",
+          "title": "Chief Operating Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:24.735Z"
+        },
+        {
+          "email": "alexandru.gozun@pwc.com",
+          "name": "Alexandru Gozun",
+          "firstName": "Alexandru",
+          "lastName": "Gozun",
+          "company": "American Chamber of Commerce in Moldova",
+          "title": "President",
+          "industry": "International Trade and Development",
+          "addedAt": "2026-04-02T21:30:25.035Z"
+        },
+        {
+          "email": "valentina.uzun@azamet.md",
+          "name": "Valentina Uzun",
+          "firstName": "Valentina",
+          "lastName": "Uzun",
+          "company": "Group of companies AZAMET",
+          "title": "Founder & CEO",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:25.244Z"
+        },
+        {
+          "email": "vsamson@premierenergy.md",
+          "name": "Valentin Samson",
+          "firstName": "Valentin",
+          "lastName": "Samson",
+          "company": "Premier Energy Distribution",
+          "title": "Director of Information Systems",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:25.359Z"
+        },
+        {
+          "email": "casey.barnes@heritage.md",
+          "name": "Casey Barnes",
+          "firstName": "Casey",
+          "lastName": "Barnes",
+          "company": "Heritage International School",
+          "title": "Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:25.398Z"
+        },
+        {
+          "email": "ilie.efros@itcare.net",
+          "name": "Ilie Efros",
+          "firstName": "Ilie",
+          "lastName": "Efros",
+          "company": "ITcare",
+          "title": "Director of Sales",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:25.609Z"
+        },
+        {
+          "email": "b.dorin@dmlink.md",
+          "name": "Dorin Botan",
+          "firstName": "Dorin",
+          "lastName": "Botan",
+          "company": "DMLink SRL - Distribution Market Link",
+          "title": "Chief Executive Officer",
+          "industry": "Computers and Electronics Manufacturing",
+          "addedAt": "2026-04-02T21:30:30.472Z"
+        },
+        {
+          "email": "marina.bzovii@moldovaitpark.md",
+          "name": "Marina Bzovîi",
+          "firstName": "Marina",
+          "lastName": "Bzovîi",
+          "company": "Moldova Innovation Technology Park",
+          "title": "Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.164Z"
+        },
+        {
+          "email": "julia.dinisiuk@hope4.org",
+          "name": "Julia Dinisiuk",
+          "firstName": "Julia",
+          "lastName": "Dinisiuk",
+          "company": "Hope4❤️",
+          "title": "Operations director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.193Z"
+        },
+        {
+          "email": "lilian.florea@acordtravel.md",
+          "name": "Lilian Florea",
+          "firstName": "Lilian",
+          "lastName": "Florea",
+          "company": "ACORD TRAVEL & POMUL REGAL",
+          "title": "Owner, General Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.200Z"
+        },
+        {
+          "email": "franco.polesello@mod.md",
+          "name": "Franco Polesello",
+          "firstName": "Franco",
+          "lastName": "Polesello",
+          "company": "Camera di Commercio Italiana in Moldova",
+          "title": "Board Member",
+          "industry": "International Trade and Development",
+          "addedAt": "2026-04-02T21:30:36.207Z"
+        },
+        {
+          "email": "natalia.ciudova@verum.md",
+          "name": "Natalia Ciudova",
+          "firstName": "Natalia",
+          "lastName": "Ciudova",
+          "company": "VERUM GROUP",
+          "title": "Chief IT Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.223Z"
+        },
+        {
+          "email": "alexandra.sidorenco@bnm.md",
+          "name": "Alexandra Sidorenco",
+          "firstName": "Alexandra",
+          "lastName": "Sidorenco",
+          "company": "National Bank of Moldova",
+          "title": "Head of FinTech Division",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.229Z"
+        },
+        {
+          "email": "radu-saracinov.olesea@agilepartners.com",
+          "name": "Radu-Saracinov Olesea",
+          "firstName": "Radu-Saracinov",
+          "lastName": "Olesea",
+          "company": "Agile Partners",
+          "title": "Human Resources Director",
+          "industry": "Financial Services",
+          "addedAt": "2026-04-02T21:30:36.239Z"
+        },
+        {
+          "email": "andrei.curararu@watchdog.md",
+          "name": "Andrei Curararu",
+          "firstName": "Andrei",
+          "lastName": "Curararu",
+          "company": "WatchDog.MD Community",
+          "title": "Co-Founder",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.245Z"
+        },
+        {
+          "email": "anab@ussoftwaresolutions.us",
+          "name": "Ana Balaur",
+          "firstName": "Ana",
+          "lastName": "Balaur",
+          "company": "US Software Solutions",
+          "title": "Director of Operations",
+          "industry": "Telecommunications",
+          "addedAt": "2026-04-02T21:30:36.253Z"
+        },
+        {
+          "email": "mitu.nicolae@rogob.md",
+          "name": "Nicolae Mitu",
+          "firstName": "Nicolae",
+          "lastName": "Mitu",
+          "company": "Rogob",
+          "title": "Chief Information Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.263Z"
+        },
+        {
+          "email": "veronica.balan@procredit-group.com",
+          "name": "Veronica Balan",
+          "firstName": "Veronica",
+          "lastName": "Balan",
+          "company": "ProCredit Bank Moldova",
+          "title": "Head of Human Resources Unit",
+          "industry": "Banking",
+          "addedAt": "2026-04-02T21:30:36.271Z"
+        },
+        {
+          "email": "braga@hidromash.md",
+          "name": "Oleg Braga",
+          "firstName": "Oleg",
+          "lastName": "Braga",
+          "company": "SA Moldovahidromash",
+          "title": "Director General",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.276Z"
+        },
+        {
+          "email": "colta@naqqa.net",
+          "name": "Radu Colta",
+          "firstName": "Radu",
+          "lastName": "Colta",
+          "company": "Naqqa Software",
+          "title": "Founder",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.296Z"
+        },
+        {
+          "email": "vladimir@rabota.md",
+          "name": "Vladimir Badan",
+          "firstName": "Vladimir",
+          "lastName": "Badan",
+          "company": "Rabota.md",
+          "title": "Head of Marketing",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.303Z"
+        },
+        {
+          "email": "radu.habasescu@bnm.md",
+          "name": "Radu Habaşescu",
+          "firstName": "Radu",
+          "lastName": "Habaşescu",
+          "company": "National Bank of Moldova",
+          "title": "Deputy Director of the Department Infrastructures, Payments, and Supervision of Other Institutions",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.311Z"
+        },
+        {
+          "email": "mihaela.muntean@radissonblu.com",
+          "name": "Mihaela Muntean",
+          "firstName": "Mihaela",
+          "lastName": "Muntean",
+          "company": "Radisson Blu Leogrand Hotel Chisinau",
+          "title": "Director of Sales & Marketing",
+          "industry": "Hospitality",
+          "addedAt": "2026-04-02T21:30:36.335Z"
+        },
+        {
+          "email": "alexandru.andronic@lafarge.com",
+          "name": "Alexandru Andronic",
+          "firstName": "Alexandru",
+          "lastName": "Andronic",
+          "company": "Holcim Moldova",
+          "title": "Chief Commercial Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:36.722Z"
+        },
+        {
+          "email": "victor.susu@bnm.md",
+          "name": "Victor Șușu",
+          "firstName": "Victor",
+          "lastName": "Șușu",
+          "company": "National Bank of Moldova",
+          "title": "Director, Department of Infrastructures, Payments, and Supervision of Other Institutions",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:38.300Z"
+        },
+        {
+          "email": "serghei.cunetchi@microinvest.md",
+          "name": "Serghei Cunetchi",
+          "firstName": "Serghei",
+          "lastName": "Cunetchi",
+          "company": "Microinvest",
+          "title": "Chief Business Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:38.983Z"
+        },
+        {
+          "email": "robert.claicnet@verum.md",
+          "name": "Robert Claicnet",
+          "firstName": "Robert",
+          "lastName": "Claicnet",
+          "company": "VERUM GROUP MD",
+          "title": "Chief Executive Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:39.873Z"
+        },
+        {
+          "email": "andrei.zainulin@microinvest.md",
+          "name": "Andrei Zainulin",
+          "firstName": "Andrei",
+          "lastName": "Zainulin",
+          "company": "Microinvest",
+          "title": "Chief Operations Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:39.999Z"
+        },
+        {
+          "email": "olgapetis@shoppingmalldova.md",
+          "name": "Olga (Petis)",
+          "firstName": "Olga",
+          "lastName": "(Petis)",
+          "company": "Shopping MallDova",
+          "title": "Head of marketing",
+          "industry": "Retail",
+          "addedAt": "2026-04-02T21:30:40.511Z"
+        },
+        {
+          "email": "ruxanda.capmari@rogob.md",
+          "name": "Ruxanda Capmari",
+          "firstName": "Ruxanda",
+          "lastName": "Capmari",
+          "company": "Rogob",
+          "title": "Chief Marketing Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:41.982Z"
+        },
+        {
+          "email": "dumitruvelescu@globalstore.md",
+          "name": "Dumitru Velescu",
+          "firstName": "Dumitru",
+          "lastName": "Velescu",
+          "company": "Global Store Moldova",
+          "title": "Director of Purchasing",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:42.641Z"
+        },
+        {
+          "email": "vlad.chetrusca@yourstoryinteractive.com",
+          "name": "Vlad Chetrusca",
+          "firstName": "Vlad",
+          "lastName": "Chetrusca",
+          "company": "Your Story Interactive",
+          "title": "Founder & CEO",
+          "industry": "Computer Games",
+          "addedAt": "2026-04-02T21:30:44.075Z"
+        },
+        {
+          "email": "vitalie.burcovschi@moldovagaz.md",
+          "name": "Vitalie Burcovschi",
+          "firstName": "Vitalie",
+          "lastName": "Burcovschi",
+          "company": "JSC Moldovagaz",
+          "title": "Head Of Information Technology Department",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:44.990Z"
+        },
+        {
+          "email": "olga.bogatscaia@viatelbpo.com",
+          "name": "Olga Jardan",
+          "firstName": "Olga",
+          "lastName": "Jardan",
+          "company": "Viatel Ltd",
+          "title": "Co-Founder",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:48.173Z"
+        },
+        {
+          "email": "svetlana.antipova@iltc.io",
+          "name": "Svetlana Antipova",
+          "firstName": "Svetlana",
+          "lastName": "Antipova",
+          "company": "International Language Training Center ILTC",
+          "title": "Operational Director",
+          "industry": "Education Administration Programs",
+          "addedAt": "2026-04-02T21:30:48.190Z"
+        },
+        {
+          "email": "reftodi@tlm.md",
+          "name": "Radu Eftodi",
+          "firstName": "Radu",
+          "lastName": "Eftodi",
+          "company": "Total Leasing & Finance",
+          "title": "Chief Information Officer",
+          "industry": "Financial Services",
+          "addedAt": "2026-04-02T21:30:48.998Z"
+        },
+        {
+          "email": "andrei.balan@energbank.com",
+          "name": "Andrei Balan",
+          "firstName": "Andrei",
+          "lastName": "Balan",
+          "company": "JSCB \"ENERGBANK\"​",
+          "title": "Head of Projects and Processes",
+          "industry": "Banking",
+          "addedAt": "2026-04-02T21:30:49.014Z"
+        },
+        {
+          "email": "adrian.trofim@castelmimi.md",
+          "name": "Adrian Trofim",
+          "firstName": "Adrian",
+          "lastName": "Trofim",
+          "company": "Mimi Group",
+          "title": "Chief Executive Officer",
+          "industry": "Accommodation Services",
+          "addedAt": "2026-04-02T21:30:55.098Z"
+        },
+        {
+          "email": "igor.odobescu@aci.md",
+          "name": "Igor Odobescu",
+          "firstName": "Igor",
+          "lastName": "Odobescu",
+          "company": "ACI Partners",
+          "title": "Managing Partner",
+          "industry": "",
+          "addedAt": "2026-04-02T21:30:56.700Z"
+        },
+        {
+          "email": "oleg.glivinschi@ecb.md",
+          "name": "Oleg Glivinschi",
+          "firstName": "Oleg",
+          "lastName": "Glivinschi",
+          "company": "BC EuroCreditBank S.A.",
+          "title": "Chief Information Officer",
+          "industry": "Banking",
+          "addedAt": "2026-04-02T21:31:03.353Z"
+        },
+        {
+          "email": "serhii.shapran@novaposhta.md",
+          "name": "Serhii Shapran",
+          "firstName": "Serhii",
+          "lastName": "Shapran",
+          "company": "Nova Poshta Moldova",
+          "title": "Chief Operating Officer",
+          "industry": "Transportation, Logistics, Supply Chain and Storage",
+          "addedAt": "2026-04-02T21:31:03.558Z"
+        },
+        {
+          "email": "nikolai.shokalo@acvilin.us",
+          "name": "Nikolai Shokalo",
+          "firstName": "Nikolai",
+          "lastName": "Shokalo",
+          "company": "Acvilin Grup",
+          "title": "Head of Marketing - Mai 2020 - present",
+          "industry": "Transportation, Logistics, Supply Chain and Storage",
+          "addedAt": "2026-04-02T21:31:09.765Z"
+        },
+        {
+          "email": "volosin.nicolai@vec.md",
+          "name": "Nicolai Voloşin",
+          "firstName": "Nicolai",
+          "lastName": "Voloşin",
+          "company": "VEC",
+          "title": "Chief Technical Officer",
+          "industry": "IT Services and IT Consulting",
+          "addedAt": "2026-04-02T21:31:09.807Z"
+        },
+        {
+          "email": "alexandru.filimon@enter.online",
+          "name": "Alexandru Filimon",
+          "firstName": "Alexandru",
+          "lastName": "Filimon",
+          "company": "Darwin.md",
+          "title": "Chief Executive Officer",
+          "industry": "Retail",
+          "addedAt": "2026-04-02T21:31:09.810Z"
+        },
+        {
+          "email": "elena@agora.md",
+          "name": "Elena Postovan",
+          "firstName": "Elena",
+          "lastName": "Postovan",
+          "company": "AGORA",
+          "title": "Marketing Director",
+          "industry": "Media Production",
+          "addedAt": "2026-04-02T21:31:11.528Z"
+        },
+        {
+          "email": "veaceslav.goncear@radacini.md",
+          "name": "Veaceslav Goncear",
+          "firstName": "Veaceslav",
+          "lastName": "Goncear",
+          "company": "Radacini Wines",
+          "title": "Sales Director Moldova",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:12.802Z"
+        },
+        {
+          "email": "tatiana.bet@microinvest.md",
+          "name": "Tatiana Bet",
+          "firstName": "Tatiana",
+          "lastName": "Bet",
+          "company": "Microinvest Technology",
+          "title": "Head of Project Management Unit",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:19.011Z"
+        },
+        {
+          "email": "alina.radu@zdg.md",
+          "name": "Alina Radu",
+          "firstName": "Alina",
+          "lastName": "Radu",
+          "company": "ZdG, Ziarul de Gardă",
+          "title": "Chief Executive Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:19.017Z"
+        },
+        {
+          "email": "ss@paymaster.net",
+          "name": "Sergiu Stoianov",
+          "firstName": "Sergiu",
+          "lastName": "Stoianov",
+          "company": "Paymaster SRL (dba RunPay)",
+          "title": "Development Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:19.057Z"
+        },
+        {
+          "email": "daniela.furtuna@mded.gov.md",
+          "name": "Daniela Furtuna",
+          "firstName": "Daniela",
+          "lastName": "Furtuna",
+          "company": "Ministerul Dezvoltării Economice și Digitalizării al Republicii Moldova",
+          "title": "Head of Division Business Environment Regulatory Policy",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:19.129Z"
+        },
+        {
+          "email": "stanislav.soloshenko@jobber.md",
+          "name": "Stanislav Soloshenko",
+          "firstName": "Stanislav",
+          "lastName": "Soloshenko",
+          "company": "Jobber.md",
+          "title": "Chief Executive Officer",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:19.243Z"
+        },
+        {
+          "email": "vladimir.gojan@investcredit.md",
+          "name": "Vladimir Gojan",
+          "firstName": "Vladimir",
+          "lastName": "Gojan",
+          "company": "Invest Credit",
+          "title": "Head of Business",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:20.549Z"
+        },
+        {
+          "email": "euporova@radacini.md",
+          "name": "Elena Uporova",
+          "firstName": "Elena",
+          "lastName": "Uporova",
+          "company": "RADACINI Wines ltd",
+          "title": "Marketing Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:21.172Z"
+        },
+        {
+          "email": "artemie.bors@ctif.gov.md",
+          "name": "Artemie Borș",
+          "firstName": "Artemie",
+          "lastName": "Borș",
+          "company": "I.P. „Centrul de Tehnologii Informaționale în Finanțe”",
+          "title": "Head of Project Management Department",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:22.022Z"
+        },
+        {
+          "email": "georgeta.mincu@acam.com",
+          "name": "Georgeta Mincu",
+          "firstName": "Georgeta",
+          "lastName": "Mincu",
+          "company": "ACAM Asociatia Consultantilor în Afaceri şi Management din Moldova",
+          "title": "Member CEO",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:27.290Z"
+        },
+        {
+          "email": "ivannikov@automall.com",
+          "name": "Ivan Ivannikov",
+          "firstName": "Ivan",
+          "lastName": "Ivannikov",
+          "company": "AUTO MALL SRL",
+          "title": "Head of Product Management Division",
+          "industry": "Motor Vehicle Manufacturing",
+          "addedAt": "2026-04-02T21:31:28.230Z"
+        },
+        {
+          "email": "alina.fortunatova@bizmarket.md",
+          "name": "Alina Fortunatova",
+          "firstName": "Alina",
+          "lastName": "Fortunatova",
+          "company": "Business Market SRL",
+          "title": "Head of Marketing",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:30.714Z"
+        },
+        {
+          "email": "serkan.kazar@efesmoldova.md",
+          "name": "Serkan KAZAR",
+          "firstName": "Serkan",
+          "lastName": "KAZAR",
+          "company": "Efes Moldova",
+          "title": "Information and Digital Solutions Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:47.812Z"
+        },
+        {
+          "email": "steluta.creanga@efesmoldova.md",
+          "name": "Steluța Creanga",
+          "firstName": "Steluța",
+          "lastName": "Creanga",
+          "company": "Efes Moldova",
+          "title": "Logistics Planning and Procurement Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:47.835Z"
+        },
+        {
+          "email": "serghei.baziuc@efesmoldova.md",
+          "name": "Serghei Baziuc",
+          "firstName": "Serghei",
+          "lastName": "Baziuc",
+          "company": "Efes Moldova",
+          "title": "HR Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:47.848Z"
+        },
+        {
+          "email": "artur.virtosu@efesmoldova.md",
+          "name": "Artur Virtosu",
+          "firstName": "Artur",
+          "lastName": "Virtosu",
+          "company": "Efes Vitanta Moldova Brewery",
+          "title": "Finance Director",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:47.851Z"
+        },
+        {
+          "email": "sirbu.ivan@daac.md",
+          "name": "Sirbu Ivan",
+          "firstName": "Sirbu",
+          "lastName": "Ivan",
+          "company": "DAAC System Integrator",
+          "title": "Software Director",
+          "industry": "Information Technology and Services",
+          "addedAt": "2026-04-02T21:31:50.810Z"
+        },
+        {
+          "email": "natalia@anrceti.md",
+          "name": "Natalia Zgardan-Bucataru",
+          "firstName": "Natalia",
+          "lastName": "Zgardan-Bucataru",
+          "company": "ANRCETI",
+          "title": "Specialist principal",
+          "industry": "",
+          "addedAt": "2026-04-02T21:31:56.603Z"
+        },
+        {
+          "email": "radu.vieru@stisc.gov.md",
+          "name": "Radu Vieru",
+          "firstName": "Radu",
+          "lastName": "Vieru",
+          "company": "Information Technology and Cyber Security Service",
+          "title": "Deputy Director",
+          "industry": "IT Services and IT Consulting",
+          "addedAt": "2026-04-02T21:31:57.930Z"
+        },
+        {
+          "email": "andrei@terraavia.md",
+          "name": "Andrei Savinov",
+          "firstName": "Andrei",
+          "lastName": "Savinov",
+          "company": "TERRA AVIA",
+          "title": "Technical Director",
+          "industry": "Airlines and Aviation",
+          "addedAt": "2026-04-02T21:32:05.434Z"
+        },
+        {
+          "email": "alexei.negru@virtualglobal.games",
+          "name": "Alexei Negru",
+          "firstName": "Alexei",
+          "lastName": "Negru",
+          "company": "Virtual Global Games",
+          "title": "Principal CEO",
+          "industry": "",
+          "addedAt": "2026-04-02T21:32:23.269Z"
         }
       ],
       "createdAt": "2026-04-02T00:02:36.655Z",
-      "updatedAt": "2026-04-02T16:51:03.784Z"
+      "updatedAt": "2026-04-02T21:32:23.269Z"
     }
   },
   "templates": {},
@@ -41,7 +1671,7 @@
     "totalEmailsDelivered": 0,
     "totalEmailsOpened": 0,
     "totalEmailsBounced": 0,
-    "totalContactsImported": 2,
+    "totalContactsImported": 165,
     "totalTemplatesCreated": 0,
     "createdAt": "2026-03-18T19:33:29.045Z"
   }

@@ -1,0 +1,55 @@
+{
+  "email": "roman.voronovschii@gbs.md",
+  "firstName": "Roman",
+  "lastName": "Voronovschii",
+  "company": "GBS S.R.L.",
+  "title": "Head of Purchasing Department",
+  "linkedin": "https://www.linkedin.com/in/roman-voronovschii-aa24a5a5",
+  "website": "http://www.gbs.md",
+  "industry": "Wholesale Motor Vehicles and Parts",
+  "employeeCount": 29,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Feb 26, 2025",
+        "link": "https://www.nsenergybusiness.com/projects/adriatic-lng-terminal-offshore-italy/",
+        "position": 1,
+        "snippet": "The Adriatic LNG Terminal is an offshore liquefied natural gas (LNG) regasification facility located in the Adriatic Sea.",
+        "source": "NS Energy",
+        "title": "Adriatic LNG Terminal, offshore Italy"
+      },
+      {
+        "date": "Mar 10, 2024",
+        "link": "https://www.beinsports.com/en-us/soccer/premier-league/articles/calm-ange-postecoglou-enjoys-positive-step-as-tottenham-rout-aston-villa-2024-03-10",
+        "position": 2,
+        "snippet": "James Maddison, Brennan Johnson, Son Heung-min and Timo Werner scored the goals as Villa captain John McGinn was sent off.",
+        "source": "beIN SPORTS",
+        "title": "Calm Ange Postecoglou enjoys ‘positive step’ as Tottenham rout Aston Villa"
+      },
+      {
+        "date": "Feb 14, 2011",
+        "link": "https://www.gulf-times.com/story/25774/top-italian-firms-to-attend-green-building-expo",
+        "position": 3,
+        "snippet": "More than seven Italian sustainable development companies are set to participate in the GBS 2011 Italian Pavilion.",
+        "source": "Gulf Times",
+        "title": "Top Italian firms to attend green building expo| Gulf Times"
+      }
+    ],
+    "total_news_results": 3
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:09.819Z"
+}

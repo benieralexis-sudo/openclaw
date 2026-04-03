@@ -1,0 +1,111 @@
+{
+  "email": "ivannikov@automall.com",
+  "firstName": "Ivan",
+  "lastName": "Ivannikov",
+  "company": "AUTO MALL SRL",
+  "title": "Head of Product Management Division",
+  "linkedin": "https://www.linkedin.com/in/ivan-ivannikov-88a433122",
+  "website": "http://automall.md",
+  "industry": "Motor Vehicle Manufacturing",
+  "employeeCount": 25,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Oct 23, 2025",
+        "link": "https://www.autoevolution.com/news/better-than-an-impala-dealer-sells-1958-chevy-biscayne-with-obvious-pros-and-cons-259680.html",
+        "position": 1,
+        "snippet": "This 1958 Chevrolet Biscayne might seem to be in spotless shape when you check it from a distance, but the problems appear when you get...",
+        "source": "autoevolution",
+        "title": "Better Than an Impala? Dealer Sells 1958 Chevy Biscayne With Obvious Pros and Cons"
+      },
+      {
+        "date": "Mar 9, 2023",
+        "link": "https://www.autoevolution.com/news/1955-chevy-painkiller-is-how-you-rob-a-210-of-its-bling-but-still-keep-it-cool-211589.html",
+        "position": 2,
+        "snippet": "A lot of decades have passed since the mid-1950s, and with them came and went a lot of different ways of designing cars.",
+        "source": "autoevolution",
+        "title": "1955 Chevy Painkiller Is How You Rob a 210 of Its Bling But Still Keep It Cool"
+      },
+      {
+        "date": "Sep 25, 2022",
+        "link": "https://www.autoevolution.com/news/the-first-pontiac-race-car-ever-built-pops-up-for-sale-costs-a-fortune-199543.html",
+        "position": 3,
+        "snippet": "Born as a 1926 Pontiac Six, this hill-climb-spec speedster was raced for six years and won at least a couple of trophies.",
+        "source": "autoevolution",
+        "title": "The First Pontiac Race Car Ever Built Pops Up for Sale, Costs a Fortune"
+      },
+      {
+        "date": "Mar 20, 2023",
+        "link": "https://www.autoevolution.com/news/this-1969-oldsmobile-442-rugged-cares-little-about-styling-it-was-bred-for-racing-212085.html",
+        "position": 4,
+        "snippet": "1969 Oldsmobile 442 in drag-ready shape is one of the rare such muscle cars that seems to still be doing what it was originally meant to do.",
+        "source": "autoevolution",
+        "title": "This 1969 Oldsmobile 442 “Rugged” Cares Little About Styling, Was Bred for Racing"
+      },
+      {
+        "date": "Mar 7, 2023",
+        "link": "https://www.autoevolution.com/news/lifted-1987-gmc-2500-looks-like-a-square-lemon-on-stilts-211458.html",
+        "position": 5,
+        "snippet": "When looking for custom cars and trucks to bring under the spotlight here on autoevolution, I usually set pretty high standards for my...",
+        "source": "autoevolution",
+        "title": "Lifted 1987 GMC 2500 Looks Like a Square Lemon on Stilts"
+      },
+      {
+        "date": "Mar 5, 2021",
+        "link": "https://www.autoevolution.com/news/1971-toyota-land-cruiser-rocks-1970-chevrolet-350-engine-and-it-loves-it-157191.html",
+        "position": 6,
+        "snippet": "This custom, lifted 1971 Toyota Land Cruiser is powered by a 1970s-era 350ci Chevrolet engine paired with a 3-speed automatic transmission.",
+        "source": "autoevolution",
+        "title": "1971 Toyota Land Cruiser Rocks 1970 Chevrolet 350 Engine, and It Loves It"
+      },
+      {
+        "date": "Apr 26, 2020",
+        "link": "https://www.autoevolution.com/news/1937-chevrolet-open-wheeler-is-a-racers-dirt-dream-143008.html",
+        "position": 7,
+        "snippet": "As most humans across the planet, the Americans of pre-World War II years were fascinated by cars and racing. For all intents and purposes,...",
+        "source": "autoevolution",
+        "title": "1937 Chevrolet Open Wheeler Is a Racer’s Dirt Dream"
+      },
+      {
+        "date": "Apr 16, 2020",
+        "link": "https://www.autoevolution.com/news/1970-cuda-convertible-makes-us-wish-plymouth-was-still-around-making-muscle-cars-142759.html",
+        "position": 8,
+        "snippet": "If Plymouth was still around, maybe the Cuda would have soldiered on as a re-bodied Dodge Challenger, complete with the 797-horsepower...",
+        "source": "autoevolution",
+        "title": "1970 Cuda Convertible Makes Us Wish Plymouth Was Still Around Making Muscle Cars"
+      },
+      {
+        "date": "Dec 29, 2021",
+        "link": "https://www.autoevolution.com/news/1934-ford-pickup-looks-like-santas-pre-war-sleigh-flames-ruin-the-image-177762.html",
+        "position": 9,
+        "snippet": "1934 Ford pickup street rod, displayed in all its glory on the lot of cars being sold by Classic Auto Mall. Powering the thing along are not reindeers.",
+        "source": "autoevolution",
+        "title": "1934 Ford Pickup Looks Like Santa’s Pre-War Sleigh, Flames Ruin the Image"
+      },
+      {
+        "date": "Mar 1, 2023",
+        "link": "https://www.autoevolution.com/news/what-do-tweety-a-beer-keg-and-a-chrome-skull-have-in-common-211149.html",
+        "position": 10,
+        "snippet": "A 1946 Dodge pickup truck looking as bad as you'd expect from a 77-year-old vehicle, despite someone's attempts to make it a noticeable presence on the custom...",
+        "source": "autoevolution",
+        "title": "A 1946 Dodge Pickup Is What Tweety, a Beer Keg, and a Chrome Skull Have in Common"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:31:28.231Z"
+}

@@ -1,0 +1,87 @@
+{
+  "email": "m.girleanu@asbc.md",
+  "firstName": "Mihai",
+  "lastName": "Gîrleanu",
+  "company": "ASBC Moldova",
+  "title": "Head of Ecommerce",
+  "linkedin": "https://www.linkedin.com/in/mihai-gîrleanu-70140a1b9",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chişinău, Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Feb 2, 2024",
+        "link": "http://www.asbcnews.org/more-than-300-boxers-entered-to-the-75th-strandja-memorial-tournament/",
+        "position": 1,
+        "snippet": "The oldest international competition of the world, the 75<sup>th</sup> edition of the Strandja Memorial Tournament will take place in Sofia,...",
+        "source": "Asia Boxing",
+        "title": "More than 300 boxers entered to the 75th Strandja Memorial Tournament"
+      },
+      {
+        "date": "Dec 15, 2021",
+        "link": "http://www.asbcnews.org/mongolias-namuun-monkhor-and-tajikistans-mizhgona-samadova-earned-gold-medals-at-the-world-cup-of-petroleum-countries-tournament/",
+        "position": 2,
+        "snippet": "The 18<sup>th</sup> edition of the World Cup of Petroleum Countries Tournament was held in the city of Nizhnevartovsk, Russia in the recent days.",
+        "source": "Asia Boxing",
+        "title": "Mongolia’s Namuun Monkhor and Tajikistan’s Mizhgona Samadova earned gold medals at the World Cup of Petroleum Countries Tournament"
+      },
+      {
+        "date": "Feb 26, 2021",
+        "link": "http://www.asbcnews.org/the-kazakh-girls-produced-a-strong-day-at-the-strandja-memorial-tournament/",
+        "position": 3,
+        "snippet": "Kazakhstan's women boxers have done an impressive day in Sofia, almost all of them defeated their rivals.",
+        "source": "Asia Boxing",
+        "title": "The Kazakh girls produced a strong day at the Strandja Memorial Tournament"
+      },
+      {
+        "date": "Jun 2, 2024",
+        "link": "http://www.asbcnews.org/munarbek-seyitbek-uulu-put-kyrgyzstan-back-to-the-olympic-boxing-map/",
+        "position": 4,
+        "snippet": "Kyrgyzstan's Munarbek Seyitbek Uulu is their first Olympian boxer since the 2016 edition when Erkin Adylbek Uulu earned a quota.",
+        "source": "Asia Boxing",
+        "title": "Munarbek Seyitbek Uulu put Kyrgyzstan back to the Olympic boxing map"
+      },
+      {
+        "date": "Feb 12, 2024",
+        "link": "http://www.asbcnews.org/thirteen-asian-gold-medals-at-the-strandja-memorial-tournament/",
+        "position": 5,
+        "snippet": "Thirteen Asian boxers won their weight categories at the 75 th edition of the Strandja Memorial Tournament in Sofia, Bulgaria where 83 women and 178 men boxers...",
+        "source": "Asia Boxing",
+        "title": "Thirteen Asian gold medals at the Strandja Memorial Tournament"
+      },
+      {
+        "date": "Feb 8, 2024",
+        "link": "http://www.asbcnews.org/erkinboyev-and-ummataliyev-made-successful-debuts-among-the-elite-boxers/",
+        "position": 6,
+        "snippet": "There were strong Asian dominance at the 75<sup>th</sup> edition of the Strandja Memorial Tournament in Sofia, Bulgaria during the fourth competition...",
+        "source": "Asia Boxing",
+        "title": "Erkinboyev and Ummataliyev made successful debuts among the elite boxers"
+      },
+      {
+        "date": "Feb 25, 2021",
+        "link": "http://www.asbcnews.org/indias-naveen-boora-made-strong-developments-and-reached-the-last-four-at-the-strandja-memorial-tournament/",
+        "position": 7,
+        "snippet": "India's 21-year-old Naveen Boora won his next contest at the welterweight (69kg) on Day3 when the Uzbek stars including Bakhodir Jalolov also demonstrated his...",
+        "source": "Asia Boxing",
+        "title": "India’s Naveen Boora made strong developments and reached the last four at the Strandja Memorial Tournament"
+      }
+    ],
+    "total_news_results": 7
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:20.581Z"
+}

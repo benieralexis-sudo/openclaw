@@ -1,0 +1,111 @@
+{
+  "email": "natalia.ciudova@verum.md",
+  "firstName": "Natalia",
+  "lastName": "Ciudova",
+  "company": "VERUM GROUP",
+  "title": "Chief IT Officer",
+  "linkedin": "https://www.linkedin.com/in/natalia-ciudova-1600b1a4",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Dec 12, 2025",
+        "link": "https://www.globenewswire.com/news-release/2025/12/12/3204731/0/en/Verum-Messenger-Artificial-Intelligence-eSIM-and-Complete-Anonymity-in-One-App.html",
+        "position": 1,
+        "snippet": "Verum Messenger Launched AI-Powered App with eSIM and Anonymity Features...",
+        "source": "GlobeNewswire",
+        "title": "Verum Messenger: Artificial Intelligence, eSIM, and Complete Anonymity in One App"
+      },
+      {
+        "date": "Mar 27, 2024",
+        "link": "https://www.nature.com/articles/s41598-024-53057-5",
+        "position": 2,
+        "snippet": "Hereditary spastic paraplegia type 5 (SPG5) is an autosomal recessively inherited movement disorder characterized by progressive spastic...",
+        "source": "Nature",
+        "title": "deficiency and osteopenia in spastic paraplegia type 5 indicate impaired bone homeostasis"
+      },
+      {
+        "date": "Apr 29, 2021",
+        "link": "https://nutraceuticalbusinessreview.com/study-shows-pycnogenol-helps-retain-skin-moisture-and-elasticity-176285",
+        "position": 3,
+        "snippet": "The researchers also found the ingredient to increase skin lightening, and reinforce skin barrier function.",
+        "source": "Nutraceutical Business Review",
+        "title": "Study shows Pycnogenol helps retain skin moisture and elasticity"
+      },
+      {
+        "date": "Oct 8, 2022",
+        "link": "https://onlinelibrary.wiley.com/doi/full/10.1002/ame2.12280",
+        "position": 4,
+        "snippet": "Abstract Background The aim of the study was to demonstrate the efficacy of human muscle stem cells (MuSCs) isolated using innovative...",
+        "source": "Wiley Online Library",
+        "title": "Human primary muscle stem cells regenerate injured urethral sphincter in athymic rats"
+      },
+      {
+        "date": "Apr 7, 2022",
+        "link": "https://neuronewsinternational.com/cefaly-publishes-study-data-indicating-effectiveness-of-e-tns-migraine-treatment/",
+        "position": 5,
+        "snippet": "Cefaly Technology has announced the results of a clinical study demonstrating that two-hour treatment with its external trigeminal nerve stimulation (e-TNS)...",
+        "source": "NeuroNews International",
+        "title": "Cefaly publishes study data indicating effectiveness of e-TNS migraine treatment"
+      },
+      {
+        "date": "Aug 20, 2025",
+        "link": "https://www.healthcmi.com/mri-confirms-acupuncture-improves-brain-microstructure-in-traumatic-brain-injury/",
+        "position": 6,
+        "snippet": "A randomized controlled trial conducted at Xi'an Jiaotong University demonstrated that acupuncture significantly reduced postconcussion...",
+        "source": "healthcmi.com",
+        "title": "MRI Confirms Acupuncture Improves Brain Microstructure in Traumatic Brain Injury"
+      },
+      {
+        "date": "Apr 5, 2022",
+        "link": "https://www.newswise.com/articles/cefaly-publishes-the-first-and-largest-phase-3-clinical-trial-of-2-hour-external-trigeminal-nerve-stimulation-e-tns-for-at-home-acute-migraine-treatment",
+        "position": 7,
+        "snippet": "CEFALY Technology, a Belgium-based manufacturer of wearable medical devices for migraine, today announced the results of a clinical study...",
+        "source": "Newswise",
+        "title": "CEFALY Publishes the First and Largest, Phase 3 Clinical Trial of 2-hour External Trigeminal Nerve Stimulation (e-TNS) for At-Home Acute Migraine Treatment | Newswise"
+      },
+      {
+        "date": "Dec 27, 2019",
+        "link": "https://www.spandidos-publications.com/10.3892/etm.2019.8378",
+        "position": 8,
+        "snippet": "Experimental and Therapeutic Medicine is an international journal devoted to laboratory and clinical medicine.",
+        "source": "Spandidos Publications",
+        "title": "Experimental and Therapeutic Medicine"
+      },
+      {
+        "date": "Feb 22, 2024",
+        "link": "https://www.medpagetoday.com/psychiatry/anxietystress/108851",
+        "position": 9,
+        "snippet": "Acupuncture outperformed sham needling in clinical and biological measures of combat-related post-traumatic stress disorder (PTSD) in veterans.",
+        "source": "MedPage Today",
+        "title": "Acupuncture Tops Sham for Easing PTSD in Combat Veterans"
+      },
+      {
+        "date": "Jan 9, 2019",
+        "link": "https://www.neurologyadvisor.com/news/external-trigeminal-nerve-stimulation-may-alleviate-migraine-pain/",
+        "position": 10,
+        "snippet": "A 1-hour treatment with external trigeminal nerve stimulation was found to alleviate pain in individuals with migraine without aura.",
+        "source": "Neurology Advisor",
+        "title": "External Trigeminal Nerve Stimulation May Alleviate Migraine Pain"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:36.224Z"
+}

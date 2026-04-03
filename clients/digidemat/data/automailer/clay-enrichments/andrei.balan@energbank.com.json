@@ -1,0 +1,39 @@
+{
+  "email": "andrei.balan@energbank.com",
+  "firstName": "Andrei",
+  "lastName": "Balan",
+  "company": "JSCB \"ENERGBANK\"​",
+  "title": "Head of Projects and Processes",
+  "linkedin": "https://www.linkedin.com/in/andrei-balan-b4195415b",
+  "website": "http://www.energbank.com",
+  "industry": "Banking",
+  "employeeCount": 130,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Jun 21, 2016",
+        "link": "https://diez.md/2016/06/21/cine-este-tanarul-care-este-coma-cerebrala-dupa-incidentul-de-la-piscina-hotelului-prezident/",
+        "position": 1,
+        "snippet": "Ruslan Benderschi, tânărul care a fost la un pas să se înece ieri la piscina de la hotelul Prezident, este în comă cerebrală.",
+        "source": "diez.md",
+        "title": "Cine este tânărul care este în comă cerebrală după incidentul de la piscina hotelului Prezident"
+      }
+    ],
+    "total_news_results": 1
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:49.015Z"
+}

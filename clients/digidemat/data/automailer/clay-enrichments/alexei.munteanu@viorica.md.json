@@ -104,7 +104,8 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-01T16:24:31.472Z"
+  "importedAt": "2026-04-02T21:30:12.148Z"
 }

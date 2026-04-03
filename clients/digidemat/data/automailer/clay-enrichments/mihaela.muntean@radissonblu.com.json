@@ -1,0 +1,111 @@
+{
+  "email": "mihaela.muntean@radissonblu.com",
+  "firstName": "Mihaela",
+  "lastName": "Muntean",
+  "company": "Radisson Blu Leogrand Hotel Chisinau",
+  "title": "Director of Sales & Marketing",
+  "linkedin": "https://www.linkedin.com/in/mihaelamnt",
+  "website": "http://www.radissonblu.com/hotel-chisinau",
+  "industry": "Hospitality",
+  "employeeCount": 70,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Sep 17, 2015",
+        "link": "https://www.hotelnewsresource.com/article85646.html",
+        "position": 1,
+        "snippet": "“We are proud to open the biggest hotel in Moldova and to bring Radisson Blu to Moldova! Radisson Blu Leogrand Hotel, Chisinau combines design...",
+        "source": "Hotel News Resource",
+        "title": "Radisson Blu Leogrand Hotel, Chisinau Opens in Moldova"
+      },
+      {
+        "date": "Nov 28, 2025",
+        "link": "https://logos-pres.md/en/article/summa-continues-to-invest-in-moldovas-economy/",
+        "position": 2,
+        "snippet": "In 2025, Moldova's hospitality industry reached its highest point of growth in the last 20 years. Among the market operators that...",
+        "source": "logos-pres.md",
+        "title": "Summa continues to invest in Moldova’s economy"
+      },
+      {
+        "date": "Jul 16, 2018",
+        "link": "http://www.infotag.md/culture-en/265090/",
+        "position": 3,
+        "snippet": "The multifunctional sport and cultural complex “Chisinau-Arena” will be built by a Turkish company “Summa”, announced Minister of Economy and Infrastructure...",
+        "source": "Infotag",
+        "title": "CHISINAU-ARENA TO BE BUILT BY TURKISH COMPANY"
+      },
+      {
+        "date": "Oct 8, 2025",
+        "link": "https://www.moldpres.md/rom/societate/agenda-evenientelor-joi-9-octombrie",
+        "position": 4,
+        "snippet": "Știri oficiale din Moldova - Moldpres este o agenție de presă guvernamentală din Republica Moldova.",
+        "source": "Moldpres",
+        "title": "Agenda evenimentelor, joi, 9 octombrie"
+      },
+      {
+        "date": "Jun 25, 2020",
+        "link": "https://logos-pres.md/ru/novosti/yumit-yuksel-my-vlozhili-milliony-v-bezopasnoe-otkrytie-otelya-radisson-blu-leogrand-v-kishineve/",
+        "position": 5,
+        "snippet": "Юмит Юксел: «Мы вложили миллионы в безопасное открытие отеля «Radisson BLU Leogrand» в Кишиневе.",
+        "source": "logos-pres.md",
+        "title": "Юмит Юксел: «Мы вложили миллионы в безопасное открытие отеля «Radisson BLU Leogrand» в Кишиневе"
+      },
+      {
+        "date": "Sep 19, 2025",
+        "link": "https://tv8.md/2025/09/19/i-ticket-evenimentele-acestui-weekend-recomandarile-pe-care-nu-trebuie-sa-le-ratezi/289088",
+        "position": 6,
+        "snippet": "Trăiește intens în acest weekend, cu evenimente pentru toate gusturile – de la teatru și circ, la jazz simfonic, electronică cu inspirație...",
+        "source": "TV8.md",
+        "title": "iTicket: Evenimentele acestui weekend – recomandările pe care nu trebuie să le ratezi"
+      },
+      {
+        "date": "Dec 2, 2022",
+        "link": "https://diez.md/2022/12/02/bucatarii-din-moldova-au-castigat-cupa-de-aur-la-campionatul-mondial-de-gastronomie/",
+        "position": 7,
+        "snippet": "Bucătarii Grupului de Hoteluri SUMMA din Moldova, Radisson Blu Leogrand & Courtyard by Marriott Chișinău, au obținut Cupa de Aur și 16...",
+        "source": "diez.md",
+        "title": "Bucătarii din Moldova au câștigat Cupa de Aur la Campionatul Mondial de Gastronomie"
+      },
+      {
+        "date": "Sep 27, 2018",
+        "link": "https://diez.md/2018/09/27/cafea-gratis-pentru-o-poezie-lista-localurilor-din-chisinau-care-participa-la-poezie-doi-2018/",
+        "position": 8,
+        "snippet": "De Ziua Internațională a Cafelei, 1 octombrie, Julius Meinl te îndeamnă să-ți întâlnești prietenul în offline. Alătură",
+        "source": "diez.md",
+        "title": "Cafea gratis pentru o poezie. Lista localurilor din Chișinău care participă la „Poezie în Doi 2018”"
+      },
+      {
+        "date": "May 19, 2016",
+        "link": "https://diez.md/2016/05/19/jurnalistii-pasionati-de-muzica-sunt-invitati-sa-se-inscrie-la-voice-journalism-2016/",
+        "position": 9,
+        "snippet": "Organizatorii concursului muzical cu participarea jurnaliștilor „Voice of Journalism”, anunță deschise înscrierile pentru evenimentul din...",
+        "source": "diez.md",
+        "title": "Jurnaliștii pasionați de muzică sunt invitați să se înscrie la ”Voice of Journalism 2016”"
+      },
+      {
+        "date": "Aug 24, 2018",
+        "link": "https://diez.md/2018/08/24/ministerul-educatiei-semnat-contractul-pentru-constructia-complexului-arena-chisinau/",
+        "position": 10,
+        "snippet": "Contractul pentru construcția complexului polivalent Arena Chișinău a fost semnat vineri. Anunțul a fost făcut de către ministrul Educației,...",
+        "source": "diez.md",
+        "title": "Ministerul Educației a semnat contractul pentru construcția complexului Arena Chișinău"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:36.335Z"
+}

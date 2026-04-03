@@ -1,0 +1,111 @@
+{
+  "email": "dumitruvelescu@globalstore.md",
+  "firstName": "Dumitru",
+  "lastName": "Velescu",
+  "company": "Global Store Moldova",
+  "title": "Director of Purchasing",
+  "linkedin": "https://www.linkedin.com/in/dumitru-velescu-15a7632a8",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chişinău, Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "2 weeks ago",
+        "link": "https://www.tipranks.com/news/company-announcements/paradigm-expands-global-phase-3-osteoarthritis-trial-to-hong-kong-and-moldova",
+        "position": 1,
+        "snippet": "Paradigm Biopharmaceuticals ( ($AU:PAR) ) has provided an announcement. Paradigm Biopharmaceuticals has activated a new clinical trial site...",
+        "source": "TipRanks",
+        "title": "Paradigm Expands Global Phase 3 Osteoarthritis Trial to Hong Kong and Moldova"
+      },
+      {
+        "date": "Jan 20, 2026",
+        "link": "https://kyivindependent.com/facing-russia-and-global-shifts-moldovas-sandu-opens-door-to-reunification-with-romania/",
+        "position": 2,
+        "snippet": "It is not often a president says they would support the dissolution of the state they are leading. In a recent interview, Moldovan President...",
+        "source": "The Kyiv Independent",
+        "title": "Facing Russia and global shifts, Moldova’s Sandu opens door to reunification with Romania"
+      },
+      {
+        "date": "Feb 3, 2026",
+        "link": "https://www.statista.com/forecasts/1445124/average-price-per-unit-ppu-mens-apparel-market-for-different-segments-moldova/",
+        "position": 3,
+        "snippet": "In 2024, within the men's apparel market in Moldova, suits (men) recorded the highest average price per unit at approximately ****** U.S..",
+        "source": "Statista",
+        "title": "Average price per unit (PPU) in the men's apparel market in Moldova from 2018 to 2029, by segment"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.travelandtourworld.com/news/article/moldova-shuts-skies-to-afghanistan-and-russia-a-heartbreaking-blow-to-global-travelers-and-tourism/",
+        "position": 4,
+        "snippet": "Moldova bans Afghanistan's Ariana Afghan Airlines and Russian carriers. This EU-aligned flight ban hits tourism hard, breaking vital travel...",
+        "source": "Travel And Tour World",
+        "title": "Moldova Shuts Skies to Afghanistan and Russia: A Heartbreaking Blow to Global Travelers and Tourism"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.travelandtourworld.com/news/article/moldova-celebrates-twenty-fifth-anniversary-of-national-wine-day-in-2026-showcasing-the-evolution-of-their-wine-industry-wine-tourism-growth-with-global-success/",
+        "position": 5,
+        "snippet": "Moldova marks the 25th anniversary of National Wine Day in 2026, highlighting its thriving wine industry, wine tourism and global success of...",
+        "source": "Travel And Tour World",
+        "title": "Moldova Celebrates Twenty-Fifth Anniversary of National Wine Day in 2026, Showcasing The Evolution of their Wine Industry, Wine Tourism Growth with Global Success"
+      },
+      {
+        "date": "Nov 17, 2025",
+        "link": "https://logos-pres.md/en/news/the-sixth-moldova-store-opened-in-france/",
+        "position": 6,
+        "snippet": "The Moldova store chain in France has expanded to the Paris region and now has six stores. One of them operates in Meaux, where Moldovans,...",
+        "source": "logos-pres.md",
+        "title": "The sixth Moldova store opened in France"
+      },
+      {
+        "date": "Nov 27, 2025",
+        "link": "https://moldova1.md/p/63040/moldovan-fruit-exports-pm-munteanu-sets-global-goal",
+        "position": 7,
+        "snippet": "The quality of Moldovan fruits warrants their place on store shelves across Europe and the world, and Moldovan farmers deserve to be among...",
+        "source": "Moldova 1",
+        "title": "Moldovan fruit exports: PM Munteanu sets global goal"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://ipn.md/en/moldovas-fashion-industry-four-local-brands-make-it-to-the-wolf-badger-platform/",
+        "position": 8,
+        "snippet": "The fashion industry in the Republic of Moldova is experiencing rapid growth, confirmed by the recent listing of three local...",
+        "source": "ipn.md",
+        "title": "Moldova’s fashion industry: Four local brands make it to the Wolf & Badger platform"
+      },
+      {
+        "date": "Sep 29, 2025",
+        "link": "https://iwpr.net/global-voices/moldova-chooses-european-path",
+        "position": 9,
+        "snippet": "Moldova looks set to continue on its pro-European trajectory after the ruling Action and Solidarity party (PAS) held on to its parliamentary...",
+        "source": "Institute for War & Peace Reporting - IWPR",
+        "title": "Moldova Chooses European Path"
+      },
+      {
+        "date": "Sep 2, 2025",
+        "link": "https://globalinvestigationsreview.com/just-anti-corruption/article/moldovas-anti-corruption-chief-returns-jones-day",
+        "position": 10,
+        "snippet": "Veronica Dragalin is returning to the US after three years as Moldova's top anti-corruption prosecutor. She told GIR she has “so much...",
+        "source": "Global Investigations Review",
+        "title": "Moldova’s anti-corruption chief returns to Jones Day"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:42.641Z"
+}

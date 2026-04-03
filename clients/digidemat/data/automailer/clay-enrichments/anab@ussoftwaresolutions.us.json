@@ -1,0 +1,111 @@
+{
+  "email": "anab@ussoftwaresolutions.us",
+  "firstName": "Ana",
+  "lastName": "Balaur",
+  "company": "US Software Solutions",
+  "title": "Director of Operations",
+  "linkedin": "https://www.linkedin.com/in/ana-balaur-66b7a61b3",
+  "website": "http://ussoftwaresolutions.us",
+  "industry": "Telecommunications",
+  "employeeCount": 85,
+  "location": "Chişinău, Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "2 weeks ago",
+        "link": "https://www.lbmjournal.com/industry-news/press-release/15820191/eci-software-solutions-eci-software-solutions-named-2026-great-place-to-work",
+        "position": 1,
+        "snippet": "More than 80% of employee feedback described ECI as a Great Place To Work, a 7% increase from the previous year, and 25% higher than the...",
+        "source": "LBM Journal",
+        "title": "ECI Software Solutions named 2026 Great Place to Work"
+      },
+      {
+        "date": "2 days ago",
+        "link": "https://www.businesskorea.co.kr/news/articleView.html?idxno=266449",
+        "position": 2,
+        "snippet": "LG Innotek announced on March 30, that it had signed a strategic partnership with 'Applied Intuition'.Applied Intuition, an autonomous...",
+        "source": "Businesskorea",
+        "title": "LG Innotek Partners a U.S. Software Specialist for Pushing ‘physical AI’"
+      },
+      {
+        "date": "6 days ago",
+        "link": "https://bitcoinke.io/2026/03/us-court-dismisses-case-for-non-custodial-software/",
+        "position": 3,
+        "snippet": "The developer argued that uncertainty around how authorities might treat his software created legal risk for developers building...",
+        "source": "BitKE",
+        "title": "REGULATION | U.S. Court Dismisses Lawsuit Seeking Regulatory Protections for Non-Custodial Software Solutions"
+      },
+      {
+        "date": "Jan 20, 2026",
+        "link": "https://www.amestrib.com/press-release/story/81969/taction-software-delivers-enterprise-grade-hipaa-compliant-healthcare-software-solutions-with-20-years-of-healthcare/",
+        "position": 4,
+        "snippet": "Leading U.S. Healthcare Software Development Company Strengthens Position as Trusted Partner for HIPAA Compliance and Healthcare IT...",
+        "source": "The Ames Tribune",
+        "title": "Taction Software® Delivers Enterprise-Grade HIPAA-Compliant Healthcare Software Solutions with 20 Years of Healthcare"
+      },
+      {
+        "date": "Dec 4, 2025",
+        "link": "https://www.scworld.com/news/ransomware-attack-on-marquis-software-solutions-targets-74-banks",
+        "position": 5,
+        "snippet": "In yet another third-party supply chain incident, Marquis Software Solutions reported that more than 400,000 users from 74 banking and...",
+        "source": "SC Media",
+        "title": "Ransomware attack on Marquis Software Solutions targeted 74 banks | news | SC Media"
+      },
+      {
+        "date": "Dec 4, 2025",
+        "link": "https://www.rescana.com/post/marquis-software-solutions-data-breach-sonicwall-vulnerability-exposes-sensitive-data-of-74-us-ban",
+        "position": 6,
+        "snippet": "Marquis Software Solutions, a Texas-based provider of data analytics, compliance, and marketing services to the financial sector,...",
+        "source": "Rescana",
+        "title": "Marquis Software Solutions Data Breach: SonicWall Vulnerability Exposes Sensitive Data of 74+ US Banks and Credit Unions"
+      },
+      {
+        "date": "Dec 8, 2025",
+        "link": "https://www.infosecurity-magazine.com/news/marquis-software-breach/",
+        "position": 7,
+        "snippet": "A data breach at Marquis Software Solutions due to a firewall flaw has affected over 780000 people across the US.",
+        "source": "Infosecurity Magazine",
+        "title": "Marquis Software Breach Affects Over 780,000 Nationwide"
+      },
+      {
+        "date": "Oct 30, 2025",
+        "link": "https://pulse2.com/bts-software-solutions-investment-raised-from-blue-delta-capital-partners/",
+        "position": 8,
+        "snippet": "BTS Software Solutions (BTS), a veteran-owned technology and intelligence firm serving U.S. national security agencies, announced a new...",
+        "source": "Pulse 2.0",
+        "title": "BTS Software Solutions: Investment Raised From Blue Delta Capital Partners"
+      },
+      {
+        "date": "Dec 14, 2025",
+        "link": "https://www.nytimes.com/2025/12/14/us/fire-department-software-private-equity.html",
+        "position": 9,
+        "snippet": "Rural departments have long relied on cheap software solutions to keep their operations running. But fire chiefs report sharp price...",
+        "source": "The New York Times",
+        "title": "Private Equity Finds a New Source of Profit: Volunteer Fire Departments"
+      },
+      {
+        "date": "Dec 3, 2025",
+        "link": "https://www.bleepingcomputer.com/news/security/marquis-data-breach-impacts-over-74-us-banks-credit-unions/",
+        "position": 10,
+        "snippet": "Financial software provider Marquis Software Solutions is warning that it suffered a data breach that impacted dozens of banks and credit...",
+        "source": "BleepingComputer",
+        "title": "Marquis data breach impacts over 74 US banks, credit unions"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:36.254Z"
+}

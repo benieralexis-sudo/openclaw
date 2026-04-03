@@ -1,0 +1,111 @@
+{
+  "email": "spetrea@premierenergy.md",
+  "firstName": "Sergiu",
+  "lastName": "Petrea",
+  "company": "Premier Energy Distribution",
+  "title": "Energy Management Director",
+  "linkedin": "https://www.linkedin.com/in/sergiu-petrea-8a730951",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "2 hours ago",
+        "link": "https://www.tradingview.com/symbols/FWB-I36/",
+        "position": 1,
+        "snippet": "Premier Energy PLC engages in the distribution of natural gas. The company projects include Energia Mileniului III, Ecoenergia, Enex, Alive Wind Power One,...",
+        "source": "TradingView",
+        "title": "I36 Stock Price and Chart — FWB:I36"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://radiomoldova.md/p/72065",
+        "position": 2,
+        "snippet": "Moldova's largest electricity provider warns citizens about a scam using its name, urging people not to give personal data under the pretext...",
+        "source": "Radio Moldova",
+        "title": "Premier Energy: No personal data requested by phone – stay alert"
+      },
+      {
+        "date": "Nov 26, 2025",
+        "link": "https://energyindustryreview.com/renewables/premier-energy-expands-its-romanian-renewables-platform/",
+        "position": 3,
+        "snippet": "Premier Energy Group, a leading integrated energy provider in Southeastern Europe and a listed company on the Bucharest Stock Exchange,...",
+        "source": "Energy Industry Review",
+        "title": "Premier Energy Expands Its Romanian Renewables Platform"
+      },
+      {
+        "date": "Dec 9, 2025",
+        "link": "https://www.romania-insider.com/premier-energy-gas-power-plants-dec-2025",
+        "position": 4,
+        "snippet": "Bucharest-listed Premier Energy (BVB: PE), controlled by Jiří Šmejc-funded Emma Capital, in a conference with investors on December 8,...",
+        "source": "Romania Insider",
+        "title": "Premier Energy plans one to two gas-fired micro power plants in Romania"
+      },
+      {
+        "date": "Dec 3, 2025",
+        "link": "http://www.infotag.md/populis-en/328462/",
+        "position": 5,
+        "snippet": "Premier Energy Distribution warns consumers about fraudulent phone calls from individuals who, under the pretext of replacing electric...",
+        "source": "Infotag",
+        "title": "PREMIER ENERGY DISTRIBUTION URGES CONSUMERS NOT TO PROVIDE PERSONAL INFORMATION OVER PHONE"
+      },
+      {
+        "date": "Jan 27, 2026",
+        "link": "https://cotidianul.md/en/24047/The-ice-storm-left-thousands-of-people-without-power--with-over-20-consumers-affected-in-several-regions-of-the-country./",
+        "position": 6,
+        "snippet": "The difficult weather conditions, marked by frost and ice, caused major disruptions in the operation of the electricity distribution...",
+        "source": "cotidianul.md",
+        "title": "The ice storm left thousands of people without power: over 20 thousand consumers affected in several regions of the country"
+      },
+      {
+        "date": "Jan 26, 2026",
+        "link": "https://cotidianul.md/en/24001/The-ice-storm-left-thousands-of-consumers-without-electricity-in-several-localities-in-the-Republic-of-Moldova./",
+        "position": 7,
+        "snippet": "Several localities in the Republic of Moldova were left without electricity during January 25–26, 2026, due to difficult weather conditions.",
+        "source": "cotidianul.md",
+        "title": "The ice storm left thousands of consumers without electricity in several localities in the Republic of Moldova"
+      },
+      {
+        "date": "Feb 3, 2025",
+        "link": "https://business-review.eu/energy/oil-gas/premier-energy-sa-takes-over-supply-of-gas-neogas-grid-handles-distribution-278328",
+        "position": 8,
+        "snippet": "Starting in February, natural gas supply will be managed by the newly established Premier Energy SA, while NeoGas Grid will be responsible for...",
+        "source": "Business Review",
+        "title": "Premier Energy SA takes over supply of gas, NeoGas Grid handles distribution"
+      },
+      {
+        "date": "Aug 13, 2025",
+        "link": "https://logos-pres.md/en/news/premier-energys-license-has-been-extended-to-2050/",
+        "position": 9,
+        "snippet": "According to a report published on the Bucharest Stock Exchange (BVB) on August 12, Premier Energy's license for electricity distribution in...",
+        "source": "logos-pres.md",
+        "title": "Premier Energy’s license has been extended to 2050"
+      },
+      {
+        "date": "May 28, 2024",
+        "link": "https://www.tradingview.com/symbols/BVB-PE/",
+        "position": 10,
+        "snippet": "Premier Energy PLC engages in the distribution of natural gas. The company projects include Energia Mileniului III, Ecoenergia, Enex, Alive Wind Power One.",
+        "source": "TradingView",
+        "title": "PE Stock Price and Chart — BVB:PE"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:24.620Z"
+}

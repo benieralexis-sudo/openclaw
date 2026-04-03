@@ -1,0 +1,111 @@
+{
+  "email": "mitu.nicolae@rogob.md",
+  "firstName": "Nicolae",
+  "lastName": "Mitu",
+  "company": "Rogob",
+  "title": "Chief Information Officer",
+  "linkedin": "https://www.linkedin.com/in/nicolae-mitu-5409b913",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Feb 4, 2015",
+        "link": "https://www.zdg.md/stiri/produsele-rogob-au-castigat-concursul-promovam-siguranta-alimentara-p/",
+        "position": 1,
+        "snippet": "Concursul \"Promovăm Siguranța Alimentară\"a fost organizat de către Fundația Est - Europeană (FEE) în parteneriat cu Fondul \"Eurasia...",
+        "source": "Ziarul de Gardă",
+        "title": "Produsele \"ROGOB\" au câștigat concursul \"Promovăm Siguranța Alimentară\" (P)"
+      },
+      {
+        "date": "May 2, 2019",
+        "link": "https://logos-pres.md/ru/novosti/gemeni-dostalsya-rogob/",
+        "position": 2,
+        "snippet": "«Gemeni» достался «Rogob»",
+        "source": "logos-pres.md",
+        "title": "«Gemeni» достался «Rogob»"
+      },
+      {
+        "date": "Apr 16, 2020",
+        "link": "https://www.md.kp.media/daily/27114/4199739/",
+        "position": 3,
+        "snippet": "В преддверии Пасхи компания по производству колбасных изделий “Rogob” передала персоналу инфекционной больницы “Toma Ciorba” 150 упаковок с...",
+        "source": "MD.KP.MEDIA",
+        "title": "Компания “Rogob” передала персоналу инфекционной больницы “Toma Ciorbа” продукты и карты лояльности"
+      },
+      {
+        "date": "Sep 10, 2023",
+        "link": "https://tv8.md/ru/2023/09/10/rogob-kak-imidzh-moldovi-kompaniyu-posetili-visopostavlennie-gosti-iz-evrosoyuza-r/241394",
+        "position": 4,
+        "snippet": "Компания «Rogob» приняла высоких гостей. Делегация из почти 60 человек, в которую вошли несколько министров сельского хозяйства,...",
+        "source": "TV8.md",
+        "title": "«Rogob» как имидж Молдовы. Компанию посетили высопоставленные гости из Евросоюза (Р)"
+      },
+      {
+        "date": "Apr 10, 2020",
+        "link": "https://agora.md/stiri/69608/toate-produsele-preferate-rogob-sunt-acum-online-si-cu-livrare-rapida-in-raza-orasului-chisinau",
+        "position": 5,
+        "snippet": "De astăzi, cele mai delicioase costițe de porc, steak de vită sau cârnăciori de pasăre, marca ROGOB, sunt disponibili online, cu livrare.",
+        "source": "Agora.md",
+        "title": "Toate produsele preferate ROGOB sunt acum online și cu livrare rapidă în raza orașului Chișinău"
+      },
+      {
+        "date": "May 4, 2025",
+        "link": "https://noi.md/ru/news_id/83629",
+        "position": 6,
+        "snippet": "В связи с заявлениями, сделанными представителями Министерства здравоохранения РМ в рамках пресс-конференции 27 апреля 2016 года,...",
+        "source": "noi.md",
+        "title": "ROGOB гарантирует безвредность и качество своих продуктов ©"
+      },
+      {
+        "date": "Apr 11, 2019",
+        "link": "https://www.bizlaw.md/concentrare-economica-in-domeniul-imobiliar-o-companie-proaspat-creata-vrea-sa-preia-actiunile-altui-agent-economic",
+        "position": 7,
+        "snippet": "După ce anterior Consiliul Concurenței a anunțat că Rogob intenționează să preia controlul unic asupra companiei Consens Imobil,...",
+        "source": "Bizlaw",
+        "title": "Rogob s-a răzgândit să preia compania care are aceeași adresă juridică cu Gemeni și a fondat o altă entitate pentru această concentrare economică"
+      },
+      {
+        "date": "Sep 24, 2015",
+        "link": "https://www.md.kp.media/daily/26437/3308436/",
+        "position": 8,
+        "snippet": "Компания ROGOB готова удивить своих клиентов новыми колбасными изделиями для малышей.",
+        "source": "MD.KP.MEDIA",
+        "title": "„ROBBY” — колбасные изделия для детей. Новая продукция ROGOB"
+      },
+      {
+        "date": "Jun 3, 2020",
+        "link": "https://agora.md/stiri/72128/pozitia-companiei-rogob-in-cazul-anchetei-in-care-ar-fi-vizata-administratia-intreprinderii",
+        "position": 9,
+        "snippet": "Unul dintre cei mai mari producători de mezeluri din Republica Moldova constată amplificarea presiunilor asupra sa.",
+        "source": "Agora.md",
+        "title": "Poziția companiei Rogob în cazul anchetei în care ar fi vizată administrația întreprinderii"
+      },
+      {
+        "date": "Dec 24, 2018",
+        "link": "https://noi.md/ru/biznes/kompaniya-rogob-na-sluzhbe-tradicij-uspeha",
+        "position": 10,
+        "snippet": "В то же время компания также вносит важный вклад в формирование бюджета страны, являясь образцовым налогоплательщиком. Мы осознаем, что...",
+        "source": "noi.md",
+        "title": "Компания „Rogob” на службе традиций успеха ©"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:36.263Z"
+}

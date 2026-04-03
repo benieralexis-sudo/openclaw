@@ -1,0 +1,111 @@
+{
+  "email": "boris.efimov@orhei-vit.com",
+  "firstName": "Boris",
+  "lastName": "Efimov",
+  "company": "Orhei-Vit",
+  "title": "CEO",
+  "linkedin": "https://www.linkedin.com/in/boris-efimov-2730b61",
+  "website": "http://www.orhei-vit.com",
+  "industry": "Food and Beverage Services",
+  "employeeCount": 76,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Jul 3, 2025",
+        "link": "https://www.freshplaza.com/europe/article/9746819/moldova-s-largest-fruit-processor-to-supply-juice-for-global-brand-under-new-deal/",
+        "position": 1,
+        "snippet": "Orhei-Vit, a Moldovan fruit and vegetable processor, will begin producing natural juice for a major international brand starting this autumn.",
+        "source": "FreshPlaza",
+        "title": "Moldova’s largest fruit processor to supply juice for global brand under new deal"
+      },
+      {
+        "date": "Jun 29, 2025",
+        "link": "https://ipn.md/en/moldovas-biggest-fruit-processor-to-produce-juice-for-international-giant/",
+        "position": 2,
+        "snippet": "The largest fruit and vegetable processing company in the Republic of Moldova – Orhei-Vit celebrates 80 years of activity.",
+        "source": "ipn.md",
+        "title": "Moldova’s biggest fruit processor to produce juice for international giant"
+      },
+      {
+        "date": "Jan 23, 2015",
+        "link": "http://www.infotag.md/finances-en/198467/",
+        "position": 3,
+        "snippet": "Though, at the beginning we tried to find a reasonable compromise. But in the game called “business in Moldova”, seeking for compromise is...",
+        "source": "Infotag",
+        "title": "​SUDZUCKER MOLDOVA RECOVERED OVER 9 MILLION LEI FROM ORHEI VIT"
+      },
+      {
+        "date": "Dec 22, 2020",
+        "link": "https://presedinte.md/rom/presa/igor-dodon-a-inmanat-distinctia-ordinul-republicii-colectivului-companiei-orhei-vit",
+        "position": 4,
+        "snippet": "Preşedintele ţării, Igor Dodon, a înmânat astăzi distincția „Ordinul Republicii” colectivului companiei „Orhei-Vit”, în conformitate cu...",
+        "source": "Președinția Republicii Moldova",
+        "title": "Igor Dodon a înmânat distincția „Ordinul Republicii” colectivului companiei „Orhei-Vit”"
+      },
+      {
+        "date": "Feb 27, 2025",
+        "link": "https://newsmaker.md/ru/orhei-vit-zapustil-novuyu-liniyu-304",
+        "position": 5,
+        "snippet": "Крупнейший в Молдове производитель детского питания и соков SA Orhei-Vit запустил сегодня новую линию по производству концентрированного сока.",
+        "source": "NewsMaker",
+        "title": "Orhei-Vit запустил новую линию"
+      },
+      {
+        "date": "Dec 25, 2013",
+        "link": "https://www.md.kp.media/online/news/1620471/",
+        "position": 6,
+        "snippet": "Orhei-Vit - новые горизонты ... Компанию Orhei-Vit заслуженно называют флагманом консервной промышленности страны. Сегодня Orhei-Vit - это 2...",
+        "source": "MD.KP.MEDIA",
+        "title": "Orhei-Vit - новые горизонты"
+      },
+      {
+        "date": "Feb 7, 2013",
+        "link": "https://noi.md/ru/news_id/18660",
+        "position": 7,
+        "snippet": "Компания «Orhei-Vit»удостоилась двух наград на конкурсе «Торговая марка года» Компания «Orhei-Vit»одна из немногих, которая удостоилась...",
+        "source": "noi.md",
+        "title": "Золотой дубль АО «Orhei-Vit» ©"
+      },
+      {
+        "date": "May 22, 2015",
+        "link": "http://www.infotag.md/m9_economics/203997/",
+        "position": 8,
+        "snippet": "​ ORHEI-VIT УЧАСТВУЕТ В ВЫСТАВКЕ WORLD OF PRIVATE LABEL В АМСТЕРДАМЕ ... Один из крупнейших в Молдове производителей соков, консервов, варений и...",
+        "source": "Infotag",
+        "title": "​ ORHEI-VIT УЧАСТВУЕТ В ВЫСТАВКЕ WORLD OF PRIVATE LABEL В АМСТЕРДАМЕ"
+      },
+      {
+        "date": "May 21, 2015",
+        "link": "http://www.infotag.md/press_release/203942/",
+        "position": 9,
+        "snippet": "ORHEI-VIT – ЕДИНСТВЕННАЯ МОЛДАВСКАЯ КОМПАНИЯ, УЧАСТВУЮЩАЯ В МЕЖДУНАРОДНОЙ ВЫСТАВКЕ WORLD OF PRIVATE LABEL В АМСТЕРДАМЕ ... Выставка “World of...",
+        "source": "Infotag",
+        "title": "ORHEI-VIT – ЕДИНСТВЕННАЯ МОЛДАВСКАЯ КОМПАНИЯ, УЧАСТВУЮЩАЯ В МЕЖДУНАРОДНОЙ ВЫСТАВКЕ WORLD OF PRIVATE LABEL В АМСТЕРДАМЕ"
+      },
+      {
+        "date": "Apr 18, 2020",
+        "link": "https://unimedia.info/ro/advertoriale/8391a6879d0a485e/orhei-vit-sa-ramai-tanar-la-75-de-ani-e-usor.html",
+        "position": 10,
+        "snippet": "20 aprilie 1945 – începutul istoriei întreprinderii Orhei-Vit.În Europa și Orientul Îndepărtat, al Doilea Război Mondial intrase deja în...",
+        "source": "Unimedia",
+        "title": "Orhei-Vit: Să rămâi tânăr la 75 de ani e ușor!"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:13.917Z"
+}

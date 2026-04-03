@@ -1,0 +1,111 @@
+{
+  "email": "ion.gilea@ook.group",
+  "firstName": "Ion",
+  "lastName": "Gîlea",
+  "company": "OOK Group",
+  "title": "CEO",
+  "linkedin": "https://www.linkedin.com/in/ion-gilea",
+  "website": "https://ook.group/",
+  "industry": "Technology, Information and Internet",
+  "employeeCount": 31,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Mar 13, 2022",
+        "link": "https://thesun.ng/when-i-made-good-money-from-charcoal-my-mother-rejoiced-with-me-omolara-svensson-ook-foods-boss/",
+        "position": 1,
+        "snippet": "Omolara Svensson is the group managing director of OOK Group Limited, an agro-allied business which she has turned into a successful enterprise.",
+        "source": "The Sun Nigeria",
+        "title": "When I made good money from charcoal, my mother rejoiced with me –Omolara Svensson, OOK Foods boss"
+      },
+      {
+        "date": "Mar 5, 2022",
+        "link": "https://independent.ng/ook-farms-holds-farm-to-plate-symposium-at-iita/",
+        "position": 2,
+        "snippet": "Omolara Svensson, GMD OOK Group is certainly doing great things in the agro-allied sector. Asides from being one of Nigeria's leading...",
+        "source": "Independent Newspaper Nigeria",
+        "title": "OOK Farms Holds Farm To Plate Symposium At IITA"
+      },
+      {
+        "date": "Jan 27, 2023",
+        "link": "https://cfo.nl/artikel/anyes-krijnen-cfo-uniserver-wordt-ook-group-cfo/",
+        "position": 3,
+        "snippet": "Om de positie in Nederland verder uit te bouwen en de Uniserver Group verder te positioneren in Europa, wordt het directieteam van de...",
+        "source": "cfo.nl",
+        "title": "Anyes Krijnen CFO Uniserver wordt ook Group CFO"
+      },
+      {
+        "date": "Mar 15, 2025",
+        "link": "https://wijchen.nieuws.nl/zakelijk/futureproof-group-neemt-ook-rin-over",
+        "position": 4,
+        "snippet": "Futureproof Group neemt ook RIN over ... Nadat Futureproof Group eerder dit jaar het Wijchense bedrijf Steal IT overnam, is nu ook het eveneens in...",
+        "source": "wijchen.nieuws.nl",
+        "title": "Futureproof Group neemt ook RIN over"
+      },
+      {
+        "date": "Mar 5, 2019",
+        "link": "https://aftersalesmagazine.nl/nieuws/werkplaats/ook-partspoint-group-amerikaanse-handen/",
+        "position": 5,
+        "snippet": "Partspoint, op dit moment een dochterbedrijf van het familiebedrijf Autobinck Group, heeft haar activiteiten in Nederland en België. Het bedrijf...",
+        "source": "Aftersales Magazine",
+        "title": "Ook Partspoint Group in Amerikaanse handen"
+      },
+      {
+        "date": "Mar 14, 2017",
+        "link": "https://mena.nl/artikel/allard-goldschmeding-wordt-naast-cfo-ook-group-managing-director-bij-acomo/",
+        "position": 6,
+        "snippet": "Naast zijn huidige rol als CFO, zal Allard Goldschmeding Group Managing Director worden. In zijn nieuwe rol als Group Managing Director/ CFO zal...",
+        "source": "mena.nl",
+        "title": "Allard Goldschmeding wordt naast CFO ook Group Managing Director bij Acomo"
+      },
+      {
+        "date": "Jan 7, 2025",
+        "link": "https://www.transport-online.nl/71126/vvt-europa-bv-onderdeel-van-de-hm-group-ook-failliet-verklaard/",
+        "position": 7,
+        "snippet": "VVT Europa BV, onderdeel van de HM Group, ook failliet verklaard ... GELDERMALSEN – Opnieuw zijn twee BV's van de HM Group failliet verklaard. Op...",
+        "source": "Transport Online",
+        "title": "VVT Europa BV, onderdeel van de HM Group, ook failliet verklaard"
+      },
+      {
+        "date": "Dec 8, 2024",
+        "link": "https://riskenbusiness.nl/nieuws/insurance/ook-promotie-bij-dupi-group-voor-stefan-de-rooij-underwriting-director-marine-hull/",
+        "position": 8,
+        "snippet": "Daarvoor was hij zeven jaar werkte bij HDI Global SE, achtereenvolgens als Assistant Underwriter Marine, als Junior Underwriter Marine Hull and Events &...",
+        "source": "Risk & Business",
+        "title": "Nieuws: Ook promotie bij DUPI Group voor Stefan de Rooij: Underwriting Director Marine Hull"
+      },
+      {
+        "date": "Dec 9, 2024",
+        "link": "https://www.retaildetail.nl/news/algemeen/blokker-eigenaar-mirage-retal-group-ook-failliet/",
+        "position": 9,
+        "snippet": "Mirage Retail Group vraagt het faillissement aan: het moederbedrijf wordt meegesleurd in het recente faillissement van zijn dochterbedrijf...",
+        "source": "RetailDetail NL",
+        "title": "Blokker-eigenaar Mirage Retail Group ook failliet"
+      },
+      {
+        "date": "Dec 6, 2023",
+        "link": "https://www.kijkopnoord-holland.nl/duurzaam-totaalbedrijf-verzorgt-nu-ook-op-en-overslag-in-amsterdamse-amerikahaven-eigen-terminal-geeft-kb-group-ijzersterke-positie-in-recyclingketen/",
+        "position": 10,
+        "snippet": "Is een brug aan het eind van zijn levensduur? Dan kunnen de werknemers van KB het staal en beton omzetten in nieuwe grondstoffen.",
+        "source": "Kijk op Noord-Holland",
+        "title": "Eigen terminal geeft KB Group ijzersterke positie in recyclingketen"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:12.142Z"
+}

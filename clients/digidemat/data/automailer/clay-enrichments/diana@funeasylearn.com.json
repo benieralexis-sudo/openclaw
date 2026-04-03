@@ -1,0 +1,39 @@
+{
+  "email": "diana@funeasylearn.com",
+  "firstName": "Diana",
+  "lastName": "Andronic",
+  "company": "FunEasyLearn",
+  "title": "CEO & Co-Founder",
+  "linkedin": "https://www.linkedin.com/in/diana-andronic",
+  "website": "http://www.funeasylearn.com/",
+  "industry": "E-Learning",
+  "employeeCount": 18,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Nov 3, 2015",
+        "link": "https://www.prnewswire.com/news-releases/funeasylearn-launches-new-material-design-of-android-app-learn-english-6000-words-300171179.html",
+        "position": 1,
+        "snippet": "Fun Easy Learn is a niche foreign language learning app developer. Learn English 6000 Words is the easy and fun new way to learn English-...",
+        "source": "PR Newswire",
+        "title": "FunEasyLearn Launches New Material Design of Android app: Learn English 6000 Words"
+      }
+    ],
+    "total_news_results": 1
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:10.923Z"
+}

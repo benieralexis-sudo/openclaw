@@ -1,0 +1,47 @@
+{
+  "email": "mircea@justdigital.ro",
+  "firstName": "Mircea",
+  "lastName": "Țîra",
+  "company": "Kooperativa Moldova",
+  "title": "Chief Executive Officer",
+  "linkedin": "https://www.linkedin.com/in/mircea-țîra-02802481",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Apr 3, 2025",
+        "link": "https://www.revistabiz.ro/kooperativa-2-0-devine-membra-a-asociatiei-investitorilor-din-romania-in-republica-moldova/",
+        "position": 1,
+        "snippet": "Agenția de comunicare integrată, Kooperativa 2.0, face un nou pas spre extinderea în Republica Moldova prin aderarea ca membru la Asociația...",
+        "source": "Revista Biz",
+        "title": "Kooperativa 2.0 devine membră a Asociației Investitorilor din România în Republica Moldova"
+      },
+      {
+        "date": "Dec 5, 2024",
+        "link": "https://www.iqads.ro/articol/70424/agentia-de-comunicare-integrata-kooperativa-2-0-se-extinde-in-republica-moldova",
+        "position": 2,
+        "snippet": "Agenția de comunicare integrată Kooperativa 2.0 se lansează oficial în Republica Moldova prin preluarea unei părți din acționariatul...",
+        "source": "IQads",
+        "title": "Agenția de comunicare integrată Kooperativa 2.0 se extinde în Republica Moldova odată cu preluarea unei părți din acționariatul companiei locale „Just Digital”"
+      }
+    ],
+    "total_news_results": 2
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:16.465Z"
+}

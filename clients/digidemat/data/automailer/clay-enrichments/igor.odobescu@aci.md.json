@@ -1,0 +1,111 @@
+{
+  "email": "igor.odobescu@aci.md",
+  "firstName": "Igor",
+  "lastName": "Odobescu",
+  "company": "ACI Partners",
+  "title": "Managing Partner",
+  "linkedin": "https://www.linkedin.com/in/igor-odobescu-0b26a02",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Aug 30, 2025",
+        "link": "https://401kspecialistmag.com/strongpoint-partners-announces-collab-with-aci/",
+        "position": 1,
+        "snippet": "Strongpoint Partners Announces Collab with ACI ... Strongpoint Partners is teaming up with Allied Consultants (ACI), a provider of custom...",
+        "source": "401k Specialist",
+        "title": "Strongpoint Partners Announces Collab with ACI"
+      },
+      {
+        "date": "Jun 21, 2025",
+        "link": "https://finance.yahoo.com/news/albertsons-companies-inc-aci-partners-194107861.html",
+        "position": 2,
+        "snippet": "As announced on June 16, 2025, Albertsons Media Collective, Albertsons Companies, Inc.'s (NYSE:ACI) retail media arm, collaborated with...",
+        "source": "Yahoo Finance",
+        "title": "Albertsons Companies, Inc. (ACI) Partners with STRATACACHE to Leverage its Interactive Marketing Technologies"
+      },
+      {
+        "date": "Jan 21, 2026",
+        "link": "https://www.prnewswire.com/news-releases/aci-learning-tech-academy-partners-with-holy-cross-college-at-notre-dame-to-offer-co-branded-career-ready-it-and-cybersecurity-certificates-302666910.html",
+        "position": 3,
+        "snippet": "\"This partnership with ACI Learning Tech Academy provides a strong combination of rigorous training, recognized credentials, and Holy Cross-...",
+        "source": "PR Newswire",
+        "title": "ACI Learning Tech Academy Partners with Holy Cross College at Notre Dame to Offer Co-Branded, Career-Ready IT and Cybersecurity Certificates"
+      },
+      {
+        "date": "Sep 29, 2025",
+        "link": "https://finovate.com/solaris-partners-with-aci-worldwide-to-unify-payments/",
+        "position": 4,
+        "snippet": "Solaris Partners with ACI Worldwide to Unify Payments ... Just months after launching its centralized payment hub, ACI Connetic, ACI Worldwide has...",
+        "source": "Finovate",
+        "title": "Solaris Partners with ACI Worldwide to Unify Payments"
+      },
+      {
+        "date": "Sep 16, 2025",
+        "link": "https://rezolve.com/press-releases/aci-rezolve-in-global-partnership/",
+        "position": 5,
+        "snippet": "“ACI will be the first to offer Rezolve's leading mobile commerce and engagement platform in North America. Rezolve has enjoyed a strong merchant ramp in China,...",
+        "source": "Rezolve",
+        "title": "Rezolve Strategically Partners with ACI Worldwide to Transform Omni Channel Commerce and Mobile Engagement for Merchants"
+      },
+      {
+        "date": "Oct 16, 2025",
+        "link": "https://www.businesswire.com/news/home/20251015210889/en/ACI-Worldwide-and-BitPay-Partner-to-Power-Crypto-and-Stablecoin-Payments-for-Global-Merchants-and-Payment-Service-Providers",
+        "position": 6,
+        "snippet": "ACI Worldwide and BitPay Partner to Power Crypto and Stablecoin Payments for Global Merchants and Payment Service Providers. Share. OMAHA, Neb.",
+        "source": "Business Wire",
+        "title": "ACI Worldwide and BitPay Partner to Power Crypto and Stablecoin Payments for Global Merchants and Payment Service Providers"
+      },
+      {
+        "date": "Oct 17, 2025",
+        "link": "https://www.electronicpaymentsinternational.com/news/aci-worldwide-bitpay/",
+        "position": 7,
+        "snippet": "ACI Worldwide has formed a strategic alliance with cryptocurrency payment processor, BitPay, aimed at enhancing its digital asset capabilities...",
+        "source": "Electronic Payments International",
+        "title": "ACI Worldwide partners with BitPay to enhance digital asset solutions"
+      },
+      {
+        "date": "Jul 2, 2025",
+        "link": "https://ibsintelligence.com/ibsi-news/aci-partners-with-inet-to-boost-saudi-digital-payments/",
+        "position": 8,
+        "snippet": "The Postilion platform will provide iNet with enhanced capabilities, including support for SoftPOS, QR payments, link-based payments and digital...",
+        "source": "IBS Intelligence",
+        "title": "ACI partners with iNet to boost Saudi digital payments"
+      },
+      {
+        "date": "Oct 21, 2025",
+        "link": "https://thefintechtimes.com/aci-worldwide-partners-with-bitpay-to-power-crypto-and-stablecoin-payments-for-merchants/",
+        "position": 9,
+        "snippet": "By integrating BitPay into its Payments Orchestration Platform, ACI is enabling its merchant and PSP clients to seamlessly accept and manage...",
+        "source": "The Fintech Times",
+        "title": "ACI Worldwide Partners with BitPay to Power Crypto and Stablecoin Payments for Merchants"
+      },
+      {
+        "date": "May 23, 2025",
+        "link": "https://fintech.global/2025/05/23/cimb-bank-partners-with-aci-worldwide-to-unify-real-time-and-cross-border-payments/",
+        "position": 10,
+        "snippet": "CIMB Bank partners with ACI Worldwide to unify real-time and cross-border payments ... CIMB Bank has partnered with global payments technology...",
+        "source": "FinTech Global",
+        "title": "CIMB Bank partners with ACI Worldwide to unify real-time and cross-border payments"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:56.701Z"
+}

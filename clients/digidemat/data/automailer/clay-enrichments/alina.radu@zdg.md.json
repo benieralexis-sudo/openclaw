@@ -1,0 +1,111 @@
+{
+  "email": "alina.radu@zdg.md",
+  "firstName": "Alina",
+  "lastName": "Radu",
+  "company": "ZdG, Ziarul de Gardă",
+  "title": "Chief Executive Officer",
+  "linkedin": "https://www.linkedin.com/in/alina-radu-zdg",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Nov 13, 2023",
+        "link": "https://gijn.org/ja/member/ziarul-de-garda-moldova/",
+        "position": 1,
+        "snippet": "Ziarul de Gardă (Moldova) was launched in 2004 as an investigative reporting newspaper. Based in the capital Chisinau, Ziarul de Garda now publishes on all...",
+        "source": "Global Investigative Journalism Network (GIJN)",
+        "title": "Ziarul de Gardă"
+      },
+      {
+        "date": "Jan 21, 2025",
+        "link": "https://www.zdg.md/en/serving-moscow-three-months-among-shors-slaves-zdg-undercover-investigation/",
+        "position": 2,
+        "snippet": "Ziarul de Gardă once again penetrated Ilan Shor's network. For three months we have documented from the inside with the help of a hidden camera how money...",
+        "source": "Ziarul de Gardă",
+        "title": "Serving Moscow. Three months among Shor’s “slaves”. ZdG undercover investigation"
+      },
+      {
+        "date": "Aug 26, 2022",
+        "link": "https://www.zdg.md/en/kremlins-digital-army-an-undercover-investigation-its-paid-let-me-tell-you-its-paid-directly-from-moscow/",
+        "position": 3,
+        "snippet": "Hundreds of accounts with fake identities, operated by real activists of the “Victorie” Bloc, controlled by Ilan Shor from Moscow,...",
+        "source": "Ziarul de Gardă",
+        "title": "Kremlin's Digital Army — An Undercover Investigation. „It’s paid, let me tell you, it’s paid directly from Moscow”"
+      },
+      {
+        "date": "Jan 21, 2025",
+        "link": "https://www.zdg.md/en/who-is-part-of-zdg-team/",
+        "position": 4,
+        "snippet": "ALINA RADU Director Birthplace: Vărzăreștii-Noi, Călărași, the center of Moldova. Education: Faculty of Journalism, Moldova State University.",
+        "source": "Ziarul de Gardă",
+        "title": "Who Is Part of ZdG Team?"
+      },
+      {
+        "date": "Jan 3, 2025",
+        "link": "https://www.zdg.md/en/zdg-interview-with-maia-sandu-president-of-moldova/",
+        "position": 5,
+        "snippet": "Maia Sandu spoke about the reform of justice, the activity of the Parliament and the Government, the natural gas crisis, foreign policy, and plans for the...",
+        "source": "Ziarul de Gardă",
+        "title": "ZdG Interview with Maia Sandu, President of Moldova"
+      },
+      {
+        "date": "Jan 21, 2025",
+        "link": "https://www.zdg.md/en/zdg-the-most-subscribed-newspaper-in-moldova-and-other-records/",
+        "position": 6,
+        "snippet": "ZdG – the most subscribed newspaper in Moldova and other records · In January 2023 Ziarul de Gardă has 15,660 subscribers and a circulation of over 16,000...",
+        "source": "Ziarul de Gardă",
+        "title": "ZdG – the most subscribed newspaper in Moldova and other records"
+      },
+      {
+        "date": "Jan 21, 2025",
+        "link": "https://www.zdg.md/en/secrets-of-case-dan-vulpe/",
+        "position": 7,
+        "snippet": "Constantin Vulpe, emeritus man of Moldova, hoped for a peaceful old age and as many grandchildren possible. And all the hopes he had put on his son, Dan,...",
+        "source": "Ziarul de Gardă",
+        "title": "Secrets of case Dan Vulpe"
+      },
+      {
+        "date": "Jan 21, 2025",
+        "link": "https://www.zdg.md/en/the-family-from-the-justices-octopus/",
+        "position": 8,
+        "snippet": "Six members of her family, she, Ala Gherman, brother Vitalie Eriomenco , wife, parents and children, Vera, Tudor, Elena and Vladislav receive from the state,...",
+        "source": "Ziarul de Gardă",
+        "title": "The family from the justice’s octopus"
+      },
+      {
+        "date": "Jan 21, 2025",
+        "link": "https://www.zdg.md/en/an-explosion-in-the-country-with-the-most-religions/",
+        "position": 9,
+        "snippet": "As of August 4, the thoughts of people of goodwill around the world are directed to Lebanon, a country hit by a large-scale blast that has killed hundreds...",
+        "source": "Ziarul de Gardă",
+        "title": "An Explosion in the Country with the Most Religions"
+      },
+      {
+        "date": "Jan 21, 2025",
+        "link": "https://www.zdg.md/en/the-no-confidence-motion-did-not-pass/",
+        "position": 10,
+        "snippet": "The current Government, led by Prime Minister Ion Chicu, remains in office. The no-confidence motion initiated by the Dignity and Truth Platform Party did...",
+        "source": "Ziarul de Gardă",
+        "title": "The No-Confidence Motion Did Not Pass"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:31:19.018Z"
+}

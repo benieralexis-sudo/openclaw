@@ -1,0 +1,47 @@
+{
+  "email": "nicolae.russu@energbank.com",
+  "firstName": "Nicolae",
+  "lastName": "RUSSU",
+  "company": "КБ \"ENERGBANK\"​ АО",
+  "title": "Директор",
+  "linkedin": "https://www.linkedin.com/in/nicolae-russu-59b34026b",
+  "website": "http://www.energbank.com",
+  "industry": "Banking",
+  "employeeCount": 130,
+  "location": "Chişinău, Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Nov 18, 2012",
+        "link": "https://www.md.kp.media/daily/25986/2918043/",
+        "position": 1,
+        "snippet": "Рубрика \"Спроси у Комсомолки\"[Спрашивайте! А мы ответим!]",
+        "source": "MD.KP.MEDIA",
+        "title": "Какова судьба инвестиционных фондов в Молдове и когда вернут деньги акционерам?"
+      },
+      {
+        "date": "Mar 23, 2017",
+        "link": "https://vocea.md/federatsiya-siba-nazvala-luchshie-profsoyuzny-e-komitety/",
+        "position": 2,
+        "snippet": "Redactia VP. 23 марта 2017, 15:20. Loading. Без рубрики Федерация SIBA назвала лучшие профсоюзные комитеты. Федерация SIBA назвала лучшие профсоюзные...",
+        "source": "Vocea poporului",
+        "title": "Федерация SIBA назвала лучшие профсоюзные комитеты"
+      }
+    ],
+    "total_news_results": 2
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:15.206Z"
+}

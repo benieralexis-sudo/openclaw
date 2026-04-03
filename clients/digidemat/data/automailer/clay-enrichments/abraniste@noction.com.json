@@ -1,0 +1,47 @@
+{
+  "email": "abraniste@noction.com",
+  "firstName": "Andrian",
+  "lastName": "Braniste",
+  "company": "Noction Moldova",
+  "title": "Head of Operations",
+  "linkedin": "https://www.linkedin.com/in/andrian-braniste",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Oct 3, 2025",
+        "link": "https://tv8.md/2025/10/03/campionatul-mondial-de-degustare-in-orb-2025-echipa-din-moldova-concureaza-alaturi-de-elitele-mondiale-ale-vinului-p/290035",
+        "position": 1,
+        "snippet": "Republica Moldova urcă din nou pe scena mondială a vinului! Echipa Națională de Somelieri, sub egida Asociației de Somelier din Republica...",
+        "source": "TV8.md",
+        "title": "Campionatul Mondial de Degustare în Orb 2025: Echipa din Moldova concurează alături de elitele mondiale ale vinului"
+      },
+      {
+        "date": "Oct 10, 2017",
+        "link": "https://agora.md/stiri/37866/studentii-de-la-it-sunt-invitati-la-o-noua-editie-ict-career-orientation",
+        "position": 2,
+        "snippet": "ICT Career Orientation revine cu o nouă ediție. Pe 12 octombrie tinerii care studiază specialități în domeniul Tehnologiei Informației și...",
+        "source": "Agora.md",
+        "title": "Studenții de la IT sunt invitați la o nouă ediție ICT Career Orientation"
+      }
+    ],
+    "total_news_results": 2
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:21.823Z"
+}

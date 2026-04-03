@@ -1,0 +1,47 @@
+{
+  "email": "d.cornea@purcari.wine",
+  "firstName": "Dumitru",
+  "lastName": "Cornea",
+  "company": "Purcari Wineries Plc",
+  "title": "Director Purcari Wineries Ukraine (subsidiary of Purcari Wineries Group)",
+  "linkedin": "https://www.linkedin.com/in/dumitru-cornea-ab6b07194",
+  "website": "https://purcariwineries.com/",
+  "industry": "Beverage Manufacturing",
+  "employeeCount": 103,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "May 2, 2022",
+        "link": "https://www.bloomberg.com/news/articles/2022-05-02/moldovan-winery-knows-the-risk-of-putin-s-war-in-ukraine-all-too-well",
+        "position": 1,
+        "snippet": "Purcari Wineries Plc is a barometer for risk sentiment in the small nation situated precariously on the edge of Russia's war against Ukraine.",
+        "source": "Bloomberg",
+        "title": "‘A Bet on the War’: Vineyard Exposes Risks in Front-Line Moldova"
+      },
+      {
+        "date": "Sep 28, 2022",
+        "link": "https://www.infotag.md/economics-en/301998/",
+        "position": 2,
+        "snippet": "Purcari Wineries has announced about the signing of agreement of purchase and sale of 76% of shares of the Bulgarian joint-stock company Angel's Estate Winery.",
+        "source": "Infotag",
+        "title": "PURCARI WINERIES ACQUIRES 76% OF ANGEL'S ESTATE, ATTRACTIVE WINE ASSET IN BULGARIA"
+      }
+    ],
+    "total_news_results": 2
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:22.670Z"
+}

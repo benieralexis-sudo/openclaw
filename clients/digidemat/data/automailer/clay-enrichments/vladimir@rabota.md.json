@@ -1,0 +1,111 @@
+{
+  "email": "vladimir@rabota.md",
+  "firstName": "Vladimir",
+  "lastName": "Badan",
+  "company": "Rabota.md",
+  "title": "Head of Marketing",
+  "linkedin": "https://www.linkedin.com/in/vladimir-badan-ab1478145",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "1 week ago",
+        "link": "https://esp.md/ru/kaleydoskop/2026/03/24/rabota-v-belcah-trebuyutsya-merchandayzer-povar-i-montazhnik-obzor-vakansiy",
+        "position": 1,
+        "snippet": "«СП» подготовило новую подборку объявлений о вакантных рабочих местах в Бельцах.",
+        "source": "СП - Бельцкий независимый портал",
+        "title": "Работа в Бельцах: требуются мерчандайзер, повар и монтажник — обзор вакансий"
+      },
+      {
+        "date": "Jan 19, 2026",
+        "link": "https://newsmaker.md/ru/10-vysokooplachivaemyh-vakansii-v-kishinyove-zarplaty-do-5-tysyach-evro",
+        "position": 2,
+        "snippet": "Мы продолжаем рассказывать вам о высокооплачиваемых вакансиях в Молдове, подготовленных сайтом Rabota.md. На этот раз представляем вашему...",
+        "source": "NewsMaker",
+        "title": "10 высокооплачиваемых вакансий в Кишинёве: зарплаты до 5 тысяч евро"
+      },
+      {
+        "date": "Sep 14, 2025",
+        "link": "https://tv8.md/ru/2025/09/15/shans-naiti-rabotu-v-kishinyove-10-i-11-oktyabrya-proidyot-yarmarka-vakansii/288774",
+        "position": 3,
+        "snippet": "В Кишинёве 10 и 11 октября пройдёт ярмарка вакансий. У тебя есть шанс найти работу мечты. Мероприятие состоится в Национальном дворце имени...",
+        "source": "TV8.md",
+        "title": "Шанс найти работу. В Кишинёве 10 и 11 октября пройдёт ярмарка вакансий"
+      },
+      {
+        "date": "Sep 1, 2025",
+        "link": "https://noi.md/ru/obshhestvo/nochnaya-rabota-v-moldove-novye-pravila-s-1-yanvarya-2026-goda",
+        "position": 4,
+        "snippet": "Однако новые нормы касаются не только тех, кто полностью работает в этом интервале. Закон распространяется и на работников, которые трудятся не...",
+        "source": "noi.md",
+        "title": "Ночная работа в Молдове: новые правила с 1 января 2026 года"
+      },
+      {
+        "date": "Apr 16, 2022",
+        "link": "https://visitukraine.today/blog/308/moldova-employment-for-ukrainian-refugees",
+        "position": 5,
+        "snippet": "Despite the fact that Moldova is not yet a member of the European Union and the general directive on the treatment of our refugees does not...",
+        "source": "Visit Ukraine",
+        "title": "Moldova: employment for Ukrainian refugees"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://esp.md/ru/kaleydoskop/2026/02/26/gde-nayti-rabotu-na-severe-moldovy-s-zarplatoy-ot-20-000-leev-i-vyshe-obzor",
+        "position": 6,
+        "snippet": "«СП» подготовило новую подборку объявлений о вакантных рабочих местах на севере страны.",
+        "source": "СП - Бельцкий независимый портал",
+        "title": "Где найти работу на севере Молдовы с зарплатой от 20 000 леев и выше: обзор вакансий"
+      },
+      {
+        "date": "Dec 9, 2025",
+        "link": "https://newsmaker.md/ru/v-novyi-god-s-novoi-rabotoi-desyat-vakansii-v-kishinyove-s-zarplatami-ot-20-000-leev",
+        "position": 7,
+        "snippet": "Главный плюс поиска работы перед Новым годом — сниженная конкуренция между соискателями. Пока другие погружены в предновогодние хлопоты,...",
+        "source": "NewsMaker",
+        "title": "В новый год — с новой работой. Десять вакансий в Кишинёве с зарплатами от 20 000 леев"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://esp.md/ru/kaleydoskop/2026/02/24/rabota-v-belcah-trebuyutsya-voditel-pogruzchika-oficiant-i-zaveduyushchiy",
+        "position": 8,
+        "snippet": "Официант · Зарплата: 450 леев в день · Условия работы: предоставляется обед, развоз работников по домам · Место работы: Diamondhouse, ресторан...",
+        "source": "СП - Бельцкий независимый портал",
+        "title": "Работа в Бельцах: требуются водитель погрузчика, официант и заведующий аптекой — обзор вакансий"
+      },
+      {
+        "date": "Sep 8, 2025",
+        "link": "https://newsmaker.md/ru/zarplaty-do-3000-evro-v-mesyacz-10-pribylnyh-vakansii-v-moldove",
+        "position": 9,
+        "snippet": "Осень — лучший сезон для поиска работы. Деловая активность повышается, компании активно пополняют команды, и выбор вакансий для соискателей становится...",
+        "source": "NewsMaker",
+        "title": "Зарплаты до 3000 евро в месяц: 10 прибыльных вакансий в Молдове"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://esp.md/ru/kaleydoskop/2026/02/05/kak-v-moldove-ustroitsya-na-rabotu-v-ministerstva-obzor-vakansiy-v",
+        "position": 10,
+        "snippet": "«СП» подготовило подборку объявлений о вакантных рабочих местах в разных министерствах Республики Молдова.",
+        "source": "СП - Бельцкий независимый портал",
+        "title": "Как в Молдове устроиться на работу в министерства: обзор вакансий в правительственных структурах"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:36.303Z"
+}

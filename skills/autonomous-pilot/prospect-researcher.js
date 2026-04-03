@@ -2077,8 +2077,10 @@ class ProspectResearcher {
       }
     }
 
-    // PRIORITE 4 : Description entreprise (Apollo ou site web, pas les deux)
-    if (intel.apolloData && intel.apolloData.shortDescription) {
+    // PRIORITE 4 : Description entreprise (Clay > Apollo > site web)
+    if (intel.clayData && intel.clayData.companyDescription) {
+      lines.push('ACTIVITE: ' + intel.clayData.companyDescription.substring(0, 250));
+    } else if (intel.apolloData && intel.apolloData.shortDescription) {
       lines.push('ACTIVITE: ' + intel.apolloData.shortDescription.substring(0, 250));
     } else if (intel.websiteInsights && intel.websiteInsights.description) {
       lines.push('SITE WEB: "' + intel.websiteInsights.description.substring(0, 250) + '"');

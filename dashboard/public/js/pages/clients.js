@@ -69,9 +69,9 @@ Pages.clients = async function(container) {
             <div>
               <label style="font-size:12px;font-weight:500;color:var(--text-muted);display:block;margin-bottom:4px">Plan</label>
               <select id="client-plan" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px">
-                <option value="pilot">Pilot (690/mois)</option>
-                <option value="growth">Growth (1490/mois)</option>
-                <option value="scale">Scale (2490/mois)</option>
+                <option value="pipeline">Pipeline (890/mois)</option>
+                <option value="multicanal">Multicanal (1490/mois)</option>
+                <option value="dedie">Dédié (sur mesure)</option>
               </select>
             </div>
             <div>

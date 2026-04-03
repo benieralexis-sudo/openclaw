@@ -1,0 +1,111 @@
+{
+  "email": "radu-saracinov.olesea@agilepartners.com",
+  "firstName": "Radu-Saracinov",
+  "lastName": "Olesea",
+  "company": "Agile Partners",
+  "title": "Human Resources Director",
+  "linkedin": "https://www.linkedin.com/in/radu-saracinov-olesea",
+  "website": "http://www.agilepartners.eu",
+  "industry": "Financial Services",
+  "employeeCount": 34,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "1 week ago",
+        "link": "https://www.cnbc.com/2026/03/24/google-agile-robots-ai-robotics.html",
+        "position": 1,
+        "snippet": "Google's DeepMind division is partnering with Agile Robots to integrate its Gemini Robotics foundation models with Agile Robots' hardware.",
+        "source": "CNBC",
+        "title": "Google partners with Agile Robots, growing its AI robotics footprint"
+      },
+      {
+        "date": "6 days ago",
+        "link": "https://aibusiness.com/robotics/google-partners-with-agile-robots-in-ai-robotics-push",
+        "position": 2,
+        "snippet": "Google DeepMind has entered into a new partnership with humanoid robotics developer Agile Robots, marking the tech giant's latest effort to...",
+        "source": "AI Business",
+        "title": "Google Partners With Agile Robots in Latest AI Robotics Push"
+      },
+      {
+        "date": "5 days ago",
+        "link": "https://letsdatascience.com/news/agile-robots-partners-with-deepmind-on-gemini-integration-3a3ecbea",
+        "position": 3,
+        "snippet": "Agile Robots announced this week a collaboration with Google DeepMind to integrate DeepMind's Gemini Robotics foundation models into Agile...",
+        "source": "Let's Data Science",
+        "title": "Agile Robots Partners With DeepMind On Gemini Integration"
+      },
+      {
+        "date": "1 week ago",
+        "link": "https://techcrunch.com/2026/03/24/agile-robots-becomes-the-latest-robotics-company-to-partner-with-google-deepmind/",
+        "position": 4,
+        "snippet": "Agile Robots becomes the latest robotics company to partner with Google DeepMind ... Agile Robots has landed a partnership with Google DeepMind to...",
+        "source": "TechCrunch",
+        "title": "Agile Robots becomes the latest robotics company to partner with Google DeepMind"
+      },
+      {
+        "date": "Sep 23, 2025",
+        "link": "https://finance.yahoo.com/news/agile-utility-partners-strengthens-field-123000795.html",
+        "position": 5,
+        "snippet": "A portfolio company of Post Capital Partners, Agile was founded in 2006 to support the utility sector and, through its Agile Sourcing Partners...",
+        "source": "Yahoo Finance",
+        "title": "Agile Utility Partners Strengthens Field Service Offerings with Ground Hawk Acquisition"
+      },
+      {
+        "date": "Feb 4, 2026",
+        "link": "https://worldbiomarketinsights.com/zymochem-partners-with-agile-biofoundry-to-accelerate-biomanufacturing/",
+        "position": 6,
+        "snippet": "Through this collaboration, ZymoChem aims to improve its research on bio-adipic acid, a key ingredient used to produce bio-nylon 6,6. The...",
+        "source": "World Bio Market Insights",
+        "title": "ZymoChem partners with Agile BioFoundry to accelerate biomanufacturing"
+      },
+      {
+        "date": "Aug 26, 2025",
+        "link": "https://www.businesswire.com/news/home/20250826036476/en/Angeles-Equity-Partners-and-Kain-Capital-Appoint-Peter-Murray-as-CEO-of-Agile-Occupational-Medicine",
+        "position": 7,
+        "snippet": "Angeles Equity Partners and Kain Capital Appoint Peter Murray as CEO of Agile Occupational Medicine ... The combination of Agile and Akeso creates...",
+        "source": "Business Wire",
+        "title": "Angeles Equity Partners and Kain Capital Appoint Peter Murray as CEO of Agile Occupational Medicine"
+      },
+      {
+        "date": "May 5, 2025",
+        "link": "https://www.prnewswire.com/news-releases/gooten-partners-with-kornit-to-deliver-global-reach-and-agile-on-demand-production-for-businesses-of-all-sizes-302446108.html",
+        "position": 8,
+        "snippet": "Gooten, a leader in print-on-demand fulfillment and technology, today announced a strategic partnership with Kornit Digital (NASDAQ: KRNT).",
+        "source": "PR Newswire",
+        "title": "Gooten Partners with Kornit to Deliver Global Reach and Agile On-Demand Production for Businesses of All Sizes"
+      },
+      {
+        "date": "Dec 17, 2025",
+        "link": "https://thebambooworks.com/from-friends-to-foes-agile-faces-mounting-troubles-from-former-partner/",
+        "position": 9,
+        "snippet": "Key Takeaways: · Agile Group is facing a liquidation petition filed against it in Hong Kong by a subsidiary of former partner Melco...",
+        "source": "Bamboo Works",
+        "title": "From friends to foes: Agile faces mounting troubles from former partner"
+      },
+      {
+        "date": "Jul 30, 2025",
+        "link": "https://techafricanews.com/2025/07/30/mtn-group-partners-with-agility-arabia-to-drive-landmark-agile-procurement-transformation/",
+        "position": 10,
+        "snippet": "MTN Group Partners with Agility Arabia to Drive Landmark Agile Procurement Transformation ... The initiative, rolled out across MTN's Global...",
+        "source": "TechAfrica News",
+        "title": "MTN Group Partners with Agility Arabia to Drive Landmark Agile Procurement Transformation"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:36.239Z"
+}

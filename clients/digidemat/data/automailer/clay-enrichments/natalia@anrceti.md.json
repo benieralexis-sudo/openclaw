@@ -1,0 +1,111 @@
+{
+  "email": "natalia@anrceti.md",
+  "firstName": "Natalia",
+  "lastName": "Zgardan-Bucataru",
+  "company": "ANRCETI",
+  "title": "Specialist principal",
+  "linkedin": "https://www.linkedin.com/in/natalia-zgardan-bucataru-17aa77104",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Aug 13, 2025",
+        "link": "https://www.moldpres.md/eng/society/moldova-s-intelligence-and-security-service-police-anrceti-ask-to-block-over-400-tiktok-channels",
+        "position": 1,
+        "snippet": "The authorities of Moldova are boosting measures to combat misinformation in the digital space, specifically targeting social networks with...",
+        "source": "Moldpres",
+        "title": "Moldova's Intelligence and Security Service, Police, ANRCETI ask to block over 400 TikTok channels"
+      },
+      {
+        "date": "Nov 20, 2023",
+        "link": "https://www.telecompaper.com/news/moldova-telecoms-regulator-anrceti-inks-partnership-deal-with-portugals-anacom--1483124",
+        "position": 2,
+        "snippet": "Moldovan telecoms regulator ANRCETI (National Regulatory Agency for Electronic Communications and Information Technology) has signed a...",
+        "source": "Telecompaper",
+        "title": "Moldova telecoms regulator ANRCETI inks partnership deal with Portugal's ANACOM"
+      },
+      {
+        "date": "Apr 19, 2023",
+        "link": "https://radiomoldova.md/p/10685/sergiu-gaibu-has-been-appointed-director-at-anrceti",
+        "position": 3,
+        "snippet": "Former Economy Minister Sergiu Gaibu has been appointed director of the National Agency for Electronic Communications and Information Technology Regulation (...",
+        "source": "Radio Moldova",
+        "title": "Sergiu Gaibu has been appointed Director at ANRCETI"
+      },
+      {
+        "date": "May 1, 2019",
+        "link": "https://www.broadbandtvnews.com/2019/05/01/moldovan-telecom-market-shrinks/",
+        "position": 4,
+        "snippet": "The volume of sales in Moldova's electronic communications market fell by 8% to MDL6.44 billion (€320.5 million) in 2018, according the...",
+        "source": "Broadband TV News",
+        "title": "Moldovan telecom market shrinks"
+      },
+      {
+        "date": "Jan 31, 2025",
+        "link": "https://www.telecompaper.com/news/moldcell-orange-moldtelecom-secure-additional-spectrum-in-moldova--1526229",
+        "position": 5,
+        "snippet": "Moldovan telecoms regulator Anrceti has announced that Moldcell, Orange, and Moldtelecom won spectrum licenses in the 700 MHz, e900 MHz,...",
+        "source": "Telecompaper",
+        "title": "Moldcell, Orange, Moldtelecom secure additional spectrum in Moldova"
+      },
+      {
+        "date": "Sep 23, 2010",
+        "link": "https://www.telecompaper.com/news/moldova-opens-doors-for-mvnos--758339",
+        "position": 6,
+        "snippet": "Moldova's telecommunications authority Anrceti announced the licence conditions for the use of non-geographic numbers in mobile virtual...",
+        "source": "Telecompaper",
+        "title": "Moldova opens doors for MVNOs"
+      },
+      {
+        "date": "Aug 12, 2014",
+        "link": "http://www.infotag.md/economics-en/191881/",
+        "position": 7,
+        "snippet": "On Monday, the National Regulatory Agency for Electronic Communications and Information Technology (ANRCETI) issued for the GSM mobile...",
+        "source": "Infotag",
+        "title": "MOLDCELL RECEIVES NEW LICENSES FOR PROVISION OF NETWORKS AND MOBILE COMMUNICATIONS SERVICES"
+      },
+      {
+        "date": "Apr 19, 2023",
+        "link": "https://m.radiochisinau.md/exministrul-economiei-sergiu-gaibu-a-fost-numit-sef-la-anrceti---179112.html",
+        "position": 8,
+        "snippet": "Ministrul economiei în Guvernul Gavrilița, Sergiu Gaibu, a fost numit director al Agenției Naționale pentru Reglementare în Comunicații...",
+        "source": "Radio Chișinău",
+        "title": "Ex-ministrul economiei Sergiu Gaibu a fost numit șef la ANRCETI"
+      },
+      {
+        "date": "Jul 6, 2018",
+        "link": "https://www.zdg.md/stiri/stiri-economice/mai-multi-furnizori-sanctionati-de-anrceti/",
+        "position": 9,
+        "snippet": "În primul semestru al anului 2018, Agenţia Naţională pentru Reglementare în Comunicaţii Electronice şi Tehnologia Informaţiei (ANRCETI) a...",
+        "source": "Ziarul de Gardă",
+        "title": "Mai mulți furnizori de rețele și servicii electronice, sancționați de ANRCETI"
+      },
+      {
+        "date": "Aug 6, 2021",
+        "link": "https://www.bizlaw.md/anrceti-a-activat-celula-de-criza-mii-de-utilizatori-ai-serviciilor-de-telefonie-mobila-si-fixa-nu-au-semnal",
+        "position": 10,
+        "snippet": "Din cauza situației hidrometeorologice instabile, furnizorii de comunicații electronice se confruntă cu probleme majore legate de asigurarea...",
+        "source": "Bizlaw",
+        "title": "ANRCETI a activat celula de criză. Mii de utilizatori ai serviciilor de telefonie mobilă și fixă nu au semnal"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:31:56.604Z"
+}

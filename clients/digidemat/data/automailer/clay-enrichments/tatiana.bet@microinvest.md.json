@@ -1,0 +1,95 @@
+{
+  "email": "tatiana.bet@microinvest.md",
+  "firstName": "Tatiana",
+  "lastName": "Bet",
+  "company": "Microinvest Technology",
+  "title": "Head of Project Management Unit",
+  "linkedin": "https://www.linkedin.com/in/tatiana-bet-a9973a83",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Aug 17, 2025",
+        "link": "https://logos-pres.md/en/news/a-friendly-alliance-is-emerging-in-the-lending-market/",
+        "position": 1,
+        "snippet": "Commercial bank Victoriabank acquires control over the largest non-bank credit organization Microinvest, setting a precedent for...",
+        "source": "logos-pres.md",
+        "title": "A \"friendly alliance\"is emerging in the lending market"
+      },
+      {
+        "date": "Oct 27, 2025",
+        "link": "https://lovinmalta.com/news/government-to-cover-up-to-65-of-wage-increases-for-smes-under-expanded-microinvest-scheme/",
+        "position": 2,
+        "snippet": "The government will cover up to 65% of wage increases for employees in small and medium enterprises (SMEs) as part of a major expansion of...",
+        "source": "Lovin Malta",
+        "title": "Government To Cover Up To 65% Of Wage Increases For SMEs Under Expanded MicroInvest Scheme"
+      },
+      {
+        "date": "Jul 11, 2024",
+        "link": "https://www.deloitte.com/mt/en/services/tax/perspectives/gi3/micro-invest-scheme.html",
+        "position": 3,
+        "snippet": "The Scheme provides a tax credit of 45% of eligible expenditure (with an additional 20% for Gozo) to eligible undertakings (including startups, family...",
+        "source": "Deloitte",
+        "title": "Micro Invest Scheme"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://logos-pres.md/en/news/banca-transilvania-reports-record-revenues-in-2025/",
+        "position": 4,
+        "snippet": "Romania's Banca Transilvania, which controls in Moldova JSCB Victoriabank and microfinance company Microinvest, ended 2025 with a consolidated net profit of...",
+        "source": "logos-pres.md",
+        "title": "Banca Transilvania reports record revenues in 2025"
+      },
+      {
+        "date": "Mar 25, 2017",
+        "link": "https://www.investopedia.com/articles/company-insights/090516/how-acorns-works-and-makes-money.asp",
+        "position": 5,
+        "snippet": "Acorns provides a financial app that members can use to micro-invest spare change in a diversified portfolio. This fintech company also offers retirement...",
+        "source": "Investopedia",
+        "title": "How Acorns Makes Money"
+      },
+      {
+        "date": "Oct 4, 2025",
+        "link": "https://logos-pres.md/en/news/victoriabank-completed-the-acquisition-of-microinvest/",
+        "position": 6,
+        "snippet": "Victoriabank, part of the Banca Transilvania group, has completed the acquisition of Microinvest, a non-banking credit institution.",
+        "source": "logos-pres.md",
+        "title": "Victoriabank completed the acquisition of Microinvest"
+      },
+      {
+        "date": "Dec 7, 2022",
+        "link": "https://tvmnews.mt/en/news/microinvest-scheme-for-enterprises-to-support-clients-with-a-disability-has-been-extended/",
+        "position": 7,
+        "snippet": "The MicroInvest scheme which helps enterprises to invest in support systems for their clients with a disability has been extended.",
+        "source": "TVMnews.mt",
+        "title": "MicroInvest scheme for enterprises to support clients with a disability has been extended"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://tvn.md/ru/p-chtoby-podarit-czvety-ne-nuzhen-osobyj-povod-serafima-vlas-predprinimatelnicza-klient-microinvest/",
+        "position": 8,
+        "snippet": "Игорь и Серафима Влас вернулись в Молдову и развили бизнес «Flori Sud Vis SRL», управляя четырьмя современными теплицами.",
+        "source": "tvn.md",
+        "title": "/P/ «Чтобы подарить цветы, не нужен особый повод» – Серафима Влас, предпринимательница, клиент Microinvest - Новости TV-Nord | Știri Televiziunea nordului"
+      }
+    ],
+    "total_news_results": 8
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:31:19.012Z"
+}

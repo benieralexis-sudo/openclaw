@@ -1,0 +1,111 @@
+{
+  "email": "sergiu.malai@hisky.aero",
+  "firstName": "Sergiu",
+  "lastName": "Malai",
+  "company": "HiSky",
+  "title": "Director (Postholder) Ground Operations",
+  "linkedin": "https://www.linkedin.com/in/sergiu-malai",
+  "website": "https://hisky.aero/",
+  "industry": "Airlines and Aviation",
+  "employeeCount": 139,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Sep 19, 2025",
+        "link": "https://aviationweek.com/air-transport/airports-networks/hisky-adds-new-eastern-europe-us-link",
+        "position": 1,
+        "snippet": "Share ... Romania's HiSky will launch flights between Bucharest and Chicago during the 2026 summer season, restoring a transatlantic link last...",
+        "source": "Aviation Week",
+        "title": "HiSky Adds New Eastern Europe-U.S. Link"
+      },
+      {
+        "date": "Sep 18, 2025",
+        "link": "https://onemileatatime.com/news/hisky-romania-united-states-flights/",
+        "position": 2,
+        "snippet": "Romania's HiSky Expands United States Flights, With New York & Chicago · HiFly has been flying to New York since 2024 · HiFly will soon also fly...",
+        "source": "One Mile at a Time",
+        "title": "Romania’s HiSky Expands United States Flights, With New York & Chicago"
+      },
+      {
+        "date": "Sep 19, 2025",
+        "link": "https://www.insidehook.com/travel/hisky-airlines-adding-flight-usa-romania",
+        "position": 3,
+        "snippet": "In the summer of 2026, the airline HiSky is set to add another route connecting the United States and Romania.",
+        "source": "InsideHook",
+        "title": "It's About to Get Easier to Visit Romania From the United States"
+      },
+      {
+        "date": "Sep 17, 2025",
+        "link": "https://simpleflying.com/different-this-tiny-european-airline-will-begin-airbus-a330-flights-to-chicago-ohare/",
+        "position": 4,
+        "snippet": "HiSky will begin flying from Bucharest to Chicago O'Hare next year. It will be the first time since TAROM pulled out in 1995 that the city...",
+        "source": "Simple Flying",
+        "title": "Different: This Tiny European Airline Will Begin Airbus A330 Flights To Chicago O'Hare"
+      },
+      {
+        "date": "Sep 17, 2025",
+        "link": "https://business-review.eu/business/airlines/hisky-to-introduce-direct-flights-between-bucharest-and-chicago-288722",
+        "position": 5,
+        "snippet": "HiSky to introduce direct flights between Bucharest and Chicago starting 2026 ... Two years after operating its first direct flight to New York, a...",
+        "source": "Business Review",
+        "title": "HiSky to introduce direct flights between Bucharest and Chicago starting 2026"
+      },
+      {
+        "date": "Sep 17, 2025",
+        "link": "https://www.romania-insider.com/hisky-bucharest-chicago-flights-2026",
+        "position": 6,
+        "snippet": "Like this article? Share it with your friends! ... HiSky will launch direct flights between Bucharest and Chicago in June 2026, expanding its...",
+        "source": "Romania Insider",
+        "title": "HiSky expands US network with Bucharest–Chicago direct flights from June 2026"
+      },
+      {
+        "date": "Sep 19, 2025",
+        "link": "https://www.aviation24.be/airlines/hisky/hisky-to-launch-direct-bucharest-chicago-flights-in-june-2026/",
+        "position": 7,
+        "snippet": "HiSky to launch direct Bucharest–Chicago flights in June 2026 ... Romanian airline HiSky will launch direct flights between Bucharest and Chicago...",
+        "source": "Aviation24.be",
+        "title": "HiSky to launch direct Bucharest–Chicago flights in June 2026"
+      },
+      {
+        "date": "Sep 18, 2025",
+        "link": "https://seenews.com/news/hisky-to-launch-bucharest-chicago-flights-in-june-1281805",
+        "position": 8,
+        "snippet": "HiSky inaugurated its Bucharest-New York route in June 2024, becoming the first airline to offer a direct service from Romania to the U.S. in...",
+        "source": "SeeNews",
+        "title": "HiSky to launch Bucharest-Chicago flights in June | Romania Investments News"
+      },
+      {
+        "date": "Dec 31, 2025",
+        "link": "https://www.romaniajournal.ro/business/hisky-plans-six-weekly-flights-to-the-united-states/",
+        "position": 9,
+        "snippet": "Thus, in 2026, HiSky will reach six weekly flights to the United States by maintaining the Bucharest–New York route, operated four times a week,...",
+        "source": "The Romania Journal",
+        "title": "HiSky Plans Six Weekly Flights to the United States"
+      },
+      {
+        "date": "Sep 18, 2025",
+        "link": "https://airlinegeeks.com/2025/09/18/romanian-airline-revives-route-to-u-s-city-after-24-year-gap/",
+        "position": 10,
+        "snippet": "Romanian low-cost carrier HiSky announced Wednesday that it will launch nonstop service between Chicago and Bucharest next year.",
+        "source": "AirlineGeeks.com",
+        "title": "Romanian Airline Revives Route to U.S. City After 24-Year Gap"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:12.042Z"
+}

@@ -1834,10 +1834,11 @@ const healthServer = http.createServer(async (req, res) => {
         // v9.1: Compute lead score server-side (Clay formulas don't resolve in HTTP API)
         function computeLeadScore(lead) {
           let score = 0;
-          if (lead.googleNews && JSON.stringify(lead.googleNews) !== '{}') score += 20;
+          if (lead.googleNews && typeof lead.googleNews === 'object' && (Array.isArray(lead.googleNews) ? lead.googleNews.length > 0 : Object.keys(lead.googleNews).length > 0)) score += 20;
           if (lead.employeeCount && Number(lead.employeeCount) >= 11) score += 15;
+          if (lead.linkedinPosts && typeof lead.linkedinPosts === 'object' && lead.linkedinPosts.posts && lead.linkedinPosts.posts.length > 0) score += 15;
           if (lead.email && lead.email.includes('@')) score += 10;
-          if (lead.linkedinBio && JSON.stringify(lead.linkedinBio) !== '{}') score += 10;
+          if (lead.linkedinBio && typeof lead.linkedinBio === 'string' ? lead.linkedinBio.length > 0 : (typeof lead.linkedinBio === 'object' && Object.keys(lead.linkedinBio).length > 0)) score += 10;
           if (lead.website || lead.companyDomain) score += 5;
           if (lead.positionStartDate) score += 10;  // timeline hook bonus
           if (lead.headcountGrowth) score += 10;    // growth signal bonus
@@ -1916,7 +1917,9 @@ const healthServer = http.createServer(async (req, res) => {
                 enrichCompany: lead.enrichCompany || nestedEnr.enrichCompany || null,
                 leadScore: lead.leadScore || null,
                 priority: lead.priority || null,
-                catchAll: false,
+                catchAll: lead.catchAll === true || lead.catchAll === 'true' || lead.isCatchAll === true || lead.isCatchAll === 'true',
+                companyDomain: lead.companyDomain || lead.website || null,
+                companyLocation: lead.companyLocation || null,
                 enrichment: lead.enrichment || {},
                 source: 'clay',
                 importedAt: new Date().toISOString()
@@ -1989,6 +1992,8 @@ const healthServer = http.createServer(async (req, res) => {
               leadScore: lead.leadScore || null,
               priority: lead.priority || null,
               catchAll: isCatchAll,
+              companyDomain: lead.companyDomain || lead.website || null,
+              companyLocation: lead.companyLocation || null,
               enrichment: lead.enrichment || {},
               source: 'clay',
               importedAt: new Date().toISOString()

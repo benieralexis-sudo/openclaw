@@ -1,0 +1,111 @@
+{
+  "email": "victor.susu@bnm.md",
+  "firstName": "Victor",
+  "lastName": "Șușu",
+  "company": "National Bank of Moldova",
+  "title": "Director, Department of Infrastructures, Payments, and Supervision of Other Institutions",
+  "linkedin": "https://www.linkedin.com/in/victor-susu",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chişinău, Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "10 hours ago",
+        "link": "https://radiomoldova.md/p/73235/national-bank-data-reveals-public-and-private-sector-debt-surge-of-1-billion-dollars",
+        "position": 1,
+        "snippet": "Moldova's total external debt reached $11.8 billion in the last quarter, marking a significant increase of over $1 billion since the end of...",
+        "source": "Radio Moldova",
+        "title": "National Bank data reveals public and private sector debt surge of 1 billion dollars"
+      },
+      {
+        "date": "5 hours ago",
+        "link": "https://www.moldpres.md/eng/economy/photo-video-national-bank-of-moldova-launches-commemorative-coin-ion-pelivan-150th-anniversary-of-birth",
+        "position": 2,
+        "snippet": "The National Bank of Moldova (BNM) today is putting into circulation a commemorative coin, “Ion Pelivan – 150th anniversary of birth”,...",
+        "source": "Moldpres",
+        "title": "PHOTO, VIDEO // National Bank of Moldova launches commemorative coin “Ion Pelivan – 150th anniversary of birth”"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://logos-pres.md/en/news/the-nbm-did-not-go-for-a-rate-increase/",
+        "position": 3,
+        "snippet": "The Executive Committee of the National Bank of Moldova (NBM) at its March 19 meeting kept the prime rate at 5% per annum, leaving at the current level the...",
+        "source": "logos-pres.md",
+        "title": "The NBM did not go for a rate increase"
+      },
+      {
+        "date": "Jan 14, 2026",
+        "link": "https://www.bloomberg.com/news/articles/2026-01-14/moldova-s-dragu-sees-country-ready-for-big-international-lender",
+        "position": 4,
+        "snippet": "Moldova's central bank governor said the country is preparing for a big international lender to enter its banking system following reforms...",
+        "source": "Bloomberg.com",
+        "title": "Moldova’s Dragu Sees Country Ready for Big International Lender"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.coe.int/en/web/corruption/-/dialogue-and-cooperation-for-a-secure-and-inclusive-financial-system",
+        "position": 5,
+        "snippet": "Representatives of the National Bank of Moldova, other regulatory authorities, banking professionals, as well as officials from payment and...",
+        "source": "coe.int",
+        "title": "Dialogue and cooperation for a secure and inclusive financial system"
+      },
+      {
+        "date": "1 week ago",
+        "link": "https://www.infotag.md/finances-en/330592/",
+        "position": 6,
+        "snippet": "National Bank of Moldova (NBM) Governor Anca Dragu met with Croatian Ambassador to Moldova Marija Kapitanović. The bank's press service told...",
+        "source": "Infotag",
+        "title": "NATIONAL BANK TO COMPLETE BRINGING ITS REGULATORY FRAMEWORK INTO CONFORMITY WITH EUROPEAN STANDARDS IN 2026"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://logos-pres.md/en/news/the-national-bank-is-in-high-alert-mode/",
+        "position": 7,
+        "snippet": "As a result of rising energy prices in the context of the geopolitical situation, inflationary pressures may intensify until the first quarter of 2027,...",
+        "source": "logos-pres.md",
+        "title": "The National Bank is in \"high alert\"mode"
+      },
+      {
+        "date": "3 weeks ago",
+        "link": "https://www.gov.si/en/news/2026-03-12-slovenia-reinforces-its-support-for-moldova-on-its-path-to-the-european-union/",
+        "position": 8,
+        "snippet": "State Secretary Neva Grašič visited Moldova at the invitation of Cristina Gherasimov, Deputy Prime Minister for European Integration and...",
+        "source": "Gov.si",
+        "title": "Slovenia reinforces its support for Moldova on its path to the European Union"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.moldpres.md/eng/economy/imf-confirms-reliability-of-national-bank-of-moldova-effectiveness-of-its-monetary-policies",
+        "position": 9,
+        "snippet": "The IMF also confirms that the banking sector of Moldova remains sound. Thus, the supervisory and macroprudential measures implemented by the...",
+        "source": "Moldpres",
+        "title": "IMF confirms reliability of National Bank of Moldova, effectiveness of its monetary policies"
+      },
+      {
+        "date": "Dec 21, 2025",
+        "link": "https://radiomoldova.md/p/66227/national-bank-of-moldova-reports-decline-in-new-savings",
+        "position": 10,
+        "snippet": "The volume of savings held in banks by Moldovans shrank by nearly 11 percent in November, totaling over 2.7 billion lei.",
+        "source": "Radio Moldova",
+        "title": "National Bank of Moldova reports decline in new savings"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:38.300Z"
+}

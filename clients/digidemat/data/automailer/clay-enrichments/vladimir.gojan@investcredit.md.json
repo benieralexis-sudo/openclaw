@@ -1,0 +1,111 @@
+{
+  "email": "vladimir.gojan@investcredit.md",
+  "firstName": "Vladimir",
+  "lastName": "Gojan",
+  "company": "Invest Credit",
+  "title": "Head of Business",
+  "linkedin": "https://www.linkedin.com/in/vladimir-gojan-555027120",
+  "website": "",
+  "industry": "",
+  "employeeCount": null,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "2 days ago",
+        "link": "https://www.nytimes.com/2026/03/30/business/private-credit-risks-trump-administration.html",
+        "position": 1,
+        "snippet": "The Trump administration is poised to broaden access to risky investments that are showing signs of strain.",
+        "source": "The New York Times",
+        "title": "Private-Credit Wobbles Could Prove Perilous for Trump"
+      },
+      {
+        "date": "2 days ago",
+        "link": "https://www.wsj.com/personal-finance/retirement/private-credit-is-reeling-but-new-rule-may-allow-it-into-401-k-s-0e2e1122?gaa_at=eafs&gaa_n=AWEtsqcyNCwyknA_9VGNvxycX9i3sNy6waYLeX63Ykp9YgLYhdWxBWO0COHY&gaa_ts=69cd4a2e&gaa_sig=CKCE-0ty2EmYAebyqUn1_D-56r0xa7ze-VLQmPW13TvjPNMfZSGBrrnpYTwaHJ8eSs8GaJcvU3GeQGgnxW4s5w%3D%3D",
+        "position": 2,
+        "snippet": "Labor Department intends to help employers avoid lawsuits stemming from the alternative investments they offer employees in retirement...",
+        "source": "WSJ",
+        "title": "Private Credit Is Reeling, But New Rule May Allow It Into 401(k)s"
+      },
+      {
+        "date": "1 week ago",
+        "link": "https://www.cnbc.com/2026/03/22/private-credit.html",
+        "position": 3,
+        "snippet": "Why private credit has exploded. At its core, private credit refers to loans made by investment firms directly to companies. Asset managers...",
+        "source": "CNBC",
+        "title": "When it comes to private credit, 'some caution is reasonable,' advisor says. What to know"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.mayerbrown.com/en/news/2026/03/mayer-brown-represents-gcm-grosvenor-in-625-million-structured-solution-to-invest-in-credit",
+        "position": 4,
+        "snippet": "GCM Grosvenor's credit platform manages approximately $17 billion for more than 170 clients. Spanning public and private markets, the platform...",
+        "source": "Mayer Brown",
+        "title": "Mayer Brown represents GCM Grosvenor in $625 million structured solution to invest in credit"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://www.bloomberg.com/news/articles/2026-03-18/sumitomo-life-plans-to-invest-1-9-billion-in-private-credit",
+        "position": 5,
+        "snippet": "Takeaways by Bloomberg AI Hide ... Sumitomo Life Insurance Co. is considering allocating about ¥300 billion ($1.9 billion) on private credit in...",
+        "source": "Bloomberg.com",
+        "title": "Sumitomo Life Plans to Invest $1.9 Billion in Private Credit"
+      },
+      {
+        "date": "2 weeks ago",
+        "link": "https://www.japantimes.co.jp/business/2026/03/18/companies/sumitomo-life-private-credit/",
+        "position": 6,
+        "snippet": "The Osaka-based insurer has been gradually increasing its private credit holdings.",
+        "source": "The Japan Times",
+        "title": "Sumitomo Life plans to invest $1.9 billion in private credit"
+      },
+      {
+        "date": "Jan 14, 2026",
+        "link": "https://investlouisiana.org/federal-megabill-excludes-poorest-families-from-family-tax-credit-expansions/",
+        "position": 7,
+        "snippet": "The CTC allows taxpayers to lower their federal tax liability by $2,000 per child to lighten the financial burden of raising children. H.R. 1 temporarily...",
+        "source": "Invest in Louisiana",
+        "title": "Federal megabill excludes poorest families from family tax credit expansions"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.nerdwallet.com/credit-cards/learn/credit-cards-that-let-you-invest-rewards",
+        "position": 8,
+        "snippet": "Credit Cards That Let You Invest Rewards · Bank of America® credit cards · Edward Jones credit cards · Fidelity® Rewards Visa Signature® Card.",
+        "source": "NerdWallet",
+        "title": "Credit Cards That Let You Invest Rewards for College, Retirement and Other Goals"
+      },
+      {
+        "date": "1 month ago",
+        "link": "https://www.startribune.com/private-credit-investment-recession-high-risk-loan-default-economic-finance-borrow-interest-cash/601575485",
+        "position": 9,
+        "snippet": "In early 2024, a Federal Reserve paper warned the amount of money flowing to private credit could prompt fund managers to pursue riskier deals.",
+        "source": "Star Tribune",
+        "title": "Minnesota and other pension funds invest in private credit. What are the high risk, high reward loans?"
+      },
+      {
+        "date": "Oct 3, 2025",
+        "link": "https://www.morganstanley.com/ideas/private-credit-outlook-considerations",
+        "position": 10,
+        "snippet": "Discover how increased market volatility and bank lending regulations are helping fuel private credit growth to a potential $5 trillion...",
+        "source": "Morgan Stanley",
+        "title": "Understanding Private Credit’s Rapid Growth"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:31:20.550Z"
+}

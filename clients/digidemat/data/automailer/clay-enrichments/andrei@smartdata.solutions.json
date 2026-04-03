@@ -1,0 +1,111 @@
+{
+  "email": "andrei@smartdata.solutions",
+  "firstName": "Andrei",
+  "lastName": "Martinenco",
+  "company": "www.SmartData.Solutions",
+  "title": "CEO, Founder and Partner",
+  "linkedin": "https://www.linkedin.com/in/andymartinenco",
+  "website": "https://smartdata.solutions",
+  "industry": "Technology, Information and Internet",
+  "employeeCount": 117,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": null,
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Jun 25, 2025",
+        "link": "https://www.prnewswire.com/news-releases/smart-data-solutions-and-basysai-partner-to-empower-health-plans-and-tpas-with-ai-driven-prior-authorization-solutions-302491224.html",
+        "position": 1,
+        "snippet": "Share this article ... EAGAN, Minn., June 25, 2025 /PRNewswire/ -- Smart Data Solutions (SDS), a leader in healthcare process automation and...",
+        "source": "PR Newswire",
+        "title": "Smart Data Solutions and Basys.ai Partner to Empower Health Plans and TPAs with AI-Driven Prior Authorization Solutions"
+      },
+      {
+        "date": "Aug 6, 2025",
+        "link": "https://www.aveva.com/en/perspectives/blog/smart-data-solutions-for-smart-energy-efficient-buildings/",
+        "position": 2,
+        "snippet": "This data platform enables the healthcare provider's energy team to track electricity and gas usage across hundreds of buildings, which helps...",
+        "source": "AVEVA",
+        "title": "Smart data solutions for smart energy-efficient buildings"
+      },
+      {
+        "date": "Jun 9, 2025",
+        "link": "https://www.fiercehealthcare.com/sponsored/helping-payers-transform-prior-auth-agentic-ai",
+        "position": 3,
+        "snippet": "Smart Data Solutions Tackles Prior Authorization Challenge with Basys.aiSmart Data Solutions, a leader in healthcare process automati.",
+        "source": "Fierce Healthcare",
+        "title": "Helping Payers Transform Prior Auth with Agentic AI"
+      },
+      {
+        "date": "1 week ago",
+        "link": "https://thebetterindia.com/videos/indias-farmers-and-climate-need-for-smart-data-solutions-nabard-11263724",
+        "position": 4,
+        "snippet": "Extreme weather is changing the very rhythm of agriculture. Crops, farmers, and entire food systems are being pushed to adapt to a climate...",
+        "source": "The Better India",
+        "title": "India’s Farmers and Climate – Need for Smart Data Solutions | NABARD"
+      },
+      {
+        "date": "Jul 24, 2025",
+        "link": "https://www.prnewswire.com/news-releases/ey-us-announces-shashi-yadiki-of-smart-data-solutions-as-an-entrepreneur-of-the-year-2025-heartland-award-winner-302513411.html",
+        "position": 5,
+        "snippet": "EAGAN, Minn., July 24, 2025 /PRNewswire/ -- Ernst & Young LLP (EY US) announced that Shashi Yadiki, CEO of Smart Data Solutions was named an...",
+        "source": "PR Newswire",
+        "title": "EY US announces Shashi Yadiki of Smart Data Solutions as an Entrepreneur Of The Year® 2025 Heartland Award winner"
+      },
+      {
+        "date": "Oct 14, 2025",
+        "link": "https://thefintechtimes.com/raidiam-appointed-technical-delivery-partner-for-fcas-smart-data-sprints/",
+        "position": 6,
+        "snippet": "The FCA has partnered with secure open data expert Raidiam to power its Smart Data Sprints, accelerating the UK's open finance strategy with...",
+        "source": "The Fintech Times",
+        "title": "Raidiam Appointed Technical Delivery Partner for FCA’s Smart Data Sprints"
+      },
+      {
+        "date": "May 1, 2024",
+        "link": "https://communityimpact.com/dallas-fort-worth/plano/business/2024/05/01/tech-company-smart-data-solutions-opens-office-in-plano/",
+        "position": 7,
+        "snippet": "Tech company Smart Data Solutions opens office in Plano · Opened May 1 · 5445 Legacy Drive, Plano · www.sdata.us. By Michael Crouchley. Editor.",
+        "source": "Community Impact | News",
+        "title": "Tech company Smart Data Solutions opens office in Plano"
+      },
+      {
+        "date": "May 23, 2024",
+        "link": "https://www.bizjournals.com/dallas/news/2024/05/23/smart-data-solutions-opens-plano-office.html",
+        "position": 8,
+        "snippet": "Smart Data Solutions opens office in Plano with room ... CEO Shashi Yadiki speaks at the May 1 grand opening of the new Smart Data Solutions space...",
+        "source": "The Business Journals",
+        "title": "Partnership with UT Dallas helped draw company to North Texas"
+      },
+      {
+        "date": "Feb 2, 2025",
+        "link": "https://www.finextra.com/blogposting/27762/shaping-the-business-landscape-with-ai-and-smart-data-solutions",
+        "position": 9,
+        "snippet": "In today's rapidly evolving business landscape, the financial sector is increasingly leveraging the power of AI and smart data solutions to...",
+        "source": "Finextra Research",
+        "title": "Shaping the Business Landscape with AI and Smart Data Solutions: By Erica Andersen"
+      },
+      {
+        "date": "Oct 10, 2022",
+        "link": "https://www.pehub.com/parthenon-backed-sds-acquires-data-processing-services-firm-jms-and-associates/",
+        "position": 10,
+        "snippet": "Smart Data Solutions, which is backed by Parthenon Capital, has acquired Farmington Hills, Michigan-based JMS and Associates, a provider of...",
+        "source": "PE Hub",
+        "title": "Parthenon-backed SDS acquires data processing services firm JMS and Associates"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-02T21:30:11.659Z"
+}

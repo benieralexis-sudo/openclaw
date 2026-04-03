@@ -1584,7 +1584,7 @@ Format JSON strict :
             if (leadsObj2[lid].email === params.to) {
               let leadNiche = this._inferLeadNiche(leadsObj2[lid]);
               // Fallback : utiliser la niche detectee par ICP matcher si _inferLeadNiche echoue
-              if (!leadNiche && contact && contact._nicheSlug) leadNiche = contact._nicheSlug;
+              if (!leadNiche && params.contact && params.contact._nicheSlug) leadNiche = params.contact._nicheSlug;
               if (leadNiche) {
                 storage.trackNicheEvent(leadNiche, 'sent');
                 // Propager la niche dans FlowFast pour les futurs envois
@@ -1754,7 +1754,7 @@ Format JSON strict :
               try {
                 const apConfig = storage.getConfig();
                 const fuConfig = apConfig.followUpConfig || {};
-                const stepDays = fuConfig.sequenceStepDays || [3, 7, 14, 21, 28];
+                const stepDays = fuConfig.sequenceStepDays || [0, 3, 10];
                 const totalSteps = fuConfig.sequenceTotalSteps || 5;
                 const context = { company: params.company || '', industry: params.industry || '', contact: params.contactName || '' };
                 await this.campaignEngine.generateCampaignEmails(campaign.id, context, totalSteps, stepDays);
@@ -1991,7 +1991,7 @@ Format JSON strict :
     const adminChatId = apConfig.adminChatId || '1409505520';
     const fuConfig = apConfig.followUpConfig || {};
     const totalSteps = params.totalSteps || fuConfig.sequenceTotalSteps || 5;
-    const stepDays = fuConfig.sequenceStepDays || [3, 7, 14, 21, 28];
+    const stepDays = fuConfig.sequenceStepDays || [0, 3, 10];
     // Legacy: si params.intervalDays est fourni, utiliser l'ancien mode (intervalles fixes)
     const intervalDays = params.intervalDays || null;
 
