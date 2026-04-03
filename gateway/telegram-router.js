@@ -1868,9 +1868,17 @@ const healthServer = http.createServer(async (req, res) => {
             continue;
           }
 
-          // Verifier blacklist
+          // Verifier blacklist (inclut les unsubscribes)
           if (automailerStorage.isBlacklisted(lead.email)) {
             results.push({ email: lead.email, error: 'email blackliste', success: false });
+            continue;
+          }
+
+          // v9.2: Domain blacklist — never email own domains, test domains, or competitors
+          const ownDomains = ['getifind.fr', 'getifind.com', 'ifind-group.fr', 'ifind-agency.fr', 'ifind.fr', 'example.com', 'test.com'];
+          const emailDomain = (lead.email.split('@')[1] || '').toLowerCase();
+          if (ownDomains.includes(emailDomain)) {
+            results.push({ email: lead.email, error: 'domaine propre/test blackliste', success: false });
             continue;
           }
 

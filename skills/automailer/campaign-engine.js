@@ -892,6 +892,15 @@ class CampaignEngine {
         continue;
       }
 
+      // v9.2: Domain blacklist — never email own domains or test domains
+      const _ownDomains = ['getifind.fr', 'getifind.com', 'ifind-group.fr', 'ifind-agency.fr', 'ifind.fr', 'example.com', 'test.com'];
+      const _emailDomain = (contact.email.split('@')[1] || '').toLowerCase();
+      if (_ownDomains.includes(_emailDomain)) {
+        log.info('campaign-engine', 'Skip ' + contact.email + ' (domaine propre/test blackliste)');
+        skipped++;
+        continue;
+      }
+
       // RGPD : Bloquer les domaines B2C (emails personnels)
       if (_isB2CDomain(contact.email)) {
         log.warn('campaign-engine', 'RGPD Skip ' + contact.email + ' — domaine B2C (email personnel interdit en prospection B2B)');

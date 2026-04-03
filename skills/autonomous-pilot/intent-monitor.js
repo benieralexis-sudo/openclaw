@@ -79,6 +79,12 @@ class IntentMonitor {
 
   // --- Point d'entree principal : scan toutes les 30 min ---
   async scan() {
+    // v9.2: Skip si Apollo resilie (pas de cle API)
+    if (!this.apolloKey || this.apolloKey.trim() === '') {
+      log.info('intent-monitor', 'Apollo resilie — intent monitor desactive (pas de cle API)');
+      return { skipped: true, reason: 'apollo_resilie' };
+    }
+
     log.info('intent-monitor', 'Scan demarre...');
     const startTime = Date.now();
     const config = storage.getConfig();
