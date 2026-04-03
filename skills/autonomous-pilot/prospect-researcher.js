@@ -602,10 +602,11 @@ class ProspectResearcher {
         intel.intentSignals.push({ type: 'recent_funding', detail: 'Funding Clay: ' + fundingDetail, detectedAt: clayData.importedAt });
       }
 
-      // LinkedIn posts
-      const posts = clayData.linkedinPosts || enr.linkedinPosts || null;
-      if (posts && Array.isArray(posts) && posts.length > 0 && !intel.intentSignals.some(s => s.type === 'content_creator')) {
-        intel.intentSignals.push({ type: 'content_creator', detail: posts.length + ' posts LinkedIn recents', detectedAt: clayData.importedAt });
+      // LinkedIn posts — Clay format: {numberOfPosts: N, posts: [{date, post, ...}]} or Array
+      const postsRaw = clayData.linkedinPosts || enr.linkedinPosts || null;
+      const postsArr = postsRaw && Array.isArray(postsRaw) ? postsRaw : (postsRaw && postsRaw.posts && Array.isArray(postsRaw.posts) ? postsRaw.posts : null);
+      if (postsArr && postsArr.length > 0 && !intel.intentSignals.some(s => s.type === 'content_creator')) {
+        intel.intentSignals.push({ type: 'content_creator', detail: postsArr.length + ' posts LinkedIn recents', detectedAt: clayData.importedAt });
       }
 
       log.info('prospect-research', 'Clay intent signals injectes pour ' + (company || email) + ': ' + intel.intentSignals.filter(s => s.detail && s.detail.includes('Clay')).length + ' signaux');
@@ -2014,11 +2015,12 @@ class ProspectResearcher {
 
     // PRIORITE 2a-bis : Posts LinkedIn recents (Clay v9.0)
     if (intel.clayData) {
-      const posts = intel.clayData.linkedinPosts || (intel.clayData.enrichment && intel.clayData.enrichment.linkedinPosts) || null;
-      if (posts && Array.isArray(posts) && posts.length > 0) {
+      const postsRaw2 = intel.clayData.linkedinPosts || (intel.clayData.enrichment && intel.clayData.enrichment.linkedinPosts) || null;
+      const postsArr2 = postsRaw2 && Array.isArray(postsRaw2) ? postsRaw2 : (postsRaw2 && postsRaw2.posts && Array.isArray(postsRaw2.posts) ? postsRaw2.posts : null);
+      if (postsArr2 && postsArr2.length > 0) {
         lines.push('POSTS LINKEDIN RECENTS:');
-        for (const post of posts.slice(0, 2)) {
-          const postText = typeof post === 'string' ? post : (post.text || post.content || JSON.stringify(post));
+        for (const post of postsArr2.slice(0, 2)) {
+          const postText = typeof post === 'string' ? post : (post.post || post.text || post.content || JSON.stringify(post));
           lines.push('- "' + postText.substring(0, 200) + '"');
         }
       }

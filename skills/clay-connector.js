@@ -184,6 +184,10 @@ async function createWebhookField(tableId) {
           linkedinBio: '{{Summarize LinkedIn}}',
           funding: '{{Funding Data}}',
           headcountGrowth: '{{Headcount Growth}}',
+          linkedinPosts: '{{Professional Posts}}',
+          companyDescription: '{{Company Description}}',
+          positionStartDate: '{{Position Start Date}}',
+          googleNews: '{{Google News}}',
           leadScore: '{{Lead Score}}',
           priority: '{{Priority}}',
           intentSignal: '{{Intent Signal}}'
