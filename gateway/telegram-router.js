@@ -1831,7 +1831,32 @@ const healthServer = http.createServer(async (req, res) => {
         const automailerStorage = require('../skills/automailer/storage.js');
         const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
 
+        // v9.1: Compute lead score server-side (Clay formulas don't resolve in HTTP API)
+        function computeLeadScore(lead) {
+          let score = 0;
+          if (lead.googleNews && JSON.stringify(lead.googleNews) !== '{}') score += 20;
+          if (lead.employeeCount && Number(lead.employeeCount) >= 11) score += 15;
+          if (lead.email && lead.email.includes('@')) score += 10;
+          if (lead.linkedinBio && JSON.stringify(lead.linkedinBio) !== '{}') score += 10;
+          if (lead.website || lead.companyDomain) score += 5;
+          if (lead.positionStartDate) score += 10;  // timeline hook bonus
+          if (lead.headcountGrowth) score += 10;    // growth signal bonus
+          if (lead.companyDescription) score += 5;   // richer personalization
+          return score;
+        }
+        function computePriority(score) {
+          return score >= 50 ? 'Haute' : score >= 25 ? 'Moyenne' : 'Basse';
+        }
+
         for (const lead of leads) {
+          // v9.1: Auto-compute leadScore/priority if not provided by Clay
+          if (!lead.leadScore || lead.leadScore === 'undefined') {
+            lead.leadScore = computeLeadScore(lead);
+          }
+          if (!lead.priority || lead.priority === 'undefined') {
+            lead.priority = computePriority(Number(lead.leadScore) || 0);
+          }
+
           // Validation champs requis
           if (!lead.email || typeof lead.email !== 'string' || !lead.email.includes('@')) {
             results.push({ email: lead.email || null, error: 'email requis et invalide', success: false });
@@ -1858,7 +1883,51 @@ const healthServer = http.createServer(async (req, res) => {
             }
           }
           if (duplicate) {
-            results.push({ email: lead.email, error: 'doublon — deja dans une liste', success: false });
+            // v9.1: Meme si doublon, mettre a jour les enrichments (re-push Clay)
+            const enrichmentDir = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/clay-enrichments';
+            try {
+              if (!fs.existsSync(enrichmentDir)) fs.mkdirSync(enrichmentDir, { recursive: true });
+              const enrichmentFile = enrichmentDir + '/' + lead.email.toLowerCase().replace(/[^a-z0-9@._-]/g, '_') + '.json';
+              const nestedEnr = lead.enrichment || {};
+              const enrichmentData = {
+                email: lead.email.toLowerCase().trim(),
+                firstName: lead.firstName,
+                lastName: lead.lastName,
+                company: lead.company,
+                title: lead.title || '',
+                linkedin: lead.linkedin || '',
+                website: lead.website || '',
+                industry: lead.industry || '',
+                employeeCount: lead.employeeCount || null,
+                location: lead.location || '',
+                phone: lead.phone || '',
+                companyDescription: lead.companyDescription || null,
+                positionStartDate: lead.positionStartDate || null,
+                emailValid: lead.emailValid || null,
+                builtWith: lead.builtWith || nestedEnr.builtWith || nestedEnr.technologies || null,
+                funding: lead.funding || nestedEnr.funding || null,
+                headcountGrowth: lead.headcountGrowth || nestedEnr.headcountGrowth || null,
+                linkedinBio: lead.linkedinBio || nestedEnr.linkedinBio || null,
+                linkedinPosts: lead.linkedinPosts || nestedEnr.linkedinPosts || null,
+                jobListings: lead.jobListings || nestedEnr.jobListings || null,
+                googleNews: lead.googleNews || nestedEnr.googleNews || null,
+                revenueData: lead.revenueData || nestedEnr.revenueData || null,
+                growthInsights: lead.growthInsights || nestedEnr.growthInsights || null,
+                enrichCompany: lead.enrichCompany || nestedEnr.enrichCompany || null,
+                leadScore: lead.leadScore || null,
+                priority: lead.priority || null,
+                catchAll: false,
+                enrichment: lead.enrichment || {},
+                source: 'clay',
+                importedAt: new Date().toISOString()
+              };
+              atomicWriteSync(enrichmentFile, enrichmentData);
+              log.info('webhook-clay', 'Enrichment mis a jour pour doublon: ' + lead.email + ' (score=' + lead.leadScore + ', prio=' + lead.priority + ')');
+              results.push({ email: lead.email, enrichmentUpdated: true, success: true });
+            } catch (e) {
+              log.warn('webhook-clay', 'Erreur MAJ enrichment doublon ' + lead.email + ': ' + e.message);
+              results.push({ email: lead.email, error: 'doublon — enrichment update failed', success: false });
+            }
             continue;
           }
 
@@ -1904,6 +1973,9 @@ const healthServer = http.createServer(async (req, res) => {
               employeeCount: lead.employeeCount || null,
               location: lead.location || '',
               phone: lead.phone || '',
+              companyDescription: lead.companyDescription || null,
+              positionStartDate: lead.positionStartDate || null,
+              emailValid: lead.emailValid || null,
               builtWith: lead.builtWith || nestedEnr.builtWith || nestedEnr.technologies || null,
               funding: lead.funding || nestedEnr.funding || null,
               headcountGrowth: lead.headcountGrowth || nestedEnr.headcountGrowth || nestedEnr.headcount_growth || null,
@@ -1914,6 +1986,8 @@ const healthServer = http.createServer(async (req, res) => {
               revenueData: lead.revenueData || nestedEnr.revenueData || null,
               growthInsights: lead.growthInsights || nestedEnr.growthInsights || null,
               enrichCompany: lead.enrichCompany || nestedEnr.enrichCompany || null,
+              leadScore: lead.leadScore || null,
+              priority: lead.priority || null,
               catchAll: isCatchAll,
               enrichment: lead.enrichment || {},
               source: 'clay',
