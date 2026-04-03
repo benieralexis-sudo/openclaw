@@ -25,6 +25,7 @@ services:
       GMAIL_SMTP_USER: ${GMAIL_SMTP_USER:-}
       GMAIL_SMTP_PASS: ${GMAIL_SMTP_PASS:-}
       GMAIL_SMTP_ENABLED: ${GMAIL_SMTP_ENABLED:-false}
+      GMAIL_MAILBOXES: ${GMAIL_MAILBOXES:-}
       FLOWFAST_DATA_DIR: /data/flowfast
       AUTOMAILER_DATA_DIR: /data/automailer
       CRM_PILOT_DATA_DIR: /data/crm-pilot
