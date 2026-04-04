@@ -560,55 +560,60 @@ async function main() {
   // ═══════════════════════════════════════
 
   console.log('\nImport dans Clay...');
-  const batchSize = 50;
+  const batchSize = 25;
   let imported = 0, errors = 0;
+
+  function makeCells(l) {
+    return {
+      'First Name': l.firstName,
+      'Last Name': l.lastName,
+      'Full Name': l.fullName,
+      'Job Title': l.title,
+      'Company Name': l.company,
+      'Company Domain': l.companyDomain,
+      'LinkedIn URL': l.linkedin,
+      'Location': l.location,
+      'Company Industry': l.industry,
+      'Company Employee Count': l.employeeCount,
+      'Company Location': l.companyLocation,
+      'LinkedIn Bio': l.bio,
+      'Company Description': l.companyDescription,
+    };
+  }
 
   for (let i = 0; i < newLeads.length; i += batchSize) {
     const batch = newLeads.slice(i, i + batchSize);
-    const payload = {
-      rows: batch.map(l => ({
-        fields: {
-          'First Name': l.firstName,
-          'Last Name': l.lastName,
-          'Full Name': l.fullName,
-          'Job Title': l.title,
-          'Company Name': l.company,
-          'Company Domain': l.companyDomain,
-          'LinkedIn URL': l.linkedin,
-          'Location': l.location,
-          'Company Industry': l.industry,
-          'Company Employee Count': l.employeeCount,
-          'Company Location': l.companyLocation,
-          'LinkedIn Bio': l.bio,
-          'Company Description': l.companyDescription,
-        }
-      }))
-    };
 
+    // Try v3 /records endpoint first (cells format)
     try {
-      await request('POST', `/v3/tables/${tableId}/rows`, payload);
+      await request('POST', `/v3/tables/${tableId}/records`, {
+        records: batch.map(l => ({ cells: makeCells(l) }))
+      });
       imported += batch.length;
       process.stdout.write(`\r  ${imported}/${newLeads.length} importés`);
     } catch (e) {
-      // Fallback: individual inserts
-      for (const l of batch) {
-        try {
-          await request('POST', `/v3/tables/${tableId}/rows`, {
-            rows: [{ fields: {
-              'First Name': l.firstName, 'Last Name': l.lastName, 'Full Name': l.fullName,
-              'Job Title': l.title, 'Company Name': l.company, 'Company Domain': l.companyDomain,
-              'LinkedIn URL': l.linkedin, 'Location': l.location, 'Company Industry': l.industry,
-              'Company Employee Count': l.employeeCount, 'Company Location': l.companyLocation,
-              'LinkedIn Bio': l.bio, 'Company Description': l.companyDescription,
-            }}]
-          });
-          imported++;
-        } catch (e2) {
-          errors++;
-          if (errors <= 3) console.log(`\n   ⚠ Erreur: ${l.fullName} — ${e2.message.slice(0, 100)}`);
+      // Fallback: try /rows endpoint (fields format)
+      try {
+        await request('POST', `/v3/tables/${tableId}/rows`, {
+          rows: batch.map(l => ({ fields: makeCells(l) }))
+        });
+        imported += batch.length;
+        process.stdout.write(`\r  ${imported}/${newLeads.length} importés`);
+      } catch (e2) {
+        // Last fallback: individual inserts
+        for (const l of batch) {
+          try {
+            await request('POST', `/v3/tables/${tableId}/records`, {
+              records: [{ cells: makeCells(l) }]
+            });
+            imported++;
+          } catch (e3) {
+            errors++;
+            if (errors <= 3) console.log(`\n   ⚠ Erreur: ${l.fullName} — ${e3.message.slice(0, 100)}`);
+          }
         }
+        process.stdout.write(`\r  ${imported}/${newLeads.length} importés (${errors} erreurs)`);
       }
-      process.stdout.write(`\r  ${imported}/${newLeads.length} importés (${errors} erreurs)`);
     }
   }
 
