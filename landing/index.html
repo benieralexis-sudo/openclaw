@@ -30,117 +30,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="css/style.css?v=60">
-<style>
-/* === GUARANTEE "Garantie Pipeline" === */
-.guarantee-section{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-.guarantee-card{max-width:700px;margin:0 auto;text-align:center;padding:48px 40px;background:var(--bg);border:2px solid var(--green);border-radius:var(--r-xl);position:relative}
-.guarantee-icon{width:64px;height:64px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;color:var(--green)}
-.guarantee-card h3{font-family:var(--font-h);font-size:clamp(22px,3vw,32px);font-weight:800;margin-bottom:16px;color:var(--text);letter-spacing:-0.03em}
-.guarantee-card p{font-size:17px;color:var(--text-2);line-height:1.8;max-width:520px;margin:0 auto}
-.guarantee-card .guarantee-detail{font-size:14px;color:var(--text-3);margin-top:16px}
-.guarantee-name{font-family:var(--font-h);font-size:14px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
-
-/* === FOUNDER === */
-.founder-section{position:relative;overflow:hidden}
-.founder-card{max-width:600px;margin:0 auto;text-align:center}
-.founder-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#1e40af);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-family:var(--font-h);font-size:28px;font-weight:800;color:#fff}
-.founder-card h3{font-family:var(--font-h);font-size:22px;font-weight:700;margin-bottom:4px}
-.founder-card .founder-role{font-size:14px;color:var(--accent);font-weight:600;margin-bottom:16px}
-.founder-card p{font-size:16px;color:var(--text-2);line-height:1.8;max-width:480px;margin:0 auto}
-
-/* === HERO BADGES === */
-.hero-guarantee{display:inline-flex;align-items:center;gap:8px;padding:8px 20px;background:var(--green-bg);border:1px solid rgba(34,197,94,0.2);border-radius:100px;font-size:14px;font-weight:600;color:var(--green);margin-top:24px}
-.hero-niche{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;background:var(--accent-bg);border:1px solid rgba(59,130,246,0.2);border-radius:100px;font-size:13px;font-weight:500;color:var(--accent);margin-bottom:16px}
-
-/* === PRICING === */
-.pr-engagement{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:100px;font-size:12px;font-weight:600;margin:8px 0 24px}
-.pr-engagement-free{background:var(--green-bg);color:var(--green)}
-.pr-engagement-3m{background:var(--accent-bg);color:var(--accent)}
-.pr-engagement-custom{background:var(--surface-2);color:var(--text-3)}
-
-/* === BONUS STACK === */
-.bonus-stack{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
-.bonus-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:13px}
-.bonus-item-name{color:var(--text-2);display:flex;align-items:center;gap:6px}
-.bonus-item-name .bi-check{color:var(--green);font-weight:700;font-size:14px}
-.bonus-item-val{color:var(--text-3);font-size:12px}
-.bonus-item-val span{text-decoration:line-through;opacity:0.6}
-.bonus-item-val em{font-style:normal;color:var(--green);font-weight:600}
-.bonus-total{display:flex;justify-content:space-between;align-items:center;padding:16px 0 0;margin-top:8px;border-top:1px solid var(--border);font-family:var(--font-h)}
-.bonus-total-label{font-size:14px;color:var(--text-3)}
-.bonus-total-val{font-size:14px;color:var(--text-3)}
-.bonus-total-val span{text-decoration:line-through}
-.bonus-you-pay{display:flex;justify-content:space-between;align-items:center;padding:8px 0 0}
-.bonus-you-pay-label{font-size:15px;font-weight:700;color:var(--text)}
-.bonus-you-pay-val{font-size:18px;font-weight:800;color:var(--accent)}
-
-/* === SCARCITY === */
-.scarcity-bar{max-width:500px;margin:32px auto 0;text-align:center;padding:16px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg)}
-.scarcity-bar p{font-size:14px;color:var(--text-2)}
-.scarcity-bar strong{color:var(--text);font-weight:700}
-.scarcity-dots{display:flex;justify-content:center;gap:8px;margin-top:10px}
-.scarcity-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
-.scarcity-dot-taken{background:var(--red-bg);color:var(--red)}
-.scarcity-dot-free{background:var(--green-bg);color:var(--green)}
-
-/* === COST OF INACTION === */
-.coi-section{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-.coi-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:24px;align-items:center;max-width:800px;margin:0 auto}
-.coi-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-xl);padding:32px 28px;text-align:center}
-.coi-card-bad{border-color:rgba(239,68,68,0.2)}
-.coi-card-good{border-color:rgba(34,197,94,0.25)}
-.coi-label{font-family:var(--font-h);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px}
-.coi-label-red{color:var(--red)}
-.coi-label-green{color:var(--green)}
-.coi-line{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
-.coi-line:last-child{border-bottom:none}
-.coi-line-name{color:var(--text-2)}
-.coi-line-val{font-family:var(--font-h);font-weight:700;color:var(--text)}
-.coi-total{margin-top:16px;padding:12px;border-radius:var(--r);text-align:center}
-.coi-total-red{background:var(--red-bg)}
-.coi-total-green{background:var(--green-bg)}
-.coi-total-val{font-family:var(--font-h);font-size:28px;font-weight:800}
-.coi-total-red .coi-total-val{color:var(--red)}
-.coi-total-green .coi-total-val{color:var(--green)}
-.coi-total-sub{font-size:12px;color:var(--text-3);margin-top:4px}
-.coi-arrow{color:var(--text-3)}
-.coi-saving{text-align:center;margin-top:24px;font-size:15px;color:var(--text-2)}
-.coi-saving strong{color:var(--green);font-weight:700}
-
-/* === LEAD MAGNET (Audit Pipeline) === */
-.audit-section{position:relative;overflow:hidden}
-.audit-section::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(59,130,246,0.06) 0%,transparent 70%);pointer-events:none}
-.audit-card{max-width:640px;margin:0 auto;background:var(--surface);border:2px solid var(--accent);border-radius:var(--r-xl);padding:48px 40px;position:relative;z-index:1}
-.audit-card .label{margin-bottom:12px}
-.audit-card h3{font-family:var(--font-h);font-size:clamp(22px,3vw,30px);font-weight:800;margin-bottom:12px;letter-spacing:-0.03em}
-.audit-card>p{font-size:16px;color:var(--text-2);line-height:1.75;margin-bottom:28px}
-.audit-steps{display:flex;flex-direction:column;gap:16px;margin-bottom:32px}
-.audit-step{display:flex;gap:14px;align-items:flex-start}
-.audit-step-num{width:32px;height:32px;border-radius:50%;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-h);font-size:14px;font-weight:800;flex-shrink:0}
-.audit-step-text{font-size:15px;color:var(--text-2);line-height:1.6}
-.audit-step-text strong{color:var(--text)}
-.audit-form{display:flex;flex-direction:column;gap:12px}
-.audit-input{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;font-family:var(--font);font-size:15px;color:var(--text);transition:border-color .2s}
-.audit-input:focus{outline:none;border-color:var(--accent)}
-.audit-input::placeholder{color:var(--text-3)}
-.audit-note{font-size:12px;color:var(--text-3);text-align:center;margin-top:8px}
-
-/* === WHY IT WORKS === */
-.value-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center}
-.value-item{padding:32px 20px}
-.value-item h3{font-family:var(--font-h);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px}
-.value-item p{font-size:14px;color:var(--text-2);line-height:1.7}
-
-/* === RESPONSIVE === */
-@media(max-width:768px){
-.value-grid{grid-template-columns:1fr}
-.coi-grid{grid-template-columns:1fr;gap:16px}
-.coi-arrow{transform:rotate(90deg)}
-.audit-card{padding:32px 20px}
-.hero-email-grid{grid-template-columns:1fr !important}
-}
-</style>
+<link rel="stylesheet" href="css/style.css?v=62">
 <noscript><style>.rv{opacity:1!important;transform:none!important}</style></noscript>
 </head>
 <body>
@@ -400,15 +290,24 @@
     <h2 class="title title-lg rv rv-1">Pas de templates. Pas de spam.<br>Des vrais messages pour des vrais d&eacute;cideurs.</h2>
   </div>
   <div class="value-grid">
-    <div class="value-item rv rv-1">
+    <div class="value-item glow-card rv rv-1">
+      <div class="value-icon" style="width:48px;height:48px;border-radius:12px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--accent)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+      </div>
       <h3>Recherche individuelle</h3>
       <p>Chaque prospect est &eacute;tudi&eacute; : site, actualit&eacute;s, LinkedIn, recrutements, lev&eacute;es. 10+ sources analys&eacute;es par personne.</p>
     </div>
-    <div class="value-item rv rv-2">
+    <div class="value-item glow-card rv rv-2">
+      <div class="value-icon" style="width:48px;height:48px;border-radius:12px;background:rgba(139,92,246,0.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--accent-2)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </div>
       <h3>Messages uniques</h3>
       <p>Chaque email mentionne un fait pr&eacute;cis sur le prospect. Le r&eacute;sultat est indistinguable d'un email &eacute;crit &agrave; la main.</p>
     </div>
-    <div class="value-item rv rv-3">
+    <div class="value-item glow-card rv rv-3">
+      <div class="value-icon" style="width:48px;height:48px;border-radius:12px;background:var(--green-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:var(--green)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      </div>
       <h3>Am&eacute;lioration continue</h3>
       <p>Le syst&egrave;me analyse les r&eacute;ponses et optimise automatiquement le ton, la longueur et le timing chaque semaine.</p>
     </div>
@@ -558,7 +457,7 @@
         <div class="bonus-total"><span class="bonus-total-label">Valeur totale</span><span class="bonus-total-val"><span>2 590&euro;</span></span></div>
         <div class="bonus-you-pay"><span class="bonus-you-pay-label">Vous payez</span><span class="bonus-you-pay-val">890&euro;/mois</span></div>
       </div>
-      <a href="https://cal.eu/alexis-benier-sarxqi" class="btn btn-o" style="width:100%;margin-top:24px" target="_blank" rel="noopener">R&eacute;server un appel</a>
+      <a href="https://cal.eu/alexis-benier-sarxqi" class="btn btn-p" style="width:100%;margin-top:24px" target="_blank" rel="noopener">R&eacute;server un appel</a>
     </div>
 
     <!-- MULTICANAL (ex-Growth) -->
@@ -594,7 +493,7 @@
         <div class="bonus-total"><span class="bonus-total-label">Valeur totale</span><span class="bonus-total-val"><span>3 490&euro;</span></span></div>
         <div class="bonus-you-pay"><span class="bonus-you-pay-label">Vous payez</span><span class="bonus-you-pay-val">1 490&euro;/mois</span></div>
       </div>
-      <a href="https://cal.eu/alexis-benier-sarxqi" class="btn btn-p" style="width:100%;margin-top:24px" target="_blank" rel="noopener">R&eacute;server un appel</a>
+      <a href="https://cal.eu/alexis-benier-sarxqi" class="btn btn-o" style="width:100%;margin-top:24px" target="_blank" rel="noopener">R&eacute;server un appel</a>
     </div>
 
   </div>
