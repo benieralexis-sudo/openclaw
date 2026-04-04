@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Dorin Vidrașcu este Chief Operating Officer la ITcare, cu sediul în Chișinău, Moldova. În această poziție, conducător de operațiuni, supervizează funcțiile operaționale și strategice ale companiei.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:24.736Z"
+  "importedAt": "2026-04-02T21:30:24.736Z",
+  "companyDescription": "ITcare este o companie cu activitate în sectorul tehnologic, localizată în Chișinău, Moldova. Compania se concentrează pe furnizarea de soluții și servicii în domeniul IT și tehnologiei."
 }

@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Serhii Shapran este Chief Operating Officer la Nova Poshta Moldova, lider în industria transportului și logisticii. Cu o echipă de 57 de angajați, gestionează operațiunile unei companii în expansiune activă pe piața moldovenă.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -59,5 +59,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:31:03.559Z"
+  "importedAt": "2026-04-02T21:31:03.559Z",
+  "companyDescription": "Nova Poshta Moldova este o companie de transport și logistică care operează o rețea de 31 de sucursale în Moldova. Compania se dezvoltă prin colaborări strategice, inclusiv cu lanțuri comerciale precum Kaufland, și extinde serviciile de colectare și distribuție a coletelor."
 }

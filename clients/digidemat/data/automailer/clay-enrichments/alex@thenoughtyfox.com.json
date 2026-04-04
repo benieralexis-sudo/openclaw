@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Alex Culeva este Co-Founder și CEO al The Noughty Fox, o companie din Chișinău, Moldova. Nu sunt disponibile informații suplimentare despre background-ul profesional al acestuia.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:18.778Z"
+  "importedAt": "2026-04-02T21:30:18.778Z",
+  "companyDescription": "The Noughty Fox este o companie cu sediul în Chișinău, Moldova. Informații detaliate despre industrie, dimensiune și descrierea activităților nu sunt disponibile în momentul de față."
 }

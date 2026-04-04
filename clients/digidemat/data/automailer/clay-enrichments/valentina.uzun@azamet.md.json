@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Valentina Uzun este Founder și CEO al Group of companies AZAMET, cu sediul în Chișinău, Moldova. Cu experiență în conducerea unui grup de companii, ea joacă un rol central în strategia și dezvoltarea organizației sale.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:25.245Z"
+  "importedAt": "2026-04-02T21:30:25.245Z",
+  "companyDescription": "AZAMET este un grup de companii bazat în Chișinău, Moldova, condus de Valentina Uzun. Grupul operează în sectorul privat moldovean cu focus pe dezvoltarea și gestionarea mai multor entități de afaceri."
 }

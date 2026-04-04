@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Olga Pascal este Managing Director la Optimum-Web, o companie de dezvoltare software din Chișinău, Moldova, cu 44 de angajați. Conduce o echipă implicată în furnizarea de soluții software personalizate și urmărește evoluția industriei în contextul transformării digitale și impactului AI.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.843Z"
+  "importedAt": "2026-04-02T21:30:13.843Z",
+  "companyDescription": "Optimum-Web este o companie de dezvoltare software bazată în Chișinău, Moldova, specializată în soluții software personalizate. Cu o echipă de 44 de profesioniști, compania este recunoscută pentru serviciile sale în domeniul dezvoltării software și rămâne actualizată cu tendințele industriei, inclusiv impactul AI asupra economiei software."
 }

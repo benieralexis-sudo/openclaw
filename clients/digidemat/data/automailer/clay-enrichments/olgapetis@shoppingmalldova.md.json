@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Olga (Petis) este Head of Marketing la Shopping MallDova, un centru comercial din Chișinău, Moldova. Cu o echipă de 26 de angajați, conduce strategiile de marketing pentru unul dintre principalele mall-uri din regiune.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:40.511Z"
+  "importedAt": "2026-04-02T21:30:40.511Z",
+  "companyDescription": "Shopping MallDova este un centru comercial situat în Chișinău, Moldova, care găzduiește diverse magazine și restaurante. Recent, centrul a primit finanțare de 21 milioane EUR de la Banca Transilvania și Victoriabank, iar va găzdui și un restaurant Taco Bell."
 }

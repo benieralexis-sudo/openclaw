@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Victor Baciu este proprietarul SC Rapid Link SRL, o companie de servicii și consultanță IT din Moldova. Cu o echipă de 13 angajați, conduce o organizație focusată pe soluții tehnologice.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": null,
@@ -23,5 +23,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.111Z"
+  "importedAt": "2026-04-02T21:30:13.111Z",
+  "companyDescription": "SC Rapid Link SRL este o companie de IT Services și IT Consulting cu sediul în Moldova. Oferă soluții și servicii informatice unei echipe de 13 profesioniști din domeniul tehnologiei."
 }

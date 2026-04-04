@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Vladimir Badan este Head of Marketing la Rabota.md, principala platformă de job marketplace din Moldova. Cu expertiză în strategia de marketing, conduce inițiative de promovare a oportunităților de angajare și activități de recrutare în regiune.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:36.303Z"
+  "importedAt": "2026-04-02T21:30:36.303Z",
+  "companyDescription": "Rabota.md este o platformă de găsire a unui loc de muncă și recrutare care servește piața moldovenească. Compania publică oferte de angajare și organizează evenimente de job fair în orașe majore precum Chișinău și Bălți."
 }

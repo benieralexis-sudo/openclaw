@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Ion Gîlea este CEO al OOK Group, o companie de tehnologie cu 31 de angajați cu sediul în Chișinău, Moldova.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.142Z"
+  "importedAt": "2026-04-02T21:30:12.142Z",
+  "companyDescription": "OOK Group este o companie din sectorul tehnologiei și internetului, cu operațiuni în domenii precum agricultura și alimentație, bazată în Chișinău, Moldova."
 }

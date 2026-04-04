@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Casey Barnes este Director la Heritage International School din Chișinău, Moldova. Cu o orientare către educație internațională și leadership în domeniul patrimoniului cultural, promovează valori de incluziune și respingere a narativelor de ură în mediul educațional global.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:25.398Z"
+  "importedAt": "2026-04-02T21:30:25.398Z",
+  "companyDescription": "Heritage International School este o instituție de educație situată în Chișinău, Moldova, cu focus pe educație internațională și angajarea comunităților în aspecte ale patrimoniului cultural și leadership educațional."
 }

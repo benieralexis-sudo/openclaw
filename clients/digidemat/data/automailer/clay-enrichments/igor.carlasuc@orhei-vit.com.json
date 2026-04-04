@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Igor Carlasuc este Director de Resurse Umane la Orhei-Vit, cea mai mare fabrica de procesare a fructelor din Moldova, cu o echipa de 76 de angajati. Conduce functiile de HR pentru o companie cu operatiuni internationale si parteneriate cu branduri globale.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.054Z"
+  "importedAt": "2026-04-02T21:30:12.054Z",
+  "companyDescription": "Orhei-Vit este cel mai mare producator de suc din Moldova, specializat in procesarea fructelor. Compania colaboreaza cu branduri internationale de renume si are acorduri de furnizare pentru piata globala."
 }

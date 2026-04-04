@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Boris Efimov este CEO al Orhei-Vit, cel mai mare producător de fructe din Moldova. Sub conducerea sa, compania a expandat operațiunile prin parteneriate strategice cu branduri internaționale.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.917Z"
+  "importedAt": "2026-04-02T21:30:13.917Z",
+  "companyDescription": "Orhei-Vit este lider în industria de procesare a fructelor din Moldova, cu 76 de angajați. Compania se specializează în producția de sucuri și alte produse din fructe, aprovizionând branduri globale și fiind recunoscută pe piața internațională."
 }

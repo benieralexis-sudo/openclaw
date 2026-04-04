@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Liliana Cimbir este Chief Operating Officer la Dreamups, o companie din sectorul educației cu 16 angajați, bazată în Chișinău, Moldova. Cu experiență în managementul operațional, ea conduce operațiunile unei platforme inovatoare de învățare.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -99,5 +99,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:10.797Z"
+  "importedAt": "2026-04-02T21:30:10.797Z",
+  "companyDescription": "Dreamups este o companie din domeniul administrării programelor educaționale, recent cunoscută pentru lansarea platformei Learning into Orbit. Compania a dezvoltat DreamUp, un instrument AI pentru creatori, ce s-a remarcat pe piața prin funcționalități și dezbateri în comunitatea artiștilor."
 }

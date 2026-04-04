@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Andrian Braniste este Head of Operations la Noction Moldova, cu responsabilități în gestionarea operațiunilor companiei. Cu o poziție de conducere, aduce experiență în optimizarea proceselor și coordonarea echipelor.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -43,5 +43,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:21.823Z"
+  "importedAt": "2026-04-02T21:30:21.823Z",
+  "companyDescription": "Noction Moldova este o companie din Moldova ale cărei detalii specifice privind sectorul și dimensiunea nu sunt disponibile în informațiile furnizate."
 }

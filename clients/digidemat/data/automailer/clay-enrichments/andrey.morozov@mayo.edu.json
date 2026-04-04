@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Andrey Morozov este CMO la Azamet, o companie din sectorul comerțului internațional și dezvoltării. Cu o echipă de 42 de angajați, activează din Chișinău, Moldova.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.891Z"
+  "importedAt": "2026-04-02T21:30:13.891Z",
+  "companyDescription": "Azamet este o companie din industria comerțului internațional și dezvoltării, cu sediul în Chișinău, Moldova. Operează cu o echipă de 42 de persoane."
 }

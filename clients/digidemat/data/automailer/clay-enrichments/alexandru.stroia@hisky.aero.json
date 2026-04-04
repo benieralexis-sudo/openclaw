@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Alexandru Stroia este Director of Flight Operations la HiSky, compania aeriană din Moldova. Responsabil de operațiunile zborurilor și gestionarea flotei aeriene. Contribuie la expansiunea recentă a companiei pe ruta Europa de Est - Statele Unite.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:10.794Z"
+  "importedAt": "2026-04-02T21:30:10.794Z",
+  "companyDescription": "HiSky este o companie aeriană din Chișinău, Moldova, cu 139 de angajați. Recent a lansat noi conexiuni aero între Europa de Est și Statele Unite, inclusiv zboruri către New York și Chicago, consolidând prezența sa pe piața transatlantică."
 }

@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Vlada Medvedcova este Chief Operating Officer la LH47 ARCH, cu sede în Chișinău, Moldova. Deține responsabilități strategice în conducerea operațională a organizației.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:18.775Z"
+  "importedAt": "2026-04-02T21:30:18.775Z",
+  "companyDescription": "LH47 ARCH este o companie cu activitate în Moldova. Compania pare să fie implicată în proiecte legate de arhitectură și experiențe turistice, inclusiv în domeniul viticol și construcțiilor inovatoare."
 }

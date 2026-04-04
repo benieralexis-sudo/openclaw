@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Andrei Martinenco este CEO, Founder și Partner la Smart Data Solutions, o companie din sectorul tehnologiei și internetului cu 117 angajați, bazată la Chișinău, Moldova. Se concentrează pe soluții inovatoare de date și inteligență artificială pentru transformarea digitală.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:11.659Z"
+  "importedAt": "2026-04-02T21:30:11.659Z",
+  "companyDescription": "Smart Data Solutions este o companie de tehnologie care dezvoltă soluții AI-driven pentru automatizarea autorizărilor prealabile în domeniul sănătății și oferă soluții inteligente de date pentru clădiri eficiente energetic. Compania colaborează cu parteneri din industrie pentru a transforma procesele de plată în sectorul medical."
 }

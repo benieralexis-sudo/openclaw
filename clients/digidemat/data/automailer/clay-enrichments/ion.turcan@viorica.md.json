@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Ion Turcan este Chief Commercial Officer la Viorica Cosmetic, o companie de製造 produse de îngrijire personală cu 83 de angajați, bazată la Chișinău, Moldova.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:10.418Z"
+  "importedAt": "2026-04-02T21:30:10.418Z",
+  "companyDescription": "Viorica Cosmetic este un producător de produse cosmetice și de îngrijire personală cu sediul în Chișinău, Moldova. Compania are 83 de angajați și recent a anunțat că va începe să achite datoriile acumulate."
 }

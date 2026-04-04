@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Alexa Iulian este CEO și Fondator al AlsoDev, o companie de IT Services și IT Consulting cu sediul în Chișinău, Moldova. Cu o echipă de 22 de profesioniști, conduce operațiunile și strategia companiei în domeniul tehnologiei informației.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": null,
@@ -23,5 +23,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.672Z"
+  "importedAt": "2026-04-02T21:30:12.672Z",
+  "companyDescription": "AlsoDev este o companie de servicii și consulting IT cu sediul în Chișinău, Moldova, care lucrează cu o echipă de 22 de angajați. Compania oferă soluții și servicii în domeniul tehnologiei informației pentru clienți diverse."
 }

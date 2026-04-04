@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Ilie Efros este Director of Sales la ITcare, situată în Chișinău, Moldova. Cu rol de conducere în vânzări, el este responsabil pentru strategia comercială și dezvoltarea business-ului companiei.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:25.609Z"
+  "importedAt": "2026-04-02T21:30:25.609Z",
+  "companyDescription": "ITcare este o companie activă în sectorul tehnologic, cu sediul în Chișinău, Moldova. Compania se concentrează pe furnizarea de soluții și servicii din domeniul IT."
 }

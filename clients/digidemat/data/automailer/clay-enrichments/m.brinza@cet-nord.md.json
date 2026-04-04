@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Marian Brinza este Chief Executive Officer la S.A. CET-Nord, principala companie de producere a energiei termice din nordul Moldovei, cu sediul in Balti.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -107,5 +107,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:20.463Z"
+  "importedAt": "2026-04-02T21:30:20.463Z",
+  "companyDescription": "CET-Nord este centrala electrica de termoficare din Balti, Moldova. Furnizeaza energie termica si electrica pentru locuitorii orasului Balti si imprejurimi."
 }

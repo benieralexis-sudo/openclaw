@@ -13,7 +13,7 @@
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": "Victor Tabuci este CEO și Fondator al Wippo IT, o companie de servicii IT și consulting cu sediul în Chișinău, Moldova. Conduce o echipă de 21 de profesioniști în domeniul tehnologiei informației.",
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -67,5 +67,6 @@
   "catchAll": false,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.022Z"
+  "importedAt": "2026-04-02T21:30:12.022Z",
+  "companyDescription": "Wippo IT este o firmă de servicii și consultanță IT localizată în Chișinău, Moldova, cu o echipă de 21 angajați. Compania oferă soluții și servicii în domeniul tehnologiei informației."
 }
