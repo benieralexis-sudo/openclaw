@@ -2,48 +2,56 @@
   "config": {
     "enabled": true,
     "adminChatId": "1409505520",
-    "businessContext": "",
-    "autonomyLevel": "semi",
+    "businessContext": "Digidemat — Partener oficial Google Workspace in Moldova. Target: companii moldave pe GWS fara partener local.",
+    "autonomyLevel": "full",
     "offer": {
-      "setup": 0,
+      "description": "Digidemat — Partener oficial Google Workspace Moldova. Pret mai mic decat direct de la Google, suport local in romana, sesiuni gratuite tips & tricks.",
       "monthly": 0,
-      "commitment": "",
-      "trial": "",
-      "description": ""
+      "trial": "Sesiune gratuita tips & tricks 30 min"
     },
     "emailPreferences": {
-      "maxLines": 5,
+      "maxLines": 6,
+      "maxLength": 450,
+      "maxWords": 80,
       "language": "ro",
-      "tone": "direct",
+      "tone": "pair-a-pair-hesitant",
+      "hookStyle": "observation-hypothese-question",
       "forbiddenWords": [
         "SDR",
         "pipeline",
-        "automatisation",
-        "solution",
-        "offre",
-        "plateforme",
-        "outil",
-        "logiciel",
-        "SaaS",
-        "innovation",
-        "revolutionner",
-        "transformer",
-        "optimiser",
-        "booster",
-        "scaler",
+        "automatizare",
+        "solutie",
+        "soluția noastră",
+        "oferta",
+        "pret",
+        "tarif",
+        "discount",
+        "promotie",
+        "imi permit",
+        "va propun",
+        "nu ezitati",
+        "revenind la",
+        "demonstratie",
+        "demo",
+        "intalnire",
+        "programare",
         "ROI",
-        "KPI",
-        "growth hack",
-        "synergie",
-        "levier",
-        "disruptif",
-        "game-changer",
-        "next-gen",
-        "essai gratuit",
-        "pilote gratuit"
-      ],
-      "hookStyle": "problem-first",
-      "signatureStyle": ""
+        "leads",
+        "prospectare",
+        "outbound",
+        "scale",
+        "funnel",
+        "churn",
+        "growth hacking",
+        "call",
+        "meeting",
+        "slot",
+        "disponibilitate",
+        "descoperi",
+        "beneficia",
+        "instrumentul nostru",
+        "platforma noastra"
+      ]
     },
     "followUpConfig": {
       "sequenceStepDays": [
@@ -59,8 +67,10 @@
       "enabled": true,
       "businessHoursOnly": true,
       "intervalHours": 4,
-      "dailyBriefingHour": 7
-    }
+      "dailyBriefingHour": 8
+    },
+    "_state": "standby",
+    "_stateChangedAt": "2026-04-04T16:34:24.008Z"
   },
   "goals": {
     "weekly": {

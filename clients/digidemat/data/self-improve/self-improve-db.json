@@ -6,11 +6,26 @@
     "analysisDay": "sunday",
     "analysisHour": 21,
     "autoApply": true,
-    "scoringWeights": null,
+    "scoringWeights": {
+      "openRate": 0.2,
+      "replyRate": 0.5,
+      "bounceRate": -0.3,
+      "lavenderScore": 0.15,
+      "specificityScore": 0.15
+    },
     "emailPreferences": {
-      "maxLength": null,
-      "preferredSendHour": null,
-      "preferredSendDay": null
+      "maxLength": 80,
+      "preferredSendHour": 9,
+      "preferredSendDay": "tuesday",
+      "optimalWordCount": {
+        "min": 35,
+        "max": 60,
+        "target": 45
+      },
+      "subjectLength": {
+        "min": 2,
+        "max": 4
+      }
     },
     "targetingCriteria": {
       "minScore": null
@@ -74,5 +89,34 @@
     "byRole": {},
     "topCohorts": [],
     "bottomCohorts": []
+  },
+  "timingPreferences": {
+    "bestDays": [
+      "tuesday",
+      "wednesday",
+      "thursday"
+    ],
+    "bestHours": [
+      9,
+      10,
+      14
+    ],
+    "avoidDays": [
+      "monday",
+      "friday"
+    ],
+    "avoidHours": [
+      12,
+      13,
+      17,
+      18
+    ],
+    "timezone": "Europe/Chisinau",
+    "recommendedMaxSteps": 3,
+    "recommendedStepDays": [
+      0,
+      3,
+      10
+    ]
   }
 }
