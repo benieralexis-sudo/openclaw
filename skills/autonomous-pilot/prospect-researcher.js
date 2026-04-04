@@ -41,6 +41,37 @@ class ProspectResearcher {
     this._uaIndex = Math.floor(Math.random() * USER_AGENTS.length);
   }
 
+  // --- Enrichment quality assessment (v9.3) ---
+
+  /**
+   * Evalue la qualite des donnees d'enrichissement Clay pour un prospect.
+   * Utilise pour bloquer l'envoi d'emails sous-personnalises.
+   * @param {Object|null} clayData — donnees Clay chargees
+   * @returns {{ score: number, missing: string[], ready: boolean, fields: Object }}
+   */
+  _assessEnrichmentQuality(clayData) {
+    if (!clayData) return { score: 0, missing: ['all'], ready: false, fields: {} };
+    const enr = clayData.enrichment || {};
+    const fields = {
+      linkedinBio: !!(clayData.linkedinBio || enr.linkedinBio),
+      companyDescription: !!(clayData.companyDescription || enr.shortDescription || enr.description),
+      googleNews: !!(clayData.googleNews && clayData.googleNews.news_results && clayData.googleNews.news_results.length > 0),
+      employeeCount: !!(clayData.employeeCount || enr.employeeCount),
+      linkedinPosts: !!(clayData.linkedinPosts && ((Array.isArray(clayData.linkedinPosts) && clayData.linkedinPosts.length > 0) || (clayData.linkedinPosts.posts && clayData.linkedinPosts.posts.length > 0))),
+      positionStartDate: !!(clayData.positionStartDate)
+    };
+    const weights = { linkedinBio: 25, companyDescription: 20, googleNews: 20, linkedinPosts: 15, employeeCount: 10, positionStartDate: 10 };
+    let score = 0;
+    const missing = [];
+    for (const [k, present] of Object.entries(fields)) {
+      if (present) score += weights[k];
+      else missing.push(k);
+    }
+    // Minimum pour email 10/10 : linkedinBio + (companyDescription OU googleNews)
+    const ready = fields.linkedinBio && (fields.companyDescription || fields.googleNews);
+    return { score, missing, ready, fields };
+  }
+
   // --- Clay enrichment loader (v9.0) ---
 
   /**
@@ -505,7 +536,7 @@ class ProspectResearcher {
         industry: clayData.industry || (enr.industry || null),
         employeeCount: clayData.employeeCount || (enr.employeeCount || null),
         foundedYear: enr.foundedYear || null,
-        shortDescription: (enr.shortDescription || enr.description || '').substring(0, 300),
+        shortDescription: (clayData.companyDescription || enr.shortDescription || enr.description || '').substring(0, 300),
         keywords: enr.keywords || [],
         technologies: enr.technologies || [],
         city: clayData.location || (enr.city || null),
@@ -519,14 +550,29 @@ class ProspectResearcher {
       log.info('prospect-research', 'Clay org data construite pour ' + (clayData.company || email));
 
       // LinkedIn data depuis Clay
-      if (clayData.linkedin || (enr.linkedinBio || enr.linkedinHeadline)) {
+      // FIX v9.3: linkedinBio est stocke au top-level par le webhook, pas dans enrichment
+      const rawBio = clayData.linkedinBio || enr.linkedinBio || null;
+      const rawHeadline = enr.linkedinHeadline || clayData.title || null;
+      if (clayData.linkedin || rawBio || rawHeadline) {
+        // Unwrap JSON format de Clay Summarize: {response: "..."} → string
+        let bioText = '';
+        if (rawBio) {
+          if (typeof rawBio === 'object' && rawBio.response) {
+            bioText = String(rawBio.response);
+          } else if (typeof rawBio === 'object') {
+            try { bioText = JSON.stringify(rawBio); } catch (e) { bioText = ''; }
+          } else {
+            bioText = String(rawBio);
+          }
+        }
         clayLinkedinData = {
-          headline: enr.linkedinHeadline || clayData.title || null,
-          summary: (enr.linkedinBio || '').substring(0, 400),
+          headline: rawHeadline,
+          summary: bioText.substring(0, 400),
           linkedinUrl: clayData.linkedin || enr.linkedinUrl || '',
           source: 'clay'
         };
-        log.info('prospect-research', 'Clay LinkedIn data construite pour ' + (contactName || email));
+        if (bioText) log.info('prospect-research', 'Clay LinkedIn bio chargee (' + bioText.length + ' chars) pour ' + (contactName || email));
+        else log.info('prospect-research', 'Clay LinkedIn data construite (sans bio) pour ' + (contactName || email));
       }
     }
 

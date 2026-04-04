@@ -813,10 +813,49 @@ class CampaignEngine {
     return steps;
   }
 
+  // v9.3 — Audit enrichissement avant lancement campagne
+  auditEnrichmentReadiness(contactListId) {
+    const list = storage.getContactList(contactListId);
+    if (!list) return { error: 'Liste introuvable' };
+    let ProspectResearcher;
+    try { ProspectResearcher = require('../autonomous-pilot/prospect-researcher.js'); }
+    catch (e) { try { ProspectResearcher = require('/app/skills/autonomous-pilot/prospect-researcher.js'); } catch (e2) { return { error: 'ProspectResearcher non disponible' }; } }
+    const researcher = new ProspectResearcher({});
+    let ready = 0, notReady = 0;
+    const missingByField = {};
+    const notReadyLeads = [];
+    for (const contact of list.contacts) {
+      const clayData = researcher._loadClayEnrichment(contact.email);
+      const eq = researcher._assessEnrichmentQuality(clayData);
+      if (eq.ready) { ready++; }
+      else {
+        notReady++;
+        notReadyLeads.push({ email: contact.email, name: contact.name || contact.firstName, score: eq.score, missing: eq.missing });
+        eq.missing.forEach(f => { missingByField[f] = (missingByField[f] || 0) + 1; });
+      }
+    }
+    const total = list.contacts.length;
+    const readiness = total > 0 ? Math.round(ready / total * 100) : 0;
+    return { total, ready, notReady, readiness, missingByField, notReadyLeads };
+  }
+
   async startCampaign(campaignId) {
     const campaign = storage.getCampaign(campaignId);
     if (!campaign) throw new Error('Campagne introuvable');
     if (campaign.steps.length === 0) throw new Error('Aucun email genere pour cette campagne');
+
+    // v9.3 — Audit enrichissement avant lancement
+    const audit = this.auditEnrichmentReadiness(campaign.contactListId);
+    if (audit.readiness !== undefined) {
+      log.info('campaign-engine', 'Audit enrichissement: ' + audit.ready + '/' + audit.total + ' prets (' + audit.readiness + '%)');
+      if (audit.readiness < 80) {
+        const msg = 'CAMPAGNE BLOQUEE: seulement ' + audit.readiness + '% des leads ont un enrichissement suffisant (minimum 80%). '
+          + audit.notReady + ' leads manquent: ' + Object.entries(audit.missingByField).map(([k, v]) => k + ' (' + v + ')').join(', ')
+          + '. Enrichir dans Clay avant de relancer.';
+        log.warn('campaign-engine', msg);
+        throw new Error(msg);
+      }
+    }
 
     storage.updateCampaign(campaignId, {
       status: 'active',
@@ -1361,6 +1400,24 @@ class CampaignEngine {
         }
       } else {
         // === STEP 1 : brief prospect si dispo, sinon template + personalizeEmail ===
+
+        // v9.3 QUALITY GATE : verifier qualite enrichissement avant generation
+        try {
+          const ProspectResearcher = require('../autonomous-pilot/prospect-researcher.js');
+          const _researcher = new ProspectResearcher({});
+          const _clayData = _researcher._loadClayEnrichment(contact.email);
+          const _eqCheck = _researcher._assessEnrichmentQuality(_clayData);
+          if (!_eqCheck.ready) {
+            log.warn('campaign-engine', 'ENRICHMENT GATE FAIL pour ' + contact.email
+              + ' (score=' + _eqCheck.score + '/100, manque: ' + _eqCheck.missing.join(', ') + ')'
+              + ' — email skip pour eviter envoi generique');
+            skipped++;
+            continue;
+          }
+        } catch (eqErr) {
+          log.warn('campaign-engine', 'Enrichment quality check echoue pour ' + contact.email + ': ' + eqErr.message);
+        }
+
         const step1Intel = this._getProspectIntel(contact.email);
         currentProspectIntel = step1Intel || '';
         if (step1Intel && this.claude.generateSingleEmail) {
