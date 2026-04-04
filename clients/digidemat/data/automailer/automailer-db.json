@@ -1,10 +1,17 @@
 {
-  "users": {},
+  "users": {
+    "1409505520": {
+      "chatId": "1409505520",
+      "campaignCount": 0,
+      "emailsSent": 0,
+      "registeredAt": "2026-04-04T13:57:10.948Z"
+    }
+  },
   "contactLists": {
     "lst_mngpnnjjak86": {
       "id": "lst_mngpnnjjak86",
       "chatId": "1409505520",
-      "name": "Clay Imports",
+      "name": "GWS Moldova — 51 leads",
       "contacts": [
         {
           "email": "ion.turcan@viorica.md",
@@ -574,11 +581,65 @@
     }
   },
   "templates": {},
-  "campaigns": {},
+  "campaigns": {
+    "cmp_gws_moldova_avril2026": {
+      "id": "cmp_gws_moldova_avril2026",
+      "chatId": "1409505520",
+      "name": "GWS Moldova — Avril 2026",
+      "status": "draft",
+      "contactListId": "lst_mngpnnjjak86",
+      "totalContacts": 51,
+      "currentStep": 0,
+      "steps": [
+        {
+          "stepNumber": 1,
+          "subjectTemplate": "{{firstName}}, o întrebare despre Google Workspace la {{company}}",
+          "bodyTemplate": "Salut {{firstName}},\n\n{{observation_hook}}\n\nMulte companii din Moldova plătesc Google Workspace direct la Google — fără suport local, fără formare echipei, la preț standard.\n\nDigidemat e partener oficial Google în Moldova: preț mai mic, suport în română, și sesiuni gratuite de tips & tricks pentru echipă.\n\nAi 15 minute săptămâna viitoare pentru o discuție scurtă?\n\nAndreea\nDigidemat — Partener Google Workspace Moldova",
+          "delayDays": 0,
+          "status": "pending",
+          "scheduledAt": "2026-04-07T06:00:00.000Z",
+          "sentAt": null,
+          "sentCount": 0,
+          "errorCount": 0
+        },
+        {
+          "stepNumber": 2,
+          "subjectTemplate": "Re: {{previousSubject}}",
+          "bodyTemplate": "{{firstName}}, am trimis un mesaj acum câteva zile.\n\nPe scurt: dacă {{company}} folosește Google Workspace direct, probabil plătiți mai mult decât ar trebui.\n\nCa partener oficial, putem oferi un preț redus + suport local. Zero efort din partea voastră — noi ne ocupăm de tot.\n\nMerită 10 minute?\n\nAndreea",
+          "delayDays": 3,
+          "status": "pending",
+          "scheduledAt": "2026-04-10T06:00:00.000Z",
+          "sentAt": null,
+          "sentCount": 0,
+          "errorCount": 0
+        },
+        {
+          "stepNumber": 3,
+          "subjectTemplate": "Re: {{previousSubject}}",
+          "bodyTemplate": "{{firstName}}, ultimul mesaj de la mine.\n\nDacă momentul nu e potrivit, înțeleg perfect. Dar dacă vreodată ai nevoie de suport Google Workspace în română sau vrei să verifici dacă plătiți prețul corect — scrie-mi.\n\nMult succes cu tot ce faceți la {{company}}.\n\nAndreea",
+          "delayDays": 10,
+          "status": "pending",
+          "scheduledAt": "2026-04-17T06:00:00.000Z",
+          "sentAt": null,
+          "sentCount": 0,
+          "errorCount": 0
+        }
+      ],
+      "context": "Digidemat este partener oficial Google Workspace în Moldova. Oferim companiilor din Moldova: (1) Preț mai mic decât direct de la Google (reducere 5%), (2) Suport local în limba română, (3) Sesiuni gratuite de tips & tricks pentru echipă, (4) Migrare și setup complet inclus. Target: companii moldave care folosesc deja Google Workspace dar plătesc direct la Google, fără partener local. Limba emailurilor: ROMÂNĂ. Ton: informal, peer-to-peer, nu SDR. Semnătură: Andreea, Digidemat. Max 80 cuvinte per email. Booking: https://calendar.app.google/XzzKcZRwfhNzRn5F9",
+      "_sampleContact": {
+        "email": "ion.turcan@viorica.md",
+        "firstName": "Ion",
+        "company": "Viorica Cosmetic"
+      },
+      "createdAt": "2026-04-04T13:57:10.948Z",
+      "startedAt": null,
+      "completedAt": null
+    }
+  },
   "emails": [],
   "blacklist": {},
   "stats": {
-    "totalCampaigns": 0,
+    "totalCampaigns": 1,
     "totalEmailsSent": 0,
     "totalEmailsDelivered": 0,
     "totalEmailsOpened": 0,
