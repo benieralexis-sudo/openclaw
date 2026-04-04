@@ -1,0 +1,42 @@
+{
+  "email": "adrian.ixari@fmf.md",
+  "firstName": "Adrian",
+  "lastName": "Ixari",
+  "company": "Football Association of Moldova",
+  "title": "Chief Executive Officer",
+  "linkedin": "https://www.linkedin.com/in/adrian-ixari-349105150",
+  "website": "http://fmf.md",
+  "industry": "Spectator Sports",
+  "employeeCount": 57,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": "Chief Executive Officer",
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "title": "FMF signs partnership with Moldindconbank",
+        "date": "2025",
+        "snippet": "New partnership supporting Football in Schools social project and National Team fan activations.",
+        "source": "fmf.md",
+        "position": 1,
+        "link": ""
+      },
+      {
+        "title": "FMF receives UEFA Grassroots Award",
+        "date": "2025",
+        "snippet": "Special UEFA award for helping 10,000+ child refugees through football programs.",
+        "source": "uefa.com",
+        "position": 2,
+        "link": ""
+      }
+    ]
+  },
+  "companyDescription": "Official Football Association of Moldova and National Teams of Moldova.",
+  "positionStartDate": "8/2019",
+  "source": "smtp-verified-manual-enrichment"
+}

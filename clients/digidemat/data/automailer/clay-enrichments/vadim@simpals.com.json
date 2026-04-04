@@ -1,0 +1,50 @@
+{
+  "email": "vadim@simpals.com",
+  "firstName": "Vadim",
+  "lastName": "Cojocari",
+  "company": "Simpals",
+  "title": "Director",
+  "linkedin": "https://www.linkedin.com/in/vadim-cojocari-26999234",
+  "website": "http://www.simpals.com",
+  "industry": "Online Audio and Video Media",
+  "employeeCount": 216,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": "Director",
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "title": "Simpals launched second solar park within a year",
+        "date": "Mar 2026",
+        "snippet": "Simpals continues green energy expansion in Moldova with its second solar park.",
+        "source": "simpals.com",
+        "position": 1,
+        "link": ""
+      },
+      {
+        "title": "Rally at the office of Simpals",
+        "date": "Sep 2025",
+        "snippet": "Community discussion about city traffic impact of Simpals events in central Chisinau.",
+        "source": "news-pravda.com",
+        "position": 2,
+        "link": ""
+      },
+      {
+        "title": "Simpals media partner at Moldova Digital Summit 2025",
+        "date": "Jun 2025",
+        "snippet": "Simpals partnered with Moldova Digital Summit, advancing regional digital innovation.",
+        "source": "emerging-europe.com",
+        "position": 3,
+        "link": ""
+      }
+    ]
+  },
+  "companyDescription": "Simpals is the largest classifieds board and the latest news, cool cartoons and the Chisinau Marathon, electronic diaries, and transparent public acquisitions.",
+  "positionStartDate": null,
+  "source": "smtp-verified-manual-enrichment"
+}

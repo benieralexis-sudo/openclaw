@@ -1,0 +1,113 @@
+{
+  "email": "savinov@terraavia.com",
+  "firstName": "Andrei",
+  "lastName": "Savinov",
+  "company": "TERRA AVIA",
+  "title": "Technical Director",
+  "linkedin": "https://www.linkedin.com/in/andrei-savinov-10839012b",
+  "website": "http://terraavia.com",
+  "industry": "Airlines and Aviation",
+  "employeeCount": 45,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": {
+    "response": "1. Ca Technical Director la TERRA AVIA, Andrei Savinov este responsabil pentru gestionarea eficientă a infrastructurii IT și a sistemelor de zbor, asigurând funcționarea fără probleme a operațiunilor companiei aeriene.\n\n2. Provocările probabile includ optimizarea costurilor, îmbunătățirea securității cibernetice și implementarea de soluții tehnologice inovatoare pentru a spori competitivitatea TERRA AVIA în piața aviatică.\n\n3. O abordare potențială pentru prospectare B2B ar putea fi prezentarea de soluții IT personalizate care să ajute compania să își îmbunătățească eficiența operațională și să reducă riscurile tehnologice."
+  },
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "date": "Aug 16, 2025",
+        "link": "https://www.flightradar24.com/data/aircraft/er-boy",
+        "position": 1,
+        "snippet": "The Flightradar24 API offers powerful endpoints to access real-time aircraft positions, comprehensive airline/airport, and historic flight data. Or check out...",
+        "source": "Flightradar24",
+        "title": "Live Flight Tracker - Real-Time Flight Tracker Map"
+      },
+      {
+        "date": "Aug 3, 2025",
+        "link": "https://samchui.com/videos/flying-the-b747-400bdsf-special-freighter-a-day-in-the-life-of-airline-pilot/",
+        "position": 2,
+        "snippet": "Join me flying on a special B747-400 Special Freighter (BDSF) and experience life as a cargo pilot. ER-BAS is a Boeing 747-409(BDSF), a BeDek Special...",
+        "source": "SamChui.com",
+        "title": "Video: Flying the B747-400(BDSF) Special Freighter: A Day in the Life of Airline Pilot"
+      },
+      {
+        "date": "Jul 13, 2025",
+        "link": "https://aviationa2z.com/index.php/2025/07/13/sam-chui-sky-wedding-aboard-boeing-747/",
+        "position": 3,
+        "snippet": "It is one of several aircraft Terra Avia uses primarily for Hajj charters, flying routes between Nigeria and Jeddah (JED). Bhavya Velani.",
+        "source": "Aviation A2Z",
+        "title": "Aviation Vlogger Sam Chui Hosts Sky Wedding Aboard Boeing 747"
+      },
+      {
+        "date": "Jan 8, 2026",
+        "link": "https://theloadstar.com/israel-orders-immediate-checks-on-iai-converted-747-400-freighters/",
+        "position": 4,
+        "snippet": "Some 29 converted 747-400s could face temporary grounding after the Civil Aviation Authority of Israel required immediate inspections.",
+        "source": "The Loadstar",
+        "title": "News Israel orders immediate checks on IAI-converted 747-400 freighters"
+      },
+      {
+        "date": "Jan 24, 2024",
+        "link": "https://www.ch-aviation.com/airlines/TVR",
+        "position": 5,
+        "snippet": "Up to date airline profiles for up to 5000 airlines and aircraft operators: Fleet lists, schedule, news, route network, IATA/ICAO codes, alliances,...",
+        "source": "ch-aviation",
+        "title": "Terra Avia"
+      },
+      {
+        "date": "May 15, 2024",
+        "link": "https://www.avherald.com/h?article=518a8699",
+        "position": 6,
+        "snippet": "A Terra Avia Boeing 747-400 on behalf of Garuda Indonesia, registration ER-BOS performing flight GA-1105 from Makassar (Indonesia) to...",
+        "source": "The Aviation Herald",
+        "title": "Incident: Terra B744 at Makassar on May 15th 2024, engine stall on takeoff"
+      },
+      {
+        "date": "May 28, 2022",
+        "link": "https://simpleflying.com/ex-transaero-boeing-747-leaves-desert-storage-after-7-years/",
+        "position": 7,
+        "snippet": "On Thursday, the former Transaero jumbo jet departed Teruel to start a new life as a freighter with Aquiline International and Terra Avia.",
+        "source": "Simple Flying",
+        "title": "Ex-Transaero Boeing 747 Leaves Desert Storage After 7 Years"
+      },
+      {
+        "date": "Jan 23, 2024",
+        "link": "https://www.ch-aviation.com/news/58021-moldovas-terra-avia-adds-maiden-b747",
+        "position": 8,
+        "snippet": "Moldova's Terra Avia adds maiden B747 ... Terra Avia (T8, Chisinau International) has added a maiden B747-400 to its fleet Skyliner Aviation has reported.",
+        "source": "ch-aviation",
+        "title": "Moldova's Terra Avia adds maiden B747"
+      },
+      {
+        "date": "Jul 16, 2025",
+        "link": "https://luxurylaunches.com/other_stuff/youtuber-marries-onboard-a-boeing-747-jet-07162025.php",
+        "position": 9,
+        "snippet": "Some say matches are made in heaven, but aviation influencer Sam Chui, one of the world's most prominent aviation content creators,...",
+        "source": "Luxurylaunches",
+        "title": "Not a Qatari prince or a tech billionaire, but it was a YouTuber who not only got married onboard a chartered Boeing 747 jet but also hosted a dance‑party reception at 40,000 feet in the sky"
+      },
+      {
+        "date": "May 5, 2024",
+        "link": "https://www.flightradar24.com/data/aircraft/er-gag",
+        "position": 10,
+        "snippet": "ER-GAG / ERGAG (Terra Avia) - Aircraft info, flight history, flight schedule and flight playback.",
+        "source": "Flightradar24",
+        "title": "Live Flight Tracker - Real-Time Flight Tracker Map"
+      }
+    ],
+    "total_news_results": 10
+  },
+  "revenueData": null,
+  "growthInsights": null,
+  "enrichCompany": null,
+  "catchAll": false,
+  "enrichment": {},
+  "source": "clay",
+  "importedAt": "2026-04-04T00:57:11.150Z"
+}

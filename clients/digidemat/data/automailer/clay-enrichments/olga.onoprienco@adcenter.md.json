@@ -1,0 +1,34 @@
+{
+  "email": "olga.onoprienco@adcenter.md",
+  "firstName": "Olga",
+  "lastName": "Onoprienco",
+  "company": "ADCENTER",
+  "title": "CEO & Partner",
+  "linkedin": "https://www.linkedin.com/in/olgamacarenco",
+  "website": "http://www.adcenter.md",
+  "industry": "Advertising Services",
+  "employeeCount": 126,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": "CEO & Partner",
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "title": "ADCENTER among top digital marketing agencies in Moldova 2025-2026",
+        "date": "2025",
+        "snippet": "ADCENTER ranked among top agencies on Clutch.co and TechBehemoths for digital strategy and performance marketing.",
+        "source": "clutch.co",
+        "position": 1,
+        "link": ""
+      }
+    ]
+  },
+  "companyDescription": "At AdCenter we design holistic digital strategies. Creative content, efficient and targeted advertising.",
+  "positionStartDate": "2/2025",
+  "source": "smtp-verified-manual-enrichment"
+}

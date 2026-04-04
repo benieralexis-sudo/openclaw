@@ -1,0 +1,34 @@
+{
+  "email": "dumitru.petrascu@viorica.md",
+  "firstName": "Dumitru",
+  "lastName": "Petrascu",
+  "company": "Viorica Cosmetic",
+  "title": "Chief Executive Officer",
+  "linkedin": "https://www.linkedin.com/in/dumitrupetrascu",
+  "website": "http://www.viorica.md",
+  "industry": "Personal Care Product Manufacturing",
+  "employeeCount": 83,
+  "location": "Bucharest, Romania",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": "Chief Executive Officer",
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "title": "Viorica Cosmetic will start paying off losses",
+        "date": "Jul 2025",
+        "snippet": "Authorized capital of Viorica Cosmetic remains 118.5 million lei. Company restructuring underway.",
+        "source": "logos-pres.md",
+        "position": 1,
+        "link": ""
+      }
+    ]
+  },
+  "companyDescription": "We combine botanical science with dermatological expertise to develop cosmetic products.",
+  "positionStartDate": "5/2022",
+  "source": "smtp-verified-manual-enrichment"
+}

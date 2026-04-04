@@ -1,0 +1,34 @@
+{
+  "email": "anatolie.dontu@azamet.md",
+  "firstName": "Anatolie",
+  "lastName": "Donțu",
+  "company": "Azamet",
+  "title": "Chief Operating Officer",
+  "linkedin": "https://www.linkedin.com/in/anatolie-donțu-871664127",
+  "website": "http://www.azamet.md",
+  "industry": "International Trade and Development",
+  "employeeCount": 42,
+  "location": "Chișinău, Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": "Chief Operating Officer",
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "title": "Azamet-Group exports grape products",
+        "date": "Apr 2026",
+        "snippet": "Valentina Uzun, head of Azamet-Group, spoke about export activities of grape cake and grape seed products.",
+        "source": "logos-pres.md",
+        "position": 1,
+        "link": ""
+      }
+    ]
+  },
+  "companyDescription": "AZAMET - компания в которой ценят людей, профессионализм, оптимизм и ориентацию на результат.",
+  "positionStartDate": "1/2020",
+  "source": "smtp-verified-manual-enrichment"
+}

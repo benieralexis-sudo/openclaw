@@ -1,0 +1,34 @@
+{
+  "email": "alexandr.tihai@mteam.md",
+  "firstName": "Alexandr",
+  "lastName": "Tihai",
+  "company": "MTEAM SSC",
+  "title": "CEO",
+  "linkedin": "https://www.linkedin.com/in/alexandr-tihai-54b9a2141",
+  "website": "http://mteam.md",
+  "industry": "IT Services and IT Consulting",
+  "employeeCount": 15,
+  "location": "Moldova",
+  "phone": "",
+  "builtWith": null,
+  "funding": null,
+  "headcountGrowth": null,
+  "linkedinBio": "CEO",
+  "linkedinPosts": null,
+  "jobListings": null,
+  "googleNews": {
+    "news_results": [
+      {
+        "title": "Moldova IT Park surpasses record 1 billion dollar turnover in 2025",
+        "date": "Feb 2026",
+        "snippet": "IT Park companies achieved 24.3% growth with 2,725 resident companies from 44 countries.",
+        "source": "moldpres.md",
+        "position": 1,
+        "link": ""
+      }
+    ]
+  },
+  "companyDescription": "MTEAM is one of the most dynamic and successful IT companies in the region. IT Development, IT Support, IT Outsourcing.",
+  "positionStartDate": null,
+  "source": "smtp-verified-manual-enrichment"
+}
