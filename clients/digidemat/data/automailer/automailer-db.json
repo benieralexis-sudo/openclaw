@@ -1655,10 +1655,232 @@
           "title": "Principal CEO",
           "industry": "",
           "addedAt": "2026-04-02T21:32:23.269Z"
+        },
+        {
+          "email": "vv@imonagrup.md",
+          "name": "Veaceslav Vedmediuc",
+          "firstName": "Veaceslav",
+          "lastName": "Vedmediuc",
+          "company": "ImonaGrup Tipografie",
+          "title": "Founder & Ceo",
+          "industry": "Printing Services",
+          "addedAt": "2026-04-04T00:57:11.038Z"
+        },
+        {
+          "email": "marian.gropa@energbank.com",
+          "name": "Gropa Marian",
+          "firstName": "Gropa",
+          "lastName": "Marian",
+          "company": "BC \"ENERGBANK\"​ SA",
+          "title": "Head of Strategic Risk Management Department",
+          "industry": "Banking",
+          "addedAt": "2026-04-04T00:57:11.108Z"
+        },
+        {
+          "email": "fsongurov@sapec.md",
+          "name": "Fiodor Songurov",
+          "firstName": "Fiodor",
+          "lastName": "Songurov",
+          "company": "Sapec Software",
+          "title": "Chief Technology Officer",
+          "industry": "Software Development",
+          "addedAt": "2026-04-04T00:57:11.140Z"
+        },
+        {
+          "email": "savinov@terraavia.com",
+          "name": "Andrei Savinov",
+          "firstName": "Andrei",
+          "lastName": "Savinov",
+          "company": "TERRA AVIA",
+          "title": "Technical Director",
+          "industry": "Airlines and Aviation",
+          "addedAt": "2026-04-04T00:57:11.150Z"
+        },
+        {
+          "email": "ijereghi@ulim.md",
+          "name": "Ion Jereghi",
+          "firstName": "Ion",
+          "lastName": "Jereghi",
+          "company": "Free International University of Moldova",
+          "title": "",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "smtp-confirmed",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "vadim@simpals.com",
+          "name": "Vadim Cojocari",
+          "firstName": "Vadim",
+          "lastName": "Cojocari",
+          "company": "Simpals",
+          "title": "",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "smtp-confirmed",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "dumitru.petrascu@viorica.md",
+          "name": "Dumitru Petrascu",
+          "firstName": "Dumitru",
+          "lastName": "Petrascu",
+          "company": "Viorica Cosmetic",
+          "title": "CEO",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "smtp-confirmed",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "iurii.latii@monsato.md",
+          "name": "Iurii Latii",
+          "firstName": "Iurii",
+          "lastName": "Latii",
+          "company": "Monsato",
+          "title": "COO",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "smtp-confirmed",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "ciobanu@ceiti.md",
+          "name": "Andrei Ciobanu",
+          "firstName": "Andrei",
+          "lastName": "Ciobanu",
+          "company": "CEITI",
+          "title": "Director",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "smtp-confirmed",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "adrian.ixari@fmf.md",
+          "name": "Adrian Ixari",
+          "firstName": "Adrian",
+          "lastName": "Ixari",
+          "company": "Football Association of Moldova",
+          "title": "CEO",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "smtp-confirmed",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "anatolie.dontu@azamet.md",
+          "name": "Anatolie Donțu",
+          "firstName": "Anatolie",
+          "lastName": "Donțu",
+          "company": "Azamet",
+          "title": "COO",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "catch-all-guess",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "elizaveta.magleli@azamet.md",
+          "name": "Elizaveta Magleli",
+          "firstName": "Elizaveta",
+          "lastName": "Magleli",
+          "company": "Azamet",
+          "title": "",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "catch-all-guess",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "ivan.chistol@grafit.com",
+          "name": "Ivan Chistol",
+          "firstName": "Ivan",
+          "lastName": "Chistol",
+          "company": "Grafit Holding",
+          "title": "",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "catch-all-guess",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "olga.onoprienco@adcenter.md",
+          "name": "Olga Onoprienco",
+          "firstName": "Olga",
+          "lastName": "Onoprienco",
+          "company": "ADCENTER",
+          "title": "",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "catch-all-guess",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "vitor.deandrade@adcenter.md",
+          "name": "Vitor de Andrade",
+          "firstName": "Vitor",
+          "lastName": "de Andrade",
+          "company": "ADCENTER",
+          "title": "",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "catch-all-guess",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "v.macovschi@liniah2o.md",
+          "name": "Vladimir Macovschi",
+          "firstName": "Vladimir",
+          "lastName": "Macovschi",
+          "company": "LiniaH2O",
+          "title": "Director",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "catch-all-guess",
+          "tags": [
+            "gws"
+          ]
+        },
+        {
+          "email": "alexandr.tihai@mteam.md",
+          "name": "Alexandr Tihai",
+          "firstName": "Alexandr",
+          "lastName": "Tihai",
+          "company": "MTEAM SSC",
+          "title": "",
+          "industry": "",
+          "addedAt": "2026-04-04T13:47:47.492Z",
+          "source": "catch-all-guess",
+          "tags": [
+            "gws"
+          ]
         }
       ],
       "createdAt": "2026-04-02T00:02:36.655Z",
-      "updatedAt": "2026-04-02T21:32:23.269Z"
+      "updatedAt": "2026-04-04T00:57:11.150Z"
     }
   },
   "templates": {},
@@ -1671,7 +1893,7 @@
     "totalEmailsDelivered": 0,
     "totalEmailsOpened": 0,
     "totalEmailsBounced": 0,
-    "totalContactsImported": 165,
+    "totalContactsImported": 169,
     "totalTemplatesCreated": 0,
     "createdAt": "2026-03-18T19:33:29.045Z"
   }
