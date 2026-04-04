@@ -30,7 +30,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="css/style.css?v=43">
+<link rel="stylesheet" href="css/style.css?v=60">
 <style>
 /* === GUARANTEE "Garantie Pipeline" === */
 .guarantee-section{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
@@ -177,6 +177,12 @@
 <!-- HERO — Niche ESN/IT + Lead Magnet CTA        -->
 <!-- ============================================ -->
 <section class="hero">
+<!-- Animated gradient mesh orbs -->
+<div class="hero-mesh">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
 <div class="wrap">
   <div class="hero-niche rv">Sp&eacute;cialiste prospection pour ESN</div>
   <h1 class="title title-xl rv rv-1">Votre agenda rempli de RDV<br><em>avec les d&eacute;cideurs IT qui ont besoin de vos consultants.</em></h1>
@@ -251,22 +257,22 @@
     <p class="subtitle rv rv-2">Vous dirigez une ESN. Vous savez closer et staffez bien. Mais trouver les bons interlocuteurs, les DSI et CTO qui ont des projets maintenant ?</p>
   </div>
   <div class="prob-grid">
-    <div class="prob-card rv rv-1">
+    <div class="prob-card glow-card rv rv-1">
       <div class="prob-icon prob-icon-red"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
       <h3>Prospecter soi-m&ecirc;me</h3>
       <p>10h par semaine &agrave; &eacute;crire des emails au lieu de d&eacute;velopper votre activit&eacute;. Et quand vous arr&ecirc;tez, le pipeline se vide.</p>
     </div>
-    <div class="prob-card rv rv-2">
+    <div class="prob-card glow-card rv rv-2">
       <div class="prob-icon prob-icon-red"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
       <h3>Recruter un commercial</h3>
       <p>3 500&euro;/mois minimum. 3 &agrave; 6 mois avant qu'il soit autonome. Turnover moyen : 14 mois. R&eacute;sultat incertain.</p>
     </div>
-    <div class="prob-card rv rv-3">
+    <div class="prob-card glow-card rv rv-3">
       <div class="prob-icon prob-icon-amber"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 8 12 14 22 8"/></svg></div>
       <h3>Agences &amp; outils classiques</h3>
       <p>Templates g&eacute;n&eacute;riques envoy&eacute;s &agrave; des milliers de CTO. Votre image en prend un coup, r&eacute;sultats &agrave; 1-2%.</p>
     </div>
-    <div class="prob-card rv rv-4">
+    <div class="prob-card glow-card rv rv-4">
       <div class="prob-icon prob-icon-amber"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
       <h3>Trop d'outils, z&eacute;ro r&eacute;sultat</h3>
       <p>Sales Nav + enrichissement + emailing + LinkedIn + CRM. 5 outils, 500&euro;/mois, et toujours rien d'automatis&eacute;.</p>
@@ -352,6 +358,35 @@
       </div>
     </div>
   </div>
+
+  <!-- Pipeline Flow Animation -->
+  <div class="pipeline-flow rv rv-4">
+    <div class="pipeline-step">
+      <div class="pipeline-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <span class="pipeline-label">Sales Nav</span>
+    </div>
+    <div class="pipeline-arrow"><div class="dot"></div></div>
+    <div class="pipeline-step">
+      <div class="pipeline-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div>
+      <span class="pipeline-label">Clay</span>
+    </div>
+    <div class="pipeline-arrow"><div class="dot"></div></div>
+    <div class="pipeline-step">
+      <div class="pipeline-icon" style="color:var(--accent-2)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a4 4 0 014 4c0 2-2 3-2 5h-4c0-2-2-3-2-5a4 4 0 014-4z"/><path d="M10 17v1a2 2 0 004 0v-1"/><line x1="10" y1="13" x2="14" y2="13"/><line x1="10" y1="15" x2="14" y2="15"/></svg></div>
+      <span class="pipeline-label">IA Claude</span>
+    </div>
+    <div class="pipeline-arrow"><div class="dot"></div></div>
+    <div class="pipeline-step">
+      <div class="pipeline-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 8 12 14 22 8"/></svg></div>
+      <span class="pipeline-label">Email</span>
+    </div>
+    <div class="pipeline-arrow"><div class="dot"></div></div>
+    <div class="pipeline-step">
+      <div class="pipeline-icon" style="color:var(--green)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="22"/></svg></div>
+      <span class="pipeline-label">RDV</span>
+    </div>
+  </div>
+
 </div>
 </section>
 
@@ -573,7 +608,7 @@
 <section class="founder-section">
 <div class="wrap">
   <div class="founder-card rv">
-    <div class="founder-avatar">AB</div>
+    <img src="img/alexis-benier-400.jpg" alt="Alexis B&eacute;nier, fondateur d'iFIND" class="founder-photo" width="400" height="400" loading="lazy">
     <h3 class="rv rv-1">Alexis B&eacute;nier</h3>
     <p class="founder-role rv rv-1">Fondateur d'iFIND</p>
     <p class="rv rv-2">J'ai pass&eacute; des mois &agrave; &eacute;tudier comment les meilleures agences de prospection au monde (Belkins, SalesBread, Cleverly) g&eacute;n&egrave;rent des r&eacute;sultats. Le constat : 90% des agences envoient des templates g&eacute;n&eacute;riques. Les 10% qui performent font de la recherche individuelle sur chaque prospect.</p>
@@ -663,7 +698,7 @@
   <a href="#audit" class="btn btn-p">Audit gratuit &rarr;</a>
 </div>
 
-<script src="js/landing.js"></script>
+<script src="js/landing.js?v=60"></script>
 <script>
 // Audit form handler
 const auditForm = document.getElementById('auditForm');
