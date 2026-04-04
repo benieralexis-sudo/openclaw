@@ -592,10 +592,12 @@ function getDailyLimit() {
         .filter(s => s.active)
         .reduce((sum, s) => sum + Math.max(0, s.headroom), 0);
       // Limite min par domaine (le plus restrictif pour le warmup global)
-      const minWarmupLimit = Math.min(...stats.filter(s => s.active).map(s => s.warmupLimit));
+      const activeDomains = stats.filter(s => s.active);
+      const minWarmupLimit = activeDomains.length > 0 ? Math.min(...activeDomains.map(s => s.warmupLimit)) : 5;
       const totalTodaySent = stats.reduce((sum, s) => sum + s.todaySends, 0);
-      log.info('campaign-engine', 'Warmup check: ' + totalTodaySent + ' envoyes, limit=' + minWarmupLimit + ', headroom=' + totalHeadroom);
-      return totalHeadroom;
+      const safeHeadroom = Math.max(0, totalHeadroom); // v9.3: jamais negatif
+      log.info('campaign-engine', 'Warmup check: ' + totalTodaySent + ' envoyes, limit=' + minWarmupLimit + ', headroom=' + safeHeadroom);
+      return safeHeadroom;
     }
   } catch (e) {
     log.warn('campaign-engine', 'Domain-manager indisponible, fallback storage: ' + e.message);
@@ -2332,6 +2334,14 @@ class CampaignEngine {
             step._adaptiveChecked = false;
             storage.updateCampaign(campaign.id, { steps: campaign.steps });
             log.info('campaign-engine', 'Runtime repair: scheduledAt pour "' + campaign.name + '" step ' + step.stepNumber + ' → ' + step.scheduledAt);
+          }
+        }
+
+        // v9.3: ne pas executer step N si step N-1 n'est pas completed
+        if (step.stepNumber > 1) {
+          const prevStep = campaign.steps.find(s => s.stepNumber === step.stepNumber - 1);
+          if (prevStep && prevStep.status !== 'completed') {
+            continue; // step precedent pas fini, attendre
           }
         }
 

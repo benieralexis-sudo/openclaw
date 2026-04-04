@@ -219,6 +219,12 @@ const _CITY_TZ = {
   // Canada
   toronto: 'America/Toronto', montreal: 'America/Toronto', vancouver: 'America/Vancouver',
   ottawa: 'America/Toronto', calgary: 'America/Edmonton',
+  // Eastern Europe
+  chisinau: 'Europe/Chisinau', 'chișinău': 'Europe/Chisinau', 'chişinău': 'Europe/Chisinau',
+  bucharest: 'Europe/Bucharest', bucuresti: 'Europe/Bucharest', 'bucurești': 'Europe/Bucharest',
+  warsaw: 'Europe/Warsaw', budapest: 'Europe/Budapest', prague: 'Europe/Prague',
+  sofia: 'Europe/Sofia', kyiv: 'Europe/Kyiv', belgrade: 'Europe/Belgrade',
+  zagreb: 'Europe/Zagreb', athens: 'Europe/Athens', istanbul: 'Europe/Istanbul',
   // Other
   dubai: 'Asia/Dubai', singapore: 'Asia/Singapore', sydney: 'Australia/Sydney',
   'tel aviv': 'Asia/Jerusalem', tokyo: 'Asia/Tokyo'
@@ -246,7 +252,18 @@ const _COUNTRY_TZ = {
   japan: 'Asia/Tokyo', jp: 'Asia/Tokyo',
   singapore: 'Asia/Singapore', sg: 'Asia/Singapore',
   'united arab emirates': 'Asia/Dubai', uae: 'Asia/Dubai',
-  israel: 'Asia/Jerusalem', il: 'Asia/Jerusalem'
+  israel: 'Asia/Jerusalem', il: 'Asia/Jerusalem',
+  moldova: 'Europe/Chisinau', md: 'Europe/Chisinau',
+  romania: 'Europe/Bucharest', ro: 'Europe/Bucharest',
+  poland: 'Europe/Warsaw', pl: 'Europe/Warsaw',
+  hungary: 'Europe/Budapest', hu: 'Europe/Budapest',
+  'czech republic': 'Europe/Prague', cz: 'Europe/Prague', czechia: 'Europe/Prague',
+  bulgaria: 'Europe/Sofia', bg: 'Europe/Sofia',
+  ukraine: 'Europe/Kyiv', ua: 'Europe/Kyiv',
+  serbia: 'Europe/Belgrade', rs: 'Europe/Belgrade',
+  croatia: 'Europe/Zagreb', hr: 'Europe/Zagreb',
+  greece: 'Europe/Athens', gr: 'Europe/Athens',
+  turkey: 'Europe/Istanbul', tr: 'Europe/Istanbul'
 };
 
 function getCityTimezone(city, country) {

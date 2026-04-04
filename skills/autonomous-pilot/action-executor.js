@@ -1563,7 +1563,7 @@ Format JSON strict :
             source: 'autonomous-pilot',
             contactName: params.contactName || '',
             company: params.company || '',
-            score: emailQualityScore || params.score || 0,
+            score: (emailQualityScore != null && emailQualityScore > 0) ? emailQualityScore : (params._lavenderScore || 0),
             niche: params._nicheSlug || (params.contact && params.contact.niche) || params.industry || '',
             industry: params._industryForAngles || (params.contact && params.contact.industry) || params.industry || '',
             sentAt: new Date().toISOString()
