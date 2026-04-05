@@ -250,6 +250,20 @@ section{padding:96px 0}
 .process-content h3{font-family:var(--font-h);font-size:18px;font-weight:600;margin-bottom:8px;color:var(--text)}
 .process-content p{font-size:15px;color:var(--text-2);line-height:1.7}
 
+/* Process mockups */
+.process-mock{margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.process-mock-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02)}
+.process-mock-dots{display:flex;gap:4px}
+.process-mock-dots span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.1)}
+.process-mock-url{font-size:10px;color:var(--text-3);font-family:monospace}
+.process-mock-body{padding:12px}
+.process-mock-line{height:6px;background:rgba(255,255,255,0.06);border-radius:3px;margin-bottom:6px}
+.process-mock-tag{display:inline-block;padding:4px 10px;background:var(--accent-bg);color:var(--accent);font-size:10px;font-weight:700;border-radius:100px;margin-top:6px;text-transform:uppercase;letter-spacing:.03em}
+.process-mock-stat{flex:1;text-align:center;padding:8px 4px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--r)}
+.process-mock-stat-val{font-family:var(--font-h);font-size:16px;font-weight:800;color:var(--text)}
+.process-mock-stat-lbl{font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+.process-mock-chart{margin-bottom:8px}
+
 /* ===== PIPELINE FLOW ===== */
 .pipeline-flow{display:flex;align-items:center;justify-content:center;gap:0;margin-top:56px;padding:32px 0}
 .pipeline-step{display:flex;flex-direction:column;align-items:center;gap:10px}
