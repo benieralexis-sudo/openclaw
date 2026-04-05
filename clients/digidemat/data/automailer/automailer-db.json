@@ -11,7 +11,7 @@
     "lst_mngpnnjjak86": {
       "id": "lst_mngpnnjjak86",
       "chatId": "1409505520",
-      "name": "GWS Moldova — 51 leads",
+      "name": "GWS Moldova — 43 leads",
       "contacts": [
         {
           "email": "ion.turcan@viorica.md",
@@ -154,16 +154,6 @@
           "addedAt": "2026-04-02T21:30:12.672Z"
         },
         {
-          "email": "victor.baciu@rapidlink.md",
-          "name": "Victor Baciu",
-          "firstName": "Victor",
-          "lastName": "Baciu",
-          "company": "SC Rapid Link SRL",
-          "title": "Owner",
-          "industry": "IT Services and IT Consulting",
-          "addedAt": "2026-04-02T21:30:13.111Z"
-        },
-        {
           "email": "olga@optimum-web.com",
           "name": "Olga Pascal",
           "firstName": "Olga",
@@ -172,16 +162,6 @@
           "title": "Managing Director",
           "industry": "Software Development",
           "addedAt": "2026-04-02T21:30:13.842Z"
-        },
-        {
-          "email": "andrey.morozov@mayo.edu",
-          "name": "Andrey Morozov",
-          "firstName": "Andrey",
-          "lastName": "Morozov",
-          "company": "Azamet",
-          "title": "CMO",
-          "industry": "International Trade and Development",
-          "addedAt": "2026-04-02T21:30:13.891Z"
         },
         {
           "email": "boris.efimov@orhei-vit.com",
@@ -244,16 +224,6 @@
           "addedAt": "2026-04-02T21:30:18.951Z"
         },
         {
-          "email": "m.brinza@cet-nord.md",
-          "name": "Marian Brinza",
-          "firstName": "Marian",
-          "lastName": "Brinza",
-          "company": "S.A. „CET-Nord\"​",
-          "title": "Chief Executive Officer",
-          "industry": "Electric Power Generation",
-          "addedAt": "2026-04-02T21:30:20.463Z"
-        },
-        {
           "email": "anastasia.prokopov@brilicmedia.com",
           "name": "Anastasia Prokopov",
           "firstName": "Anastasia",
@@ -294,16 +264,6 @@
           "addedAt": "2026-04-02T21:30:24.616Z"
         },
         {
-          "email": "dorin.vidrascu@itcare.net",
-          "name": "Dorin Vidrașcu",
-          "firstName": "Dorin",
-          "lastName": "Vidrașcu",
-          "company": "ITcare",
-          "title": "Chief Operating Officer",
-          "industry": "",
-          "addedAt": "2026-04-02T21:30:24.735Z"
-        },
-        {
           "email": "valentina.uzun@azamet.md",
           "name": "Valentina Uzun",
           "firstName": "Valentina",
@@ -322,16 +282,6 @@
           "title": "Director",
           "industry": "",
           "addedAt": "2026-04-02T21:30:25.398Z"
-        },
-        {
-          "email": "ilie.efros@itcare.net",
-          "name": "Ilie Efros",
-          "firstName": "Ilie",
-          "lastName": "Efros",
-          "company": "ITcare",
-          "title": "Director of Sales",
-          "industry": "",
-          "addedAt": "2026-04-02T21:30:25.609Z"
         },
         {
           "email": "vladimir@rabota.md",
@@ -362,36 +312,6 @@
           "title": "Head of marketing",
           "industry": "Retail",
           "addedAt": "2026-04-02T21:30:40.511Z"
-        },
-        {
-          "email": "andrei.balan@energbank.com",
-          "name": "Andrei Balan",
-          "firstName": "Andrei",
-          "lastName": "Balan",
-          "company": "JSCB \"ENERGBANK\"​",
-          "title": "Head of Projects and Processes",
-          "industry": "Banking",
-          "addedAt": "2026-04-02T21:30:49.014Z"
-        },
-        {
-          "email": "serhii.shapran@novaposhta.md",
-          "name": "Serhii Shapran",
-          "firstName": "Serhii",
-          "lastName": "Shapran",
-          "company": "Nova Poshta Moldova",
-          "title": "Chief Operating Officer",
-          "industry": "Transportation, Logistics, Supply Chain and Storage",
-          "addedAt": "2026-04-02T21:31:03.558Z"
-        },
-        {
-          "email": "alexei.negru@virtualglobal.games",
-          "name": "Alexei Negru",
-          "firstName": "Alexei",
-          "lastName": "Negru",
-          "company": "Virtual Global Games",
-          "title": "Principal CEO",
-          "industry": "",
-          "addedAt": "2026-04-02T21:32:23.269Z"
         },
         {
           "email": "ijereghi@ulim.md",
@@ -578,6 +498,14 @@
       ],
       "createdAt": "2026-04-02T00:02:36.655Z",
       "updatedAt": "2026-04-04T00:57:11.150Z"
+    },
+    "lst_mnkq24vlvhuj": {
+      "id": "lst_mnkq24vlvhuj",
+      "chatId": "1409505520",
+      "name": "Clay Imports",
+      "contacts": [],
+      "createdAt": "2026-04-04T19:24:57.009Z",
+      "updatedAt": "2026-04-04T19:24:57.905Z"
     }
   },
   "templates": {},
@@ -644,7 +572,7 @@
     "totalEmailsDelivered": 0,
     "totalEmailsOpened": 0,
     "totalEmailsBounced": 0,
-    "totalContactsImported": 169,
+    "totalContactsImported": 204,
     "totalTemplatesCreated": 0,
     "createdAt": "2026-03-18T19:33:29.045Z"
   }
