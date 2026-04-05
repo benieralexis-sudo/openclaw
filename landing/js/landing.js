@@ -52,7 +52,7 @@ function animateCounters() {
     const target = parseFloat(el.dataset.count);
     const prefix = el.dataset.prefix || '';
     const suffix = el.dataset.suffix || '';
-    const decimals = (target % 1 !== 0) ? 1 : 0;
+    const decimals = el.dataset.decimals ? parseInt(el.dataset.decimals) : ((target % 1 !== 0) ? 1 : 0);
     const start = performance.now();
     const dur = 2000;
     function tick(now) {

@@ -235,6 +235,49 @@ section{padding:96px 0}
 .value-item h3{font-family:var(--font-h);font-size:20px;font-weight:700;color:var(--text);margin-bottom:10px}
 .value-item p{font-size:14px;color:var(--text-2);line-height:1.7}
 
+/* ===== SOCIAL PROOF / TESTIMONIALS ===== */
+.proof-section{position:relative;overflow:hidden}
+.proof-section::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(59,130,246,0.03),transparent 70%);pointer-events:none}
+
+/* Metrics bar */
+.proof-metrics{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:64px;padding:28px 40px;background:linear-gradient(180deg,var(--card-from),var(--card-to));border:1px solid var(--border);border-radius:var(--r-xl);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03)}
+.proof-metric{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.proof-metric-val{font-family:var(--font-h);font-size:clamp(28px,4vw,40px);font-weight:800;color:var(--text);letter-spacing:-0.03em}
+.proof-metric-lbl{font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;font-weight:500}
+.proof-metric-sep{width:1px;height:48px;background:var(--border);flex-shrink:0}
+
+/* Testimonial grid */
+.proof-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.proof-card{background:linear-gradient(180deg,var(--card-from),var(--card-to));border:1px solid var(--border);border-radius:var(--r-xl);padding:36px 28px;transition:all .3s var(--ease);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03);display:flex;flex-direction:column;gap:20px}
+.proof-card:hover{border-color:var(--border-h);transform:translateY(-4px);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06),0 16px 48px rgba(0,0,0,0.4)}
+.proof-card-feat{border-color:rgba(59,130,246,0.2);box-shadow:0 0 40px rgba(59,130,246,0.04),inset 0 0 0 1px rgba(59,130,246,0.08)}
+.proof-card-feat::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.proof-card-feat{position:relative}
+
+/* Stars */
+.proof-stars{color:#FBBF24;font-size:16px;letter-spacing:2px}
+
+/* Quote */
+.proof-quote{font-size:15px;color:var(--text-2);line-height:1.8;font-style:italic;flex:1}
+
+/* Author */
+.proof-author{display:flex;align-items:center;gap:12px}
+.proof-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-h);font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.proof-avatar-1{background:linear-gradient(135deg,#3B82F6,#2563EB)}
+.proof-avatar-2{background:linear-gradient(135deg,#8B5CF6,#6D28D9)}
+.proof-avatar-3{background:linear-gradient(135deg,#22C55E,#16A34A)}
+.proof-name{font-family:var(--font-h);font-size:14px;font-weight:700;color:var(--text)}
+.proof-role{font-size:12px;color:var(--text-3)}
+
+/* Result badge */
+.proof-result{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--green-bg);border:1px solid rgba(34,197,94,0.15);border-radius:100px;font-size:13px;font-weight:600;color:var(--green);align-self:flex-start}
+
+@media(max-width:768px){
+  .proof-metrics{flex-direction:column;gap:20px;padding:24px 20px}
+  .proof-metric-sep{width:60px;height:1px}
+  .proof-grid{grid-template-columns:1fr}
+}
+
 /* ===== AUDIT LEAD MAGNET ===== */
 .audit-section{position:relative;overflow:hidden}
 .audit-card{max-width:640px;margin:0 auto;background:linear-gradient(180deg,var(--card-from),var(--card-to));border:1px solid rgba(59,130,246,0.2);border-radius:var(--r-xl);padding:52px 44px;position:relative;z-index:1;box-shadow:0 0 60px rgba(59,130,246,0.04),inset 0 0 0 1px rgba(59,130,246,0.05);transition:all .3s var(--ease)}
