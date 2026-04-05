@@ -492,7 +492,18 @@ section{padding:96px 0}
 .cta-final::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(59,130,246,0.05),transparent 70%);pointer-events:none}
 .cta-final .wrap{position:relative;z-index:1}
 .cta-final .title-lg{margin-bottom:16px}
-.cta-final .subtitle{margin:0 auto 40px;text-align:center}
+.cta-final .subtitle{margin:0 auto 20px;text-align:center}
+
+/* Urgency badge */
+.cta-urgency{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:28px;font-size:14px;color:var(--text-2)}
+.cta-urgency strong{color:var(--green)}
+.cta-urgency-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:livePulse 2s ease-in-out infinite;flex-shrink:0}
+
+/* Bottom proof bar */
+.cta-bottom-proof{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:28px;flex-wrap:wrap}
+.cta-bottom-item{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-3);font-weight:500}
+.cta-bottom-item svg{color:var(--green);opacity:0.7}
+.cta-bottom-sep{width:1px;height:16px;background:var(--border)}
 
 /* ===== FOOTER ===== */
 footer{border-top:1px solid var(--border);padding:144px 0 48px}
