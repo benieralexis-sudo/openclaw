@@ -85,55 +85,43 @@
     </a>
   </div>
 
-  <!-- Social proof bar -->
-  <div class="hero-proof rv rv-3">
-    <div class="hero-proof-avatars">
-      <div class="hero-proof-av" style="background:linear-gradient(135deg,#3B82F6,#2563EB)">SL</div>
-      <div class="hero-proof-av" style="background:linear-gradient(135deg,#8B5CF6,#6D28D9)">MR</div>
-      <div class="hero-proof-av" style="background:linear-gradient(135deg,#22C55E,#16A34A)">CD</div>
-    </div>
-    <div class="hero-proof-text">
-      <span class="hero-proof-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-      <span>Utilis&eacute; par des dirigeants d'ESN &mdash; <strong>8.4% de taux de r&eacute;ponse</strong></span>
-    </div>
-  </div>
-
   <div class="hero-guarantee rv rv-3">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
     Garantie Pipeline : z&eacute;ro r&eacute;sultat en 30 jours = rembours&eacute; int&eacute;gralement
   </div>
 
-  <!-- Email comparison — hero visual — niched for IT/ESN -->
-  <div class="hero-img rv rv-4">
-    <div class="hero-email-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:280px">
-      <div style="padding:28px;border-right:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-          <div style="width:8px;height:8px;border-radius:50%;background:var(--red)"></div>
-          <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--red)">Email classique</span>
-        </div>
-        <div style="font-size:13px;color:var(--text-2);line-height:1.8;opacity:0.5">
-          <p style="font-weight:600;color:var(--text);font-size:12px;margin-bottom:12px;opacity:0.5">Objet : Solution de staffing IT</p>
-          <p>Bonjour {prenom},</p>
-          <p style="margin-top:8px">Je me permets de vous contacter car notre ESN pourrait r&eacute;pondre &agrave; vos besoins en d&eacute;veloppement. Nous accompagnons les entreprises comme la v&ocirc;tre depuis 10 ans.</p>
-          <p style="margin-top:8px">Disponible pour un call de 15 min ?</p>
-        </div>
-        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3)">Template g&eacute;n&eacute;rique &mdash; aucune recherche</div>
+  <!-- Email comparison — before/after -->
+  <div class="hero-compare rv rv-4">
+    <div class="hero-email hero-email-bad">
+      <div class="hero-email-bar">
+        <div class="hero-email-dot" style="background:var(--red)"></div>
+        <span class="hero-email-tag hero-email-tag-red">Email classique</span>
       </div>
-      <div style="padding:28px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-          <div style="width:8px;height:8px;border-radius:50%;background:var(--green)"></div>
-          <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--green)">Email iFIND</span>
-        </div>
-        <div style="font-size:13px;color:var(--text-2);line-height:1.8">
-          <p style="font-weight:600;color:var(--text);font-size:12px;margin-bottom:12px">Objet : vos 3 postes devops ouverts depuis f&eacute;vrier</p>
-          <p>Bonjour St&eacute;phane,</p>
-          <p style="margin-top:8px">3 postes DevOps ouverts depuis 2 mois sur votre page carrières, et un CTO qui poste sur le manque de seniors &mdash; c'est un pattern qu'on voit beaucoup en ce moment dans les ESN mid-market.</p>
-          <p style="margin-top:8px">Vous avez tent&eacute; le nearshore ou c'est un sujet qui coince c&ocirc;t&eacute; client ?</p>
-        </div>
-        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:6px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          Bas&eacute; sur 10 sources analys&eacute;es automatiquement
-        </div>
+      <div class="hero-email-subject">Objet : Solution de staffing IT</div>
+      <div class="hero-email-body">
+        <p>Bonjour {prenom},</p>
+        <p>Je me permets de vous contacter car notre ESN pourrait r&eacute;pondre &agrave; vos besoins en d&eacute;veloppement. Nous accompagnons les entreprises comme la v&ocirc;tre depuis 10 ans.</p>
+        <p>Disponible pour un call de 15 min ?</p>
+      </div>
+      <div class="hero-email-footer hero-email-footer-red">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Template g&eacute;n&eacute;rique &mdash; aucune recherche
+      </div>
+    </div>
+    <div class="hero-email hero-email-good">
+      <div class="hero-email-bar">
+        <div class="hero-email-dot" style="background:var(--green)"></div>
+        <span class="hero-email-tag hero-email-tag-green">Email iFIND</span>
+      </div>
+      <div class="hero-email-subject">Objet : vos 3 postes devops ouverts depuis f&eacute;vrier</div>
+      <div class="hero-email-body">
+        <p>Bonjour St&eacute;phane,</p>
+        <p>3 postes DevOps ouverts depuis 2 mois sur votre page carri&egrave;res, et un CTO qui poste sur le manque de seniors &mdash; c'est un pattern qu'on voit beaucoup en ce moment dans les ESN mid-market.</p>
+        <p>Vous avez tent&eacute; le nearshore ou c'est un sujet qui coince c&ocirc;t&eacute; client ?</p>
+      </div>
+      <div class="hero-email-footer hero-email-footer-green">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        Bas&eacute; sur 10 sources analys&eacute;es automatiquement
       </div>
     </div>
   </div>
@@ -240,7 +228,7 @@
       Calculez vos &eacute;conomies
     </div>
     <div class="roi-slider-wrap">
-      <label class="roi-slider-label">Votre TJM <span id="roiTjmVal" class="roi-slider-val">80&euro;/h</span></label>
+      <label class="roi-slider-label">Votre tarif horaire <span id="roiTjmVal" class="roi-slider-val">80&euro;/h</span></label>
       <input type="range" id="roiTjm" class="roi-slider" min="40" max="200" step="10" value="80">
       <div class="roi-slider-range"><span>40&euro;</span><span>200&euro;</span></div>
     </div>
