@@ -90,38 +90,59 @@
     Garantie Pipeline : z&eacute;ro r&eacute;sultat en 30 jours = rembours&eacute; int&eacute;gralement
   </div>
 
-  <!-- Email comparison — before/after -->
+  <!-- Email comparison — browser mockup module -->
   <div class="hero-compare rv rv-4">
-    <div class="hero-email hero-email-bad">
-      <div class="hero-email-bar">
-        <div class="hero-email-dot" style="background:var(--red)"></div>
-        <span class="hero-email-tag hero-email-tag-red">Email classique</span>
+    <!-- Email classique -->
+    <div class="hero-inbox hero-inbox-bad">
+      <div class="hero-inbox-chrome">
+        <div class="hero-inbox-dots"><span></span><span></span><span></span></div>
+        <div class="hero-inbox-label hero-inbox-label-red">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Email classique
+        </div>
       </div>
-      <div class="hero-email-subject">Objet : Solution de staffing IT</div>
-      <div class="hero-email-body">
+      <div class="hero-inbox-header">
+        <div class="hero-inbox-avatar hero-inbox-avatar-grey">?</div>
+        <div>
+          <div class="hero-inbox-from">commercial@esn-generic.fr</div>
+          <div class="hero-inbox-subj">Solution de staffing IT</div>
+        </div>
+      </div>
+      <div class="hero-inbox-body">
         <p>Bonjour {prenom},</p>
         <p>Je me permets de vous contacter car notre ESN pourrait r&eacute;pondre &agrave; vos besoins en d&eacute;veloppement. Nous accompagnons les entreprises comme la v&ocirc;tre depuis 10 ans.</p>
         <p>Disponible pour un call de 15 min ?</p>
       </div>
-      <div class="hero-email-footer hero-email-footer-red">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        Template g&eacute;n&eacute;rique &mdash; aucune recherche
+      <div class="hero-inbox-verdict hero-inbox-verdict-red">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Ignor&eacute; &mdash; aucune recherche, template g&eacute;n&eacute;rique
       </div>
     </div>
-    <div class="hero-email hero-email-good">
-      <div class="hero-email-bar">
-        <div class="hero-email-dot" style="background:var(--green)"></div>
-        <span class="hero-email-tag hero-email-tag-green">Email iFIND</span>
+
+    <!-- Email iFIND -->
+    <div class="hero-inbox hero-inbox-good">
+      <div class="hero-inbox-chrome">
+        <div class="hero-inbox-dots"><span></span><span></span><span></span></div>
+        <div class="hero-inbox-label hero-inbox-label-green">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Email iFIND
+        </div>
       </div>
-      <div class="hero-email-subject">Objet : vos 3 postes devops ouverts depuis f&eacute;vrier</div>
-      <div class="hero-email-body">
+      <div class="hero-inbox-header">
+        <div class="hero-inbox-avatar hero-inbox-avatar-blue">AB</div>
+        <div>
+          <div class="hero-inbox-from">alexis@getifind.fr</div>
+          <div class="hero-inbox-subj">Vos 3 postes devops ouverts depuis f&eacute;vrier</div>
+        </div>
+      </div>
+      <div class="hero-inbox-body">
         <p>Bonjour St&eacute;phane,</p>
         <p>3 postes DevOps ouverts depuis 2 mois sur votre page carri&egrave;res, et un CTO qui poste sur le manque de seniors &mdash; c'est un pattern qu'on voit beaucoup en ce moment dans les ESN mid-market.</p>
         <p>Vous avez tent&eacute; le nearshore ou c'est un sujet qui coince c&ocirc;t&eacute; client ?</p>
       </div>
-      <div class="hero-email-footer hero-email-footer-green">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        Bas&eacute; sur 10 sources analys&eacute;es automatiquement
+      <div class="hero-inbox-verdict hero-inbox-verdict-green">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        R&eacute;ponse en 2h &mdash; bas&eacute; sur 10 sources analys&eacute;es
       </div>
     </div>
   </div>
@@ -354,22 +375,22 @@
   <div class="pipeline-flow rv rv-4">
     <div class="pipeline-step">
       <div class="pipeline-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
-      <span class="pipeline-label">Sales Nav</span>
+      <span class="pipeline-label">Ciblage</span>
     </div>
     <div class="pipeline-arrow"><div class="dot"></div></div>
     <div class="pipeline-step">
       <div class="pipeline-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div>
-      <span class="pipeline-label">Clay</span>
+      <span class="pipeline-label">Enrichissement</span>
     </div>
     <div class="pipeline-arrow"><div class="dot"></div></div>
     <div class="pipeline-step">
       <div class="pipeline-icon" style="color:var(--accent-2)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a4 4 0 014 4c0 2-2 3-2 5h-4c0-2-2-3-2-5a4 4 0 014-4z"/><path d="M10 17v1a2 2 0 004 0v-1"/><line x1="10" y1="13" x2="14" y2="13"/><line x1="10" y1="15" x2="14" y2="15"/></svg></div>
-      <span class="pipeline-label">IA Claude</span>
+      <span class="pipeline-label">R&eacute;daction IA</span>
     </div>
     <div class="pipeline-arrow"><div class="dot"></div></div>
     <div class="pipeline-step">
       <div class="pipeline-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 8 12 14 22 8"/></svg></div>
-      <span class="pipeline-label">Email</span>
+      <span class="pipeline-label">Envoi</span>
     </div>
     <div class="pipeline-arrow"><div class="dot"></div></div>
     <div class="pipeline-step">
