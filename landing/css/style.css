@@ -402,7 +402,8 @@ section{padding:96px 0}
 .pr-card:hover{border-color:var(--border-h);transform:translateY(-4px);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06),0 20px 60px rgba(0,0,0,0.4)}
 .pr-card-pop{border-color:rgba(59,130,246,0.25);box-shadow:0 0 40px rgba(59,130,246,0.04),inset 0 0 0 1px rgba(59,130,246,0.08)}
 .pr-card-pop::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),var(--accent-2),transparent)}
-.pr-card-pop::after{content:'Recommand\00e9';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:4px 14px;border-radius:100px}
+.pr-card-pop::after{content:'Le + populaire';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:5px 16px;border-radius:100px;box-shadow:0 0 20px rgba(59,130,246,0.4),0 0 40px rgba(59,130,246,0.15);animation:popBadgeGlow 2.5s ease-in-out infinite}
+@keyframes popBadgeGlow{0%,100%{box-shadow:0 0 20px rgba(59,130,246,0.4),0 0 40px rgba(59,130,246,0.15)}50%{box-shadow:0 0 28px rgba(59,130,246,0.6),0 0 56px rgba(59,130,246,0.25)}}
 .pr-name{font-family:var(--font-h);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin-bottom:8px}
 .pr-volume{font-size:15px;color:var(--text-2);margin-bottom:16px}
 .pr-price{display:flex;align-items:baseline;gap:6px;margin-bottom:4px}
@@ -430,6 +431,22 @@ section{padding:96px 0}
 .bonus-you-pay{display:flex;justify-content:space-between;align-items:center;padding:8px 0 0}
 .bonus-you-pay-label{font-size:15px;font-weight:700;color:var(--text)}
 .bonus-you-pay-val{font-size:18px;font-weight:800;color:var(--accent)}
+
+/* Micro-testimonial in pricing */
+.pr-micro-proof{display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.pr-micro-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.pr-micro-proof span{font-size:12px;color:var(--text-3);font-style:italic;line-height:1.4}
+
+/* Comparison table */
+.pr-compare{margin-top:56px;overflow-x:auto}
+.pr-compare-table{width:100%;border-collapse:collapse;font-size:14px}
+.pr-compare-table th,.pr-compare-table td{padding:12px 16px;text-align:center;border-bottom:1px solid var(--border)}
+.pr-compare-table th{font-family:var(--font-h);font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;padding-bottom:16px}
+.pr-compare-table td:first-child,.pr-compare-table th:first-child{text-align:left;color:var(--text-2)}
+.pr-compare-table td{color:var(--text-3)}
+.pr-compare-pop{background:rgba(59,130,246,0.04);color:var(--text)!important;font-weight:600}
+.pr-check{color:var(--green)!important;font-weight:700}
+.pr-cross{color:var(--text-3)!important;opacity:0.5}
 
 /* ===== FOUNDER ===== */
 .founder-section{position:relative}
