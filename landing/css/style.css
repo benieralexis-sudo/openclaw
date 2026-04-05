@@ -479,7 +479,8 @@ section{padding:96px 0}
 /* ===== FAQ ===== */
 .faq-list{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:0}
 .faq-item{border-bottom:1px solid var(--border)}
-.faq-q{display:flex;align-items:center;justify-content:space-between;padding:22px 0;font-family:var(--font-h);font-size:16px;font-weight:500;color:var(--text);transition:color .2s;width:100%;text-align:left}
+.faq-q{display:flex;align-items:center;gap:12px;padding:22px 0;font-family:var(--font-h);font-size:16px;font-weight:500;color:var(--text);transition:color .2s;width:100%;text-align:left}
+.faq-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--accent-bg);color:var(--accent);flex-shrink:0}
 .faq-q:hover{color:var(--accent)}
 .faq-chevron{color:var(--text-3);transition:transform .3s var(--ease),color .2s;font-size:18px;flex-shrink:0;margin-left:16px}
 .faq-item.active .faq-chevron{transform:rotate(45deg);color:var(--accent)}
