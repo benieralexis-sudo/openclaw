@@ -1860,6 +1860,20 @@ const healthServer = http.createServer(async (req, res) => {
 
           // Validation champs requis
           if (!lead.email || typeof lead.email !== 'string' || !lead.email.includes('@')) {
+            // Capture LinkedIn-only leads (have LinkedIn but no email) for Expandi integration
+            if (lead.linkedin && typeof lead.linkedin === 'string' && lead.linkedin.includes('linkedin.com')) {
+              try {
+                const liOnlyPath = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/linkedin-only-leads.json';
+                let existing = [];
+                try { existing = JSON.parse(fs.readFileSync(liOnlyPath, 'utf8')); } catch(e) {}
+                const isDup = existing.some(e => e.linkedin === lead.linkedin);
+                if (!isDup) {
+                  existing.push({ firstName: lead.firstName || '', lastName: lead.lastName || '', company: lead.company || '', title: lead.title || '', linkedin: lead.linkedin, capturedAt: new Date().toISOString() });
+                  fs.writeFileSync(liOnlyPath, JSON.stringify(existing, null, 2));
+                  log.info('webhook-clay', 'LinkedIn-only lead capture: ' + (lead.firstName || '') + ' ' + (lead.lastName || '') + ' (' + (lead.company || '') + ')');
+                }
+              } catch(e) { log.warn('webhook-clay', 'Erreur capture LinkedIn-only: ' + e.message); }
+            }
             results.push({ email: lead.email || null, error: 'email requis et invalide', success: false });
             continue;
           }
