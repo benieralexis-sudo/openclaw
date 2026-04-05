@@ -10,10 +10,15 @@
   "employeeCount": 60,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Sergey Zabolotnii, CFO la Paynet, are o experiență solidă în managementul financiar corporativ și în analiza datelor avansate, fiind expert în IFRS și instrumente BI.\n\n2. Ca CFO, Sergey se confruntă probabil cu provocări legate de optimizarea fluxurilor de numerar, managementul riscului și implementarea soluțiilor tehnologice pentru raportare financiară.\n\n3. O abordare potrivită pentru prospectare B2B ar fi să îi prezentați soluții inovatoare care îi pot ajuta să îmbunătățească eficiența operațiunilor financiare și să optimizeze procesele de raportare."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.paynet.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:17.593Z"
+  "importedAt": "2026-04-04T19:24:57.340Z"
 }

@@ -10,10 +10,15 @@
   "employeeCount": 139,
   "location": "Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": "Sergiu Malai este Director Ground Operations la HiSky, compania aeriană din Moldova. Are responsabilitatea gestionării operațiunilor la sol pentru compania care se află în expansiune pe rutele Europa-SUA.",
+  "linkedinBio": {
+    "response": "1. Sergiu Malai este un profesionist cu peste 25 de ani de experiență în operațiuni la sol și companii aeriene, având responsabilități în gestionarea pasagerilor, controlul încărcăturii și manipularea aeronavelor.\n\n2. Ca Director al Operațiunilor la Sol, Sergiu a demonstrat abilități solide de negociere și management, asigurând siguranța, calitatea și eficiența economică a activităților aeroportuare pentru o varietate de clienți și furnizori la nivel global.\n\n3. Având în vedere experiența și competențele lui Sergiu, o abordare potențială ar putea fi oferirea de soluții inovatoare pentru optimizarea operațiunilor la sol, care să ajute companiile aeriene să își îmbunătățească performanța și să obțină o creștere continuă."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,9 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://hisky.aero/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.042Z",
-  "companyDescription": "HiSky este o companie aeriană din România cu 139 de angajați, activă în industria aviației civile. Recent, compania a extins operațiunile sale cu noi rute către Statele Unite, inclusiv către New York și Chicago."
+  "importedAt": "2026-04-04T19:24:57.055Z"
 }

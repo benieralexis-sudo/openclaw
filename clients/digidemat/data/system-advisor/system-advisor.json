@@ -1,0 +1,116 @@
+{
+  "config": {
+    "enabled": true,
+    "adminChatId": "1409505520",
+    "alerts": {
+      "metricsCollection": {
+        "enabled": true,
+        "intervalMinutes": 5
+      },
+      "healthCheck": {
+        "enabled": true,
+        "intervalMinutes": 60
+      },
+      "dailyReport": {
+        "enabled": true,
+        "hour": 7
+      },
+      "weeklyReport": {
+        "enabled": true,
+        "dayOfWeek": 1,
+        "hour": 8
+      }
+    },
+    "thresholds": {
+      "ramWarning": 80,
+      "ramCritical": 95,
+      "diskWarning": 80,
+      "diskCritical": 95,
+      "errorRateWarning": 10,
+      "inactivityHours": 24
+    }
+  },
+  "systemMetrics": {
+    "snapshots": [
+      {
+        "timestamp": "2026-04-05T22:40:00.020Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5835,
+          "usedMB": 2106,
+          "usagePercent": 27,
+          "process": {
+            "rssMB": 160,
+            "heapUsedMB": 72,
+            "heapTotalMB": 78,
+            "externalMB": 3
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.09",
+          "loadAvg5m": "0.15",
+          "loadAvg15m": "0.10",
+          "processUserPercent": "0.5",
+          "processSystemPercent": "0.1"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.3M",
+            "autonomous-pilot": "16K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "160K",
+            "invoice-bot": "12K",
+            "lead-enrich": "8.0K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "8.0K",
+            "self-improve": "8.0K",
+            "system-advisor": "8.0K",
+            "visitors": "4.0K",
+            "web-intelligence": "8.0K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 209,
+          "processHuman": "3m",
+          "osSeconds": 274600,
+          "osHuman": "3j 4h 16m"
+        }
+      }
+    ],
+    "hourlyAggregates": [],
+    "dailyAggregates": []
+  },
+  "skillMetrics": {
+    "usage": {},
+    "responseTimes": {},
+    "errors": {},
+    "cronExecutions": []
+  },
+  "healthChecks": {
+    "history": [],
+    "lastCheck": null
+  },
+  "activeAlerts": [],
+  "alertHistory": [],
+  "stats": {
+    "totalSnapshots": 1,
+    "totalHealthChecks": 0,
+    "totalAlertsSent": 0,
+    "totalReportsSent": 0,
+    "lastSnapshotAt": "2026-04-05T22:40:00.037Z",
+    "lastHealthCheckAt": null,
+    "lastDailyReportAt": null,
+    "lastWeeklyReportAt": null,
+    "startedAt": "2026-04-05T22:36:32.335Z",
+    "createdAt": "2026-04-05T22:36:32.335Z"
+  }
+}

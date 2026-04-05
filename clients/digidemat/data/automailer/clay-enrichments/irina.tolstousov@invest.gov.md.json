@@ -10,10 +10,15 @@
   "employeeCount": 58,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Irina Tolstousov, Deputy Director la Invest Moldova Agency, este responsabila de promovarea imaginii tarii atat local, cat si international, precum si de coordonarea evenimentelor economice majore din Moldova.\n\n2. Ca membru al juriului pentru premiile City Nation Place Awards 2023, Irina este probabil interesata de strategii de branding si promovare eficiente pentru tari si regiuni.\n\n3. Abordarea potrivita ar putea fi oferirea de solutii inovatoare pentru campaniile de marketing si evenimentele economice pe care le coordoneaza, care sa ajute la cresterea vizibilitatii si atractivitatii Moldovei pe plan international."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.invest.gov.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:15.223Z"
+  "importedAt": "2026-04-04T19:24:57.906Z"
 }

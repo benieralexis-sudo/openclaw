@@ -10,10 +10,15 @@
   "employeeCount": 26,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": "Engin Cecen este General Manager la Shopping MallDova, un centru comercial cu 26 de angajați situat în Chișinău, Moldova. Conducă operațiunile unui mall în dezvoltare activă, cu perspective de expansiune prin noi parteneriați comerciale.",
+  "linkedinBio": {
+    "response": "1. Engin Cecen, General Manager la Shopping MallDova, gestionează provocările de a atrage și păstra chiriași de top într-un mediu retail competitiv.\n\n2. Ca lider al unui centru comercial de succes, Engin caută soluții inovatoare pentru a îmbunătăți experiența clienților și a crește rata de ocupare a spațiilor.\n\n3. O abordare orientată pe soluții, care să îi ajute să-și atingă obiectivele de business, ar putea fi de interes pentru Engin."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,9 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.shoppingmalldova.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:18.951Z",
-  "companyDescription": "Shopping MallDova este un centru comercial din Chișinău care atrage investiții și parteneri internaționali precum Taco Bell. Recent a obținut finanțare de 21 milioane EUR de la Banca Transilvania și Victoriabank pentru dezvoltare și expansiune."
+  "importedAt": "2026-04-04T19:24:57.144Z"
 }

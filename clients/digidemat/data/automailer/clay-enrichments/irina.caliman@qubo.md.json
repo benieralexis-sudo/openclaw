@@ -10,10 +10,15 @@
   "employeeCount": 10,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "Irina Caliman, partener la QUBO Communications, este o specialista media si de comunicare cu o vasta experienta. Ea poate ajuta companiile sa-si dezvolte o strategie de comunicare si PR eficienta in era digitala, incluzand activitati complexe de comunicare si campanii nationale. Abordarea ei orientata pe rezultate si expertiza in media pot fi valoroase pentru a depasi provocarile de comunicare ale afacerii dvs."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "60",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://qubo.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.711Z"
+  "importedAt": "2026-04-04T19:24:57.199Z"
 }

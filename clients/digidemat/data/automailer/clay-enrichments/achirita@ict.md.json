@@ -10,10 +10,15 @@
   "employeeCount": 42,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Ana Chirita este Strategic Projects Director la ATIC, o companie de servicii și consultanță IT, unde gestionează un portofoliu de peste 30 milioane USD în proiecte la intersecția politicilor, competențelor și antreprenoriatului.\n\n2. Provocările de business probabile includ dezvoltarea de parteneriate public-private, advocacy pentru politici favorabile antreprenoriatului, facilitarea colaborării între companii și educație, precum și accelerarea startup-urilor și IMM-urilor.\n\n3. Un unghi de abordare potențial ar fi modul în care soluțiile și serviciile companiei dumneavoastră pot sprijini inițiativele strategice ale Anei Chirita în domenii precum accesul la piață pentru antreprenori, dezvoltarea competențelor digitale sau guvernanța eficientă."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://ict.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.919Z"
+  "importedAt": "2026-04-04T19:24:57.187Z"
 }

@@ -10,10 +10,15 @@
   "employeeCount": 130,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": "Andrei Balan este Head of Projects and Processes la JSCB ENERGBANK din Chișinău. Cu responsabilități în gestionarea proiectelor și optimizarea proceselor, contribuie la dezvoltarea operațională a instituției bancare.",
+  "linkedinBio": {
+    "response": "Andrei Balan, Head of Projects and Processes la JSCB \"ENERGBANK\", este un profesionist experimentat în transformare digitală, management de proiecte IT și sisteme bancare. El este specializat în construirea cadrelor de guvernanță, conducerea echipelor interfuncționale și alinierea părților interesate din business, IT, risc și conformitate în jurul obiectivelor comune. Andrei ar putea fi interesat de soluții care să îl ajute să gestioneze mai eficient portofoliul de proiecte și schimbări în cadrul băncii."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -32,9 +37,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.energbank.com",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:49.015Z",
-  "companyDescription": "JSCB ENERGBANK este o instituție bancară din Moldova cu aproximativ 130 de angajați, cu sediul în Chișinău. Banca oferă servicii financiare și bancare în piața moldoveană."
+  "importedAt": "2026-04-04T19:24:57.321Z"
 }

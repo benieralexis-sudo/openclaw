@@ -10,10 +10,15 @@
   "employeeCount": 32,
   "location": "Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "Nicolai Voloşin, Chief Technical Officer la VEC, o companie de IT Services și Consultanță, este responsabil pentru managementul proiectelor, dezvoltarea software-ului și relațiile cu distribuitorii și clienții. Provocările sale probabile includ optimizarea proceselor și a eficienței echipei tehnice. O abordare potrivită ar fi să îi prezentați soluții inovatoare care pot îmbunătăți productivitatea și satisfacția clienților."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.vec.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:31:09.808Z"
+  "importedAt": "2026-04-04T19:24:57.142Z"
 }

@@ -10,10 +10,15 @@
   "employeeCount": 20,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Valentin PÎNZARU, Director of Strategic Sourcing la SAPICO, o companie de producție în industria alimentară, este responsabil de identificarea și negocierea parteneriatelor strategice pentru a optimiza lanțul de aprovizionare și a reduce costurile.\n\n2. Provocările probabile includ găsirea de noi furnizori de materii prime și ingrediente de calitate superioară, la prețuri competitive, pentru a spori eficiența operațională și a menține avantajul competitiv al SAPICO.\n\n3. O abordare potențială ar fi să îi prezentați soluții inovatoare de achiziții și management al lanțului de aprovizionare, care să îi permită să își îmbunătățească procesele și să obțină economii semnificative."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -103,8 +108,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://www.sapico.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.771Z"
+  "importedAt": "2026-04-04T19:24:57.233Z"
 }

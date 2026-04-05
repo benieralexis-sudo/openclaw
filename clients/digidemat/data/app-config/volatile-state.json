@@ -1,5 +1,20 @@
 {
   "bans": {},
-  "history": {},
-  "savedAt": "2026-04-03T16:23:43.604Z"
+  "history": {
+    "1409505520": [
+      {
+        "role": "user",
+        "text": "/campaign",
+        "skill": null,
+        "ts": 1775428147490
+      },
+      {
+        "role": "bot",
+        "text": "📧 *MES CAMPAGNES*\n━━━━━━━━━━━━━━━━━━\n\n📝 *1. GWS Moldova — Avril 2026*\n   Status : draft | Contacts : 51 | Etapes : 3\n",
+        "skill": "automailer",
+        "ts": 1775428150491
+      }
+    ]
+  },
+  "savedAt": "2026-04-05T22:41:32.312Z"
 }

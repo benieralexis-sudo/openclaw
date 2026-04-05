@@ -1,15 +1,26 @@
 {
-  "mode": "standby",
-  "cronsActive": false,
+  "mode": "production",
+  "cronsActive": true,
   "startedAt": "2026-03-18T19:33:30.504Z",
   "lastModeChange": "2026-03-18T19:33:30.504Z",
   "budget": {
     "dailyLimit": 3,
-    "todaySpent": 0,
-    "todayDate": "2026-03-18",
+    "todaySpent": 0.00020324999999999998,
+    "todayDate": "2026-04-05",
     "history": []
   },
   "quietMode": false,
   "timezone": "Europe/Paris",
-  "clientName": "Digidemat"
+  "clientName": "Digidemat",
+  "serviceUsage": {
+    "2026-04-05": {
+      "openai": {
+        "calls": 1,
+        "cost": 0.00020324999999999998,
+        "inputTokens": 1347,
+        "outputTokens": 2
+      }
+    }
+  },
+  "serviceUsageHistory": []
 }

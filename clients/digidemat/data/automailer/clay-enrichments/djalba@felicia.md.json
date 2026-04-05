@@ -10,10 +10,15 @@
   "employeeCount": 156,
   "location": "Chişinău, Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Diana Jalba, Director Sales Department la Felicia Healthcare Group, gestioneaza o echipa responsabila de cresterea vanzarilor de servicii wellness si fitness catre clienti corporativi.\n\n2. Provocarile probabile includ identificarea de noi oportunitati de parteneriat B2B si dezvoltarea de solutii personalizate pentru nevoile specifice ale clientilor din domeniul corporate.\n\n3. O abordare potrivita ar fi prezentarea de solutii inovatoare care pot imbunatati programele de wellness si beneficii pentru angajati, crescand astfel satisfactia si productivitatea acestora."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://felicia.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:16.707Z"
+  "importedAt": "2026-04-04T19:24:57.461Z"
 }

@@ -10,10 +10,15 @@
   "employeeCount": 58,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Mihaela Oineagra, specialist principal la Invest Moldova Agency, gestionează provocări complexe legate de atragerea investițiilor străine și dezvoltarea economică a țării.\n\n2. Ca specialist principal, Mihaela are o perspectivă aprofundată asupra nevoilor companiilor internaționale care caută oportunități de investiții în Moldova și poate oferi soluții personalizate.\n\n3. Abordați-o pentru a discuta despre oportunitățile de investiții în Moldova și modul în care v-ați putea alinia strategia de afaceri cu prioritățile de dezvoltare economică ale țării."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.invest.gov.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.799Z"
+  "importedAt": "2026-04-04T19:24:57.348Z"
 }

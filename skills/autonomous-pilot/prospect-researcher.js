@@ -622,6 +622,20 @@ class ProspectResearcher {
       researchedAt: new Date().toISOString()
     };
 
+    // === Clay googleNews fallback (quand la recherche live ne retourne rien) ===
+    if ((!intel.recentNews || intel.recentNews.length === 0) && clayData && clayData.googleNews && clayData.googleNews.news_results && clayData.googleNews.news_results.length > 0) {
+      const clayNewsRaw = clayData.googleNews.news_results.slice(0, 10).map(function(n) {
+        return { title: n.title || '', snippet: n.snippet || '', source: n.source || '', pubDate: n.date || null };
+      });
+      const clayNewsFiltered = this._filterRelevantNews(clayNewsRaw, company);
+      if (clayNewsFiltered.length > 0) {
+        intel.recentNews = clayNewsFiltered.slice(0, 5);
+        log.info('prospect-research', 'News live vides — fallback Clay googleNews: ' + clayNewsFiltered.length + ' news pertinentes pour ' + company);
+      } else {
+        log.info('prospect-research', 'News live vides — Clay googleNews filtrees: 0/' + clayData.googleNews.news_results.length + ' pertinentes pour ' + company);
+      }
+    }
+
     // === Clay intent signals (v9.0) ===
     if (clayData) {
       const enr = clayData.enrichment || {};
@@ -634,11 +648,26 @@ class ProspectResearcher {
         }
       }
 
-      // Headcount growth
+      // Headcount growth — support ancien format (objet) + nouveau format (colonnes séparées Clay)
       const hcGrowth = clayData.headcountGrowth || enr.headcountGrowth || enr.headcount_growth || null;
-      if (hcGrowth && !intel.intentSignals.some(s => s.type === 'headcount_growth')) {
-        const growthDetail = typeof hcGrowth === 'number' ? (hcGrowth > 0 ? '+' : '') + hcGrowth + '% croissance effectif' : String(hcGrowth);
-        intel.intentSignals.push({ type: 'headcount_growth', detail: growthDetail, detectedAt: clayData.importedAt });
+      const hcGrowth6m = clayData['Percent Employee Growth Over Last_6Months'] || clayData.percentEmployeeGrowthOverLast6Months || (hcGrowth && hcGrowth.percent_employee_growth_over_last_6_months) || null;
+      const hcGrowth12m = clayData['Percent Employee Growth Over Last_12Months'] || clayData.percentEmployeeGrowthOverLast12Months || (hcGrowth && hcGrowth.percent_employee_growth_over_last_12_months) || null;
+      const hcCount = clayData['Employee Count'] || clayData.employeeCount || (hcGrowth && hcGrowth.employee_count) || null;
+      if ((hcGrowth || hcGrowth6m || hcGrowth12m) && !intel.intentSignals.some(s => s.type === 'headcount_growth')) {
+        let growthDetail = '';
+        if (hcGrowth6m && Number(hcGrowth6m) !== 0) {
+          growthDetail = (Number(hcGrowth6m) > 0 ? '+' : '') + Math.round(Number(hcGrowth6m)) + '% croissance effectif sur 6 mois';
+        } else if (hcGrowth12m && Number(hcGrowth12m) !== 0) {
+          growthDetail = (Number(hcGrowth12m) > 0 ? '+' : '') + Math.round(Number(hcGrowth12m)) + '% croissance effectif sur 12 mois';
+        } else if (typeof hcGrowth === 'number') {
+          growthDetail = (hcGrowth > 0 ? '+' : '') + hcGrowth + '% croissance effectif';
+        } else if (hcGrowth) {
+          growthDetail = String(hcGrowth);
+        }
+        if (growthDetail && hcCount) growthDetail += ' (' + hcCount + ' employes)';
+        if (growthDetail) {
+          intel.intentSignals.push({ type: 'headcount_growth', detail: growthDetail, detectedAt: clayData.importedAt });
+        }
       }
 
       // Funding
@@ -653,6 +682,20 @@ class ProspectResearcher {
       const postsArr = postsRaw && Array.isArray(postsRaw) ? postsRaw : (postsRaw && postsRaw.posts && Array.isArray(postsRaw.posts) ? postsRaw.posts : null);
       if (postsArr && postsArr.length > 0 && !intel.intentSignals.some(s => s.type === 'content_creator')) {
         intel.intentSignals.push({ type: 'content_creator', detail: postsArr.length + ' posts LinkedIn recents', detectedAt: clayData.importedAt });
+      }
+
+      // Job Openings Clay — support colonne "Company Job Openings" quand ajoutée
+      const clayJobs = clayData.jobOpenings || clayData['Company Job Openings'] || clayData.jobListings || enr.jobListings || null;
+      if (clayJobs && !intel.jobPostings) {
+        // Injecter les données Clay comme fallback si la recherche live n'a rien trouvé
+        if (Array.isArray(clayJobs) && clayJobs.length > 0) {
+          intel.jobPostings = { totalJobs: clayJobs.length, categories: { tech: 0, sales: 0, marketing: 0, product: 0, other: clayJobs.length }, source: 'clay' };
+          log.info('prospect-research', 'Job postings Clay fallback: ' + clayJobs.length + ' postes pour ' + (company || email));
+        } else if (typeof clayJobs === 'object' && (clayJobs.total || clayJobs.totalJobs || clayJobs.jobs)) {
+          const jobs = clayJobs.jobs || [];
+          intel.jobPostings = { totalJobs: clayJobs.total || clayJobs.totalJobs || jobs.length, categories: { tech: 0, sales: 0, marketing: 0, product: 0, other: jobs.length }, source: 'clay' };
+          log.info('prospect-research', 'Job postings Clay fallback: ' + intel.jobPostings.totalJobs + ' postes pour ' + (company || email));
+        }
       }
 
       log.info('prospect-research', 'Clay intent signals injectes pour ' + (company || email) + ': ' + intel.intentSignals.filter(s => s.detail && s.detail.includes('Clay')).length + ' signaux');

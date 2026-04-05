@@ -10,10 +10,15 @@
   "employeeCount": 130,
   "location": "Chişinău, Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Constanta Bontea este specialist principal în administrarea fraudelor cu carduri la BC \"ENERGBANK\"SA, o instituție bancară din industria financiară.\n\n2. Provocările probabile ale Constantei includ gestionarea eficientă a riscurilor de fraudă și implementarea de soluții pentru a proteja clienții băncii.\n\n3. O abordare potențială pentru prospectare B2B ar putea fi oferirea de soluții inovatoare de prevenire a fraudelor, care să ajute banca să-și protejeze activele și să ofere o experiență sigură clienților."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.energbank.com",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.150Z"
+  "importedAt": "2026-04-04T19:24:57.569Z"
 }

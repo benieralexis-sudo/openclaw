@@ -10,10 +10,15 @@
   "employeeCount": 65,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Alexei Untilov este responsabil pentru supravegherea activităților de subscriere și reasigurare în cadrul Donaris Vienna Insurance Group, o companie de asigurări de top.\n\n2. Provocările sale probabile includ gestionarea riscurilor, optimizarea portofoliului de asigurări și îmbunătățirea eficienței operaționale în contextul unei industrii în continuă evoluție.\n\n3. O abordare potențială pentru prospectare B2B ar putea fi oferirea de soluții inovatoare de reasigurare sau de management al riscurilor, care să ajute compania să-și atingă obiectivele strategice."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://donaris.md/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:15.187Z"
+  "importedAt": "2026-04-04T19:24:57.083Z"
 }

@@ -10,10 +10,15 @@
   "employeeCount": 63,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Dumitru Sasu este Head of Procurement la ADD Grup, o companie de producție de electrocasnice și electronice, cu experiență în negocierea de discounturi mai mari cu furnizorii și îmbunătățirea relațiilor cu clienții și furnizorii.\n\n2. Principalele provocări ale lui Dumitru sunt probabil optimizarea lanțului de aprovizionare, gestionarea relațiilor interculturale cu furnizorii din întreaga lume și implementarea de practici standard pentru a crește eficiența achizițiilor.\n\n3. Un unghi de abordare potențial ar fi modul în care soluțiile noastre de procurement pot ajuta ADD Grup să își îmbunătățească marjele, să optimizeze procesele de achiziție și să gestioneze mai eficient relațiile cu furnizorii internaționali."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.addgrup.com",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:15.702Z"
+  "importedAt": "2026-04-04T19:24:57.184Z"
 }

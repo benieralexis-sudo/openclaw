@@ -10,10 +10,15 @@
   "employeeCount": 29,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Alexei Demidiuc este responsabil pentru gestionarea departamentului de achiziții al companiei GBS S.R.L., un distribuitor de vehicule și piese auto en-gros.\n\n2. Provocările sale probabile includ optimizarea proceselor de achiziție, negocierea contractelor avantajoase și gestionarea relațiilor cu furnizorii cheie.\n\n3. O abordare potențială ar putea fi prezentarea de soluții inovatoare care să îl ajute să îmbunătățească eficiența operațiunilor de achiziții și să reducă costurile."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -48,8 +53,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.gbs.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:17.095Z"
+  "importedAt": "2026-04-04T19:24:57.139Z"
 }

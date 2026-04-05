@@ -10,10 +10,15 @@
   "employeeCount": 55,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "Veronica Oleineac, Group Human Resources Director la WeTrade, o companie din industria agricola, are o experienta solida in HR si competente de leadership. Probabil se confrunta cu provocari legate de recrutarea si retentia personalului calificat in domeniul agricol. O abordare potrivita ar fi sa ii prezinti solutii inovatoare pentru a-si optimiza procesele HR si a atrage talente cheie."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.wetrade.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:14.019Z"
+  "importedAt": "2026-04-04T19:24:57.026Z"
 }

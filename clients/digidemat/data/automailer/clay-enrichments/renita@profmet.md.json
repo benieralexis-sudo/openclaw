@@ -10,10 +10,15 @@
   "employeeCount": 46,
   "location": "Chişinău, Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Radu Renita este Marketing Director la Profmet Grup SRL, o companie de distribuție de materiale de construcții, cu abilități dovedite în comunicare, leadership și negociere.\n\n2. Ca Marketing Director, Radu se concentrează pe construirea de parteneriate benefice pentru companie și clienți, promovând un mediu de lucru inovator și orientat spre performanță.\n\n3. Radu ar putea fi interesat de soluții care îi pot ajuta echipa să inoveze, să crească și să dezvolte parteneriate profitabile în industria materialelor de construcții."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -32,8 +37,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.profmet.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:22.645Z"
+  "importedAt": "2026-04-04T19:24:57.431Z"
 }

@@ -10,10 +10,15 @@
   "employeeCount": 130,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Sergiu Creciun, Director de Management al Riscurilor la JSCB \"ENERGBANK\", gestionează provocările complexe ale sectorului bancar, fiind interesat de soluții inovatoare care îi pot îmbunătăți eficiența operațională.\n\n2. Ca expert în managementul riscurilor, Sergiu caută modalități de a reduce expunerea la riscuri și de a optimiza procesele, fiind deschis către parteneriate cu furnizori care pot oferi tehnologii și servicii de specialitate.\n\n3. Abordați-l pe Sergiu cu propuneri concrete care pot aduce valoare adăugată în domeniul managementului riscurilor, evidențiind modul în care soluțiile dumneavoastră se pot integra în activitatea băncii și pot contribui la îmbunătățirea performanței."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -32,8 +37,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.energbank.com",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.748Z"
+  "importedAt": "2026-04-04T19:24:57.476Z"
 }

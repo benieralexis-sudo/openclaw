@@ -11,7 +11,7 @@
     "lst_mngpnnjjak86": {
       "id": "lst_mngpnnjjak86",
       "chatId": "1409505520",
-      "name": "GWS Moldova — 30 leads",
+      "name": "GWS Moldova \u2014 30 leads",
       "contacts": [
         {
           "email": "alexandru.stroia@hisky.aero",
@@ -85,9 +85,9 @@
         },
         {
           "email": "ion.gilea@ook.group",
-          "name": "Ion Gîlea",
+          "name": "Ion G\u00eelea",
           "firstName": "Ion",
-          "lastName": "Gîlea",
+          "lastName": "G\u00eelea",
           "company": "OOK Group",
           "title": "CEO",
           "industry": "Technology, Information and Internet",
@@ -367,16 +367,16 @@
     "cmp_gws_moldova_avril2026": {
       "id": "cmp_gws_moldova_avril2026",
       "chatId": "1409505520",
-      "name": "GWS Moldova — Avril 2026",
-      "status": "draft",
+      "name": "GWS Moldova \u2014 Avril 2026",
+      "status": "active",
       "contactListId": "lst_mngpnnjjak86",
       "totalContacts": 51,
       "currentStep": 0,
       "steps": [
         {
           "stepNumber": 1,
-          "subjectTemplate": "{{firstName}}, o întrebare despre Google Workspace la {{company}}",
-          "bodyTemplate": "Salut {{firstName}},\n\n{{observation_hook}}\n\nMulte companii din Moldova plătesc Google Workspace direct la Google — fără suport local, fără formare echipei, la preț standard.\n\nDigidemat e partener oficial Google în Moldova: preț mai mic, suport în română, și sesiuni gratuite de tips & tricks pentru echipă.\n\nAi 15 minute săptămâna viitoare pentru o discuție scurtă?\n\nAndreea\nDigidemat — Partener Google Workspace Moldova",
+          "subjectTemplate": "{{firstName}}, o \u00eentrebare despre Google Workspace la {{company}}",
+          "bodyTemplate": "Salut {{firstName}},\n\n{{observation_hook}}\n\nMulte companii din Moldova pl\u0103tesc Google Workspace direct la Google \u2014 f\u0103r\u0103 suport local, f\u0103r\u0103 formare echipei, la pre\u021b standard.\n\nDigidemat e partener oficial Google \u00een Moldova: pre\u021b mai mic, suport \u00een rom\u00e2n\u0103, \u0219i sesiuni gratuite de tips & tricks pentru echip\u0103.\n\nAi 15 minute s\u0103pt\u0103m\u00e2na viitoare pentru o discu\u021bie scurt\u0103?\n\nAndreea\nDigidemat \u2014 Partener Google Workspace Moldova",
           "delayDays": 0,
           "status": "pending",
           "scheduledAt": "2026-04-07T06:00:00.000Z",
@@ -387,7 +387,7 @@
         {
           "stepNumber": 2,
           "subjectTemplate": "Re: {{previousSubject}}",
-          "bodyTemplate": "{{firstName}}, am trimis un mesaj acum câteva zile.\n\nPe scurt: dacă {{company}} folosește Google Workspace direct, probabil plătiți mai mult decât ar trebui.\n\nCa partener oficial, putem oferi un preț redus + suport local. Zero efort din partea voastră — noi ne ocupăm de tot.\n\nMerită 10 minute?\n\nAndreea",
+          "bodyTemplate": "{{firstName}}, am trimis un mesaj acum c\u00e2teva zile.\n\nPe scurt: dac\u0103 {{company}} folose\u0219te Google Workspace direct, probabil pl\u0103ti\u021bi mai mult dec\u00e2t ar trebui.\n\nCa partener oficial, putem oferi un pre\u021b redus + suport local. Zero efort din partea voastr\u0103 \u2014 noi ne ocup\u0103m de tot.\n\nMerit\u0103 10 minute?\n\nAndreea",
           "delayDays": 3,
           "status": "pending",
           "scheduledAt": "2026-04-10T06:00:00.000Z",
@@ -398,7 +398,7 @@
         {
           "stepNumber": 3,
           "subjectTemplate": "Re: {{previousSubject}}",
-          "bodyTemplate": "{{firstName}}, ultimul mesaj de la mine.\n\nDacă momentul nu e potrivit, înțeleg perfect. Dar dacă vreodată ai nevoie de suport Google Workspace în română sau vrei să verifici dacă plătiți prețul corect — scrie-mi.\n\nMult succes cu tot ce faceți la {{company}}.\n\nAndreea",
+          "bodyTemplate": "{{firstName}}, ultimul mesaj de la mine.\n\nDac\u0103 momentul nu e potrivit, \u00een\u021beleg perfect. Dar dac\u0103 vreodat\u0103 ai nevoie de suport Google Workspace \u00een rom\u00e2n\u0103 sau vrei s\u0103 verifici dac\u0103 pl\u0103ti\u021bi pre\u021bul corect \u2014 scrie-mi.\n\nMult succes cu tot ce face\u021bi la {{company}}.\n\nAndreea",
           "delayDays": 10,
           "status": "pending",
           "scheduledAt": "2026-04-17T06:00:00.000Z",
@@ -407,7 +407,7 @@
           "errorCount": 0
         }
       ],
-      "context": "Digidemat este partener oficial Google Workspace în Moldova. Oferim companiilor din Moldova: (1) Preț mai mic decât direct de la Google (reducere 5%), (2) Suport local în limba română, (3) Sesiuni gratuite de tips & tricks pentru echipă, (4) Migrare și setup complet inclus. Target: companii moldave care folosesc deja Google Workspace dar plătesc direct la Google, fără partener local. Limba emailurilor: ROMÂNĂ. Ton: informal, peer-to-peer, nu SDR. Semnătură: Andreea, Digidemat. Max 80 cuvinte per email. Booking: https://calendar.app.google/XzzKcZRwfhNzRn5F9",
+      "context": "Digidemat este partener oficial Google Workspace \u00een Moldova. Oferim companiilor din Moldova: (1) Pre\u021b mai mic dec\u00e2t direct de la Google (reducere 5%), (2) Suport local \u00een limba rom\u00e2n\u0103, (3) Sesiuni gratuite de tips & tricks pentru echip\u0103, (4) Migrare \u0219i setup complet inclus. Target: companii moldave care folosesc deja Google Workspace dar pl\u0103tesc direct la Google, f\u0103r\u0103 partener local. Limba emailurilor: ROM\u00c2N\u0102. Ton: informal, peer-to-peer, nu SDR. Semn\u0103tur\u0103: Andreea, Digidemat. Max 80 cuvinte per email. Booking: https://calendar.app.google/XzzKcZRwfhNzRn5F9",
       "_sampleContact": {
         "email": "ion.turcan@viorica.md",
         "firstName": "Ion",

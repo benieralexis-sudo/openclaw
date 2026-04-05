@@ -10,10 +10,15 @@
   "employeeCount": 25,
   "location": "Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Ca Director de Comunicare la Soros Foundation Moldova, Dumitru Gudumac gestionează strategia de comunicare și relațiile publice ale organizației, fiind probabil interesat de soluții care îi pot îmbunătăți eficiența.\n\n2. Având în vedere domeniul civic și social al organizației, Dumitru se confruntă probabil cu provocări legate de creșterea vizibilității și impactului comunicărilor, precum și de atragerea de noi finanțări și parteneri.\n\n3. O abordare potrivită ar fi să-i prezentați soluții inovatoare de comunicare și promovare, care să îi ajute să-și atingă obiectivele organizaționale și să genereze un impact social mai mare."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.soros.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.092Z"
+  "importedAt": "2026-04-04T19:24:57.395Z"
 }

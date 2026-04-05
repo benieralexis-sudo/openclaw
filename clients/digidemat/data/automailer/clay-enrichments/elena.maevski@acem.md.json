@@ -10,10 +10,15 @@
   "employeeCount": 16,
   "location": "Chişinău, Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "Iata un rezumat in 3 propozitii pentru prospectare B2B cold email:\n\n1. Elena Maevski, Executive Director la Moldova Electronics Association ACEM, are o experienta de peste 2 ani in coordonarea de proiecte si o educatie solida in stiinte informatice si comunicare institutionala, calitati care ii permit sa navigheze cu usurinta complexitatea industriei electronice din Moldova.\n\n2. Ca lider dedicat in industria electronica, Elena este preocupata de dezvoltarea continua a organizatiei si de adaptarea la nevoile in continua schimbare ale acestui domeniu dinamic.\n\n3. Datorita abilitatilor sale de comunicare si a pasiunii pentru domeniu, Elena ar putea fi interesata de solutii inovatoare care sa ajute asociatia sa isi atinga obiectivele si sa faca fata provocarilor din piata."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -72,8 +77,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://acem.md/en/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:11.643Z"
+  "importedAt": "2026-04-04T19:24:57.145Z"
 }

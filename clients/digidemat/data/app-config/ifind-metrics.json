@@ -1,10 +1,21 @@
 {
-  "skillUsage": {},
-  "responseTimes": {},
+  "skillUsage": {
+    "automailer": {
+      "count": 1,
+      "lastUsedAt": "2026-04-05T22:29:10.491Z"
+    }
+  },
+  "responseTimes": {
+    "automailer": {
+      "times": [
+        1967
+      ]
+    }
+  },
   "errors": {},
   "fastClassifyHits": 0,
-  "nlpFallbacks": 1,
-  "humanizationSkipped": 1,
+  "nlpFallbacks": 2,
+  "humanizationSkipped": 2,
   "humanizationApplied": 0,
-  "startedAt": "2026-04-02T18:23:41.180Z"
+  "startedAt": "2026-04-05T22:36:32.309Z"
 }

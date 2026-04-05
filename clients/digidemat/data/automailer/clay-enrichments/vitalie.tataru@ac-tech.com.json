@@ -10,10 +10,15 @@
   "employeeCount": 11,
   "location": "Chisinau, Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Vitalie Tataru este fondatorul si CEO-ul companiei AC Technologies LTT, o firma de servicii si consultanta IT cu o experienta vasta in domeniu.\n\n2. Provocarile probabile ale afacerii sale includ optimizarea costurilor, eficientizarea operatiunilor si implementarea de procese si proceduri inovatoare pentru a-si mentine avantajul competitiv.\n\n3. Abordarea de prospectare B2B ar putea evidentia capacitatea sa de a genera economii semnificative de costuri, de a implementa solutii tehnologice eficiente si de a oferi o viziune strategica inovatoare pentru a ajuta organizatiile sa-si imbunatateasca performanta."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://ac-tech.com",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.696Z"
+  "importedAt": "2026-04-04T19:24:57.096Z"
 }

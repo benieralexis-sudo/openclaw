@@ -10,10 +10,15 @@
   "employeeCount": 156,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Boris Cojocari este Head of Marketing la Optica Felicia Unit, parte a grupului Felicia Healthcare Group, o companie din industria serviciilor de wellness si fitness.\n\n2. El a avut succes in lansarea unor servicii inovatoare precum \"e-Abonament\"si \"One Number\", precum si a programelor de loialitate \"Walk and Win\"si \"Challenge\".\n\n3. Ca Product Manager, Boris se ocupa de toate aspectele, de la planificare si dezvoltare pana la lansare si masurare, fiind pasionat de a transforma provocarile in solutii creative."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://felicia.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.197Z"
+  "importedAt": "2026-04-04T19:24:57.053Z"
 }

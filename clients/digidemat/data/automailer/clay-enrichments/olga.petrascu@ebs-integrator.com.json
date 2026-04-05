@@ -10,10 +10,15 @@
   "employeeCount": 81,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "Olga Petrascu, Commercial Business Partner la EBS Integrator, are o experienta dovedita in dezvoltarea de afaceri si gestionarea de proiecte IT pentru clienti din HoReCa si Retail. Probabil se confrunta cu provocari legate de identificarea de noi oportunitati de vanzari si extinderea portofoliului de clienti. Poate fi interesat de solutii IT inovatoare care sa-i ajute clientii sa-si imbunatateasca eficienta operationala si experienta clientilor."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://ebs-integrator.com/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:10.450Z"
+  "importedAt": "2026-04-04T19:24:57.229Z"
 }

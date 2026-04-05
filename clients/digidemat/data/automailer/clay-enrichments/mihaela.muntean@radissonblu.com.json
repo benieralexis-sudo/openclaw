@@ -10,10 +10,15 @@
   "employeeCount": 70,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Mihaela Muntean, Director of Sales & Marketing la Radisson Blu Leogrand Hotel Chisinau, este responsabilă de creșterea vânzărilor și a vizibilității brandului într-o industrie competitivă.\n\n2. Provocările probabile includ atragerea de noi clienți corporate și optimizarea strategiei de marketing pentru a se diferenția în piața hotelieră.\n\n3. O abordare potențială ar putea fi prezentarea de soluții inovatoare pentru creșterea ratei de ocupare și a veniturilor, bazate pe experiența Mihaelei în domeniul ospitalității."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.radissonblu.com/hotel-chisinau",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:36.335Z"
+  "importedAt": "2026-04-04T19:24:57.107Z"
 }

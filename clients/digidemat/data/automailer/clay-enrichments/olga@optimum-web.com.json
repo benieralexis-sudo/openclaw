@@ -10,10 +10,15 @@
   "employeeCount": 44,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": "Olga Pascal este Managing Director la Optimum-Web, o companie de dezvoltare software din Chișinău, Moldova, cu 44 de angajați. Conduce o echipă implicată în furnizarea de soluții software personalizate și urmărește evoluția industriei în contextul transformării digitale și impactului AI.",
+  "linkedinBio": {
+    "response": "1. Olga Pascal, Managing Director at Optimum-Web, helps tech companies in the US and Europe bridge the engineering talent gap by providing high-performing, pre-vetted development teams that integrate seamlessly into their workflows.\n\n2. As a Managing Director, Olga's key focus areas include rapid team scaling, managed services, tier-1 compliance, and agile integration, allowing clients to reduce their Time-to-Market by up to 40% while maintaining top-tier code quality.\n\n3. Olga is an ideal partner for CTOs, VPs of Engineering, and Founders who are looking to expand their roadmap, build a robust product from scratch, or find a reliable long-term tech partner."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,9 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://www.optimum-web.com",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.843Z",
-  "companyDescription": "Optimum-Web este o companie de dezvoltare software bazată în Chișinău, Moldova, specializată în soluții software personalizate. Cu o echipă de 44 de profesioniști, compania este recunoscută pentru serviciile sale în domeniul dezvoltării software și rămâne actualizată cu tendințele industriei, inclusiv impactul AI asupra economiei software."
+  "importedAt": "2026-04-04T19:24:57.227Z"
 }

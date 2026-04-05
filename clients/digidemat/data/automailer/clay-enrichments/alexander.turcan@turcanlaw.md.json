@@ -10,10 +10,15 @@
   "employeeCount": 17,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Alexander Turcan, Managing Partner la Turcan Cazac, o firma de avocatura de top, gestioneaza o echipa de experti juridici ce ofera solutii complexe pentru provocarile legale ale companiilor.\n\n2. Ca lider al unei firme de avocatura de renume, Alexander este probabil interesat de oportunitati de a-si extinde reteaua de clienti corporate si de a identifica noi modalitati de a-si sprijini clientii in gestionarea riscurilor si a conformitatii legale.\n\n3. O abordare orientata pe valoare, care sa evidentieze expertiza Turcan Cazac in domenii cheie precum fuziuni-achizitii, litigii sau reglementari, ar putea fi un unghi de prospectare relevant pentru Alexander Turcan."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -96,8 +101,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://turcanlaw.md/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:10.798Z"
+  "importedAt": "2026-04-04T19:24:57.076Z"
 }

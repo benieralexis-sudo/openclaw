@@ -10,10 +10,15 @@
   "employeeCount": 55,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Veaceslav Peresnicenco este un expert financiar cu peste 15 ani de experiență în diverse sectoare industriale, specializat în finanțe corporative, IFRS, fuziuni și achiziții, precum și în proiecte de due diligence pre-achiziție.\n\n2. El a fost implicat și a condus numeroase proiecte complexe de atragere de fonduri transfrontaliere în regiunea EMEA, lucrând cu instituții financiare internaționale recunoscute, cum ar fi BERD, IFC, DEG, FMO, OPIC, Société Générale, BNP, BCGe, BCP.\n\n3. Veaceslav este un lider, un soluționar de probleme și un promotor al eticii și conduitei profesionale CFA, cu o bună cunoaștere a legislației corporative din Republica Moldova, inclusiv a regimurilor fiscale și vamale speciale."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.wetrade.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:10.802Z"
+  "importedAt": "2026-04-04T19:24:57.158Z"
 }

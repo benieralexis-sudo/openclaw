@@ -10,10 +10,15 @@
   "employeeCount": 20,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Victoria Rusu, Director de Business Development la SAPICO, o companie de producție în industria alimentară, este responsabilă de identificarea și dezvoltarea de noi oportunități de afaceri.\n\n2. Provocările probabile includ găsirea de noi furnizori și parteneri strategici pentru a spori eficiența operațională și a îmbunătăți oferta de produse.\n\n3. O abordare potențială ar putea fi prezentarea de soluții inovatoare care să ajute la optimizarea lanțului de aprovizionare și la creșterea profitabilității."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -103,8 +108,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://www.sapico.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:14.407Z"
+  "importedAt": "2026-04-04T19:24:57.240Z"
 }

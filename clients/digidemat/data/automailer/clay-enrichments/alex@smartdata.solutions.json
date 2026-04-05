@@ -10,10 +10,15 @@
   "employeeCount": 117,
   "location": "Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": "Alex Scutaru este CTO, Co-Founder și Partner la Smart Data Solutions, o companie de tehnologie cu 117 angajați bazată în Moldova. Se concentrează pe soluții AI și automatizare pentru sectorul sănătății și energetic.",
+  "linkedinBio": {
+    "response": "1. Alex Scutaru este CTO, co-fondator și partener la SmartData.Solutions, o companie de tehnologie care oferă soluții inovatoare pentru analiza datelor și automatizare.\n\n2. Ca lider tehnic, Alex se confruntă probabil cu provocări legate de scalarea infrastructurii și optimizarea proceselor pentru a ține pasul cu cererea în creștere a clienților.\n\n3. Abordarea potrivită pentru Alex ar putea fi prezentarea unor soluții eficiente care să îl ajute să își gestioneze mai bine echipa, să automatizeze fluxurile de lucru și să crească productivitatea generală a companiei."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,9 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://smartdata.solutions",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.325Z",
-  "companyDescription": "Smart Data Solutions este o companie de tehnologie care dezvoltă soluții AI-driven pentru automatizarea proceselor în sănătate și construcții eficiente din punct de vedere energetic. Compania colaborează cu lideri industriali pentru a transforma prior authorization și alte procese critice prin tehnologie agentic AI."
+  "importedAt": "2026-04-04T19:24:57.430Z"
 }

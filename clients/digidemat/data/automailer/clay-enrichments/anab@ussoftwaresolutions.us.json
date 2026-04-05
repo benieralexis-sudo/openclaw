@@ -10,10 +10,15 @@
   "employeeCount": 85,
   "location": "Chişinău, Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Ana Balaur, Director of Operations la US Software Solutions, o companie de telecomunicații, este responsabilă de optimizarea proceselor operaționale și creșterea eficienței.\n\n2. Provocările probabile includ gestionarea complexității sistemelor IT, îmbunătățirea experienței clienților și implementarea de soluții inovatoare pentru a rămâne competitivi pe piață.\n\n3. O abordare potrivită ar fi să propuneți soluții software personalizate care să ajute la automatizarea și digitalizarea operațiunilor, îmbunătățind astfel productivitatea și satisfacția clienților."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://ussoftwaresolutions.us",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:36.254Z"
+  "importedAt": "2026-04-04T19:24:57.210Z"
 }

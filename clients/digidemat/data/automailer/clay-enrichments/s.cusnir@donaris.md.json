@@ -10,10 +10,15 @@
   "employeeCount": 65,
   "location": "Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Sergiu Cusnir, Director de Vânzări și Marketing la Donaris Vienna Insurance Group, gestionează strategia de vânzări și marketing pentru a crește cota de piață și a atrage noi clienți în industria asigurărilor.\n\n2. Ca lider al echipei de vânzări și marketing, Sergiu se confruntă probabil cu provocări legate de creșterea vânzărilor, optimizarea proceselor și adaptarea la tendințele în schimbare din industria asigurărilor.\n\n3. Abordarea potențială pentru prospectare B2B ar putea include soluții inovatoare pentru a îmbunătăți performanța echipei de vânzări, a crește eficiența operațională și a oferi o experiență superioară clienților."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://donaris.md/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:18.761Z"
+  "importedAt": "2026-04-04T19:24:57.182Z"
 }

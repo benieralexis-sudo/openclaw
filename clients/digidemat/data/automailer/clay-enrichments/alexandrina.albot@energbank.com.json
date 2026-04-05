@@ -10,10 +10,15 @@
   "employeeCount": 130,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Alexandrina Albot, Head of Marketing și Comunicare la JSCB \"ENERGBANK\", este responsabilă de strategia de marketing și construirea brandului pentru o instituție bancară.\n\n2. Provocările sale includ crearea de campanii care să genereze conversii și să construiască o legătură emoțională puternică cu publicul țintă, combinând marketingul performant cu poziționarea de brand.\n\n3. Abordarea potențială ar putea fi prezentarea de soluții inovatoare de marketing care să ajute banca să se diferențieze și să câștige loialitatea clienților într-o industrie competitivă."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -32,8 +37,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.energbank.com",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.781Z"
+  "importedAt": "2026-04-04T19:24:57.043Z"
 }

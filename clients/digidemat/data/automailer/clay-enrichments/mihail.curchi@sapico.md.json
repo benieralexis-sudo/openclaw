@@ -10,10 +10,15 @@
   "employeeCount": 20,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Mihail Curchi, General Manager la SAPICO, o companie de producție în industria alimentară, se confruntă probabil cu provocări legate de eficientizarea proceselor și creșterea profitabilității.\n\n2. Ca lider al unei companii de producție alimentară, Mihail Curchi caută soluții inovatoare care să îi ajute să optimizeze operațiunile și să îmbunătățească experiența clienților.\n\n3. O abordare orientată pe îmbunătățirea eficienței și a calității produselor ar putea fi un unghi de interes pentru a-l contacta pe Mihail Curchi cu o ofertă de servicii relevantă pentru compania sa."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -103,8 +108,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://www.sapico.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:14.401Z"
+  "importedAt": "2026-04-04T19:24:57.323Z"
 }

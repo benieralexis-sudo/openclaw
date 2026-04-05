@@ -10,10 +10,15 @@
   "employeeCount": 60,
   "location": "Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Mihaela Gherasim, Head of Adoption & Inclusion la e-Governance Agency Moldova, se concentrează pe îmbunătățirea accesibilității și incluziunii serviciilor digitale guvernamentale.\n\n2. Provocările probabile includ creșterea gradului de adoptare a serviciilor digitale și îmbunătățirea comunicării către cetățeni.\n\n3. O abordare potențială ar putea fi prezentarea de soluții inovatoare care să faciliteze accesul la serviciile guvernamentale și să crească gradul de informare a publicului."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.egov.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.051Z"
+  "importedAt": "2026-04-04T19:24:57.047Z"
 }

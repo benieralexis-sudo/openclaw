@@ -1,0 +1,120 @@
+{
+  "config": {
+    "enabled": true,
+    "adminChatId": "1409505520",
+    "checkIntervalHours": 6,
+    "maxArticlesPerWatch": 50,
+    "maxArticlesTotal": 500,
+    "notifications": {
+      "digestEnabled": true,
+      "digestHour": 9,
+      "instantAlerts": true,
+      "weeklyDigest": true,
+      "weeklyDigestDay": 1,
+      "weeklyDigestHour": 9
+    }
+  },
+  "watches": {
+    "watch_mnmccdfa_qznj": {
+      "id": "watch_mnmccdfa_qznj",
+      "name": "SaaS & Startups France",
+      "type": "sector",
+      "keywords": [
+        "startup SaaS France",
+        "levée fonds startup",
+        "B2B SaaS français"
+      ],
+      "rssUrls": [],
+      "scrapeUrls": [],
+      "redditSubs": [],
+      "googleNewsEnabled": true,
+      "hackerNewsEnabled": false,
+      "productHuntEnabled": false,
+      "githubTrendingEnabled": false,
+      "frequency": 6,
+      "enabled": true,
+      "createdAt": "2026-04-05T22:36:32.374Z",
+      "lastCheckedAt": null,
+      "articleCount": 0
+    },
+    "watch_mnmccdfb_u9wf": {
+      "id": "watch_mnmccdfb_u9wf",
+      "name": "Automatisation Commerciale",
+      "type": "sector",
+      "keywords": [
+        "automatisation prospection",
+        "sales automation",
+        "outbound B2B"
+      ],
+      "rssUrls": [],
+      "scrapeUrls": [],
+      "redditSubs": [],
+      "googleNewsEnabled": true,
+      "hackerNewsEnabled": false,
+      "productHuntEnabled": false,
+      "githubTrendingEnabled": false,
+      "frequency": 6,
+      "enabled": true,
+      "createdAt": "2026-04-05T22:36:32.375Z",
+      "lastCheckedAt": null,
+      "articleCount": 0
+    },
+    "watch_mnmccdfb_tjqt": {
+      "id": "watch_mnmccdfb_tjqt",
+      "name": "Concurrents Prospection",
+      "type": "competitor",
+      "keywords": [
+        "Apollo.io",
+        "Clay.com",
+        "Lemlist",
+        "La Growth Machine"
+      ],
+      "rssUrls": [],
+      "scrapeUrls": [],
+      "redditSubs": [],
+      "googleNewsEnabled": true,
+      "hackerNewsEnabled": false,
+      "productHuntEnabled": false,
+      "githubTrendingEnabled": false,
+      "frequency": 6,
+      "enabled": true,
+      "createdAt": "2026-04-05T22:36:32.375Z",
+      "lastCheckedAt": null,
+      "articleCount": 0
+    },
+    "watch_mnmccdfc_xzhp": {
+      "id": "watch_mnmccdfc_xzhp",
+      "name": "CEOs Tech PME",
+      "type": "prospect",
+      "keywords": [
+        "CEO startup recrutement",
+        "dirigeant PME tech",
+        "fondateur entreprise technologie"
+      ],
+      "rssUrls": [],
+      "scrapeUrls": [],
+      "redditSubs": [],
+      "googleNewsEnabled": true,
+      "hackerNewsEnabled": false,
+      "productHuntEnabled": false,
+      "githubTrendingEnabled": false,
+      "frequency": 6,
+      "enabled": true,
+      "createdAt": "2026-04-05T22:36:32.376Z",
+      "lastCheckedAt": null,
+      "articleCount": 0
+    }
+  },
+  "articles": [],
+  "analyses": [],
+  "stats": {
+    "totalArticlesFetched": 0,
+    "totalAnalysesGenerated": 0,
+    "totalAlertsSent": 0,
+    "lastScanAt": null,
+    "lastDigestAt": null,
+    "lastWeeklyDigestAt": null,
+    "watchesCreated": 4,
+    "createdAt": "2026-04-05T22:36:32.335Z"
+  }
+}

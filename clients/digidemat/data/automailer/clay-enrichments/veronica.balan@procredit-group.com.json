@@ -10,10 +10,15 @@
   "employeeCount": 114,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Veronica Balan, Head of HR la ProCredit Bank Moldova, gestionează provocările de recrutare și dezvoltare a talentelor într-un mediu bancar dinamic.\n\n2. Ca lider HR, Veronica se concentrează pe îmbunătățirea eficienței operaționale și a culturii organizaționale pentru a sprijini obiectivele de business ale băncii.\n\n3. O abordare personalizată privind soluțiile HR care să răspundă nevoilor specifice ale băncii ar putea fi de interes pentru Veronica."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://www.procreditbank.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:36.272Z"
+  "importedAt": "2026-04-04T19:24:57.179Z"
 }

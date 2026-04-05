@@ -10,10 +10,15 @@
   "employeeCount": 65,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Roman Cojocaru, Head of IT la Donaris Vienna Insurance Group, este responsabil de gestionarea infrastructurii IT și a soluțiilor digitale pentru a sprijini obiectivele de afaceri ale companiei de asigurări.\n\n2. Provocările probabile includ necesitatea de a îmbunătăți eficiența operațională, de a integra noi tehnologii și de a asigura securitatea datelor într-o industrie reglementată.\n\n3. O abordare potențială ar putea fi prezentarea de soluții inovatoare de IT care pot ajuta la optimizarea proceselor, creșterea productivității și reducerea riscurilor în domeniul asigurărilor."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://donaris.md/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:13.792Z"
+  "importedAt": "2026-04-04T19:24:57.409Z"
 }

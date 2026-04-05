@@ -10,19 +10,27 @@
   "employeeCount": 74,
   "location": "Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": "Igor Manole este Head of International Development la International Tobacco, cu responsabilități în dezvoltarea operațiunilor internaționale. Cu poziția sa strategică, coordonează inițiative de expansiune și parteneriate globale pentru companie.",
+  "linkedinBio": {
+    "response": "Iată o rezumare în 3 propoziții scurte pentru prospectare B2B cold email:\n\nIgor Manole este Head of International Development la International Tobacco, cu o experiență de peste 10 ani în dezvoltarea de strategii de creștere durabilă și parteneriate strategice. El se concentrează pe crearea de valoare pe termen lung și livrarea de soluții adaptate la piață. Abordarea sa colaborativă și orientată spre soluții îl recomandă ca un partener potențial pentru a explora noi oportunități de afaceri."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": null,
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "55",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://internationaltobacco.md/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:11.795Z",
-  "companyDescription": "International Tobacco este o companie de producție de tutun cu sediul în Moldova. Cu o echipă de 74 de angajați, se concentrează pe activități de fabricație și distribuție în industria tutunului."
+  "importedAt": "2026-04-04T19:24:57.070Z"
 }

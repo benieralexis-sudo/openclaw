@@ -10,10 +10,15 @@
   "employeeCount": 35,
   "location": "Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": "Eugeniu Dediu este Chief Operating Officer la GlobCom Company, o companie din sectorul fabricării de autovehicule cu sediul în Moldova. Cu o echipă de 35 de angajați, gestionează operațiunile zilnice ale organizației.",
+  "linkedinBio": {
+    "response": "1. Ca Chief Operating Officer la GlobCom Company, Eugeniu Dediu este responsabil pentru optimizarea eficienței operaționale și a proceselor de producție în industria auto.\n\n2. Provocările probabile includ îmbunătățirea productivității, reducerea costurilor și adaptarea la schimbările tehnologice în domeniul fabricării autovehiculelor.\n\n3. O abordare potențială ar putea fi prezentarea de soluții inovatoare care să ajute la depășirea acestor provocări și să îmbunătățească performanța operațională a companiei."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -56,9 +61,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.globcom.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:14.392Z",
-  "companyDescription": "GlobCom Company este o companie din industria fabricării de autovehicule, localizată în Moldova, cu 35 de angajați. Compania operează în sectorul producției și manufacturing-ului de autovehicule."
+  "importedAt": "2026-04-04T19:24:57.058Z"
 }

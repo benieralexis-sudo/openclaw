@@ -10,10 +10,15 @@
   "employeeCount": 66,
   "location": "Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "1. Vlad Chetrusca, fondatorul și CEO-ul companiei Your Story Interactive, este expert în dezvoltarea de jocuri video inovatoare care captivează publicul.\n\n2. Ca lider al unei companii din industria jocurilor, Vlad se confruntă probabil cu provocări legate de creșterea afacerii, optimizarea proceselor și atragerea de noi clienți.\n\n3. Abordarea potențială ar putea fi prezentarea soluțiilor de dezvoltare de jocuri personalizate, care să ajute companiile să-și atingă obiectivele de marketing și implicare a clienților."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://yourstoryinteractive.com/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:44.076Z"
+  "importedAt": "2026-04-04T19:24:57.213Z"
 }

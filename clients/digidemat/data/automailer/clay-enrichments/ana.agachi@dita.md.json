@@ -10,10 +10,15 @@
   "employeeCount": 101,
   "location": "Chişinău, Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": null,
+  "linkedinBio": {
+    "response": "Ana Agachi, Head of Import Department la Dita EstFarm, este o farmacistă cu peste 20 de ani de experiență în domeniul importurilor farmaceutice. Ea se concentrează pe creșterea sustenabilă a afacerilor și pe respectarea tuturor regulilor etice și de reglementare. Cu o experiență solidă în logistica din domeniul sănătății, Ana lucrează pentru a construi lanțuri de aprovizionare fiabile, care să asigure accesul oamenilor la medicamente de calitate."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,8 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://dita.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:15.052Z"
+  "importedAt": "2026-04-04T19:24:57.011Z"
 }

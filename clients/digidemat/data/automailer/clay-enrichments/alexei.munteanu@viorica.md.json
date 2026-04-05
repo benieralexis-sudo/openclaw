@@ -10,10 +10,15 @@
   "employeeCount": 83,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": "Alexei Munteanu este Chief Marketing Officer la Viorica Cosmetic, o companie de manufactura produse cosmetice personale cu sediul în Chișinău, Moldova. Conduce strategiile de marketing pentru o echipă de 83 de angajați.",
+  "linkedinBio": {
+    "response": "1. Alexei Munteanu, CMO la Viorica Cosmetic, o companie de producție de produse de îngrijire personală, are o experiență dovedită în managementul și marketingul de top.\n\n2. Ca lider în industria telecomunicațiilor, Alexei se confruntă probabil cu provocări legate de inovare, gestionarea relațiilor cu clienții și optimizarea proceselor de afaceri.\n\n3. O abordare orientată pe soluții, care să evidențieze modul în care produsele sau serviciile dumneavoastră pot ajuta Viorica Cosmetic să depășească aceste provocări, ar putea fi un unghi de prospectare eficient."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,9 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "75",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "http://www.viorica.md",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:12.148Z",
-  "companyDescription": "Viorica Cosmetic este o companie de manufactura produse cosmetice personale cu sediul în Chișinău, Moldova, cu 83 de angajați. Recent, compania a anunțat planuri de a plăti datoriile acumulate și de a depăși perioada de pierderi financiare."
+  "importedAt": "2026-04-04T19:24:57.459Z"
 }

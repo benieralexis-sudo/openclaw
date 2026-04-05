@@ -10,10 +10,15 @@
   "employeeCount": 139,
   "location": "Chișinău, Moldova",
   "phone": "",
+  "companyDescription": null,
+  "positionStartDate": null,
+  "emailValid": null,
   "builtWith": null,
   "funding": null,
   "headcountGrowth": null,
-  "linkedinBio": "Alexandru Stroia este Director of Flight Operations la HiSky, compania aeriană din Moldova. Responsabil de operațiunile zborurilor și gestionarea flotei aeriene. Contribuie la expansiunea recentă a companiei pe ruta Europa de Est - Statele Unite.",
+  "linkedinBio": {
+    "response": "1. Alexandru Stroia, Director of Flight Operations la HiSky, gestionează operațiunile de zbor și asigură eficiența și siguranța zborurilor companiei.\n\n2. Ca director al operațiunilor de zbor, Alexandru se confruntă probabil cu provocări legate de optimizarea costurilor, creșterea productivității și menținerea standardelor de siguranță ridicate într-o industrie competitivă.\n\n3. Abordarea potențială pentru prospectare B2B ar putea viza soluții inovatoare care să ajute compania să-și îmbunătățească eficiența operațională, să reducă costurile și să ofere o experiență mai bună pasagerilor."
+  },
   "linkedinPosts": null,
   "jobListings": null,
   "googleNews": {
@@ -104,9 +109,12 @@
   "revenueData": null,
   "growthInsights": null,
   "enrichCompany": null,
+  "leadScore": "70",
+  "priority": "Haute",
   "catchAll": false,
+  "companyDomain": "https://hisky.aero/",
+  "companyLocation": null,
   "enrichment": {},
   "source": "clay",
-  "importedAt": "2026-04-02T21:30:10.794Z",
-  "companyDescription": "HiSky este o companie aeriană din Chișinău, Moldova, cu 139 de angajați. Recent a lansat noi conexiuni aero între Europa de Est și Statele Unite, inclusiv zboruri către New York și Chicago, consolidând prezența sa pe piața transatlantică."
+  "importedAt": "2026-04-04T19:24:57.298Z"
 }
