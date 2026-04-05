@@ -225,15 +225,34 @@
     <p class="label rv">Le co&ucirc;t de l'inaction</p>
     <h2 class="title title-lg rv rv-1">Ce que votre prospection vous co&ucirc;te<br>vraiment chaque mois.</h2>
   </div>
+
+  <!-- ROI Calculator -->
+  <div class="roi-calc rv" id="roiCalc">
+    <div class="roi-calc-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
+      Calculez vos &eacute;conomies
+    </div>
+    <div class="roi-slider-wrap">
+      <label class="roi-slider-label">Votre TJM <span id="roiTjmVal" class="roi-slider-val">80&euro;/h</span></label>
+      <input type="range" id="roiTjm" class="roi-slider" min="40" max="200" step="10" value="80">
+      <div class="roi-slider-range"><span>40&euro;</span><span>200&euro;</span></div>
+    </div>
+    <div class="roi-slider-wrap">
+      <label class="roi-slider-label">Heures de prospection / semaine <span id="roiHoursVal" class="roi-slider-val">10h</span></label>
+      <input type="range" id="roiHours" class="roi-slider" min="2" max="25" step="1" value="10">
+      <div class="roi-slider-range"><span>2h</span><span>25h</span></div>
+    </div>
+  </div>
+
   <div class="coi-grid rv">
     <div class="coi-card coi-card-bad">
       <div class="coi-label coi-label-red">Aujourd'hui</div>
-      <div class="coi-line"><span class="coi-line-name">Votre temps (10h/sem &times; 80&euro;/h)</span><span class="coi-line-val">3 200&euro;</span></div>
+      <div class="coi-line"><span class="coi-line-name">Votre temps (<span id="coiHours">10</span>h/sem &times; <span id="coiTjm">80</span>&euro;/h)</span><span class="coi-line-val" id="coiTimeCost">3 200&euro;</span></div>
       <div class="coi-line"><span class="coi-line-name">Outils (Sales Nav, enrichissement&hellip;)</span><span class="coi-line-val">500&euro;</span></div>
       <div class="coi-line"><span class="coi-line-name">R&eacute;sultats</span><span class="coi-line-val">2-3 RDV</span></div>
       <div class="coi-total coi-total-red">
-        <div class="coi-total-val">3 700&euro;/mois</div>
-        <div class="coi-total-sub">+ 40h de votre temps</div>
+        <div class="coi-total-val" id="coiTotalBad">3 700&euro;/mois</div>
+        <div class="coi-total-sub">+ <span id="coiTotalHours">40</span>h de votre temps</div>
       </div>
     </div>
     <div class="coi-arrow">
@@ -250,7 +269,7 @@
       </div>
     </div>
   </div>
-  <p class="coi-saving rv rv-2">&Eacute;conomie : <strong>3 210&euro;/mois</strong> + <strong>40 heures</strong> lib&eacute;r&eacute;es pour closer et d&eacute;velopper votre activit&eacute;.</p>
+  <p class="coi-saving rv rv-2">&Eacute;conomie : <strong id="coiSavingVal">3 210&euro;/mois</strong> + <strong id="coiSavingHours">40 heures</strong> lib&eacute;r&eacute;es pour closer et d&eacute;velopper votre activit&eacute;.</p>
 </div>
 </section>
 

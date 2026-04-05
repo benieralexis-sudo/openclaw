@@ -169,6 +169,32 @@ setTimeout(() => {
   }
 }, 2000);
 
+// ===== ROI CALCULATOR =====
+const roiTjm = document.getElementById('roiTjm');
+const roiHours = document.getElementById('roiHours');
+if (roiTjm && roiHours) {
+  function updateROI() {
+    const tjm = parseInt(roiTjm.value);
+    const hours = parseInt(roiHours.value);
+    const monthlyHours = hours * 4;
+    const timeCost = monthlyHours * tjm;
+    const totalBad = timeCost + 500;
+    const saving = totalBad - 490;
+    const fmt = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    document.getElementById('roiTjmVal').textContent = tjm + '\u20AC/h';
+    document.getElementById('roiHoursVal').textContent = hours + 'h';
+    document.getElementById('coiHours').textContent = hours;
+    document.getElementById('coiTjm').textContent = tjm;
+    document.getElementById('coiTimeCost').textContent = fmt(timeCost) + '\u20AC';
+    document.getElementById('coiTotalBad').textContent = fmt(totalBad) + '\u20AC/mois';
+    document.getElementById('coiTotalHours').textContent = monthlyHours;
+    document.getElementById('coiSavingVal').textContent = fmt(saving) + '\u20AC/mois';
+    document.getElementById('coiSavingHours').textContent = monthlyHours + ' heures';
+  }
+  roiTjm.addEventListener('input', updateROI);
+  roiHours.addEventListener('input', updateROI);
+}
+
 // ===== LEGAL TOGGLE =====
 document.addEventListener('click', e => {
   const a = e.target.closest('a[href="#mentions-legales"],a[href="#confidentialite"]');
