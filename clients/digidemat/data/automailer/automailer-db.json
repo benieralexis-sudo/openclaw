@@ -11,18 +11,8 @@
     "lst_mngpnnjjak86": {
       "id": "lst_mngpnnjjak86",
       "chatId": "1409505520",
-      "name": "GWS Moldova — 43 leads",
+      "name": "GWS Moldova — 30 leads",
       "contacts": [
-        {
-          "email": "ion.turcan@viorica.md",
-          "name": "Ion Turcan",
-          "firstName": "Ion",
-          "lastName": "Turcan",
-          "company": "Viorica Cosmetic",
-          "title": "Chief Commercial Officer",
-          "industry": "Personal Care Product Manufacturing",
-          "addedAt": "2026-04-02T21:30:10.418Z"
-        },
         {
           "email": "alexandru.stroia@hisky.aero",
           "name": "Alexandru Stroia",
@@ -94,26 +84,6 @@
           "addedAt": "2026-04-02T21:30:12.021Z"
         },
         {
-          "email": "sergiu.malai@hisky.aero",
-          "name": "Sergiu Malai",
-          "firstName": "Sergiu",
-          "lastName": "Malai",
-          "company": "HiSky",
-          "title": "Director (Postholder) Ground Operations",
-          "industry": "Airlines and Aviation",
-          "addedAt": "2026-04-02T21:30:12.041Z"
-        },
-        {
-          "email": "igor.carlasuc@orhei-vit.com",
-          "name": "Igor Carlasuc",
-          "firstName": "Igor",
-          "lastName": "Carlasuc",
-          "company": "Orhei-Vit",
-          "title": "Human Resources Director",
-          "industry": "Food and Beverage Services",
-          "addedAt": "2026-04-02T21:30:12.054Z"
-        },
-        {
           "email": "ion.gilea@ook.group",
           "name": "Ion Gîlea",
           "firstName": "Ion",
@@ -122,26 +92,6 @@
           "title": "CEO",
           "industry": "Technology, Information and Internet",
           "addedAt": "2026-04-02T21:30:12.142Z"
-        },
-        {
-          "email": "alexei.munteanu@viorica.md",
-          "name": "Alexei Munteanu",
-          "firstName": "Alexei",
-          "lastName": "Munteanu",
-          "company": "Viorica Cosmetic",
-          "title": "Chief Marketing Officer",
-          "industry": "Personal Care Product Manufacturing",
-          "addedAt": "2026-04-02T21:30:12.148Z"
-        },
-        {
-          "email": "alex@smartdata.solutions",
-          "name": "Alex Scutaru",
-          "firstName": "Alex",
-          "lastName": "Scutaru",
-          "company": "www.SmartData.Solutions",
-          "title": "CTO, Co Founder and Partner",
-          "industry": "Technology, Information and Internet",
-          "addedAt": "2026-04-02T21:30:12.324Z"
         },
         {
           "email": "alexa.iulian@alsodev.com",
@@ -172,26 +122,6 @@
           "title": "CEO",
           "industry": "Food and Beverage Services",
           "addedAt": "2026-04-02T21:30:13.917Z"
-        },
-        {
-          "email": "edediu@globcom.md",
-          "name": "Eugeniu Dediu",
-          "firstName": "Eugeniu",
-          "lastName": "Dediu",
-          "company": "GlobCom Company",
-          "title": "Chief Operating Officer",
-          "industry": "Motor Vehicle Manufacturing",
-          "addedAt": "2026-04-02T21:30:14.391Z"
-        },
-        {
-          "email": "victor.marchitan@thenoughtyfox.com",
-          "name": "Victor MARCHITAN",
-          "firstName": "Victor",
-          "lastName": "MARCHITAN",
-          "company": "The Noughty Fox",
-          "title": "Chief Business Development Officer",
-          "industry": "",
-          "addedAt": "2026-04-02T21:30:18.765Z"
         },
         {
           "email": "vlada.medvedcova@lh47arch.com",
@@ -244,16 +174,6 @@
           "addedAt": "2026-04-02T21:30:21.822Z"
         },
         {
-          "email": "tatiana.popa@heritage.md",
-          "name": "Tatiana Popa",
-          "firstName": "Tatiana",
-          "lastName": "Popa",
-          "company": "Heritage International School",
-          "title": "Head of Secondary",
-          "industry": "",
-          "addedAt": "2026-04-02T21:30:21.825Z"
-        },
-        {
           "email": "vb@comsales.md",
           "name": "Vladimir Balaban",
           "firstName": "Vladimir",
@@ -302,16 +222,6 @@
           "title": "Chief Commercial Officer",
           "industry": "",
           "addedAt": "2026-04-02T21:30:36.722Z"
-        },
-        {
-          "email": "olgapetis@shoppingmalldova.md",
-          "name": "Olga (Petis)",
-          "firstName": "Olga",
-          "lastName": "(Petis)",
-          "company": "Shopping MallDova",
-          "title": "Head of marketing",
-          "industry": "Retail",
-          "addedAt": "2026-04-02T21:30:40.511Z"
         },
         {
           "email": "ijereghi@ulim.md",
@@ -398,66 +308,10 @@
           ]
         },
         {
-          "email": "anatolie.dontu@azamet.md",
-          "name": "Anatolie Donțu",
-          "firstName": "Anatolie",
-          "lastName": "Donțu",
-          "company": "Azamet",
-          "title": "COO",
-          "industry": "",
-          "addedAt": "2026-04-04T13:47:47.492Z",
-          "source": "catch-all-guess",
-          "tags": [
-            "gws"
-          ]
-        },
-        {
-          "email": "elizaveta.magleli@azamet.md",
-          "name": "Elizaveta Magleli",
-          "firstName": "Elizaveta",
-          "lastName": "Magleli",
-          "company": "Azamet",
-          "title": "",
-          "industry": "",
-          "addedAt": "2026-04-04T13:47:47.492Z",
-          "source": "catch-all-guess",
-          "tags": [
-            "gws"
-          ]
-        },
-        {
-          "email": "ivan.chistol@grafit.com",
-          "name": "Ivan Chistol",
-          "firstName": "Ivan",
-          "lastName": "Chistol",
-          "company": "Grafit Holding",
-          "title": "",
-          "industry": "",
-          "addedAt": "2026-04-04T13:47:47.492Z",
-          "source": "catch-all-guess",
-          "tags": [
-            "gws"
-          ]
-        },
-        {
           "email": "olga.onoprienco@adcenter.md",
           "name": "Olga Onoprienco",
           "firstName": "Olga",
           "lastName": "Onoprienco",
-          "company": "ADCENTER",
-          "title": "",
-          "industry": "",
-          "addedAt": "2026-04-04T13:47:47.492Z",
-          "source": "catch-all-guess",
-          "tags": [
-            "gws"
-          ]
-        },
-        {
-          "email": "vitor.deandrade@adcenter.md",
-          "name": "Vitor de Andrade",
-          "firstName": "Vitor",
-          "lastName": "de Andrade",
           "company": "ADCENTER",
           "title": "",
           "industry": "",
