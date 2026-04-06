@@ -190,7 +190,7 @@ inboxHandler.start();
 meetingHandler.start();
 
 // Inbox Listener (IMAP) — instancie apres les handlers pour le callback
-let inboxListener = null;
+let inboxListeners = [];
 
 // Self-Improve (instancie apres les autres pour le sendTelegram callback)
 let selfImproveHandler = null;
@@ -561,37 +561,82 @@ const automailerStorageForInbox = require('../skills/automailer/storage.js');
 if (!InboxListener) {
   log.warn('router', 'inbox-listener non disponible (imapflow manquant). Installer avec: docker exec moltbot-telegram-router-1 pnpm add -w imapflow');
 }
-inboxListener = InboxListener ? new InboxListener({
-  imapHost: IMAP_HOST,
-  imapPort: IMAP_PORT,
-  imapUser: IMAP_USER,
-  imapPass: IMAP_PASS,
-  adminChatId: ADMIN_CHAT_ID,
-  sendTelegram: async (chatId, message) => {
-    await sendMessage(chatId, message, 'Markdown');
-    addToHistory(chatId, 'bot', message.substring(0, 200), 'inbox-manager');
-  },
-  getKnownLeads: () => {
-    // Recuperer les emails envoyes par automailer
-    try {
-      const amData = automailerStorageForInbox.data || {};
-      const emails = amData.emails || [];
-      return emails.map(e => ({ email: e.to, to: e.to, name: e.toName || '', campaignId: e.campaignId || null }));
-    } catch (e) { return []; }
-  },
-  onReplyDetected: createReplyPipeline({
-    openaiKey: OPENAI_KEY, callClaude, escTg,
-    automailerStorage: automailerStorageForInbox, getHubSpotClient: _getHubSpotClient,
-    sendMessage, sendMessageWithButtons, adminChatId: ADMIN_CHAT_ID,
-    meetingHandler,
-    getPendingDrafts: () => _pendingDrafts, hitlId: _hitlId, saveHitlDrafts: _saveHitlDrafts,
-    resendKey: RESEND_KEY, senderEmail: SENDER_EMAIL
-  })
-}) : null;
+// Multi-IMAP : créer un listener par boîte GMAIL_MAILBOXES (ou fallback IMAP_USER)
+if (InboxListener) {
+  const _imapSharedOpts = {
+    adminChatId: ADMIN_CHAT_ID,
+    sendTelegram: async (chatId, message) => {
+      await sendMessage(chatId, message, 'Markdown');
+      addToHistory(chatId, 'bot', message.substring(0, 200), 'inbox-manager');
+    },
+    getKnownLeads: () => {
+      try {
+        const amData = automailerStorageForInbox.data || {};
+        const emails = amData.emails || [];
+        return emails.map(e => ({ email: e.to, to: e.to, name: e.toName || '', campaignId: e.campaignId || null }));
+      } catch (e) { return []; }
+    },
+    onReplyDetected: createReplyPipeline({
+      openaiKey: OPENAI_KEY, callClaude, escTg,
+      automailerStorage: automailerStorageForInbox, getHubSpotClient: _getHubSpotClient,
+      sendMessage, sendMessageWithButtons, adminChatId: ADMIN_CHAT_ID,
+      meetingHandler,
+      getPendingDrafts: () => _pendingDrafts, hitlId: _hitlId, saveHitlDrafts: _saveHitlDrafts,
+      resendKey: RESEND_KEY, senderEmail: SENDER_EMAIL
+    }),
+    onBounceDetected: (email, bounceType) => {
+      try {
+        if (bounceType === 'hard') {
+          automailerStorageForInbox.addToBlacklist(email, 'imap_hard_bounce');
+          log.info('inbox-manager', 'Hard bounce IMAP: ' + email + ' blackliste');
+        }
+        const emails = (automailerStorageForInbox.data.emails || [])
+          .filter(e => (e.to || '').toLowerCase() === email.toLowerCase());
+        for (const em of emails) {
+          if (em.status !== 'replied') {
+            em.status = 'bounced';
+            em.bounceType = bounceType;
+            em.bouncedAt = new Date().toISOString();
+          }
+        }
+        automailerStorageForInbox.save();
+      } catch (e) { log.warn('inbox-manager', 'Erreur maj bounce: ' + e.message); }
+    }
+  };
+  // IMAP_MAILBOXES=user1:pass1,user2:pass2 — multi-inbox monitoring
+  // Si absent, fallback sur IMAP_USER/IMAP_PASS (single inbox)
+  const imapMailboxesEnv = (process.env.IMAP_MAILBOXES || '').trim();
+  if (imapMailboxesEnv) {
+    for (const entry of imapMailboxesEnv.split(',')) {
+      const parts = entry.trim().split(':');
+      const user = parts[0];
+      const pass = parts.slice(1).join(':');
+      if (user && pass) {
+        inboxListeners.push(new InboxListener({
+          ..._imapSharedOpts,
+          imapHost: process.env.IMAP_HOST || 'imap.gmail.com',
+          imapPort: parseInt(process.env.IMAP_PORT) || 993,
+          imapUser: user.trim(),
+          imapPass: pass.trim()
+        }));
+      }
+    }
+  }
+  // Fallback : single-IMAP (IMAP_USER/IMAP_PASS)
+  if (inboxListeners.length === 0 && IMAP_USER && IMAP_PASS) {
+    inboxListeners.push(new InboxListener({
+      ..._imapSharedOpts,
+      imapHost: IMAP_HOST, imapPort: IMAP_PORT,
+      imapUser: IMAP_USER, imapPass: IMAP_PASS
+    }));
+  }
+}
 
-// Demarrer le listener IMAP si configure
-if (inboxListener && inboxListener.isConfigured()) {
-  inboxListener.start().catch(e => log.error('router', 'Erreur demarrage IMAP:', e.message));
+// Demarrer tous les listeners IMAP
+for (const listener of inboxListeners) {
+  if (listener.isConfigured()) {
+    listener.start().catch(e => log.error('router', 'Erreur demarrage IMAP ' + (listener.user || '') + ':', e.message));
+  }
 }
 
 // Storages des skills a crons (pour toggle config.enabled)
@@ -2147,7 +2192,7 @@ function gracefulShutdown() {
    inboxHandler, meetingHandler]
     .forEach(h => { try { h.stop(); } catch (e) { log.error('router', 'Erreur stop handler:', e.message); } });
   if (selfImproveHandler) try { selfImproveHandler.stop(); } catch (e) { log.error('router', 'Erreur stop self-improve:', e.message); }
-  if (inboxListener) try { inboxListener.stop(); } catch (e) { log.error('router', 'Erreur stop inbox-listener:', e.message); }
+  for (const il of inboxListeners) { try { il.stop(); } catch (e) { log.error('router', 'Erreur stop inbox-listener:', e.message); } }
   setTimeout(() => {
     log.info('router', 'Shutdown termine.');
     process.exit(0);
@@ -2173,12 +2218,12 @@ process.on('unhandledRejection', (reason) => {
       msg.includes('IMAP') || stack.includes('imapflow')) {
     log.warn('router', 'IMAP unhandled rejection (non-fatal):', msg);
     // Restart IMAP listener proprement si disponible
-    if (inboxListener) {
+    for (const il of inboxListeners) {
       try {
-        inboxListener.stop();
+        il.stop();
         setTimeout(() => {
-          if (inboxListener && inboxListener.isConfigured()) {
-            inboxListener.start().catch(e => log.warn('router', 'IMAP restart echoue:', e.message));
+          if (il && il.isConfigured()) {
+            il.start().catch(e => log.warn('router', 'IMAP restart echoue:', e.message));
           }
         }, 10000);
       } catch (e) {}

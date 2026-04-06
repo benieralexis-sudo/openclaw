@@ -24,6 +24,7 @@ class InboxListener {
     this.sendTelegram = options.sendTelegram || (async () => {});
     this.getKnownLeads = options.getKnownLeads || (() => []);
     this.onReplyDetected = options.onReplyDetected || (async () => {});
+    this.onBounceDetected = options.onBounceDetected || null;
 
     this._client = null;
     this._pollInterval = null;
@@ -276,6 +277,11 @@ class InboxListener {
 
       // Ignorer les emails systeme (noreply, mailer-daemon, etc.)
       if (this._isSystemEmail(senderEmail)) {
+        // Capturer les bounces avant de discard (critique pour Gmail SMTP sans Resend webhook)
+        const localPart = senderEmail.split('@')[0];
+        if (/^(bounce|bounces|mailer-daemon|postmaster)/.test(localPart) && this.onBounceDetected) {
+          this._processBounceNotification(msg);
+        }
         storage.addProcessedUid(msg.uid);
         continue;
       }
@@ -404,6 +410,30 @@ class InboxListener {
 
       // Marquer UID comme traite APRES classification/callback (evite perte si crash)
       storage.addProcessedUid(msg.uid);
+    }
+  }
+
+  _processBounceNotification(msg) {
+    try {
+      const body = (msg.snippet || msg.text || msg.subject || '').toLowerCase();
+      // Extraire l'adresse email du destinataire original
+      const emailMatch = body.match(/([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/);
+      if (!emailMatch) return;
+      const bouncedEmail = emailMatch[1];
+      // Ignorer si c'est notre propre adresse
+      if (bouncedEmail === this.user.toLowerCase()) return;
+      // Vérifier si c'est un lead connu
+      const knownLeads = this.getKnownLeads();
+      const isKnown = knownLeads.some(l => (l.email || '').toLowerCase() === bouncedEmail);
+      if (!isKnown) return;
+      // Hard vs soft bounce
+      const isHard = /invalid|not found|does not exist|rejected|unknown user|no such|mailbox unavailable/i.test(body);
+      log.warn('inbox-manager', 'Bounce IMAP detecte: ' + bouncedEmail + ' (' + (isHard ? 'hard' : 'soft') + ') via ' + this.user);
+      if (this.onBounceDetected) {
+        this.onBounceDetected(bouncedEmail, isHard ? 'hard' : 'soft');
+      }
+    } catch (e) {
+      log.warn('inbox-manager', 'Erreur parsing bounce: ' + e.message);
     }
   }
 

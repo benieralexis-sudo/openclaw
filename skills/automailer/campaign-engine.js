@@ -1153,6 +1153,10 @@ class CampaignEngine {
             skipped++;
             continue;
           }
+        } else {
+          // Contact n'a pas reçu le step précédent — skip (sera traité quand step N-1 l'enverra)
+          skipped++;
+          continue;
         }
 
         // Stop sur inactivite : engagement-based auto-pause progressif
@@ -2353,11 +2357,13 @@ class CampaignEngine {
           }
         }
 
-        // v9.3: ne pas executer step N si step N-1 n'est pas completed
+        // v9.3: ne pas executer step N si step N-1 n'a envoyé aucun email
+        // (relaxé pour batch-limited: si sentCount > 0, le check per-contact dans
+        // executeCampaignStep s'assure que seuls les contacts ayant reçu step N-1 reçoivent step N)
         if (step.stepNumber > 1) {
           const prevStep = campaign.steps.find(s => s.stepNumber === step.stepNumber - 1);
-          if (prevStep && prevStep.status !== 'completed') {
-            continue; // step precedent pas fini, attendre
+          if (prevStep && prevStep.status !== 'completed' && !(prevStep.sentCount > 0)) {
+            continue; // step precedent pas encore commence, attendre
           }
         }
 
