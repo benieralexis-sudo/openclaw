@@ -898,17 +898,20 @@ class CampaignEngine {
     const campaignEmails = storage.getEmailsByCampaign(campaignId);
 
     let batchSentCount = 0; // Compteur local pour refleter les envois du batch en cours
+    let _batchLimited = false; // Flag: batch interrompu par warmup ou cohorte
     const MAX_BATCH_PER_CYCLE = 50; // OPTIM 1 : max 50 envois par cycle (cohorte optimale)
     for (const contact of list.contacts) {
       // OPTIM 1 : limiter à 50 envois par cycle pour rester dans la cohorte optimale
       if (batchSentCount >= MAX_BATCH_PER_CYCLE) {
         log.info('campaign-engine', 'OPTIM COHORTE: ' + MAX_BATCH_PER_CYCLE + ' envois atteints — suite au prochain cycle');
+        _batchLimited = true;
         break;
       }
       // FIX 3 : Verifier quota warmup journalier via domain-manager
       const remainingHeadroom = getDailyLimit() - batchSentCount;
       if (remainingHeadroom <= 0) {
         log.info('campaign-engine', 'Quota warmup atteint (headroom=0) — envoi stoppe');
+        _batchLimited = true;
         break;
       }
 
@@ -1900,8 +1903,21 @@ class CampaignEngine {
     step.sentCount = (step.sentCount || 0) + sent;
     step.errorCount = (step.errorCount || 0) + errors;
 
-    if (sent > 0 || (sent === 0 && skipped === 0 && errors === 0)) {
-      // Step reellement traite (emails envoyes ou aucun contact eligible)
+    // Compter les contacts non encore traites pour ce step
+    const alreadySentEmails = storage.getEmailsByCampaign(campaignId)
+      .filter(e => e.stepNumber === stepNumber && e.status !== 'failed')
+      .map(e => e.to.toLowerCase());
+    const remainingContacts = (list.contacts || []).filter(c =>
+      c.email && !alreadySentEmails.includes(c.email.toLowerCase())
+    ).length;
+
+    if (_batchLimited && remainingContacts > 0) {
+      // Warmup ou cohorte limit atteint mais il reste des contacts — remettre en pending
+      step.status = 'pending';
+      step.scheduledAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+      log.info('campaign-engine', 'Step ' + stepNumber + ' pause (batch limit) — ' + sent + ' envoyes, ' + remainingContacts + ' restants — reprise dans 2h (' + step.scheduledAt + ')');
+    } else if (sent > 0 || (sent === 0 && skipped === 0 && errors === 0)) {
+      // Step reellement traite (tous emails envoyes ou aucun contact eligible)
       step.status = 'completed';
       step.sentAt = new Date().toISOString();
     } else if ((step._retryCount || 0) >= ((list.contacts || []).length <= 1 ? 5 : 15)) {
