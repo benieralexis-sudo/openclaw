@@ -67,8 +67,10 @@ class ProspectResearcher {
       if (present) score += weights[k];
       else missing.push(k);
     }
-    // Minimum pour email 10/10 : linkedinBio + (companyDescription OU googleNews)
-    const ready = fields.linkedinBio && (fields.companyDescription || fields.googleNews);
+    // Minimum: au moins 1 signal fort (linkedinBio, companyDescription, googleNews, ou linkedinPosts)
+    // Score >= 20 suffit pour un email personnalisé basé sur titre + industrie + 1 signal
+    // Score < 20 = vraiment aucune donnée exploitable
+    const ready = score >= 20 || fields.linkedinBio || fields.companyDescription || fields.googleNews || fields.linkedinPosts;
     return { score, missing, ready, fields };
   }
 
