@@ -922,8 +922,8 @@ Format JSON strict :
           if (camp.status === 'cancelled' || camp.status === 'completed') continue;
           const campList = amStorage.data.contactLists ? amStorage.data.contactLists[camp.contactListId] : null;
           if (campList && campList.contacts && campList.contacts.some(c => (c.email || '').toLowerCase() === prospectLower)) {
-            log.info('action-executor', params.to + ' deja dans campagne ' + camp.id + ' — skip (cross-dedup campagne)');
-            return { success: false, error: params.to + ' deja dans une campagne active', deduplicated: true };
+            log.info('action-executor', params.to + ' deja dans campagne ' + (camp.id || camp.name || 'inconnue') + ' — skip (cross-dedup campagne)');
+            return { success: false, error: params.to + ' deja dans une campagne active', deduplicated: true, gateBlocked: true };
           }
         }
       } else {

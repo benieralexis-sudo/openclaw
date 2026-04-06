@@ -1874,10 +1874,14 @@ const healthServer = http.createServer(async (req, res) => {
                 }
               } catch(e) { log.warn('webhook-clay', 'Erreur capture LinkedIn-only: ' + e.message); }
             }
-            results.push({ email: lead.email || null, error: 'email requis et invalide', success: false });
+            const reason = 'email requis et invalide';
+            log.warn('webhook-clay', 'Lead rejete: ' + (lead.email || 'no-email') + ' / ' + (lead.firstName || '?') + ' ' + (lead.lastName || '?') + ' @ ' + (lead.company || '?') + ' — raison: ' + reason);
+            results.push({ email: lead.email || null, error: reason, success: false });
             continue;
           }
           if (!lead.firstName || !lead.lastName || !lead.company) {
+            const reason = 'firstName=' + (lead.firstName || 'MANQUANT') + ' lastName=' + (lead.lastName || 'MANQUANT') + ' company=' + (lead.company || 'MANQUANT');
+            log.warn('webhook-clay', 'Lead rejete: ' + lead.email + ' — champs manquants: ' + reason);
             results.push({ email: lead.email, error: 'firstName, lastName et company requis', success: false });
             continue;
           }

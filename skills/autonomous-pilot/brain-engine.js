@@ -1400,6 +1400,19 @@ Analyse et reponds en JSON:
         for (const email of recentlyFailed) {
           alreadySent.add(email);
         }
+        // Exclure les leads deja dans une campagne active (evite brain/campaign conflict)
+        if (amEligible) {
+          const allCamps = amEligible.getAllCampaigns();
+          for (const camp of allCamps) {
+            if (camp.status === 'cancelled' || camp.status === 'completed') continue;
+            const campList = amEligible.data.contactLists ? amEligible.data.contactLists[camp.contactListId] : null;
+            if (campList && campList.contacts) {
+              for (const c of campList.contacts) {
+                if (c.email) alreadySent.add(c.email.toLowerCase());
+              }
+            }
+          }
+        }
         const eligible = Object.values(allLeadsEligible)
           .filter(l => l.email && (l.score || 0) >= (g.minLeadScore || 5) && !alreadySent.has(l.email.toLowerCase()))
           .sort((a, b) => (b.score || 0) - (a.score || 0))

@@ -13,7 +13,9 @@ class AutoMailerHandler {
   constructor(openaiKey, claudeKey, resendKey, senderEmail) {
     this.openaiKey = openaiKey;
     this.claude = claudeKey ? new ClaudeEmailWriter(claudeKey) : null;
-    this.resend = resendKey ? new ResendClient(resendKey, senderEmail) : null;
+    // Gmail SMTP peut fonctionner sans clé Resend — créer le client si SMTP actif
+    const gmailActive = process.env.GMAIL_SMTP_ENABLED === 'true' && process.env.GMAIL_MAILBOXES;
+    this.resend = (resendKey || gmailActive) ? new ResendClient(resendKey || '', senderEmail) : null;
     this.contacts = new ContactManager();
     this.campaignEngine = this.resend && this.claude
       ? new CampaignEngine(this.resend, this.claude)

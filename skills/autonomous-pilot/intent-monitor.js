@@ -81,7 +81,10 @@ class IntentMonitor {
   async scan() {
     // v9.2: Skip si Apollo resilie (pas de cle API)
     if (!this.apolloKey || this.apolloKey.trim() === '') {
-      log.info('intent-monitor', 'Apollo resilie — intent monitor desactive (pas de cle API)');
+      if (!this._apolloWarnLogged) {
+        log.info('intent-monitor', 'Apollo resilie — intent monitor desactive (pas de cle API)');
+        this._apolloWarnLogged = true;
+      }
       return { skipped: true, reason: 'apollo_resilie' };
     }
 
@@ -173,7 +176,6 @@ class IntentMonitor {
     // Reveal Apollo DESACTIVE — Apollo resilie (mars 2026)
     // Les leads viennent maintenant uniquement de Web Intel (ont deja un email)
     let revealCount = 0;
-    log.info('intent-monitor', 'Reveals: skip (Apollo resilie)');
 
     // Filtrer : email requis + pas deja contacte + pas en cooldown
     const actionableLeads = dedupedLeads.filter(function(lead) {
