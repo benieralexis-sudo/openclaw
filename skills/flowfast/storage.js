@@ -200,8 +200,9 @@ class Storage {
       }
     }
 
+    // Normaliser score si > 10 (ex: imports Clay qui utilisent une echelle /100)
+    let adjustedScore = (typeof score === 'number' && score > 10) ? Math.round(score / 10) : score;
     // Penalite score pour donnees manquantes
-    let adjustedScore = score;
     if (!lead.email) adjustedScore = Math.min(adjustedScore, 7); // Pas d'email = max 7
     if (!lead.linkedin && !lead.linkedinUrl && !lead.linkedin_url) adjustedScore = Math.max(0, adjustedScore - 0.5);
 

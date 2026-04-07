@@ -85,9 +85,31 @@ class AutoMailerStorage {
       }
     } catch (e) {
       console.error('[automailer-storage] Erreur chargement (fichier corrompu?):', e.message);
-      // Backup du fichier corrompu et reset aux defaults
-      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, DB_FILE + '.corrupt.' + Date.now()); } catch (_) {}
-      this._save();
+      // Backup du fichier corrompu
+      const corruptPath = DB_FILE + '.corrupt.' + Date.now();
+      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, corruptPath); } catch (_) {}
+      // Tenter de charger depuis le dernier backup .bak si disponible
+      let recovered = false;
+      try {
+        const dir = require('path').dirname(DB_FILE);
+        const baks = require('fs').readdirSync(dir).filter(f => f.includes('.bak')).sort().reverse();
+        for (const bak of baks) {
+          try {
+            const bakData = JSON.parse(fs.readFileSync(require('path').join(dir, bak), 'utf8'));
+            if (bakData.emails || bakData.campaigns) {
+              this.data = { ...this.data, ...bakData };
+              console.warn('[automailer-storage] Recupere depuis backup: ' + bak);
+              recovered = true;
+              this._save();
+              break;
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+      if (!recovered) {
+        console.error('[automailer-storage] Aucun backup valide — reset aux defaults. Fichier corrompu sauvegarde: ' + corruptPath);
+        this._save();
+      }
     }
   }
 
@@ -127,7 +149,7 @@ class AutoMailerStorage {
   }
 
   _generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    return Date.now().toString(36) + require('crypto').randomBytes(3).toString('hex');
   }
 
   // --- Utilisateurs ---
@@ -423,7 +445,7 @@ class AutoMailerStorage {
   // --- Blacklist ---
 
   addToBlacklist(email, reason) {
-    if (!this.data.blacklist) this.data.blacklist = {};
+    if (!this.data.blacklist || Array.isArray(this.data.blacklist)) this.data.blacklist = {};
     if (!email || typeof email !== 'string' || !email.includes('@')) {
       console.warn('[automailer-storage] addToBlacklist: email invalide ignore:', email);
       return null;

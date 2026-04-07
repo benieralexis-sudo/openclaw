@@ -937,7 +937,7 @@ function createReplyPipeline(deps) {
       '📧 ' + escTg(replyData.from),
       '📋 ' + escTg(replyData.subject || '(sans sujet)'),
       '📊 Score : ' + score + '/1.0',
-      '🎭 Ton : ' + (tone || 'neutral')
+      '🎭 Ton : ' + (classification.tone || 'neutral')
     ];
     if (replyData.snippet) {
       notifLines.push('');

@@ -677,8 +677,9 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     const jargonFound = jargonWords.filter(j => new RegExp(j, 'i').test(body || ''));
     if (jargonFound.length >= 2) return { block: true, score: 0, grade: 'F', reason: 'jargon_anglais:' + jargonFound.join('+'), details: {} };
 
-    const emDashCount = (body || '').split(/\u2014|\u2013/).length - 1;
-    if (emDashCount >= 2) return { block: true, score: 0, grade: 'F', reason: 'em_dash_overuse:' + emDashCount, details: {} };
+    // Nettoyage auto tirets cadratins/demi-cadratins → tiret simple (Claude les génère naturellement en roumain/français)
+    body = (body || '').replace(/[\u2014\u2013]/g, '-');
+    const emDashCount = 0; // nettoyé ci-dessus, plus de block em_dash
 
     if (wordCount < 15) return { block: true, score: 0, grade: 'F', reason: 'too_short:' + wordCount, details: {} };
     // OPTIM 2 : hard block abaissé de 100 à 80 mots (benchmark: <80 mots = sweet spot cold email)

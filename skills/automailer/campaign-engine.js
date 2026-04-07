@@ -6,9 +6,11 @@ const log = require('../../gateway/logger.js');
 const { getWarmupDailyLimit, applySpintax, validateEmailOutput, getCityTimezone } = require('../../gateway/utils.js');
 
 // --- LRU eviction helper : supprime les 20% plus anciennes entrees quand la Map depasse maxSize ---
+// Note: ES2015+ Map maintient l'ordre d'insertion. Les entries LRU (delete+re-set on access)
+// placent les plus recemment accedees en fin. keys() itere dans l'ordre d'insertion = plus ancien d'abord.
 function _evictOldest(map, maxSize) {
   if (map.size <= maxSize) return;
-  const toDelete = Math.floor(map.size * 0.2);
+  const toDelete = Math.floor(map.size * 0.2) || 1;
   let i = 0;
   for (const key of map.keys()) {
     if (i >= toDelete) break;
@@ -259,6 +261,9 @@ function _emailPassesQualityGate(subject, body) {
 const _mxCache = new Map();
 const MX_CACHE_TTL = 60 * 60 * 1000; // 1 heure
 
+// Pending DNS promises par domaine (coalescing: 1 seule requete DNS par domaine en vol)
+const _mxPending = new Map();
+
 function _checkMX(email) {
   return new Promise((resolve) => {
     const domain = (email || '').split('@')[1];
@@ -271,11 +276,21 @@ function _checkMX(email) {
       return resolve(cached.valid);
     }
 
+    // Coalescing: si une requete DNS est deja en vol pour ce domaine, attendre son resultat
+    if (_mxPending.has(domain)) {
+      _mxPending.get(domain).push(resolve);
+      return;
+    }
+    _mxPending.set(domain, [resolve]);
+
     dns.resolveMx(domain, (err, addresses) => {
       const valid = !err && Array.isArray(addresses) && addresses.length > 0;
       _mxCache.set(domain, { valid, ts: Date.now() });
       _evictOldest(_mxCache, 500);
-      resolve(valid);
+      // Resoudre toutes les promises en attente pour ce domaine
+      const waiters = _mxPending.get(domain) || [];
+      _mxPending.delete(domain);
+      for (const waiter of waiters) waiter(valid);
     });
   });
 }
@@ -373,7 +388,11 @@ function _smtpVerify(email) {
           if (dataHandler) socket.removeListener('data', dataHandler);
           dataHandler = (d) => {
             buf += d.toString();
-            if (/^\d{3}[ ]/m.test(buf) && buf.endsWith('\r\n')) { res(buf.trim()); }
+            if (/^\d{3}[ ]/m.test(buf) && buf.endsWith('\r\n')) {
+              socket.removeListener('data', dataHandler);
+              dataHandler = null;
+              res(buf.trim());
+            }
           };
           socket.on('data', dataHandler);
         });
@@ -870,6 +889,22 @@ class CampaignEngine {
   }
 
   async executeCampaignStep(campaignId, stepNumber) {
+    // Mutex par campagne: empecher 2 executions paralleles du meme step
+    if (!this._stepLocks) this._stepLocks = new Set();
+    const lockKey = campaignId + ':' + stepNumber;
+    if (this._stepLocks.has(lockKey)) {
+      log.warn('campaign-engine', 'Step ' + stepNumber + ' de ' + campaignId + ' deja en cours — skip');
+      return { sent: 0, errors: 0, skipped: 0 };
+    }
+    this._stepLocks.add(lockKey);
+    try {
+      return await this._executeCampaignStepInner(campaignId, stepNumber);
+    } finally {
+      this._stepLocks.delete(lockKey);
+    }
+  }
+
+  async _executeCampaignStepInner(campaignId, stepNumber) {
     const campaign = storage.getCampaign(campaignId);
     if (!campaign || campaign.status !== 'active') return { sent: 0, errors: 0, skipped: 0 };
 
@@ -915,11 +950,19 @@ class CampaignEngine {
         break;
       }
 
-      // Detecter timezone prospect (Apollo city/country ou fallback Paris)
+      // Detecter timezone prospect (city/country, puis TLD du domaine email, puis fallback Paris)
       const hasCityData = !!(contact.city || contact.state || contact.country);
-      const prospectTz = getCityTimezone(contact.city || contact.state || '', contact.country || '');
+      let prospectTz = getCityTimezone(contact.city || contact.state || '', contact.country || '');
       if (!hasCityData && prospectTz === 'Europe/Paris') {
-        log.info('campaign-engine', 'Timezone fallback Paris pour ' + contact.email + ' (pas de city/country)');
+        // Fallback TLD: extraire le TLD du domaine email pour deviner le pays
+        const emailDomain = (contact.email || '').split('@')[1] || '';
+        const tld = emailDomain.split('.').pop().toLowerCase();
+        if (tld && tld.length === 2 && tld !== 'fr') {
+          const tldTz = getCityTimezone('', tld);
+          if (tldTz !== 'Europe/Paris') {
+            prospectTz = tldTz;
+          }
+        }
       }
 
       // FIX 4 : Re-verifier heures bureau dans la timezone du prospect
@@ -1265,7 +1308,7 @@ class CampaignEngine {
             }
 
             // FIX 6 : Follow-ups conditionnels selon engagement (opened/not opened/hot)
-            const allContactEmails = storage.data.emails.filter(function(e) {
+            const allContactEmails = (storage.data.emails || []).filter(function(e) {
               return e.to === contact.email && e.campaignId === campaignId;
             });
             const openedEmails = allContactEmails.filter(function(e) { return e.openedAt; });
@@ -2045,6 +2088,8 @@ class CampaignEngine {
 
   start() {
     if (this.schedulerInterval) return; // Guard anti-double start
+    if (this._starting) return; // Guard anti-double start pendant repairs
+    this._starting = true;
     // Auto-repair: remettre en pending les steps force-completed avec 0 envois
     this._repairForceCompletedSteps();
     // B2 FIX: reparer les campagnes phantom (step 1 pending sans templates)
@@ -2055,8 +2100,9 @@ class CampaignEngine {
     this._repairMissingScheduledAt();
     log.info('campaign-engine', 'Scheduler demarre (intervalle: 60s)');
     this.schedulerInterval = setInterval(() => this._processScheduled(), 60 * 1000);
+    this._starting = false;
     // Premier check immediat
-    this._processScheduled();
+    this._processScheduled().catch(e => log.error('campaign-engine', 'Erreur premier check scheduled:', e.message));
   }
 
   _repairForceCompletedSteps() {
@@ -2310,6 +2356,21 @@ class CampaignEngine {
 
     for (const campaign of campaigns) {
       for (const step of campaign.steps) {
+        // Recovery: step bloqué en "sending" depuis >2h (ex: crash container mid-execution)
+        if (step.status === 'sending') {
+          const stuckSince = step.scheduledAt ? new Date(step.scheduledAt) : null;
+          if (stuckSince && (now - stuckSince) > 2 * 60 * 60 * 1000) {
+            // Recalculer sentCount réel depuis les emails en base
+            const realSent = storage.getEmailsByCampaign(campaign.id)
+              .filter(e => e.stepNumber === step.stepNumber && e.status !== 'failed').length;
+            step.sentCount = realSent;
+            step.status = 'pending';
+            step.scheduledAt = new Date(now.getTime() + 5 * 60 * 1000).toISOString(); // reprendre dans 5 min
+            storage.updateCampaign(campaign.id, { steps: campaign.steps });
+            log.warn('campaign-engine', 'Recovery: step ' + step.stepNumber + ' de "' + campaign.name + '" bloque en sending depuis >2h — remis en pending (sentCount reel: ' + realSent + ')');
+          }
+          continue;
+        }
         if (step.status !== 'pending') continue;
 
         // --- Delais adaptatifs : avancer les steps si bon engagement ---

@@ -337,23 +337,24 @@ class ResendClient {
         : [senderTitle, senderTitle];
       const displayTitle = titleVariants[Math.floor(Math.random() * titleVariants.length)];
       const clientTagline = process.env.CLIENT_TAGLINE || '';
-      const senderLocation = process.env.SENDER_LOCATION || 'Clermont-Ferrand';
+      const senderLocation = process.env.SENDER_LOCATION || '';
+      const locPart = senderLocation ? ' &mdash; ' + senderLocation : '';
       const sigFormat = Math.floor(Math.random() * 3);
       if (sigFormat === 0) {
         signature = '<br><span style="color:#666;font-size:13px">'
           + dash + '<br>'
-          + displayName + ' &mdash; ' + senderLocation + '<br>'
+          + displayName + locPart + '<br>'
           + displayTitle + sep + clientDomain
           + (clientTagline ? '<br><span style="font-size:12px;color:#888">' + clientTagline + '</span>' : '')
           + '</span>';
       } else if (sigFormat === 1) {
         signature = '<br><span style="color:#666;font-size:13px">'
-          + dash + ' ' + displayName + ' &mdash; ' + senderLocation + '<br>'
+          + dash + ' ' + displayName + locPart + '<br>'
           + '<span style="font-size:12px;color:#888">' + displayTitle + '</span>'
           + '</span>';
       } else {
         signature = '<br><span style="color:#666;font-size:13px">'
-          + dash + ' ' + senderFirstName + ' &mdash; ' + senderLocation
+          + dash + ' ' + senderFirstName + locPart
           + '</span>';
       }
     }
@@ -369,16 +370,7 @@ class ResendClient {
       ? '<br><br><span style="font-size:11px;color:#999"><a href="https://' + trackingDomain + '/unsubscribe?email=' + encodeURIComponent(toEmail) + '" style="color:#999;text-decoration:underline">Se desabonner</a></span>'
       : '';
 
-    // === OPTIM 5 : Pixel tracking DÉSACTIVÉ partout ===
-    // Benchmark : pixel tracking = -10-15% reply rate (tous domaines confondus)
-    // Apple Mail Privacy Protection fausse les open rates de toute façon
-    // Seule métrique fiable = reply rate → on n'a plus besoin du pixel
-    let pixel = '';
-    if (trackingId) {
-      log.info('resend-client', 'Pixel tracking SKIP (désactivé globalement) pour ' + (opts.senderDomain || '?'));
-    }
-
-    return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + unsubLink + '</div>' + pixel;
+    return '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' + escaped + signature + unsubLink + '</div>';
   }
 
   // --- Envoi principal (Gmail prioritaire, Resend fallback) ---

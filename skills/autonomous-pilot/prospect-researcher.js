@@ -311,6 +311,23 @@ class ProspectResearcher {
     const fetcher = this._getFetcher();
     if (!fetcher) return null;
 
+    // Cache recherches 24h pour eviter DDG rate-limit sur les revival/re-recherches
+    if (!this._searchCache) this._searchCache = new Map();
+    const cacheKey = query.toLowerCase().trim();
+    const cached = this._searchCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < 24 * 60 * 60 * 1000) {
+      return cached.result;
+    }
+    const _cacheAndReturn = (result) => {
+      this._searchCache.set(cacheKey, { result, ts: Date.now() });
+      // Evict si > 500 entrees
+      if (this._searchCache.size > 500) {
+        const firstKey = this._searchCache.keys().next().value;
+        this._searchCache.delete(firstKey);
+      }
+      return result;
+    };
+
     // Tentative 0 : Brave Search API (gratuit, 2000 req/mois, pas de rate-limit agressif)
     if (this.braveKey) {
       try {
@@ -327,7 +344,7 @@ class ProspectResearcher {
       for (let attempt = 0; attempt < 3; attempt++) {
         const result = await fetcher.fetchUrl(ddgUrl, { userAgent: this._nextUA() });
         if (result && result.statusCode === 200 && result.body && result.body.length > 500) {
-          return { html: result.body, source: 'ddg' };
+          return _cacheAndReturn({ html: result.body, source: 'ddg' });
         }
         // DDG 202 = rate-limited, retry avec backoff exponentiel
         if (result && result.statusCode === 202 && attempt < 2) {
@@ -347,7 +364,7 @@ class ProspectResearcher {
       const bingUrl = 'https://www.bing.com/search?q=' + encodeURIComponent(query) + '&count=8';
       const result = await fetcher.fetchUrl(bingUrl, { userAgent: this._nextUA() });
       if (result && result.statusCode === 200 && result.body && result.body.length > 500) {
-        return { html: result.body, source: 'bing' };
+        return _cacheAndReturn({ html: result.body, source: 'bing' });
       }
     } catch (e) {
       log.info('prospect-research', 'Bing search echoue: ' + e.message);
@@ -358,7 +375,7 @@ class ProspectResearcher {
       const liteUrl = 'https://lite.duckduckgo.com/lite/?q=' + encodeURIComponent(query);
       const result = await fetcher.fetchUrl(liteUrl, { userAgent: this._nextUA() });
       if (result && result.statusCode === 200 && result.body && result.body.length > 200) {
-        return { html: result.body, source: 'ddg_lite' };
+        return _cacheAndReturn({ html: result.body, source: 'ddg_lite' });
       }
     } catch (e) {
       log.info('prospect-research', 'DDG Lite search echoue: ' + e.message);
