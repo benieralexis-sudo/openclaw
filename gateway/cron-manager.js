@@ -34,13 +34,14 @@ function createCronManager(deps) {
     // Activer les configs internes (chaque start() verifie config.enabled)
     try { storages.proactiveAgentStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron proactive:', e.message); }
     try { storages.selfImproveStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron self-improve:', e.message); }
-    try { storages.webIntelStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron web-intel:', e.message); }
+    // Web-intel desactive — trop de bruit, pas actionnable pour l'instant
+    // try { storages.webIntelStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron web-intel:', e.message); }
     try { storages.systemAdvisorStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron system-advisor:', e.message); }
     try { storages.autonomousPilotStorage.updateConfig({ enabled: true }); } catch (e) { log.error('router', 'Erreur toggle cron autonomous-pilot:', e.message); }
 
     engines.proactiveEngine.start();
     if (handlers.selfImproveHandler) handlers.selfImproveHandler.start();
-    handlers.webIntelHandler.start();
+    // handlers.webIntelHandler.start(); // Desactive — veille web coupee
     handlers.systemAdvisorHandler.start();
     engines.autoPilotEngine.start();
 
