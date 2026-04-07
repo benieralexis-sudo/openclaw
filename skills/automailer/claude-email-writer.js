@@ -646,8 +646,10 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
       }
     }
 
-    // Apres retries : Grade B (75+) = acceptable, Grade C (<75) = skip
-    if (bestScore >= 75) {
+    // Apres retries : Grade B (65+) = acceptable, Grade C (<65) = skip
+    // Abaisse de 75 a 65 : les leads avec donnees minimales (company+title sans brief)
+    // ne peuvent pas scorer 75+, et le campaign engine a un gate Lavender post-gen a 55
+    if (bestScore >= 65) {
       best._lavenderScore = bestScore;
       best._lavenderGrade = best._scoreGrade || 'B';
       best._lavenderDetails = best._scoreDetails || {};

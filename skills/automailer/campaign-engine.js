@@ -1494,8 +1494,8 @@ class CampaignEngine {
             } catch (e) { log.warn('campaign-engine', 'Enrichissement angles echoue: ' + e.message); }
             const generated = await this.claude.generateSingleEmail(contact, enrichedContext);
             if (generated && generated.subject && generated.body) {
-              subject = generated.subject;
-              body = generated.body;
+              subject = applySpintax(generated.subject);
+              body = applySpintax(generated.body);
               // Gate specificite : l'email doit contenir au moins 1 fait du brief
               const spec = _checkEmailSpecificity(body, subject, step1Intel);
               if (spec.level === 'generic') {
@@ -1570,8 +1570,8 @@ class CampaignEngine {
             const minContext = minParts.join('\n') + '\n\nCONTEXTE CAMPAGNE: ' + campaignCtx;
             const generated = await this.claude.generateSingleEmail(contact, minContext);
             if (generated && generated.subject && generated.body && !generated.skip) {
-              subject = generated.subject;
-              body = generated.body;
+              subject = applySpintax(generated.subject);
+              body = applySpintax(generated.body);
               log.info('campaign-engine', 'Step 1 genere (donnees minimales) pour ' + contact.email);
               // Check specificite sur donnees minimales
               const specMin = _checkEmailSpecificity(body, subject, minContext);
@@ -1580,17 +1580,33 @@ class CampaignEngine {
                 skipped++;
                 continue;
               }
+            } else if (generated && generated.skip) {
+              // generateSingleEmail a explicitement skip — ne pas fallback sur template vide
+              log.info('campaign-engine', 'Step 1 skip (generation minimale) pour ' + contact.email + ': ' + (generated.reason || 'skip'));
+              skipped++;
+              continue;
             } else {
               subject = this._applyTemplateVars(subject, contact, firstName);
               body = this._applyTemplateVars(body, contact, firstName);
             }
           } catch (genErr) {
             log.info('campaign-engine', 'generateSingleEmail minimal echoue: ' + genErr.message);
+            // Si template vide, skip au lieu de fallback sur body vide
+            if (!step.bodyTemplate) {
+              log.info('campaign-engine', 'Step 1 skip (generation echouee + template vide) pour ' + contact.email);
+              skipped++;
+              continue;
+            }
             subject = this._applyTemplateVars(subject, contact, firstName);
             body = this._applyTemplateVars(body, contact, firstName);
           }
         } else {
           // Dernier fallback : template classique
+          if (!step.bodyTemplate) {
+            log.info('campaign-engine', 'Step 1 skip (pas de generation possible + template vide) pour ' + contact.email);
+            skipped++;
+            continue;
+          }
           subject = this._applyTemplateVars(subject, contact, firstName);
           body = this._applyTemplateVars(body, contact, firstName);
         }
