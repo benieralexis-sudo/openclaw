@@ -158,6 +158,12 @@ class InboxListener {
             // Verifier si deja traite
             if (storage.isUidProcessed(uid)) continue;
 
+            // Guard: envelope peut etre null/undefined sur certains emails malformes
+            if (!msg.envelope) {
+              log.warn('inbox-manager', 'Email UID ' + uid + ' sans envelope — ignore');
+              storage.addProcessedUid(uid);
+              continue;
+            }
             const from = msg.envelope.from && msg.envelope.from[0]
               ? (msg.envelope.from[0].address || '')
               : '';

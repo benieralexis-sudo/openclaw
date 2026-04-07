@@ -255,7 +255,12 @@ class WebFetcher {
       const breaker = getBreaker('web-fetch', { failureThreshold: 5, cooldownMs: 30000 });
       const result = await breaker.call(() => retryAsync(() => this.fetchUrl(url), 2, 2000));
       if (result.statusCode !== 200) {
-        log.warn('web-fetcher', 'Scrape HTTP ' + result.statusCode + ' pour: ' + url);
+        // 404 = page inexistante, log info (pas warn) pour eviter le bruit
+        if (result.statusCode === 404) {
+          log.info('web-fetcher', 'Scrape 404 (page inexistante): ' + url);
+        } else {
+          log.warn('web-fetcher', 'Scrape HTTP ' + result.statusCode + ' pour: ' + url);
+        }
         return null;
       }
       const parsed = this.parseHtml(result.body);

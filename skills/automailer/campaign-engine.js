@@ -1669,20 +1669,30 @@ class CampaignEngine {
         }
 
         // Check 2 : contre tous les autres contacts de la campagne (pour les campagnes sans _sampleContact)
+        // Split noms composes (jean-marc → ["jean","marc"]) pour eviter faux positifs
         if (!contaminated && !campaign._sampleContact && list.contacts.length > 1) {
           const subjectLower = (subject || '').toLowerCase();
           const bodyLower = (body || '').toLowerCase();
+          // Extraire toutes les parties du prenom du contact actuel (jean-marc → jean, marc)
+          const contactNameParts = contactFirstName.split(/[\s\-]+/).filter(p => p.length >= 3);
           for (const otherContact of list.contacts) {
             if ((otherContact.email || '').toLowerCase() === contact.email.toLowerCase()) continue;
-            const otherName = (otherContact.firstName || (otherContact.name || '').split(' ')[0] || '').toLowerCase().trim();
-            if (otherName && otherName.length >= 3 && otherName !== contactFirstName) {
-              const nameRegex = new RegExp('\\b' + otherName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-              if (nameRegex.test(subject) || nameRegex.test(body)) {
-                contaminated = true;
-                contaminationSource = 'prenom "' + otherName + '" de ' + otherContact.email;
-                break;
+            const otherFullName = (otherContact.firstName || (otherContact.name || '').split(' ')[0] || '').toLowerCase().trim();
+            // Split le nom de l'autre contact aussi
+            const otherParts = otherFullName.split(/[\s\-]+/).filter(p => p.length >= 3);
+            for (const otherName of otherParts) {
+              // Skip si ce fragment fait partie du prenom du contact actuel
+              if (contactNameParts.includes(otherName)) continue;
+              if (otherName !== contactFirstName) {
+                const nameRegex = new RegExp('\\b' + otherName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                if (nameRegex.test(subject) || nameRegex.test(body)) {
+                  contaminated = true;
+                  contaminationSource = 'prenom "' + otherName + '" de ' + otherContact.email;
+                  break;
+                }
               }
             }
+            if (contaminated) break;
           }
         }
 

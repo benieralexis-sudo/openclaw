@@ -580,7 +580,14 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
 
       // Post-process automatique : supprimer tirets cadratins AVANT scoring
       if (parsed.body) {
-        parsed.body = parsed.body.replace(/\u2014/g, ',').replace(/\u2013/g, ',');
+        parsed.body = parsed.body.replace(/[\u2014\u2013]/g, '-');
+      }
+
+      // Retry si Claude retourne un body vide (pas skip explicite, juste vide)
+      if (!parsed.skip && (!parsed.body || parsed.body.trim().length === 0)) {
+        log.warn('email-writer', 'Claude a retourne un body vide pour ' + (contact.email || '?') + ' — retry');
+        if (attempt === 0) continue; // retry via la boucle for
+        return { skip: true, reason: 'body_vide_apres_retry' };
       }
 
       // Si Claude skip au premier essai, retry UNE FOIS

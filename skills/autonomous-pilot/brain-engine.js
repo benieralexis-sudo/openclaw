@@ -73,7 +73,14 @@ class BrainEngine {
 
     // Brain cycle : 9h, 14h et 18h, lun-ven uniquement (pas de prospection le weekend)
     this.crons.push(new Cron('0 9,14,18 * * 1-5', { timezone: tz }, withCronGuard('ap-brain-cycle', async () => {
-      try { await this._brainCycle(); }
+      try {
+        // Timeout 5 min max pour eviter les cycles qui trainent (DDG rate-limit, etc.)
+        const BRAIN_TIMEOUT = 5 * 60 * 1000;
+        await Promise.race([
+          this._brainCycle(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Brain cycle timeout (5min)')), BRAIN_TIMEOUT))
+        ]);
+      }
       catch (e) { log.error('brain', 'Erreur cycle:', e.message); }
     })));
 
