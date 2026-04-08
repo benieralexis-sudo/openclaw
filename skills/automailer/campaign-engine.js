@@ -995,6 +995,35 @@ class CampaignEngine {
         continue;
       }
 
+      // PRE-FILTRE ICP : skip les leads clairement hors-niche AVANT de gaspiller des credits API
+      // Utilise matchLeadToNiche() qui est un check local (0 credit API, instant)
+      if (stepNumber === 0) {
+        try {
+          const icpLoader = require('../../gateway/icp-loader.js');
+          if (icpLoader && icpLoader.matchLeadToNiche) {
+            const nicheMatch = icpLoader.matchLeadToNiche({
+              company: contact.company, title: contact.title,
+              industry: contact.industry, entreprise: contact.company, titre: contact.title
+            });
+            if (!nicheMatch && contact.company && contact.title) {
+              // Pas de match niche — verifier anti-keywords pour les cas evidents
+              const antiKeywords = ['professeur', 'enseignant', 'hotel', 'restaurant', 'coiffeur',
+                'boulangerie', 'artisan', 'mairie', 'commune', 'college', 'lycee', 'ecole',
+                'youtube', 'influenceur', 'createur de contenu', 'rh ', 'ressources humaines',
+                'conseiller municipal', 'adjoint au maire', 'instituteur', 'infirmier',
+                'aide-soignant', 'construction', 'batiment', 'btp'];
+              const haystack = ((contact.company || '') + ' ' + (contact.title || '') + ' ' + (contact.industry || '')).toLowerCase();
+              const blocked = antiKeywords.find(kw => haystack.includes(kw));
+              if (blocked) {
+                log.info('campaign-engine', 'ICP PRE-FILTRE: skip ' + contact.email + ' — hors-niche (' + blocked + ')');
+                skipped++;
+                continue;
+              }
+            }
+          }
+        } catch (icpErr) { /* ICP loader indisponible — pas bloquant */ }
+      }
+
       // Dedup domaine entreprise : eviter 2 contacts de la meme boite dans les 72h
       const contactDomain = (contact.email || '').toLowerCase().split('@')[1];
       if (contactDomain && !_isB2CDomain(contact.email) && stepNumber === 0) {
@@ -1719,9 +1748,39 @@ class CampaignEngine {
         }
       }
 
-      // Quality gate post-generation — verifier avant envoi
-      const qg = _emailPassesQualityGate(subject, body);
-      if (!qg.pass) {
+      // Quality gate post-generation — verifier avant envoi (avec retry si mot interdit)
+      let qg = _emailPassesQualityGate(subject, body);
+      if (!qg.pass && qg.reason && qg.reason.startsWith('forbidden_word:') && this.claude && this.claude.generateSingleEmail) {
+        // Retry : regenerer l'email en insistant sur le mot interdit
+        log.warn('campaign-engine', 'Quality gate FAIL pour ' + contact.email + ': ' + qg.reason + ' — retry sans le mot interdit');
+        try {
+          const forbiddenWord = qg.reason.replace('forbidden_word: ', '');
+          const retryCtx = (currentProspectIntel || '') + '\n\nCONTEXTE CAMPAGNE: ' + (campaign.context || campaign.name || 'prospection B2B')
+            + '\n\nATTENTION CRITIQUE: le mot "' + forbiddenWord + '" est ABSOLUMENT INTERDIT. Reformule COMPLETEMENT sans utiliser ce mot ni ses variantes.';
+          const retryGen = await this.claude.generateSingleEmail(contact, retryCtx);
+          if (retryGen && retryGen.subject && retryGen.body && !retryGen.skip) {
+            const qg2 = _emailPassesQualityGate(retryGen.subject, retryGen.body);
+            if (qg2.pass) {
+              subject = applySpintax(retryGen.subject);
+              body = applySpintax(retryGen.body);
+              qg = qg2;
+              log.info('campaign-engine', 'Quality gate retry OK pour ' + contact.email);
+            } else {
+              log.warn('campaign-engine', 'Quality gate retry FAIL pour ' + contact.email + ': ' + qg2.reason + ' — skip envoi');
+              skipped++;
+              continue;
+            }
+          } else {
+            log.warn('campaign-engine', 'Quality gate retry generation echouee pour ' + contact.email + ' — skip envoi');
+            skipped++;
+            continue;
+          }
+        } catch (qgRetryErr) {
+          log.warn('campaign-engine', 'Quality gate retry erreur pour ' + contact.email + ': ' + qgRetryErr.message + ' — skip envoi');
+          skipped++;
+          continue;
+        }
+      } else if (!qg.pass) {
         log.warn('campaign-engine', 'Quality gate FAIL pour ' + contact.email + ': ' + qg.reason + ' — skip envoi');
         skipped++;
         continue;

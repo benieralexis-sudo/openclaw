@@ -1,5 +1,6 @@
 // AutoMailer - Redaction IA d'emails via Claude API (+ OpenAI GPT-4o-mini pour taches simples)
 const https = require('https');
+const log = require('../../gateway/logger.js');
 
 // === LANG_PATTERNS : listes de mots par langue pour le scoring Lavender ===
 const LANG_PATTERNS = {
@@ -601,7 +602,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
               1500
             );
             const retryParsed = this._parseJSON(retryResponse);
-            if (retryParsed && !retryParsed.skip) {
+            if (retryParsed && !retryParsed.skip && retryParsed.subject && retryParsed.body) {
               if (retryParsed.body) retryParsed.body = retryParsed.body.replace(/\u2014/g, ',').replace(/\u2013/g, ',');
               const retryLav = this._lavenderScore(retryParsed.subject, retryParsed.body, contact);
               log.info('scoring', retryLav.score + '/100 (grade ' + retryLav.grade + ') retry pour ' + (contact.email || '?') + ' — ton:' + (retryLav.details.ton||0) + ' clarte:' + (retryLav.details.clarte||0) + ' phrases:' + (retryLav.details.phrases||0) + ' perso:' + (retryLav.details.perso||0) + ' mots:' + (retryLav.details.mots||0) + ' mobile:' + (retryLav.details.mobile||0) + ' objet:' + (retryLav.details.objet||0));
