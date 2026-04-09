@@ -5,7 +5,7 @@ const { Cron } = require('croner');
 const ReportGenerator = require('./report-generator.js');
 const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
-const { getWarmupDailyLimit, withCronGuard } = require('../../gateway/utils.js');
+const { getWarmupDailyLimit, withCronGuard, applySpintax } = require('../../gateway/utils.js');
 
 // Cross-skill imports via skill-loader centralise
 const { getStorage, getModule } = require('../../gateway/skill-loader.js');
@@ -1721,6 +1721,10 @@ class ProactiveEngine {
           fuSendOpts.inReplyTo = prevFuMsgId;
           fuSendOpts.references = prevFuMsgId;
         }
+        // Filet de securite spintax avant envoi
+        subject = applySpintax(subject);
+        body = applySpintax(body);
+
         const sendResult = await resend.sendEmail(
           followUp.prospectEmail,
           subject,

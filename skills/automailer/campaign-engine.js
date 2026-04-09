@@ -1914,6 +1914,11 @@ class CampaignEngine {
         }
       }
 
+      // Filet de securite spintax : resoudre TOUT spintax residuel avant envoi
+      // (les variants A/B/C, retries quality gate, etc. peuvent re-introduire du spintax)
+      subject = applySpintax(subject);
+      body = applySpintax(body);
+
       const result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
 
       // Calculer le score de qualite email (Lavender /100)
@@ -2814,7 +2819,7 @@ class CampaignEngine {
           retryOpts.inReplyTo = prevMsgId;
           retryOpts.references = prevMsgId;
         }
-        const result = await this.resend.sendEmail(email.to, email.subject, email.body, retryOpts);
+        const result = await this.resend.sendEmail(email.to, applySpintax(email.subject), applySpintax(email.body), retryOpts);
 
         if (result.success) {
           storage.markRetryAttempt(email.id, true, result.id);

@@ -5,7 +5,7 @@ const ContactManager = require('./contact-manager.js');
 const CampaignEngine = require('./campaign-engine.js');
 const storage = require('./storage.js');
 const https = require('https');
-const { retryAsync } = require('../../gateway/utils.js');
+const { retryAsync, applySpintax } = require('../../gateway/utils.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const log = require('../../gateway/logger.js');
 
@@ -812,10 +812,12 @@ JSON strict, exemples :
 
     try {
       const resendBreaker = getBreaker('resend', { failureThreshold: 3, cooldownMs: 60000 });
+      const finalSubject = applySpintax(pending.email.subject);
+      const finalBody = applySpintax(pending.email.body);
       const result = await resendBreaker.call(() => retryAsync(() => this.resend.sendEmail(
         pending.to,
-        pending.email.subject,
-        pending.email.body,
+        finalSubject,
+        finalBody,
         { replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL, fromName: process.env.SENDER_NAME || 'Alexis', trackingId: trackingId }
       ), 2, 2000));
 
