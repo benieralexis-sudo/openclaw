@@ -119,8 +119,12 @@ Format JSON strict :
     return { score, raison: 'Scoring fallback titre: ' + (lead.titre || 'inconnu'), recommandation: score >= 6 ? 'contacter' : 'skip' };
   }
 
-  // --- Recherche de leads via Apollo ---
+  // --- Recherche de leads --- DESACTIVE : leads importes via Clay webhook uniquement
   async _searchLeads(params) {
+    log.info('action-executor', 'search_leads ignore — les leads sont importes exclusivement via Clay webhook/import. Apollo resilie.');
+    return { success: true, summary: 'search_leads desactive — leads via Clay uniquement. Importer les leads depuis Clay.' };
+
+    // --- CODE APOLLO DESACTIVE (resilie mars 2026) ---
     if (!this.apolloKey) {
       return { success: false, error: 'Cle Apollo manquante' };
     }

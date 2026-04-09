@@ -730,15 +730,13 @@ class BrainEngine {
     // 8. Envoyer resume (format business — comprehensible par le client)
     const confirmActions = plan.actions.filter(a => !a.autoExecute);
     const emailsSent = _actionResults.filter(r => r.type === 'send_email' && r.success).length;
-    const leadsFound = _actionResults.filter(r => r.type === 'search_leads' && r.success).length;
     const followupsCreated = _actionResults.filter(r => r.type === 'create_followup_sequence' && r.success).length;
     const crmActions = _actionResults.filter(r => r.type === 'push_to_crm' && r.success).length;
-    const hasResults = emailsSent > 0 || leadsFound > 0 || followupsCreated > 0 || crmActions > 0 || confirmActions.length > 0;
+    const hasResults = emailsSent > 0 || followupsCreated > 0 || crmActions > 0 || confirmActions.length > 0;
 
     if (hasResults) {
       let summary = '📬 *Prospection auto*\n\n';
       if (emailsSent > 0) summary += '📧 ' + emailsSent + ' email(s) envoye(s)\n';
-      if (leadsFound > 0) summary += '🔍 Nouveaux prospects trouves\n';
       if (followupsCreated > 0) summary += '🔄 ' + followupsCreated + ' relance(s) programmee(s)\n';
       if (crmActions > 0) summary += '📋 ' + crmActions + ' fiche(s) CRM mises a jour\n';
       if (confirmActions.length > 0) {
@@ -889,11 +887,9 @@ class BrainEngine {
 
     // Plan du jour
     msg += '\n🎯 *Aujourd\'hui :*\n';
-    const leadsNeeded = g.leadsToFind - p.leadsFoundThisWeek;
     const emailsNeeded = g.emailsToSend - p.emailsSentThisWeek;
-    if (leadsNeeded > 0) msg += '• Rechercher ~' + Math.min(leadsNeeded, 10) + ' leads\n';
-    if (emailsNeeded > 0) msg += '• Preparer ~' + Math.min(emailsNeeded, 10) + ' emails\n';
-    if (leadsNeeded <= 0 && emailsNeeded <= 0) msg += '• Objectifs atteints ! 🎉\n';
+    if (emailsNeeded > 0) msg += '• Envoyer ~' + Math.min(emailsNeeded, 10) + ' emails\n';
+    if (emailsNeeded <= 0) msg += '• Objectifs atteints ! 🎉\n';
 
     try {
       await this.sendTelegram(chatId, msg, 'Markdown');
@@ -1188,34 +1184,8 @@ Analyse et reponds en JSON:
       const emailsPct = goals.emailsToSend > 0 ? (progress.emailsSentThisWeek / goals.emailsToSend) * 100 : 100;
 
       if (leadsPct < 30 || emailsPct < 30) {
-        // Selection de niche via ICP (weighted) au lieu de rotation aleatoire sur 22 niches
-        let miniIcpLoader = null;
-        try { miniIcpLoader = require('../../gateway/icp-loader.js'); } catch (e) {
-          try { miniIcpLoader = require('/app/gateway/icp-loader.js'); } catch (e2) {}
-        }
-        const miniNiche = miniIcpLoader ? miniIcpLoader.getNicheForCycle() : null;
-        if (!miniNiche) {
-          // Fallback ancien systeme
-          const allNichesMini = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
-          const nicheIdx = (new Date().getHours() + new Date().getDate()) % allNichesMini.length;
-          const fallbackNiche = allNichesMini[nicheIdx];
-          const miniCriteria = { ...state.goals.searchCriteria };
-          if (fallbackNiche) miniCriteria.keywords = fallbackNiche.keywords;
-          actions.push({
-            type: 'search_leads',
-            params: { criteria: miniCriteria, niche: fallbackNiche ? fallbackNiche.slug : null },
-            autoExecute: true,
-            preview: 'Recherche urgente (mini-cycle fallback' + (fallbackNiche ? ' — niche: ' + fallbackNiche.slug : '') + ')'
-          });
-        } else {
-          const miniCriteria = { ...state.goals.searchCriteria, keywords: miniNiche.keywords };
-          actions.push({
-            type: 'search_leads',
-            params: { criteria: miniCriteria, niche: miniNiche.slug, _nicheSlug: miniNiche.slug },
-            autoExecute: true,
-            preview: 'Recherche ICP (mini-cycle — niche: ' + miniNiche.slug + ', poids: ' + (miniNiche.weight || 10) + '%)'
-          });
-        }
+        // search_leads desactive — leads importes via Clay uniquement
+        log.info('brain', 'Mini-cycle: objectifs en retard (leads ' + Math.round(leadsPct) + '%, emails ' + Math.round(emailsPct) + '%) — nouveaux leads a importer via Clay');
       }
     }
 
@@ -1363,9 +1333,7 @@ Analyse et reponds en JSON:
     if (state.skills.automailer) {
       prompt += '- Open rate: ' + state.skills.automailer.openRate + '%\n';
     }
-    if (state.skills.leadEnrich) {
-      prompt += '- Credits Apollo restants: ' + state.skills.leadEnrich.apolloRemaining + '/100\n';
-    }
+    // Apollo resilie — credits non affiches
     if (state.budget) {
       prompt += '- Budget API: ' + state.budget.todaySpent + '$/' + state.budget.dailyLimit + '$ (' + state.budget.pctUsed + '%)\n';
     }
@@ -1494,12 +1462,12 @@ Analyse et reponds en JSON:
           prompt += '→ IMPORTANT: Utilise UNIQUEMENT les adresses email ci-dessus dans tes actions send_email. NE JAMAIS inventer de placeholders ou de variables {{...}}.\n';
           prompt += '→ REGLE: Les leads sont tries par PRIORITY (score composite = intent 45% + quality 25% + fraicheur 20% + niche perf 10%). ENVOIE DANS CET ORDRE. Les leads marques "SIGNAL FRAIS" ont ete detectes par l\'Intent Monitor — ils sont PRIORITAIRES car le timing est crucial.\n';
           if (skipRate > 40) {
-            prompt += '⚠️ ATTENTION: ' + skipRate + '% des send_email recents ont ete SKIPPED (donnees insuffisantes). Le pool de leads actuel manque de donnees exploitables. PRIORITE: fais 1-2 search_leads dans de NOUVELLES niches avant d\'envoyer plus d\'emails.\n';
+            prompt += '⚠️ ATTENTION: ' + skipRate + '% des send_email recents ont ete SKIPPED (donnees insuffisantes). Le pool de leads actuel manque de donnees exploitables. Les nouveaux leads doivent etre importes via Clay.\n';
           } else {
-            prompt += '→ Si tu as besoin de NOUVEAUX leads, fais d\'abord search_leads, puis utilise les resultats du prochain cycle.\n';
+            prompt += '→ Si tu as besoin de NOUVEAUX leads, ils seront importes via Clay (webhook/import). Concentre-toi sur les leads disponibles.\n';
           }
         } else {
-          prompt += '\n⚠️ AUCUN lead eligible pour envoi (tous deja contactes, score trop bas, ou recemment echoues). PRIORITE ABSOLUE: fais 2-3 search_leads dans des niches DIFFERENTES pour reconstituer le pool.\n';
+          prompt += '\n⚠️ AUCUN lead eligible pour envoi (tous deja contactes, score trop bas, ou recemment echoues). Les nouveaux leads doivent etre importes via Clay. Concentre-toi sur create_followup_sequence pour les leads deja contactes.\n';
         }
         // Data-poor leads prets pour re-recherche (Action 3)
         try {
@@ -1550,14 +1518,12 @@ Analyse et reponds en JSON:
     const icpNiches = icpLoader ? icpLoader.getAllNiches() : [];
 
     if (icpNiches.length > 0) {
-      prompt += '\n=== NICHES ICP (SEULES niches autorisees pour search_leads) ===\n';
-      prompt += 'REGLE ABSOLUE : tu ne cherches QUE dans ces ' + icpNiches.length + ' niches. PAS d\'autres secteurs.\n';
+      prompt += '\n=== NICHES ICP (contexte pour personnalisation emails) ===\n';
       for (const n of icpNiches) {
-        prompt += '- "' + n.slug + '" (poids: ' + (n.weight || 10) + '%) → keywords: "' + n.keywords + '"\n';
-        if (n.painPoint) prompt += '  Pain point: ' + n.painPoint.substring(0, 100) + '\n';
+        prompt += '- "' + n.slug + '" (poids: ' + (n.weight || 10) + '%)';
+        if (n.painPoint) prompt += ' — Pain point: ' + n.painPoint.substring(0, 100);
+        prompt += '\n';
       }
-      prompt += '→ Pour chaque search_leads, ajoute params.niche ET params.criteria.keywords correspondant.\n';
-      prompt += '→ Repartis les recherches selon les poids (ex: 30% agences, 25% ESN, 20% SaaS...)\n';
     }
 
     // --- PERFORMANCE PAR NICHE (Auto-Pivot) ---
@@ -1578,27 +1544,9 @@ Analyse et reponds en JSON:
       prompt += '→ Si une niche a 0% reply rate apres 20+ emails, REDUIS son poids et concentre sur les autres.\n';
     }
 
-    // Fallback : si pas d'ICP, utiliser l'ancienne liste (backward compat)
-    if (icpNiches.length === 0) {
-      const allNichesInit = storage.getNicheList ? storage.getNicheList() : [];
-      if (allNichesInit.length > 0) {
-        prompt += '\nNICHES B2B DISPONIBLES (pas d\'ICP configure — teste 2-3 niches):\n';
-        for (const n of allNichesInit.slice(0, 8)) {
-          prompt += '- "' + n.slug + '" → keywords: "' + n.keywords + '"\n';
-        }
-        prompt += '→ RECOMMANDATION: configure un fichier icp.json pour cibler les bonnes niches.\n';
-      }
-    }
+    // Fallback ICP non necessaire — search_leads desactive
 
-    prompt += '\nCRITERES DE RECHERCHE (VERROUILLES — NE PAS MODIFIER):\n';
-    prompt += JSON.stringify(sc, null, 2) + '\n';
-    prompt += '→ IMPORTANT: Ces criteres (titles, locations, companySize) sont VERROUILLES par la config.\n';
-    prompt += '→ Pour search_leads, tu peux UNIQUEMENT changer "keywords" selon les niches ICP ci-dessus.\n';
-    prompt += '→ REGLE CRITIQUE KEYWORDS: Maximum 2 mots par keyword. Apollo fait un AND implicite, donc 3+ mots = 0 resultats.\n';
-    prompt += '→ CORRECT: keywords="agence marketing" ou keywords="ESN" ou keywords="SaaS B2B" (1-2 mots)\n';
-    prompt += '→ INCORRECT: keywords="SaaS B2B editeur logiciel" (4 mots = 0 resultats!)\n';
-    prompt += '→ Pour varier, utilise OR: keywords="agence marketing OR agence digitale" (recherches separees)\n';
-    prompt += '→ Les autres champs (titles, locations, companySize) seront FORCES par le systeme.\n';
+    // Criteres de recherche non affiches — search_leads desactive, leads via Clay uniquement
 
     prompt += '\nNIVEAU D\'AUTONOMIE: ' + config.autonomyLevel + ' (MODE MACHINE DE GUERRE)\n';
     if (config.autonomyLevel === 'full') {
@@ -1808,23 +1756,20 @@ Analyse et reponds en JSON:
     }
 
     prompt += '\nACTIONS DISPONIBLES:\n';
-    prompt += '1. search_leads — Rechercher des leads via Apollo (params.criteria)\n';
-    prompt += '2. push_to_crm — Pousser vers HubSpot (params.contacts: [])\n';
-    prompt += '3. generate_email — Generer un email sans l\'envoyer (params.contact: {email,name,company,title}, params.context)\n';
-    prompt += '4. send_email — Envoyer un email (params: to, contactName, company, score, contact: {email,nom,entreprise,titre}, _generateFirst: true) — autoExecute=true\n';
-    prompt += '5. update_search_criteria — Modifier les criteres de recherche (params: {titles?, locations?, industries?, seniorities?, companySize?, keywords?, limit?})\n';
-    prompt += '6. update_goals — Modifier les objectifs (params: {leadsToFind?, emailsToSend?, responsesTarget?, rdvTarget?, minLeadScore?})\n';
-    prompt += '7. record_learning — Enregistrer un apprentissage (params: {category: "bestSearchCriteria|bestEmailStyles|bestSendTimes", summary: "...", data: {}})\n';
-    prompt += '8. create_followup_sequence — Creer une sequence de 5 relances automatiques pour des leads deja contactes sans reponse (params: {contacts: [{email, nom, entreprise, titre}], totalSteps: 5, stepDays: [3, 7, 14, 21, 28]})\n';
+    prompt += '1. send_email — Envoyer un email (params: to, contactName, company, score, contact: {email,nom,entreprise,titre}, _generateFirst: true) — autoExecute=true\n';
+    prompt += '2. create_followup_sequence — Creer une sequence de 5 relances automatiques pour des leads deja contactes sans reponse (params: {contacts: [{email, nom, entreprise, titre}], totalSteps: 5, stepDays: [3, 7, 14, 21, 28]})\n';
+    prompt += '3. push_to_crm — Pousser vers HubSpot (params.contacts: [])\n';
+    prompt += '4. generate_email — Generer un email sans l\'envoyer (params.contact: {email,name,company,title}, params.context)\n';
+    prompt += '5. update_goals — Modifier les objectifs (params: {leadsToFind?, emailsToSend?, responsesTarget?, rdvTarget?, minLeadScore?})\n';
+    prompt += '6. record_learning — Enregistrer un apprentissage (params: {category: "bestSearchCriteria|bestEmailStyles|bestSendTimes", summary: "...", data: {}})\n';
+    prompt += '\n⚠️ IMPORTANT: search_leads N\'EXISTE PLUS. Les leads sont importes EXCLUSIVEMENT via Clay (webhook/import). NE JAMAIS proposer search_leads.\n';
 
     prompt += '\nMULTI-THREADING (contacts multiples par entreprise):\n';
     prompt += '- Tu peux contacter 2-3 decision-makers PAR entreprise avec des angles DIFFERENTS.\n';
     prompt += '- Primaire : pitch principal (envoye immediatement). Secondaires : angle technique, ROI ou temoignage (envoyes en decale J+2, J+3).\n';
     prompt += '- Le systeme gere automatiquement le groupement et le stagger temporel.\n';
-    prompt += '- Si tu envoies un send_email avec un contact d\'une entreprise deja dans le pipeline, le systeme cree automatiquement le multi-thread.\n';
     prompt += '- Tu peux ajouter contactRole ("primary"/"secondary") et emailAngle ("main_pitch"/"technical"/"roi"/"testimonial") dans params de send_email.\n';
     prompt += '- IMPORTANT : si un des contacts repond, le systeme ARRETE automatiquement tous les autres contacts de la meme entreprise.\n';
-    prompt += '- Quand tu cherches des leads (search_leads), le systeme groupe automatiquement les resultats par entreprise si plusieurs contacts qualifies.\n';
 
     prompt += '\nREGLES (MODE MACHINE DE GUERRE):\n';
     prompt += '1. autoExecute=true pour TOUTES les actions, y compris send_email. Tu es en FULL AUTO.\n';
@@ -1834,16 +1779,16 @@ Analyse et reponds en JSON:
     prompt += '4. Envoie MAX ' + emailsPerCycle + ' emails CE CYCLE (reste ' + remainingTodayGoals + '/jour, repartis sur 2 brain cycles). Priorise les leads score >= 8.\n';
     prompt += '5. JAMAIS de prix, d\'offre, de feature, de "pilote gratuit" dans le premier email. Le but = OUVRIR UNE CONVERSATION.\n';
     prompt += '6. Apres 3 jours sans reponse sur un lead contacte, cree automatiquement une sequence follow-up (create_followup_sequence).\n';
-    prompt += '7. Sois strategique avec les credits Apollo (100/mois). Prefere des recherches ciblees.\n';
-    prompt += '8. ITERE: Si un secteur ou profil donne de meilleurs resultats, ajuste les criteres pour en faire plus.\n';
-    prompt += '9. TESTE: Lance des experiences A/B (differents objets d\'email, differents secteurs, differentes accroches).\n';
-    prompt += '10. APPRENDS: Apres chaque lot d\'emails, note ce qui a marche (open rate, reponses) via record_learning.\n';
-    prompt += '11. NE REPETE PAS les memes erreurs. Si une action echoue, essaie une approche differente.\n';
-    prompt += '12. UTILISE les articles Web Intelligence pour personnaliser les emails. Si une entreprise est dans l\'actualite, mentionne-le.\n';
-    prompt += '13. PRIORISE les leads dont l\'entreprise est dans l\'actualite (news recentes, signaux marche). C\'est un signal d\'opportunite fort.\n';
-    prompt += '14. Si les objectifs sont inatteignables, ajuste-les via update_goals plutot que de forcer.\n';
-    prompt += '15. REGLE CRITIQUE EMAILS: Dans send_email, le champ "to" DOIT etre une VRAIE adresse email (ex: jean@example.com). JAMAIS de placeholder, variable, ou nom generique (ex: {{lead_email}}, cabinet_conseil_lead_1). Si tu n\'as pas l\'email reel, fais d\'abord search_leads.\n';
-    prompt += '16. REGLE RELANCES: Pour relancer un lead DEJA contacte (dans "LEADS DEJA CONTACTES"), utilise create_followup_sequence. send_email sera BLOQUE par la deduplication.\n';
+    prompt += '7. ITERE: Si un secteur ou profil donne de meilleurs resultats, note-le via record_learning.\n';
+    prompt += '8. TESTE: Lance des experiences A/B (differents objets d\'email, differents secteurs, differentes accroches).\n';
+    prompt += '9. APPRENDS: Apres chaque lot d\'emails, note ce qui a marche (open rate, reponses) via record_learning.\n';
+    prompt += '10. NE REPETE PAS les memes erreurs. Si une action echoue, essaie une approche differente.\n';
+    prompt += '11. UTILISE les articles Web Intelligence pour personnaliser les emails. Si une entreprise est dans l\'actualite, mentionne-le.\n';
+    prompt += '12. PRIORISE les leads dont l\'entreprise est dans l\'actualite (news recentes, signaux marche). C\'est un signal d\'opportunite fort.\n';
+    prompt += '13. Si les objectifs sont inatteignables, ajuste-les via update_goals plutot que de forcer.\n';
+    prompt += '14. REGLE CRITIQUE EMAILS: Dans send_email, le champ "to" DOIT etre une VRAIE adresse email (ex: jean@example.com). JAMAIS de placeholder, variable, ou nom generique.\n';
+    prompt += '15. REGLE RELANCES: Pour relancer un lead DEJA contacte (dans "LEADS DEJA CONTACTES"), utilise create_followup_sequence. send_email sera BLOQUE par la deduplication.\n';
+    prompt += '16. Les leads sont importes via Clay — NE JAMAIS proposer search_leads. Concentre-toi sur envoyer des emails aux leads disponibles et creer des follow-ups.\n';
 
     prompt += '\nReponds UNIQUEMENT en JSON COMPACT (sans indentation, sans commentaires, reasoning en 2-3 phrases max) avec cette structure:\n';
     prompt += '{\n';

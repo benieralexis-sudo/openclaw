@@ -2,6 +2,26 @@
 const https = require('https');
 const log = require('../../gateway/logger.js');
 
+// === Quality gate patterns hint pour le prompt Claude (evite generation → rejet) ===
+function _getQualityGatePatternsHint() {
+  return '\n\nPATTERNS INTERDITS PAR LE QUALITY GATE (ton email sera REJETE si tu utilises ces formulations):'
+    + '\n- "j\'ai vu/lu/découvert/trouvé/remarqué" — INTERDIT'
+    + '\n- "suis tombé" — INTERDIT'
+    + '\n- "en parcourant ton/votre profil/LinkedIn/site" — INTERDIT'
+    + '\n- "je me permets de" / "me présenter" — INTERDIT'
+    + '\n- "n\'hésitez pas à me contacter" — INTERDIT'
+    + '\n- "saviez-vous que" / "et si on/vous/tu" — INTERDIT'
+    + '\n- "notre solution/outil/plateforme" — INTERDIT'
+    + '\n- "je serais ravi" — INTERDIT'
+    + '\n- "génération de leads" / "curieux de" — INTERDIT'
+    + '\n- "ce qui distingue" / "en tant que CEO/founder/CTO/dirigeant" — INTERDIT'
+    + '\n- "comment tu prospectes/trouves/génères/acquiers" — INTERDIT'
+    + '\n- "cordonnier" / "nerf de la guerre" / "beau move" — INTERDIT'
+    + '\n- "résultat :" / "ils ont externalisé" / "un X avait le même problème" — INTERDIT'
+    + '\n- "comment tu/vous scale/rempli" / "founder-led sales" — INTERDIT'
+    + '\n→ UTILISE plutot : une observation factuelle directe + question business courte.';
+}
+
 // === LANG_PATTERNS : listes de mots par langue pour le scoring Lavender ===
 const LANG_PATTERNS = {
   fr: {
@@ -478,6 +498,7 @@ Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : 
 - PAS de jargon anglais : pipe, pipeline, outbound, inbound, scale, lead, CRM, deal flow, funnel, churn, growth, onboarding. Parle en francais simple.
 - N'invente JAMAIS un fait sur le prospect. Annee : 2026.
 - Vouvoiement par defaut. Tutoiement uniquement si le prospect tutoie en premier.
+${_getQualityGatePatternsHint()}
 ${nicheExampleBlock}
 ${emailLanguage === 'ro' ? `=== EXEMPLE 10/10 (TON EZITANT + SCURT) ===
 Exemplu 1 (semnal crestere, 38 cuvinte) :
@@ -890,6 +911,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
         }
       } catch (e2) {}
     }
+    forbiddenWordsRule += _getQualityGatePatternsHint();
 
     // Angles deja utilises (eviter repetitions)
     let anglesRule = '';
@@ -1104,6 +1126,7 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
         }
       } catch (e2) {}
     }
+    forbiddenWordsRule += _getQualityGatePatternsHint();
 
     const senderName = process.env.SENDER_NAME || 'Alexis';
     const senderTitle = process.env.SENDER_TITLE || 'fondateur';
@@ -1204,6 +1227,9 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
         }
       } catch (e2) {}
     }
+
+    // Injecter les patterns generiques bloques par le quality gate
+    forbiddenWordsRule += _getQualityGatePatternsHint();
 
     // --- ICP : charger le contexte niche pour social proofs varies ---
     let icpLoaderFU = null;

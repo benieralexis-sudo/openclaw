@@ -866,15 +866,20 @@ class CampaignEngine {
     if (campaign.steps.length === 0) throw new Error('Aucun email genere pour cette campagne');
 
     // v9.3 — Audit enrichissement avant lancement
+    // Bypass pour campagnes auto (brain) avec 1-3 leads — le seuil 80% n'a pas de sens statistique
     const audit = this.auditEnrichmentReadiness(campaign.contactListId);
     if (audit.readiness !== undefined) {
       log.info('campaign-engine', 'Audit enrichissement: ' + audit.ready + '/' + audit.total + ' prets (' + audit.readiness + '%)');
-      if (audit.readiness < 80) {
+      const isSmallAutoCampaign = audit.total <= 3 && (campaign.name || '').startsWith('Relance auto');
+      if (audit.readiness < 80 && !isSmallAutoCampaign) {
         const msg = 'CAMPAGNE BLOQUEE: seulement ' + audit.readiness + '% des leads ont un enrichissement suffisant (minimum 80%). '
           + audit.notReady + ' leads manquent: ' + Object.entries(audit.missingByField).map(([k, v]) => k + ' (' + v + ')').join(', ')
           + '. Enrichir dans Clay avant de relancer.';
         log.warn('campaign-engine', msg);
         throw new Error(msg);
+      }
+      if (isSmallAutoCampaign && audit.readiness < 80) {
+        log.info('campaign-engine', 'Enrichment gate bypass: campagne auto avec ' + audit.total + ' lead(s) — lancement autorise malgre ' + audit.readiness + '% readiness');
       }
     }
 
