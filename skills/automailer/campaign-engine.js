@@ -1755,13 +1755,16 @@ class CampaignEngine {
 
       // Quality gate post-generation — verifier avant envoi (avec retry si mot interdit)
       let qg = _emailPassesQualityGate(subject, body);
-      if (!qg.pass && qg.reason && qg.reason.startsWith('forbidden_word:') && this.claude && this.claude.generateSingleEmail) {
-        // Retry : regenerer l'email en insistant sur le mot interdit
-        log.warn('campaign-engine', 'Quality gate FAIL pour ' + contact.email + ': ' + qg.reason + ' — retry sans le mot interdit');
+      if (!qg.pass && qg.reason && (qg.reason.startsWith('forbidden_word:') || qg.reason.startsWith('generic_pattern:')) && this.claude && this.claude.generateSingleEmail) {
+        // Retry : regenerer l'email en insistant sur le pattern/mot interdit
+        log.warn('campaign-engine', 'Quality gate FAIL pour ' + contact.email + ': ' + qg.reason + ' — retry avec instruction explicite');
         try {
-          const forbiddenWord = qg.reason.replace('forbidden_word: ', '');
+          const isForbiddenWord = qg.reason.startsWith('forbidden_word:');
+          const triggerDetail = isForbiddenWord ? qg.reason.replace('forbidden_word: ', '') : qg.reason.replace('generic_pattern: ', '');
           const retryCtx = (currentProspectIntel || '') + '\n\nCONTEXTE CAMPAGNE: ' + (campaign.context || campaign.name || 'prospection B2B')
-            + '\n\nATTENTION CRITIQUE: le mot "' + forbiddenWord + '" est ABSOLUMENT INTERDIT. Reformule COMPLETEMENT sans utiliser ce mot ni ses variantes.';
+            + (isForbiddenWord
+              ? '\n\nATTENTION CRITIQUE: le mot "' + triggerDetail + '" est ABSOLUMENT INTERDIT. Reformule COMPLETEMENT sans utiliser ce mot ni ses variantes.'
+              : '\n\nATTENTION CRITIQUE: le pattern "' + triggerDetail + '" est ABSOLUMENT INTERDIT (quality gate). Ecris un email COMPLETEMENT DIFFERENT qui NE COMMENCE PAS par une observation generique. Va DROIT AU BUT avec une question business concrete et specifique a cette entreprise.');
           const retryGen = await this.claude.generateSingleEmail(contact, retryCtx);
           if (retryGen && retryGen.subject && retryGen.body && !retryGen.skip) {
             const qg2 = _emailPassesQualityGate(retryGen.subject, retryGen.body);

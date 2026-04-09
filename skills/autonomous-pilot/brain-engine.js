@@ -74,8 +74,8 @@ class BrainEngine {
     // Brain cycle : 9h, 14h et 18h, lun-ven uniquement (pas de prospection le weekend)
     this.crons.push(new Cron('0 9,14,18 * * 1-5', { timezone: tz }, withCronGuard('ap-brain-cycle', async () => {
       try {
-        // Timeout 5 min max pour eviter les cycles qui trainent (DDG rate-limit, etc.)
-        const BRAIN_TIMEOUT = 5 * 60 * 1000;
+        // Timeout 10 min max (15 emails × 45-90s rate limiting = 12min worst case)
+        const BRAIN_TIMEOUT = 10 * 60 * 1000;
         await Promise.race([
           this._brainCycle(),
           new Promise((_, rej) => setTimeout(() => rej(new Error('Brain cycle timeout (5min)')), BRAIN_TIMEOUT))
@@ -510,6 +510,19 @@ class BrainEngine {
           for (const em of amVal.data.emails) {
             if (em.to && (em.status === 'sent' || em.status === 'delivered' || em.status === 'opened' || em.status === 'replied')) {
               alreadySentVal.add(em.to.toLowerCase());
+            }
+          }
+        }
+        // Exclure les leads dans des campagnes actives (cross-dedup pre-plan)
+        if (amVal && amVal.getAllCampaigns) {
+          const allCampsVal = amVal.getAllCampaigns();
+          for (const camp of allCampsVal) {
+            if (camp.status === 'cancelled' || camp.status === 'completed') continue;
+            const campList = amVal.data.contactLists ? amVal.data.contactLists[camp.contactListId] : null;
+            if (campList && campList.contacts) {
+              for (const c of campList.contacts) {
+                if (c.email) alreadySentVal.add(c.email.toLowerCase());
+              }
             }
           }
         }
@@ -1467,7 +1480,19 @@ Analyse et reponds en JSON:
             prompt += '→ Si tu as besoin de NOUVEAUX leads, ils seront importes via Clay (webhook/import). Concentre-toi sur les leads disponibles.\n';
           }
         } else {
-          prompt += '\n⚠️ AUCUN lead eligible pour envoi (tous deja contactes, score trop bas, ou recemment echoues). Les nouveaux leads doivent etre importes via Clay. Concentre-toi sur create_followup_sequence pour les leads deja contactes.\n';
+          // Compter les leads en campagne active pour informer le brain
+          let leadsInActiveCampaigns = 0;
+          if (amEligible && amEligible.getAllCampaigns) {
+            const activeCamps = amEligible.getAllCampaigns().filter(c => c.status === 'active');
+            const counted = new Set();
+            for (const camp of activeCamps) {
+              const cl = amEligible.data.contactLists ? amEligible.data.contactLists[camp.contactListId] : null;
+              if (cl && cl.contacts) {
+                for (const c of cl.contacts) { if (c.email && !counted.has(c.email.toLowerCase())) { counted.add(c.email.toLowerCase()); leadsInActiveCampaigns++; } }
+              }
+            }
+          }
+          prompt += '\n⚠️ AUCUN lead eligible pour envoi — ' + leadsInActiveCampaigns + ' leads sont deja geres par le campaign engine (steps automatiques). Les follow-ups step 2/3 seront envoyes AUTOMATIQUEMENT par le campaign engine selon la cadence prevue. NE GENERE PAS de send_email — ils seront tous bloques par la deduplication. Concentre-toi sur : record_learning (analyser les resultats), update_goals (ajuster si necessaire), ou create_followup_sequence pour des leads qui meritent une relance HORS cadence.\n';
         }
         // Data-poor leads prets pour re-recherche (Action 3)
         try {
@@ -1775,7 +1800,7 @@ Analyse et reponds en JSON:
     prompt += '1. autoExecute=true pour TOUTES les actions, y compris send_email. Tu es en FULL AUTO.\n';
     prompt += '2. Pour send_email, mets TOUJOURS _generateFirst:true — la recherche prospect est OBLIGATOIRE avant chaque email.\n';
     prompt += '3. NE FOURNIS PAS subject/body dans send_email — le ProspectResearcher + ClaudeEmailWriter les generent automatiquement avec des infos fraiches.\n';
-    const emailsPerCycle = Math.min(Math.ceil(remainingTodayGoals / 2), 15);
+    const emailsPerCycle = Math.min(Math.ceil(remainingTodayGoals / 2), 6);
     prompt += '4. Envoie MAX ' + emailsPerCycle + ' emails CE CYCLE (reste ' + remainingTodayGoals + '/jour, repartis sur 2 brain cycles). Priorise les leads score >= 8.\n';
     prompt += '5. JAMAIS de prix, d\'offre, de feature, de "pilote gratuit" dans le premier email. Le but = OUVRIR UNE CONVERSATION.\n';
     prompt += '6. Apres 3 jours sans reponse sur un lead contacte, cree automatiquement une sequence follow-up (create_followup_sequence).\n';
@@ -2168,36 +2193,8 @@ Analyse et reponds en JSON:
     const p = state.progress;
     const g = state.goals.weekly;
 
-    // 1. Chercher des leads si objectif non atteint — avec rotation de niches
-    if (p.leadsFoundThisWeek < g.leadsToFind) {
-      // Choisir une niche differente a chaque fallback (rotation basee sur le cycle courant)
-      // Utiliser ICP loader (weighted) si disponible, sinon fallback ancien systeme
-      let niche = null;
-      try {
-        const icpLoaderFb = require('../../gateway/icp-loader.js');
-        niche = icpLoaderFb.getNicheForCycle();
-      } catch (e) {
-        try {
-          const icpLoaderFb = require('/app/gateway/icp-loader.js');
-          niche = icpLoaderFb.getNicheForCycle();
-        } catch (e2) {}
-      }
-      if (!niche) {
-        const allNichesFb = storage.getNicheList ? storage.getNicheList() : storage.B2B_NICHE_LIST || [];
-        const dayIdx = new Date().getDate() % (allNichesFb.length || 1);
-        niche = allNichesFb[dayIdx];
-      }
-      const fallbackCriteria = { ...state.goals.searchCriteria };
-      if (niche) {
-        fallbackCriteria.keywords = niche.keywords;
-      }
-      actions.push({
-        type: 'search_leads',
-        params: { criteria: fallbackCriteria, niche: niche ? niche.slug : null },
-        autoExecute: true,
-        preview: 'Recherche de leads (fallback' + (niche ? ' — niche: ' + niche.slug : '') + ')'
-      });
-    }
+    // 1. search_leads DESACTIVE — leads importes via Clay uniquement (Apollo resilie mars 2026)
+    // Ne plus generer d'actions search_leads, meme en fallback
 
     // 2. Generer + envoyer des emails aux leads qualifies avec email
     if (p.emailsSentThisWeek < g.emailsToSend) {
@@ -2206,7 +2203,7 @@ Analyse et reponds en JSON:
         const allLeads = ffStorage.getAllLeads ? ffStorage.getAllLeads() : {};
         const leadsWithEmail = Object.values(allLeads)
           .filter(l => l.email && (l.score || 0) >= (g.minLeadScore || 7) && !l._emailSent)
-          .slice(0, 15); // Max 15 emails par cycle (warmup gere par action-executor)
+          .slice(0, 6); // Max 6 emails par cycle (evite timeout brain 10min avec rate limiting 45-90s)
 
         for (const lead of leadsWithEmail) {
           actions.push({
