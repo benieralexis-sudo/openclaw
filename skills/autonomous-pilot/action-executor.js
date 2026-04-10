@@ -152,7 +152,7 @@ Format JSON strict :
       try {
         const siStorage = require('/app/skills/self-improve/storage.js');
         siTargeting = siStorage.getTargetingCriteria() || {};
-      } catch (e2) {}
+      } catch (e2) { log.warn('action-executor', 'SelfImprove targeting non dispo: ' + e2.message); }
     }
 
     // Priorite : Brain params (explicit) > Self-Improve overrides > Config locale AP > Defaults
@@ -576,7 +576,7 @@ Format JSON strict :
             break;
           }
         }
-      } catch (e) {}
+      } catch (e) { log.warn('action-executor', 'FlowFast niche enrichment echoue: ' + e.message); }
     }
 
     // Mapper les champs FR vers EN pour le writer
@@ -1155,7 +1155,7 @@ Format JSON strict :
         log.warn('action-executor', 'GATE DONNEES BLOCK — Brief quasi-vide pour ' + params.to +
           ' (brief: ' + (params._prospectIntel || '').length + ' chars) — data-poor queue');
         if (params.contact && params.to) {
-          try { storage.addToDataPoorQueue(params.to, params.contact, 'brief quasi-vide (' + (params._prospectIntel || '').length + ' chars)'); } catch (e) {}
+          try { storage.addToDataPoorQueue(params.to, params.contact, 'brief quasi-vide (' + (params._prospectIntel || '').length + ' chars)'); } catch (e) { log.warn('action-executor', 'DataPoorQueue add echoue: ' + e.message); }
         }
         return { success: false, error: 'Donnees insuffisantes pour email de qualite (brief: ' + (params._prospectIntel || '').length + ' chars)', skipped: true };
       }
@@ -1178,7 +1178,7 @@ Format JSON strict :
           log.warn('action-executor', 'GATE DONNEES BLOCK — Brief trop pauvre pour ' + params.to +
             ' (brief: ' + brief.length + ' chars, sources: ' + sourcesCount + ') — data-poor queue');
           if (params.contact && params.to) {
-            try { storage.addToDataPoorQueue(params.to, params.contact, 'brief trop pauvre (' + brief.length + ' chars, ' + sourcesCount + ' sources)'); } catch (e) {}
+            try { storage.addToDataPoorQueue(params.to, params.contact, 'brief trop pauvre (' + brief.length + ' chars, ' + sourcesCount + ' sources)'); } catch (e) { log.warn('action-executor', 'DataPoorQueue add echoue: ' + e.message); }
           }
           return { success: false, error: 'Donnees insuffisantes pour email de qualite (brief: ' + brief.length + ' chars)', skipped: true };
         }
@@ -1202,7 +1202,7 @@ Format JSON strict :
                   industry: params.contact.industry
                 });
               }
-            } catch (e) {}
+            } catch (e) { log.warn('action-executor', 'ICP niche match pour analyst echoue: ' + e.message); }
             const contactForAnalyst = {
               name: (params.contact && (params.contact.nom || params.contact.name)) || '',
               firstName: (params.contact && (params.contact.nom || params.contact.name || '')).split(' ')[0] || '',
@@ -1609,7 +1609,7 @@ Format JSON strict :
                 if (!leadsObj2[lid].industry || !leadsObj2[lid]._nicheSlug) {
                   if (!leadsObj2[lid].industry) leadsObj2[lid].industry = leadNiche;
                   leadsObj2[lid]._nicheSlug = leadNiche;
-                  try { ffStorageNiche._save ? ffStorageNiche._save() : null; } catch (e) {}
+                  try { ffStorageNiche._save ? ffStorageNiche._save() : null; } catch (e) { log.warn('action-executor', 'Niche save echoue: ' + e.message); }
                 }
                 log.info('action-executor', 'Niche tracking: email sent [' + leadNiche + '] pour ' + params.to);
               }

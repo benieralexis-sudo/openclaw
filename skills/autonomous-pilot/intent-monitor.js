@@ -112,7 +112,7 @@ class IntentMonitor {
       }
       const { getWarmupDailyLimit } = require('../../gateway/utils.js');
       dailyLimit = getWarmupDailyLimit();
-    } catch (e) {}
+    } catch (e) { log.warn('intent-monitor', 'Warmup limit check echoue: ' + e.message); }
 
     const headroom = dailyLimit - sentToday;
     if (headroom <= 0) {
@@ -128,7 +128,7 @@ class IntentMonitor {
           if (em.to) alreadyContacted.add(em.to.toLowerCase());
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('intent-monitor', 'Already contacted set echoue: ' + e.message); }
 
     // Charger les leads deja en base (pour ne pas re-proposer)
     this._refreshKnownLeads();
@@ -290,7 +290,7 @@ class IntentMonitor {
           'Delai signal→envoi: ' + Math.round((Date.now() - startTime) / 1000) + 's',
           'Markdown'
         );
-      } catch (e) {}
+      } catch (e) { log.error('intent-monitor', 'Alerte admin Telegram perdue: ' + e.message); }
     }
 
     const duration = Math.round((Date.now() - startTime) / 1000);
