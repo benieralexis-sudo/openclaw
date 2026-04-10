@@ -65,7 +65,7 @@ function createResendHandler(deps) {
           break;
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('resend-handler', 'Niche lookup failed: ' + e.message); }
     return null;
   }
 
@@ -371,7 +371,7 @@ function createResendHandler(deps) {
               const keys = Object.keys(proactiveAgentStorage.data._cachedIntel);
               if (keys.length > 100) { for (var ci = 0; ci < keys.length - 100; ci++) delete proactiveAgentStorage.data._cachedIntel[keys[ci]]; }
               proactiveAgentStorage._save();
-            } catch (cacheErr) {}
+            } catch (cacheErr) { log.warn('resend-handler', 'Intel cache save failed: ' + cacheErr.message); }
           } else {
             log.info('webhook', 'Email ouvert (1ere fois) par ' + email.to + ' — pas d\'intel, notification silencieuse');
           }

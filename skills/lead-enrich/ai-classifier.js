@@ -26,7 +26,7 @@ class AIClassifier {
       try {
         const selfImproveStorage = require('/app/skills/self-improve/storage.js');
         scoringOverrides = selfImproveStorage.getScoringWeights();
-      } catch (e2) {}
+      } catch (e2) { log.warn('ai-classifier', 'Scoring weights non disponibles: ' + e2.message); }
     }
 
     // Construire les poids de scoring (defauts + overrides)

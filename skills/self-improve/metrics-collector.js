@@ -49,7 +49,7 @@ class MetricsCollector {
       if (wiStorage && wiStorage.getRecentNewsOutreach) {
         wiNewsUsed = wiStorage.getRecentNewsOutreach(100).filter(n => n.usedInEmail);
       }
-    } catch (e) {}
+    } catch (e) { console.warn('[metrics-collector] WI news correlation unavailable:', e.message); }
 
     const detailed = [];
     for (const email of emails) {
@@ -183,7 +183,7 @@ class MetricsCollector {
           totalNewsUsed: usedNews.length
         };
       }
-    } catch (e) {}
+    } catch (e) { console.warn('[metrics-collector] WI correlation calc failed:', e.message); }
 
     return {
       available: true,
@@ -542,7 +542,7 @@ class MetricsCollector {
         const history = budget.history || [];
         const last7 = history.slice(-7);
         funnel.totalApiCost = last7.reduce((sum, d) => sum + (d.spent || 0), 0) + (budget.todaySpent || 0);
-      } catch (e) {}
+      } catch (e) { console.warn('[metrics-collector] Budget status unavailable:', e.message); }
     }
 
     // Conversion rates
@@ -915,13 +915,13 @@ class MetricsCollector {
     const cb = getCircuitBreakerModule();
     let breakerStatus = {};
     if (cb && cb.getAllStatus) {
-      try { breakerStatus = cb.getAllStatus(); } catch (e) {}
+      try { breakerStatus = cb.getAllStatus(); } catch (e) { console.warn('[metrics-collector] Circuit breaker status unavailable:', e.message); }
     }
 
     const appConfig = getAppConfig();
     let budgetStatus = {};
     if (appConfig) {
-      try { budgetStatus = appConfig.getBudgetStatus(); } catch (e) {}
+      try { budgetStatus = appConfig.getBudgetStatus(); } catch (e) { console.warn('[metrics-collector] Budget status unavailable:', e.message); }
     }
 
     return {

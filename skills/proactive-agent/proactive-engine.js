@@ -286,7 +286,7 @@ class ProactiveEngine {
             nicheSection = '\n\n⚠️ *Niches a surveiller :*\n' + warnings.join('\n');
           }
         }
-      } catch (e) {}
+      } catch (e) { log.warn('proactive-engine', 'Niche health check unavailable: ' + e.message); }
 
       await this.sendTelegram(config.adminChatId, report + apSection + nicheSection);
       storage.logAlert('morning_report', report + apSection + nicheSection, { date: data.date });
@@ -424,7 +424,7 @@ class ProactiveEngine {
               }
             }
             await new Promise(r => setTimeout(r, 100));
-          } catch (e) {}
+          } catch (e) { log.warn('proactive-engine', 'Open tracking error for email: ' + e.message); }
         }
 
         if (newOpens > 0) {
@@ -471,7 +471,7 @@ class ProactiveEngine {
           leadInfo = (lead.nom || '') + ' — ' + (lead.titre || '') + ' chez ' + (lead.entreprise || '') + ' (score: ' + (lead.score || '?') + '/10)';
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('proactive-engine', 'Flowfast lead lookup failed: ' + e.message); }
 
     try {
       const leStorage = getLeadEnrichStorage();
@@ -484,7 +484,7 @@ class ProactiveEngine {
           leadInfo = (p.fullName || '') + ' — ' + (p.title || '') + ' chez ' + (o.name || '') + ' (score: ' + ((lead.aiClassification || {}).score || '?') + '/10)';
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('proactive-engine', 'Lead enrich lookup failed: ' + e.message); }
 
     const alert = await this.reportGenerator.generateHotLeadAlert(email, opens, leadInfo);
     await this.sendTelegram(config.adminChatId, alert);
@@ -565,7 +565,7 @@ class ProactiveEngine {
                     leadInfo = (p.fullName || '') + ' — ' + (p.title || '') + ' chez ' + (o.name || '') + ' (score: ' + ((lead.aiClassification || {}).score || '?') + '/10)';
                   }
                 }
-              } catch (e) {}
+              } catch (e) { log.warn('proactive-engine', 'Smart alert lead lookup failed: ' + e.message); }
 
               const alert = await this.reportGenerator.generateHotLeadAlert(email, opens, leadInfo);
               await this.sendTelegram(config.adminChatId, alert);
@@ -939,7 +939,7 @@ class ProactiveEngine {
           } else {
             await this.options.sendTelegram(this.options.adminChatId, lines.join('\n'));
           }
-        } catch (e) {}
+        } catch (e) { log.warn('proactive-engine', 'Lead Revival notification failed: ' + e.message); }
       }
 
       log.info('proactive-engine', 'Lead Revival termine: ' + sent + '/' + candidates.length + ' envoyes');
@@ -1493,7 +1493,7 @@ class ProactiveEngine {
               if (found) prospectTitle = found.title || found.titre || '';
             }
           }
-        } catch (titleErr) {}
+        } catch (titleErr) { log.warn('proactive-engine', 'Reactive FU title lookup failed: ' + titleErr.message); }
         const contact = {
           name: followUp.prospectName,
           firstName: (followUp.prospectName || '').split(' ')[0],
@@ -1540,7 +1540,7 @@ class ProactiveEngine {
         try {
           const firstLine = (followUp.originalBody || '').split(/[\n.!?]/)[0].trim();
           if (firstLine.length > 10) originalAngle = firstLine;
-        } catch (e) {}
+        } catch (e) { log.warn('proactive-engine', 'Reactive FU angle extraction failed: ' + e.message); }
 
         // Enrichir le prospectIntel avec l'angle deja utilise
         let enrichedIntel = followUp.prospectIntel || '';
@@ -1652,7 +1652,7 @@ class ProactiveEngine {
               continue;
             }
           }
-        } catch (sgErr) {}
+        } catch (sgErr) { log.warn('proactive-engine', 'Reactive FU subject gate check failed: ' + sgErr.message); }
 
         // 2g. Word count gate : 10-60 mots (meme que campaign-engine)
         const bodyWords = (body || '').split(/\s+/).filter(w => w.length > 0).length;

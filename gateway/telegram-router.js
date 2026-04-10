@@ -1915,7 +1915,7 @@ const healthServer = http.createServer(async (req, res) => {
               try {
                 const liOnlyPath = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/linkedin-only-leads.json';
                 let existing = [];
-                try { existing = JSON.parse(fs.readFileSync(liOnlyPath, 'utf8')); } catch(e) {}
+                try { existing = JSON.parse(fs.readFileSync(liOnlyPath, 'utf8')); } catch(e) { log.info('webhook-clay', 'LinkedIn-only file not found or invalid, starting fresh'); }
                 const isDup = existing.some(e => e.linkedin === lead.linkedin);
                 if (!isDup) {
                   existing.push({ firstName: lead.firstName || '', lastName: lead.lastName || '', company: lead.company || '', title: lead.title || '', linkedin: lead.linkedin, capturedAt: new Date().toISOString() });
@@ -2231,7 +2231,7 @@ process.on('unhandledRejection', (reason) => {
             il.start().catch(e => log.warn('router', 'IMAP restart echoue:', e.message));
           }
         }, 10000);
-      } catch (e) {}
+      } catch (e) { log.warn('router', 'IMAP restart failed during unhandled rejection recovery: ' + e.message); }
     }
     return; // NE PAS crasher
   }

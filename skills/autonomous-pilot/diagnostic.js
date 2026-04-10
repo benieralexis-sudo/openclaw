@@ -1,5 +1,6 @@
 // Autonomous Pilot - Systeme de diagnostic et checklist
 const storage = require('./storage.js');
+const log = require('../../gateway/logger.js');
 
 // --- Cross-skill imports via skill-loader centralise ---
 const { getStorage, getGateway } = require('../../gateway/skill-loader.js');
@@ -50,7 +51,7 @@ function checkApolloCredits() {
         suggestion: 'Limiter les recherches ou passer a un plan payant Apollo'
       };
     }
-  } catch (e) {}
+  } catch (e) { log.warn('diagnostic', 'Apollo credits check failed: ' + e.message); }
   return null;
 }
 
@@ -70,7 +71,7 @@ function checkBudgetApi() {
         suggestion: 'Le bot va reduire les appels API automatiquement'
       };
     }
-  } catch (e) {}
+  } catch (e) { log.warn('diagnostic', 'Budget API check failed: ' + e.message); }
   return null;
 }
 
@@ -149,7 +150,7 @@ function checkEmailPerformance() {
         };
       }
     }
-  } catch (e) {}
+  } catch (e) { log.warn('diagnostic', 'Email performance check failed: ' + e.message); }
   return null;
 }
 
@@ -231,13 +232,13 @@ function runFullDiagnostic() {
   try {
     const apolloResult = checkApolloCredits();
     if (apolloResult) results.push(apolloResult);
-  } catch (e) {}
+  } catch (e) { log.warn('diagnostic', 'Apollo check wrapper failed: ' + e.message); }
 
   // Check API keys (retourne un array)
   try {
     const keyResults = checkApiKeys();
     results.push(...keyResults);
-  } catch (e) {}
+  } catch (e) { log.warn('diagnostic', 'API keys check failed: ' + e.message); }
 
   // Ajouter les nouveaux items au storage (deduplique par message)
   for (const item of results) {

@@ -44,7 +44,7 @@ function _doWrite(filePath, data) {
       try {
         const log = require('./logger.js');
         log.error('storage', 'DISQUE PLEIN — ecriture impossible: ' + filePath);
-      } catch (e) {}
+      } catch (e) { console.error('[utils] Logger unavailable for disk full alert:', e.message); }
     }
     throw writeErr;
   }

@@ -779,7 +779,7 @@ function createReplyPipeline(deps) {
         const emailEvents = automailerStorage.getEmailEventsForRecipient(replyData.from);
         const lastSent = emailEvents.filter(e => e.sentAt).pop();
         if (lastSent) sendHour = new Date(lastSent.sentAt).getHours();
-      } catch (e) {}
+      } catch (e) { log.warn('reply-pipeline', 'Send hour detection failed: ' + e.message); }
 
       const outcome = {
         timestamp: Date.now(),
@@ -965,7 +965,7 @@ function createReplyPipeline(deps) {
           notifLines.push('🏢 ' + escTg(lastSent.company));
         }
       }
-    } catch (ctxErr) {}
+    } catch (ctxErr) { log.warn('reply-pipeline', 'Reply context enrichment failed: ' + ctxErr.message); }
 
     // HITL : notification enrichie avec brouillon + boutons
     if (hitlDraftCreated) {

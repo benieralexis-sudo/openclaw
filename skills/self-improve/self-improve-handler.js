@@ -407,7 +407,7 @@ Reponds UNIQUEMENT en JSON strict :
       const accuracyRecord = this.analyzer.comparePredictions();
 
       // 2b. Mesure d'impact
-      try { this.analyzer.measureAppliedImpact(snapshot); } catch (e) {}
+      try { this.analyzer.measureAppliedImpact(snapshot); } catch (e) { log.warn('self-improve', 'Impact measurement failed: ' + e.message); }
 
       // 3. Analyse IA
       const history = storage.getWeeklySnapshots(4);
@@ -710,7 +710,7 @@ Reponds UNIQUEMENT en JSON strict :
       if (amStorage && amStorage.data) {
         totalEmails = (amStorage.data.emails || []).filter(e => e.status !== 'queued').length;
       }
-    } catch (e) {}
+    } catch (e) { log.warn('self-improve', 'Email count check failed: ' + e.message); }
 
     // Filtrer les recommandations a haute confiance
     // + bloquer les recos email_length/email_style si pas assez de data

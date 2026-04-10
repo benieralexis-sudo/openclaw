@@ -644,7 +644,7 @@ Reponds UNIQUEMENT en JSON strict :
           fs.unlinkSync(path.join(backupDir, f));
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('system-advisor', 'Backup rotation cleanup failed: ' + e.message); }
     log.info('system-advisor', 'Backup quotidien: ' + backed + '/' + criticalFiles.length + ' fichiers sauvegardes');
   }
 

@@ -110,7 +110,7 @@ class InboxListener {
       clearTimeout(timeoutId);
       // Detruire le client si le timeout gagne (evite connection leak)
       // Absorber toute rejection future d'imapflow
-      try { client.close(); } catch (_) {}
+      try { client.close(); } catch (closeErr) { log.info('inbox-manager', 'IMAP client.close on timeout (expected): ' + closeErr.message); }
       client.on('error', () => {}); // Absorber les erreurs post-close
       throw e;
     }
@@ -142,7 +142,7 @@ class InboxListener {
         const fetchTimeout = setTimeout(() => {
           fetchTimedOut = true;
           log.error('inbox-manager', 'FETCH IMAP timeout (60s) — interruption forcee');
-          try { client.close(); } catch (_) {}
+          try { client.close(); } catch (closeErr) { log.info('inbox-manager', 'IMAP close on fetch timeout: ' + closeErr.message); }
         }, 60000);
 
         try {
@@ -225,7 +225,7 @@ class InboxListener {
       }
     } finally {
       if (client) {
-        try { await client.logout(); } catch (e) {}
+        try { await client.logout(); } catch (e) { log.info('inbox-manager', 'IMAP client.logout cleanup: ' + e.message); }
       }
     }
   }

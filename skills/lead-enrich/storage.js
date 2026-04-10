@@ -56,7 +56,7 @@ class LeadEnrichStorage {
       }
     } catch (e) {
       console.error('[lead-enrich-storage] Erreur chargement (fichier corrompu?):', e.message);
-      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, DB_FILE + '.corrupt.' + Date.now()); } catch (_) {}
+      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, DB_FILE + '.corrupt.' + Date.now()); } catch (renameErr) { console.error('[lead-enrich-storage] ERREUR rename fichier corrompu:', renameErr.message); }
       this._save();
     }
   }
