@@ -4,6 +4,7 @@ const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const { getWarmupDailyLimit, applySpintax } = require('../../gateway/utils.js');
+const C = require('../../gateway/constants.js');
 
 // Helper Promise.race avec cleanup du timer (evite setTimeout orphelins)
 function withTimeout(promise, ms, label) {
@@ -674,12 +675,12 @@ Format JSON strict :
     context += '\nSIGNATURE: NE PAS ajouter de signature — elle est ajoutee automatiquement apres le corps du mail.';
 
     // Generation avec retry (max 2 tentatives sur erreur Claude API)
-    const MAX_GEN_RETRIES = 2;
+    const MAX_GEN_RETRIES = C.MAX_EMAIL_GEN_RETRIES;
     for (let attempt = 0; attempt <= MAX_GEN_RETRIES; attempt++) {
       try {
         const email = await withTimeout(
           writer.generateSingleEmail(contact, context),
-          20000, 'Email generation'
+          C.EMAIL_GENERATION_TIMEOUT, 'Email generation'
         );
         return {
           success: true,
@@ -1112,7 +1113,7 @@ Format JSON strict :
               linkedin_url: params.contact && params.contact.linkedin_url,
               niche: leadNiche
             }),
-            30000, 'ProspectResearcher'
+            C.PROSPECT_RESEARCH_TIMEOUT, 'ProspectResearcher'
           );
           if (intel && intel.brief) {
             params._prospectIntel = intel.brief;
@@ -1226,7 +1227,7 @@ Format JSON strict :
             if (!analysis) {
               analysis = await withTimeout(
                 analystWriter.analyzeProspect(contactForAnalyst, params._prospectIntel, analystNiche),
-                15000, 'Strategic analysis'
+                C.STRATEGIC_ANALYSIS_TIMEOUT, 'Strategic analysis'
               );
               // Sauvegarder en cache pour les follow-ups
               if (analysis && analysis.topAngles && analysis.topAngles.length > 0) {
@@ -1379,7 +1380,7 @@ Format JSON strict :
     const config = storage.getConfig();
     const epCheck = config.emailPreferences || {};
     if (epCheck.forbiddenWords && epCheck.forbiddenWords.length > 0) {
-      const MAX_FORBIDDEN_RETRIES = 4;
+      const MAX_FORBIDDEN_RETRIES = C.MAX_FORBIDDEN_WORD_RETRIES;
       let forbiddenRetry = 0;
       let emailText = (params.subject + ' ' + params.body).toLowerCase();
       let foundWords = epCheck.forbiddenWords.filter(w => {

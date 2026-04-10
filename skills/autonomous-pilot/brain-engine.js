@@ -8,6 +8,7 @@ const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const { withCronGuard, getWarmupDailyLimit } = require('../../gateway/utils.js');
 const log = require('../../gateway/logger.js');
 const { escTg, parseJsonResponse } = require('./utils.js');
+const C = require('../../gateway/constants.js');
 
 // --- Cross-skill imports via skill-loader centralise ---
 const { getStorage, getModule } = require('../../gateway/skill-loader.js');
@@ -22,13 +23,12 @@ function getWebIntelStorage() { return getStorage('web-intelligence'); }
 // Lock pour eviter l'execution simultanee de la meme action
 // Map avec TTL : chaque entree expire apres 5min (securite anti-blocage permanent)
 const _actionsInFlight = new Map();
-const ACTIONS_IN_FLIGHT_TTL = 5 * 60 * 1000; // 5 minutes
 
 function _cleanExpiredFlights() {
   const now = Date.now();
   for (const [key, ts] of _actionsInFlight) {
-    if (now - ts > ACTIONS_IN_FLIGHT_TTL) {
-      log.warn('brain', 'Action in-flight expiree (TTL ' + (ACTIONS_IN_FLIGHT_TTL / 1000) + 's): ' + key + ' — nettoyage auto');
+    if (now - ts > C.ACTIONS_IN_FLIGHT_TTL) {
+      log.warn('brain', 'Action in-flight expiree (TTL ' + (C.ACTIONS_IN_FLIGHT_TTL / 1000) + 's): ' + key + ' — nettoyage auto');
       _actionsInFlight.delete(key);
     }
   }
@@ -87,7 +87,7 @@ class BrainEngine {
     this.crons.push(new Cron('0 9,14,18 * * 1-5', { timezone: tz }, withCronGuard('ap-brain-cycle', async () => {
       try {
         // Timeout 10 min max (15 emails × 45-90s rate limiting = 12min worst case)
-        const BRAIN_TIMEOUT = 10 * 60 * 1000;
+        const BRAIN_TIMEOUT = C.BRAIN_CYCLE_TIMEOUT;
         await Promise.race([
           this._brainCycle(),
           new Promise((_, rej) => setTimeout(() => rej(new Error('Brain cycle timeout (10min)')), BRAIN_TIMEOUT))
@@ -502,7 +502,7 @@ class BrainEngine {
     }
 
     // Limiter a 25 actions par cycle (securite anti-emballement)
-    const MAX_BRAIN_ACTIONS = 25;
+    const MAX_BRAIN_ACTIONS = C.MAX_BRAIN_ACTIONS;
     if (plan.actions.length > MAX_BRAIN_ACTIONS) {
       log.warn('brain', 'Actions tronquees: ' + plan.actions.length + ' -> ' + MAX_BRAIN_ACTIONS + ' (limite de securite)');
       plan.actions = plan.actions.slice(0, MAX_BRAIN_ACTIONS);
@@ -631,7 +631,7 @@ class BrainEngine {
 
     // 4. Executer les actions (avec retry sur actions critiques)
     const RETRYABLE_ACTIONS = ['send_email', 'push_to_crm'];
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = C.MAX_BRAIN_RETRIES;
     const _actionResults = []; // Track results pour le resume business
     let _consecutiveEmailSkips = 0; // Circuit breaker: stop apres N skips consecutifs
 
