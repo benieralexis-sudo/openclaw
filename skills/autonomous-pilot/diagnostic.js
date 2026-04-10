@@ -1,27 +1,12 @@
 // Autonomous Pilot - Systeme de diagnostic et checklist
 const storage = require('./storage.js');
 
-// --- Cross-skill imports (dual-path) ---
+// --- Cross-skill imports via skill-loader centralise ---
+const { getStorage, getGateway } = require('../../gateway/skill-loader.js');
 
-function _require(relativePath, absolutePath) {
-  try { return require(relativePath); }
-  catch (e) {
-    try { return require(absolutePath); }
-    catch (e2) { return null; }
-  }
-}
-
-function getLeadEnrichStorage() {
-  return _require('../lead-enrich/storage.js', '/app/skills/lead-enrich/storage.js');
-}
-
-function getAutomailerStorage() {
-  return _require('../automailer/storage.js', '/app/skills/automailer/storage.js');
-}
-
-function getMoltbotConfig() {
-  return _require('../../gateway/moltbot-config.js', '/app/gateway/moltbot-config.js');
-}
+function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
+function getAutomailerStorage() { return getStorage('automailer'); }
+function getMoltbotConfig() { return getGateway('moltbot-config'); }
 
 // --- Diagnostic checks ---
 

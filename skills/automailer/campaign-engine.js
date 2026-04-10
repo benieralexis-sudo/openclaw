@@ -4,6 +4,7 @@ const dns = require('dns');
 const net = require('net');
 const log = require('../../gateway/logger.js');
 const { getWarmupDailyLimit, applySpintax, validateEmailOutput, getCityTimezone } = require('../../gateway/utils.js');
+const { getStorage, getModule, getGateway } = require('../../gateway/skill-loader.js');
 
 // --- LRU eviction helper : supprime les 20% plus anciennes entrees quand la Map depasse maxSize ---
 // Note: ES2015+ Map maintient l'ordre d'insertion. Les entries LRU (delete+re-set on access)
@@ -461,11 +462,7 @@ function _getHubSpotClient() {
 }
 
 function _getFlowFastStorage() {
-  try { return require('../flowfast/storage.js'); }
-  catch (e) {
-    try { return require('/app/skills/flowfast/storage.js'); }
-    catch (e2) { return null; }
-  }
+  return getStorage('flowfast');
 }
 
 // Statuts email importants a synchroniser vers HubSpot
@@ -646,8 +643,7 @@ class CampaignEngine {
     // Source 1 : AP storage (prospect research cache, le plus riche)
     try {
       let apStorage = null;
-      try { apStorage = require('../autonomous-pilot/storage.js'); }
-      catch (e) { try { apStorage = require('/app/skills/autonomous-pilot/storage.js'); } catch (e2) {} }
+      apStorage = getStorage('autonomous-pilot');
       if (apStorage && apStorage.getProspectResearch) {
         const cached = apStorage.getProspectResearch(email);
         if (cached && cached.brief) {
@@ -663,8 +659,7 @@ class CampaignEngine {
     // Source 2 : Proactive Agent cached intel (sauvegarde lors des opens/clicks)
     try {
       let paStorage = null;
-      try { paStorage = require('../proactive-agent/storage.js'); }
-      catch (e) { try { paStorage = require('/app/skills/proactive-agent/storage.js'); } catch (e2) {} }
+      paStorage = getStorage('proactive-agent');
       if (paStorage && paStorage.data && paStorage.data._cachedIntel) {
         const cached = paStorage.data._cachedIntel[email];
         if (cached && cached.brief) {
@@ -677,8 +672,7 @@ class CampaignEngine {
     // Source 3 : Lead Enrich storage (donnees basiques enrichies)
     try {
       let leStorage = null;
-      try { leStorage = require('../lead-enrich/storage.js'); }
-      catch (e) { try { leStorage = require('/app/skills/lead-enrich/storage.js'); } catch (e2) {} }
+      leStorage = getStorage('lead-enrich');
       if (leStorage && leStorage.getEnrichedLead) {
         const enriched = leStorage.getEnrichedLead(email);
         if (enriched) {
@@ -839,8 +833,8 @@ class CampaignEngine {
     const list = storage.getContactList(contactListId);
     if (!list) return { error: 'Liste introuvable' };
     let ProspectResearcher;
-    try { ProspectResearcher = require('../autonomous-pilot/prospect-researcher.js'); }
-    catch (e) { try { ProspectResearcher = require('/app/skills/autonomous-pilot/prospect-researcher.js'); } catch (e2) { return { error: 'ProspectResearcher non disponible' }; } }
+    ProspectResearcher = getModule('prospect-researcher');
+    if (!ProspectResearcher) return { error: 'ProspectResearcher non disponible' };
     const researcher = new ProspectResearcher({});
     let ready = 0, notReady = 0;
     const missingByField = {};
@@ -1004,7 +998,7 @@ class CampaignEngine {
       // Utilise matchLeadToNiche() qui est un check local (0 credit API, instant)
       if (stepNumber === 0) {
         try {
-          const icpLoader = require('../../gateway/icp-loader.js');
+          const icpLoader = getGateway('icp-loader');
           if (icpLoader && icpLoader.matchLeadToNiche) {
             const nicheMatch = icpLoader.matchLeadToNiche({
               company: contact.company, title: contact.title,
@@ -1321,7 +1315,7 @@ class CampaignEngine {
               // Fallback : generer si pas en cache
               if (!cachedAnalysis) {
                 let fuNiche = null;
-                const icpLdr = require('../../gateway/icp-loader.js');
+                const icpLdr = getGateway('icp-loader');
                 if (icpLdr && icpLdr.matchLeadToNiche) {
                   fuNiche = icpLdr.matchLeadToNiche({ entreprise: contact.company, titre: contact.title });
                 }
@@ -1514,8 +1508,7 @@ class CampaignEngine {
             // Rotation d'angles : empecher les sujets repetitifs entre prospects
             try {
               let apStorage = null;
-              try { apStorage = require('../autonomous-pilot/storage.js'); }
-              catch (e) { try { apStorage = require('/app/skills/autonomous-pilot/storage.js'); } catch (e2) {} }
+              apStorage = getStorage('autonomous-pilot');
               if (apStorage && apStorage.getRecentAnglesForIndustry) {
                 const industry = contact.industry || contact.company || '';
                 if (industry) {

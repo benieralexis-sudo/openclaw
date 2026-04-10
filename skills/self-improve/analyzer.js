@@ -4,6 +4,7 @@ const storage = require('./storage.js');
 const { retryAsync } = require('../../gateway/utils.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const log = require('../../gateway/logger.js');
+const { getStorage } = require('../../gateway/skill-loader.js');
 
 // Constantes impact tracking (extraites pour configurabilite)
 const IMPACT_REPLY_WEIGHT = 2;            // reply rate compte double vs open rate
@@ -513,9 +514,7 @@ Reponds UNIQUEMENT en JSON strict :
 
     // --- Analyse Intent vs Non-Intent ---
     try {
-      let leStorage = null;
-      try { leStorage = require('../lead-enrich/storage.js'); }
-      catch (e) { try { leStorage = require('/app/skills/lead-enrich/storage.js'); } catch (e2) {} }
+      const leStorage = getStorage('lead-enrich');
       if (leStorage) {
         const intentEmails = sentEmails.filter(e => {
           const enriched = leStorage.getEnrichedLead ? leStorage.getEnrichedLead(e.to) : null;

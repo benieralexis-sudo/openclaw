@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { atomicWriteSync } = require('../../gateway/utils.js');
+const { getStorage } = require('../../gateway/skill-loader.js');
 
 const DATA_DIR = process.env.LEAD_ENRICH_DATA_DIR || '/data/lead-enrich';
 const DB_FILE = path.join(DATA_DIR, 'lead-enrich-db.json');
@@ -152,12 +153,7 @@ class LeadEnrichStorage {
 
     // Lire les events depuis le storage automailer (cross-skill)
     try {
-      let automailerStorage = null;
-      try { automailerStorage = require('../automailer/storage.js'); }
-      catch (e) {
-        try { automailerStorage = require('/app/skills/automailer/storage.js'); }
-        catch (e2) { return []; }
-      }
+      const automailerStorage = getStorage('automailer');
       if (!automailerStorage || !automailerStorage.getEmailEventsForRecipient) return [];
       return automailerStorage.getEmailEventsForRecipient(key);
     } catch (e) {

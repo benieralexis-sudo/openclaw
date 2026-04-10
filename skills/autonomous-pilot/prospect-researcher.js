@@ -6,7 +6,7 @@
 const log = require('../../gateway/logger.js');
 
 // Cross-skill imports via skill-loader centralise
-const { getStorage, getModule } = require('../../gateway/skill-loader.js');
+const { getStorage, getModule, getGateway } = require('../../gateway/skill-loader.js');
 
 function getWebFetcher() { return getModule('web-fetcher'); }
 function getWebIntelStorage() { return getStorage('web-intelligence'); }
@@ -14,14 +14,7 @@ function getAPStorage() { return getStorage('autonomous-pilot'); }
 function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
 function getFlowFastStorage() { return getStorage('flowfast'); }
 
-// Intent scorer pour calcul de score unifie
-function getIntentScorer() {
-  try { return require('../lead-enrich/intent-scorer.js'); }
-  catch (e) {
-    try { return require('/app/skills/lead-enrich/intent-scorer.js'); }
-    catch (e2) { return null; }
-  }
-}
+function getIntentScorer() { return getModule('intent-scorer'); }
 
 // User-agents rotatifs pour eviter les 403 Google Cache
 const USER_AGENTS = [

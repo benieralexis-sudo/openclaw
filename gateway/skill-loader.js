@@ -31,8 +31,22 @@ const SKILL_MODULES = {
   'ai-classifier': 'lead-enrich/ai-classifier.js',
   'web-fetcher': 'web-intelligence/web-fetcher.js',
   'prospect-researcher': 'autonomous-pilot/prospect-researcher.js',
+  'action-executor': 'autonomous-pilot/action-executor.js',
   'calendar-client': 'meeting-scheduler/google-calendar-client.js',
-  'reply-classifier': 'inbox-manager/reply-classifier.js'
+  'reply-classifier': 'inbox-manager/reply-classifier.js',
+  'intent-scorer': 'lead-enrich/intent-scorer.js',
+  'ab-testing': 'automailer/ab-testing.js',
+  'diagnostic': 'autonomous-pilot/diagnostic.js'
+};
+
+// Chemins des modules gateway (resolus depuis gateway/)
+const GATEWAY_ROOT = __dirname;
+const GATEWAY_MODULES = {
+  'icp-loader': 'icp-loader.js',
+  'shared-nlp': 'shared-nlp.js',
+  'app-config': 'app-config.js',
+  'constants': 'constants.js',
+  'circuit-breaker': 'circuit-breaker.js'
 };
 
 const SKILLS_ROOT = path.resolve(__dirname, '..', 'skills');
@@ -69,4 +83,20 @@ function getModule(moduleName) {
   }
 }
 
-module.exports = { getStorage, getModule };
+/**
+ * Charge un module gateway par son nom.
+ * @param {string} moduleName - Nom du module (ex: 'icp-loader', 'shared-nlp')
+ * @returns {Object|null} Le module ou null si introuvable
+ */
+function getGateway(moduleName) {
+  const relPath = GATEWAY_MODULES[moduleName];
+  if (!relPath) return null;
+  try {
+    return require(path.join(GATEWAY_ROOT, relPath));
+  } catch (e) {
+    log.warn('skill-loader', 'Impossible de charger gateway ' + moduleName + ':', e.message);
+    return null;
+  }
+}
+
+module.exports = { getStorage, getModule, getGateway };

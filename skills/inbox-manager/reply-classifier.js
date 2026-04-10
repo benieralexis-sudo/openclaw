@@ -2,8 +2,8 @@
 'use strict';
 const { callOpenAI } = require('../../gateway/shared-nlp.js');
 const log = require('../../gateway/logger.js');
-let _appConfig = null;
-try { _appConfig = require('../../gateway/app-config.js'); } catch (e) {}
+const { getGateway } = require('../../gateway/skill-loader.js');
+const _appConfig = getGateway('app-config');
 
 // --- Knowledge Base (grounding anti-hallucination) ---
 const fs = require('fs');

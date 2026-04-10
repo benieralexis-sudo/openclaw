@@ -16,7 +16,7 @@ function withTimeout(promise, ms, label) {
 }
 
 // --- Cross-skill imports via skill-loader centralise ---
-const { getStorage, getModule } = require('../../gateway/skill-loader.js');
+const { getStorage, getModule, getGateway } = require('../../gateway/skill-loader.js');
 
 function getApolloConnector() { return getModule('apollo-connector'); }
 function getFlowFastStorage() { return getStorage('flowfast'); }
@@ -28,10 +28,7 @@ function getAutomailerStorage() { return getStorage('automailer'); }
 function getProspectResearcher() { return getModule('prospect-researcher'); }
 function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
-function _getSharedNLP() {
-  try { return require('../../gateway/shared-nlp.js'); }
-  catch (e) { return null; }
-}
+function _getSharedNLP() { return getGateway('shared-nlp'); }
 
 class ActionExecutor {
   constructor(options) {
@@ -535,9 +532,7 @@ Format JSON strict :
 
     // --- ICP : injecter le contexte niche dans le contact pour le prompt ---
     let icpLoader = null;
-    try { icpLoader = require('../../gateway/icp-loader.js'); } catch (e) {
-      try { icpLoader = require('/app/gateway/icp-loader.js'); } catch (e2) {}
-    }
+    icpLoader = getGateway('icp-loader');
     let nicheContext = null;
     if (icpLoader) {
       // 1. Niche explicite passee par le brain
@@ -1985,9 +1980,7 @@ Format JSON strict :
     // Cross-dedup : retirer les contacts qui ont deja un reactive follow-up pending
     try {
       let paStorage = null;
-      try { paStorage = require('../proactive-agent/storage.js'); } catch (_) {
-        try { paStorage = require('/app/skills/proactive-agent/storage.js'); } catch (_2) {}
-      }
+      paStorage = getStorage('proactive-agent');
       if (paStorage && paStorage.getPendingFollowUps) {
         const pendingFUs = paStorage.getPendingFollowUps();
         const pendingEmails = new Set(pendingFUs.map(f => f.prospectEmail.toLowerCase()));

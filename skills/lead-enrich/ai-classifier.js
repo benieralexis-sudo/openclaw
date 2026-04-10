@@ -1,6 +1,7 @@
 // Lead Enrich - Classification IA des leads (OpenAI)
 const { callOpenAI: sharedCallOpenAI } = require('../../gateway/shared-nlp.js');
 const log = require('../../gateway/logger.js');
+const { getStorage } = require('../../gateway/skill-loader.js');
 
 class AIClassifier {
   constructor(openaiKey) {
@@ -85,16 +86,8 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
     if (!email) return result;
 
     // Lire les events depuis le storage automailer (cross-skill)
-    let automailerStorage = null;
-    try {
-      try { automailerStorage = require('../automailer/storage.js'); }
-      catch (e) {
-        try { automailerStorage = require('/app/skills/automailer/storage.js'); }
-        catch (e2) { return result; }
-      }
-    } catch (e) {
-      return result;
-    }
+    const automailerStorage = getStorage('automailer');
+    if (!automailerStorage) return result;
 
     if (!automailerStorage || !automailerStorage.getEmailEventsForRecipient) return result;
 

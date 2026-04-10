@@ -11,7 +11,7 @@ const { escTg, parseJsonResponse } = require('./utils.js');
 const C = require('../../gateway/constants.js');
 
 // --- Cross-skill imports via skill-loader centralise ---
-const { getStorage, getModule } = require('../../gateway/skill-loader.js');
+const { getStorage, getModule, getGateway } = require('../../gateway/skill-loader.js');
 
 function getFlowFastStorage() { return getStorage('flowfast'); }
 function getAutomailerStorage() { return getStorage('automailer'); }
@@ -34,10 +34,7 @@ function _cleanExpiredFlights() {
   }
 }
 
-function getAppConfig() {
-  try { return require('../../gateway/app-config.js'); }
-  catch (e) { return null; }
-}
+function getAppConfig() { return getGateway('app-config'); }
 
 function getHubSpotClient() {
   const apiKey = process.env.HUBSPOT_API_KEY;
@@ -145,7 +142,7 @@ class BrainEngine {
       const ffStorage = getFlowFastStorage();
       if (!ffStorage || !ffStorage.data || !ffStorage.data.leads) return;
 
-      const icpLoader = require('../../gateway/icp-loader.js');
+      const icpLoader = getGateway('icp-loader');
       if (!icpLoader || !icpLoader.matchLeadToNiche) return;
 
       let backfilled = 0;
@@ -1619,10 +1616,7 @@ Analyse et reponds en JSON:
     prompt += '- Push CRM si score >= ' + g.pushToCrmAboveScore + '\n';
 
     // --- ICP : NICHES CIBLES (remplace la rotation aleatoire sur 22 niches) ---
-    let icpLoader = null;
-    try { icpLoader = require('../../gateway/icp-loader.js'); } catch (e) {
-      try { icpLoader = require('/app/gateway/icp-loader.js'); } catch (e2) {}
-    }
+    let icpLoader = getGateway('icp-loader');
     const icpNiches = icpLoader ? icpLoader.getAllNiches() : [];
 
     if (icpNiches.length > 0) {

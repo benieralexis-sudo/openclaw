@@ -3,8 +3,8 @@
 // API asynchrone : POST batch → request_id → polling resultats
 const https = require('https');
 const log = require('../../gateway/logger.js');
-let _appConfig = null;
-try { _appConfig = require('../../gateway/app-config.js'); } catch (e) {}
+const { getGateway } = require('../../gateway/skill-loader.js');
+const _appConfig = getGateway('app-config');
 
 const BASE_HOST = 'api.dropcontact.io';
 const POLL_INTERVAL_MS = 10000;   // 10s entre chaque poll

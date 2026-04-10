@@ -1,6 +1,7 @@
 // AutoMailer - Redaction IA d'emails via Claude API (+ OpenAI GPT-4o-mini pour taches simples)
 const https = require('https');
 const log = require('../../gateway/logger.js');
+const { getGateway } = require('../../gateway/skill-loader.js');
 
 // === Quality gate patterns hint pour le prompt Claude (evite generation → rejet) ===
 function _getQualityGatePatternsHint() {
@@ -337,9 +338,7 @@ Analyse ces donnees et produis ta recommandation strategique.`;
 
     // --- ICP : charger le contexte niche (value prop, pain point, social proof) ---
     let icpLoader = null;
-    try { icpLoader = require('../../gateway/icp-loader.js'); } catch (e) {
-      try { icpLoader = require('/app/gateway/icp-loader.js'); } catch (e2) {}
-    }
+    icpLoader = getGateway('icp-loader');
     const clientDescription = (icpLoader && icpLoader.getClientDescription()) || process.env.CLIENT_DESCRIPTION || '';
     const nicheContext = contact._nicheContext || null;
     const nicheSlug = contact._nicheSlug || null;
@@ -961,9 +960,7 @@ Le breakup exploite la loss aversion. Format strict : 2 phrases max, question fe
 
     // --- ICP : charger le contexte niche pour les follow-ups ---
     let icpLoaderFU = null;
-    try { icpLoaderFU = require('../../gateway/icp-loader.js'); } catch (e) {
-      try { icpLoaderFU = require('/app/gateway/icp-loader.js'); } catch (e2) {}
-    }
+    icpLoaderFU = getGateway('icp-loader');
     const clientDescFU = (icpLoaderFU && icpLoaderFU.getClientDescription()) || process.env.CLIENT_DESCRIPTION || '';
     let nicheFU = null;
     if (icpLoaderFU) {
@@ -1233,9 +1230,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
 
     // --- ICP : charger le contexte niche pour social proofs varies ---
     let icpLoaderFU = null;
-    try { icpLoaderFU = require('../../gateway/icp-loader.js'); } catch (e) {
-      try { icpLoaderFU = require('/app/gateway/icp-loader.js'); } catch (e2) {}
-    }
+    icpLoaderFU = getGateway('icp-loader');
     let nicheFU = null;
     if (icpLoaderFU) nicheFU = icpLoaderFU.matchLeadToNiche(contact);
     const clientDescFU = (icpLoaderFU && icpLoaderFU.getClientDescription()) || process.env.CLIENT_DESCRIPTION || '';

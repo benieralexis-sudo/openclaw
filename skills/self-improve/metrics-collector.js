@@ -13,7 +13,7 @@ function _normalCDFStatic(z) {
 }
 
 // Cross-skill imports via skill-loader centralise
-const { getStorage, getModule } = require('../../gateway/skill-loader.js');
+const { getStorage, getModule, getGateway } = require('../../gateway/skill-loader.js');
 
 function getAutomailerStorage() { return getStorage('automailer'); }
 function getLeadEnrichStorage() { return getStorage('lead-enrich'); }
@@ -24,15 +24,8 @@ function getMeetingSchedulerStorage() { return getStorage('meeting-scheduler'); 
 function getCrmPilotStorage() { return getStorage('crm-pilot'); }
 function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
-function getAppConfig() {
-  try { return require('../../gateway/app-config.js'); }
-  catch (e) { return null; }
-}
-
-function getCircuitBreakerModule() {
-  try { return require('../../gateway/circuit-breaker.js'); }
-  catch (e) { return null; }
-}
+function getAppConfig() { return getGateway('app-config'); }
+function getCircuitBreakerModule() { return getGateway('circuit-breaker'); }
 
 class MetricsCollector {
   constructor() {}
@@ -632,7 +625,7 @@ class MetricsCollector {
     try {
       // Charger ABTesting module pour chi-carre
       let ABTesting;
-      try { ABTesting = require('../automailer/ab-testing.js'); } catch (e) { ABTesting = null; }
+      ABTesting = getModule('ab-testing');
       const abTester = ABTesting ? new ABTesting(automailer) : null;
 
       const campaigns = Object.values(automailer.data.campaigns || {});

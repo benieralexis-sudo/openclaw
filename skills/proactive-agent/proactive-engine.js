@@ -8,7 +8,7 @@ const log = require('../../gateway/logger.js');
 const { getWarmupDailyLimit, withCronGuard, applySpintax } = require('../../gateway/utils.js');
 
 // Cross-skill imports via skill-loader centralise
-const { getStorage, getModule } = require('../../gateway/skill-loader.js');
+const { getStorage, getModule, getGateway } = require('../../gateway/skill-loader.js');
 
 function getResendClient() { return getModule('resend-client'); }
 function getAutomailerStorage() { return getStorage('automailer'); }
@@ -948,30 +948,19 @@ class ProactiveEngine {
     }
   }
 
-  _getAutomailerStorage() {
-    try { return require('../automailer/storage.js'); } catch (e) { return null; }
-  }
-
-  _getActionExecutor() {
-    try { return require('../autonomous-pilot/action-executor.js'); } catch (e) { return null; }
-  }
-
-  _getFlowfastStorage() {
-    try { return require('../flowfast/storage.js'); } catch (e) { return null; }
-  }
+  _getAutomailerStorage() { return getStorage('automailer'); }
+  _getActionExecutor() { return getModule('action-executor'); }
+  _getFlowfastStorage() { return getStorage('flowfast'); }
 
   _getApolloConnector() {
-    try {
-      const ApolloConnector = require('../flowfast/apollo-connector.js');
-      const apiKey = process.env.APOLLO_API_KEY;
-      if (!apiKey) return null;
-      return new ApolloConnector(apiKey);
-    } catch (e) { return null; }
+    const ApolloConnector = getModule('apollo-connector');
+    if (!ApolloConnector) return null;
+    const apiKey = process.env.APOLLO_API_KEY;
+    if (!apiKey) return null;
+    return new ApolloConnector(apiKey);
   }
 
-  _getHubspotClient() {
-    try { return require('../crm-hubspot/hubspot-client.js'); } catch (e) { return null; }
-  }
+  _getHubspotClient() { return getModule('hubspot-client'); }
 
   // --- Tache : Weekly Visitor Digest (dimanche 20h) ---
 
