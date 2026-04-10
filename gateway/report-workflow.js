@@ -10,6 +10,7 @@ const AIClassifier = require('../skills/lead-enrich/ai-classifier.js');
 const ClaudeEmailWriter = require('../skills/automailer/claude-email-writer.js');
 const ResendClient = require('../skills/automailer/resend-client.js');
 const log = require('./logger.js');
+const { getBreaker } = require('./circuit-breaker.js');
 
 // --- Echappement HTML pour prevenir les injections XSS ---
 function escapeHtml(str) {
@@ -168,17 +169,18 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
     })).filter(lead => lead.email); // Garder uniquement les leads avec email
   }
 
-  // --- Etape 3 : Scoring IA ---
+  // --- Etape 3 : Scoring IA (avec circuit breaker) ---
   async _scoreLeads(leads) {
     const classifier = new AIClassifier(this.openaiKey);
+    const breaker = getBreaker('report-scoring', { failureThreshold: 3, cooldownMs: 60000 });
     const scored = [];
 
     for (const lead of leads) {
       try {
-        const classification = await classifier.classifyLead({
+        const classification = await breaker.call(() => classifier.classifyLead({
           person: lead,
           organization: lead.organization
-        });
+        }));
         scored.push({ ...lead, classification });
       } catch (e) {
         log.warn('report-workflow', 'Scoring echoue pour ' + lead.fullName + ':', e.message);
@@ -200,9 +202,10 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
     return scored;
   }
 
-  // --- Etape 4 : Generation d'emails ---
+  // --- Etape 4 : Generation d'emails (avec circuit breaker) ---
   async _generateEmails(scoredLeads, prospect) {
     const writer = new ClaudeEmailWriter(this.claudeKey);
+    const breaker = getBreaker('report-claude', { failureThreshold: 3, cooldownMs: 60000 });
     const context = `Je suis ${prospect.prenom}, je dirige une activite de ${prospect.activite}. ` +
       `Je contacte des ${prospect.cible}. Mon objectif est de proposer mes services et obtenir un rendez-vous.`;
 
@@ -210,13 +213,13 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
 
     for (const lead of scoredLeads) {
       try {
-        const email = await writer.generateSingleEmail({
+        const email = await breaker.call(() => writer.generateSingleEmail({
           name: lead.fullName,
           firstName: lead.firstName,
           title: lead.title,
           company: lead.organization.name,
           email: lead.email
-        }, context);
+        }, context));
         results.push({ ...lead, generatedEmail: email });
       } catch (e) {
         log.warn('report-workflow', 'Email echoue pour ' + lead.fullName + ':', e.message);
@@ -395,9 +398,10 @@ ${leadsHtml}
     }
   }
 
-  // --- Utilitaire : appel OpenAI ---
+  // --- Utilitaire : appel OpenAI (avec circuit breaker) ---
   _callOpenAI(prompt) {
-    return new Promise((resolve, reject) => {
+    const breaker = getBreaker('report-openai', { failureThreshold: 3, cooldownMs: 60000 });
+    return breaker.call(() => new Promise((resolve, reject) => {
       const postData = JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
@@ -434,7 +438,7 @@ ${leadsHtml}
       req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout OpenAI')); });
       req.write(postData);
       req.end();
-    });
+    }));
   }
 }
 

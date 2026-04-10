@@ -24,6 +24,8 @@ const CRITICAL_PATTERNS = [
   /TOTALEMENT echouee/i,                   // confirmation Telegram perdue
   /fichier corrompu/i,                     // storage corrompu
   /DISQUE PLEIN/i,                         // ecriture impossible
+  /HEARTBEAT/i,                          // brain bloque depuis >26h
+  /IMAP.*restart.*max|IMAP.*abandon/i,   // IMAP restart loop epuise
 ];
 
 const EXPECTED_PATTERNS = [

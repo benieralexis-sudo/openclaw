@@ -51,6 +51,12 @@ class SystemAdvisorHandler {
     })));
     log.info('system-advisor', 'Cron: backup quotidien 3h');
 
+    // Cleanup .tmp orphelins toutes les 6h
+    this.crons.push(new Cron('30 */6 * * *', { timezone: tz }, withCronGuard('sa-tmp-cleanup', () => {
+      this._cleanupOrphanTmp().catch(e => log.error('system-advisor', 'Erreur tmp cleanup:', e.message));
+    })));
+    log.info('system-advisor', 'Cron: cleanup .tmp toutes les 6h');
+
     // Rapport quotidien et hebdo : desactives (bruit technique pour le client)
     // Les fonctions _dailyReport() et _weeklyReport() restent accessibles via commande manuelle "rapport systeme"
 
@@ -646,6 +652,39 @@ Reponds UNIQUEMENT en JSON strict :
       }
     } catch (e) { log.warn('system-advisor', 'Backup rotation cleanup failed: ' + e.message); }
     log.info('system-advisor', 'Backup quotidien: ' + backed + '/' + criticalFiles.length + ' fichiers sauvegardes');
+  }
+
+  async _cleanupOrphanTmp() {
+    const fs = require('fs');
+    const path = require('path');
+    const dataDir = '/data';
+    let cleaned = 0;
+    const maxAge = 60 * 60 * 1000; // 1h — any .tmp older than 1h is orphan
+
+    const scanDir = (dir) => {
+      try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            scanDir(fullPath);
+          } else if (entry.name.endsWith('.tmp')) {
+            try {
+              const stat = fs.statSync(fullPath);
+              if (Date.now() - stat.mtimeMs > maxAge) {
+                fs.unlinkSync(fullPath);
+                cleaned++;
+              }
+            } catch (e) { /* already deleted */ }
+          }
+        }
+      } catch (e) { /* dir not readable */ }
+    };
+
+    scanDir(dataDir);
+    if (cleaned > 0) {
+      log.info('system-advisor', 'Cleanup: ' + cleaned + ' fichier(s) .tmp orphelin(s) supprimes');
+    }
   }
 
   async _hourlyHealthCheck() {

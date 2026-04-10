@@ -85,6 +85,13 @@ global.__ifindMetrics = _loadMetrics() || {
   nlpFallbacks: 0,
   humanizationSkipped: 0,
   humanizationApplied: 0,
+  emailMetrics: {
+    attempted: 0,
+    sent: 0,
+    failed: 0,
+    bounced: 0,
+    lastReset: new Date().toISOString()
+  },
   startedAt: new Date().toISOString()
 };
 
@@ -2226,11 +2233,23 @@ process.on('unhandledRejection', (reason) => {
     for (const il of inboxListeners) {
       try {
         il.stop();
+        // Max 5 retries avec backoff exponentiel (10s, 20s, 40s, 80s, 160s)
+        const attempt = (il._imapRestartAttempts || 0) + 1;
+        il._imapRestartAttempts = attempt;
+        if (attempt > 5) {
+          log.error('router', 'IMAP restart max retries (5) atteint — IMAP abandonne pour ' + (il._email || '?'));
+          continue;
+        }
+        const delay = 10000 * Math.pow(2, attempt - 1);
+        log.warn('router', 'IMAP restart attempt ' + attempt + '/5 dans ' + Math.round(delay / 1000) + 's pour ' + (il._email || '?'));
         setTimeout(() => {
           if (il && il.isConfigured()) {
-            il.start().catch(e => log.warn('router', 'IMAP restart echoue:', e.message));
+            il.start().then(() => {
+              il._imapRestartAttempts = 0; // Reset on success
+              log.info('router', 'IMAP restart reussi pour ' + (il._email || '?'));
+            }).catch(e => log.warn('router', 'IMAP restart attempt ' + attempt + ' echoue: ' + e.message));
           }
-        }, 10000);
+        }, delay);
       } catch (e) { log.warn('router', 'IMAP restart failed during unhandled rejection recovery: ' + e.message); }
     }
     return; // NE PAS crasher

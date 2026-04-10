@@ -16,7 +16,13 @@ function atomicWriteSync(filePath, data) {
   // Si un write est en cours, ajouter a la queue au lieu d'ecraser
   if (_writeLocks[filePath]) {
     if (!_writeQueue[filePath]) _writeQueue[filePath] = [];
-    _writeQueue[filePath].push(data);
+    // Limite queue a 100 writes max — au-dela, on garde seulement le dernier (latest-wins)
+    if (_writeQueue[filePath].length >= 100) {
+      log.warn('utils', 'atomicWriteSync queue overflow pour ' + filePath + ' — drop ancien, garde dernier');
+      _writeQueue[filePath] = [data]; // Reset avec seulement le dernier write
+    } else {
+      _writeQueue[filePath].push(data);
+    }
     return;
   }
 

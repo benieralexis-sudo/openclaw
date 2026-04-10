@@ -99,6 +99,12 @@ class SystemMonitor {
           result.usedGB = parseSize(parts[2]);
           result.availableGB = parseSize(parts[3]);
           result.usagePercent = parseInt(parts[4]) || 0;
+
+          // Alerte disque >85%
+          if (result.usagePercent > 85) {
+            const log = require('../../gateway/logger.js');
+            log.error('system-monitor', 'DISQUE PLEIN a ' + result.usagePercent + '% — ' + result.availableGB.toFixed(1) + ' GB restant');
+          }
         }
       }
     } catch (e) {

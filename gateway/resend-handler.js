@@ -183,6 +183,10 @@ function createResendHandler(deps) {
 
     // Bounce → differencier hard/soft bounce
     if (status === 'bounced') {
+      // Track bounce dans les metriques globales
+      if (global.__ifindMetrics && global.__ifindMetrics.emailMetrics) {
+        global.__ifindMetrics.emailMetrics.bounced++;
+      }
       const bounceType = (data.bounce && data.bounce.type) || '';
       const isHardBounce = !bounceType || bounceType === 'hard' || /invalid|not found|does not exist|rejected/i.test(data.bounce && data.bounce.message || '');
       if (isHardBounce) {

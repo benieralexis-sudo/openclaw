@@ -1126,7 +1126,7 @@ class CampaignEngine {
       // B3 FIX : Guard cross-campagne — 1 prospect = 1 campagne active max
       // Si ce prospect a des steps pending dans une AUTRE campagne plus recente, skip ici
       if (stepNumber > 1) {
-        const allCampaigns = storage.getAllCampaigns().filter(c => c.status === 'active' && c.id !== campaignId);
+        const allCampaigns = storage.getAllCampaigns().filter(c => (c.status === 'active' || c.status === 'completed') && c.id !== campaignId);
         const contactLower = (contact.email || '').toLowerCase();
         let newerCampaignExists = false;
         for (const otherCamp of allCampaigns) {

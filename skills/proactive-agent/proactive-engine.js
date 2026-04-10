@@ -1346,7 +1346,7 @@ class ProactiveEngine {
       }
 
       // Max retries : OOO follow-ups ont un TTL long (semaines), donc limite haute
-      const maxRetries = followUp.isOOO ? 500 : 20;
+      const maxRetries = followUp.isOOO ? 5 : 20;
       if ((followUp.retryCount || 0) >= maxRetries) {
         log.warn('proactive-engine', 'Reactive FU MAX RETRIES (' + maxRetries + '): ' + followUp.prospectEmail + ' — derniere raison: ' + (followUp.lastBlockedReason || '?'));
         storage.markFollowUpExpired(followUp.id, 'max_retries_' + maxRetries + ' (last: ' + (followUp.lastBlockedReason || 'none') + ')');

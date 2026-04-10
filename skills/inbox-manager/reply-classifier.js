@@ -169,15 +169,21 @@ async function classifyReply(openaiKey, replyData) {
   }
 
   // --- Guard : detection bounce par sujet (avant appel IA) ---
-  if (/undeliverable|delivery.*fail|mailbox.*not found|address.*rejected|mail delivery.*subsystem/i.test(subjectStr)) {
+  if (/undeliverable|delivery.*fail|mailbox.*(?:not found|full|unavailable)|address.*rejected|mail delivery.*subsystem|permanent.*failure|550\s|551\s|552\s|553\s|554\s|mailbox.*quota|user.*unknown/i.test(subjectStr + ' ' + cleanSnippet.substring(0, 200))) {
     log.info('reply-classifier', 'Bounce detecte par sujet pour ' + from);
     return { sentiment: 'bounce', score: 0.0, reason: 'Bounce detecte par sujet', key_phrases: [] };
   }
 
   // --- Guard : detection OOO par sujet (avant appel IA) ---
-  if (/out of office|absence.*auto|auto.*reply|automatique.*absence|en conge|actuellement absent/i.test(subjectStr + ' ' + cleanSnippet.substring(0, 100))) {
+  if (/out of office|absence.*auto|auto.*reply|automatique.*absence|en conge|actuellement absent|back on|return to work|de retour le|absent.*jusqu|i am away|currently out|on (vacation|holiday|leave)|hors bureau|indisponible/i.test(subjectStr + ' ' + cleanSnippet.substring(0, 200))) {
     log.info('reply-classifier', 'OOO detecte par sujet pour ' + from);
     return { sentiment: 'out_of_office', score: 0.5, reason: 'Absence auto detectee par sujet', key_phrases: [] };
+  }
+
+  // --- Guard : emails auto-generes (mailer-daemon, noreply, notifications) ---
+  if (/^(mailer-daemon|postmaster|noreply|no-reply|donotreply)@/i.test(replyData.from || '')) {
+    log.info('reply-classifier', 'Email auto-genere detecte de ' + from + ' — fallback bounce');
+    return { sentiment: 'bounce', score: 0.0, reason: 'Email auto-genere (mailer-daemon/noreply)', key_phrases: [] };
   }
 
   const userPrompt = [

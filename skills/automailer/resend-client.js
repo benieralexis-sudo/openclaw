@@ -375,8 +375,19 @@ class ResendClient {
 
   // --- Envoi principal (Gmail prioritaire, Resend fallback) ---
 
+  _trackEmail(event) {
+    if (global.__ifindMetrics && global.__ifindMetrics.emailMetrics) {
+      const m = global.__ifindMetrics.emailMetrics;
+      if (event === 'attempted') m.attempted++;
+      else if (event === 'sent') m.sent++;
+      else if (event === 'failed') m.failed++;
+      else if (event === 'bounced') m.bounced++;
+    }
+  }
+
   async sendEmail(to, subject, body, options) {
     const toEmail = Array.isArray(to) ? to[0] : to;
+    this._trackEmail('attempted');
 
     // Multi-domaine : selectionner le domaine optimal via DomainManager
     let selectedDomain = null;
@@ -396,6 +407,7 @@ class ResendClient {
         const result = await this._sendViaGmail(to, subject, body, options, mailbox);
         const usedDomain = selectedDomain ? selectedDomain.domain : (mailbox.user.split('@')[1] || '?');
         log.info('resend-client', 'Email envoye via Gmail SMTP (' + mailbox.user + ') a ' + toEmail + ' [domain: ' + usedDomain + ']');
+        this._trackEmail('sent');
         if (_appConfig && _appConfig.recordServiceUsage) {
           _appConfig.recordServiceUsage('gmail', { emails: 1 });
         }
@@ -409,7 +421,10 @@ class ResendClient {
         return result;
       } catch (e) {
         this._recordMailboxError(mailbox.user);
+        this._trackEmail('failed');
         log.warn('resend-client', 'Gmail SMTP (' + mailbox.user + ') echoue, fallback Resend: ' + e.message);
+        // Re-track attempted for Resend fallback
+        this._trackEmail('attempted');
       }
     }
 
@@ -464,8 +479,10 @@ class ResendClient {
         const dm = require('./domain-manager.js');
         dm.recordSend(resendDomain, toEmail, true);
       } catch (e) { log.warn('resend-client', 'domain-manager recordSend (Resend fallback) echoue: ' + e.message); }
+      this._trackEmail('sent');
       return { success: true, id: result.data.id, senderDomain: resendDomain };
     }
+    this._trackEmail('failed');
     const errorMsg = result.data.message || result.data.error || ('Resend erreur ' + result.statusCode);
     return { success: false, error: errorMsg, statusCode: result.statusCode };
   }
