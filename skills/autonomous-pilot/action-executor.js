@@ -5,6 +5,15 @@ const log = require('../../gateway/logger.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
 const { getWarmupDailyLimit, applySpintax } = require('../../gateway/utils.js');
 
+// Helper Promise.race avec cleanup du timer (evite setTimeout orphelins)
+function withTimeout(promise, ms, label) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, rej) => {
+    timeoutId = setTimeout(() => rej(new Error(label + ' timeout (' + (ms / 1000) + 's)')), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
+
 // --- Cross-skill imports via skill-loader centralise ---
 const { getStorage, getModule } = require('../../gateway/skill-loader.js');
 
@@ -666,13 +675,12 @@ Format JSON strict :
 
     // Generation avec retry (max 2 tentatives sur erreur Claude API)
     const MAX_GEN_RETRIES = 2;
-    const GEN_TIMEOUT = 20000; // 20s max par tentative — evite brain timeout
     for (let attempt = 0; attempt <= MAX_GEN_RETRIES; attempt++) {
       try {
-        const email = await Promise.race([
+        const email = await withTimeout(
           writer.generateSingleEmail(contact, context),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('Email generation timeout (' + (GEN_TIMEOUT / 1000) + 's)')), GEN_TIMEOUT))
-        ]);
+          20000, 'Email generation'
+        );
         return {
           success: true,
           email: email,
@@ -1094,8 +1102,7 @@ Format JSON strict :
         if (ProspectResearcher) {
           const researcher = new ProspectResearcher({ claudeKey: this.claudeKey });
           log.info('action-executor', 'Lancement ProspectResearcher pour ' + (params.to || '?') + ' (claudeKey: ' + (this.claudeKey ? 'present' : 'MANQUANT') + ')');
-          const RESEARCH_TIMEOUT = 30000; // 30s max — evite brain timeout
-          const intel = await Promise.race([
+          const intel = await withTimeout(
             researcher.researchProspect({
               email: params.to,
               nom: params.contactName || (params.contact && params.contact.nom),
@@ -1105,8 +1112,8 @@ Format JSON strict :
               linkedin_url: params.contact && params.contact.linkedin_url,
               niche: leadNiche
             }),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('ProspectResearcher timeout (' + (RESEARCH_TIMEOUT / 1000) + 's)')), RESEARCH_TIMEOUT))
-          ]);
+            30000, 'ProspectResearcher'
+          );
           if (intel && intel.brief) {
             params._prospectIntel = intel.brief;
             log.info('action-executor', 'ProspectResearcher OK pour ' + (params.to || '?') + ' — brief: ' + intel.brief.length + ' chars');
@@ -1217,11 +1224,10 @@ Format JSON strict :
               }
             } catch (cacheErr) {}
             if (!analysis) {
-              const ANALYSIS_TIMEOUT = 15000; // 15s max — evite brain timeout
-              analysis = await Promise.race([
+              analysis = await withTimeout(
                 analystWriter.analyzeProspect(contactForAnalyst, params._prospectIntel, analystNiche),
-                new Promise((_, rej) => setTimeout(() => rej(new Error('Strategic analysis timeout (' + (ANALYSIS_TIMEOUT / 1000) + 's)')), ANALYSIS_TIMEOUT))
-              ]);
+                15000, 'Strategic analysis'
+              );
               // Sauvegarder en cache pour les follow-ups
               if (analysis && analysis.topAngles && analysis.topAngles.length > 0) {
                 try {
