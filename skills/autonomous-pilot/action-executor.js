@@ -1045,7 +1045,7 @@ Format JSON strict :
                     params.contact.organization = orgParsed;
                     log.info('action-executor', 'Organization Apollo recuperee depuis FlowFast pour ' + params.to + ': ' + orgParsed.name);
                   }
-                } catch (parseErr) {}
+                } catch (parseErr) { log.warn('action-executor', 'Parse org Apollo echoue: ' + parseErr.message); }
               }
               if (!params.contact) params.contact = {};
               if (!params.contact.linkedin_url) {
@@ -1130,7 +1130,7 @@ Format JSON strict :
                     entreprise: params.company || (params.contact && params.contact.entreprise),
                     titre: params.contact && params.contact.titre
                   });
-                } catch (e) {}
+                } catch (e) { log.warn('action-executor', 'ICP niche match intent echoue: ' + e.message); }
                 const intentContext = intentScorer.formatIntentForWriter(intel.intentScore, writerNicheCtx);
                 if (intentContext) {
                   params._prospectIntel = (params._prospectIntel || '') + '\n\n' + intentContext;
@@ -1218,7 +1218,7 @@ Format JSON strict :
                 analysis = cachedResearch.strategicAnalysis;
                 log.info('action-executor', 'Strategic analysis CACHE HIT pour ' + params.to);
               }
-            } catch (cacheErr) {}
+            } catch (cacheErr) { log.warn('action-executor', 'Strategic analysis cache echoue: ' + cacheErr.message); }
             if (!analysis) {
               analysis = await withTimeout(
                 analystWriter.analyzeProspect(contactForAnalyst, params._prospectIntel, analystNiche),
@@ -1232,7 +1232,7 @@ Format JSON strict :
                     cachedResearch.strategicAnalysis = analysis;
                     storage.saveProspectResearch(params.to, cachedResearch);
                   }
-                } catch (cacheErr) {}
+                } catch (cacheErr) { log.warn('action-executor', 'Strategic analysis cache echoue: ' + cacheErr.message); }
               }
             }
             if (analysis && analysis.topAngles && analysis.topAngles.length > 0) {
@@ -1711,7 +1711,7 @@ Format JSON strict :
             });
             log.info('action-executor', 'CompanyIntelligence: enregistre ' + (params.company || '?') + ' dans [' + industry + ']');
           }
-        } catch (ciErr) {}
+        } catch (ciErr) { log.warn('action-executor', 'CompanyIntelligence save echoue: ' + ciErr.message); }
 
         // AUTO-CAMPAGNE: creer une campagne follow-up pour ce contact
         // pour que campaign-engine declenche les relances step 2/3

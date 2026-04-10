@@ -2,7 +2,7 @@
   "config": {
     "enabled": true,
     "pollIntervalMs": 60000,
-    "lastCheckedAt": "2026-04-10T16:48:39.363Z",
+    "lastCheckedAt": "2026-04-10T17:50:39.443Z",
     "autoReplyEnabled": true,
     "replyBySentiment": {
       "interested": true,
@@ -4166,8 +4166,8 @@
     "totalReceived": 296,
     "totalMatched": 0,
     "totalUnmatched": 296,
-    "lastCheckAt": "2026-04-10T16:48:39.363Z",
-    "checksCount": 32926,
+    "lastCheckAt": "2026-04-10T17:50:39.443Z",
+    "checksCount": 32988,
     "createdAt": "2026-03-18T19:33:29.157Z"
   },
   "_processedUids": [

@@ -121,10 +121,25 @@ class BrainEngine {
       catch (e) { log.error('brain', 'Erreur re-engagement:', e.message); }
     })));
 
+    // Heartbeat : verifie toutes les 6h que le brain tourne bien
+    this.crons.push(new Cron('0 */6 * * *', { timezone: tz }, async () => {
+      try {
+        const lastCycle = storage.getStat('lastBrainCycleAt');
+        if (!lastCycle) return;
+        const ageH = (Date.now() - new Date(lastCycle).getTime()) / (60 * 60 * 1000);
+        if (ageH > 26) { // 26h = tolerance weekend (vendredi 18h → lundi 9h = ok, mais >26h en semaine = probleme)
+          const day = new Date().getDay();
+          if (day >= 1 && day <= 5) { // Lundi-vendredi seulement
+            log.error('brain', 'HEARTBEAT: dernier brain cycle il y a ' + Math.round(ageH) + 'h — le bot est peut-etre bloque');
+          }
+        }
+      } catch (e) { log.warn('brain', 'Heartbeat check echoue: ' + e.message); }
+    }));
+
     // B5 FIX : backfill industry sur les leads FlowFast existants
     this._backfillLeadIndustry();
 
-    log.info('brain', 'Cerveau autonome demarre (9 crons — 3 brain + 4 mini + 1 intent + 1 re-engage)');
+    log.info('brain', 'Cerveau autonome demarre (10 crons — 3 brain + 4 mini + 1 intent + 1 re-engage + 1 heartbeat)');
   }
 
   stop() {
@@ -230,7 +245,8 @@ class BrainEngine {
       recentActions: storage.getRecentActions(10),
       learnings: storage.getLearnings(),
       experiments: storage.getActiveExperiments(),
-      skills: {}
+      skills: {},
+      _collectErrors: [] // Track skills en erreur pour informer le brain
     };
 
     // FlowFast
@@ -247,7 +263,10 @@ class BrainEngine {
           }))
         };
       }
-    } catch (e) {}
+    } catch (e) {
+      log.warn('brain', 'collectState FlowFast echoue: ' + e.message);
+      state._collectErrors.push('flowfast');
+    }
 
     // AutoMailer
     try {
@@ -305,7 +324,10 @@ class BrainEngine {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      log.warn('brain', 'collectState AutoMailer echoue: ' + e.message);
+      state._collectErrors.push('automailer');
+    }
 
     // Lead Enrich
     try {
@@ -319,7 +341,10 @@ class BrainEngine {
           apolloRemaining: (stats.apolloCreditsLimit || 100) - (stats.apolloCreditsUsed || 0)
         };
       }
-    } catch (e) {}
+    } catch (e) {
+      log.warn('brain', 'collectState LeadEnrich echoue: ' + e.message);
+      state._collectErrors.push('lead-enrich');
+    }
 
     // Proactive Agent
     try {
@@ -335,7 +360,10 @@ class BrainEngine {
           pendingFollowUpEmails: pendingFUs.filter(f => f && f.prospectEmail).map(f => f.prospectEmail)
         };
       }
-    } catch (e) {}
+    } catch (e) {
+      log.warn('brain', 'collectState Proactive echoue: ' + e.message);
+      state._collectErrors.push('proactive');
+    }
 
     // Self-Improve
     try {
@@ -347,7 +375,10 @@ class BrainEngine {
           pendingRecos: si.getPendingRecommendations ? si.getPendingRecommendations().length : 0
         };
       }
-    } catch (e) {}
+    } catch (e) {
+      log.warn('brain', 'collectState SelfImprove echoue: ' + e.message);
+      state._collectErrors.push('self-improve');
+    }
 
     // Web Intelligence (enrichi — Intelligence Reelle v5)
     try {
@@ -407,7 +438,10 @@ class BrainEngine {
             }))
         };
       }
-    } catch (e) {}
+    } catch (e) {
+      log.warn('brain', 'collectState WebIntel echoue: ' + e.message);
+      state._collectErrors.push('web-intel');
+    }
 
     // Budget
     try {
@@ -421,7 +455,15 @@ class BrainEngine {
             ? Math.round(((budget.todaySpent || 0) / budget.dailyLimit) * 100) : 0
         };
       }
-    } catch (e) {}
+    } catch (e) {
+      log.warn('brain', 'collectState Budget echoue: ' + e.message);
+      state._collectErrors.push('budget');
+    }
+
+    // Log si etat partiel — le brain doit savoir
+    if (state._collectErrors.length > 0) {
+      log.error('brain', 'ETAT PARTIEL — ' + state._collectErrors.length + ' skills en erreur: ' + state._collectErrors.join(', '));
+    }
 
     // Niche Health
     state.nicheHealth = storage.getNicheHealth();
@@ -451,7 +493,7 @@ class BrainEngine {
         }
       }
       if (closedCount > 0) log.info('brain', 'Nettoyage: ' + closedCount + ' experience(s) > 7j cloturee(s)');
-    } catch (e) {}
+    } catch (e) { log.warn('brain', 'Nettoyage experiments echoue: ' + e.message); }
 
     // 1. Collecter l'etat
     const state = this._collectState();
@@ -563,7 +605,7 @@ class BrainEngine {
           .sort((a, b) => (b.score || 0) - (a.score || 0))
           .forEach(l => eligibleEmails.add(l.email.toLowerCase()));
       }
-    } catch (e) {}
+    } catch (e) { log.warn('brain', 'Score-gating leads echoue: ' + e.message); }
 
     if (eligibleEmails.size > 0) {
       const eligibleArray = [...eligibleEmails];
@@ -874,7 +916,7 @@ class BrainEngine {
       log.error('brain', 'Erreur envoi confirmation:', e.message);
       try {
         await this.sendTelegram(chatId, text + '\n(Reponds "approuve" ou "rejette")', 'Markdown');
-      } catch (e2) {}
+      } catch (e2) { log.error('brain', 'Confirmation Telegram TOTALEMENT echouee: ' + e2.message); }
     }
   }
 
@@ -1023,7 +1065,7 @@ class BrainEngine {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { log.warn('brain', 'Reset compteurs hebdo echoue: ' + e.message); }
 
     // Score decay : reduire le score des leads silencieux (pas d'ouverture/reply depuis 7+ jours)
     try {
@@ -1502,7 +1544,7 @@ Analyse et reponds en JSON:
               }
             }
           }
-        } catch (e) {}
+        } catch (e) { log.warn('brain', 'Intent scoring leads echoue: ' + e.message); }
 
         if (eligible.length > 0) {
           prompt += '\nLEADS DISPONIBLES POUR ENVOI (emails REELS — utilise-les dans tes actions send_email):\n';
@@ -1515,7 +1557,7 @@ Analyse et reponds en JSON:
             for (const [slug, data] of Object.entries(apNicheData)) {
               nichePerf[slug] = data.replyRate || 0;
             }
-          } catch (e) {}
+          } catch (e) { log.warn('brain', 'Niche perf scoring echoue: ' + e.message); }
           const maxNichePerf = Math.max(1, ...Object.values(nichePerf));
 
           eligible.sort((a, b) => {
@@ -1589,7 +1631,7 @@ Analyse et reponds en JSON:
           if (dpStats.total > 0) {
             prompt += '📊 Data-poor queue: ' + dpStats.total + ' leads (' + dpStats.ready + ' prets, ' + dpStats.exhausted + ' abandonnes)\n';
           }
-        } catch (e) {}
+        } catch (e) { log.warn('brain', 'Data-poor queue echoue: ' + e.message); }
 
         // Leads deja contactes sans reponse (pour follow-up)
         const contacted = Object.values(allLeadsEligible)
@@ -2054,7 +2096,7 @@ Analyse et reponds en JSON:
             }));
           }
         }
-      } catch (e) {}
+      } catch (e) { log.warn('brain', 'Pattern detection echoue: ' + e.message); }
 
       storage.savePatterns(patterns);
       log.info('brain', 'Patterns detectes: ' + topTitles.length + ' titres, ' +

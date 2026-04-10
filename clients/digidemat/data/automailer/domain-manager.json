@@ -1,0 +1,296 @@
+{
+  "domains": {
+    "digidemat.com": {
+      "firstSendDate": "2026-04-06T07:04:47.710Z",
+      "dailySends": {
+        "2026-04-06": 5,
+        "2026-04-07": 8,
+        "2026-04-08": 10,
+        "2026-04-09": 16,
+        "2026-04-10": 20
+      },
+      "recentResults": [
+        {
+          "success": true,
+          "ts": 1775459087710
+        },
+        {
+          "success": true,
+          "ts": 1775459156553
+        },
+        {
+          "success": true,
+          "ts": 1775469688629
+        },
+        {
+          "success": true,
+          "ts": 1775469821196
+        },
+        {
+          "success": true,
+          "ts": 1775476859249
+        },
+        {
+          "success": true,
+          "ts": 1775545266305
+        },
+        {
+          "success": true,
+          "ts": 1775545408585
+        },
+        {
+          "success": true,
+          "ts": 1775545501454
+        },
+        {
+          "success": true,
+          "ts": 1775545622908
+        },
+        {
+          "success": true,
+          "ts": 1775552949392
+        },
+        {
+          "success": true,
+          "ts": 1775553076934
+        },
+        {
+          "success": true,
+          "ts": 1775560394602
+        },
+        {
+          "success": true,
+          "ts": 1775567682778
+        },
+        {
+          "success": true,
+          "ts": 1775631815200
+        },
+        {
+          "success": true,
+          "ts": 1775648900788
+        },
+        {
+          "success": true,
+          "ts": 1775648991194
+        },
+        {
+          "success": true,
+          "ts": 1775649099939
+        },
+        {
+          "success": true,
+          "ts": 1775649186323
+        },
+        {
+          "success": true,
+          "ts": 1775649233378
+        },
+        {
+          "success": true,
+          "ts": 1775649329792
+        },
+        {
+          "success": true,
+          "ts": 1775649733729
+        },
+        {
+          "success": true,
+          "ts": 1775656705446
+        },
+        {
+          "success": true,
+          "ts": 1775656835869
+        },
+        {
+          "success": true,
+          "ts": 1775718027089
+        },
+        {
+          "success": true,
+          "ts": 1775718119576
+        },
+        {
+          "success": true,
+          "ts": 1775718154165
+        },
+        {
+          "success": true,
+          "ts": 1775718242709
+        },
+        {
+          "success": true,
+          "ts": 1775718314356
+        },
+        {
+          "success": true,
+          "ts": 1775718315683
+        },
+        {
+          "success": true,
+          "ts": 1775718410136
+        },
+        {
+          "success": true,
+          "ts": 1775718503240
+        },
+        {
+          "success": true,
+          "ts": 1775718512383
+        },
+        {
+          "success": true,
+          "ts": 1775718598303
+        },
+        {
+          "success": true,
+          "ts": 1775718718282
+        },
+        {
+          "success": true,
+          "ts": 1775718834315
+        },
+        {
+          "success": true,
+          "ts": 1775726176022
+        },
+        {
+          "success": true,
+          "ts": 1775726219115
+        },
+        {
+          "success": true,
+          "ts": 1775733554175
+        },
+        {
+          "success": true,
+          "ts": 1775736041537
+        },
+        {
+          "success": true,
+          "ts": 1775804440056
+        },
+        {
+          "success": true,
+          "ts": 1775804457939
+        },
+        {
+          "success": true,
+          "ts": 1775804506099
+        },
+        {
+          "success": true,
+          "ts": 1775804558764
+        },
+        {
+          "success": true,
+          "ts": 1775804575801
+        },
+        {
+          "success": true,
+          "ts": 1775804630751
+        },
+        {
+          "success": true,
+          "ts": 1775804631914
+        },
+        {
+          "success": true,
+          "ts": 1775804740251
+        },
+        {
+          "success": true,
+          "ts": 1775804775248
+        },
+        {
+          "success": true,
+          "ts": 1775804795427
+        },
+        {
+          "success": true,
+          "ts": 1775804920799
+        },
+        {
+          "success": true,
+          "ts": 1775805029337
+        },
+        {
+          "success": true,
+          "ts": 1775805133850
+        },
+        {
+          "success": true,
+          "ts": 1775812421300
+        },
+        {
+          "success": true,
+          "ts": 1775812512021
+        },
+        {
+          "success": true,
+          "ts": 1775812572678
+        },
+        {
+          "success": true,
+          "ts": 1775812687042
+        },
+        {
+          "success": true,
+          "ts": 1775819987196
+        },
+        {
+          "success": true,
+          "ts": 1775820089956
+        },
+        {
+          "success": true,
+          "ts": 1775827422848
+        }
+      ],
+      "paused": false,
+      "pausedAt": null,
+      "pauseReason": null,
+      "totalSent": 59,
+      "totalBounced": 0
+    }
+  },
+  "prospectDomains": {
+    "fsongurov@sapec.md": "digidemat.com",
+    "alexander.turcan@turcanlaw.md": "digidemat.com",
+    "mariana.godoroja@grafit.com": "digidemat.com",
+    "andrei@smartdata.solutions": "digidemat.com",
+    "olga.petrascu@ebs-integrator.com": "digidemat.com",
+    "liliana.cimbir@dreamups.md": "digidemat.com",
+    "ion.gilea@ook.group": "digidemat.com",
+    "boris.efimov@orhei-vit.com": "digidemat.com",
+    "alex@thenoughtyfox.com": "digidemat.com",
+    "alexandru.stroia@hisky.aero": "digidemat.com",
+    "v.tabuci@wippo.md": "digidemat.com",
+    "atabuica@globcom.md": "digidemat.com",
+    "i.manole@internationaltobacco.md": "digidemat.com",
+    "ijereghi@ulim.md": "digidemat.com",
+    "alexa.iulian@alsodev.com": "digidemat.com",
+    "olga@optimum-web.com": "digidemat.com",
+    "vlada.medvedcova@lh47arch.com": "digidemat.com",
+    "engincecen@shoppingmalldova.md": "digidemat.com",
+    "anastasia.prokopov@brilicmedia.com": "digidemat.com",
+    "abraniste@noction.com": "digidemat.com",
+    "s.zabolotnii@paynet.md": "digidemat.com",
+    "valentina.uzun@azamet.md": "digidemat.com",
+    "casey.barnes@heritage.md": "digidemat.com",
+    "vladimir@rabota.md": "digidemat.com",
+    "alexandru.andronic@lafarge.com": "digidemat.com",
+    "mihail.curchi@sapico.md": "digidemat.com",
+    "valentin.pinzaru@sapico.md": "digidemat.com",
+    "iurii.latii@monsato.md": "digidemat.com",
+    "s.cusnir@donaris.md": "digidemat.com",
+    "vera.bucuci@felicia.md": "digidemat.com",
+    "dgudumac@soros.md": "digidemat.com",
+    "v.peresnicenco@wetrade.md": "digidemat.com",
+    "vitalie.tataru@ac-tech.com": "digidemat.com",
+    "v.oleineac@wetrade.md": "digidemat.com",
+    "victoria.rusu@sapico.md": "digidemat.com",
+    "djalba@felicia.md": "digidemat.com",
+    "anab@ussoftwaresolutions.us": "digidemat.com"
+  }
+}

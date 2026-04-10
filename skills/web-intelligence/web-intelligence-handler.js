@@ -1127,7 +1127,7 @@ Reponds UNIQUEMENT en JSON strict :
                 alertMsg += '*' + s.type.toUpperCase() + '* : ' + s.article.title + '\n';
                 alertMsg += '→ _' + s.suggestedAction + '_\n\n';
               }
-              try { await this.sendTelegram(chatId, alertMsg, 'Markdown'); } catch (e) {}
+              try { await this.sendTelegram(chatId, alertMsg, 'Markdown'); } catch (e) { log.error('web-intel', 'Alerte signaux marche Telegram perdue: ' + e.message); }
             }
           }
         }

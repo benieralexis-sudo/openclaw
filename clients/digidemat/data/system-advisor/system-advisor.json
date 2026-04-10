@@ -72641,256 +72641,698 @@
           "osSeconds": 685300,
           "osHuman": "7j 22h 21m"
         }
+      },
+      {
+        "timestamp": "2026-04-10T16:50:00.015Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5062,
+          "usedMB": 2879,
+          "usagePercent": 36,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 81,
+            "heapTotalMB": 89,
+            "externalMB": 3
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.40",
+          "loadAvg5m": "0.29",
+          "loadAvg15m": "0.24",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 83790,
+          "processHuman": "23h 16m",
+          "osSeconds": 685600,
+          "osHuman": "7j 22h 26m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T16:55:00.002Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5084,
+          "usedMB": 2857,
+          "usagePercent": 36,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 81,
+            "heapTotalMB": 89,
+            "externalMB": 4
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.06",
+          "loadAvg5m": "0.14",
+          "loadAvg15m": "0.19",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 84090,
+          "processHuman": "23h 21m",
+          "osSeconds": 685900,
+          "osHuman": "7j 22h 31m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:00:00.180Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5113,
+          "usedMB": 2828,
+          "usagePercent": 36,
+          "process": {
+            "rssMB": 211,
+            "heapUsedMB": 84,
+            "heapTotalMB": 91,
+            "externalMB": 4
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.13",
+          "loadAvg5m": "0.12",
+          "loadAvg15m": "0.17",
+          "processUserPercent": "18.1",
+          "processSystemPercent": "11.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 84390,
+          "processHuman": "23h 26m",
+          "osSeconds": 686200,
+          "osHuman": "7j 22h 36m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:05:00.012Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5298,
+          "usedMB": 2643,
+          "usagePercent": 33,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 82,
+            "heapTotalMB": 90,
+            "externalMB": 4
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.14",
+          "loadAvg5m": "0.17",
+          "loadAvg15m": "0.17",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.1"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 84690,
+          "processHuman": "23h 31m",
+          "osSeconds": 686500,
+          "osHuman": "7j 22h 41m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:10:00.013Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5229,
+          "usedMB": 2712,
+          "usagePercent": 34,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 82,
+            "heapTotalMB": 90,
+            "externalMB": 4
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.13",
+          "loadAvg5m": "0.14",
+          "loadAvg15m": "0.16",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 84990,
+          "processHuman": "23h 36m",
+          "osSeconds": 686800,
+          "osHuman": "7j 22h 46m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:15:00.012Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5139,
+          "usedMB": 2802,
+          "usagePercent": 35,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 82,
+            "heapTotalMB": 90,
+            "externalMB": 4
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.13",
+          "loadAvg5m": "0.18",
+          "loadAvg15m": "0.17",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 85290,
+          "processHuman": "23h 41m",
+          "osSeconds": 687100,
+          "osHuman": "7j 22h 51m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:20:00.003Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5194,
+          "usedMB": 2746,
+          "usagePercent": 35,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 83,
+            "heapTotalMB": 90,
+            "externalMB": 5
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.31",
+          "loadAvg5m": "0.25",
+          "loadAvg15m": "0.20",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 85590,
+          "processHuman": "23h 46m",
+          "osSeconds": 687400,
+          "osHuman": "7j 22h 56m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:25:00.010Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5171,
+          "usedMB": 2770,
+          "usagePercent": 35,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 83,
+            "heapTotalMB": 90,
+            "externalMB": 5
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.17",
+          "loadAvg5m": "0.26",
+          "loadAvg15m": "0.22",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.1"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 85890,
+          "processHuman": "23h 51m",
+          "osSeconds": 687700,
+          "osHuman": "7j 23h 1m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:30:00.011Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5198,
+          "usedMB": 2743,
+          "usagePercent": 35,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 83,
+            "heapTotalMB": 90,
+            "externalMB": 5
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.17",
+          "loadAvg5m": "0.22",
+          "loadAvg15m": "0.20",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 86190,
+          "processHuman": "23h 56m",
+          "osSeconds": 688000,
+          "osHuman": "7j 23h 6m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:35:00.000Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5182,
+          "usedMB": 2759,
+          "usagePercent": 35,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 84,
+            "heapTotalMB": 90,
+            "externalMB": 5
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.33",
+          "loadAvg5m": "0.22",
+          "loadAvg15m": "0.19",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 86490,
+          "processHuman": "1j 1m",
+          "osSeconds": 688300,
+          "osHuman": "7j 23h 11m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:40:00.000Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5129,
+          "usedMB": 2812,
+          "usagePercent": 35,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 84,
+            "heapTotalMB": 90,
+            "externalMB": 6
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.24",
+          "loadAvg5m": "0.21",
+          "loadAvg15m": "0.18",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 86790,
+          "processHuman": "1j 6m",
+          "osSeconds": 688600,
+          "osHuman": "7j 23h 16m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:45:00.006Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5113,
+          "usedMB": 2828,
+          "usagePercent": 36,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 84,
+            "heapTotalMB": 90,
+            "externalMB": 6
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.26",
+          "loadAvg5m": "0.35",
+          "loadAvg15m": "0.26",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.1"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 87090,
+          "processHuman": "1j 11m",
+          "osSeconds": 688900,
+          "osHuman": "7j 23h 21m"
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:50:00.005Z",
+        "ram": {
+          "totalMB": 7941,
+          "freeMB": 5097,
+          "usedMB": 2844,
+          "usagePercent": 36,
+          "process": {
+            "rssMB": 209,
+            "heapUsedMB": 80,
+            "heapTotalMB": 89,
+            "externalMB": 3
+          }
+        },
+        "cpu": {
+          "cores": 2,
+          "model": "AMD EPYC 9354P 32-Core Processor",
+          "loadAvg1m": "0.26",
+          "loadAvg5m": "0.28",
+          "loadAvg15m": "0.26",
+          "processUserPercent": "0.2",
+          "processSystemPercent": "0.0"
+        },
+        "disk": {
+          "totalGB": 96,
+          "usedGB": 71,
+          "availableGB": 26,
+          "usagePercent": 74,
+          "bySkill": {
+            "app-config": "16K",
+            "automailer": "1.4M",
+            "autonomous-pilot": "704K",
+            "content-gen": "4.0K",
+            "crm-pilot": "8.0K",
+            "flowfast": "88K",
+            "inbox-manager": "212K",
+            "invoice-bot": "12K",
+            "lead-enrich": "40K",
+            "meeting-scheduler": "8.0K",
+            "proactive-agent": "24K",
+            "self-improve": "60K",
+            "system-advisor": "2.4M",
+            "visitors": "4.0K",
+            "web-intelligence": "32K"
+          }
+        },
+        "uptime": {
+          "processSeconds": 87390,
+          "processHuman": "1j 16m",
+          "osSeconds": 689200,
+          "osHuman": "7j 23h 26m"
+        }
       }
     ],
     "hourlyAggregates": [
-      {
-        "timestamp": "2026-04-10T02:50:00.113Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 75,
-          "minMB": 74,
-          "maxMB": 77
-        }
-      },
-      {
-        "timestamp": "2026-04-10T02:55:00.087Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 74,
-          "maxMB": 77
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:00:00.084Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 74,
-          "maxMB": 77
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:05:00.086Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 75,
-          "maxMB": 77
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:10:00.079Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 75,
-          "maxMB": 78
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:15:00.085Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 77,
-          "minMB": 75,
-          "maxMB": 78
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:20:00.085Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 74,
-          "maxMB": 78
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:25:00.087Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 74,
-          "maxMB": 78
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:30:00.100Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 74,
-          "maxMB": 78
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:35:00.097Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 74,
-          "maxMB": 78
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:40:00.101Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 74,
-          "maxMB": 78
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:45:00.085Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 74,
-          "maxMB": 78
-        }
-      },
-      {
-        "timestamp": "2026-04-10T03:50:00.084Z",
-        "period": "12 snapshots",
-        "ram": {
-          "avgPercent": 28,
-          "minPercent": 28,
-          "maxPercent": 28
-        },
-        "disk": {
-          "avgPercent": 74,
-          "minPercent": 74,
-          "maxPercent": 74
-        },
-        "heap": {
-          "avgMB": 76,
-          "minMB": 74,
-          "maxMB": 78
-        }
-      },
       {
         "timestamp": "2026-04-10T03:55:00.082Z",
         "period": "12 snapshots",
@@ -75832,6 +76274,253 @@
         },
         "heap": {
           "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T16:50:00.129Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 34,
+          "minPercent": 30,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T16:55:00.093Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 34,
+          "minPercent": 30,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:00:00.391Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 30,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:05:00.117Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 30,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:10:00.118Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 33,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:15:00.120Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 33,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:20:00.095Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 33,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:25:00.127Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 33,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:30:00.117Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 33,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:35:00.113Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 33,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:40:00.095Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 33,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 82,
+          "minMB": 80,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:45:00.122Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 33,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 83,
+          "minMB": 81,
+          "maxMB": 84
+        }
+      },
+      {
+        "timestamp": "2026-04-10T17:50:00.101Z",
+        "period": "12 snapshots",
+        "ram": {
+          "avgPercent": 35,
+          "minPercent": 33,
+          "maxPercent": 36
+        },
+        "disk": {
+          "avgPercent": 74,
+          "minPercent": 74,
+          "maxPercent": 74
+        },
+        "heap": {
+          "avgMB": 83,
           "minMB": 80,
           "maxMB": 84
         }
@@ -87246,6 +87935,106 @@
           }
         },
         "checkedAt": "2026-04-10T16:00:00.163Z"
+      },
+      {
+        "status": "healthy",
+        "checks": [
+          {
+            "name": "RAM",
+            "status": "ok",
+            "value": "35%",
+            "detail": "2810MB / 7941MB"
+          },
+          {
+            "name": "Disque",
+            "status": "ok",
+            "value": "74%",
+            "detail": "71 / 96"
+          },
+          {
+            "name": "Heap Node.js",
+            "status": "ok",
+            "value": "81MB",
+            "detail": "81MB / 89MB (91%)"
+          },
+          {
+            "name": "Uptime",
+            "status": "ok",
+            "value": "23h 26m",
+            "detail": "Process: 23h 26m, OS: 7j 22h 36m"
+          },
+          {
+            "name": "Storages",
+            "status": "ok",
+            "value": "8/8 OK",
+            "detail": "Tous les fichiers sont valides"
+          },
+          {
+            "name": "CPU",
+            "status": "ok",
+            "value": "Load 0.13",
+            "detail": "2 cores, load: 0.13/0.12/0.17"
+          }
+        ],
+        "storageDetails": {
+          "flowfast": {
+            "exists": true,
+            "readable": true,
+            "valid": true,
+            "sizeKB": 83.8,
+            "lastModified": "2026-04-10T07:06:15.257Z"
+          },
+          "automailer": {
+            "exists": true,
+            "readable": true,
+            "valid": true,
+            "sizeKB": 126,
+            "lastModified": "2026-04-10T15:25:32.639Z"
+          },
+          "crm-pilot": {
+            "exists": true,
+            "readable": true,
+            "valid": true,
+            "sizeKB": 0.3,
+            "lastModified": "2026-03-18T19:33:29.058Z"
+          },
+          "lead-enrich": {
+            "exists": true,
+            "readable": true,
+            "valid": true,
+            "sizeKB": 32,
+            "lastModified": "2026-04-10T07:06:15.257Z"
+          },
+          "invoice-bot": {
+            "exists": true,
+            "readable": true,
+            "valid": true,
+            "sizeKB": 0.2,
+            "lastModified": "2026-03-18T19:33:29.060Z"
+          },
+          "proactive-agent": {
+            "exists": true,
+            "readable": true,
+            "valid": true,
+            "sizeKB": 16.6,
+            "lastModified": "2026-04-10T17:00:00.021Z"
+          },
+          "self-improve": {
+            "exists": true,
+            "readable": true,
+            "valid": true,
+            "sizeKB": 55.2,
+            "lastModified": "2026-04-10T08:00:00.013Z"
+          },
+          "web-intelligence": {
+            "exists": true,
+            "readable": true,
+            "valid": true,
+            "sizeKB": 26.8,
+            "lastModified": "2026-04-07T23:06:48.998Z"
+          }
+        },
+        "checkedAt": "2026-04-10T17:00:00.099Z"
       }
     ],
     "lastCheck": {
@@ -87254,8 +88043,8 @@
         {
           "name": "RAM",
           "status": "ok",
-          "value": "30%",
-          "detail": "2376MB / 7941MB"
+          "value": "35%",
+          "detail": "2810MB / 7941MB"
         },
         {
           "name": "Disque",
@@ -87266,14 +88055,14 @@
         {
           "name": "Heap Node.js",
           "status": "ok",
-          "value": "83MB",
-          "detail": "83MB / 90MB (92%)"
+          "value": "81MB",
+          "detail": "81MB / 89MB (91%)"
         },
         {
           "name": "Uptime",
           "status": "ok",
-          "value": "22h 26m",
-          "detail": "Process: 22h 26m, OS: 7j 21h 36m"
+          "value": "23h 26m",
+          "detail": "Process: 23h 26m, OS: 7j 22h 36m"
         },
         {
           "name": "Storages",
@@ -87284,8 +88073,8 @@
         {
           "name": "CPU",
           "status": "ok",
-          "value": "Load 0.06",
-          "detail": "2 cores, load: 0.06/0.03/0.00"
+          "value": "Load 0.13",
+          "detail": "2 cores, load: 0.13/0.12/0.17"
         }
       ],
       "storageDetails": {
@@ -87329,7 +88118,7 @@
           "readable": true,
           "valid": true,
           "sizeKB": 16.6,
-          "lastModified": "2026-04-10T16:00:00.132Z"
+          "lastModified": "2026-04-10T17:00:00.021Z"
         },
         "self-improve": {
           "exists": true,
@@ -87346,18 +88135,18 @@
           "lastModified": "2026-04-07T23:06:48.998Z"
         }
       },
-      "checkedAt": "2026-04-10T16:00:00.163Z"
+      "checkedAt": "2026-04-10T17:00:00.099Z"
     }
   },
   "activeAlerts": [],
   "alertHistory": [],
   "stats": {
-    "totalSnapshots": 1370,
-    "totalHealthChecks": 114,
+    "totalSnapshots": 1383,
+    "totalHealthChecks": 115,
     "totalAlertsSent": 0,
     "totalReportsSent": 0,
-    "lastSnapshotAt": "2026-04-10T16:45:00.036Z",
-    "lastHealthCheckAt": "2026-04-10T16:00:00.163Z",
+    "lastSnapshotAt": "2026-04-10T17:50:00.022Z",
+    "lastHealthCheckAt": "2026-04-10T17:00:00.099Z",
     "lastDailyReportAt": null,
     "lastWeeklyReportAt": null,
     "startedAt": "2026-04-05T22:36:32.335Z",

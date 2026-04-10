@@ -57,7 +57,7 @@ function findContact(automailerStorage, email) {
       );
       if (contact) return contact;
     }
-  } catch (e) {}
+  } catch (e) { log.warn('precall-brief', 'Recherche contact HubSpot echouee: ' + e.message); }
   return null;
 }
 

@@ -16,6 +16,14 @@ const CRITICAL_PATTERNS = [
   /TELEGRAM_BOT_TOKEN.*invalid/i,
   /Claude API.*rate.*limit/i,
   /ANTHROPIC_API_KEY.*invalid/i,
+  /ETAT PARTIEL/i,                     // brain decides avec donnees manquantes
+  /JSON.*parse.*error|SyntaxError.*JSON/i, // fichier data corrompu
+  /ECONNREFUSED|ECONNRESET|ETIMEDOUT/i,   // API externe down
+  /heap.*out.*memory|allocation.*failed/i, // OOM
+  /EMFILE|too many open files/i,           // file descriptors epuises
+  /TOTALEMENT echouee/i,                   // confirmation Telegram perdue
+  /fichier corrompu/i,                     // storage corrompu
+  /DISQUE PLEIN/i,                         // ecriture impossible
 ];
 
 const EXPECTED_PATTERNS = [
