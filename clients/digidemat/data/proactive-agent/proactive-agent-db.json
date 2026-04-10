@@ -41,7 +41,62 @@
       "dealCloseWarningDays": 3
     }
   },
-  "alertHistory": [],
+  "alertHistory": [
+    {
+      "id": "alert_mnshy8yjlq2y",
+      "type": "morning_report",
+      "message": "*Rapport du matin* ☀️\n\nHier, 16 emails envoyés, 0 ouverture. Le pipeline est à 0 EUR pour l'instant, mais on a 168 prospects identifiés — la base est là.\n\nBonne nouvelle : 3 profils très bien scorés ressortent du lot — *Fiodor Songurov* (Sapec Software), *Olga Petrascu* (EBS Integrator) et *Sergey Zabolotnii* (Paynet). Ces 3-là méritent une attention prioritaire aujourd'hui.\n\nLe vrai sujet en ce moment, c'est que les emails n'accrochent pas encore. Avant d'en envoyer davantage, ça vaut le coup d",
+      "sentAt": "2026-04-10T06:00:08.155Z",
+      "data": {
+        "date": "2026-04-10"
+      }
+    },
+    {
+      "id": "alert_mnr2ibz7ig1j",
+      "type": "morning_report",
+      "message": "Bonjour ! Voici ton point du matin ☀️\n\n*Hier en bref :*\nPipeline à 0 €, 10 emails envoyés, 0 ouvertures. C'est calme, mais 168 nouveaux prospects identifiés — la matière est là.\n\n*🔥 Top 3 à contacter aujourd'hui :*\n• *Fiodor Songurov* — Sapec Software\n• *Olga Petrascu* — EBS Integrator\n• *Sergey Zabolotnii* — Paynet\n\nCes trois-là ont les meilleurs scores du moment.\n\n*👉 Action du jour :* Appelle ou contacte directement Fiodor Songurov sur LinkedIn — un message court, personnel, sans passer par ",
+      "sentAt": "2026-04-09T06:00:05.155Z",
+      "data": {
+        "date": "2026-04-09"
+      }
+    },
+    {
+      "id": "alert_mnpn2hnfox25",
+      "type": "morning_report",
+      "message": "*Rapport du matin* ☀️\n\n---\n\n**Hier en bref :**\nPipeline à 0 EUR, 8 emails envoyés, 0 ouverture. C'est calme, mais 168 nouveaux prospects sont dans la liste — la matière est là.\n\n**Tes 3 meilleurs contacts du moment :**\n• *Fiodor Songurov* — Sapec Software\n• *Olga Petrascu* — EBS Integrator\n• *Alexander Turcan* — Turcan Cazac\n\nCes trois-là sont en tête de liste, ils méritent une approche directe avant les autres.\n\n**Action du jour :** Contacte personnellement Fiodor ou Olga — un message court, pe",
+      "sentAt": "2026-04-08T06:00:05.595Z",
+      "data": {
+        "date": "2026-04-08"
+      }
+    },
+    {
+      "id": "alert_mno7mmka40ig",
+      "type": "morning_report",
+      "message": "*Rapport du matin* ☀️\n\n**Hier en bref :** Pipeline à 0 €, 5 emails envoyés, 0 ouverture. Pas de deals en cours. C'est un démarrage, les bases se mettent en place.\n\n**La bonne nouvelle :** 168 prospects identifiés, et 3 profils solides ressortent :\n— *Fiodor Songurov* (Sapec Software)\n— *Olga Petrascu* (EBS Integrator)\n— *Alexander Turcan* (Turcan Cazac)\n\n**Action du jour :** Prends 15 min pour relire les profils de ces 3 contacts et dis-moi si tu les connais ou si tu as déjà un lien avec eux — ç",
+      "sentAt": "2026-04-07T06:00:05.050Z",
+      "data": {
+        "date": "2026-04-07"
+      }
+    },
+    {
+      "id": "alert_mnmuc03c6jpq",
+      "type": "weekly_report",
+      "message": "*📊 Rapport de la semaine*\n\n*CHIFFRES CLES*\nPipeline : 0 € | 0 deals en cours\nEmails envoyés : 0 | Taux d'ouverture : 0%\nProspects identifiés : *168*\n\n*MEILLEURS RESULTATS*\n✅ *168 prospects* ont été identifiés et sont prêts à être contactés. La base est constituée, c'est une bonne fondation pour démarrer.\n\n*POINTS D'ATTENTION*\n⚠️ Aucun email n'a encore été envoyé. Les prospects sont là mais aucun contact n'a été initié. Tant qu'on ne lance pas les premiers messages, rien ne bougera côté pipeline",
+      "sentAt": "2026-04-06T07:00:08.184Z",
+      "data": {
+        "date": "2026-04-06"
+      }
+    },
+    {
+      "id": "alert_mnms6seczclp",
+      "type": "morning_report",
+      "message": "*Rapport du matin* ☀️\n\nHier, rien n'a bougé côté contacts et envois — c'est un démarrage à zéro. La bonne nouvelle : *168 prospects ont été identifiés* et sont prêts à être contactés.\n\nPas de leads chauds ni de deals en cours pour l'instant, donc l'enjeu du jour c'est de briser ce silence et d'envoyer les premiers messages.\n\n*Action du jour :* Lance les premiers envois vers une sélection de ces 168 prospects — même 20 à 30 contacts aujourd'hui, c'est suffisant pour commencer à générer des répons",
+      "sentAt": "2026-04-06T06:00:05.700Z",
+      "data": {
+        "date": "2026-04-06"
+      }
+    }
+  ],
   "hotLeads": {},
   "reactiveFollowUps": {
     "pending": [],
@@ -52,20 +107,449 @@
       "maxDelayMinutes": 60
     }
   },
-  "nightlyBriefing": null,
+  "nightlyBriefing": {
+    "text": "Les données du jour montrent une absence totale d'activité commerciale avec 0 contact dans HubSpot, 0 EUR dans le pipeline, et aucune transaction ouverte ou stagnante. Bien que 16 emails aient été envoyés, aucun n'a été ouvert, ce qui indique une faible efficacité des campagnes actuelles. En revanche, 10 leads ont été enrichis, ce qui représente une opportunité d'améliorer la qualité des prospects. Il est essentiel d'analyser les stratégies d'engagement et de communication pour éviter un risque de stagnation prolongée. Des actions correctives doivent être envisagées pour stimuler l'activité commerciale.",
+    "generatedAt": "2026-04-10T00:00:02.856Z"
+  },
   "metrics": {
-    "dailySnapshots": [],
-    "weeklySnapshots": [],
+    "dailySnapshots": [
+      {
+        "hubspot": {
+          "contacts": 0,
+          "pipeline": 0,
+          "deals": 0
+        },
+        "emails": {
+          "sent": 16,
+          "delivered": 0,
+          "opened": 0,
+          "campaigns": 10,
+          "activeCampaigns": 9,
+          "opensByDay": {
+            "lundi": {
+              "sent": 5,
+              "opened": 0,
+              "rate": 0
+            },
+            "mardi": {
+              "sent": 8,
+              "opened": 0,
+              "rate": 0
+            },
+            "mercredi": {
+              "sent": 10,
+              "opened": 0,
+              "rate": 0
+            },
+            "jeudi": {
+              "sent": 16,
+              "opened": 0,
+              "rate": 0
+            }
+          },
+          "bestHour": null,
+          "topOpened": [],
+          "bounced": 0,
+          "sentTotal": 39
+        },
+        "leads": {
+          "total": 168,
+          "enriched": 10,
+          "topScore": 75,
+          "enrichedThisWeek": 10,
+          "topLeads": [
+            {
+              "email": "fsongurov@sapec.md",
+              "name": "Fiodor Songurov",
+              "company": "Sapec Software",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "olga.petrascu@ebs-integrator.com",
+              "name": "Olga Petrascu",
+              "company": "EBS Integrator",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "s.zabolotnii@paynet.md",
+              "name": "Sergey Zabolotnii",
+              "company": "Paynet",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "v.peresnicenco@wetrade.md",
+              "name": "Veaceslav Peresnicenco",
+              "company": "WeTrade",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "alexander.turcan@turcanlaw.md",
+              "name": "Alexander Turcan",
+              "company": "Turcan Cazac",
+              "score": 18,
+              "hotLead": false
+            }
+          ],
+          "coldLeads": []
+        },
+        "content": {
+          "generated": 0,
+          "thisWeek": 0,
+          "byType": {}
+        },
+        "invoices": {
+          "total": 0,
+          "draft": 0,
+          "sent": 0,
+          "paid": 0,
+          "overdue": 0,
+          "totalBilled": 0
+        },
+        "date": "2026-04-10"
+      },
+      {
+        "hubspot": {
+          "contacts": 0,
+          "pipeline": 0,
+          "deals": 0
+        },
+        "emails": {
+          "sent": 10,
+          "delivered": 0,
+          "opened": 0,
+          "campaigns": 3,
+          "activeCampaigns": 3,
+          "opensByDay": {
+            "lundi": {
+              "sent": 5,
+              "opened": 0,
+              "rate": 0
+            },
+            "mardi": {
+              "sent": 8,
+              "opened": 0,
+              "rate": 0
+            },
+            "mercredi": {
+              "sent": 10,
+              "opened": 0,
+              "rate": 0
+            }
+          },
+          "bestHour": null,
+          "topOpened": [],
+          "bounced": 0,
+          "sentTotal": 23
+        },
+        "leads": {
+          "total": 168,
+          "enriched": 4,
+          "topScore": 75,
+          "enrichedThisWeek": 4,
+          "topLeads": [
+            {
+              "email": "fsongurov@sapec.md",
+              "name": "Fiodor Songurov",
+              "company": "Sapec Software",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "olga.petrascu@ebs-integrator.com",
+              "name": "Olga Petrascu",
+              "company": "EBS Integrator",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "s.zabolotnii@paynet.md",
+              "name": "Sergey Zabolotnii",
+              "company": "Paynet",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "alexander.turcan@turcanlaw.md",
+              "name": "Alexander Turcan",
+              "company": "Turcan Cazac",
+              "score": 18,
+              "hotLead": false
+            }
+          ],
+          "coldLeads": []
+        },
+        "content": {
+          "generated": 0,
+          "thisWeek": 0,
+          "byType": {}
+        },
+        "invoices": {
+          "total": 0,
+          "draft": 0,
+          "sent": 0,
+          "paid": 0,
+          "overdue": 0,
+          "totalBilled": 0
+        },
+        "date": "2026-04-09"
+      },
+      {
+        "hubspot": {
+          "contacts": 0,
+          "pipeline": 0,
+          "deals": 0
+        },
+        "emails": {
+          "sent": 8,
+          "delivered": 0,
+          "opened": 0,
+          "campaigns": 2,
+          "activeCampaigns": 2,
+          "opensByDay": {
+            "lundi": {
+              "sent": 5,
+              "opened": 0,
+              "rate": 0
+            },
+            "mardi": {
+              "sent": 8,
+              "opened": 0,
+              "rate": 0
+            }
+          },
+          "bestHour": null,
+          "topOpened": [],
+          "bounced": 0,
+          "sentTotal": 13
+        },
+        "leads": {
+          "total": 168,
+          "enriched": 3,
+          "topScore": 75,
+          "enrichedThisWeek": 3,
+          "topLeads": [
+            {
+              "email": "fsongurov@sapec.md",
+              "name": "Fiodor Songurov",
+              "company": "Sapec Software",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "olga.petrascu@ebs-integrator.com",
+              "name": "Olga Petrascu",
+              "company": "EBS Integrator",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "alexander.turcan@turcanlaw.md",
+              "name": "Alexander Turcan",
+              "company": "Turcan Cazac",
+              "score": 18,
+              "hotLead": false
+            }
+          ],
+          "coldLeads": []
+        },
+        "content": {
+          "generated": 0,
+          "thisWeek": 0,
+          "byType": {}
+        },
+        "invoices": {
+          "total": 0,
+          "draft": 0,
+          "sent": 0,
+          "paid": 0,
+          "overdue": 0,
+          "totalBilled": 0
+        },
+        "date": "2026-04-08"
+      },
+      {
+        "hubspot": {
+          "contacts": 0,
+          "pipeline": 0,
+          "deals": 0
+        },
+        "emails": {
+          "sent": 5,
+          "delivered": 0,
+          "opened": 0,
+          "campaigns": 2,
+          "activeCampaigns": 2,
+          "opensByDay": {
+            "lundi": {
+              "sent": 5,
+              "opened": 0,
+              "rate": 0
+            }
+          },
+          "bestHour": null,
+          "topOpened": [],
+          "bounced": 0,
+          "sentTotal": 5
+        },
+        "leads": {
+          "total": 168,
+          "enriched": 3,
+          "topScore": 75,
+          "enrichedThisWeek": 3,
+          "topLeads": [
+            {
+              "email": "fsongurov@sapec.md",
+              "name": "Fiodor Songurov",
+              "company": "Sapec Software",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "olga.petrascu@ebs-integrator.com",
+              "name": "Olga Petrascu",
+              "company": "EBS Integrator",
+              "score": 19.3,
+              "hotLead": false
+            },
+            {
+              "email": "alexander.turcan@turcanlaw.md",
+              "name": "Alexander Turcan",
+              "company": "Turcan Cazac",
+              "score": 18,
+              "hotLead": false
+            }
+          ],
+          "coldLeads": []
+        },
+        "content": {
+          "generated": 0,
+          "thisWeek": 0,
+          "byType": {}
+        },
+        "invoices": {
+          "total": 0,
+          "draft": 0,
+          "sent": 0,
+          "paid": 0,
+          "overdue": 0,
+          "totalBilled": 0
+        },
+        "date": "2026-04-07"
+      },
+      {
+        "hubspot": {
+          "contacts": 0,
+          "pipeline": 0,
+          "deals": 0
+        },
+        "emails": {
+          "sent": 0,
+          "delivered": 0,
+          "opened": 0,
+          "campaigns": 1,
+          "activeCampaigns": 1,
+          "opensByDay": {},
+          "bestHour": null,
+          "topOpened": [],
+          "bounced": 0,
+          "sentTotal": 0
+        },
+        "leads": {
+          "total": 168,
+          "enriched": 0,
+          "topScore": 75,
+          "enrichedThisWeek": 0,
+          "topLeads": [],
+          "coldLeads": []
+        },
+        "content": {
+          "generated": 0,
+          "thisWeek": 0,
+          "byType": {}
+        },
+        "invoices": {
+          "total": 0,
+          "draft": 0,
+          "sent": 0,
+          "paid": 0,
+          "overdue": 0,
+          "totalBilled": 0
+        },
+        "date": "2026-04-06"
+      }
+    ],
+    "weeklySnapshots": [
+      {
+        "date": "2026-04-06",
+        "hubspot": {
+          "contacts": 0,
+          "pipeline": 0
+        },
+        "emails": {
+          "sent": 0,
+          "delivered": 0,
+          "opened": 0,
+          "campaigns": 1,
+          "activeCampaigns": 1,
+          "opensByDay": {},
+          "bestHour": null,
+          "topOpened": [],
+          "bounced": 0,
+          "sentTotal": 0
+        },
+        "leads": {
+          "total": 168,
+          "enriched": 0,
+          "topScore": 75,
+          "enrichedThisWeek": 0,
+          "topLeads": [],
+          "coldLeads": []
+        },
+        "invoices": {
+          "total": 0,
+          "draft": 0,
+          "sent": 0,
+          "paid": 0,
+          "overdue": 0,
+          "totalBilled": 0
+        }
+      }
+    ],
     "monthlySnapshots": []
   },
   "stats": {
-    "totalReportsSent": 0,
+    "totalReportsSent": 6,
     "totalAlertsSent": 0,
-    "lastMorningReport": null,
-    "lastWeeklyReport": null,
+    "lastMorningReport": "2026-04-10T06:00:08.156Z",
+    "lastWeeklyReport": "2026-04-06T07:00:08.185Z",
     "lastMonthlyReport": null,
-    "lastNightlyAnalysis": null,
-    "lastEmailCheck": null,
+    "lastNightlyAnalysis": "2026-04-10T00:00:02.856Z",
+    "lastEmailCheck": "2026-04-10T16:30:00.006Z",
     "createdAt": "2026-03-18T19:33:29.068Z"
+  },
+  "leadRevival": {
+    "sent": [],
+    "config": {
+      "enabled": true,
+      "maxPerCycle": 5,
+      "minDaysSinceLastContact": 30,
+      "minDaysSinceNotNow": 45,
+      "excludeReasons": [
+        "bounce_detected",
+        "spam_complaint",
+        "permanent_block",
+        "rgpd",
+        "ne_me_contactez_plus"
+      ]
+    },
+    "stats": {
+      "totalRevivalsSent": 0,
+      "totalRevivalReplies": 0,
+      "lastScanAt": null
+    }
   }
 }

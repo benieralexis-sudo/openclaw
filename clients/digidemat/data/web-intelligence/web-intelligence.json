@@ -1,6 +1,6 @@
 {
   "config": {
-    "enabled": true,
+    "enabled": false,
     "adminChatId": "1409505520",
     "checkIntervalHours": 6,
     "maxArticlesPerWatch": 50,
@@ -34,7 +34,7 @@
       "frequency": 6,
       "enabled": true,
       "createdAt": "2026-04-05T22:36:32.374Z",
-      "lastCheckedAt": null,
+      "lastCheckedAt": "2026-04-07T22:00:20.334Z",
       "articleCount": 0
     },
     "watch_mnmccdfb_u9wf": {
@@ -56,7 +56,7 @@
       "frequency": 6,
       "enabled": true,
       "createdAt": "2026-04-05T22:36:32.375Z",
-      "lastCheckedAt": null,
+      "lastCheckedAt": "2026-04-07T22:00:06.035Z",
       "articleCount": 0
     },
     "watch_mnmccdfb_tjqt": {
@@ -79,8 +79,8 @@
       "frequency": 6,
       "enabled": true,
       "createdAt": "2026-04-05T22:36:32.375Z",
-      "lastCheckedAt": null,
-      "articleCount": 0
+      "lastCheckedAt": "2026-04-07T22:00:04.261Z",
+      "articleCount": 22
     },
     "watch_mnmccdfc_xzhp": {
       "id": "watch_mnmccdfc_xzhp",
@@ -101,20 +101,447 @@
       "frequency": 6,
       "enabled": true,
       "createdAt": "2026-04-05T22:36:32.376Z",
-      "lastCheckedAt": null,
+      "lastCheckedAt": "2026-04-07T22:00:30.673Z",
       "articleCount": 0
     }
   },
-  "articles": [],
-  "analyses": [],
+  "articles": [
+    {
+      "id": "art_mno3ca0n_7md1",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Best Lemlist Alternative - Try Cold Emails for Free",
+      "link": "https://duckduckgo.com/y.js?ad_domain=woodpecker.co&amp;ad_provider=bingv7aa&amp;ad_type=txad&amp;click_metadata=HoXbaxPsLQOMVWVzsXI%2DmTG%2Dr3AUfhCqRWQlzHIe1eXdBe9z%2D5xUC8sO_xBVM2V3z%2DUF3pnVBJYJXh0byZl15Uz6TK%2Dk5i061oNGuPkvyePB1HuMDnoBXWBeeyH_DPIK_6a_S4CCAs6ClyQCSzrZz1EcsPWivu09ksCSKVOuONk.qSvt197c9pEoCJP9uRg07A&amp;rut=1d8c9c135a18aa51c3cbbe4160ae8f3e4ff9fb31c58b8081f8e2f82c26cf3466&amp;u3=https%3A%2F%2Fwww.bing.com%2Faclick%3Fld%3De8%2DZgFJUuo%2Daym%2DaLDAvds9DVUCUwuAMBvcVtILXEmZhFLXiAkfa1_rQDUS0DxzjTrriz2dduItXGfFRSRtAq7AlpoPc_WQbB9hixx2XgCitBYNvajYMfADtImSlHuemx4tdTMcpke6md7lSrR1k6Qq_Q%2D2qwfISTcDgx25vM%2Dkyxeqb6WhYMUh3MLKELpJLbU5vPUf60yKgoanxvd%2DBAg_3i3c1Y%26u%3DaHR0cHMlM2ElMmYlMmZ3b29kcGVja2VyLmNvJTJmcHBjJTJmbGVtbGlzdC1hbHRlcm5hdGl2ZS10by13b29kcGVja2VyJTJmJTNmdXRtX3NvdXJjZSUzZGJpbmclMjZ1dG1fbWVkaXVtJTNkY3BjJTI2dXRtX2NhbXBhaWduJTNkcGVyZm9ybWFuY2UtbWF4LWxlbWxpc3Qtc3Rhcl9CaW5nJTI2dXRtX2FkZ3JvdXAlM2RBc3NldCUyNTIwR3JvdXAlMjUyMC0lMjUyMExlbWxpc3QlMjZ1dG1fdGVybSUzZHdvb2RwZWNrZXIuY29fYl9jJTI2Y2FtcF9pZCUzZDU3MDQ1NzMyNiUyNmFkZ3JvdXBfaWQlM2QxMTc2NDc5MzkxODA1OTg4JTI2YWRfaWQlM2Q3MzUzMDE3NTQwNTUzNCUyNm5ldHdvcmslM2RzJTI2Z2NsaWQlM2RjMGZmOGI1ZmVkNWQxNmJmNjM5M2UyOGI2YzFjMTE2MiUyNm1zY2xraWQlM2RjMGZmOGI1ZmVkNWQxNmJmNjM5M2UyOGI2YzFjMTE2Mg%26rlid%3Dc0ff8b5fed5d16bf6393e28b6c1c1162&amp;vqd=4-167478269908446222525523102915285672816&amp;iurl=%7B1%7DIG%3DA3120034FADD44F1B77CDC3B7B198056%26CID%3D15B18A045FC06A0500219D305E506B61%26ID%3DDevEx%2C5046.1",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Use powerful cold emails to get more replies with highest deliverability available. The only list you need is the one that has Woodpecker at #1 for personalized cold emails",
+      "relevanceScore": 6,
+      "summary": "Un concurrent positionne Woodpecker comme meilleure alternative à Lemlist pour les cold emails, mettant en avant sa délivrabilité supérieure.",
+      "matchedKeywords": [
+        "Lemlist"
+      ],
+      "crmMatch": null,
+      "isUrgent": false,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-07T04:00:03.767Z"
+    },
+    {
+      "id": "art_mnnqhd6j_i5bx",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Clay vs Apollo: Sales Intelligence Platform Comparison 2025",
+      "link": "https://www.gtmengine.ai/blog/clay-vs-apollo-io-the-ultimate-platform-showdown",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Choosing the Right Lead Platform: Clay vs Apollo.io The sales technology landscape has transformed dramatically over the past decade, with artificial intelligence and data enrichment platforms becoming essential tools for go-to-market teams. Two platforms have emerged as significant players in this space, each taking distinctly different approaches to sales intelligence and engagement.",
+      "relevanceScore": 9,
+      "summary": "Une analyse comparative détaillée entre Clay et Apollo.io en tant que plateformes d'intelligence commerciale pour 2025, intégrant l'IA dans le paysage de la prospection.",
+      "matchedKeywords": [
+        "Clay.com",
+        "Apollo.io"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T22:00:06.139Z"
+    },
+    {
+      "id": "art_mnnqhd6h_kvk6",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "La Growth Machine Review 2026: Pros, Cons, Ratings - lemlist",
+      "link": "https://www.lemlist.com/blog/la-growth-machine-review-2024-pros-cons-ratings",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "La Growth Machine is a tool for prospecting, sales automation, and generating leads through email, LinkedIn, and Twitter. Before committing to a paid plan on this software, we'll give you a hand with some pros and cons. This post will thoroughly review the features, benefits, previous user reviews and everything this lead generator has to offer.",
+      "relevanceScore": 9,
+      "summary": "Lemlist publie une revue complète de La Growth Machine en 2026, comparant les fonctionnalités de prospection multicanal (email, LinkedIn, Twitter) de ce concurrent direct.",
+      "matchedKeywords": [
+        "La Growth Machine",
+        "Lemlist"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T22:00:06.137Z"
+    },
+    {
+      "id": "art_mnnqhd6h_3wdu",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Lemlist vs Apollo | Overloop",
+      "link": "https://overloop.com/blog/lemlist-vs-apollo",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Let's see how Apollo stacks up against Lemlist . . . Lemlist vs Apollo: What are the main differences? Apollo is a go-to-market platform that comes with a database of 100s of millions of sales leads. Lemlist is a multi-stack tool with multiple uses, rather than being an exclusively sales-centric AI-based SaaS solution.",
+      "relevanceScore": 9,
+      "summary": "Overloop compare Lemlist et Apollo.io, mettant en évidence leurs différences en tant que plateformes de prospection et d'automatisation des ventes.",
+      "matchedKeywords": [
+        "Lemlist",
+        "Apollo.io"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T22:00:06.137Z"
+    },
+    {
+      "id": "art_mnndmgx6_i46a",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Clay vs Apollo.io: Which Sales Intelligence Platform Should You Use? [2026]",
+      "link": "https://coldiq.com/blog/clay-vs-apollo",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Clay is perfect for discovering qualified prospects, finding their valid contact details, and scaling their outreach efforts. While Apollo finds qualified leads and enables you to engage with them at scale. Read more to find the best sales tools that fit your needs.",
+      "relevanceScore": 8,
+      "summary": "Comparaison approfondie entre Clay et Apollo.io en 2026 pour identifier la meilleure plateforme de sales intelligence selon les besoins de prospection.",
+      "matchedKeywords": [
+        "Clay.com",
+        "Apollo.io"
+      ],
+      "crmMatch": null,
+      "isUrgent": false,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T16:00:09.258Z"
+    },
+    {
+      "id": "art_mnndmgx5_u1t2",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Clay vs Apollo: The 2025 Sales Leader's Comparison Guide",
+      "link": "https://www.theplaybook.agency/post/clay-vs-apollo-the-2025-sales-leaders-comparison-guide",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Quick Verdict (Featured Snippet Target) Clay excels at data enrichment and workflow automation with 50+ integrations and AI capabilities, while Apollo.io provides an all-in-one sales platform with 275M+ contacts and built-in engagement tools. Choose Clay for advanced data operations; Apollo for integrated prospecting and outreach.",
+      "relevanceScore": 8,
+      "summary": "Guide comparatif 2025 entre Clay et Apollo destiné aux directeurs commerciaux, mettant en avant les forces respectives des deux outils.",
+      "matchedKeywords": [
+        "Clay.com",
+        "Apollo.io"
+      ],
+      "crmMatch": null,
+      "isUrgent": false,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T16:00:09.257Z"
+    },
+    {
+      "id": "art_mnndmgx4_qcsr",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "7 Best La Growth Machine Alternatives in 2026 - prospeo.io",
+      "link": "https://prospeo.io/s/la-growth-machine-alternatives",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Compare the top La Growth Machine alternatives for 2026. Per-seat pricing, better data accuracy, and multichannel outreach - without per-identity billing.",
+      "relevanceScore": 8,
+      "summary": "Tour d'horizon des 7 meilleures alternatives à La Growth Machine en 2026, comparant tarification, précision des données et capacités multicanal.",
+      "matchedKeywords": [
+        "La Growth Machine"
+      ],
+      "crmMatch": null,
+      "isUrgent": false,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T16:00:09.256Z"
+    },
+    {
+      "id": "art_mnndmgx3_ki1l",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Apollo.io vs. Instantly.ai vs. Clay: 2026 Why the $4,000 Stack is ...",
+      "link": "https://www.nexuscale.ai/blogs/apollo-io-vs-instantly-ai-vs-clay-2026-why-the-4-000-stack-is-obsolete",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Apollo.io vs. Instantly.ai vs. Clay: 2026 Why the $4,000 Stack is Obsolete The commercial landscape of 2026 has witnessed the total and violent collapse of the \"Franken-stack\" model of sales development. For the last five years, sales leaders were sold a specific, expensive lie: that the secret to high- growth outbound was to buy the \"best-in-class\" tool for every micro-task and stitch them ...",
+      "relevanceScore": 9,
+      "summary": "Analyse de l'obsolescence du stack Apollo.io/Instantly.ai/Clay à 4000$ en 2026, signalant un bouleversement majeur du marché des outils de prospection.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Clay.com"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T16:00:09.255Z"
+    },
+    {
+      "id": "art_mnndmgx3_nlaj",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Clay vs Apollo.io — Which B2B Sales Intelligence Tool Wins?",
+      "link": "https://smartreachai.com/clay-vs-apollo-2025-sales-intelligence-comparison/",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Clay vs Apollo.io : Compare sales intelligence platforms for 2025. Discover key features, pricing, and why Smart Data by SmartReach might be the best B2B lead gen solution.",
+      "relevanceScore": 8,
+      "summary": "Comparaison des plateformes de sales intelligence Clay et Apollo.io pour 2025, avec une alternative proposée via SmartReach.",
+      "matchedKeywords": [
+        "Clay.com",
+        "Apollo.io"
+      ],
+      "crmMatch": null,
+      "isUrgent": false,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T16:00:09.255Z"
+    },
+    {
+      "id": "art_mnndmgx0_7bpe",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Apollo vs Lemlist in 2026: Which sales tool is right for you?",
+      "link": "https://lagrowthmachine.com/apollo-vs-lemlist/",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Apollo vs Lemlist in 2026: All-in-one platform vs email-only. Compare pricing, features, use cases. Tested both tools. Unbiased comparison.",
+      "relevanceScore": 9,
+      "summary": "Comparaison détaillée entre Apollo.io et Lemlist en 2026 pour aider les équipes commerciales à choisir le bon outil de prospection.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Lemlist"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T16:00:09.252Z"
+    },
+    {
+      "id": "art_mnn0rejs_43qn",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Apollo.io vs Clay: Why You're Still Paying Thousands to Do Manual Work",
+      "link": "https://www.nexuscale.ai/blogs/apollo-io-vs-clay-why-youre-still-paying-thousands-to-do-manual-work",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Apollo.io vs Clay: Why You're Still Paying Thousands to Do Manual Work Category: Sales Tech Comparison / ROI Analysis Reading Time: 25 Minutes Introduction: The \"Modern Stack\" Illusion If you are a B2B sales leader in 2025, you have likely been sold a specific vision of the \"Perfect Sales Stack.\" The blueprint usually looks like this: Apollo.io for the database (The Source). Clay.com for the ...",
+      "relevanceScore": 9,
+      "summary": "Comparaison détaillée entre Apollo.io et Clay mettant en évidence les coûts élevés et le travail manuel persistant malgré l'utilisation de ces outils de prospection.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Clay.com"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T10:00:04.456Z"
+    },
+    {
+      "id": "art_mnmnwmkq_1kov",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Clay.com vs Apollo.io: Which platform should you choose in 2026",
+      "link": "https://fullenrich.com/tools/Claycom-vs-Apolloio",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Compare Clay.com and Apollo.io , two popular sales intelligence tools. Discover their features, pricing, and pros and cons to make an informed decision for your business.",
+      "relevanceScore": 9,
+      "summary": "Guide comparatif 2026 entre Clay.com et Apollo.io sur leurs fonctionnalités, tarifs et cas d'usage pour aider les équipes à choisir leur plateforme.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Clay.com"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.130Z"
+    },
+    {
+      "id": "art_mnmnwmkq_wgo4",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Lemlist vs. Apollo: Which Is the Right Outreach Platform in 2025?",
+      "link": "https://modernoutreach.beehiiv.com/p/lemlist-vs-apollo",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Lemlist Vs. Apollo: Quick Comparison Lemlist vs. Apollo Core Features Breakdown In this section, I'll compare both tools across key features crucial for B2B cold outreach. This will give you a clear understanding of how Lemlist and Apollo io differ and help you decide which one fits your needs better.",
+      "relevanceScore": 9,
+      "summary": "Comparaison détaillée des fonctionnalités clés de Lemlist et Apollo pour choisir la meilleure plateforme d'outreach en 2025.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Lemlist"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.130Z"
+    },
+    {
+      "id": "art_mnmnwmkp_n9h9",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Apollo vs Clay: Choosing the Right Data Enrichment Tool for B2B Sales",
+      "link": "https://www.revenueflow.com/blog/apollo-vs-clay",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "An in-depth comparison of Apollo.io and Clay for real sales teams. Covers pricing, features, integrations, and which tool fits different team sizes and budgets.",
+      "relevanceScore": 9,
+      "summary": "Comparaison approfondie d'Apollo.io et Clay sur le pricing, les fonctionnalités et les intégrations selon la taille des équipes commerciales B2B.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Clay.com"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.129Z"
+    },
+    {
+      "id": "art_mnmnwmko_vrem",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Ignition Report | Clay vs. Apollo, Intelligence vs. Action, and Growth ...",
+      "link": "https://www.linkedin.com/pulse/ignition-report-clay-vs-apollo-intelligence-action-growth-stage-lwuze/",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "The platforms serve different primary functions, with Clay focusing on intelligent data preparation and Apollo.io emphasizing sales execution at scale.",
+      "relevanceScore": 9,
+      "summary": "Rapport Ignition analysant les différences fonctionnelles entre Clay (préparation intelligente des données) et Apollo.io (exécution des ventes à grande échelle).",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Clay.com"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.128Z"
+    },
+    {
+      "id": "art_mnmnwmko_qnpy",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Apollo vs Lemlist: Top Tool Comparison April 2026",
+      "link": "https://www.salesrobot.co/blogs/apollo-vs-lemlist",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Apollo or lemlist ? This 2026 breakdown compares features, pros & cons to help you decide which outreach tool fits your business best.",
+      "relevanceScore": 9,
+      "summary": "Comparaison complète Apollo vs Lemlist en avril 2026 couvrant fonctionnalités, avantages et inconvénients pour choisir le bon outil d'outreach.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Lemlist"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.128Z"
+    },
+    {
+      "id": "art_mnmnwmkm_93hs",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Apollo.io News: Latest Updates & Insights for B2B Sales Teams",
+      "link": "https://www.apollo.io/magazine/articles/apollo-news",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Stay updated with Apollo.io's latest news , product updates, and sales intelligence insights to accelerate your B2B prospecting and close more deals with less effort.",
+      "relevanceScore": 7,
+      "summary": "Page d'actualités et mises à jour produit d'Apollo.io destinée aux équipes commerciales B2B.",
+      "matchedKeywords": [
+        "Apollo.io"
+      ],
+      "crmMatch": null,
+      "isUrgent": false,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.126Z"
+    },
+    {
+      "id": "art_mnmnwmkk_lkji",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "2025 Update- Apollo Has Outgrown Lemlist: Run End-to-End ... - Medium",
+      "link": "https://medium.com/@unkoamarketing/2025-update-apollo-has-outgrown-lemlist-run-end-to-end-outreach-on-one-platform-09eaced732b7",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Press enter or click to view image in full size If you're still juggling Apollo and Lemlist in 2025, you're wasting time, money, and momentum. Since 2023, Apollo.io has quietly shipped feature ...",
+      "relevanceScore": 9,
+      "summary": "Article Medium affirmant qu'Apollo a dépassé Lemlist en 2025 et peut désormais gérer l'ensemble du cycle de prospection en remplacement de Lemlist.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Lemlist"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.124Z"
+    },
+    {
+      "id": "art_mnmnwmkj_ginr",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Clay vs Apollo: Which Sales Tool Is Better for ... - salescaptain.io",
+      "link": "https://www.salescaptain.io/blog/clay-vs-apollo-which-sales-tool-is-better-for-prospecting-and-outreach",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Compare Clay vs Apollo.io to see which sales tool delivers better results for lead generation, outreach automation, and AI-powered personalization. Full breakdown with use cases, pricing, and pros and cons.",
+      "relevanceScore": 9,
+      "summary": "Comparaison détaillée entre Clay et Apollo.io pour la génération de leads, l'automatisation de l'outreach et la personnalisation IA.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Clay.com"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.123Z"
+    },
+    {
+      "id": "art_mnmnwmki_ud6m",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Apollo vs Clay in 2026: Which tool is right for you?",
+      "link": "https://lagrowthmachine.com/apollo-vs-clay/",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "If Apollo and Clay are built for email-first prospecting, La Growth Machine excels at multichannel engagement. You could use Clay to enrich your data, then push those leads to La Growth Machine to execute coordinated outreach across LinkedIn, email, and other channels.",
+      "relevanceScore": 10,
+      "summary": "Comparaison approfondie entre Apollo, Clay et La Growth Machine pour la prospection en 2026, positionnant chaque outil selon ses forces.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Clay.com",
+        "La Growth Machine"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.122Z"
+    },
+    {
+      "id": "art_mnmnwmki_17z7",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Clay vs Apollo in 2026: which platform actually delivers ROI for ...",
+      "link": "https://blog.seraleads.com/kb/sales-tool-reviews/clay-vs-apollo-io-2026/",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Once you've built your enriched list, you export it to Smartlead, Instantly, Lemlist , or another sending platform. Clay supports 100+ tools via APIs and webhooks for outreach execution, but that means you're managing multiple platforms. For manufacturing sales teams with lean operations, Apollo's all-in-one approach reduces tool sprawl.",
+      "relevanceScore": 10,
+      "summary": "Analyse ROI comparative entre Clay et Apollo en 2026, mentionnant Lemlist comme plateforme d'envoi compatible avec Clay.",
+      "matchedKeywords": [
+        "Apollo.io",
+        "Clay.com",
+        "Lemlist"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-06T04:00:13.122Z"
+    },
+    {
+      "id": "art_mnp5x6ea_dx5h",
+      "watchId": "watch_mnmccdfb_tjqt",
+      "title": "Clay vs Apollo: Enrichment vs All-In-One—Pricing & Trade-offs",
+      "link": "https://www.autotouch.ai/post/clay-vs-apollo",
+      "source": "DuckDuckGo News",
+      "pubDate": null,
+      "snippet": "Clay: data enrichment workflows, $349/mo. Apollo: all-in-one sales, $49/mo. See feature gaps, true cost of scale, and which fits mid-market teams.",
+      "relevanceScore": 9,
+      "summary": "Comparaison détaillée entre Clay.com et Apollo.io sur leurs fonctionnalités, pricing et positionnement pour les équipes mid-market, soulignant les compromis entre enrichissement de données et solution tout-en-un.",
+      "matchedKeywords": [
+        "Clay.com",
+        "Apollo.io"
+      ],
+      "crmMatch": null,
+      "isUrgent": true,
+      "notifiedAt": null,
+      "fetchedAt": "2026-04-07T22:00:04.258Z"
+    }
+  ],
+  "analyses": [
+    {
+      "id": "ana_mnmuc1h0_rcao",
+      "watchId": null,
+      "type": "weekly",
+      "content": "# 📅 Rapport de Veille Stratégique — Semaine en cours\n\n## 🔍 Tendance dominante : La guerre Apollo vs Clay s'intensifie\n\n**5/10 articles** cette semaine portent sur la comparaison **Apollo.io vs Clay**, signalant un débat de fond dans l'écosystème prospection B2B pour 2025-2026.\n\n---\n\n### 📊 Signaux clés\n\n- **Clay monte en puissance** face à Apollo : la répétition des comparatifs indique une pression concurrentielle croissante sur Apollo, perçu comme moins flexible\n- **L'enrichissement de données** devient le critère de différenciation #1, devant le volume de contacts\n- **Lemlist** cherche à se repositionner face à Apollo sur l'outreach — signe que les frontières entre outils s'estompent\n- Le marché converge vers des stacks **\"enrichissement + séquences\"** intégrés plutôt que des outils mono-fonctions\n\n---\n\n### 💡 Opportunités Business\n\n- ✅ Argument commercial : se positionner sur **l'accompagnement au choix d'outil** (advisory) — les prospects sont perdus face à ces comparatifs\n- ✅ Contenu différenciant à produire : un **benchmark ROI concret** Clay vs Apollo sur vos cas clients\n- ✅ Cibler les utilisateurs Apollo **en phase de remise en question** — fenêtre de prospection ouverte\n\n---\n\n⚠️ *Volume faible cette semaine (10 articles). Élargir les sources recommandé.*",
+      "generatedAt": "2026-04-06T07:00:09.972Z"
+    }
+  ],
   "stats": {
-    "totalArticlesFetched": 0,
-    "totalAnalysesGenerated": 0,
-    "totalAlertsSent": 0,
-    "lastScanAt": null,
-    "lastDigestAt": null,
-    "lastWeeklyDigestAt": null,
+    "totalArticlesFetched": 22,
+    "totalAnalysesGenerated": 1,
+    "totalAlertsSent": 32,
+    "lastScanAt": "2026-04-07T22:00:30.738Z",
+    "lastDigestAt": "2026-04-07T08:00:00.200Z",
+    "lastWeeklyDigestAt": "2026-04-06T07:00:09.968Z",
     "watchesCreated": 4,
     "createdAt": "2026-04-05T22:36:32.335Z"
-  }
+  },
+  "marketSignals": []
 }

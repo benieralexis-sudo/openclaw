@@ -83,3 +83,5 @@ memory/
 .agent/*.json
 !.agent/workflows/
 .env
+.env
+.env

@@ -3,18 +3,96 @@
   "history": {
     "1409505520": [
       {
-        "role": "user",
-        "text": "/campaign",
-        "skill": null,
-        "ts": 1775428147490
+        "role": "bot",
+        "text": "*Rapport du matin* ☀️\n\n---\n\n**Hier en bref :**\nPipeline à 0 EUR, 8 emails envoyés, 0 ouverture. C'est calme, mais 168 nouveaux prospects sont dans la liste — la matière est là.\n\n**Tes 3 meilleurs cont",
+        "skill": "proactive-agent",
+        "ts": 1775628005594
       },
       {
         "role": "bot",
-        "text": "📧 *MES CAMPAGNES*\n━━━━━━━━━━━━━━━━━━\n\n📝 *1. GWS Moldova — Avril 2026*\n   Status : draft | Contacts : 51 | Etapes : 3\n",
-        "skill": "automailer",
-        "ts": 1775428150491
+        "text": "📬 *Prospection auto*\n\n🔍 Nouveaux prospects trouves\n",
+        "skill": "autonomous-pilot",
+        "ts": 1775632467852
+      },
+      {
+        "role": "bot",
+        "text": "📬 *Prospection auto*\n\n📧 1 email(s) envoye(s)\n🔍 Nouveaux prospects trouves\n",
+        "skill": "autonomous-pilot",
+        "ts": 1775649806135
+      },
+      {
+        "role": "bot",
+        "text": "📬 *Prospection auto*\n\n🔍 Nouveaux prospects trouves\n",
+        "skill": "autonomous-pilot",
+        "ts": 1775664166799
+      },
+      {
+        "role": "bot",
+        "text": "📊 *Self-Improve — Semaine du 2026-04-08*\n\n📧 *EMAILS*\n   23 envoyes | 0% ouverts | 0% bounced\n\n\n🎯 *LEADS*\n   4 enrichis | Score moyen : 19/10\n   4 nouveaux cette semaine\n   Score 8+ : 4 | 6-7 : 0 | ",
+        "skill": "self-improve",
+        "ts": 1775674800302
+      },
+      {
+        "role": "bot",
+        "text": "🔬 *Analyse avancee Self-Improve v2*\n\n⏰ *Timing Optimal :*\n• Meilleure heure : 7h (0% open rate)\n• Pire heure : 13h (0% open rate)\n\n",
+        "skill": "self-improve",
+        "ts": 1775674800367
+      },
+      {
+        "role": "bot",
+        "text": "Bonjour ! Voici ton point du matin ☀️\n\n*Hier en bref :*\nPipeline à 0 €, 10 emails envoyés, 0 ouvertures. C'est calme, mais 168 nouveaux prospects identifiés — la matière est là.\n\n*🔥 Top 3 à contacter",
+        "skill": "proactive-agent",
+        "ts": 1775714405154
+      },
+      {
+        "role": "bot",
+        "text": "📬 *Prospection auto*\n\n📧 5 email(s) envoye(s)\n🔍 Nouveaux prospects trouves\n",
+        "skill": "autonomous-pilot",
+        "ts": 1775718521632
+      },
+      {
+        "role": "bot",
+        "text": "*ALERTE Self-Improve*\n\n[!!] ALERTE: 0 reponse apres 35 emails (7j) — open rate: 0% — verifier qualite",
+        "skill": "self-improve",
+        "ts": 1775721600260
+      },
+      {
+        "role": "bot",
+        "text": "📬 *Prospection auto*\n\n📧 1 email(s) envoye(s)\n",
+        "skill": "autonomous-pilot",
+        "ts": 1775736049676
+      },
+      {
+        "role": "bot",
+        "text": "📬 *Prospection auto*\n\n🔍 Nouveaux prospects trouves\n",
+        "skill": "autonomous-pilot",
+        "ts": 1775750436158
+      },
+      {
+        "role": "bot",
+        "text": "*Rapport du matin* ☀️\n\nHier, 16 emails envoyés, 0 ouverture. Le pipeline est à 0 EUR pour l'instant, mais on a 168 prospects identifiés — la base est là.\n\nBonne nouvelle : 3 profils très bien scorés r",
+        "skill": "proactive-agent",
+        "ts": 1775800808155
+      },
+      {
+        "role": "bot",
+        "text": "📬 *Prospection auto*\n\n📧 5 email(s) envoye(s)\n",
+        "skill": "autonomous-pilot",
+        "ts": 1775804780740
+      },
+      {
+        "role": "bot",
+        "text": "*ALERTE Self-Improve*\n\n[!!] ALERTE: 0 reponse apres 52 emails (7j) — open rate: 0% — verifier qualite",
+        "skill": "self-improve",
+        "ts": 1775808000248
+      },
+      {
+        "role": "bot",
+        "text": "📬 *Prospection auto*\n\n🔄 1 relance(s) programmee(s)\n",
+        "skill": "autonomous-pilot",
+        "ts": 1775822450335
       }
     ]
   },
-  "savedAt": "2026-04-05T22:41:32.312Z"
+  "savedAt": "2026-04-10T16:48:31.305Z"
 }

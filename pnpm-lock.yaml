@@ -141,6 +141,9 @@ importers:
       pdfjs-dist:
         specifier: ^5.4.530
         version: 5.4.530
+      playwright:
+        specifier: ^1.59.1
+        version: 1.59.1
       playwright-core:
         specifier: 1.58.1
         version: 1.58.1
@@ -4610,8 +4613,18 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  playwright-core@1.59.1:
+    resolution: {integrity: sha512-HBV/RJg81z5BiiZ9yPzIiClYV/QMsDCKUyogwH9p3MCP6IYjUFu/MActgYAvK0oWyV9NlwM3GLBjADyWgydVyg==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   playwright@1.58.2:
     resolution: {integrity: sha512-vA30H8Nvkq/cPBnNw4Q8TWz1EJyqgpuinBcHET0YVJVFldr8JDNiU9LaWAE1KqSkRYazuaBhTpB5ZzShOezQ6A==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.59.1:
+    resolution: {integrity: sha512-C8oWjPR3F81yljW9o5OxcWzfh6avkVwDD2VYdwIGqTkl+OGFISgypqzfu7dOe4QNLL2aqcWBmI3PMtLIK233lw==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -6410,7 +6423,7 @@ snapshots:
 
   '@larksuiteoapi/node-sdk@1.59.0':
     dependencies:
-      axios: 1.13.4
+      axios: 1.13.4(debug@4.4.3)
       lodash.identity: 3.0.0
       lodash.merge: 4.6.2
       lodash.pickby: 4.6.0
@@ -6426,7 +6439,7 @@ snapshots:
     dependencies:
       '@types/node': 24.10.9
     optionalDependencies:
-      axios: 1.13.4
+      axios: 1.13.4(debug@4.4.3)
     transitivePeerDependencies:
       - debug
 
@@ -6631,7 +6644,7 @@ snapshots:
       '@azure/core-auth': 1.10.1
       '@azure/msal-node': 3.8.6
       '@microsoft/agents-activity': 1.2.3
-      axios: 1.13.4
+      axios: 1.13.4(debug@4.4.3)
       jsonwebtoken: 9.0.3
       jwks-rsa: 3.2.2
       object-path: 0.11.8
@@ -7414,7 +7427,7 @@ snapshots:
       '@slack/types': 2.19.0
       '@slack/web-api': 7.13.0
       '@types/express': 5.0.6
-      axios: 1.13.4
+      axios: 1.13.4(debug@4.4.3)
       express: 5.2.1
       path-to-regexp: 8.3.0
       raw-body: 3.0.2
@@ -7460,7 +7473,7 @@ snapshots:
       '@slack/types': 2.19.0
       '@types/node': 25.1.0
       '@types/retry': 0.12.0
-      axios: 1.13.4
+      axios: 1.13.4(debug@4.4.3)
       eventemitter3: 5.0.4
       form-data: 4.0.5
       is-electron: 2.2.2
@@ -8350,14 +8363,6 @@ snapshots:
 
   aws4@1.13.2: {}
 
-  axios@1.13.4:
-    dependencies:
-      follow-redirects: 1.15.11
-      form-data: 4.0.5
-      proxy-from-env: 1.1.0
-    transitivePeerDependencies:
-      - debug
-
   axios@1.13.4(debug@4.4.3):
     dependencies:
       follow-redirects: 1.15.11(debug@4.4.3)
@@ -8924,8 +8929,6 @@ snapshots:
       array-back: 3.1.0
 
   flatbuffers@24.12.23: {}
-
-  follow-redirects@1.15.11: {}
 
   follow-redirects@1.15.11(debug@4.4.3):
     optionalDependencies:
@@ -10136,9 +10139,17 @@ snapshots:
 
   playwright-core@1.58.2: {}
 
+  playwright-core@1.59.1: {}
+
   playwright@1.58.2:
     dependencies:
       playwright-core: 1.58.2
+    optionalDependencies:
+      fsevents: 2.3.2
+
+  playwright@1.59.1:
+    dependencies:
+      playwright-core: 1.59.1
     optionalDependencies:
       fsevents: 2.3.2
 
