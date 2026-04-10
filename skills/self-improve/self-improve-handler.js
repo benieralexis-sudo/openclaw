@@ -487,7 +487,7 @@ Reponds UNIQUEMENT en JSON strict :
 
     const lines = [
       '*Self-Improve :* ' + (config.enabled ? 'ACTIF' : 'DESACTIF'),
-      '*Auto-Apply :* ' + (config.autoApply ? 'ACTIF (confiance >= 60%)' : 'DESACTIF (mode manuel)'),
+      '*Auto-Apply :* ' + (config.autoApply ? 'ACTIF (confiance >= 85%)' : 'DESACTIF (mode manuel)'),
       '*Crons :* ' + this.crons.length + ' actif(s)',
       ''
     ];
@@ -682,7 +682,7 @@ Reponds UNIQUEMENT en JSON strict :
           if (autoApplyResult.applied > 0 && this.sendTelegram) {
             const autoMsg = 'Auto-Improve : ' + autoApplyResult.applied + '/' +
               autoApplyResult.total + ' recommandation(s) appliquee(s) automatiquement' +
-              ' (confiance >= 60%).\nDis _"rollback"_ pour annuler.';
+              ' (confiance >= 85%).\nDis _"rollback"_ pour annuler.';
             await this.sendTelegram(config.adminChatId, autoMsg);
           }
         }
@@ -695,10 +695,10 @@ Reponds UNIQUEMENT en JSON strict :
     }
   }
 
-  // Auto-appliquer les recommandations (>= 0.6 pour fallback, >= 0.7 pour IA)
+  // Auto-appliquer les recommandations (>= 0.85 pour securite — evite les faux positifs)
   // Bloquer auto-apply sur email_length/email_style si < 100 emails (evite flip-flop)
   _autoApplyRecommendations(recommendations) {
-    const MIN_CONFIDENCE = 0.6;
+    const MIN_CONFIDENCE = 0.85;
     const MIN_EMAILS_FOR_STYLE_CHANGE = 100;
     const pending = storage.getPendingRecommendations();
     if (pending.length === 0) return { applied: 0, total: 0, results: [] };
@@ -735,7 +735,7 @@ Reponds UNIQUEMENT en JSON strict :
     const applied = results.filter(r => r.success).length;
 
     log.info('self-improve', 'Auto-apply: ' + applied + '/' + highConfidence.length +
-      ' recommandation(s) appliquee(s) (confiance >= 60%)');
+      ' recommandation(s) appliquee(s) (confiance >= 85%)');
 
     return { applied: applied, total: pending.length, results: results };
   }

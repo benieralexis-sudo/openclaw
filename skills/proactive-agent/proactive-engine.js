@@ -5,7 +5,7 @@ const { Cron } = require('croner');
 const ReportGenerator = require('./report-generator.js');
 const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
-const { getWarmupDailyLimit, withCronGuard, applySpintax } = require('../../gateway/utils.js');
+const { getWarmupDailyLimit, withCronGuard, applySpintax, incrementDailySendCount } = require('../../gateway/utils.js');
 
 // Cross-skill imports via skill-loader centralise
 const { getStorage, getModule, getGateway } = require('../../gateway/skill-loader.js');
@@ -96,20 +96,21 @@ class ProactiveEngine {
       log.info('proactive-engine', 'Cron: rapport mensuel (jour ' + dom + ' a ' + h + 'h)');
     }
 
-    // Check emails — toutes les 30 min
-    if (alerts.emailStatusCheck.enabled) {
-      const interval = alerts.emailStatusCheck.intervalMinutes || 30;
-      this.crons.push(new Cron('*/' + interval + ' * * * *', { timezone: tz }, withCronGuard('pa-email-status', () => this._emailStatusCheck())));
-      log.info('proactive-engine', 'Cron: check emails toutes les ' + interval + ' min');
-    }
+    // Email status polling desactive — Resend webhook pousse les statuts en temps reel
+    // Economie: 48 API calls/jour en moins
+    // if (alerts.emailStatusCheck.enabled) {
+    //   const interval = alerts.emailStatusCheck.intervalMinutes || 30;
+    //   this.crons.push(new Cron('*/' + interval + ' * * * *', { timezone: tz }, withCronGuard('pa-email-status', () => this._emailStatusCheck())));
+    //   log.info('proactive-engine', 'Cron: check emails toutes les ' + interval + ' min');
+    // }
 
     // Smart alerts — toutes les heures
     this.crons.push(new Cron('0 * * * *', { timezone: tz }, withCronGuard('pa-smart-alerts', () => this._checkSmartAlerts())));
     log.info('proactive-engine', 'Cron: smart alerts toutes les heures');
 
-    // Reactive follow-ups — toutes les 10 min
-    this.crons.push(new Cron('*/10 * * * *', { timezone: tz }, withCronGuard('pa-reactive-fu', () => this._processReactiveFollowUps())));
-    log.info('proactive-engine', 'Cron: reactive follow-ups toutes les 10 min');
+    // Reactive follow-ups toutes les 60min (etait 10min — API waste)
+    this.crons.push(new Cron('0 * * * *', { timezone: tz }, withCronGuard('pa-reactive-fu', () => this._processReactiveFollowUps())));
+    log.info('proactive-engine', 'Cron: reactive follow-ups toutes les 60 min');
 
     // Lead Revival — mardi + vendredi 10h
     if (process.env.LEAD_REVIVAL_ENABLED !== 'false') {
@@ -896,6 +897,7 @@ class ProactiveEngine {
 
           if (result && result.success) {
             sent++;
+            incrementDailySendCount();
             revived.push(candidate);
             storage.addRevivalSent({
               email: candidate.email,
@@ -1132,6 +1134,7 @@ class ProactiveEngine {
 
           if (result && result.success) {
             sent++;
+            incrementDailySendCount();
             ffStorage.markCompanyContactSent(contact.email);
             log.info('proactive-engine', 'Multi-thread: secondaire envoye a ' + contact.email + ' (' + contact.companyName + ', angle: ' + contact.emailAngle + ')');
           } else {
@@ -1739,6 +1742,7 @@ class ProactiveEngine {
 
           if (amStorage.setFirstSendDate) amStorage.setFirstSendDate();
           if (amStorage.incrementTodaySendCount) amStorage.incrementTodaySendCount();
+          incrementDailySendCount();
 
           storage.markFollowUpSent(followUp.id, { resendId: sendResult.id, subject: subject });
 

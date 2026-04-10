@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const storage = require('./storage.js');
 const log = require('../../gateway/logger.js');
 const { getBreaker } = require('../../gateway/circuit-breaker.js');
-const { getWarmupDailyLimit, applySpintax } = require('../../gateway/utils.js');
+const { getWarmupDailyLimit, applySpintax, incrementDailySendCount } = require('../../gateway/utils.js');
 const C = require('../../gateway/constants.js');
 
 // Helper Promise.race avec cleanup du timer (evite setTimeout orphelins)
@@ -1590,6 +1590,7 @@ Format JSON strict :
           // FIX 19 : Tracker warmup dans les compteurs persistants
           amStorage.setFirstSendDate();
           amStorage.incrementTodaySendCount();
+          incrementDailySendCount();
         }
 
         storage.incrementProgress('emailsSentThisWeek', 1);

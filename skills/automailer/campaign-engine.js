@@ -3,7 +3,7 @@ const storage = require('./storage');
 const dns = require('dns');
 const net = require('net');
 const log = require('../../gateway/logger.js');
-const { getWarmupDailyLimit, applySpintax, validateEmailOutput, getCityTimezone } = require('../../gateway/utils.js');
+const { getWarmupDailyLimit, applySpintax, validateEmailOutput, getCityTimezone, incrementDailySendCount } = require('../../gateway/utils.js');
 const { getStorage, getModule, getGateway } = require('../../gateway/skill-loader.js');
 
 // --- LRU eviction helper : supprime les 20% plus anciennes entrees quand la Map depasse maxSize ---
@@ -1943,7 +1943,7 @@ class CampaignEngine {
         // Threading systematique : TOUJOURS threader les follow-ups avec le Message-ID du step precedent
         // Les follow-ups non-threades arrivent comme des cold emails separes = signal spam
         const prevMessageId = storage.getMessageIdForRecipient(contact.email);
-        if (prevMessageId) {
+        if (prevMessageId && prevMessageId.length > 5) {
           sendOpts.inReplyTo = prevMessageId;
           sendOpts.references = prevMessageId;
         }
@@ -1993,6 +1993,7 @@ class CampaignEngine {
       if (result.success) {
         sent++;
         batchSentCount++;
+        incrementDailySendCount();
         // Enregistrer le domaine entreprise pour dedup 72h
         if (contactDomain) _recordCompanyContact(contactDomain);
         // FIX 3 : Tracker envoi warmup + date du premier envoi
@@ -2012,7 +2013,7 @@ class CampaignEngine {
           };
           const mean = 90000; // 90s moyenne
           const stddev = 30000; // 30s ecart-type
-          const delay = Math.max(30000, Math.min(180000, Math.round(mean + gaussRandom() * stddev)));
+          const delay = Math.max(30000, Math.min(90000, Math.round(mean + gaussRandom() * stddev)));
           await new Promise(r => setTimeout(r, delay));
         }
 
@@ -2634,6 +2635,19 @@ class CampaignEngine {
               log.info('campaign-engine', 'Hard bounce: ' + email.to + ' — blacklist + domaine ' + (email.senderDomain || 'unknown'));
             }
             bounceCount++;
+
+            // BOUNCE FIX: annuler tous les steps suivants pour ce contact dans la campagne
+            if (email.campaignId) {
+              const bouncedCampaign = storage.getCampaign(email.campaignId);
+              if (bouncedCampaign && bouncedCampaign.contacts) {
+                const bouncedContact = bouncedCampaign.contacts.find(c => c.email === email.to);
+                if (bouncedContact && bouncedContact.status !== 'blacklisted' && bouncedContact.status !== 'bounced') {
+                  bouncedContact.status = 'bounced';
+                  storage.updateCampaign(email.campaignId, { contacts: bouncedCampaign.contacts });
+                  log.warn('campaign-engine', 'Bounce: contact ' + email.to + ' marque bounced — steps suivants annules');
+                }
+              }
+            }
           }
 
           // UPGRADE 2 : Detection de reponses email
@@ -2850,7 +2864,7 @@ class CampaignEngine {
           ]
         };
         const prevMsgId = storage.getMessageIdForRecipient(email.to);
-        if (prevMsgId) {
+        if (prevMsgId && prevMsgId.length > 5) {
           retryOpts.inReplyTo = prevMsgId;
           retryOpts.references = prevMsgId;
         }
@@ -2860,6 +2874,7 @@ class CampaignEngine {
           storage.markRetryAttempt(email.id, true, result.id);
           storage.setFirstSendDate();
           storage.incrementTodaySendCount();
+          incrementDailySendCount();
           success++;
           log.info('campaign-engine', 'Retry OK pour ' + email.to + ' (tentative ' + ((email.retryCount || 0) + 1) + ')');
         } else {

@@ -335,4 +335,32 @@ function withTimeout(promise, ms, label) {
   ]);
 }
 
-module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit, withCronGuard, applySpintax, validateEmailOutput, getCityTimezone, withTimeout };
+/**
+ * Compteur d'envois quotidien partage entre tous les processus.
+ * Fichier atomique /data/automailer/daily-send-count.json
+ * Tous les chemins d'envoi (campaign-engine, proactive, brain) DOIVENT l'utiliser.
+ */
+function getDailySendCount() {
+  try {
+    const file = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/daily-send-count.json';
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const today = new Date().toISOString().slice(0, 10);
+    if (data.date === today) return data.count || 0;
+    return 0; // New day, reset
+  } catch (e) { return 0; }
+}
+
+function incrementDailySendCount() {
+  const file = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/daily-send-count.json';
+  const today = new Date().toISOString().slice(0, 10);
+  let data = { date: today, count: 0 };
+  try {
+    data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (data.date !== today) data = { date: today, count: 0 };
+  } catch (e) { /* new file */ }
+  data.count++;
+  atomicWriteSync(file, data);
+  return data.count;
+}
+
+module.exports = { atomicWriteSync, retryAsync, truncateInput, isValidEmail, sanitize, getWarmupDailyLimit, withCronGuard, applySpintax, validateEmailOutput, getCityTimezone, withTimeout, getDailySendCount, incrementDailySendCount };

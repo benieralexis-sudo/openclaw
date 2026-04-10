@@ -95,12 +95,11 @@ class BrainEngine {
 
     // Daily briefing supprime — fusionne avec Proactive Morning Report a 8h (voir proactive-engine.js)
 
-    // Intent Monitor : scan toutes les 30 min pendant heures business (8h-19h, lun-ven)
-    // Detecte signaux d'intent en temps reel et declenche le pipeline immediat
-    this.crons.push(new Cron('*/30 8-18 * * 1-5', { timezone: tz }, withCronGuard('ap-intent-scan', async () => {
-      try { await this.intentMonitor.scan(); }
-      catch (e) { log.error('brain', 'Erreur intent scan:', e.message); }
-    })));
+    // Intent monitor desactive — Apollo resilie, sources commentees, overhead sans ROI
+    // this.crons.push(new Cron('*/30 8-18 * * 1-5', { timezone: tz }, withCronGuard('ap-intent-scan', async () => {
+    //   try { await this.intentMonitor.scan(); }
+    //   catch (e) { log.error('brain', 'Erreur intent scan:', e.message); }
+    // })));
 
     // Mini-cycle leger : 10h, 12h, 15h, 17h, lun-ven uniquement
     // Conserve pour : score boost signaux marche + email engagement + rattrapage objectifs
@@ -500,6 +499,14 @@ class BrainEngine {
 
     // 2. Run diagnostic
     const diagItems = diagnostic.runFullDiagnostic();
+
+    // 2b. Early return si 0 lead eligible (economie appel Claude)
+    const eligible = state.leads ? state.leads.filter(l => l.status === 'new' || l.status === 'enriched' || l.status === 'ready') : [];
+    if (!eligible || eligible.length === 0) {
+      log.info('brain', 'Brain cycle skip — 0 lead eligible, pas d appel Claude');
+      if (storage.setStat) storage.setStat('lastBrainCycleAt', new Date().toISOString());
+      return { actions: [], skipped: true, reason: 'no_eligible_leads' };
+    }
 
     // 3. Construire le prompt pour Claude
     const systemPrompt = this._buildBrainPrompt(state);
@@ -1506,7 +1513,7 @@ Analyse et reponds en JSON:
         }
         // Exclure aussi les leads ayant echoue recemment (skip, blacklist, gate block)
         // Cooldown 3 jours pour eviter de reproposer en boucle
-        const recentlyFailed = storage.getRecentlyFailedEmails(3);
+        const recentlyFailed = storage.getRecentlyFailedEmails(14);
         for (const email of recentlyFailed) {
           alreadySent.add(email);
         }

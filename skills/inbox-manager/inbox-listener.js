@@ -313,10 +313,18 @@ class InboxListener {
 
         if (normalizedSenderLocal.length >= 3) {
           // Niveau 1 : meme local part normalise (jean-pierre@ == jeanpierre@)
+          // + validation domaine pour eviter faux positifs inter-entreprises
           fuzzyMatch = knownLeads.find(l => {
             const leadEmail = (l.email || l.to || '').toLowerCase();
             if (!leadEmail.includes('@') || leadEmail === senderEmail) return false;
-            return normalizeLocal(leadEmail.split('@')[0]) === normalizedSenderLocal;
+            if (normalizeLocal(leadEmail.split('@')[0]) !== normalizedSenderLocal) return false;
+            // Verifier que les domaines sont similaires (pas juste le local part)
+            const incomingDomain = senderDomain;
+            const knownDomain = leadEmail.split('@')[1] || '';
+            if (incomingDomain === knownDomain) return true;
+            // Domaines differents — verifier si c'est juste un alias (gmail.com vs googlemail.com)
+            const baseDomainFn = (d) => d.replace(/^(mail|email|smtp|mx)\./, '').split('.').slice(-2).join('.');
+            return baseDomainFn(incomingDomain) === baseDomainFn(knownDomain);
           });
 
           // Niveau 2 : meme base de domaine + local part similaire (evite faux positifs inter-prospects)
