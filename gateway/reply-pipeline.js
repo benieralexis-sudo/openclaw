@@ -4,7 +4,7 @@
 
 const log = require('./logger.js');
 const { getBreaker } = require('./circuit-breaker.js');
-const { withTimeout } = require('./utils.js');
+const { withTimeout, atomicWriteSync } = require('./utils.js');
 const {
   classifyReply, subClassifyObjection,
   generateObjectionReply, generateQuestionReplyViaClaude,
@@ -843,7 +843,7 @@ function createReplyPipeline(deps) {
         log.info('realtime-learner', 'Patterns mis a jour: ' + JSON.stringify(data.patterns));
       }
 
-      fs.writeFileSync(rtlPath, JSON.stringify(data, null, 2));
+      atomicWriteSync(rtlPath, data);
     } catch (e) {
       log.warn('realtime-learner', 'Record outcome echoue: ' + e.message);
     }

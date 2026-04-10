@@ -58,9 +58,50 @@ if (!_checkEmailSpecificity) {
 }
 
 // --- Dedup domaine entreprise : evite d'envoyer a 2 personnes de la meme entreprise dans les 72h ---
+// Persiste dans storage pour survivre aux restarts Docker
 const _recentCompanyDomains = new Map(); // domain -> timestamp
+let _companyDomainsLoaded = false;
+
+function _loadCompanyDomainsFromStorage() {
+  if (_companyDomainsLoaded) return;
+  _companyDomainsLoaded = true;
+  try {
+    const persisted = storage.data._recentCompanyDomains;
+    if (persisted && typeof persisted === 'object') {
+      const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+      let cleaned = 0;
+      for (const [domain, timestamp] of Object.entries(persisted)) {
+        if (timestamp >= cutoff) {
+          _recentCompanyDomains.set(domain, timestamp);
+        } else {
+          cleaned++;
+        }
+      }
+      if (cleaned > 0) {
+        _persistCompanyDomains();
+      }
+      log.info('campaign-engine', 'Dedup domaines charges depuis storage: ' + _recentCompanyDomains.size + ' actifs, ' + cleaned + ' expires nettoyes');
+    }
+  } catch (e) {
+    log.warn('campaign-engine', 'Erreur chargement dedup domaines: ' + e.message);
+  }
+}
+
+function _persistCompanyDomains() {
+  try {
+    const obj = {};
+    for (const [domain, timestamp] of _recentCompanyDomains) {
+      obj[domain] = timestamp;
+    }
+    storage.data._recentCompanyDomains = obj;
+    storage.save();
+  } catch (e) {
+    log.warn('campaign-engine', 'Erreur persistance dedup domaines: ' + e.message);
+  }
+}
 
 function _isCompanyRecentlyContacted(emailDomain, windowMs = 72 * 60 * 60 * 1000) {
+  _loadCompanyDomainsFromStorage();
   const lastContact = _recentCompanyDomains.get(emailDomain);
   if (lastContact && (Date.now() - lastContact) < windowMs) return true;
   return false;
@@ -75,6 +116,7 @@ function _recordCompanyContact(emailDomain) {
       if (t < cutoff) _recentCompanyDomains.delete(d);
     }
   }
+  _persistCompanyDomains();
 }
 
 // --- RGPD : Filtre domaines B2C (emails personnels interdits en prospection B2B) ---

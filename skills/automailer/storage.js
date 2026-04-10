@@ -27,6 +27,9 @@ class AutoMailerStorage {
         createdAt: new Date().toISOString()
       }
     };
+    // Index Maps pour lookups O(1) par resendId et trackingId
+    this._indexByResendId = new Map();
+    this._indexByTrackingId = new Map();
     this._ensureDir();
     this._load();
   }
@@ -76,6 +79,7 @@ class AutoMailerStorage {
         }
         // Recalcul stats uniques au chargement (corrige overcounting historique)
         this._recalcStats();
+        this._rebuildIndexes();
         console.log('[automailer-storage] Base chargee (' +
           Object.keys(this.data.users).length + ' utilisateurs, ' +
           Object.keys(this.data.campaigns).length + ' campagnes, ' +
@@ -101,6 +105,7 @@ class AutoMailerStorage {
               this.data = { ...this.data, ...bakData };
               console.warn('[automailer-storage] Recupere depuis backup: ' + bak);
               recovered = true;
+              this._rebuildIndexes();
               this._save();
               break;
             }
@@ -119,6 +124,32 @@ class AutoMailerStorage {
       atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
       console.error('[automailer-storage] Erreur sauvegarde:', e.message);
+    }
+  }
+
+  // Rebuild les index Maps a partir du tableau emails[]
+  _rebuildIndexes() {
+    this._indexByResendId = new Map();
+    this._indexByTrackingId = new Map();
+    const emails = this.data.emails || [];
+    for (let i = 0; i < emails.length; i++) {
+      const e = emails[i];
+      if (e.resendId) this._indexByResendId.set(e.resendId, i);
+      if (e.trackingId) this._indexByTrackingId.set(e.trackingId, i);
+    }
+  }
+
+  // Maintenir les index si resendId/trackingId ont change (ex: eventData dans updateEmailStatus)
+  _updateIndexesIfChanged(email, prevResendId, prevTrackingId) {
+    const idx = this.data.emails.indexOf(email);
+    if (idx === -1) return;
+    if (email.resendId !== prevResendId) {
+      if (prevResendId) this._indexByResendId.delete(prevResendId);
+      if (email.resendId) this._indexByResendId.set(email.resendId, idx);
+    }
+    if (email.trackingId !== prevTrackingId) {
+      if (prevTrackingId) this._indexByTrackingId.delete(prevTrackingId);
+      if (email.trackingId) this._indexByTrackingId.set(email.trackingId, idx);
     }
   }
 
@@ -371,9 +402,14 @@ class AutoMailerStorage {
       createdAt: new Date().toISOString()
     };
     this.data.emails.push(entry);
+    // Maintenir les index Maps
+    const idx = this.data.emails.length - 1;
+    if (entry.resendId) this._indexByResendId.set(entry.resendId, idx);
+    if (entry.trackingId) this._indexByTrackingId.set(entry.trackingId, idx);
     // Garder max 10000 emails actifs (archivage auto des >90j)
     if (this.data.emails.length > 10000) {
       this.data.emails = this.data.emails.slice(-10000);
+      this._rebuildIndexes(); // Rebuild apres truncation car les index changent
     }
     if (record.status === 'sent') {
       this.data.stats.totalEmailsSent++;
@@ -387,6 +423,8 @@ class AutoMailerStorage {
   updateEmailStatus(emailId, status, eventData) {
     const email = this.data.emails.find(e => e.id === emailId);
     if (!email) return null;
+    const prevResendId = email.resendId;
+    const prevTrackingId = email.trackingId;
     const prevStatus = email.status;
     // Status priority : ne jamais downgrader replied/bounced/complained
     const STATUS_RANK = { sent: 1, delivered: 2, opened: 3, clicked: 4, replied: 6, bounced: 5, complained: 5 };
@@ -394,6 +432,7 @@ class AutoMailerStorage {
       // Allow tracking metadata update but don't downgrade status
       email.lastEvent = status;
       if (eventData) Object.assign(email, eventData);
+      this._updateIndexesIfChanged(email, prevResendId, prevTrackingId);
       this._save();
       return email;
     }
@@ -420,15 +459,26 @@ class AutoMailerStorage {
       this.data.stats.totalEmailsBounced++;
     }
     if (eventData) Object.assign(email, eventData);
+    this._updateIndexesIfChanged(email, prevResendId, prevTrackingId);
     this._save();
     return email;
   }
 
   findEmailByResendId(resendId) {
+    const idx = this._indexByResendId.get(resendId);
+    if (idx !== undefined && this.data.emails[idx] && this.data.emails[idx].resendId === resendId) {
+      return this.data.emails[idx];
+    }
+    // Fallback scan lineaire (securite si index desync)
     return this.data.emails.find(e => e.resendId === resendId) || null;
   }
 
   findEmailByTrackingId(trackingId) {
+    const idx = this._indexByTrackingId.get(trackingId);
+    if (idx !== undefined && this.data.emails[idx] && this.data.emails[idx].trackingId === trackingId) {
+      return this.data.emails[idx];
+    }
+    // Fallback scan lineaire (securite si index desync)
     return this.data.emails.find(e => e.trackingId === trackingId) || null;
   }
 

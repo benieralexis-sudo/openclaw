@@ -85,7 +85,15 @@ fi
 echo "[$(date)] Archive locale creee: ${BACKUP_DIR}/${BACKUP_FILE}"
 
 # --- Etape 2 : Sync vers Backblaze B2 via rclone ---
+# TODO: configurer rclone pour activer le backup offsite
 # DECOMMENTER les lignes ci-dessous une fois rclone configure
+
+# Verification rclone au demarrage — warning si non configure
+if ! command -v rclone &> /dev/null; then
+  echo "[$(date)] WARNING: rclone non installe — backup offsite DESACTIVE. Installer avec: curl https://rclone.org/install.sh | sudo bash"
+elif ! rclone listremotes 2>/dev/null | grep -q "^${B2_REMOTE}:"; then
+  echo "[$(date)] WARNING: remote rclone '${B2_REMOTE}' non configure — backup offsite DESACTIVE. Lancer: rclone config"
+fi
 
 # if ! command -v rclone &> /dev/null; then
 #   echo "[$(date)] ERREUR: rclone non installe. Installer avec: curl https://rclone.org/install.sh | sudo bash"

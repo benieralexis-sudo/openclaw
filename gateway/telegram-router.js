@@ -1919,7 +1919,7 @@ const healthServer = http.createServer(async (req, res) => {
                 const isDup = existing.some(e => e.linkedin === lead.linkedin);
                 if (!isDup) {
                   existing.push({ firstName: lead.firstName || '', lastName: lead.lastName || '', company: lead.company || '', title: lead.title || '', linkedin: lead.linkedin, capturedAt: new Date().toISOString() });
-                  fs.writeFileSync(liOnlyPath, JSON.stringify(existing, null, 2));
+                  atomicWriteSync(liOnlyPath, existing);
                   log.info('webhook-clay', 'LinkedIn-only lead capture: ' + (lead.firstName || '') + ' ' + (lead.lastName || '') + ' (' + (lead.company || '') + ')');
                 }
               } catch(e) { log.warn('webhook-clay', 'Erreur capture LinkedIn-only: ' + e.message); }
