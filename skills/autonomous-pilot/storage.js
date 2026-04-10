@@ -828,6 +828,27 @@ function getDataPoorStats() {
   };
 }
 
+// Retourne les emails data-poor qui NE SONT PAS prets (cooldown actif ou exhausted)
+// Utilise par le brain pour exclure ces leads du cycle et eviter les timeouts
+function getDataPoorNotReady() {
+  const data = _load();
+  if (!data.dataPoorQueue) return [];
+  const now = Date.now();
+  const notReady = [];
+  for (const [key, entry] of Object.entries(data.dataPoorQueue)) {
+    if (entry.failCount >= 3) {
+      notReady.push(key); // exhausted = skip definitif
+    } else {
+      const cooldownDays = entry.failCount === 1 ? 7 : 14;
+      const elapsed = now - new Date(entry.lastFailAt).getTime();
+      if (elapsed < cooldownDays * 24 * 60 * 60 * 1000) {
+        notReady.push(key); // cooldown actif
+      }
+    }
+  }
+  return notReady;
+}
+
 // --- Niche Performance Tracking (auto-pivot) ---
 
 function getNichePerformance() {
@@ -1021,7 +1042,7 @@ module.exports = {
   getLearnings, addLearning, addExperiment, completeExperiment, getActiveExperiments,
   getPatterns, savePatterns, getCriteriaHistory, addCriteriaAdjustment,
   getProspectResearch, saveProspectResearch,
-  addToDataPoorQueue, getDataPoorLeadsReady, removeFromDataPoorQueue, getDataPoorStats,
+  addToDataPoorQueue, getDataPoorLeadsReady, removeFromDataPoorQueue, getDataPoorStats, getDataPoorNotReady,
   getNichePerformance, trackNicheEvent,
   getNicheHealth, updateNicheHealth, markNicheAlertSent, getNicheHealthSummary,
   trackUsedAngle, getRecentAnglesForIndustry,

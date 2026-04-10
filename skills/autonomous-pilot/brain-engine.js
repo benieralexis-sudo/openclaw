@@ -20,7 +20,19 @@ function getSelfImproveStorage() { return getStorage('self-improve'); }
 function getWebIntelStorage() { return getStorage('web-intelligence'); }
 
 // Lock pour eviter l'execution simultanee de la meme action
-const _actionsInFlight = new Set();
+// Map avec TTL : chaque entree expire apres 5min (securite anti-blocage permanent)
+const _actionsInFlight = new Map();
+const ACTIONS_IN_FLIGHT_TTL = 5 * 60 * 1000; // 5 minutes
+
+function _cleanExpiredFlights() {
+  const now = Date.now();
+  for (const [key, ts] of _actionsInFlight) {
+    if (now - ts > ACTIONS_IN_FLIGHT_TTL) {
+      log.warn('brain', 'Action in-flight expiree (TTL ' + (ACTIONS_IN_FLIGHT_TTL / 1000) + 's): ' + key + ' — nettoyage auto');
+      _actionsInFlight.delete(key);
+    }
+  }
+}
 
 function getAppConfig() {
   try { return require('../../gateway/app-config.js'); }
@@ -78,7 +90,7 @@ class BrainEngine {
         const BRAIN_TIMEOUT = 10 * 60 * 1000;
         await Promise.race([
           this._brainCycle(),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('Brain cycle timeout (5min)')), BRAIN_TIMEOUT))
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Brain cycle timeout (10min)')), BRAIN_TIMEOUT))
         ]);
       }
       catch (e) { log.error('brain', 'Erreur cycle:', e.message); }
@@ -531,6 +543,15 @@ class BrainEngine {
         for (const email of recentlyFailedVal) {
           alreadySentVal.add(email);
         }
+        // Exclure les leads data-poor dont le cooldown n'est pas atteint
+        // (evite que le brain re-propose des leads qui vont echouer et causer un timeout)
+        try {
+          const dpNotReady = storage.getDataPoorNotReady ? storage.getDataPoorNotReady() : [];
+          for (const dpEmail of dpNotReady) {
+            alreadySentVal.add(dpEmail);
+          }
+          if (dpNotReady.length > 0) log.info('brain', 'Data-poor exclusion: ' + dpNotReady.length + ' leads exclus du cycle (cooldown actif ou exhausted)');
+        } catch (dpErr) { log.warn('brain', 'Data-poor exclusion echouee: ' + dpErr.message); }
         const gVal = storage.getGoals().weekly;
         const configMinScore = gVal.minLeadScore || 5;
         // Soft constraint: si assez de leads score >= 7, relever le seuil pour eviter les leads faibles (5-6)
@@ -618,13 +639,15 @@ class BrainEngine {
       if (action._skippedByBreaker) continue; // Skip par circuit breaker
       action._executed = true;
       if (action.autoExecute) {
+        // Nettoyer les locks expires avant chaque action (securite anti-blocage)
+        _cleanExpiredFlights();
         // Lock par action key pour eviter doublons si deux brain cycles s'executent
         const actionKey = action.type + '_' + (action.email || action.target || action.id || '');
         if (_actionsInFlight.has(actionKey)) {
           log.info('brain', 'Skip action ' + actionKey + ' (deja en cours)');
           continue;
         }
-        _actionsInFlight.add(actionKey);
+        _actionsInFlight.set(actionKey, Date.now());
         let result = null;
         let attempts = 0;
         const maxAttempts = RETRYABLE_ACTIONS.includes(action.type) ? MAX_RETRIES + 1 : 1;
@@ -762,6 +785,66 @@ class BrainEngine {
       }
     } else {
       log.info('brain', 'Cycle silencieux — 0 action reussie');
+    }
+
+    // 9. Health Score — mesure la sante du cycle (0-100)
+    try {
+      const totalActions = _actionResults.length;
+      const successActions = _actionResults.filter(r => r.success).length;
+      const failedActions = _actionResults.filter(r => !r.success).length;
+      const gateBlocked = _actionResults.filter(r => r.result && r.result.gateBlocked).length;
+      const skippedByBreaker = plan.actions.filter(a => a._skippedByBreaker).length;
+      const dataPoorSkips = _actionResults.filter(r => r.result && r.result.skipped).length;
+
+      // Score = base 100, penalites progressives
+      let healthScore = 100;
+      if (totalActions === 0) healthScore = 50; // Cycle vide = moyen (peut etre normal si pas de leads)
+      else {
+        const failRate = failedActions / totalActions;
+        healthScore -= Math.round(failRate * 40); // Max -40 pour fails
+        healthScore -= Math.min(skippedByBreaker * 5, 15); // Max -15 pour circuit breaker
+        healthScore -= Math.min(dataPoorSkips * 3, 15); // Max -15 pour data-poor
+        // Bonus pour envois reussis
+        healthScore += Math.min(emailsSent * 5, 20); // Max +20 pour emails envoyes
+      }
+      healthScore = Math.max(0, Math.min(100, healthScore));
+
+      const healthData = {
+        score: healthScore,
+        timestamp: new Date().toISOString(),
+        details: {
+          totalActions, successActions, failedActions,
+          gateBlocked, skippedByBreaker, dataPoorSkips, emailsSent
+        }
+      };
+
+      // Persister le health score
+      storage.updateStat('lastHealthScore', healthScore);
+      storage.updateStat('lastHealthDetails', healthData);
+
+      // Historique glissant (garder les 50 derniers)
+      const stats = storage.getStats();
+      const healthHistory = stats.healthHistory || [];
+      healthHistory.push(healthData);
+      if (healthHistory.length > 50) healthHistory.splice(0, healthHistory.length - 50);
+      storage.updateStat('healthHistory', healthHistory);
+
+      // Grade lisible
+      const grade = healthScore >= 90 ? 'A' : healthScore >= 70 ? 'B' : healthScore >= 50 ? 'C' : 'D';
+      log.info('brain', 'Health score: ' + healthScore + '/100 (grade ' + grade + ') — ' +
+        successActions + '/' + totalActions + ' actions OK, ' + emailsSent + ' emails, ' +
+        dataPoorSkips + ' data-poor, ' + gateBlocked + ' gate-blocked');
+
+      // Alerte si score < 50 (pas 70 pour eviter faux positifs au debut)
+      if (healthScore < 50 && chatId) {
+        await this.sendTelegram(chatId,
+          '⚠️ *Health score bas: ' + healthScore + '/100 (grade ' + grade + ')*\n' +
+          '📊 ' + successActions + '/' + totalActions + ' actions OK\n' +
+          '❌ ' + failedActions + ' echecs, ' + dataPoorSkips + ' data-poor\n' +
+          '_Le bot a des difficultes ce cycle._');
+      }
+    } catch (healthErr) {
+      log.warn('brain', 'Health score calcul echoue: ' + healthErr.message);
     }
   }
 

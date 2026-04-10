@@ -143,6 +143,11 @@ if (!TOKEN) {
 const tgClient = createTelegramClient(TOKEN, httpsAgent);
 const { telegramAPI, sendMessage, sendTyping, sendMessageWithButtons } = tgClient;
 
+// Connecter le logger aux alertes Telegram (erreurs critiques → notification immediate)
+log.setSendTelegram(async (chatId, text) => {
+  try { await sendMessage(chatId, text, 'Markdown'); } catch (e) { /* evite boucle infinie */ }
+});
+
 // Validation des variables critiques au demarrage
 if (!SENDER_EMAIL || SENDER_EMAIL === 'onboarding@resend.dev' || SENDER_EMAIL.trim() === '') {
   log.warn('router', 'SENDER_EMAIL non configure — envoi email desactive (test only: onboarding@resend.dev)');
