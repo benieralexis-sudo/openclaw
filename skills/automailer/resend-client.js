@@ -178,8 +178,8 @@ class ResendClient {
       const safeResolve = (val) => { if (!settled) { settled = true; resolve(val); } };
 
       const cleanup = () => {
-        try { if (tlsSocket) tlsSocket.destroy(); } catch (e) {}
-        try { socket.destroy(); } catch (e) {}
+        try { if (tlsSocket) tlsSocket.destroy(); } catch (e) { log.info('resend-client', 'TLS socket cleanup ignored: ' + e.message); }
+        try { socket.destroy(); } catch (e) { log.info('resend-client', 'Socket cleanup ignored: ' + e.message); }
       };
 
       socket.setTimeout(30000, () => { cleanup(); safeReject(new Error('Gmail SMTP timeout')); });
@@ -226,7 +226,7 @@ class ResendClient {
               if (!sendResp.startsWith('250')) { cleanup(); return safeReject(new Error('Send failed: ' + sendResp)); }
 
               // QUIT
-              try { await this._smtpCommand(currentSocket, 'QUIT'); } catch (e) {}
+              try { await this._smtpCommand(currentSocket, 'QUIT'); } catch (e) { log.info('resend-client', 'SMTP QUIT ignored: ' + e.message); }
               cleanup();
 
               // Extraire le message ID de la reponse Gmail
@@ -484,14 +484,14 @@ class ResendClient {
             const dm = require('./domain-manager.js');
             const domain = (mailbox.user || '').split('@')[1] || process.env.CLIENT_DOMAIN || '';
             if (domain && dm.recordSend) dm.recordSend(domain, e.to, true);
-          } catch (dmErr) {}
+          } catch (dmErr) { log.warn('resend-client', 'Domain-manager recordSend (success) echoue: ' + dmErr.message); }
         } catch (err) {
           results.push({ success: false, error: err.message });
           try {
             const dm = require('./domain-manager.js');
             const domain = (mailbox.user || '').split('@')[1] || process.env.CLIENT_DOMAIN || '';
             if (domain && dm.recordSend) dm.recordSend(domain, e.to, false);
-          } catch (dmErr) {}
+          } catch (dmErr) { log.warn('resend-client', 'Domain-manager recordSend (fail) echoue: ' + dmErr.message); }
         }
       }
       return { success: true, data: results };

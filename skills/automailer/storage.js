@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { atomicWriteSync } = require('../../gateway/utils.js');
+const log = require('../../gateway/logger.js');
 
 const DATA_DIR = process.env.AUTOMAILER_DATA_DIR || '/data/automailer';
 const DB_FILE = path.join(DATA_DIR, 'automailer-db.json');
@@ -87,7 +88,7 @@ class AutoMailerStorage {
       console.error('[automailer-storage] Erreur chargement (fichier corrompu?):', e.message);
       // Backup du fichier corrompu
       const corruptPath = DB_FILE + '.corrupt.' + Date.now();
-      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, corruptPath); } catch (_) {}
+      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, corruptPath); } catch (_) { log.error('automailer-storage', 'Echec rename fichier corrompu vers ' + corruptPath + ': ' + _.message); }
       // Tenter de charger depuis le dernier backup .bak si disponible
       let recovered = false;
       try {
@@ -103,9 +104,9 @@ class AutoMailerStorage {
               this._save();
               break;
             }
-          } catch (_) {}
+          } catch (_) { log.warn('automailer-storage', 'Backup illisible: ' + bak + ' — ' + _.message); }
         }
-      } catch (_) {}
+      } catch (_) { log.error('automailer-storage', 'Echec scan backups: ' + _.message); }
       if (!recovered) {
         console.error('[automailer-storage] Aucun backup valide — reset aux defaults. Fichier corrompu sauvegarde: ' + corruptPath);
         this._save();
@@ -700,7 +701,7 @@ class AutoMailerStorage {
         const archive = JSON.parse(fs.readFileSync(archiveFile, 'utf8'));
         return limit ? archive.slice(-limit) : archive;
       }
-    } catch (e) {}
+    } catch (e) { log.warn('automailer-storage', 'Echec lecture archive: ' + e.message); }
     return [];
   }
 
@@ -715,7 +716,7 @@ class AutoMailerStorage {
           newestDate: archive.length > 0 ? (archive[archive.length - 1].sentAt || archive[archive.length - 1].createdAt) : null
         };
       }
-    } catch (e) {}
+    } catch (e) { log.warn('automailer-storage', 'Echec lecture archive stats: ' + e.message); }
     return { count: 0, oldestDate: null, newestDate: null };
   }
 

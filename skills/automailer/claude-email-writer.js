@@ -310,7 +310,7 @@ Analyse ces donnees et produis ta recommandation strategique.`;
       try {
         const selfImproveStorage = require('/app/skills/self-improve/storage.js');
         siPrefs = selfImproveStorage.getEmailPreferences();
-      } catch (e2) {}
+      } catch (e2) { log.warn('claude-email-writer', 'Email prefs inaccessibles (fallback): ' + e2.message); }
     }
     if (siPrefs) {
       if (siPrefs.maxLength === 'short') emailLengthHint = '50-65 mots (court mais substantiel)';
@@ -908,7 +908,7 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
         if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
           forbiddenWordsRule = '\nMOTS ABSOLUMENT INTERDITS: ' + ep.forbiddenWords.join(', ');
         }
-      } catch (e2) {}
+      } catch (e2) { log.warn('claude-email-writer', 'Forbidden words config inaccessible (fallback): ' + e2.message); }
     }
     forbiddenWordsRule += _getQualityGatePatternsHint();
 
@@ -1101,7 +1101,7 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
           if (prefs.maxLength === 'short') emailLengthHint = '30-50 mots max (JAMAIS plus de 50)';
           else if (prefs.maxLength === 'long') emailLengthHint = '40-60 mots max';
         }
-      } catch (e2) {}
+      } catch (e2) { log.warn('claude-email-writer', 'FU email prefs inaccessibles (fallback): ' + e2.message); }
     }
 
     // Injecter les mots interdits depuis la config AP
@@ -1121,7 +1121,7 @@ Objectif de la campagne : ${campaignContext || 'prospection B2B generique'}`;
         if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
           forbiddenWordsRule = '\nMOTS ABSOLUMENT INTERDITS: ' + ep.forbiddenWords.join(', ');
         }
-      } catch (e2) {}
+      } catch (e2) { log.warn('claude-email-writer', 'FU forbidden words inaccessible (fallback): ' + e2.message); }
     }
     forbiddenWordsRule += _getQualityGatePatternsHint();
 
@@ -1198,7 +1198,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
       try {
         const selfImproveStorage = require('/app/skills/self-improve/storage.js');
         siPrefsfu = selfImproveStorage.getEmailPreferences();
-      } catch (e2) {}
+      } catch (e2) { log.warn('claude-email-writer', 'Step3 email prefs inaccessibles (fallback): ' + e2.message); }
     }
     if (siPrefsfu) {
       if (siPrefsfu.maxLength === 'short') emailLengthHint = '25-40 mots max (ultra-court)';
@@ -1222,7 +1222,7 @@ Ecris une relance avec un NOUVEL ANGLE different du premier email. OBLIGATOIRE :
         if (ep.forbiddenWords && ep.forbiddenWords.length > 0) {
           forbiddenWordsRule = '\nMOTS ABSOLUMENT INTERDITS: ' + ep.forbiddenWords.join(', ');
         }
-      } catch (e2) {}
+      } catch (e2) { log.warn('claude-email-writer', 'Step3 forbidden words inaccessible (fallback): ' + e2.message); }
     }
 
     // Injecter les patterns generiques bloques par le quality gate

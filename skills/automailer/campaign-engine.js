@@ -28,7 +28,7 @@ try {
     const _ae = new ActionExecutor({});
     _checkEmailSpecificity = _ae._checkEmailSpecificity.bind(_ae);
   }
-} catch (e) {}
+} catch (e) { log.warn('campaign-engine', 'ActionExecutor non disponible, fallback inline: ' + e.message); }
 if (!_checkEmailSpecificity) {
   // Fallback inline si action-executor non disponible
   _checkEmailSpecificity = function(body, subject, prospectIntel) {
@@ -373,7 +373,7 @@ function _smtpVerify(email) {
         // Cache le resultat
         _smtpCache.set(key, { result, ts: Date.now() });
         _evictOldest(_smtpCache, 5000);
-        try { socket.destroy(); } catch (e) {}
+        try { socket.destroy(); } catch (e) { log.info('campaign-engine', 'Socket cleanup ignored: ' + e.message); }
         resolve(result);
       };
 
@@ -523,7 +523,7 @@ function _getSelfImproveTimingPrefs() {
     try {
       const si = require('/app/skills/self-improve/storage.js');
       return si.getEmailPreferences() || {};
-    } catch (e2) { return {}; }
+    } catch (e2) { log.warn('campaign-engine', 'Self-improve prefs inaccessibles: ' + e2.message); return {}; }
   }
 }
 
@@ -1311,7 +1311,7 @@ class CampaignEngine {
                   cachedAnalysis = cachedResearch.strategicAnalysis;
                   log.info('campaign-engine', 'Strategic analysis CACHE HIT pour FU ' + contact.email);
                 }
-              } catch (cErr) {}
+              } catch (cErr) { log.warn('campaign-engine', 'Cache strategic analysis inaccessible: ' + cErr.message); }
               // Fallback : generer si pas en cache
               if (!cachedAnalysis) {
                 let fuNiche = null;
@@ -2073,7 +2073,7 @@ class CampaignEngine {
         const TelegramBot = require('node-telegram-bot-api');
         const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
         bot.sendMessage(chatId, '⚠️ Relance step ' + stepNumber + ' echouee apres ' + step._retryCount + ' tentatives pour : ' + contactNames + '\n' + (allInactive ? 'Tous les contacts sont inactifs (0 ouverture).' : 'La qualite etait insuffisante.'));
-      } catch (notifErr) {}
+      } catch (notifErr) { log.error('campaign-engine', 'Echec notification Telegram post-envoi: ' + notifErr.message); }
     } else {
       // Aucun envoi mais des contacts restent — remettre en pending pour retry
       step.status = 'pending';
