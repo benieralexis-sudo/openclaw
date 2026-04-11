@@ -123,7 +123,7 @@ class BrainEngine {
     // Heartbeat : verifie toutes les 6h que le brain tourne bien
     this.crons.push(new Cron('0 */6 * * *', { timezone: tz }, async () => {
       try {
-        const lastCycle = storage.getStat('lastBrainCycleAt');
+        const lastCycle = storage.getStats().lastBrainCycleAt;
         if (!lastCycle) return;
         const ageH = (Date.now() - new Date(lastCycle).getTime()) / (60 * 60 * 1000);
         if (ageH > 26) { // 26h = tolerance weekend (vendredi 18h → lundi 9h = ok, mais >26h en semaine = probleme)
