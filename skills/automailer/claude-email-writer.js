@@ -977,7 +977,25 @@ Le breakup exploite la loss aversion. Format strict : 2 phrases max, question fe
       }
     }
 
-    const systemPrompt = `Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu generes ${totalEmails} relances pour un prospect qui n'a pas repondu a ton premier email.
+    // Bloc langue pour generateSequenceEmails (meme logique que generateSingleEmail/generatePersonalizedFollowUp)
+    const seqEmailLanguage = process.env.EMAIL_LANGUAGE || 'fr';
+    let seqLanguageBlock = '';
+    if (seqEmailLanguage === 'ro') {
+      seqLanguageBlock = `=== LIMBA / LANGUAGE ===
+SCRIE EMAILURILE IN ROMANA. Nu in franceza, nu in engleza.
+Ton: ${process.env.EMAIL_TONE === 'informal' ? 'tutuit, relaxat dar profesional' : 'formal, cu dumneavoastra'}.
+Subiectele: in romana, 2-4 cuvinte, ca un mesaj intre colegi.
+Toate regulile de mai jos se aplica dar emailurile TREBUIE sa fie in romana naturala, nu tradusa.
+
+`;
+    } else if (seqEmailLanguage !== 'fr') {
+      seqLanguageBlock = `=== LANGUAGE ===
+Write ALL emails in ${seqEmailLanguage}. All rules below apply but the emails MUST be in native ${seqEmailLanguage}.
+
+`;
+    }
+
+    const systemPrompt = `${seqLanguageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu generes ${totalEmails} relances pour un prospect qui n'a pas repondu a ton premier email.
 ${nicheFollowUpBlock}
 PHILOSOPHIE : Chaque relance a une MISSION DIFFERENTE. On avance vers le RDV.
 
@@ -1352,9 +1370,20 @@ Mission : un angle different tire des DONNEES PROSPECT. 25-40 mots. Ton hesitant
 
     let fuLanguageBlock = '';
     if (fuEmailLanguage === 'ro') {
-      fuLanguageBlock = `LIMBA: SCRIE IN ROMANA. Ton: tutuit, relaxat dar profesional.\n${clientDescFU ? 'CE FACE ' + clientName.toUpperCase() + ': ' + clientDescFU + '\n' : ''}`;
+      fuLanguageBlock = `=== LIMBA / LANGUAGE ===
+SCRIE EMAILUL IN ROMANA. Nu in franceza, nu in engleza.
+Ton: ${process.env.EMAIL_TONE === 'informal' ? 'tutuit, relaxat dar profesional' : 'formal, cu dumneavoastra'}.
+Subiectul emailului: in romana, 2-4 cuvinte, ca un mesaj intre colegi.
+Toate regulile de mai jos se aplica dar emailul TREBUIE sa fie in romana naturala, nu tradusa.
+${clientDescFU ? 'CE FACE ' + clientName.toUpperCase() + ': ' + clientDescFU : ''}
+
+`;
     } else if (fuEmailLanguage !== 'fr') {
-      fuLanguageBlock = `LANGUAGE: Write in ${fuEmailLanguage}.\n`;
+      fuLanguageBlock = `=== LANGUAGE ===
+Write the email in ${fuEmailLanguage}. All rules below apply but the email MUST be in native ${fuEmailLanguage}.
+${clientDescFU ? 'WHAT ' + clientName.toUpperCase() + ' DOES: ' + clientDescFU : ''}
+
+`;
     }
 
     // Blocs Lavender et interdits adaptes a la langue
