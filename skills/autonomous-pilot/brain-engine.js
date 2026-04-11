@@ -1557,7 +1557,7 @@ Analyse et reponds en JSON:
           prompt += '\nLEADS DISPONIBLES POUR ENVOI (emails REELS — utilise-les dans tes actions send_email):\n';
 
           // Score composite deterministe : intent (45%) + quality (25%) + freshness (20%) + niche perf (10%)
-          // Remplace le tri arbitraire — reproductible, intent-first, zero cout
+          // Intent v9.0 : echelle 0-15, normalise sur 0-10 pour le composite
           const nichePerf = {};
           try {
             const apNicheData = storage.getNichePerformance ? storage.getNichePerformance() : {};
@@ -1579,9 +1579,9 @@ Analyse et reponds en JSON:
             const nicheA = a._nicheSlug ? (nichePerf[a._nicheSlug] || 0) / maxNichePerf * 10 : 5;
             const nicheB = b._nicheSlug ? (nichePerf[b._nicheSlug] || 0) / maxNichePerf * 10 : 5;
 
-            // Score composite : intent (45%) + quality (25%) + freshness (20%) + niche (10%)
-            const compositeA = intentA * 0.45 + (a.score || 0) * 0.25 + freshnessA * 0.20 + nicheA * 0.10;
-            const compositeB = intentB * 0.45 + (b.score || 0) * 0.25 + freshnessB * 0.20 + nicheB * 0.10;
+            // Score composite : intent (45%, normalise 0-15 → 0-10) + quality (25%) + freshness (20%) + niche (10%)
+            const compositeA = (intentA / 1.5) * 0.45 + (a.score || 0) * 0.25 + freshnessA * 0.20 + nicheA * 0.10;
+            const compositeB = (intentB / 1.5) * 0.45 + (b.score || 0) * 0.25 + freshnessB * 0.20 + nicheB * 0.10;
             return compositeB - compositeA;
           });
 
@@ -1590,11 +1590,15 @@ Analyse et reponds en JSON:
             const intentA = intent?.score || 0;
             const freshnessA = l.source === 'intent-monitor' ? 3 : (l.addedAt && (Date.now() - new Date(l.addedAt).getTime()) < 48 * 3600000 ? 2 : 0);
             const nicheA = l._nicheSlug ? (nichePerf[l._nicheSlug] || 0) / maxNichePerf * 10 : 5;
-            const composite = Math.round((intentA * 0.45 + (l.score || 0) * 0.25 + freshnessA * 0.20 + nicheA * 0.10) * 10) / 10;
+            const composite = Math.round(((intentA / 1.5) * 0.45 + (l.score || 0) * 0.25 + freshnessA * 0.20 + nicheA * 0.10) * 10) / 10;
+            const actionCat = intent?.actionCategory || (intentA >= 7 ? 'PRIORITE_ABSOLUE' : intentA >= 4 ? 'SEQUENCE_PRIORITAIRE' : 'FILE_ATTENTE');
 
             let line = '- ' + l.email + ' | ' + (l.nom || '?') + ' | ' + (l.titre || '?') + ' @ ' + (l.entreprise || '?') + ' | PRIORITY: ' + composite;
             if (intent && intent.score >= 3) {
-              line += ' | INTENT: ' + intent.score + '/10 (' + intent.summary + ')';
+              line += ' | INTENT: ' + intent.score + '/15 (' + intent.summary + ')';
+            }
+            if (actionCat === 'PRIORITE_ABSOLUE') {
+              line += ' | 🔴 CHAUD — email+LinkedIn immediat';
             }
             if (l.source === 'intent-monitor') {
               line += ' | ⚡ SIGNAL FRAIS';
@@ -1602,7 +1606,7 @@ Analyse et reponds en JSON:
             prompt += line + '\n';
           }
           prompt += '→ IMPORTANT: Utilise UNIQUEMENT les adresses email ci-dessus dans tes actions send_email. NE JAMAIS inventer de placeholders ou de variables {{...}}.\n';
-          prompt += '→ REGLE: Les leads sont tries par PRIORITY (score composite = intent 45% + quality 25% + fraicheur 20% + niche perf 10%). ENVOIE DANS CET ORDRE. Les leads marques "SIGNAL FRAIS" ont ete detectes par l\'Intent Monitor — ils sont PRIORITAIRES car le timing est crucial.\n';
+          prompt += '→ REGLE: Les leads sont tries par PRIORITY (score composite = intent 45% + quality 25% + fraicheur 20% + niche perf 10%). ENVOIE DANS CET ORDRE. Les leads marques CHAUD (intent 7+/15) sont PRIORITE ABSOLUE — email + LinkedIn le meme jour. Les leads "SIGNAL FRAIS" ont ete detectes par l\'Intent Monitor — timing crucial.\n';
           if (skipRate > 40) {
             prompt += '⚠️ ATTENTION: ' + skipRate + '% des send_email recents ont ete SKIPPED (donnees insuffisantes). Le pool de leads actuel manque de donnees exploitables. Les nouveaux leads doivent etre importes via Clay.\n';
           } else {
