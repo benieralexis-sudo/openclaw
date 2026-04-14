@@ -68,6 +68,34 @@ setInterval(() => {
   }
 }, 600000);
 
+// --- /rdv : page booking avec OG propre + redirect vers Cal.eu ---
+app.get('/rdv', (req, res) => {
+  const bookingUrl = process.env.BOOKING_URL || process.env.GOOGLE_BOOKING_URL || 'https://cal.eu/alexis-benier-sarxqi';
+  const clientName = process.env.CLIENT_NAME || 'iFIND';
+  // Si c'est un bot/crawler (LinkedIn, Facebook, Twitter) → servir le HTML avec les meta OG
+  // Si c'est un humain → redirect direct vers Cal.eu
+  const ua = (req.headers['user-agent'] || '').toLowerCase();
+  const isBot = /linkedinbot|facebookexternalhit|twitterbot|slackbot|whatsapp|telegrambot|googlebot|bingbot/i.test(ua);
+
+  if (isBot) {
+    res.send(`<!DOCTYPE html><html lang="fr"><head>
+<meta charset="UTF-8">
+<meta property="og:title" content="${clientName} — Appel d\u00e9couverte 15 min">
+<meta property="og:description" content="15 minutes pour voir comment g\u00e9n\u00e9rer 5 \u00e0 15 RDV qualifi\u00e9s par mois. Prospection B2B automatis\u00e9e par IA. Gratuit, sans engagement.">
+<meta property="og:image" content="https://${process.env.CLIENT_DOMAIN || 'ifind.fr'}/link-cal.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1254">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://${process.env.CLIENT_DOMAIN || 'ifind.fr'}/rdv">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://${process.env.CLIENT_DOMAIN || 'ifind.fr'}/link-cal.png">
+<title>${clientName} — R\u00e9server un appel</title>
+</head><body><p>Redirection...</p><script>window.location.href="${bookingUrl}";</script></body></html>`);
+  } else {
+    res.redirect(302, bookingUrl);
+  }
+});
+
 // Serve static files with cache headers
 app.use(express.static(path.join(__dirname), {
   maxAge: '1h',
