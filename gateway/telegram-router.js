@@ -1364,6 +1364,22 @@ async function handleCallback(update) {
             : '💾 Sauvegarde en fichier (domaine email non configure)');
         await sendMessage(chatId, summary, 'Markdown');
 
+        // Enregistrer le prospect comme meeting "proposed" pour etre notifie si booking Cal.eu
+        try {
+          const meetingStorage = require('../skills/meeting-scheduler/storage.js');
+          meetingStorage.createMeeting({
+            leadEmail: prospectData.email,
+            leadName: prospectData.prenom,
+            company: prospectData.entreprise || '',
+            bookingUrl: process.env.BOOKING_URL || process.env.GOOGLE_BOOKING_URL || '',
+            duration: 15,
+            notes: 'Audit pipeline gratuit — ' + nbProspects + ' email(s) envoye(s)'
+          });
+          log.info('router', 'Meeting proposed cree pour ' + prospectData.email + ' (audit)');
+        } catch (e) {
+          log.warn('router', 'Meeting proposed non cree:', e.message);
+        }
+
         // Marquer le prospect comme traite via l'API landing
         try {
           await new Promise((resolve, reject) => {
