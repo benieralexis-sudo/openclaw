@@ -32,6 +32,7 @@ app.use(helmet({
     }
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
   // Handled by nginx to avoid duplicates
   strictTransportSecurity: false,
   xFrameOptions: false,
