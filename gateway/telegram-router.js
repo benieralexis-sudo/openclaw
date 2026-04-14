@@ -184,12 +184,11 @@ invoiceBotHandler.start();
 
 // Report Workflow (prospection personnalisee depuis la landing page)
 const reportWorkflow = new ReportWorkflow({
-  apolloKey: APOLLO_KEY,
-  openaiKey: OPENAI_KEY,
   claudeKey: CLAUDE_KEY,
   resendKey: RESEND_KEY,
   senderEmail: SENDER_EMAIL,
   adminChatId: ADMIN_CHAT_ID,
+  bookingUrl: process.env.BOOKING_URL || '',
   sendTelegram: async (chatId, text) => {
     await sendMessage(chatId, text, 'Markdown');
   }
@@ -1357,12 +1356,28 @@ async function handleCallback(update) {
       const result = await reportWorkflow.generateReport(prospectData);
 
       if (result.success) {
+        const nbProspects = result.prospects ? result.prospects.length : 0;
         const summary = '✅ *Rapport termine pour ' + prospectData.prenom + '*\n\n' +
-          '📊 ' + (result.leads ? result.leads.length : 0) + ' leads trouves et scores\n' +
+          '✍️ ' + nbProspects + ' email(s) personnalise(s) redige(s)\n' +
           (result.sent && result.sent.method === 'email'
             ? '📧 Envoye par email a ' + prospectData.email
             : '💾 Sauvegarde en fichier (domaine email non configure)');
         await sendMessage(chatId, summary, 'Markdown');
+
+        // Marquer le prospect comme traite via l'API landing
+        try {
+          await new Promise((resolve, reject) => {
+            const req = require('http').request({
+              hostname: 'landing-page', port: 3080,
+              path: '/api/prospect/' + prospectId + '/status',
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            }, (res) => { let b = ''; res.on('data', d => b += d); res.on('end', () => resolve(b)); });
+            req.on('error', reject);
+            req.write(JSON.stringify({ status: 'completed' }));
+            req.end();
+          });
+        } catch (e) { /* best effort */ }
       }
     } catch (e) {
       log.error('router', 'Erreur report workflow:', e.message);

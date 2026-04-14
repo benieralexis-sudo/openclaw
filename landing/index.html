@@ -531,25 +531,25 @@
 <div class="wrap">
   <div class="sec-head">
     <p class="label rv">Gratuit &mdash; Z&eacute;ro engagement</p>
-    <h2 class="title title-lg rv rv-1">Voyez la qualit&eacute; avant de payer.</h2>
+    <h2 class="title title-lg rv rv-1">Jugez la qualit&eacute; sur VOS prospects.</h2>
   </div>
   <div class="audit-card rv rv-2">
     <p class="label">Audit Pipeline Gratuit</p>
-    <h3>5 emails personnalis&eacute;s sur vos vrais prospects. En 48h.</h3>
-    <p>Donnez-nous 5 noms de prospects que vous aimeriez contacter. On vous montre exactement l'email qu'on leur enverrait. Vous jugez la qualit&eacute; sur VOS cibles, pas sur un exemple fictif.</p>
+    <h3>On r&eacute;dige un email de prospection pour chacun de vos vrais prospects. En 48h.</h3>
+    <p>Donnez-nous 1 &agrave; 5 prospects que vous aimeriez contacter. Notre IA r&eacute;dige un email hyper-personnalis&eacute; pour chacun &mdash; pr&ecirc;t &agrave; copier-coller. Vous voyez exactement ce qu'on ferait pour vous, sur VOS cibles.</p>
 
     <div class="audit-steps">
       <div class="audit-step">
         <div class="audit-step-num">1</div>
-        <div class="audit-step-text"><strong>Envoyez 5 noms</strong> de prospects (nom + entreprise + poste)</div>
+        <div class="audit-step-text"><strong>Envoyez vos prospects</strong> (1 &agrave; 5 : nom, poste, entreprise)</div>
       </div>
       <div class="audit-step">
         <div class="audit-step-num">2</div>
-        <div class="audit-step-text"><strong>On analyse chaque prospect</strong> en profondeur (10+ sources)</div>
+        <div class="audit-step-text"><strong>Notre IA analyse et r&eacute;dige</strong> un email unique par prospect</div>
       </div>
       <div class="audit-step">
         <div class="audit-step-num">3</div>
-        <div class="audit-step-text"><strong>Vous recevez 5 emails personnalis&eacute;s</strong> pr&ecirc;ts &agrave; envoyer, en 48h</div>
+        <div class="audit-step-text"><strong>Vous recevez votre rapport</strong> avec les emails pr&ecirc;ts &agrave; envoyer, sous 48h</div>
       </div>
     </div>
 
@@ -557,15 +557,16 @@
       <input type="hidden" name="_csrf" id="audit-csrf-token">
       <input class="audit-input" type="text" name="prenom" placeholder="Votre pr&eacute;nom" required minlength="2">
       <input class="audit-input" type="email" name="email" placeholder="Votre email professionnel" required>
-      <input class="audit-input" type="text" name="entreprise" placeholder="Votre entreprise">
-      <textarea class="audit-input" name="prospects" rows="3" placeholder="5 prospects : Nom, Poste, Entreprise (un par ligne)" required minlength="10" style="resize:vertical"></textarea>
+      <input class="audit-input" type="text" name="entreprise" placeholder="Votre entreprise (et ce que vous vendez en 1 phrase)">
+      <textarea class="audit-input" name="prospects" rows="5" placeholder="Vos prospects &agrave; contacter (1 &agrave; 5, un par ligne) :&#10;Ex: Jean Dupont, CEO, TechVision&#10;Ex: Marie Martin, DG, InnoSoft" required minlength="5" style="resize:vertical"></textarea>
       <button type="submit" class="btn btn-p btn-lg" id="auditSubmitBtn" style="width:100%">Recevoir mon audit gratuit</button>
+      <p style="margin:8px 0 0;font-size:12px;color:var(--stone-400);text-align:center">Vous recevrez un email de confirmation imm&eacute;diatement.</p>
     </form>
 
     <!-- Social proof counter -->
     <div class="audit-social">
       <div class="audit-social-dot"></div>
-      <span><strong>47 audits</strong> r&eacute;alis&eacute;s &mdash; dernier audit envoy&eacute; il y a 3h</span>
+      <span><strong id="auditCount">47</strong> audits r&eacute;alis&eacute;s ce mois</span>
     </div>
 
     <!-- Trust badges -->
@@ -1020,25 +1021,27 @@ if (auditForm) {
     const prospects = fd.get('prospects');
     if (!prenom || prenom.trim().length < 2) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
-    if (!prospects || prospects.trim().length < 10) return;
+    if (!prospects || prospects.trim().length < 5) return;
+    // Vérifier au moins 1 ligne non-vide
+    var lines = prospects.split('\n').filter(function(l) { return l.trim().length > 3; });
+    if (lines.length < 1) { btn.textContent = 'Ajoutez au moins 1 prospect'; setTimeout(function() { btn.textContent = 'Recevoir mon audit gratuit'; }, 3000); return; }
+    if (lines.length > 5) { btn.textContent = '5 prospects maximum'; setTimeout(function() { btn.textContent = 'Recevoir mon audit gratuit'; }, 3000); return; }
     btn.textContent = 'Envoi...'; btn.disabled = true;
-    const API_BASE = window.location.pathname.startsWith('/landing') ? '/landing/api' : '/api';
+    var API_BASE = window.location.pathname.startsWith('/landing') ? '/landing/api' : '/api';
     fetch(API_BASE + '/lead-request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prenom: prenom, email: email, cible: 'AUDIT PIPELINE — Entreprise: ' + entreprise + ' — Prospects: ' + prospects })
+      body: JSON.stringify({ prenom: prenom, email: email, entreprise: entreprise, prospects: prospects })
     })
     .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
     .then(function() {
       btn.textContent = 'Audit demand\u00e9 !';
       btn.style.background = 'var(--green)';
-      auditForm.reset();
-      setTimeout(function() { btn.textContent = 'Recevoir mon audit gratuit'; btn.style.background = ''; btn.disabled = false; }, 5000);
+      auditForm.innerHTML = '<div style="text-align:center;padding:24px 0"><p style="font-size:18px;font-weight:700;color:var(--stone-900);margin:0 0 8px">Demande re\u00e7ue !</p><p style="font-size:15px;color:var(--stone-500);margin:0">V\u00e9rifiez votre bo\u00eete mail — vous allez recevoir un email de confirmation.</p><p style="font-size:14px;color:var(--stone-400);margin:12px 0 0">Votre rapport personnalis\u00e9 arrivera sous 48h.</p></div>';
     })
     .catch(function() {
-      // Fallback mailto
       window.location.href = 'mailto:alexis@getifind.fr?subject=Audit Pipeline Gratuit&body='
-        + encodeURIComponent('Prénom: ' + prenom + '\nEmail: ' + email + '\nEntreprise: ' + entreprise + '\n\nProspects à analyser:\n' + prospects);
+        + encodeURIComponent('Pr\u00e9nom: ' + prenom + '\nEmail: ' + email + '\nEntreprise: ' + entreprise + '\n\nProspects \u00e0 analyser:\n' + prospects);
       btn.textContent = 'Recevoir mon audit gratuit'; btn.disabled = false;
     });
   });

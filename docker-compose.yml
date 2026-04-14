@@ -231,6 +231,9 @@ services:
       VISITOR_DATA_DIR: /data/visitors
       CLIENT_DOMAIN: ${CLIENT_DOMAIN:-ifind.fr}
       CLIENT_NAME: ${CLIENT_NAME:-iFIND}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SENDER_EMAIL: ${SENDER_EMAIL:-}
+      REPLY_TO_EMAIL: ${REPLY_TO_EMAIL:-}
     volumes:
       - ./landing:/app
       - visitor-data:/data/visitors

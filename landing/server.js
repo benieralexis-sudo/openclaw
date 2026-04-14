@@ -20,14 +20,15 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://sc.lfeeder.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'", "https:"],
+      imgSrc: ["'self'", "data:", "https://sc.lfeeder.com"],
+      connectSrc: ["'self'", "https:", "https://sc.lfeeder.com"],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
-      baseUri: ["'self'"]
+      baseUri: ["'self'"],
+      scriptSrcAttr: null
     }
   },
   crossOriginEmbedderPolicy: false,
@@ -217,6 +218,26 @@ app.get('/api/prospect/:id', (req, res) => {
   res.json(prospect);
 });
 
+// --- API: Update prospect status (internal only) ---
+app.post('/api/prospect/:id/status', (req, res) => {
+  const ip = req.ip || '';
+  const isInternal = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' ||
+    ip.startsWith('172.') || ip.startsWith('::ffff:172.');
+  if (!isInternal) return res.status(403).json({ error: 'Acces refuse' });
+  const id = req.params.id.replace(/[^a-z0-9]/gi, '');
+  const prospect = prospects.get(id);
+  if (!prospect) return res.status(404).json({ error: 'Prospect introuvable' });
+  const newStatus = (req.body.status || '').trim();
+  if (['pending', 'completed', 'processing'].includes(newStatus)) {
+    prospect.status = newStatus;
+    if (newStatus === 'completed') prospect.completedAt = new Date().toISOString();
+    saveProspect(id, prospect);
+    res.json({ success: true });
+  } else {
+    res.status(400).json({ error: 'Statut invalide' });
+  }
+});
+
 // --- API: CSRF token endpoint ---
 app.get('/api/csrf-token', (req, res) => {
   res.json({ token: generateCsrfToken() });
@@ -240,6 +261,73 @@ async function notifyTelegram(message, buttons, retries = 2) {
   }
 }
 
+// --- Envoi email de confirmation via Resend ---
+function sendConfirmationEmail(prospect) {
+  const resendKey = process.env.RESEND_API_KEY;
+  const senderEmail = process.env.SENDER_EMAIL;
+  if (!resendKey || !senderEmail || senderEmail === 'onboarding@resend.dev') return Promise.resolve({ success: false });
+
+  const clientName = process.env.CLIENT_NAME || 'iFIND';
+  const safePrenom = sanitize(prospect.prenom, 50);
+  const prospectLines = (prospect.prospects || '').split('\n').filter(l => l.trim().length > 3);
+  const nb = prospectLines.length;
+
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:'Outfit',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:32px 16px;">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.06);">
+  <tr><td style="padding:36px 32px 28px;background:#1D4ED8;text-align:center;">
+    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;color:#fff;">${clientName}</span>
+  </td></tr>
+  <tr><td style="padding:36px 32px;">
+    <p style="margin:0 0 20px;font-size:20px;font-weight:700;color:#0F172A;">Bonjour ${safePrenom} !</p>
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;line-height:1.75;">Votre demande d'audit est bien re&ccedil;ue. Notre &eacute;quipe pr&eacute;pare <strong style="color:#0F172A;">${nb} email${nb > 1 ? 's' : ''} personnalis&eacute;${nb > 1 ? 's' : ''}</strong> pour vos prospects.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#F0FDF4;border-radius:12px;border:1px solid #BBF7D0;margin:20px 0;">
+      <tr><td style="padding:20px;">
+        <span style="font-size:14px;font-weight:700;color:#166534;">Ce qui se passe maintenant :</span>
+        <table cellpadding="0" cellspacing="0" style="margin:12px 0 0;">
+          <tr><td style="padding:4px 0;font-size:14px;color:#15803D;">&#9201; Notre IA analyse chacun de vos prospects</td></tr>
+          <tr><td style="padding:4px 0;font-size:14px;color:#15803D;">&#9998; Un email unique est r&eacute;dig&eacute; pour chacun</td></tr>
+          <tr><td style="padding:4px 0;font-size:14px;color:#15803D;">&#128232; Vous recevez votre rapport sous 48h</td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <p style="margin:0;font-size:15px;color:#475569;line-height:1.75;">En attendant, si vous avez des questions, r&eacute;pondez directement &agrave; cet email.</p>
+  </td></tr>
+  <tr><td style="padding:20px 32px;text-align:center;background:#F8FAFC;border-top:1px solid #E2E8F0;">
+    <p style="margin:0;font-size:12px;color:#94A3B8;">${clientName} &mdash; Prospection B2B intelligente</p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+
+  return new Promise((resolve) => {
+    const postData = JSON.stringify({
+      from: clientName + ' <' + senderEmail + '>',
+      to: [prospect.email],
+      subject: safePrenom + ', votre audit pipeline est en preparation',
+      html: html,
+      reply_to: process.env.REPLY_TO_EMAIL || senderEmail
+    });
+    const req = https.request({
+      hostname: 'api.resend.com', path: '/emails', method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + resendKey, 'Content-Length': Buffer.byteLength(postData) }
+    }, (res) => {
+      let body = '';
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        try {
+          const r = JSON.parse(body);
+          resolve(res.statusCode < 300 && r.id ? { success: true, id: r.id } : { success: false, error: r.message || 'HTTP ' + res.statusCode });
+        } catch (e) { resolve({ success: false, error: 'Parse error' }); }
+      });
+    });
+    req.on('error', e => resolve({ success: false, error: e.message }));
+    req.setTimeout(10000, () => { req.destroy(); resolve({ success: false, error: 'Timeout' }); });
+    req.write(postData);
+    req.end();
+  });
+}
+
 // --- API: Lead request from landing page form ---
 app.post('/api/lead-request', async (req, res) => {
   const ip = req.ip || req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || 'unknown';
@@ -247,7 +335,7 @@ app.post('/api/lead-request', async (req, res) => {
   // Honeypot check — bots fill hidden fields
   if (req.body.website) {
     console.log('[landing] Honeypot detecte depuis ' + ip);
-    return res.json({ success: true, message: 'Demande envoyee avec succes.' }); // Silent reject
+    return res.json({ success: true, message: 'Demande envoyee avec succes.' });
   }
 
   // CSRF validation
@@ -261,44 +349,83 @@ app.post('/api/lead-request', async (req, res) => {
 
   const prenom = sanitize(req.body.prenom, 50);
   const email = sanitize(req.body.email, 100);
-  const activite = sanitize(req.body.activite, 200); // optionnel (ancien formulaire)
-  const cible = sanitize(req.body.cible, 200);
+  const entreprise = sanitize(req.body.entreprise, 300);
+  const prospectsRaw = sanitize(req.body.prospects, 2000);
 
-  if (!prenom || !email || !cible) {
+  if (!prenom || !email || !prospectsRaw) {
     return res.status(400).json({ error: 'Tous les champs sont requis.' });
   }
 
-  // Valider le format email (sur la version non-sanitisee)
+  // Valider le format email
   const rawEmail = (req.body.email || '').trim();
   if (!isValidEmail(rawEmail)) {
     return res.status(400).json({ error: 'Email invalide.' });
   }
 
-  // Generate ID and save prospect
-  const id = generateId();
-  saveProspect(id, { prenom, email, activite, cible });
+  // Parser les prospects (1 par ligne)
+  const prospectLines = prospectsRaw.split('\n').map(l => l.trim()).filter(l => l.length > 3);
+  if (prospectLines.length < 1) {
+    return res.status(400).json({ error: 'Ajoutez au moins 1 prospect.' });
+  }
+  if (prospectLines.length > 5) {
+    return res.status(400).json({ error: '5 prospects maximum.' });
+  }
 
-  const message = `\u{1F525} <b>NOUVEAU PROSPECT — ${process.env.CLIENT_NAME || 'iFIND'}</b>\n\n` +
+  // Generate ID and save prospect (nouveau format avec prospects separes)
+  const id = generateId();
+  saveProspect(id, { prenom, email, entreprise, prospects: prospectsRaw, status: 'pending' });
+
+  const clientName = process.env.CLIENT_NAME || 'iFIND';
+  const message = `\u{1F525} <b>NOUVEL AUDIT — ${clientName}</b>\n\n` +
     `\u{1F464} <b>Prenom :</b> ${prenom}\n` +
     `\u{1F4E7} <b>Email :</b> ${email}\n` +
-    (activite ? `\u{1F3E2} <b>Activite :</b> ${activite}\n` : '') +
-    `\u{1F3AF} <b>Cible :</b> ${cible}\n\n` +
-    `\u{23F0} ${new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}`;
+    (entreprise ? `\u{1F3E2} <b>Entreprise :</b> ${entreprise}\n` : '') +
+    `\n<b>\u{1F3AF} ${prospectLines.length} prospect(s) :</b>\n` +
+    prospectLines.map((l, i) => `  ${i + 1}. ${l}`).join('\n') +
+    `\n\n\u{23F0} ${new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}`;
 
   const buttons = [[{
-    text: '\u{1F4CA} Generer le rapport pour ' + prenom,
+    text: '\u{2728} Generer le rapport pour ' + prenom + ' (' + prospectLines.length + ' prospects)',
     callback_data: 'rpt_' + id
   }]];
 
   try {
     await notifyTelegram(message, buttons);
-    console.log(`[landing] Prospect ${id}: ${prenom} (${rawEmail}) — ${activite}`);
+    console.log(`[landing] Audit ${id}: ${prenom} (${rawEmail}) — ${prospectLines.length} prospects`);
+
+    // Envoi email de confirmation immediat via Resend
+    sendConfirmationEmail({ prenom, email: rawEmail, prospects: prospectsRaw })
+      .then(r => {
+        if (r.success) console.log('[landing] Email confirmation envoye a ' + rawEmail);
+        else console.warn('[landing] Email confirmation echoue:', r.error);
+      })
+      .catch(e => console.warn('[landing] Email confirmation erreur:', e.message));
+
     res.json({ success: true, message: 'Demande envoyee avec succes.' });
   } catch (err) {
     console.error('[landing] Erreur envoi Telegram:', err.message);
     res.status(500).json({ error: 'Erreur serveur, reessayez.' });
   }
 });
+
+// --- Relance auto : rappel Telegram si audit non traite apres 24h ---
+setInterval(() => {
+  const now = Date.now();
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+  for (const [id, p] of prospects) {
+    if (p.status === 'pending' && p.createdAt) {
+      const age = now - new Date(p.createdAt).getTime();
+      if (age > TWENTY_FOUR_HOURS && age < TWENTY_FOUR_HOURS + 3600000) {
+        // Envoyer rappel Telegram (une seule fois dans la fenetre d'1h)
+        const msg = `\u{23F0} <b>RAPPEL — Audit en attente depuis 24h</b>\n\n` +
+          `\u{1F464} ${p.prenom} (${p.email})\n` +
+          `Le prospect attend son rapport !`;
+        const buttons = [[{ text: '\u{2728} Generer maintenant', callback_data: 'rpt_' + id }]];
+        notifyTelegram(msg, buttons).catch(() => {});
+      }
+    }
+  }
+}, 3600000); // Check toutes les heures
 
 // --- Visitor Tracking ---
 const tracker = new VisitorTracker({

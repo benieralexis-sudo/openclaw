@@ -1,14 +1,10 @@
 // iFIND - Workflow de generation de rapport de prospection personnalise
-// Chaine : parse cible → search Apollo → score IA → generate emails → HTML report → send/fallback
+// V2 : utilise les prospects fournis par le client (pas Apollo) + emails killer Claude
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const ApolloConnector = require('../skills/flowfast/apollo-connector.js');
-const AIClassifier = require('../skills/lead-enrich/ai-classifier.js');
-const ClaudeEmailWriter = require('../skills/automailer/claude-email-writer.js');
-const ResendClient = require('../skills/automailer/resend-client.js');
 const log = require('./logger.js');
 const { getBreaker } = require('./circuit-breaker.js');
 
@@ -23,58 +19,68 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// --- Parser les prospects depuis le textarea (1 par ligne) ---
+function parseProspects(rawText) {
+  if (!rawText || typeof rawText !== 'string') return [];
+  return rawText
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 3)
+    .slice(0, 5) // Max 5
+    .map(line => {
+      // Formats acceptes : "Nom, Poste, Entreprise" ou "Nom - Poste - Entreprise" ou "Nom / Poste / Entreprise"
+      const parts = line.split(/[,\-\/]/).map(p => p.trim()).filter(p => p.length > 0);
+      if (parts.length >= 3) {
+        return { fullName: parts[0], title: parts[1], company: parts.slice(2).join(', ') };
+      } else if (parts.length === 2) {
+        return { fullName: parts[0], title: '', company: parts[1] };
+      } else {
+        return { fullName: parts[0] || line, title: '', company: '' };
+      }
+    })
+    .filter(p => p.fullName.length > 1);
+}
+
 class ReportWorkflow {
   constructor(options) {
-    this.apolloKey = options.apolloKey;
-    this.openaiKey = options.openaiKey;
     this.claudeKey = options.claudeKey;
     this.resendKey = options.resendKey;
     this.senderEmail = options.senderEmail;
-    this.sendTelegram = options.sendTelegram; // async (chatId, text) => {}
+    this.sendTelegram = options.sendTelegram;
     this.adminChatId = options.adminChatId;
+    this.bookingUrl = options.bookingUrl || process.env.BOOKING_URL || '';
   }
 
   async generateReport(prospect) {
-    // prospect = { id, prenom, email, activite, cible }
     const chatId = this.adminChatId;
     const steps = [];
 
     try {
-      // Etape 1 : Parser la cible en criteres Apollo
-      await this.sendTelegram(chatId, '🔍 _Analyse de la cible..._');
-      const criteria = await this._parseCriteria(prospect.cible, prospect.activite);
-      steps.push('criteria_ok');
-
-      // Etape 2 : Recherche leads via Apollo
-      await this.sendTelegram(chatId, '📡 _Recherche de leads sur Apollo..._');
-      const leads = await this._searchLeads(criteria);
-      if (leads.length === 0) {
-        await this.sendTelegram(chatId, '⚠️ Aucun lead trouve pour cette cible. Essayez des criteres plus larges.');
-        return { success: false, error: 'no_leads' };
+      // Etape 1 : Parser les prospects
+      await this.sendTelegram(chatId, '🔍 _Analyse des prospects..._');
+      const prospects = parseProspects(prospect.prospects || prospect.cible || '');
+      if (prospects.length === 0) {
+        await this.sendTelegram(chatId, '⚠️ Aucun prospect valide trouve dans la demande.');
+        return { success: false, error: 'no_prospects' };
       }
-      steps.push('search_ok');
-      await this.sendTelegram(chatId, `✅ _${leads.length} leads trouves_`);
+      steps.push('parse_ok');
+      await this.sendTelegram(chatId, `✅ _${prospects.length} prospect(s) identifie(s)_`);
 
-      // Etape 3 : Scorer chaque lead via IA
-      await this.sendTelegram(chatId, '🧠 _Scoring des leads..._');
-      const scoredLeads = await this._scoreLeads(leads);
-      steps.push('scoring_ok');
-
-      // Etape 4 : Generer un email personnalise par lead
-      await this.sendTelegram(chatId, '✍️ _Redaction des emails personnalises..._');
-      const leadsWithEmails = await this._generateEmails(scoredLeads, prospect);
+      // Etape 2 : Generer un email personnalise par prospect via Claude
+      await this.sendTelegram(chatId, '✍️ _Redaction des emails personnalises par Claude..._');
+      const prospectsWithEmails = await this._generateAuditEmails(prospects, prospect);
       steps.push('emails_ok');
-      await this.sendTelegram(chatId, `✅ _${leadsWithEmails.length} emails rediges_`);
+      await this.sendTelegram(chatId, `✅ _${prospectsWithEmails.length} email(s) redige(s)_`);
 
-      // Etape 5 : Compiler le rapport HTML
-      const htmlReport = this._buildHtmlReport(leadsWithEmails, prospect);
+      // Etape 3 : Compiler le rapport HTML premium
+      const htmlReport = this._buildPremiumReport(prospectsWithEmails, prospect);
       steps.push('html_ok');
 
-      // Etape 6 : Envoyer par email ou fallback fichier
+      // Etape 4 : Envoyer par email
       const sendResult = await this._sendReport(htmlReport, prospect);
       steps.push('send_ok');
 
-      return { success: true, leads: leadsWithEmails, html: htmlReport, sent: sendResult, steps };
+      return { success: true, prospects: prospectsWithEmails, html: htmlReport, sent: sendResult, steps };
 
     } catch (error) {
       log.error('report-workflow', 'Erreur:', error.message);
@@ -83,154 +89,33 @@ class ReportWorkflow {
     }
   }
 
-  // --- Etape 1 : Parser la cible en criteres Apollo ---
-  async _parseCriteria(cible, activite) {
-    const prompt = `Transforme cette description de cible commerciale en criteres de recherche Apollo.io.
-
-Description de la cible : "${cible}"
-Activite du client : "${activite}"
-
-Retourne UNIQUEMENT un JSON valide :
-{
-  "titles": ["CEO", "Directeur General"],
-  "locations": ["Paris, FR"],
-  "seniorities": ["executive", "director"],
-  "keywords": "mot cle optionnel",
-  "companySize": ["11-50", "51-200"]
-}
-
-Regles :
-- titles : postes en anglais ET francais, max 5
-- locations : format "Ville, CC" (code pays 2 lettres), max 5. Si pas de ville precis, mettre les grandes villes francaises
-- seniorities : parmi executive, director, manager, senior, entry
-- companySize : parmi "1-10", "11-50", "51-200", "201-500", "501-1000", "1001-5000", "5001-10000"
-- keywords : mots-cles du secteur d'activite de la cible (pas du client), en anglais, separes par espaces
-
-Reponds UNIQUEMENT le JSON, rien d'autre.`;
-
-    try {
-      const response = await this._callOpenAI(prompt);
-      const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const criteria = JSON.parse(cleaned);
-      log.info('report-workflow', 'Criteres parses:', JSON.stringify(criteria).substring(0, 200));
-      return criteria;
-    } catch (error) {
-      log.info('report-workflow', 'Fallback criteres pour: ' + String(cible).substring(0, 100));
-      // Fallback basique
-      return {
-        titles: ['CEO', 'Directeur General', 'Founder', 'Gerant', 'President'],
-        locations: ['Paris, FR', 'Lyon, FR', 'Marseille, FR'],
-        seniorities: ['executive', 'director'],
-        companySize: ['11-50', '51-200', '201-500']
-      };
-    }
-  }
-
-  // --- Etape 2 : Recherche leads ---
-  async _searchLeads(criteria) {
-    if (!this.apolloKey) {
-      throw new Error('APOLLO_API_KEY non configuree — impossible de rechercher des leads');
-    }
-
-    const apollo = new ApolloConnector(this.apolloKey);
-    const result = await apollo.searchLeads({
-      limit: 10,
-      titles: criteria.titles,
-      locations: criteria.locations,
-      seniorities: criteria.seniorities,
-      keywords: criteria.keywords,
-      companySize: criteria.companySize,
-      verifiedEmails: true
-    });
-
-    if (!result.success) {
-      throw new Error('Erreur Apollo: ' + (result.error || 'recherche echouee'));
-    }
-
-    // Formater les leads
-    return (result.leads || []).map(lead => ({
-      firstName: lead.first_name || '',
-      lastName: lead.last_name || '',
-      fullName: ((lead.first_name || '') + ' ' + (lead.last_name || '')).trim(),
-      title: lead.title || 'Non precise',
-      email: lead.email || '',
-      linkedinUrl: lead.linkedin_url || '',
-      city: lead.city || '',
-      country: lead.country || '',
-      organization: {
-        name: (lead.organization && lead.organization.name) || '',
-        industry: (lead.organization && lead.organization.industry) || '',
-        website: (lead.organization && lead.organization.website_url) || '',
-        employeeCount: (lead.organization && lead.organization.estimated_num_employees) || 0,
-        foundedYear: (lead.organization && lead.organization.founded_year) || null,
-        city: (lead.organization && lead.organization.city) || '',
-        country: (lead.organization && lead.organization.country) || ''
-      }
-    })).filter(lead => lead.email); // Garder uniquement les leads avec email
-  }
-
-  // --- Etape 3 : Scoring IA (avec circuit breaker) ---
-  async _scoreLeads(leads) {
-    const classifier = new AIClassifier(this.openaiKey);
-    const breaker = getBreaker('report-scoring', { failureThreshold: 3, cooldownMs: 60000 });
-    const scored = [];
-
-    for (const lead of leads) {
-      try {
-        const classification = await breaker.call(() => classifier.classifyLead({
-          person: lead,
-          organization: lead.organization
-        }));
-        scored.push({ ...lead, classification });
-      } catch (e) {
-        log.warn('report-workflow', 'Scoring echoue pour ' + lead.fullName + ':', e.message);
-        scored.push({
-          ...lead,
-          classification: {
-            industry: lead.organization.industry || 'Non determine',
-            companySize: 'Non determine',
-            persona: 'Non determine',
-            score: 5,
-            scoreExplanation: 'Score par defaut (classification echouee)'
-          }
-        });
-      }
-    }
-
-    // Trier par score decroissant
-    scored.sort((a, b) => (b.classification.score || 0) - (a.classification.score || 0));
-    return scored;
-  }
-
-  // --- Etape 4 : Generation d'emails (avec circuit breaker) ---
-  async _generateEmails(scoredLeads, prospect) {
-    const writer = new ClaudeEmailWriter(this.claudeKey);
+  // --- Generation d'emails via Claude (le coeur du systeme) ---
+  async _generateAuditEmails(prospects, clientInfo) {
     const breaker = getBreaker('report-claude', { failureThreshold: 3, cooldownMs: 60000 });
-    const context = `Je suis ${prospect.prenom}, je dirige une activite de ${prospect.activite}. ` +
-      `Je contacte des ${prospect.cible}. Mon objectif est de proposer mes services et obtenir un rendez-vous.`;
+    const senderName = process.env.SENDER_NAME || 'Alexis';
+    const clientName = process.env.CLIENT_NAME || 'iFIND';
+    const clientEntreprise = clientInfo.entreprise || '';
 
     const results = [];
 
-    for (const lead of scoredLeads) {
+    for (const target of prospects) {
       try {
-        const email = await breaker.call(() => writer.generateSingleEmail({
-          name: lead.fullName,
-          firstName: lead.firstName,
-          title: lead.title,
-          company: lead.organization.name,
-          email: lead.email
-        }, context));
-        results.push({ ...lead, generatedEmail: email });
+        const email = await breaker.call(() => this._callClaude(target, clientInfo, senderName, clientName, clientEntreprise));
+        results.push({ ...target, generatedEmail: email });
       } catch (e) {
-        log.warn('report-workflow', 'Email echoue pour ' + lead.fullName + ':', e.message);
+        log.warn('report-workflow', 'Email echoue pour ' + target.fullName + ':', e.message);
+        // Fallback : email generique mais propre
+        const firstName = target.fullName.split(' ')[0];
         results.push({
-          ...lead,
+          ...target,
           generatedEmail: {
-            subject: 'Echange professionnel — ' + prospect.activite,
-            body: 'Bonjour ' + lead.firstName + ',\n\n' +
-              'Je me permets de vous contacter car votre profil de ' + lead.title + ' chez ' + lead.organization.name + ' a retenu mon attention.\n\n' +
-              'Seriez-vous disponible pour un bref echange ?\n\n' +
-              'Cordialement,\n' + prospect.prenom
+            subject: firstName + ', rapide question',
+            body: 'Bonjour ' + firstName + ',\n\n' +
+              (target.title ? 'En tant que ' + target.title + (target.company ? ' chez ' + target.company : '') + ', ' : '') +
+              'vous gerez probablement la croissance commerciale au quotidien.\n\n' +
+              'Une question : comment vous generez vos nouveaux clients aujourd\'hui ?\n\n' +
+              'Bonne journee,\n' + senderName,
+            whyItWorks: 'Email de fallback — question ouverte sur l\'acquisition client.'
           }
         });
       }
@@ -239,102 +124,217 @@ Reponds UNIQUEMENT le JSON, rien d'autre.`;
     return results;
   }
 
-  // --- Etape 5 : Construction du rapport HTML ---
-  _buildHtmlReport(leads, prospect) {
-    const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
+  // --- Appel Claude pour un email individuel ---
+  async _callClaude(target, clientInfo, senderName, clientName, clientEntreprise) {
+    const firstName = target.fullName.split(' ')[0];
 
-    const leadsHtml = leads.map((lead, i) => {
-      const score = lead.classification ? lead.classification.score : 5;
-      const scoreColor = score >= 7 ? '#16A34A' : score >= 5 ? '#D97706' : '#DC2626';
-      const industry = lead.classification ? escapeHtml(lead.classification.industry) : '';
-      const companySize = lead.classification ? escapeHtml(lead.classification.companySize) : '';
-      const safeName = escapeHtml(lead.fullName);
-      const safeTitle = escapeHtml(lead.title);
-      const safeOrg = escapeHtml(lead.organization.name);
-      const safeEmail = escapeHtml(lead.email);
-      const safeCity = escapeHtml(lead.city);
-      const safeSubject = escapeHtml(lead.generatedEmail.subject);
-      const safeBody = escapeHtml(lead.generatedEmail.body);
+    const prompt = `Tu es ${senderName}, fondateur de ${clientName} (prospection B2B automatisee par IA).
+${clientEntreprise ? 'Le client qui demande cet audit dirige : ' + clientEntreprise + '.' : ''}
+
+CONTEXTE : Un prospect potentiel a demande un audit gratuit pour voir la qualite de nos emails. Tu dois rediger UN email de prospection EXCEPTIONNEL pour cette cible. Cet email est une DEMO de notre savoir-faire — il doit etre tellement bon que le prospect veut signer.
+
+CIBLE :
+- Nom : ${target.fullName}
+- Poste : ${target.title || 'Non precise'}
+- Entreprise : ${target.company || 'Non precisee'}
+
+REGLES STRICTES (style cold email top 1%) :
+1. OBJET : 2-4 mots minuscules, specifique a la cible. Exemples : "${firstName.toLowerCase()}, une question", "recrutement ${target.company ? target.company.toLowerCase() : 'equipe'}", "${target.title ? target.title.toLowerCase().split(' ')[0] : 'question'} + croissance"
+2. CORPS : Maximum 60 mots. Structure = Observation factuelle specifique (1 phrase) → Hypothese business (1 phrase) → Question ouverte (1 phrase).
+3. TUTOIEMENT si le poste est startup/tech, VOUVOIEMENT sinon.
+4. ZERO formule bateau : pas de "je me permets", "n'hesitez pas", "je serais ravi", "j'ai vu que", "en parcourant votre profil".
+5. Signe juste : "${senderName}" (pas de titre, pas de lien, pas de PS).
+
+AJOUTE aussi un champ "whyItWorks" (2-3 phrases en francais) qui explique POURQUOI cet email est efficace — c'est la partie pedagogique qui impressionne le prospect de l'audit.
+
+Reponds UNIQUEMENT en JSON valide :
+{
+  "subject": "objet de l'email",
+  "body": "corps de l'email",
+  "whyItWorks": "explication de pourquoi cet email fonctionne"
+}`;
+
+    return new Promise((resolve, reject) => {
+      const postData = JSON.stringify({
+        model: 'claude-sonnet-4-6-20250514',
+        max_tokens: 600,
+        temperature: 0.7,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      const req = https.request({
+        hostname: 'api.anthropic.com',
+        path: '/v1/messages',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.claudeKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      }, (res) => {
+        let body = '';
+        res.on('data', chunk => { body += chunk; });
+        res.on('end', () => {
+          try {
+            const response = JSON.parse(body);
+            if (response.content && response.content[0]) {
+              const text = response.content[0].text.trim();
+              const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+              const email = JSON.parse(cleaned);
+              if (!email.subject || !email.body) throw new Error('Email incomplet');
+              resolve(email);
+            } else {
+              reject(new Error('Reponse Claude invalide: ' + (response.error ? response.error.message : 'pas de contenu')));
+            }
+          } catch (e) { reject(e); }
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(30000, () => { req.destroy(); reject(new Error('Timeout Claude API')); });
+      req.write(postData);
+      req.end();
+    });
+  }
+
+  // --- Rapport HTML premium (design qui vend) ---
+  _buildPremiumReport(prospects, clientInfo) {
+    const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
+    const clientName = process.env.CLIENT_NAME || 'iFIND';
+    const safePrenom = escapeHtml(clientInfo.prenom);
+    const safeEntreprise = escapeHtml(clientInfo.entreprise || '');
+    const bookingUrl = this.bookingUrl;
+
+    const prospectsHtml = prospects.map((p, i) => {
+      const safeName = escapeHtml(p.fullName);
+      const safeTitle = escapeHtml(p.title || 'Poste non precise');
+      const safeCompany = escapeHtml(p.company || 'Entreprise non precisee');
+      const safeSubject = escapeHtml(p.generatedEmail.subject);
+      const safeBody = escapeHtml(p.generatedEmail.body);
+      const safeWhy = escapeHtml(p.generatedEmail.whyItWorks || '');
 
       return `
-    <tr><td style="padding:0 32px 24px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E7E5E4;border-radius:12px;overflow:hidden;">
-        <tr><td style="padding:24px;">
+    <tr><td style="padding:0 32px 28px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <!-- Prospect header -->
+        <tr><td style="padding:24px 24px 16px;border-bottom:1px solid #F1F5F9;">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-              <td>
-                <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:18px;font-weight:700;color:#1C1917;">${safeName}</span><br>
-                <span style="font-size:14px;color:#57534E;">${safeTitle} chez ${safeOrg}</span><br>
-                <span style="font-size:13px;color:#A8A29E;">${safeEmail}${safeCity ? ' &bull; ' + safeCity : ''}${industry ? ' &bull; ' + industry : ''}</span>
-              </td>
-              <td style="text-align:right;vertical-align:top;">
-                <span style="display:inline-block;padding:4px 12px;background:${scoreColor}15;color:${scoreColor};font-size:14px;font-weight:700;border-radius:20px;">${score}/10</span>
+              <td style="vertical-align:top;">
+                <span style="display:inline-block;width:32px;height:32px;background:#1D4ED8;color:#fff;border-radius:50%;text-align:center;line-height:32px;font-weight:700;font-size:14px;margin-right:12px;vertical-align:middle;">${i + 1}</span>
+                <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:18px;font-weight:700;color:#0F172A;vertical-align:middle;">${safeName}</span>
+                <br><span style="font-size:14px;color:#64748B;margin-left:44px;">${safeTitle}${safeCompany !== 'Entreprise non precisee' ? ' chez <strong style="color:#334155;">' + safeCompany + '</strong>' : ''}</span>
               </td>
             </tr>
           </table>
-          <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;background:#F5F5F4;border-radius:8px;">
-            <tr><td style="padding:20px;">
-              <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:13px;font-weight:600;color:#57534E;text-transform:uppercase;letter-spacing:0.05em;">Email pret a envoyer</span>
-              <p style="margin:8px 0 4px;font-size:14px;font-weight:600;color:#1C1917;">Objet : ${safeSubject}</p>
-              <p style="margin:0;font-size:14px;color:#57534E;line-height:1.7;white-space:pre-line;">${safeBody}</p>
+        </td></tr>
+        <!-- Email pret a envoyer -->
+        <tr><td style="padding:20px 24px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFC;border-radius:12px;border:1px solid #E2E8F0;">
+            <tr><td style="padding:20px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr><td style="padding-bottom:4px;">
+                  <span style="font-size:11px;font-weight:700;color:#1D4ED8;text-transform:uppercase;letter-spacing:0.08em;">Email pret a copier-coller</span>
+                </td></tr>
+                <tr><td style="padding-bottom:12px;border-bottom:1px solid #E2E8F0;">
+                  <span style="font-size:13px;color:#64748B;">Objet :</span>
+                  <span style="font-size:15px;font-weight:700;color:#0F172A;"> ${safeSubject}</span>
+                </td></tr>
+                <tr><td style="padding-top:16px;">
+                  <p style="margin:0;font-size:15px;color:#334155;line-height:1.8;white-space:pre-line;">${safeBody}</p>
+                </td></tr>
+              </table>
             </td></tr>
           </table>
         </td></tr>
+        ${safeWhy ? `<!-- Pourquoi ca marche -->
+        <tr><td style="padding:0 24px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFBEB;border-radius:10px;border:1px solid #FDE68A;">
+            <tr><td style="padding:14px 18px;">
+              <span style="font-size:12px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:0.05em;">Pourquoi cet email fonctionne</span>
+              <p style="margin:6px 0 0;font-size:13px;color:#78350F;line-height:1.6;">${safeWhy}</p>
+            </td></tr>
+          </table>
+        </td></tr>` : ''}
       </table>
     </td></tr>`;
     }).join('\n');
 
-    const safeProspectPrenom = escapeHtml(prospect.prenom);
-    const safeProspectCible = escapeHtml(prospect.cible);
-    const safeProspectActivite = escapeHtml(prospect.activite);
+    // CTA : booking link ou mailto fallback
+    const ctaHref = bookingUrl
+      ? bookingUrl
+      : 'mailto:' + (process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL || 'alexis@getifind.fr') + '?subject=' + encodeURIComponent(clientName + ' — Je veux automatiser ca') + '&body=' + encodeURIComponent('Bonjour, j\'ai recu mon audit et je suis interesse(e).\n\n' + (clientInfo.prenom || ''));
+    const ctaText = bookingUrl ? 'Reserver un appel de 15 min' : 'Discutons de vos objectifs';
 
     return `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rapport ${process.env.CLIENT_NAME || 'iFIND'} — ${safeProspectPrenom}</title>
+<title>Votre Audit Pipeline — ${clientName}</title>
 </head>
-<body style="margin:0;padding:0;background:#F5F5F4;font-family:'Outfit',Arial,Helvetica,sans-serif;color:#1C1917;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F5F4;padding:32px 16px;">
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:'Outfit',Arial,Helvetica,sans-serif;color:#0F172A;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:32px 16px;">
 <tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#FFFFFF;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
 
-  <!-- Header -->
-  <tr><td style="padding:40px 32px;background:#1D4ED8;text-align:center;">
-    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:28px;font-weight:800;color:#FFFFFF;letter-spacing:-0.03em;">${process.env.CLIENT_NAME || 'iFIND'}</span>
-    <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:15px;">Votre rapport de prospection personnalise</p>
+  <!-- Header gradient -->
+  <tr><td style="padding:48px 32px 40px;background:linear-gradient(135deg,#1D4ED8 0%,#3B82F6 50%,#1E40AF 100%);text-align:center;">
+    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:32px;font-weight:800;color:#FFFFFF;letter-spacing:-0.03em;">${clientName}</span>
+    <p style="margin:12px 0 0;color:rgba(255,255,255,0.85);font-size:16px;font-weight:500;">Votre audit pipeline personnalise</p>
   </td></tr>
 
   <!-- Intro -->
   <tr><td style="padding:40px 32px 32px;">
-    <p style="margin:0 0 16px;font-size:18px;font-weight:600;color:#1C1917;">Bonjour ${safeProspectPrenom},</p>
-    <p style="margin:0 0 12px;font-size:15px;color:#57534E;line-height:1.75;">Nous avons identifie <strong style="color:#1C1917;">${leads.length} prospects</strong> qui correspondent a votre cible :</p>
-    <p style="margin:0 0 12px;padding:12px 16px;background:#F5F5F4;border-radius:8px;font-size:14px;color:#57534E;font-style:italic;">&laquo; ${safeProspectCible} &raquo;</p>
-    <p style="margin:0;font-size:15px;color:#57534E;line-height:1.75;">Pour chacun, nous avons redige un email de prospection personnalise, pret a envoyer. Il vous suffit de copier-coller.</p>
+    <p style="margin:0 0 20px;font-size:22px;font-weight:700;color:#0F172A;font-family:'Space Grotesk',Arial,sans-serif;">Bonjour ${safePrenom},</p>
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;line-height:1.75;">Comme promis, voici votre audit gratuit. Nous avons redige <strong style="color:#0F172A;">${prospects.length} email${prospects.length > 1 ? 's' : ''} de prospection personnalise${prospects.length > 1 ? 's' : ''}</strong> pour vos vrais prospects.</p>
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;line-height:1.75;">Chaque email est <strong>pret a copier-coller</strong>. Vous pouvez les envoyer tel quel ou les adapter.</p>
+    ${safeEntreprise ? '<p style="margin:0;padding:14px 20px;background:#F8FAFC;border-radius:10px;border-left:4px solid #1D4ED8;font-size:14px;color:#475569;">Contexte : <strong style="color:#0F172A;">' + safeEntreprise + '</strong></p>' : ''}
   </td></tr>
 
   <!-- Separator -->
-  <tr><td style="padding:0 32px;"><hr style="border:none;border-top:1px solid #E7E5E4;margin:0;"></td></tr>
+  <tr><td style="padding:0 32px;"><hr style="border:none;border-top:2px solid #F1F5F9;margin:0;"></td></tr>
 
-  <!-- Leads title -->
+  <!-- Prospects title -->
   <tr><td style="padding:32px 32px 24px;">
-    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:20px;font-weight:700;color:#1C1917;">Vos ${leads.length} prospects</span>
+    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:22px;font-weight:700;color:#0F172A;">Vos ${prospects.length} email${prospects.length > 1 ? 's' : ''} personnalise${prospects.length > 1 ? 's' : ''}</span>
+    <p style="margin:8px 0 0;font-size:14px;color:#94A3B8;">Rediges par notre IA de prospection — style cold email top 1%</p>
   </td></tr>
 
-  <!-- Lead cards -->
-${leadsHtml}
+  <!-- Prospect cards -->
+${prospectsHtml}
+
+  <!-- Section "Ce qu'on ferait pour vous" -->
+  <tr><td style="padding:16px 32px 32px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#EFF6FF;border-radius:16px;border:1px solid #BFDBFE;">
+      <tr><td style="padding:28px;">
+        <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:18px;font-weight:700;color:#1E40AF;">Imaginez ca x500 chaque mois.</span>
+        <p style="margin:12px 0 0;font-size:15px;color:#1E40AF;line-height:1.75;">
+          Ce que vous venez de voir sur ${prospects.length} prospect${prospects.length > 1 ? 's' : ''}, on le fait <strong>automatiquement</strong> sur des centaines de prospects chaque mois :
+        </p>
+        <table cellpadding="0" cellspacing="0" style="margin:16px 0 0;">
+          <tr><td style="padding:6px 0;font-size:14px;color:#1E3A8A;">&#10003; Identification de vos prospects ideaux (signaux d'achat en temps reel)</td></tr>
+          <tr><td style="padding:6px 0;font-size:14px;color:#1E3A8A;">&#10003; Redaction IA personnalisee pour chaque prospect (comme cet audit)</td></tr>
+          <tr><td style="padding:6px 0;font-size:14px;color:#1E3A8A;">&#10003; Envoi automatique + relances intelligentes (3 touchpoints)</td></tr>
+          <tr><td style="padding:6px 0;font-size:14px;color:#1E3A8A;">&#10003; Gestion des reponses et booking de RDV automatise</td></tr>
+        </table>
+        <p style="margin:16px 0 0;font-size:15px;color:#1E40AF;line-height:1.75;"><strong>Resultat moyen : 5 a 15 RDV qualifies par mois.</strong></p>
+      </td></tr>
+    </table>
+  </td></tr>
 
   <!-- CTA -->
-  <tr><td style="padding:32px;text-align:center;border-top:1px solid #E7E5E4;">
-    <p style="margin:0 0 8px;font-family:'Space Grotesk',Arial,sans-serif;font-size:20px;font-weight:700;color:#1C1917;">Interesse(e) ?</p>
-    <p style="margin:0 0 24px;font-size:15px;color:#57534E;">Nous pouvons automatiser l'envoi de ces emails et la gestion des reponses.</p>
-    <a href="mailto:${process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL}?subject=${process.env.CLIENT_NAME || 'iFIND'} — Interesse par l'offre&body=Bonjour ${process.env.SENDER_NAME || 'Alexis'},%0A%0AJ'ai recu mon rapport de prospection et je suis interesse(e).%0A%0AMerci de me recontacter.%0A%0A${encodeURIComponent(prospect.prenom)}" style="display:inline-block;padding:16px 32px;background:#1D4ED8;color:#FFFFFF;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;">Discutons de vos objectifs</a>
+  <tr><td style="padding:8px 32px 40px;text-align:center;">
+    <p style="margin:0 0 8px;font-family:'Space Grotesk',Arial,sans-serif;font-size:22px;font-weight:700;color:#0F172A;">On en discute ?</p>
+    <p style="margin:0 0 24px;font-size:15px;color:#64748B;">15 minutes pour voir comment adapter ca a votre business.</p>
+    <a href="${ctaHref}" style="display:inline-block;padding:18px 40px;background:#1D4ED8;color:#FFFFFF;text-decoration:none;border-radius:12px;font-weight:700;font-size:16px;box-shadow:0 4px 16px rgba(29,78,216,0.3);">${ctaText}</a>
+    <p style="margin:16px 0 0;font-size:13px;color:#94A3B8;">Gratuit, sans engagement. On repond en moins de 24h.</p>
   </td></tr>
 
   <!-- Footer -->
-  <tr><td style="padding:24px 32px;text-align:center;background:#FAFAF9;border-top:1px solid #E7E5E4;">
-    <p style="margin:0;font-size:12px;color:#A8A29E;">${process.env.CLIENT_NAME || 'iFIND'} &mdash; Prospection B2B intelligente &bull; ${date}</p>
+  <tr><td style="padding:24px 32px;text-align:center;background:#F8FAFC;border-top:1px solid #E2E8F0;">
+    <p style="margin:0 0 4px;font-family:'Space Grotesk',Arial,sans-serif;font-size:14px;font-weight:600;color:#64748B;">${clientName}</p>
+    <p style="margin:0;font-size:12px;color:#94A3B8;">Prospection B2B intelligente &bull; ${date}</p>
   </td></tr>
 
 </table>
@@ -344,23 +344,20 @@ ${leadsHtml}
 </html>`;
   }
 
-  // --- Etape 6 : Envoi ou fallback ---
+  // --- Envoi rapport ou fallback fichier ---
   async _sendReport(htmlReport, prospect) {
     const chatId = this.adminChatId;
 
-    // Verifier si un vrai domaine email est configure
     const hasRealSender = this.senderEmail &&
       this.senderEmail !== 'onboarding@resend.dev' &&
       this.senderEmail !== '';
 
     if (hasRealSender && this.resendKey) {
       try {
-        const resend = new ResendClient(this.resendKey, this.senderEmail);
-        const result = await resend.sendEmail(
+        const result = await this._sendViaResend(
           prospect.email,
-          'Votre rapport de prospection ' + (process.env.CLIENT_NAME || 'iFIND') + ' — ' + prospect.prenom,
-          htmlReport,
-          { fromName: process.env.CLIENT_NAME || 'iFIND', replyTo: process.env.REPLY_TO_EMAIL || process.env.SENDER_EMAIL }
+          'Votre audit pipeline ' + (process.env.CLIENT_NAME || 'iFIND') + ' — ' + prospect.prenom,
+          htmlReport
         );
         if (result.success) {
           await this.sendTelegram(chatId, '📧 *Rapport envoye par email a ' + prospect.email + '*');
@@ -372,13 +369,9 @@ ${leadsHtml}
       }
     }
 
-    // Fallback : sauvegarder le HTML en fichier
+    // Fallback fichier
     const reportsDir = '/data/flowfast/reports';
-    try {
-      if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
-    } catch (e) {
-      log.warn('report-workflow', 'Impossible de creer ' + reportsDir + ':', e.message);
-    }
+    try { if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true }); } catch (e) {}
 
     const filename = 'rapport-' + prospect.id + '.html';
     const filepath = path.join(reportsDir, filename);
@@ -388,8 +381,7 @@ ${leadsHtml}
       await this.sendTelegram(chatId,
         '💾 *Rapport genere pour ' + prospect.prenom + '*\n\n' +
         '📁 Fichier : `' + filepath + '`\n' +
-        '⚠️ _Email non envoye (domaine email non configure)_\n\n' +
-        'Pour envoyer manuellement, copiez le contenu du fichier HTML.'
+        '⚠️ _Email non envoye (domaine email non configure)_'
       );
       return { success: true, method: 'file', path: filepath };
     } catch (e) {
@@ -398,51 +390,126 @@ ${leadsHtml}
     }
   }
 
-  // --- Utilitaire : appel OpenAI (avec circuit breaker) ---
-  _callOpenAI(prompt) {
-    const breaker = getBreaker('report-openai', { failureThreshold: 3, cooldownMs: 60000 });
-    return breaker.call(() => new Promise((resolve, reject) => {
+  // --- Envoi via Resend API ---
+  _sendViaResend(to, subject, html) {
+    return new Promise((resolve, reject) => {
       const postData = JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'Tu es un assistant qui transforme des descriptions de cibles commerciales en criteres de recherche structures. Reponds uniquement en JSON.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 500
+        from: (process.env.CLIENT_NAME || 'iFIND') + ' <' + this.senderEmail + '>',
+        to: [to],
+        subject: subject,
+        html: html,
+        reply_to: process.env.REPLY_TO_EMAIL || this.senderEmail
       });
+
       const req = https.request({
-        hostname: 'api.openai.com',
-        path: '/v1/chat/completions',
+        hostname: 'api.resend.com',
+        path: '/emails',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + this.openaiKey,
+          'Authorization': 'Bearer ' + this.resendKey,
           'Content-Length': Buffer.byteLength(postData)
         }
       }, (res) => {
         let body = '';
-        res.on('data', (chunk) => { body += chunk; });
+        res.on('data', chunk => { body += chunk; });
         res.on('end', () => {
           try {
             const response = JSON.parse(body);
-            if (response.choices && response.choices[0]) {
-              resolve(response.choices[0].message.content);
+            if (res.statusCode >= 200 && res.statusCode < 300 && response.id) {
+              resolve({ success: true, id: response.id });
             } else {
-              reject(new Error('Reponse OpenAI invalide'));
+              resolve({ success: false, error: response.message || 'Erreur Resend HTTP ' + res.statusCode });
             }
-          } catch (e) { reject(e); }
+          } catch (e) { resolve({ success: false, error: 'Reponse Resend invalide' }); }
         });
       });
-      req.on('error', reject);
-      req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout OpenAI')); });
+      req.on('error', e => reject(e));
+      req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout Resend')); });
       req.write(postData);
       req.end();
-    }));
+    });
   }
 }
 
-// --- Utilitaire : fetch prospect depuis le landing container ---
+// --- Envoi email de confirmation immediat ---
+async function sendConfirmationEmail(resendKey, senderEmail, prospect) {
+  if (!resendKey || !senderEmail || senderEmail === 'onboarding@resend.dev') return { success: false, error: 'Resend non configure' };
+
+  const clientName = process.env.CLIENT_NAME || 'iFIND';
+  const safePrenom = escapeHtml(prospect.prenom);
+  const nbProspects = parseProspects(prospect.prospects || '').length;
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:'Outfit',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:32px 16px;">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.06);">
+  <tr><td style="padding:36px 32px 28px;background:#1D4ED8;text-align:center;">
+    <span style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;color:#fff;">${clientName}</span>
+  </td></tr>
+  <tr><td style="padding:36px 32px;">
+    <p style="margin:0 0 20px;font-size:20px;font-weight:700;color:#0F172A;">Bonjour ${safePrenom} !</p>
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;line-height:1.75;">Votre demande d'audit est bien recue. Notre equipe prepare <strong style="color:#0F172A;">${nbProspects} email${nbProspects > 1 ? 's' : ''} personnalise${nbProspects > 1 ? 's' : ''}</strong> pour vos prospects.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#F0FDF4;border-radius:12px;border:1px solid #BBF7D0;margin:20px 0;">
+      <tr><td style="padding:20px;">
+        <span style="font-size:14px;font-weight:700;color:#166534;">Ce qui se passe maintenant :</span>
+        <table cellpadding="0" cellspacing="0" style="margin:12px 0 0;">
+          <tr><td style="padding:4px 0;font-size:14px;color:#15803D;">&#9201; Notre IA analyse chacun de vos prospects</td></tr>
+          <tr><td style="padding:4px 0;font-size:14px;color:#15803D;">&#9998; Un email unique est redige pour chacun</td></tr>
+          <tr><td style="padding:4px 0;font-size:14px;color:#15803D;">&#128232; Vous recevez votre rapport sous 48h</td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <p style="margin:0;font-size:15px;color:#475569;line-height:1.75;">En attendant, si vous avez des questions, repondez directement a cet email.</p>
+  </td></tr>
+  <tr><td style="padding:20px 32px;text-align:center;background:#F8FAFC;border-top:1px solid #E2E8F0;">
+    <p style="margin:0;font-size:12px;color:#94A3B8;">${clientName} — Prospection B2B intelligente</p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify({
+      from: clientName + ' <' + senderEmail + '>',
+      to: [prospect.email],
+      subject: safePrenom + ', votre audit pipeline est en preparation',
+      html: html,
+      reply_to: process.env.REPLY_TO_EMAIL || senderEmail
+    });
+
+    const req = https.request({
+      hostname: 'api.resend.com',
+      path: '/emails',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + resendKey,
+        'Content-Length': Buffer.byteLength(postData)
+      }
+    }, (res) => {
+      let body = '';
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        try {
+          const response = JSON.parse(body);
+          resolve(res.statusCode < 300 && response.id ? { success: true, id: response.id } : { success: false, error: response.message || 'HTTP ' + res.statusCode });
+        } catch (e) { resolve({ success: false, error: 'Parse error' }); }
+      });
+    });
+    req.on('error', e => resolve({ success: false, error: e.message }));
+    req.setTimeout(10000, () => { req.destroy(); resolve({ success: false, error: 'Timeout' }); });
+    req.write(postData);
+    req.end();
+  });
+}
+
+// --- Fetch prospect depuis le landing container ---
 function fetchProspectData(prospectId) {
   return new Promise((resolve, reject) => {
     const req = http.get('http://landing-page:3080/api/prospect/' + prospectId, (res) => {
@@ -450,11 +517,8 @@ function fetchProspectData(prospectId) {
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => {
         try {
-          if (res.statusCode === 200) {
-            resolve(JSON.parse(body));
-          } else {
-            reject(new Error('Prospect non trouve (HTTP ' + res.statusCode + ')'));
-          }
+          if (res.statusCode === 200) resolve(JSON.parse(body));
+          else reject(new Error('Prospect non trouve (HTTP ' + res.statusCode + ')'));
         } catch (e) { reject(new Error('Reponse invalide du landing server')); }
       });
     });
@@ -463,4 +527,4 @@ function fetchProspectData(prospectId) {
   });
 }
 
-module.exports = { ReportWorkflow, fetchProspectData };
+module.exports = { ReportWorkflow, fetchProspectData, sendConfirmationEmail, parseProspects };
