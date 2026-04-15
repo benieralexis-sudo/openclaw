@@ -42,15 +42,22 @@ function _doWrite(filePath, data) {
     fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf8');
     fs.renameSync(tmpFile, filePath);
   } catch (writeErr) {
-    // Alerte disk full ou erreur I/O critique
     const errMsg = writeErr.message || '';
-    console.error('[CRITICAL] atomicWriteSync FAILED for ' + filePath + ': ' + errMsg);
+    const log = require('./logger.js');
+    log.error('storage', 'atomicWriteSync FAILED: ' + filePath + ' — ' + errMsg);
     if (errMsg.includes('ENOSPC') && !_doWrite._diskAlertSent) {
       _doWrite._diskAlertSent = true;
+      log.error('storage', 'DISQUE PLEIN — ecriture impossible: ' + filePath);
+      // Tenter notification Telegram d'urgence
       try {
-        const log = require('./logger.js');
-        log.error('storage', 'DISQUE PLEIN — ecriture impossible: ' + filePath);
-      } catch (e) { console.error('[utils] Logger unavailable for disk full alert:', e.message); }
+        const chatId = process.env.ADMIN_CHAT_ID || '1409505520';
+        const https = require('https');
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        if (token) {
+          const msg = encodeURIComponent('🔴 DISQUE PLEIN — le bot ne peut plus ecrire. Fichier: ' + filePath);
+          https.get('https://api.telegram.org/bot' + token + '/sendMessage?chat_id=' + chatId + '&text=' + msg);
+        }
+      } catch (e) { /* best-effort */ }
     }
     throw writeErr;
   }

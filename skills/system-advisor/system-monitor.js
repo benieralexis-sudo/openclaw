@@ -108,7 +108,7 @@ class SystemMonitor {
         }
       }
     } catch (e) {
-      console.log('[system-monitor] Erreur df:', e.message);
+      log.info("system-monitor", '[system-monitor] Erreur df:', e.message);
     }
 
     // du -sh /data/* pour repartition par skill
@@ -123,7 +123,7 @@ class SystemMonitor {
         }
       }
     } catch (e) {
-      console.log('[system-monitor] Erreur du:', e.message);
+      log.info("system-monitor", '[system-monitor] Erreur du:', e.message);
     }
 
     return result;

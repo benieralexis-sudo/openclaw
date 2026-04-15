@@ -1,5 +1,6 @@
 // Self-Improve - Backup, application et rollback des recommandations
 const storage = require('./storage.js');
+const log = require('../../gateway/logger.js');
 
 // Cross-skill imports via skill-loader centralise
 const { getStorage } = require('../../gateway/skill-loader.js');
@@ -61,14 +62,14 @@ class Optimizer {
       config: currentConfig
     });
 
-    console.log('[optimizer] Backup cree');
+    log.info("optimizer", '[optimizer] Backup cree');
     return currentConfig;
   }
 
   // Appliquer une recommandation validee
   applyRecommendation(reco) {
     if (!reco || !reco.type) return { success: false, error: 'Recommandation invalide' };
-    console.log('[optimizer] Applying reco type=' + reco.type + ' id=' + (reco.id || '?'));
+    log.info("optimizer", '[optimizer] Applying reco type=' + reco.type + ' id=' + (reco.id || '?'));
 
     // Capturer baseline pour mesure d'impact
     const baselineSnapshot = this._captureBaseline();
@@ -100,17 +101,17 @@ class Optimizer {
 
       // Demarrer le suivi d'impact si application reussie
       if (result && result.success) {
-        console.log('[optimizer] Reco appliquee OK: type=' + reco.type);
+        log.info("optimizer", '[optimizer] Reco appliquee OK: type=' + reco.type);
         try {
           storage.startImpactTracking(reco.id, reco.type, reco.description || reco.type, baselineSnapshot);
-        } catch (e) { console.error('[optimizer] Erreur demarrage impact tracking:', e.message); }
+        } catch (e) { log.error("optimizer", '[optimizer] Erreur demarrage impact tracking:', e.message); }
       } else {
-        console.log('[optimizer] Reco ECHEC: type=' + reco.type + ' reason=' + (result && result.reason || result && result.error || 'unknown'));
+        log.info("optimizer", '[optimizer] Reco ECHEC: type=' + reco.type + ' reason=' + (result && result.reason || result && result.error || 'unknown'));
       }
 
       return result;
     } catch (error) {
-      console.error('[optimizer] Erreur application:', error.message);
+      log.error("optimizer", '[optimizer] Erreur application:', error.message);
       return { success: false, error: error.message };
     }
   }
@@ -137,7 +138,7 @@ class Optimizer {
     if (params.geo) newWeights.geo = clampWeights({ ...(currentWeights.geo || {}), ...params.geo });
 
     storage.setScoringWeights(newWeights);
-    console.log('[optimizer] Scoring weights mis a jour');
+    log.info("optimizer", '[optimizer] Scoring weights mis a jour');
     return { success: true, applied: 'scoring_weight', before: currentWeights, after: newWeights };
   }
 
@@ -151,14 +152,14 @@ class Optimizer {
       // Validation: heures business seulement (7h-20h)
       const hour = parseInt(params.hour, 10);
       if (isNaN(hour) || hour < 7 || hour > 20) {
-        console.log('[optimizer] REJET send_timing: hour=' + params.hour + ' hors plage 7-20h');
+        log.info("optimizer", '[optimizer] REJET send_timing: hour=' + params.hour + ' hors plage 7-20h');
         return { success: false, applied: 'send_timing', reason: 'hour ' + params.hour + ' hors plage 7-20h' };
       }
       updates.preferredSendHour = hour;
     }
 
     storage.setEmailPreferences(updates);
-    console.log('[optimizer] Timing email mis a jour');
+    log.info("optimizer", '[optimizer] Timing email mis a jour');
     return { success: true, applied: 'send_timing', before: currentPrefs, after: storage.getEmailPreferences() };
   }
 
@@ -169,13 +170,13 @@ class Optimizer {
 
     if (params.maxLength) {
       if (!VALID_LENGTHS.includes(params.maxLength)) {
-        console.log('[optimizer] REJET email_length: maxLength=' + params.maxLength + ' invalide (attendu: ' + VALID_LENGTHS.join('/') + ')');
+        log.info("optimizer", '[optimizer] REJET email_length: maxLength=' + params.maxLength + ' invalide (attendu: ' + VALID_LENGTHS.join('/') + ')');
         return { success: false, applied: 'email_length', reason: 'maxLength invalide: ' + params.maxLength };
       }
       storage.setEmailPreferences({ maxLength: params.maxLength });
     }
 
-    console.log('[optimizer] Longueur email mise a jour');
+    log.info("optimizer", '[optimizer] Longueur email mise a jour');
     return { success: true, applied: 'email_length', before: currentPrefs, after: storage.getEmailPreferences() };
   }
 
@@ -187,13 +188,13 @@ class Optimizer {
       // Validation: scoring est sur 0-10
       const score = parseFloat(params.minScore);
       if (isNaN(score) || score < 0 || score > 10) {
-        console.log('[optimizer] REJET targeting_criteria: minScore=' + params.minScore + ' hors echelle 0-10');
+        log.info("optimizer", '[optimizer] REJET targeting_criteria: minScore=' + params.minScore + ' hors echelle 0-10');
         return { success: false, applied: 'targeting_criteria', reason: 'minScore ' + params.minScore + ' hors echelle 0-10' };
       }
       storage.setTargetingCriteria({ minScore: score });
     }
 
-    console.log('[optimizer] Criteres de ciblage mis a jour');
+    log.info("optimizer", '[optimizer] Criteres de ciblage mis a jour');
     return { success: true, applied: 'targeting_criteria', before: currentCriteria, after: storage.getTargetingCriteria() };
   }
 
@@ -213,7 +214,7 @@ class Optimizer {
       storage.setScoringWeights(newWeights);
     }
 
-    console.log('[optimizer] Focus industrie mis a jour');
+    log.info("optimizer", '[optimizer] Focus industrie mis a jour');
     return { success: true, applied: 'industry_focus', before: currentWeights, after: storage.getScoringWeights() };
   }
 
@@ -224,7 +225,7 @@ class Optimizer {
     if (params.subjectStyle) updates.subjectStyle = params.subjectStyle;
     if (params.preferredSubjectLength) updates.preferredSubjectLength = params.preferredSubjectLength;
     storage.setEmailPreferences(updates);
-    console.log('[optimizer] Style sujet mis a jour');
+    log.info("optimizer", '[optimizer] Style sujet mis a jour');
     return { success: true, applied: 'subject_style', before: currentPrefs, after: storage.getEmailPreferences() };
   }
 
@@ -235,7 +236,7 @@ class Optimizer {
     if (params.maxSteps) updates.recommendedMaxSteps = params.maxSteps;
     if (params.stepDays) updates.recommendedStepDays = params.stepDays;
     storage.setEmailPreferences(updates);
-    console.log('[optimizer] Cadence follow-up mise a jour');
+    log.info("optimizer", '[optimizer] Cadence follow-up mise a jour');
     return { success: true, applied: 'follow_up_cadence', before: currentPrefs, after: storage.getEmailPreferences() };
   }
 
@@ -246,7 +247,7 @@ class Optimizer {
     if (params.focusNiches) updates.focusNiches = params.focusNiches;
     if (params.excludeNiches) updates.excludeNiches = params.excludeNiches;
     storage.setTargetingCriteria(updates);
-    console.log('[optimizer] Niche targeting mis a jour');
+    log.info("optimizer", '[optimizer] Niche targeting mis a jour');
     return { success: true, applied: 'niche_targeting', before: currentCriteria, after: storage.getTargetingCriteria() };
   }
 
@@ -258,7 +259,7 @@ class Optimizer {
     if (params.preferredCompanySize) updates.preferredCompanySize = params.preferredCompanySize;
     if (params.minScore !== undefined) updates.minScore = params.minScore;
     storage.setTargetingCriteria(updates);
-    console.log('[optimizer] Priorite prospect mise a jour');
+    log.info("optimizer", '[optimizer] Priorite prospect mise a jour');
     return { success: true, applied: 'prospect_priority', before: currentCriteria, after: storage.getTargetingCriteria() };
   }
 
@@ -324,10 +325,10 @@ class Optimizer {
       storage.incrementRollbacks();
       storage.removeBackup(backup.id);
 
-      console.log('[optimizer] Rollback effectue (backup ' + backup.id + ')');
+      log.info("optimizer", '[optimizer] Rollback effectue (backup ' + backup.id + ')');
       return { success: true, restoredFrom: backup.createdAt };
     } catch (error) {
-      console.error('[optimizer] Erreur rollback:', error.message);
+      log.error("optimizer", '[optimizer] Erreur rollback:', error.message);
       return { success: false, error: error.message };
     }
   }

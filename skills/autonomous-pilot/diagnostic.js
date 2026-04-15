@@ -224,7 +224,7 @@ function runFullDiagnostic() {
       const result = check();
       if (result) results.push(result);
     } catch (e) {
-      console.log('[diagnostic] Erreur check:', e.message);
+      log.info("diagnostic", '[diagnostic] Erreur check:', e.message);
     }
   }
 

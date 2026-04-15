@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { atomicWriteSync } = require('../../gateway/utils.js');
+const log = require('../../gateway/logger.js');
 
 const DATA_DIR = process.env.FLOWFAST_DATA_DIR || '/data/flowfast';
 const DB_FILE = path.join(DATA_DIR, 'flowfast-db.json');
@@ -33,7 +34,7 @@ class Storage {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
     } catch (e) {
-      console.error('[storage] Impossible de creer ' + DATA_DIR + ':', e.message);
+      log.error("flowfast-storage", '[storage] Impossible de creer ' + DATA_DIR + ':', e.message);
     }
   }
 
@@ -44,14 +45,14 @@ class Storage {
         const loaded = JSON.parse(raw);
         this.data = { ...this.data, ...loaded };
         this._deduplicateLeads();
-        console.log('[storage] Base chargee (' + Object.keys(this.data.users).length + ' utilisateurs, ' + this.data.searches.length + ' recherches, ' + Object.keys(this.data.leads || {}).length + ' leads)');
+        log.info("flowfast-storage", '[storage] Base chargee (' + Object.keys(this.data.users).length + ' utilisateurs, ' + this.data.searches.length + ' recherches, ' + Object.keys(this.data.leads || {}).length + ' leads)');
       } else {
-        console.log('[storage] Nouvelle base creee');
+        log.info("flowfast-storage", '[storage] Nouvelle base creee');
         this._save();
       }
     } catch (e) {
-      console.error('[storage] Erreur chargement (fichier corrompu?):', e.message);
-      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, DB_FILE + '.corrupt.' + Date.now()); } catch (renameErr) { console.error('[flowfast-storage] ERREUR rename fichier corrompu:', renameErr.message); }
+      log.error("flowfast-storage", '[storage] Erreur chargement (fichier corrompu?):', e.message);
+      try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, DB_FILE + '.corrupt.' + Date.now()); } catch (renameErr) { log.error("flowfast-storage", '[flowfast-storage] ERREUR rename fichier corrompu:', renameErr.message); }
       this._save();
     }
   }
@@ -60,7 +61,7 @@ class Storage {
     try {
       atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
-      console.error('[storage] Erreur sauvegarde:', e.message);
+      log.error("flowfast-storage", '[storage] Erreur sauvegarde:', e.message);
     }
   }
 
@@ -92,7 +93,7 @@ class Storage {
     }
 
     if (removed > 0) {
-      console.log('[storage] Deduplication: ' + removed + ' doublons supprimes');
+      log.info("flowfast-storage", '[storage] Deduplication: ' + removed + ' doublons supprimes');
       this._save();
     }
   }
@@ -223,7 +224,7 @@ class Storage {
         .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
       const toRemove = sorted.slice(0, leadKeys.length - MAX_LEADS);
       for (const item of toRemove) delete this.data.leads[item.key];
-      console.log('[storage] Leads cap: ' + toRemove.length + ' anciens leads supprimes');
+      log.info("flowfast-storage", '[storage] Leads cap: ' + toRemove.length + ' anciens leads supprimes');
     }
     this._save();
     return this.data.leads[key];
@@ -257,10 +258,10 @@ class Storage {
       this.data.leads[key].pushedToHubspot = true;
       this.data.leads[key].pushedAt = new Date().toISOString();
       this._save();
-      console.log('[storage] Lead marque pushedToHubspot: ' + email + ' (cle: ' + key + ')');
+      log.info("flowfast-storage", '[storage] Lead marque pushedToHubspot: ' + email + ' (cle: ' + key + ')');
       return true;
     }
-    console.warn('[storage] setLeadPushed: lead non trouve pour ' + email);
+    log.warn("flowfast-storage", '[storage] setLeadPushed: lead non trouve pour ' + email);
     return false;
   }
 
@@ -281,10 +282,10 @@ class Storage {
       this.data.leads[key]._emailSent = true;
       this.data.leads[key]._emailSentAt = new Date().toISOString();
       this._save();
-      console.log('[storage] Lead marque emailSent: ' + email + ' (cle: ' + key + ')');
+      log.info("flowfast-storage", '[storage] Lead marque emailSent: ' + email + ' (cle: ' + key + ')');
       return true;
     }
-    console.warn('[storage] markEmailSent: lead non trouve pour ' + email);
+    log.warn("flowfast-storage", '[storage] markEmailSent: lead non trouve pour ' + email);
     return false;
   }
 

@@ -155,13 +155,62 @@ log.setSendTelegram(async (chatId, text) => {
   try { await sendMessage(chatId, text, 'Markdown'); } catch (e) { /* evite boucle infinie */ }
 });
 
-// Validation des variables critiques au demarrage
-if (!SENDER_EMAIL || SENDER_EMAIL === 'onboarding@resend.dev' || SENDER_EMAIL.trim() === '') {
-  log.warn('router', 'SENDER_EMAIL non configure — envoi email desactive (test only: onboarding@resend.dev)');
+// === VALIDATION .ENV AU BOOT — liste toutes les cles manquantes ===
+{
+  const _required = [
+    ['TELEGRAM_BOT_TOKEN', TOKEN, true],
+    ['OPENAI_API_KEY', OPENAI_KEY, true],
+    ['SENDER_EMAIL', SENDER_EMAIL, true],
+    ['ADMIN_CHAT_ID', ADMIN_CHAT_ID, false]
+  ];
+  const _recommended = [
+    ['CLAUDE_API_KEY', CLAUDE_KEY, 'redaction IA desactivee'],
+    ['INSTANTLY_API_KEY', process.env.INSTANTLY_API_KEY, 'envoi via Instantly desactive — fallback Gmail'],
+    ['INSTANTLY_CAMPAIGN_ID', process.env.INSTANTLY_CAMPAIGN_ID, 'pas de campagne Instantly configuree'],
+    ['GMAIL_MAILBOXES', process.env.GMAIL_MAILBOXES, 'rotation mailboxes desactivee'],
+    ['CLIENT_DOMAIN', process.env.CLIENT_DOMAIN, 'fallback ifind.fr'],
+    ['OWN_DOMAINS', process.env.OWN_DOMAINS, 'fallback domaines iFIND hardcodes']
+  ];
+  const _missing = _required.filter(([name, val, fatal]) => !val || val.trim() === '');
+  const _warnings = _recommended.filter(([name, val]) => !val || val.trim() === '');
+  if (_missing.length > 0) {
+    const fatalMissing = _missing.filter(([, , fatal]) => fatal);
+    for (const [name] of _missing) log.error('router', 'ENV MANQUANTE: ' + name);
+    if (fatalMissing.length > 0) {
+      log.error('router', 'FATAL: ' + fatalMissing.length + ' variable(s) requise(s) manquante(s) — arret');
+      process.exit(1);
+    }
+  }
+  for (const [name, , reason] of _warnings) log.warn('router', 'ENV absente: ' + name + ' — ' + reason);
+  if (_missing.length === 0 && _warnings.length === 0) log.info('router', 'Validation .env: toutes les cles presentes');
+  else if (_missing.length === 0) log.info('router', 'Validation .env: OK (' + _warnings.length + ' recommandee(s) absente(s))');
 }
-if (!CLAUDE_KEY || CLAUDE_KEY.trim() === '') {
-  log.warn('router', 'CLAUDE_API_KEY absent — redaction IA desactivee');
+
+// === DISK FULL PROTECTION — alerte si < 500 Mo libre ===
+{
+  try {
+    const _diskCheck = require('child_process').execSync("df -BM --output=avail / | tail -1", { encoding: 'utf-8' }).trim();
+    const _availMB = parseInt(_diskCheck.replace(/[^0-9]/g, ''), 10);
+    if (_availMB < 500) {
+      log.error('router', 'DISK CRITICAL: seulement ' + _availMB + ' Mo libre — risque de corruption storage');
+    } else if (_availMB < 2000) {
+      log.warn('router', 'DISK WARNING: ' + _availMB + ' Mo libre — penser a nettoyer');
+    } else {
+      log.info('router', 'Disk OK: ' + _availMB + ' Mo libre');
+    }
+  } catch (e) { log.warn('router', 'Disk check echoue: ' + e.message); }
 }
+
+// === MEMORY MONITORING — alerte periodique si RAM > 400 Mo ===
+const _memoryCheckInterval = setInterval(() => {
+  const memUsage = process.memoryUsage();
+  const heapMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+  const rssMB = Math.round(memUsage.rss / 1024 / 1024);
+  if (rssMB > 400) {
+    log.warn('router', 'MEMORY WARNING: RSS=' + rssMB + 'Mo, Heap=' + heapMB + 'Mo — limite container 512Mo');
+  }
+  // Log toutes les heures pour monitoring (pas d'alerte si OK)
+}, 15 * 60 * 1000); // check toutes les 15 min
 
 // --- User Context (module extrait) ---
 const userCtx = createUserContext();

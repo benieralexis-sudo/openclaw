@@ -40,7 +40,7 @@ class AutoMailerStorage {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
     } catch (e) {
-      console.error('[automailer-storage] Impossible de creer ' + DATA_DIR + ':', e.message);
+      log.error("automailer-storage", '[automailer-storage] Impossible de creer ' + DATA_DIR + ':', e.message);
     }
   }
 
@@ -64,7 +64,7 @@ class AutoMailerStorage {
             }
           }
           loaded.blacklist = fixed;
-          console.warn('[automailer-storage] Blacklist array → objet : ' + Object.keys(fixed).length + ' entrees migrees');
+          log.warn("automailer-storage", '[automailer-storage] Blacklist array → objet : ' + Object.keys(fixed).length + ' entrees migrees');
         }
         if (loaded.contactLists && typeof loaded.contactLists !== 'object') loaded.contactLists = {};
         this.data = { ...this.data, ...loaded };
@@ -73,7 +73,7 @@ class AutoMailerStorage {
           const badKeys = Object.keys(this.data.blacklist).filter(k => !k || k === 'undefined' || k === 'null' || !k.includes('@'));
           for (const k of badKeys) {
             delete this.data.blacklist[k];
-            console.warn('[automailer-storage] Blacklist corrompue nettoyee: cle "' + k + '" supprimee');
+            log.warn("automailer-storage", '[automailer-storage] Blacklist corrompue nettoyee: cle "' + k + '" supprimee');
           }
           if (badKeys.length > 0) this._save();
         }
@@ -85,11 +85,11 @@ class AutoMailerStorage {
           Object.keys(this.data.campaigns).length + ' campagnes, ' +
           this.data.emails.length + ' emails)');
       } else {
-        console.log('[automailer-storage] Nouvelle base creee');
+        log.info("automailer-storage", '[automailer-storage] Nouvelle base creee');
         this._save();
       }
     } catch (e) {
-      console.error('[automailer-storage] Erreur chargement (fichier corrompu?):', e.message);
+      log.error("automailer-storage", '[automailer-storage] Erreur chargement (fichier corrompu?):', e.message);
       // Backup du fichier corrompu
       const corruptPath = DB_FILE + '.corrupt.' + Date.now();
       try { if (fs.existsSync(DB_FILE)) fs.renameSync(DB_FILE, corruptPath); } catch (_) { log.error('automailer-storage', 'Echec rename fichier corrompu vers ' + corruptPath + ': ' + _.message); }
@@ -103,7 +103,7 @@ class AutoMailerStorage {
             const bakData = JSON.parse(fs.readFileSync(require('path').join(dir, bak), 'utf8'));
             if (bakData.emails || bakData.campaigns) {
               this.data = { ...this.data, ...bakData };
-              console.warn('[automailer-storage] Recupere depuis backup: ' + bak);
+              log.warn("automailer-storage", '[automailer-storage] Recupere depuis backup: ' + bak);
               recovered = true;
               this._rebuildIndexes();
               this._save();
@@ -113,7 +113,7 @@ class AutoMailerStorage {
         }
       } catch (_) { log.error('automailer-storage', 'Echec scan backups: ' + _.message); }
       if (!recovered) {
-        console.error('[automailer-storage] Aucun backup valide — reset aux defaults. Fichier corrompu sauvegarde: ' + corruptPath);
+        log.error("automailer-storage", '[automailer-storage] Aucun backup valide — reset aux defaults. Fichier corrompu sauvegarde: ' + corruptPath);
         this._save();
       }
     }
@@ -123,7 +123,7 @@ class AutoMailerStorage {
     try {
       atomicWriteSync(DB_FILE, this.data);
     } catch (e) {
-      console.error('[automailer-storage] Erreur sauvegarde:', e.message);
+      log.error("automailer-storage", '[automailer-storage] Erreur sauvegarde:', e.message);
     }
   }
 
@@ -170,7 +170,7 @@ class AutoMailerStorage {
     this.data.stats.totalEmailsOpened = opened;
     this.data.stats.totalEmailsBounced = bounced;
     if (oldOpened !== opened) {
-      console.log('[automailer-storage] Stats recalculees: sent=' + sent + ', delivered=' + delivered + ', opened=' + opened + ' (was ' + oldOpened + '), bounced=' + bounced);
+      log.info("automailer-storage", '[automailer-storage] Stats recalculees: sent=' + sent + ', delivered=' + delivered + ', opened=' + opened + ' (was ' + oldOpened + '), bounced=' + bounced);
       this._save();
     }
   }
@@ -498,7 +498,7 @@ class AutoMailerStorage {
   addToBlacklist(email, reason) {
     if (!this.data.blacklist || Array.isArray(this.data.blacklist)) this.data.blacklist = {};
     if (!email || typeof email !== 'string' || !email.includes('@')) {
-      console.warn('[automailer-storage] addToBlacklist: email invalide ignore:', email);
+      log.warn("automailer-storage", '[automailer-storage] addToBlacklist: email invalide ignore:', email);
       return null;
     }
     const key = email.toLowerCase().trim();
@@ -705,7 +705,7 @@ class AutoMailerStorage {
         archive = JSON.parse(fs.readFileSync(archiveFile, 'utf8'));
       }
     } catch (e) {
-      console.error('[automailer-storage] Erreur lecture archive:', e.message);
+      log.error("automailer-storage", '[automailer-storage] Erreur lecture archive:', e.message);
     }
 
     // RGPD : Purger les archives de plus de 3 ans (1095 jours)
@@ -717,7 +717,7 @@ class AutoMailerStorage {
     });
     const purged = beforePurge - archive.length;
     if (purged > 0) {
-      console.log('[automailer-storage] RGPD Purge: ' + purged + ' emails archives > 3 ans supprimes');
+      log.info("automailer-storage", '[automailer-storage] RGPD Purge: ' + purged + ' emails archives > 3 ans supprimes');
     }
 
     // Ajouter les emails a archiver
@@ -731,7 +731,7 @@ class AutoMailerStorage {
     try {
       atomicWriteSync(archiveFile, archive);
     } catch (e) {
-      console.error('[automailer-storage] Erreur sauvegarde archive:', e.message);
+      log.error("automailer-storage", '[automailer-storage] Erreur sauvegarde archive:', e.message);
       return 0;
     }
 
@@ -740,7 +740,7 @@ class AutoMailerStorage {
     this.data.emails = this.data.emails.filter(e => !archivedIds.has(e.id));
     this._save();
 
-    console.log('[automailer-storage] Archive: ' + toArchive.length + ' emails > 90j deplaces (reste ' + this.data.emails.length + ' actifs, ' + archive.length + ' archives)');
+    log.info("automailer-storage", '[automailer-storage] Archive: ' + toArchive.length + ' emails > 90j deplaces (reste ' + this.data.emails.length + ' actifs, ' + archive.length + ' archives)');
     return toArchive.length;
   }
 
