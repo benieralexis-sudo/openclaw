@@ -1925,6 +1925,209 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // === WEBHOOK PHAROW — Reception leads sourcing FR ===
+  if (req.url && req.url.startsWith('/webhook/pharow') && req.method === 'POST') {
+    let body = '';
+    let bodySize = 0;
+    const MAX_BODY = 512 * 1024;
+    req.on('data', (chunk) => { bodySize += chunk.length; if (bodySize > MAX_BODY) { req.destroy(); return; } body += chunk; });
+    req.on('end', async () => {
+      if (bodySize > MAX_BODY) { res.writeHead(413); res.end('{"error":"too large"}'); return; }
+      const pharowSecret = process.env.PHAROW_WEBHOOK_SECRET || '';
+      const headerSecret = req.headers['x-pharow-secret'] || req.headers['authorization'] || '';
+      if (pharowSecret && headerSecret !== pharowSecret && headerSecret !== 'Bearer ' + pharowSecret) {
+        log.warn('webhook-pharow', 'Secret invalide'); res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
+      }
+      try {
+        const parsed = JSON.parse(body);
+        const leads = Array.isArray(parsed) ? parsed : (parsed.prospects || parsed.leads || parsed.data || [parsed]);
+        const automailerStorage = require('../skills/automailer/storage.js');
+        const ADMIN_CHAT = process.env.ADMIN_CHAT_ID || '1409505520';
+        let imported = 0, skipped = 0;
+        for (const raw of leads) {
+          // Mapper les champs Pharow vers le format interne
+          const p = raw.prospect || raw;
+          const c = raw.company || raw;
+          const lead = {
+            email: (p.email || p.workEmail || raw.email || '').toLowerCase().trim(),
+            firstName: p.firstName || p.first_name || p.prenom || '',
+            lastName: p.lastName || p.last_name || p.nom || '',
+            company: c.name || c.companyName || p.company || raw.company || '',
+            title: p.title || p.jobTitle || p.titre || '',
+            linkedin: p.linkedinUrl || p.linkedin_url || p.linkedin || '',
+            website: c.website || c.domain || '',
+            industry: c.industry || c.nafLabel || c.sector || '',
+            employeeCount: c.employeeCount || c.employee_count || c.effectif || null,
+            city: c.city || c.ville || '',
+            country: c.country || 'France',
+            phone: p.phone || p.mobile || '',
+            siren: c.siren || '',
+            nafCode: c.nafCode || c.naf_code || '',
+            revenue: c.revenue || c.chiffreAffaires || null,
+            technologies: c.technologies || [],
+            source: 'pharow'
+          };
+          if (!lead.email || !lead.email.includes('@')) { skipped++; continue; }
+          if (!lead.firstName || !lead.company) { skipped++; continue; }
+          if (automailerStorage.isBlacklisted(lead.email)) { skipped++; continue; }
+          const ownDomains = (process.env.OWN_DOMAINS || 'getifind.fr,getifind.com,ifind-group.fr,ifind-agency.fr,ifind.fr,example.com,test.com').split(',').map(d => d.trim());
+          if (ownDomains.includes((lead.email.split('@')[1] || '').toLowerCase())) { skipped++; continue; }
+          // Dedup
+          const allLists = automailerStorage.getAllContactLists();
+          let dup = false;
+          for (const list of allLists) { if (list.contacts.some(ct => (ct.email || '').toLowerCase() === lead.email)) { dup = true; break; } }
+          if (dup) { skipped++; continue; }
+          // Inserer
+          const listName = 'Pharow Imports';
+          let targetList = automailerStorage.findContactListByName(ADMIN_CHAT, listName);
+          if (!targetList) { targetList = automailerStorage.createContactList(ADMIN_CHAT, listName); }
+          automailerStorage.addContactToList(targetList.id, {
+            email: lead.email, firstName: lead.firstName, lastName: lead.lastName,
+            name: (lead.firstName + ' ' + lead.lastName).trim(),
+            company: lead.company, title: lead.title, industry: lead.industry
+          });
+          // Sauvegarder enrichment
+          const enrichDir = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/clay-enrichments';
+          if (!fs.existsSync(enrichDir)) fs.mkdirSync(enrichDir, { recursive: true });
+          atomicWriteSync(enrichDir + '/' + lead.email.replace(/[^a-z0-9@._-]/g, '_') + '.json', {
+            ...lead, importedAt: new Date().toISOString()
+          });
+          imported++;
+        }
+        log.info('webhook-pharow', imported + ' leads importes, ' + skipped + ' skipped');
+        if (imported > 0) {
+          sendMessage(ADMIN_CHAT, '📥 *Pharow webhook*\n' + imported + ' lead(s) importe(s), ' + skipped + ' skipped', 'Markdown').catch(() => {});
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ imported, skipped, total: leads.length }));
+      } catch (e) {
+        log.error('webhook-pharow', 'Erreur: ' + e.message);
+        res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // === WEBHOOK RODZ — Reception signaux intent ===
+  if (req.url && req.url.startsWith('/webhook/rodz') && req.method === 'POST') {
+    let body = '';
+    let bodySize = 0;
+    const MAX_BODY = 256 * 1024;
+    req.on('data', (chunk) => { bodySize += chunk.length; if (bodySize > MAX_BODY) { req.destroy(); return; } body += chunk; });
+    req.on('end', async () => {
+      if (bodySize > MAX_BODY) { res.writeHead(413); res.end('{"error":"too large"}'); return; }
+      // Auth: x-rodz-signature (HMAC-SHA256) ou Bearer token
+      const rodzSecret = process.env.RODZ_WEBHOOK_SECRET || '';
+      const sig = req.headers['x-rodz-signature'] || '';
+      const authHeader = req.headers['authorization'] || '';
+      if (rodzSecret) {
+        let valid = false;
+        if (sig) {
+          const crypto = require('crypto');
+          const expected = crypto.createHmac('sha256', rodzSecret).update(body).digest('hex');
+          valid = sig === expected || sig === 'sha256=' + expected;
+        }
+        if (!valid && authHeader !== 'Bearer ' + rodzSecret) {
+          log.warn('webhook-rodz', 'Signature/auth invalide'); res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
+        }
+      }
+      try {
+        const parsed = JSON.parse(body);
+        const data = parsed.data || parsed;
+        const signalType = parsed.signal_type || parsed.event_type || (parsed.signal && parsed.signal.type) || 'unknown';
+        const prospect = data.prospect || data.company || {};
+        const person = data.person || data.contact || {};
+        const details = data.details || {};
+        const automailerStorage = require('../skills/automailer/storage.js');
+        const ADMIN_CHAT = process.env.ADMIN_CHAT_ID || '1409505520';
+
+        // Construire le lead depuis le signal Rodz
+        const lead = {
+          email: (person.email || person.work_email || '').toLowerCase().trim(),
+          firstName: (person.full_name || person.name || '').split(' ')[0] || '',
+          lastName: (person.full_name || person.name || '').split(' ').slice(1).join(' ') || '',
+          company: prospect.name || prospect.company_name || '',
+          title: person.new_title || person.title || person.job_title || '',
+          linkedin: person.linkedin_url || person.linkedin || '',
+          website: prospect.domain || prospect.website || '',
+          industry: prospect.industry || '',
+          employeeCount: prospect.employee_count || null,
+          country: prospect.country || 'FR',
+          signalType: signalType,
+          signalDetails: JSON.stringify(details).substring(0, 2000),
+          signalConfidence: data.confidence || 'medium',
+          signalDetectedAt: data.detected_at || parsed.timestamp || new Date().toISOString(),
+          source: 'rodz'
+        };
+
+        log.info('webhook-rodz', 'Signal: ' + signalType + ' | ' + lead.company + ' | ' + (lead.email || 'no-email') + ' | confidence: ' + lead.signalConfidence);
+
+        // Notifier Telegram du signal (toujours, meme sans email)
+        const signalEmoji = { funding_round: '💰', new_hire: '👤', job_posting: '📋', job_changes: '🔄', merger_acquisition: '🤝', product_launch: '🚀', technology_adoption: '💻', company_creation: '🏗️' };
+        const emoji = signalEmoji[signalType] || '📡';
+        let telegramMsg = emoji + ' *Signal Rodz: ' + signalType + '*\n';
+        telegramMsg += 'Entreprise: ' + (lead.company || '?') + '\n';
+        if (lead.email) telegramMsg += 'Contact: ' + lead.firstName + ' ' + lead.lastName + ' (' + lead.email + ')\n';
+        if (person.new_title) telegramMsg += 'Poste: ' + person.new_title + '\n';
+        if (details.round_type) telegramMsg += 'Levee: ' + details.round_type + ' ' + (details.amount ? (details.amount / 1000000).toFixed(1) + 'M€' : '') + '\n';
+        if (details.source_url) telegramMsg += 'Source: ' + details.source_url + '\n';
+        sendMessage(ADMIN_CHAT, telegramMsg, 'Markdown').catch(() => {});
+
+        // Si pas d'email, stocker comme signal-only (pas de prospection possible sans email)
+        if (!lead.email || !lead.email.includes('@')) {
+          // Sauvegarder le signal pour enrichissement ulterieur
+          const signalDir = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/rodz-signals';
+          if (!fs.existsSync(signalDir)) fs.mkdirSync(signalDir, { recursive: true });
+          const signalFile = signalDir + '/signal-' + Date.now() + '.json';
+          atomicWriteSync(signalFile, { ...lead, rawPayload: parsed, savedAt: new Date().toISOString() });
+          log.info('webhook-rodz', 'Signal sans email sauvegarde: ' + signalFile);
+          res.writeHead(200); res.end(JSON.stringify({ signal: signalType, email: null, saved: true }));
+          return;
+        }
+
+        // Avec email : importer comme lead
+        if (automailerStorage.isBlacklisted(lead.email)) {
+          res.writeHead(200); res.end(JSON.stringify({ email: lead.email, skipped: 'blacklisted' })); return;
+        }
+        const ownDomains = (process.env.OWN_DOMAINS || 'getifind.fr,getifind.com,ifind-group.fr,ifind-agency.fr,ifind.fr,example.com,test.com').split(',').map(d => d.trim());
+        if (ownDomains.includes((lead.email.split('@')[1] || '').toLowerCase())) {
+          res.writeHead(200); res.end(JSON.stringify({ email: lead.email, skipped: 'own_domain' })); return;
+        }
+
+        // Dedup
+        const allLists = automailerStorage.getAllContactLists();
+        let isDup = false;
+        for (const list of allLists) { if (list.contacts.some(ct => (ct.email || '').toLowerCase() === lead.email)) { isDup = true; break; } }
+
+        if (!isDup && lead.firstName && lead.company) {
+          const listName = 'Rodz Signals';
+          let targetList = automailerStorage.findContactListByName(ADMIN_CHAT, listName);
+          if (!targetList) { targetList = automailerStorage.createContactList(ADMIN_CHAT, listName); }
+          automailerStorage.addContactToList(targetList.id, {
+            email: lead.email, firstName: lead.firstName, lastName: lead.lastName,
+            name: (lead.firstName + ' ' + lead.lastName).trim(),
+            company: lead.company, title: lead.title, industry: lead.industry
+          });
+        }
+
+        // Sauvegarder enrichment avec signal
+        const enrichDir = (process.env.AUTOMAILER_DATA_DIR || '/data/automailer') + '/clay-enrichments';
+        if (!fs.existsSync(enrichDir)) fs.mkdirSync(enrichDir, { recursive: true });
+        atomicWriteSync(enrichDir + '/' + lead.email.replace(/[^a-z0-9@._-]/g, '_') + '.json', {
+          ...lead, importedAt: new Date().toISOString()
+        });
+
+        log.info('webhook-rodz', 'Lead importe: ' + lead.email + ' (signal: ' + signalType + ', dup: ' + isDup + ')');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ email: lead.email, signal: signalType, imported: !isDup, duplicate: isDup }));
+      } catch (e) {
+        log.error('webhook-rodz', 'Erreur: ' + e.message);
+        res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
   // === WEBHOOK CLAY — Reception leads enrichis ===
   if (req.url && req.url.startsWith('/webhook/clay') && req.method === 'POST') {
     let body = '';
