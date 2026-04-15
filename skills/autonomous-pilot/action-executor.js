@@ -1543,12 +1543,82 @@ Format JSON strict :
           sendOpts.references = prevMsgId;
         }
       }
-      const result = await getBreaker('gmail-smtp', { failureThreshold: 3, cooldownMs: 60000 }).call(() => resend.sendEmail(
-        params.to,
-        params.subject,
-        params.body,
-        sendOpts
-      ));
+      // === INSTANTLY MODE : push lead dans Instantly au lieu d'envoyer directement ===
+      const _instantlyKey = process.env.INSTANTLY_API_KEY;
+      const _instantlyCampaignId = process.env.INSTANTLY_CAMPAIGN_ID;
+      let result;
+
+      if (_instantlyKey && _instantlyCampaignId) {
+        try {
+          const InstantlyClient = require('../../gateway/instantly-client.js');
+          const instantly = new InstantlyClient(_instantlyKey);
+
+          const step1 = { subject: params.subject, body: params.body };
+
+          // Generer steps 2 et 3 (best-effort, fallbacks si Claude echoue)
+          const firstName = (params.contactName || '').split(' ')[0] || '';
+          let step2 = { subject: 'Re: ' + params.subject, body: (firstName ? firstName + ',\n\n' : '') + 'Je reviens vers toi — est-ce que le sujet resonne ?\n\nSi oui, 15 min cette semaine ?\n\n' + (process.env.SENDER_NAME || 'Alexis') };
+          let step3 = { subject: 'Dernier message', body: (firstName ? firstName + ',\n\n' : '') + 'Pas de relance apres ca. Si le sujet revient, mon calendrier est ouvert.\n\nBonne continuation,\n' + (process.env.SENDER_NAME || 'Alexis') };
+
+          try {
+            const ClaudeWriter = getClaudeEmailWriter();
+            if (ClaudeWriter) {
+              const claude = new ClaudeWriter();
+              if (claude.generatePersonalizedFollowUp) {
+                const prospectIntel = params.prospectIntel || params.brief || '';
+                const prevEmails = [{ subject: step1.subject, body: step1.body, stepNumber: 1 }];
+                const campaignCtx = params.campaignContext || 'prospection B2B';
+
+                const fu2 = await claude.generatePersonalizedFollowUp(
+                  params.contact || { email: params.to, firstName }, 2, 3,
+                  prospectIntel + '\n\nChange d\'angle, nouveau social proof.\n',
+                  prevEmails, campaignCtx
+                );
+                if (fu2 && fu2.subject && fu2.body && !fu2.skip) {
+                  step2 = { subject: fu2.subject, body: fu2.body };
+                }
+
+                const fu3 = await claude.generatePersonalizedFollowUp(
+                  params.contact || { email: params.to, firstName }, 3, 3,
+                  prospectIntel + '\n\nDernier message, tres court (25-40 mots).\n',
+                  [...prevEmails, { subject: step2.subject, body: step2.body, stepNumber: 2 }], campaignCtx
+                );
+                if (fu3 && fu3.subject && fu3.body && !fu3.skip) {
+                  step3 = { subject: fu3.subject, body: fu3.body };
+                }
+              }
+            }
+          } catch (fuErr) {
+            log.warn('action-executor', 'Generation FU Instantly echouee — fallbacks utilises: ' + fuErr.message);
+          }
+
+          const instantlyResult = await instantly.addLeadToCampaign(_instantlyCampaignId, {
+            email: params.to,
+            firstName: firstName,
+            lastName: params.contact ? (params.contact.lastName || '') : '',
+            companyName: params.company || '',
+            emails: { step1, step2, step3 }
+          });
+
+          result = {
+            success: instantlyResult && instantlyResult.added > 0,
+            id: 'instantly-' + Date.now(),
+            messageId: null,
+            senderDomain: 'instantly'
+          };
+          log.info('action-executor', 'INSTANTLY: Lead ' + params.to + ' pousse avec 3 steps');
+        } catch (instantlyErr) {
+          log.error('action-executor', 'INSTANTLY echoue pour ' + params.to + ': ' + instantlyErr.message + ' — fallback Gmail/Resend');
+          result = await getBreaker('gmail-smtp', { failureThreshold: 3, cooldownMs: 60000 }).call(() => resend.sendEmail(
+            params.to, params.subject, params.body, sendOpts
+          ));
+        }
+      } else {
+        // Mode classique : Gmail SMTP / Resend
+        result = await getBreaker('gmail-smtp', { failureThreshold: 3, cooldownMs: 60000 }).call(() => resend.sendEmail(
+          params.to, params.subject, params.body, sendOpts
+        ));
+      }
 
       if (result.success) {
         // Recuperer le chatId admin depuis la config AP

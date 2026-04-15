@@ -1954,7 +1954,107 @@ class CampaignEngine {
       subject = applySpintax(subject);
       body = applySpintax(body);
 
-      const result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
+      // === INSTANTLY MODE : push lead + 3 emails personnalises dans Instantly ===
+      const _instantlyKey = process.env.INSTANTLY_API_KEY;
+      const _instantlyCampaignId = process.env.INSTANTLY_CAMPAIGN_ID;
+      let result;
+
+      if (_instantlyKey && _instantlyCampaignId && stepNumber <= 1) {
+        // --- MODE INSTANTLY : generer les 3 steps et push une seule fois ---
+        try {
+          const InstantlyClient = require('../../gateway/instantly-client.js');
+          const instantly = new InstantlyClient(_instantlyKey);
+
+          // Step 1 = deja genere (subject, body ci-dessus)
+          const step1 = { subject, body };
+
+          // Generer steps 2 et 3 via Claude
+          let step2 = { subject: 'Re: ' + subject, body: '' };
+          let step3 = { subject: 'Dernier message', body: '' };
+
+          try {
+            const campaignCtx = campaign.context || campaign.name || 'prospection B2B';
+            const prospectIntel = currentProspectIntel || this._getProspectIntel(contact.email) || '';
+            const prevEmails = [{ subject: step1.subject, body: step1.body, stepNumber: 1 }];
+
+            // Step 2 : follow-up avec nouvel angle
+            const fu2 = await this.claude.generatePersonalizedFollowUp(
+              contact, 2, 3,
+              prospectIntel + '\n\n=== CONTEXTE ENGAGEMENT : A OUVERT MAIS PAS REPONDU ===\n' +
+              'Change d\'angle : nouveau social proof, nouvelle question business.\n' +
+              'Garde le meme sujet/thread pour rester dans la conversation.\n',
+              prevEmails, campaignCtx
+            );
+            if (fu2 && fu2.subject && fu2.body && !fu2.skip) {
+              step2 = { subject: applySpintax(fu2.subject), body: applySpintax(fu2.body) };
+            } else {
+              // Fallback step 2 minimaliste
+              const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+              step2.body = (firstName ? firstName + ',\n\n' : '') +
+                'Je reviens vers toi — est-ce que le sujet resonne avec ta situation actuelle ?\n\n' +
+                'Si oui, 15 min cette semaine ?\n\n' +
+                (process.env.SENDER_NAME || 'Alexis');
+            }
+
+            // Step 3 : dernier message, court et direct
+            const fu3 = await this.claude.generatePersonalizedFollowUp(
+              contact, 3, 3,
+              prospectIntel + '\n\n=== CONTEXTE ENGAGEMENT : DERNIER MESSAGE ===\n' +
+              'C\'est le dernier follow-up. Sois tres court (25-40 mots MAX).\n' +
+              'Pas de pression, juste une porte ouverte. Nouveau sujet (pas de Re:).\n',
+              [...prevEmails, { subject: step2.subject, body: step2.body, stepNumber: 2 }], campaignCtx
+            );
+            if (fu3 && fu3.subject && fu3.body && !fu3.skip) {
+              step3 = { subject: applySpintax(fu3.subject), body: applySpintax(fu3.body) };
+            } else {
+              const firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
+              step3.body = (firstName ? firstName + ',\n\n' : '') +
+                'Pas de relance apres ca. Si le sujet revient sur la table, mon calendrier est ouvert.\n\n' +
+                'Bonne continuation,\n' +
+                (process.env.SENDER_NAME || 'Alexis');
+            }
+          } catch (fuGenErr) {
+            log.warn('campaign-engine', 'Generation FU 2/3 Instantly echouee pour ' + contact.email + ' — fallbacks utilises: ' + fuGenErr.message);
+          }
+
+          // Push vers Instantly
+          const instantlyResult = await instantly.addLeadToCampaign(_instantlyCampaignId, {
+            email: contact.email,
+            firstName: contact.firstName || (contact.name || '').split(' ')[0] || '',
+            lastName: contact.lastName || '',
+            companyName: contact.company || '',
+            emails: { step1, step2, step3 }
+          });
+
+          result = {
+            success: instantlyResult && instantlyResult.added > 0,
+            id: 'instantly-' + Date.now(),
+            messageId: null,
+            senderDomain: 'instantly',
+            instantly: true
+          };
+          log.info('campaign-engine', 'INSTANTLY: Lead ' + contact.email + ' pousse avec 3 steps personnalises');
+
+        } catch (instantlyErr) {
+          log.error('campaign-engine', 'INSTANTLY ERREUR pour ' + contact.email + ': ' + instantlyErr.message + ' — fallback Gmail/Resend');
+          // Fallback : envoyer via Gmail/Resend si Instantly echoue
+          result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
+        }
+      } else if (_instantlyKey && _instantlyCampaignId && stepNumber > 1) {
+        // --- MODE INSTANTLY : steps 2+ geres par Instantly automatiquement ---
+        // Verifier si ce lead a ete pousse dans Instantly (step 1 = instantly)
+        const step1Email = campaignEmails.find(e => e.to === contact.email && e.stepNumber <= 1 && e.senderDomain === 'instantly');
+        if (step1Email) {
+          log.info('campaign-engine', 'INSTANTLY: Skip step ' + stepNumber + ' pour ' + contact.email + ' — gere par Instantly');
+          skipped++;
+          continue; // Instantly gere les follow-ups
+        }
+        // Lead pas dans Instantly (legacy) — envoyer normalement
+        result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
+      } else {
+        // --- MODE CLASSIQUE : Gmail SMTP / Resend ---
+        result = await this.resend.sendEmail(contact.email, subject, body, sendOpts);
+      }
 
       // Calculer le score de qualite email (Lavender /100)
       let emailQualityScore = 0;
