@@ -2075,7 +2075,7 @@ Format JSON strict :
     }
 
     const apConfig = storage.getConfig();
-    const adminChatId = apConfig.adminChatId || '1409505520';
+    const adminChatId = apConfig.adminChatId || process.env.ADMIN_CHAT_ID || '1409505520';
     const fuConfig = apConfig.followUpConfig || {};
     const totalSteps = params.totalSteps || fuConfig.sequenceTotalSteps || 5;
     const stepDays = fuConfig.sequenceStepDays || [0, 3, 10];

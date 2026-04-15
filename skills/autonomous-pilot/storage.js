@@ -88,7 +88,7 @@ function _defaultData() {
   return {
     config: {
       enabled: true,
-      adminChatId: '1409505520',
+      adminChatId: process.env.ADMIN_CHAT_ID || '1409505520',
       businessContext: '',
       autonomyLevel: 'semi',
       offer: {

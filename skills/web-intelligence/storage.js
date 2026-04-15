@@ -12,7 +12,7 @@ function _defaultData() {
   return {
     config: {
       enabled: true,
-      adminChatId: '1409505520',
+      adminChatId: process.env.ADMIN_CHAT_ID || '1409505520',
       checkIntervalHours: 6,
       maxArticlesPerWatch: 50,
       maxArticlesTotal: 500,

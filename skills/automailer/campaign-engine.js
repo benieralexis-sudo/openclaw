@@ -1021,7 +1021,7 @@ class CampaignEngine {
       }
 
       // v9.2: Domain blacklist — never email own domains or test domains
-      const _ownDomains = ['getifind.fr', 'getifind.com', 'ifind-group.fr', 'ifind-agency.fr', 'ifind.fr', 'example.com', 'test.com'];
+      const _ownDomains = (process.env.OWN_DOMAINS || 'getifind.fr,getifind.com,ifind-group.fr,ifind-agency.fr,ifind.fr,example.com,test.com').split(',').map(d => d.trim());
       const _emailDomain = (contact.email.split('@')[1] || '').toLowerCase();
       if (_ownDomains.includes(_emailDomain)) {
         log.info('campaign-engine', 'Skip ' + contact.email + ' (domaine propre/test blackliste)');

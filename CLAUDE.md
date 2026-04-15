@@ -1,4 +1,4 @@
-# iFIND Bot v5.3 "Machine de Guerre" — Contexte Projet
+# iFIND Bot v9.5 — Contexte Projet
 
 ## Infrastructure
 - Serveur : srv1319748.hstgr.cloud (76.13.137.130)
@@ -109,19 +109,20 @@
 | Lun 14h | Web Intelligence | Digest hebdomadaire |
 | 1er du mois 9h | Proactive Agent | Rapport mensuel |
 
-## Tarification
-| Plan | Prix/mois | Setup | Leads/mois | Emails | RDV estimes | Engagement |
-|------|-----------|-------|------------|--------|-------------|------------|
-| Pilot | 690€ | 990€ | 300 | 500 | 5-10 | 3 mois |
-| Growth | 1 290€ | 990€ | 600 | 1 500 | 15-25 | 6 mois |
-| Scale | 2 490€ | Offert | 1 100 | 3 000+ | 30-50 | 12 mois |
-- Essai pilote : 490€ / 2 semaines (tous plans)
-- Cout infra : ~150€/mois → marge brute 78-94%
+## Tarification (avril 2026)
+| Plan | Prix/mois | Leads/mois | RDV estimes | Engagement |
+|------|-----------|------------|-------------|------------|
+| Pipeline | 890€ | 500 | 5-10 | 3 mois |
+| Multicanal | 1 290€ | 800 | 10-15 | 3 mois |
+| Premium | 1 890€ | 1 500 | 15-25 | 3 mois |
+- Garantie Pipeline : 0 RDV en 90j = dernier mois rembourse
+- Garantie Qualite : gratis apres 60j si pas satisfait
+- Cout infra : ~712€/mois → marge brute 71-81%
 
 ## Robustesse
 - Ecriture atomique sur tous les fichiers storage (tmp + rename)
 - Retry exponentiel sur appels API (OpenAI, Claude, Telegram)
-- Circuit breaker sur API externes (Resend, HubSpot, Apollo)
+- Circuit breaker sur API externes (Instantly, Resend, HubSpot)
 - TTL 24h sur memoire conversationnelle (nettoyage horaire)
 - Rate limiting messages (10 msg/30s par utilisateur)
 - Validation/troncature des entrees NLP (max 2000 chars)
@@ -136,7 +137,8 @@
 - TELEGRAM_BOT_TOKEN
 - OPENAI_API_KEY
 - CLAUDE_API_KEY (= ANTHROPIC_API_KEY dans le code)
-- APOLLO_API_KEY
+- INSTANTLY_API_KEY
+- INSTANTLY_CAMPAIGN_ID
 - FULLENRICH_API_KEY
 - HUBSPOT_API_KEY
 - RESEND_API_KEY (full-access, re_d7oRpcaR...)

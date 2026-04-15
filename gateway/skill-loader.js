@@ -27,7 +27,7 @@ const SKILL_MODULES = {
   'resend-client': 'automailer/resend-client.js',
   'claude-email-writer': 'automailer/claude-email-writer.js',
   'campaign-engine': 'automailer/campaign-engine.js',
-  'apollo-connector': 'flowfast/apollo-connector.js',
+  // 'apollo-connector': 'flowfast/apollo-connector.js', // Apollo resilie mars 2026
   'ai-classifier': 'lead-enrich/ai-classifier.js',
   'web-fetcher': 'web-intelligence/web-fetcher.js',
   'prospect-researcher': 'autonomous-pilot/prospect-researcher.js',
