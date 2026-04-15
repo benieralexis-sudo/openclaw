@@ -1884,6 +1884,47 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // === WEBHOOK INSTANTLY — Events email (sent, bounced, replied, unsub, error) ===
+  if (req.url && req.url.startsWith('/webhook/instantly') && req.method === 'POST') {
+    let body = '';
+    let bodySize = 0;
+    const MAX_BODY = 256 * 1024;
+    req.on('data', (chunk) => {
+      bodySize += chunk.length;
+      if (bodySize > MAX_BODY) { req.destroy(); return; }
+      body += chunk;
+    });
+    req.on('end', async () => {
+      if (bodySize > MAX_BODY) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'payload too large' }));
+        return;
+      }
+      try {
+        const payload = JSON.parse(body);
+        log.info('webhook-instantly', 'Event recu: ' + (payload.event_type || 'unknown') + ' | ' + (payload.email || ''));
+
+        // Charger le handler Instantly
+        const { createInstantlyWebhookHandler } = require('./instantly-webhook-handler.js');
+        const automailerStorage = require('../skills/automailer/storage.js');
+        const handler = createInstantlyWebhookHandler({
+          sendTelegram: _sendMessage,
+          storage: automailerStorage,
+          metrics: global.__ifindMetrics
+        });
+        await handler.handleEvent(payload);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) {
+        log.error('webhook-instantly', 'Erreur traitement: ' + e.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
   // === WEBHOOK CLAY — Reception leads enrichis ===
   if (req.url && req.url.startsWith('/webhook/clay') && req.method === 'POST') {
     let body = '';
