@@ -1908,7 +1908,7 @@ const healthServer = http.createServer(async (req, res) => {
         const { createInstantlyWebhookHandler } = require('./instantly-webhook-handler.js');
         const automailerStorage = require('../skills/automailer/storage.js');
         const handler = createInstantlyWebhookHandler({
-          sendTelegram: _sendMessage,
+          sendTelegram: sendMessage,
           storage: automailerStorage,
           metrics: global.__ifindMetrics
         });
