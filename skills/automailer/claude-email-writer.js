@@ -20,6 +20,8 @@ function _getQualityGatePatternsHint() {
     + '\n- "cordonnier" / "nerf de la guerre" / "beau move" — INTERDIT'
     + '\n- "résultat :" / "ils ont externalisé" / "un X avait le même problème" — INTERDIT'
     + '\n- "comment tu/vous scale/rempli" / "founder-led sales" — INTERDIT'
+    + '\n- "question directe" / "question directe :" — INTERDIT (cliche cold email 2024, grille)'
+    + '\n- "j\'imagine que" / "j\'imagine" — INTERDIT (supposition, constate plutot)'
     + '\n→ UTILISE plutot : une observation factuelle directe + question business courte.';
 }
 
@@ -35,7 +37,7 @@ const LANG_PATTERNS = {
     metaP: ['comment tu prospectes', 'comment vous prospectez', 'comment tu acquiers',
       'comment tu generes', 'comment tu trouves de nouveaux clients', 'acquisition de clients',
       'generer des leads', 'trouver de nouveaux clients'],
-    fakeCaseStudy: /\d+\s*(?:nouveaux?\s+)?(?:clients?|contacts?|meetings?|mandats?|dossiers?|missions?|comptes?|rdv|rendez-vous)\s+(?:en|par)\s+\d+\s*(?:mois|semaines?|jours?)/i,
+    fakeCaseStudy: /\d+\s*(?:nouveaux?\s+)?(?:clients?|contacts?|meetings?|mandats?|dossiers?|missions?|comptes?|entreprises?\s+int[ée]ress[ée]e?s?|rdv|rendez-vous)\s+(?:en|par)\s+\d+\s*(?:mois|semaines?|jours?)/i,
     hesitant: ['peut-etre', 'je me trompe', 'c\'est peut-etre pas', 'je me demandais',
       'pas du tout', 'ou pas', 'c\'est le cas', 'je me permets pas', 'je sais pas si',
       'j\'ignore si', 'c\'est un sujet ou', 'ou c\'est encore', 'ou pas du tout',
@@ -523,8 +525,13 @@ PARTIE 2 — Ce que tu fais + preuve (1-2 phrases)
 PARTIE 3 — Question simple (1 phrase)
    Le prospect doit pouvoir repondre en 3 mots.
    La question doit NOMMER ce dont tu parles.
-   BON : "Trouver des clients sans y passer vos soirees, c'est un sujet chez vous ?"
-   BON : "Ca vaut 10 minutes pour voir si ca s'applique chez [Entreprise] ?"
+   VARIE la question a chaque email. Voici 6 styles differents, ne repete JAMAIS le meme :
+   a) Question alternative : "C'est vous qui cherchez les clients, ou vous avez quelqu'un ?"
+   b) Question situation : "Les contrats suivent la croissance chez [Entreprise], ou c'est plus tendu ?"
+   c) Question valeur : "Ca vaut 10 minutes pour voir si ca s'applique chez [Entreprise] ?"
+   d) Question sujet : "Trouver des clients sans y passer vos soirees, ca vous parle ?"
+   e) Question confirmation : "Si c'est pertinent, je vous explique en 10 minutes ?"
+   f) Question directe douce : "Vous cherchez les clients vous-meme aujourd'hui ?"
    MAUVAIS : "C'est un sujet ?" (sujet de quoi ?)
    MAUVAIS : "Je me trompe ?" (jamais)
    MAUVAIS : "Dispo mardi 14h ?" (trop engageant)
@@ -567,26 +574,26 @@ Noi facem exact asta pentru firme de marimea voastra.
 E un subiect la voi sau nu prea?"` : `=== EXEMPLES 10/10 ===
 IMPORTANT : chaque exemple a un style DIFFERENT. Ne copie pas un seul style. Varie.
 
-Exemple 1 (signal recrutement) :
-"Thomas, vous cherchez un chef de projet et un dev chez [Agence] — j'imagine que vous etes en pleine croissance.
+Exemple 1 (signal recrutement — structure : observation + ce qu'on fait + question personnelle) :
+"Thomas, 2 postes ouverts chez [Agence] — l'equipe grandit. En general c'est le fondateur qui cherche les clients entre deux projets, et ca finit par prendre 2 jours par semaine.
 
-Question directe : c'est vous qui trouvez les nouveaux clients de l'agence entre deux projets ? On fait ca pour 3 agences comme la votre. Le fondateur arrete de chercher des clients, on s'en occupe.
+On fait exactement ca : trouver des clients pour des agences, pour que le fondateur reste sur ses projets.
 
-Si c'est pertinent, je vous explique en 10 minutes ?"
+C'est vous qui cherchez les clients aujourd'hui, ou vous avez quelqu'un ?"
 
-Exemple 2 (signal levee de fonds) :
-"Clement, felicitations pour la levee chez [SaaS]. Maintenant il faut que les ventes suivent, et recruter un commercial prend 6 mois.
+Exemple 2 (signal levee — structure : felicitation + douleur chiffree + question douce) :
+"Clement, felicitations pour la levee chez [SaaS]. Maintenant il faut que les ventes suivent, et recruter un commercial prend 6 mois avant le premier resultat.
 
-On a trouve 12 entreprises interessees par mois pour un editeur de votre taille, le temps que l'equipe se monte.
+On contacte les entreprises qui ont besoin d'un logiciel comme le votre. Le fondateur reste sur le produit, on s'occupe de trouver les clients.
 
 Trouver des clients sans recruter, ca vous parle ?"
 
-Exemple 3 (signal croissance) :
-"Marc, [ESN] grandit vite, 5 postes ouverts. La question c'est souvent : est-ce que les nouveaux contrats suivent au meme rythme ?
+Exemple 3 (signal croissance — structure : douleur chiffree d'abord + offre + question alternative) :
+"Marc, un consultant sans mission pendant 2 mois, ca coute 10-15k euros. Quand tout vient du reseau, un mois c'est plein, le suivant c'est vide.
 
-On a aide une ESN de 45 personnes a signer 3 nouveaux contrats en 2 mois. On leur a trouve les bons interlocuteurs.
+On trouve des entreprises qui ont des projets informatiques pour des ESN comme la votre. Pas d'attente, pas d'appel d'offres.
 
-C'est un sujet chez [ESN] en ce moment ?"`}
+Les contrats suivent la croissance chez [ESN], ou c'est justement le sujet ?"`}
 
 ${abSubjectInstruction}
 === FORMAT ===
@@ -712,10 +719,9 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
       }
     }
 
-    // Apres retries : Grade B (65+) = acceptable, Grade C (<65) = skip
-    // Abaisse de 75 a 65 : les leads avec donnees minimales (company+title sans brief)
-    // ne peuvent pas scorer 75+, et le campaign engine a un gate Lavender post-gen a 55
-    if (bestScore >= 65) {
+    // Apres retries : Grade B (75+) = acceptable, Grade C (<75) = skip
+    // Remonte de 65 a 75 le 16 avril 2026 : qualite > volume. Un email moyen fait plus de mal que pas d'email.
+    if (bestScore >= 75) {
       best._lavenderScore = bestScore;
       best._lavenderGrade = best._scoreGrade || 'B';
       best._lavenderDetails = best._scoreDetails || {};

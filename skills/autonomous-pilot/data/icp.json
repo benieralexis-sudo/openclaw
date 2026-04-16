@@ -1,5 +1,5 @@
 {
-  "version": "3.1",
+  "version": "3.2",
   "clientDescription": "On trouve des clients pour les PME B2B. On contacte les bonnes personnes au bon moment, on ecrit des emails personnalises, et on livre des rendez-vous avec des gens interesses.",
   "solutionEnUnePhrase": "On vous trouve des clients sans que vous y passiez une minute",
   "bookingUrl": "https://cal.eu/alexis-benier-sarxqi",
@@ -19,8 +19,8 @@
       "douleurChiffree": "Un fondateur d'agence passe 2 jours par semaine a chercher des clients au lieu de facturer.",
       "solutionEnUnePhrase": "On vous trouve des clients pendant que vous travaillez sur vos projets",
       "preuves": [
-        "on a trouve 8 entreprises interessees en 6 semaines pour une agence de 12 personnes",
-        "le fondateur d'une agence a arrete de chercher des clients — on s'en occupe pour lui"
+        "on contacte des entreprises qui ont besoin d'une agence comme la votre — chaque email est ecrit pour eux, pas copie-colle",
+        "le fondateur reste sur ses projets, on s'occupe de lui trouver des clients"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des clients pour des agences — le fondateur travaille sur ses projets au lieu de prospecter",
@@ -39,8 +39,8 @@
         }
       ],
       "exampleEmails": [
-        "Thomas, vous cherchez un chef de projet et un dev chez [Agence] — j'imagine que ca pousse bien.\n\nQuestion directe : c'est vous qui trouvez les nouveaux clients entre deux projets ? On fait ca pour 3 agences comme la votre. Le fondateur arrete de chercher des clients, on s'en occupe.\n\nSi c'est pertinent, je vous explique en 10 minutes ?",
-        "Thomas, 2 postes ouverts chez [Agence] — quand l'equipe grandit, c'est souvent le fondateur qui cherche les clients le soir et le week-end.\n\nOn a trouve 8 entreprises interessees en 6 semaines pour une agence de votre taille.\n\nTrouver des clients sans y passer vos soirees, c'est un sujet chez vous ?"
+        "Thomas, 2 postes ouverts chez [Agence] — l'equipe grandit. En general c'est le fondateur qui cherche les clients entre deux projets, et ca finit par prendre 2 jours par semaine.\n\nOn fait exactement ca : trouver des clients pour des agences, pour que le fondateur reste sur ses projets.\n\nC'est vous qui cherchez les clients aujourd'hui, ou vous avez quelqu'un ?",
+        "[Agence] recrute un dev et un DA — ca pousse. Quand l'equipe grandit, la question c'est toujours : est-ce que les clients suivent au meme rythme ?\n\nOn trouve des entreprises qui ont besoin d'une agence comme la votre. Chaque email est ecrit pour eux, pas du copie-colle.\n\nSi c'est pertinent, je vous explique en 10 minutes ?"
       ]
     },
     {
@@ -53,8 +53,8 @@
       "douleurChiffree": "Un consultant sans mission pendant 2 mois, c'est 10-15k euros de cout sans retour.",
       "solutionEnUnePhrase": "On vous trouve des entreprises qui ont des projets informatiques maintenant",
       "preuves": [
-        "une ESN de 45 personnes a signe 3 nouveaux contrats en 2 mois grace a nous",
-        "on a aide un cabinet IT a avoir des consultants en mission en continu au lieu d'attendre les appels d'offres"
+        "on contacte les entreprises qui ont des projets informatiques pour des ESN comme la votre",
+        "un moyen de trouver des contrats sans dependre des appels d'offres ni du reseau"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des missions pour des ESN — un moyen de trouver des contrats sans dependre des appels d'offres",
@@ -73,8 +73,8 @@
         }
       ],
       "exampleEmails": [
-        "Marc, [ESN] grandit vite, 5 postes ouverts. La question c'est souvent : est-ce que les nouveaux contrats suivent au meme rythme ?\n\nOn a aide une ESN de 45 personnes a signer 3 nouveaux contrats en 2 mois. On leur a trouve les bons interlocuteurs.\n\nC'est un sujet chez [ESN] en ce moment ?",
-        "Marc, un consultant sans mission pendant 2 mois ca coute cher. Quand l'equipe grandit, il faut que les contrats suivent.\n\nOn trouve des entreprises qui ont des projets informatiques pour des ESN comme la votre.\n\nCa vaut 10 minutes pour en parler ?"
+        "Marc, [ESN] grandit vite, 5 postes ouverts. La question c'est toujours la meme : est-ce que les contrats suivent au meme rythme, ou il y aura des periodes creuses ?\n\nOn trouve des entreprises qui ont des projets informatiques pour des ESN comme la votre. Pas d'appel d'offres, pas d'attente.\n\nLes contrats suivent la croissance chez [ESN], ou c'est justement le sujet ?",
+        "Marc, un consultant sans mission pendant 2 mois, ca coute 10-15k euros. Quand tout vient du reseau, un mois c'est plein, le suivant c'est vide.\n\nOn trouve des entreprises qui ont des projets IT maintenant, et on les met en contact avec des ESN comme la votre.\n\nCa vaut 10 minutes pour voir si ca s'applique chez vous ?"
       ]
     },
     {
@@ -87,8 +87,8 @@
       "douleurChiffree": "Recruter un commercial coute 50-60k par an et prend 6 mois avant le premier resultat.",
       "solutionEnUnePhrase": "On vous trouve des entreprises interessees par votre logiciel pendant que vous restez sur le produit",
       "preuves": [
-        "on a trouve 12 entreprises interessees par mois pour un editeur de 20 personnes, sans qu'ils recrutent",
-        "un editeur logiciel a signe ses 3 premiers gros clients grace a nous"
+        "on contacte les entreprises qui ont besoin d'un logiciel comme le votre — chaque email est personnalise",
+        "le fondateur reste sur le produit, on s'occupe de trouver les clients"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des clients pour des editeurs logiciels — le fondateur reste sur le produit",
@@ -107,8 +107,8 @@
         }
       ],
       "exampleEmails": [
-        "Clement, felicitations pour la levee chez [SaaS]. Maintenant il faut que les ventes suivent, et recruter un commercial prend 6 mois.\n\nOn a trouve 12 entreprises interessees par mois pour un editeur de votre taille, le temps que l'equipe se monte.\n\nTrouver des clients sans recruter, ca vous parle ?",
-        "Clement, c'est encore vous qui trouvez les clients chez [SaaS] ? A votre stade c'est souvent le fondateur qui fait tout — produit, recrutement, et ventes entre deux.\n\nOn fait ca pour des editeurs comme le votre. Le fondateur reste sur le produit, on s'occupe du reste.\n\nCa vaut 10 minutes pour voir si ca s'applique ?"
+        "Clement, felicitations pour la levee chez [SaaS]. Maintenant il faut que les ventes suivent, et recruter un commercial prend 6 mois avant le premier resultat.\n\nOn trouve des entreprises qui ont besoin d'un logiciel comme le votre, et on les contacte une par une avec un email ecrit pour eux.\n\nTrouver des clients sans recruter, ca vous parle ?",
+        "Clement, c'est encore vous qui trouvez les clients chez [SaaS] ? A votre stade c'est souvent le fondateur qui fait tout — produit, recrutement, et ventes entre deux.\n\nOn fait exactement ca pour des editeurs : trouver les bons interlocuteurs. Le fondateur reste sur le produit.\n\nCa vaut 10 minutes pour voir si ca s'applique chez [SaaS] ?"
       ]
     },
     {
@@ -121,8 +121,8 @@
       "douleurChiffree": "Un consultant qui passe la moitie de son temps a chercher des clients au lieu de placer des candidats, c'est la moitie de sa valeur perdue.",
       "solutionEnUnePhrase": "On vous trouve des entreprises qui recrutent — vos consultants se concentrent sur le placement",
       "preuves": [
-        "un cabinet de 8 consultants a double ses missions en 3 mois parce qu'on leur trouvait les clients",
-        "les consultants d'un cabinet ont arrete de chercher des clients — on s'en occupe pour eux"
+        "on contacte les entreprises qui recrutent pour des cabinets comme le votre — les consultants se concentrent sur le placement",
+        "un moyen de trouver des missions sans que les consultants y passent la moitie de leur temps"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des entreprises qui recrutent pour des cabinets — les consultants se concentrent sur le placement",
@@ -137,8 +137,8 @@
         }
       ],
       "exampleEmails": [
-        "Sophie, vos consultants chez [Cabinet] passent combien de temps a chercher des clients vs placer des candidats ? En general c'est 50/50, et c'est dommage.\n\nOn a aide un cabinet de 8 personnes a doubler ses missions en 3 mois. On leur trouvait les clients, ils se concentraient sur le placement.\n\nC'est un sujet chez vous ?",
-        "Sophie, un cabinet de 8 consultants nous a confie la recherche de clients. Resultat : ils placent plus, ils cherchent moins.\n\nSi vos consultants passent du temps a trouver des missions au lieu de placer des candidats, ca vaut peut-etre 10 minutes pour en parler ?"
+        "Sophie, vos consultants chez [Cabinet] passent combien de temps a chercher des clients vs placer des candidats ? En general c'est 50/50, et c'est la moitie de leur valeur perdue.\n\nOn trouve des entreprises qui recrutent et on les met en contact avec des cabinets comme le votre. Les consultants se concentrent sur le placement.\n\nC'est 50/50 chez vous aussi, ou vous avez resolu ca ?",
+        "Sophie, quand les consultants passent la moitie de leur temps a chercher des missions, c'est la moitie de leur valeur qui ne sert pas.\n\nOn contacte les entreprises qui recrutent pour des cabinets comme le votre. Le consultant place, on cherche.\n\nCa vaut 10 minutes pour en parler ?"
       ]
     },
     {
@@ -151,8 +151,8 @@
       "douleurChiffree": "Un associe a 1200 euros par jour qui passe 2 jours par semaine a chercher des clients, c'est 10k euros par mois de facturation en moins.",
       "solutionEnUnePhrase": "On vous trouve des missions pendant que les associes facturent",
       "preuves": [
-        "les associes d'un cabinet de 6 personnes ont libere 8 jours par mois de travail facturable grace a nous",
-        "un cabinet conseil a signe 2 nouvelles missions en 6 semaines sans que les associes y passent du temps"
+        "on contacte les entreprises qui ont besoin de conseil pour des cabinets comme le votre — les associes facturent au lieu de chercher",
+        "un moyen de remplir le carnet sans que les associes y passent leurs lundis"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des missions pour des cabinets conseil — les associes facturent au lieu de chercher des clients",
@@ -167,8 +167,8 @@
         }
       ],
       "exampleEmails": [
-        "Pierre, les associes chez [Cabinet] passent combien de temps a chercher des missions ? En general c'est 2 jours par semaine — des jours ou ils pourraient facturer.\n\nOn a aide un cabinet de 6 personnes a liberer 8 jours par mois. On leur trouvait les missions, ils facturaient.\n\nC'est un sujet chez vous ?",
-        "Pierre, un cabinet comme le votre nous a confie la recherche de nouvelles missions. Les associes ont arrete de passer leurs lundis au telephone, et ils ont signe 2 contrats en 6 semaines.\n\nSi les associes passent trop de temps a chercher des clients, ca vaut 10 minutes pour en parler ?"
+        "Pierre, un associe a 1 200 euros par jour qui passe 2 jours par semaine a chercher des missions — c'est 10k par mois qui ne sont pas factures.\n\nOn contacte les entreprises qui ont besoin de conseil pour des cabinets comme le votre. Les associes restent sur les missions.\n\nLes associes chez [Cabinet] passent du temps a chercher des clients, ou vous avez trouve un autre moyen ?",
+        "Pierre, les missions viennent du reseau — ca marche, mais les associes y passent un temps fou.\n\nOn fait exactement ca pour des cabinets : trouver les bonnes entreprises et les mettre en contact avec vous.\n\nCa vaut 10 minutes pour voir si ca s'applique chez [Cabinet] ?"
       ]
     },
     {
@@ -181,8 +181,8 @@
       "douleurChiffree": "Un fondateur tech qui passe 40% de son temps a vendre au lieu de construire le produit, c'est du retard sur tout.",
       "solutionEnUnePhrase": "On vous trouve des clients pendant que vous construisez le produit",
       "preuves": [
-        "on a trouve 10 entreprises interessees par mois pour une startup de 15 personnes sans que le fondateur y passe une heure",
-        "une startup a signe ses 3 premiers gros clients grace a nous"
+        "on contacte les entreprises qui ont besoin d'un produit comme le votre — le fondateur reste sur le produit",
+        "un moyen de trouver des clients sans recruter un commercial a 50-60k par an"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des clients pour des startups tech — le fondateur reste sur le produit",
@@ -201,8 +201,8 @@
         }
       ],
       "exampleEmails": [
-        "Julien, vous venez de lever chez [Startup] et vous etes 15 — j'imagine que c'est encore vous qui trouvez les clients entre deux sprints.\n\nOn a trouve 10 entreprises interessees par mois pour une startup de votre taille. Le fondateur n'y a pas passe une heure.\n\nTrouver des clients sans y passer vos journees, c'est un sujet ?",
-        "Julien, recruter un commercial prend 6 mois et coute cher. Pour une startup post-levee, chaque mois compte.\n\nOn trouve des clients pour des startups tech comme [Startup] — le fondateur reste sur le produit.\n\nCa vaut 10 minutes pour en parler ?"
+        "Julien, vous venez de lever chez [Startup] — maintenant chaque mois compte. Recruter un commercial prend 6 mois et coute 50-60k par an.\n\nOn contacte les entreprises qui ont besoin d'un produit comme le votre. Le fondateur reste sur le produit, on s'occupe de trouver les clients.\n\nVous cherchez les clients vous-meme aujourd'hui, ou vous avez quelqu'un ?",
+        "Julien, 40% du temps du fondateur passe a trouver des clients — c'est 40% de temps en moins sur le produit.\n\nOn fait exactement ca pour des startups tech : trouver les bons interlocuteurs, un par un.\n\nCa vaut 10 minutes pour voir si ca colle chez [Startup] ?"
       ]
     },
     {
@@ -215,8 +215,8 @@
       "douleurChiffree": "Une session a moitie remplie coute le meme prix qu'une session pleine. Chaque place vide est une perte seche.",
       "solutionEnUnePhrase": "On vous trouve des entreprises qui veulent former leurs equipes",
       "preuves": [
-        "un organisme a rempli 3 sessions de suite a plus de 90% grace a nous",
-        "un centre de formation a double ses inscriptions entreprises en 2 mois"
+        "on contacte les entreprises qui ont des besoins de formation pour des organismes comme le votre",
+        "un moyen de remplir les sessions de maniere reguliere, sans dependre du bouche-a-oreille"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des entreprises qui veulent former leurs equipes pour des organismes de formation",
@@ -231,8 +231,8 @@
         }
       ],
       "exampleEmails": [
-        "Caroline, 12 formations au catalogue chez [Organisme] et 3 nouvelles cette annee. Le probleme c'est souvent le remplissage : un mois c'est plein, le mois d'apres c'est vide.\n\nOn a aide un organisme de votre taille a remplir 3 sessions de suite a plus de 90%.\n\nRemplir vos sessions de maniere reguliere, c'est un sujet chez vous ?",
-        "Caroline, une session a moitie remplie coute le meme prix qu'une session pleine — c'est frustrant.\n\nOn trouve des entreprises qui veulent former leurs equipes pour des organismes comme le votre. Un centre de formation a double ses inscriptions en 2 mois avec nous.\n\nCa vaut 10 minutes pour en parler ?"
+        "Caroline, une session a moitie remplie coute le meme prix qu'une session pleine — chaque place vide est une perte seche.\n\nOn contacte les entreprises qui ont des besoins de formation pour des organismes comme le votre. Un moyen de remplir les sessions sans dependre du bouche-a-oreille.\n\nLe remplissage est regulier chez [Organisme], ou c'est justement le sujet ?",
+        "Caroline, 12 formations au catalogue et 3 nouvelles cette annee. Quand le remplissage depend du reseau, un mois c'est plein, le suivant c'est vide.\n\nOn trouve des entreprises qui veulent former leurs equipes — et on les met en contact avec vous.\n\nCa vaut 10 minutes pour en parler ?"
       ]
     },
     {
@@ -245,8 +245,8 @@
       "douleurChiffree": "Un negociateur sans mandat pendant 2 mois, c'est son salaire pour rien.",
       "solutionEnUnePhrase": "On vous trouve des proprietaires qui veulent vendre — en complement du terrain",
       "preuves": [
-        "une agence de 3 bureaux a eu 5 mandats supplementaires par mois en ajoutant notre methode",
-        "un reseau immobilier a baisse son cout par mandat de 35%"
+        "on contacte les proprietaires qui veulent vendre pour des agences comme la votre — un complement au terrain",
+        "un moyen de trouver des mandats sans dependre uniquement du terrain quand le marche se tend"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des mandats pour des agences immobilieres — un complement au terrain",
@@ -261,8 +261,8 @@
         }
       ],
       "exampleEmails": [
-        "Gregory, 3 agences et le marche qui se tend — quand le terrain ne suffit plus, il faut un autre moyen de trouver des mandats.\n\nOn a aide une agence de votre taille a avoir 5 mandats de plus par mois.\n\nTrouver des mandats autrement que par le terrain, c'est un sujet chez vous ?",
-        "Gregory, un negociateur sans mandat pendant 2 mois, c'est son salaire pour rien. Quand le marche se tend, le terrain seul ne suffit plus.\n\nOn trouve des proprietaires qui veulent vendre pour des agences comme la votre.\n\nCa vaut 10 minutes pour en parler ?"
+        "Gregory, 3 agences et le marche qui se tend — quand le terrain seul ne suffit plus, un negociateur sans mandat pendant 2 mois ca coute cher.\n\nOn trouve des proprietaires qui veulent vendre et on les met en contact avec des agences comme la votre. Un complement au terrain.\n\nLes mandats suivent chez [Agence], ou c'est plus tendu en ce moment ?",
+        "Gregory, quand le marche se tend, le terrain seul ne suffit pas toujours. Et un negociateur sans mandat, c'est son salaire pour rien.\n\nOn contacte des proprietaires qui veulent vendre pour des agences comme la votre.\n\nCa vaut 10 minutes pour voir si ca s'applique chez vous ?"
       ]
     },
     {
@@ -275,8 +275,8 @@
       "douleurChiffree": "Quand un associe part, il emporte 20-30% du portefeuille avec lui.",
       "solutionEnUnePhrase": "On vous trouve des dirigeants qui cherchent un expert-comptable — sans dependre du reseau de personne",
       "preuves": [
-        "un cabinet de 4 associes a signe 15 nouveaux dossiers en 3 mois grace a nous",
-        "un expert-comptable a securise sa croissance en ne dependant plus du reseau d'un seul associe"
+        "on contacte les dirigeants qui cherchent un expert-comptable pour des cabinets comme le votre",
+        "un moyen de faire grandir le portefeuille sans dependre du reseau de personne"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des clients pour des cabinets comptables — sans dependre du reseau de personne",
@@ -291,8 +291,8 @@
         }
       ],
       "exampleEmails": [
-        "Laurent, 200 dossiers chez [Cabinet] — le jour ou un associe part, c'est 40-60 dossiers qui partent avec. C'est le risque quand tout repose sur le reseau.\n\nOn a aide un cabinet de 4 associes a signer 15 nouveaux dossiers en 3 mois. Sans dependre du reseau de personne.\n\nC'est un sujet chez vous ?",
-        "Laurent, les clients viennent du reseau des associes — ca marche mais c'est fragile.\n\nOn trouve des dirigeants qui cherchent un expert-comptable pour des cabinets comme le votre. Un cabinet a signe 15 dossiers en 3 mois avec nous.\n\nSecuriser la croissance sans dependre du reseau, ca vaut 10 minutes pour en parler ?"
+        "Laurent, le portefeuille se construit sur 10 ans de reseau. Le jour ou un associe part, c'est 20-30% des dossiers qui partent avec. C'est fragile.\n\nOn contacte les dirigeants qui cherchent un expert-comptable — sans dependre du reseau de personne.\n\nLe portefeuille chez [Cabinet] depend du reseau des associes, ou vous avez diversifie ?",
+        "Laurent, les clients viennent du reseau des associes — ca marche mais c'est fragile.\n\nOn trouve des dirigeants qui cherchent un expert-comptable pour des cabinets comme le votre. Un moyen de securiser la croissance.\n\nCa vaut 10 minutes pour voir si ca s'applique chez [Cabinet] ?"
       ]
     },
     {
@@ -305,8 +305,8 @@
       "douleurChiffree": "Le cout par client en pub augmente de 15-20% par an. Ce qui marchait l'annee derniere coute 20% de plus cette annee.",
       "solutionEnUnePhrase": "On vous trouve des clients professionnels en direct — sans passer par la pub",
       "preuves": [
-        "un e-commerce B2B a divise par 2 son cout par client en ajoutant notre methode a la pub",
-        "une marketplace a trouve 30% de ses nouveaux vendeurs grace a nous en 3 mois"
+        "on contacte les entreprises qui ont besoin de vos produits — un complement a la pub, avec un cout fixe",
+        "un moyen de trouver des clients professionnels sans que ca coute plus cher chaque annee"
       ],
       "ctaType": "sujet",
       "socialProof": "on trouve des clients professionnels en direct pour des e-commerces B2B — un complement a la pub",
@@ -321,7 +321,7 @@
         }
       ],
       "exampleEmails": [
-        "Nicolas, la pub coute de plus en plus cher. Ce qui marchait l'annee derniere coute 20% de plus cette annee. A votre volume, ca chiffre vite.\n\nUn e-commerce B2B de votre taille a divise par 2 son cout par client en ajoutant un moyen de trouver des clients en direct.\n\nTrouver des clients sans que ca coute plus cher chaque annee, c'est un sujet ?",
+        "Nicolas, le cout par client en pub augmente de 15-20% par an. Ce qui marchait l'annee derniere coute 20% de plus cette annee — a votre volume, ca chiffre vite.\n\nOn contacte les entreprises qui ont besoin de vos produits, en direct. Un cout fixe, pas une enchere.\n\nTrouver des clients sans que ca coute plus cher chaque annee, ca vous parle ?",
         "Nicolas, quand tous les clients viennent de la pub, chaque augmentation de prix mange la marge.\n\nOn trouve des clients professionnels en direct pour des e-commerces comme le votre. Un complement a la pub, avec un cout fixe.\n\nCa vaut 10 minutes pour en parler ?"
       ]
     }
