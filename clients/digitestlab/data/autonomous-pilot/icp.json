@@ -30,7 +30,7 @@
           "angle": "Chaque sprint qui part en prod sans QA dediee, c'est un risque client. Comment vous gerez ca aujourd'hui ?"
         }
       ],
-      "exampleEmail": "Marc, [Entreprise] pousse 2 releases par semaine. Question directe — qui teste avant la prod ? Si ce sont les devs eux-memes, ils perdent du temps de dev.\n\nOn integre des testeurs dedies directement dans vos sprints. Meme fuseau, memes outils. Ca vous parle ?"
+      "exampleEmail": "Marc, [Entreprise] pousse 2 releases par semaine. Qui teste avant la prod ? Si ce sont les devs eux-memes, ils perdent du temps de dev.\n\nOn integre des testeurs dedies directement dans vos sprints. Meme fuseau, memes outils.\n\nVous avez une equipe QA dediee, ou ce sont les devs qui testent ?"
     },
     {
       "slug": "editeurs-logiciels",

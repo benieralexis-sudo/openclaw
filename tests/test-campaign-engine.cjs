@@ -355,7 +355,7 @@ describe('Quality Gate: Generic patterns', () => {
   });
 
   it('laisse passer un email specifique et naturel', () => {
-    const body = "Felicitations pour la levee de fonds de TechCorp.\nJ'imagine que la croissance implique des defis RH importants.\nAlexis";
+    const body = "TechCorp vient de lever, felicitations.\nLa croissance implique des defis RH importants — recruter un commercial prend 6 mois.\nAlexis";
     assert.equal(emailPassesGenericCheck(body).pass, true);
   });
 });
