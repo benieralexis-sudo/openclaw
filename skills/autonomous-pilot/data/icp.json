@@ -1,11 +1,11 @@
 {
-  "version": "3.0",
-  "clientDescription": "iFIND genere des RDV qualifies pour les PME B2B. On identifie les bons prospects au bon moment, on redige des emails personnalises, et on livre des conversations commerciales. Le client recoit des RDV, pas des leads froids.",
-  "solutionEnUnePhrase": "On remplit votre pipeline de RDV qualifies sans que vous y passiez une minute",
+  "version": "3.1",
+  "clientDescription": "On trouve des clients pour les PME B2B. On contacte les bonnes personnes au bon moment, on ecrit des emails personnalises, et on livre des rendez-vous avec des gens interesses.",
+  "solutionEnUnePhrase": "On vous trouve des clients sans que vous y passiez une minute",
   "bookingUrl": "https://cal.eu/alexis-benier-sarxqi",
   "intentConfig": {
     "hiringKeywords": ["commercial", "sales", "sdr", "bdr", "business developer", "account executive", "responsable commercial", "directeur commercial", "bizdev"],
-    "hiringAngle": "Vous recrutez cote commercial. Le temps que le profil soit operationnel, le pipe peut deja tourner",
+    "hiringAngle": "Vous recrutez un commercial — le temps qu'il soit operationnel, on peut deja vous trouver des clients",
     "minIntentScore": 3
   },
   "niches": [
@@ -15,32 +15,32 @@
       "keywords": "agence marketing OR agence digitale OR agence growth",
       "weight": 20,
       "matchPatterns": ["agence marketing", "agence digitale", "agence growth", "agence communication", "agence web", "agence seo", "growth hacking"],
-      "painPoint": "Le fondateur porte seul l'acquisition. LinkedIn, reseau, reco. Ca plafonne et c'est irregulier.",
-      "douleurChiffree": "Un fondateur d'agence passe 30-40% de son temps en prospection non facturee. A 1000 euros/jour, ca fait 6-8k euros/mois de manque a gagner.",
-      "solutionEnUnePhrase": "On remplit votre pipeline de RDV qualifies pendant que vous facturez",
+      "painPoint": "Le fondateur cherche les clients lui-meme entre deux projets. Ca prend du temps et c'est irregulier.",
+      "douleurChiffree": "Un fondateur d'agence passe 2 jours par semaine a chercher des clients au lieu de facturer.",
+      "solutionEnUnePhrase": "On vous trouve des clients pendant que vous travaillez sur vos projets",
       "preuves": [
-        "une agence digitale de 12 personnes a decroche 8 RDV qualifies en 6 semaines",
-        "une agence growth a divise par 3 le temps du fondateur passe en prospection"
+        "on a trouve 8 entreprises interessees en 6 semaines pour une agence de 12 personnes",
+        "le fondateur d'une agence a arrete de chercher des clients — on s'en occupe pour lui"
       ],
       "ctaType": "sujet",
-      "socialProof": "on structure l'acquisition pour des agences — le fondateur facture au lieu de prospecter",
+      "socialProof": "on trouve des clients pour des agences — le fondateur travaille sur ses projets au lieu de prospecter",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez un commercial — signe que le reseau seul ne suffit plus pour remplir le pipe"
+          "angle": "Vous recrutez un commercial — signe que le reseau seul ne suffit plus pour trouver des clients"
         },
         {
           "signal": "growth",
-          "angle": "L'equipe grandit mais le pipe client suit pas toujours au meme rythme"
+          "angle": "L'equipe grandit mais est-ce que les nouveaux clients suivent au meme rythme"
         },
         {
           "signal": "default",
-          "angle": "Le pipe client depend du fondateur — ca marche mais ca plafonne"
+          "angle": "Les clients viennent du reseau du fondateur — ca marche mais ca prend du temps"
         }
       ],
       "exampleEmails": [
-        "Thomas, 2 postes ouverts chez [Agence] — quand le delivery grandit, c'est souvent le pipe client qui decroche.\n\nUne agence de 12 personnes dans votre secteur a decroche 8 RDV qualifies le premier mois en nous deleguant l'outbound.\n\nC'est un sujet chez vous en ce moment ?",
-        "Thomas, les agences de votre taille perdent en moyenne 6k euros/mois de facturation parce que le fondateur prospecte au lieu de delivrer.\n\nOn a structure l'acquisition pour 3 agences digitales — le fondateur facture, on remplit le pipe.\n\nCa vaut 15 minutes pour voir si ca s'applique chez [Agence] ?"
+        "Thomas, vous cherchez un chef de projet et un dev chez [Agence] — j'imagine que ca pousse bien.\n\nQuestion directe : c'est vous qui trouvez les nouveaux clients entre deux projets ? On fait ca pour 3 agences comme la votre. Le fondateur arrete de chercher des clients, on s'en occupe.\n\nSi c'est pertinent, je vous explique en 10 minutes ?",
+        "Thomas, 2 postes ouverts chez [Agence] — quand l'equipe grandit, c'est souvent le fondateur qui cherche les clients le soir et le week-end.\n\nOn a trouve 8 entreprises interessees en 6 semaines pour une agence de votre taille.\n\nTrouver des clients sans y passer vos soirees, c'est un sujet chez vous ?"
       ]
     },
     {
@@ -49,15 +49,15 @@
       "keywords": "ESN OR SSII OR conseil informatique",
       "weight": 18,
       "matchPatterns": ["esn", "ssii", "conseil informatique", "services numeriques", "consulting it", "societe de services"],
-      "painPoint": "80% du business vient des AO et du reseau des associes. Le pipe est imprevisible.",
-      "douleurChiffree": "Les ESN de 20-100 personnes ont en moyenne 2-3 mois de visibilite sur leur pipe de missions. Un inter-contrat a 50k euros/an, ca coute cher.",
-      "solutionEnUnePhrase": "On genere des RDV avec des DSI et directeurs techniques qui ont des projets maintenant",
+      "painPoint": "Les nouvelles missions viennent du reseau et des appels d'offres. C'est imprevisible.",
+      "douleurChiffree": "Un consultant sans mission pendant 2 mois, c'est 10-15k euros de cout sans retour.",
+      "solutionEnUnePhrase": "On vous trouve des entreprises qui ont des projets informatiques maintenant",
       "preuves": [
-        "une ESN de 45 personnes a signe 3 nouvelles missions en 2 mois grace au pipe qu'on a construit",
-        "un cabinet IT a reduit ses inter-contrats de 40% en structurant l'outbound"
+        "une ESN de 45 personnes a signe 3 nouveaux contrats en 2 mois grace a nous",
+        "on a aide un cabinet IT a avoir des consultants en mission en continu au lieu d'attendre les appels d'offres"
       ],
       "ctaType": "sujet",
-      "socialProof": "on structure le pipe commercial pour des ESN — un canal qui ne depend ni des AO ni du reseau",
+      "socialProof": "on trouve des missions pour des ESN — un moyen de trouver des contrats sans dependre des appels d'offres",
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -65,16 +65,16 @@
         },
         {
           "signal": "growth",
-          "angle": "L'equipe technique grandit — le pipe de missions doit suivre pour eviter les inter-contrats"
+          "angle": "L'equipe technique grandit — il faut que les contrats suivent pour eviter les periodes creuses"
         },
         {
           "signal": "default",
-          "angle": "Le pipe de missions depend du reseau des associes — ca plafonne a un moment"
+          "angle": "Les contrats viennent du reseau — ca marche mais c'est irregulier"
         }
       ],
       "exampleEmails": [
-        "Marc, 5 postes ouverts chez [ESN] — quand l'equipe grandit aussi vite, le risque c'est l'inter-contrat si le pipe de missions suit pas.\n\nUne ESN de 45 personnes a signe 3 missions en 2 mois en structurant l'outbound avec nous.\n\nC'est un sujet chez vous ?",
-        "Marc, les ESN de votre taille ont en moyenne 2-3 mois de visibilite sur le pipe. Un inter-contrat a 50k euros/an, ca pese.\n\nOn genere des RDV avec des DSI qui ont des projets maintenant — sans dependre des AO.\n\nCa vaut un echange de 15 minutes ?"
+        "Marc, [ESN] grandit vite, 5 postes ouverts. La question c'est souvent : est-ce que les nouveaux contrats suivent au meme rythme ?\n\nOn a aide une ESN de 45 personnes a signer 3 nouveaux contrats en 2 mois. On leur a trouve les bons interlocuteurs.\n\nC'est un sujet chez [ESN] en ce moment ?",
+        "Marc, un consultant sans mission pendant 2 mois ca coute cher. Quand l'equipe grandit, il faut que les contrats suivent.\n\nOn trouve des entreprises qui ont des projets informatiques pour des ESN comme la votre.\n\nCa vaut 10 minutes pour en parler ?"
       ]
     },
     {
@@ -83,32 +83,32 @@
       "keywords": "SaaS B2B OR editeur logiciel",
       "weight": 15,
       "matchPatterns": ["saas", "logiciel", "editeur", "software", "plateforme", "cloud", "startup saas"],
-      "painPoint": "Le fondateur porte les ventes seul. Recruter un commercial coute 50-60k et prend 3-6 mois avant d'etre autonome.",
-      "douleurChiffree": "Un commercial junior coute 50-60k/an charges et met 3-6 mois avant son premier deal. Ca fait 25-30k euros investis avant le moindre retour.",
-      "solutionEnUnePhrase": "On remplit votre pipeline de demos qualifiees pendant que vous restez sur le produit",
+      "painPoint": "Le fondateur fait les ventes lui-meme. Recruter un commercial coute cher et prend 6 mois.",
+      "douleurChiffree": "Recruter un commercial coute 50-60k par an et prend 6 mois avant le premier resultat.",
+      "solutionEnUnePhrase": "On vous trouve des entreprises interessees par votre logiciel pendant que vous restez sur le produit",
       "preuves": [
-        "un editeur SaaS de 20 personnes a booste ses demos de 40% en 2 mois sans recruter",
-        "un SaaS B2B a genere 12 demos qualifiees par mois a une fraction du cout d'un SDR"
+        "on a trouve 12 entreprises interessees par mois pour un editeur de 20 personnes, sans qu'ils recrutent",
+        "un editeur logiciel a signe ses 3 premiers gros clients grace a nous"
       ],
       "ctaType": "sujet",
-      "socialProof": "on structure l'outbound pour des editeurs — le fondateur reste sur le produit pendant que le pipe tourne",
+      "socialProof": "on trouve des clients pour des editeurs logiciels — le fondateur reste sur le produit",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez un commercial — 3-6 mois avant qu'il soit autonome, le pipe peut tourner en attendant"
+          "angle": "Vous recrutez un commercial — ca prend 6 mois avant qu'il soit autonome"
         },
         {
           "signal": "funding",
-          "angle": "Levee bouclee — le go-to-market doit suivre mais le fondateur ne peut pas tout porter"
+          "angle": "Vous venez de lever — il faut que les ventes suivent mais le fondateur ne peut pas tout faire"
         },
         {
           "signal": "default",
-          "angle": "A votre stade, le fondateur porte encore les ventes — ca ne scale pas"
+          "angle": "C'est encore le fondateur qui trouve les clients — ca prend du temps sur le produit"
         }
       ],
       "exampleEmails": [
-        "Clement, [SaaS] vient de lever et vous recrutez 2 commerciaux — 3-6 mois avant qu'ils soient autonomes, c'est long.\n\nUn editeur de votre taille a genere 12 demos qualifiees par mois avec nous, le temps que l'equipe monte.\n\nC'est un sujet en ce moment ?",
-        "Clement, recruter un SDR coute 50-60k et prend 6 mois. Pour un SaaS a votre stade, c'est un pari.\n\nOn remplit le pipe de demos qualifiees pour des editeurs comme [SaaS] — sans recruter.\n\nCa vaut 15 minutes pour voir si ca s'applique ?"
+        "Clement, felicitations pour la levee chez [SaaS]. Maintenant il faut que les ventes suivent, et recruter un commercial prend 6 mois.\n\nOn a trouve 12 entreprises interessees par mois pour un editeur de votre taille, le temps que l'equipe se monte.\n\nTrouver des clients sans recruter, ca vous parle ?",
+        "Clement, c'est encore vous qui trouvez les clients chez [SaaS] ? A votre stade c'est souvent le fondateur qui fait tout — produit, recrutement, et ventes entre deux.\n\nOn fait ca pour des editeurs comme le votre. Le fondateur reste sur le produit, on s'occupe du reste.\n\nCa vaut 10 minutes pour voir si ca s'applique ?"
       ]
     },
     {
@@ -118,27 +118,27 @@
       "weight": 10,
       "matchPatterns": ["cabinet recrutement", "recrutement", "chasseur tete", "talent acquisition", "rh externalisee", "staffing"],
       "painPoint": "Les consultants passent autant de temps a chercher des clients qu'a placer des candidats.",
-      "douleurChiffree": "Un consultant recrutement passe 40% de son temps en business development — a 800 euros/jour de valeur placement, ca fait 6-7k euros/mois de placements perdus.",
-      "solutionEnUnePhrase": "On genere des RDV avec des DRH qui recrutent — vos consultants se concentrent sur le placement",
+      "douleurChiffree": "Un consultant qui passe la moitie de son temps a chercher des clients au lieu de placer des candidats, c'est la moitie de sa valeur perdue.",
+      "solutionEnUnePhrase": "On vous trouve des entreprises qui recrutent — vos consultants se concentrent sur le placement",
       "preuves": [
-        "un cabinet de 8 consultants a double ses mandats en 3 mois en nous deleguant le sourcing client",
-        "un cabinet RH a libere 15h/semaine de temps consultant en automatisant l'acquisition"
+        "un cabinet de 8 consultants a double ses missions en 3 mois parce qu'on leur trouvait les clients",
+        "les consultants d'un cabinet ont arrete de chercher des clients — on s'en occupe pour eux"
       ],
       "ctaType": "sujet",
-      "socialProof": "on genere des mandats pour des cabinets de recrutement — les consultants se concentrent sur le placement",
+      "socialProof": "on trouve des entreprises qui recrutent pour des cabinets — les consultants se concentrent sur le placement",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez un bizdev — signe que les consultants passent trop de temps a chercher des clients"
+          "angle": "Vous recrutez un commercial — signe que les consultants passent trop de temps a chercher des clients"
         },
         {
           "signal": "default",
-          "angle": "Les consultants prospectent autant qu'ils placent — ca divise leur efficacite"
+          "angle": "Les consultants cherchent des clients autant qu'ils placent des candidats — ca divise leur temps"
         }
       ],
       "exampleEmails": [
-        "Sophie, 8 consultants chez [Cabinet] — un consultant qui passe 40% de son temps en bizdev, c'est 6k euros/mois de placements perdus.\n\nUn cabinet de votre taille a double ses mandats en 3 mois en nous deleguant l'acquisition client.\n\nC'est un sujet chez vous ?",
-        "Sophie, quand les consultants prospectent autant qu'ils placent, personne ne fait son vrai metier.\n\nOn genere des RDV avec des DRH qui recrutent activement — vos consultants restent sur le placement.\n\nCa vaut un echange rapide ?"
+        "Sophie, vos consultants chez [Cabinet] passent combien de temps a chercher des clients vs placer des candidats ? En general c'est 50/50, et c'est dommage.\n\nOn a aide un cabinet de 8 personnes a doubler ses missions en 3 mois. On leur trouvait les clients, ils se concentraient sur le placement.\n\nC'est un sujet chez vous ?",
+        "Sophie, un cabinet de 8 consultants nous a confie la recherche de clients. Resultat : ils placent plus, ils cherchent moins.\n\nSi vos consultants passent du temps a trouver des missions au lieu de placer des candidats, ca vaut peut-etre 10 minutes pour en parler ?"
       ]
     },
     {
@@ -147,19 +147,19 @@
       "keywords": "cabinet conseil OR consulting",
       "weight": 8,
       "matchPatterns": ["cabinet conseil", "consulting", "conseil en strategie", "conseil management", "conseil en organisation"],
-      "painPoint": "Les associes facturent 1000-1500 euros/jour mais passent 30% de leur temps en bizdev non facture.",
-      "douleurChiffree": "Un associe a 1200 euros/jour qui passe 2 jours/semaine en prospection, c'est 10k euros/mois de facturation perdue.",
-      "solutionEnUnePhrase": "On remplit votre pipe de missions pendant que les associes facturent",
+      "painPoint": "Les associes passent 2 jours par semaine a chercher des missions au lieu de facturer.",
+      "douleurChiffree": "Un associe a 1200 euros par jour qui passe 2 jours par semaine a chercher des clients, c'est 10k euros par mois de facturation en moins.",
+      "solutionEnUnePhrase": "On vous trouve des missions pendant que les associes facturent",
       "preuves": [
-        "un cabinet de 6 associes a libere 8 jours/mois de temps facturable en structurant l'outbound",
-        "un cabinet conseil a signe 2 missions en 6 semaines via le pipe qu'on a construit"
+        "les associes d'un cabinet de 6 personnes ont libere 8 jours par mois de travail facturable grace a nous",
+        "un cabinet conseil a signe 2 nouvelles missions en 6 semaines sans que les associes y passent du temps"
       ],
       "ctaType": "sujet",
-      "socialProof": "on structure le pipe pour des cabinets conseil — les associes facturent au lieu de prospecter",
+      "socialProof": "on trouve des missions pour des cabinets conseil — les associes facturent au lieu de chercher des clients",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez un charge de developpement — signe que les associes n'arrivent plus a tout porter"
+          "angle": "Vous recrutez quelqu'un pour le developpement — signe que les associes n'arrivent plus a tout faire"
         },
         {
           "signal": "default",
@@ -167,8 +167,8 @@
         }
       ],
       "exampleEmails": [
-        "Pierre, 6 associes chez [Cabinet] a 1200 euros/jour. Quand 2 jours par semaine passent en prospection au lieu de facturer, c'est 10k euros/mois qui s'evaporent.\n\nUn cabinet de votre taille a libere 8 jours/mois de facturation en nous deleguant l'acquisition.\n\nC'est un sujet ?",
-        "Pierre, les missions viennent du reseau des associes — ca marche mais ca plafonne et c'est irregulier.\n\nOn a structure un canal previsible pour 3 cabinets conseil — ils recoivent des RDV, pas des leads froids.\n\nCa vaut 15 minutes d'echange ?"
+        "Pierre, les associes chez [Cabinet] passent combien de temps a chercher des missions ? En general c'est 2 jours par semaine — des jours ou ils pourraient facturer.\n\nOn a aide un cabinet de 6 personnes a liberer 8 jours par mois. On leur trouvait les missions, ils facturaient.\n\nC'est un sujet chez vous ?",
+        "Pierre, un cabinet comme le votre nous a confie la recherche de nouvelles missions. Les associes ont arrete de passer leurs lundis au telephone, et ils ont signe 2 contrats en 6 semaines.\n\nSi les associes passent trop de temps a chercher des clients, ca vaut 10 minutes pour en parler ?"
       ]
     },
     {
@@ -177,32 +177,32 @@
       "keywords": "startup OR tech company",
       "weight": 8,
       "matchPatterns": ["startup", "fintech", "proptech", "healthtech", "edtech", "legaltech", "regtech", "insurtech"],
-      "painPoint": "Le fondateur fait tout : produit, recrutement, vente. Le pipe depend de LinkedIn et du reseau.",
-      "douleurChiffree": "Un fondateur tech qui passe 40% de son temps en vente au lieu du produit, c'est 6-12 mois de retard sur la roadmap.",
-      "solutionEnUnePhrase": "On genere des demos qualifiees — le fondateur reste sur le produit",
+      "painPoint": "Le fondateur fait tout : produit, recrutement, ventes. Il trouve les clients entre deux sprints.",
+      "douleurChiffree": "Un fondateur tech qui passe 40% de son temps a vendre au lieu de construire le produit, c'est du retard sur tout.",
+      "solutionEnUnePhrase": "On vous trouve des clients pendant que vous construisez le produit",
       "preuves": [
-        "une startup de 15 personnes a genere 10 demos qualifiees par mois sans que le fondateur y passe une heure",
-        "un editeur tech a signe ses 3 premiers clients enterprise grace a l'outbound structure"
+        "on a trouve 10 entreprises interessees par mois pour une startup de 15 personnes sans que le fondateur y passe une heure",
+        "une startup a signe ses 3 premiers gros clients grace a nous"
       ],
       "ctaType": "sujet",
-      "socialProof": "on genere des demos qualifiees pour des startups tech — le fondateur reste sur le produit",
+      "socialProof": "on trouve des clients pour des startups tech — le fondateur reste sur le produit",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez votre premier commercial — 3-6 mois de montee en competence, le pipe peut tourner en attendant"
+          "angle": "Vous recrutez un commercial — ca prend 6 mois avant qu'il ramene des resultats"
         },
         {
           "signal": "funding",
-          "angle": "Levee bouclee — chaque mois sans pipeline structure, c'est du cash qui brule"
+          "angle": "Vous venez de lever — chaque mois compte pour trouver des clients"
         },
         {
           "signal": "default",
-          "angle": "Le fondateur porte les ventes — ca freine le produit"
+          "angle": "Le fondateur cherche les clients lui-meme — ca freine tout le reste"
         }
       ],
       "exampleEmails": [
-        "Julien, [Startup] vient de lever et vous etes 15 — chaque mois ou le fondateur prospecte au lieu de builder, c'est du retard sur la roadmap.\n\nUne startup de votre taille genere 10 demos/mois avec nous sans y passer une heure.\n\nC'est un sujet en ce moment ?",
-        "Julien, recruter un premier commercial prend 6 mois. Pour une startup post-levee, chaque trimestre compte.\n\nOn remplit le pipe de demos qualifiees pour des startups tech — le fondateur reste sur le produit.\n\nCa vaut un echange rapide ?"
+        "Julien, vous venez de lever chez [Startup] et vous etes 15 — j'imagine que c'est encore vous qui trouvez les clients entre deux sprints.\n\nOn a trouve 10 entreprises interessees par mois pour une startup de votre taille. Le fondateur n'y a pas passe une heure.\n\nTrouver des clients sans y passer vos journees, c'est un sujet ?",
+        "Julien, recruter un commercial prend 6 mois et coute cher. Pour une startup post-levee, chaque mois compte.\n\nOn trouve des clients pour des startups tech comme [Startup] — le fondateur reste sur le produit.\n\nCa vaut 10 minutes pour en parler ?"
       ]
     },
     {
@@ -211,15 +211,15 @@
       "keywords": "formation professionnelle OR organisme formation",
       "weight": 6,
       "matchPatterns": ["formation professionnelle", "organisme formation", "centre formation", "formation continue", "formation entreprise", "formation", "ecole", "enseignement"],
-      "painPoint": "Le remplissage des sessions depend du bouche-a-oreille. Entre deux sessions pleines, le pipe est vide.",
-      "douleurChiffree": "Une session a moitie remplie coute le meme prix en formateur et en salle. A 5k euros la session, chaque place vide est une perte seche.",
-      "solutionEnUnePhrase": "On genere des inscriptions B2B pour remplir vos sessions en continu",
+      "painPoint": "Le remplissage des sessions depend du bouche-a-oreille. Un mois c'est plein, le mois suivant c'est vide.",
+      "douleurChiffree": "Une session a moitie remplie coute le meme prix qu'une session pleine. Chaque place vide est une perte seche.",
+      "solutionEnUnePhrase": "On vous trouve des entreprises qui veulent former leurs equipes",
       "preuves": [
-        "un organisme a rempli 3 sessions consecutives a 90%+ en structurant l'outbound B2B",
+        "un organisme a rempli 3 sessions de suite a plus de 90% grace a nous",
         "un centre de formation a double ses inscriptions entreprises en 2 mois"
       ],
       "ctaType": "sujet",
-      "socialProof": "on remplit les sessions pour des organismes de formation — un canal previsible a cote du bouche-a-oreille",
+      "socialProof": "on trouve des entreprises qui veulent former leurs equipes pour des organismes de formation",
       "triggers": [
         {
           "signal": "hiring_sales",
@@ -227,12 +227,12 @@
         },
         {
           "signal": "default",
-          "angle": "Les sessions se remplissent de maniere irreguliere — un mois plein, un mois vide"
+          "angle": "Les sessions se remplissent de maniere irreguliere — c'est dur a prevoir"
         }
       ],
       "exampleEmails": [
-        "Caroline, 12 formations au catalogue et 3 nouvelles cette annee — une session a moitie remplie coute le meme prix qu'une session pleine.\n\nUn organisme de votre taille remplit ses sessions a 90%+ depuis qu'on a structure un canal d'acquisition B2B.\n\nC'est un sujet chez vous ?",
-        "Caroline, entre le bouche-a-oreille et les appels entrants, le remplissage des sessions est souvent irregulier.\n\nOn a aide 3 organismes a doubler leurs inscriptions entreprises en 2 mois.\n\nCa vaut un echange rapide ?"
+        "Caroline, 12 formations au catalogue chez [Organisme] et 3 nouvelles cette annee. Le probleme c'est souvent le remplissage : un mois c'est plein, le mois d'apres c'est vide.\n\nOn a aide un organisme de votre taille a remplir 3 sessions de suite a plus de 90%.\n\nRemplir vos sessions de maniere reguliere, c'est un sujet chez vous ?",
+        "Caroline, une session a moitie remplie coute le meme prix qu'une session pleine — c'est frustrant.\n\nOn trouve des entreprises qui veulent former leurs equipes pour des organismes comme le votre. Un centre de formation a double ses inscriptions en 2 mois avec nous.\n\nCa vaut 10 minutes pour en parler ?"
       ]
     },
     {
@@ -241,19 +241,19 @@
       "keywords": "immobilier professionnel OR agence immobiliere",
       "weight": 5,
       "matchPatterns": ["immobilier professionnel", "agence immobiliere", "promoteur immobilier", "immobilier commercial", "gestion locative", "immobilier"],
-      "painPoint": "Les mandats viennent du terrain et du reseau local. Quand le marche se tend, ca se rarefie.",
-      "douleurChiffree": "Un negociateur qui ne rentre pas de mandat pendant 2 mois, c'est 8-10k euros de cout sans retour.",
-      "solutionEnUnePhrase": "On genere des RDV avec des proprietaires qui vendent — un complement au terrain",
+      "painPoint": "Les mandats viennent du terrain et du reseau. Quand le marche se tend, ca se rarefie.",
+      "douleurChiffree": "Un negociateur sans mandat pendant 2 mois, c'est son salaire pour rien.",
+      "solutionEnUnePhrase": "On vous trouve des proprietaires qui veulent vendre — en complement du terrain",
       "preuves": [
-        "une agence de 3 bureaux a rentre 5 mandats supplementaires par mois en ajoutant l'outbound digital",
-        "un reseau immobilier a reduit son cout d'acquisition mandat de 35%"
+        "une agence de 3 bureaux a eu 5 mandats supplementaires par mois en ajoutant notre methode",
+        "un reseau immobilier a baisse son cout par mandat de 35%"
       ],
       "ctaType": "sujet",
-      "socialProof": "on genere des mandats pour des agences immo — un canal complementaire au terrain",
+      "socialProof": "on trouve des mandats pour des agences immobilieres — un complement au terrain",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez un negociateur — le flux de mandats doit suivre"
+          "angle": "Vous recrutez un negociateur — il faut que les mandats suivent"
         },
         {
           "signal": "default",
@@ -261,8 +261,8 @@
         }
       ],
       "exampleEmails": [
-        "Gregory, 3 agences et le marche qui se tend — un negociateur sans mandat pendant 2 mois, c'est 10k euros de perdu.\n\nUne agence de votre taille a rentre 5 mandats supplementaires par mois en ajoutant un canal digital.\n\nC'est un sujet en ce moment ?",
-        "Gregory, quand le terrain ne suffit plus pour maintenir le flux de mandats, il faut un canal complementaire.\n\nOn genere des RDV avec des proprietaires qui vendent — 3 agences immo l'utilisent deja.\n\nCa vaut 15 minutes d'echange ?"
+        "Gregory, 3 agences et le marche qui se tend — quand le terrain ne suffit plus, il faut un autre moyen de trouver des mandats.\n\nOn a aide une agence de votre taille a avoir 5 mandats de plus par mois.\n\nTrouver des mandats autrement que par le terrain, c'est un sujet chez vous ?",
+        "Gregory, un negociateur sans mandat pendant 2 mois, c'est son salaire pour rien. Quand le marche se tend, le terrain seul ne suffit plus.\n\nOn trouve des proprietaires qui veulent vendre pour des agences comme la votre.\n\nCa vaut 10 minutes pour en parler ?"
       ]
     },
     {
@@ -272,27 +272,27 @@
       "weight": 5,
       "matchPatterns": ["expert comptable", "cabinet comptable", "expertise comptable", "comptabilite", "commissaire aux comptes"],
       "painPoint": "Le portefeuille se construit sur 10 ans de reseau. Quand un associe part, il emporte ses clients.",
-      "douleurChiffree": "Un depart d'associe emporte 20-30% du portefeuille. Pour un cabinet de 200 dossiers, ca fait 40-60 dossiers perdus du jour au lendemain.",
-      "solutionEnUnePhrase": "On genere des RDV avec des dirigeants qui cherchent un expert-comptable — un canal qui ne depend de personne",
+      "douleurChiffree": "Quand un associe part, il emporte 20-30% du portefeuille avec lui.",
+      "solutionEnUnePhrase": "On vous trouve des dirigeants qui cherchent un expert-comptable — sans dependre du reseau de personne",
       "preuves": [
-        "un cabinet de 4 associes a signe 15 nouveaux dossiers en 3 mois via l'outbound",
-        "un expert-comptable a securise sa croissance en ajoutant un canal qui ne depend pas du reseau"
+        "un cabinet de 4 associes a signe 15 nouveaux dossiers en 3 mois grace a nous",
+        "un expert-comptable a securise sa croissance en ne dependant plus du reseau d'un seul associe"
       ],
       "ctaType": "sujet",
-      "socialProof": "on genere des dossiers pour des cabinets comptables — un canal de croissance previsible",
+      "socialProof": "on trouve des clients pour des cabinets comptables — sans dependre du reseau de personne",
       "triggers": [
         {
           "signal": "hiring_sales",
-          "angle": "Vous recrutez un charge de developpement — signe que le reseau seul ne suffit plus"
+          "angle": "Vous recrutez quelqu'un pour le developpement — signe que le reseau seul ne suffit plus"
         },
         {
           "signal": "default",
-          "angle": "Le portefeuille grandit par le reseau — mais ca rend la croissance dependante des associes"
+          "angle": "Les clients viennent du reseau — ca marche mais c'est fragile si un associe part"
         }
       ],
       "exampleEmails": [
-        "Laurent, 200 dossiers chez [Cabinet] — le jour ou un associe part, c'est 40-60 dossiers qui partent avec.\n\nUn cabinet de votre taille a signe 15 nouveaux dossiers en 3 mois en structurant un canal d'acquisition independant.\n\nC'est un sujet chez vous ?",
-        "Laurent, la croissance par le reseau marche mais elle depend des associes. C'est fragile.\n\nOn genere des RDV avec des dirigeants qui cherchent un EC — un canal qui ne depend de personne.\n\nCa vaut un echange de 15 minutes ?"
+        "Laurent, 200 dossiers chez [Cabinet] — le jour ou un associe part, c'est 40-60 dossiers qui partent avec. C'est le risque quand tout repose sur le reseau.\n\nOn a aide un cabinet de 4 associes a signer 15 nouveaux dossiers en 3 mois. Sans dependre du reseau de personne.\n\nC'est un sujet chez vous ?",
+        "Laurent, les clients viennent du reseau des associes — ca marche mais c'est fragile.\n\nOn trouve des dirigeants qui cherchent un expert-comptable pour des cabinets comme le votre. Un cabinet a signe 15 dossiers en 3 mois avec nous.\n\nSecuriser la croissance sans dependre du reseau, ca vaut 10 minutes pour en parler ?"
       ]
     },
     {
@@ -301,28 +301,28 @@
       "keywords": "e-commerce B2B OR marketplace B2B",
       "weight": 5,
       "matchPatterns": ["e-commerce", "ecommerce", "marketplace", "commerce en ligne", "boutique en ligne", "wholesale", "grossiste"],
-      "painPoint": "L'acquisition repose sur le paid. Le CPA monte chaque trimestre. Le canal direct est sous-exploite.",
-      "douleurChiffree": "Le CPA paid augmente de 15-20% par an en B2B. A 50 euros par lead aujourd'hui, c'est 60 euros dans un an, 70 euros dans deux ans.",
-      "solutionEnUnePhrase": "On genere des clients B2B en direct — un complement au paid qui ne coute pas plus cher chaque trimestre",
+      "painPoint": "Les clients viennent de la pub en ligne. Ca coute de plus en plus cher chaque annee.",
+      "douleurChiffree": "Le cout par client en pub augmente de 15-20% par an. Ce qui marchait l'annee derniere coute 20% de plus cette annee.",
+      "solutionEnUnePhrase": "On vous trouve des clients professionnels en direct — sans passer par la pub",
       "preuves": [
-        "un e-commerce B2B a divise son CPA par 2 en ajoutant l'outbound direct",
-        "une marketplace a genere 30% de ses nouveaux vendeurs via l'outbound en 3 mois"
+        "un e-commerce B2B a divise par 2 son cout par client en ajoutant notre methode a la pub",
+        "une marketplace a trouve 30% de ses nouveaux vendeurs grace a nous en 3 mois"
       ],
       "ctaType": "sujet",
-      "socialProof": "on genere des clients B2B en direct pour des e-commerces — un CPA fixe vs un CPA paid qui monte",
+      "socialProof": "on trouve des clients professionnels en direct pour des e-commerces B2B — un complement a la pub",
       "triggers": [
         {
           "signal": "growth",
-          "angle": "La croissance est la mais le CPA monte — a quel moment le paid seul ne suffit plus"
+          "angle": "La croissance est la mais la pub coute de plus en plus cher — a un moment ca ne tient plus"
         },
         {
           "signal": "default",
-          "angle": "L'acquisition B2B repose sur le paid — le CPA monte chaque trimestre"
+          "angle": "Les clients viennent de la pub — ca coute de plus en plus cher chaque annee"
         }
       ],
       "exampleEmails": [
-        "Nicolas, le CPA paid monte de 15-20% par an. A votre volume, ca represente des dizaines de milliers d'euros de plus chaque annee.\n\nUn e-commerce B2B de votre taille a divise son CPA par 2 en ajoutant un canal outbound direct.\n\nC'est un sujet en ce moment ?",
-        "Nicolas, quand 100% de l'acquisition repose sur le paid, chaque hausse de CPA mange la marge.\n\nOn genere des clients B2B en direct pour des e-commerces — un CPA fixe et previsible.\n\nCa vaut un echange rapide ?"
+        "Nicolas, la pub coute de plus en plus cher. Ce qui marchait l'annee derniere coute 20% de plus cette annee. A votre volume, ca chiffre vite.\n\nUn e-commerce B2B de votre taille a divise par 2 son cout par client en ajoutant un moyen de trouver des clients en direct.\n\nTrouver des clients sans que ca coute plus cher chaque annee, c'est un sujet ?",
+        "Nicolas, quand tous les clients viennent de la pub, chaque augmentation de prix mange la marge.\n\nOn trouve des clients professionnels en direct pour des e-commerces comme le votre. Un complement a la pub, avec un cout fixe.\n\nCa vaut 10 minutes pour en parler ?"
       ]
     }
   ]
