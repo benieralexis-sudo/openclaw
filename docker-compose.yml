@@ -74,6 +74,7 @@ services:
       CLAY_API_KEY: ${CLAY_API_KEY:-}
       CLAY_TABLE_ID: ${CLAY_TABLE_ID:-}
       CLAY_SESSION_COOKIE: ${CLAY_SESSION_COOKIE:-}
+      NOTIFY_POSITIVE_EMAILS: ${NOTIFY_POSITIVE_EMAILS:-}
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
