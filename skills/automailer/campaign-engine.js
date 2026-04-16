@@ -297,7 +297,30 @@ function _emailPassesQualityGate(subject, body) {
       }
     }
   } catch (e) { /* AP storage non dispo, skip */ }
-  return { pass: true, spamScore: spamCheck };
+
+  // 4. CONVERSION GATE — verifie que l'email a du fond, pas juste de la forme
+  const bodyLower = (body || '').toLowerCase();
+
+  // 4a. L'email doit finir par une question (CTA)
+  const trimmedBody = (body || '').trim();
+  if (!trimmedBody.endsWith('?')) {
+    return { pass: false, reason: 'no_question_cta: email ne finit pas par une question' };
+  }
+
+  // 4b. Verifier que le CTA n'est pas le vague "je me trompe" / "ma insel" repete partout
+  const weakCTAs = ['je me trompe', 'ma insel', 'e cazul sau', 'c\'est le cas ou', 'ou pas du tout', 'sau deloc'];
+  const endsWithWeakCTA = weakCTAs.some(w => bodyLower.includes(w) && bodyLower.lastIndexOf(w) > bodyLower.length - 80);
+  // Ne pas bloquer mais logger un warning (le Lavender score penalise deja)
+
+  // 4c. Spintax non resolu = block (accolades {var1|var2} dans le body)
+  if (/\{[^}]+\|[^}]+\}/.test(body)) {
+    return { pass: false, reason: 'unresolved_spintax: accolades {A|B} dans le body' };
+  }
+  if (/\{[^}]+\|[^}]+\}/.test(subject)) {
+    return { pass: false, reason: 'unresolved_spintax: accolades {A|B} dans le subject' };
+  }
+
+  return { pass: true, spamScore: spamCheck, warnings: endsWithWeakCTA ? ['weak_cta'] : [] };
 }
 
 // --- Cache MX par domaine (1h TTL) ---

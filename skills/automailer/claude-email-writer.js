@@ -215,34 +215,37 @@ class ClaudeEmailWriter {
       if (nicheData.painPoint) nicheBlock += '\nPROBLEME TYPE DE CETTE NICHE: ' + nicheData.painPoint;
     }
 
-    const systemPrompt = `Tu es un analyste B2B. Tu ne rediges PAS d'email. Tu produis un DIAGNOSTIC BUSINESS.
+    const systemPrompt = `Tu es un analyste B2B. Tu ne rediges PAS d'email. Tu produis un DIAGNOSTIC BUSINESS pour aider a ecrire un email qui CONVERTIT en RDV.
 
-${clientName} = agent de prospection autonome. Il prospecte seul : analyse qui contacter, personnalise chaque email, relance. L'humain n'a rien a faire.
+${clientName} = ${(icpLoader && icpLoader.loadICP() && icpLoader.loadICP().solutionEnUnePhrase) || 'agent de prospection B2B'}.
 ${nicheBlock}
 
 === MISSION ===
-A partir des donnees prospect, reponds a UNE question :
-"Quel PROBLEME BUSINESS ce prospect a probablement, que ${clientName} peut resoudre ?"
+A partir des donnees prospect, reponds a ces questions :
+1. "Quel SIGNAL recent et specifique montre que ce prospect est pertinent MAINTENANT ?"
+2. "Quel PROBLEME BUSINESS chiffre ce signal implique ?"
+3. "Quelle PREUVE SOCIALE du brief correspond le mieux a ce prospect ?"
 
 Methode :
-1. SIGNAL : trouve le fait le plus RECENT et SPECIFIQUE. PRIORITE TIMELINE (×2.3 reply rate) :
+1. SIGNAL : trouve le fait le plus RECENT et SPECIFIQUE. PRIORITE :
    a) Post LinkedIn recent du prospect
    b) Offre d'emploi / recrutement actif
    c) News recente (levee, lancement, partenariat, acquisition)
    d) Changement de poste du prospect
    e) DERNIER RECOURS : fait statique (titre, taille, secteur)
-   Privilegie TOUJOURS un event date (a-d) plutot qu'une description generique (e).
-2. HYPOTHESE : transforme ce signal en probleme business probable. Ex: "3 postes sales ouverts" → "le pipe depend encore du fondateur et ca ne scale pas"
-3. TON : "vouvoiement" par defaut. Tutoiement UNIQUEMENT si le prospect tutoie en premier.
+2. DOULEUR CHIFFREE : transforme ce signal en COUT BUSINESS. Ex: "3 postes sales ouverts" → "un commercial coute 50-60k/an et met 6 mois — ca fait 25k investis avant le moindre retour"
+3. PREUVE : selectionne la preuve sociale la plus pertinente du contexte niche (si disponible).
+4. TON : "vouvoiement" par defaut. Tutoiement UNIQUEMENT si le prospect tutoie en premier.
 
 === REGLES ===
 - N'invente JAMAIS un fait sur le prospect. Si aucun signal fort, dis-le.
+- La douleur doit etre CHIFFREE (euros, %, heures, mois). Pas de douleur vague.
 - Le diagnostic doit etre SPECIFIQUE a CE prospect, pas generique au secteur.
 - Annee en cours : 2026.
 
 === FORMAT ===
 JSON valide uniquement :
-{"signal":"le fait specifique tire des donnees","hypothesis":"le probleme business probable en 1 phrase","angle":"l'accroche email en 1 phrase (observation, pas pitch)","recommendedTone":"tutoiement|vouvoiement","strength":8,"briefSummary":"pourquoi ce prospect est pertinent en 1 phrase"}`;
+{"signal":"le fait specifique tire des donnees","hypothesis":"le probleme business CHIFFRE en 1 phrase","angle":"l'accroche email en 1 phrase (signal + douleur)","proof":"la preuve sociale la plus pertinente (ou null)","recommendedTone":"tutoiement|vouvoiement","strength":8,"briefSummary":"pourquoi ce prospect est pertinent en 1 phrase"}`;
 
     const userMessage = `DONNEES PROSPECT A ANALYSER :
 
@@ -460,93 +463,119 @@ ${clientDescription ? 'WHAT ' + clientName.toUpperCase() + ' DOES: ' + clientDes
       }
     } catch (winErr) { /* non bloquant */ }
 
-    const systemPrompt = `${languageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris un cold email a un pair.
+    // --- Charger les preuves et la solution depuis l'ICP ---
+    let briefBlock = '';
+    const icpData = icpLoader ? icpLoader.loadICP() : null;
+    if (icpData) {
+      briefBlock += '\n=== BRIEF COMMERCIAL (OBLIGATOIRE — utilise ces donnees) ===\n';
+      briefBlock += 'CE QUE FAIT ' + clientName.toUpperCase() + ' : ' + (icpData.solutionEnUnePhrase || icpData.clientDescription || '') + '\n';
+    }
+    if (nicheData) {
+      if (nicheData.douleurChiffree) briefBlock += 'DOULEUR CHIFFREE NICHE : ' + nicheData.douleurChiffree + '\n';
+      if (nicheData.solutionEnUnePhrase) briefBlock += 'SOLUTION EN 1 PHRASE : ' + nicheData.solutionEnUnePhrase + '\n';
+      if (nicheData.preuves && nicheData.preuves.length > 0) {
+        briefBlock += 'PREUVES SOCIALES (utilise UNE dans l\'email) :\n';
+        for (const p of nicheData.preuves) briefBlock += '  - ' + p + '\n';
+      }
+    }
 
-=== CE QUE FAIT ${clientName} ===
-Agent de prospection autonome. Il analyse qui contacter et quand, personnalise chaque email, relance. Le client n'a rien a faire.
+    // --- Charger les exemples varies depuis l'ICP ---
+    let nicheExamplesBlock = '';
+    if (nicheData && nicheData.exampleEmails && nicheData.exampleEmails.length > 0) {
+      nicheExamplesBlock = '\n=== EXEMPLES POUR CETTE NICHE (inspire-toi du NIVEAU, pas de la structure exacte — VARIE) ===\n';
+      for (let ei = 0; ei < nicheData.exampleEmails.length; ei++) {
+        nicheExamplesBlock += 'Exemple ' + (ei + 1) + ' :\n"' + nicheData.exampleEmails[ei] + '"\n\n';
+      }
+    } else if (nicheData && nicheData.exampleEmail) {
+      nicheExamplesBlock = '\n=== EXEMPLE POUR CETTE NICHE ===\n"' + nicheData.exampleEmail + '"\n';
+    }
 
-=== FRAMEWORK (Observation → Hypothese → Question) ===
-1. OBSERVATION (1-2 phrases) : un fait CONCRET et RECENT tire des donnees. TIMELINE HOOKS OBLIGATOIRES — utilise en priorite :
-   a) Post LinkedIn recent du prospect (si dispo dans les donnees)
-   b) Offre d'emploi en cours / recrutement actif
-   c) News recente de l'entreprise (levee, lancement, partenariat)
-   d) Changement de poste recent du prospect
-   e) DERNIER RECOURS : observation sur le profil/entreprise (titre, taille, secteur)
-   Les hooks timeline (a-d) generent 2.3x plus de reponses que les observations statiques (e). TOUJOURS privilegier un evenement DATE plutot qu'un fait generique.
-2. HYPOTHESE (1 phrase) : transforme ce fait en probleme business probable. C'est la que tu montres que tu COMPRENDS leur situation. Ex: "Ca veut souvent dire que les nouveaux clients reposent encore sur toi."
-3. QUESTION OUVERTE (1 phrase) : invite a la conversation. Pas "dispo 15 min ?" mais une vraie question business : "C'est le cas chez vous ?", "Vous avez structure quelque chose ?", "C'est un sujet en ce moment ?"
+    const systemPrompt = `${languageBlock}Tu es ${senderName}, ${senderTitle} de ${clientName}. Tu ecris un cold email a un dirigeant.
+${briefBlock}
+=== FRAMEWORK (Signal → Douleur → Preuve → CTA) ===
+Le prospect doit comprendre en 5 SECONDES : pourquoi tu le contactes, ce que tu proposes, et ce qu'il gagne.
+
+STRUCTURE OBLIGATOIRE — 4 ELEMENTS :
+
+1. SIGNAL + DOULEUR (2-3 phrases) :
+   Commence par un fait CONCRET et RECENT sur le prospect (trigger event). Puis relie ce fait a un PROBLEME BUSINESS chiffre.
+   PRIORITE DES SIGNAUX (du plus fort au plus faible) :
+   a) Post LinkedIn recent du prospect
+   b) Offre d'emploi / recrutement actif
+   c) News recente (levee, lancement, partenariat, acquisition)
+   d) Changement de poste recent
+   e) DERNIER RECOURS : fait statique (taille, secteur, croissance)
+   La DOULEUR doit etre CHIFFREE quand possible (euros perdus, heures gaspillees, % de manque a gagner). C'est ce qui fait reagir.
+
+2. PREUVE SOCIALE (1 phrase) :
+   Un resultat CONCRET chez un client SIMILAIRE. Utilise les preuves du BRIEF COMMERCIAL ci-dessus.
+   Format : "[type entreprise similaire] a [resultat chiffre] en [duree]"
+   JAMAIS de preuve inventee. Si le brief ne fournit pas de preuve, utilise une formulation generique : "On fait ca pour X entreprises dans votre secteur."
+
+3. CTA MICRO-ENGAGEMENT (1 phrase) :
+   Une question sur le SUJET, pas une demande de meeting.
+   BON : "C'est un sujet chez vous en ce moment ?" / "Ca vaut 15 minutes d'echange ?" / "C'est prevu ou pas encore ?"
+   MAUVAIS : "Dispo mardi ?" / "Je me trompe ?" / "C'est le cas ou pas ?"
 
 === ANALYSE STRATEGIQUE ===
-Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : signal, hypothese, angle. L'analyste a deja identifie le meilleur angle.
+Si les donnees contiennent "=== ANALYSE STRATEGIQUE ===", SUIS ses directives : signal, hypothese, angle. L'analyste a deja identifie le meilleur angle. Enrichis avec la douleur chiffree et la preuve du brief.
 
-=== METHODE LAVENDER (6 SECRETS — +35% REPLY RATE) ===
-1. 40-60 MOTS MAX (pas 80, pas 100 — les emails <50 mots ont 65% de reply rate vs 2% pour >125 mots)
-2. NIVEAU CM1 : phrases de 5-8 mots. Mots de 2 syllabes max. Pas de jargon. "On t'aide a trouver des clients" > "Nous optimisons le pipeline commercial". ZERO mot anglais business (pipe, outbound, scale, pipeline, lead, CRM, deal flow, funnel, churn).
-3. TON HESITANT (+35% replies) : "je me trompe peut-etre", "c'est peut-etre pas le cas", "je me demandais si", "c'est un sujet ou pas du tout ?". Le doute invite a corriger → reponse. L'affirmation invite a ignorer.
-4. CTC (Call To Curiosity), PAS CTA : "C'est le cas chez vous ?" > "Dispo 15 min mardi ?". La question ouverte > le calendrier.
-5. OBJET ENNUYEUX : 2-3 mots, minuscules, pas de majuscules, pas de ponctuation. Comme un email entre collegues. "${contact.firstName || contact.company || 'question'}" et c'est tout.
-6. RATIO JE/TU : parle du prospect 2x plus que de toi. Chaque "je" doit etre precede ou suivi d'un "tu/vous". Si tu comptes plus de "je" que de "tu", reecris.
-
-=== REGLES ===
-- 40-60 mots STRICT. Ecris comme tu parles a un pote entrepreneur. Chaque mot doit meriter sa place.
-- PAS de social proof invente. PAS de "un client similaire a signe X clients en Y mois". Si tu n'as pas de cas reel, n'en invente pas.
-- PAS de pitch, prix, features, bullet points.
+=== REGLES DE FORME ===
+- 50-70 MOTS. Chaque mot doit meriter sa place.
+- NIVEAU CM2 : phrases de 5-12 mots. Mots simples. Pas de jargon.
+- COMMENCE PAR LE PROSPECT, jamais par "je" ou "nous". La premiere phrase parle de LUI.
+- Vouvoiement par defaut. Tutoiement uniquement si le prospect tutoie en premier.
+- OBJET : 2-4 mots, minuscules, pas de ponctuation. Comme un email entre collegues.
+- RATIO : parle du prospect 2x plus que de toi.
 - PAS de tirets cadratins. PAS de "Bonjour". PAS de signature.
+
+=== INTERDICTIONS ===
+- PAS de jargon anglais : pipe, pipeline, outbound, inbound, scale, lead, CRM, deal flow, funnel, churn, growth, onboarding.
 - PAS de meta-prospection ("comment tu acquiers des clients").
 - PAS de phrases creuses : "beau move", "impressionnant", "sacre parcours", "je me permets", "potentiellement", "cordonnier mal chausse".
-- PAS de jargon anglais : pipe, pipeline, outbound, inbound, scale, lead, CRM, deal flow, funnel, churn, growth, onboarding. Parle en francais simple.
+- PAS de bullet points, prix, features dans le premier email.
 - N'invente JAMAIS un fait sur le prospect. Annee : 2026.
-- Vouvoiement par defaut. Tutoiement uniquement si le prospect tutoie en premier.
 ${_getQualityGatePatternsHint()}
-${nicheExampleBlock}
-${emailLanguage === 'ro' ? `=== EXEMPLE 10/10 (TON EZITANT + SCURT) ===
-Exemplu 1 (semnal crestere, 38 cuvinte) :
-"Andrei, [Companie] are 25 de oameni pe Google Workspace. Asta inseamna de obicei ca echipa foloseste doar Gmail si Drive, dar Calendar partajat, Spaces, regulile automate — nimeni nu le-a configurat.
+${nicheExamplesBlock}
+${emailLanguage === 'ro' ? `=== EXEMPLES 10/10 (SIGNAL + DOULEUR + PREUVE + CTA) ===
+Exemplu 1 (semnal recrutare, 55 cuvinte) :
+"Andrei, [Companie] recruteaza 2 developeri — cand echipa creste asa repede, de obicei Google Workspace ramane neconfigurat: fara backup, fara reguli de securitate, fara suport.
 
-E cazul sau ma insel?"
+Un client similar (30 oameni, tech) a redus problemele IT cu 60% dupa ce am preluat administrarea Workspace.
 
-Exemplu 2 (semnal securitate, 35 cuvinte) :
-"Maria, [Companie] are 30 de oameni — intrebare rapida: aveti 2FA activat pe toate conturile Google Workspace?
+E un subiect la voi in momentul asta?"
 
-Vedem multe firme unde un singur cont fara 2FA compromite totul. Poate nu e cazul la voi?"
+Exemplu 2 (semnal general, 50 cuvinte) :
+"Maria, [Companie] plateste Google Workspace direct la Google — fara suport in romana, fara cineva care sa configureze regulile de securitate.
 
-Exemplu 3 (semnal general, 32 cuvinte) :
-"Ion, [Companie] foloseste Google Workspace direct de la Google. Fara suport in romana, fara cineva care sa te ajute cand ai o problema.
+Am preluat administrarea pentru 3 firme de marimea voastra — suport in romana, configurare completa, si reducere 20% pe factura.
 
-E un subiect sau deloc?"
+Merita 15 minute sa vedem daca se aplica?"` : `=== EXEMPLES 10/10 (SIGNAL + DOULEUR + PREUVE + CTA) ===
+Exemple 1 (signal recrutement, 58 mots) :
+"Thomas, 3 postes commerciaux ouverts chez [Agence] — quand l'equipe grandit, c'est souvent le pipe client qui decroche. Un fondateur qui prospecte au lieu de delivrer, c'est 6-8k euros/mois de facturation perdue.
 
-=== VARIATIE STRUCTURALA (SPINTAX) ===
-Ca emailurile sa nu se asemene structural, foloseste sintaxa {varianta1|varianta2|varianta3} :
-- Deschidere : {${contact.firstName || contact.company},|${contact.firstName || contact.company} —|Salut ${contact.firstName || ''},}
-- Tranzitii : {Deci|De altfel|De fapt|Concret}
-- Intrebare finala : {E cazul?|E un subiect?|Ma insel?|Sau deloc?|Merita o discutie?}
-IMPORTANT : foloseste 2-3 spintax pe email (nu mai mult), pe parti NEpersonalizate. Continutul personalizat ramane fix.` : `=== EXEMPLES 10/10 (TON HESITANT + COURT) ===
-Exemple 1 (signal recrutement, 38 mots) :
-"Thomas, 3 postes commerciaux ouverts chez [Agence]. Ca veut souvent dire que les nouveaux clients reposent encore sur toi.
+Une agence de 12 personnes a decroche 8 RDV qualifies le premier mois en nous deleguant l'acquisition.
 
-On aide des boites comme la tienne a trouver des clients sans y penser. C'est le cas ou je me trompe ?"
+C'est un sujet chez vous en ce moment ?"
 
-Exemple 2 (signal news, 42 mots) :
-"Sophie, [Cabinet] lance une offre data. Souvent, le fondateur porte seul la recherche des premiers clients sur un nouveau segment.
+Exemple 2 (signal levee, 55 mots) :
+"Clement, [SaaS] vient de lever — chaque mois sans pipeline structure, c'est du cash qui brule. Recruter un commercial prend 6 mois.
 
-C'est peut-etre pas votre cas, mais vous avez un moyen structure ou c'est encore du reseau ?"
+Un editeur de votre taille genere 12 demos qualifiees par mois avec nous, le temps que l'equipe monte.
 
-Exemple 3 (signal croissance, 35 mots) :
-"Marc, 40 personnes chez [ESN] et 5 postes ouverts. L'equipe grandit mais les nouvelles missions suivent pas toujours.
+Ca vaut 15 minutes pour voir si ca s'applique ?"
 
-C'est un sujet en ce moment ou pas du tout ?"
+Exemple 3 (signal croissance, 52 mots) :
+"Marc, 5 postes ouverts chez [ESN] — le delivery tourne mais le pipe de missions suit pas toujours. Un inter-contrat a 50k euros/an, ca pese.
 
-=== VARIATION STRUCTURELLE (SPINTAX) ===
-Pour eviter que les emails se ressemblent structurellement, utilise la syntaxe {variante1|variante2|variante3} dans ton email :
-- Accroche : {${contact.firstName || contact.company},|${contact.firstName || contact.company} —|Salut ${contact.firstName || ''},}
-- Transitions : {Du coup|Concretement|En fait|D'ailleurs}
-- Question finale : {C'est le cas chez vous ?|C'est un sujet en ce moment ?|Vous avez structure quelque chose ?|C'est prevu ou pas du tout ?|Je me trompe ?}
-IMPORTANT : utilise 2-3 spintax par email (pas plus), sur des parties NON personnalisees. Le contenu personnalise (fait prospect, hypothese) reste fixe.`}
+Une ESN de 45 personnes a signe 3 missions en 2 mois en structurant l'outbound avec nous.
+
+C'est un sujet en ce moment ?"`}
 
 ${abSubjectInstruction}
 === FORMAT ===
 JSON valide uniquement, sans markdown, sans backticks.
-{"subject":"${emailLanguage === 'ro' ? 'subiect 2-3 cuvinte litere mici' : 'objet 2-3 mots minuscules'}","body":"${emailLanguage === 'ro' ? 'corp FARA semnatura, 40-60 cuvinte, cu 2-3 spintax {var1|var2}' : 'corps SANS signature, 40-60 mots, avec 2-3 spintax {var1|var2}'}"}
+{"subject":"${emailLanguage === 'ro' ? 'subiect 2-4 cuvinte litere mici' : 'objet 2-4 mots minuscules'}","body":"${emailLanguage === 'ro' ? 'corp FARA semnatura, 50-70 cuvinte' : 'corps SANS signature, 50-70 mots'}"}
 OU {"skip": true, "reason": "explication"}`;
 
     let firstName = contact.firstName || (contact.name || '').split(' ')[0] || '';
@@ -712,15 +741,17 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     const emDashCount = 0; // nettoyé ci-dessus, plus de block em_dash
 
     if (wordCount < 15) return { block: true, score: 0, grade: 'F', reason: 'too_short:' + wordCount, details: {} };
-    // OPTIM 2 : hard block abaissé de 100 à 80 mots (benchmark: <80 mots = sweet spot cold email)
-    if (wordCount > 80) return { block: true, score: 0, grade: 'F', reason: 'too_long:' + wordCount, details: {} };
+    // Hard block 75 mots (sweet spot 50-70, marge a 75 pour la preuve sociale)
+    if (wordCount > 75) return { block: true, score: 0, grade: 'F', reason: 'too_long:' + wordCount, details: {} };
 
     // === 1. TON / FORMALITE — /20 (impact 2.11x replies) ===
     let ton = 0;
-    // Ton hesitant (+35% replies) — le critere le plus impactant
+    // Ton naturel (pas force hesitant — un ton direct mais respectueux convertit mieux)
     const hesitantCount = L.hesitant.filter(m => bodyLower.includes(m)).length;
-    if (hesitantCount >= 2) ton += 9;
-    else if (hesitantCount === 1) ton += 6;
+    if (hesitantCount >= 1 && hesitantCount <= 2) ton += 6; // un peu d'hesitation = bien
+    else if (hesitantCount === 0) ton += 4; // direct = ok aussi
+    // Penalise l'exces d'hesitation (>2 = trop mou, pas assez affirmatif)
+    if (hesitantCount > 2) ton = Math.max(0, ton - 3);
 
     // Casual / contractions / fragments (Lavender : "slightly casual" = 2.11x)
     const casualCount = L.casual.filter(m => bodyLower.includes(m)).length;
@@ -777,28 +808,34 @@ Skip UNIQUEMENT si tu n'as AUCUNE info exploitable.`;
     else if (longSentences === 2) phrases = 3;
     details.phrases = phrases;
 
-    // === 4. PERSONNALISATION — /15 ===
+    // === 4. PERSONNALISATION + CONVERSION — /20 ===
     let perso = 0;
     const fn = ((contact.firstName || contact.name || '').split(' ')[0] || '').toLowerCase();
     const co = (contact.company || '').toLowerCase();
-    if (fn && fn.length > 2 && bodyLower.includes(fn)) perso += 4;
-    if (co && co.length > 2 && bodyLower.includes(co.substring(0, Math.min(co.length, 15)).toLowerCase())) perso += 4;
-    // Fait specifique (hypothese business = personnalisation profonde)
+    if (fn && fn.length > 2 && bodyLower.includes(fn)) perso += 3;
+    if (co && co.length > 2 && bodyLower.includes(co.substring(0, Math.min(co.length, 15)).toLowerCase())) perso += 3;
+    // Douleur chiffree (euros, %, heures, mois, k — signe de douleur concrete)
+    const hasPainNumbers = /\d+\s*(?:k|€|euros?|%|heures?|mois|jours?|semaines?|an(?:s|nee)?)/i.test(body || '');
+    if (hasPainNumbers) perso += 5;
+    // Preuve sociale (resultat concret : verbes de resultat + chiffre)
+    const hasProof = /(?:signe|decroche|genere|booste|reduit|double|triple|libere|rempli)\s/i.test(body || '');
+    if (hasProof) perso += 5;
+    // Hypothese business (montre qu'on comprend le probleme)
     const hasHypothesis = L.hypothesis.some(m => bodyLower.includes(m));
-    if (hasHypothesis) perso += 7;
+    if (hasHypothesis) perso += 4;
     else {
       const hasNumbers = L.numbersPattern.test(body || '');
-      if (hasNumbers) perso += 4;
+      if (hasNumbers) perso += 2;
     }
     perso = Math.min(20, perso);
     details.perso = perso;
 
-    // === 5. WORD COUNT — /12 (OPTIM 2 : sweet spot resserré 25-50, hard block 80) ===
+    // === 5. WORD COUNT — /12 (sweet spot 50-70, hard block 75) ===
     let mots = 0;
-    if (wordCount >= 25 && wordCount <= 50) mots = 12;
-    else if (wordCount >= 20 && wordCount <= 60) mots = 8;
-    else if (wordCount >= 15 && wordCount <= 70) mots = 4;
-    // >70 mots = 0 points (pénalité naturelle avant le hard block à 80)
+    if (wordCount >= 45 && wordCount <= 65) mots = 12;
+    else if (wordCount >= 35 && wordCount <= 70) mots = 8;
+    else if (wordCount >= 25 && wordCount <= 75) mots = 4;
+    // >75 mots = hard block avant d'arriver ici
     details.mots = mots;
 
     // === 6. MOBILE OPTIMIZED — /10 (impact +24% replies) ===
