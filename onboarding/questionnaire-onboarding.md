@@ -32,14 +32,28 @@
 
 ---
 
-### 3. Quels sont vos 3-5 arguments différenciants ?
+### 3. Complétez cette phrase : "On aide les _______ à _______."
+- **Type :** Texte court
+- **Obligatoire :** Oui
+- **Help text :** *En mots simples, comme si vous l'expliquiez à votre mère. Ex : "On aide les agences digitales à trouver des clients." ou "On aide les PME à gérer leur informatique."*
+
+---
+
+### 4. Quel problème vos clients ont AVANT de travailler avec vous ?
+- **Type :** Texte long
+- **Obligatoire :** Oui
+- **Help text :** *Pas votre solution — le PROBLÈME. Ex : "Le fondateur passe ses soirées à chercher des clients au lieu de travailler sur ses projets." ou "Ils n'ont personne pour gérer leur informatique et ça leur coûte du temps."*
+
+---
+
+### 5. Quels sont vos 3-5 arguments différenciants ?
 - **Type :** Texte long
 - **Obligatoire :** Oui
 - **Help text :** *Pourquoi vos clients vous choisissent plutôt qu'un concurrent ?*
 
 ---
 
-### 4. Quel est votre service/produit phare ?
+### 6. Quel est votre service/produit phare ?
 - **Type :** Texte court
 - **Obligatoire :** Oui
 - **Help text :** *Celui qui génère le plus de revenus ou que vous voulez pousser en priorité.*
@@ -48,7 +62,7 @@
 
 ## B. Votre client idéal
 
-### 5. Quelle(s) industrie(s) ciblez-vous ?
+### 7. Quelle(s) industrie(s) ciblez-vous ?
 - **Type :** Checkboxes (sélection multiple)
 - **Obligatoire :** Oui
 - **Options :**
@@ -64,7 +78,7 @@
 
 ---
 
-### 6. Quelle taille d'entreprise ?
+### 8. Quelle taille d'entreprise ?
 - **Type :** Checkboxes (sélection multiple)
 - **Obligatoire :** Oui
 - **Options :**
@@ -76,21 +90,21 @@
 
 ---
 
-### 7. Quels postes ciblez-vous ?
+### 9. Quels postes ciblez-vous ?
 - **Type :** Texte long
 - **Obligatoire :** Oui
 - **Help text :** *Ex : CTO, DSI, VP Engineering, Head of Sales... Listez tous les titres pertinents.*
 
 ---
 
-### 8. Quelle zone géographique ?
+### 10. Quelle zone géographique ?
 - **Type :** Texte court
 - **Obligatoire :** Oui
 - **Help text :** *Ex : France entière, Île-de-France, Europe francophone...*
 
 ---
 
-### 9. Y a-t-il des signaux d'achat que vous recherchez ?
+### 11. Y a-t-il des signaux d'achat que vous recherchez ?
 - **Type :** Checkboxes (sélection multiple) + Autre
 - **Obligatoire :** Non
 - **Options :**
@@ -106,23 +120,23 @@
 
 ## C. Preuves et résultats
 
-### 10. Citez 1-2 clients satisfaits
+### 12. Complétez cette phrase (2 exemples minimum) : "On a aidé [type d'entreprise] à [résultat concret] en [durée]."
 - **Type :** Texte long
 - **Obligatoire :** Oui
-- **Help text :** *Nom de l'entreprise, taille, et en 1 phrase ce que vous avez fait pour eux. Ex : "Société X (200 pers.) — migration cloud en 3 mois, 40% de réduction des coûts infra".*
+- **Help text :** *Ces phrases iront DIRECTEMENT dans vos emails de prospection. Plus c'est concret, plus ça marche. Ex : "On a aidé une ESN de 45 personnes à signer 3 nouveaux contrats en 2 mois." ou "On a aidé un cabinet comptable à trouver 15 nouveaux dossiers en 3 mois." Donnez 2-3 exemples.*
 
 ---
 
-### 11. Avez-vous des chiffres concrets à partager ?
+### 13. Avez-vous des chiffres concrets à partager ?
 - **Type :** Texte long
 - **Obligatoire :** Non
-- **Help text :** *Taux de satisfaction, NPS, économies réalisées, temps gagné... Tout chiffre qui prouve votre valeur. Ces données rendent vos emails beaucoup plus convaincants.*
+- **Help text :** *Taux de satisfaction, économies réalisées, temps gagné... Tout chiffre qui prouve votre valeur. Ex : "Nos clients économisent en moyenne 20% sur leur facture." ou "On répond en moins de 2 heures."*
 
 ---
 
 ## D. Votre process commercial
 
-### 12. Quand un prospect est intéressé, quelle est l'étape suivante ?
+### 14. Quand un prospect est intéressé, quelle est l'étape suivante ?
 - **Type :** Radio (choix unique)
 - **Obligatoire :** Oui
 - **Options :**
@@ -134,14 +148,14 @@
 
 ---
 
-### 13. Lien de prise de rendez-vous
+### 15. Lien de prise de rendez-vous
 - **Type :** URL
 - **Obligatoire :** Non
 - **Help text :** *Votre lien Calendly, Cal.com, ou équivalent. Si vous n'en avez pas, on vous aide à en créer un.*
 
 ---
 
-### 14. Qui prend les appels + disponibilités ?
+### 16. Qui prend les appels + disponibilités ?
 - **Type :** Texte court
 - **Obligatoire :** Oui
 - **Help text :** *Ex : Jean Dupont, dispo lun-ven 9h-18h.*
@@ -150,7 +164,7 @@
 
 ## E. Ton et exclusions
 
-### 15. Quel ton souhaitez-vous ?
+### 17. Quel ton souhaitez-vous ?
 - **Type :** Radio (choix unique)
 - **Obligatoire :** Oui
 - **Options :**
@@ -161,14 +175,14 @@
 
 ---
 
-### 16. Y a-t-il des choses à ne JAMAIS dire ou faire ?
+### 18. Y a-t-il des choses à ne JAMAIS dire ou faire ?
 - **Type :** Texte long
 - **Obligatoire :** Non
 - **Help text :** *Ex : ne jamais mentionner le prix, ne pas comparer à [concurrent], éviter le mot "cheap"...*
 
 ---
 
-### 17. Liste d'exclusion
+### 19. Liste d'exclusion
 - **Type :** Texte long + Upload fichier (CSV)
 - **Obligatoire :** Non
 - **Help text :** *Entreprises à ne PAS contacter : vos clients actuels, concurrents, partenaires... Vous pouvez coller une liste ou uploader un fichier CSV.*
@@ -179,7 +193,7 @@
 
 > **Note Tally :** Cette section est visible uniquement si le client a souscrit au plan **Multicanal** (1490 EUR/mois) ou **Dédié**. Utiliser la logique conditionnelle (branching) sur un champ caché "plan" pré-rempli via URL parameter (`?plan=multicanal`).
 
-### 18. Avez-vous un profil LinkedIn actif ?
+### 20. Avez-vous un profil LinkedIn actif ?
 - **Type :** Radio (choix unique)
 - **Obligatoire :** Oui (si section visible)
 - **Options :**
@@ -209,8 +223,9 @@
 | **Barre de progression** | Activée |
 | **Sections comme pages** | Oui (6 pages, 1 par section) |
 | **Branching logic** | Section F visible uniquement si URL param `plan=multicanal` ou `plan=dedie` |
-| **Champs conditionnels** | Q5 "Autre" → affiche texte court / Q9 "Autre" → affiche texte court / Q12 "Autre" → affiche texte court |
-| **Upload fichier** | Activé sur Q17 (formats : CSV, XLSX, TXT) |
+| **Champs conditionnels** | Q7 "Autre" → affiche texte court / Q11 "Autre" → affiche texte court / Q14 "Autre" → affiche texte court |
+| **Upload fichier** | Activé sur Q19 (formats : CSV, XLSX, TXT) |
+| **Questions critiques pour le bot** | Q3 (phrase simple) + Q4 (douleur) + Q12 (preuves) → alimentent directement l'ICP |
 | **Redirect après soumission** | Page de remerciement custom ou URL dashboard client |
 | **Notifications** | Email à benieralexis@gmail.com à chaque soumission |
 | **URL params pré-remplis** | `?plan=pipeline|multicanal|dedie&client=NOM` pour pré-remplir le plan et le nom |
