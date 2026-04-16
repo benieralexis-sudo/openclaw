@@ -1025,8 +1025,13 @@ Le breakup exploite la loss aversion. Format strict : 2 phrases max, question fe
       nicheFollowUpBlock = '\n=== CONTEXTE ===\n';
       if (clientDescFU) nicheFollowUpBlock += clientName + ' : ' + clientDescFU + '\n';
       if (nicheFU) {
-        if (nicheFU.painPoint) nicheFollowUpBlock += 'PROBLEME DE CETTE NICHE : ' + nicheFU.painPoint + '\n';
-        if (nicheFU.socialProof) nicheFollowUpBlock += 'SOCIAL PROOF : ' + nicheFU.socialProof + '\n';
+        if (nicheFU.painPoint) nicheFollowUpBlock += 'PROBLEME : ' + nicheFU.painPoint + '\n';
+        if (nicheFU.solutionEnUnePhrase) nicheFollowUpBlock += 'CE QU\'ON FAIT : ' + nicheFU.solutionEnUnePhrase + '\n';
+        if (nicheFU.preuves && nicheFU.preuves.length > 0) {
+          nicheFollowUpBlock += 'PREUVES (utilise-en UNE dans le step 2) :\n';
+          for (const p of nicheFU.preuves) nicheFollowUpBlock += '  - ' + p + '\n';
+        }
+        if (nicheFU.socialProof) nicheFollowUpBlock += 'EN RESUME : ' + nicheFU.socialProof + '\n';
       }
     }
 
@@ -1082,10 +1087,11 @@ INTERDITS ABSOLUS (TEMPLATES GENERIQUES) :
 
 REGLES :
 - 15-30 mots par relance (JAMAIS plus de 35). Le breakup = 2 lignes MAX.
-- Vouvoiement par defaut
-- JAMAIS : "je me permets", "suite a", "beau move", "potentiellement"
+- Vouvoiement par defaut. Francais simple, comme un SMS entre pros.
+- JAMAIS : "je me permets", "suite a", "beau move", "potentiellement", "je me trompe"
 ${meetingCTARule}
-- JAMAIS : "prospection", "gen de leads", "acquisition de clients" dans l'email
+- JAMAIS de jargon : prospection, acquisition, pipeline, outbound, leads, RDV qualifies, structurer
+- DIS PLUTOT : "trouver des clients", "nouveaux contrats", "entreprises interessees"
 - Sujet : 3-5 mots, minuscules, intriguant, contient nom/entreprise
 - PAS de signature (ajoutee automatiquement)
 - ANNEE EN COURS : 2026. Ne cite JAMAIS "en 2024" ou "en 2023".
