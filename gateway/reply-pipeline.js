@@ -193,12 +193,13 @@ function createReplyPipeline(deps) {
             const result = await _handleNotInterested(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts, pipelineOptions);
             hitlDraftCreated = result.hitlDraftCreated;
           }
-          // --- Cas 2: Question → HITL ---
+          // --- Cas 2: Question → NOTIFICATION (v3.2 : question = prospect chaud, humain prend le relai) ---
           else if (sentiment === 'question' && score >= 0.4) {
-            const result = await _handleQuestion(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts, pipelineOptions);
-            hitlDraftCreated = result.hitlDraftCreated;
+            await _notifyPositiveReply(replyData, classification, score, originalEmail, clientContext, null);
+            _recordRealtimeOutcome(replyData, classification, originalEmail, 'A', 'human_handoff');
+            log.info('reply-pipeline', 'QUESTION detectee — notification envoyee, humain prend le relai pour ' + replyData.from);
           }
-          // --- Cas 3: Interested → AUTO-REPLY ou HITL ---
+          // --- Cas 3: Interested → NOTIFICATION (v3.2 : PLUS d'auto-reply, humain close) ---
           else if (sentiment === 'interested') {
             const result = await _handleInterested(replyData, classification, score, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, firstName, _pendingDrafts, pipelineOptions);
             hitlDraftCreated = result.hitlDraftCreated;
@@ -477,97 +478,23 @@ function createReplyPipeline(deps) {
     const qualityWarning = _checkDraftQuality(autoReply);
     if (qualityWarning) log.warn('hitl', 'Draft quality warning: ' + qualityWarning + ' pour ' + replyData.from);
 
-    const autoSendThreshold = parseFloat(process.env.AUTO_REPLY_INTERESTED_THRESHOLD) || 0.85;
+    // === v3.2 : PLUS JAMAIS d'auto-reply sur les reponses positives ===
+    // Le bot DETECTE, l'humain CLOSE. Un prospect interesse = notification immediate
+    // au commercial/client qui prend le relai manuellement.
+    // Auto-reply desactive le 16 avril 2026 — seules les reponses negatives restent auto.
 
-    // HIGH CONFIDENCE + pas de warning → FULL AUTO
-    // Double-check limite AVANT envoi auto (defense-in-depth contre race conditions)
-    const inboxStorageCheck = require('../skills/inbox-manager/storage.js');
-    const currentDayCount = inboxStorageCheck.getTodayAutoReplyCount();
-    const maxPerDay = parseInt(process.env.AUTO_REPLY_MAX_PER_DAY) || 10;
-    if (currentDayCount >= maxPerDay) {
-      log.warn('hitl', 'Auto-reply limite atteinte au moment de l\'envoi (' + currentDayCount + '/' + maxPerDay + ') — skip auto-send pour ' + replyData.from);
-      return { hitlDraftCreated: false, autoReplyHandled: false };
-    }
-    if (score >= autoSendThreshold && !qualityWarning && autoReply.confidence >= 0.85) {
-      try {
-        const ResendClient = require('../skills/automailer/resend-client.js');
-        const resendClient = new ResendClient(resendKey, senderEmail);
-        const sendResult = await resendClient.sendEmail(
-          replyData.from, autoReply.subject, autoReply.body,
-          { inReplyTo: originalMessageId, references: originalMessageId, fromName: clientContext.senderName }
-        );
+    // Envoyer notification email au commercial/client
+    await _notifyPositiveReply(replyData, classification, score, originalEmail, clientContext, meetingCreated);
 
-        if (sendResult && sendResult.success) {
-          if (automailerStorage.setFirstSendDate) automailerStorage.setFirstSendDate();
-          automailerStorage.incrementTodaySendCount();
+    // Real-time learning : enregistrer l'outcome
+    _recordRealtimeOutcome(replyData, classification, originalEmail, abVariant, 'human_handoff');
 
-          try {
-            const inboxStorage = require('../skills/inbox-manager/storage.js');
-            inboxStorage.addAutoReply({
-              prospectEmail: replyData.from, prospectName: replyData.fromName,
-              sentiment: 'interested', subClassification: needsQualification ? 'qualification' : 'auto_instant',
-              objectionType: '', abVariant,
-              replyBody: autoReply.body, replySubject: autoReply.subject,
-              originalEmailId: originalEmail && originalEmail.subject,
-              confidence: autoReply.confidence, sendResult,
-              meetingCreated: meetingCreated ? { eventId: meetingCreated.eventId, startTime: meetingCreated.startTime } : null,
-              tone: opts.tone || 'neutral'
-            });
-          } catch (e) { log.warn('auto-reply', 'Record stats: ' + e.message); }
+    log.info('reply-pipeline', 'REPONSE POSITIVE detectee — notification envoyee, humain prend le relai pour ' + replyData.from + ' (score=' + score + ')');
 
-          if (sendResult.messageId) {
-            automailerStorage.addEmail({
-              to: replyData.from, subject: autoReply.subject, body: autoReply.body,
-              source: needsQualification ? 'auto_reply_qualification' : 'auto_reply_interested',
-              status: 'sent', abVariant,
-              messageId: sendResult.messageId, chatId: adminChatId
-            });
-          }
+    // PAS de draft HITL, PAS d'auto-reply. Le bot arrete toute automation pour ce prospect.
+    // Le commercial/client repond manuellement depuis sa boite email.
 
-          // Proposer auto-meeting seulement si pas deja cree et pas en qualification
-          if (!meetingCreated && !needsQualification) {
-            try {
-              if (meetingHandler) {
-                const company = (originalEmail && originalEmail.company) || '';
-                await meetingHandler.proposeAutoMeeting(replyData.from, replyData.fromName || firstName, company);
-              }
-            } catch (mtgErr) { log.warn('auto-reply', 'Auto-meeting proposal: ' + mtgErr.message); }
-          }
-
-          // Real-time learning : enregistrer l'outcome
-          _recordRealtimeOutcome(replyData, classification, originalEmail, abVariant, 'auto_sent');
-
-          const meetingInfo = meetingCreated ? ' + MEETING CREE le ' + new Date(meetingCreated.startTime).toLocaleDateString('fr-FR') : '';
-          const qualInfo = needsQualification ? ' (QUALIFICATION)' : '';
-          log.info('auto-reply', 'REPONSE AUTO INSTANTANEE envoyee a ' + replyData.from + ' (score=' + score + ', conf=' + autoReply.confidence + ', tone=' + (opts.tone || 'neutral') + ', variant=' + abVariant + qualInfo + meetingInfo + ')');
-          return { hitlDraftCreated: false, autoReplyHandled: true };
-        } else {
-          log.error('auto-reply', 'Echec envoi auto pour ' + replyData.from + ': ' + (sendResult && sendResult.error));
-          const draftId = hitlId();
-          _pendingDrafts.set(draftId, {
-            replyData, classification, subClass: { type: 'interested', objectionType: '' },
-            autoReply, originalEmail, originalMessageId, clientContext,
-            sentiment: 'interested', emailsToProcess, qualityWarning, createdAt: Date.now(),
-            abVariant, meetingCreated, needsQualification
-          });
-          saveHitlDrafts();
-          return { hitlDraftCreated: true, autoReplyHandled: false };
-        }
-      } catch (sendErr) {
-        log.error('auto-reply', 'Erreur envoi auto:', sendErr.message);
-        const draftId = hitlId();
-        _pendingDrafts.set(draftId, {
-          replyData, classification, subClass: { type: 'interested', objectionType: '' },
-          autoReply, originalEmail, originalMessageId, clientContext,
-          sentiment: 'interested', emailsToProcess, qualityWarning, createdAt: Date.now(),
-          abVariant, meetingCreated, needsQualification
-        });
-        saveHitlDrafts();
-        return { hitlDraftCreated: true, autoReplyHandled: false };
-      }
-    }
-
-    // LOW CONFIDENCE ou quality warning → HITL avec grounding check
+    // LOW CONFIDENCE ou quality warning → HITL avec grounding check (legacy, garde pour les cas edge)
     const grounding = checkGrounding(autoReply.body);
     const isGrounded = grounding.grounded && !qualityWarning;
 
@@ -912,6 +839,72 @@ function createReplyPipeline(deps) {
     } catch (e) { log.warn('inbox-manager', 'Propagation sentiment automailer echouee:', e.message); }
   }
 
+  // === NOTIFICATION EMAIL : prospect positif → commercial/client prend le relai ===
+  // v3.2 : le bot ne repond PLUS aux prospects interesses. Il notifie par email.
+  async function _notifyPositiveReply(replyData, classification, score, originalEmail, clientContext, meetingCreated) {
+    try {
+      const ResendClient = require('../skills/automailer/resend-client.js');
+      const resendClient = new ResendClient(resendKey, senderEmail);
+
+      // Destinataires : email(s) de notification configures dans l'env
+      // NOTIFY_POSITIVE_EMAILS = "alexis@getifind.fr,commercial1@email.com,commercial2@email.com"
+      // Pour les clients futurs : chaque client aura son propre NOTIFY_POSITIVE_EMAILS dans son .env
+      const notifyEmails = (process.env.NOTIFY_POSITIVE_EMAILS || process.env.IMAP_USER || senderEmail || '').split(',').map(e => e.trim()).filter(Boolean);
+
+      if (notifyEmails.length === 0) {
+        log.warn('reply-pipeline', 'Pas d\'email de notification configure (NOTIFY_POSITIVE_EMAILS) — notification Telegram uniquement');
+        return;
+      }
+
+      const prospectName = replyData.fromName || replyData.from;
+      const prospectEmail = replyData.from;
+      const prospectMessage = replyData.snippet || '(pas de contenu)';
+      const company = (originalEmail && originalEmail.company) || '';
+      const sentimentLabel = classification.sentiment === 'interested' ? 'INTERESSE' : classification.sentiment === 'question' ? 'QUESTION' : classification.sentiment;
+      const meetingInfo = meetingCreated ? '\n\nMeeting auto-cree : ' + new Date(meetingCreated.startTime).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
+
+      const subject = '🔥 Reponse positive — ' + prospectName + (company ? ' (' + company + ')' : '');
+
+      const body = 'Un prospect a repondu positivement. C\'est a toi de jouer !\n\n'
+        + '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+        + 'PROSPECT\n'
+        + 'Nom : ' + prospectName + '\n'
+        + 'Email : ' + prospectEmail + '\n'
+        + (company ? 'Entreprise : ' + company + '\n' : '')
+        + 'Score : ' + score + '/1.0 — ' + sentimentLabel + '\n'
+        + 'Ton : ' + (classification.tone || 'neutral') + '\n'
+        + '\n'
+        + '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+        + 'SON MESSAGE\n'
+        + prospectMessage.substring(0, 1000) + '\n'
+        + '\n'
+        + '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+        + 'CE QUE TU DOIS FAIRE\n'
+        + '1. Reponds-lui depuis ta boite email dans l\'heure\n'
+        + '2. Propose un call de 15 min (lien : ' + (clientContext.bookingUrl || 'https://cal.eu/alexis-benier-sarxqi') + ')\n'
+        + '3. Si c\'est un client d\'iFIND, transmets le lead au commercial\n'
+        + meetingInfo + '\n'
+        + '\n'
+        + '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+        + 'CONTEXTE (ton email original)\n'
+        + 'Sujet : ' + ((originalEmail && originalEmail.subject) || '?') + '\n'
+        + ((originalEmail && originalEmail.body) ? originalEmail.body.substring(0, 500) : '') + '\n'
+        + '\n'
+        + '— iFIND Bot (notification automatique)';
+
+      for (const email of notifyEmails) {
+        try {
+          await resendClient.sendEmail(email, subject, body, { fromName: 'iFIND Bot' });
+          log.info('reply-pipeline', 'Notification reponse positive envoyee a ' + email + ' pour prospect ' + prospectEmail);
+        } catch (e) {
+          log.error('reply-pipeline', 'Echec notification email a ' + email + ': ' + e.message);
+        }
+      }
+    } catch (e) {
+      log.error('reply-pipeline', 'Erreur notification positive reply: ' + e.message);
+    }
+  }
+
   async function _sendTelegramNotification(replyData, classification, sentiment, score, emailsToProcess, actionTaken, autoReplyHandled, hitlDraftCreated) {
     const EMOJIS = { interested: '🟢🔥', question: '🟡❓', not_interested: '🔴👋', out_of_office: '🏖️', bounce: '💀' };
     const SLABELS = { interested: 'INTERESSE', question: 'QUESTION', not_interested: 'PAS INTERESSE', out_of_office: 'ABSENT', bounce: 'BOUNCE' };
@@ -921,7 +914,7 @@ function createReplyPipeline(deps) {
       deferred_ooo: '🏖️ Reporte (OOO)',
       deferred_ooo_rescheduled: '🏖️📅 OOO — relance auto programmee',
       bounce_blacklist: '💀 Blackliste (bounce)',
-      auto_reply_interested: '🚀⚡ REPONSE AUTO INSTANTANEE — booking propose !',
+      auto_reply_interested: '🔥📧 NOTIFICATION ENVOYEE — le commercial prend le relai !',
       auto_reply_not_interested: '🤖💬 Bot a contre-argumente',
       auto_reply_question: '🤖💬 Bot a repondu a la question',
       auto_reply_out_of_office: '🤖📅 OOO — relance auto programmee',
