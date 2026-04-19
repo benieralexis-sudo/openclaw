@@ -226,26 +226,43 @@ if [[ -n "$SEARCH_TEXT" ]]; then
     PREDICATE="$PREDICATE AND eventMessage CONTAINS[c] \"$SEARCH_TEXT\""
 fi
 
-# Build the command - always use sudo with --info to show private data
-if [[ "$STREAM_MODE" == true ]]; then
-    # Streaming mode
-    CMD="sudo log stream --predicate '$PREDICATE' --level $LOG_LEVEL --info"
+# Phase A5 — Build the command as an ARRAY (no shell injection via eval).
+# Each user-controlled value (PREDICATE, LOG_LEVEL, TIME_RANGE, TAIL_LINES) is
+# passed as a separate argv element, never re-interpreted by the shell.
+#
+# Whitelist validation for free-form values that get embedded in PREDICATE
+# (PREDICATE itself is passed as a single arg to `log`, but we still validate
+# upstream inputs to avoid log-DSL surprises).
+if ! [[ "$LOG_LEVEL" =~ ^(default|info|debug|error|fault)$ ]]; then
+    echo -e "${RED}Invalid log level: $LOG_LEVEL${NC}"; exit 1
+fi
+if ! [[ "$TIME_RANGE" =~ ^[0-9]+[smhdw]$ ]]; then
+    echo -e "${RED}Invalid time range: $TIME_RANGE (use e.g. 5m, 1h, 2d)${NC}"; exit 1
+fi
+if ! [[ "$TAIL_LINES" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Invalid tail lines: $TAIL_LINES (must be integer)${NC}"; exit 1
+fi
+# CATEGORY and SEARCH_TEXT are quoted inside PREDICATE — reject embedded quotes
+if [[ "$CATEGORY" == *'"'* || "$CATEGORY" == *$'\n'* ]]; then
+    echo -e "${RED}Invalid category (no quotes/newlines allowed)${NC}"; exit 1
+fi
+if [[ "$SEARCH_TEXT" == *'"'* || "$SEARCH_TEXT" == *$'\n'* ]]; then
+    echo -e "${RED}Invalid search text (no quotes/newlines allowed)${NC}"; exit 1
+fi
 
+CMD=(sudo log)
+if [[ "$STREAM_MODE" == true ]]; then
+    CMD+=(stream --predicate "$PREDICATE" --level "$LOG_LEVEL" --info)
     echo -e "${GREEN}Streaming VibeTunnel logs continuously...${NC}"
     echo -e "${YELLOW}Press Ctrl+C to stop${NC}\n"
 else
-    # Show mode
-    CMD="sudo log show --predicate '$PREDICATE'"
-
-    # Add log level for show command
+    CMD+=(show --predicate "$PREDICATE")
     if [[ "$LOG_LEVEL" == "debug" ]]; then
-        CMD="$CMD --debug"
+        CMD+=(--debug)
     else
-        CMD="$CMD --info"
+        CMD+=(--info)
     fi
-
-    # Add time range
-    CMD="$CMD --last $TIME_RANGE"
+    CMD+=(--last "$TIME_RANGE")
 
     if [[ "$SHOW_TAIL" == true ]]; then
         echo -e "${GREEN}Showing last $TAIL_LINES log lines from the past $TIME_RANGE${NC}"
@@ -253,7 +270,6 @@ else
         echo -e "${GREEN}Showing all logs from the past $TIME_RANGE${NC}"
     fi
 
-    # Show applied filters
     if [[ "$ERRORS_ONLY" == true ]]; then
         echo -e "${RED}Filter: Errors only${NC}"
     fi
@@ -263,29 +279,31 @@ else
     if [[ -n "$SEARCH_TEXT" ]]; then
         echo -e "${YELLOW}Search: \"$SEARCH_TEXT\"${NC}"
     fi
-    echo ""  # Empty line for readability
+    echo ""
 fi
 
-# Add style arguments if specified
+# Style: only --style json is supported (whitelisted), no arbitrary string passthrough
 if [[ -n "${STYLE_ARGS:-}" ]]; then
-    CMD="$CMD $STYLE_ARGS"
+    if [[ "$STYLE_ARGS" == "--style json" ]]; then
+        CMD+=(--style json)
+    else
+        echo -e "${RED}Unsupported style: $STYLE_ARGS${NC}"; exit 1
+    fi
 fi
 
-# Execute the command
+# Execute the command (array expansion — NO eval, NO shell re-parse)
 if [[ -n "$OUTPUT_FILE" ]]; then
-    # First check if sudo works without password for the log command
     if sudo -n /usr/bin/log show --last 1s 2>&1 | grep -q "password"; then
         handle_sudo_error
     fi
 
     echo -e "${BLUE}Exporting logs to: $OUTPUT_FILE${NC}\n"
     if [[ "$SHOW_TAIL" == true ]] && [[ "$STREAM_MODE" == false ]]; then
-        eval "$CMD" 2>&1 | tail -n "$TAIL_LINES" > "$OUTPUT_FILE"
+        "${CMD[@]}" 2>&1 | tail -n "$TAIL_LINES" > "$OUTPUT_FILE"
     else
-        eval "$CMD" > "$OUTPUT_FILE" 2>&1
+        "${CMD[@]}" > "$OUTPUT_FILE" 2>&1
     fi
 
-    # Check if file was created and has content
     if [[ -s "$OUTPUT_FILE" ]]; then
         LINE_COUNT=$(wc -l < "$OUTPUT_FILE" | tr -d ' ')
         echo -e "${GREEN}✓ Exported $LINE_COUNT lines to $OUTPUT_FILE${NC}"
@@ -293,17 +311,14 @@ if [[ -n "$OUTPUT_FILE" ]]; then
         echo -e "${YELLOW}⚠ No logs found matching the criteria${NC}"
     fi
 else
-    # Run interactively
-    # First check if sudo works without password for the log command
     if sudo -n /usr/bin/log show --last 1s 2>&1 | grep -q "password"; then
         handle_sudo_error
     fi
 
     if [[ "$SHOW_TAIL" == true ]] && [[ "$STREAM_MODE" == false ]]; then
-        # Apply tail for non-streaming mode
-        eval "$CMD" 2>&1 | tail -n "$TAIL_LINES"
+        "${CMD[@]}" 2>&1 | tail -n "$TAIL_LINES"
         echo -e "\n${YELLOW}Showing last $TAIL_LINES lines. Use --all or -n to see more.${NC}"
     else
-        eval "$CMD"
+        "${CMD[@]}"
     fi
 fi
