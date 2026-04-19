@@ -19,6 +19,10 @@ const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10, timeout: 6
 const { callOpenAI } = require('./shared-nlp.js');
 const { getBreaker, getAllStatus: getAllBreakerStatus } = require('./circuit-breaker.js');
 const log = require('./logger.js');
+
+// Phase B4 — refuse boot if STRICT credentials missing for current tenant.
+// Safe to call early: validateOnBoot() only inspects process.env (no network/file IO).
+require('./credential-manager.js').validateOnBoot();
 const AutoMailerHandler = require('../skills/automailer/automailer-handler.js');
 const CRMPilotHandler = require('../skills/crm-pilot/crm-handler.js');
 const InvoiceBotHandler = require('../skills/invoice-bot/invoice-handler.js');
