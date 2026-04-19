@@ -60,7 +60,6 @@ apps/ios/*.dSYM.zip
 
 # provisioning profiles (local)
 apps/ios/*.mobileprovision
-.env
 
 # Local untracked files
 .local/
@@ -82,6 +81,11 @@ healthcheck.sh
 memory/
 .agent/*.json
 !.agent/workflows/
+
+# Secrets (NEVER COMMIT — enforced by pre-commit hook)
 .env
-.env
-.env
+.env.backup
+.env.*.backup
+clients/*/.env
+*.gpg
+.moltbot-backup-gpg-passphrase
