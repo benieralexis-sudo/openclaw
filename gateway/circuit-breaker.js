@@ -83,22 +83,45 @@ class CircuitBreaker {
   }
 }
 
-// Registre global des circuit breakers pour monitoring
+// Registre per-tenant des circuit breakers (Phase B1)
+// Key = `${clientId}:${name}` quand clientId présent, sinon `name` (legacy global).
+// clientId résolu en priorité : opts.clientId > process.env.CLIENT_NAME > null.
+// Conséquence : chaque container client (avec CLIENT_NAME injecté par docker-compose)
+// a SES PROPRES breakers isolés sans modifier les 20+ call sites existants.
 const _breakers = {};
 
+function _resolveKey(name, opts) {
+  const clientId = (opts && opts.clientId) || process.env.CLIENT_NAME || null;
+  return clientId ? `${clientId}:${name}` : name;
+}
+
 function getBreaker(name, opts) {
-  if (!_breakers[name]) {
-    _breakers[name] = new CircuitBreaker(name, opts);
+  const key = _resolveKey(name, opts);
+  if (!_breakers[key]) {
+    // Use the bare `name` for the breaker label so logs stay readable;
+    // tenant scoping happens at the registry level via the key.
+    _breakers[key] = new CircuitBreaker(name, opts);
   }
-  return _breakers[name];
+  return _breakers[key];
 }
 
 function getAllStatus() {
   const result = {};
-  for (const name of Object.keys(_breakers)) {
-    result[name] = _breakers[name].getStatus();
+  for (const key of Object.keys(_breakers)) {
+    result[key] = _breakers[key].getStatus();
   }
   return result;
 }
 
-module.exports = { CircuitBreaker, getBreaker, getAllStatus };
+// Reset all breakers for a given tenant (or globally if clientId omitted).
+// Useful for ops: a stuck breaker on one client should not require restart of all.
+function resetForTenant(clientId) {
+  const prefix = clientId ? `${clientId}:` : null;
+  for (const key of Object.keys(_breakers)) {
+    if (!prefix || key.startsWith(prefix)) {
+      _breakers[key].reset();
+    }
+  }
+}
+
+module.exports = { CircuitBreaker, getBreaker, getAllStatus, resetForTenant };
