@@ -1954,11 +1954,11 @@ const healthServer = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'payload too large' }));
         return;
       }
-      // Phase A4 — Auth obligatoire (était zero auth avant)
-      const { verifyHmac, verifyBearer, verifySharedSecret, verifyTimestamp } = require('./webhook-auth.js');
-      const instantlySecret = process.env.INSTANTLY_WEBHOOK_SECRET || '';
-      if (!instantlySecret) {
-        log.error('webhook-instantly', 'INSTANTLY_WEBHOOK_SECRET non configuré — refus de tous les webhooks');
+      // Phase A4 + B2 — Auth obligatoire per-tenant (sig HMAC / bearer / shared)
+      const { verifyTimestamp } = require('./webhook-auth.js');
+      const { resolveTenantFromHmac, resolveTenantFromSecret, listTenantsFor, GLOBAL_TENANT } = require('./webhook-tenant.js');
+      if (listTenantsFor('INSTANTLY_WEBHOOK_SECRET').length === 0) {
+        log.error('webhook-instantly', 'Aucun INSTANTLY_WEBHOOK_SECRET configuré — refus de tous les webhooks');
         res.writeHead(503, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'webhook secret not configured server-side' }));
         return;
@@ -1967,22 +1967,22 @@ const healthServer = http.createServer(async (req, res) => {
       const auth = req.headers['authorization'] || '';
       const sharedHeader = req.headers['x-instantly-secret'] || '';
       const ts = req.headers['x-instantly-timestamp'] || req.headers['x-webhook-timestamp'] || '';
-      const hmacOk = sig && verifyHmac(body, instantlySecret, sig);
-      const bearerOk = auth && verifyBearer(instantlySecret, auth);
-      const sharedOk = sharedHeader && verifySharedSecret(instantlySecret, sharedHeader);
-      if (!hmacOk && !bearerOk && !sharedOk) {
-        log.warn('webhook-instantly', 'Auth invalide (sig/bearer/shared tous KO)');
+      let instantlyTenant = sig ? resolveTenantFromHmac(body, sig, 'INSTANTLY_WEBHOOK_SECRET') : null;
+      if (!instantlyTenant && auth) instantlyTenant = resolveTenantFromSecret(auth, 'INSTANTLY_WEBHOOK_SECRET');
+      if (!instantlyTenant && sharedHeader) instantlyTenant = resolveTenantFromSecret(sharedHeader, 'INSTANTLY_WEBHOOK_SECRET');
+      if (!instantlyTenant) {
+        log.warn('webhook-instantly', 'Auth invalide (sig/bearer/shared tous KO ou aucun tenant matché)');
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'unauthorized' }));
         return;
       }
-      // Replay protection si timestamp fourni (ignoré si absent — Instantly ne le fournit pas systématiquement)
       if (ts && !verifyTimestamp(ts)) {
         log.warn('webhook-instantly', 'Timestamp hors fenêtre 5min — replay refusé');
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'replay protection: timestamp outside window' }));
         return;
       }
+      const instantlyResolvedClient = instantlyTenant === GLOBAL_TENANT ? null : instantlyTenant;
       try {
         const payload = JSON.parse(body);
         log.info('webhook-instantly', 'Event recu: ' + (payload.event_type || 'unknown') + ' | ' + (payload.email || ''));
@@ -2005,7 +2005,8 @@ const healthServer = http.createServer(async (req, res) => {
         const handler = createInstantlyWebhookHandler({
           sendTelegram: sendMessage,
           storage: automailerStorage,
-          metrics: global.__ifindMetrics
+          metrics: global.__ifindMetrics,
+          clientId: instantlyResolvedClient // B2 — route notifications to tenant admin
         });
         await handler.handleEvent(payload);
         idem.markSeen(dedupeKey);
@@ -2029,22 +2030,25 @@ const healthServer = http.createServer(async (req, res) => {
     req.on('data', (chunk) => { bodySize += chunk.length; if (bodySize > MAX_BODY) { req.destroy(); return; } body += chunk; });
     req.on('end', async () => {
       if (bodySize > MAX_BODY) { res.writeHead(413); res.end('{"error":"too large"}'); return; }
-      // Phase A4 — secret OBLIGATOIRE (avant: fallback `|| ''` permettait bypass si var vide)
-      const { verifySharedSecret, verifyTimestamp } = require('./webhook-auth.js');
-      const pharowSecret = process.env.PHAROW_WEBHOOK_SECRET || '';
-      if (!pharowSecret) {
-        log.error('webhook-pharow', 'PHAROW_WEBHOOK_SECRET non configuré — refus');
+      // Phase A4 + B2 — auth via per-tenant secret resolution
+      const { verifyTimestamp } = require('./webhook-auth.js');
+      const { resolveTenantFromSecret, listTenantsFor, GLOBAL_TENANT } = require('./webhook-tenant.js');
+      if (listTenantsFor('PHAROW_WEBHOOK_SECRET').length === 0) {
+        log.error('webhook-pharow', 'Aucun PHAROW_WEBHOOK_SECRET configuré — refus');
         res.writeHead(503); res.end('{"error":"webhook secret not configured"}'); return;
       }
       const headerSecret = req.headers['x-pharow-secret'] || req.headers['authorization'] || '';
-      if (!verifySharedSecret(pharowSecret, headerSecret)) {
-        log.warn('webhook-pharow', 'Secret invalide'); res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
+      const pharowTenant = resolveTenantFromSecret(headerSecret, 'PHAROW_WEBHOOK_SECRET');
+      if (!pharowTenant) {
+        log.warn('webhook-pharow', 'Secret invalide (aucun tenant matché)');
+        res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
       }
       const ts = req.headers['x-pharow-timestamp'] || req.headers['x-webhook-timestamp'] || '';
       if (ts && !verifyTimestamp(ts)) {
         log.warn('webhook-pharow', 'Timestamp hors fenêtre 5min — replay refusé');
         res.writeHead(401); res.end('{"error":"replay protection: timestamp outside window"}'); return;
       }
+      const pharowResolvedClient = pharowTenant === GLOBAL_TENANT ? null : pharowTenant;
       try {
         const parsed = JSON.parse(body);
         // Phase A6 — idempotency batch-level (skip si payload entier déjà reçu)
@@ -2060,7 +2064,7 @@ const healthServer = http.createServer(async (req, res) => {
         idemP.markSeen('pharow:batch:' + batchKey);
         const leads = Array.isArray(parsed) ? parsed : (parsed.prospects || parsed.leads || parsed.data || [parsed]);
         const automailerStorage = require('../skills/automailer/storage.js');
-        const ADMIN_CHAT = _getAdminChatId();
+        const ADMIN_CHAT = _getAdminChatId(pharowResolvedClient); // B2 — route to tenant admin
         let imported = 0, skipped = 0;
         for (const raw of leads) {
           // Mapper les champs Pharow vers le format interne
@@ -2134,25 +2138,29 @@ const healthServer = http.createServer(async (req, res) => {
     req.on('data', (chunk) => { bodySize += chunk.length; if (bodySize > MAX_BODY) { req.destroy(); return; } body += chunk; });
     req.on('end', async () => {
       if (bodySize > MAX_BODY) { res.writeHead(413); res.end('{"error":"too large"}'); return; }
-      // Phase A4 — secret OBLIGATOIRE + HMAC timing-safe + replay protection
-      const { verifyHmac, verifyBearer, verifyTimestamp } = require('./webhook-auth.js');
-      const rodzSecret = process.env.RODZ_WEBHOOK_SECRET || '';
-      if (!rodzSecret) {
-        log.error('webhook-rodz', 'RODZ_WEBHOOK_SECRET non configuré — refus');
+      // Phase A4 + B2 — HMAC timing-safe per-tenant + replay protection
+      const { verifyTimestamp } = require('./webhook-auth.js');
+      const { resolveTenantFromHmac, resolveTenantFromSecret, listTenantsFor, GLOBAL_TENANT } = require('./webhook-tenant.js');
+      if (listTenantsFor('RODZ_WEBHOOK_SECRET').length === 0) {
+        log.error('webhook-rodz', 'Aucun RODZ_WEBHOOK_SECRET configuré — refus');
         res.writeHead(503); res.end('{"error":"webhook secret not configured"}'); return;
       }
       const sig = req.headers['x-rodz-signature'] || '';
       const authHeader = req.headers['authorization'] || '';
-      const hmacOk = sig && verifyHmac(body, rodzSecret, sig);
-      const bearerOk = authHeader && verifyBearer(rodzSecret, authHeader);
-      if (!hmacOk && !bearerOk) {
-        log.warn('webhook-rodz', 'Signature/auth invalide'); res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
+      let rodzTenant = sig ? resolveTenantFromHmac(body, sig, 'RODZ_WEBHOOK_SECRET') : null;
+      if (!rodzTenant && authHeader) {
+        rodzTenant = resolveTenantFromSecret(authHeader, 'RODZ_WEBHOOK_SECRET');
+      }
+      if (!rodzTenant) {
+        log.warn('webhook-rodz', 'Signature/auth invalide (aucun tenant matché)');
+        res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
       }
       const ts = req.headers['x-rodz-timestamp'] || req.headers['x-webhook-timestamp'] || '';
       if (ts && !verifyTimestamp(ts)) {
         log.warn('webhook-rodz', 'Timestamp hors fenêtre 5min — replay refusé');
         res.writeHead(401); res.end('{"error":"replay protection: timestamp outside window"}'); return;
       }
+      const rodzResolvedClient = rodzTenant === GLOBAL_TENANT ? null : rodzTenant;
       try {
         const parsed = JSON.parse(body);
         // Phase A6 — idempotency dedupe
@@ -2172,7 +2180,7 @@ const healthServer = http.createServer(async (req, res) => {
         const person = data.person || data.contact || {};
         const details = data.details || {};
         const automailerStorage = require('../skills/automailer/storage.js');
-        const ADMIN_CHAT = _getAdminChatId();
+        const ADMIN_CHAT = _getAdminChatId(rodzResolvedClient); // B2 — route to tenant admin
 
         // Construire le lead depuis le signal Rodz
         const lead = {
@@ -2278,18 +2286,19 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
 
-      // Phase A4 — Auth timing-safe + replay protection
-      const { verifySharedSecret, verifyTimestamp } = require('./webhook-auth.js');
-      const claySecret = process.env.CLAY_WEBHOOK_SECRET || '';
-      if (!claySecret) {
-        log.error('webhook-clay', 'CLAY_WEBHOOK_SECRET non configuré — refus');
+      // Phase A4 + B2 — Auth timing-safe per-tenant + replay protection
+      const { verifyTimestamp } = require('./webhook-auth.js');
+      const { resolveTenantFromSecret, listTenantsFor, GLOBAL_TENANT } = require('./webhook-tenant.js');
+      if (listTenantsFor('CLAY_WEBHOOK_SECRET').length === 0) {
+        log.error('webhook-clay', 'Aucun CLAY_WEBHOOK_SECRET configuré — refus');
         res.writeHead(503, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'webhook secret not configured server-side' }));
         return;
       }
       const headerSecret = req.headers['x-clay-secret'] || '';
-      if (!verifySharedSecret(claySecret, headerSecret)) {
-        log.warn('webhook-clay', 'Secret invalide');
+      const clayTenant = resolveTenantFromSecret(headerSecret, 'CLAY_WEBHOOK_SECRET');
+      if (!clayTenant) {
+        log.warn('webhook-clay', 'Secret invalide (aucun tenant matché)');
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'unauthorized — invalid X-Clay-Secret' }));
         return;
@@ -2301,6 +2310,7 @@ const healthServer = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'replay protection: timestamp outside window' }));
         return;
       }
+      const clayResolvedClient = clayTenant === GLOBAL_TENANT ? null : clayTenant;
 
       try {
         const parsed = JSON.parse(body);
@@ -2319,7 +2329,7 @@ const healthServer = http.createServer(async (req, res) => {
         const leads = Array.isArray(parsed) ? parsed : [parsed];
         const results = [];
         const automailerStorage = require('../skills/automailer/storage.js');
-        const ADMIN_CHAT_ID = _getAdminChatId();
+        const ADMIN_CHAT_ID = _getAdminChatId(clayResolvedClient); // B2 — route to tenant admin
 
         // v9.1: Compute lead score server-side (Clay formulas don't resolve in HTTP API)
         function computeLeadScore(lead) {

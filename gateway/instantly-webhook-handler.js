@@ -23,7 +23,10 @@ const EVENT_MAP = {
 };
 
 function createInstantlyWebhookHandler(options) {
-  const { sendTelegram, storage, metrics } = options;
+  const { sendTelegram, storage, metrics, clientId } = options;
+  // Phase B2 — clientId resolved from webhook secret routes notifs to tenant admin.
+  // Falls back to global resolver if undefined (back-compat with single-tenant deployments).
+  const _adminChat = () => getAdminChatId(clientId);
 
   /**
    * Traiter un event webhook Instantly
@@ -105,7 +108,7 @@ function createInstantlyWebhookHandler(options) {
 
     // Notifier sur Telegram
     if (sendTelegram) {
-      const adminChat = getAdminChatId();
+      const adminChat = _adminChat();
       await sendTelegram(adminChat, '⚠️ *Bounce Instantly*\n' +
         'Email: `' + email + '`\n' +
         'Raison: ' + (payload.bounce_type || payload.reason || 'inconnu') + '\n' +
@@ -118,7 +121,7 @@ function createInstantlyWebhookHandler(options) {
 
     // Notifier sur Telegram — c'est un event important
     if (sendTelegram) {
-      const adminChat = getAdminChatId();
+      const adminChat = _adminChat();
       const replyBody = payload.reply_body || payload.body || payload.text || '';
       const preview = replyBody.substring(0, 200).replace(/[<>]/g, '');
 
@@ -168,7 +171,7 @@ function createInstantlyWebhookHandler(options) {
     log.error('instantly-webhook', 'ACCOUNT ERROR: ' + account + ' — ' + errorMsg);
 
     if (sendTelegram) {
-      const adminChat = getAdminChatId();
+      const adminChat = _adminChat();
       await sendTelegram(adminChat, '🔴 *Erreur compte Instantly*\n' +
         'Compte: `' + account + '`\n' +
         'Erreur: ' + errorMsg + '\n' +
