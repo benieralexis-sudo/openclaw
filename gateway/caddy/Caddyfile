@@ -1,0 +1,88 @@
+# Phase B7 — Caddy reverse proxy with auto-TLS for iFIND multi-tenant.
+#
+# Activation: docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d caddy
+#
+# DNS prerequisite (manual action by Alexis):
+#   - *.ifind-agency.fr → 76.13.137.130 (A or wildcard A record)
+#   - srv1319748.hstgr.cloud already points to 76.13.137.130 (Hostinger default)
+#
+# Adding a new client:
+#   1. Create container `router-<client>` in clients/docker-compose.clients.yml
+#   2. Add a stanza below: <client>.ifind-agency.fr { reverse_proxy router-<client>:9090 }
+#   3. Reload caddy: docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+
+# Global gateway (existing iFIND main bot — Hostinger subdomain)
+srv1319748.hstgr.cloud {
+    encode gzip
+    reverse_proxy telegram-router:9090
+    log {
+        output file /var/log/caddy/srv1319748.log {
+            roll_size 50mb
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+# Mission control dashboard (admin UI)
+mc.ifind-agency.fr {
+    encode gzip
+    reverse_proxy mission-control:3000
+    log {
+        output file /var/log/caddy/mc.log {
+            roll_size 50mb
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+# Landing page (public)
+ifind-agency.fr, www.ifind-agency.fr {
+    encode gzip
+    reverse_proxy landing-page:3080
+    log {
+        output file /var/log/caddy/landing.log {
+            roll_size 50mb
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+# === PER-TENANT CLIENT ROUTERS ===
+# Uncomment and adapt as new clients are onboarded. Each client has its
+# own container exposed on a different localhost port via clients/docker-compose.clients.yml.
+
+# fimmop.ifind-agency.fr {
+#     encode gzip
+#     reverse_proxy router-fimmop:9090
+#     log {
+#         output file /var/log/caddy/fimmop.log
+#         format json
+#     }
+# }
+
+# digitestlab.ifind-agency.fr {
+#     encode gzip
+#     reverse_proxy router-digitestlab:9090
+#     log {
+#         output file /var/log/caddy/digitestlab.log
+#         format json
+#     }
+# }
+
+# digidemat.ifind-agency.fr {
+#     encode gzip
+#     reverse_proxy router-digidemat:9090
+#     log {
+#         output file /var/log/caddy/digidemat.log
+#         format json
+#     }
+# }
+
+# === DEFAULT 404 (catch-all) ===
+# Block any unconfigured subdomain to avoid leaking internal services
+:80, :443 {
+    respond "Unknown host" 404
+}

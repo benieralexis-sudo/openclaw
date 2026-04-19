@@ -1,0 +1,55 @@
+# Phase B7 — Caddy reverse proxy overlay
+#
+# Activation:
+#   docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d caddy
+#
+# Verification:
+#   curl -I https://srv1319748.hstgr.cloud/health
+#   docker compose logs caddy
+#
+# Reload after Caddyfile edits (no restart needed):
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: moltbot-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./gateway/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data        # ACME state — must persist or you re-issue certs every restart
+      - caddy-config:/config
+      - caddy-logs:/var/log/caddy
+    networks:
+      - default
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE  # required to bind 80/443 as non-root
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  caddy-data:
+  caddy-config:
+  caddy-logs:
