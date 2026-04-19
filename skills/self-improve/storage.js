@@ -87,7 +87,7 @@ class SelfImproveStorage {
       version: SCHEMA_VERSION,
       config: {
         enabled: true,
-        adminChatId: process.env.ADMIN_CHAT_ID || '1409505520',
+        adminChatId: require('../../gateway/admin-resolver.js').getAdminChatId(), // B6
         analysisDay: 'sunday',
         analysisHour: 21,
         autoApply: true,

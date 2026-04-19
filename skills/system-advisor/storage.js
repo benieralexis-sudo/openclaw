@@ -12,7 +12,7 @@ function _defaultData() {
   return {
     config: {
       enabled: true,
-      adminChatId: process.env.ADMIN_CHAT_ID || '1409505520',
+      adminChatId: require('../../gateway/admin-resolver.js').getAdminChatId(), // B6
       alerts: {
         metricsCollection: { enabled: true, intervalMinutes: 5 },
         healthCheck: { enabled: true, intervalMinutes: 60 },

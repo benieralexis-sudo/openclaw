@@ -3,6 +3,7 @@
 'use strict';
 
 const log = require('./logger.js');
+const { getAdminChatId } = require('./admin-resolver.js'); // Phase B6
 
 /**
  * Mappe les events Instantly vers le format interne du bot
@@ -104,7 +105,7 @@ function createInstantlyWebhookHandler(options) {
 
     // Notifier sur Telegram
     if (sendTelegram) {
-      const adminChat = process.env.ADMIN_CHAT_ID || '1409505520';
+      const adminChat = getAdminChatId();
       await sendTelegram(adminChat, '⚠️ *Bounce Instantly*\n' +
         'Email: `' + email + '`\n' +
         'Raison: ' + (payload.bounce_type || payload.reason || 'inconnu') + '\n' +
@@ -117,7 +118,7 @@ function createInstantlyWebhookHandler(options) {
 
     // Notifier sur Telegram — c'est un event important
     if (sendTelegram) {
-      const adminChat = process.env.ADMIN_CHAT_ID || '1409505520';
+      const adminChat = getAdminChatId();
       const replyBody = payload.reply_body || payload.body || payload.text || '';
       const preview = replyBody.substring(0, 200).replace(/[<>]/g, '');
 
@@ -167,7 +168,7 @@ function createInstantlyWebhookHandler(options) {
     log.error('instantly-webhook', 'ACCOUNT ERROR: ' + account + ' — ' + errorMsg);
 
     if (sendTelegram) {
-      const adminChat = process.env.ADMIN_CHAT_ID || '1409505520';
+      const adminChat = getAdminChatId();
       await sendTelegram(adminChat, '🔴 *Erreur compte Instantly*\n' +
         'Compte: `' + account + '`\n' +
         'Erreur: ' + errorMsg + '\n' +

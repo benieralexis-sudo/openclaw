@@ -8,11 +8,12 @@ const path = require('path');
 const https = require('https');
 const log = require('../gateway/logger.js');
 const { atomicWriteSync } = require('../gateway/utils.js');
+const { getAdminChatId } = require('../gateway/admin-resolver.js'); // Phase B6
 
 const CLAY_API_BASE = 'https://api.clay.com';
 const SYNC_STATE_FILE = '/data/automailer/clay-sync-state.json';
 const ENRICHMENT_DIR = '/data/automailer/clay-enrichments';
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
+const ADMIN_CHAT_ID = getAdminChatId();
 
 // ---- HTTP helper (v3 with cookie + API key fallback) ----
 

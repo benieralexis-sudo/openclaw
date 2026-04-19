@@ -50,7 +50,9 @@ function _doWrite(filePath, data) {
       log.error('storage', 'DISQUE PLEIN — ecriture impossible: ' + filePath);
       // Tenter notification Telegram d'urgence
       try {
-        const chatId = process.env.ADMIN_CHAT_ID || '1409505520';
+        // Phase B6 — admin chat ID via dedicated resolver
+        const { getAdminChatId } = require('./admin-resolver.js');
+        const chatId = getAdminChatId();
         const https = require('https');
         const token = process.env.TELEGRAM_BOT_TOKEN;
         if (token) {

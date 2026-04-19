@@ -1623,7 +1623,7 @@ Format JSON strict :
       if (result.success) {
         // Recuperer le chatId admin depuis la config AP
         const apConfig = storage.getConfig();
-        const adminChatId = apConfig.adminChatId || process.env.ADMIN_CHAT_ID || '1409505520';
+        const adminChatId = apConfig.adminChatId || require('../../gateway/admin-resolver.js').getAdminChatId(); // B6
 
         // Calculer le score de qualite email (Lavender /100)
         let emailQualityScore = 0;
@@ -2075,7 +2075,7 @@ Format JSON strict :
     }
 
     const apConfig = storage.getConfig();
-    const adminChatId = apConfig.adminChatId || process.env.ADMIN_CHAT_ID || '1409505520';
+    const adminChatId = apConfig.adminChatId || require('../../gateway/admin-resolver.js').getAdminChatId(); // B6
     const fuConfig = apConfig.followUpConfig || {};
     const totalSteps = params.totalSteps || fuConfig.sequenceTotalSteps || 5;
     const stepDays = fuConfig.sequenceStepDays || [0, 3, 10];

@@ -1727,7 +1727,7 @@ class ProactiveEngine {
         if (sendResult.success) {
           // Enregistrer dans automailer
           amStorage.addEmail({
-            chatId: config.adminChatId || process.env.ADMIN_CHAT_ID || '1409505520',
+            chatId: config.adminChatId || require('../../gateway/admin-resolver.js').getAdminChatId(), // B6
             to: followUp.prospectEmail,
             subject: subject,
             body: body,

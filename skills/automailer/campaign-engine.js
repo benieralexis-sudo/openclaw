@@ -2235,7 +2235,7 @@ class CampaignEngine {
       const contactNames = contactList.map(c => c.email || c.name || '?').slice(0, 5).join(', ');
       log.warn('campaign-engine', 'Step ' + stepNumber + ' FORCE completed apres ' + step._retryCount + ' retries sans envoi (' + (allInactive ? 'tous inactifs' : 'generation echouee') + ', contacts: ' + contactNames + ')');
       try {
-        const chatId = process.env.ADMIN_CHAT_ID || '1409505520';
+        const chatId = require('../../gateway/admin-resolver.js').getAdminChatId(); // Phase B6
         const TelegramBot = require('node-telegram-bot-api');
         const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
         bot.sendMessage(chatId, '⚠️ Relance step ' + stepNumber + ' echouee apres ' + step._retryCount + ' tentatives pour : ' + contactNames + '\n' + (allInactive ? 'Tous les contacts sont inactifs (0 ouverture).' : 'La qualite etait insuffisante.'));

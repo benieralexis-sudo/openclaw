@@ -69,7 +69,9 @@ function _sendCriticalAlert(tag, msg) {
     if (now - ts > 60 * 60 * 1000) _alertCooldowns.delete(key);
   }
   try {
-    const chatId = process.env.ADMIN_CHAT_ID || '1409505520';
+    // Phase B6 — lazy require to avoid circular dep (admin-resolver requires logger)
+    const { getAdminChatId } = require('./admin-resolver.js');
+    const chatId = getAdminChatId();
     _sendTelegramFn(chatId, '🔴 *CRITICAL ERROR*\n`[' + tag + ']` ' + msg.substring(0, 300));
   } catch (e) {
     // Eviter boucle infinie si Telegram est down

@@ -136,7 +136,9 @@ const IMAP_PORT = parseInt(process.env.IMAP_PORT || '993', 10);
 const IMAP_USER = process.env.IMAP_USER || '';
 const IMAP_PASS = process.env.IMAP_PASS || '';
 // Google Calendar : credentials lues directement par GoogleCalendarClient via process.env
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
+// Phase B6 — admin chat ID resolved via dedicated module (per-tenant aware)
+const { getAdminChatId: _getAdminChatId } = require('./admin-resolver.js');
+const ADMIN_CHAT_ID = _getAdminChatId();
 
 // Escape Telegram Markdown v1 — empeche l'injection de formatage par contenu externe
 function escTg(text) {
@@ -2058,7 +2060,7 @@ const healthServer = http.createServer(async (req, res) => {
         idemP.markSeen('pharow:batch:' + batchKey);
         const leads = Array.isArray(parsed) ? parsed : (parsed.prospects || parsed.leads || parsed.data || [parsed]);
         const automailerStorage = require('../skills/automailer/storage.js');
-        const ADMIN_CHAT = process.env.ADMIN_CHAT_ID || '1409505520';
+        const ADMIN_CHAT = _getAdminChatId();
         let imported = 0, skipped = 0;
         for (const raw of leads) {
           // Mapper les champs Pharow vers le format interne
@@ -2170,7 +2172,7 @@ const healthServer = http.createServer(async (req, res) => {
         const person = data.person || data.contact || {};
         const details = data.details || {};
         const automailerStorage = require('../skills/automailer/storage.js');
-        const ADMIN_CHAT = process.env.ADMIN_CHAT_ID || '1409505520';
+        const ADMIN_CHAT = _getAdminChatId();
 
         // Construire le lead depuis le signal Rodz
         const lead = {
@@ -2317,7 +2319,7 @@ const healthServer = http.createServer(async (req, res) => {
         const leads = Array.isArray(parsed) ? parsed : [parsed];
         const results = [];
         const automailerStorage = require('../skills/automailer/storage.js');
-        const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || '1409505520';
+        const ADMIN_CHAT_ID = _getAdminChatId();
 
         // v9.1: Compute lead score server-side (Clay formulas don't resolve in HTTP API)
         function computeLeadScore(lead) {
