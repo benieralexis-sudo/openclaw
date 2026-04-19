@@ -1,5 +1,8 @@
 // iFIND - Routeur Telegram central (dispatch 13 skills : AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot + Inbox Manager + Meeting Scheduler)
 
+// --- Sentry : doit etre charge en PREMIER pour auto-instrumentation ---
+const Sentry = require('./instrument.js');
+
 // --- Securite : refuser de tourner en root ---
 if (typeof process.getuid === 'function' && process.getuid() === 0) {
   console.error('FATAL: Bot refuse de tourner en root (uid 0). Utilisez runuser ou USER dans Dockerfile.');
@@ -1949,6 +1952,35 @@ const healthServer = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'payload too large' }));
         return;
       }
+      // Phase A4 — Auth obligatoire (était zero auth avant)
+      const { verifyHmac, verifyBearer, verifySharedSecret, verifyTimestamp } = require('./webhook-auth.js');
+      const instantlySecret = process.env.INSTANTLY_WEBHOOK_SECRET || '';
+      if (!instantlySecret) {
+        log.error('webhook-instantly', 'INSTANTLY_WEBHOOK_SECRET non configuré — refus de tous les webhooks');
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'webhook secret not configured server-side' }));
+        return;
+      }
+      const sig = req.headers['x-instantly-signature'] || req.headers['x-webhook-signature'] || '';
+      const auth = req.headers['authorization'] || '';
+      const sharedHeader = req.headers['x-instantly-secret'] || '';
+      const ts = req.headers['x-instantly-timestamp'] || req.headers['x-webhook-timestamp'] || '';
+      const hmacOk = sig && verifyHmac(body, instantlySecret, sig);
+      const bearerOk = auth && verifyBearer(instantlySecret, auth);
+      const sharedOk = sharedHeader && verifySharedSecret(instantlySecret, sharedHeader);
+      if (!hmacOk && !bearerOk && !sharedOk) {
+        log.warn('webhook-instantly', 'Auth invalide (sig/bearer/shared tous KO)');
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'unauthorized' }));
+        return;
+      }
+      // Replay protection si timestamp fourni (ignoré si absent — Instantly ne le fournit pas systématiquement)
+      if (ts && !verifyTimestamp(ts)) {
+        log.warn('webhook-instantly', 'Timestamp hors fenêtre 5min — replay refusé');
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'replay protection: timestamp outside window' }));
+        return;
+      }
       try {
         const payload = JSON.parse(body);
         log.info('webhook-instantly', 'Event recu: ' + (payload.event_type || 'unknown') + ' | ' + (payload.email || ''));
@@ -1982,10 +2014,21 @@ const healthServer = http.createServer(async (req, res) => {
     req.on('data', (chunk) => { bodySize += chunk.length; if (bodySize > MAX_BODY) { req.destroy(); return; } body += chunk; });
     req.on('end', async () => {
       if (bodySize > MAX_BODY) { res.writeHead(413); res.end('{"error":"too large"}'); return; }
+      // Phase A4 — secret OBLIGATOIRE (avant: fallback `|| ''` permettait bypass si var vide)
+      const { verifySharedSecret, verifyTimestamp } = require('./webhook-auth.js');
       const pharowSecret = process.env.PHAROW_WEBHOOK_SECRET || '';
+      if (!pharowSecret) {
+        log.error('webhook-pharow', 'PHAROW_WEBHOOK_SECRET non configuré — refus');
+        res.writeHead(503); res.end('{"error":"webhook secret not configured"}'); return;
+      }
       const headerSecret = req.headers['x-pharow-secret'] || req.headers['authorization'] || '';
-      if (pharowSecret && headerSecret !== pharowSecret && headerSecret !== 'Bearer ' + pharowSecret) {
+      if (!verifySharedSecret(pharowSecret, headerSecret)) {
         log.warn('webhook-pharow', 'Secret invalide'); res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
+      }
+      const ts = req.headers['x-pharow-timestamp'] || req.headers['x-webhook-timestamp'] || '';
+      if (ts && !verifyTimestamp(ts)) {
+        log.warn('webhook-pharow', 'Timestamp hors fenêtre 5min — replay refusé');
+        res.writeHead(401); res.end('{"error":"replay protection: timestamp outside window"}'); return;
       }
       try {
         const parsed = JSON.parse(body);
@@ -2065,20 +2108,24 @@ const healthServer = http.createServer(async (req, res) => {
     req.on('data', (chunk) => { bodySize += chunk.length; if (bodySize > MAX_BODY) { req.destroy(); return; } body += chunk; });
     req.on('end', async () => {
       if (bodySize > MAX_BODY) { res.writeHead(413); res.end('{"error":"too large"}'); return; }
-      // Auth: x-rodz-signature (HMAC-SHA256) ou Bearer token
+      // Phase A4 — secret OBLIGATOIRE + HMAC timing-safe + replay protection
+      const { verifyHmac, verifyBearer, verifyTimestamp } = require('./webhook-auth.js');
       const rodzSecret = process.env.RODZ_WEBHOOK_SECRET || '';
+      if (!rodzSecret) {
+        log.error('webhook-rodz', 'RODZ_WEBHOOK_SECRET non configuré — refus');
+        res.writeHead(503); res.end('{"error":"webhook secret not configured"}'); return;
+      }
       const sig = req.headers['x-rodz-signature'] || '';
       const authHeader = req.headers['authorization'] || '';
-      if (rodzSecret) {
-        let valid = false;
-        if (sig) {
-          const crypto = require('crypto');
-          const expected = crypto.createHmac('sha256', rodzSecret).update(body).digest('hex');
-          valid = sig === expected || sig === 'sha256=' + expected;
-        }
-        if (!valid && authHeader !== 'Bearer ' + rodzSecret) {
-          log.warn('webhook-rodz', 'Signature/auth invalide'); res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
-        }
+      const hmacOk = sig && verifyHmac(body, rodzSecret, sig);
+      const bearerOk = authHeader && verifyBearer(rodzSecret, authHeader);
+      if (!hmacOk && !bearerOk) {
+        log.warn('webhook-rodz', 'Signature/auth invalide'); res.writeHead(401); res.end('{"error":"unauthorized"}'); return;
+      }
+      const ts = req.headers['x-rodz-timestamp'] || req.headers['x-webhook-timestamp'] || '';
+      if (ts && !verifyTimestamp(ts)) {
+        log.warn('webhook-rodz', 'Timestamp hors fenêtre 5min — replay refusé');
+        res.writeHead(401); res.end('{"error":"replay protection: timestamp outside window"}'); return;
       }
       try {
         const parsed = JSON.parse(body);
@@ -2194,13 +2241,27 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
 
-      // Auth: verifier X-Clay-Secret
+      // Phase A4 — Auth timing-safe + replay protection
+      const { verifySharedSecret, verifyTimestamp } = require('./webhook-auth.js');
       const claySecret = process.env.CLAY_WEBHOOK_SECRET || '';
+      if (!claySecret) {
+        log.error('webhook-clay', 'CLAY_WEBHOOK_SECRET non configuré — refus');
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'webhook secret not configured server-side' }));
+        return;
+      }
       const headerSecret = req.headers['x-clay-secret'] || '';
-      if (!claySecret || headerSecret !== claySecret) {
-        log.warn('webhook-clay', 'Secret invalide ou non configure');
+      if (!verifySharedSecret(claySecret, headerSecret)) {
+        log.warn('webhook-clay', 'Secret invalide');
         res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'unauthorized — invalid or missing X-Clay-Secret' }));
+        res.end(JSON.stringify({ error: 'unauthorized — invalid X-Clay-Secret' }));
+        return;
+      }
+      const ts = req.headers['x-clay-timestamp'] || req.headers['x-webhook-timestamp'] || '';
+      if (ts && !verifyTimestamp(ts)) {
+        log.warn('webhook-clay', 'Timestamp hors fenêtre 5min — replay refusé');
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'replay protection: timestamp outside window' }));
         return;
       }
 
