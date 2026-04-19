@@ -1985,6 +1985,18 @@ const healthServer = http.createServer(async (req, res) => {
         const payload = JSON.parse(body);
         log.info('webhook-instantly', 'Event recu: ' + (payload.event_type || 'unknown') + ' | ' + (payload.email || ''));
 
+        // Phase A6 — idempotency dedupe
+        const idemMod = require('./idempotency.js');
+        const idem = idemMod.forSource('instantly');
+        const eventId = idemMod.computeEventId(payload, ['event_id', 'id', 'webhook_id']);
+        const dedupeKey = (payload.event_type || 'evt') + ':' + (payload.email || '') + ':' + eventId;
+        if (idem.isSeen(dedupeKey)) {
+          log.info('webhook-instantly', 'Duplicate ignored: ' + dedupeKey);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, duplicate: true }));
+          return;
+        }
+
         // Charger le handler Instantly
         const { createInstantlyWebhookHandler } = require('./instantly-webhook-handler.js');
         const automailerStorage = require('../skills/automailer/storage.js');
@@ -1994,6 +2006,7 @@ const healthServer = http.createServer(async (req, res) => {
           metrics: global.__ifindMetrics
         });
         await handler.handleEvent(payload);
+        idem.markSeen(dedupeKey);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
@@ -2032,6 +2045,17 @@ const healthServer = http.createServer(async (req, res) => {
       }
       try {
         const parsed = JSON.parse(body);
+        // Phase A6 — idempotency batch-level (skip si payload entier déjà reçu)
+        const idemMod = require('./idempotency.js');
+        const idemP = idemMod.forSource('pharow');
+        const batchKey = idemMod.computeEventId(parsed, ['event_id', 'batch_id', 'webhook_id']);
+        if (idemP.isSeen('pharow:batch:' + batchKey)) {
+          log.info('webhook-pharow', 'Duplicate batch ignored: ' + batchKey);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, duplicate: true }));
+          return;
+        }
+        idemP.markSeen('pharow:batch:' + batchKey);
         const leads = Array.isArray(parsed) ? parsed : (parsed.prospects || parsed.leads || parsed.data || [parsed]);
         const automailerStorage = require('../skills/automailer/storage.js');
         const ADMIN_CHAT = process.env.ADMIN_CHAT_ID || '1409505520';
@@ -2129,6 +2153,17 @@ const healthServer = http.createServer(async (req, res) => {
       }
       try {
         const parsed = JSON.parse(body);
+        // Phase A6 — idempotency dedupe
+        const idemMod = require('./idempotency.js');
+        const idemR = idemMod.forSource('rodz');
+        const sigId = idemMod.computeEventId(parsed, ['signal_id', 'event_id', 'id', 'data.signal_id', 'signal.id']);
+        if (idemR.isSeen('rodz:' + sigId)) {
+          log.info('webhook-rodz', 'Duplicate signal ignored: ' + sigId);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, duplicate: true }));
+          return;
+        }
+        idemR.markSeen('rodz:' + sigId);
         const data = parsed.data || parsed;
         const signalType = parsed.signal_type || parsed.event_type || (parsed.signal && parsed.signal.type) || 'unknown';
         const prospect = data.prospect || data.company || {};
@@ -2267,6 +2302,17 @@ const healthServer = http.createServer(async (req, res) => {
 
       try {
         const parsed = JSON.parse(body);
+        // Phase A6 — idempotency batch-level
+        const idemMod = require('./idempotency.js');
+        const idemC = idemMod.forSource('clay');
+        const batchKey = idemMod.computeEventId(parsed, ['event_id', 'batch_id', 'webhook_id']);
+        if (idemC.isSeen('clay:batch:' + batchKey)) {
+          log.info('webhook-clay', 'Duplicate batch ignored: ' + batchKey);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, duplicate: true }));
+          return;
+        }
+        idemC.markSeen('clay:batch:' + batchKey);
         // Support batch (array) ou single lead (object)
         const leads = Array.isArray(parsed) ? parsed : [parsed];
         const results = [];
