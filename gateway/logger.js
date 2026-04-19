@@ -80,18 +80,23 @@ function _sendCriticalAlert(tag, msg) {
 
 // --- Formatting ---
 
+// Phase B3 — tenant tagging.
+// Each container has CLIENT_NAME injected by clients/docker-compose.clients.yml.
+// Captured once at module load for performance; falls back to 'global' if absent.
+const TENANT = process.env.CLIENT_NAME || 'global';
+
 function _toJson(tag, level, args) {
   const msg = args.map(a => {
     if (a instanceof Error) return a.message;
     if (typeof a === 'object') { try { return JSON.stringify(a); } catch (_) { return String(a); } }
     return String(a);
   }).join(' ');
-  return JSON.stringify({ ts: new Date().toISOString(), level, tag, msg });
+  return JSON.stringify({ ts: new Date().toISOString(), tenant: TENANT, level, tag, msg });
 }
 
 function _fmt(tag, level, args) {
   const ts = new Date().toISOString();
-  const parts = ['[' + ts + ']', '[' + tag + ']'];
+  const parts = ['[' + ts + ']', '[' + TENANT + ']', '[' + tag + ']'];
   if (level === 'warn') parts.push('WARN');
   if (level === 'error') parts.push('ERROR');
   return parts.concat(args);
