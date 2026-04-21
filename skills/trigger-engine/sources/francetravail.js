@@ -105,8 +105,12 @@ async function ingest({ lastEventId, log } = {}) {
   }
 
   // Fetch offres publiées dans les dernières 24h
+  // API exige minCreationDate ET maxCreationDate ensemble
+  const now = new Date();
+  const dayAgo = new Date(now.getTime() - 24 * 3600 * 1000);
   const params = new URLSearchParams({
-    minCreationDate: new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 19) + 'Z',
+    minCreationDate: dayAgo.toISOString().slice(0, 19) + 'Z',
+    maxCreationDate: now.toISOString().slice(0, 19) + 'Z',
     range: '0-149' // max 150 par requête
   });
 
