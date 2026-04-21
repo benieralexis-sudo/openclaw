@@ -59,7 +59,7 @@ const App = {
   },
 
   applyRoleVisibility() {
-    const adminPages = ['finances', 'intelligence', 'system', 'clients'];
+    const adminPages = ['finances', 'intelligence', 'system', 'clients', 'triggers'];
     const isAdmin = this.userRole === 'admin';
     const isViewer = this.userRole === 'viewer';
 

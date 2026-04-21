@@ -14,6 +14,7 @@ const clientRegistry = require('./client-registry.js');
 const notificationManager = require('./notification-manager.js');
 const curatedLists = require('./curated-lists.js');
 const pdfGenerator = require('./pdf-generator.js');
+const { registerTriggerEngineRoutes } = require('./trigger-engine-api.js');
 
 const DEFAULT_ROUTER_URL = process.env.ROUTER_URL || 'http://telegram-router:9090';
 
@@ -3698,6 +3699,14 @@ function _initClientContacts() {
   } catch (e) {
     log.warn('dashboard', 'Erreur chargement contacts clients: ' + e.message);
   }
+}
+
+// Register Trigger Engine routes (read-only from SQLite DB)
+try {
+  registerTriggerEngineRoutes(app, authRequired);
+  log.info('dashboard', 'Trigger Engine API routes registered');
+} catch (e) {
+  log.warn('dashboard', 'Trigger Engine API registration failed: ' + e.message);
 }
 
 app.listen(PORT, '0.0.0.0', () => {
