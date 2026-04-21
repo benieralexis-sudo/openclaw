@@ -31,3 +31,7 @@
 # Ignorer les fichiers temporaires
 *.save
 *.backup
+
+# Ignorer les data runtime (generees par les skills a chaque cycle)
+*/data/
+*/data/**
