@@ -38,6 +38,18 @@ let InboxListener;
 try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
 const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
 const { classifyReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, generateInterestedReplyViaClaude, parseOOOReturnDate, checkGrounding, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
+
+// --- Trigger Engine (opt-in via TRIGGER_ENGINE_ENABLED env) ---
+let TriggerEngineHandler = null;
+let TriggerEngineProcessor = null;
+let TriggerEngineCron = null;
+try {
+  ({ TriggerEngineHandler } = require('../skills/trigger-engine/index.js'));
+  ({ TriggerEngineProcessor } = require('../skills/trigger-engine/processor.js'));
+  ({ TriggerEngineCron } = require('../skills/trigger-engine/cron.js'));
+} catch (e) {
+  // Silent fail — Trigger Engine is optional, skip if dependencies not installed yet
+}
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
@@ -753,6 +765,27 @@ const { startAllCrons, stopAllCrons } = cronManager;
 
 // Restaurer l'etat volatile (bans + historique) depuis le disque
 _loadVolatileState();
+
+// --- Trigger Engine init (opt-in via TRIGGER_ENGINE_ENABLED=true) ---
+let triggerEngine = null;
+let triggerEngineCron = null;
+if (process.env.TRIGGER_ENGINE_ENABLED === 'true' && TriggerEngineHandler) {
+  try {
+    triggerEngine = new TriggerEngineHandler({ log });
+    const triggerProcessor = new TriggerEngineProcessor(triggerEngine.storage, { log });
+    triggerEngineCron = new TriggerEngineCron(triggerEngine, triggerProcessor, { log });
+    log.info('router', 'Trigger Engine initialized (opt-in enabled)');
+    // Auto-start cron only in production mode
+    if (appConfig.isProduction()) {
+      triggerEngineCron.start();
+      log.info('router', 'Trigger Engine cron scheduled');
+    }
+  } catch (e) {
+    log.warn('router', 'Trigger Engine init failed: ' + e.message);
+  }
+} else if (TriggerEngineHandler) {
+  log.info('router', 'Trigger Engine available but disabled (set TRIGGER_ENGINE_ENABLED=true to activate)');
+}
 
 // Demarrage conditionnel selon le mode persiste
 if (appConfig.isProduction()) {
