@@ -1,0 +1,53 @@
+{
+  "id": "scale-up-tech",
+  "name": "Scale-up tech en croissance rapide",
+  "description": "Entreprise tech qui vient de lever, qui recrute des devs et dont le stack évolue — signal fort d'achat pour services QA, cyber, DevOps, SaaS dev",
+  "verticaux": ["qa", "cyber", "saas-dev", "devops"],
+  "pitch_angle": "Félicitations pour votre levée Série {round}, j'imagine que vous scalez rapidement l'équipe tech. {trigger_count} signaux captés cette semaine montrent que vous êtes en phase de croissance accélérée — ça crée souvent des défis QA/infra/sécu. Parlons-en ?",
+  "min_score": 7.0,
+  "window_days": 30,
+  "signals_required": {
+    "any_of": [
+      {
+        "types": ["funding", "company_creation"],
+        "weight": 3.0,
+        "description": "Signal financier / création"
+      }
+    ],
+    "must_have_at_least_one_of": [
+      {
+        "types": ["hiring_tech"],
+        "min_count": 2,
+        "weight": 3.0,
+        "description": "Au moins 2 offres tech ouvertes"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["hiring_executive"],
+      "event_type_match": "cto|vp eng|head of",
+      "weight": 2.0,
+      "description": "Nouveau C-level tech récent"
+    },
+    {
+      "types": ["modification_statuts"],
+      "weight": 0.5,
+      "description": "Changement statuts (augmentation capital souvent lié)"
+    },
+    {
+      "types": ["marque_deposee"],
+      "weight": 0.5,
+      "description": "Nouveau produit déposé"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"],
+      "description": "Entreprise en difficulté ou radiée → exclusion automatique"
+    }
+  ],
+  "score_formula": "base_signals_weight + sum(bonuses_matched_weight)",
+  "max_score": 10.0,
+  "enabled": true
+}
