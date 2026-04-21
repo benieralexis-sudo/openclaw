@@ -89,3 +89,12 @@ memory/
 clients/*/.env
 *.gpg
 .moltbot-backup-gpg-passphrase
+
+# Client data volumes (NEVER COMMIT — changent à chaque run du bot)
+clients/*/data/
+skills/*/data/
+
+# Landing banners (assets build artifacts)
+landing/banner-*.png
+landing/link-audit.png
+landing/link-cal.png
