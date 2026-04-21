@@ -1,128 +1,22 @@
-services:
-  router-digidemat:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
-    user: "root"
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
-    env_file: ./clients/digidemat/.env
-    volumes:
-      # Code source (read-only, partagé)
-      - ./node_modules:/app/node_modules:ro
-      - ./gateway:/app/gateway:ro
-      - ./skills/flowfast:/app/skills/flowfast:ro
-      - ./skills/automailer:/app/skills/automailer:ro
-      - ./skills/crm-pilot:/app/skills/crm-pilot:ro
-      - ./skills/lead-enrich:/app/skills/lead-enrich:ro
-      - ./skills/invoice-bot:/app/skills/invoice-bot:ro
-      - ./skills/proactive-agent:/app/skills/proactive-agent:ro
-      - ./skills/self-improve:/app/skills/self-improve:ro
-      - ./skills/web-intelligence:/app/skills/web-intelligence:ro
-      - ./skills/system-advisor:/app/skills/system-advisor:ro
-      - ./skills/autonomous-pilot:/app/skills/autonomous-pilot:ro
-      - ./skills/inbox-manager:/app/skills/inbox-manager:ro
-      - ./skills/meeting-scheduler:/app/skills/meeting-scheduler:ro
-      # Données isolées (par client)
-      - ./clients/digidemat/data/flowfast:/data/flowfast
-      - ./clients/digidemat/data/automailer:/data/automailer
-      - ./clients/digidemat/data/crm-pilot:/data/crm-pilot
-      - ./clients/digidemat/data/lead-enrich:/data/lead-enrich
-      - ./clients/digidemat/data/invoice-bot:/data/invoice-bot
-      - ./clients/digidemat/data/proactive-agent:/data/proactive-agent
-      - ./clients/digidemat/data/self-improve:/data/self-improve
-      - ./clients/digidemat/data/web-intelligence:/data/web-intelligence
-      - ./clients/digidemat/data/system-advisor:/data/system-advisor
-      - ./clients/digidemat/data/autonomous-pilot:/data/autonomous-pilot
-      - ./clients/digidemat/data/inbox-manager:/data/inbox-manager
-      - ./clients/digidemat/data/meeting-scheduler:/data/meeting-scheduler
-      - ./clients/digidemat/data/app-config:/data/app-config
-      - ./clients/digidemat/data/visitors:/data/visitors
-    init: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.0'
-    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config /data/visitors && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config /data/visitors && cd /app && exec runuser -u node -- node /app/gateway/telegram-router.js"]
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    ports:
-      - "127.0.0.1:9091:9090"
-    healthcheck:
-      test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:9090/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+# ═══════════════════════════════════════════════════════════════════
+# Multi-tenant clients docker-compose template
+# ═══════════════════════════════════════════════════════════════════
+#
+# STATUS: empty template — no active client containers
+#
+# Previously contained router-digidemat + router-digitestlab (archived
+# 2026-04-22 to /opt/moltbot/backups/old-clients-2026-04/)
+#
+# This file is INTENTIONALLY empty. It will be repopulated when a new
+# client is onboarded (e.g. router-fimmop, router-{client-id}).
+#
+# Each client container :
+#   - Inherits read-only volumes from /app/gateway + /app/skills/*
+#   - Has isolated /data/* volumes (per client)
+#   - Uses its own .env file at clients/{client-id}/.env
+#   - Is routed by Caddy at {client-id}.ifind.fr (see gateway/caddy/)
+#
+# See gateway/caddy/README.md + Phase B memory docs for onboarding process.
+# ═══════════════════════════════════════════════════════════════════
 
-  router-digitestlab:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
-    user: "root"
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
-    env_file: ./clients/digitestlab/.env
-    volumes:
-      # Code source (read-only, partage)
-      - ./node_modules:/app/node_modules:ro
-      - ./gateway:/app/gateway:ro
-      - ./skills/flowfast:/app/skills/flowfast:ro
-      - ./skills/automailer:/app/skills/automailer:ro
-      - ./skills/crm-pilot:/app/skills/crm-pilot:ro
-      - ./skills/lead-enrich:/app/skills/lead-enrich:ro
-      - ./skills/invoice-bot:/app/skills/invoice-bot:ro
-      - ./skills/proactive-agent:/app/skills/proactive-agent:ro
-      - ./skills/self-improve:/app/skills/self-improve:ro
-      - ./skills/web-intelligence:/app/skills/web-intelligence:ro
-      - ./skills/system-advisor:/app/skills/system-advisor:ro
-      - ./skills/autonomous-pilot:/app/skills/autonomous-pilot:ro
-      - ./skills/inbox-manager:/app/skills/inbox-manager:ro
-      - ./skills/meeting-scheduler:/app/skills/meeting-scheduler:ro
-      # Donnees isolees (par client)
-      - ./clients/digitestlab/data/flowfast:/data/flowfast
-      - ./clients/digitestlab/data/automailer:/data/automailer
-      - ./clients/digitestlab/data/crm-pilot:/data/crm-pilot
-      - ./clients/digitestlab/data/lead-enrich:/data/lead-enrich
-      - ./clients/digitestlab/data/invoice-bot:/data/invoice-bot
-      - ./clients/digitestlab/data/proactive-agent:/data/proactive-agent
-      - ./clients/digitestlab/data/self-improve:/data/self-improve
-      - ./clients/digitestlab/data/web-intelligence:/data/web-intelligence
-      - ./clients/digitestlab/data/system-advisor:/data/system-advisor
-      - ./clients/digitestlab/data/autonomous-pilot:/data/autonomous-pilot
-      - ./clients/digitestlab/data/inbox-manager:/data/inbox-manager
-      - ./clients/digitestlab/data/meeting-scheduler:/data/meeting-scheduler
-      - ./clients/digitestlab/data/app-config:/data/app-config
-      - ./clients/digitestlab/data/visitors:/data/visitors
-    init: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.0'
-    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config /data/visitors && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config /data/visitors && cd /app && exec runuser -u node -- node /app/gateway/telegram-router.js"]
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    healthcheck:
-      test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:9090/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+services: {}
