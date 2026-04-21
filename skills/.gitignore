@@ -27,6 +27,8 @@
 !web-intelligence/**
 !precall-brief/
 !precall-brief/**
+!trigger-engine/
+!trigger-engine/**
 
 # Ignorer les fichiers temporaires
 *.save
@@ -35,3 +37,7 @@
 # Ignorer les data runtime (generees par les skills a chaque cycle)
 */data/
 */data/**
+
+# Ignorer les node_modules dans chaque skill (geres par pnpm workspaces root)
+*/node_modules/
+*/node_modules/**

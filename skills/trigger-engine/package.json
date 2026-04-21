@@ -1,0 +1,17 @@
+{
+  "name": "trigger-engine",
+  "version": "0.1.0",
+  "description": "Trigger Engine FR — moteur de détection signaux d'achat temps réel sur PME FR",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test tests/",
+    "init-db": "node storage.js --init"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
