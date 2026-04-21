@@ -75,6 +75,8 @@ services:
       CLAY_TABLE_ID: ${CLAY_TABLE_ID:-}
       CLAY_SESSION_COOKIE: ${CLAY_SESSION_COOKIE:-}
       NOTIFY_POSITIVE_EMAILS: ${NOTIFY_POSITIVE_EMAILS:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      NODE_ENV: ${NODE_ENV:-production}
     ports:
       - "127.0.0.1:9090:9090"
     volumes:

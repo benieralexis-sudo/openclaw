@@ -79,3 +79,7 @@ if [ -n "$ALERTS" ]; then
 else
   echo "[$(date -Iseconds)] OK — aucune alerte"
 fi
+
+# Ping Healthchecks.io (cron ran successfully)
+HC_PING=$(grep "^HC_PING_MONITORALERTS=" /opt/moltbot/.env 2>/dev/null | cut -d= -f2-)
+[ -n "$HC_PING" ] && curl -fsS --retry 2 --max-time 10 "$HC_PING" > /dev/null 2>&1

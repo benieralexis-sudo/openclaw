@@ -1551,11 +1551,15 @@ class ProspectResearcher {
               '51': '2000-4999', '52': '5000-9999', '53': '10000+'
             };
 
-            // Mapper les categories juridiques courantes
+            // Mapper les categories juridiques courantes (codes INSEE nature juridique)
             const catJurMap = {
-              '1000': 'Entrepreneur individuel', '5498': 'EURL', '5499': 'SAS',
-              '5710': 'SAS', '5720': 'SASU', '5599': 'SA', '5710': 'SAS',
-              '5485': 'SARL', '5498': 'EURL unipersonnelle'
+              '1000': 'Entrepreneur individuel',
+              '5485': 'SARL a capital variable',
+              '5498': 'EURL',
+              '5499': 'SAS',
+              '5599': 'SA',
+              '5710': 'SAS',
+              '5720': 'SASU'
             };
 
             const result = {

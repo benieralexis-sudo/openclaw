@@ -96,6 +96,18 @@ app.get('/rdv', (req, res) => {
   }
 });
 
+// --- Telecharger les bannieres (force download) ---
+app.get('/download/:filename', (req, res) => {
+  const allowed = ['banner-linkedin.png', 'banner-cover.png', 'link-audit.png', 'link-cal.png'];
+  const filename = req.params.filename;
+  if (!allowed.includes(filename)) return res.status(404).send('Fichier introuvable');
+  const filepath = path.join(__dirname, filename);
+  if (!fs.existsSync(filepath)) return res.status(404).send('Fichier introuvable');
+  res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '"');
+  res.setHeader('Content-Type', 'image/png');
+  res.sendFile(filepath);
+});
+
 // Serve static files with cache headers
 app.use(express.static(path.join(__dirname), {
   maxAge: '1h',
