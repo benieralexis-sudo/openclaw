@@ -767,6 +767,9 @@ const { startAllCrons, stopAllCrons } = cronManager;
 _loadVolatileState();
 
 // --- Trigger Engine init (opt-in via TRIGGER_ENGINE_ENABLED=true) ---
+// Note: Trigger Engine cron runs INDEPENDENTLY of appConfig.isProduction()
+// because it's read-only (ingestion + pattern matching, no emails sent).
+// Safe to run in STANDBY mode for testing / data collection.
 let triggerEngine = null;
 let triggerEngineCron = null;
 if (process.env.TRIGGER_ENGINE_ENABLED === 'true' && TriggerEngineHandler) {
@@ -775,11 +778,8 @@ if (process.env.TRIGGER_ENGINE_ENABLED === 'true' && TriggerEngineHandler) {
     const triggerProcessor = new TriggerEngineProcessor(triggerEngine.storage, { log });
     triggerEngineCron = new TriggerEngineCron(triggerEngine, triggerProcessor, { log });
     log.info('router', 'Trigger Engine initialized (opt-in enabled)');
-    // Auto-start cron only in production mode
-    if (appConfig.isProduction()) {
-      triggerEngineCron.start();
-      log.info('router', 'Trigger Engine cron scheduled');
-    }
+    triggerEngineCron.start();
+    log.info('router', 'Trigger Engine cron scheduled (independent of STANDBY/PRODUCTION mode)');
   } catch (e) {
     log.warn('router', 'Trigger Engine init failed: ' + e.message);
   }

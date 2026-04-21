@@ -1,11 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════
 // Dashboard API — Trigger Engine read-only endpoints
 // ═══════════════════════════════════════════════════════════════════
-// Lit la DB SQLite du Trigger Engine (en read-only) et expose les stats
-// + events récents + patterns matched pour le dashboard Mission Control.
-//
-// Le fichier .db est partagé via volume Docker avec telegram-router.
-// Read-only mode : aucune écriture possible depuis mission-control.
+// Uses Node 22 built-in `node:sqlite` (experimental but stable).
+// Reads the .db file shared via Docker volume with telegram-router.
 // ═══════════════════════════════════════════════════════════════════
 
 'use strict';
@@ -13,11 +10,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-let Database = null;
+let DatabaseSync = null;
 try {
-  Database = require('better-sqlite3');
+  ({ DatabaseSync } = require('node:sqlite'));
 } catch (e) {
-  console.warn('[trigger-engine-api] better-sqlite3 not installed, API disabled');
+  console.warn('[trigger-engine-api] node:sqlite not available, API disabled');
 }
 
 const DB_PATH = process.env.TRIGGER_ENGINE_DB
@@ -26,12 +23,12 @@ const DB_PATH = process.env.TRIGGER_ENGINE_DB
 let _db = null;
 
 function getDb() {
-  if (!Database) return null;
+  if (!DatabaseSync) return null;
   if (_db) return _db;
   if (!fs.existsSync(DB_PATH)) return null;
   try {
-    _db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
-    _db.pragma('busy_timeout = 2000');
+    _db = new DatabaseSync(DB_PATH, { readOnly: true });
+    _db.exec('PRAGMA busy_timeout = 2000;');
     return _db;
   } catch (e) {
     console.warn('[trigger-engine-api] open DB failed:', e.message);
@@ -39,37 +36,28 @@ function getDb() {
   }
 }
 
-/**
- * Register all Trigger Engine endpoints onto the Express app
- * @param {import('express').Express} app
- * @param {Function} authMiddleware - authRequired or adminRequired
- */
 function registerTriggerEngineRoutes(app, authMiddleware) {
-  // GET /api/trigger-engine/stats — basic counters
   app.get('/api/trigger-engine/stats', authMiddleware, (req, res) => {
     const db = getDb();
     if (!db) return res.json({ enabled: false, reason: 'db-not-found' });
 
     try {
+      const getCount = (sql, ...params) => db.prepare(sql).get(...params)?.n ?? 0;
       const stats = {
         enabled: true,
-        companies: db.prepare('SELECT COUNT(*) as n FROM companies').get().n,
-        events_total: db.prepare('SELECT COUNT(*) as n FROM events').get().n,
-        events_attributed: db.prepare('SELECT COUNT(*) as n FROM events WHERE siren IS NOT NULL').get().n,
-        events_unprocessed: db.prepare('SELECT COUNT(*) as n FROM events WHERE processed_at IS NULL').get().n,
-        events_last_24h: db.prepare(`
-          SELECT COUNT(*) as n FROM events WHERE captured_at >= datetime('now', '-1 day')
-        `).get().n,
-        patterns_total: db.prepare('SELECT COUNT(*) as n FROM patterns').get().n,
-        matches_active: db.prepare(`
+        companies: getCount('SELECT COUNT(*) as n FROM companies'),
+        events_total: getCount('SELECT COUNT(*) as n FROM events'),
+        events_attributed: getCount('SELECT COUNT(*) as n FROM events WHERE siren IS NOT NULL'),
+        events_unprocessed: getCount('SELECT COUNT(*) as n FROM events WHERE processed_at IS NULL'),
+        events_last_24h: getCount(`SELECT COUNT(*) as n FROM events WHERE captured_at >= datetime('now', '-1 day')`),
+        patterns_total: getCount('SELECT COUNT(*) as n FROM patterns'),
+        matches_active: getCount(`
           SELECT COUNT(*) as n FROM patterns_matched
           WHERE expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP
-        `).get().n,
-        matches_last_24h: db.prepare(`
-          SELECT COUNT(*) as n FROM patterns_matched WHERE matched_at >= datetime('now', '-1 day')
-        `).get().n,
-        clients_active: db.prepare("SELECT COUNT(*) as n FROM clients WHERE status = 'active'").get().n,
-        leads_new: db.prepare("SELECT COUNT(*) as n FROM client_leads WHERE status = 'new'").get().n,
+        `),
+        matches_last_24h: getCount(`SELECT COUNT(*) as n FROM patterns_matched WHERE matched_at >= datetime('now', '-1 day')`),
+        clients_active: getCount("SELECT COUNT(*) as n FROM clients WHERE status = 'active'"),
+        leads_new: getCount("SELECT COUNT(*) as n FROM client_leads WHERE status = 'new'"),
         events_by_source: db.prepare(`
           SELECT source, COUNT(*) as n FROM events GROUP BY source ORDER BY n DESC
         `).all(),
@@ -83,7 +71,6 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
-  // GET /api/trigger-engine/events?limit=50 — événements récents
   app.get('/api/trigger-engine/events', authMiddleware, (req, res) => {
     const db = getDb();
     if (!db) return res.json({ enabled: false, events: [] });
@@ -92,25 +79,24 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     const source = req.query.source || null;
 
     try {
-      const where = source ? 'WHERE source = ?' : '';
-      const params = source ? [source, limit] : [limit];
-      const events = db.prepare(`
+      const sql = `
         SELECT e.id, e.source, e.event_type, e.siren, e.attribution_confidence,
                e.event_date, e.captured_at, e.processed_at,
                c.raison_sociale, c.nom_complet
         FROM events e
         LEFT JOIN companies c ON c.siren = e.siren
-        ${where}
+        ${source ? 'WHERE source = ?' : ''}
         ORDER BY e.captured_at DESC
         LIMIT ?
-      `).all(...params);
+      `;
+      const params = source ? [source, limit] : [limit];
+      const events = db.prepare(sql).all(...params);
       res.json({ enabled: true, events });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
   });
 
-  // GET /api/trigger-engine/matches?limit=50 — patterns matches actifs
   app.get('/api/trigger-engine/matches', authMiddleware, (req, res) => {
     const db = getDb();
     if (!db) return res.json({ enabled: false, matches: [] });
@@ -133,7 +119,6 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
         LIMIT ?
       `).all(minScore, limit);
 
-      // parse signals JSON
       for (const m of matches) {
         try { m.signals = JSON.parse(m.signals || '[]'); } catch (e) { m.signals = []; }
       }
@@ -143,7 +128,6 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
-  // GET /api/trigger-engine/patterns — liste patterns enabled
   app.get('/api/trigger-engine/patterns', authMiddleware, (req, res) => {
     const db = getDb();
     if (!db) return res.json({ enabled: false, patterns: [] });
@@ -160,7 +144,6 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
-  // GET /api/trigger-engine/ingestion-state — état des sources
   app.get('/api/trigger-engine/ingestion-state', authMiddleware, (req, res) => {
     const db = getDb();
     if (!db) return res.json({ enabled: false, sources: [] });

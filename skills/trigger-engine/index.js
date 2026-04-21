@@ -56,6 +56,20 @@ class TriggerEngineHandler {
         let inserted = 0;
         for (const event of events) {
           try {
+            // Auto-create company stub if event has a SIREN (FK constraint)
+            if (event.siren && !this.storage.getCompany(event.siren)) {
+              const stub = event.normalized?.commercant
+                || event.normalized?.nom_entreprise
+                || event.raw_data?.commercant?.raisonSociale
+                || event.raw_data?.entreprise?.nom
+                || event.raw_data?.nom_raison_sociale
+                || 'Unknown';
+              this.storage.upsertCompany({
+                siren: event.siren,
+                raison_sociale: stub,
+                enriched_source: name
+              });
+            }
             this.storage.insertEvent(event);
             inserted += 1;
           } catch (e) {

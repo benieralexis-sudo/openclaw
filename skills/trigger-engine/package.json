@@ -8,10 +8,8 @@
     "test": "node --test tests/",
     "init-db": "node storage.js --init"
   },
-  "dependencies": {
-    "better-sqlite3": "^11.10.0"
-  },
+  "dependencies": {},
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.5.0"
   }
 }

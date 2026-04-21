@@ -77,6 +77,9 @@ services:
       NOTIFY_POSITIVE_EMAILS: ${NOTIFY_POSITIVE_EMAILS:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
       NODE_ENV: ${NODE_ENV:-production}
+      TRIGGER_ENGINE_ENABLED: ${TRIGGER_ENGINE_ENABLED:-false}
+      FRANCETRAVAIL_CLIENT_ID: ${FRANCETRAVAIL_CLIENT_ID:-}
+      FRANCETRAVAIL_CLIENT_SECRET: ${FRANCETRAVAIL_CLIENT_SECRET:-}
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -135,7 +138,7 @@ services:
       start_period: 120s
 
   mission-control:
-    image: node:20-alpine
+    image: node:22-alpine
     working_dir: /app
     user: "root"
     cap_drop:
@@ -209,7 +212,7 @@ services:
       start_period: 15s
 
   landing-page:
-    image: node:20-alpine
+    image: node:22-alpine
     working_dir: /app
     user: "root"
     cap_drop:

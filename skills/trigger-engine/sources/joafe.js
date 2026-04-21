@@ -16,7 +16,11 @@
 
 'use strict';
 
+// JOAFE RSS — URL historique. Ils ont migré fin 2024 vers une API DILA.
+// L'URL ci-dessous retourne 404 actuellement. En attendant l'API officielle,
+// on stub l'ingester (il reviendra quand on branche https://echanges.dila.gouv.fr/)
 const JOAFE_RSS = 'https://www.journal-officiel.gouv.fr/associations/rss/';
+const JOAFE_DISABLED = true; // enable once real endpoint confirmed
 
 /**
  * Map JOAFE type vers event_type
@@ -52,6 +56,11 @@ function parseRss(xml) {
  * Ingestion JOAFE
  */
 async function ingest({ lastEventId, log } = {}) {
+  if (JOAFE_DISABLED) {
+    log?.info?.('[joafe] disabled (URL 404, pending DILA API integration)');
+    return { events: [], nextState: { last_event_id: lastEventId, last_error: 'disabled-url-404' } };
+  }
+
   const events = [];
 
   log?.info?.(`[joafe] fetching RSS: ${JOAFE_RSS}`);

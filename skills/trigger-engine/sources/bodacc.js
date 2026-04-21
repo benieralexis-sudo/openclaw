@@ -66,10 +66,10 @@ async function ingest({ lastEventId, log } = {}) {
   url.searchParams.set('limit', '100');
   url.searchParams.set('order_by', 'dateparution DESC');
 
-  // Si on a déjà ingéré jusqu'à une certaine date, on filtre
+  // Si on a déjà ingéré jusqu'à une certaine date, on filtre (>= pour inclure
+  // la même journée, la dedup se fait via UNIQUE constraint sur (source, source_id))
   if (lastEventId) {
-    // lastEventId = ISO date string du dernier event ingéré
-    url.searchParams.set('where', `dateparution > date'${lastEventId}'`);
+    url.searchParams.set('where', `dateparution >= date'${lastEventId}'`);
   }
 
   log?.info?.(`[bodacc] fetching: ${url.toString()}`);

@@ -86,7 +86,8 @@ CREATE TABLE IF NOT EXISTS patterns_matched (
 CREATE INDEX IF NOT EXISTS idx_matched_siren ON patterns_matched(siren);
 CREATE INDEX IF NOT EXISTS idx_matched_pattern ON patterns_matched(pattern_id);
 CREATE INDEX IF NOT EXISTS idx_matched_score ON patterns_matched(score DESC);
-CREATE INDEX IF NOT EXISTS idx_matched_active ON patterns_matched(expires_at) WHERE expires_at > CURRENT_TIMESTAMP;
+-- Regular index on expires_at (can't use partial with CURRENT_TIMESTAMP — non-deterministic)
+CREATE INDEX IF NOT EXISTS idx_matched_expires ON patterns_matched(expires_at);
 
 -- ───── CLIENTS (clients de l'agence iFIND) ─────
 -- Chaque client iFIND qui a un abonnement Trigger Engine actif
