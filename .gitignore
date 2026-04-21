@@ -98,3 +98,9 @@ skills/*/data/
 landing/banner-*.png
 landing/link-audit.png
 landing/link-cal.png
+
+# Landing page runtime data (live prospects tracking)
+landing/prospects.json
+
+# Node package managers (on utilise pnpm, pas npm)
+package-lock.json
