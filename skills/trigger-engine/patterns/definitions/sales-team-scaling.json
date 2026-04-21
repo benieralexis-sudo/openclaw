@@ -1,0 +1,38 @@
+{
+  "id": "sales-team-scaling",
+  "name": "Sales team scaling — équipe commerciale en croissance",
+  "description": "Entreprise qui publie 2+ offres sales/business dev. Signal de phase de scaling commercial — besoin de tooling sales (CRM premium, sales enablement, prospection outsourcée, formation).",
+  "verticaux": ["sales-saas", "crm", "sales-enablement", "outsourcing-sdr"],
+  "pitch_angle": "Je vois que vous renforcez l'équipe commerciale — souvent une phase où l'onboarding + les outils sont critiques pour garder le momentum. On aide sur {solution}. 15 min pour voir si ça fit ?",
+  "min_score": 5.5,
+  "max_score": 10.0,
+  "window_days": 30,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["hiring_sales"],
+        "min_count": 2,
+        "weight": 5.5,
+        "description": "Au moins 2 offres sales/BDR/commercial"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["hiring_marketing"],
+      "weight": 1.5,
+      "description": "Bonus si hiring marketing en parallèle (go-to-market complet)"
+    },
+    {
+      "types": ["hiring_executive"],
+      "weight": 1.5,
+      "description": "Bonus si exec sales recruté"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"]
+    }
+  ],
+  "enabled": true
+}

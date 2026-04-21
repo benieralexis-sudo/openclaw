@@ -1,0 +1,40 @@
+{
+  "id": "restructuring-opportunity",
+  "name": "Restructuring opportunity — transformation",
+  "description": "Entreprise avec modification de statuts récente (forme juridique, capital, siège) ET qui recrute. Signal de transformation organisationnelle — besoins de conseil, restructuration, tooling transition.",
+  "verticaux": ["conseil-restructuring", "ma", "transition-management", "outsourcing"],
+  "pitch_angle": "J'ai remarqué que vos statuts ont évolué récemment — souvent signe d'une phase de transformation. On accompagne typiquement les entreprises dans ce contexte sur {solution}. Discussion rapide ?",
+  "min_score": 5.0,
+  "max_score": 10.0,
+  "window_days": 60,
+  "signals_required": {
+    "any_of": [
+      {
+        "types": ["modification_statuts", "company_merger"],
+        "weight": 3.5,
+        "description": "Signal de transformation"
+      }
+    ],
+    "must_have_at_least_one_of": [
+      {
+        "types": ["hiring_tech", "hiring_sales", "hiring_marketing", "hiring_executive", "hiring_finance", "hiring_hr", "hiring_other"],
+        "min_count": 1,
+        "weight": 2.0,
+        "description": "Au moins 1 recrutement en parallèle"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["hiring_executive"],
+      "weight": 2.0,
+      "description": "Bonus si C-level recruté (souvent pilote la transfo)"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"]
+    }
+  ],
+  "enabled": true
+}

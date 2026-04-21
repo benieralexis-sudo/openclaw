@@ -1,0 +1,46 @@
+{
+  "id": "multi-role-scaling",
+  "name": "Multi-role scaling — scaling multi-départements",
+  "description": "Entreprise qui publie des offres dans 3+ départements distincts (tech, sales, marketing, HR, finance). Signal de scaling structurel — toute la boîte grossit, pas juste un département. Budget multiple, besoins transverses.",
+  "verticaux": ["conseil", "erp", "operations", "outsourcing", "hr-saas"],
+  "pitch_angle": "J'ai vu que vous scalez sur plusieurs départements simultanément — c'est un moment clé où les process et outils doivent suivre. On aide généralement les boîtes à ce stade à {solution}. Une discussion de 15 min ?",
+  "min_score": 6.5,
+  "max_score": 10.0,
+  "window_days": 30,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["hiring_tech"],
+        "min_count": 1,
+        "weight": 2.0
+      },
+      {
+        "types": ["hiring_sales"],
+        "min_count": 1,
+        "weight": 2.0
+      },
+      {
+        "types": ["hiring_marketing", "hiring_hr", "hiring_finance", "hiring_executive"],
+        "min_count": 1,
+        "weight": 2.5,
+        "description": "Au moins 1 dans un 3e département"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["funding"],
+      "weight": 2.0
+    },
+    {
+      "types": ["hiring_executive"],
+      "weight": 1.5
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"]
+    }
+  ],
+  "enabled": true
+}

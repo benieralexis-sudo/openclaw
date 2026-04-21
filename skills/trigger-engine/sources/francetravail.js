@@ -16,7 +16,49 @@
 
 'use strict';
 
+const crypto = require('node:crypto');
+
 const FRANCETRAVAIL_API = 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search';
+
+/**
+ * Génère un pseudo-SIREN stable basé sur le nom de l'entreprise.
+ * L'API France Travail ne fournit pas le SIRET, on utilise un hash MD5 tronqué
+ * du nom normalisé. Préfixé 'FT' pour distinguer des vrais SIREN INSEE (9 chiffres).
+ * @param {string} nom
+ * @returns {string|null} pseudo-SIREN de 9 caractères (ex: 'FT1234567') ou null
+ */
+function pseudoSirenFromName(nom) {
+  if (!nom || typeof nom !== 'string') return null;
+  const normalized = nom.trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove accents
+    .replace(/[^a-z0-9]+/g, '');
+  if (!normalized) return null;
+  const hash = crypto.createHash('md5').update(normalized).digest('hex');
+  // 7 hex chars = 28 bits = ~268M unique values (bien plus que le nb d'entreprises FR)
+  return 'FT' + hash.slice(0, 7);
+}
+
+/**
+ * Blacklist des agences d'intérim et de recrutement qui polluent la data
+ * car elles publient des centaines d'offres pour le compte de clients (pas pour elles-mêmes).
+ * Ces entreprises ne sont PAS des prospects valides.
+ */
+const STAFFING_AGENCIES_BLACKLIST = [
+  'adecco', 'manpower', 'randstad', 'crit', 'synergie', 'proman',
+  'expectra', 'kelly services', 'gi group', 'start people', 'leader intérim',
+  'supplay', 'rh intérim', 'actual', 'domino rh', 'partnaire',
+  'temporis', 'adia', 'aquila rh', 'pole emploi'
+];
+
+function isStaffingAgency(nom) {
+  if (!nom) return false;
+  const normalized = nom.trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ');
+  return STAFFING_AGENCIES_BLACKLIST.some(bad =>
+    normalized === bad || normalized.startsWith(bad + ' ') || normalized.startsWith(bad + '-')
+  );
+}
 const OAUTH_URL = 'https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=/partenaire';
 
 // Cache du token OAuth (expire en ~24h typiquement)
@@ -132,9 +174,24 @@ async function ingest({ lastEventId, log } = {}) {
 
   let latestDate = lastEventId;
 
+  let skippedStaffing = 0;
   for (const offer of offers) {
     const siret = offer.entreprise?.siret;
-    const siren = siret ? String(siret).slice(0, 9) : null;
+    const nom = offer.entreprise?.nom;
+
+    // Skip les agences d'intérim (bruit: elles postent 100s d'offres pour des clients)
+    if (isStaffingAgency(nom)) {
+      skippedStaffing += 1;
+      continue;
+    }
+
+    // France Travail ne fournit plus le SIRET — fallback: pseudo-SIREN basé sur hash du nom
+    let siren = siret ? String(siret).slice(0, 9) : null;
+    let confidence = siret ? 1.0 : 0;
+    if (!siren && nom) {
+      siren = pseudoSirenFromName(nom);
+      confidence = 0.6; // attribution par nom = moins fiable que SIRET direct
+    }
     const eventType = classifyOffer(offer.intitule, offer.appellationlibelle);
     const offerDate = offer.dateCreation ? offer.dateCreation.slice(0, 10) : new Date().toISOString().slice(0, 10);
 
@@ -142,13 +199,14 @@ async function ingest({ lastEventId, log } = {}) {
       source: 'francetravail',
       event_type: eventType,
       siren,
-      attribution_confidence: siren ? 1.0 : 0,
+      attribution_confidence: confidence,
       raw_data: offer,
       normalized: {
         id: offer.id,
         intitule: offer.intitule,
-        nom_entreprise: offer.entreprise?.nom,
-        siret,
+        nom_entreprise: nom,
+        siret: siret || null,
+        siren_source: siret ? 'api' : 'name-hash',
         lieu_travail: offer.lieuTravail?.libelle,
         type_contrat: offer.typeContrat,
         date_creation: offer.dateCreation
@@ -159,7 +217,7 @@ async function ingest({ lastEventId, log } = {}) {
     if (!latestDate || offerDate > latestDate) latestDate = offerDate;
   }
 
-  log?.info?.(`[francetravail] ingested ${events.length} events`);
+  log?.info?.(`[francetravail] ingested ${events.length} events (${skippedStaffing} staffing agencies skipped)`);
 
   return {
     events,

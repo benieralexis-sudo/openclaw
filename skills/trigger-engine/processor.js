@@ -18,6 +18,14 @@ class TriggerEngineProcessor {
     this.log = options.log || console;
     this.patterns = loadPatterns();
     this.log.info?.(`[processor] loaded ${this.patterns.length} patterns`);
+    // Sync patterns to DB so dashboard can display them
+    for (const pattern of this.patterns) {
+      try {
+        this.storage.upsertPattern(pattern);
+      } catch (e) {
+        this.log.warn?.(`[processor] failed to upsert pattern ${pattern.id}: ${e.message}`);
+      }
+    }
   }
 
   /**

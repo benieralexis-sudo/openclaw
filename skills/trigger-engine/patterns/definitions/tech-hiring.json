@@ -1,0 +1,44 @@
+{
+  "id": "tech-hiring",
+  "name": "Tech hiring — entreprise qui recrute tech",
+  "description": "Entreprise qui publie au moins 1 offre tech + au moins 1 autre offre. Signal d'équipe tech qui grandit — besoin QA, DevOps, cyber, infra.",
+  "verticaux": ["qa", "cyber", "devops", "saas-dev", "infra"],
+  "pitch_angle": "Vous recrutez {role} — j'imagine que votre équipe tech prend de l'ampleur. On aide typiquement les boîtes à ce stade à {solution}. Ça vaut une discussion de 15 min ?",
+  "min_score": 5.5,
+  "max_score": 10.0,
+  "window_days": 30,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["hiring_tech"],
+        "min_count": 1,
+        "weight": 4.0,
+        "description": "Au moins 1 offre tech"
+      },
+      {
+        "types": ["hiring_tech", "hiring_sales", "hiring_marketing", "hiring_executive", "hiring_finance", "hiring_hr", "hiring_other"],
+        "min_count": 2,
+        "weight": 2.0,
+        "description": "Au moins 2 offres total (diversité)"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["hiring_tech"],
+      "weight": 1.5,
+      "description": "Bonus par offre tech supplémentaire"
+    },
+    {
+      "types": ["funding"],
+      "weight": 2.0,
+      "description": "Bonus levée de fonds"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"]
+    }
+  ],
+  "enabled": true
+}

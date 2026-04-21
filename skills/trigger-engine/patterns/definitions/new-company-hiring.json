@@ -1,0 +1,45 @@
+{
+  "id": "new-company-hiring",
+  "name": "New company + déjà hiring — post-creation scaling",
+  "description": "Entreprise créée récemment (BODACC) qui publie déjà des offres d'emploi. Signal de startup/scale-up en phase de lancement rapide, budget frais, stack à construire.",
+  "verticaux": ["saas-tout", "conseil", "infra", "tooling", "outsourcing"],
+  "pitch_angle": "Félicitations pour le lancement ! J'ai vu que vous recrutez déjà — en général à ce stade les fondateurs cherchent à {solution} rapidement sans alourdir l'équipe. Parlons-en ?",
+  "min_score": 6.0,
+  "max_score": 10.0,
+  "window_days": 90,
+  "signals_required": {
+    "any_of": [
+      {
+        "types": ["company_creation"],
+        "weight": 4.0,
+        "description": "Entreprise créée (BODACC)"
+      }
+    ],
+    "must_have_at_least_one_of": [
+      {
+        "types": ["hiring_tech", "hiring_sales", "hiring_marketing", "hiring_executive", "hiring_finance", "hiring_hr", "hiring_other"],
+        "min_count": 1,
+        "weight": 3.0,
+        "description": "Au moins 1 offre publiée"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["hiring_tech"],
+      "weight": 1.5,
+      "description": "Bonus si recrutement tech"
+    },
+    {
+      "types": ["hiring_executive"],
+      "weight": 1.5,
+      "description": "Bonus si C-level recruté"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"]
+    }
+  ],
+  "enabled": true
+}

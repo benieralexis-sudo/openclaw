@@ -1,0 +1,38 @@
+{
+  "id": "new-exec-hire",
+  "name": "New exec hire — recrutement C-level",
+  "description": "Entreprise qui publie une offre C-level/VP/Director. Signal de transformation, besoins budgétaires frais — fenêtre d'achat idéale pour conseil, outsourcing, SaaS premium.",
+  "verticaux": ["conseil", "saas-enterprise", "outsourcing", "transformation"],
+  "pitch_angle": "J'ai vu que vous recrutez un {role_exec} — traditionnellement une position qui redéfinit les priorités stratégiques. Nous aidons souvent ces nouveaux C-level à {solution} dans leurs 90 premiers jours. 15 min pour partager notre approche ?",
+  "min_score": 5.0,
+  "max_score": 10.0,
+  "window_days": 30,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["hiring_executive"],
+        "min_count": 1,
+        "weight": 5.0,
+        "description": "Au moins 1 offre C-level/VP/Director"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["hiring_tech", "hiring_sales", "hiring_marketing", "hiring_finance", "hiring_hr"],
+      "weight": 1.0,
+      "description": "Bonus si autre hiring en parallèle (équipe en reconstruction)"
+    },
+    {
+      "types": ["modification_statuts"],
+      "weight": 1.5,
+      "description": "Bonus si statuts modifiés (souvent lié nouveaux dirigeants)"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"]
+    }
+  ],
+  "enabled": true
+}
