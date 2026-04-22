@@ -14,6 +14,7 @@
 
 const crypto = require('node:crypto');
 const { XMLParser } = require('fast-xml-parser');
+const sirene = require('./sirene');
 
 // Feeds FR focus levées. Maddyness = source #1 (startup FR), Frenchweb = backup.
 // Autres feeds (lesechos, latribune, bfm) testés → trop généralistes, peu de signal levée.
@@ -158,10 +159,12 @@ function normalizeItem(item, feedName) {
   return { title, description, link, date, feedName };
 }
 
-async function ingest({ lastEventId, log } = {}) {
+async function ingest({ lastEventId, log, storage } = {}) {
   const events = [];
+  const db = storage?.db || null;
   let totalItems = 0;
   let fundingDetected = 0;
+  let sireneResolved = 0;
 
   for (const feed of FEEDS) {
     log?.info?.(`[rss-levees] fetching ${feed.name}`);
@@ -185,7 +188,23 @@ async function ingest({ lastEventId, log } = {}) {
 
       fundingDetected += 1;
 
-      const siren = pseudoSirenFromName(companyName);
+      // Attribution : tenter SIRENE d'abord (vrai SIREN INSEE), fallback pseudo-hash
+      let siren = null;
+      let confidence = 0.5;
+      let sireneData = null;
+      if (db) {
+        sireneData = await sirene.lookupByName(companyName, db, { log });
+        if (sireneData?.siren) {
+          siren = sireneData.siren;
+          confidence = 0.85;
+          sireneResolved += 1;
+        }
+      }
+      if (!siren) {
+        siren = pseudoSirenFromName(companyName);
+        confidence = 0.5;
+      }
+
       const fullText = `${norm.title} ${norm.description}`;
       const eventType = detectFundingType(fullText);
       const amount = extractAmount(fullText);
@@ -194,7 +213,7 @@ async function ingest({ lastEventId, log } = {}) {
         source: 'rss-levees',
         event_type: eventType,
         siren,
-        attribution_confidence: 0.5, // pseudo-SIREN basé sur nom extrait heuristiquement
+        attribution_confidence: confidence,
         raw_data: {
           feed: feed.name,
           title: norm.title,
@@ -204,7 +223,10 @@ async function ingest({ lastEventId, log } = {}) {
         },
         normalized: {
           nom_entreprise: companyName,
-          siren_source: 'rss-title-extraction',
+          siren_source: sireneData?.siren ? 'sirene-lookup' : 'rss-title-extraction',
+          sirene_naf: sireneData?.naf_code || null,
+          sirene_effectif: sireneData?.effectif || null,
+          sirene_departement: sireneData?.departement || null,
           amount_eur: amount,
           funding_type: eventType,
           link: norm.link,
@@ -215,7 +237,7 @@ async function ingest({ lastEventId, log } = {}) {
     }
   }
 
-  log?.info?.(`[rss-levees] ${totalItems} items scanned, ${fundingDetected} funding events ingested`);
+  log?.info?.(`[rss-levees] ${totalItems} items scanned, ${fundingDetected} funding events (${sireneResolved} SIRENE resolved)`);
 
   return {
     events,

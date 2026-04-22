@@ -247,9 +247,64 @@ async function migratePseudoSirens(db, opts = {}) {
   return { resolved, notFound, total: pseudoCompanies.length };
 }
 
+/**
+ * Lookup par SIREN direct (plus fiable que par nom).
+ * Utilisé pour enrichir les companies BODACC avec NAF/effectif/dept.
+ * @param {string} siren - 9 chiffres
+ * @param {object} [opts] - { log }
+ */
+async function lookupBySiren(siren, opts = {}) {
+  if (!siren || !/^\d{9}$/.test(siren)) return null;
+  const log = opts.log;
+  const data = await fetchApiWithRetry(siren, log);
+  const results = data?.results || [];
+  const match = results.find(r => r.siren === siren) || results[0];
+  if (!match) return null;
+  return extractFields(match);
+}
+
+/**
+ * Batch enrichment des vrais SIRENs en DB qui n'ont pas de NAF/effectif/dept.
+ * Utilise lookupBySiren pour compléter les champs.
+ */
+async function enrichExistingCompanies(db, opts = {}) {
+  const log = opts.log || console;
+  const limit = opts.limit || 100;
+  const companies = db.prepare(`
+    SELECT siren, raison_sociale FROM companies
+    WHERE siren NOT LIKE 'FT%' AND naf_code IS NULL
+    ORDER BY siren LIMIT ?
+  `).all(limit);
+  log.info?.(`[sirene-enrich] ${companies.length} vrais SIRENs à enrichir`);
+
+  const upd = db.prepare(`
+    UPDATE companies
+    SET nom_complet = COALESCE(?, nom_complet),
+        naf_code = ?,
+        effectif_min = ?,
+        effectif_max = ?,
+        departement = ?,
+        last_enriched_at = CURRENT_TIMESTAMP,
+        enriched_source = 'sirene'
+    WHERE siren = ?
+  `);
+
+  let enriched = 0, notFound = 0;
+  for (const c of companies) {
+    const result = await lookupBySiren(c.siren, { log });
+    if (!result) { notFound += 1; continue; }
+    upd.run(result.nom_complet, result.naf_code, result.effectif, result.effectif, result.departement, c.siren);
+    enriched += 1;
+  }
+  log.info?.(`[sirene-enrich] enriched ${enriched}, not found ${notFound}, total ${companies.length}`);
+  return { enriched, notFound, total: companies.length };
+}
+
 module.exports = {
   lookupByName,
+  lookupBySiren,
   migratePseudoSirens,
+  enrichExistingCompanies,
   normalizeName,
   isGoodMatch
 };
