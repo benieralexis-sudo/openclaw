@@ -5,6 +5,13 @@
 const e = (s) => Utils.escapeHtml(s);
 window.Pages = window.Pages || {};
 
+// State du filtrage, persisté pendant la session
+const filterState = {
+  minScore: 5,
+  pattern: '',
+  dept: ''
+};
+
 Pages.triggers = async function(container) {
   if (App.userRole !== 'admin') {
     container.innerHTML = '<div class="empty-state"><p>Accès réservé aux administrateurs</p></div>';
@@ -19,39 +26,33 @@ Pages.triggers = async function(container) {
     <div id="triggers-content"><div class="empty-state"><p>Chargement...</p></div></div>
   `;
 
-  const content = document.getElementById('triggers-content');
+  await renderContent();
+};
 
-  // Fetch all data in parallel
-  const [statsRes, matchesRes, eventsRes, ingestionRes, patternsRes] = await Promise.all([
+async function renderContent() {
+  const content = document.getElementById('triggers-content');
+  if (!content) return;
+
+  const [statsRes, leadsRes, eventsRes, ingestionRes, patternsRes] = await Promise.all([
     fetch('/api/trigger-engine/stats').then(r => r.json()).catch(() => null),
-    fetch('/api/trigger-engine/matches?limit=50&min_score=5').then(r => r.json()).catch(() => null),
+    fetchLeads(),
     fetch('/api/trigger-engine/events?limit=30').then(r => r.json()).catch(() => null),
     fetch('/api/trigger-engine/ingestion-state').then(r => r.json()).catch(() => null),
     fetch('/api/trigger-engine/patterns').then(r => r.json()).catch(() => null)
   ]);
 
   if (!statsRes || statsRes.enabled === false) {
-    content.innerHTML = `
-      <div class="card">
-        <h2>⚠️ Trigger Engine non initialisé</h2>
-        <p>Le Trigger Engine n'est pas encore activé en production. Pour l'activer :</p>
-        <ol style="margin-left:1.5em;line-height:1.8">
-          <li>Ajouter <code>TRIGGER_ENGINE_ENABLED=true</code> dans <code>/opt/moltbot/.env</code></li>
-          <li>Rebuild l'image Docker : <code>docker compose build telegram-router</code></li>
-          <li>Restart : <code>docker compose up -d telegram-router</code></li>
-          <li>Vérifier les logs : <code>docker compose logs -f telegram-router | grep trigger</code></li>
-        </ol>
-        <p style="margin-top:1em">Sources par défaut activées : BODACC (6h), JOAFE (12h). France Travail nécessite OAuth2 credentials supplémentaires.</p>
-      </div>
-    `;
+    content.innerHTML = `<div class="card"><h2>⚠️ Trigger Engine non initialisé</h2><p>Ajouter TRIGGER_ENGINE_ENABLED=true dans /opt/moltbot/.env + redémarrer.</p></div>`;
     return;
   }
 
   const stats = statsRes;
-  const matches = (matchesRes && matchesRes.matches) || [];
+  const leads = (leadsRes && leadsRes.leads) || [];
   const events = (eventsRes && eventsRes.events) || [];
   const ingestion = (ingestionRes && ingestionRes.sources) || [];
   const patterns = (patternsRes && patternsRes.patterns) || [];
+
+  const csvUrl = buildCsvUrl();
 
   content.innerHTML = `
     <!-- STATS CARDS -->
@@ -77,9 +78,55 @@ Pages.triggers = async function(container) {
       </div>
     </div>
 
-    <!-- INGESTION STATE -->
+    <!-- LEADS avec filtres + export -->
     <div class="card" style="margin-top:1.5em">
-      <h2>🔍 Sources</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1em">
+        <h2 style="margin:0">🎯 Leads qualifiés (${leads.length})</h2>
+        <div style="display:flex;gap:0.5em;flex-wrap:wrap">
+          <a href="${csvUrl}" class="btn btn-primary" download>⬇ Export CSV</a>
+        </div>
+      </div>
+
+      <!-- Filtres -->
+      <div style="display:flex;gap:1em;margin:1em 0;flex-wrap:wrap;align-items:end">
+        <div>
+          <label style="display:block;font-size:0.85em;color:#6b7280;margin-bottom:0.25em">Score min</label>
+          <select id="filter-score" class="form-control" style="width:120px">
+            <option value="0">Tous</option>
+            <option value="5" ${filterState.minScore === 5 ? 'selected' : ''}>≥ 5</option>
+            <option value="7" ${filterState.minScore === 7 ? 'selected' : ''}>≥ 7</option>
+            <option value="9" ${filterState.minScore === 9 ? 'selected' : ''}>≥ 9 (hot)</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:0.85em;color:#6b7280;margin-bottom:0.25em">Pattern</label>
+          <select id="filter-pattern" class="form-control" style="width:200px">
+            <option value="">Tous</option>
+            ${patterns.map(p => `<option value="${e(p.id)}" ${filterState.pattern === p.id ? 'selected' : ''}>${e(p.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:0.85em;color:#6b7280;margin-bottom:0.25em">Département</label>
+          <input id="filter-dept" type="text" class="form-control" placeholder="ex: 75" value="${e(filterState.dept)}" style="width:100px">
+        </div>
+        <button id="filter-apply" class="btn">Appliquer</button>
+        <button id="filter-reset" class="btn btn-outline">Reset</button>
+      </div>
+
+      ${leads.length === 0 ? '<p class="empty-state">Aucun lead ne matche ces filtres. Essayez score ≥ 5 ou reset.</p>' :
+      `<table class="data-table">
+        <thead><tr>
+          <th>Score</th><th>Entreprise</th><th>SIREN</th><th>Activité</th><th>Localisation</th><th>Effectif</th><th>Pattern</th><th>Match</th><th>Actions</th>
+        </tr></thead>
+        <tbody>
+          ${leads.map(l => renderLeadRow(l)).join('')}
+        </tbody>
+      </table>`}
+    </div>
+
+    <!-- SOURCES -->
+    <div class="card" style="margin-top:1.5em">
+      <h2>🔍 Sources ingestion</h2>
       ${ingestion.length === 0 ? '<p class="empty-state">Aucune source encore exécutée</p>' :
       `<table class="data-table">
         <thead><tr><th>Source</th><th>Dernier run</th><th>Events</th><th>Erreurs</th><th>Status</th></tr></thead>
@@ -91,30 +138,6 @@ Pages.triggers = async function(container) {
               <td>${s.events_last_run || 0}</td>
               <td>${s.errors_last_run > 0 ? `<span style="color:#dc2626">${s.errors_last_run}</span>` : '0'}</td>
               <td>${s.enabled ? '<span style="color:#16a34a">✓ actif</span>' : '<span style="color:#6b7280">désactivé</span>'}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>`}
-    </div>
-
-    <!-- PATTERNS MATCHED (les leads !) -->
-    <div class="card" style="margin-top:1.5em">
-      <h2>🎯 Patterns matched (leads candidats)</h2>
-      ${matches.length === 0 ? '<p class="empty-state">Aucun match pour le moment. Les matches apparaissent une fois les événements corrélés (15 min après ingestion).</p>' :
-      `<table class="data-table">
-        <thead><tr><th>Score</th><th>Entreprise</th><th>Pattern</th><th>Signaux</th><th>Matched</th></tr></thead>
-        <tbody>
-          ${matches.map(m => `
-            <tr>
-              <td><span class="score-badge score-${m.score >= 9 ? 'red' : m.score >= 7 ? 'orange' : 'yellow'}">${m.score.toFixed(1)}</span></td>
-              <td>
-                <strong>${e(m.raison_sociale || m.siren)}</strong>
-                ${m.naf_label ? `<br><small>${e(m.naf_label)}</small>` : ''}
-                ${m.departement ? `<br><small>Dept ${e(m.departement)}</small>` : ''}
-              </td>
-              <td>${e(m.pattern_name || m.pattern_id)}</td>
-              <td>${m.signals.length} event${m.signals.length > 1 ? 's' : ''}</td>
-              <td><small>${new Date(m.matched_at).toLocaleString('fr-FR')}</small></td>
             </tr>
           `).join('')}
         </tbody>
@@ -141,66 +164,135 @@ Pages.triggers = async function(container) {
       </table>`}
     </div>
 
-    <!-- PATTERNS CATALOG -->
+    <!-- PATTERNS -->
     <div class="card" style="margin-top:1.5em">
       <h2>🧩 Patterns configurés</h2>
       ${patterns.length === 0 ? '<p class="empty-state">Aucun pattern chargé</p>' :
       `<table class="data-table">
-        <thead><tr><th>ID</th><th>Nom</th><th>Verticaux</th><th>Min score</th><th>Fenêtre</th></tr></thead>
+        <thead><tr><th>ID</th><th>Nom</th><th>Verticaux</th><th>Min score</th></tr></thead>
         <tbody>
-          ${patterns.map(p => `
-            <tr>
-              <td><code>${e(p.id)}</code></td>
-              <td>${e(p.name)}</td>
-              <td>${(p.verticaux || []).join(', ') || '—'}</td>
-              <td>${p.min_score}</td>
-              <td>${(p.definition && p.definition.window_days) || 30}j</td>
-            </tr>
-          `).join('')}
+          ${patterns.map(p => `<tr><td><code>${e(p.id)}</code></td><td>${e(p.name)}</td><td>${(p.verticaux || []).join(', ') || '—'}</td><td>${p.min_score}</td></tr>`).join('')}
         </tbody>
       </table>`}
     </div>
-
-    <!-- EVENTS BY SOURCE CHART -->
-    ${stats.events_by_source && stats.events_by_source.length > 0 ? `
-    <div class="card" style="margin-top:1.5em">
-      <h2>📊 Events par source (total)</h2>
-      <table class="data-table">
-        <thead><tr><th>Source</th><th>Count</th><th>Bar</th></tr></thead>
-        <tbody>
-          ${stats.events_by_source.map(s => {
-            const max = Math.max(...stats.events_by_source.map(x => x.n));
-            const pct = (s.n / max) * 100;
-            return `
-            <tr>
-              <td><strong>${e(s.source)}</strong></td>
-              <td>${s.n.toLocaleString('fr-FR')}</td>
-              <td><div style="background:#e5e7eb;height:16px;border-radius:4px;overflow:hidden"><div style="background:#2563EB;height:100%;width:${pct}%"></div></div></td>
-            </tr>
-          `;}).join('')}
-        </tbody>
-      </table>
-    </div>
-    ` : ''}
   `;
 
-  // Inject minimal styles for score badges (if not already in CSS)
-  if (!document.getElementById('triggers-page-styles')) {
-    const style = document.createElement('style');
-    style.id = 'triggers-page-styles';
-    style.textContent = `
-      .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1em; }
-      .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1em; }
-      .stat-label { font-size: 0.85em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.03em; }
-      .stat-value { font-size: 2em; font-weight: 600; color: #111827; margin-top: 0.25em; }
-      .stat-highlight { color: #2563EB; }
-      .stat-sub { font-size: 0.8em; color: #6b7280; margin-top: 0.25em; }
-      .score-badge { display: inline-block; padding: 0.2em 0.6em; border-radius: 4px; font-weight: 600; font-size: 0.9em; }
-      .score-red { background: #fee2e2; color: #dc2626; }
-      .score-orange { background: #fed7aa; color: #ea580c; }
-      .score-yellow { background: #fef3c7; color: #ca8a04; }
-    `;
-    document.head.appendChild(style);
-  }
-};
+  injectStyles();
+  wireFilters();
+  wirePitchButtons();
+}
+
+function renderLeadRow(l) {
+  const scoreClass = l.score >= 9 ? 'red' : l.score >= 7 ? 'orange' : 'yellow';
+  const sirenDisplay = l.is_real_siren
+    ? `<a href="https://annuaire-entreprises.data.gouv.fr/entreprise/${e(l.siren)}" target="_blank" rel="noopener" style="color:#2563EB;text-decoration:none">${e(l.siren)} ↗</a>`
+    : `<small style="color:#9ca3af" title="Pseudo-SIREN (non résolu par INSEE)">${e(l.siren)}</small>`;
+  const loc = l.departement ? `Dept ${e(l.departement)}` : '—';
+  const naf = l.naf_code ? `${e(l.naf_code)}${l.naf_label ? ' — ' + e(l.naf_label) : ''}` : '—';
+  const eff = l.effectif ? `${l.effectif}` : '—';
+
+  return `
+    <tr data-lead-id="${l.id}">
+      <td><span class="score-badge score-${scoreClass}">${l.score.toFixed(1)}</span></td>
+      <td><strong>${e(l.raison_sociale || '—')}</strong></td>
+      <td>${sirenDisplay}</td>
+      <td><small>${naf}</small></td>
+      <td><small>${loc}</small></td>
+      <td>${eff}</td>
+      <td><small>${e(l.pattern_name || l.pattern_id)}</small></td>
+      <td><small>${new Date(l.matched_at).toLocaleDateString('fr-FR')}</small></td>
+      <td>
+        <button class="btn btn-sm pitch-btn" data-lead-id="${l.id}">✉ Pitch</button>
+      </td>
+    </tr>
+    <tr class="pitch-row" data-lead-id="${l.id}" style="display:none">
+      <td colspan="9" style="background:#f9fafb">
+        <div style="padding:0.75em">
+          <div style="font-weight:600;margin-bottom:0.5em">Objet :</div>
+          <div style="background:#fff;padding:0.5em 0.75em;border:1px solid #e5e7eb;border-radius:4px;font-family:monospace;font-size:0.9em">${e((l.pitch && l.pitch.subject) || '—')}</div>
+          <div style="font-weight:600;margin:0.75em 0 0.5em">Corps :</div>
+          <div style="background:#fff;padding:0.75em;border:1px solid #e5e7eb;border-radius:4px;white-space:pre-wrap;font-size:0.9em;line-height:1.5">${e((l.pitch && l.pitch.body) || '—')}</div>
+          <button class="btn btn-sm btn-outline copy-pitch-btn" data-lead-id="${l.id}" style="margin-top:0.5em">📋 Copier tout</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function fetchLeads() {
+  const params = new URLSearchParams();
+  if (filterState.minScore > 0) params.set('min_score', filterState.minScore);
+  if (filterState.pattern) params.set('pattern', filterState.pattern);
+  if (filterState.dept) params.set('dept', filterState.dept);
+  params.set('limit', '200');
+  return fetch('/api/trigger-engine/leads?' + params.toString()).then(r => r.json()).catch(() => null);
+}
+
+function buildCsvUrl() {
+  const params = new URLSearchParams();
+  if (filterState.minScore > 0) params.set('min_score', filterState.minScore);
+  if (filterState.pattern) params.set('pattern', filterState.pattern);
+  return '/api/trigger-engine/leads.csv?' + params.toString();
+}
+
+function wireFilters() {
+  document.getElementById('filter-apply')?.addEventListener('click', () => {
+    filterState.minScore = parseFloat(document.getElementById('filter-score').value || '0');
+    filterState.pattern = document.getElementById('filter-pattern').value || '';
+    filterState.dept = document.getElementById('filter-dept').value.trim() || '';
+    renderContent();
+  });
+  document.getElementById('filter-reset')?.addEventListener('click', () => {
+    filterState.minScore = 5;
+    filterState.pattern = '';
+    filterState.dept = '';
+    renderContent();
+  });
+}
+
+function wirePitchButtons() {
+  document.querySelectorAll('.pitch-btn').forEach(btn => {
+    btn.addEventListener('click', (evt) => {
+      const id = evt.currentTarget.dataset.leadId;
+      const row = document.querySelector(`.pitch-row[data-lead-id="${id}"]`);
+      if (row) {
+        row.style.display = row.style.display === 'none' ? '' : 'none';
+      }
+    });
+  });
+  document.querySelectorAll('.copy-pitch-btn').forEach(btn => {
+    btn.addEventListener('click', (evt) => {
+      const id = evt.currentTarget.dataset.leadId;
+      const row = document.querySelector(`.pitch-row[data-lead-id="${id}"]`);
+      if (!row) return;
+      const subject = row.querySelector('div > div:nth-of-type(1)')?.innerText || '';
+      const body = row.querySelector('div > div:nth-of-type(3)')?.innerText || '';
+      const txt = `Objet : ${subject}\n\n${body}`;
+      navigator.clipboard.writeText(txt).then(() => {
+        evt.currentTarget.innerText = '✓ Copié !';
+        setTimeout(() => { evt.currentTarget.innerText = '📋 Copier tout'; }, 2000);
+      });
+    });
+  });
+}
+
+function injectStyles() {
+  if (document.getElementById('triggers-page-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'triggers-page-styles';
+  style.textContent = `
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1em; }
+    .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1em; }
+    .stat-label { font-size: 0.85em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.03em; }
+    .stat-value { font-size: 2em; font-weight: 600; color: #111827; margin-top: 0.25em; }
+    .stat-highlight { color: #2563EB; }
+    .stat-sub { font-size: 0.8em; color: #6b7280; margin-top: 0.25em; }
+    .score-badge { display: inline-block; padding: 0.2em 0.6em; border-radius: 4px; font-weight: 600; font-size: 0.9em; }
+    .score-red { background: #fee2e2; color: #dc2626; }
+    .score-orange { background: #fed7aa; color: #ea580c; }
+    .score-yellow { background: #fef3c7; color: #ca8a04; }
+    .btn-sm { padding: 0.25em 0.6em; font-size: 0.85em; }
+  `;
+  document.head.appendChild(style);
+}
 }

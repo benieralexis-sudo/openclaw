@@ -17,6 +17,13 @@ try {
   console.warn('[trigger-engine-api] node:sqlite not available, API disabled');
 }
 
+let pitchGenerator = null;
+try {
+  pitchGenerator = require('./trigger-engine-pitch.js');
+} catch (e) {
+  console.warn('[trigger-engine-api] pitch-generator not available:', e.message);
+}
+
 const DB_PATH = process.env.TRIGGER_ENGINE_DB
   || path.join('/app/skills/trigger-engine/data', 'trigger-engine.db');
 
@@ -141,6 +148,135 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
       res.json({ enabled: true, patterns });
     } catch (e) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ───── LEADS JSON : matches enrichis avec ICP + pitch email ─────
+  app.get('/api/trigger-engine/leads', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.json({ enabled: false, leads: [] });
+
+    const limit = Math.min(parseInt(req.query.limit || '100', 10), 500);
+    const minScore = parseFloat(req.query.min_score || '0');
+    const patternId = req.query.pattern || null;
+    const dept = req.query.dept || null;
+
+    try {
+      const filters = ['(pm.expires_at IS NULL OR pm.expires_at > CURRENT_TIMESTAMP)', 'pm.score >= ?'];
+      const params = [minScore];
+      if (patternId) { filters.push('pm.pattern_id = ?'); params.push(patternId); }
+      if (dept) { filters.push('c.departement = ?'); params.push(dept); }
+
+      // DISTINCT par (siren, pattern_id) — évite les duplicates créés par le processor
+      const rows = db.prepare(`
+        SELECT MAX(pm.id) as id, pm.siren, pm.pattern_id, MAX(pm.score) as score,
+               (SELECT signals FROM patterns_matched WHERE siren = pm.siren AND pattern_id = pm.pattern_id ORDER BY score DESC, matched_at DESC LIMIT 1) as signals,
+               MAX(pm.matched_at) as matched_at,
+               p.name as pattern_name, p.pitch_angle, p.verticaux,
+               c.raison_sociale, c.nom_complet, c.naf_code, c.naf_label,
+               c.effectif_min, c.effectif_max, c.departement
+        FROM patterns_matched pm
+        LEFT JOIN patterns p ON p.id = pm.pattern_id
+        LEFT JOIN companies c ON c.siren = pm.siren
+        WHERE ${filters.join(' AND ')}
+        GROUP BY pm.siren, pm.pattern_id
+        ORDER BY score DESC, matched_at DESC
+        LIMIT ?
+      `).all(...params, limit);
+
+      const leads = rows.map(r => {
+        try { r.signals = JSON.parse(r.signals || '[]'); } catch (e) { r.signals = []; }
+        try { r.verticaux = JSON.parse(r.verticaux || '[]'); } catch (e) { r.verticaux = []; }
+        const pitch = pitchGenerator ? pitchGenerator.generatePitch(r) : null;
+        return {
+          id: r.id,
+          siren: r.siren,
+          is_real_siren: !String(r.siren || '').startsWith('FT'),
+          raison_sociale: r.raison_sociale,
+          naf_code: r.naf_code,
+          naf_label: r.naf_label,
+          departement: r.departement,
+          effectif: r.effectif_min || r.effectif_max,
+          pattern_id: r.pattern_id,
+          pattern_name: r.pattern_name,
+          verticaux: r.verticaux,
+          score: r.score,
+          signals_count: (r.signals || []).length,
+          matched_at: r.matched_at,
+          pitch
+        };
+      });
+
+      res.json({ enabled: true, total: leads.length, leads });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ───── LEADS CSV : export téléchargeable ─────
+  app.get('/api/trigger-engine/leads.csv', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.status(503).send('Trigger Engine non initialisé');
+
+    const minScore = parseFloat(req.query.min_score || '0');
+    const patternId = req.query.pattern || null;
+
+    try {
+      const filters = ['(pm.expires_at IS NULL OR pm.expires_at > CURRENT_TIMESTAMP)', 'pm.score >= ?'];
+      const params = [minScore];
+      if (patternId) { filters.push('pm.pattern_id = ?'); params.push(patternId); }
+
+      const rows = db.prepare(`
+        SELECT pm.siren, pm.pattern_id, MAX(pm.score) as score, MAX(pm.matched_at) as matched_at,
+               p.name as pattern_name, p.pitch_angle, p.verticaux,
+               c.raison_sociale, c.naf_code, c.naf_label,
+               c.effectif_min, c.departement
+        FROM patterns_matched pm
+        LEFT JOIN patterns p ON p.id = pm.pattern_id
+        LEFT JOIN companies c ON c.siren = pm.siren
+        WHERE ${filters.join(' AND ')}
+        GROUP BY pm.siren, pm.pattern_id
+        ORDER BY score DESC, matched_at DESC
+        LIMIT 1000
+      `).all(...params);
+
+      const escape = (v) => {
+        if (v == null) return '';
+        const s = String(v).replace(/"/g, '""');
+        return /[",;\n\r]/.test(s) ? `"${s}"` : s;
+      };
+
+      const header = ['SIREN', 'Nom', 'NAF', 'Libellé NAF', 'Département', 'Effectif', 'Pattern', 'Pattern ID', 'Score', 'Matched at', 'Email objet', 'Email corps'].join(';');
+      const lines = [header];
+
+      for (const r of rows) {
+        try { r.verticaux = JSON.parse(r.verticaux || '[]'); } catch (e) { r.verticaux = []; }
+        const pitch = pitchGenerator ? pitchGenerator.generatePitch(r) : { subject: '', body: '' };
+        lines.push([
+          r.siren,
+          r.raison_sociale,
+          r.naf_code,
+          r.naf_label,
+          r.departement,
+          r.effectif_min,
+          r.pattern_name,
+          r.pattern_id,
+          r.score != null ? r.score.toFixed(1) : '',
+          r.matched_at,
+          pitch.subject,
+          pitch.body
+        ].map(escape).join(';'));
+      }
+
+      const csv = '﻿' + lines.join('\r\n'); // BOM + CRLF pour Excel FR
+      const filename = `triggers-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+      res.set({
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`
+      });
+      res.send(csv);
+    } catch (e) {
+      res.status(500).send('Error: ' + e.message);
     }
   });
 
