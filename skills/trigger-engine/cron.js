@@ -21,6 +21,7 @@ const inpi = require('./sources/inpi');
 const rssLevees = require('./sources/rss-levees');
 const newsBuzz = require('./sources/news-buzz');
 const googleTrends = require('./sources/google-trends');
+const metaAdLibrary = require('./sources/meta-ad-library');
 
 class TriggerEngineCron {
   constructor(handler, processor, options = {}) {
@@ -39,6 +40,7 @@ class TriggerEngineCron {
     this.handler.registerSource('rss-levees', rssLevees);
     this.handler.registerSource('news-buzz', newsBuzz);
     this.handler.registerSource('google-trends', googleTrends);
+    this.handler.registerSource('meta-ad-library', metaAdLibrary);
   }
 
   /**
@@ -102,6 +104,14 @@ class TriggerEngineCron {
       });
     }, 24 * 3600 * 1000);
     this.intervals.push(trendsInterval);
+
+    // Meta Ad Library : every 24h (cache 24h, dépend vérif identité Meta)
+    const metaInterval = setInterval(() => {
+      this.handler.runIngestion('meta-ad-library').catch(err => {
+        this.log.error?.('[cron] meta-ad-library:', err.message);
+      });
+    }, 24 * 3600 * 1000);
+    this.intervals.push(metaInterval);
 
     // Pattern processing: every 15 min
     const processInterval = setInterval(() => {

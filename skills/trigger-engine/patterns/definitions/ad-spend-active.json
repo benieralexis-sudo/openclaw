@@ -1,0 +1,44 @@
+{
+  "id": "ad-spend-active",
+  "name": "Ad spend actif Meta (FB/IG)",
+  "description": "Entreprise FR avec 3+ pubs actives sur Facebook/Instagram simultanément. Signal : budget marketing déployé = scaling acquisition = fenêtre d'achat pour outils/conseil/data.",
+  "verticaux": ["saas", "martech", "conseil", "data", "agency", "tools"],
+  "pitch_angle": "Je vois que {nom} pousse actuellement plusieurs pubs sur Meta — bon signe que l'acquisition tourne. On aide typiquement les boîtes qui scalent leurs ads à {solution}. 15 min pour voir si c'est utile ?",
+  "min_score": 7.0,
+  "max_score": 10.0,
+  "window_days": 14,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["ad_spend_detected"],
+        "min_count": 1,
+        "weight": 7.0,
+        "description": "Au moins 1 signal ad_spend_detected (>= 3 pubs actives)"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["funding", "funding_seed", "funding_series"],
+      "weight": 2.0,
+      "description": "Bonus si levée récente (cash + ads = phase d'attack)"
+    },
+    {
+      "types": ["hiring_marketing", "hiring_sales"],
+      "weight": 1.5,
+      "description": "Bonus si recrutements marketing/sales en parallèle"
+    },
+    {
+      "types": ["media_buzz"],
+      "weight": 1.0,
+      "description": "Bonus si buzz médias corrélé"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"],
+      "description": "Entreprise en difficulté ou radiée"
+    }
+  ],
+  "enabled": true
+}

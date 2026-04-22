@@ -150,6 +150,8 @@ function evaluatePattern(pattern, events) {
  * @returns {Array<{pattern, result}>}
  */
 function matchAllPatterns(siren, events, patterns = null) {
+  if (typeof siren === 'string' && siren.startsWith('ASS')) return [];
+
   const patternList = patterns || loadPatterns();
   const results = [];
   for (const pattern of patternList) {

@@ -71,7 +71,12 @@ const DISQUALIFYING_KEYWORDS = [
   'association pour le developpement',
   'bmce',
   'new recrutement', 'recrutement',
-  'boulangerie', 'patisserie', 'boucherie', 'poissonnerie'
+  'boulangerie', 'patisserie', 'boucherie', 'poissonnerie',
+  'metropole', 'métropole', 'gestion equipements',
+  'apple retail', 'apple france',
+  'carrefour ', 'auchan ', 'leclerc ', 'intermarche',
+  'dechetterie', 'déchetterie', 'syndicat mixte',
+  'bibliotheque', 'bibliothèque', 'musée', 'musee'
 ];
 
 function normalizeName(nom) {
