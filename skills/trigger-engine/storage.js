@@ -175,10 +175,19 @@ class TriggerEngineStorage {
   // ─── PATTERNS_MATCHED ───
 
   insertPatternMatch(match) {
+    // UPSERT sur (siren, pattern_id) : met à jour si le match existe déjà
+    // (évite les duplicates quand le processor re-tourne sur les mêmes events)
     const stmt = this.db.prepare(`
       INSERT INTO patterns_matched (siren, pattern_id, score, signals,
                                      window_start, window_end, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(siren, pattern_id) DO UPDATE SET
+        score = excluded.score,
+        signals = excluded.signals,
+        window_start = excluded.window_start,
+        window_end = excluded.window_end,
+        expires_at = excluded.expires_at,
+        matched_at = CURRENT_TIMESTAMP
     `);
     return stmt.run(
       match.siren,

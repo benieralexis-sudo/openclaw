@@ -167,11 +167,9 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
       if (patternId) { filters.push('pm.pattern_id = ?'); params.push(patternId); }
       if (dept) { filters.push('c.departement = ?'); params.push(dept); }
 
-      // DISTINCT par (siren, pattern_id) — évite les duplicates créés par le processor
+      // UNIQUE(siren, pattern_id) garanti par migration 004 — plus besoin de GROUP BY
       const rows = db.prepare(`
-        SELECT MAX(pm.id) as id, pm.siren, pm.pattern_id, MAX(pm.score) as score,
-               (SELECT signals FROM patterns_matched WHERE siren = pm.siren AND pattern_id = pm.pattern_id ORDER BY score DESC, matched_at DESC LIMIT 1) as signals,
-               MAX(pm.matched_at) as matched_at,
+        SELECT pm.id, pm.siren, pm.pattern_id, pm.score, pm.signals, pm.matched_at,
                p.name as pattern_name, p.pitch_angle, p.verticaux,
                c.raison_sociale, c.nom_complet, c.naf_code, c.naf_label,
                c.effectif_min, c.effectif_max, c.departement
@@ -179,8 +177,7 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
         LEFT JOIN patterns p ON p.id = pm.pattern_id
         LEFT JOIN companies c ON c.siren = pm.siren
         WHERE ${filters.join(' AND ')}
-        GROUP BY pm.siren, pm.pattern_id
-        ORDER BY score DESC, matched_at DESC
+        ORDER BY pm.score DESC, pm.matched_at DESC
         LIMIT ?
       `).all(...params, limit);
 
@@ -227,7 +224,7 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
       if (patternId) { filters.push('pm.pattern_id = ?'); params.push(patternId); }
 
       const rows = db.prepare(`
-        SELECT pm.siren, pm.pattern_id, MAX(pm.score) as score, MAX(pm.matched_at) as matched_at,
+        SELECT pm.siren, pm.pattern_id, pm.score, pm.matched_at,
                p.name as pattern_name, p.pitch_angle, p.verticaux,
                c.raison_sociale, c.naf_code, c.naf_label,
                c.effectif_min, c.departement
@@ -235,8 +232,7 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
         LEFT JOIN patterns p ON p.id = pm.pattern_id
         LEFT JOIN companies c ON c.siren = pm.siren
         WHERE ${filters.join(' AND ')}
-        GROUP BY pm.siren, pm.pattern_id
-        ORDER BY score DESC, matched_at DESC
+        ORDER BY pm.score DESC, pm.matched_at DESC
         LIMIT 1000
       `).all(...params);
 
