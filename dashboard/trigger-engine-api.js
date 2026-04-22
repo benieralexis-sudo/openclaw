@@ -181,7 +181,25 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
         LIMIT ?
       `).all(...params, limit);
 
+      // Fetch contacts (dirigeants + emails) pour chaque SIREN matché
+      const contactsBySiren = {};
+      if (rows.length > 0) {
+        const sirens = [...new Set(rows.map(r => r.siren))];
+        const placeholders = sirens.map(() => '?').join(',');
+        const contacts = db.prepare(`
+          SELECT siren, prenom, nom, fonction, domain_web, email, email_source, email_confidence
+          FROM leads_contacts
+          WHERE siren IN (${placeholders})
+          ORDER BY email_confidence DESC, fonction
+        `).all(...sirens);
+        for (const c of contacts) {
+          if (!contactsBySiren[c.siren]) contactsBySiren[c.siren] = [];
+          contactsBySiren[c.siren].push(c);
+        }
+      }
+
       const leads = rows.map(r => {
+        r.contacts = contactsBySiren[r.siren] || [];
         try { r.signals = JSON.parse(r.signals || '[]'); } catch (e) { r.signals = []; }
         try { r.verticaux = JSON.parse(r.verticaux || '[]'); } catch (e) { r.verticaux = []; }
         const pitch = pitchGenerator ? pitchGenerator.generatePitch(r) : null;
@@ -200,6 +218,7 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
           score: r.score,
           signals_count: (r.signals || []).length,
           matched_at: r.matched_at,
+          contacts: r.contacts,
           pitch
         };
       });
@@ -242,12 +261,31 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
         return /[",;\n\r]/.test(s) ? `"${s}"` : s;
       };
 
-      const header = ['SIREN', 'Nom', 'NAF', 'Libellé NAF', 'Département', 'Effectif', 'Pattern', 'Pattern ID', 'Score', 'Matched at', 'Email objet', 'Email corps'].join(';');
+      // Fetch contacts pour chaque SIREN
+      const sirens = [...new Set(rows.map(r => r.siren))];
+      const contactsBySiren = {};
+      if (sirens.length > 0) {
+        const ph = sirens.map(() => '?').join(',');
+        const contacts = db.prepare(`
+          SELECT siren, prenom, nom, fonction, domain_web, email, email_confidence
+          FROM leads_contacts WHERE siren IN (${ph})
+          ORDER BY email_confidence DESC
+        `).all(...sirens);
+        for (const c of contacts) {
+          if (!contactsBySiren[c.siren]) contactsBySiren[c.siren] = [];
+          contactsBySiren[c.siren].push(c);
+        }
+      }
+
+      const header = ['SIREN', 'Nom entreprise', 'NAF', 'Libellé NAF', 'Département', 'Effectif', 'Pattern', 'Pattern ID', 'Score', 'Matched at', 'Dirigeant 1', 'Fonction 1', 'Email 1', 'Confidence 1', 'Dirigeant 2', 'Fonction 2', 'Email 2', 'Email objet', 'Email corps'].join(';');
       const lines = [header];
 
       for (const r of rows) {
         try { r.verticaux = JSON.parse(r.verticaux || '[]'); } catch (e) { r.verticaux = []; }
         const pitch = pitchGenerator ? pitchGenerator.generatePitch(r) : { subject: '', body: '' };
+        const c = contactsBySiren[r.siren] || [];
+        const d1 = c[0] || {};
+        const d2 = c[1] || {};
         lines.push([
           r.siren,
           r.raison_sociale,
@@ -259,6 +297,13 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
           r.pattern_id,
           r.score != null ? r.score.toFixed(1) : '',
           r.matched_at,
+          [d1.prenom, d1.nom].filter(Boolean).join(' '),
+          d1.fonction || '',
+          d1.email || '',
+          d1.email_confidence != null ? d1.email_confidence.toFixed(2) : '',
+          [d2.prenom, d2.nom].filter(Boolean).join(' '),
+          d2.fonction || '',
+          d2.email || '',
           pitch.subject,
           pitch.body
         ].map(escape).join(';'));

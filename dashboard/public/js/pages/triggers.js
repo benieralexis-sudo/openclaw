@@ -116,7 +116,7 @@ async function renderContent() {
       ${leads.length === 0 ? '<p class="empty-state">Aucun lead ne matche ces filtres. Essayez score ≥ 5 ou reset.</p>' :
       `<table class="data-table">
         <thead><tr>
-          <th>Score</th><th>Entreprise</th><th>SIREN</th><th>Activité</th><th>Localisation</th><th>Effectif</th><th>Pattern</th><th>Match</th><th>Actions</th>
+          <th>Score</th><th>Entreprise</th><th>SIREN</th><th>Activité</th><th>Localisation</th><th>Effectif</th><th>Contact principal</th><th>Pattern</th><th>Actions</th>
         </tr></thead>
         <tbody>
           ${leads.map(l => renderLeadRow(l)).join('')}
@@ -190,6 +190,11 @@ function renderLeadRow(l) {
   const loc = l.departement ? `Dept ${e(l.departement)}` : '—';
   const naf = l.naf_code ? `${e(l.naf_code)}${l.naf_label ? ' — ' + e(l.naf_label) : ''}` : '—';
   const eff = l.effectif ? `${l.effectif}` : '—';
+  const contacts = l.contacts || [];
+  const mainContact = contacts[0];
+  const contactSummary = mainContact
+    ? `<strong>${e(mainContact.prenom || '')} ${e(mainContact.nom || '')}</strong><br><small style="color:#6b7280">${e(mainContact.fonction || '')}</small>`
+    : '<small style="color:#9ca3af">—</small>';
 
   return `
     <tr data-lead-id="${l.id}">
@@ -199,8 +204,8 @@ function renderLeadRow(l) {
       <td><small>${naf}</small></td>
       <td><small>${loc}</small></td>
       <td>${eff}</td>
+      <td>${contactSummary}</td>
       <td><small>${e(l.pattern_name || l.pattern_id)}</small></td>
-      <td><small>${new Date(l.matched_at).toLocaleDateString('fr-FR')}</small></td>
       <td>
         <button class="btn btn-sm pitch-btn" data-lead-id="${l.id}">✉ Pitch</button>
       </td>
@@ -208,11 +213,31 @@ function renderLeadRow(l) {
     <tr class="pitch-row" data-lead-id="${l.id}" style="display:none">
       <td colspan="9" style="background:#f9fafb">
         <div style="padding:0.75em">
+          ${contacts.length > 0 ? `
+          <div style="font-weight:600;margin-bottom:0.5em">Contacts identifiés (${contacts.length}) :</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0.5em;margin-bottom:1em">
+            ${contacts.map(c => `
+              <div style="background:#fff;padding:0.5em 0.75em;border:1px solid #e5e7eb;border-radius:4px">
+                <div><strong>${e(c.prenom || '')} ${e(c.nom || '')}</strong> <small style="color:#6b7280">— ${e(c.fonction || '')}</small></div>
+                ${c.email ? `
+                <div style="margin-top:0.25em">
+                  <code style="font-size:0.85em">${e(c.email)}</code>
+                  <button class="btn btn-sm btn-outline copy-email-btn" data-email="${e(c.email)}" style="margin-left:0.5em;padding:0.1em 0.4em;font-size:0.75em">📋</button>
+                  ${c.email_confidence != null ? `<span style="font-size:0.75em;color:#6b7280;margin-left:0.5em">confiance ${(c.email_confidence*100).toFixed(0)}%</span>` : ''}
+                  ${c.email_source && c.email_source.includes('guessed-domain') ? '<span style="font-size:0.75em;color:#ea580c;margin-left:0.5em" title="Domaine deviné — à valider manuellement">⚠ à vérifier</span>' : ''}
+                </div>
+                ` : '<div style="margin-top:0.25em;font-size:0.85em;color:#9ca3af">Email non trouvé</div>'}
+                ${c.domain_web ? `<div style="font-size:0.75em;color:#6b7280;margin-top:0.25em">🌐 ${e(c.domain_web)}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+          ` : '<div style="background:#fef3c7;padding:0.5em;border-radius:4px;margin-bottom:1em;font-size:0.9em">Aucun contact identifié pour ce SIREN. Cliquer ici pour chercher sur annuaire-entreprises.data.gouv.fr ↗</div>'}
+
           <div style="font-weight:600;margin-bottom:0.5em">Objet :</div>
           <div style="background:#fff;padding:0.5em 0.75em;border:1px solid #e5e7eb;border-radius:4px;font-family:monospace;font-size:0.9em">${e((l.pitch && l.pitch.subject) || '—')}</div>
           <div style="font-weight:600;margin:0.75em 0 0.5em">Corps :</div>
           <div style="background:#fff;padding:0.75em;border:1px solid #e5e7eb;border-radius:4px;white-space:pre-wrap;font-size:0.9em;line-height:1.5">${e((l.pitch && l.pitch.body) || '—')}</div>
-          <button class="btn btn-sm btn-outline copy-pitch-btn" data-lead-id="${l.id}" style="margin-top:0.5em">📋 Copier tout</button>
+          <button class="btn btn-sm btn-outline copy-pitch-btn" data-lead-id="${l.id}" style="margin-top:0.5em">📋 Copier email complet</button>
         </div>
       </td>
     </tr>
@@ -265,12 +290,24 @@ function wirePitchButtons() {
       const id = evt.currentTarget.dataset.leadId;
       const row = document.querySelector(`.pitch-row[data-lead-id="${id}"]`);
       if (!row) return;
-      const subject = row.querySelector('div > div:nth-of-type(1)')?.innerText || '';
-      const body = row.querySelector('div > div:nth-of-type(3)')?.innerText || '';
+      const blocks = row.querySelectorAll('div > div[style*="font-family:monospace"], div > div[style*="white-space:pre-wrap"]');
+      const subject = blocks[0]?.innerText || '';
+      const body = blocks[1]?.innerText || '';
       const txt = `Objet : ${subject}\n\n${body}`;
       navigator.clipboard.writeText(txt).then(() => {
         evt.currentTarget.innerText = '✓ Copié !';
-        setTimeout(() => { evt.currentTarget.innerText = '📋 Copier tout'; }, 2000);
+        setTimeout(() => { evt.currentTarget.innerText = '📋 Copier email complet'; }, 2000);
+      });
+    });
+  });
+  document.querySelectorAll('.copy-email-btn').forEach(btn => {
+    btn.addEventListener('click', (evt) => {
+      evt.stopPropagation();
+      const email = evt.currentTarget.dataset.email;
+      navigator.clipboard.writeText(email).then(() => {
+        const orig = evt.currentTarget.innerText;
+        evt.currentTarget.innerText = '✓';
+        setTimeout(() => { evt.currentTarget.innerText = orig; }, 1500);
       });
     });
   });

@@ -264,6 +264,80 @@ async function lookupBySiren(siren, opts = {}) {
 }
 
 /**
+ * Cherche le raw result complet (minimal=false) pour extraire dirigeants + site web.
+ * Plus verbeux que lookupBySiren mais inclut les champs riches.
+ * @param {string} siren
+ * @param {object} [opts]
+ * @returns {object|null} raw result ou null
+ */
+async function fetchFullRecord(siren, opts = {}) {
+  if (!siren || !/^\d{9}$/.test(siren)) return null;
+  const log = opts.log;
+  const url = `${API_BASE}?q=${siren}&minimal=false&per_page=1`;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) {
+      await new Promise(r => setTimeout(r, 1500 * attempt));
+    }
+    await throttle();
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+        signal: AbortSignal.timeout(10_000)
+      });
+      if (res.status === 429) continue;
+      if (!res.ok) {
+        log?.warn?.(`[sirene-full] API ${res.status} for ${siren}`);
+        return null;
+      }
+      const data = await res.json();
+      return data.results?.find(r => r.siren === siren) || data.results?.[0] || null;
+    } catch (err) {
+      log?.warn?.(`[sirene-full] ${siren}: ${err.message}`);
+    }
+  }
+  return null;
+}
+
+/**
+ * Lookup dirigeants d'un SIREN via recherche-entreprises (minimal=false).
+ * Retourne aussi le domaine web s'il est présent.
+ * @param {string} siren
+ * @param {object} [opts]
+ * @returns {{dirigeants: Array, domain: string|null, effectif: number|null}|null}
+ */
+async function lookupDirigeants(siren, opts = {}) {
+  const full = await fetchFullRecord(siren, opts);
+  if (!full) return null;
+
+  const dirigeants = (full.dirigeants || []).map(d => ({
+    nom: d.nom || null,
+    prenom: d.prenoms ? String(d.prenoms).split(/[ ,]+/)[0] : null,  // 1er prénom seulement
+    fonction: d.qualite || null,
+    annee_naissance: d.annee_de_naissance || null,
+    dirigeant_type: d.type_dirigeant || 'personne physique'
+  }));
+
+  // Le site web peut être dans plusieurs champs selon l'API
+  const sitesWeb = full.siege?.liste_finess || full.complements?.web || full.matching_etablissements?.[0]?.web || null;
+  let domain = null;
+  if (typeof sitesWeb === 'string') {
+    // Extraire le domaine d'une URL
+    try {
+      const u = new URL(sitesWeb.startsWith('http') ? sitesWeb : 'https://' + sitesWeb);
+      domain = u.hostname.replace(/^www\./, '');
+    } catch {
+      domain = String(sitesWeb).replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0] || null;
+    }
+  }
+
+  return {
+    dirigeants,
+    domain,
+    effectif: full.tranche_effectif_salarie ? parseInt(full.tranche_effectif_salarie, 10) : null
+  };
+}
+
+/**
  * Batch enrichment des vrais SIRENs en DB qui n'ont pas de NAF/effectif/dept.
  * Utilise lookupBySiren pour compléter les champs.
  */
@@ -303,6 +377,8 @@ async function enrichExistingCompanies(db, opts = {}) {
 module.exports = {
   lookupByName,
   lookupBySiren,
+  lookupDirigeants,
+  fetchFullRecord,
   migratePseudoSirens,
   enrichExistingCompanies,
   normalizeName,
