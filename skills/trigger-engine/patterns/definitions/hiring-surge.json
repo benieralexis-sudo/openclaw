@@ -1,19 +1,19 @@
 {
   "id": "hiring-surge",
-  "name": "Hiring surge — recrutement massif",
-  "description": "Entreprise qui publie 3+ offres d'emploi en 30j, toutes catégories. Signal fort de scaling ou de rotation forte — besoin de services RH, conseil, outsourcing, tooling.",
+  "name": "Hiring surge — recrutement massif typé",
+  "description": "Entreprise qui publie 3+ offres TYPÉES (tech/sales/marketing/finance/hr/executive) en 30j. Signal fort de scaling ou transformation. Exclut les offres génériques (hiring_other) pour filtrer bruit agences/collectivités.",
   "verticaux": ["rh-saas", "conseil", "outsourcing", "recruitment", "tools"],
   "pitch_angle": "J'ai vu que vous avez publié plusieurs offres récemment — souvent signe d'une phase de croissance ou de transformation. On aide typiquement les boîtes dans ce cas à {solution}. Vous avez 15 min cette semaine ?",
-  "min_score": 6.0,
+  "min_score": 7.0,
   "max_score": 10.0,
   "window_days": 30,
   "signals_required": {
     "must_have_at_least_one_of": [
       {
-        "types": ["hiring_tech", "hiring_sales", "hiring_marketing", "hiring_executive", "hiring_finance", "hiring_hr", "hiring_other"],
+        "types": ["hiring_tech", "hiring_sales", "hiring_marketing", "hiring_executive", "hiring_finance", "hiring_hr"],
         "min_count": 3,
         "weight": 6.0,
-        "description": "3+ offres publiées en 30j"
+        "description": "3+ offres TYPÉES en 30j (hiring_other exclu = trop vague, pollue avec agences/collectivités)"
       }
     ]
   },
@@ -24,9 +24,14 @@
       "description": "Bonus si au moins 1 C-level dans le lot"
     },
     {
-      "types": ["funding", "modification_statuts"],
+      "types": ["company_creation", "modification_statuts"],
       "weight": 1.5,
-      "description": "Bonus si levée ou changement statuts récent"
+      "description": "Bonus si signal BODACC corrélé (creation ou changement statuts)"
+    },
+    {
+      "types": ["funding"],
+      "weight": 2.0,
+      "description": "Bonus si levée récente détectée"
     }
   ],
   "exclusions": [

@@ -47,17 +47,50 @@ const STAFFING_AGENCIES_BLACKLIST = [
   'adecco', 'manpower', 'randstad', 'crit', 'synergie', 'proman',
   'expectra', 'kelly services', 'gi group', 'start people', 'leader intérim',
   'supplay', 'rh intérim', 'actual', 'domino rh', 'partnaire',
-  'temporis', 'adia', 'aquila rh', 'pole emploi'
+  'temporis', 'adia', 'aquila rh', 'pole emploi',
+  'menway', 'team emploi', 'ras', 'omega interim', 'rinesa', 'axeo'
 ];
+
+/**
+ * Keywords qui, s'ils apparaissent dans le nom, disqualifient l'entreprise
+ * comme prospect. Matching par substring (après normalisation).
+ * Couvre : intérim non listés, collectivités, écoles, franchises services,
+ * banques étrangères, restos/cafés.
+ */
+const DISQUALIFYING_KEYWORDS = [
+  'interim', 'intérim',
+  'emploi',
+  'mairie', 'commune de ', 'conseil departemental', 'conseil régional',
+  'ccas', 'centre communal',
+  'formation', ' cfa', 'académie',
+  'restaurant', 'brasserie', ' cafe', ' café',
+  'sup formation', 'evolution formation',
+  'paroisse', 'diocese', 'diocèse'
+];
+
+function normalizeName(nom) {
+  if (!nom) return '';
+  return nom.trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ');
+}
 
 function isStaffingAgency(nom) {
   if (!nom) return false;
-  const normalized = nom.trim().toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, ' ');
+  const normalized = normalizeName(nom);
   return STAFFING_AGENCIES_BLACKLIST.some(bad =>
     normalized === bad || normalized.startsWith(bad + ' ') || normalized.startsWith(bad + '-')
   );
+}
+
+function hasDisqualifyingKeyword(nom) {
+  if (!nom) return false;
+  const normalized = ' ' + normalizeName(nom) + ' ';
+  return DISQUALIFYING_KEYWORDS.some(kw => normalized.includes(kw));
+}
+
+function isBlacklisted(nom) {
+  return isStaffingAgency(nom) || hasDisqualifyingKeyword(nom);
 }
 const OAUTH_URL = 'https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=/partenaire';
 
@@ -179,8 +212,8 @@ async function ingest({ lastEventId, log } = {}) {
     const siret = offer.entreprise?.siret;
     const nom = offer.entreprise?.nom;
 
-    // Skip les agences d'intérim (bruit: elles postent 100s d'offres pour des clients)
-    if (isStaffingAgency(nom)) {
+    // Skip les agences d'intérim + keywords disqualifiants (collectivités, écoles, etc.)
+    if (isBlacklisted(nom)) {
       skippedStaffing += 1;
       continue;
     }
@@ -225,4 +258,4 @@ async function ingest({ lastEventId, log } = {}) {
   };
 }
 
-module.exports = { ingest, classifyOffer, getAccessToken };
+module.exports = { ingest, classifyOffer, getAccessToken, isBlacklisted, isStaffingAgency, hasDisqualifyingKeyword };
