@@ -1,0 +1,39 @@
+{
+  "id": "media-buzz",
+  "name": "Buzz médias récent",
+  "description": "Entreprise qui fait parler d'elle dans la presse FR (3+ articles en 7j). Signal de momentum : annonce produit, levée, recrutement visible, partenariat, prix. Excellent timing pour outreach.",
+  "verticaux": ["saas", "conseil", "outsourcing", "recruitment", "tools", "pr"],
+  "pitch_angle": "Je vois que {nom} fait beaucoup parler ces derniers temps — notamment {context}. On aide typiquement les boîtes en momentum à {solution} pour que ça se traduise en croissance commerciale concrète. 15 min ?",
+  "min_score": 6.0,
+  "max_score": 10.0,
+  "window_days": 30,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["media_buzz"],
+        "min_count": 1,
+        "weight": 6.0,
+        "description": "Au moins 1 signal buzz médias"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["funding", "funding_seed", "funding_series"],
+      "weight": 2.0,
+      "description": "Bonus si levée corrélée (buzz post-funding = timing parfait)"
+    },
+    {
+      "types": ["hiring_executive", "hiring_tech", "hiring_sales"],
+      "weight": 1.5,
+      "description": "Bonus si recrutements typés en parallèle"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"],
+      "description": "Entreprise en difficulté ou radiée"
+    }
+  ],
+  "enabled": true
+}

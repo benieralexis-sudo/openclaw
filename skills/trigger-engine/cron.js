@@ -19,6 +19,7 @@ const joafe = require('./sources/joafe');
 const francetravail = require('./sources/francetravail');
 const inpi = require('./sources/inpi');
 const rssLevees = require('./sources/rss-levees');
+const newsBuzz = require('./sources/news-buzz');
 
 class TriggerEngineCron {
   constructor(handler, processor, options = {}) {
@@ -35,6 +36,7 @@ class TriggerEngineCron {
     this.handler.registerSource('francetravail', francetravail);
     this.handler.registerSource('inpi', inpi);
     this.handler.registerSource('rss-levees', rssLevees);
+    this.handler.registerSource('news-buzz', newsBuzz);
   }
 
   /**
@@ -82,6 +84,14 @@ class TriggerEngineCron {
       });
     }, 6 * 3600 * 1000);
     this.intervals.push(rssInterval);
+
+    // News Buzz : every 12h (check les matches actifs via Google News RSS)
+    const buzzInterval = setInterval(() => {
+      this.handler.runIngestion('news-buzz').catch(err => {
+        this.log.error?.('[cron] news-buzz:', err.message);
+      });
+    }, 12 * 3600 * 1000);
+    this.intervals.push(buzzInterval);
 
     // Pattern processing: every 15 min
     const processInterval = setInterval(() => {
