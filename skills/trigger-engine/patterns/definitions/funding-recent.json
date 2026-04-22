@@ -1,0 +1,44 @@
+{
+  "id": "funding-recent",
+  "name": "Levée de fonds récente (<90j)",
+  "description": "Entreprise qui a annoncé une levée de fonds (Seed / Série A/B/C) dans les 90 derniers jours. Signal d'achat B2B le plus fort : budget fraîchement alloué, recrutements à venir, stack à équiper.",
+  "verticaux": ["saas", "conseil", "outsourcing", "recruitment", "tools", "finance-ops"],
+  "pitch_angle": "Félicitations pour votre récente levée de fonds. On accompagne typiquement les boîtes post-levée à {solution} pour que l'argent aille au produit et pas à l'opérationnel. 15 min cette semaine ?",
+  "min_score": 7.0,
+  "max_score": 10.0,
+  "window_days": 90,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["funding", "funding_seed", "funding_series"],
+        "min_count": 1,
+        "weight": 7.0,
+        "description": "Au moins 1 signal de levée détecté via RSS"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["funding_series"],
+      "weight": 2.0,
+      "description": "Bonus si Série A/B/C (plus mature, ticket plus gros)"
+    },
+    {
+      "types": ["hiring_tech", "hiring_sales", "hiring_executive"],
+      "weight": 1.5,
+      "description": "Bonus si recrutements typés en parallèle (scaling actif)"
+    },
+    {
+      "types": ["modification_statuts"],
+      "weight": 1.0,
+      "description": "Bonus si changement statuts BODACC (souvent lié au round)"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"],
+      "description": "Entreprise en difficulté ou radiée"
+    }
+  ],
+  "enabled": true
+}

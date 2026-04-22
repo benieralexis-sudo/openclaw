@@ -139,29 +139,94 @@ async function getAccessToken() {
 }
 
 /**
- * Classifie le type d'offre en fonction du libellé
+ * Classifie le type d'offre en fonction du libellé.
+ * Ordre d'évaluation : executive > finance > hr > tech > sales > marketing > other
+ * (les rôles les plus spécifiques d'abord pour éviter que "directeur commercial" tombe en sales
+ * alors qu'il devrait être executive).
+ *
+ * Regex enrichies avec le vocabulaire RH FR réel observé sur France Travail.
  */
 function classifyOffer(libelle, appellation) {
-  const text = `${libelle || ''} ${appellation || ''}`.toLowerCase();
+  const text = `${libelle || ''} ${appellation || ''}`
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-  if (/\b(ceo|cto|cfo|cmo|coo|c-level|directeur|director|vp vice.president|head of)\b/.test(text)) {
+  // EXECUTIVE — C-level, directeurs, responsables haut niveau
+  if (/\b(ceo|cto|cfo|cmo|coo|c-level|vp |vice.president|head of|chief)\b/.test(text)
+      || /\b(directeur|directrice|director)\b/.test(text)
+      || /\b(gerant|gerante|president|presidente|dirigeant)\b/.test(text)
+      || /\bchef d['e ]?agence\b/.test(text)
+      || /\bresponsable (d['e ]?)?(general|site|etablissement|agence|centre|region|national|zone)\b/.test(text)) {
     return 'hiring_executive';
   }
-  if (/\b(daf|cfo|contr[ôo]leur|comptab(le|ilit[ée])|financier)\b/.test(text)) {
+
+  // FINANCE — DAF, compta, contrôle, audit, paie côté finance
+  if (/\b(daf|cfo|tresorier|tresoriere)\b/.test(text)
+      || /\bcontroleur (de )?gestion\b/.test(text)
+      || /\b(comptab(le|ilite)|aide.comptable|collaborateur comptable|gestionnaire de paie|gestionnaire paie|paye)\b/.test(text)
+      || /\b(auditeur|audit financier|analyste financier|financier|credit manager)\b/.test(text)
+      || /\bresponsable (comptab|financier|administratif et financier|paie)\b/.test(text)) {
     return 'hiring_finance';
   }
-  if (/\b(drh|rrh|human ressource|talent|recruteur|people)\b/.test(text)) {
+
+  // HR — RH, recrutement, formation, talent
+  if (/\b(drh|rrh|hrbp|chro)\b/.test(text)
+      || /\b(human ress?ource|ressources humaines|talent acquisition|people ops|people partner)\b/.test(text)
+      || /\b(recruteur|recruteuse|charge[e]? de recrutement|chasseur de tete|consultant rh)\b/.test(text)
+      || /\bgestionnaire (rh|ressources humaines|personnel)\b/.test(text)
+      || /\bresponsable (rh|recrutement|formation|personnel)\b/.test(text)
+      || /\bassistant[e]? (rh|ressources humaines|recrutement)\b/.test(text)) {
     return 'hiring_hr';
   }
-  if (/\b(developer|d[ée]velopp|dev\b|software|engineer|ing[ée]nieur|data|devops|sysadmin|sre|qa\b|test|frontend|backend|fullstack|cloud|devops)\b/.test(text)) {
-    return 'hiring_tech';
-  }
-  if (/\b(sales|commercial|business dev|account exec|sdr\b|bdr\b|vendeur)\b/.test(text)) {
+
+  // SALES early-check : "business dev*" doit être sales, pas tech
+  // (exécuté AVANT la section TECH pour éviter que "business developer" tombe en hiring_tech)
+  if (/\bbusiness (dev(eloppement|eloper|elopment|elopper)?)\b/.test(text)
+      || /\bdeveloppeur d['e ]?affaires\b/.test(text)
+      || /\bdeveloppement commercial\b/.test(text)) {
     return 'hiring_sales';
   }
-  if (/\b(marketing|growth|content|communication|brand|seo|sem)\b/.test(text)) {
+
+  // TECH — dev, data, ops, sécurité, QA, support technique, intégration
+  if (/\b(developp(eur|er|euse)|developer|programmeur|coder)\b/.test(text)
+      || /\b(software|engineer|ingenieur (logiciel|informatique|d['e]tudes|systeme|reseau|cloud|data|devops|qa|test)|etudes? et developpement)\b/.test(text)
+      || /\b(data (engineer|scientist|analyst)|data ?ops|mlops|analyste (programmeur|donnees|bi))\b/.test(text)
+      || /\b(devops|sre|site reliability|platform engineer|cloud engineer|architect(e|ure) (logiciel|technique|cloud|data|solution))\b/.test(text)
+      || /\b(sysadmin|administrateur (systemes?|reseaux?|base de donnees|bdd|infrastructure|informatique)|integrateur)\b/.test(text)
+      || /\b(qa\b|quality assurance|testeur (logiciel|informatique|qa)|automaticien|technicien test)\b/.test(text)
+      || /\b(frontend|front[- ]end|backend|back[- ]end|fullstack|full[- ]stack|mobile (android|ios|flutter|react native))\b/.test(text)
+      || /\b(cybersecurite|cyber ?security|pentester|devops?curity|security engineer|rssi)\b/.test(text)
+      || /\btechnicien (informatique|support|systeme|reseau|helpdesk|it)\b/.test(text)
+      || /\bchef de projet (technique|informatique|digital|it|si)\b/.test(text)
+      || /\b(scrum master|product owner|po\b)\b/.test(text)) {
+    return 'hiring_tech';
+  }
+
+  // SALES early-check : "business dev*" doit être sales, pas tech (priorité avant tech)
+  const isBusinessDev = /\bbusiness (dev(eloppement|eloper|elopment|elopper)?)\b/.test(text)
+    || /\bdeveloppeur d['e ]?affaires\b/.test(text)
+    || /\bdeveloppement commercial\b/.test(text);
+
+  // SALES — commercial, vente, clientèle, développement commercial
+  if (isBusinessDev
+      || /\b(sales\b|sales (manager|executive|representative|director|rep)|account (executive|manager|director)|sdr\b|bdr\b|ae\b|key account|kam\b)\b/.test(text)
+      || /\b(commercial[e]?|technico.commercial|ingenieur commercial|attache[e]? commercial|conseiller[e]? commercial|charge[e]? (de )?clientele|charge[e]? d['e ]?affaires)\b/.test(text)
+      || /\b(vendeur|vendeuse|conseiller[e]? (vente|de vente)|conseiller clientele|teleconseiller[e]?|teleprospecteur[e]?|televendeur[e]?)\b/.test(text)
+      || /\bresponsable (commercial|des ventes|comptes|grand[s]? comptes|secteur|clientele)\b/.test(text)
+      || /\b(gestionnaire (clients?|portefeuille client|compte client)|customer success|cs manager|csm\b)\b/.test(text)) {
+    return 'hiring_sales';
+  }
+
+  // MARKETING — growth, com, contenu, produit, SEO/SEA
+  if (/\b(marketing|mkt\b|growth hack|growth marketer|chief marketing)\b/.test(text)
+      || /\b(community manager|cm\b|content manager|social media|digital marketing)\b/.test(text)
+      || /\b(seo|sem|sea\b|traffic manager|acquisition|media planner|performance marketer)\b/.test(text)
+      || /\b(chef de produit|product manager|product marketer|pm\b|produit marketing)\b/.test(text)
+      || /\b(brand|branding|marque|communication|charge[e]? (de )?com(munication)?|attache[e]? de presse|relations presse|rp\b)\b/.test(text)
+      || /\bresponsable (marketing|communication|com|digital|growth|acquisition)\b/.test(text)) {
     return 'hiring_marketing';
   }
+
   return 'hiring_other';
 }
 

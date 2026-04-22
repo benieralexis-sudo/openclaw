@@ -18,6 +18,7 @@ const bodacc = require('./sources/bodacc');
 const joafe = require('./sources/joafe');
 const francetravail = require('./sources/francetravail');
 const inpi = require('./sources/inpi');
+const rssLevees = require('./sources/rss-levees');
 
 class TriggerEngineCron {
   constructor(handler, processor, options = {}) {
@@ -33,6 +34,7 @@ class TriggerEngineCron {
     this.handler.registerSource('joafe', joafe);
     this.handler.registerSource('francetravail', francetravail);
     this.handler.registerSource('inpi', inpi);
+    this.handler.registerSource('rss-levees', rssLevees);
   }
 
   /**
@@ -72,6 +74,14 @@ class TriggerEngineCron {
       });
     }, 24 * 3600 * 1000);
     this.intervals.push(inpiInterval);
+
+    // RSS Levées FR: every 6h (volume faible, pas besoin de plus fréquent)
+    const rssInterval = setInterval(() => {
+      this.handler.runIngestion('rss-levees').catch(err => {
+        this.log.error?.('[cron] rss-levees:', err.message);
+      });
+    }, 6 * 3600 * 1000);
+    this.intervals.push(rssInterval);
 
     // Pattern processing: every 15 min
     const processInterval = setInterval(() => {
