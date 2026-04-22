@@ -69,7 +69,9 @@ const DISQUALIFYING_KEYWORDS = [
   'sup formation', 'evolution formation',
   'paroisse', 'diocese', 'diocèse',
   'association pour le developpement',
-  'bmce'
+  'bmce',
+  'new recrutement', 'recrutement',
+  'boulangerie', 'patisserie', 'boucherie', 'poissonnerie'
 ];
 
 function normalizeName(nom) {
