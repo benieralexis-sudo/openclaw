@@ -20,6 +20,7 @@ const francetravail = require('./sources/francetravail');
 const inpi = require('./sources/inpi');
 const rssLevees = require('./sources/rss-levees');
 const newsBuzz = require('./sources/news-buzz');
+const googleTrends = require('./sources/google-trends');
 
 class TriggerEngineCron {
   constructor(handler, processor, options = {}) {
@@ -37,6 +38,7 @@ class TriggerEngineCron {
     this.handler.registerSource('inpi', inpi);
     this.handler.registerSource('rss-levees', rssLevees);
     this.handler.registerSource('news-buzz', newsBuzz);
+    this.handler.registerSource('google-trends', googleTrends);
   }
 
   /**
@@ -92,6 +94,14 @@ class TriggerEngineCron {
       });
     }, 12 * 3600 * 1000);
     this.intervals.push(buzzInterval);
+
+    // Google Trends : every 24h (faible volume, cache 24h)
+    const trendsInterval = setInterval(() => {
+      this.handler.runIngestion('google-trends').catch(err => {
+        this.log.error?.('[cron] google-trends:', err.message);
+      });
+    }, 24 * 3600 * 1000);
+    this.intervals.push(trendsInterval);
 
     // Pattern processing: every 15 min
     const processInterval = setInterval(() => {
