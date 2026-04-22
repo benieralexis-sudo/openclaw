@@ -17,6 +17,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const sirene = require('./sirene');
 
 const FRANCETRAVAIL_API = 'https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search';
 
@@ -62,10 +63,13 @@ const DISQUALIFYING_KEYWORDS = [
   'emploi',
   'mairie', 'commune de ', 'conseil departemental', 'conseil régional',
   'ccas', 'centre communal',
+  'communaute de communes', 'cc ',
   'formation', ' cfa', 'académie',
   'restaurant', 'brasserie', ' cafe', ' café',
   'sup formation', 'evolution formation',
-  'paroisse', 'diocese', 'diocèse'
+  'paroisse', 'diocese', 'diocèse',
+  'association pour le developpement',
+  'bmce'
 ];
 
 function normalizeName(nom) {
@@ -202,14 +206,9 @@ function classifyOffer(libelle, appellation) {
     return 'hiring_tech';
   }
 
-  // SALES early-check : "business dev*" doit être sales, pas tech (priorité avant tech)
-  const isBusinessDev = /\bbusiness (dev(eloppement|eloper|elopment|elopper)?)\b/.test(text)
-    || /\bdeveloppeur d['e ]?affaires\b/.test(text)
-    || /\bdeveloppement commercial\b/.test(text);
-
   // SALES — commercial, vente, clientèle, développement commercial
-  if (isBusinessDev
-      || /\b(sales\b|sales (manager|executive|representative|director|rep)|account (executive|manager|director)|sdr\b|bdr\b|ae\b|key account|kam\b)\b/.test(text)
+  // (business-dev déjà traité plus haut en early-check pour éviter conflit avec tech)
+  if (/\b(sales\b|sales (manager|executive|representative|director|rep)|account (executive|manager|director)|sdr\b|bdr\b|ae\b|key account|kam\b)\b/.test(text)
       || /\b(commercial[e]?|technico.commercial|ingenieur commercial|attache[e]? commercial|conseiller[e]? commercial|charge[e]? (de )?clientele|charge[e]? d['e ]?affaires)\b/.test(text)
       || /\b(vendeur|vendeuse|conseiller[e]? (vente|de vente)|conseiller clientele|teleconseiller[e]?|teleprospecteur[e]?|televendeur[e]?)\b/.test(text)
       || /\bresponsable (commercial|des ventes|comptes|grand[s]? comptes|secteur|clientele)\b/.test(text)
@@ -232,9 +231,11 @@ function classifyOffer(libelle, appellation) {
 
 /**
  * Ingestion France Travail
+ * @param {object} ctx - { lastEventId, log, storage } — storage optionnel pour SIRENE enrichment
  */
-async function ingest({ lastEventId, log } = {}) {
+async function ingest({ lastEventId, log, storage } = {}) {
   const events = [];
+  const db = storage?.db || null;
 
   let token;
   try {
@@ -273,6 +274,7 @@ async function ingest({ lastEventId, log } = {}) {
   let latestDate = lastEventId;
 
   let skippedStaffing = 0;
+  let sireneResolved = 0;
   for (const offer of offers) {
     const siret = offer.entreprise?.siret;
     const nom = offer.entreprise?.nom;
@@ -283,12 +285,25 @@ async function ingest({ lastEventId, log } = {}) {
       continue;
     }
 
-    // France Travail ne fournit plus le SIRET — fallback: pseudo-SIREN basé sur hash du nom
+    // Attribution SIREN en 3 paliers :
+    //   1. SIRET présent → tronque en SIREN (confidence 1.0)
+    //   2. Pas de SIRET + DB dispo → lookup SIRENE par nom (confidence 0.9 si match)
+    //   3. Fallback pseudo-SIREN hash nom (confidence 0.6)
     let siren = siret ? String(siret).slice(0, 9) : null;
     let confidence = siret ? 1.0 : 0;
+    let sireneData = null;
+
+    if (!siren && nom && db) {
+      sireneData = await sirene.lookupByName(nom, db, { log });
+      if (sireneData?.siren) {
+        siren = sireneData.siren;
+        confidence = 0.9;
+        sireneResolved += 1;
+      }
+    }
     if (!siren && nom) {
       siren = pseudoSirenFromName(nom);
-      confidence = 0.6; // attribution par nom = moins fiable que SIRET direct
+      confidence = 0.6;
     }
     const eventType = classifyOffer(offer.intitule, offer.appellationlibelle);
     const offerDate = offer.dateCreation ? offer.dateCreation.slice(0, 10) : new Date().toISOString().slice(0, 10);
@@ -304,7 +319,10 @@ async function ingest({ lastEventId, log } = {}) {
         intitule: offer.intitule,
         nom_entreprise: nom,
         siret: siret || null,
-        siren_source: siret ? 'api' : 'name-hash',
+        siren_source: siret ? 'api' : (sireneData?.siren ? 'sirene-lookup' : 'name-hash'),
+        sirene_naf: sireneData?.naf_code || null,
+        sirene_effectif: sireneData?.effectif || null,
+        sirene_departement: sireneData?.departement || null,
         lieu_travail: offer.lieuTravail?.libelle,
         type_contrat: offer.typeContrat,
         date_creation: offer.dateCreation
@@ -315,7 +333,7 @@ async function ingest({ lastEventId, log } = {}) {
     if (!latestDate || offerDate > latestDate) latestDate = offerDate;
   }
 
-  log?.info?.(`[francetravail] ingested ${events.length} events (${skippedStaffing} staffing agencies skipped)`);
+  log?.info?.(`[francetravail] ingested ${events.length} events (${skippedStaffing} blacklisted skipped, ${sireneResolved} SIRENE resolved)`);
 
   return {
     events,
