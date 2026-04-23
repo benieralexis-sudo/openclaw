@@ -23,14 +23,44 @@ const USER_AGENT = 'Mozilla/5.0 iFIND-TriggerEngine/1.0';
 // Throttle global : 1 requête toutes les 1100ms max (~0.9 req/sec)
 // L'API annonce 7 req/s mais on observe des 429 dès 2 req/s consécutives.
 let _lastRequestAt = 0;
+let _throttleChain = Promise.resolve();
 const MIN_INTERVAL_MS = 1100;
 
-async function throttle() {
-  const elapsed = Date.now() - _lastRequestAt;
-  if (elapsed < MIN_INTERVAL_MS) {
-    await new Promise(r => setTimeout(r, MIN_INTERVAL_MS - elapsed));
-  }
-  _lastRequestAt = Date.now();
+// Circuit breaker : après N 429 consécutifs, pause totale des appels SIRENE.
+// Évite de pérenniser une penalty côté API en continuant à hammer.
+let _consecutive429 = 0;
+let _circuitOpenUntil = 0;
+const CIRCUIT_THRESHOLD = 5;
+const CIRCUIT_COOLDOWN_MS = 30 * 60 * 1000; // 30 min
+
+function isCircuitOpen() {
+  return Date.now() < _circuitOpenUntil;
+}
+function tripCircuit(log) {
+  _circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+  _consecutive429 = 0;
+  log?.warn?.(`[sirene] circuit breaker OPEN for ${CIRCUIT_COOLDOWN_MS / 60000}min — too many 429s, letting API cool down`);
+}
+function record429(log) {
+  _consecutive429++;
+  if (_consecutive429 >= CIRCUIT_THRESHOLD) tripCircuit(log);
+}
+function recordSuccess() {
+  _consecutive429 = 0;
+}
+
+// Mutex-chain : garantit que throttle() est séquentiel même en appels parallèles.
+// Sans ça, 10 callers simultanés firent tous à t=0 et déclenchent un burst 429.
+function throttle() {
+  const wait = _throttleChain.then(async () => {
+    const elapsed = Date.now() - _lastRequestAt;
+    if (elapsed < MIN_INTERVAL_MS) {
+      await new Promise(r => setTimeout(r, MIN_INTERVAL_MS - elapsed));
+    }
+    _lastRequestAt = Date.now();
+  });
+  _throttleChain = wait.catch(() => {}); // la chain ne doit jamais rejecter
+  return wait;
 }
 
 /**
@@ -48,6 +78,12 @@ function normalizeName(nom) {
  * Cherche un match exact/très proche entre le nom recherché et un résultat API.
  * Tolère les variantes SA/SAS/SARL/SASU en suffixe.
  */
+const LEGAL_FORMS = /^(sas|sa|sarl|sasu|eurl|sci|snc|selarl|scop|scs|sca|sas?u|societe|ste|stpe|ltd|co|cie|etablissements|ets|groupe|holding)$/;
+
+function stripLegalForms(norm) {
+  return norm.split(' ').filter(w => !LEGAL_FORMS.test(w)).join(' ').trim();
+}
+
 function isGoodMatch(searchName, apiResult) {
   const normSearch = normalizeName(searchName);
   const normNom = normalizeName(apiResult.nom_complet || '');
@@ -59,10 +95,17 @@ function isGoodMatch(searchName, apiResult) {
     return true;
   }
 
+  // Match sans forme juridique des 2 côtés (ex: "nda theobroma sasu" == "nda theobroma")
+  const stripSearch = stripLegalForms(normSearch);
+  const stripNom = stripLegalForms(normNom);
+  const stripRaison = stripLegalForms(normNomRaison);
+  if (stripSearch && (stripSearch === stripNom || stripSearch === stripRaison)) {
+    return true;
+  }
+
   // Match si le nom cherché est la première partie du nom complet (avant forme juridique)
   // Ex: "Qonto" vs "QONTO SAS"
-  const firstWordsNom = normNom.split(' ').filter(w => !/^(sas|sa|sarl|sasu|eurl|sci|snc|selarl)$/.test(w)).join(' ');
-  if (firstWordsNom === normSearch) return true;
+  if (stripNom === normSearch || stripRaison === normSearch) return true;
 
   return false;
 }
@@ -84,27 +127,38 @@ function extractFields(apiResult) {
  * Call API avec retry simple sur 429 (backoff linéaire).
  */
 async function fetchApiWithRetry(query, log) {
+  if (isCircuitOpen()) {
+    log?.debug?.(`[sirene] circuit open — skipping "${query}"`);
+    return null;
+  }
   const url = `${API_BASE}?q=${encodeURIComponent(query)}&per_page=5`;
   for (let attempt = 0; attempt < 4; attempt++) {
-    if (attempt > 0) {
-      const delay = 1500 * attempt;
-      log?.debug?.(`[sirene] retry after ${delay}ms (attempt ${attempt + 1})`);
-      await new Promise(r => setTimeout(r, delay));
-    }
     await throttle();
     try {
       const res = await fetch(url, {
         headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
         signal: AbortSignal.timeout(10_000)
       });
-      if (res.status === 429) continue; // retry
+      if (res.status === 429) {
+        const retryAfterHeader = parseInt(res.headers.get('retry-after') || '', 10);
+        const delay = Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+          ? (retryAfterHeader * 1000) + 500
+          : 1500 * (attempt + 1);
+        log?.debug?.(`[sirene] 429 → wait ${delay}ms (attempt ${attempt + 1}/4)`);
+        record429(log);
+        if (isCircuitOpen()) return null; // circuit vient de s'ouvrir
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
       if (!res.ok) {
         log?.warn?.(`[sirene] API ${res.status} for "${query}"`);
         return null;
       }
+      recordSuccess();
       return await res.json();
     } catch (err) {
       log?.warn?.(`[sirene] fetch error for "${query}": ${err.message}`);
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
     }
   }
   return null;
@@ -140,7 +194,14 @@ async function lookupByName(nom, db, opts = {}) {
 
   // API call
   const data = await fetchApiWithRetry(nom, log);
-  const results = data?.results || [];
+
+  // API failure (rate limit, timeout, 5xx) → don't poison cache, return null for retry later
+  if (data === null) {
+    log?.warn?.(`[sirene] API failed for "${nom}" — skipping cache write (will retry next run)`);
+    return null;
+  }
+
+  const results = data.results || [];
 
   // Trouve le meilleur match
   let match = results.find(r => isGoodMatch(nom, r));
