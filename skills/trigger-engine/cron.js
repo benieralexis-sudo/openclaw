@@ -186,6 +186,31 @@ class TriggerEngineCron {
     }, 2 * 3600 * 1000);
     this.intervals.push(enrichInterval);
 
+    // Claude Brain Discover : weekly dimanche 23h
+    const discoverCheckInterval = setInterval(() => {
+      try {
+        if (!this.claudeBrain || !this.claudeBrain.enabled) return;
+        const now = new Date();
+        // Dimanche (0) entre 23h et 23h59, et dernière exécution > 20h
+        if (now.getDay() !== 0 || now.getHours() !== 23) return;
+        const lastRun = this._lastDiscoverRun || 0;
+        if (Date.now() - lastRun < 20 * 3600 * 1000) return;
+        this._lastDiscoverRun = Date.now();
+        // Un job discover par tenant actif
+        const db = this.handler.storage.db;
+        const tenants = db.prepare("SELECT id FROM clients WHERE status = 'active'").all();
+        let enqueued = 0;
+        for (const t of tenants) {
+          const r = this.claudeBrain._enqueuePipeline(t.id, null, 'discover', { priority: 8 });
+          if (r.enqueued) enqueued += 1;
+        }
+        if (enqueued > 0) this.log.info?.(`[cron] Claude Brain Discover weekly : ${enqueued} jobs enqueued`);
+      } catch (e) {
+        this.log.warn?.(`[cron] discover scheduler error: ${e.message}`);
+      }
+    }, 30 * 60 * 1000); // check toutes les 30 min
+    this.intervals.push(discoverCheckInterval);
+
     // Monitoring santé sources : every 1h
     const healthInterval = setInterval(async () => {
       try {

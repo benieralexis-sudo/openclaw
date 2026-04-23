@@ -135,8 +135,35 @@ class PipelineExecutor {
         `).run(score, resultId, tenantId, siren);
       }
     }
+    if (pipeline === 'discover' && result && Array.isArray(result.proposed_patterns)) {
+      // S'assurer que la table existe (migration 014)
+      try {
+        this.db.exec(`
+          CREATE TABLE IF NOT EXISTS claude_brain_pattern_proposals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id TEXT,
+            proposal_json TEXT NOT NULL,
+            pattern_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            reviewed_by TEXT, reviewed_at TEXT, review_note TEXT,
+            discover_run_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE INDEX IF NOT EXISTS idx_cbpp_status ON claude_brain_pattern_proposals(status, created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_cbpp_pattern ON claude_brain_pattern_proposals(pattern_id);
+        `);
+      } catch {}
+      const runId = `run-${Date.now()}`;
+      const stmt = this.db.prepare(`
+        INSERT INTO claude_brain_pattern_proposals (tenant_id, proposal_json, pattern_id, discover_run_id)
+        VALUES (?, ?, ?, ?)
+      `);
+      for (const p of result.proposed_patterns) {
+        if (!p?.id) continue;
+        stmt.run(tenantId, JSON.stringify(p), p.id, runId);
+      }
+    }
     // pitch/brief : pas de side-effect sur client_leads (lead garde son status)
-    // discover : résultat persisté dans claude_brain_results pour review admin
   }
 }
 

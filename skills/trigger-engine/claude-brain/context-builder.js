@@ -207,8 +207,60 @@ class ContextBuilder {
   }
 
   _buildDiscoverContext(tenantId) {
-    // Placeholder J7
-    return { tenantId, note: 'discover context built in J7' };
+    // Agrège :
+    //   - 50 leads convertis (status='booked' ou 'replied_positive')
+    //   - 50 leads ignorés (status='sent' avec pas de reply depuis >=14j)
+    //   - 20 leads négatifs (status='replied_negative' ou 'discarded')
+    //   - Liste des patterns actifs dans le catalogue
+    const filter = tenantId ? 'AND cl.client_id = ?' : '';
+    const params = tenantId ? [tenantId] : [];
+
+    const convertis = this.db.prepare(`
+      SELECT cl.siren, c.raison_sociale, c.naf_code, c.naf_label, c.effectif_min, cl.opus_score, cl.score, cl.priority,
+             GROUP_CONCAT(pm.pattern_id, ',') as patterns
+      FROM client_leads cl
+      LEFT JOIN companies c ON c.siren = cl.siren
+      LEFT JOIN patterns_matched pm ON pm.siren = cl.siren AND (pm.expires_at IS NULL OR pm.expires_at > CURRENT_TIMESTAMP)
+      WHERE cl.status IN ('booked', 'replied_positive', 'attended') ${filter}
+      GROUP BY cl.id LIMIT 50
+    `).all(...params);
+
+    const ignores = this.db.prepare(`
+      SELECT cl.siren, c.raison_sociale, c.naf_code, c.naf_label, cl.opus_score, cl.score,
+             GROUP_CONCAT(pm.pattern_id, ',') as patterns
+      FROM client_leads cl
+      LEFT JOIN companies c ON c.siren = cl.siren
+      LEFT JOIN patterns_matched pm ON pm.siren = cl.siren AND (pm.expires_at IS NULL OR pm.expires_at > CURRENT_TIMESTAMP)
+      WHERE cl.status = 'sent' AND cl.replied_at IS NULL
+        AND cl.sent_at <= datetime('now', '-14 days') ${filter}
+      GROUP BY cl.id LIMIT 50
+    `).all(...params);
+
+    const negatifs = this.db.prepare(`
+      SELECT cl.siren, c.raison_sociale, c.naf_code, cl.opus_score, cl.score,
+             GROUP_CONCAT(pm.pattern_id, ',') as patterns
+      FROM client_leads cl
+      LEFT JOIN companies c ON c.siren = cl.siren
+      LEFT JOIN patterns_matched pm ON pm.siren = cl.siren AND (pm.expires_at IS NULL OR pm.expires_at > CURRENT_TIMESTAMP)
+      WHERE cl.status IN ('replied_negative', 'discarded') ${filter}
+      GROUP BY cl.id LIMIT 20
+    `).all(...params);
+
+    const patterns = this.db.prepare(`SELECT id, name, description FROM patterns WHERE enabled = 1`).all();
+
+    return {
+      tenantId,
+      summary: {
+        convertis_count: convertis.length,
+        ignores_count: ignores.length,
+        negatifs_count: negatifs.length,
+        patterns_active: patterns.length
+      },
+      convertis,
+      ignores,
+      negatifs,
+      patterns_actuels: patterns
+    };
   }
 
   /**
@@ -216,6 +268,12 @@ class ContextBuilder {
    */
   renderDataContext(ctx) {
     if (!ctx || ctx.error) return `[contexte indisponible: ${ctx?.error || 'unknown'}]`;
+
+    // Discover context (structure différente)
+    if (ctx.summary && !ctx.company) {
+      return this._renderDiscoverContext(ctx);
+    }
+
     if (ctx.note && !ctx.company) return `[${ctx.note}]`;
 
     const parts = [
@@ -247,6 +305,38 @@ class ContextBuilder {
     let rendered = parts.filter(l => l !== null).join('\n');
     if (rendered.length > MAX_DATA_CONTEXT_CHARS) {
       rendered = rendered.slice(0, MAX_DATA_CONTEXT_CHARS) + '\n\n[…tronqué à ' + MAX_DATA_CONTEXT_CHARS + ' chars]';
+    }
+    return rendered;
+  }
+
+  _renderDiscoverContext(ctx) {
+    const fmtLead = l => {
+      const patterns = l.patterns ? [...new Set(l.patterns.split(','))].join('+') : '-';
+      const eff = l.effectif_min ?? '?';
+      return `- ${l.raison_sociale || l.siren} | NAF ${l.naf_code || '?'} | eff ${eff} | opus ${l.opus_score ?? '?'} | patterns ${patterns}`;
+    };
+    const patternsList = ctx.patterns_actuels.map(p => `- ${p.id} : ${p.name}`).join('\n');
+    const parts = [
+      `# Résumé`,
+      `Tenant analysé : ${ctx.tenantId || 'TOUS'}`,
+      `Convertis : ${ctx.summary.convertis_count}, Ignorés : ${ctx.summary.ignores_count}, Négatifs : ${ctx.summary.negatifs_count}`,
+      `Patterns actifs : ${ctx.summary.patterns_active}`,
+      '',
+      `# Patterns actifs dans le catalogue`,
+      patternsList,
+      '',
+      `# Leads CONVERTIS (RDV booké / reply positif) — ${ctx.convertis.length}`,
+      ctx.convertis.map(fmtLead).join('\n') || '(aucun)',
+      '',
+      `# Leads IGNORÉS (sent >14j sans reply) — ${ctx.ignores.length}`,
+      ctx.ignores.map(fmtLead).join('\n') || '(aucun)',
+      '',
+      `# Leads NÉGATIFS (reply neg / discarded) — ${ctx.negatifs.length}`,
+      ctx.negatifs.map(fmtLead).join('\n') || '(aucun)'
+    ];
+    let rendered = parts.join('\n');
+    if (rendered.length > MAX_DATA_CONTEXT_CHARS) {
+      rendered = rendered.slice(0, MAX_DATA_CONTEXT_CHARS) + '\n\n[…tronqué]';
     }
     return rendered;
   }

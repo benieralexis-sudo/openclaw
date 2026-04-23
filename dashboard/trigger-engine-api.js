@@ -499,6 +499,146 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
+  // ───── Claude Brain — monitoring stats (admin only) ─────
+  app.get('/api/trigger-engine/claude-brain/stats', authMiddleware, (req, res) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    try {
+      const queueStats = db.prepare(`
+        SELECT status, COUNT(*) as n FROM claude_brain_queue GROUP BY status
+      `).all();
+      const last24h = db.prepare(`
+        SELECT pipeline,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'dead' THEN 1 ELSE 0 END) as dead
+        FROM claude_brain_queue
+        WHERE created_at >= datetime('now', '-1 day')
+        GROUP BY pipeline
+      `).all();
+      const monthCost = db.prepare(`
+        SELECT tenant_id, pipeline, COUNT(*) as calls,
+               SUM(cost_eur) as cost, SUM(tokens_cached) as cached, SUM(tokens_input) as input,
+               AVG(CASE WHEN tokens_input > 0 THEN tokens_cached * 1.0 / tokens_input ELSE 0 END) as cache_hit_rate
+        FROM claude_brain_usage
+        WHERE month_key = strftime('%Y-%m', 'now')
+        GROUP BY tenant_id, pipeline
+      `).all();
+      const latencyStats = db.prepare(`
+        SELECT pipeline,
+          COUNT(*) as n,
+          AVG(latency_ms) as avg_ms,
+          MIN(latency_ms) as min_ms,
+          MAX(latency_ms) as max_ms
+        FROM claude_brain_results
+        WHERE created_at >= datetime('now', '-7 days')
+        GROUP BY pipeline
+      `).all();
+      const recentFails = db.prepare(`
+        SELECT id, tenant_id, pipeline, siren, error, failed_at, retry_count
+        FROM claude_brain_queue
+        WHERE status = 'dead'
+        ORDER BY failed_at DESC LIMIT 10
+      `).all();
+      const budgetAlerts = db.prepare(`
+        SELECT tenant_id, month_key, level, alerted_at
+        FROM claude_brain_budget_alerts
+        ORDER BY alerted_at DESC LIMIT 20
+      `).all();
+      const pendingProposals = db.prepare(`
+        SELECT COUNT(*) as n FROM claude_brain_pattern_proposals WHERE status = 'pending'
+      `).get()?.n || 0;
+
+      res.json({
+        enabled: true,
+        queue: queueStats,
+        last_24h: last24h,
+        month_cost: monthCost,
+        latency_7d: latencyStats,
+        recent_fails: recentFails,
+        budget_alerts: budgetAlerts,
+        pending_pattern_proposals: pendingProposals
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ───── Claude Brain — pattern proposals (admin) ─────
+  app.get('/api/trigger-engine/pattern-proposals', authMiddleware, (req, res) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    const status = req.query.status || 'pending';
+    try {
+      const rows = db.prepare(`
+        SELECT id, tenant_id, proposal_json, pattern_id, status, reviewed_by,
+               reviewed_at, review_note, discover_run_id, created_at
+        FROM claude_brain_pattern_proposals
+        WHERE status = ?
+        ORDER BY created_at DESC LIMIT 50
+      `).all(status);
+      const proposals = rows.map(r => {
+        let parsed = {};
+        try { parsed = JSON.parse(r.proposal_json); } catch {}
+        return { ...r, proposal: parsed };
+      });
+      res.json({ enabled: true, status, proposals });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/trigger-engine/pattern-proposals/:id/action', authMiddleware, (req, res) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });
+    const action = req.body?.action;
+    const note = req.body?.note || null;
+    if (!['accept', 'reject'].includes(action)) {
+      return res.status(400).json({ error: 'action doit être accept|reject' });
+    }
+    try {
+      const { DatabaseSync: RW } = require('node:sqlite');
+      const rwDb = new RW(DB_PATH, { readOnly: false });
+      rwDb.exec('PRAGMA busy_timeout = 3000;');
+      const prop = rwDb.prepare('SELECT proposal_json FROM claude_brain_pattern_proposals WHERE id = ?').get(req.params.id);
+      if (!prop) { rwDb.close(); return res.status(404).json({ error: 'not-found' }); }
+
+      if (action === 'accept') {
+        // Écrit le pattern JSON sur disque pour le matcher (validation humaine obligatoire)
+        let parsed;
+        try { parsed = JSON.parse(prop.proposal_json); } catch { rwDb.close(); return res.status(400).json({ error: 'proposal JSON invalid' }); }
+        const fs = require('node:fs');
+        const path = require('node:path');
+        const fileContent = {
+          id: parsed.id,
+          name: parsed.name,
+          description: parsed.description,
+          verticaux: parsed.verticaux || [],
+          pitch_angle: parsed.pitch_angle || '',
+          ...(parsed.technical_definition || {}),
+          enabled: false // Désactivé par défaut, admin active manuellement après test
+        };
+        const outPath = path.join('/app/skills/trigger-engine/patterns/definitions', `${parsed.id}.json`);
+        try {
+          fs.writeFileSync(outPath, JSON.stringify(fileContent, null, 2));
+        } catch (e) {
+          rwDb.close();
+          return res.status(500).json({ error: 'pattern file write failed: ' + e.message });
+        }
+      }
+
+      rwDb.prepare(`
+        UPDATE claude_brain_pattern_proposals
+        SET status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP, review_note = ?
+        WHERE id = ?
+      `).run(action === 'accept' ? 'accepted' : 'rejected', req.user.username, note, req.params.id);
+      rwDb.close();
+      res.json({ ok: true, action });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ───── Claude Brain — controls pause (admin only) ─────
   app.get('/api/trigger-engine/controls', authMiddleware, (req, res) => {
     const db = getDb();
