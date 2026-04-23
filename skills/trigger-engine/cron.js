@@ -45,46 +45,62 @@ class TriggerEngineCron {
   _enqueueAutoPitchesForRedLeads() {
     if (!this.claudeBrain || !this.claudeBrain.enabled) return { enqueued: 0 };
     const db = this.handler.storage.db;
-    // Récupère les tenants avec config auto_pitch_enabled et leur seuil
     const tenants = db.prepare(`
       SELECT id, claude_brain_config FROM clients WHERE status = 'active'
     `).all();
     let totalEnqueued = 0;
+    const stats = { pitch: 0, linkedin: 0, call: 0 };
+
     for (const t of tenants) {
       let cfg = {};
       try { cfg = t.claude_brain_config ? JSON.parse(t.claude_brain_config) : {}; } catch {}
       if (cfg.enabled === false) continue;
-      if (cfg.auto_pitch_enabled === false) continue;
-      if (cfg.pipelines && !cfg.pipelines.includes('pitch')) continue;
       const threshold = Number(cfg.auto_pitch_threshold ?? 8.0);
+      const pipelines = cfg.pipelines || ['pitch', 'linkedin-dm', 'call-brief'];
 
-      // Leads qualifiés ≥ seuil, sans pitch récent (<7j)
-      const leads = db.prepare(`
-        SELECT cl.siren
-        FROM client_leads cl
-        LEFT JOIN (
-          SELECT tenant_id, siren, MAX(created_at) as last_pitch
-          FROM claude_brain_results WHERE pipeline = 'pitch'
-          GROUP BY tenant_id, siren
-        ) pp ON pp.tenant_id = cl.client_id AND pp.siren = cl.siren
-        WHERE cl.client_id = ?
-          AND cl.opus_score >= ?
-          AND cl.status IN ('new', 'qualifying')
-          AND (pp.last_pitch IS NULL OR (julianday('now') - julianday(pp.last_pitch)) > 7)
-        LIMIT 10
-      `).all(t.id, threshold);
-
-      let tenantEnqueued = 0;
-      for (const lead of leads) {
-        const r = this.claudeBrain.enqueuePitch(t.id, lead.siren);
-        if (r.enqueued) tenantEnqueued += 1;
+      // Canaux à auto-générer selon config tenant
+      const channels = [];
+      if (cfg.auto_pitch_enabled !== false && pipelines.includes('pitch')) {
+        channels.push({ name: 'pitch', enqueueFn: 'enqueuePitch' });
       }
-      if (tenantEnqueued > 0) {
-        this.log.info?.(`[cron] Claude Brain auto-pitch ${t.id}: ${tenantEnqueued} jobs (seuil ≥${threshold})`);
-        totalEnqueued += tenantEnqueued;
+      if (cfg.auto_linkedin_enabled !== false && pipelines.includes('linkedin-dm')) {
+        channels.push({ name: 'linkedin-dm', enqueueFn: 'enqueueLinkedinDm' });
+      }
+      if (cfg.auto_call_brief_enabled !== false && pipelines.includes('call-brief')) {
+        channels.push({ name: 'call-brief', enqueueFn: 'enqueueCallBrief' });
+      }
+      if (channels.length === 0) continue;
+
+      for (const channel of channels) {
+        // Leads red sans contenu récent sur ce canal (<7j)
+        const leads = db.prepare(`
+          SELECT cl.siren
+          FROM client_leads cl
+          LEFT JOIN (
+            SELECT tenant_id, siren, MAX(created_at) as last_gen
+            FROM claude_brain_results WHERE pipeline = ?
+            GROUP BY tenant_id, siren
+          ) pp ON pp.tenant_id = cl.client_id AND pp.siren = cl.siren
+          WHERE cl.client_id = ?
+            AND cl.opus_score >= ?
+            AND cl.status IN ('new', 'qualifying')
+            AND (pp.last_gen IS NULL OR (julianday('now') - julianday(pp.last_gen)) > 7)
+          LIMIT 10
+        `).all(channel.name, t.id, threshold);
+
+        for (const lead of leads) {
+          const r = this.claudeBrain[channel.enqueueFn](t.id, lead.siren);
+          if (r.enqueued) {
+            totalEnqueued += 1;
+            stats[channel.name === 'linkedin-dm' ? 'linkedin' : channel.name === 'call-brief' ? 'call' : 'pitch'] += 1;
+          }
+        }
       }
     }
-    return { enqueued: totalEnqueued };
+    if (totalEnqueued > 0) {
+      this.log.info?.(`[cron] Claude Brain auto-3-canaux : ${totalEnqueued} jobs (pitch=${stats.pitch}, linkedin=${stats.linkedin}, call=${stats.call})`);
+    }
+    return { enqueued: totalEnqueued, stats };
   }
 
   /**

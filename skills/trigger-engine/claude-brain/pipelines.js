@@ -18,6 +18,8 @@ const { callAnthropic } = require('./anthropic-client');
 const PIPELINE_CONFIG = {
   qualify: { json: true, maxTokens: 2048 },
   pitch: { json: true, maxTokens: 1500 },
+  'linkedin-dm': { json: true, maxTokens: 1200 },
+  'call-brief': { json: true, maxTokens: 2500 },
   brief: { json: false, maxTokens: 6000 },
   discover: { json: true, maxTokens: 3000 }
 };

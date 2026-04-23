@@ -22,7 +22,7 @@ const telegramAlert = require('../lib/telegram-alert');
 
 const DEFAULT_TENANT_CONFIG = {
   enabled: true,
-  pipelines: ['qualify', 'pitch', 'brief', 'discover'],
+  pipelines: ['qualify', 'pitch', 'linkedin-dm', 'call-brief', 'brief', 'discover'],
   monthly_budget_eur: 300,
   hard_cap_eur: 500,
   voice_template: '',
@@ -34,7 +34,11 @@ const DEFAULT_TENANT_CONFIG = {
   auto_send_enabled: false,
   auto_pitch_enabled: true,
   auto_pitch_threshold: 8.0,
+  auto_linkedin_enabled: true,
+  auto_call_brief_enabled: true,
   max_pitch_regenerations: 3,
+  max_linkedin_regenerations: 3,
+  max_call_brief_regenerations: 2,
   max_brief_regenerations: 2,
   // Staleness auto-requalify : dernière qualif > N jours OU nouveaux events/contacts
   stale_qualify_days: 14
@@ -124,6 +128,26 @@ class ClaudeBrain {
    */
   enqueuePitch(tenantId, siren, { userTriggered = null } = {}) {
     return this._enqueuePipeline(tenantId, siren, 'pitch', {
+      priority: 2,
+      payload: userTriggered ? JSON.stringify({ user: userTriggered, ts: Date.now() }) : null
+    });
+  }
+
+  /**
+   * Enqueue a LinkedIn DM job (priorité haute).
+   */
+  enqueueLinkedinDm(tenantId, siren, { userTriggered = null } = {}) {
+    return this._enqueuePipeline(tenantId, siren, 'linkedin-dm', {
+      priority: 2,
+      payload: userTriggered ? JSON.stringify({ user: userTriggered, ts: Date.now() }) : null
+    });
+  }
+
+  /**
+   * Enqueue a call brief job (priorité haute).
+   */
+  enqueueCallBrief(tenantId, siren, { userTriggered = null } = {}) {
+    return this._enqueuePipeline(tenantId, siren, 'call-brief', {
       priority: 2,
       payload: userTriggered ? JSON.stringify({ user: userTriggered, ts: Date.now() }) : null
     });

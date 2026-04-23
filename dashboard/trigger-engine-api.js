@@ -1019,6 +1019,151 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
+  // ───── Helper générique pour générer pitch/linkedin-dm/call-brief ─────
+  async function generatePipelineHandler(req, res, pipeline, timeoutMs = 45_000, maxConfigKey = 'max_pitch_regenerations') {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    const leadId = req.params.leadId;
+    try {
+      const { DatabaseSync: RW } = require('node:sqlite');
+      const rwDb = new RW(DB_PATH, { readOnly: false });
+      rwDb.exec('PRAGMA busy_timeout = 3000;');
+      const lead = rwDb.prepare('SELECT id, client_id, siren, opus_score FROM client_leads WHERE id = ?').get(leadId);
+      if (!lead) { rwDb.close(); return res.status(404).json({ error: 'lead-not-found' }); }
+
+      if (req.user?.role === 'commercial') {
+        const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+        if (!scope.includes(lead.client_id)) {
+          rwDb.close();
+          return res.status(403).json({ error: 'Ce lead n\'est pas dans votre périmètre' });
+        }
+      }
+
+      const tRow = rwDb.prepare('SELECT claude_brain_config FROM clients WHERE id = ?').get(lead.client_id);
+      let cfg = {};
+      try { cfg = tRow?.claude_brain_config ? JSON.parse(tRow.claude_brain_config) : {}; } catch {}
+      if (cfg.enabled === false || (cfg.pipelines && !cfg.pipelines.includes(pipeline))) {
+        rwDb.close();
+        return res.status(409).json({ error: `pipeline ${pipeline} désactivé pour ce tenant` });
+      }
+
+      const maxRegens = Number(cfg[maxConfigKey] ?? 3);
+      const countRow = rwDb.prepare(`
+        SELECT COUNT(*) as n FROM claude_brain_results
+        WHERE tenant_id = ? AND siren = ? AND pipeline = ?
+      `).get(lead.client_id, lead.siren, pipeline);
+      const existingCount = countRow?.n || 0;
+      if (existingCount >= maxRegens && req.user?.role !== 'admin') {
+        rwDb.close();
+        return res.status(429).json({
+          error: 'max_regenerations_reached',
+          max: maxRegens,
+          current: existingCount,
+          message: `Limite de ${maxRegens} générations atteinte pour ce lead.`
+        });
+      }
+
+      const crypto = require('node:crypto');
+      const payload = JSON.stringify({ user: req.user?.username, ts: Date.now() });
+      const idempotencyKey = crypto.createHash('sha256')
+        .update(`${lead.client_id}|${pipeline}|${lead.siren}|${payload}`)
+        .digest('hex').slice(0, 32);
+      const inserted = rwDb.prepare(`
+        INSERT INTO claude_brain_queue
+          (tenant_id, pipeline, siren, payload, idempotency_key, priority, max_retries, status, scheduled_at)
+        VALUES (?, ?, ?, ?, ?, 2, 3, 'pending', CURRENT_TIMESTAMP)
+      `).run(lead.client_id, pipeline, lead.siren, payload, idempotencyKey);
+      const jobId = inserted.lastInsertRowid;
+      rwDb.close();
+
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const job = db.prepare('SELECT status, error FROM claude_brain_queue WHERE id = ?').get(jobId);
+        if (!job) break;
+        if (job.status === 'completed') {
+          const r = db.prepare(`
+            SELECT id, version, result_json, model, tokens_input, tokens_output, tokens_cached,
+                   cost_eur, latency_ms, created_at
+            FROM claude_brain_results WHERE job_id = ? ORDER BY version DESC LIMIT 1
+          `).get(jobId);
+          if (!r) return res.json({ status: 'completed-no-result' });
+          let parsed = null;
+          try { parsed = JSON.parse(r.result_json); } catch { parsed = r.result_json; }
+          return res.json({
+            status: 'completed',
+            result: parsed,
+            meta: {
+              result_id: r.id, version: r.version, model: r.model,
+              tokens_input: r.tokens_input, tokens_output: r.tokens_output,
+              tokens_cached: r.tokens_cached, cost_eur: r.cost_eur,
+              latency_ms: r.latency_ms, created_at: r.created_at
+            }
+          });
+        }
+        if (job.status === 'dead') {
+          return res.status(502).json({ status: 'dead', error: job.error });
+        }
+        await new Promise(r => setTimeout(r, 800));
+      }
+      return res.status(504).json({ status: 'timeout', job_id: jobId });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // LinkedIn DM generation
+  app.post('/api/trigger-engine/leads/:leadId/linkedin/generate', authMiddleware,
+    (req, res) => generatePipelineHandler(req, res, 'linkedin-dm', 45_000, 'max_linkedin_regenerations'));
+
+  // Call brief generation
+  app.post('/api/trigger-engine/leads/:leadId/call/generate', authMiddleware,
+    (req, res) => generatePipelineHandler(req, res, 'call-brief', 60_000, 'max_call_brief_regenerations'));
+
+  // Get LinkedIn DM / call brief (latest version)
+  app.get('/api/trigger-engine/leads/:leadId/linkedin', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    try {
+      const lead = db.prepare('SELECT client_id, siren FROM client_leads WHERE id = ?').get(req.params.leadId);
+      if (!lead) return res.status(404).json({ error: 'lead-not-found' });
+      if (req.user?.role === 'commercial') {
+        const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+        if (!scope.includes(lead.client_id)) return res.status(403).json({ error: 'hors scope' });
+      }
+      const r = db.prepare(`
+        SELECT id, version, result_json, cost_eur, latency_ms, created_at
+        FROM claude_brain_results WHERE tenant_id = ? AND siren = ? AND pipeline = 'linkedin-dm'
+        ORDER BY version DESC LIMIT 1
+      `).get(lead.client_id, lead.siren);
+      if (!r) return res.json({ enabled: true, linkedin: null });
+      let parsed = null;
+      try { parsed = JSON.parse(r.result_json); } catch {}
+      res.json({ enabled: true, linkedin: parsed, meta: r });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get('/api/trigger-engine/leads/:leadId/call', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    try {
+      const lead = db.prepare('SELECT client_id, siren FROM client_leads WHERE id = ?').get(req.params.leadId);
+      if (!lead) return res.status(404).json({ error: 'lead-not-found' });
+      if (req.user?.role === 'commercial') {
+        const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+        if (!scope.includes(lead.client_id)) return res.status(403).json({ error: 'hors scope' });
+      }
+      const r = db.prepare(`
+        SELECT id, version, result_json, cost_eur, latency_ms, created_at
+        FROM claude_brain_results WHERE tenant_id = ? AND siren = ? AND pipeline = 'call-brief'
+        ORDER BY version DESC LIMIT 1
+      `).get(lead.client_id, lead.siren);
+      if (!r) return res.json({ enabled: true, call: null });
+      let parsed = null;
+      try { parsed = JSON.parse(r.result_json); } catch {}
+      res.json({ enabled: true, call: parsed, meta: r });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   // Liste historique des pitchs pour un lead
   app.get('/api/trigger-engine/leads/:leadId/pitches', authMiddleware, (req, res) => {
     const db = getDb();

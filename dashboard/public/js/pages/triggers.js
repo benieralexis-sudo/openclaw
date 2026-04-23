@@ -210,7 +210,7 @@ function renderLeadRow(l) {
       <td>
         <button class="btn btn-sm pitch-btn" data-lead-id="${l.id}">✉ Pitch</button>
         <button class="btn btn-sm opus-btn" data-lead-id="${l.id}" style="margin-left:0.25em">🧠 Opus</button>
-        <button class="btn btn-sm opus-pitch-btn" data-lead-id="${l.id}" style="margin-left:0.25em;background:#1e40af;color:#fff">✍ Pitch Opus</button>
+        <button class="btn btn-sm opus-channels-btn" data-lead-id="${l.id}" style="margin-left:0.25em;background:#059669;color:#fff">💬 3 canaux</button>
         <button class="btn btn-sm opus-brief-btn" data-lead-id="${l.id}" style="margin-left:0.25em;background:#7c3aed;color:#fff">📋 Brief RDV</button>
       </td>
     </tr>
@@ -219,6 +219,7 @@ function renderLeadRow(l) {
         <div style="padding:0.75em">
           <div class="opus-block" data-lead-id="${l.id}" style="display:none;background:#eff6ff;padding:0.75em;border-left:3px solid #2563EB;border-radius:4px;margin-bottom:1em"></div>
           <div class="opus-pitch-block" data-lead-id="${l.id}" style="display:none;background:#ecfdf5;padding:0.75em;border-left:3px solid #059669;border-radius:4px;margin-bottom:1em"></div>
+          <div class="opus-channels-block" data-lead-id="${l.id}" style="display:none;background:#ecfdf5;padding:0.75em;border-left:3px solid #059669;border-radius:4px;margin-bottom:1em"></div>
           <div class="opus-brief-block" data-lead-id="${l.id}" style="display:none;background:#faf5ff;padding:0.75em;border-left:3px solid #7c3aed;border-radius:4px;margin-bottom:1em"></div>
           ${contacts.length > 0 ? `
           <div style="font-weight:600;margin-bottom:0.5em">Contacts identifiés (${contacts.length}) :</div>
@@ -373,6 +374,239 @@ function wirePitchButtons() {
 function escapeHtml(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ─── Pitch Opus 3 canaux (Email + LinkedIn + Call) ───
+document.addEventListener('click', async (evt) => {
+  const btn = evt.target.closest('.opus-channels-btn');
+  if (!btn) return;
+  const id = btn.dataset.leadId;
+  const row = document.querySelector(`.pitch-row[data-lead-id="${id}"]`);
+  const block = document.querySelector(`.opus-channels-block[data-lead-id="${id}"]`);
+  if (!row || !block) return;
+  row.style.display = '';
+  block.style.display = '';
+  block.innerHTML = `
+    <div style="display:flex;gap:0.5em;margin-bottom:0.75em">
+      <button class="btn btn-sm channel-tab active" data-channel="email" data-lead-id="${id}" style="background:#059669;color:#fff">📧 Email</button>
+      <button class="btn btn-sm channel-tab" data-channel="linkedin" data-lead-id="${id}">💬 LinkedIn</button>
+      <button class="btn btn-sm channel-tab" data-channel="call" data-lead-id="${id}">📞 Call</button>
+    </div>
+    <div class="channel-content" data-lead-id="${id}"><small style="color:#6b7280">Chargement...</small></div>
+  `;
+  loadChannel(id, 'email', block);
+});
+
+document.addEventListener('click', (evt) => {
+  const tab = evt.target.closest('.channel-tab');
+  if (!tab) return;
+  const id = tab.dataset.leadId;
+  const channel = tab.dataset.channel;
+  const block = document.querySelector(`.opus-channels-block[data-lead-id="${id}"]`);
+  if (!block) return;
+  block.querySelectorAll('.channel-tab').forEach(t => { t.classList.remove('active'); t.style.background = ''; t.style.color = ''; });
+  tab.classList.add('active');
+  tab.style.background = '#059669';
+  tab.style.color = '#fff';
+  loadChannel(id, channel, block);
+});
+
+async function loadChannel(leadId, channel, block) {
+  const content = block.querySelector('.channel-content');
+  if (!content) return;
+  content.innerHTML = '<small style="color:#6b7280">Chargement...</small>';
+  try {
+    if (channel === 'email') {
+      // Charge via endpoint pitches
+      const r = await fetch('/api/trigger-engine/leads/' + leadId + '/pitches').then(r => r.json());
+      if (!r.versions || r.versions.length === 0) {
+        content.innerHTML = renderGenerateButton(leadId, 'pitch', 'email');
+        return;
+      }
+      const latest = r.versions[0];
+      renderEmailTab(content, latest.pitch, latest, leadId, r);
+    } else if (channel === 'linkedin') {
+      const r = await fetch('/api/trigger-engine/leads/' + leadId + '/linkedin').then(r => r.json());
+      if (!r.linkedin) {
+        content.innerHTML = renderGenerateButton(leadId, 'linkedin', 'LinkedIn');
+        return;
+      }
+      renderLinkedinTab(content, r.linkedin, r.meta, leadId);
+    } else if (channel === 'call') {
+      const r = await fetch('/api/trigger-engine/leads/' + leadId + '/call').then(r => r.json());
+      if (!r.call) {
+        content.innerHTML = renderGenerateButton(leadId, 'call', 'Call');
+        return;
+      }
+      renderCallTab(content, r.call, r.meta, leadId);
+    }
+  } catch (err) {
+    content.innerHTML = `<small style="color:#dc2626">Erreur : ${escapeHtml(err.message)}</small>`;
+  }
+}
+
+function renderGenerateButton(leadId, channel, label) {
+  return `
+    <div style="text-align:center;padding:1em">
+      <p style="color:#6b7280;margin-bottom:0.5em">Aucun ${escapeHtml(label)} généré pour ce lead.</p>
+      <button class="btn btn-sm opus-gen-${channel}" data-lead-id="${leadId}" style="background:#059669;color:#fff">
+        ✨ Générer ${escapeHtml(label)} avec Opus (~0.06€)
+      </button>
+    </div>
+  `;
+}
+
+// Générer à la demande
+document.addEventListener('click', async (evt) => {
+  const pitchBtn = evt.target.closest('.opus-gen-pitch');
+  const linkedinBtn = evt.target.closest('.opus-gen-linkedin');
+  const callBtn = evt.target.closest('.opus-gen-call');
+  const btn = pitchBtn || linkedinBtn || callBtn;
+  if (!btn) return;
+  const leadId = btn.dataset.leadId;
+  const block = btn.closest('.opus-channels-block');
+  const content = block?.querySelector('.channel-content');
+  if (!content) return;
+  btn.disabled = true;
+  content.innerHTML = '<small style="color:#6b7280">✨ Génération Opus en cours...</small>';
+  let endpoint, channelName;
+  if (pitchBtn) { endpoint = '/pitch/generate'; channelName = 'email'; }
+  else if (linkedinBtn) { endpoint = '/linkedin/generate'; channelName = 'linkedin'; }
+  else { endpoint = '/call/generate'; channelName = 'call'; }
+  try {
+    const resp = await fetch('/api/trigger-engine/leads/' + leadId + endpoint, { method: 'POST' });
+    const r = await resp.json();
+    if (resp.status === 429) {
+      content.innerHTML = `<small style="color:#b45309">⚠ Limite atteinte (${r.current}/${r.max}). Contacte l'admin.</small>`;
+      return;
+    }
+    if (r.status !== 'completed') {
+      content.innerHTML = `<small style="color:#dc2626">${escapeHtml(r.status || 'erreur')} ${escapeHtml(r.error || '')}</small>`;
+      return;
+    }
+    loadChannel(leadId, channelName, block);
+  } catch (err) {
+    content.innerHTML = `<small style="color:#dc2626">Erreur : ${escapeHtml(err.message)}</small>`;
+  }
+});
+
+function renderEmailTab(content, pitch, meta, leadId, versionsData) {
+  const lead = document.querySelector(`tr[data-lead-id="${leadId}"]`);
+  // Récup email contact depuis la table leads
+  content.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5em">
+      <strong style="color:#065f46">📧 Email pré-rédigé</strong>
+      <div style="font-size:0.75em;color:#6b7280">
+        v${meta?.version || '?'} · ${(meta?.cost_eur || 0).toFixed(4)}€
+      </div>
+    </div>
+    <label style="font-weight:600;font-size:0.85em;display:block;margin-bottom:0.25em">Objet</label>
+    <input type="text" class="ch-subject" value="${escapeHtml(pitch?.subject || '')}" style="width:100%;padding:0.4em 0.6em;border:1px solid #d1d5db;border-radius:4px;font-family:monospace;font-size:0.9em;margin-bottom:0.5em">
+    <label style="font-weight:600;font-size:0.85em;display:block;margin-bottom:0.25em">Corps</label>
+    <textarea class="ch-body" rows="8" style="width:100%;padding:0.5em;border:1px solid #d1d5db;border-radius:4px;font-size:0.9em;line-height:1.5;resize:vertical">${escapeHtml(pitch?.body || '')}</textarea>
+    <div style="display:flex;gap:0.5em;align-items:center;margin-top:0.5em;flex-wrap:wrap">
+      <button class="btn btn-sm ch-copy-email" data-lead-id="${leadId}">📋 Copier</button>
+      <button class="btn btn-sm ch-mailto" data-lead-id="${leadId}" style="background:#059669;color:#fff">📧 Ouvrir dans mon mail</button>
+      <button class="btn btn-sm btn-outline opus-gen-pitch" data-lead-id="${leadId}">🔄 Régénérer</button>
+      <span style="font-size:0.75em;color:#6b7280;margin-left:auto">
+        ${versionsData?.total || 0}/${versionsData?.max_regenerations || 3} générations
+      </span>
+    </div>
+  `;
+  content.querySelector('.ch-copy-email')?.addEventListener('click', (e) => {
+    const subj = content.querySelector('.ch-subject').value;
+    const body = content.querySelector('.ch-body').value;
+    navigator.clipboard.writeText(`Objet : ${subj}\n\n${body}`);
+    e.currentTarget.innerText = '✓ Copié !';
+    setTimeout(() => { e.currentTarget.innerText = '📋 Copier'; }, 2000);
+  });
+  content.querySelector('.ch-mailto')?.addEventListener('click', () => {
+    // Cherche un email contact via API
+    fetch('/api/trigger-engine/leads/' + leadId + '/qualification').then(r => r.json()).then(data => {
+      const subj = content.querySelector('.ch-subject').value;
+      const body = content.querySelector('.ch-body').value;
+      // Récupérer email principal via /leads endpoint ? Pour l'instant mailto sans destinataire
+      const mailto = 'mailto:?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+      window.location.href = mailto;
+    }).catch(() => {
+      const subj = content.querySelector('.ch-subject').value;
+      const body = content.querySelector('.ch-body').value;
+      window.location.href = 'mailto:?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+    });
+  });
+}
+
+function renderLinkedinTab(content, ln, meta, leadId) {
+  const profileUrl = ln.profile_url || '';
+  content.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5em">
+      <strong style="color:#0369a1">💬 LinkedIn DM</strong>
+      <div style="font-size:0.75em;color:#6b7280">
+        v${meta?.version || '?'} · ${(meta?.cost_eur || 0).toFixed(4)}€ · ${escapeHtml(ln.confidence || '')}
+      </div>
+    </div>
+    <label style="font-weight:600;font-size:0.85em;display:block;margin-bottom:0.25em">Message (${(ln.message || '').length}/300 chars)</label>
+    <textarea class="ch-ln-msg" rows="4" style="width:100%;padding:0.5em;border:1px solid #d1d5db;border-radius:4px;font-size:0.9em">${escapeHtml(ln.message || '')}</textarea>
+    <div style="margin-top:0.5em;font-size:0.85em;color:#4b5563">
+      <strong>Angle :</strong> ${escapeHtml(ln.opener_angle || '-')}<br>
+      <strong>Relance si pas de réponse :</strong> ${escapeHtml(ln.followup_suggestion || '-')}
+    </div>
+    <div style="display:flex;gap:0.5em;align-items:center;margin-top:0.5em;flex-wrap:wrap">
+      <button class="btn btn-sm ch-copy-ln" data-lead-id="${leadId}">📋 Copier le message</button>
+      ${profileUrl ? `<a class="btn btn-sm" href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener" style="background:#0a66c2;color:#fff">🔗 Ouvrir profil LinkedIn</a>` : '<span style="font-size:0.8em;color:#9ca3af">Profil à chercher manuellement</span>'}
+      <a class="btn btn-sm btn-outline" href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((ln.opener_angle || '').split(' ').slice(0, 3).join(' '))}" target="_blank" rel="noopener">🔎 Rechercher LinkedIn</a>
+      <button class="btn btn-sm btn-outline opus-gen-linkedin" data-lead-id="${leadId}">🔄 Régénérer</button>
+    </div>
+  `;
+  content.querySelector('.ch-copy-ln')?.addEventListener('click', (e) => {
+    navigator.clipboard.writeText(content.querySelector('.ch-ln-msg').value);
+    e.currentTarget.innerText = '✓ Copié !';
+    setTimeout(() => { e.currentTarget.innerText = '📋 Copier le message'; }, 2000);
+  });
+}
+
+function renderCallTab(content, call, meta, leadId) {
+  const questions = (call.questions_to_ask || []).map((q, i) => `
+    <li style="margin-bottom:0.4em"><strong>Q${i + 1} :</strong> ${escapeHtml(q.q || '')}<br>
+    <small style="color:#6b7280"><em>Pourquoi : ${escapeHtml(q.why || '')}</em></small></li>
+  `).join('');
+  const objections = (call.likely_objections || []).map(o => `
+    <li style="margin-bottom:0.4em"><strong>"${escapeHtml(o.objection || '')}"</strong><br>
+    <small>→ ${escapeHtml(o.response || '')}</small></li>
+  `).join('');
+  content.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5em">
+      <strong style="color:#be123c">📞 Script Call</strong>
+      <div style="font-size:0.75em;color:#6b7280">v${meta?.version || '?'} · ${(meta?.cost_eur || 0).toFixed(4)}€</div>
+    </div>
+    ${call.prospect_phone_context ? `<div style="background:#fff;padding:0.5em;border-radius:4px;margin-bottom:0.5em;font-size:0.85em"><strong>Contexte :</strong> ${escapeHtml(call.prospect_phone_context)}</div>` : ''}
+    <div style="background:#fef2f2;border-left:3px solid #be123c;padding:0.5em;border-radius:4px;margin-bottom:0.5em">
+      <strong>Accroche 30s :</strong><br>
+      <em>${escapeHtml(call.opener_30s || '')}</em>
+    </div>
+    ${questions ? `<div style="margin-bottom:0.5em"><strong>3 questions à poser :</strong><ol style="margin:0.25em 0 0 1.2em;padding:0">${questions}</ol></div>` : ''}
+    ${objections ? `<div style="margin-bottom:0.5em"><strong>Objections probables :</strong><ul style="margin:0.25em 0 0 1.2em;padding:0">${objections}</ul></div>` : ''}
+    ${call.not_available_fallback ? `<div style="margin-bottom:0.5em;font-size:0.85em"><strong>Si pas dispo :</strong> ${escapeHtml(call.not_available_fallback)}</div>` : ''}
+    ${call.closing_script ? `<div style="background:#f0fdf4;padding:0.5em;border-radius:4px;margin-bottom:0.5em;font-size:0.85em"><strong>Closing :</strong> ${escapeHtml(call.closing_script)}</div>` : ''}
+    ${(call.do_not_say || []).length ? `<div style="margin-bottom:0.5em;font-size:0.8em;color:#991b1b"><strong>À éviter :</strong> ${(call.do_not_say || []).map(escapeHtml).join(' · ')}</div>` : ''}
+    <div style="display:flex;gap:0.5em;margin-top:0.5em">
+      <button class="btn btn-sm ch-copy-call" data-lead-id="${leadId}">📋 Copier le script</button>
+      <button class="btn btn-sm btn-outline opus-gen-call" data-lead-id="${leadId}">🔄 Régénérer</button>
+    </div>
+  `;
+  content.querySelector('.ch-copy-call')?.addEventListener('click', (e) => {
+    const txt = [
+      `CONTEXTE: ${call.prospect_phone_context || ''}`,
+      `\nACCROCHE 30s: ${call.opener_30s || ''}`,
+      `\nQUESTIONS:`, ...(call.questions_to_ask || []).map((q, i) => `${i + 1}. ${q.q} (${q.why})`),
+      `\nOBJECTIONS:`, ...(call.likely_objections || []).map(o => `- "${o.objection}" → ${o.response}`),
+      `\nSI PAS DISPO: ${call.not_available_fallback || ''}`,
+      `\nCLOSING: ${call.closing_script || ''}`
+    ].join('\n');
+    navigator.clipboard.writeText(txt);
+    e.currentTarget.innerText = '✓ Copié !';
+    setTimeout(() => { e.currentTarget.innerText = '📋 Copier le script'; }, 2000);
+  });
 }
 
 // Génération Brief RDV Opus on-demand

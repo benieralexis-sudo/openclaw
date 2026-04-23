@@ -23,7 +23,7 @@ function cleanupStorage(storage, dbPath) {
 function seedTenant(storage, id = 't1', overrides = {}) {
   const cfg = {
     enabled: true,
-    pipelines: ['qualify', 'pitch', 'brief'],
+    pipelines: ['qualify', 'pitch', 'linkedin-dm', 'call-brief', 'brief'],
     monthly_budget_eur: 100,
     hard_cap_eur: 200,
     voice_template: 'Ton direct, tech-first',
