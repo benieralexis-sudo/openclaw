@@ -68,6 +68,8 @@ function generateSubject(match) {
       return `Transition stratégique — ${nom}`;
     case 'new-company-hiring':
       return `Félicitations pour la création de ${nom}`;
+    case 'new-brand-launch':
+      return `Nouvelle marque déposée — ${nom}`;
     default:
       return `Message rapide pour ${nom}`;
   }
@@ -110,6 +112,8 @@ function generateBody(match) {
         return `Bonjour,\n\nJ'ai repéré plusieurs offres actives chez ${nom} récemment.`;
       case 'new-exec-hire':
         return `Bonjour,\n\nVu qu'un nouveau profil exec a été recruté récemment chez ${nom}.`;
+      case 'new-brand-launch':
+        return `Bonjour,\n\nJ'ai vu que vous aviez déposé récemment une nouvelle marque à l'INPI.`;
       default:
         return `Bonjour,`;
     }

@@ -1,0 +1,50 @@
+{
+  "id": "new-brand-launch",
+  "name": "Dépôt marque récent (nouveau produit/service)",
+  "description": "Entreprise qui a déposé une nouvelle marque à l'INPI dans les 60 derniers jours. Signal d'achat B2B fort : lancement de produit/service, souvent accompagné de recrutements commerciaux, budget marketing, besoin d'outils. Moins intense qu'une levée mais plus fréquent.",
+  "verticaux": ["saas", "conseil", "agency", "marketing", "tools"],
+  "pitch_angle": "J'ai vu que vous aviez déposé la marque « {mark} ». On accompagne les boîtes en phase de lancement à {solution} pour accélérer le time-to-market sans cramer l'équipe. 15 min cette semaine ?",
+  "min_score": 6.0,
+  "max_score": 10.0,
+  "window_days": 60,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["marque_deposee"],
+        "min_count": 1,
+        "weight": 6.0,
+        "description": "Au moins 1 dépôt de marque INPI"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["marque_deposee"],
+      "min_count": 2,
+      "weight": 2.0,
+      "description": "Bonus si plusieurs marques déposées (portefeuille actif)"
+    },
+    {
+      "types": ["hiring_sales", "hiring_marketing"],
+      "weight": 1.5,
+      "description": "Bonus si recrutement commercial/mkt en parallèle (go-to-market actif)"
+    },
+    {
+      "types": ["funding", "funding_seed", "funding_series"],
+      "weight": 2.0,
+      "description": "Bonus si levée corrélée (lancement financé)"
+    },
+    {
+      "types": ["media_buzz"],
+      "weight": 1.0,
+      "description": "Bonus si couverture presse (buzz autour du lancement)"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"],
+      "description": "Entreprise en difficulté ou radiée"
+    }
+  ],
+  "enabled": true
+}
