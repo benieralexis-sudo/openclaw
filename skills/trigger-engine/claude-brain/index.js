@@ -33,7 +33,9 @@ const DEFAULT_TENANT_CONFIG = {
   auto_send_threshold_email_confidence: 0.85,
   auto_send_enabled: false,
   auto_pitch_enabled: true,
-  auto_pitch_threshold: 8.0
+  auto_pitch_threshold: 8.0,
+  max_pitch_regenerations: 3,
+  max_brief_regenerations: 2
 };
 
 class ClaudeBrain {

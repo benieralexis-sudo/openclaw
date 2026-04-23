@@ -809,6 +809,23 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
         return res.status(409).json({ error: 'pipeline brief désactivé pour ce tenant' });
       }
 
+      // Limite régénérations brief (coûte plus cher, seuil plus bas par défaut)
+      const maxRegens = Number(cfg.max_brief_regenerations ?? 2);
+      const countRow = rwDb.prepare(`
+        SELECT COUNT(*) as n FROM claude_brain_results
+        WHERE tenant_id = ? AND siren = ? AND pipeline = 'brief'
+      `).get(lead.client_id, lead.siren);
+      const existingCount = countRow?.n || 0;
+      if (existingCount >= maxRegens && req.user?.role !== 'admin') {
+        rwDb.close();
+        return res.status(429).json({
+          error: 'max_regenerations_reached',
+          max: maxRegens,
+          current: existingCount,
+          message: `Limite de ${maxRegens} briefs atteinte pour ce lead. Contacte l'admin pour reset.`
+        });
+      }
+
       const version = Date.now();
       const crypto = require('node:crypto');
       const payload = JSON.stringify({ user: req.user?.username, ts: version });
@@ -930,6 +947,24 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
         return res.status(409).json({ error: 'pipeline pitch désactivé pour ce tenant' });
       }
 
+      // Limite de régénérations : compte les versions existantes pour ce (tenant, siren, pitch)
+      const maxRegens = Number(cfg.max_pitch_regenerations ?? 3);
+      const countRow = rwDb.prepare(`
+        SELECT COUNT(*) as n FROM claude_brain_results
+        WHERE tenant_id = ? AND siren = ? AND pipeline = 'pitch'
+      `).get(lead.client_id, lead.siren);
+      const existingCount = countRow?.n || 0;
+      // Admin peut toujours régénérer au-delà
+      if (existingCount >= maxRegens && req.user?.role !== 'admin') {
+        rwDb.close();
+        return res.status(429).json({
+          error: 'max_regenerations_reached',
+          max: maxRegens,
+          current: existingCount,
+          message: `Limite de ${maxRegens} générations atteinte pour ce lead. Contacte l'admin pour reset.`
+        });
+      }
+
       // Version unique pour forcer un nouveau job (régénération)
       const version = Date.now();
       const crypto = require('node:crypto');
@@ -1006,7 +1041,41 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
         let parsed = null; try { parsed = JSON.parse(r.result_json); } catch {}
         return { ...r, pitch: parsed };
       });
-      res.json({ enabled: true, total: versions.length, versions });
+      // Exposer la limite pour que l'UI grise le bouton régénérer si atteint
+      const tRow = db.prepare('SELECT claude_brain_config FROM clients WHERE id = ?').get(lead.client_id);
+      let cfg = {};
+      try { cfg = tRow?.claude_brain_config ? JSON.parse(tRow.claude_brain_config) : {}; } catch {}
+      const maxRegens = Number(cfg.max_pitch_regenerations ?? 3);
+      res.json({
+        enabled: true, total: versions.length, versions,
+        max_regenerations: maxRegens,
+        can_regenerate: versions.length < maxRegens || req.user?.role === 'admin'
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Admin reset : remet le compteur de régénérations à zéro pour un lead
+  app.post('/api/trigger-engine/leads/:leadId/regenerations/reset', authMiddleware, (req, res) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });
+    const pipeline = req.body?.pipeline;
+    if (!['pitch', 'brief'].includes(pipeline)) {
+      return res.status(400).json({ error: 'pipeline doit être pitch|brief' });
+    }
+    try {
+      const db = getDb();
+      const lead = db.prepare('SELECT client_id, siren FROM client_leads WHERE id = ?').get(req.params.leadId);
+      if (!lead) return res.status(404).json({ error: 'lead-not-found' });
+      const { DatabaseSync: RW } = require('node:sqlite');
+      const rwDb = new RW(DB_PATH, { readOnly: false });
+      rwDb.exec('PRAGMA busy_timeout = 3000;');
+      const r = rwDb.prepare(`
+        DELETE FROM claude_brain_results
+        WHERE tenant_id = ? AND siren = ? AND pipeline = ?
+      `).run(lead.client_id, lead.siren, pipeline);
+      rwDb.close();
+      res.json({ ok: true, deleted: r.changes, lead_id: req.params.leadId, pipeline });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }

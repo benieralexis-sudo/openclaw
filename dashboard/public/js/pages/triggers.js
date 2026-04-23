@@ -448,7 +448,12 @@ document.addEventListener('click', async (evt) => {
   block.innerHTML = '<small style="color:#6b7280">✍ Génération Opus en cours... (5-30s)</small>';
   btn.disabled = true;
   try {
-    const r = await fetch('/api/trigger-engine/leads/' + id + '/pitch/generate', { method: 'POST' }).then(r => r.json());
+    const resp = await fetch('/api/trigger-engine/leads/' + id + '/pitch/generate', { method: 'POST' });
+    const r = await resp.json();
+    if (resp.status === 429 && r.error === 'max_regenerations_reached') {
+      block.innerHTML = `<div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:0.75em;border-radius:4px"><strong style="color:#92400e">⚠ Limite atteinte</strong><br>${escapeHtml(r.message || '')} (${r.current}/${r.max})</div>`;
+      return;
+    }
     if (r.status === 'completed' && r.pitch) {
       renderOpusPitch(block, r.pitch, r.meta, id);
     } else if (r.status === 'timeout') {
@@ -485,14 +490,32 @@ function renderOpusPitch(block, pitch, meta, leadId) {
     </div>
     <div style="display:flex;gap:0.5em;align-items:center;flex-wrap:wrap">
       <button class="btn btn-sm opus-pitch-copy" data-lead-id="${leadId}">📋 Copier</button>
-      <button class="btn btn-sm btn-outline opus-pitch-regen" data-lead-id="${leadId}">🔄 Régénérer</button>
+      <button class="btn btn-sm btn-outline opus-pitch-regen" data-lead-id="${leadId}" title="Coûte ~0.06€ par régénération">🔄 Régénérer</button>
       <button class="btn btn-sm btn-outline opus-pitch-versions" data-lead-id="${leadId}">📚 Versions</button>
+      <span class="opus-pitch-counter" data-lead-id="${leadId}" style="font-size:0.75em;color:#6b7280;padding:0.2em 0.5em;background:#fff;border-radius:3px;border:1px solid #d1d5db">…</span>
       <span style="font-size:0.8em;color:#6b7280;margin-left:auto">
         ${pitch.tone_used ? 'Ton: ' + escapeHtml(pitch.tone_used) : ''}
         ${pitch.cta_type ? ' · CTA: ' + escapeHtml(pitch.cta_type) : ''}
       </span>
     </div>
   `;
+  // Fetch le compteur et grise le bouton régénérer si limite atteinte
+  fetch('/api/trigger-engine/leads/' + leadId + '/pitches').then(r => r.json()).then(data => {
+    const counter = block.querySelector('.opus-pitch-counter');
+    const regen = block.querySelector('.opus-pitch-regen');
+    if (!counter || !data) return;
+    const total = data.total || 0;
+    const max = data.max_regenerations || 3;
+    counter.innerText = `${total}/${max} générations`;
+    if (!data.can_regenerate) {
+      regen.disabled = true;
+      regen.style.opacity = '0.5';
+      regen.title = `Limite ${max} atteinte — contacte l'admin pour reset`;
+      counter.style.background = '#fee2e2';
+      counter.style.color = '#991b1b';
+      counter.innerText += ' (limite atteinte)';
+    }
+  }).catch(() => {});
   // Copy
   block.querySelector('.opus-pitch-copy')?.addEventListener('click', () => {
     const subj = block.querySelector('.opus-subject').value;
