@@ -31,7 +31,9 @@ const DEFAULT_TENANT_CONFIG = {
   model_preference: 'claude-opus-4-7',
   auto_send_threshold_opus: 8.5,
   auto_send_threshold_email_confidence: 0.85,
-  auto_send_enabled: false
+  auto_send_enabled: false,
+  auto_pitch_enabled: true,
+  auto_pitch_threshold: 8.0
 };
 
 class ClaudeBrain {

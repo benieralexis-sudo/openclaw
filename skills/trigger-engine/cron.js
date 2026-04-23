@@ -38,6 +38,56 @@ class TriggerEngineCron {
   }
 
   /**
+   * Enqueue pitch auto pour les leads Opus ≥ seuil tenant (défaut 8.0).
+   * Déclenché après qualify : les leads "red" ont un pitch prêt sans clic.
+   * Idempotent : skip si un pitch existe déjà dans les 7 derniers jours.
+   */
+  _enqueueAutoPitchesForRedLeads() {
+    if (!this.claudeBrain || !this.claudeBrain.enabled) return { enqueued: 0 };
+    const db = this.handler.storage.db;
+    // Récupère les tenants avec config auto_pitch_enabled et leur seuil
+    const tenants = db.prepare(`
+      SELECT id, claude_brain_config FROM clients WHERE status = 'active'
+    `).all();
+    let totalEnqueued = 0;
+    for (const t of tenants) {
+      let cfg = {};
+      try { cfg = t.claude_brain_config ? JSON.parse(t.claude_brain_config) : {}; } catch {}
+      if (cfg.enabled === false) continue;
+      if (cfg.auto_pitch_enabled === false) continue;
+      if (cfg.pipelines && !cfg.pipelines.includes('pitch')) continue;
+      const threshold = Number(cfg.auto_pitch_threshold ?? 8.0);
+
+      // Leads qualifiés ≥ seuil, sans pitch récent (<7j)
+      const leads = db.prepare(`
+        SELECT cl.siren
+        FROM client_leads cl
+        LEFT JOIN (
+          SELECT tenant_id, siren, MAX(created_at) as last_pitch
+          FROM claude_brain_results WHERE pipeline = 'pitch'
+          GROUP BY tenant_id, siren
+        ) pp ON pp.tenant_id = cl.client_id AND pp.siren = cl.siren
+        WHERE cl.client_id = ?
+          AND cl.opus_score >= ?
+          AND cl.status IN ('new', 'qualifying')
+          AND (pp.last_pitch IS NULL OR (julianday('now') - julianday(pp.last_pitch)) > 7)
+        LIMIT 10
+      `).all(t.id, threshold);
+
+      let tenantEnqueued = 0;
+      for (const lead of leads) {
+        const r = this.claudeBrain.enqueuePitch(t.id, lead.siren);
+        if (r.enqueued) tenantEnqueued += 1;
+      }
+      if (tenantEnqueued > 0) {
+        this.log.info?.(`[cron] Claude Brain auto-pitch ${t.id}: ${tenantEnqueued} jobs (seuil ≥${threshold})`);
+        totalEnqueued += tenantEnqueued;
+      }
+    }
+    return { enqueued: totalEnqueued };
+  }
+
+  /**
    * Enqueue qualify jobs for newly routed client_leads.
    * Only if Claude Brain enabled and lead score >= tenant threshold.
    */
@@ -167,6 +217,8 @@ class TriggerEngineCron {
             this.log.warn?.(`[cron] alert error: ${e.message}`);
           }
         }
+        // Auto-pitch pour les leads red (opus_score ≥ seuil tenant)
+        this._enqueueAutoPitchesForRedLeads();
       } catch (err) {
         this.log.error?.('[cron] processor:', err.message);
       }
