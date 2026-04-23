@@ -209,11 +209,13 @@ function renderLeadRow(l) {
       <td><small>${e(l.pattern_name || l.pattern_id)}</small></td>
       <td>
         <button class="btn btn-sm pitch-btn" data-lead-id="${l.id}">✉ Pitch</button>
+        <button class="btn btn-sm opus-btn" data-lead-id="${l.id}" style="margin-left:0.25em">🧠 Opus</button>
       </td>
     </tr>
     <tr class="pitch-row" data-lead-id="${l.id}" style="display:none">
       <td colspan="9" style="background:#f9fafb">
         <div style="padding:0.75em">
+          <div class="opus-block" data-lead-id="${l.id}" style="display:none;background:#eff6ff;padding:0.75em;border-left:3px solid #2563EB;border-radius:4px;margin-bottom:1em"></div>
           ${contacts.length > 0 ? `
           <div style="font-weight:600;margin-bottom:0.5em">Contacts identifiés (${contacts.length}) :</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0.5em;margin-bottom:1em">
@@ -312,6 +314,61 @@ function wirePitchButtons() {
       });
     });
   });
+  // Opus qualification
+  document.querySelectorAll('.opus-btn').forEach(btn => {
+    btn.addEventListener('click', async (evt) => {
+      const id = evt.currentTarget.dataset.leadId;
+      const row = document.querySelector(`.pitch-row[data-lead-id="${id}"]`);
+      const block = document.querySelector(`.opus-block[data-lead-id="${id}"]`);
+      if (!row || !block) return;
+      row.style.display = '';
+      block.style.display = '';
+      block.innerHTML = '<small style="color:#6b7280">🧠 Chargement qualification Opus...</small>';
+      try {
+        const r = await fetch('/api/trigger-engine/leads/' + id + '/qualification').then(r => r.json());
+        if (!r.qualification) {
+          block.innerHTML = '<small style="color:#6b7280">Pas encore de qualification Opus pour ce lead. Le backfill n\'a peut-être pas tourné ou le budget Claude Brain est à zéro.</small>';
+          return;
+        }
+        const q = r.qualification;
+        const meta = r.meta || {};
+        const redFlags = (q.red_flags || []).map(f => `<span style="display:inline-block;background:#fee2e2;color:#991b1b;padding:0.15em 0.5em;border-radius:3px;margin-right:0.25em;font-size:0.8em">${escapeHtml(f)}</span>`).join('');
+        const antiAngles = (q.anti_angles || []).map(a => `<li>${escapeHtml(a)}</li>`).join('');
+        const hooks = (q.personalization_hooks || []).map(h => `<li>${escapeHtml(h)}</li>`).join('');
+        block.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5em">
+            <strong style="color:#1e40af">🧠 Qualification Opus</strong>
+            <div style="font-size:0.75em;color:#6b7280">
+              Score Opus <strong style="color:#1e40af;font-size:1.1em">${q.priority_score_opus ?? '?'}</strong> / 10
+              · ${escapeHtml(q.buying_stage || '-')}
+              · v${meta.version || '?'} · ${meta.model || '-'} · ${(meta.cost_eur || 0).toFixed(4)}€
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0.5em;margin-bottom:0.5em">
+            <div><strong>Phase :</strong> ${escapeHtml(q.phase || '-')}</div>
+            <div><strong>Décideur réel :</strong> ${escapeHtml(q.decision_maker_real || '-')}</div>
+            <div><strong>Timing :</strong> ${q.timing_window_days || '?'} jours</div>
+          </div>
+          ${q.decision_maker_reasoning ? `<div style="font-size:0.85em;color:#4b5563;margin-bottom:0.5em"><em>${escapeHtml(q.decision_maker_reasoning)}</em></div>` : ''}
+          <div style="background:#fff;padding:0.5em;border-radius:4px;margin-bottom:0.5em">
+            <strong>Angle primary :</strong> ${escapeHtml(q.angle_pitch_primary || '-')}<br>
+            ${q.angle_pitch_backup ? `<small><strong>Backup :</strong> ${escapeHtml(q.angle_pitch_backup)}</small>` : ''}
+          </div>
+          ${q.urgency_reason ? `<div style="margin-bottom:0.5em"><strong>Urgency :</strong> ${escapeHtml(q.urgency_reason)}</div>` : ''}
+          ${redFlags ? `<div style="margin-bottom:0.5em"><strong>Red flags :</strong> ${redFlags}</div>` : ''}
+          ${antiAngles ? `<div style="margin-bottom:0.5em"><strong>À éviter :</strong><ul style="margin:0.25em 0 0 1.5em">${antiAngles}</ul></div>` : ''}
+          ${hooks ? `<div><strong>Hooks perso :</strong><ul style="margin:0.25em 0 0 1.5em">${hooks}</ul></div>` : ''}
+        `;
+      } catch (err) {
+        block.innerHTML = `<small style="color:#dc2626">Erreur : ${escapeHtml(err.message)}</small>`;
+      }
+    });
+  });
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 function injectStyles() {

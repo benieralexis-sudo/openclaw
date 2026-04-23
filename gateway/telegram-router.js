@@ -788,28 +788,28 @@ if (process.env.TRIGGER_ENGINE_ENABLED === 'true' && TriggerEngineHandler) {
         log.warn('router', 'Trigger Engine client seed failed: ' + e.message);
       }
     }
-    triggerEngineCron = new TriggerEngineCron(triggerEngine, triggerProcessor, { log, clientRouter });
-
     // Claude Brain (opt-in via CLAUDE_BRAIN_ENABLED=true)
+    let claudeBrainInstance = null;
     if (ClaudeBrain) {
       try {
         const brainEnabled = process.env.CLAUDE_BRAIN_ENABLED === 'true';
-        const claudeBrain = new ClaudeBrain(triggerEngine.storage, { log, enabled: brainEnabled });
+        claudeBrainInstance = new ClaudeBrain(triggerEngine.storage, { log, enabled: brainEnabled });
         if (clientRouter) {
           for (const c of clientRouter.getActiveClients()) {
-            claudeBrain.ensureTenantConfig(c.id, {
+            claudeBrainInstance.ensureTenantConfig(c.id, {
               monthly_budget_eur: Number(process.env.CLAUDE_BRAIN_BUDGET_MONTHLY_EUR || 300),
               hard_cap_eur: Number(process.env.CLAUDE_BRAIN_BUDGET_HARD_EUR || 500)
             });
           }
         }
-        claudeBrain.start();
+        claudeBrainInstance.start();
         log.info('router', `Claude Brain ${brainEnabled ? 'ENABLED' : 'disabled (stub)'} — budget=${process.env.CLAUDE_BRAIN_BUDGET_MONTHLY_EUR || 300}€/tenant/month`);
       } catch (e) {
         log.warn('router', 'Claude Brain init failed: ' + e.message);
       }
     }
 
+    triggerEngineCron = new TriggerEngineCron(triggerEngine, triggerProcessor, { log, clientRouter, claudeBrain: claudeBrainInstance });
     log.info('router', 'Trigger Engine initialized (opt-in enabled)');
     triggerEngineCron.start();
     log.info('router', 'Trigger Engine cron scheduled (independent of STANDBY/PRODUCTION mode)');

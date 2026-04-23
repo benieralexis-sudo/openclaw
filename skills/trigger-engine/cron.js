@@ -31,9 +31,38 @@ class TriggerEngineCron {
     this.handler = handler;
     this.processor = processor;
     this.clientRouter = options.clientRouter || null;
+    this.claudeBrain = options.claudeBrain || null;
     this.log = options.log || console;
     this.intervals = [];
     this._registerSources();
+  }
+
+  /**
+   * Enqueue qualify jobs for newly routed client_leads.
+   * Only if Claude Brain enabled and lead score >= tenant threshold.
+   */
+  _enqueueQualifyForNewLeads() {
+    if (!this.claudeBrain || !this.claudeBrain.enabled) return { enqueued: 0 };
+    const db = this.handler.storage.db;
+    // Leads créés dans les 2 dernières heures sans qualification Opus
+    const rows = db.prepare(`
+      SELECT DISTINCT cl.client_id, cl.siren, cl.score
+      FROM client_leads cl
+      LEFT JOIN claude_brain_results cbr
+        ON cbr.tenant_id = cl.client_id AND cbr.siren = cl.siren AND cbr.pipeline = 'qualify'
+      WHERE cl.created_at >= datetime('now', '-2 hours')
+        AND cl.status IN ('new', 'qualifying')
+        AND cbr.id IS NULL
+      LIMIT 50
+    `).all();
+
+    let enqueued = 0;
+    for (const lead of rows) {
+      const r = this.claudeBrain.enqueueQualify(lead.client_id, lead.siren);
+      if (r.enqueued) enqueued += 1;
+    }
+    if (enqueued > 0) this.log.info?.(`[cron] Claude Brain: ${enqueued} qualify jobs enqueued`);
+    return { enqueued };
   }
 
   _registerSources() {
@@ -127,6 +156,8 @@ class TriggerEngineCron {
         if (this.clientRouter && result.matches > 0) {
           const r = this.clientRouter.routeAllActiveMatches();
           this.log.info?.(`[cron] routed matches → clients: total=${r.total} created=${r.created} updated=${r.updated} ${JSON.stringify(r.clients)}`);
+          // Enqueue Claude Brain qualify pour les nouveaux leads (si activé)
+          this._enqueueQualifyForNewLeads();
         }
         if (result.matches > 0) {
           try {

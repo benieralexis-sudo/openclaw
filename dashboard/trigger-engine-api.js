@@ -499,6 +499,70 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
+  // ───── Claude Brain — qualification par lead ─────
+  app.get('/api/trigger-engine/leads/:leadId/qualification', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    const leadId = req.params.leadId;
+    try {
+      const lead = db.prepare(`
+        SELECT cl.id, cl.client_id, cl.siren, cl.opus_score, cl.opus_qualified_at, cl.opus_result_id,
+               c.raison_sociale
+        FROM client_leads cl
+        LEFT JOIN companies c ON c.siren = cl.siren
+        WHERE cl.id = ?
+      `).get(leadId);
+      if (!lead) return res.status(404).json({ error: 'lead-not-found' });
+
+      // Commercial : scope check
+      if (req.user?.role === 'commercial') {
+        const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+        if (!scope.includes(lead.client_id)) {
+          return res.status(403).json({ error: 'Ce lead n\'est pas dans votre périmètre' });
+        }
+      }
+
+      const latestResult = db.prepare(`
+        SELECT id, version, result_json, model, tokens_input, tokens_output, tokens_cached,
+               cost_eur, latency_ms, created_at
+        FROM claude_brain_results
+        WHERE tenant_id = ? AND siren = ? AND pipeline = 'qualify'
+        ORDER BY version DESC, created_at DESC LIMIT 1
+      `).get(lead.client_id, lead.siren);
+
+      let qualification = null;
+      if (latestResult) {
+        try { qualification = JSON.parse(latestResult.result_json); } catch {}
+      }
+
+      res.json({
+        enabled: true,
+        lead: {
+          id: lead.id,
+          client_id: lead.client_id,
+          siren: lead.siren,
+          raison_sociale: lead.raison_sociale,
+          opus_score: lead.opus_score,
+          opus_qualified_at: lead.opus_qualified_at
+        },
+        qualification,
+        meta: latestResult ? {
+          result_id: latestResult.id,
+          version: latestResult.version,
+          model: latestResult.model,
+          tokens_input: latestResult.tokens_input,
+          tokens_output: latestResult.tokens_output,
+          tokens_cached: latestResult.tokens_cached,
+          cost_eur: latestResult.cost_eur,
+          latency_ms: latestResult.latency_ms,
+          created_at: latestResult.created_at
+        } : null
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get('/api/trigger-engine/health', authMiddleware, (req, res) => {
     const db = getDb();
     if (!db) return res.json({ enabled: false });
