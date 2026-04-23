@@ -65,15 +65,16 @@ class ClaudeBrain {
       queue: this.queue,
       context: this.context,
       budget: this.budget,
-      log: this.log
+      log: this.log,
+      killSwitch: () => process.env.CLAUDE_BRAIN_ENABLED === 'true'
     });
     this.worker.start();
     this.log.info?.('[claude-brain] worker started');
   }
 
-  stop() {
+  async stop() {
     if (this.worker) {
-      this.worker.stop();
+      await this.worker.stop();
       this.worker = null;
     }
   }
