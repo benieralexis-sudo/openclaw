@@ -15,7 +15,11 @@
  * Anthropic hash le contenu pour identifier le cache automatiquement.
  */
 
-const MIN_CACHEABLE_TOKENS = 1024; // seuil Anthropic pour activer le cache sur Opus/Sonnet
+// Seuil minimum pour marquer un bloc comme cacheable.
+// Anthropic accepte cache_control à partir de ~1024 tokens totaux mais le bloc
+// système 'qualify.md' fait 605 tokens + voice ~80 tokens => on abaisse à 512
+// pour que les prompts courts profitent du cache (économie -90% sur les cached).
+const MIN_CACHEABLE_TOKENS = 512;
 
 /**
  * Ajoute cache_control: ephemeral à un bloc de message Anthropic.

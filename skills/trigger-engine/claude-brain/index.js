@@ -107,20 +107,77 @@ class ClaudeBrain {
   }
 
   /**
-   * Enqueue a qualify job (J4 — stub for now, wired in J4).
+   * Enqueue a qualify job.
    */
   enqueueQualify(tenantId, siren) {
+    return this._enqueuePipeline(tenantId, siren, 'qualify', { priority: 5 });
+  }
+
+  /**
+   * Enqueue a pitch job (priorité haute — user attend).
+   */
+  enqueuePitch(tenantId, siren, { userTriggered = null } = {}) {
+    return this._enqueuePipeline(tenantId, siren, 'pitch', {
+      priority: 2,
+      payload: userTriggered ? JSON.stringify({ user: userTriggered, ts: Date.now() }) : null
+    });
+  }
+
+  /**
+   * Enqueue a brief job (priorité haute).
+   */
+  enqueueBrief(tenantId, siren, { userTriggered = null } = {}) {
+    return this._enqueuePipeline(tenantId, siren, 'brief', {
+      priority: 2,
+      payload: userTriggered ? JSON.stringify({ user: userTriggered, ts: Date.now() }) : null
+    });
+  }
+
+  _enqueuePipeline(tenantId, siren, pipeline, { priority = 5, payload = null } = {}) {
     if (!this.enabled) return { skipped: true, reason: 'disabled' };
     const cfg = this.getTenantConfig(tenantId);
-    if (!cfg.enabled || !cfg.pipelines.includes('qualify')) {
+    if (!cfg.enabled || !cfg.pipelines.includes(pipeline)) {
       return { skipped: true, reason: 'pipeline-not-enabled' };
     }
     return this.queue.enqueue({
       tenant_id: tenantId,
-      pipeline: 'qualify',
+      pipeline,
       siren,
-      priority: 5
+      priority,
+      payload
     });
+  }
+
+  /**
+   * Attend la complétion d'un job (polling DB). Retourne le result ou null si timeout.
+   * Utilisé pour les endpoints on-demand (pitch/brief) où l'user attend le résultat.
+   */
+  async waitForResult(jobId, { timeoutMs = 30_000, pollMs = 500 } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const job = this.db.prepare('SELECT status, error FROM claude_brain_queue WHERE id = ?').get(jobId);
+      if (!job) return { status: 'not-found' };
+      if (job.status === 'completed') {
+        const jobRow = this.db.prepare('SELECT tenant_id, siren, pipeline FROM claude_brain_queue WHERE id = ?').get(jobId);
+        const result = this.db.prepare(`
+          SELECT id, version, result_json, model, tokens_input, tokens_output, tokens_cached,
+                 cost_eur, latency_ms, created_at
+          FROM claude_brain_results
+          WHERE job_id = ? ORDER BY version DESC LIMIT 1
+        `).get(jobId);
+        if (result) {
+          let parsed = null;
+          try { parsed = JSON.parse(result.result_json); } catch { parsed = result.result_json; }
+          return { status: 'completed', result: parsed, meta: result, siren: jobRow?.siren };
+        }
+        return { status: 'completed-no-result' };
+      }
+      if (job.status === 'dead') {
+        return { status: 'dead', error: job.error };
+      }
+      await new Promise(r => setTimeout(r, pollMs));
+    }
+    return { status: 'timeout' };
   }
 
   /**

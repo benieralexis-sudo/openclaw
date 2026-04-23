@@ -210,12 +210,14 @@ function renderLeadRow(l) {
       <td>
         <button class="btn btn-sm pitch-btn" data-lead-id="${l.id}">✉ Pitch</button>
         <button class="btn btn-sm opus-btn" data-lead-id="${l.id}" style="margin-left:0.25em">🧠 Opus</button>
+        <button class="btn btn-sm opus-pitch-btn" data-lead-id="${l.id}" style="margin-left:0.25em;background:#1e40af;color:#fff">✍ Pitch Opus</button>
       </td>
     </tr>
     <tr class="pitch-row" data-lead-id="${l.id}" style="display:none">
       <td colspan="9" style="background:#f9fafb">
         <div style="padding:0.75em">
           <div class="opus-block" data-lead-id="${l.id}" style="display:none;background:#eff6ff;padding:0.75em;border-left:3px solid #2563EB;border-radius:4px;margin-bottom:1em"></div>
+          <div class="opus-pitch-block" data-lead-id="${l.id}" style="display:none;background:#ecfdf5;padding:0.75em;border-left:3px solid #059669;border-radius:4px;margin-bottom:1em"></div>
           ${contacts.length > 0 ? `
           <div style="font-weight:600;margin-bottom:0.5em">Contacts identifiés (${contacts.length}) :</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0.5em;margin-bottom:1em">
@@ -369,6 +371,89 @@ function wirePitchButtons() {
 function escapeHtml(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Génération Pitch Opus on-demand
+document.addEventListener('click', async (evt) => {
+  const btn = evt.target.closest('.opus-pitch-btn');
+  if (!btn) return;
+  const id = btn.dataset.leadId;
+  const row = document.querySelector(`.pitch-row[data-lead-id="${id}"]`);
+  const block = document.querySelector(`.opus-pitch-block[data-lead-id="${id}"]`);
+  if (!row || !block) return;
+  row.style.display = '';
+  block.style.display = '';
+  block.innerHTML = '<small style="color:#6b7280">✍ Génération Opus en cours... (5-30s)</small>';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/trigger-engine/leads/' + id + '/pitch/generate', { method: 'POST' }).then(r => r.json());
+    if (r.status === 'completed' && r.pitch) {
+      renderOpusPitch(block, r.pitch, r.meta, id);
+    } else if (r.status === 'timeout') {
+      block.innerHTML = '<small style="color:#dc2626">⏱ Timeout (30s). Job enqueue mais pas encore terminé. Réessayer dans quelques secondes.</small>';
+    } else if (r.status === 'dead') {
+      block.innerHTML = `<small style="color:#dc2626">❌ Échec après retries : ${escapeHtml(r.error || 'unknown')}</small>`;
+    } else {
+      block.innerHTML = `<small style="color:#6b7280">Statut : ${escapeHtml(r.status || 'unknown')}${r.error ? ' — ' + escapeHtml(r.error) : ''}</small>`;
+    }
+  } catch (err) {
+    block.innerHTML = `<small style="color:#dc2626">Erreur réseau : ${escapeHtml(err.message)}</small>`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function renderOpusPitch(block, pitch, meta, leadId) {
+  const costStr = meta && meta.cost_eur != null ? meta.cost_eur.toFixed(4) + '€' : '-';
+  const cacheStr = meta && meta.tokens_cached ? `cache ${meta.tokens_cached}/${meta.tokens_input}` : '';
+  block.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5em">
+      <strong style="color:#065f46">✍ Pitch Opus</strong>
+      <div style="font-size:0.75em;color:#6b7280">
+        v${meta?.version || '?'} · ${meta?.model || '-'} · ${costStr} · ${meta?.latency_ms || '?'}ms ${cacheStr}
+      </div>
+    </div>
+    <div style="margin-bottom:0.5em">
+      <label style="font-weight:600;font-size:0.85em;display:block;margin-bottom:0.25em">Objet</label>
+      <input type="text" class="opus-subject" value="${escapeHtml(pitch.subject || '')}" style="width:100%;padding:0.4em 0.6em;border:1px solid #d1d5db;border-radius:4px;font-family:monospace;font-size:0.9em">
+    </div>
+    <div style="margin-bottom:0.5em">
+      <label style="font-weight:600;font-size:0.85em;display:block;margin-bottom:0.25em">Corps</label>
+      <textarea class="opus-body" rows="10" style="width:100%;padding:0.5em 0.75em;border:1px solid #d1d5db;border-radius:4px;font-family:inherit;font-size:0.9em;line-height:1.5;resize:vertical">${escapeHtml(pitch.body || '')}</textarea>
+    </div>
+    <div style="display:flex;gap:0.5em;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-sm opus-pitch-copy" data-lead-id="${leadId}">📋 Copier</button>
+      <button class="btn btn-sm btn-outline opus-pitch-regen" data-lead-id="${leadId}">🔄 Régénérer</button>
+      <button class="btn btn-sm btn-outline opus-pitch-versions" data-lead-id="${leadId}">📚 Versions</button>
+      <span style="font-size:0.8em;color:#6b7280;margin-left:auto">
+        ${pitch.tone_used ? 'Ton: ' + escapeHtml(pitch.tone_used) : ''}
+        ${pitch.cta_type ? ' · CTA: ' + escapeHtml(pitch.cta_type) : ''}
+      </span>
+    </div>
+  `;
+  // Copy
+  block.querySelector('.opus-pitch-copy')?.addEventListener('click', () => {
+    const subj = block.querySelector('.opus-subject').value;
+    const body = block.querySelector('.opus-body').value;
+    navigator.clipboard.writeText(`Objet : ${subj}\n\n${body}`);
+    const b = block.querySelector('.opus-pitch-copy');
+    b.innerText = '✓ Copié !';
+    setTimeout(() => { b.innerText = '📋 Copier'; }, 2000);
+  });
+  // Regen
+  block.querySelector('.opus-pitch-regen')?.addEventListener('click', () => {
+    document.querySelector(`.opus-pitch-btn[data-lead-id="${leadId}"]`)?.click();
+  });
+  // Versions
+  block.querySelector('.opus-pitch-versions')?.addEventListener('click', async () => {
+    const r = await fetch('/api/trigger-engine/leads/' + leadId + '/pitches').then(r => r.json()).catch(() => null);
+    if (!r || !r.versions) return alert('Erreur chargement versions');
+    const lines = r.versions.map(v => {
+      const p = v.pitch || {};
+      return `v${v.version} — ${new Date(v.created_at).toLocaleString('fr-FR')} — ${(v.cost_eur || 0).toFixed(4)}€\nObjet: ${p.subject || '-'}`;
+    }).join('\n\n');
+    alert(`${r.versions.length} versions générées\n\n${lines}`);
+  });
 }
 
 function injectStyles() {
