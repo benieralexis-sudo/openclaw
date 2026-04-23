@@ -292,7 +292,8 @@ function authRequired(req, res, next) {
     username: session.username || 'admin',
     role: session.role || 'admin',
     company: session.company || null,
-    clientId: session.clientId || null
+    clientId: session.clientId || null,
+    scopeClients: Array.isArray(session.scopeClients) ? session.scopeClients : []
   };
   // Audit log pour les requêtes API
   if (req.path.startsWith('/api/')) {
@@ -322,11 +323,36 @@ function resolveClient(req, res, next) {
   if (req.user.role === 'client' || req.user.role === 'editor' || req.user.role === 'viewer') {
     // Client/editor/viewer users are locked to their own clientId
     req.clientId = req.user.clientId || null;
+  } else if (req.user.role === 'commercial') {
+    // Commercial peut accéder à plusieurs clients — ?clientId= requis, filtré par scopeClients
+    const requested = req.query.clientId;
+    const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+    if (requested && scope.includes(requested)) {
+      req.clientId = requested;
+    } else {
+      // Par défaut : premier client de son scope
+      req.clientId = scope[0] || null;
+    }
   } else if (req.user.role === 'admin' && req.query.clientId) {
     // Admin can switch context via ?clientId=
     req.clientId = req.query.clientId;
   } else {
     req.clientId = null; // Admin default = main router
+  }
+  next();
+}
+
+// --- Commercial access guard : commercial n'accède qu'à ses clients autorisés ---
+function commercialScopeRequired(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
+  if (req.user.role === 'admin') return next();
+  if (req.user.role !== 'commercial') {
+    return res.status(403).json({ error: 'Accès réservé aux commerciaux et admins' });
+  }
+  const requested = req.params.clientId || req.query.clientId;
+  const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+  if (requested && !scope.includes(requested)) {
+    return res.status(403).json({ error: 'Ce client n\'est pas dans votre périmètre' });
   }
   next();
 }
@@ -374,7 +400,8 @@ app.post('/login', loginLimiter, async (req, res) => {
       username: user ? user.username : 'admin',
       role: user ? user.role : 'admin',
       company: user ? user.company : null,
-      clientId: user ? (user.clientId || null) : null
+      clientId: user ? (user.clientId || null) : null,
+      scopeClients: user && Array.isArray(user.scopeClients) ? user.scopeClients : []
     });
     saveSessions();
     res.cookie('sid', sid, { httpOnly: true, maxAge: SESSION_TTL, sameSite: 'lax', secure: req.secure || req.headers['x-forwarded-proto'] === 'https' });
@@ -480,24 +507,32 @@ app.get('/api/users', authRequired, adminRequired, (req, res) => {
     role: u.role,
     company: u.company,
     clientId: u.clientId || null,
+    scopeClients: u.scopeClients || [],
     createdAt: u.createdAt
   }));
   res.json({ users: list });
 });
 
 app.post('/api/users', authRequired, adminRequired, async (req, res) => {
-  const { username, password, role, company, clientId } = req.body;
+  const { username, password, role, company, clientId, scopeClients } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username et password requis' });
   const uname = username.trim().toLowerCase();
   if (!/^[a-z0-9_-]{2,30}$/.test(uname)) return res.status(400).json({ error: 'Username invalide (2-30 chars, a-z0-9_-)' });
   if (users[uname]) return res.status(409).json({ error: 'Utilisateur existe deja' });
   if (password.length < 12) return res.status(400).json({ error: 'Mot de passe trop court (min 12 caractères)' });
-  const validRole = (role === 'client') ? 'client' : 'admin';
+  const ALLOWED_ROLES = new Set(['admin', 'client', 'commercial', 'editor', 'viewer']);
+  const validRole = ALLOWED_ROLES.has(role) ? role : 'admin';
 
   // Validate clientId if provided for client role
   if (validRole === 'client' && clientId) {
     const client = clientRegistry.getClient(clientId);
     if (!client) return res.status(400).json({ error: 'Client "' + clientId + '" introuvable' });
+  }
+  // Validate scopeClients for commercial role
+  if (validRole === 'commercial') {
+    if (!Array.isArray(scopeClients) || scopeClients.length === 0) {
+      return res.status(400).json({ error: 'Un commercial doit avoir scopeClients (array non vide)' });
+    }
   }
 
   const notificationEmail = validRole === 'client' && req.body.notificationEmail
@@ -508,8 +543,9 @@ app.post('/api/users', authRequired, adminRequired, async (req, res) => {
     username: uname,
     passwordHash: await bcrypt.hash(password, 12),
     role: validRole,
-    company: validRole === 'client' ? (company || null) : null,
+    company: validRole === 'client' ? (company || null) : (company || null),
     clientId: validRole === 'client' ? (clientId || null) : null,
+    scopeClients: validRole === 'commercial' ? scopeClients.slice(0, 20) : [],
     notificationEmail: notificationEmail,
     createdAt: new Date().toISOString()
   };
