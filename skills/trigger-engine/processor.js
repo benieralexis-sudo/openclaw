@@ -12,6 +12,25 @@
 
 const { matchAllPatterns, loadPatterns } = require('./patterns/matcher');
 
+/**
+ * NAF codes dont les structures ne sont jamais des prospects B2B ICP :
+ * - 84.* : Administration publique (mairies, préfectures, ministères)
+ * - 56.* : Restauration (restos, brasseries, bars)
+ * - 10.71*, 10.72* : Boulangerie, pâtisserie industrielle
+ * - 87.*, 88.* : Hébergement médico-social, action sociale (crèches, EHPAD)
+ * - 94.* : Organisations associatives, syndicats, orga pro
+ * - 91.* : Bibliothèques, archives, musées
+ * Match par préfixe : "84.11Z" matche "84.".
+ */
+const BLACKLISTED_NAF_PREFIXES = [
+  '84.', '56.', '10.71', '10.72', '87.', '88.', '94.', '91.'
+];
+
+function isBlacklistedNaf(naf) {
+  if (!naf) return false;
+  return BLACKLISTED_NAF_PREFIXES.some(p => naf.startsWith(p));
+}
+
 class TriggerEngineProcessor {
   constructor(storage, options = {}) {
     this.storage = storage;
@@ -64,9 +83,19 @@ class TriggerEngineProcessor {
     }
 
     let matchesInserted = 0;
+    let skippedNaf = 0;
     const now = new Date();
 
     for (const [siren, sirenEvents] of bySiren) {
+      // Filtre NAF : skip les SIREN dont le NAF est clairement non-ICP
+      // (admin pub, restauration, crèches, orga pro, etc.)
+      const company = this.storage.getCompany(siren);
+      if (company && isBlacklistedNaf(company.naf_code)) {
+        skippedNaf += 1;
+        for (const event of sirenEvents) this.storage.markEventProcessed(event.id);
+        continue;
+      }
+
       // Fetch all events for this SIREN on 30-day window
       const contextEvents = this.storage.getEventsForSiren(siren, 30);
 
@@ -103,10 +132,15 @@ class TriggerEngineProcessor {
     this.storage.incrementMetric('patterns_matched', matchesInserted);
     this.storage.incrementMetric('events_attributed', events.filter(e => e.siren).length);
 
+    if (skippedNaf > 0) {
+      this.log.info?.(`[processor] skipped ${skippedNaf} SIRENs via NAF blacklist`);
+    }
+
     return {
       processed: events.length,
       sirensEvaluated: bySiren.size,
-      matches: matchesInserted
+      matches: matchesInserted,
+      skippedNaf
     };
   }
 

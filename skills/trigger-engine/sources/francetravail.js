@@ -76,13 +76,24 @@ const DISQUALIFYING_KEYWORDS = [
   'apple retail', 'apple france',
   'carrefour ', 'auchan ', 'leclerc ', 'intermarche',
   'dechetterie', 'déchetterie', 'syndicat mixte',
-  'bibliotheque', 'bibliothèque', 'musée', 'musee'
+  'bibliotheque', 'bibliothèque', 'musée', 'musee',
+  // Nouveaux 23 avril — faux positifs observés nuit J+2
+  ' pain ', ' pains ', 'galo pain', 'pain d ',
+  ' creche ', ' creches ', 'multiacceuil', 'multi acceuil', 'multi-acceuil',
+  ' lidl ', ' lidl',
+  'gorges de ', 'pays de ', 'vallee de ', 'vallée de ',
+  ' chr ',
+  // Grands comptes retail/distri qui polluent (hiring = bruit)
+  'fnac', 'darty', 'boulanger', 'conforama', 'ikea france',
+  'mcdonald', 'burger king', 'subway', 'starbucks',
+  'decathlon', 'castorama', 'leroy merlin', 'bricorama'
 ];
 
 function normalizeName(nom) {
   if (!nom) return '';
   return nom.trim().toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/['']/g, ' ')  // apostrophes → espaces (capture "au pain d'aure", "galo'pain")
     .replace(/\s+/g, ' ');
 }
 

@@ -2236,10 +2236,16 @@ class CampaignEngine {
       log.warn('campaign-engine', 'Step ' + stepNumber + ' FORCE completed apres ' + step._retryCount + ' retries sans envoi (' + (allInactive ? 'tous inactifs' : 'generation echouee') + ', contacts: ' + contactNames + ')');
       try {
         const chatId = require('../../gateway/admin-resolver.js').getAdminChatId(); // Phase B6
-        const TelegramBot = require('node-telegram-bot-api');
-        const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
-        bot.sendMessage(chatId, '⚠️ Relance step ' + stepNumber + ' echouee apres ' + step._retryCount + ' tentatives pour : ' + contactNames + '\n' + (allInactive ? 'Tous les contacts sont inactifs (0 ouverture).' : 'La qualite etait insuffisante.'));
-      } catch (notifErr) { log.error('campaign-engine', 'Echec notification Telegram post-envoi: ' + notifErr.message); }
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        if (token && chatId) {
+          const msg = '⚠️ Relance step ' + stepNumber + ' echouee apres ' + step._retryCount + ' tentatives pour : ' + contactNames + '\n' + (allInactive ? 'Tous les contacts sont inactifs (0 ouverture).' : 'La qualite etait insuffisante.');
+          fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: msg })
+          }).catch(() => {}); // fire-and-forget, silent
+        }
+      } catch (notifErr) { log.warn('campaign-engine', 'Notification Telegram post-envoi skip: ' + notifErr.message); }
     } else {
       // Aucun envoi mais des contacts restent — remettre en pending pour retry
       step.status = 'pending';

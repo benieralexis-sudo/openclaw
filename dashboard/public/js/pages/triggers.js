@@ -7,7 +7,7 @@ window.Pages = window.Pages || {};
 
 // State du filtrage, persisté pendant la session
 const filterState = {
-  minScore: 5,
+  minScore: 6,
   pattern: '',
   dept: ''
 };
@@ -94,6 +94,7 @@ async function renderContent() {
           <select id="filter-score" class="form-control" style="width:120px">
             <option value="0">Tous</option>
             <option value="5" ${filterState.minScore === 5 ? 'selected' : ''}>≥ 5</option>
+            <option value="6" ${filterState.minScore === 6 ? 'selected' : ''}>≥ 6 (par défaut)</option>
             <option value="7" ${filterState.minScore === 7 ? 'selected' : ''}>≥ 7</option>
             <option value="9" ${filterState.minScore === 9 ? 'selected' : ''}>≥ 9 (hot)</option>
           </select>
@@ -268,7 +269,7 @@ function wireFilters() {
     renderContent();
   });
   document.getElementById('filter-reset')?.addEventListener('click', () => {
-    filterState.minScore = 5;
+    filterState.minScore = 6;
     filterState.pattern = '';
     filterState.dept = '';
     renderContent();
