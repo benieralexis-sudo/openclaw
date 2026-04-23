@@ -41,7 +41,14 @@ const DEFAULT_TENANT_CONFIG = {
   max_call_brief_regenerations: 2,
   max_brief_regenerations: 2,
   // Staleness auto-requalify : dernière qualif > N jours OU nouveaux events/contacts
-  stale_qualify_days: 14
+  stale_qualify_days: 14,
+  // Digest email quotidien
+  digest_email: null,                 // email du client pour recevoir le digest
+  digest_enabled: true,
+  digest_hour_paris: 8,               // heure d'envoi (Europe/Paris)
+  // Alerte temps réel sur pépites
+  realtime_alert_enabled: true,
+  realtime_alert_threshold: 9.0       // score Opus minimum pour déclencher
 };
 
 class ClaudeBrain {

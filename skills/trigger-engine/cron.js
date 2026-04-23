@@ -25,6 +25,8 @@ const metaAdLibrary = require('./sources/meta-ad-library');
 const telegramAlert = require('./lib/telegram-alert');
 const sourceHealth = require('./lib/source-health');
 const { enrichMatches } = require('./contact-enricher');
+const { sendDailyDigests, parisHour } = require('./claude-brain/digest-email');
+const { sendRealtimeAlerts } = require('./claude-brain/realtime-alert');
 
 class TriggerEngineCron {
   constructor(handler, processor, options = {}) {
@@ -287,6 +289,18 @@ class TriggerEngineCron {
         }
         // Auto-pitch pour les leads red (opus_score ≥ seuil tenant)
         this._enqueueAutoPitchesForRedLeads();
+
+        // Alertes temps réel sur pépites score ≥ 9 (dédup 24h)
+        if (this.claudeBrain && this.claudeBrain.enabled) {
+          try {
+            const alertStats = await sendRealtimeAlerts(this.handler.storage.db, { log: this.log });
+            if (alertStats.sent > 0) {
+              this.log.info?.(`[cron] realtime alerts: ${alertStats.sent} envoyées, ${alertStats.skipped} skippées`);
+            }
+          } catch (e) {
+            this.log.warn?.(`[cron] realtime-alert error: ${e.message}`);
+          }
+        }
       } catch (err) {
         this.log.error?.('[cron] processor:', err.message);
       }
@@ -330,6 +344,22 @@ class TriggerEngineCron {
       }
     }, 30 * 60 * 1000); // check toutes les 30 min
     this.intervals.push(discoverCheckInterval);
+
+    // Digest email matin Paris 8h : check toutes les 30 min, envoie si 8h et pas déjà fait
+    const digestInterval = setInterval(async () => {
+      try {
+        if (!this.claudeBrain || !this.claudeBrain.enabled) return;
+        const hour = parisHour();
+        if (hour !== 8) return; // On ne déclenche qu'à 8h Paris
+        const stats = await sendDailyDigests(this.handler.storage.db, { log: this.log });
+        if (stats.sent > 0 || stats.failed > 0) {
+          this.log.info?.(`[cron] digest matin: ${stats.sent} envoyés, ${stats.skipped} skippés, ${stats.failed} échecs`);
+        }
+      } catch (e) {
+        this.log.warn?.(`[cron] digest error: ${e.message}`);
+      }
+    }, 30 * 60 * 1000); // Toutes les 30 min
+    this.intervals.push(digestInterval);
 
     // Claude Brain Stale Requalify : every 4h (détecte et re-qualifie les leads
     // dont la qualif est vieille OU qui ont de nouveaux events/contacts depuis)

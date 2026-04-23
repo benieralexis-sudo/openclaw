@@ -499,6 +499,95 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
+  // ───── Tenant settings (digest + alertes) ─────
+  app.get('/api/trigger-engine/settings/:tenantId', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    const tenantId = req.params.tenantId;
+    // Scope check
+    if (req.user?.role === 'commercial') {
+      const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+      if (!scope.includes(tenantId)) return res.status(403).json({ error: 'hors scope' });
+    }
+    try {
+      const row = db.prepare('SELECT id, name, claude_brain_config FROM clients WHERE id = ?').get(tenantId);
+      if (!row) return res.status(404).json({ error: 'tenant-not-found' });
+      let cfg = {};
+      try { cfg = row.claude_brain_config ? JSON.parse(row.claude_brain_config) : {}; } catch {}
+      // Expose seulement les settings pertinents (masque internes)
+      res.json({
+        tenant_id: row.id,
+        name: row.name,
+        digest_enabled: cfg.digest_enabled !== false,
+        digest_email: cfg.digest_email || null,
+        realtime_alert_enabled: cfg.realtime_alert_enabled !== false,
+        realtime_alert_threshold: cfg.realtime_alert_threshold ?? 9.0,
+        auto_pitch_enabled: cfg.auto_pitch_enabled !== false,
+        auto_linkedin_enabled: cfg.auto_linkedin_enabled !== false,
+        auto_call_brief_enabled: cfg.auto_call_brief_enabled !== false,
+        pipelines: cfg.pipelines || ['qualify', 'pitch', 'linkedin-dm', 'call-brief', 'brief']
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/trigger-engine/settings/:tenantId', authMiddleware, (req, res) => {
+    const tenantId = req.params.tenantId;
+    // Client/commercial peut éditer SES settings (scope). Admin peut éditer n'importe lequel.
+    if (req.user?.role === 'commercial') {
+      const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+      if (!scope.includes(tenantId)) return res.status(403).json({ error: 'hors scope' });
+    }
+    const allowedKeys = [
+      'digest_enabled', 'digest_email',
+      'realtime_alert_enabled', 'realtime_alert_threshold',
+      'auto_pitch_enabled', 'auto_linkedin_enabled', 'auto_call_brief_enabled'
+    ];
+    try {
+      const { DatabaseSync: RW } = require('node:sqlite');
+      const rwDb = new RW(DB_PATH, { readOnly: false });
+      rwDb.exec('PRAGMA busy_timeout = 3000;');
+      const row = rwDb.prepare('SELECT claude_brain_config FROM clients WHERE id = ?').get(tenantId);
+      if (!row) { rwDb.close(); return res.status(404).json({ error: 'tenant-not-found' }); }
+      let cfg = {};
+      try { cfg = row.claude_brain_config ? JSON.parse(row.claude_brain_config) : {}; } catch {}
+      for (const k of Object.keys(req.body || {})) {
+        if (allowedKeys.includes(k)) cfg[k] = req.body[k];
+      }
+      // Validation digest_email
+      if (cfg.digest_email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cfg.digest_email)) {
+        rwDb.close();
+        return res.status(400).json({ error: 'email_invalid' });
+      }
+      rwDb.prepare('UPDATE clients SET claude_brain_config = ? WHERE id = ?').run(JSON.stringify(cfg), tenantId);
+      rwDb.close();
+      res.json({ ok: true, config: cfg });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Force send digest maintenant (admin only, pour tester)
+  app.post('/api/trigger-engine/settings/:tenantId/send-digest-now', authMiddleware, async (req, res) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });
+    try {
+      const { buildDigest } = require('/app/skills/trigger-engine/claude-brain/digest-email');
+      const { sendEmail } = require('/app/skills/trigger-engine/claude-brain/email-sender');
+      const db = getDb();
+      const tenant = db.prepare('SELECT name, claude_brain_config FROM clients WHERE id = ?').get(req.params.tenantId);
+      if (!tenant) return res.status(404).json({ error: 'tenant-not-found' });
+      const cfg = JSON.parse(tenant.claude_brain_config || '{}');
+      if (!cfg.digest_email) return res.status(400).json({ error: 'no_digest_email_configured' });
+      const digest = buildDigest(db, req.params.tenantId, tenant.name);
+      if (!digest) return res.json({ ok: true, status: 'no_leads_today' });
+      const r = await sendEmail({ to: cfg.digest_email, subject: digest.subject, html: digest.html, text: digest.text });
+      res.json({ ok: r.ok, status: r.ok ? 'sent' : 'failed', error: r.error || null, digest_preview: { subject: digest.subject, leads: digest.leads_count } });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ───── Claude Brain — monitoring stats (admin only) ─────
   app.get('/api/trigger-engine/claude-brain/stats', authMiddleware, (req, res) => {
     if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });
