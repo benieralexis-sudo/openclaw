@@ -35,7 +35,9 @@ const DEFAULT_TENANT_CONFIG = {
   auto_pitch_enabled: true,
   auto_pitch_threshold: 8.0,
   max_pitch_regenerations: 3,
-  max_brief_regenerations: 2
+  max_brief_regenerations: 2,
+  // Staleness auto-requalify : dernière qualif > N jours OU nouveaux events/contacts
+  stale_qualify_days: 14
 };
 
 class ClaudeBrain {

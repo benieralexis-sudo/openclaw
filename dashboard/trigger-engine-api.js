@@ -1056,6 +1056,32 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
+  // Admin force regenerate qualify (cas exceptionnels : prompt modifié, bug, etc.)
+  app.post('/api/trigger-engine/leads/:leadId/qualify/force-regenerate', authMiddleware, (req, res) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });
+    try {
+      const db = getDb();
+      const lead = db.prepare('SELECT client_id, siren FROM client_leads WHERE id = ?').get(req.params.leadId);
+      if (!lead) return res.status(404).json({ error: 'lead-not-found' });
+      const { DatabaseSync: RW } = require('node:sqlite');
+      const rwDb = new RW(DB_PATH, { readOnly: false });
+      rwDb.exec('PRAGMA busy_timeout = 3000;');
+      const crypto = require('node:crypto');
+      const payload = JSON.stringify({ user: req.user.username, ts: Date.now(), force: true });
+      const idempotencyKey = crypto.createHash('sha256')
+        .update(`${lead.client_id}|qualify|${lead.siren}|${payload}`)
+        .digest('hex').slice(0, 32);
+      const inserted = rwDb.prepare(`
+        INSERT INTO claude_brain_queue (tenant_id, pipeline, siren, payload, idempotency_key, priority, status, scheduled_at)
+        VALUES (?, 'qualify', ?, ?, ?, 3, 'pending', CURRENT_TIMESTAMP)
+      `).run(lead.client_id, lead.siren, payload, idempotencyKey);
+      rwDb.close();
+      res.json({ ok: true, job_id: inserted.lastInsertRowid });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Admin reset : remet le compteur de régénérations à zéro pour un lead
   app.post('/api/trigger-engine/leads/:leadId/regenerations/reset', authMiddleware, (req, res) => {
     if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });

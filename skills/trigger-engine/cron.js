@@ -115,6 +115,58 @@ class TriggerEngineCron {
     return { enqueued };
   }
 
+  /**
+   * Re-qualify auto sur STALENESS :
+   *   - Dernière qualif > 14 jours (seuil fraîcheur par défaut)
+   *   OU
+   *   - Nouveaux events arrivés sur ce SIREN depuis la dernière qualif
+   *   OU
+   *   - Nouveaux contacts enrichis depuis la dernière qualif
+   *
+   * Limite : 30 re-qualif par cycle pour éviter de noyer le worker.
+   * Skip : leads discarded/booked (plus de valeur à requalifier).
+   */
+  _enqueueStaleRequalify() {
+    if (!this.claudeBrain || !this.claudeBrain.enabled) return { enqueued: 0 };
+    const db = this.handler.storage.db;
+    // Seuil staleness configurable par tenant (défaut 14 jours)
+    const rows = db.prepare(`
+      SELECT DISTINCT cl.client_id, cl.siren, cbr.last_qualif, cbr.last_qualif_id
+      FROM client_leads cl
+      INNER JOIN (
+        SELECT tenant_id, siren, MAX(created_at) as last_qualif, MAX(id) as last_qualif_id
+        FROM claude_brain_results
+        WHERE pipeline = 'qualify'
+        GROUP BY tenant_id, siren
+      ) cbr ON cbr.tenant_id = cl.client_id AND cbr.siren = cl.siren
+      WHERE cl.status IN ('new', 'qualifying', 'sent')
+        AND (
+          -- Fraîcheur : dernière qualif > 14 jours
+          (julianday('now') - julianday(cbr.last_qualif)) > 14
+          -- OU nouveaux events ingérés depuis la dernière qualif
+          OR EXISTS (
+            SELECT 1 FROM events e
+            WHERE e.siren = cl.siren AND e.captured_at > cbr.last_qualif
+          )
+          -- OU nouveaux contacts enrichis depuis la dernière qualif
+          OR EXISTS (
+            SELECT 1 FROM leads_contacts lc
+            WHERE lc.siren = cl.siren AND lc.discovered_at > cbr.last_qualif
+          )
+        )
+      ORDER BY cbr.last_qualif ASC
+      LIMIT 30
+    `).all();
+
+    let enqueued = 0;
+    for (const lead of rows) {
+      const r = this.claudeBrain.enqueueQualify(lead.client_id, lead.siren);
+      if (r.enqueued) enqueued += 1;
+    }
+    if (enqueued > 0) this.log.info?.(`[cron] Claude Brain stale requalify : ${enqueued} jobs enqueued`);
+    return { enqueued };
+  }
+
   _registerSources() {
     this.handler.registerSource('bodacc', bodacc);
     this.handler.registerSource('joafe', joafe);
@@ -262,6 +314,17 @@ class TriggerEngineCron {
       }
     }, 30 * 60 * 1000); // check toutes les 30 min
     this.intervals.push(discoverCheckInterval);
+
+    // Claude Brain Stale Requalify : every 4h (détecte et re-qualifie les leads
+    // dont la qualif est vieille OU qui ont de nouveaux events/contacts depuis)
+    const staleRequalifyInterval = setInterval(() => {
+      try {
+        this._enqueueStaleRequalify();
+      } catch (e) {
+        this.log.warn?.(`[cron] stale requalify error: ${e.message}`);
+      }
+    }, 4 * 3600 * 1000);
+    this.intervals.push(staleRequalifyInterval);
 
     // Monitoring santé sources : every 1h
     const healthInterval = setInterval(async () => {
