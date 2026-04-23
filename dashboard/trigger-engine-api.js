@@ -499,6 +499,79 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
+  // ───── Claude Brain — controls pause (admin only) ─────
+  app.get('/api/trigger-engine/controls', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    try {
+      const clients = db.prepare(`
+        SELECT id, name, status, claude_brain_config FROM clients ORDER BY id
+      `).all();
+      const parsed = clients.map(c => {
+        let cfg = {};
+        try { cfg = c.claude_brain_config ? JSON.parse(c.claude_brain_config) : {}; } catch {}
+        return {
+          client_id: c.id,
+          name: c.name,
+          status: c.status,
+          claude_brain_enabled: cfg.enabled !== false,
+          auto_send_enabled: cfg.auto_send_enabled === true,
+          auto_send_threshold_opus: cfg.auto_send_threshold_opus ?? 8.5,
+          auto_send_threshold_email_confidence: cfg.auto_send_threshold_email_confidence ?? 0.85,
+          paused_at: cfg.paused_at || null,
+          paused_reason: cfg.paused_reason || null,
+          paused_patterns: cfg.paused_patterns || [],
+          paused_mailboxes: cfg.paused_mailboxes || []
+        };
+      });
+      res.json({ enabled: true, tenants: parsed });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Toggle pause/resume par tenant, pattern, mailbox (admin only)
+  app.post('/api/trigger-engine/controls/:tenantId', authMiddleware, (req, res) => {
+    if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });
+    const tenantId = req.params.tenantId;
+    const patch = req.body || {};
+    try {
+      const { DatabaseSync: RW } = require('node:sqlite');
+      const rwDb = new RW(DB_PATH, { readOnly: false });
+      rwDb.exec('PRAGMA busy_timeout = 3000;');
+      const row = rwDb.prepare('SELECT claude_brain_config FROM clients WHERE id = ?').get(tenantId);
+      if (!row) { rwDb.close(); return res.status(404).json({ error: 'tenant-not-found' }); }
+      let cfg = {};
+      try { cfg = row.claude_brain_config ? JSON.parse(row.claude_brain_config) : {}; } catch {}
+
+      const ALLOWED_KEYS = [
+        'enabled', 'auto_send_enabled',
+        'auto_send_threshold_opus', 'auto_send_threshold_email_confidence',
+        'paused_patterns', 'paused_mailboxes',
+        'monthly_budget_eur', 'hard_cap_eur',
+        'voice_template', 'pitch_language', 'pipelines'
+      ];
+      for (const k of Object.keys(patch)) {
+        if (ALLOWED_KEYS.includes(k)) cfg[k] = patch[k];
+      }
+      // Reset paused_at / paused_reason si on réactive
+      if (patch.enabled === true) {
+        delete cfg.paused_at;
+        delete cfg.paused_reason;
+      } else if (patch.enabled === false) {
+        cfg.paused_at = new Date().toISOString();
+        cfg.paused_reason = patch.paused_reason || 'manual pause';
+      }
+
+      rwDb.prepare('UPDATE clients SET claude_brain_config = ? WHERE id = ?')
+        .run(JSON.stringify(cfg), tenantId);
+      rwDb.close();
+      res.json({ ok: true, config: cfg });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ───── Claude Brain — file "à valider" (leads orange avec pitch prêt) ─────
   app.get('/api/trigger-engine/to-validate', authMiddleware, (req, res) => {
     const db = getDb();
@@ -567,6 +640,114 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
       rwDb.prepare(sql).run(newStatus, leadId);
       rwDb.close();
       res.json({ ok: true, status: newStatus });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ───── Claude Brain — génération brief RDV on-demand ─────
+  app.post('/api/trigger-engine/leads/:leadId/brief/generate', authMiddleware, async (req, res) => {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    const leadId = req.params.leadId;
+    try {
+      const { DatabaseSync: RW } = require('node:sqlite');
+      const rwDb = new RW(DB_PATH, { readOnly: false });
+      rwDb.exec('PRAGMA busy_timeout = 3000;');
+
+      const lead = rwDb.prepare('SELECT id, client_id, siren FROM client_leads WHERE id = ?').get(leadId);
+      if (!lead) { rwDb.close(); return res.status(404).json({ error: 'lead-not-found' }); }
+      if (req.user?.role === 'commercial') {
+        const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+        if (!scope.includes(lead.client_id)) { rwDb.close(); return res.status(403).json({ error: 'hors scope' }); }
+      }
+      const tRow = rwDb.prepare('SELECT claude_brain_config FROM clients WHERE id = ?').get(lead.client_id);
+      let cfg = {};
+      try { cfg = tRow?.claude_brain_config ? JSON.parse(tRow.claude_brain_config) : {}; } catch {}
+      if (cfg.enabled === false || (cfg.pipelines && !cfg.pipelines.includes('brief'))) {
+        rwDb.close();
+        return res.status(409).json({ error: 'pipeline brief désactivé pour ce tenant' });
+      }
+
+      const version = Date.now();
+      const crypto = require('node:crypto');
+      const payload = JSON.stringify({ user: req.user?.username, ts: version });
+      const idempotencyKey = crypto.createHash('sha256')
+        .update(`${lead.client_id}|brief|${lead.siren}|${payload}`)
+        .digest('hex').slice(0, 32);
+
+      const inserted = rwDb.prepare(`
+        INSERT INTO claude_brain_queue
+          (tenant_id, pipeline, siren, payload, idempotency_key, priority, max_retries, status, scheduled_at)
+        VALUES (?, 'brief', ?, ?, ?, 2, 2, 'pending', CURRENT_TIMESTAMP)
+      `).run(lead.client_id, lead.siren, payload, idempotencyKey);
+      const jobId = inserted.lastInsertRowid;
+      rwDb.close();
+
+      const timeoutMs = 90_000; // brief prend plus de temps (6000 tokens output)
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const job = db.prepare('SELECT status, error FROM claude_brain_queue WHERE id = ?').get(jobId);
+        if (!job) break;
+        if (job.status === 'completed') {
+          const r = db.prepare(`
+            SELECT id, version, result_json, model, tokens_input, tokens_output, tokens_cached,
+                   cost_eur, latency_ms, created_at
+            FROM claude_brain_results WHERE job_id = ? ORDER BY version DESC LIMIT 1
+          `).get(jobId);
+          return res.json({
+            status: 'completed',
+            brief_markdown: r?.result_json || '',
+            meta: r ? {
+              result_id: r.id, version: r.version, model: r.model,
+              tokens_input: r.tokens_input, tokens_output: r.tokens_output,
+              tokens_cached: r.tokens_cached, cost_eur: r.cost_eur,
+              latency_ms: r.latency_ms, created_at: r.created_at
+            } : null
+          });
+        }
+        if (job.status === 'dead') {
+          return res.status(502).json({ status: 'dead', error: job.error });
+        }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      return res.status(504).json({ status: 'timeout', job_id: jobId });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/trigger-engine/leads/:leadId/brief', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'db-not-found' });
+    try {
+      const lead = db.prepare('SELECT client_id, siren FROM client_leads WHERE id = ?').get(req.params.leadId);
+      if (!lead) return res.status(404).json({ error: 'lead-not-found' });
+      if (req.user?.role === 'commercial') {
+        const scope = Array.isArray(req.user.scopeClients) ? req.user.scopeClients : [];
+        if (!scope.includes(lead.client_id)) return res.status(403).json({ error: 'hors scope' });
+      }
+      const r = db.prepare(`
+        SELECT id, version, result_json, cost_eur, latency_ms, created_at
+        FROM claude_brain_results
+        WHERE tenant_id = ? AND siren = ? AND pipeline = 'brief'
+        ORDER BY version DESC LIMIT 1
+      `).get(lead.client_id, lead.siren);
+      if (!r) return res.json({ enabled: true, brief: null });
+      // Download mode si ?format=md
+      if (req.query.format === 'md') {
+        const filename = `brief-${lead.siren}-${new Date().toISOString().slice(0,10)}.md`;
+        res.set({
+          'Content-Type': 'text/markdown; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}"`
+        });
+        return res.send(r.result_json);
+      }
+      res.json({
+        enabled: true,
+        brief_markdown: r.result_json,
+        meta: { version: r.version, cost_eur: r.cost_eur, latency_ms: r.latency_ms, created_at: r.created_at }
+      });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }

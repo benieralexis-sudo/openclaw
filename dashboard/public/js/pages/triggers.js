@@ -211,6 +211,7 @@ function renderLeadRow(l) {
         <button class="btn btn-sm pitch-btn" data-lead-id="${l.id}">✉ Pitch</button>
         <button class="btn btn-sm opus-btn" data-lead-id="${l.id}" style="margin-left:0.25em">🧠 Opus</button>
         <button class="btn btn-sm opus-pitch-btn" data-lead-id="${l.id}" style="margin-left:0.25em;background:#1e40af;color:#fff">✍ Pitch Opus</button>
+        <button class="btn btn-sm opus-brief-btn" data-lead-id="${l.id}" style="margin-left:0.25em;background:#7c3aed;color:#fff">📋 Brief RDV</button>
       </td>
     </tr>
     <tr class="pitch-row" data-lead-id="${l.id}" style="display:none">
@@ -218,6 +219,7 @@ function renderLeadRow(l) {
         <div style="padding:0.75em">
           <div class="opus-block" data-lead-id="${l.id}" style="display:none;background:#eff6ff;padding:0.75em;border-left:3px solid #2563EB;border-radius:4px;margin-bottom:1em"></div>
           <div class="opus-pitch-block" data-lead-id="${l.id}" style="display:none;background:#ecfdf5;padding:0.75em;border-left:3px solid #059669;border-radius:4px;margin-bottom:1em"></div>
+          <div class="opus-brief-block" data-lead-id="${l.id}" style="display:none;background:#faf5ff;padding:0.75em;border-left:3px solid #7c3aed;border-radius:4px;margin-bottom:1em"></div>
           ${contacts.length > 0 ? `
           <div style="font-weight:600;margin-bottom:0.5em">Contacts identifiés (${contacts.length}) :</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0.5em;margin-bottom:1em">
@@ -372,6 +374,66 @@ function escapeHtml(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// Génération Brief RDV Opus on-demand
+document.addEventListener('click', async (evt) => {
+  const btn = evt.target.closest('.opus-brief-btn');
+  if (!btn) return;
+  const id = btn.dataset.leadId;
+  const row = document.querySelector(`.pitch-row[data-lead-id="${id}"]`);
+  const block = document.querySelector(`.opus-brief-block[data-lead-id="${id}"]`);
+  if (!row || !block) return;
+  row.style.display = '';
+  block.style.display = '';
+  block.innerHTML = '<small style="color:#6b7280">📋 Génération brief RDV en cours... (30-90s, Opus lit 5 ans d\'historique)</small>';
+  btn.disabled = true;
+  try {
+    // Tente GET d'abord (récup version cachée)
+    let r = await fetch('/api/trigger-engine/leads/' + id + '/brief').then(r => r.json());
+    if (!r.brief_markdown) {
+      // Pas de brief, on génère
+      r = await fetch('/api/trigger-engine/leads/' + id + '/brief/generate', { method: 'POST' }).then(r => r.json());
+      if (r.status !== 'completed') {
+        if (r.status === 'timeout') block.innerHTML = '<small style="color:#dc2626">⏱ Timeout génération. Réessayer.</small>';
+        else if (r.status === 'dead') block.innerHTML = `<small style="color:#dc2626">❌ Erreur : ${escapeHtml(r.error || 'unknown')}</small>`;
+        else block.innerHTML = `<small style="color:#6b7280">Statut : ${escapeHtml(r.status || '?')}</small>`;
+        return;
+      }
+    }
+    const md = r.brief_markdown || '';
+    const meta = r.meta || {};
+    const wordCount = md.split(/\s+/).length;
+    block.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5em">
+        <strong style="color:#5b21b6">📋 Brief RDV Opus</strong>
+        <div style="font-size:0.75em;color:#6b7280">
+          v${meta.version || '?'} · ${wordCount} mots · ${(meta.cost_eur || 0).toFixed(4)}€ · ${meta.latency_ms || '?'}ms
+        </div>
+      </div>
+      <div style="background:#fff;padding:1em;border-radius:4px;max-height:400px;overflow-y:auto;font-size:0.9em;line-height:1.6;white-space:pre-wrap">${escapeHtml(md)}</div>
+      <div style="display:flex;gap:0.5em;margin-top:0.5em">
+        <button class="btn btn-sm opus-brief-copy" data-lead-id="${id}">📋 Copier markdown</button>
+        <a class="btn btn-sm btn-outline" href="/api/trigger-engine/leads/${id}/brief?format=md" download>⬇ Télécharger .md</a>
+        <button class="btn btn-sm btn-outline opus-brief-regen" data-lead-id="${id}">🔄 Régénérer</button>
+      </div>
+    `;
+    block.querySelector('.opus-brief-copy')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(md);
+      const b = block.querySelector('.opus-brief-copy');
+      b.innerText = '✓ Copié';
+      setTimeout(() => { b.innerText = '📋 Copier markdown'; }, 2000);
+    });
+    block.querySelector('.opus-brief-regen')?.addEventListener('click', async () => {
+      block.innerHTML = '<small style="color:#6b7280">📋 Régénération...</small>';
+      const rr = await fetch('/api/trigger-engine/leads/' + id + '/brief/generate', { method: 'POST' }).then(r => r.json()).catch(e => ({ status: 'error', error: e.message }));
+      document.querySelector(`.opus-brief-btn[data-lead-id="${id}"]`)?.click();
+    });
+  } catch (err) {
+    block.innerHTML = `<small style="color:#dc2626">Erreur : ${escapeHtml(err.message)}</small>`;
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 // Génération Pitch Opus on-demand
 document.addEventListener('click', async (evt) => {
