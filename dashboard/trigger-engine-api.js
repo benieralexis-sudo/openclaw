@@ -321,6 +321,172 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
+  // ───── CLIENTS : liste des clients actifs + ICP ─────
+  app.get('/api/trigger-engine/clients', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.json({ enabled: false, clients: [] });
+    try {
+      const clients = db.prepare(`
+        SELECT c.id, c.name, c.industry, c.min_score, c.monthly_lead_cap, c.status,
+               (SELECT COUNT(*) FROM client_leads cl WHERE cl.client_id = c.id) as total_leads,
+               (SELECT COUNT(*) FROM client_leads cl WHERE cl.client_id = c.id AND cl.status = 'new') as new_leads,
+               (SELECT COUNT(*) FROM client_leads cl WHERE cl.client_id = c.id AND cl.created_at >= datetime('now', '-7 day')) as leads_last_7d
+        FROM clients c
+        WHERE c.status = 'active'
+        ORDER BY c.name
+      `).all();
+      res.json({ enabled: true, clients });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ───── LEADS par client ─────
+  app.get('/api/trigger-engine/clients/:clientId/leads', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.json({ enabled: false, leads: [] });
+    const clientId = req.params.clientId;
+    const limit = Math.min(parseInt(req.query.limit || '100', 10), 500);
+    const status = req.query.status || null;
+    try {
+      const filters = ['cl.client_id = ?'];
+      const params = [clientId];
+      if (status) { filters.push('cl.status = ?'); params.push(status); }
+      const rows = db.prepare(`
+        SELECT cl.id, cl.siren, cl.pattern_matched_id, cl.score, cl.priority,
+               cl.decision_maker_name, cl.decision_maker_email, cl.status,
+               cl.sent_at, cl.replied_at, cl.booked_at, cl.created_at,
+               pm.pattern_id, pm.signals, pm.matched_at,
+               p.name as pattern_name, p.pitch_angle, p.verticaux,
+               c.raison_sociale, c.naf_code, c.naf_label,
+               c.effectif_min, c.effectif_max, c.departement
+        FROM client_leads cl
+        LEFT JOIN patterns_matched pm ON pm.id = cl.pattern_matched_id
+        LEFT JOIN patterns p ON p.id = pm.pattern_id
+        LEFT JOIN companies c ON c.siren = cl.siren
+        WHERE ${filters.join(' AND ')}
+        ORDER BY cl.priority DESC, cl.score DESC, cl.created_at DESC
+        LIMIT ?
+      `).all(...params, limit);
+
+      const sirens = [...new Set(rows.map(r => r.siren))];
+      const contactsBySiren = {};
+      if (sirens.length) {
+        const ph = sirens.map(() => '?').join(',');
+        const contacts = db.prepare(`
+          SELECT siren, prenom, nom, fonction, domain_web, email, email_confidence, email_source
+          FROM leads_contacts WHERE siren IN (${ph})
+          ORDER BY email_confidence DESC
+        `).all(...sirens);
+        for (const c of contacts) {
+          if (!contactsBySiren[c.siren]) contactsBySiren[c.siren] = [];
+          contactsBySiren[c.siren].push(c);
+        }
+      }
+
+      const leads = rows.map(r => {
+        try { r.signals = JSON.parse(r.signals || '[]'); } catch (e) { r.signals = []; }
+        try { r.verticaux = JSON.parse(r.verticaux || '[]'); } catch (e) { r.verticaux = []; }
+        r.contacts = contactsBySiren[r.siren] || [];
+        const pitch = pitchGenerator ? pitchGenerator.generatePitch(r) : null;
+        return {
+          id: r.id,
+          siren: r.siren,
+          is_real_siren: !String(r.siren || '').startsWith('FT') && !String(r.siren || '').startsWith('ASS'),
+          raison_sociale: r.raison_sociale,
+          naf_code: r.naf_code,
+          naf_label: r.naf_label,
+          departement: r.departement,
+          effectif: r.effectif_min || r.effectif_max,
+          pattern_id: r.pattern_id,
+          pattern_name: r.pattern_name,
+          score: r.score,
+          priority: r.priority,
+          status: r.status,
+          decision_maker_name: r.decision_maker_name,
+          decision_maker_email: r.decision_maker_email,
+          sent_at: r.sent_at,
+          replied_at: r.replied_at,
+          booked_at: r.booked_at,
+          matched_at: r.matched_at,
+          created_at: r.created_at,
+          contacts: r.contacts,
+          pitch
+        };
+      });
+      res.json({ enabled: true, client_id: clientId, total: leads.length, leads });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/trigger-engine/clients/:clientId/leads.csv', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.status(503).send('Trigger Engine non initialisé');
+    const clientId = req.params.clientId;
+    try {
+      const rows = db.prepare(`
+        SELECT cl.siren, cl.score, cl.priority, cl.status,
+               cl.decision_maker_name, cl.decision_maker_email,
+               pm.pattern_id, p.name as pattern_name, p.pitch_angle, p.verticaux,
+               c.raison_sociale, c.naf_code, c.naf_label, c.effectif_min, c.departement,
+               cl.created_at
+        FROM client_leads cl
+        LEFT JOIN patterns_matched pm ON pm.id = cl.pattern_matched_id
+        LEFT JOIN patterns p ON p.id = pm.pattern_id
+        LEFT JOIN companies c ON c.siren = cl.siren
+        WHERE cl.client_id = ?
+        ORDER BY cl.priority DESC, cl.score DESC
+        LIMIT 2000
+      `).all(clientId);
+
+      const sirens = [...new Set(rows.map(r => r.siren))];
+      const contactsBySiren = {};
+      if (sirens.length) {
+        const ph = sirens.map(() => '?').join(',');
+        const contacts = db.prepare(`
+          SELECT siren, prenom, nom, fonction, email, email_confidence
+          FROM leads_contacts WHERE siren IN (${ph})
+          ORDER BY email_confidence DESC
+        `).all(...sirens);
+        for (const c of contacts) {
+          if (!contactsBySiren[c.siren]) contactsBySiren[c.siren] = [];
+          contactsBySiren[c.siren].push(c);
+        }
+      }
+
+      const escape = (v) => {
+        if (v == null) return '';
+        const s = String(v).replace(/"/g, '""');
+        return /[",;\n\r]/.test(s) ? `"${s}"` : s;
+      };
+
+      const header = ['SIREN', 'Nom', 'NAF', 'Libellé NAF', 'Dépt', 'Effectif', 'Pattern', 'Score', 'Priorité', 'Statut', 'Dirigeant', 'Email', 'Confidence', 'Email objet', 'Email corps', 'Créé le'].join(';');
+      const lines = [header];
+      for (const r of rows) {
+        try { r.verticaux = JSON.parse(r.verticaux || '[]'); } catch (e) { r.verticaux = []; }
+        const pitch = pitchGenerator ? pitchGenerator.generatePitch(r) : { subject: '', body: '' };
+        const c = (contactsBySiren[r.siren] || [])[0] || {};
+        lines.push([
+          r.siren, r.raison_sociale, r.naf_code, r.naf_label, r.departement,
+          r.effectif_min, r.pattern_name, r.score != null ? r.score.toFixed(1) : '',
+          r.priority, r.status,
+          [c.prenom, c.nom].filter(Boolean).join(' '),
+          r.decision_maker_email || c.email || '',
+          c.email_confidence != null ? c.email_confidence.toFixed(2) : '',
+          pitch.subject, pitch.body, r.created_at
+        ].map(escape).join(';'));
+      }
+
+      const csv = '﻿' + lines.join('\r\n');
+      const filename = `leads-${clientId}-${new Date().toISOString().slice(0, 10)}.csv`;
+      res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${filename}"` });
+      res.send(csv);
+    } catch (e) {
+      res.status(500).send('Error: ' + e.message);
+    }
+  });
+
   app.get('/api/trigger-engine/ingestion-state', authMiddleware, (req, res) => {
     const db = getDb();
     if (!db) return res.json({ enabled: false, sources: [] });
@@ -328,6 +494,30 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     try {
       const sources = db.prepare('SELECT * FROM ingestion_state ORDER BY source').all();
       res.json({ enabled: true, sources });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/trigger-engine/health', authMiddleware, (req, res) => {
+    const db = getDb();
+    if (!db) return res.json({ enabled: false });
+    const SOURCE_THRESHOLDS = { bodacc: 12, francetravail: 4, joafe: 18, 'rss-levees': 12, 'news-buzz': 18, 'google-trends': 30, 'meta-ad-library': 30, inpi: 30 };
+    try {
+      const sources = db.prepare(`
+        SELECT source, last_run_at, events_last_run, errors_last_run, last_error, enabled,
+               (julianday('now') - julianday(last_run_at)) * 24 as hours_since
+        FROM ingestion_state ORDER BY source
+      `).all();
+      const health = sources.map(s => ({
+        ...s,
+        threshold_hours: SOURCE_THRESHOLDS[s.source] || 24,
+        state: s.enabled === 0 ? 'disabled'
+             : (s.hours_since == null || s.hours_since > (SOURCE_THRESHOLDS[s.source] || 24)) ? 'stale'
+             : (s.errors_last_run > 0 && s.last_error) ? 'error'
+             : 'ok'
+      }));
+      res.json({ enabled: true, sources: health });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }

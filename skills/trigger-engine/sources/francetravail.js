@@ -211,26 +211,28 @@ function classifyOffer(libelle, appellation) {
 
   // TECH — dev, data, ops, sécurité, QA, support technique, intégration
   if (/\b(developp(eur|er|euse)|developer|programmeur|coder)\b/.test(text)
-      || /\b(software|engineer|ingenieur (logiciel|informatique|d['e]tudes|systeme|reseau|cloud|data|devops|qa|test)|etudes? et developpement)\b/.test(text)
-      || /\b(data (engineer|scientist|analyst)|data ?ops|mlops|analyste (programmeur|donnees|bi))\b/.test(text)
-      || /\b(devops|sre|site reliability|platform engineer|cloud engineer|architect(e|ure) (logiciel|technique|cloud|data|solution))\b/.test(text)
-      || /\b(sysadmin|administrateur (systemes?|reseaux?|base de donnees|bdd|infrastructure|informatique)|integrateur)\b/.test(text)
-      || /\b(qa\b|quality assurance|testeur (logiciel|informatique|qa)|automaticien|technicien test)\b/.test(text)
+      || /\b(software|engineer|ingenieur (logiciel|informatique|d['e]tudes|systeme|reseau|cloud|data|devops|qa|test|electronique|embarque|electronique embarquee)|etudes? et developpement)\b/.test(text)
+      || /\b(data (engineer|scientist|analyst|architect)|data ?ops|mlops|analyste (programmeur|donnees|bi)|machine learning|ia\b|intelligence artificielle)\b/.test(text)
+      || /\b(devops|sre|site reliability|platform engineer|cloud engineer|architect(e|ure) (logiciel|technique|cloud|data|solution|informatique|si))\b/.test(text)
+      || /\b(sysadmin|administrateur (systemes?|reseaux?|base de donnees|bdd|infrastructure|informatique)|integrateur|exploitation informatique)\b/.test(text)
+      || /\b(qa\b|quality assurance|testeur (logiciel|informatique|qa)|automaticien|technicien test|ingenieur test|ingenieur validation)\b/.test(text)
       || /\b(frontend|front[- ]end|backend|back[- ]end|fullstack|full[- ]stack|mobile (android|ios|flutter|react native))\b/.test(text)
       || /\b(cybersecurite|cyber ?security|pentester|devops?curity|security engineer|rssi)\b/.test(text)
-      || /\btechnicien (informatique|support|systeme|reseau|helpdesk|it)\b/.test(text)
-      || /\bchef de projet (technique|informatique|digital|it|si)\b/.test(text)
-      || /\b(scrum master|product owner|po\b)\b/.test(text)) {
+      || /\btechnicien (informatique|support|systeme|reseau|helpdesk|it|bureau d['e]?etudes?)\b/.test(text)
+      || /\bchef de projet (technique|informatique|digital|it|si|moa|moe|web)\b/.test(text)
+      || /\b(scrum master|product owner|po\b|lead dev|tech lead|staff engineer|engineering manager)\b/.test(text)
+      || /\b(charge[e]? (de )?(projet (moa|moe|digital|web|it|informatique|si)|produit digital))\b/.test(text)) {
     return 'hiring_tech';
   }
 
   // SALES — commercial, vente, clientèle, développement commercial
   // (business-dev déjà traité plus haut en early-check pour éviter conflit avec tech)
   if (/\b(sales\b|sales (manager|executive|representative|director|rep)|account (executive|manager|director)|sdr\b|bdr\b|ae\b|key account|kam\b)\b/.test(text)
-      || /\b(commercial[e]?|technico.commercial|ingenieur commercial|attache[e]? commercial|conseiller[e]? commercial|charge[e]? (de )?clientele|charge[e]? d['e ]?affaires)\b/.test(text)
+      || /\b(commercial[e]?|technico.commercial|ingenieur commercial|attache[e]? commercial|conseiller[e]? commercial|charge[e]? (de )?clientele|charge[e]? d['e ]?affaires (pro|b2b|btob|entreprises?|commercial))\b/.test(text)
+      || /\b(conseiller[e]? en gestion de patrimoine|courtier|prospecteur|prospecteuse|hunter commercial)\b/.test(text)
       || /\b(vendeur|vendeuse|conseiller[e]? (vente|de vente)|conseiller clientele|teleconseiller[e]?|teleprospecteur[e]?|televendeur[e]?)\b/.test(text)
-      || /\bresponsable (commercial|des ventes|comptes|grand[s]? comptes|secteur|clientele)\b/.test(text)
-      || /\b(gestionnaire (clients?|portefeuille client|compte client)|customer success|cs manager|csm\b)\b/.test(text)) {
+      || /\bresponsable (commercial|des ventes|comptes|grand[s]? comptes|secteur|clientele|developpement commercial)\b/.test(text)
+      || /\b(gestionnaire (clients?|portefeuille client|compte client)|customer success|cs manager|csm\b|customer (experience|care))\b/.test(text)) {
     return 'hiring_sales';
   }
 

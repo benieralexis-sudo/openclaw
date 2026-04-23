@@ -44,6 +44,20 @@ class TriggerEngineStorage {
   _initSchema() {
     const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
     this.db.exec(schema);
+    const migrationsDir = path.join(__dirname, 'migrations');
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+      for (const file of files) {
+        try {
+          const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+          this.db.exec(sql);
+        } catch (e) {
+          if (!/UNIQUE constraint|already exists|no such column|duplicate column/i.test(e.message)) {
+            throw new Error(`Migration ${file} failed: ${e.message}`);
+          }
+        }
+      }
+    }
   }
 
   // ─── COMPANIES ───

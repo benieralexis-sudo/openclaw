@@ -22,11 +22,15 @@ const rssLevees = require('./sources/rss-levees');
 const newsBuzz = require('./sources/news-buzz');
 const googleTrends = require('./sources/google-trends');
 const metaAdLibrary = require('./sources/meta-ad-library');
+const telegramAlert = require('./lib/telegram-alert');
+const sourceHealth = require('./lib/source-health');
+const { enrichMatches } = require('./contact-enricher');
 
 class TriggerEngineCron {
   constructor(handler, processor, options = {}) {
     this.handler = handler;
     this.processor = processor;
+    this.clientRouter = options.clientRouter || null;
     this.log = options.log || console;
     this.intervals = [];
     this._registerSources();
@@ -114,17 +118,55 @@ class TriggerEngineCron {
     this.intervals.push(metaInterval);
 
     // Pattern processing: every 15 min
-    const processInterval = setInterval(() => {
+    const processInterval = setInterval(async () => {
       try {
         const result = this.processor.processUnprocessed();
         if (result.processed > 0) {
           this.log.info?.(`[cron] processed ${result.processed} events, ${result.matches} new matches`);
+        }
+        if (this.clientRouter && result.matches > 0) {
+          const r = this.clientRouter.routeAllActiveMatches();
+          this.log.info?.(`[cron] routed matches → clients: total=${r.total} created=${r.created} updated=${r.updated} ${JSON.stringify(r.clients)}`);
+        }
+        if (result.matches > 0) {
+          try {
+            const alert = await telegramAlert.checkAndAlert(this.handler.storage.db, { log: this.log });
+            if (alert.sent > 0) this.log.info?.(`[cron] Telegram alerts sent: ${alert.sent}/${alert.candidates}`);
+          } catch (e) {
+            this.log.warn?.(`[cron] alert error: ${e.message}`);
+          }
         }
       } catch (err) {
         this.log.error?.('[cron] processor:', err.message);
       }
     }, 15 * 60 * 1000);
     this.intervals.push(processInterval);
+
+    // Contact enrichment + MX verify : every 2h (traite les nouveaux matches)
+    const enrichInterval = setInterval(async () => {
+      try {
+        const r = await enrichMatches(this.handler.storage.db, { log: this.log, limit: 20 });
+        if (r.dirigeants_inserted > 0) {
+          this.log.info?.(`[cron] contact enrichment: ${r.sirens_processed} SIRENs, ${r.dirigeants_inserted} dirigeants, ${r.emails_found} emails`);
+        }
+      } catch (e) {
+        this.log.warn?.(`[cron] enrich error: ${e.message}`);
+      }
+    }, 2 * 3600 * 1000);
+    this.intervals.push(enrichInterval);
+
+    // Monitoring santé sources : every 1h
+    const healthInterval = setInterval(async () => {
+      try {
+        const h = await sourceHealth.checkHealth(this.handler.storage.db, { log: this.log });
+        if (h.alerted > 0) {
+          this.log.warn?.(`[cron] source health alerts: ${h.alerted} envoyées (stale=${h.stale.length}, error=${h.error.length})`);
+        }
+      } catch (e) {
+        this.log.warn?.(`[cron] health check error: ${e.message}`);
+      }
+    }, 3600 * 1000);
+    this.intervals.push(healthInterval);
 
     // Cleanup expired: every 24h
     const cleanupInterval = setInterval(() => {
@@ -145,6 +187,10 @@ class TriggerEngineCron {
         try {
           const r = this.processor.processUnprocessed();
           this.log.info?.(`[cron] initial processing: ${r.matches} matches`);
+          if (this.clientRouter) {
+            const routed = this.clientRouter.routeAllActiveMatches();
+            this.log.info?.(`[cron] initial routing → ${JSON.stringify(routed)}`);
+          }
         } catch (err) {
           this.log.error?.('[cron] initial processing error:', err.message);
         }

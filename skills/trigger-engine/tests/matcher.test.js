@@ -9,7 +9,7 @@ const { evaluatePattern, matchAllPatterns, eventsInWindow } = require('../patter
 const PATTERN_SCALEUP = {
   id: 'scale-up-tech',
   name: 'test',
-  min_score: 7.0,
+  min_score: 6.0,
   max_score: 10.0,
   window_days: 30,
   signals_required: {

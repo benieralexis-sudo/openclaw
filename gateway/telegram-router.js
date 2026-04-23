@@ -43,10 +43,12 @@ const { classifyReply, subClassifyObjection, generateObjectionReply, generateQue
 let TriggerEngineHandler = null;
 let TriggerEngineProcessor = null;
 let TriggerEngineCron = null;
+let ClientRouter = null;
 try {
   ({ TriggerEngineHandler } = require('../skills/trigger-engine/index.js'));
   ({ TriggerEngineProcessor } = require('../skills/trigger-engine/processor.js'));
   ({ TriggerEngineCron } = require('../skills/trigger-engine/cron.js'));
+  ({ ClientRouter } = require('../skills/trigger-engine/router.js'));
 } catch (e) {
   // Silent fail — Trigger Engine is optional, skip if dependencies not installed yet
 }
@@ -776,7 +778,15 @@ if (process.env.TRIGGER_ENGINE_ENABLED === 'true' && TriggerEngineHandler) {
   try {
     triggerEngine = new TriggerEngineHandler({ log });
     const triggerProcessor = new TriggerEngineProcessor(triggerEngine.storage, { log });
-    triggerEngineCron = new TriggerEngineCron(triggerEngine, triggerProcessor, { log });
+    const clientRouter = ClientRouter ? new ClientRouter(triggerEngine.storage, { log }) : null;
+    if (clientRouter) {
+      try {
+        clientRouter.loadSeed();
+      } catch (e) {
+        log.warn('router', 'Trigger Engine client seed failed: ' + e.message);
+      }
+    }
+    triggerEngineCron = new TriggerEngineCron(triggerEngine, triggerProcessor, { log, clientRouter });
     log.info('router', 'Trigger Engine initialized (opt-in enabled)');
     triggerEngineCron.start();
     log.info('router', 'Trigger Engine cron scheduled (independent of STANDBY/PRODUCTION mode)');

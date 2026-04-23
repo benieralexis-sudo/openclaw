@@ -1,0 +1,54 @@
+[
+  {
+    "id": "ifind",
+    "name": "iFIND (interne — vitrine Trigger Engine)",
+    "industry": "b2b-saas",
+    "icp": {
+      "naf_prefixes_allow": ["58.29", "62.0", "62.01", "62.02", "62.03", "63.", "70.", "71.12", "73.11", "72."],
+      "naf_prefixes_block": ["84.", "56.", "10.71", "10.72", "87.", "88.", "94.", "91.", "47.", "46.73"],
+      "departements_allow": [],
+      "departements_block": [],
+      "effectif_min": 10,
+      "effectif_max": 500,
+      "keywords_name_block": ["mairie", "commune", "ccas", "association", "cc ", "bmce", "korian", "apple"]
+    },
+    "patterns": ["funding-recent", "tech-hiring", "media-buzz", "scale-up-tech", "new-exec-hire", "multi-role-scaling"],
+    "min_score": 6.0,
+    "monthly_lead_cap": 500,
+    "status": "active"
+  },
+  {
+    "id": "digitestlab",
+    "name": "DigitestLab / Digidemat (Frédéric)",
+    "industry": "qa-software-testing",
+    "icp": {
+      "naf_prefixes_allow": ["58.29", "62.0", "62.01", "62.02", "62.03", "63."],
+      "naf_prefixes_block": ["84.", "56.", "10.71", "10.72", "87.", "88.", "94.", "91."],
+      "departements_allow": [],
+      "effectif_min": 50,
+      "effectif_max": 500,
+      "keywords_name_block": ["mairie", "association"]
+    },
+    "patterns": ["funding-recent", "tech-hiring", "scale-up-tech"],
+    "min_score": 7.0,
+    "monthly_lead_cap": 300,
+    "status": "active"
+  },
+  {
+    "id": "fimmop",
+    "name": "FIMMOP (Clément)",
+    "industry": "btp-immobilier",
+    "icp": {
+      "naf_prefixes_allow": ["41.", "42.", "43.", "46.73", "68.", "71.12"],
+      "naf_prefixes_block": ["84.", "56.", "87.", "88.", "94.", "91."],
+      "departements_allow": [],
+      "effectif_min": 5,
+      "effectif_max": 250,
+      "keywords_name_block": ["mairie", "association"]
+    },
+    "patterns": ["funding-recent", "new-exec-hire", "sales-team-scaling", "multi-role-scaling"],
+    "min_score": 5.5,
+    "monthly_lead_cap": 300,
+    "status": "active"
+  }
+]

@@ -15,6 +15,7 @@
 
 const sirene = require('./sources/sirene');
 const dropcontact = require('./sources/dropcontact');
+const mxVerify = require('./lib/mx-verify');
 
 const CACHE_TTL_MS = 7 * 24 * 3600 * 1000; // 7 jours
 
@@ -92,13 +93,30 @@ async function enrichMatches(db, opts = {}) {
       const domainFromApi = result.domain;
       const domainGuess = domainFromApi || guessDomain(c.raison_sociale);
 
+      // Vérif DNS MX : filtre les domaines devinés sans MX valide (évite bounces)
+      let mxOk = null;
+      let mxBonus = 0;
+      if (domainGuess) {
+        try {
+          const mx = await mxVerify.verifyDomain(domainGuess, db, { log });
+          mxOk = mx.ok;
+          if (mx.ok) mxBonus = 0.25;
+          if (!mx.ok && !domainFromApi) {
+            log.info?.(`[contact-enricher] ${c.siren} ${c.raison_sociale} — ${domainGuess} sans MX (${mx.reason}), emails skippés`);
+          }
+        } catch (e) {
+          log.warn?.(`[contact-enricher] MX check failed for ${domainGuess}: ${e.message}`);
+        }
+      }
+
       for (const d of result.dirigeants) {
         // Skip personnes morales (pas de prenom/nom)
         if (d.dirigeant_type === 'personne morale' || !d.nom) continue;
 
         // Email : Dropcontact (si clé) ou pattern-guess sur domaine
         let email = null, emailSource = null, emailConf = null;
-        if (d.prenom && domainGuess) {
+        const skipGuess = !domainFromApi && mxOk === false;
+        if (d.prenom && domainGuess && !skipGuess) {
           const emails = await dropcontact.findEmails({
             prenom: d.prenom,
             nom: d.nom,
@@ -108,9 +126,10 @@ async function enrichMatches(db, opts = {}) {
           if (emails.length > 0) {
             const best = emails[0];
             email = best.email;
-            emailSource = best.source + (domainFromApi ? '' : '-guessed-domain');
-            // Confidence réduite si domaine deviné (non vérifié)
-            emailConf = domainFromApi ? best.confidence : Math.max(0.1, best.confidence * 0.5);
+            const mxSuffix = mxOk ? '+mx-verified' : '';
+            emailSource = best.source + (domainFromApi ? '' : '-guessed-domain') + mxSuffix;
+            const baseConf = domainFromApi ? best.confidence : Math.max(0.1, best.confidence * 0.5);
+            emailConf = Math.min(0.95, baseConf + mxBonus);
             emailsFound += 1;
           }
         }
