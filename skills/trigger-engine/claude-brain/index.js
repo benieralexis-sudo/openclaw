@@ -18,6 +18,7 @@ const { ClaudeBrainQueue } = require('./queue');
 const { ClaudeBrainWorker } = require('./worker');
 const { ContextBuilder } = require('./context-builder');
 const { BudgetTracker } = require('./budget');
+const telegramAlert = require('../lib/telegram-alert');
 
 const DEFAULT_TENANT_CONFIG = {
   enabled: true,
@@ -40,6 +41,10 @@ class ClaudeBrain {
     this.log = options.log || console;
     this.enabled = options.enabled === true;
     this.budget = new BudgetTracker(this.db, { log: this.log });
+    // Dispatch Telegram admin pour alertes budget (skip si --test)
+    if (options.telegramModule !== null) {
+      this.budget.setTelegramModule(options.telegramModule || telegramAlert);
+    }
     this.queue = new ClaudeBrainQueue(this.db, { log: this.log });
     this.context = new ContextBuilder(this.db, { log: this.log });
     this.worker = null;

@@ -16,8 +16,33 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PROMPTS_DIR = path.join(__dirname, 'prompts');
-const EVENTS_WINDOW_DAYS = 90;
+
+/**
+ * Fenêtres temporelles par pipeline.
+ * qualify  : 90 jours de signaux récents → décision tactique
+ * pitch    : 60 jours → accroche contextuelle récente
+ * brief    : 1825 jours (5 ans) → dossier complet avec historique long
+ * discover : N/A (opère sur les leads agrégés)
+ */
+const PIPELINE_WINDOWS_DAYS = {
+  qualify: 90,
+  pitch: 60,
+  brief: 1825,
+  discover: 30
+};
+
+const PIPELINE_EVENT_LIMITS = {
+  qualify: 50,
+  pitch: 30,
+  brief: 300,  // Brief exploite 1M context d'Opus 4.7
+  discover: 0
+};
+
 const CONTACTS_LIMIT = 5;
+
+// Budget caractères approximatif pour data context (évite blow-up).
+// Opus 4.7 supporte 1M tokens mais on cap à ~200k caractères (≈50k tokens) pour coût raisonnable.
+const MAX_DATA_CONTEXT_CHARS = 200_000;
 
 class ContextBuilder {
   constructor(db, options = {}) {
@@ -52,15 +77,15 @@ class ContextBuilder {
     `).get(siren);
   }
 
-  _getEvents(siren) {
+  _getEvents(siren, windowDays = 90, limit = 200) {
     return this.db.prepare(`
       SELECT source, event_type, event_date, raw_data, normalized
       FROM events
       WHERE siren = ?
         AND event_date >= date('now', '-' || ? || ' days')
       ORDER BY event_date DESC
-      LIMIT 200
-    `).all(siren, String(EVENTS_WINDOW_DAYS));
+      LIMIT ?
+    `).all(siren, String(windowDays), limit);
   }
 
   _getActiveMatches(siren) {
@@ -97,7 +122,21 @@ class ContextBuilder {
     const voicePrompt = this._renderVoice(tenant);
     const dataContext = pipeline === 'discover'
       ? this._buildDiscoverContext(tenantId)
-      : this._buildLeadContext(siren);
+      : this._buildLeadContext(siren, pipeline);
+
+    // Pour qualify/pitch/brief, joindre la qualification précédente si dispo (pipeline aval)
+    if (['pitch', 'brief'].includes(pipeline) && dataContext && !dataContext.error) {
+      const prevQualify = this.db.prepare(`
+        SELECT result_json FROM claude_brain_results
+        WHERE tenant_id = ? AND siren = ? AND pipeline = 'qualify'
+        ORDER BY version DESC, created_at DESC LIMIT 1
+      `).get(tenantId, siren);
+      if (prevQualify) {
+        try {
+          dataContext.qualification = JSON.parse(prevQualify.result_json);
+        } catch {}
+      }
+    }
 
     return {
       systemPrompt,
@@ -125,14 +164,16 @@ class ContextBuilder {
     return lines.join('\n');
   }
 
-  _buildLeadContext(siren) {
+  _buildLeadContext(siren, pipeline = 'qualify') {
     const company = this._getCompany(siren);
     if (!company) return { error: 'company-not-found', siren };
-    const events = this._getEvents(siren);
+    const windowDays = PIPELINE_WINDOWS_DAYS[pipeline] || 90;
+    const eventLimit = PIPELINE_EVENT_LIMITS[pipeline] || 50;
+    const events = this._getEvents(siren, windowDays, eventLimit + 50);
     const matches = this._getActiveMatches(siren);
     const contacts = this._getContacts(siren);
 
-    const eventsSummary = events.slice(0, 50).map(e => {
+    const eventsSummary = events.slice(0, eventLimit).map(e => {
       let norm = null;
       try { norm = e.normalized ? JSON.parse(e.normalized) : null; } catch {}
       const label = norm?.label || norm?.title || e.event_type;
@@ -160,7 +201,8 @@ class ContextBuilder {
       active_matches: matchesSummary || '(aucun match actif)',
       contacts_count: contacts.length,
       contacts_summary: contactsSummary || '(aucun contact enrichi)',
-      tenant_id: undefined // rempli en amont si besoin
+      window_days: windowDays,
+      pipeline
     };
   }
 
@@ -170,12 +212,13 @@ class ContextBuilder {
   }
 
   /**
-   * Serialize dataContext to a string suitable for sending to Opus.
-   * Keep it compact.
+   * Sérialise dataContext en string pour Anthropic. Tronque à MAX_DATA_CONTEXT_CHARS.
    */
   renderDataContext(ctx) {
     if (!ctx || ctx.error) return `[contexte indisponible: ${ctx?.error || 'unknown'}]`;
-    return [
+    if (ctx.note && !ctx.company) return `[${ctx.note}]`;
+
+    const parts = [
       '# Entreprise',
       `SIREN : ${ctx.company.siren}`,
       `Raison sociale : ${ctx.company.raison_sociale}`,
@@ -187,13 +230,34 @@ class ContextBuilder {
       `# Patterns matchés`,
       ctx.active_matches,
       '',
-      `# Events ${ctx.events_count} derniers 90j (max 50 affichés)`,
+      `# Events (${ctx.events_count} sur ${ctx.window_days || 90} jours)`,
       ctx.events_summary,
       '',
       `# Contacts connus (${ctx.contacts_count})`,
       ctx.contacts_summary
-    ].filter(l => l !== null).join('\n');
+    ];
+
+    // Injection qualification si pipeline aval (pitch/brief)
+    if (ctx.qualification) {
+      parts.push('');
+      parts.push('# Qualification Opus précédente');
+      parts.push(JSON.stringify(ctx.qualification, null, 2));
+    }
+
+    let rendered = parts.filter(l => l !== null).join('\n');
+    if (rendered.length > MAX_DATA_CONTEXT_CHARS) {
+      rendered = rendered.slice(0, MAX_DATA_CONTEXT_CHARS) + '\n\n[…tronqué à ' + MAX_DATA_CONTEXT_CHARS + ' chars]';
+    }
+    return rendered;
+  }
+
+  /**
+   * Version safe-for-logs du contexte (sans emails ni PII).
+   */
+  renderDataContextForLog(ctx) {
+    if (!ctx || ctx.error) return `[err: ${ctx?.error || 'unknown'}]`;
+    return `siren=${ctx.company?.siren} events=${ctx.events_count} contacts=${ctx.contacts_count} matches=${(ctx.active_matches || '').split(',').length}`;
   }
 }
 
-module.exports = { ContextBuilder };
+module.exports = { ContextBuilder, PIPELINE_WINDOWS_DAYS, PIPELINE_EVENT_LIMITS, MAX_DATA_CONTEXT_CHARS };

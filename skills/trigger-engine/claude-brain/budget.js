@@ -127,6 +127,9 @@ class BudgetTracker {
         VALUES (?, ?, 'hard')
       `).run(tenantId, monthKey);
       this.log.warn?.(`[budget] HARD LIMIT ${tenantId} month=${monthKey} spent=${spent.toFixed(2)}€ / ${limits.hard}€`);
+      // Pause automatique du tenant (pipeline Claude Brain désactivé)
+      this._pauseTenant(tenantId, `Hard budget limit ${limits.hard}€ atteint`);
+      this._dispatchTelegramAlert(tenantId, spent, limits, 'hard');
     } else if (spent >= limits.soft * 0.8 && !dedup.includes('soft')) {
       alert = { level: 'soft', spent, limit: limits.soft };
       this.db.prepare(`
@@ -134,8 +137,63 @@ class BudgetTracker {
         VALUES (?, ?, 'soft')
       `).run(tenantId, monthKey);
       this.log.warn?.(`[budget] soft threshold ${tenantId} month=${monthKey} spent=${spent.toFixed(2)}€ / ${limits.soft}€`);
+      this._dispatchTelegramAlert(tenantId, spent, limits, 'soft');
     }
     return alert;
+  }
+
+  /**
+   * Pause auto du tenant au hard limit — modifie claude_brain_config.enabled=false.
+   * Admin devra réactiver manuellement.
+   */
+  _pauseTenant(tenantId, reason) {
+    try {
+      const row = this.db.prepare('SELECT claude_brain_config FROM clients WHERE id = ?').get(tenantId);
+      if (!row || !row.claude_brain_config) return;
+      const cfg = JSON.parse(row.claude_brain_config);
+      cfg.enabled = false;
+      cfg.paused_at = new Date().toISOString();
+      cfg.paused_reason = reason;
+      this.db.prepare('UPDATE clients SET claude_brain_config = ? WHERE id = ?')
+        .run(JSON.stringify(cfg), tenantId);
+      this.log.warn?.(`[budget] tenant ${tenantId} PAUSED: ${reason}`);
+    } catch (e) {
+      this.log.error?.(`[budget] failed to pause tenant ${tenantId}: ${e.message}`);
+    }
+  }
+
+  /**
+   * Dispatch alerte Telegram admin (async, non-bloquant).
+   * Injectable via options.telegram pour tests.
+   */
+  _dispatchTelegramAlert(tenantId, spent, limits, level) {
+    const telegram = this._telegram;
+    if (!telegram) return; // silencieux si module non fourni (tests ou env sans token)
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.ADMIN_CHAT_ID || '1409505520';
+    if (!token) return;
+    const icon = level === 'hard' ? '🚨' : '⚠️';
+    const action = level === 'hard' ? '*TENANT PAUSÉ automatiquement*' : 'Soft threshold franchi';
+    const msg = [
+      `${icon} *Claude Brain budget — ${level.toUpperCase()}*`,
+      ``,
+      `🏢 Tenant : \`${tenantId}\``,
+      `💸 Dépensé : ${spent.toFixed(2)}€`,
+      `🎯 Limite : ${(level === 'hard' ? limits.hard : limits.soft).toFixed(2)}€`,
+      ``,
+      action
+    ].join('\n');
+    // Best effort — erreurs silencieuses (log uniquement)
+    telegram.sendTelegram(token, chatId, msg).catch(e => {
+      this.log.warn?.(`[budget] telegram dispatch failed: ${e.message}`);
+    });
+  }
+
+  /**
+   * Injecte le module telegram-alert pour dispatch (pattern DI pour tests).
+   */
+  setTelegramModule(telegramModule) {
+    this._telegram = telegramModule;
   }
 
   getUsageByTenant(tenantId) {
