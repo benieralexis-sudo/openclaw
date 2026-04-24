@@ -76,6 +76,15 @@ Pages.settings = async function(container) {
   const modeData = await API.fetch('settings/reply-mode').catch(() => null);
   const currentMode = (modeData && modeData.mode) || 'copilot';
 
+  // Fetch Trigger Engine notif prefs (alertes pépites + résumé hebdo)
+  let tePrefs = {};
+  if (data.id) {
+    try {
+      const r = await API.fetch('trigger-engine/settings/' + encodeURIComponent(data.id));
+      if (r && !r.error) tePrefs = r;
+    } catch {}
+  }
+
   container.innerHTML = `
   <div class="page-enter stagger">
     <div class="page-header">
@@ -210,6 +219,41 @@ Pages.settings = async function(container) {
             <div id="kb-loading" style="text-align:center;padding:20px;color:var(--text-muted)">Chargement de la KB...</div>
           </div>
           <div id="kb-status" style="font-size:13px;margin-top:8px;display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications leads iFIND (Trigger Engine) -->
+    <div class="grid-full">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Notifications leads</div>
+          <button class="btn-export" data-action="save-te-notifs" data-tenant-id="${e(data.id || '')}" style="padding:6px 16px;font-size:12px">Sauvegarder</button>
+        </div>
+        <div class="card-body">
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Tous vos leads sont toujours disponibles dans le dashboard. Ces préférences modifient uniquement les emails que vous recevez <em>en plus</em>.</p>
+          <div style="display:grid;gap:14px">
+            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+              <input type="checkbox" id="te-realtime-alert" ${tePrefs.realtime_alert_enabled !== false ? 'checked' : ''} style="margin-top:3px">
+              <div>
+                <div style="font-weight:600">🔥 Alerte pépite — temps réel</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Email immédiat dès qu'un lead exceptionnel est détecté (score ≥ 9/10). Recommandé.</div>
+              </div>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+              <input type="checkbox" id="te-weekly-digest" ${tePrefs.weekly_digest_enabled === true ? 'checked' : ''} style="margin-top:3px">
+              <div>
+                <div style="font-weight:600">📊 Résumé hebdomadaire</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Récap des leads de la semaine, chaque lundi matin à 8h Paris.</div>
+              </div>
+            </label>
+            <div>
+              <label class="ob-label">Email de réception</label>
+              <input type="email" id="te-digest-email" class="ob-input" placeholder="email@entreprise.com" value="${e(tePrefs.digest_email || '')}">
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Adresse utilisée pour les alertes pépites et le résumé hebdo.</div>
+            </div>
+          </div>
+          <div id="te-notifs-status" style="font-size:13px;margin-top:12px;display:none"></div>
         </div>
       </div>
     </div>
@@ -518,6 +562,31 @@ document.addEventListener('click', (ev) => {
     }).then(res => {
       target.disabled = false;
       _showStatus('notif-prefs-status', res && res.success ? 'Preferences sauvegardees' : (res && res.error) || 'Erreur', res && res.success);
+    });
+  }
+
+  if (action === 'save-te-notifs') {
+    const tenantId = target.dataset.tenantId || window.__settingsTenantId;
+    if (!tenantId) { _showStatus('te-notifs-status', 'Client ID introuvable', false); return; }
+    target.disabled = true;
+    const email = (document.getElementById('te-digest-email')?.value || '').trim();
+    const body = {
+      realtime_alert_enabled: !!document.getElementById('te-realtime-alert')?.checked,
+      weekly_digest_enabled: !!document.getElementById('te-weekly-digest')?.checked,
+    };
+    if (email) body.digest_email = email;
+    fetch('/api/trigger-engine/settings/' + encodeURIComponent(tenantId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(r => r.json()).then(res => {
+      target.disabled = false;
+      const ok = res && res.ok;
+      _showStatus('te-notifs-status', ok ? 'Préférences sauvegardées' : (res && res.error) || 'Erreur', ok);
+      if (ok) API.invalidate('trigger-engine/settings/' + tenantId);
+    }).catch(() => {
+      target.disabled = false;
+      _showStatus('te-notifs-status', 'Erreur réseau', false);
     });
   }
 

@@ -520,6 +520,7 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
         name: row.name,
         digest_enabled: cfg.digest_enabled !== false,
         digest_email: cfg.digest_email || null,
+        weekly_digest_enabled: cfg.weekly_digest_enabled === true,
         realtime_alert_enabled: cfg.realtime_alert_enabled !== false,
         realtime_alert_threshold: cfg.realtime_alert_threshold ?? 9.0,
         auto_pitch_enabled: cfg.auto_pitch_enabled !== false,
@@ -541,6 +542,7 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
     const allowedKeys = [
       'digest_enabled', 'digest_email',
+      'weekly_digest_enabled',
       'realtime_alert_enabled', 'realtime_alert_threshold',
       'auto_pitch_enabled', 'auto_linkedin_enabled', 'auto_call_brief_enabled'
     ];

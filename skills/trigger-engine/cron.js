@@ -25,7 +25,7 @@ const metaAdLibrary = require('./sources/meta-ad-library');
 const telegramAlert = require('./lib/telegram-alert');
 const sourceHealth = require('./lib/source-health');
 const { enrichMatches } = require('./contact-enricher');
-const { sendDailyDigests, parisHour } = require('./claude-brain/digest-email');
+const { sendDailyDigests, parisHour, sendWeeklyDigests, parisDayOfWeek } = require('./claude-brain/digest-email');
 const { sendRealtimeAlerts } = require('./claude-brain/realtime-alert');
 
 class TriggerEngineCron {
@@ -360,6 +360,23 @@ class TriggerEngineCron {
       }
     }, 30 * 60 * 1000); // Toutes les 30 min
     this.intervals.push(digestInterval);
+
+    // Résumé hebdomadaire (opt-in weekly_digest_enabled) : lundi 8h Paris
+    // Check toutes les 30 min, envoie si lundi ET 8h et pas déjà fait cette semaine
+    const weeklyDigestInterval = setInterval(async () => {
+      try {
+        if (!this.claudeBrain || !this.claudeBrain.enabled) return;
+        if (parisDayOfWeek() !== 1) return; // 1 = lundi
+        if (parisHour() !== 8) return;
+        const stats = await sendWeeklyDigests(this.handler.storage.db, { log: this.log });
+        if (stats.sent > 0 || stats.failed > 0) {
+          this.log.info?.(`[cron] résumé hebdo lundi: ${stats.sent} envoyés, ${stats.skipped} skippés, ${stats.failed} échecs`);
+        }
+      } catch (e) {
+        this.log.warn?.(`[cron] weekly digest error: ${e.message}`);
+      }
+    }, 30 * 60 * 1000);
+    this.intervals.push(weeklyDigestInterval);
 
     // Claude Brain Stale Requalify : every 4h (détecte et re-qualifie les leads
     // dont la qualif est vieille OU qui ont de nouveaux events/contacts depuis)
