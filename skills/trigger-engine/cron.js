@@ -25,7 +25,7 @@ const metaAdLibrary = require('./sources/meta-ad-library');
 const telegramAlert = require('./lib/telegram-alert');
 const sourceHealth = require('./lib/source-health');
 const { enrichMatches } = require('./contact-enricher');
-const { sendDailyDigests, parisHour, sendWeeklyDigests, parisDayOfWeek } = require('./claude-brain/digest-email');
+const { parisHour, sendWeeklyDigests, parisDayOfWeek } = require('./claude-brain/digest-email');
 const { sendRealtimeAlerts } = require('./claude-brain/realtime-alert');
 
 class TriggerEngineCron {
@@ -344,22 +344,6 @@ class TriggerEngineCron {
       }
     }, 30 * 60 * 1000); // check toutes les 30 min
     this.intervals.push(discoverCheckInterval);
-
-    // Digest email matin Paris 8h : check toutes les 30 min, envoie si 8h et pas déjà fait
-    const digestInterval = setInterval(async () => {
-      try {
-        if (!this.claudeBrain || !this.claudeBrain.enabled) return;
-        const hour = parisHour();
-        if (hour !== 8) return; // On ne déclenche qu'à 8h Paris
-        const stats = await sendDailyDigests(this.handler.storage.db, { log: this.log });
-        if (stats.sent > 0 || stats.failed > 0) {
-          this.log.info?.(`[cron] digest matin: ${stats.sent} envoyés, ${stats.skipped} skippés, ${stats.failed} échecs`);
-        }
-      } catch (e) {
-        this.log.warn?.(`[cron] digest error: ${e.message}`);
-      }
-    }, 30 * 60 * 1000); // Toutes les 30 min
-    this.intervals.push(digestInterval);
 
     // Résumé hebdomadaire (opt-in weekly_digest_enabled) : lundi 8h Paris
     // Check toutes les 30 min, envoie si lundi ET 8h et pas déjà fait cette semaine

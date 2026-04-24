@@ -518,7 +518,6 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
       res.json({
         tenant_id: row.id,
         name: row.name,
-        digest_enabled: cfg.digest_enabled !== false,
         digest_email: cfg.digest_email || null,
         weekly_digest_enabled: cfg.weekly_digest_enabled === true,
         realtime_alert_enabled: cfg.realtime_alert_enabled !== false,
@@ -541,7 +540,7 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
       if (!scope.includes(tenantId)) return res.status(403).json({ error: 'hors scope' });
     }
     const allowedKeys = [
-      'digest_enabled', 'digest_email',
+      'digest_email',
       'weekly_digest_enabled',
       'realtime_alert_enabled', 'realtime_alert_threshold',
       'auto_pitch_enabled', 'auto_linkedin_enabled', 'auto_call_brief_enabled'
@@ -570,19 +569,19 @@ function registerTriggerEngineRoutes(app, authMiddleware) {
     }
   });
 
-  // Force send digest maintenant (admin only, pour tester)
-  app.post('/api/trigger-engine/settings/:tenantId/send-digest-now', authMiddleware, async (req, res) => {
+  // Force send weekly digest now (admin only, pour tester)
+  app.post('/api/trigger-engine/settings/:tenantId/send-weekly-digest-now', authMiddleware, async (req, res) => {
     if (req.user?.role !== 'admin') return res.status(403).json({ error: 'admin only' });
     try {
-      const { buildDigest } = require('/app/skills/trigger-engine/claude-brain/digest-email');
+      const { buildWeeklyDigest } = require('/app/skills/trigger-engine/claude-brain/digest-email');
       const { sendEmail } = require('/app/skills/trigger-engine/claude-brain/email-sender');
       const db = getDb();
       const tenant = db.prepare('SELECT name, claude_brain_config FROM clients WHERE id = ?').get(req.params.tenantId);
       if (!tenant) return res.status(404).json({ error: 'tenant-not-found' });
       const cfg = JSON.parse(tenant.claude_brain_config || '{}');
       if (!cfg.digest_email) return res.status(400).json({ error: 'no_digest_email_configured' });
-      const digest = buildDigest(db, req.params.tenantId, tenant.name);
-      if (!digest) return res.json({ ok: true, status: 'no_leads_today' });
+      const digest = buildWeeklyDigest(db, req.params.tenantId, tenant.name);
+      if (!digest) return res.json({ ok: true, status: 'no_leads_this_week' });
       const r = await sendEmail({ to: cfg.digest_email, subject: digest.subject, html: digest.html, text: digest.text });
       res.json({ ok: r.ok, status: r.ok ? 'sent' : 'failed', error: r.error || null, digest_preview: { subject: digest.subject, leads: digest.leads_count } });
     } catch (e) {

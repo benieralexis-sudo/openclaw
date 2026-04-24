@@ -4,7 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { createTempStorage, cleanupStorage, seedTenant, seedCompanyAndMatch } = require('./setup');
 const {
-  buildDigest, getDigestLeads, parisDate, parisHour, sendDailyDigests
+  parisDate, parisHour, parisWeekKey, parisDayOfWeek,
+  buildWeeklyDigest, getWeeklyDigestLeads, sendWeeklyDigests
 } = require('../digest-email');
 const {
   sendRealtimeAlerts, buildAlertEmail
@@ -20,117 +21,107 @@ function seedQualifiedLead(storage, tenantId, siren, opusScore, hoursAgo = 1) {
   `).run(tenantId, siren, pmId, opusScore, hoursAgo, hoursAgo);
 }
 
-// ───── Digest building ─────
+// ───── Helpers temps Paris ─────
 
-test('Phase2 digest — getDigestLeads filtre leads last 24h', () => {
-  const { storage, dbPath } = createTempStorage();
-  try {
-    seedTenant(storage, 't1', { digest_email: 'client@test.fr' });
-    seedQualifiedLead(storage, 't1', '100000001', 9.0, 2);   // < 24h, doit être inclus
-    seedQualifiedLead(storage, 't1', '100000002', 7.5, 10);  // < 24h, doit être inclus
-    seedQualifiedLead(storage, 't1', '100000003', 5.0, 48);  // > 24h, doit être exclu
-    const leads = getDigestLeads(storage.db, 't1');
-    assert.equal(leads.length, 2);
-  } finally { cleanupStorage(storage, dbPath); }
-});
-
-test('Phase2 digest — buildDigest produit HTML + subject', () => {
-  const { storage, dbPath } = createTempStorage();
-  try {
-    seedTenant(storage, 't1', { digest_email: 'client@test.fr' });
-    seedQualifiedLead(storage, 't1', '200000001', 9.5);
-    seedQualifiedLead(storage, 't1', '200000002', 6.5);
-    const d = buildDigest(storage.db, 't1', 'Acme SAS');
-    assert.ok(d);
-    assert.ok(d.html.includes('iFIND') || d.html.includes('leads'));
-    assert.equal(d.leads_count, 2);
-    assert.equal(d.red_count, 1);
-    assert.ok(d.subject.includes('urgent') || d.subject.includes('Acme'));
-  } finally { cleanupStorage(storage, dbPath); }
-});
-
-test('Phase2 digest — buildDigest retourne null si 0 leads', () => {
-  const { storage, dbPath } = createTempStorage();
-  try {
-    seedTenant(storage, 't1', { digest_email: 'client@test.fr' });
-    const d = buildDigest(storage.db, 't1');
-    assert.equal(d, null);
-  } finally { cleanupStorage(storage, dbPath); }
-});
-
-test('Phase2 digest — HTML sanitize XSS dans raison_sociale', () => {
-  const { storage, dbPath } = createTempStorage();
-  try {
-    seedTenant(storage, 't1', { digest_email: 'client@test.fr' });
-    seedCompanyAndMatch(storage, '300000001');
-    storage.db.prepare(`UPDATE companies SET raison_sociale = ? WHERE siren = ?`)
-      .run('<script>alert(1)</script>EvilCorp', '300000001');
-    const pmId = storage.db.prepare('SELECT id FROM patterns_matched WHERE siren = ?').get('300000001').id;
-    storage.db.prepare(`
-      INSERT INTO client_leads (client_id, siren, pattern_matched_id, score, priority, status, opus_score, opus_qualified_at, created_at)
-      VALUES ('t1', '300000001', ?, 7.0, 'orange', 'new', 8.5, datetime('now'), datetime('now'))
-    `).run(pmId);
-    const d = buildDigest(storage.db, 't1');
-    assert.ok(!d.html.includes('<script>'));
-    assert.ok(d.html.includes('&lt;script&gt;'));
-  } finally { cleanupStorage(storage, dbPath); }
-});
-
-test('Phase2 digest — parisDate format YYYY-MM-DD', () => {
+test('digest helpers — parisDate format YYYY-MM-DD', () => {
   const d = parisDate();
   assert.match(d, /^\d{4}-\d{2}-\d{2}$/);
 });
 
-test('Phase2 digest — parisHour retourne 0-23', () => {
+test('digest helpers — parisHour retourne 0-23', () => {
   const h = parisHour();
   assert.ok(h >= 0 && h <= 23);
 });
 
-// ───── sendDailyDigests ─────
-
-test('Phase2 digest — sendDailyDigests skip si digest_enabled=false', async () => {
-  const { storage, dbPath } = createTempStorage();
-  try {
-    seedTenant(storage, 't1', { digest_email: 'client@test.fr', digest_enabled: false });
-    seedQualifiedLead(storage, 't1', '400000001', 9.0);
-    const stats = await sendDailyDigests(storage.db, { log: { info: () => {}, warn: () => {}, error: () => {} } });
-    assert.equal(stats.sent, 0);
-    assert.ok(stats.skipped >= 1);
-  } finally { cleanupStorage(storage, dbPath); }
+test('digest helpers — parisWeekKey format YYYY-Www', () => {
+  const w = parisWeekKey();
+  assert.match(w, /^\d{4}-W\d{2}$/);
 });
 
-test('Phase2 digest — sendDailyDigests skip si digest_email absent', async () => {
-  const { storage, dbPath } = createTempStorage();
-  try {
-    seedTenant(storage, 't1'); // pas de digest_email
-    seedQualifiedLead(storage, 't1', '500000001', 9.0);
-    const stats = await sendDailyDigests(storage.db, { log: { info: () => {}, warn: () => {}, error: () => {} } });
-    assert.equal(stats.sent, 0);
-    assert.ok(stats.skipped >= 1);
-  } finally { cleanupStorage(storage, dbPath); }
+test('digest helpers — parisDayOfWeek retourne 0-6', () => {
+  const d = parisDayOfWeek();
+  assert.ok(d >= 0 && d <= 6);
 });
 
-test('Phase2 digest — dédup via digest_sends table', async () => {
+// ───── Weekly digest ─────
+
+test('Weekly digest — getWeeklyDigestLeads filtre leads last 7 days', () => {
   const { storage, dbPath } = createTempStorage();
   try {
     seedTenant(storage, 't1', { digest_email: 'client@test.fr' });
-    seedQualifiedLead(storage, 't1', '600000001', 9.0);
-    // Insert manuel dans digest_sends pour simuler envoi du jour
+    seedQualifiedLead(storage, 't1', '100000001', 9.0, 24);    // 1 jour, inclus
+    seedQualifiedLead(storage, 't1', '100000002', 7.5, 5 * 24); // 5 jours, inclus
+    seedQualifiedLead(storage, 't1', '100000003', 5.0, 10 * 24); // 10 jours, exclu
+    const leads = getWeeklyDigestLeads(storage.db, 't1');
+    assert.equal(leads.length, 2);
+  } finally { cleanupStorage(storage, dbPath); }
+});
+
+test('Weekly digest — buildWeeklyDigest produit HTML + subject hebdo', () => {
+  const { storage, dbPath } = createTempStorage();
+  try {
+    seedTenant(storage, 't1', { digest_email: 'client@test.fr' });
+    seedQualifiedLead(storage, 't1', '200000001', 9.5, 24);
+    seedQualifiedLead(storage, 't1', '200000002', 6.5, 2 * 24);
+    const d = buildWeeklyDigest(storage.db, 't1', 'Acme SAS');
+    assert.ok(d);
+    assert.ok(d.html.includes('semaine') || d.html.includes('Votre semaine'));
+    assert.equal(d.leads_count, 2);
+    assert.equal(d.red_count, 1);
+  } finally { cleanupStorage(storage, dbPath); }
+});
+
+test('Weekly digest — buildWeeklyDigest retourne null si 0 leads', () => {
+  const { storage, dbPath } = createTempStorage();
+  try {
+    seedTenant(storage, 't1', { digest_email: 'client@test.fr' });
+    const d = buildWeeklyDigest(storage.db, 't1');
+    assert.equal(d, null);
+  } finally { cleanupStorage(storage, dbPath); }
+});
+
+test('Weekly digest — sendWeeklyDigests skip si weekly_digest_enabled absent (opt-in)', async () => {
+  const { storage, dbPath } = createTempStorage();
+  try {
+    seedTenant(storage, 't1', { digest_email: 'client@test.fr' }); // pas de weekly_digest_enabled
+    seedQualifiedLead(storage, 't1', '400000001', 9.0, 24);
+    const stats = await sendWeeklyDigests(storage.db, { log: { info: () => {}, warn: () => {}, error: () => {} } });
+    assert.equal(stats.sent, 0);
+    assert.ok(stats.skipped >= 1);
+  } finally { cleanupStorage(storage, dbPath); }
+});
+
+test('Weekly digest — sendWeeklyDigests skip si digest_email absent', async () => {
+  const { storage, dbPath } = createTempStorage();
+  try {
+    seedTenant(storage, 't1', { weekly_digest_enabled: true }); // pas de digest_email
+    seedQualifiedLead(storage, 't1', '500000001', 9.0, 24);
+    const stats = await sendWeeklyDigests(storage.db, { log: { info: () => {}, warn: () => {}, error: () => {} } });
+    assert.equal(stats.sent, 0);
+    assert.ok(stats.skipped >= 1);
+  } finally { cleanupStorage(storage, dbPath); }
+});
+
+test('Weekly digest — dédup via weekly_digest_sends table', async () => {
+  const { storage, dbPath } = createTempStorage();
+  try {
+    seedTenant(storage, 't1', { digest_email: 'client@test.fr', weekly_digest_enabled: true });
+    seedQualifiedLead(storage, 't1', '600000001', 9.0, 24);
     storage.db.exec(`
-      CREATE TABLE IF NOT EXISTS digest_sends (
+      CREATE TABLE IF NOT EXISTS weekly_digest_sends (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tenant_id TEXT NOT NULL, date TEXT NOT NULL, email TEXT NOT NULL,
+        tenant_id TEXT NOT NULL, week_key TEXT NOT NULL, email TEXT NOT NULL,
         leads_count INTEGER DEFAULT 0, red_count INTEGER DEFAULT 0,
         sent_at TEXT DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'sent', error TEXT,
-        UNIQUE(tenant_id, date)
+        UNIQUE(tenant_id, week_key)
       );
     `);
     storage.db.prepare(`
-      INSERT INTO digest_sends (tenant_id, date, email, leads_count, status)
+      INSERT INTO weekly_digest_sends (tenant_id, week_key, email, leads_count, status)
       VALUES ('t1', ?, 'client@test.fr', 1, 'sent')
-    `).run(parisDate());
-    const stats = await sendDailyDigests(storage.db, { log: { info: () => {}, warn: () => {}, error: () => {} } });
-    assert.equal(stats.sent, 0, 'already sent today → skip');
+    `).run(parisWeekKey());
+    const stats = await sendWeeklyDigests(storage.db, { log: { info: () => {}, warn: () => {}, error: () => {} } });
+    assert.equal(stats.sent, 0, 'already sent this week → skip');
     assert.ok(stats.skipped >= 1);
   } finally { cleanupStorage(storage, dbPath); }
 });
