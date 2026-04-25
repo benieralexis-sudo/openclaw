@@ -1,46 +1,61 @@
 ---
-import LiveTriggerFeed from "./LiveTriggerFeed.astro";
+import DashboardMockup from "./DashboardMockup.astro";
 ---
 
-<section class="relative overflow-hidden mesh-hero">
-  <!-- Grille subtile en background -->
+<section class="relative overflow-hidden">
+  <!-- Mesh gradient fond -->
   <div
-    class="pointer-events-none absolute inset-0 opacity-[0.35]"
-    style="background-image: linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgb(15 23 42 / 0.04) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 0%, transparent 100%);"
+    class="absolute inset-0 -z-10 mesh-hero"
     aria-hidden="true"
   ></div>
 
+  <!-- Grille subtile -->
+  <div
+    class="pointer-events-none absolute inset-0 -z-10 opacity-[0.45]"
+    style="background-image: linear-gradient(to right, rgb(15 23 42 / 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgb(15 23 42 / 0.05) 1px, transparent 1px); background-size: 64px 64px; mask-image: radial-gradient(ellipse 75% 65% at 50% 30%, black 0%, transparent 100%);"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Décors flottants -->
+  <div class="pointer-events-none absolute -top-20 right-[-10%] -z-10 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-primary-200/40 via-primary-100/30 to-transparent blur-3xl" aria-hidden="true"></div>
+  <div class="pointer-events-none absolute bottom-[-15%] left-[-10%] -z-10 h-[460px] w-[460px] rounded-full bg-gradient-to-tr from-success-soft/60 via-primary-50/40 to-transparent blur-3xl" aria-hidden="true"></div>
+
   <div class="container-page relative pt-20 pb-24 md:pt-28 md:pb-32">
     <div class="mx-auto max-w-3xl text-center">
-      <div class="reveal mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-4 py-1.5 text-sm text-ink-soft shadow-soft backdrop-blur-sm">
+      <div class="reveal mb-7 inline-flex items-center gap-2 rounded-full border border-primary-200/70 bg-white/80 px-4 py-1.5 text-sm font-medium text-primary-700 shadow-soft backdrop-blur-sm">
         <span class="relative flex h-2 w-2">
-          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60"></span>
-          <span class="relative inline-flex h-2 w-2 rounded-full bg-success"></span>
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-400 opacity-70"></span>
+          <span class="relative inline-flex h-2 w-2 rounded-full bg-primary-600"></span>
         </span>
-        <span>Trigger Engine FR — propulsé par Claude Opus 4.7</span>
+        <span>Trigger Engine FR · Détection live</span>
       </div>
 
-      <h1 class="reveal text-4xl font-bold leading-[1.05] tracking-display text-ink sm:text-5xl md:text-6xl lg:text-[4rem]">
-        Les signaux d'achat de vos
-        <span class="relative inline-block">
-          <span class="relative z-10">prochains clients</span>
-          <span
-            class="absolute inset-x-0 bottom-1 -z-0 h-3 bg-primary-200/70 md:h-4"
-            aria-hidden="true"
-          ></span>
+      <h1 class="reveal text-[2.5rem] font-bold leading-[1.05] tracking-display text-ink sm:text-5xl md:text-6xl lg:text-[4.25rem]">
+        Vos prochains clients
+        <span class="block">vous cherchent
+          <span class="relative inline-block">
+            <span class="relative z-10 bg-gradient-to-br from-primary-600 to-primary-800 bg-clip-text text-transparent">déjà</span>
+            <svg
+              class="absolute -bottom-2 left-0 right-0 h-3 w-full text-primary-300"
+              viewBox="0 0 200 12"
+              fill="none"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path d="M2 8 C50 2, 100 10, 198 5" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+            </svg>
+          </span>.
         </span>
-        — détectés en temps réel.
       </h1>
 
-      <p class="reveal mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-soft md:text-xl">
-        iFIND surveille 9 sources publiques françaises pour repérer les PME
-        qui <strong class="font-semibold text-ink">déclenchent un besoin maintenant</strong> :
-        levée de fonds, recrutement clé, dépôt INPI, nouveau dirigeant.
-        Vous recevez les leads qualifiés, attribués au SIRENE, prêts à être contactés.
+      <p class="reveal mx-auto mt-7 max-w-2xl text-lg leading-relaxed text-ink-soft md:text-xl">
+        Quand une PME française lève des fonds, recrute son premier commercial,
+        ou change de dirigeant — <strong class="font-semibold text-ink">elle a besoin de vous, maintenant.</strong>
+        On le détecte. On vous le dit. Vous closez.
       </p>
 
-      <div class="reveal mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <a href="/#offres" class="btn btn-primary btn-lg">
+      <div class="reveal mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="/#offres" class="btn btn-primary btn-lg shadow-glow">
           Voir les offres
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M5 12h14M13 5l7 7-7 7" />
@@ -51,14 +66,36 @@ import LiveTriggerFeed from "./LiveTriggerFeed.astro";
         </a>
       </div>
 
-      <p class="reveal mt-5 text-sm text-ink-muted">
-        Sans engagement · Résiliable à tout moment · Données SIRENE-attribuées
-      </p>
+      <div class="reveal mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-ink-muted">
+        <span class="inline-flex items-center gap-1.5">
+          <svg class="h-4 w-4 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          Sans engagement
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <svg class="h-4 w-4 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          Données 100% françaises
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <svg class="h-4 w-4 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          RGPD natif
+        </span>
+      </div>
     </div>
 
-    <!-- Live trigger feed -->
-    <div class="reveal mx-auto mt-16 max-w-4xl md:mt-20">
-      <LiveTriggerFeed />
+    <!-- Dashboard mockup riche -->
+    <div class="reveal relative mx-auto mt-16 max-w-6xl md:mt-20">
+      <!-- Glow derrière le dashboard -->
+      <div
+        class="pointer-events-none absolute -inset-4 -z-10 rounded-[32px] bg-gradient-to-br from-primary-300/30 via-primary-200/20 to-success-soft/40 blur-2xl"
+        aria-hidden="true"
+      ></div>
+      <DashboardMockup />
     </div>
   </div>
 </section>

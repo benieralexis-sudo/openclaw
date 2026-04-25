@@ -1,70 +1,107 @@
 ---
-const oldWay = [
-  {
-    label: "Intent data type Bombora",
-    points: [
-      "Données US, peu de PME FR",
-      "Mesure des recherches web (signal mou)",
-      "Pas d'attribution SIRENE",
-      "12 000 € / an minimum",
-    ],
-  },
-  {
-    label: "Listes Apollo / Cognism",
-    points: [
-      "Tout le monde a la même liste",
-      "Aucun contexte temps réel",
-      "Pas de raison de contacter aujourd'hui",
-      "Saturation de la boîte mail prospect",
-    ],
-  },
-  {
-    label: "SDR humain",
-    points: [
-      "60 K€ chargé · 3 mois de ramp-up",
-      "20-30 contacts qualifiés/jour max",
-      "Pas de couverture 24h/24 des sources",
-      "Tourne mal sans outils derrière",
-    ],
-  },
+const before = [
+  "Liste froide de 5 000 prospects achetée chez Apollo, déjà sollicitée par 50 concurrents",
+  "SDR qui appelle des entreprises sans savoir ce qu'elles vivent en ce moment",
+  "Campagnes outbound qui tombent dans le vide, parce que le timing est mauvais",
+  "Pas le temps de surveiller chaque levée, chaque embauche, chaque dépôt légal",
+];
+
+const after = [
+  "Une PME française vient de lever 4 M€ — votre commercial a l'info en 30 minutes",
+  "Un dirigeant prend ses fonctions chez votre cible — vous êtes le 1er à l'appeler",
+  "Une boîte recrute son 1er Head of Sales — c'est là qu'elle achète votre solution",
+  "Vous arrivez quand le besoin est chaud, pas quand il est saturé",
 ];
 ---
 
 <section class="section">
   <div class="container-page">
     <div class="mx-auto max-w-2xl text-center">
-      <p class="eyebrow reveal">Le problème</p>
+      <p class="eyebrow reveal">Le déclic</p>
       <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-        L'outbound marche encore, mais pas avec les méthodes d'avant.
+        Le bon prospect n'est pas une liste.
+        <span class="block text-ink-muted">C'est un moment.</span>
       </h2>
-      <p class="reveal mx-auto mt-4 text-lg text-ink-soft">
-        Les solutions classiques mesurent l'intérêt général, pas le besoin immédiat.
-        Résultat : vous parlez à des gens qui pourraient avoir besoin de vous un jour, pas à
-        ceux qui en ont besoin <em>cette semaine</em>.
+      <p class="reveal mx-auto mt-5 text-lg text-ink-soft">
+        Vous ne perdez pas des deals parce que votre solution est mauvaise.
+        Vous les perdez parce que vous arrivez trop tard, ou trop tôt.
+        On change ça.
       </p>
     </div>
 
-    <div class="mt-14 grid gap-5 md:grid-cols-3">
-      {
-        oldWay.map((item) => (
-          <div class="reveal card relative overflow-hidden">
-            <div class="absolute right-4 top-4 text-ink-faint" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
-            </div>
-            <h3 class="font-display text-lg font-semibold text-ink">{item.label}</h3>
-            <ul class="mt-4 space-y-2 text-sm text-ink-soft">
-              {item.points.map((p) => (
-                <li class="flex items-start gap-2">
-                  <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-ink-faint" />
-                  <span>{p}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))
-      }
+    <div class="mx-auto mt-16 grid max-w-5xl gap-5 lg:grid-cols-2">
+      <!-- AVANT -->
+      <article class="reveal relative overflow-hidden rounded-2xl border border-border bg-surface-soft p-7">
+        <div class="absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-md border border-border bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+          Sans iFIND
+        </div>
+
+        <h3 class="mt-2 font-display text-xl font-bold text-ink">L'outbound à l'aveugle</h3>
+        <p class="mt-2 text-sm text-ink-soft">
+          Vous prospectez sans savoir si la personne en face est en train de chercher,
+          ou si elle vient de signer ailleurs.
+        </p>
+
+        <ul class="mt-6 space-y-3">
+          {
+            before.map((item) => (
+              <li class="flex items-start gap-3 text-sm text-ink-soft">
+                <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-ink-faint">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </span>
+                <span>{item}</span>
+              </li>
+            ))
+          }
+        </ul>
+
+        <div class="mt-7 flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-3">
+          <svg class="h-5 w-5 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s-8-4.5-8-11.8a8 8 0 0 1 16 0c0 7.3-8 11.8-8 11.8z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <p class="text-sm text-ink-soft">Résultat : <strong class="text-ink">1 RDV pour 250 emails envoyés</strong></p>
+        </div>
+      </article>
+
+      <!-- APRÈS -->
+      <article class="reveal relative overflow-hidden rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50 via-white to-success-soft/30 p-7 shadow-glow">
+        <div class="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-primary-200/40 blur-3xl" aria-hidden="true"></div>
+
+        <div class="absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white shadow-md">
+          Avec iFIND
+        </div>
+
+        <h3 class="relative mt-2 font-display text-xl font-bold text-ink">L'outbound au signal</h3>
+        <p class="relative mt-2 text-sm text-ink-soft">
+          Vous appelez quand le besoin est fort, identifiable, et frais.
+          Pas avant. Pas après. Au bon moment.
+        </p>
+
+        <ul class="relative mt-6 space-y-3">
+          {
+            after.map((item) => (
+              <li class="flex items-start gap-3 text-sm text-ink">
+                <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white shadow-sm">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
+                <span>{item}</span>
+              </li>
+            ))
+          }
+        </ul>
+
+        <div class="relative mt-7 flex items-center gap-2 rounded-lg border border-primary-200 bg-white/80 px-4 py-3 backdrop-blur-sm">
+          <svg class="h-5 w-5 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
+          </svg>
+          <p class="text-sm text-ink-soft">Cible : <strong class="text-ink">1 RDV pour 25 emails envoyés</strong></p>
+        </div>
+      </article>
     </div>
   </div>
 </section>

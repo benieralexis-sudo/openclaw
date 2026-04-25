@@ -5,13 +5,13 @@ import FinalCta from "../components/FinalCta.astro";
 
 const title = "Leads Data 199€/mois — iFIND Trigger Engine FR";
 const description =
-  "Recevez jusqu'à 500 leads PME françaises qualifiés ≥ 7/10 chaque mois. Triggers détectés sur 9 sources, attribution SIRENE Pappers, scoring Claude Opus 4.7. Sans engagement, 199€/mois HT.";
+  "Recevez chaque PME française qui déclenche un signal d'achat, scorée ≥ 7/10 par Claude Opus 4.7, attribuée au SIRET, prête à être contactée. Pas de quota, pas de remplissage. 199€/mois HT, sans engagement.";
 
 const productSchema = {
   "@context": "https://schema.org",
   "@type": "Product",
   name: "iFIND — Leads Data",
-  description: "Flux mensuel de leads PME françaises qualifiés via détection de signaux d'achat publics.",
+  description: "Flux de leads PME françaises qualifiés via détection de signaux d'achat publics.",
   brand: { "@type": "Brand", name: "iFIND" },
   offers: {
     "@type": "Offer",
@@ -30,44 +30,44 @@ const productSchema = {
 
 const inclusions = [
   {
-    title: "Jusqu'à 500 leads qualifiés / mois",
+    title: "Tous les signaux qui matchent votre ICP",
     description:
-      "Plafond volontaire à 500 pour préserver la qualité. Tous les leads livrés sont notés ≥ 7/10 par notre moteur de scoring Claude Opus 4.7.",
+      "Aucun cap arbitraire, aucun remplissage. Vous recevez chaque PME française qui déclenche un événement public pertinent pour votre offre, dès qu'il devient chaud.",
   },
   {
-    title: "9 sources publiques FR surveillées 24h/24",
+    title: "Score ≥ 7/10 garanti",
     description:
-      "BODACC, JOAFE, INPI, France Travail, Pappers, Meta Ad Library, RSS levées, Trigify, Rodz. Aucune source US, aucun scraping LinkedIn agressif.",
+      "Notre moteur de scoring (Claude Opus 4.7) ne livre que les leads qu'il considère comme actionnables. Tout ce qui est en dessous reste filtré, vous n'avez pas à trier.",
   },
   {
-    title: "Attribution SIRENE premium via Pappers",
+    title: "Brief contextuel personnalisé par lead",
     description:
-      "SIRET unique, dirigeants à jour, effectifs, bilans. Aucune confusion entre filiale et maison-mère.",
+      "Pour chaque lead, un briefing rédigé : pourquoi ce signal compte pour vous, quelle accroche tenter, quelle objection anticiper, quelle preuve avancer en démo.",
   },
   {
-    title: "Brief contextuel par lead",
+    title: "Attribution SIRET vérifiée",
     description:
-      "Pour chaque lead, un briefing rédigé par Claude Opus 4.7 : pourquoi ce trigger compte pour vous, quelle accroche tenter, quelle objection anticiper.",
+      "Pas de confusion holding/filiale, pas de dirigeant périmé. Chaque lead arrive avec son SIRET unique, ses dirigeants à jour, ses effectifs réels et ses bilans récents.",
+  },
+  {
+    title: "Email professionnel + mobile décideur",
+    description:
+      "Email vérifié anti-bounce. Mobile du décideur quand on le trouve. Pas de \"contact générique@boite.fr\".",
   },
   {
     title: "Dashboard temps réel app.ifind.fr",
     description:
-      "Visualisation des leads dès qu'ils sont qualifiés. Filtres par score, source, secteur, géographie. Marquage intéressé/non-intéressé pour affiner l'ICP.",
+      "Visualisation des leads dès qu'ils sont qualifiés. Filtres par score, secteur, géographie. Marquage intéressé/non-intéressé pour affiner l'ICP en continu.",
   },
   {
     title: "Alertes pépites + digest hebdo",
     description:
-      "Les leads 9-10/10 vous arrivent par email instantanément. Le digest du lundi récapitule tout le pipeline de la semaine précédente.",
+      "Les leads 9-10/10 vous arrivent par email instantanément. Le digest du lundi récapitule tout le pipeline de la semaine précédente, prêt à diffuser à l'équipe.",
   },
   {
     title: "Export CSV / API webhook",
     description:
-      "Branchez votre CRM (Folk, HubSpot, Pipedrive…) ou récupérez vos leads en CSV en un clic.",
-  },
-  {
-    title: "Calibration ICP en 48h",
-    description:
-      "Onboarding court : industrie, taille, géographie, signaux pertinents. Vous démarrez sous 72h après signature.",
+      "Branchez votre CRM (Folk, HubSpot, Pipedrive…) ou récupérez vos leads en CSV. On s'adapte à votre workflow, pas l'inverse.",
   },
 ];
 
@@ -88,31 +88,37 @@ const idealFor = [
 <BaseLayout title={title} description={description} schema={productSchema}>
   <!-- Hero offre -->
   <section class="relative mesh-hero overflow-hidden border-b border-border">
-    <div class="container-page relative pt-20 pb-16 md:pt-28 md:pb-20">
+    <div class="pointer-events-none absolute -top-20 right-[-10%] h-[400px] w-[400px] rounded-full bg-gradient-to-br from-primary-200/40 to-transparent blur-3xl" aria-hidden="true"></div>
+
+    <div class="container-page relative pt-20 pb-20 md:pt-28 md:pb-24">
       <div class="mx-auto max-w-3xl text-center">
         <p class="reveal eyebrow">Offre Leads Data</p>
-        <h1 class="reveal mt-3 text-4xl font-bold leading-tight tracking-display md:text-5xl">
-          La donnée brute, fraîche et qualifiée. Vous gérez l'outbound.
+        <h1 class="reveal mt-3 text-4xl font-bold leading-tight tracking-display md:text-6xl">
+          La donnée brute, fraîche, qualifiée.
+          <span class="block text-ink-muted">Vous gérez l'outbound.</span>
         </h1>
-        <p class="reveal mx-auto mt-5 max-w-2xl text-lg text-ink-soft">
+        <p class="reveal mx-auto mt-6 max-w-2xl text-lg text-ink-soft">
           Si vous avez déjà votre stack et votre équipe, payez juste pour la donnée.
-          500 leads max/mois, tous scorés ≥ 7/10, attribués au SIRENE.
+          Tous les signaux qui matchent, scorés ≥ 7/10, attribués au SIRET.
         </p>
 
-        <div class="reveal mt-8 inline-flex items-baseline gap-1">
-          <span class="font-display text-6xl font-bold tracking-tight">199</span>
+        <div class="reveal mt-10 inline-flex items-baseline gap-1">
+          <span class="font-display text-7xl font-bold tracking-tight">199</span>
           <span class="text-xl text-ink-soft">€/mois HT</span>
         </div>
         <p class="reveal mt-1 text-sm text-ink-muted">Sans engagement · Résiliable à tout moment</p>
 
-        <div class="reveal mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <div class="reveal mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
             href="https://tally.so/r/RGZ5JP"
             target="_blank"
             rel="noopener"
-            class="btn btn-primary btn-lg"
+            class="btn btn-primary btn-lg shadow-glow"
           >
             Démarrer Leads Data
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+              <path d="M5 12h14M13 5l7 7-7 7" />
+            </svg>
           </a>
           <a href="/full-service" class="btn btn-ghost btn-lg">
             Comparer avec Full Service
@@ -130,13 +136,15 @@ const idealFor = [
         <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
           Cette offre est faite pour vous si…
         </h2>
-        <ul class="mt-8 grid gap-4 md:grid-cols-2">
+        <ul class="mt-10 grid gap-4 md:grid-cols-2">
           {
             idealFor.map((point) => (
-              <li class="reveal flex items-start gap-3 rounded-xl border border-border bg-surface-soft p-5">
-                <svg class="mt-0.5 h-5 w-5 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+              <li class="reveal flex items-start gap-3 rounded-2xl border border-border bg-surface-soft p-6 transition-all hover:border-primary-200 hover:shadow-soft">
+                <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-white shadow-sm">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
                 <span class="text-ink">{point}</span>
               </li>
             ))
@@ -146,7 +154,7 @@ const idealFor = [
     </div>
   </section>
 
-  <!-- Inclusions détaillées -->
+  <!-- Inclusions -->
   <section class="section bg-surface-soft">
     <div class="container-page">
       <div class="mx-auto max-w-3xl">
@@ -158,9 +166,9 @@ const idealFor = [
         <div class="mt-12 space-y-4">
           {
             inclusions.map((item) => (
-              <div class="reveal card-feature card grid gap-4 md:grid-cols-[auto_1fr] md:gap-6">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <div class="reveal grid gap-5 rounded-2xl border border-border bg-white p-6 shadow-soft transition-all hover:border-primary-200 hover:shadow-glow md:grid-cols-[auto_1fr] md:gap-7">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-50 to-primary-100 text-primary-600">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
@@ -173,7 +181,7 @@ const idealFor = [
           }
         </div>
 
-        <div class="reveal mt-12 rounded-xl border border-border bg-white p-6">
+        <div class="reveal mt-12 rounded-2xl border border-border bg-white p-7">
           <p class="text-xs font-semibold uppercase tracking-wider text-ink-muted">
             Non inclus
           </p>
@@ -189,7 +197,7 @@ const idealFor = [
               ))
             }
           </ul>
-          <p class="mt-4 text-sm text-ink-soft">
+          <p class="mt-5 text-sm text-ink-soft">
             Si vous voulez aussi qu'on contacte les leads et qu'on book les RDV,
             <a href="/full-service" class="font-medium text-primary-600 hover:text-primary-700">
               regardez Full Service à 890€/mois
@@ -202,10 +210,10 @@ const idealFor = [
 
   <Faq
     items={[
-      { q: "Combien de leads par mois exactement ?", a: "Jusqu'à 500 leads qualifiés ≥ 7/10. Plafond volontaire — on préfère vous donner 200 leads très chauds que 5 000 tièdes." },
+      { q: "Combien de leads vais-je recevoir ?", a: "Aucun plafond, aucun remplissage. Vous recevez chaque lead qui matche votre ICP au moment où il devient chaud. Selon votre niche, ça peut être 30 leads/mois ultra-ciblés ou 200 si votre marché est large." },
       { q: "Puis-je passer à Full Service en cours d'abonnement ?", a: "Oui, à tout moment. Le différentiel tarifaire est facturé au prorata." },
       { q: "Quel format de livraison ?", a: "Dashboard temps réel app.ifind.fr + alertes email pépites + digest hebdo + export CSV/API webhook pour brancher votre CRM." },
-      { q: "Calibration de l'ICP, comment ça se passe ?", a: "Onboarding 30 minutes : industrie, taille, géographie, types de triggers à privilégier. Premiers leads sous 72h." },
+      { q: "Calibration de l'ICP, comment ça se passe ?", a: "Onboarding 30 minutes : industrie, taille, géographie, types de signaux à privilégier. Premiers leads sous 72h." },
       { q: "Engagement ?", a: "Aucun. Préavis 30 jours, résiliable à tout moment depuis le dashboard." },
     ]}
   />

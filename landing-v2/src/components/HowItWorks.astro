@@ -2,79 +2,149 @@
 const steps = [
   {
     n: "01",
-    title: "Surveillance continue de 9 sources publiques FR",
+    title: "On capte ce que vos concurrents ratent",
+    headline: "Quand une PME bouge en France, on le voit.",
     description:
-      "BODACC, JOAFE, INPI, France Travail, Pappers, Meta Ad Library, RSS levées, Trigify, Rodz. 24h/24, zéro angle mort.",
-    chips: ["BODACC", "INPI", "France Travail", "Pappers", "+5"],
+      "Une levée publiée au journal officiel, une offre d'emploi pour un Head of Sales, un dépôt de marque, un nouveau dirigeant — autant d'événements publics qui trahissent un besoin imminent. On les surveille en continu, à la place de votre équipe.",
+    illustration: "radar",
   },
   {
     n: "02",
-    title: "Détection de 13 patterns combinatoires",
+    title: "On comprend ce que ça veut dire pour vous",
+    headline: "Pas un événement isolé. Une intention d'achat.",
     description:
-      "Levée + hiring sales = signal d'achat outils sales. Nouveau dirigeant + dépôt INPI = signal d'achat marketing. Combinaisons croisées par notre Trigger Engine.",
-    chips: ["Combo booster", "Hot triggers", "Declarative pain"],
+      "Une levée seule ne dit rien. Une levée + un recrutement sales + un changement de stack technique, ça raconte une histoire : cette boîte est en train d'investir, et elle a besoin de vous, maintenant. C'est cette lecture combinatoire qui change tout.",
+    illustration: "puzzle",
   },
   {
     n: "03",
-    title: "Attribution SIRENE premium via Pappers",
+    title: "On vérifie qui est vraiment derrière",
+    headline: "Le bon SIRET, le bon dirigeant, le bon décideur.",
     description:
-      "Chaque trigger est rattaché à une entité légale unique : SIRET, dirigeants à jour, effectifs, bilans. Aucune confusion entre filiale et maison-mère.",
-    chips: ["SIRET-attribué", "Dirigeants à jour", "Bilans"],
+      "Pas de confusion entre la holding et la filiale opérationnelle. Pas d'email rebondi. Pas de \"contact mis à jour il y a 3 ans\". Chaque lead arrive avec son SIRET vérifié, son dirigeant à jour, ses effectifs réels, et un email professionnel testé.",
+    illustration: "verify",
   },
   {
     n: "04",
-    title: "Qualification et scoring par Claude Opus 4.7",
+    title: "Claude Opus 4.7 lit comme un humain",
+    headline: "L'IA qui qualifie comme votre meilleur SDR.",
     description:
-      "Lecture du contexte business, scoring 1-10, briefing personnalisé. Seuls les leads ≥ 7/10 entrent dans votre pipeline.",
-    chips: ["Opus 4.7", "Score ≥ 7/10", "Brief personnalisé"],
+      "Notre moteur lit le contexte business du prospect, comprend pourquoi le signal compte pour vous spécifiquement, et vous livre un brief : pourquoi appeler, quoi dire, quelle objection anticiper. Vous ouvrez le lead, vous savez quoi faire.",
+    illustration: "brain",
   },
   {
     n: "05",
-    title: "Livraison dashboard + alertes pépites",
+    title: "Vous ouvrez votre dashboard. Le travail est fait.",
+    headline: "Pas besoin de fouiller. Tout est prêt.",
     description:
-      "Vous voyez les leads en temps réel sur app.ifind.fr. Les pépites 9-10/10 vous arrivent par email instantanément, le digest hebdo récapitule le reste.",
-    chips: ["Temps réel", "Alertes pépites", "Digest hebdo"],
+      "Les leads chauds arrivent en temps réel sur app.ifind.fr. Les pépites 9-10/10 vous arrivent par email instantanément, le digest hebdo récapitule le reste. Plus aucune excuse pour rater un timing.",
+    illustration: "dashboard",
   },
 ];
 ---
 
-<section id="fonctionnement" class="section bg-surface-soft">
-  <div class="container-page">
+<section id="fonctionnement" class="section relative bg-surface-soft">
+  <!-- Décor -->
+  <div
+    class="pointer-events-none absolute inset-x-0 top-0 h-96 opacity-40"
+    style="background-image: radial-gradient(ellipse 60% 100% at 50% 0%, rgb(199 208 255 / 0.4), transparent 70%);"
+    aria-hidden="true"
+  ></div>
+
+  <div class="container-page relative">
     <div class="mx-auto max-w-2xl text-center">
-      <p class="eyebrow reveal">Comment ça marche</p>
+      <p class="eyebrow reveal">Le moteur</p>
       <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-        De l'événement public à votre dashboard, en moins d'une heure.
+        De l'événement public à votre prochain RDV.
       </h2>
-      <p class="reveal mx-auto mt-4 text-lg text-ink-soft">
-        Pas de scraping LinkedIn agressif, pas de promesses de "millions de contacts".
-        Une chaîne de traitement claire, auditable, ancrée sur des sources publiques françaises.
+      <p class="reveal mx-auto mt-5 text-lg text-ink-soft">
+        Pas de magie. Pas de scraping LinkedIn agressif. Juste une chaîne de
+        traitement claire, propulsée par Claude Opus 4.7 et calibrée sur le marché français.
       </p>
     </div>
 
-    <ol class="mx-auto mt-16 max-w-4xl space-y-4">
+    <div class="mx-auto mt-20 max-w-5xl space-y-6">
       {
         steps.map((s, i) => (
-          <li class="reveal card-feature card grid gap-5 md:grid-cols-[auto_1fr] md:gap-8">
-            <div class="flex md:flex-col md:items-center md:gap-3">
-              <span class="font-display text-3xl font-bold text-primary-600 md:text-4xl">{s.n}</span>
+          <article class="reveal group relative grid gap-6 overflow-hidden rounded-2xl border border-border bg-white p-6 shadow-soft transition-all hover:border-primary-200 hover:shadow-glow md:grid-cols-[180px_1fr_auto] md:p-8">
+            <!-- Étape number -->
+            <div class="flex items-center gap-4 md:flex-col md:items-start md:gap-2">
+              <span class="font-display text-5xl font-bold text-primary-600/20 md:text-6xl">
+                {s.n}
+              </span>
               {i < steps.length - 1 && (
-                <span class="ml-4 hidden md:ml-0 md:block md:h-full md:w-px md:bg-border" aria-hidden="true" />
+                <span class="hidden h-12 w-px bg-gradient-to-b from-border to-transparent md:block" aria-hidden="true" />
               )}
             </div>
+
+            <!-- Texte -->
             <div>
-              <h3 class="font-display text-xl font-semibold text-ink">{s.title}</h3>
-              <p class="mt-2 text-ink-soft">{s.description}</p>
-              <div class="mt-4 flex flex-wrap gap-1.5">
-                {s.chips.map((c) => (
-                  <span class="rounded-md border border-border bg-white px-2 py-0.5 font-mono text-xs text-ink-soft">
-                    {c}
-                  </span>
-                ))}
-              </div>
+              <h3 class="font-display text-xl font-bold text-ink md:text-2xl">{s.title}</h3>
+              <p class="mt-2 font-display text-base font-medium text-primary-700 md:text-lg">
+                {s.headline}
+              </p>
+              <p class="mt-3 leading-relaxed text-ink-soft">{s.description}</p>
             </div>
-          </li>
+
+            <!-- Illustration côté droit -->
+            <div class="hidden md:flex md:items-center md:justify-center">
+              {s.illustration === "radar" && (
+                <svg viewBox="0 0 100 100" class="h-24 w-24 text-primary-300" fill="none" stroke="currentColor" aria-hidden="true">
+                  <circle cx="50" cy="50" r="40" stroke-width="1" opacity="0.4" />
+                  <circle cx="50" cy="50" r="28" stroke-width="1" opacity="0.6" />
+                  <circle cx="50" cy="50" r="16" stroke-width="1" opacity="0.8" />
+                  <circle cx="50" cy="50" r="3" fill="currentColor" />
+                  <line x1="50" y1="50" x2="80" y2="30" stroke-width="2" stroke-linecap="round" />
+                  <circle cx="78" cy="32" r="4" fill="#10B981" />
+                </svg>
+              )}
+              {s.illustration === "puzzle" && (
+                <svg viewBox="0 0 100 100" class="h-24 w-24" fill="none" aria-hidden="true">
+                  <rect x="15" y="15" width="32" height="32" rx="6" fill="#EEF1FF" stroke="#A3B1FF" stroke-width="1.5"/>
+                  <rect x="55" y="15" width="32" height="32" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5" stroke-dasharray="3 3"/>
+                  <rect x="35" y="55" width="32" height="32" rx="6" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+                  <line x1="47" y1="31" x2="55" y2="31" stroke="#2D4EF5" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="51" y1="47" x2="51" y2="55" stroke="#2D4EF5" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              )}
+              {s.illustration === "verify" && (
+                <svg viewBox="0 0 100 100" class="h-24 w-24" fill="none" aria-hidden="true">
+                  <rect x="20" y="20" width="60" height="60" rx="10" fill="#EEF1FF" stroke="#A3B1FF" stroke-width="1.5"/>
+                  <path d="M30 50 L45 65 L72 38" stroke="#10B981" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="76" cy="24" r="10" fill="#10B981"/>
+                  <path d="M71 24 L75 28 L81 22" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              )}
+              {s.illustration === "brain" && (
+                <svg viewBox="0 0 100 100" class="h-24 w-24" fill="none" aria-hidden="true">
+                  <circle cx="50" cy="50" r="32" fill="#EEF1FF" stroke="#A3B1FF" stroke-width="1.5"/>
+                  <circle cx="40" cy="42" r="3" fill="#2D4EF5"/>
+                  <circle cx="60" cy="42" r="3" fill="#2D4EF5"/>
+                  <circle cx="50" cy="55" r="3" fill="#2D4EF5"/>
+                  <line x1="40" y1="42" x2="60" y2="42" stroke="#2D4EF5" stroke-width="1.5" opacity="0.5"/>
+                  <line x1="40" y1="42" x2="50" y2="55" stroke="#2D4EF5" stroke-width="1.5" opacity="0.5"/>
+                  <line x1="60" y1="42" x2="50" y2="55" stroke="#2D4EF5" stroke-width="1.5" opacity="0.5"/>
+                  <circle cx="20" cy="20" r="2" fill="#10B981"/>
+                  <circle cx="82" cy="22" r="2" fill="#10B981"/>
+                  <circle cx="22" cy="78" r="2" fill="#10B981"/>
+                  <line x1="22" y1="20" x2="38" y2="40" stroke="#10B981" stroke-width="1" opacity="0.4"/>
+                  <line x1="80" y1="22" x2="62" y2="40" stroke="#10B981" stroke-width="1" opacity="0.4"/>
+                </svg>
+              )}
+              {s.illustration === "dashboard" && (
+                <svg viewBox="0 0 100 100" class="h-24 w-24" fill="none" aria-hidden="true">
+                  <rect x="12" y="20" width="76" height="60" rx="6" fill="#EEF1FF" stroke="#A3B1FF" stroke-width="1.5"/>
+                  <rect x="12" y="20" width="76" height="10" rx="6" fill="#A3B1FF"/>
+                  <rect x="20" y="38" width="22" height="34" rx="3" fill="white" stroke="#A3B1FF" stroke-width="1"/>
+                  <rect x="46" y="38" width="42" height="14" rx="3" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1"/>
+                  <rect x="46" y="56" width="42" height="14" rx="3" fill="white" stroke="#A3B1FF" stroke-width="1"/>
+                  <circle cx="80" cy="14" r="3" fill="#10B981"/>
+                </svg>
+              )}
+            </div>
+          </article>
         ))
       }
-    </ol>
+    </div>
   </div>
 </section>

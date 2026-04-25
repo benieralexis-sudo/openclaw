@@ -1,24 +1,93 @@
 ---
-const stats = [
-  { value: "20 337", label: "events analysés ce mois-ci" },
-  { value: "217", label: "matches PME × triggers" },
-  { value: "134", label: "leads qualifiés ≥ 7/10" },
-  { value: "9", label: "sources publiques FR" },
+const promises = [
+  {
+    icon: "clock",
+    title: "30 minutes",
+    label: "Du signal public à votre dashboard",
+    description: "Une PME publie une levée à 14h. Votre commercial reçoit l'alerte à 14h30 avec le brief complet.",
+    accent: "primary",
+  },
+  {
+    icon: "target",
+    title: "100% France",
+    label: "Aucun signal hors-cible",
+    description: "On surveille uniquement le marché français. Pas de bruit US, pas de fausses pistes, pas de listes recyclées.",
+    accent: "success",
+  },
+  {
+    icon: "lightning",
+    title: "1er sur le coup",
+    label: "Avant que le marché réagisse",
+    description: "Vous arrivez avant les agences, avant les SDRs adverses, avant que le prospect soit saturé. Le timing fait le RDV.",
+    accent: "warning",
+  },
 ];
+
+const icons = {
+  clock: "M12 6v6l4 2",
+  target: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0-3a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm0-3a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  lightning: "M13 2L3 14h7l-1 8 10-12h-7l1-8z",
+};
 ---
 
-<section class="border-y border-border bg-surface-soft py-14">
-  <div class="container-page">
-    <p class="text-center text-xs uppercase tracking-wider text-ink-muted">
-      Pipeline de production · avril 2026
-    </p>
-    <div class="mt-8 grid grid-cols-2 gap-y-10 md:grid-cols-4">
+<section class="relative border-y border-border bg-gradient-to-b from-surface to-surface-soft py-20 md:py-24">
+  <!-- Décor géométrique -->
+  <div
+    class="pointer-events-none absolute inset-0 opacity-[0.4]"
+    style="background-image: radial-gradient(circle at 80% 0%, rgb(199 208 255 / 0.5), transparent 40%), radial-gradient(circle at 10% 100%, rgb(167 243 208 / 0.4), transparent 35%);"
+    aria-hidden="true"
+  ></div>
+
+  <div class="container-page relative">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="eyebrow reveal">Notre promesse</p>
+      <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+        Le bon prospect, au bon moment, sans effort.
+      </h2>
+      <p class="reveal mx-auto mt-4 text-lg text-ink-soft">
+        Pas de quota mensuel. Pas de listes à acheter. Juste les signaux qui comptent,
+        livrés au moment où ils valent encore quelque chose.
+      </p>
+    </div>
+
+    <div class="mx-auto mt-14 grid max-w-5xl gap-5 md:grid-cols-3">
       {
-        stats.map((s) => (
-          <div class="reveal text-center">
-            <p class="font-display text-3xl font-bold text-ink md:text-4xl">{s.value}</p>
-            <p class="mt-1.5 text-sm text-ink-soft">{s.label}</p>
-          </div>
+        promises.map((p) => (
+          <article class="reveal group relative overflow-hidden rounded-2xl border border-border bg-white p-7 shadow-soft transition-all hover:-translate-y-1 hover:shadow-glow">
+            <div
+              class={`absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-50 blur-2xl transition-opacity group-hover:opacity-70 ${
+                p.accent === "primary"
+                  ? "bg-primary-100"
+                  : p.accent === "success"
+                    ? "bg-success-soft"
+                    : "bg-warning-soft"
+              }`}
+              aria-hidden="true"
+            />
+
+            <div class="relative">
+              <div
+                class={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                  p.accent === "primary"
+                    ? "bg-primary-50 text-primary-600"
+                    : p.accent === "success"
+                      ? "bg-success-soft text-[#047857]"
+                      : "bg-warning-soft text-[#b45309]"
+                }`}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d={icons[p.icon as keyof typeof icons]} />
+                  {p.icon === "clock" && <circle cx="12" cy="12" r="10" />}
+                </svg>
+              </div>
+
+              <p class="mt-6 font-display text-4xl font-bold tracking-tight text-ink md:text-5xl">
+                {p.title}
+              </p>
+              <p class="mt-1 font-medium text-ink">{p.label}</p>
+              <p class="mt-3 text-sm leading-relaxed text-ink-soft">{p.description}</p>
+            </div>
+          </article>
         ))
       }
     </div>

@@ -4,21 +4,20 @@ const offers = [
     name: "Leads Data",
     price: "199",
     period: "€/mois",
-    tagline: "Vos leads qualifiés en flux continu, vous gérez l'outbound.",
+    tagline: "La donnée brute. Vous gérez l'outbound.",
     href: "/leads-data",
     cta: "Démarrer Leads Data",
     ctaTally: "https://tally.so/r/RGZ5JP",
     recommended: false,
-    icon: "data",
     inclusions: [
-      { text: "Jusqu'à 500 leads qualifiés / mois", bold: true },
-      { text: "9 sources publiques FR surveillées" },
-      { text: "Score ≥ 7/10 garanti" },
-      { text: "Attribution SIRENE premium (Pappers)" },
-      { text: "Brief contextuel par lead" },
+      { text: "Tous les signaux qui matchent votre ICP", bold: true },
+      { text: "Score ≥ 7/10 garanti par Claude Opus 4.7" },
+      { text: "Brief contextuel personnalisé par lead" },
+      { text: "Attribution SIRET vérifiée + dirigeants à jour" },
+      { text: "Email professionnel + mobile décideur (quand dispo)" },
       { text: "Dashboard temps réel app.ifind.fr" },
-      { text: "Alertes pépites + digest hebdo" },
-      { text: "Export CSV / API webhook" },
+      { text: "Alertes pépites instantanées + digest hebdo" },
+      { text: "Export CSV / API webhook vers votre CRM" },
     ],
     notIncluded: ["Envoi des emails", "Booking RDV", "Mailboxes & warmup"],
     forWho: "Équipes sales internalisées qui ont déjà leur stack outbound.",
@@ -32,16 +31,15 @@ const offers = [
     cta: "Démarrer Full Service",
     ctaTally: "https://tally.so/r/QKYA6Y",
     recommended: true,
-    icon: "service",
     inclusions: [
       { text: "Tout le pack Leads Data inclus", bold: true },
-      { text: "Domaine + 3 mailboxes warmup" },
+      { text: "Domaine d'envoi dédié + mailboxes warmup" },
       { text: "Cold email automatisé Smartlead" },
-      { text: "Réponses gérées par notre commercial" },
-      { text: "Booking de RDV sur votre Cal.com" },
-      { text: "Reporting hebdo détaillé" },
-      { text: "Suivi performance ICP" },
-      { text: "Anti-bounce MillionVerifier" },
+      { text: "Réponses gérées par notre commercial dédié" },
+      { text: "Booking de RDV directement sur votre Cal.com" },
+      { text: "Brief écrit envoyé 24h avant chaque RDV" },
+      { text: "Reporting hebdo : RDV, taux de réponse, ICP" },
+      { text: "Itération continue copywriting + ICP" },
     ],
     notIncluded: ["Closing du deal (vous restez maître)"],
     forWho: "Founders / heads of sales qui veulent un canal outbound clé en main.",
@@ -49,49 +47,57 @@ const offers = [
 ];
 ---
 
-<section id="offres" class="section">
+<section id="offres" class="section relative overflow-hidden">
+  <!-- Décor -->
+  <div
+    class="pointer-events-none absolute inset-0 -z-10 opacity-50"
+    style="background-image: radial-gradient(circle at 0% 0%, rgb(199 208 255 / 0.4), transparent 40%), radial-gradient(circle at 100% 100%, rgb(167 243 208 / 0.3), transparent 40%);"
+    aria-hidden="true"
+  ></div>
+
   <div class="container-page">
     <div class="mx-auto max-w-2xl text-center">
       <p class="eyebrow reveal">Offres</p>
       <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-        Deux formules. Pas de devis. Pas de palier caché.
+        Deux formules. Pas de devis. Pas de volume artificiel.
       </h2>
-      <p class="reveal mx-auto mt-4 text-lg text-ink-soft">
-        Vous gérez déjà votre outbound ? Prenez la data brute.
-        Vous voulez juste des RDV qualifiés ? On s'occupe de tout jusqu'au booking.
+      <p class="reveal mx-auto mt-5 text-lg text-ink-soft">
+        On agit au signal, pas au quota. Vous recevez chaque lead qui matche votre ICP,
+        au moment où il compte. Ni plus, ni moins.
       </p>
     </div>
 
-    <div class="mx-auto mt-14 grid max-w-5xl gap-6 md:grid-cols-2">
+    <div class="mx-auto mt-16 grid max-w-5xl gap-6 lg:grid-cols-2">
       {
         offers.map((o) => (
           <article
-            class={`reveal relative flex flex-col rounded-2xl border p-8 transition-all ${
+            class={`reveal relative flex flex-col rounded-3xl border p-8 transition-all md:p-10 ${
               o.recommended
-                ? "border-primary-300 bg-white shadow-glow ring-1 ring-primary-200"
-                : "border-border bg-white"
+                ? "border-primary-300 bg-gradient-to-br from-white via-white to-primary-50/40 shadow-glow ring-1 ring-primary-100"
+                : "border-border bg-white shadow-soft"
             }`}
           >
             {o.recommended && (
-              <div class="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span class="rounded-full bg-primary-600 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white shadow-md">
-                  Recommandé
+              <div class="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-white shadow-lg">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z" />
+                  </svg>
+                  Le plus choisi
                 </span>
               </div>
             )}
 
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <h3 class="font-display text-2xl font-bold text-ink">{o.name}</h3>
-                <p class="mt-1 text-sm text-ink-soft">{o.tagline}</p>
-              </div>
+            <div>
+              <h3 class="font-display text-2xl font-bold text-ink md:text-3xl">{o.name}</h3>
+              <p class="mt-2 text-ink-soft">{o.tagline}</p>
             </div>
 
-            <div class="mt-6 flex items-baseline gap-1.5">
-              <span class="font-display text-5xl font-bold tracking-tight text-ink">
+            <div class="mt-7 flex items-baseline gap-1.5">
+              <span class="font-display text-6xl font-bold tracking-tight text-ink">
                 {o.price}
               </span>
-              <span class="text-ink-soft">{o.period}</span>
+              <span class="text-lg text-ink-soft">{o.period}</span>
             </div>
             <p class="mt-1 text-xs text-ink-muted">HT · sans engagement · résiliable à tout moment</p>
 
@@ -99,25 +105,30 @@ const offers = [
               href={o.ctaTally}
               target="_blank"
               rel="noopener"
-              class={`mt-6 ${o.recommended ? "btn btn-primary btn-lg w-full" : "btn btn-ghost btn-lg w-full"}`}
+              class={`mt-7 ${o.recommended ? "btn btn-primary btn-lg w-full shadow-glow" : "btn btn-ghost btn-lg w-full"}`}
             >
               {o.cta}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
             </a>
 
-            <a href={o.href} class="mt-3 text-center text-sm font-medium text-primary-600 hover:text-primary-700">
-              Voir le détail →
+            <a href={o.href} class="mt-3 text-center text-sm font-medium text-primary-600 transition-colors hover:text-primary-700">
+              Voir le détail complet →
             </a>
 
-            <div class="mt-7 border-t border-border pt-6">
+            <div class="mt-8 border-t border-border pt-7">
               <p class="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-muted">
                 Inclus
               </p>
-              <ul class="space-y-2.5 text-sm">
+              <ul class="space-y-3 text-sm">
                 {o.inclusions.map((i) => (
                   <li class="flex items-start gap-2.5">
-                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
+                    <span class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+                      <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
                     <span class={i.bold ? "font-medium text-ink" : "text-ink-soft"}>{i.text}</span>
                   </li>
                 ))}
@@ -125,7 +136,7 @@ const offers = [
 
               {o.notIncluded.length > 0 && (
                 <>
-                  <p class="mt-6 mb-3 text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                  <p class="mt-7 mb-3 text-xs font-semibold uppercase tracking-wider text-ink-muted">
                     Non inclus
                   </p>
                   <ul class="space-y-2 text-sm">
@@ -142,8 +153,9 @@ const offers = [
               )}
             </div>
 
-            <div class="mt-6 rounded-lg bg-surface-soft p-4 text-sm text-ink-soft">
-              <strong class="font-medium text-ink">Pour qui :</strong> {o.forWho}
+            <div class="mt-7 rounded-xl border border-border bg-surface-soft p-4 text-sm text-ink-soft">
+              <p class="font-medium text-ink">Pour qui ?</p>
+              <p class="mt-1">{o.forWho}</p>
             </div>
           </article>
         ))
@@ -151,7 +163,7 @@ const offers = [
     </div>
 
     <p class="mx-auto mt-10 max-w-xl text-center text-sm text-ink-muted">
-      Tarifs early-stage. Garantis 12 mois pour les premiers clients.
+      Tarifs early-stage. Garantis 12 mois pour les premiers signataires.
     </p>
   </div>
 </section>

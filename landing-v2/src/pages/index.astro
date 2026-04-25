@@ -10,7 +10,7 @@ import FinalCta from "../components/FinalCta.astro";
 
 const title = "iFIND — Trigger Engine FR · Détection de signaux d'achat temps réel";
 const description =
-  "iFIND détecte en temps réel les PME françaises qui déclenchent un besoin d'achat (levée de fonds, recrutement, INPI, dirigeant). 9 sources publiques, attribution SIRENE, scoring par Claude Opus 4.7. Leads Data 199€/mois ou Full Service 890€/mois.";
+  "iFIND détecte en temps réel les PME françaises qui déclenchent un besoin d'achat (levée de fonds, recrutement clé, dépôt INPI, nouveau dirigeant). Attribution SIRET vérifiée, scoring par Claude Opus 4.7, brief contextuel par lead. Leads Data 199€/mois ou Full Service 890€/mois, sans engagement.";
 
 const homeSchema = {
   "@context": "https://schema.org",
@@ -66,18 +66,18 @@ const homeSchema = {
         },
         {
           "@type": "Question",
-          name: "Quelles sont les sources surveillées ?",
+          name: "Quelles sources surveillez-vous ?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "9 sources publiques françaises : BODACC, JOAFE, INPI, France Travail, Pappers, Meta Ad Library, RSS levées spécialisés, Trigify, Rodz.",
+            text: "Toutes les annonces officielles publiées en France, les offres d'emploi qui révèlent une stratégie, les dépôts de marque et les signaux de croissance numérique. Sources publiques officielles uniquement.",
           },
         },
         {
           "@type": "Question",
-          name: "Combien de leads par mois ?",
+          name: "Combien de leads vais-je recevoir ?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Jusqu'à 500 leads qualifiés ≥ 7/10 par mois. Plafond volontaire pour préserver la qualité.",
+            text: "Aucun plafond, aucun remplissage. Vous recevez chaque lead qui matche votre ICP au moment où il devient chaud. Selon votre niche, ça peut être 30 leads/mois ultra-ciblés ou 200 si votre marché est large.",
           },
         },
         {

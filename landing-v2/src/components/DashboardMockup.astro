@@ -1,0 +1,222 @@
+---
+const triggers = [
+  {
+    company: "Industrie aéronautique · Île-de-France",
+    type: "Levée de fonds Série A",
+    detail: "4,5 M€ — annonce officielle",
+    score: 10,
+    badge: "🔥 COMBO",
+    accent: "warning",
+    age: "il y a 2 min",
+  },
+  {
+    company: "SaaS B2B · Lyon",
+    type: "Recrutement Head of Sales",
+    detail: "1er commercial — runway 18 mois",
+    score: 9,
+    badge: "Hot",
+    accent: "primary",
+    age: "il y a 8 min",
+  },
+  {
+    company: "ETI agroalimentaire · Pays de la Loire",
+    type: "Dépôt INPI nouvelle marque",
+    detail: "Lancement gamme produit prévu Q3",
+    score: 8,
+    badge: "Qualifié",
+    accent: "primary",
+    age: "il y a 17 min",
+  },
+];
+
+const navItems = [
+  { label: "Pipeline", icon: "M3 4h18v4H3zM3 12h18v4H3zM3 20h18", active: true },
+  { label: "Pépites", icon: "M12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z" },
+  { label: "Sources", icon: "M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0zm9-9v18M3 12h18" },
+  { label: "ICP", icon: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 4a3 3 0 1 1-3 3 3 3 0 0 1 3-3zm0 13.4a7.18 7.18 0 0 1-6-3.22c.03-2 4-3.08 6-3.08s5.97 1.08 6 3.08a7.18 7.18 0 0 1-6 3.22z" },
+  { label: "Réglages", icon: "M19.14 12.94a7.49 7.49 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.49.49 0 0 0-.5-.42h-3.84a.49.49 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.59.22L2.71 8.87a.5.5 0 0 0 .12.61l2.03 1.58a7.49 7.49 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32c.13.22.4.31.59.22l2.39-.96c.49.38 1.03.7 1.62.94l.36 2.54c.05.25.26.42.5.42h3.84c.24 0 .45-.17.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.19.09.46 0 .59-.22l1.92-3.32a.5.5 0 0 0-.12-.61zM12 15.5a3.5 3.5 0 1 1 3.5-3.5 3.5 3.5 0 0 1-3.5 3.5z" },
+];
+---
+
+<div class="overflow-hidden rounded-2xl border border-border bg-white shadow-2xl ring-1 ring-black/5">
+  <!-- Top bar style macOS -->
+  <div class="flex items-center justify-between border-b border-border bg-surface-soft px-4 py-3">
+    <div class="flex items-center gap-3">
+      <div class="flex gap-1.5">
+        <span class="h-3 w-3 rounded-full bg-[#FF5F57]"></span>
+        <span class="h-3 w-3 rounded-full bg-[#FEBC2E]"></span>
+        <span class="h-3 w-3 rounded-full bg-[#28C840]"></span>
+      </div>
+      <span class="hidden font-mono text-xs text-ink-muted md:inline">app.ifind.fr — Pipeline</span>
+    </div>
+    <div class="flex items-center gap-2 rounded-md border border-border bg-white px-2.5 py-1 text-xs text-ink-muted shadow-soft">
+      <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+      <span class="font-mono">https://app.ifind.fr/pipeline</span>
+    </div>
+    <div class="flex items-center gap-1.5 text-xs text-ink-muted">
+      <span class="relative flex h-2 w-2">
+        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-70"></span>
+        <span class="relative inline-flex h-2 w-2 rounded-full bg-success"></span>
+      </span>
+      <span class="hidden sm:inline">Live</span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-[200px_1fr]">
+    <!-- Sidebar -->
+    <aside class="hidden border-r border-border bg-surface-soft p-3 md:block">
+      <div class="mb-4 flex items-center gap-2 px-2 py-1.5">
+        <svg viewBox="0 0 28 28" class="h-6 w-6" fill="none" aria-hidden="true">
+          <circle cx="14" cy="14" r="12" stroke="#0F172A" stroke-width="1.5" opacity="0.18" />
+          <circle cx="14" cy="14" r="8" stroke="#0F172A" stroke-width="1.5" opacity="0.4" />
+          <circle cx="14" cy="14" r="4" fill="#0F172A" />
+          <circle cx="22.5" cy="6.5" r="2.5" fill="#10b981" />
+        </svg>
+        <span class="font-display text-sm font-semibold text-ink">iFIND</span>
+      </div>
+
+      <nav class="space-y-0.5">
+        {
+          navItems.map((item) => (
+            <div
+              class={`flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors ${
+                item.active
+                  ? "bg-primary-50 font-medium text-primary-700"
+                  : "text-ink-soft hover:bg-white hover:text-ink"
+              }`}
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d={item.icon} />
+              </svg>
+              <span>{item.label}</span>
+            </div>
+          ))
+        }
+      </nav>
+
+      <div class="mt-6 rounded-lg border border-border bg-white p-3">
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Score moyen 7j</p>
+        <p class="mt-1 font-display text-2xl font-bold text-ink">8,2<span class="text-sm text-ink-muted">/10</span></p>
+        <svg viewBox="0 0 100 30" class="mt-1 h-7 w-full" fill="none" aria-hidden="true">
+          <path
+            d="M0 22 L15 18 L25 20 L40 14 L55 16 L65 9 L80 11 L100 5"
+            stroke="#2D4EF5"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            fill="none"
+          />
+          <path
+            d="M0 22 L15 18 L25 20 L40 14 L55 16 L65 9 L80 11 L100 5 L100 30 L0 30 Z"
+            fill="url(#sparkgrad)"
+          />
+          <defs>
+            <linearGradient id="sparkgrad" x1="0" y1="0" x2="0" y2="30">
+              <stop offset="0" stop-color="#2D4EF5" stop-opacity="0.25" />
+              <stop offset="1" stop-color="#2D4EF5" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="bg-white p-4 md:p-5">
+      <!-- KPIs en haut -->
+      <div class="mb-5 grid grid-cols-3 gap-3">
+        <div class="rounded-xl border border-border bg-surface-soft p-3">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Signaux 24h</p>
+          <p class="mt-1 font-display text-xl font-bold text-ink">47</p>
+          <p class="mt-0.5 inline-flex items-center gap-0.5 text-[11px] font-medium text-success">
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+              <path d="M7 17l5-5 5 5M7 7l5 5 5-5" />
+            </svg>
+            +12 vs hier
+          </p>
+        </div>
+        <div class="rounded-xl border border-border bg-surface-soft p-3">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Pépites ≥ 9</p>
+          <p class="mt-1 font-display text-xl font-bold text-ink">5</p>
+          <p class="mt-0.5 text-[11px] font-medium text-warning">🔥 3 nouvelles</p>
+        </div>
+        <div class="rounded-xl border border-border bg-surface-soft p-3">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Délai moyen</p>
+          <p class="mt-1 font-display text-xl font-bold text-ink">28<span class="text-sm text-ink-muted">min</span></p>
+          <p class="mt-0.5 text-[11px] text-ink-muted">détection → vous</p>
+        </div>
+      </div>
+
+      <!-- Filtres tabs -->
+      <div class="mb-4 flex items-center gap-2 overflow-x-auto">
+        <button class="rounded-md border border-primary-200 bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700">Tous (47)</button>
+        <button class="rounded-md border border-border bg-white px-3 py-1 text-xs font-medium text-ink-soft">Pépites (5)</button>
+        <button class="rounded-md border border-border bg-white px-3 py-1 text-xs font-medium text-ink-soft">À traiter (12)</button>
+        <button class="rounded-md border border-border bg-white px-3 py-1 text-xs font-medium text-ink-soft">RDV bookés (3)</button>
+      </div>
+
+      <!-- Liste triggers -->
+      <div class="space-y-2">
+        {
+          triggers.map((t, i) => (
+            <article
+              class={`flex flex-col gap-3 rounded-xl border p-4 transition-all hover:border-primary-200 hover:shadow-soft md:flex-row md:items-center ${
+                i === 0 ? "border-warning/30 bg-warning-soft/30" : "border-border bg-white"
+              }`}
+            >
+              <div
+                class={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                  t.accent === "warning"
+                    ? "bg-warning-soft text-[#b45309]"
+                    : "bg-primary-50 text-primary-600"
+                }`}
+              >
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
+                </svg>
+              </div>
+
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <p class="font-medium text-ink">{t.type}</p>
+                  <span class="text-xs text-ink-muted">·</span>
+                  <span class="font-mono text-xs text-ink-muted">{t.age}</span>
+                </div>
+                <p class="text-sm text-ink-soft">{t.company}</p>
+                <p class="mt-0.5 text-xs text-ink-muted">{t.detail}</p>
+              </div>
+
+              <div class="flex shrink-0 items-center gap-2">
+                <span
+                  class={`inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-xs font-bold ${
+                    t.accent === "warning"
+                      ? "bg-warning text-white"
+                      : "bg-primary-600 text-white"
+                  }`}
+                >
+                  {t.score}/10
+                </span>
+                <span
+                  class={`hidden rounded-md px-2 py-1 text-xs font-medium md:inline ${
+                    t.accent === "warning"
+                      ? "bg-warning-soft text-[#b45309]"
+                      : "bg-primary-50 text-primary-700"
+                  }`}
+                >
+                  {t.badge}
+                </span>
+                <button class="rounded-md border border-border bg-white p-1.5 text-ink-soft transition-colors hover:bg-surface-soft">
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h14M13 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</div>

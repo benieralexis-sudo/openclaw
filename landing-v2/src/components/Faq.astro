@@ -6,69 +6,77 @@ interface Props {
 const defaultItems = [
   {
     q: "En quoi un trigger est-il différent de l'intent data classique ?",
-    a: "L'intent data (Bombora, G2, etc.) mesure des signaux de recherche web — quelqu'un consulte un sujet, donc <em>peut-être</em> un besoin. Un trigger est un événement public dur : une levée de fonds enregistrée au BODACC, une offre d'emploi publiée chez France Travail, un dépôt de marque à l'INPI. Pas une probabilité — un fait.",
+    a: "L'intent data (Bombora, G2, etc.) mesure l'intérêt général : quelqu'un consulte un sujet, donc <em>peut-être</em> un besoin. Un trigger, c'est un événement public dur — une levée de fonds enregistrée, une offre d'emploi clé publiée, un dépôt de marque officiel. Ce n'est plus une probabilité, c'est un fait. Et un fait qui dit : <strong>cette boîte vient de prendre une décision qui crée un besoin pour vous</strong>.",
   },
   {
-    q: "Quelles sont les 9 sources surveillées exactement ?",
-    a: "BODACC (annonces légales), JOAFE (associations), INPI (marques et brevets), France Travail (recrutements), Pappers (entreprises), Meta Ad Library (campagnes pub concurrents), RSS levées de fonds spécialisés FR, Trigify (signaux LinkedIn engagement), Rodz (14 signaux temps réel). Toutes officielles ou licenciées, aucun scraping illégal.",
+    q: "Quelles sources surveillez-vous ?",
+    a: "On surveille toutes les annonces officielles publiées en France (journal officiel, registres légaux, données entreprises), les offres d'emploi qui révèlent une stratégie (recrutement d'un Head of X, ouverture d'une équipe), les dépôts de marque, et les signaux de croissance numérique (campagnes pub, présence digitale). On reste discret sur la stack exacte — c'est notre moat, et il évolue en permanence pour rester en tête.",
   },
   {
     q: "Est-ce que vous faites du scraping LinkedIn ?",
-    a: "Non. Toute action sur LinkedIn (connexion, message, engagement) reste manuelle et humaine — c'est une règle non négociable pour protéger les comptes de nos clients. Trigify détecte des signaux d'engagement public, jamais d'envoi automatisé.",
+    a: "Non. Toute action sur LinkedIn (connexion, message, engagement) reste manuelle et humaine — c'est une règle non négociable pour protéger les comptes de nos clients. On détecte des signaux d'engagement public, on n'envoie jamais d'automation.",
   },
   {
-    q: "Combien de leads je reçois par mois ?",
-    a: "Jusqu'à 500 leads qualifiés ≥ 7/10 par mois sur l'offre Founding (199€ et 890€). Ce plafond est volontaire : on préfère vous donner 134 leads vraiment chauds que 5 000 leads tièdes. La qualité prime sur le volume.",
+    q: "Combien de leads je vais recevoir ?",
+    a: "On ne plafonne pas. On ne complète pas non plus avec du remplissage. Vous recevez <strong>chaque lead qui matche votre ICP au moment où il devient chaud</strong> — pas un de plus, pas un de moins. Selon votre niche, ça peut être 30 leads/mois ultra-ciblés ou 200 si votre marché est large. La qualité prime, toujours.",
   },
   {
     q: "Mes données et celles de mes prospects sont-elles en sécurité ?",
-    a: "Hébergement 100% France (VPS Hostinger Paris). Conformité RGPD native. Aucune donnée prospect transmise à des tiers en dehors des outils techniques (Pappers pour SIRENE, Resend pour digest). Politique de confidentialité détaillée disponible sur le site.",
+    a: "Hébergement 100% France (VPS Hostinger Paris). Conformité RGPD native. Aucune donnée prospect transmise à des tiers en dehors des outils techniques nécessaires (enrichissement, envoi). Politique de confidentialité détaillée disponible sur le site.",
   },
   {
     q: "Quelle différence avec un Apollo, un Cognism, un Pharow ?",
-    a: "Apollo / Cognism vendent des bases de contacts statiques que tout le monde achète — saturation garantie. Pharow est plus FR-natif mais reste de l'enrichissement, pas de la détection de moment d'achat. iFIND détecte des <em>déclencheurs</em> : on vous dit non seulement <strong>qui</strong> contacter, mais surtout <strong>pourquoi maintenant</strong>.",
+    a: "Apollo et Cognism vendent des bases de contacts statiques que tout le monde achète — saturation garantie. Pharow est plus FR-natif mais reste de l'enrichissement, pas de la détection de moment d'achat. iFIND détecte des <em>déclencheurs</em> : on vous dit non seulement <strong>qui</strong> contacter, mais surtout <strong>pourquoi maintenant</strong>.",
   },
   {
     q: "Puis-je résilier à tout moment ?",
-    a: "Oui. Pas d'engagement annuel, pas de frais cachés. Préavis 30 jours.",
+    a: "Oui. Pas d'engagement annuel, pas de frais cachés. Préavis 30 jours, fin de mois.",
   },
   {
     q: "Combien de temps avant les premiers leads ?",
-    a: "48-72h après signature. Le temps de calibrer votre ICP (industrie, taille, géographie, signaux pertinents) et de lancer le pipeline sur vos critères.",
+    a: "48 à 72h après signature pour Leads Data. Le temps de calibrer votre ICP (industrie, taille, géographie, types de signaux pertinents) et de lancer le moteur sur vos critères. Pour Full Service, compter 3 à 4 semaines (warmup mailbox).",
   },
 ];
 
 const { items = defaultItems } = Astro.props;
 ---
 
-<section id="faq" class="section bg-surface-soft">
+<section id="faq" class="section relative bg-surface-soft">
   <div class="container-page">
     <div class="mx-auto max-w-2xl text-center">
-      <p class="eyebrow reveal">Questions fréquentes</p>
+      <p class="eyebrow reveal">FAQ</p>
       <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
         Vos questions, traitées sans bullshit.
       </h2>
+      <p class="reveal mx-auto mt-4 text-ink-soft">
+        Pas trouvé votre réponse ? Écrivez-nous à
+        <a href="mailto:contact@ifind.fr" class="font-medium text-primary-600 hover:text-primary-700">
+          contact@ifind.fr
+        </a>.
+      </p>
     </div>
 
     <div class="mx-auto mt-12 max-w-3xl space-y-3">
       {
         items.map((item) => (
-          <details class="reveal group rounded-xl border border-border bg-white px-5 transition-all open:border-primary-200 open:shadow-soft">
+          <details class="reveal group rounded-2xl border border-border bg-white px-6 transition-all open:border-primary-200 open:bg-gradient-to-br open:from-white open:to-primary-50/30 open:shadow-soft">
             <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-display text-base font-medium text-ink md:text-lg">
               <span>{item.q}</span>
-              <svg
-                class="h-5 w-5 shrink-0 text-ink-muted transition-transform group-open:rotate-45"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                aria-hidden="true"
-              >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-soft text-ink-muted transition-all group-open:bg-primary-100 group-open:text-primary-700 group-open:rotate-45">
+                <svg
+                  class="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </span>
             </summary>
-            <div class="pb-5 pr-9 text-ink-soft leading-relaxed" set:html={item.a} />
+            <div class="pb-6 pr-12 leading-relaxed text-ink-soft" set:html={item.a} />
           </details>
         ))
       }
