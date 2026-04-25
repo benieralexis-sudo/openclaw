@@ -144,6 +144,19 @@ export function LoginForm() {
               </Button>
             </form>
 
+            {/* Bouton de pré-remplissage 1-clic pour debug */}
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("benieralexis@gmail.com");
+                setPassword("ifind2026");
+                setError(null);
+              }}
+              className="mt-3 w-full rounded-md border border-dashed border-ink-300 bg-ink-50 px-3 py-2 text-[12px] text-ink-600 hover:bg-ink-100 transition-colors"
+            >
+              Pré-remplir : benieralexis@gmail.com / ifind2026
+            </button>
+
             <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-ink-500">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
               Connexion sécurisée · Hébergement France · RGPD
