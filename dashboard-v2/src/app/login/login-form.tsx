@@ -2,19 +2,24 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signIn } from "@/lib/auth-client";
 
+const APP_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 export function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/dashboard";
+  const rawCallback = params.get("callbackUrl");
+  // Le middleware passe le pathname SANS basePath (Next.js le strip).
+  // Pour la nav navigateur, on doit recoller le basePath manuellement.
+  const callbackUrl = rawCallback
+    ? rawCallback.startsWith(APP_BASE_PATH) ? rawCallback : `${APP_BASE_PATH}${rawCallback}`
+    : `${APP_BASE_PATH}/dashboard`;
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -27,7 +32,9 @@ export function LoginForm() {
     setPending(true);
     setError(null);
     try {
-      const res = (await signIn.email({ email, password, callbackURL: callbackUrl })) as
+      // PAS de callbackURL passé à Better Auth — il ferait un redirect serveur
+      // qui ignore le basePath /preview-v2. On gère la nav nous-mêmes en client.
+      const res = (await signIn.email({ email, password })) as
         | { data?: unknown; error?: { message?: string; code?: string; status?: number } }
         | null;
       console.log("[ifind v2] signIn response:", res);
@@ -35,8 +42,8 @@ export function LoginForm() {
         const msg = res.error.message ?? `[v2] Erreur ${res.error.status ?? "?"} ${res.error.code ?? ""}`;
         setError(`[v2 Better Auth] ${msg}`);
       } else {
-        router.push(callbackUrl as never);
-        router.refresh();
+        // Hard navigation pour que les Server Components rechargent avec la session fresh
+        window.location.href = callbackUrl;
       }
     } catch (err) {
       console.error("[ifind v2] login fail:", err);
