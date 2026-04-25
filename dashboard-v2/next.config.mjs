@@ -4,6 +4,9 @@ const nextConfig = {
   poweredByHeader: false,
   typedRoutes: true,
   outputFileTracingRoot: process.cwd(),
+  // En attendant DNS app-v2.ifind.fr, on sert sous /preview-v2 de ifind.fr
+  basePath: process.env.BASE_PATH || '',
+  assetPrefix: process.env.BASE_PATH || undefined,
   experimental: {
     optimizePackageImports: ['lucide-react', '@tabler/icons-react'],
   },
