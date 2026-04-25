@@ -1,4 +1,16 @@
-// iFIND - Routeur Telegram central (dispatch 13 skills : AutoMailer + CRM Pilot + Lead Enrich + Content Gen + Invoice Bot + Proactive Agent + Self-Improve + Web Intelligence + System Advisor + Autonomous Pilot + Inbox Manager + Meeting Scheduler)
+// iFIND Trigger Engine v2.0 — Routeur central
+//
+// Composants ACTIFS :
+//   - Trigger Engine (skills/trigger-engine/) — produit principal
+//   - Claude Brain v1.1 (Opus 4.7 + boosters combo/hot/declarative-pain)
+//   - Inbox Manager (IMAP polling + reply-pipeline)
+//   - Meeting Scheduler (Google Calendar booking)
+//   - Webhooks Resend (replies tracking) + Tally (signup clients)
+//   - Telegram bot admin (Mr.Krabs / @Myironpro_bot — notifications + commandes)
+//
+// Composants LEGACY (stubs no-op v2.0-cleanup) :
+//   - AutoMailer/CRM/Invoice/Proactive/SelfImprove/WebIntel/SystemAdvisor/Autonomous
+//   Ces handlers retournent {skipped:true} et seront supprimés au refactor router complet.
 
 // --- Sentry : doit etre charge en PREMIER pour auto-instrumentation ---
 const Sentry = require('./instrument.js');
@@ -23,16 +35,46 @@ const log = require('./logger.js');
 // Phase B4 — refuse boot if STRICT credentials missing for current tenant.
 // Safe to call early: validateOnBoot() only inspects process.env (no network/file IO).
 require('./credential-manager.js').validateOnBoot();
-const AutoMailerHandler = require('../skills/automailer/automailer-handler.js');
-const CRMPilotHandler = require('../skills/crm-pilot/crm-handler.js');
-const InvoiceBotHandler = require('../skills/invoice-bot/invoice-handler.js');
-const ProactiveEngine = require('../skills/proactive-agent/proactive-engine.js');
-const ProactiveHandler = require('../skills/proactive-agent/proactive-handler.js');
-const SelfImproveHandler = require('../skills/self-improve/self-improve-handler.js');
-const WebIntelligenceHandler = require('../skills/web-intelligence/web-intelligence-handler.js');
-const SystemAdvisorHandler = require('../skills/system-advisor/system-advisor-handler.js');
-const AutonomousHandler = require('../skills/autonomous-pilot/autonomous-handler.js');
-const BrainEngine = require('../skills/autonomous-pilot/brain-engine.js');
+// === Handlers legacy v9.5 — neutralisés via stubs Étape 1 cleanup v2.0 ===
+//
+// Tous ces handlers retournent {skipped:true,reason:'legacy-deprecated-v2-cleanup'}.
+// Importés en try/catch + fallback stub inline pour que le router boot même si les
+// fichiers physiques sont supprimés (Étape 2 cleanup v2.0). La résolution finale
+// se fait au refactor router complet quand les tests E2E sont en place.
+//
+// Composant ACTIF : Trigger Engine (skills/trigger-engine/) + Inbox + Meeting.
+
+// Stub class minimaliste pour fallback : satisfait toutes les méthodes appelées
+// par le router (start/stop/handle/handleMessage + maps pendingX) sans crasher.
+class _LegacyStubHandler {
+  constructor() {
+    this.skipped = true;
+    this.pendingConversations = {};
+    this.pendingConfirmations = {};
+    this.pendingImports = {};
+    this.pendingEmails = {};
+    this.pendingResults = {};
+  }
+  start() { return; }
+  stop() { return; }
+  async handle() { return { skipped: true, reason: 'legacy-deprecated-v2-cleanup' }; }
+  async handleMessage() { return { skipped: true, reason: 'legacy-deprecated-v2-cleanup' }; }
+}
+
+function _safeRequire(path, fallback) {
+  try { return require(path); } catch (e) { return fallback; }
+}
+
+const AutoMailerHandler = _safeRequire('../skills/automailer/automailer-handler.js', _LegacyStubHandler);
+const CRMPilotHandler = _safeRequire('../skills/crm-pilot/crm-handler.js', _LegacyStubHandler);
+const InvoiceBotHandler = _safeRequire('../skills/invoice-bot/invoice-handler.js', _LegacyStubHandler);
+const ProactiveEngine = _safeRequire('../skills/proactive-agent/proactive-engine.js', _LegacyStubHandler);
+const ProactiveHandler = _safeRequire('../skills/proactive-agent/proactive-handler.js', _LegacyStubHandler);
+const SelfImproveHandler = _safeRequire('../skills/self-improve/self-improve-handler.js', _LegacyStubHandler);
+const WebIntelligenceHandler = _safeRequire('../skills/web-intelligence/web-intelligence-handler.js', _LegacyStubHandler);
+const SystemAdvisorHandler = _safeRequire('../skills/system-advisor/system-advisor-handler.js', _LegacyStubHandler);
+const AutonomousHandler = _safeRequire('../skills/autonomous-pilot/autonomous-handler.js', _LegacyStubHandler);
+const BrainEngine = _safeRequire('../skills/autonomous-pilot/brain-engine.js', _LegacyStubHandler);
 const InboxHandler = require('../skills/inbox-manager/inbox-handler.js');
 let InboxListener;
 try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
@@ -724,16 +766,20 @@ for (const listener of inboxListeners) {
   }
 }
 
-// Storages des skills a crons (pour toggle config.enabled)
-const proactiveAgentStorage = require('../skills/proactive-agent/storage.js');
-const selfImproveStorage = require('../skills/self-improve/storage.js');
-const webIntelStorage = require('../skills/web-intelligence/storage.js');
-const systemAdvisorStorage = require('../skills/system-advisor/storage.js');
-const autonomousPilotStorage = require('../skills/autonomous-pilot/storage.js');
-let flowFastStorageRouter = null;
-try { flowFastStorageRouter = require('../skills/flowfast/storage.js'); } catch (e) { log.warn('router', 'FlowFast storage unavailable: ' + e.message); }
-let leadEnrichStorageRouter = null;
-try { leadEnrichStorageRouter = require('../skills/lead-enrich/storage.js'); } catch (e) { log.warn('router', 'LeadEnrich storage unavailable: ' + e.message); }
+// Storages des skills legacy (toggle config.enabled — deviendront no-op si fichiers droppés)
+// Tous wrappés en _safeRequire avec fallback objet vide pour résister au drop physique.
+const _emptyStorageStub = { data: {}, getConfig: () => ({}), getStats: () => ({}) };
+const proactiveAgentStorage = _safeRequire('../skills/proactive-agent/storage.js', _emptyStorageStub);
+const selfImproveStorage = _safeRequire('../skills/self-improve/storage.js', _emptyStorageStub);
+const webIntelStorage = _safeRequire('../skills/web-intelligence/storage.js', _emptyStorageStub);
+const systemAdvisorStorage = _safeRequire('../skills/system-advisor/storage.js', _emptyStorageStub);
+const autonomousPilotStorage = _safeRequire('../skills/autonomous-pilot/storage.js', _emptyStorageStub);
+const flowFastStorageRouter = _safeRequire('../skills/flowfast/storage.js', null);
+const leadEnrichStorageRouter = _safeRequire('../skills/lead-enrich/storage.js', null);
+
+// Cross-skill: HubSpot client legacy v9.5 — neutralisé v2.0 cleanup.
+// Sera réimplémenté dans skills/trigger-engine/sources/ si besoin de sync CRM.
+function _getHubSpotClient() { return null; }
 
 // Helper : enrichir un contact avec organization depuis lead-enrich (pour ProspectResearcher)
 function _enrichContactWithOrg(email, contactName, company, title) {
@@ -1302,7 +1348,8 @@ async function handleUpdate(update) {
       }
     } else {
       // General : si Autonomous Pilot est actif, router vers lui pour une experience unifiee
-      const apConfig = autoPilotHandler.claudeKey ? require('../skills/autonomous-pilot/storage.js').getConfig() : null;
+      // v2.0 cleanup : autonomous-pilot stubbé, getConfig() retourne objet vide
+      const apConfig = autoPilotHandler.claudeKey ? (autonomousPilotStorage.getConfig?.() || null) : null;
       if (apConfig && apConfig.enabled && apConfig.businessContext) {
         skill = 'autonomous-pilot';
         log.info('router', 'Redirection general -> autonomous-pilot');
@@ -1697,26 +1744,8 @@ let _botReady = false;
 // --- FIX 23 : Webhook Resend — reception temps reel des evenements email ---
 const automailerStorage = require('../skills/automailer/storage.js');
 
-// Cross-skill: acces au client HubSpot depuis le routeur (pour sync CRM webhook)
-function _getHubSpotClient() {
-  const apiKey = process.env.HUBSPOT_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const HubSpotClient = require('../skills/crm-pilot/hubspot-client.js');
-    return new HubSpotClient(apiKey);
-  } catch (e) {
-    try {
-      const HubSpotClient = require('/app/skills/crm-pilot/hubspot-client.js');
-      return new HubSpotClient(apiKey);
-    } catch (e2) {
-      return null;
-    }
-  }
-}
-
-let ProspectResearcher;
-try { ProspectResearcher = require('../skills/autonomous-pilot/prospect-researcher.js'); }
-catch (e) { try { ProspectResearcher = require('/app/skills/autonomous-pilot/prospect-researcher.js'); } catch (e2) { ProspectResearcher = null; } }
+// ProspectResearcher : legacy, recherche pré-envoi remplacée par Trigger Engine qualify pipeline
+const ProspectResearcher = _safeRequire('../skills/autonomous-pilot/prospect-researcher.js', null);
 
 // --- Resend Handler (module extrait) ---
 const resendHandlerModule = createResendHandler({
@@ -1806,7 +1835,8 @@ async function processChatMessage(text, userId) {
       recordSkillUsage(skill);
     } else {
       // General → Autonomous Pilot ou Claude
-      const apConfig = autoPilotHandler.claudeKey ? require('../skills/autonomous-pilot/storage.js').getConfig() : null;
+      // v2.0 cleanup : autonomous-pilot stubbé, getConfig() retourne objet vide
+      const apConfig = autoPilotHandler.claudeKey ? (autonomousPilotStorage.getConfig?.() || null) : null;
       if (apConfig && apConfig.enabled && apConfig.businessContext) {
         response = await autoPilotHandler.handleMessage(text, chatId, noopReply);
         recordSkillUsage('autonomous-pilot');
@@ -1866,7 +1896,13 @@ const healthServer = http.createServer(async (req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
     if (_botReady && _polling) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), skills: 13, polling: _polling }));
+      res.end(JSON.stringify({
+        status: 'ok',
+        uptime: process.uptime(),
+        version: 'v2.0',
+        components: ['trigger-engine', 'claude-brain', 'inbox-manager', 'meeting-scheduler'],
+        polling: _polling
+      }));
     } else {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'starting', ready: _botReady, polling: _polling }));
@@ -2682,7 +2718,7 @@ telegramAPI('getMe').then(result => {
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(e => log.warn('router', 'setMyCommands echoue:', e.message));
-    log.info('router', '13 skills actives');
+    log.info('router', 'Trigger Engine + Inbox + Meeting actifs (legacy v9.5 stubbé)');
     log.info('router', 'En attente de messages...');
     _botReady = true;
     poll();

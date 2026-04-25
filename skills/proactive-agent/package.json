@@ -1,7 +1,0 @@
-{
-  "name": "proactive-agent",
-  "version": "1.0.0",
-  "description": "Agent proactif - Rapports, alertes et monitoring automatiques",
-  "main": "index.js",
-  "type": "commonjs"
-}

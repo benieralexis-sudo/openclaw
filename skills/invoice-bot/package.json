@@ -1,7 +1,0 @@
-{
-  "name": "invoice-bot",
-  "version": "1.0.0",
-  "description": "Invoice Bot - Creation et suivi de factures",
-  "main": "index.js",
-  "type": "commonjs"
-}

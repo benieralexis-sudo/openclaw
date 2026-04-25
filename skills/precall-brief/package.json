@@ -1,7 +1,0 @@
-{
-  "name": "precall-brief",
-  "version": "1.0.0",
-  "description": "Pre-call brief generator - brief structure avant chaque call client",
-  "main": "index.js",
-  "type": "commonjs"
-}

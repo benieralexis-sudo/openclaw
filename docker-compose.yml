@@ -1,50 +1,75 @@
 services:
-  # openclaw-gateway: DESACTIVE — non utilise par iFIND, cause restart loop
-  # Pour reactiver, decommentez et corrigez les permissions
-
+  # ═══════════════════════════════════════════════════════════════════════
+  # iFIND Trigger Engine v2.0 — Routeur central + cerveau Opus
+  # ═══════════════════════════════════════════════════════════════════════
   telegram-router:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
-    # root requis pour mkdir/chown volumes au boot — drop immediat vers node via runuser
-    # securise par : cap_drop ALL + no-new-privileges + check uid 0 dans Node.js
     user: "root"
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
     environment:
+      # ── Core auth ──
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      HUBSPOT_API_KEY: ${HUBSPOT_API_KEY}
-      APOLLO_API_KEY: ${APOLLO_API_KEY:-}
-      DROPCONTACT_API_KEY: ${DROPCONTACT_API_KEY:-}
-      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      SENDER_EMAIL: ${SENDER_EMAIL:-onboarding@resend.dev}
-      GMAIL_SMTP_USER: ${GMAIL_SMTP_USER:-}
-      GMAIL_SMTP_PASS: ${GMAIL_SMTP_PASS:-}
-      GMAIL_SMTP_ENABLED: ${GMAIL_SMTP_ENABLED:-false}
-      GMAIL_MAILBOXES: ${GMAIL_MAILBOXES:-}
-      FLOWFAST_DATA_DIR: /data/flowfast
-      AUTOMAILER_DATA_DIR: /data/automailer
-      CRM_PILOT_DATA_DIR: /data/crm-pilot
-      LEAD_ENRICH_DATA_DIR: /data/lead-enrich
-      INVOICE_BOT_DATA_DIR: /data/invoice-bot
-      PROACTIVE_DATA_DIR: /data/proactive-agent
-      SELF_IMPROVE_DATA_DIR: /data/self-improve
-      WEB_INTEL_DATA_DIR: /data/web-intelligence
-      SYSTEM_ADVISOR_DATA_DIR: /data/system-advisor
-      AUTONOMOUS_PILOT_DATA_DIR: /data/autonomous-pilot
-      APP_CONFIG_DIR: /data/app-config
-      API_DAILY_BUDGET: ${API_DAILY_BUDGET:-5}
       ADMIN_CHAT_ID: ${ADMIN_CHAT_ID:-1409505520}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+
+      # ── IA providers ──
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-${CLAUDE_API_KEY:-}}
+
+      # ── Email + IMAP ──
+      RESEND_API_KEY: ${RESEND_API_KEY}
       RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+      SENDER_EMAIL: ${SENDER_EMAIL:-onboarding@resend.dev}
+      SENDER_NAME: ${SENDER_NAME:-Alexis}
+      SENDER_FULL_NAME: ${SENDER_FULL_NAME:-Alexis Bénier}
+      SENDER_TITLE: ${SENDER_TITLE:-Fondateur}
+      SENDER_DOMAINS: ${SENDER_DOMAINS:-}
+      REPLY_TO_EMAIL: ${REPLY_TO_EMAIL:-}
       IMAP_HOST: ${IMAP_HOST:-}
       IMAP_PORT: ${IMAP_PORT:-993}
       IMAP_USER: ${IMAP_USER:-}
       IMAP_PASS: ${IMAP_PASS:-}
       IMAP_MAILBOXES: ${IMAP_MAILBOXES:-}
+      NOTIFY_POSITIVE_EMAILS: ${NOTIFY_POSITIVE_EMAILS:-}
+
+      # ── Trigger Engine sources FR ──
+      PAPPERS_API_TOKEN: ${PAPPERS_API_TOKEN:-}
+      DROPCONTACT_API_KEY: ${DROPCONTACT_API_KEY:-}
+      FRANCETRAVAIL_CLIENT_ID: ${FRANCETRAVAIL_CLIENT_ID:-}
+      FRANCETRAVAIL_CLIENT_SECRET: ${FRANCETRAVAIL_CLIENT_SECRET:-}
+      INPI_USERNAME: ${INPI_USERNAME:-}
+      INPI_PASSWORD: ${INPI_PASSWORD:-}
+      META_AD_LIBRARY_TOKEN: ${META_AD_LIBRARY_TOKEN:-}
+
+      # ── Stack B2B 2026 (à activer après achat clés) ──
+      RODZ_API_KEY: ${RODZ_API_KEY:-}
+      THEIRSTACK_API_KEY: ${THEIRSTACK_API_KEY:-}
+      TRIGIFY_API_KEY: ${TRIGIFY_API_KEY:-}
+      DATAGMA_API_KEY: ${DATAGMA_API_KEY:-}
+      MILLIONVERIFIER_API_KEY: ${MILLIONVERIFIER_API_KEY:-}
+      APIFY_API_TOKEN: ${APIFY_API_TOKEN:-}
+      SMARTLEAD_API_KEY: ${SMARTLEAD_API_KEY:-}
+      FOLK_API_KEY: ${FOLK_API_KEY:-}
+      AIRCALL_API_ID: ${AIRCALL_API_ID:-}
+      AIRCALL_API_TOKEN: ${AIRCALL_API_TOKEN:-}
+
+      # ── Trigger Engine toggles ──
+      TRIGGER_ENGINE_ENABLED: ${TRIGGER_ENGINE_ENABLED:-true}
+      CLAUDE_BRAIN_ENABLED: ${CLAUDE_BRAIN_ENABLED:-true}
+      CLAUDE_BRAIN_BUDGET_MONTHLY_EUR: ${CLAUDE_BRAIN_BUDGET_MONTHLY_EUR:-300}
+      CLAUDE_BRAIN_BUDGET_HARD_EUR: ${CLAUDE_BRAIN_BUDGET_HARD_EUR:-500}
+
+      # ── Boosters v1.1 (combo + hot + declarative-pain) ──
+      COMBO_BOOSTER_ENABLED: ${COMBO_BOOSTER_ENABLED:-true}
+      HOT_TRIGGERS_ENABLED: ${HOT_TRIGGERS_ENABLED:-true}
+      DECLARATIVE_PAIN_ENABLED: ${DECLARATIVE_PAIN_ENABLED:-false}
+
+      # ── HubSpot (lecture seule, optionnel) ──
+      HUBSPOT_API_KEY: ${HUBSPOT_API_KEY:-}
+
+      # ── Google Calendar (booking RDV) ──
       GOOGLE_BOOKING_URL: ${GOOGLE_BOOKING_URL:-}
       BOOKING_URL: ${BOOKING_URL:-}
       GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-}
@@ -53,70 +78,42 @@ services:
       GOOGLE_REFRESH_TOKEN: ${GOOGLE_REFRESH_TOKEN:-}
       GOOGLE_SERVICE_ACCOUNT_KEY: ${GOOGLE_SERVICE_ACCOUNT_KEY:-}
       DEFAULT_MEETING_DURATION: ${DEFAULT_MEETING_DURATION:-15}
-      SENDER_NAME: ${SENDER_NAME:-Alexis}
-      SENDER_FULL_NAME: ${SENDER_FULL_NAME:-Alexis Bénier}
-      SENDER_TITLE: ${SENDER_TITLE:-Fondateur}
+
+      # ── Webhooks externes ──
+      RODZ_WEBHOOK_SECRET: ${RODZ_WEBHOOK_SECRET:-}
+      TALLY_API_KEY: ${TALLY_API_KEY:-}
+
+      # ── Branding ──
       CLIENT_NAME: ${CLIENT_NAME:-iFIND}
       CLIENT_DOMAIN: ${CLIENT_DOMAIN:-ifind.fr}
       TRACKING_DOMAIN: ${TRACKING_DOMAIN:-ifind.fr}
-      REPLY_TO_EMAIL: ${REPLY_TO_EMAIL:-}
-      CLIENT_DESCRIPTION: ${CLIENT_DESCRIPTION:-agence d'automatisation IA}
-      CLIENT_TAGLINE: ${CLIENT_TAGLINE:-Prospection B2B externalisée}
+      CLIENT_DESCRIPTION: ${CLIENT_DESCRIPTION:-Trigger Engine FR — Détection signaux d'achat B2B}
+      CLIENT_TAGLINE: ${CLIENT_TAGLINE:-Détection signaux d'achat temps réel}
+
+      # ── Data dirs (legacy v9.5 stubbés mais conservés pour compat reply-pipeline) ──
+      AUTOMAILER_DATA_DIR: /data/automailer
       INBOX_MANAGER_DATA_DIR: /data/inbox-manager
       MEETING_SCHEDULER_DATA_DIR: /data/meeting-scheduler
-      PAPPERS_API_TOKEN: ${PAPPERS_API_TOKEN:-}
-      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
-      SENDER_DOMAINS: ${SENDER_DOMAINS:-}
+      APP_CONFIG_DIR: /data/app-config
       VISITOR_DATA_DIR: /data/visitors
-      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
-      AUTOMAILER_DASHBOARD_PASSWORD: ${AUTOMAILER_DASHBOARD_PASSWORD:-}
-      CLAY_WEBHOOK_SECRET: ${CLAY_WEBHOOK_SECRET:-}
-      CLAY_API_KEY: ${CLAY_API_KEY:-}
-      CLAY_TABLE_ID: ${CLAY_TABLE_ID:-}
-      CLAY_SESSION_COOKIE: ${CLAY_SESSION_COOKIE:-}
-      NOTIFY_POSITIVE_EMAILS: ${NOTIFY_POSITIVE_EMAILS:-}
+
+      # ── Limites & monitoring ──
+      API_DAILY_BUDGET: ${API_DAILY_BUDGET:-5}
       SENTRY_DSN: ${SENTRY_DSN:-}
       NODE_ENV: ${NODE_ENV:-production}
-      TRIGGER_ENGINE_ENABLED: ${TRIGGER_ENGINE_ENABLED:-false}
-      FRANCETRAVAIL_CLIENT_ID: ${FRANCETRAVAIL_CLIENT_ID:-}
-      FRANCETRAVAIL_CLIENT_SECRET: ${FRANCETRAVAIL_CLIENT_SECRET:-}
-      INPI_USERNAME: ${INPI_USERNAME:-}
-      INPI_PASSWORD: ${INPI_PASSWORD:-}
-      CLAUDE_BRAIN_ENABLED: ${CLAUDE_BRAIN_ENABLED:-false}
-      CLAUDE_BRAIN_BUDGET_MONTHLY_EUR: ${CLAUDE_BRAIN_BUDGET_MONTHLY_EUR:-300}
-      CLAUDE_BRAIN_BUDGET_HARD_EUR: ${CLAUDE_BRAIN_BUDGET_HARD_EUR:-500}
-      AUTO_SEND_ENABLED: ${AUTO_SEND_ENABLED:-false}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-${CLAUDE_API_KEY:-}}
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
+      # Code source (bind mount pour hot-reload dev)
       - ./node_modules:/app/node_modules
       - ./gateway:/app/gateway
-      - ./skills/flowfast:/app/skills/flowfast
       - ./skills/automailer:/app/skills/automailer
-      - ./skills/crm-pilot:/app/skills/crm-pilot
-      - ./skills/lead-enrich:/app/skills/lead-enrich
-      - ./skills/invoice-bot:/app/skills/invoice-bot
-      - ./skills/proactive-agent:/app/skills/proactive-agent
-      - ./skills/self-improve:/app/skills/self-improve
-      - ./skills/web-intelligence:/app/skills/web-intelligence
-      - ./skills/system-advisor:/app/skills/system-advisor
-      - ./skills/autonomous-pilot:/app/skills/autonomous-pilot
       - ./skills/inbox-manager:/app/skills/inbox-manager
       - ./skills/meeting-scheduler:/app/skills/meeting-scheduler
       - ./skills/trigger-engine:/app/skills/trigger-engine
-      - ./skills/clay-connector.js:/app/skills/clay-connector.js:ro
       - ./skills/package.json:/app/skills/package.json:ro
-      - flowfast-data:/data/flowfast
+      # Volumes persistants
       - automailer-data:/data/automailer
-      - crm-pilot-data:/data/crm-pilot
-      - lead-enrich-data:/data/lead-enrich
-      - invoice-bot-data:/data/invoice-bot
-      - proactive-agent-data:/data/proactive-agent
-      - self-improve-data:/data/self-improve
-      - web-intelligence-data:/data/web-intelligence
-      - system-advisor-data:/data/system-advisor
-      - autonomous-pilot-data:/data/autonomous-pilot
       - inbox-manager-data:/data/inbox-manager
       - meeting-scheduler-data:/data/meeting-scheduler
       - app-config-data:/data/app-config
@@ -131,7 +128,15 @@ services:
         limits:
           memory: 512M
           cpus: '1.0'
-    entrypoint: ["sh", "-c", "mkdir -p /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config /data/visitors /app/skills/trigger-engine/data && chown -R node:node /data/flowfast /data/automailer /data/crm-pilot /data/lead-enrich /data/invoice-bot /data/proactive-agent /data/self-improve /data/web-intelligence /data/system-advisor /data/autonomous-pilot /data/inbox-manager /data/meeting-scheduler /data/app-config /data/visitors /app/skills/trigger-engine/data && cd /app && exec runuser -u node -- node /app/gateway/telegram-router.js"]
+    entrypoint:
+      - sh
+      - -c
+      - >
+        mkdir -p /data/automailer /data/inbox-manager /data/meeting-scheduler
+        /data/app-config /data/visitors /app/skills/trigger-engine/data &&
+        chown -R node:node /data/automailer /data/inbox-manager /data/meeting-scheduler
+        /data/app-config /data/visitors /app/skills/trigger-engine/data &&
+        cd /app && exec runuser -u node -- node /app/gateway/telegram-router.js
     logging:
       driver: json-file
       options:
@@ -144,21 +149,15 @@ services:
       retries: 3
       start_period: 120s
 
+  # ═══════════════════════════════════════════════════════════════════════
+  # Mission Control — Dashboard HTTPS (port 3000)
+  # ═══════════════════════════════════════════════════════════════════════
   mission-control:
     image: node:22-alpine
     working_dir: /app
     user: "root"
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
     security_opt:
       - no-new-privileges:true
     deploy:
@@ -170,16 +169,7 @@ services:
       DASHBOARD_PORT: "3000"
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
       DASHBOARD_OWNER: ${DASHBOARD_OWNER:-}
-      FLOWFAST_DATA_DIR: /data/flowfast
       AUTOMAILER_DATA_DIR: /data/automailer
-      CRM_PILOT_DATA_DIR: /data/crm-pilot
-      LEAD_ENRICH_DATA_DIR: /data/lead-enrich
-      INVOICE_BOT_DATA_DIR: /data/invoice-bot
-      PROACTIVE_DATA_DIR: /data/proactive-agent
-      SELF_IMPROVE_DATA_DIR: /data/self-improve
-      WEB_INTEL_DATA_DIR: /data/web-intelligence
-      SYSTEM_ADVISOR_DATA_DIR: /data/system-advisor
-      AUTONOMOUS_PILOT_DATA_DIR: /data/autonomous-pilot
       INBOX_MANAGER_DATA_DIR: /data/inbox-manager
       MEETING_SCHEDULER_DATA_DIR: /data/meeting-scheduler
       APP_CONFIG_DIR: /data/app-config
@@ -192,16 +182,7 @@ services:
       - ./gateway/logger.js:/gateway/logger.js:ro
       - ./clients:/clients
       - dashboard-data:/data/dashboard
-      - flowfast-data:/data/flowfast:ro
       - automailer-data:/data/automailer:ro
-      - crm-pilot-data:/data/crm-pilot:ro
-      - lead-enrich-data:/data/lead-enrich:ro
-      - invoice-bot-data:/data/invoice-bot:ro
-      - proactive-agent-data:/data/proactive-agent:ro
-      - self-improve-data:/data/self-improve:ro
-      - web-intelligence-data:/data/web-intelligence:ro
-      - system-advisor-data:/data/system-advisor:ro
-      - autonomous-pilot-data:/data/autonomous-pilot:ro
       - inbox-manager-data:/data/inbox-manager:ro
       - meeting-scheduler-data:/data/meeting-scheduler:ro
       - app-config-data:/data/app-config:ro
@@ -211,6 +192,11 @@ services:
     init: true
     restart: unless-stopped
     entrypoint: ["sh", "-c", "chown -R node:node /data/dashboard && cd /app && su -s /bin/sh node -c 'npm install --production && exec node server.js'"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:3000/login',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 30s
@@ -218,20 +204,15 @@ services:
       retries: 3
       start_period: 15s
 
+  # ═══════════════════════════════════════════════════════════════════════
+  # Landing Page — pages rapports prospects (port 3080)
+  # ═══════════════════════════════════════════════════════════════════════
   landing-page:
     image: node:22-alpine
     working_dir: /app
     user: "root"
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE]
     security_opt:
       - no-new-privileges:true
     deploy:
@@ -259,6 +240,11 @@ services:
     init: true
     restart: unless-stopped
     entrypoint: ["sh", "-c", "mkdir -p /data/visitors && cd /app && npm install --production && exec node server.js"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:3080',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 30s
@@ -266,22 +252,29 @@ services:
       retries: 3
       start_period: 15s
 
+# ═══════════════════════════════════════════════════════════════════════
+# Volumes persistants
+# ═══════════════════════════════════════════════════════════════════════
 volumes:
-  dashboard-data:
-  flowfast-data:
-  automailer-data:
-  crm-pilot-data:
-  lead-enrich-data:
-  invoice-bot-data:
-  proactive-agent-data:
-  self-improve-data:
-  web-intelligence-data:
-  system-advisor-data:
-  autonomous-pilot-data:
+  # Volumes actifs v2.0
+  trigger-engine-data:
   inbox-manager-data:
   meeting-scheduler-data:
+  automailer-data:        # storage.js encore lazy-required par reply-pipeline
+  dashboard-data:
   visitor-data:
   app-config-data:
     name: moltbot_app-config-data
     external: true
-  trigger-engine-data:
+
+  # Volumes legacy v9.5 — backup dans /opt/moltbot-archive-v1/legacy-volumes-20260425.tar.gz
+  # Conservés en déclaration le temps de la migration (n'occupe rien si non monté).
+  # autonomous-pilot-data: { external: true }
+  # self-improve-data:     { external: true }
+  # web-intelligence-data: { external: true }
+  # system-advisor-data:   { external: true }
+  # proactive-agent-data:  { external: true }
+  # crm-pilot-data:        { external: true }
+  # invoice-bot-data:      { external: true }
+  # lead-enrich-data:      { external: true }
+  # flowfast-data:         { external: true }
