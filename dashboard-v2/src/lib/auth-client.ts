@@ -4,20 +4,18 @@ import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
 import type { auth } from "@/server/auth";
 
-// basePath prend en compte le préfixe de déploiement (Phase 1.7 — /preview-v2 sur ifind.fr).
-// Quand DNS app-v2.ifind.fr sera en place, on retire ce préfixe.
+// Phase 1.7 — déploiement sous /preview-v2 (en attendant DNS app-v2.ifind.fr).
+// Better Auth's `withPath()` ne complète PAS un baseURL qui a déjà un path,
+// donc on doit passer l'URL complète des endpoints auth (origine + basePath + /api/auth).
 const APP_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
-// On reconstruit l'URL absolue côté client (window dispo) ; côté SSR (build statique),
-// on utilise un placeholder qui passe le parsing URL — l'auth client n'est de toute façon
-// utilisé qu'en interactif.
-const resolvedBaseURL =
+const authBaseURL =
   typeof window !== "undefined"
-    ? `${window.location.origin}${APP_BASE_PATH}`
-    : `http://localhost${APP_BASE_PATH}`;
+    ? `${window.location.origin}${APP_BASE_PATH}/api/auth`
+    : `http://localhost${APP_BASE_PATH}/api/auth`;
 
 export const authClient = createAuthClient({
-  baseURL: resolvedBaseURL,
+  baseURL: authBaseURL,
   plugins: [inferAdditionalFields<typeof auth>()],
 });
 
