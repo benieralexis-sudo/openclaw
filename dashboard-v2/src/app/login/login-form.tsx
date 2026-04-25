@@ -27,16 +27,20 @@ export function LoginForm() {
     setPending(true);
     setError(null);
     try {
-      const res = await signIn.email({ email, password, callbackURL: callbackUrl });
-      if ((res as { error?: { message?: string } } | null)?.error) {
-        setError((res as { error: { message: string } }).error.message ?? "Identifiants incorrects");
+      const res = (await signIn.email({ email, password, callbackURL: callbackUrl })) as
+        | { data?: unknown; error?: { message?: string; code?: string; status?: number } }
+        | null;
+      console.log("[ifind v2] signIn response:", res);
+      if (res?.error) {
+        const msg = res.error.message ?? `[v2] Erreur ${res.error.status ?? "?"} ${res.error.code ?? ""}`;
+        setError(`[v2 Better Auth] ${msg}`);
       } else {
         router.push(callbackUrl as never);
         router.refresh();
       }
     } catch (err) {
-      console.error(err);
-      setError("Connexion impossible. Réessayez.");
+      console.error("[ifind v2] login fail:", err);
+      setError(`[v2] Connexion impossible : ${err instanceof Error ? err.message : "erreur inconnue"}`);
     } finally {
       setPending(false);
     }
@@ -67,11 +71,14 @@ export function LoginForm() {
 
         <Card className="shadow-lg">
           <CardContent className="px-9 py-8">
-            <Badge variant="brand" dot className="mb-3">Trigger Engine</Badge>
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-mono font-semibold text-emerald-700 uppercase tracking-wider">
+              ✓ Dashboard v2 · Better Auth
+            </div>
             <h1 className="font-display text-2xl font-bold tracking-tight text-ink-900">Bonjour 👋</h1>
             <p className="mt-1 text-sm text-ink-600">
               Accédez à votre tableau de bord pour suivre vos triggers et vos RDV en temps réel.
             </p>
+            <p className="mt-2 text-xs text-ink-500 font-mono">URL: ifind.fr/preview-v2/login</p>
 
             {error && (
               <div role="alert" className="mt-5 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">
