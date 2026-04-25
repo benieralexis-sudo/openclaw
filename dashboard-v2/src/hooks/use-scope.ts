@@ -64,30 +64,63 @@ function toUi(c: ApiClient): ScopedClient {
   };
 }
 
+interface ApiMe {
+  id: string;
+  email: string;
+  name: string | null;
+  role: "ADMIN" | "COMMERCIAL" | "CLIENT" | "EDITOR" | "VIEWER";
+  clientId: string | null;
+  client: { id: string; slug: string; name: string } | null;
+  scopeClientIds: string[];
+  onboardingDone: boolean;
+}
+
 /**
- * Hook unifié pour le scope client courant — connecté à l'API.
- * En attendant Better Auth (Phase 1.4), le rôle est mock "admin".
+ * Hook unifié pour le scope client courant — connecté à l'API + Better Auth.
+ * Phase 1.4 : `role` provient de /api/me (session vérifiée côté serveur).
  */
 export function useScope() {
   const { activeClientId, setActiveClientId } = useScopeStore();
   const queryClient = useQueryClient();
 
-  // TODO Phase 1.4 — fetch depuis /api/me
-  const role = "admin" as Role;
+  const { data: me, isLoading: meLoading } = useQuery<ApiMe>({
+    queryKey: ["me"],
+    queryFn: async () => {
+      const res = await fetch("/api/me");
+      if (!res.ok) throw new Error("Erreur chargement session");
+      return res.json();
+    },
+    staleTime: 60 * 1000,
+    retry: false,
+  });
 
-  const { data: rawClients = [], isLoading } = useQuery<ApiClient[]>({
+  const role: Role = me ? (me.role.toLowerCase() as Role) : "viewer";
+
+  const { data: rawClients = [], isLoading: clientsLoading } = useQuery<ApiClient[]>({
     queryKey: ["clients"],
     queryFn: async () => {
       const res = await fetch("/api/clients");
       if (!res.ok) throw new Error("Erreur chargement clients");
       return res.json();
     },
+    enabled: !!me,
   });
+
+  const isLoading = meLoading || clientsLoading;
 
   const availableClients = React.useMemo(() => rawClients.map(toUi), [rawClients]);
 
+  // Pour les rôles client/editor/viewer : on lock leur clientId (peuvent pas switch)
+  // Pour les rôles admin/commercial : on autorise le switch via UI
+  const lockedClientId =
+    me && (me.role === "CLIENT" || me.role === "EDITOR" || me.role === "VIEWER")
+      ? me.clientId
+      : null;
+
+  const effectiveActiveId = lockedClientId ?? activeClientId;
+
   const activeClient =
-    availableClients.find((c) => c.id === activeClientId) ?? null;
+    availableClients.find((c) => c.id === effectiveActiveId) ?? null;
 
   const switchClient = React.useCallback(
     (clientId: string | null) => {
@@ -102,9 +135,10 @@ export function useScope() {
 
   return {
     role,
+    me,
     activeClient,
     availableClients,
-    activeClientId,
+    activeClientId: effectiveActiveId,
     isLoading,
     switchClient,
   };

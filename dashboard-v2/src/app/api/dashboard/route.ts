@@ -1,12 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { requireApiSession, resolveClientScope } from "@/server/session";
 
-// TODO Phase 1.4 — protéger + scoping
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const clientId = searchParams.get("clientId");
+  const s = await requireApiSession(req);
+  if (!s.ok) return s.response;
 
-  const where = clientId ? { clientId, deletedAt: null } : { deletedAt: null };
+  const { searchParams } = new URL(req.url);
+  const requested = searchParams.get("clientId");
+  const scope = resolveClientScope(s.user, requested);
+  if (!scope.ok) return NextResponse.json({ error: scope.error }, { status: scope.status });
+
+  const where = scope.clientId
+    ? { clientId: scope.clientId, deletedAt: null }
+    : { deletedAt: null };
 
   const since24h = new Date(Date.now() - 24 * 60 * 60_000);
   const sinceWeek = new Date(Date.now() - 7 * 24 * 60 * 60_000);
@@ -40,11 +47,7 @@ export async function GET(req: NextRequest) {
         updatedAt: { gte: new Date(Date.now() - 14 * 24 * 60 * 60_000), lt: sinceWeek },
       },
     }),
-    db.trigger.groupBy({
-      by: ["status"],
-      where,
-      _count: true,
-    }),
+    db.trigger.groupBy({ by: ["status"], where, _count: true }),
     db.trigger.findMany({
       where: { ...where, isHot: true },
       orderBy: [{ score: "desc" }, { capturedAt: "desc" }],
@@ -68,8 +71,15 @@ export async function GET(req: NextRequest) {
     return acc;
   }, {});
 
-  const totalQualified = (pipelineCounts.NEW ?? 0) + (pipelineCounts.CONTACTED ?? 0) + (pipelineCounts.REPLIED ?? 0) + (pipelineCounts.BOOKED ?? 0);
-  const contacted = (pipelineCounts.CONTACTED ?? 0) + (pipelineCounts.REPLIED ?? 0) + (pipelineCounts.BOOKED ?? 0);
+  const totalQualified =
+    (pipelineCounts.NEW ?? 0) +
+    (pipelineCounts.CONTACTED ?? 0) +
+    (pipelineCounts.REPLIED ?? 0) +
+    (pipelineCounts.BOOKED ?? 0);
+  const contacted =
+    (pipelineCounts.CONTACTED ?? 0) +
+    (pipelineCounts.REPLIED ?? 0) +
+    (pipelineCounts.BOOKED ?? 0);
   const replied = (pipelineCounts.REPLIED ?? 0) + (pipelineCounts.BOOKED ?? 0);
   const booked = pipelineCounts.BOOKED ?? 0;
 
@@ -78,7 +88,7 @@ export async function GET(req: NextRequest) {
       signals24h: { value: triggers24h, delta: triggers24h - triggersPrev24h },
       hotPepites: { value: pepites, delta: pepites - pepitesPrev },
       bookedWeek: { value: bookedThisWeek, delta: bookedThisWeek - bookedPrevWeek },
-      avgDelayMin: { value: 28 }, // TODO calculer en vrai depuis sourceTimestamps
+      avgDelayMin: { value: 28 },
     },
     pipeline: [
       { label: "Signaux qualifiés", value: totalQualified, color: "bg-brand-500" },

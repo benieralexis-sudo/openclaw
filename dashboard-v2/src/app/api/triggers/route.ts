@@ -1,16 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { requireApiSession, resolveClientScope } from "@/server/session";
 
-// TODO Phase 1.4 — protéger + scoping par rôle (commercial restreint à scopeClientIds)
 export async function GET(req: NextRequest) {
+  const s = await requireApiSession(req);
+  if (!s.ok) return s.response;
+
   const { searchParams } = new URL(req.url);
-  const clientId = searchParams.get("clientId");
-  const filter = searchParams.get("filter"); // hot | combo | new | all
+  const requested = searchParams.get("clientId");
+  const scope = resolveClientScope(s.user, requested);
+  if (!scope.ok) {
+    return NextResponse.json({ error: scope.error }, { status: scope.status });
+  }
+
+  const filter = searchParams.get("filter");
   const search = searchParams.get("q");
 
   const where: Prisma.TriggerWhereInput = { deletedAt: null };
-  if (clientId) where.clientId = clientId;
+  if (scope.clientId) where.clientId = scope.clientId;
   if (filter === "hot") where.isHot = true;
   else if (filter === "combo") where.isCombo = true;
   else if (filter === "new") where.status = "NEW";
@@ -40,7 +48,7 @@ export async function GET(req: NextRequest) {
       isCombo: true,
       status: true,
       capturedAt: true,
-      sourceCode: false, // ne pas exposer la source au client (moat)
+      // sourceCode reste invisible — moat
     },
   });
 
