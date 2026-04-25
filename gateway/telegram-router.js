@@ -101,7 +101,7 @@ const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
 // --- Modules extraits (refactoring God Object) ---
 const { createTelegramClient } = require('./telegram-client.js');
-const { fastClassify, classifySkill, checkStickiness } = require('./skill-router.js');
+// v2.0-cleanup : skill-router (NLP classification 13 skills) supprimé.
 const { createUserContext } = require('./user-context.js');
 const { createCronManager } = require('./cron-manager.js');
 const { createResendHandler, RESEND_EVENT_MAP } = require('./resend-handler.js');
@@ -455,16 +455,9 @@ const _cleanupInterval = setInterval(() => {
     }
   }
 
-  // 6. userActiveSkill orphelines
-  for (const id of Object.keys(userActiveSkill)) {
-    if (!conversationHistory[id]) {
-      delete userActiveSkill[id];
-      delete userActiveSkillTime[id];
-      cleaned++;
-    }
-  }
+  // v2.0-cleanup : userActiveSkill cleanup supprimé (NLP routing legacy).
 
-  // 7. HITL drafts : auto-send 5 min (grounded) ou 24h (non-grounded), expire 48h
+  // HITL drafts : auto-send 5 min (grounded) ou 24h (non-grounded), expire 48h
   const HITL_TTL = 48 * 60 * 60 * 1000;
   const HITL_AUTOSEND_GROUNDED = (parseFloat(process.env.HITL_AUTO_SEND_MINUTES) || 5) * 60 * 1000;
   const HITL_AUTOSEND_UNGROUNDED = 24 * 60 * 60 * 1000; // Non-grounded = HITL classique
@@ -517,17 +510,7 @@ const _cleanupInterval = setInterval(() => {
 // Sonnet 4.6   : Redaction, conversation, humanisation
 // Opus 4.7     : Rapports strategiques + Trigger Engine (qualify/pitch/brief)
 
-async function callOpenAINLP(systemPrompt, userMessage, maxTokens) {
-  const result = await callOpenAI(OPENAI_KEY, [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userMessage }
-  ], { maxTokens: maxTokens || 30 });
-  // Budget tracking (input/output separes)
-  if (result.usage) {
-    appConfig.recordApiSpend('gpt-4o-mini', result.usage.prompt_tokens || 0, result.usage.completion_tokens || 0);
-  }
-  return result.content;
-}
+// v2.0-cleanup : callOpenAINLP supprimé (utilisé uniquement par NLP routing legacy).
 
 function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
   maxTokens = maxTokens || 800;
@@ -586,12 +569,6 @@ function callClaude(systemPrompt, userMessage, maxTokens, model) {
   const breakerName = model === 'claude-opus-4-7' ? 'claude-opus' : 'claude-sonnet';
   const breaker = getBreaker(breakerName, { failureThreshold: 5, cooldownMs: 30000 });
   return breaker.call(() => retryAsync(() => _callClaudeOnce(systemPrompt, userMessage, maxTokens, model), 4, 3000));
-}
-
-// --- Proactive Agent ---
-
-function callClaudeOpus(systemPrompt, userMessage, maxTokens) {
-  return callClaude(systemPrompt, userMessage, maxTokens, 'claude-opus-4-7');
 }
 
 // === HANDLERS LEGACY v9.5 — neutralisés via stubs no-op (v2.0-cleanup) ===
@@ -889,134 +866,9 @@ function buildSystemStatus() {
   return lines.join('\n');
 }
 
-// Etat par utilisateur : quel skill est actif
-const userActiveSkill = {};
-const userActiveSkillTime = {};
-
-// (fastClassify, classifySkill, checkStickiness extraits dans skill-router.js)
-// Wrapper classifySkill pour injecter les dependances locales
-async function _classifySkill(message, chatId) {
-  return classifySkill(message, chatId, {
-    callOpenAINLP,
-    getHistoryContext,
-    userActiveSkill,
-    handlers: {
-      automailerHandler, crmPilotHandler, invoiceBotHandler,
-      proactiveHandler, selfImproveHandler, webIntelHandler,
-      systemAdvisorHandler, inboxHandler, meetingHandler
-    }
-  });
-}
-// Wrapper checkStickiness pour injecter l'etat local
-function _checkStickiness(chatId, text) {
-  return checkStickiness(chatId, text, { userActiveSkill, userActiveSkillTime });
-}
-
-// --- Humanisation des reponses ---
-
-async function humanizeResponse(rawContent, userMessage, skill) {
-  // Ne pas humaniser les reponses courtes (confirmations, erreurs simples)
-  if (!rawContent || rawContent.length < 80) return rawContent;
-
-  // Ne pas humaniser les messages de chargement intermediaires
-  if (rawContent.startsWith('🔍 _') || rawContent.startsWith('✍️ _') || rawContent.startsWith('📧 _') || rawContent.startsWith('🚀 _')) return rawContent;
-
-  const systemPrompt = `Tu es ${process.env.CLIENT_NAME || 'iFIND'}, un assistant Telegram sympa et decontracte qui parle comme un pote professionnel.
-On te donne une reponse brute generee par un de tes modules. Reformule-la en langage naturel et conversationnel.
-
-REGLES STRICTES :
-- Parle comme un assistant cool et bienveillant, PAS comme un robot. Tutoie l'utilisateur.
-- Commence par une petite phrase d'accroche naturelle en rapport avec la demande
-- GARDE toutes les donnees importantes (noms, emails, chiffres, numeros, dates, montants)
-- Si c'est une longue liste, fais un RESUME intelligent (les plus pertinents + un resume du reste) au lieu de tout lister betement
-- Garde un minimum de structure pour la lisibilite (retours a la ligne) mais evite les gros blocs formattes
-- Utilise les emojis avec parcimonie (1-3 max, pas un par ligne)
-- Sois concis mais chaleureux
-- Si les donnees sont vides, nulles ou pas utiles (N/A partout), dis-le honnetement et propose une action constructive
-- Format Markdown Telegram : *gras*, _italique_ (pas de ** ni de __)
-- NE COMMENCE JAMAIS par un titre en majuscules ou un separateur
-- NE REPETE PAS le message de l'utilisateur`;
-
-  try {
-    const result = await callClaude(systemPrompt,
-      'MESSAGE UTILISATEUR: ' + userMessage + '\n\nREPONSE BRUTE DU MODULE ' + skill.toUpperCase() + ':\n' + rawContent.substring(0, 2000),
-      1500);
-    return result || rawContent;
-  } catch (e) {
-    log.warn('router', 'Erreur humanisation:', e.message);
-    return rawContent;
-  }
-}
-
-// --- Assistant IA Business (general) ---
-
-async function generateBusinessResponse(userMessage, chatId) {
-  const historyContext = getHistoryContext(chatId);
-  const textLower = userMessage.toLowerCase().trim();
-
-  // /start ou /aide explicite → menu d'aide
-  if (textLower === '/start' || textLower === '/aide' || textLower === 'aide' || textLower === 'help') {
-    return [
-      'Salut ! 👋 Je suis ton assistant business. Voila ce que je peux faire :\n',
-      '🎯 *Prospection* — _"trouve-moi des CEO dans la tech a Paris"_',
-      '📧 *Emails* — _"lance une campagne pour mes prospects"_',
-      '📊 *CRM* — _"comment va mon pipeline ?"_',
-      '🔍 *Enrichissement* — _"dis-moi tout sur jean@example.com"_',
-      '✍️ *Contenu* — _"ecris-moi un post LinkedIn sur l\'IA"_',
-      '🧾 *Facturation* — _"j\'ai besoin de facturer un client"_',
-      '🔔 *Rapports auto* — _"rapport maintenant"_',
-      '🧠 *Optimisation* — _"tes recommandations"_',
-      '🌐 *Veille web* — _"surveille un concurrent"_',
-      '⚙️ *Systeme* — _"status systeme"_',
-      '🧠 *Pilot autonome* — _"statut pilot" ou "objectifs"_',
-      '📬 *Inbox* — _"reponses recues" ou "emails entrants"_',
-      '📅 *Meetings* — _"propose un rdv a jean@example.com"_',
-      '\nMais tu peux aussi me poser n\'importe quelle question business — strategie, conseils, idees. Parle-moi naturellement !'
-    ].join('\n');
-  }
-
-  // Appel Claude pour une vraie reponse conversationnelle
-  const systemPrompt = `Tu es ${process.env.CLIENT_NAME || 'iFIND'}, l'assistant business IA personnel de ${process.env.DASHBOARD_OWNER || 'ton client'}. Tu es un expert en strategie commerciale B2B, marketing digital, vente et entrepreneuriat.
-
-TON STYLE :
-- Tu parles comme un pote entrepreneur qui s'y connait — decontracte, direct, bienveillant
-- Tu tutoies toujours. Tu es franc et honnete, pas corporate
-- Tu donnes des VRAIS conseils actionnables, pas du blabla generique
-- Tu peux parler strategie, marketing, vente, pricing, pitch, negociation, growth, etc.
-- Si la question concerne quelque chose que tu peux faire avec tes outils (prospection, email, CRM, veille, facturation, contenu), propose naturellement de le faire
-- Format Markdown Telegram : *gras*, _italique_. Pas de ** ni __
-- Reponses concises mais utiles (max 15 lignes). Pas de pavé.
-- 1-2 emojis max, pas un par ligne
-- Si l'utilisateur reagit a des messages que tu as envoyes (alertes, rapports), reponds en rapport avec CE CONTEXTE
-
-TES OUTILS (mentionne-les naturellement si pertinent) :
-- Prospection de leads B2B (recherche par poste, secteur, ville)
-- Campagnes email automatisees (envoi, suivi ouvertures, relances)
-- CRM HubSpot (pipeline, deals, contacts, notes)
-- Enrichissement de leads (Apollo + verification SMTP)
-- Generation de contenu (LinkedIn, pitch, email, bio, script)
-- Facturation (creation, envoi, suivi paiements)
-- Veille web (surveillance concurrents, prospects, actualites secteur)
-- Rapports automatiques et alertes business
-- Monitoring et optimisation continue
-
-NE FAIS PAS :
-- Ne liste pas tes fonctionnalites a moins qu'on te le demande explicitement
-- Ne commence pas par "En tant qu'assistant..." ou des formules IA generiques
-- Ne dis pas "je ne suis qu'une IA" — tu es un assistant business, point`;
-
-  const userContent = historyContext
-    ? 'CONTEXTE DES DERNIERS ECHANGES :\n' + historyContext + '\n\nNOUVEAU MESSAGE DE ' + (process.env.SENDER_NAME || 'ALEXIS').toUpperCase() + ' : ' + userMessage
-    : userMessage;
-
-  try {
-    const result = await callClaude(systemPrompt, userContent, 800);
-    return result || 'Hmm, j\'ai eu un souci. Reformule ta question ?';
-  } catch (e) {
-    log.warn('router', 'Erreur reponse business:', e.message);
-    return 'Oups, petit bug de mon cote. Reessaie !';
-  }
-}
+// v2.0-cleanup : userActiveSkill state machine supprimée (NLP routing legacy).
+// Le bot Telegram sert désormais uniquement aux notifications admin
+// (alertes pépites, digest hebdo, callbacks HITL).
 
 // --- Traitement des messages ---
 
@@ -1179,154 +1031,26 @@ async function handleUpdate(update) {
   }
   // ========== FIN COMMANDES DE CONTROLE ==========
 
-  try {
-    // Determiner le skill : stickiness > fast classify > NLP fallback
-    const textForNLP = truncateInput(text, 2000);
-    let skill = _checkStickiness(chatId, textForNLP);
-    if (skill) {
-      log.info('router', 'Stickiness: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
-    }
-    if (!skill) {
-      skill = fastClassify(textForNLP);
-      if (skill) {
-        global.__ifindMetrics.fastClassifyHits++;
-        log.info('router', 'FastClassify: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
-      }
-    }
-    if (!skill) {
-      // Fallback NLP seulement si ni stickiness ni fast classify ne trouvent rien
-      skill = await _classifySkill(textForNLP, chatId);
-      global.__ifindMetrics.nlpFallbacks++;
-      log.info('router', 'NLP classify: ' + skill + ' pour: "' + text.substring(0, 50) + '"');
-    }
-    userActiveSkill[String(chatId)] = skill;
-    userActiveSkillTime[String(chatId)] = Date.now();
-
-    // ===== GARDES DE SECURITE =====
-
-    // Email : bloquer envoi si domaine non configure
-    if (skill === 'automailer' || skill === 'invoice-bot') {
-      const emailAction = textLower.match(/envo|campagne|lance.*mail|envoie|expedie/);
-      if (emailAction && (!SENDER_EMAIL || SENDER_EMAIL === 'onboarding@resend.dev' || SENDER_EMAIL.trim() === '')) {
-        const warning = [
-          '⚠️ *Envoi email non disponible*',
-          '',
-          'Le domaine d\'envoi n\'est pas configure.',
-          'Configure SENDER_EMAIL dans .env avec un vrai domaine Resend.',
-          '',
-          '_Tu peux creer des campagnes et gerer des contacts en attendant._'
-        ].join('\n');
-        addToHistory(chatId, 'bot', 'Email bloque - pas de domaine', skill);
-        await sendMessage(chatId, warning, 'Markdown');
-        return;
-      }
-    }
-
-
-    // ===== FIN GARDES =====
-
-    let response = null;
-
-    const handlers = {
-      'automailer': automailerHandler,
-      'crm-pilot': crmPilotHandler,
-      'invoice-bot': invoiceBotHandler,
-      'proactive-agent': proactiveHandler,
-      'self-improve': selfImproveHandler,
-      'web-intelligence': webIntelHandler,
-      'system-advisor': systemAdvisorHandler,
-      'autonomous-pilot': autoPilotHandler,
-      'inbox-manager': inboxHandler,
-      'meeting-scheduler': meetingHandler
-    };
-
-    const handler = handlers[skill];
-    if (handler) {
-      const startTime = Date.now();
-      const HANDLER_TIMEOUT = 60000;
-      try {
-        response = await Promise.race([
-          handler.handleMessage(text, chatId, sendReply),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Handler timeout (' + skill + ') apres ' + (HANDLER_TIMEOUT / 1000) + 's')), HANDLER_TIMEOUT))
-        ]);
-        recordSkillUsage(skill);
-        recordResponseTime(skill, Date.now() - startTime);
-
-        // Autonomous Pilot : trigger brain cycle si demande
-        if (skill === 'autonomous-pilot' && response && response._triggerBrainCycle) {
-          autoPilotEngine._brainCycle().catch(e => log.error('router', 'Erreur brain cycle force:', e.message));
-        }
-      } catch (handlerError) {
-        recordSkillUsage(skill);
-        recordSkillError(skill, handlerError.message);
-        recordResponseTime(skill, Date.now() - startTime);
-        throw handlerError;
-      }
-    } else {
-      // General : si Autonomous Pilot est actif, router vers lui pour une experience unifiee
-      // v2.0 cleanup : autonomous-pilot stubbé, getConfig() retourne objet vide
-      const apConfig = autoPilotHandler.claudeKey ? (autonomousPilotStorage.getConfig?.() || null) : null;
-      if (apConfig && apConfig.enabled && apConfig.businessContext) {
-        skill = 'autonomous-pilot';
-        log.info('router', 'Redirection general -> autonomous-pilot');
-        const startTime = Date.now();
-        try {
-          response = await autoPilotHandler.handleMessage(text, chatId, sendReply);
-          log.info('router', 'AP reponse recue (' + (response?.content?.length || 0) + ' chars)');
-        } catch (apError) {
-          log.error('router', 'Erreur AP handler:', apError.message);
-          response = { type: 'text', content: '⚠️ Petit souci, reessaie !' };
-        }
-        recordSkillUsage(skill);
-        recordResponseTime(skill, Date.now() - startTime);
-        if (response && response._triggerBrainCycle) {
-          autoPilotEngine._brainCycle().catch(e => log.error('router', 'Erreur brain cycle force:', e.message));
-        }
-      } else {
-        const generalResponse = await generateBusinessResponse(text, chatId);
-        response = { type: 'text', content: generalResponse };
-      }
-    }
-
-    if (response && response.content) {
-      let finalText = response.content;
-      // --- UPGRADE 6 : Humanisation selective (economie de tokens) ---
-      // Skills deja exclues : general, autonomous-pilot
-      const skipHumanizationSkills = ['general', 'autonomous-pilot', 'system-advisor', 'proactive-agent', 'inbox-manager', 'meeting-scheduler'];
-      let shouldHumanize = !skipHumanizationSkills.includes(skill);
-
-      if (shouldHumanize) {
-        // Skip si reponse courte (< 200 chars) — pas besoin d'humaniser
-        if (finalText.length < 200) {
-          shouldHumanize = false;
-          log.info('router', 'Humanisation skip: reponse courte (' + finalText.length + ' chars)');
-        }
-      }
-
-      if (shouldHumanize) {
-        // Skip si deja conversationnel : contient des emojis ET du tutoiement (tu/te/ton/ta/tes)
-        const hasEmojis = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(finalText);
-        const hasTutoiement = /\b(tu |te |ton |ta |tes |t')\b/i.test(finalText);
-        if (hasEmojis && hasTutoiement) {
-          shouldHumanize = false;
-          log.info('router', 'Humanisation skip: deja conversationnel (' + skill + ')');
-        }
-      }
-
-      if (shouldHumanize) {
-        global.__ifindMetrics.humanizationApplied++;
-        finalText = await humanizeResponse(response.content, text, skill);
-      } else {
-        global.__ifindMetrics.humanizationSkipped++;
-      }
-
-      // Sauvegarder la reponse dans l'historique
-      addToHistory(chatId, 'bot', finalText.substring(0, 200), skill);
-      await sendMessage(chatId, finalText, 'Markdown');
-    }
-  } catch (error) {
-    log.error('router', 'Erreur handleUpdate:', error.message);
-    await sendMessage(chatId, '❌ Oups, une erreur est survenue. Reessaie !');
+  // v2.0-cleanup : NLP routing supprimé. Le bot Telegram sert désormais
+  // uniquement aux notifications admin + commandes simples.
+  // Les utilisateurs sont redirigés vers le dashboard pour toute interaction
+  // métier (Trigger Engine leads, replies, settings).
+  if (String(chatId) === String(ADMIN_CHAT_ID)) {
+    const helpMsg = [
+      '👋 *iFIND Trigger Engine v2.0*',
+      '',
+      'Commandes disponibles :',
+      '  • `statut systeme` — état des composants + APIs + boosters',
+      '  • `active tout` / `mode stand by` — toggle crons',
+      '  • `mode quiet` / `mode normal` — toggle messages auto',
+      '',
+      '🎯 Pour les leads + replies + settings → dashboard :',
+      `  ${process.env.DASHBOARD_URL || 'https://srv1319748.hstgr.cloud'}`
+    ].join('\n');
+    addToHistory(chatId, 'bot', 'Help v2.0', 'system');
+    await sendMessage(chatId, helpMsg, 'Markdown');
+  } else {
+    await sendMessage(chatId, 'Bonjour. Le bot iFIND Trigger Engine sert uniquement aux notifications admin. Pour toute demande, contactez Alexis directement.');
   }
 }
 
@@ -1715,93 +1439,15 @@ const emailTracking = createEmailTracking({
   claudeKey: CLAUDE_KEY
 });
 
-// --- Chat API : bridge Dashboard → NLP pipeline ---
-async function processChatMessage(text, userId) {
-  const chatId = 'dashboard_' + (userId || 'admin');
-  const CHAT_TIMEOUT = 45000;
-
-  try {
-    // 1. Classification NLP
-    const skill = await _classifySkill(text, chatId);
-    log.info('chat-api', 'Skill: ' + skill + ' pour: ' + text.substring(0, 60));
-
-    // 2. Handlers (meme map que handleUpdate)
-    const chatHandlers = {
-      'automailer': automailerHandler,
-      'crm-pilot': crmPilotHandler,
-      'invoice-bot': invoiceBotHandler,
-      'proactive-agent': proactiveHandler,
-      'self-improve': selfImproveHandler,
-      'web-intelligence': webIntelHandler,
-      'system-advisor': systemAdvisorHandler,
-      'autonomous-pilot': autoPilotHandler,
-      'inbox-manager': inboxHandler,
-      'meeting-scheduler': meetingHandler
-    };
-
-    let response = null;
-    const handler = chatHandlers[skill];
-    const noopReply = async () => {}; // pas de sendReply Telegram
-
-    if (handler) {
-      response = await Promise.race([
-        handler.handleMessage(text, chatId, noopReply),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), CHAT_TIMEOUT))
-      ]);
-      recordSkillUsage(skill);
-    } else {
-      // General → Autonomous Pilot ou Claude
-      // v2.0 cleanup : autonomous-pilot stubbé, getConfig() retourne objet vide
-      const apConfig = autoPilotHandler.claudeKey ? (autonomousPilotStorage.getConfig?.() || null) : null;
-      if (apConfig && apConfig.enabled && apConfig.businessContext) {
-        response = await autoPilotHandler.handleMessage(text, chatId, noopReply);
-        recordSkillUsage('autonomous-pilot');
-      } else {
-        const generalText = await generateBusinessResponse(text, chatId);
-        response = { type: 'text', content: generalText };
-      }
-    }
-
-    const content = response?.content || 'Pas de reponse.';
-    addToHistory(chatId, 'user', text.substring(0, 200), null);
-    addToHistory(chatId, 'bot', content.substring(0, 200), skill);
-
-    return { text: content, skill };
-  } catch (err) {
-    log.error('chat-api', 'Erreur: ' + err.message);
-    return { text: 'Erreur: ' + err.message, skill: 'error' };
-  }
-}
+// v2.0-cleanup : processChatMessage (NLP routing dashboard chat widget) supprimé.
+// Le chat widget dashboard pointe désormais vers Telegram bot direct.
 
 const healthServer = http.createServer(async (req, res) => {
-  // Chat API (auth via dashboard password)
+  // v2.0-cleanup : /api/chat NLP routing supprimé. Dashboard chat widget pointe
+  // désormais directement sur Telegram (pas de relai NLP via le router).
   if (req.url === '/api/chat' && req.method === 'POST') {
-    let body = '';
-    let bodySize = 0;
-    req.on('data', (chunk) => { bodySize += chunk.length; if (bodySize > 10240) { req.destroy(); return; } body += chunk; });
-    req.on('end', async () => {
-      try {
-        const data = JSON.parse(body);
-        // Auth check
-        const apiToken = (req.headers['x-api-token'] || req.headers['authorization'] || '').replace('Bearer ', '');
-        if (!apiToken || (apiToken !== process.env.DASHBOARD_PASSWORD && apiToken !== process.env.AUTOMAILER_DASHBOARD_PASSWORD)) {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'unauthorized' }));
-          return;
-        }
-        if (!data.message || typeof data.message !== 'string' || data.message.length > 2000) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'message requis (max 2000 chars)' }));
-          return;
-        }
-        const result = await processChatMessage(data.message.trim(), data.userId || 'admin');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-      } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
-      }
-    });
+    res.writeHead(410, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Chat NLP API supprimée v2.0 — utilisez Telegram bot direct' }));
     return;
   }
 
