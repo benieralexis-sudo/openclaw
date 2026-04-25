@@ -1,3 +1,7 @@
+"use client";
+
+import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -7,131 +11,102 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Activity,
   ArrowUpRight,
   Calendar,
   Flame,
   Target,
+  TrendingDown,
   TrendingUp,
-  Users,
   Zap,
 } from "lucide-react";
+import { useScope } from "@/hooks/use-scope";
+import { cn, formatRelativeFr } from "@/lib/utils";
 
-const kpis = [
-  {
-    label: "Signaux 24h",
-    value: "47",
-    delta: "+12",
-    deltaPct: "+34%",
-    direction: "up" as const,
-    icon: Zap,
-    accent: "brand" as const,
-  },
-  {
-    label: "Pépites ≥ 9/10",
-    value: "5",
-    delta: "+3",
-    deltaPct: "nouvelles",
-    direction: "up" as const,
-    icon: Flame,
-    accent: "fire" as const,
-  },
-  {
-    label: "RDV bookés cette semaine",
-    value: "8",
-    delta: "+2",
-    deltaPct: "vs sem -1",
-    direction: "up" as const,
-    icon: Calendar,
-    accent: "success" as const,
-  },
-  {
-    label: "Délai signal → vous",
-    value: "28",
-    suffix: "min",
-    delta: "-4 min",
-    deltaPct: "vs hier",
-    direction: "up" as const,
-    icon: Activity,
-    accent: "info" as const,
-  },
-];
-
-const recentTriggers = [
-  {
-    company: "Industrie aéronautique · Île-de-France",
-    type: "Levée de fonds Série A",
-    detail: "4,5 M€ — annonce officielle",
-    score: 10,
-    badge: "Combo 🔥",
-    accent: "fire" as const,
-    age: "il y a 2 min",
-  },
-  {
-    company: "SaaS B2B · Lyon",
-    type: "Recrutement Head of Sales",
-    detail: "1er commercial — runway 18 mois",
-    score: 9,
-    badge: "Hot",
-    accent: "warning" as const,
-    age: "il y a 8 min",
-  },
-  {
-    company: "ETI agro · Pays de la Loire",
-    type: "Dépôt INPI nouvelle marque",
-    detail: "Lancement gamme produit Q3",
-    score: 8,
-    badge: "Qualifié",
-    accent: "brand" as const,
-    age: "il y a 17 min",
-  },
-];
+interface DashboardData {
+  kpis: {
+    signals24h: { value: number; delta: number };
+    hotPepites: { value: number; delta: number };
+    bookedWeek: { value: number; delta: number };
+    avgDelayMin: { value: number };
+  };
+  pipeline: Array<{ label: string; value: number; color: string }>;
+  recentTriggers: Array<{
+    id: string;
+    companyName: string;
+    industry: string | null;
+    region: string | null;
+    title: string;
+    detail: string | null;
+    score: number;
+    isCombo: boolean;
+    capturedAt: string;
+  }>;
+}
 
 export default function DashboardPage() {
+  const { activeClientId, activeClient } = useScope();
+
+  const { data, isLoading } = useQuery<DashboardData>({
+    queryKey: ["dashboard", activeClientId],
+    queryFn: async () => {
+      const params = activeClientId ? `?clientId=${activeClientId}` : "";
+      const res = await fetch(`/api/dashboard${params}`);
+      if (!res.ok) throw new Error("Erreur chargement dashboard");
+      return res.json();
+    },
+    refetchInterval: 30 * 1000,
+  });
+
+  const kpis = data?.kpis;
+  const pipelineMax = Math.max(1, ...(data?.pipeline.map((p) => p.value) ?? [1]));
+
   return (
     <div className="space-y-6">
       {/* KPI Grid */}
       <section>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {kpis.map((kpi) => {
-            const Icon = kpi.icon;
-            const accentBg = {
-              brand: "bg-brand-50 text-brand-600",
-              fire: "bg-orange-50 text-orange-600",
-              success: "bg-emerald-50 text-emerald-600",
-              info: "bg-cyan-50 text-cyan-600",
-            }[kpi.accent];
-            return (
-              <Card key={kpi.label} className="overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md">
-                <div className="px-5 pt-5">
-                  <div className="flex items-start justify-between">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accentBg}`}>
-                      <Icon className="h-4 w-4" strokeWidth={2} />
-                    </div>
-                    <Badge variant={kpi.direction === "up" ? "success" : "danger"} size="sm">
-                      <TrendingUp className="h-3 w-3" />
-                      {kpi.delta}
-                    </Badge>
-                  </div>
-                  <p className="mt-4 text-[12px] font-medium uppercase tracking-wider text-ink-500">
-                    {kpi.label}
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="font-display text-3xl font-bold tracking-tight text-ink-900">
-                      {kpi.value}
-                    </span>
-                    {kpi.suffix && <span className="text-sm text-ink-500">{kpi.suffix}</span>}
-                  </div>
-                  <p className="mt-1 mb-5 text-xs text-ink-500">{kpi.deltaPct}</p>
-                </div>
-              </Card>
-            );
-          })}
+          <KpiCard
+            label="Signaux 24h"
+            value={kpis?.signals24h.value}
+            delta={kpis?.signals24h.delta}
+            icon={Zap}
+            accent="brand"
+            isLoading={isLoading}
+          />
+          <KpiCard
+            label="Pépites ≥ 9/10"
+            value={kpis?.hotPepites.value}
+            delta={kpis?.hotPepites.delta}
+            icon={Flame}
+            accent="fire"
+            isLoading={isLoading}
+            deltaLabel="nouvelles"
+          />
+          <KpiCard
+            label="RDV cette semaine"
+            value={kpis?.bookedWeek.value}
+            delta={kpis?.bookedWeek.delta}
+            icon={Calendar}
+            accent="success"
+            isLoading={isLoading}
+            deltaLabel="vs sem -1"
+          />
+          <KpiCard
+            label="Délai signal → vous"
+            value={kpis?.avgDelayMin.value}
+            suffix="min"
+            icon={Activity}
+            accent="info"
+            isLoading={isLoading}
+            deltaLabel="moyenne 7j"
+          />
         </div>
       </section>
 
-      {/* Pépites du jour + Pipeline summary */}
+      {/* Pépites + Pipeline */}
       <section className="grid gap-4 lg:grid-cols-3">
         {/* Pépites */}
         <Card className="lg:col-span-2">
@@ -143,98 +118,172 @@ export default function DashboardPage() {
               </CardTitle>
               <CardDescription>Les signaux les plus chauds détectés sur les dernières 24h</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" className="gap-1.5 text-brand-600">
-              Voir tout
-              <ArrowUpRight className="h-3.5 w-3.5" />
+            <Button variant="ghost" size="sm" className="gap-1.5 text-brand-600" asChild>
+              <a href="/triggers?filter=hot">
+                Voir tout
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
             </Button>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y divide-ink-100">
-              {recentTriggers.map((t, i) => (
-                <li
-                  key={i}
-                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 group cursor-pointer"
-                >
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                    t.accent === "fire" ? "bg-orange-50 text-orange-600" :
-                    t.accent === "warning" ? "bg-amber-50 text-amber-600" :
-                    "bg-brand-50 text-brand-600"
-                  }`}>
-                    <Zap className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-[13.5px] font-medium text-ink-900 truncate">{t.type}</p>
-                      <span className="font-mono text-[11px] text-ink-400">{t.age}</span>
+            {isLoading ? (
+              <ul className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <li key={i} className="flex items-center gap-3 py-2">
+                    <Skeleton className="h-9 w-9 rounded-lg" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
                     </div>
-                    <p className="text-xs text-ink-500 truncate">{t.company} · {t.detail}</p>
-                  </div>
-                  <Badge variant="score" size="md" className="shrink-0">
-                    {t.score}/10
-                  </Badge>
-                  <Badge variant={t.accent} size="sm" className="hidden md:inline-flex">{t.badge}</Badge>
-                </li>
-              ))}
-            </ul>
+                    <Skeleton className="h-6 w-12 rounded-md" />
+                  </li>
+                ))}
+              </ul>
+            ) : data?.recentTriggers.length ? (
+              <ul className="divide-y divide-ink-100">
+                {data.recentTriggers.map((t) => (
+                  <li
+                    key={t.id}
+                    className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 group cursor-pointer transition-colors hover:bg-ink-50/50 -mx-2 px-2 rounded"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600">
+                      <Zap className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2">
+                        <p className="text-[13.5px] font-medium text-ink-900 truncate">{t.title}</p>
+                        <span className="font-mono text-[11px] text-ink-400 shrink-0">
+                          {formatRelativeFr(t.capturedAt)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-ink-500 truncate">
+                        {t.companyName}
+                        {t.industry && ` · ${t.industry}`}
+                        {t.region && ` · ${t.region}`}
+                      </p>
+                    </div>
+                    <Badge variant="score" size="md" className="shrink-0">
+                      {t.score}/10
+                    </Badge>
+                    {t.isCombo && (
+                      <Badge variant="brand" size="sm" className="hidden md:inline-flex shrink-0">
+                        Combo
+                      </Badge>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-6 text-center text-sm text-ink-500">
+                Aucune pépite détectée sur les dernières 24h.
+              </p>
+            )}
           </CardContent>
         </Card>
 
-        {/* Pipeline résumé */}
+        {/* Pipeline */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-4 w-4 text-brand-600" />
               Pipeline RDV
             </CardTitle>
-            <CardDescription>État de la conversion cette semaine</CardDescription>
+            <CardDescription>État de la conversion {activeClient ? `· ${activeClient.name}` : "global"}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {[
-              { label: "Signaux qualifiés", value: 47, color: "bg-brand-500", pct: 100 },
-              { label: "Contactés", value: 32, color: "bg-cyan-500", pct: 68 },
-              { label: "Réponses positives", value: 12, color: "bg-amber-500", pct: 26 },
-              { label: "RDV bookés", value: 8, color: "bg-emerald-500", pct: 17 },
-            ].map((step) => (
-              <div key={step.label}>
-                <div className="mb-1 flex items-baseline justify-between text-[13px]">
-                  <span className="text-ink-700">{step.label}</span>
-                  <span className="font-mono font-semibold tabular-nums text-ink-900">{step.value}</span>
+            {isLoading ? (
+              [1, 2, 3, 4].map((i) => (
+                <div key={i}>
+                  <div className="mb-1 flex items-baseline justify-between text-[13px]">
+                    <Skeleton className="h-3.5 w-24" />
+                    <Skeleton className="h-3.5 w-8" />
+                  </div>
+                  <Skeleton className="h-1.5 w-full" />
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-ink-100">
-                  <div
-                    className={`h-full rounded-full ${step.color} transition-all`}
-                    style={{ width: `${step.pct}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              data?.pipeline.map((step) => {
+                const pct = (step.value / pipelineMax) * 100;
+                return (
+                  <div key={step.label}>
+                    <div className="mb-1 flex items-baseline justify-between text-[13px]">
+                      <span className="text-ink-700">{step.label}</span>
+                      <span className="font-mono font-semibold tabular-nums text-ink-900">{step.value}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-ink-100">
+                      <div
+                        className={cn("h-full rounded-full transition-all", step.color)}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </CardContent>
         </Card>
       </section>
-
-      {/* Note Phase 1 */}
-      <Card className="border-dashed bg-brand-50/50 border-brand-200">
-        <CardContent className="flex items-start gap-4 py-6">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white">
-            <Users className="h-5 w-5" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-display text-base font-semibold text-ink-900">
-              Dashboard v2 — Phase 1 en cours
-            </h3>
-            <p className="mt-1 text-sm text-ink-600">
-              Cette page utilise des données mock le temps que la migration vers Postgres + Better Auth
-              soit terminée (Phase 1.3 et 1.4). Les vraies données arriveront connectées dès Phase 1.6.
-            </p>
-            <div className="mt-3 flex items-center gap-2 flex-wrap">
-              <Badge variant="success" dot>Light-mode brand</Badge>
-              <Badge variant="brand" dot>Multi-tenant scope</Badge>
-              <Badge variant="info" dot>⌘K command palette</Badge>
-              <Badge variant="warning" dot>Live indicator</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  delta,
+  icon: Icon,
+  accent,
+  suffix,
+  deltaLabel,
+  isLoading,
+}: {
+  label: string;
+  value?: number;
+  delta?: number;
+  icon: typeof Zap;
+  accent: "brand" | "fire" | "success" | "info";
+  suffix?: string;
+  deltaLabel?: string;
+  isLoading?: boolean;
+}) {
+  const accentBg = {
+    brand: "bg-brand-50 text-brand-600",
+    fire: "bg-orange-50 text-orange-600",
+    success: "bg-emerald-50 text-emerald-600",
+    info: "bg-cyan-50 text-cyan-600",
+  }[accent];
+
+  return (
+    <Card className="overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md">
+      <div className="px-5 pt-5">
+        <div className="flex items-start justify-between">
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accentBg}`}>
+            <Icon className="h-4 w-4" strokeWidth={2} />
+          </div>
+          {delta !== undefined && delta !== 0 && (
+            <Badge variant={delta > 0 ? "success" : "danger"} size="sm">
+              {delta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {delta > 0 ? `+${delta}` : delta}
+            </Badge>
+          )}
+        </div>
+        <p className="mt-4 text-[12px] font-medium uppercase tracking-wider text-ink-500">{label}</p>
+        <div className="mt-1 flex items-baseline gap-1">
+          {isLoading ? (
+            <Skeleton className="h-8 w-16" />
+          ) : (
+            <>
+              <span className="font-display text-3xl font-bold tracking-tight text-ink-900 tabular-nums">
+                {value ?? 0}
+              </span>
+              {suffix && <span className="text-sm text-ink-500">{suffix}</span>}
+            </>
+          )}
+        </div>
+        <p className="mt-1 mb-5 text-xs text-ink-500">
+          {deltaLabel ?? (delta !== undefined ? "vs hier" : "")}
+        </p>
+      </div>
+    </Card>
   );
 }

@@ -3,14 +3,30 @@
 import * as React from "react";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type Role = "admin" | "commercial" | "client" | "editor" | "viewer";
 
+/** Structure renvoyée par l'API /api/clients */
+export interface ApiClient {
+  id: string;
+  slug: string;
+  name: string;
+  industry: string | null;
+  region: string | null;
+  size: string | null;
+  status: "PROSPECT" | "ACTIVE" | "PAUSED" | "CHURNED";
+  plan: "LEADS_DATA" | "FULL_SERVICE" | "CUSTOM";
+  activatedAt: string | null;
+}
+
+/** Structure exposée à l'UI (ScopeSwitcher etc.) */
 export interface ScopedClient {
   id: string;
+  slug: string;
   name: string;
   industry?: string;
-  status?: "active" | "paused" | "deleted";
+  status: "active" | "paused" | "deleted";
 }
 
 interface ScopeStore {
@@ -31,28 +47,44 @@ const useScopeStore = create<ScopeStore>()(
   ),
 );
 
+const API_TO_UI_STATUS: Record<ApiClient["status"], ScopedClient["status"]> = {
+  ACTIVE: "active",
+  PAUSED: "paused",
+  PROSPECT: "paused",
+  CHURNED: "deleted",
+};
+
+function toUi(c: ApiClient): ScopedClient {
+  return {
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    industry: c.industry ?? undefined,
+    status: API_TO_UI_STATUS[c.status],
+  };
+}
+
 /**
- * Hook unifié pour le scope client courant.
- *
- * En attendant la vraie API (Phase 1.4 + 1.6), on fournit des données mock
- * pour valider le composant ScopeSwitcher. Sera branché sur Better Auth
- * + GET /api/clients dès Phase 1.4.
+ * Hook unifié pour le scope client courant — connecté à l'API.
+ * En attendant Better Auth (Phase 1.4), le rôle est mock "admin".
  */
 export function useScope() {
   const { activeClientId, setActiveClientId } = useScopeStore();
+  const queryClient = useQueryClient();
 
-  // TODO Phase 1.4 — remplacer par useQuery sur /api/me
+  // TODO Phase 1.4 — fetch depuis /api/me
   const role = "admin" as Role;
 
-  // TODO Phase 1.6 — remplacer par useQuery sur /api/clients
-  const availableClients: ScopedClient[] = React.useMemo(
-    () => [
-      { id: "ifind", name: "iFIND (interne)", industry: "SaaS B2B", status: "active" },
-      { id: "digitestlab", name: "DigitestLab", industry: "Conseil digital", status: "active" },
-      { id: "fimmop", name: "FIMMOP", industry: "Immobilier", status: "active" },
-    ],
-    [],
-  );
+  const { data: rawClients = [], isLoading } = useQuery<ApiClient[]>({
+    queryKey: ["clients"],
+    queryFn: async () => {
+      const res = await fetch("/api/clients");
+      if (!res.ok) throw new Error("Erreur chargement clients");
+      return res.json();
+    },
+  });
+
+  const availableClients = React.useMemo(() => rawClients.map(toUi), [rawClients]);
 
   const activeClient =
     availableClients.find((c) => c.id === activeClientId) ?? null;
@@ -60,9 +92,12 @@ export function useScope() {
   const switchClient = React.useCallback(
     (clientId: string | null) => {
       setActiveClientId(clientId);
-      // Phase 1.4+ : invalidate React Query cache here
+      queryClient.invalidateQueries({ queryKey: ["triggers"] });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    [setActiveClientId],
+    [setActiveClientId, queryClient],
   );
 
   return {
@@ -70,6 +105,7 @@ export function useScope() {
     activeClient,
     availableClients,
     activeClientId,
+    isLoading,
     switchClient,
   };
 }

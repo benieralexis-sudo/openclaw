@@ -1,0 +1,480 @@
+// iFIND — Schema Prisma multi-tenant
+// Phase 1.3 du plan refonte dashboard
+//
+// Convention :
+// - Tous les modèles "scopés" client ont un `clientId` indexé.
+// - User est scopé via clientId (clients) ou scopeClientIds (commerciaux).
+// - Soft-delete via `deletedAt` plutôt que DELETE physique.
+// - timestamps en UTC, formatés français côté UI.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =====================================================================
+// AUTH (Better Auth)
+// =====================================================================
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String?
+  image           String?
+  emailVerified   Boolean   @default(false)
+  passwordHash    String?
+  role            UserRole  @default(CLIENT)
+  // Multi-tenant scope
+  clientId        String?   // Pour rôle CLIENT/EDITOR/VIEWER : leur unique client
+  scopeClientIds  String[]  @default([]) // Pour rôle COMMERCIAL : liste de clients gérés
+  client          Client?   @relation("ClientOwner", fields: [clientId], references: [id], onDelete: SetNull)
+  // Préférences
+  locale          String    @default("fr-FR")
+  timezone        String    @default("Europe/Paris")
+  // Flags
+  onboardingDone  Boolean   @default(false)
+  // Audit
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  sessions        Session[]
+  accounts        Account[]
+  notifications   Notification[]
+
+  @@index([clientId])
+  @@index([role])
+  @@index([deletedAt])
+}
+
+enum UserRole {
+  ADMIN       // Voit tout, peut tout faire
+  COMMERCIAL  // Voit ses scopeClientIds (commerciaux amis)
+  CLIENT      // Voit son seul client
+  EDITOR      // Comme CLIENT mais peut éditer
+  VIEWER      // Comme CLIENT mais lecture seule
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  token        String   @unique
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId        String
+  accountId         String
+  accessToken       String?
+  refreshToken      String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope             String?
+  password          String?
+  idToken           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id          String   @id @default(cuid())
+  identifier  String
+  value       String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([identifier, value])
+}
+
+// =====================================================================
+// CLIENT (tenant)
+// =====================================================================
+
+model Client {
+  id          String       @id @default(cuid())
+  slug        String       @unique // "digitestlab", "fimmop", "ifind"
+  name        String
+  legalName   String?
+  industry    String?
+  region      String?
+  size        String?      // "TPE", "PME", "ETI", "GE"
+  status      ClientStatus @default(PROSPECT)
+  plan        ClientPlan   @default(LEADS_DATA)
+  // Branding (optionnel)
+  primaryColor String?
+  logoUrl      String?
+  // Contact
+  contactEmail String?
+  contactPhone String?
+  // ICP config (JSON flexible)
+  icp          Json?
+  // Metadata
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  activatedAt  DateTime?
+  pausedAt     DateTime?
+  deletedAt    DateTime?
+
+  users        User[]       @relation("ClientOwner")
+  triggers     Trigger[]
+  leads        Lead[]
+  opportunities Opportunity[]
+  campaigns    Campaign[]
+  replies      Reply[]
+  notifications Notification[]
+
+  @@index([status])
+  @@index([deletedAt])
+}
+
+enum ClientStatus {
+  PROSPECT  // Pas encore signé
+  ACTIVE    // Signé, en production
+  PAUSED    // Suspendu (paiement, demande, ...)
+  CHURNED   // Parti
+}
+
+enum ClientPlan {
+  LEADS_DATA   // 199€/mois
+  FULL_SERVICE // 890€/mois
+  CUSTOM
+}
+
+// =====================================================================
+// TRIGGER ENGINE — données métier
+// =====================================================================
+
+model Trigger {
+  id            String       @id @default(cuid())
+  clientId      String
+  client        Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  // Source (BODACC, INPI, France Travail, etc — interne, pas exposé client)
+  sourceCode    String       // "bodacc.levee", "francetravail.head_of_sales", "inpi.marque"
+  sourceUrl     String?
+  capturedAt    DateTime     @default(now()) // Quand notre moteur l'a vu
+  publishedAt   DateTime?    // Quand l'événement public est sorti
+  // Entreprise détectée (attribution SIRENE)
+  companyName   String
+  companySiret  String?      // SIREN/SIRET
+  companyNaf    String?
+  industry      String?
+  region        String?
+  size          String?
+  // Lecture du signal
+  type          TriggerType
+  title         String       // "Levée de fonds Série A — 4,5 M€"
+  detail        String?      // Description longue
+  rawPayload    Json?        // Données brutes de la source
+  // Scoring (Claude Opus 4.7)
+  score         Int          // 1-10
+  scoreReason   String?      // Brief contextuel généré par l'IA
+  isHot         Boolean      @default(false) // ≥9
+  isCombo       Boolean      @default(false) // pattern combiné (levée + hire ex)
+  // Pipeline
+  status        TriggerStatus @default(NEW)
+  ignoredAt     DateTime?
+  ignoredReason String?
+  // Soft delete
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+
+  lead          Lead?
+  opportunity   Opportunity?
+
+  @@index([clientId, status, capturedAt(sort: Desc)])
+  @@index([clientId, score(sort: Desc)])
+  @@index([clientId, isHot])
+  @@index([sourceCode])
+  @@index([companySiret])
+  @@index([deletedAt])
+}
+
+enum TriggerType {
+  FUNDRAISING       // Levée de fonds
+  HIRING_KEY        // Recrutement clé (Head of X, C-level)
+  LEADERSHIP_CHANGE // Changement dirigeant
+  TRADEMARK         // Dépôt INPI marque
+  PATENT            // Dépôt brevet
+  AD_CAMPAIGN       // Campagne pub Meta/LinkedIn
+  EXPANSION         // Ouverture site / pays
+  REGULATORY        // Changement réglementaire / status
+  OTHER
+}
+
+enum TriggerStatus {
+  NEW          // À traiter
+  CONTACTED    // Email envoyé
+  REPLIED      // Réponse reçue
+  BOOKED       // RDV pris
+  WON          // Deal signé
+  LOST         // Perdu
+  IGNORED      // Pas pertinent
+}
+
+// =====================================================================
+// LEAD — contact identifié sur l'entreprise
+// =====================================================================
+
+model Lead {
+  id            String     @id @default(cuid())
+  clientId      String
+  client        Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  triggerId     String?    @unique
+  trigger       Trigger?   @relation(fields: [triggerId], references: [id], onDelete: SetNull)
+  // Personne
+  firstName     String?
+  lastName      String?
+  fullName      String?
+  jobTitle      String?
+  linkedinUrl   String?
+  // Contact
+  email         String?
+  emailStatus   EmailStatus @default(UNVERIFIED)
+  phone         String?
+  // Entreprise (denormalisé pour requêtes rapides)
+  companyName   String
+  companySiret  String?
+  // Pipeline
+  status        LeadStatus @default(NEW)
+  enrichedAt    DateTime?  // Quand on a enrichi via Pappers/Dropcontact
+  // Audit
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+
+  opportunities Opportunity[]
+  replies       Reply[]
+
+  @@index([clientId, status, createdAt(sort: Desc)])
+  @@index([email])
+  @@index([companySiret])
+  @@index([deletedAt])
+}
+
+enum EmailStatus {
+  UNVERIFIED
+  VALID
+  RISKY
+  INVALID
+  BOUNCED
+}
+
+enum LeadStatus {
+  NEW
+  ENRICHED
+  CONTACTABLE
+  CONTACTED
+  NOT_INTERESTED
+  ARCHIVED
+}
+
+// =====================================================================
+// OPPORTUNITY — pipeline RDV / deal
+// =====================================================================
+
+model Opportunity {
+  id            String           @id @default(cuid())
+  clientId      String
+  client        Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  leadId        String?
+  lead          Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  triggerId     String?          @unique
+  trigger       Trigger?         @relation(fields: [triggerId], references: [id], onDelete: SetNull)
+  // Stage
+  stage         OpportunityStage @default(IDENTIFIED)
+  // Meeting
+  meetingDate   DateTime?
+  meetingUrl    String?
+  meetingNotes  String?
+  // Deal
+  dealValueEur  Decimal?         @db.Decimal(12, 2)
+  closedAt      DateTime?
+  wonAt         DateTime?
+  lostAt        DateTime?
+  lostReason    String?
+  // Assigné
+  assignedToUserId String?
+  // Audit
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
+
+  @@index([clientId, stage, updatedAt(sort: Desc)])
+  @@index([assignedToUserId])
+  @@index([meetingDate])
+  @@index([deletedAt])
+}
+
+enum OpportunityStage {
+  IDENTIFIED   // Trigger reçu, lead identifié
+  CONTACTED    // Email envoyé
+  ENGAGED      // Réponse positive
+  MEETING_SET  // RDV booké
+  PROPOSAL     // En proposition
+  WON
+  LOST
+}
+
+// =====================================================================
+// CAMPAIGN — séquences cold email (Full Service)
+// =====================================================================
+
+model Campaign {
+  id            String         @id @default(cuid())
+  clientId      String
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name          String
+  status        CampaignStatus @default(DRAFT)
+  // Smartlead binding
+  externalId    String?        // ID dans Smartlead
+  // Stats agrégées
+  sent          Int            @default(0)
+  opened        Int            @default(0)
+  replied       Int            @default(0)
+  bookedMeeting Int            @default(0)
+  bounced       Int            @default(0)
+  // Audit
+  startedAt     DateTime?
+  pausedAt      DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+
+  replies       Reply[]
+
+  @@index([clientId, status])
+  @@index([deletedAt])
+}
+
+enum CampaignStatus {
+  DRAFT
+  WARMUP
+  RUNNING
+  PAUSED
+  ARCHIVED
+}
+
+// =====================================================================
+// REPLY — Unibox unifié
+// =====================================================================
+
+model Reply {
+  id           String      @id @default(cuid())
+  clientId     String
+  client       Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  leadId       String?
+  lead         Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaignId   String?
+  campaign     Campaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  // Contenu
+  fromEmail    String
+  fromName     String?
+  subject      String?
+  body         String
+  bodyHtml     String?
+  receivedAt   DateTime    @default(now())
+  // Catégorisation IA
+  intent       ReplyIntent @default(UNCLASSIFIED)
+  intentConfidence Decimal? @db.Decimal(3, 2)
+  // Pipeline
+  status       ReplyStatus @default(UNREAD)
+  assignedToUserId String?
+  respondedAt  DateTime?
+  // Audit
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  @@index([clientId, status, receivedAt(sort: Desc)])
+  @@index([clientId, intent])
+  @@index([deletedAt])
+}
+
+enum ReplyIntent {
+  POSITIVE_INTEREST
+  REQUEST_INFO
+  ASK_TIMING
+  OBJECTION
+  REFUSED
+  OUT_OF_OFFICE
+  UNSUBSCRIBE
+  WRONG_PERSON
+  UNCLASSIFIED
+}
+
+enum ReplyStatus {
+  UNREAD
+  READ
+  RESPONDING
+  ANSWERED
+  ARCHIVED
+}
+
+// =====================================================================
+// NOTIFICATION
+// =====================================================================
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  // Contenu
+  type        String   // "trigger.hot", "reply.positive", "system.alert"
+  title       String
+  body        String?
+  payload     Json?
+  link        String?
+  // État
+  readAt      DateTime?
+  // Audit
+  createdAt   DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@index([clientId, createdAt(sort: Desc)])
+}
+
+// =====================================================================
+// AUDIT LOG (admin)
+// =====================================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  clientId    String?
+  action      String   // "client.created", "trigger.scored", "user.login"
+  entityType  String?
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([clientId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+}
