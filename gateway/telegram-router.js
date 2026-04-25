@@ -222,23 +222,21 @@ log.setSendTelegram(async (chatId, text) => {
   try { await sendMessage(chatId, text, 'Markdown'); } catch (e) { /* evite boucle infinie */ }
 });
 
-// === VALIDATION .ENV AU BOOT — liste toutes les cles manquantes ===
+// === VALIDATION .ENV AU BOOT (v2.0) — liste les clés requises pour Trigger Engine ===
 {
   const _required = [
     ['TELEGRAM_BOT_TOKEN', TOKEN, true],
     ['OPENAI_API_KEY', OPENAI_KEY, true],
+    ['CLAUDE_API_KEY', CLAUDE_KEY, true],
     ['SENDER_EMAIL', SENDER_EMAIL, true],
     ['ADMIN_CHAT_ID', ADMIN_CHAT_ID, false]
   ];
   const _recommended = [
-    ['CLAUDE_API_KEY', CLAUDE_KEY, 'redaction IA desactivee'],
-    ['INSTANTLY_API_KEY', process.env.INSTANTLY_API_KEY, 'envoi via Instantly desactive — fallback Gmail'],
-    ['INSTANTLY_CAMPAIGN_ID', process.env.INSTANTLY_CAMPAIGN_ID, 'pas de campagne Instantly configuree'],
-    ['GMAIL_MAILBOXES', process.env.GMAIL_MAILBOXES, 'rotation mailboxes desactivee'],
-    ['CLIENT_DOMAIN', process.env.CLIENT_DOMAIN, 'fallback ifind.fr'],
-    ['OWN_DOMAINS', process.env.OWN_DOMAINS, 'fallback domaines iFIND hardcodes']
+    ['RESEND_API_KEY', process.env.RESEND_API_KEY, 'digest hebdo + alertes pépites désactivés'],
+    ['PAPPERS_API_TOKEN', process.env.PAPPERS_API_TOKEN, 'enrichissement Pappers désactivé (fallback SIRENE gratuit)'],
+    ['DROPCONTACT_API_KEY', process.env.DROPCONTACT_API_KEY, 'enrichissement emails Dropcontact désactivé']
   ];
-  const _missing = _required.filter(([name, val, fatal]) => !val || val.trim() === '');
+  const _missing = _required.filter(([name, val]) => !val || val.trim() === '');
   const _warnings = _recommended.filter(([name, val]) => !val || val.trim() === '');
   if (_missing.length > 0) {
     const fatalMissing = _missing.filter(([, , fatal]) => fatal);
@@ -249,8 +247,8 @@ log.setSendTelegram(async (chatId, text) => {
     }
   }
   for (const [name, , reason] of _warnings) log.warn('router', 'ENV absente: ' + name + ' — ' + reason);
-  if (_missing.length === 0 && _warnings.length === 0) log.info('router', 'Validation .env: toutes les cles presentes');
-  else if (_missing.length === 0) log.info('router', 'Validation .env: OK (' + _warnings.length + ' recommandee(s) absente(s))');
+  if (_missing.length === 0 && _warnings.length === 0) log.info('router', 'Validation .env v2.0: toutes les clés présentes');
+  else if (_missing.length === 0) log.info('router', 'Validation .env v2.0: OK (' + _warnings.length + ' recommandée(s) absente(s))');
 }
 
 // === DISK FULL PROTECTION — alerte si < 500 Mo libre ===
@@ -289,14 +287,10 @@ const _bans = userCtx.bans;
 
 // --- Handlers ---
 
-const automailerHandler = new AutoMailerHandler(OPENAI_KEY, CLAUDE_KEY, RESEND_KEY, SENDER_EMAIL);
-const crmPilotHandler = new CRMPilotHandler(OPENAI_KEY, HUBSPOT_KEY);
-const invoiceBotHandler = new InvoiceBotHandler(OPENAI_KEY, RESEND_KEY, SENDER_EMAIL);
-
-// Demarrer les schedulers
-automailerHandler.start();
-crmPilotHandler.start();
-invoiceBotHandler.start();
+// Handlers legacy v9.5 désactivés — stubs no-op v2.0-cleanup
+const automailerHandler = new AutoMailerHandler();
+const crmPilotHandler = new CRMPilotHandler();
+const invoiceBotHandler = new InvoiceBotHandler();
 
 // Report Workflow (prospection personnalisee depuis la landing page)
 const reportWorkflow = new ReportWorkflow({
@@ -438,27 +432,8 @@ const _cleanupInterval = setInterval(() => {
   }
 
   // 2. Pending states des handlers (conversations et confirmations abandonnees)
-  // Note: certains handlers sont definis plus bas — resolution lazy pour eviter ReferenceError
-  const handlersWithPending = [
-    automailerHandler, crmPilotHandler, invoiceBotHandler
-  ];
-  try { handlersWithPending.push(proactiveHandler, webIntelHandler, systemAdvisorHandler); } catch (e) { log.warn('router', 'Handlers push cleanup: ' + e.message); }
-  const pendingMaps = ['pendingConversations', 'pendingConfirmations', 'pendingImports', 'pendingEmails', 'pendingResults'];
-  for (const handler of handlersWithPending) {
-    for (const mapName of pendingMaps) {
-      const obj = handler[mapName];
-      if (!obj || typeof obj !== 'object') continue;
-      for (const id of Object.keys(obj)) {
-        const entry = obj[id];
-        if (!entry) continue;
-        if (!entry._ts) { entry._ts = now; continue; } // Premier passage : horodater
-        if (now - entry._ts > PENDING_TTL) {
-          delete obj[id];
-          cleaned++;
-        }
-      }
-    }
-  }
+  // v2.0-cleanup : handlers legacy stubbés, plus de pending state à purger.
+  // Le Trigger Engine gère ses propres TTL via SQLite (claude_brain_queue, expires_at).
 
   // 3. Bans expires
   for (const id of Object.keys(_bans)) {
@@ -619,69 +594,19 @@ function callClaudeOpus(systemPrompt, userMessage, maxTokens) {
   return callClaude(systemPrompt, userMessage, maxTokens, 'claude-opus-4-7');
 }
 
-const proactiveEngine = new ProactiveEngine({
-  sendTelegram: async (chatId, message, priority) => {
-    if (!appConfig.canSendAutoMessage(priority)) {
-      log.info('quiet', 'Message proactive-agent supprime (mode quiet)');
-      return;
-    }
-    await sendMessage(chatId, message, 'Markdown');
-    addToHistory(chatId, 'bot', message.substring(0, 200), 'proactive-agent');
-  },
-  sendTelegramButtons: sendMessageWithButtons,
-  callClaude: callClaude,
-  callClaudeOpus: callClaudeOpus,
-  hubspotKey: HUBSPOT_KEY,
-  resendKey: RESEND_KEY,
-  senderEmail: SENDER_EMAIL
-});
-
-const proactiveHandler = new ProactiveHandler(OPENAI_KEY, proactiveEngine);
-
-// Self-Improve handler (avec callback Telegram + historique)
-selfImproveHandler = new SelfImproveHandler(OPENAI_KEY, CLAUDE_KEY, async (chatId, message) => {
-  await sendMessage(chatId, message, 'Markdown');
-  addToHistory(chatId, 'bot', message.substring(0, 200), 'self-improve');
-});
-
-// Web Intelligence handler (avec callback Telegram + historique + quiet mode)
-const webIntelHandler = new WebIntelligenceHandler(OPENAI_KEY, CLAUDE_KEY, async (chatId, message, priority) => {
-  if (!appConfig.canSendAutoMessage(priority)) {
-    log.info('quiet', 'Message web-intelligence supprime (mode quiet)');
-    return;
-  }
-  await sendMessage(chatId, message, 'Markdown');
-  addToHistory(chatId, 'bot', message.substring(0, 200), 'web-intelligence');
-});
-
-// System Advisor handler (avec callback Telegram + historique + quiet mode)
-const systemAdvisorHandler = new SystemAdvisorHandler(OPENAI_KEY, CLAUDE_KEY, async (chatId, message, priority) => {
-  if (!appConfig.canSendAutoMessage(priority)) {
-    log.info('quiet', 'Message system-advisor supprime (mode quiet)');
-    return;
-  }
-  await sendMessage(chatId, message, 'Markdown');
-  addToHistory(chatId, 'bot', message.substring(0, 200), 'system-advisor');
-});
-
-// Autonomous Pilot handler + brain engine
-const autoPilotHandler = new AutonomousHandler(OPENAI_KEY, CLAUDE_KEY);
-const autoPilotEngine = new BrainEngine({
-  sendTelegram: async (chatId, message) => {
-    await sendMessage(chatId, message, 'Markdown');
-    addToHistory(chatId, 'bot', message.substring(0, 200), 'autonomous-pilot');
-  },
-  sendTelegramButtons: sendMessageWithButtons,
-  callClaude: callClaude,
-  callClaudeOpus: callClaudeOpus,
-  hubspotKey: HUBSPOT_KEY,
-  apolloKey: APOLLO_KEY,
-  openaiKey: OPENAI_KEY,
-  claudeKey: CLAUDE_KEY,
-  resendKey: RESEND_KEY,
-  senderEmail: SENDER_EMAIL,
-  campaignEngine: automailerHandler.campaignEngine
-});
+// === HANDLERS LEGACY v9.5 — neutralisés via stubs no-op (v2.0-cleanup) ===
+// Ces handlers étaient utilisés par le bot iFIND v9.5 (autonomous brain cycles,
+// proactive reports, self-improve, web intelligence, system monitoring).
+// Le Trigger Engine (skills/trigger-engine/) les remplace tous depuis avril 2026.
+// Stubs minimaux pour compat avec les références internes du router (cleanup,
+// NLP routing). Le drop complet de ces références suivra avec le refactor router.
+const proactiveEngine = new ProactiveEngine();
+const proactiveHandler = new ProactiveHandler();
+selfImproveHandler = new SelfImproveHandler();
+const webIntelHandler = new WebIntelligenceHandler();
+const systemAdvisorHandler = new SystemAdvisorHandler();
+const autoPilotHandler = new AutonomousHandler();
+const autoPilotEngine = new BrainEngine();
 
 // Inbox Listener IMAP — initialisation avec callbacks
 const automailerStorageForInbox = require('../skills/automailer/storage.js');
@@ -898,46 +823,31 @@ function buildSystemStatus() {
 
   const apiKeys = [
     { name: 'Telegram', key: TOKEN },
-    { name: 'OpenAI (NLP)', key: OPENAI_KEY },
-    { name: 'Claude (Anthropic)', key: CLAUDE_KEY },
-    { name: 'HubSpot (CRM)', key: HUBSPOT_KEY },
-    { name: 'Apollo (Recherche leads)', key: APOLLO_KEY },
-    { name: 'Resend (Emails)', key: RESEND_KEY }
+    { name: 'OpenAI (NLP routing)', key: OPENAI_KEY },
+    { name: 'Claude Opus 4.7 (Trigger Engine)', key: CLAUDE_KEY },
+    { name: 'Resend (Email digest + alertes)', key: RESEND_KEY },
+    { name: 'Pappers (Attribution SIRENE)', key: process.env.PAPPERS_API_TOKEN },
+    { name: 'Dropcontact (Email finder)', key: process.env.DROPCONTACT_API_KEY },
+    { name: 'France Travail (Hiring API)', key: process.env.FRANCETRAVAIL_CLIENT_ID },
+    { name: 'INPI (Marques)', key: process.env.INPI_USERNAME },
+    { name: 'Meta Ad Library', key: process.env.META_AD_LIBRARY_TOKEN },
+    { name: 'HubSpot (CRM read)', key: HUBSPOT_KEY }
   ];
 
   const emailSafe = SENDER_EMAIL && SENDER_EMAIL !== 'onboarding@resend.dev' && SENDER_EMAIL.trim() !== '';
-  const apolloOk = APOLLO_KEY && APOLLO_KEY.trim() !== '';
-
-  const cronCounts = {
-    'Proactive Agent': proactiveEngine.crons ? proactiveEngine.crons.length : 0,
-    'Web Intelligence': webIntelHandler.crons ? webIntelHandler.crons.length : 0,
-    'System Advisor': systemAdvisorHandler.crons ? systemAdvisorHandler.crons.length : 0,
-    'Self-Improve': selfImproveHandler && selfImproveHandler.crons ? selfImproveHandler.crons.length : 0,
-    'Autonomous Pilot': autoPilotEngine.crons ? autoPilotEngine.crons.length : 0
-  };
-
-  const totalCrons = Object.values(cronCounts).reduce((a, b) => a + b, 0);
 
   const lines = [
-    modeEmoji + ' *' + (process.env.CLIENT_NAME || 'iFIND') + ' — ' + modeLabel + '*',
+    modeEmoji + ' *' + (process.env.CLIENT_NAME || 'iFIND') + ' Trigger Engine v2.0 — ' + modeLabel + '*',
     '_Derniere bascule : ' + new Date(config.lastModeChange).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }) + '_',
     ''
   ];
 
-  // Crons
-  lines.push('*Crons (' + totalCrons + '/17 actifs) :*');
-  for (const [name, count] of Object.entries(cronCounts)) {
-    const emoji = count > 0 ? '🟢' : '⏸️';
-    lines.push('  ' + emoji + ' ' + name + ' : ' + count + ' cron(s)');
-  }
-
-  // Skills sans crons
-  lines.push('');
-  lines.push('*Skills manuelles :*');
-  const manualSkills = ['AutoMailer', 'CRM Pilot', 'Content Gen', 'Invoice Bot'];
-  for (const name of manualSkills) {
-    lines.push('  🟢 ' + name);
-  }
+  // Composants actifs v2.0
+  lines.push('*Composants actifs :*');
+  lines.push('  🟢 Trigger Engine (cron + processor + 9 sources FR)');
+  lines.push('  🟢 Claude Brain (Opus 4.7 + boosters v1.1)');
+  lines.push('  🟢 Inbox Manager (IMAP polling)');
+  lines.push('  🟢 Meeting Scheduler (Google Calendar)');
 
   // APIs
   lines.push('');
@@ -947,11 +857,17 @@ function buildSystemStatus() {
     lines.push('  ' + (ok ? '✅' : '⚠️ MANQUANTE') + ' ' + api.name);
   }
 
-  // Securites
+  // Sécurités
   lines.push('');
-  lines.push('*Securites :*');
-  lines.push('  Email : ' + (emailSafe ? '✅ Configure' : '⚠️ Non configure (test only)'));
-  lines.push('  Apollo : ' + (apolloOk ? '✅ Active (recherche)' : '⚠️ Cle absente'));
+  lines.push('*Sécurités :*');
+  lines.push('  Email sender : ' + (emailSafe ? '✅ Configuré' : '⚠️ Non configuré (test only)'));
+
+  // Boosters
+  lines.push('');
+  lines.push('*Boosters v1.1 :*');
+  lines.push('  ' + (process.env.COMBO_BOOSTER_ENABLED !== 'false' ? '✅' : '⏸️') + ' Combo ×2.5 sur 3 signaux durs <90j');
+  lines.push('  ' + (process.env.HOT_TRIGGERS_ENABLED !== 'false' ? '✅' : '⏸️') + ' Hot triggers <48h (+0.5/+1.0)');
+  lines.push('  ' + (process.env.DECLARATIVE_PAIN_ENABLED === 'true' ? '✅' : '⏸️') + ' Declarative pain detection (opt-in)');
 
   // Budget
   const budget = appConfig.getBudgetStatus();
@@ -965,9 +881,9 @@ function buildSystemStatus() {
 
   lines.push('');
   if (mode === 'standby') {
-    lines.push('_Dis "active tout" ou "lance la machine" pour passer en production_');
+    lines.push('_Dis "active tout" pour passer en production_');
   } else {
-    lines.push('_Dis "desactive tout" ou "mode stand by" pour couper les crons_');
+    lines.push('_Dis "mode stand by" pour couper les crons_');
   }
 
   return lines.join('\n');

@@ -225,22 +225,8 @@ function createReplyPipeline(deps) {
       _stopRelancesForHitl(emailsToProcess);
     }
 
-    // FIX NICHE TRACKING: tracker la reply par niche
-    if (sentiment === 'interested' || sentiment === 'question') {
-      try {
-        const apStorageNiche = require('../skills/autonomous-pilot/storage.js');
-        if (apStorageNiche && apStorageNiche.trackNicheEvent) {
-          const automailerSt = require('../skills/automailer/storage.js');
-          const allEmails = automailerSt.getAllEmails ? automailerSt.getAllEmails() : [];
-          const matchedEmail = allEmails.find(function(em) { return (em.to || '').toLowerCase() === (replyData.from || '').toLowerCase(); });
-          const niche = matchedEmail ? (matchedEmail.industry || matchedEmail.niche) : null;
-          if (niche) {
-            apStorageNiche.trackNicheEvent(niche, 'replied');
-            log.info('inbox-manager', 'Niche tracking: replied [' + niche + '] pour ' + replyData.from);
-          }
-        }
-      } catch (ntErr) { log.warn('inbox-manager', 'Niche tracking reply echoue: ' + ntErr.message); }
-    }
+    // v2.0-cleanup : Niche tracking via autonomous-pilot supprimé. Le Trigger Engine
+    // tracke les replies par tenant via client_leads.status (sent → replied_positive/negative/booked).
 
     // === 5. Update storage ===
     _updateStorages(emailsToProcess, sentiment, score, classification, actionTaken);
@@ -248,51 +234,19 @@ function createReplyPipeline(deps) {
     // === 6. Notification Telegram enrichie ===
     await _sendTelegramNotification(replyData, classification, sentiment, score, emailsToProcess, actionTaken, autoReplyHandled, hitlDraftCreated);
 
-    // === 7. Brief pre-call si reply interessee (score >= 0.85) ou booking ===
-    if (sentiment === 'interested' && score >= 0.85) {
-      try {
-        const { sendPrecallBrief } = require('../skills/precall-brief/index.js');
-        await sendPrecallBrief(
-          { callClaude, automailerStorage, sendMessage, adminChatId },
-          replyData, classification
-        );
-      } catch (briefErr) {
-        log.warn('precall-brief', 'Brief generation echouee: ' + briefErr.message);
-      }
-    }
+    // v2.0-cleanup : sendPrecallBrief legacy supprimé. Briefs RDV générés désormais
+    // via le pipeline Claude Brain "brief" (Opus 4.7, 1M context, 2000 mots niveau
+    // consultant senior). Voir skills/trigger-engine/claude-brain/pipelines.js.
   };
 
   // ========== Internal helpers ==========
 
   function _checkDraftQuality(autoReply) {
-    let warning = null;
-    try {
-      const apStorageQG = require('../skills/autonomous-pilot/storage.js');
-      const apConfigQG = apStorageQG.getConfig ? apStorageQG.getConfig() : {};
-      const epQG = apConfigQG.emailPreferences || {};
-      if (epQG.forbiddenWords && epQG.forbiddenWords.length > 0) {
-        const arText = (autoReply.subject + ' ' + autoReply.body).toLowerCase();
-        const found = epQG.forbiddenWords.filter(w => {
-          const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          return new RegExp('\\b' + escaped + '\\b', 'i').test(arText);
-        });
-        if (found.length > 0) warning = 'mots interdits: ' + found.join(', ');
-      }
-    } catch (e) { log.warn('hitl', 'Forbidden words check: ' + e.message); }
-    if (!warning) {
-      try {
-        const CE = require('../skills/automailer/campaign-engine.js');
-        if (CE.emailPassesQualityGate) {
-          const qg = CE.emailPassesQualityGate(autoReply.subject, autoReply.body);
-          if (!qg.pass) warning = 'quality gate: ' + qg.reason;
-        }
-      } catch (e) { log.warn('hitl', 'Quality gate check: ' + e.message); }
-    }
-    if (!warning) {
-      const wc = (autoReply.body || '').split(/\s+/).filter(w => w.length > 0).length;
-      if (wc > 80 || wc < 8) warning = 'word count: ' + wc + ' (8-80 attendu)';
-    }
-    return warning;
+    // v2.0-cleanup : forbiddenWords (autonomous-pilot) + emailPassesQualityGate
+    // (campaign-engine) supprimés. On garde le check word count basique (8-80 mots).
+    const wc = (autoReply.body || '').split(/\s+/).filter(w => w.length > 0).length;
+    if (wc > 80 || wc < 8) return 'word count: ' + wc + ' (8-80 attendu)';
+    return null;
   }
 
   async function _handleNotInterested(replyData, classification, originalEmail, originalMessageId, clientContext, emailsToProcess, autoReplyConfidence, _pendingDrafts, pipelineOptions) {
@@ -449,31 +403,9 @@ function createReplyPipeline(deps) {
 
     if (!autoReply.body) return { hitlDraftCreated: false, autoReplyHandled: false };
 
-    // === A/B TEST sur les reponses ===
-    let abVariant = 'A';
-    let autoReplyB = null;
-    try {
-      const ABTesting = require('../skills/automailer/ab-testing.js');
-      const abTester = new ABTesting(automailerStorage);
-      abVariant = abTester.assignVariant(replyData.from, 'reply_interested', 2);
-
-      if (abVariant === 'B') {
-        // Generer variante B avec un angle different
-        const variantOpts = { ...replyOpts };
-        const variantPromptSuffix = '\n\nGENERE UNE VARIANTE DIFFERENTE: angle plus direct, ou plus chaleureux, ou plus axe data. Pas la meme approche que d\'habitude.';
-        autoReplyB = await withTimeout(generateInterestedReplyViaClaude(callClaude, {
-          ...replyData,
-          snippet: (replyData.snippet || '') + variantPromptSuffix
-        }, classification, originalEmail, clientContext, variantOpts), 30000, 'Claude generateInterestedReply-B');
-
-        if (autoReplyB && autoReplyB.body) {
-          log.info('ab-testing', 'Variante B generee pour ' + replyData.from);
-          // Utiliser variante B
-          autoReply.body = autoReplyB.body;
-          autoReply.subject = autoReplyB.subject || autoReply.subject;
-        }
-      }
-    } catch (e) { log.warn('ab-testing', 'A/B test reply: ' + e.message); }
+    // v2.0-cleanup : A/B testing variants legacy supprimé. Smartlead gère les variants
+    // côté séquenceur pour Full Service. Les replies Trigger Engine ne sont pas A/B testées.
+    const abVariant = 'A';
 
     const qualityWarning = _checkDraftQuality(autoReply);
     if (qualityWarning) log.warn('hitl', 'Draft quality warning: ' + qualityWarning + ' pour ' + replyData.from);
@@ -530,19 +462,8 @@ function createReplyPipeline(deps) {
         scheduledFollowUpAt: scheduledDate
       });
 
-      try {
-        const proactiveStorage = require('../skills/proactive-agent/storage.js');
-        proactiveStorage.addPendingFollowUp({
-          prospectEmail: replyData.from,
-          prospectName: replyData.fromName || firstName,
-          prospectCompany: (originalEmail && originalEmail.company) || '',
-          originalSubject: (originalEmail && originalEmail.subject) || '',
-          originalBody: (originalEmail && originalEmail.body || '').substring(0, 300),
-          prospectIntel: 'OOO detecte. Retour prevu: ' + (returnDate || 'inconnu') + '. Reschedule automatique.',
-          scheduledAfter: scheduledDate,
-          isOOO: true
-        });
-      } catch (e) { log.warn('inbox-manager', 'Follow-up proactif OOO echoue:', e.message); }
+      // v2.0-cleanup : follow-up proactif legacy supprimé. Le re-engagement OOO se fait
+      // désormais via inbox-manager addOOOReschedule() seulement (déjà fait au-dessus).
 
       log.info('inbox-manager', 'OOO reschedule pour ' + replyData.from + ' → follow-up prevu le ' + scheduledDate.substring(0, 10));
       return true;
@@ -623,37 +544,10 @@ function createReplyPipeline(deps) {
       log.warn('inbox-manager', 'Marquage hasReplied echoue:', e.message);
     }
 
-    // Annuler les reactive follow-ups
-    try {
-      const proactiveStorage = require('../skills/proactive-agent/storage.js');
-      const pendingFUs = proactiveStorage.getPendingFollowUps();
-      for (const fu of pendingFUs) {
-        if (fu.prospectEmail && emailsToProcess.includes(fu.prospectEmail.toLowerCase())) {
-          proactiveStorage.markFollowUpFailed(fu.id, 'human_takeover: prospect replied');
-          log.info('inbox-manager', 'Reactive FU annule pour ' + fu.prospectEmail + ' (human takeover)');
-        }
-      }
-    } catch (e) {
-      log.warn('inbox-manager', 'Annulation reactive FU echouee:', e.message);
-    }
-
-    // Multi-Threading : marquer l'entreprise comme "replied"
-    try {
-      const ffStorage = require('../skills/flowfast/storage.js');
-      if (ffStorage && ffStorage.markCompanyReplied) {
-        for (const ep of emailsToProcess) {
-          const updatedGroup = ffStorage.markCompanyReplied(ep);
-          if (updatedGroup) {
-            const cancelled = updatedGroup.contacts.filter(c => c.status === 'cancelled').length;
-            if (cancelled > 0) {
-              log.info('inbox-manager', 'Multi-thread: entreprise ' + updatedGroup.companyName + ' replied → ' + cancelled + ' contact(s) secondaire(s) annule(s)');
-            }
-          }
-        }
-      }
-    } catch (e) {
-      log.warn('inbox-manager', 'Multi-thread markCompanyReplied echoue:', e.message);
-    }
+    // v2.0-cleanup : annulation reactive follow-ups (proactive-agent) + multi-threading
+    // flowfast supprimés. Le Trigger Engine gère la logique de re-prospection via
+    // client_leads.status (replied → discarded ou booked) qui empêche automatiquement
+    // les re-qualifications futures sur ce SIREN.
   }
 
   function _stopRelancesForHitl(emailsToProcess) {
@@ -670,16 +564,7 @@ function createReplyPipeline(deps) {
       }
       if (totalMarked > 0) log.info('hitl', 'hasReplied=true marque sur ' + totalMarked + ' emails (HITL pending) pour ' + emailsToProcess.join(' + '));
     } catch (e) { log.warn('hitl', 'Mark hasReplied: ' + e.message); }
-    // Annuler les reactive follow-ups
-    try {
-      const proactiveStorage = require('../skills/proactive-agent/storage.js');
-      const pendingFUs = proactiveStorage.getPendingFollowUps();
-      for (const fu of pendingFUs) {
-        if (fu.prospectEmail && emailsToProcess.includes(fu.prospectEmail.toLowerCase())) {
-          proactiveStorage.markFollowUpFailed(fu.id, 'hitl_pending: draft en attente validation');
-        }
-      }
-    } catch (e) { log.warn('hitl', 'Cancel follow-ups: ' + e.message); }
+    // v2.0-cleanup : annulation follow-ups proactifs HITL supprimée (skill legacy).
   }
 
   // === REAL-TIME LEARNING : enregistrer chaque outcome pour patterns ===

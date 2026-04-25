@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mission Control</title>
+<title>iFIND Trigger Engine</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232563EB'/%3E%3Cstop offset='100%25' stop-color='%231e40af'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Ctext x='16' y='22.5' text-anchor='middle' fill='white' font-family='Inter,system-ui,sans-serif' font-size='21' font-weight='600'%3Ei%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,7 +25,7 @@
     <div class="logo-mark">
       <div style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:linear-gradient(135deg,#2563EB,#1e40af);border-radius:7px;box-shadow:0 1px 3px rgba(29,78,216,0.3)"><span style="color:#fff;font-family:Inter,system-ui,sans-serif;font-weight:600;font-size:17px;line-height:1">i</span></div>
     </div>
-    <div class="logo-text">MISSION CONTROL</div>
+    <div class="logo-text">iFIND TRIGGER ENGINE</div>
   </div>
 
   <div class="sidebar-search">
@@ -34,63 +34,34 @@
   </div>
 
   <nav class="sidebar-nav">
-    <div class="nav-section-label">ACTIVITÉ</div>
+    <div class="nav-section-label">TRIGGER ENGINE</div>
 
     <a href="#dashboard" class="nav-item active" data-page="dashboard">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#home"/></svg>
       <span>Dashboard</span>
     </a>
-    <a href="#unibox" class="nav-item" data-page="unibox">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#message-circle"/></svg>
-      <span>Unibox</span>
-      <span class="nav-badge" id="badge-unibox" style="display:none">0</span>
+    <a href="#triggers" class="nav-item" data-page="triggers">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#target"/></svg>
+      <span>Leads FR</span>
+      <span class="nav-badge badge-accent" id="badge-leads" style="display:none">0</span>
     </a>
     <a href="#pipeline" class="nav-item" data-page="pipeline">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#bar-chart"/></svg>
-      <span>Pipeline</span>
+      <span>Pipeline RDV</span>
       <span class="nav-badge badge-accent" id="badge-pipeline" style="display:none">0</span>
     </a>
-    <a href="#leads" class="nav-item" data-page="leads">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#target"/></svg>
-      <span>Leads</span>
-      <span class="nav-badge" id="badge-leads" style="display:none">0</span>
-    </a>
-    <a href="#campaigns" class="nav-item" data-page="campaigns">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#mail"/></svg>
-      <span>Campagnes</span>
-    </a>
-    <a href="#drafts" class="nav-item" data-page="drafts">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#inbox"/></svg>
-      <span>Approbations</span>
-      <span class="nav-badge" id="badge-drafts" style="display:none">0</span>
+    <a href="#unibox" class="nav-item" data-page="unibox">
+      <svg class="nav-icon"><use href="/public/assets/icons.svg#message-circle"/></svg>
+      <span>Replies</span>
+      <span class="nav-badge" id="badge-unibox" style="display:none">0</span>
     </a>
 
     <div class="nav-separator"></div>
     <div class="nav-section-label">GESTION</div>
 
-    <a href="#crm" class="nav-item" data-page="crm">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#bar-chart"/></svg>
-      <span>CRM</span>
-    </a>
     <a href="#settings" class="nav-item" data-page="settings">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#settings"/></svg>
-      <span>Parametres</span>
-    </a>
-
-    <div class="nav-separator"></div>
-    <div class="nav-section-label">ADMIN</div>
-
-    <a href="#finances" class="nav-item" data-page="finances">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#dollar-sign"/></svg>
-      <span>Finances</span>
-    </a>
-    <a href="#intelligence" class="nav-item" data-page="intelligence">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#brain"/></svg>
-      <span>Intelligence</span>
-    </a>
-    <a href="#triggers" class="nav-item" data-page="triggers">
-      <svg class="nav-icon"><use href="/public/assets/icons.svg#target"/></svg>
-      <span>Triggers FR</span>
+      <span>Paramètres</span>
     </a>
     <a href="#system" class="nav-item" data-page="system">
       <svg class="nav-icon"><use href="/public/assets/icons.svg#settings"/></svg>
@@ -120,7 +91,7 @@
   <button class="hamburger" id="hamburger" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>
-  <div class="logo-text">MISSION CONTROL</div>
+  <div class="logo-text">iFIND TRIGGER ENGINE</div>
   <div style="width:32px"></div>
 </header>
 
@@ -179,21 +150,25 @@
 <script src="/public/js/utils.js"></script>
 <script src="/public/js/api.js"></script>
 <script src="/public/js/charts.js"></script>
+<!-- Pages actives v2.0 (Trigger Engine) -->
 <script src="/public/js/pages/dashboard.js"></script>
-<script src="/public/js/pages/leads.js"></script>
-<script src="/public/js/pages/campaigns.js"></script>
-<script src="/public/js/pages/drafts.js"></script>
-<script src="/public/js/pages/unibox.js"></script>
-<script src="/public/js/pages/pipeline.js"></script>
-<script src="/public/js/pages/crm.js"></script>
-<script src="/public/js/pages/chat.js"></script>
-<script src="/public/js/pages/finances.js"></script>
-<script src="/public/js/pages/intelligence.js"></script>
 <script src="/public/js/pages/triggers.js"></script>
+<script src="/public/js/pages/pipeline.js"></script>
+<script src="/public/js/pages/unibox.js"></script>
+<script src="/public/js/pages/settings.js"></script>
 <script src="/public/js/pages/system.js"></script>
 <script src="/public/js/pages/clients.js"></script>
 <script src="/public/js/pages/onboarding.js"></script>
-<script src="/public/js/pages/settings.js"></script>
+<script src="/public/js/pages/chat.js"></script>
+<!-- Pages legacy v9.5 conservées pour compat ancienne nav (campaigns, drafts, crm,
+     finances, intelligence, leads) — non liées dans la sidebar v2.0 mais accessibles
+     via URL directe pour rétrocompatibilité. À drop quand validé en J2. -->
+<script src="/public/js/pages/leads.js"></script>
+<script src="/public/js/pages/campaigns.js"></script>
+<script src="/public/js/pages/drafts.js"></script>
+<script src="/public/js/pages/crm.js"></script>
+<script src="/public/js/pages/finances.js"></script>
+<script src="/public/js/pages/intelligence.js"></script>
 <script src="/public/js/rich-editor.js"></script>
 <script src="/public/js/prospect-drawer.js"></script>
 <script src="/public/js/command-palette.js"></script>
