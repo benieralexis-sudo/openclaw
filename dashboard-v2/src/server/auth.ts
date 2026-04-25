@@ -9,8 +9,14 @@ const baseUrl =
 export const auth = betterAuth({
   database: prismaAdapter(db, { provider: "postgresql" }),
   baseURL: baseUrl,
+  // basePath laissé par défaut "/api/auth" — Next.js basePath gère le /preview-v2
   secret: process.env.BETTER_AUTH_SECRET,
-  trustedOrigins: [baseUrl, "https://ifind.fr", "https://app-v2.ifind.fr"],
+  trustedOrigins: [
+    baseUrl,
+    "https://ifind.fr",
+    "https://app-v2.ifind.fr",
+    "http://127.0.0.1:3100",
+  ],
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 10,
