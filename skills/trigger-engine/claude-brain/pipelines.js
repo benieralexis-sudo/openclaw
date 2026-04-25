@@ -23,7 +23,8 @@ const PIPELINE_CONFIG = {
   'linkedin-dm': { json: true, maxTokens: 1200 },
   'call-brief': { json: true, maxTokens: 2500 },
   brief: { json: false, maxTokens: 6000 },
-  discover: { json: true, maxTokens: 3000 }
+  discover: { json: true, maxTokens: 3000 },
+  'detect-pain': { json: true, maxTokens: 800 }
 };
 
 class PipelineExecutor {

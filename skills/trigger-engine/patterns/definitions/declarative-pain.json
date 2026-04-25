@@ -1,0 +1,39 @@
+{
+  "id": "declarative-pain",
+  "name": "Douleur exprimée publiquement",
+  "description": "Entreprise dont un dirigeant ou employé a publiquement exprimé une douleur ou recherche active d'outil B2B (post LinkedIn, avis Glassdoor/Indeed, commentaire Reddit/HN). Signal d'achat le plus fort possible : le prospect dit ce qu'il cherche, on lui répond avec exactement ça.",
+  "verticaux": ["saas", "conseil", "outsourcing", "tools", "leadgen", "all"],
+  "pitch_angle": "J'ai vu votre {source_type} où vous évoquiez {pain_text_short}. Nous accompagnons typiquement les boîtes dans cette situation à {solution}. 15 min cette semaine ?",
+  "min_score": 9.0,
+  "max_score": 10.0,
+  "window_days": 30,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["declarative_pain"],
+        "min_count": 1,
+        "weight": 9.0,
+        "description": "Au moins 1 signal de douleur exprimée détecté via Opus"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["funding", "funding_seed", "funding_series"],
+      "weight": 0.5,
+      "description": "Bonus si levée corrélée (cash + douleur exprimée = jackpot)"
+    },
+    {
+      "types": ["hiring_executive"],
+      "weight": 0.5,
+      "description": "Bonus si nouveau C-level (transfo en cours + douleur = timing parfait)"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"],
+      "description": "Entreprise en difficulté ou radiée"
+    }
+  ],
+  "enabled": true
+}
