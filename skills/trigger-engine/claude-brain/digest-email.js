@@ -42,13 +42,20 @@ function renderLeadHtml(lead) {
   } else if (lead.combo_label === 'COMBO') {
     comboBadge = `<span style="display:inline-block;background:#0891b2;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;letter-spacing:0.5px">🎯 COMBO</span>`;
   }
+  // Badge HOT/FRESH si signal <48h (Phase 2 v1.1)
+  let hotBadge = '';
+  if (lead.is_fresh) {
+    hotBadge = `<span style="display:inline-block;background:#dc2626;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;letter-spacing:0.5px">🔥 FRESH</span>`;
+  } else if (lead.is_hot) {
+    hotBadge = `<span style="display:inline-block;background:#ea580c;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;letter-spacing:0.5px">🔥 HOT</span>`;
+  }
   return `
     <tr>
       <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top">
         <span style="display:inline-block;background:${color};color:#fff;padding:3px 8px;border-radius:4px;font-weight:600;font-size:13px">${score}</span>
       </td>
       <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb">
-        <a href="${DASHBOARD_URL}/#triggers" style="color:#1e40af;text-decoration:none;font-weight:600">${escapeHtml(lead.raison_sociale || 'Sans nom')}</a>${comboBadge}
+        <a href="${DASHBOARD_URL}/#triggers" style="color:#1e40af;text-decoration:none;font-weight:600">${escapeHtml(lead.raison_sociale || 'Sans nom')}</a>${comboBadge}${hotBadge}
         <div style="color:#6b7280;font-size:12px;margin-top:2px">
           SIREN ${escapeHtml(lead.siren)} · ${escapeHtml(nafShort)} · Dpt ${escapeHtml(lead.departement || '?')}
         </div>
@@ -121,13 +128,17 @@ function getWeeklyDigestLeads(db, tenantId) {
     ORDER BY cl.opus_score DESC
     LIMIT 100
   `).all(tenantId);
-  // Extract combo_label depuis scoring_metadata pour rendu badge
+  // Extract combo_label + hot_state depuis scoring_metadata pour rendu badges
   for (const r of rows) {
     if (r.qualify_json) {
       try {
         const q = JSON.parse(r.qualify_json);
         if (q?.scoring_metadata?.combo_label) {
           r.combo_label = q.scoring_metadata.combo_label;
+        }
+        if (q?.scoring_metadata?.hot_state) {
+          r.is_hot = q.scoring_metadata.hot_state.is_hot === true;
+          r.is_fresh = q.scoring_metadata.hot_state.is_fresh === true;
         }
       } catch {}
     }

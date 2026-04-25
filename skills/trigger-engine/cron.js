@@ -202,20 +202,20 @@ class TriggerEngineCron {
   start() {
     this.log.info?.('[trigger-engine-cron] starting schedules');
 
-    // BODACC: every 6h
+    // BODACC: every 3h (Phase 2 v1.1: accéléré pour détection HOT <48h)
     const bodaccInterval = setInterval(() => {
       this.handler.runIngestion('bodacc').catch(err => {
         this.log.error?.('[cron] bodacc:', err.message);
       });
-    }, 6 * 3600 * 1000);
+    }, 3 * 3600 * 1000);
     this.intervals.push(bodaccInterval);
 
-    // JOAFE: every 12h
+    // JOAFE: every 6h (Phase 2 v1.1: nominations C-level critiques en HOT)
     const joafeInterval = setInterval(() => {
       this.handler.runIngestion('joafe').catch(err => {
         this.log.error?.('[cron] joafe:', err.message);
       });
-    }, 12 * 3600 * 1000);
+    }, 6 * 3600 * 1000);
     this.intervals.push(joafeInterval);
 
     // France Travail: every 2h
@@ -234,12 +234,13 @@ class TriggerEngineCron {
     }, 24 * 3600 * 1000);
     this.intervals.push(inpiInterval);
 
-    // RSS Levées FR: every 6h (volume faible, pas besoin de plus fréquent)
+    // RSS Levées FR: every 1h (Phase 2 v1.1: levées doivent être détectées <48h
+    // pour atteindre le prospect avant la vague de prospections post-annonce)
     const rssInterval = setInterval(() => {
       this.handler.runIngestion('rss-levees').catch(err => {
         this.log.error?.('[cron] rss-levees:', err.message);
       });
-    }, 6 * 3600 * 1000);
+    }, 1 * 3600 * 1000);
     this.intervals.push(rssInterval);
 
     // News Buzz : every 12h (check les matches actifs via Google News RSS)

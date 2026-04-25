@@ -144,10 +144,15 @@ test('J3 executor — pipeline qualify stocke résultat + opus_score', async () 
     assert.ok(saved);
     const parsed = JSON.parse(saved.result_json);
     assert.equal(parsed.priority_score_opus, 8.5);
+    // Phase 1+2 v1.1 : metadata doit contenir raw_score (8.5) + scoring final
+    assert.ok(parsed.scoring_metadata, 'scoring_metadata présente');
+    assert.equal(parsed.scoring_metadata.raw_score, 8.5);
 
-    // Post-process : client_leads.opus_score updated
+    // Post-process : client_leads.opus_score = raw + freshness × combo (capé à 10)
+    // Seed = 1 funding event today → freshness +1.0, combo ×1.0 (1 catégorie)
+    // Donc opus_score attendu = 8.5 + 1.0 = 9.5
     const lead = storage.db.prepare('SELECT * FROM client_leads WHERE client_id = ? AND siren = ?').get('t1', '123456789');
-    assert.equal(lead.opus_score, 8.5);
+    assert.equal(lead.opus_score, 9.5);
     assert.ok(lead.opus_qualified_at);
   } finally { cleanupStorage(storage, dbPath); }
 });

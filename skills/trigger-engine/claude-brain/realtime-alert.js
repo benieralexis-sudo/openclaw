@@ -44,11 +44,19 @@ function buildAlertEmail(lead, qualification) {
   const phase = qualification?.phase || '';
   const comboLabel = qualification?.scoring_metadata?.combo_label || null;
   const comboCategories = qualification?.scoring_metadata?.hard_signals_categories || [];
+  const hotState = qualification?.scoring_metadata?.hot_state || {};
+  const isHot = hotState.is_hot === true;
+  const isFresh = hotState.is_fresh === true;
+  const freshestAge = hotState.freshest_age_hours;
+
   const comboBadge = comboLabel === 'JACKPOT'
     ? `<span style="display:inline-block;background:#7c3aed;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;font-weight:700;margin-left:8px">⚡ JACKPOT (${comboCategories.length} signaux durs)</span>`
     : comboLabel === 'COMBO'
       ? `<span style="display:inline-block;background:#0891b2;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;font-weight:700;margin-left:8px">🎯 COMBO (${comboCategories.length} signaux durs)</span>`
       : '';
+  const hotBadge = isHot
+    ? `<span style="display:inline-block;background:${isFresh ? '#dc2626' : '#ea580c'};color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;font-weight:700;margin-left:8px">🔥 ${isFresh ? 'FRESH' : 'HOT'}${freshestAge != null ? ` (${freshestAge}h)` : ''}</span>`
+    : '';
 
   const html = `
 <!DOCTYPE html>
@@ -57,7 +65,7 @@ function buildAlertEmail(lead, qualification) {
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
     <div style="background:#dc2626;padding:20px;color:#fff">
       <div style="font-size:14px;opacity:0.9;margin-bottom:4px">🔴 PÉPITE DÉTECTÉE</div>
-      <h1 style="margin:0;font-size:24px">${escapeHtml(lead.raison_sociale || 'Lead')}${comboBadge}</h1>
+      <h1 style="margin:0;font-size:24px">${escapeHtml(lead.raison_sociale || 'Lead')}${comboBadge}${hotBadge}</h1>
       <div style="margin-top:8px;font-size:14px;opacity:0.9">
         Score Opus : <strong>${(lead.opus_score || 0).toFixed(1)}/10</strong>
         · SIREN ${escapeHtml(lead.siren)}
@@ -113,17 +121,27 @@ async function sendRealtimeAlerts(db, options = {}) {
     if (!cfg.digest_email) continue; // même email pour digest et alerte
 
     const threshold = Number(cfg.realtime_alert_threshold ?? 9.0);
+    // Seuil HOT plus bas : un lead 7.5+ avec signal <48h mérite une alerte
+    // car la fenêtre d'action est courte (Phase 2 v1.1)
+    const hotThreshold = Number(cfg.hot_alert_threshold ?? 7.5);
+    const hotEnabled = process.env.HOT_TRIGGERS_ENABLED !== 'false'
+      && cfg.hot_alert_enabled !== false;
 
     const candidates = db.prepare(`
       SELECT cl.id, cl.siren, cl.opus_score, cl.opus_qualified_at, cl.opus_result_id,
-             c.raison_sociale
+             c.raison_sociale,
+             cbr.result_json AS qualify_json
       FROM client_leads cl
       LEFT JOIN companies c ON c.siren = cl.siren
+      LEFT JOIN claude_brain_results cbr ON cbr.id = cl.opus_result_id
       WHERE cl.client_id = ?
-        AND cl.opus_score >= ?
         AND cl.opus_qualified_at >= datetime('now', '-2 hours')
         AND cl.status IN ('new', 'qualifying')
-    `).all(t.id, threshold);
+        AND (
+          cl.opus_score >= ?
+          OR (? = 1 AND cl.opus_score >= ? AND cbr.result_json LIKE '%"is_hot":true%')
+        )
+    `).all(t.id, threshold, hotEnabled ? 1 : 0, hotThreshold);
 
     for (const lead of candidates) {
       // Dédup 24h
@@ -135,9 +153,11 @@ async function sendRealtimeAlerts(db, options = {}) {
       `).get(t.id, lead.siren, DEDUP_HOURS);
       if (already) { stats.skipped += 1; continue; }
 
-      // Récupère la qualification Opus
+      // Récupère la qualification Opus (déjà récupéré via JOIN)
       let qualification = null;
-      if (lead.opus_result_id) {
+      if (lead.qualify_json) {
+        try { qualification = JSON.parse(lead.qualify_json); } catch {}
+      } else if (lead.opus_result_id) {
         const qRow = db.prepare('SELECT result_json FROM claude_brain_results WHERE id = ?').get(lead.opus_result_id);
         if (qRow) { try { qualification = JSON.parse(qRow.result_json); } catch {} }
       }

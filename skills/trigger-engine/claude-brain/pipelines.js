@@ -15,6 +15,7 @@
 
 const { callAnthropic } = require('./anthropic-client');
 const { computeComboBooster, applyBoost } = require('./combo-booster');
+const { computeFreshnessBoost, describeHotState, getHotSignalsForSiren } = require('./hot-signal-detector');
 
 const PIPELINE_CONFIG = {
   qualify: { json: true, maxTokens: 2048 },
@@ -131,27 +132,41 @@ class PipelineExecutor {
       const rawScore = Number(result.priority_score_opus);
       if (!Number.isNaN(rawScore)) {
         let finalScore = rawScore;
-        // Combo booster désactivable via env (défaut: ON)
+        let scoringMeta = { raw_score: rawScore };
+
+        // Freshness boost (Phase 2) : signal <48h = +0.5, <24h = +1.0
+        let freshnessBoost = 0;
+        let hotState = { is_hot: false, hot_count: 0 };
+        if (process.env.HOT_TRIGGERS_ENABLED !== 'false') {
+          const hotEvents = getHotSignalsForSiren(this.db, siren);
+          freshnessBoost = computeFreshnessBoost(hotEvents);
+          hotState = describeHotState(hotEvents);
+          finalScore = rawScore + freshnessBoost;
+          scoringMeta.freshness_boost = freshnessBoost;
+          scoringMeta.hot_state = hotState;
+        }
+
+        // Combo booster (Phase 1) : applique le multiplier sur (raw + freshness)
         if (process.env.COMBO_BOOSTER_ENABLED !== 'false') {
           const combo = computeComboBooster(this.db, siren);
-          finalScore = applyBoost(rawScore, combo.multiplier);
-          // Stocke la metadata dans le result pour transparence (digest, dashboard)
-          result.scoring_metadata = {
-            raw_score: rawScore,
-            final_score: finalScore,
-            combo_multiplier: combo.multiplier,
-            combo_label: combo.label,
-            hard_signals_count: combo.hard_signals_count,
-            hard_signals_categories: combo.categories,
-            excluded: combo.excluded
-          };
-          if (combo.label) {
-            this.log.info?.(`[combo-booster] ${combo.label} ×${combo.multiplier} sur ${siren}: ${rawScore.toFixed(1)} → ${finalScore.toFixed(1)} (${combo.hard_signals_count} signaux durs <90j: ${combo.categories.join(', ')})`);
+          finalScore = applyBoost(finalScore, combo.multiplier);
+          scoringMeta.combo_multiplier = combo.multiplier;
+          scoringMeta.combo_label = combo.label;
+          scoringMeta.hard_signals_count = combo.hard_signals_count;
+          scoringMeta.hard_signals_categories = combo.categories;
+          scoringMeta.excluded = combo.excluded;
+          if (combo.label || hotState.is_hot) {
+            this.log.info?.(`[scoring] ${siren}: raw=${rawScore.toFixed(1)} +fresh=${freshnessBoost} ×${combo.multiplier} → ${finalScore.toFixed(1)} ${combo.label || ''} ${hotState.is_hot ? `🔥HOT(${hotState.hot_count})` : ''}`);
           }
-          // Re-écrit le result_json avec metadata
-          this.db.prepare('UPDATE claude_brain_results SET result_json = ? WHERE id = ?')
-            .run(JSON.stringify(result), resultId);
         }
+
+        scoringMeta.final_score = finalScore;
+        result.scoring_metadata = scoringMeta;
+
+        // Re-écrit le result_json avec metadata
+        this.db.prepare('UPDATE claude_brain_results SET result_json = ? WHERE id = ?')
+          .run(JSON.stringify(result), resultId);
+
         this.db.prepare(`
           UPDATE client_leads
           SET opus_score = ?, opus_qualified_at = CURRENT_TIMESTAMP, opus_result_id = ?
