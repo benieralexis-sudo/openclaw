@@ -18,7 +18,7 @@ const RESEND_EVENT_MAP = {
  * @param {object} deps - dependances injectees
  * @param {object} deps.automailerStorage - storage automailer
  * @param {object} deps.proactiveAgentStorage - storage proactive-agent
- * @param {Function} deps._getHubSpotClient - retourne un client HubSpot ou null
+ * @param {Function} deps._getHubSpotClient - DEPRECATED v2.0 (retourne null)
  * @param {Function} deps._enrichContactWithOrg - enrichit un contact avec l'organisation
  * @param {Function} deps.sendMessage - sendMessage(chatId, text, parseMode)
  * @param {Function} deps.sendMessageWithButtons - sendMessageWithButtons(chatId, text, buttons)
@@ -246,36 +246,8 @@ function createResendHandler(deps) {
       }
     }
 
-    // Sync CRM + avancement deal automatique pour les evenements importants
-    if (['opened', 'bounced', 'clicked'].includes(status)) {
-      try {
-        const hubspot = _getHubSpotClient();
-        if (hubspot) {
-          const contact = await hubspot.findContactByEmail(email.to);
-          if (contact && contact.id) {
-            const STATUS_LABELS = { opened: 'Ouvert', bounced: 'Bounce', clicked: 'Clique' };
-            const noteBody = 'Email "' + (email.subject || '(sans sujet)') + '" — ' + (STATUS_LABELS[status] || status) + '\n' +
-              'Destinataire : ' + email.to + '\n' +
-              'Date : ' + new Date().toLocaleDateString('fr-FR') + '\n' +
-              '[Webhook Resend — sync auto]';
-            const note = await hubspot.createNote(noteBody);
-            if (note && note.id) {
-              await hubspot.associateNoteToContact(note.id, contact.id);
-            }
-            // Avancement automatique des deals selon l'evenement
-            if (status === 'opened') {
-              const adv = await hubspot.advanceDealStage(contact.id, 'qualifiedtobuy', 'email_opened');
-              if (adv > 0) log.info('webhook', 'Deal avance a qualifiedtobuy pour ' + email.to + ' (email ouvert)');
-            } else if (status === 'clicked') {
-              const adv = await hubspot.advanceDealStage(contact.id, 'presentationscheduled', 'email_clicked');
-              if (adv > 0) log.info('webhook', 'Deal avance a presentationscheduled pour ' + email.to + ' (clic email)');
-            }
-          }
-        }
-      } catch (crmErr) {
-        log.warn('webhook', 'CRM sync echoue: ' + crmErr.message);
-      }
-    }
+    // v2.0-cleanup : sync CRM HubSpot supprimé sur events email (opened/bounced/
+    // clicked). Folk CRM lundi via skills/trigger-engine/folk-client.js.
 
     // Clic email → programmer reactive FU + proposer meeting immediatement
     if (status === 'clicked' && ProspectResearcher) {

@@ -14,7 +14,7 @@ const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBR
 function createEmailTracking(deps) {
   const {
     getAutomailerStorage, getProactiveAgentStorage, getFlowFastStorage, getLeadEnrichStorage,
-    getHubSpotClient, getProspectResearcher, claudeKey
+    getProspectResearcher, claudeKey
   } = deps;
 
   /**
@@ -54,8 +54,7 @@ function createEmailTracking(deps) {
       // Tracker dans Proactive Agent (hot lead detection — toujours)
       _trackHotLead(email, trackingId, proactiveAgentStorage);
 
-      // CRM sync async
-      _syncCrmOpen(email, getHubSpotClient);
+      // v2.0-cleanup : CRM sync HubSpot supprimé. Folk lundi.
     } catch (trackErr) {
       log.warn('tracking', 'Erreur tracking pixel: ' + trackErr.message);
     }
@@ -90,7 +89,7 @@ function createEmailTracking(deps) {
         automailerStorage.updateEmailStatus(email.id, 'clicked', { lastClickedUrl: redirectUrl });
         log.info('tracking', 'Click tracked: ' + email.to + ' -> ' + redirectUrl.substring(0, 80));
         _trackNicheEvent(email, 'clicked');
-        _syncCrmClick(email, redirectUrl, getHubSpotClient);
+        // v2.0-cleanup : CRM sync HubSpot supprimé. Folk lundi.
       }
     } catch (e) {
       log.warn('tracking', 'Click tracking error: ' + e.message);
@@ -222,39 +221,8 @@ function createEmailTracking(deps) {
     } catch (ntErr) { log.warn('tracking', 'Niche tracking: ' + ntErr.message); }
   }
 
-  function _syncCrmOpen(email, getHubSpotClient) {
-    (async () => {
-      try {
-        const hubspot = getHubSpotClient();
-        if (!hubspot) return;
-        const contact = await hubspot.findContactByEmail(email.to);
-        if (contact && contact.id) {
-          const noteBody = 'Email "' + (email.subject || '') + '" — Ouvert (pixel tracking)\nDate : ' + new Date().toLocaleDateString('fr-FR');
-          const note = await hubspot.createNote(noteBody);
-          if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
-          const advanced = await hubspot.advanceDealStage(contact.id, 'qualifiedtobuy', 'email_opened');
-          if (advanced > 0) log.info('tracking', 'Deal avance a qualifiedtobuy pour ' + email.to + ' (email ouvert)');
-        }
-      } catch (crmErr) { log.warn('tracking', 'CRM sync open: ' + crmErr.message); }
-    })();
-  }
-
-  function _syncCrmClick(email, redirectUrl, getHubSpotClient) {
-    (async () => {
-      try {
-        const hubspot = getHubSpotClient();
-        if (!hubspot) return;
-        const contact = await hubspot.findContactByEmail(email.to);
-        if (contact && contact.id) {
-          const noteBody = 'Email "' + (email.subject || '') + '" — Clic (click tracking)\nURL: ' + redirectUrl.substring(0, 200) + '\nDate : ' + new Date().toLocaleDateString('fr-FR');
-          const note = await hubspot.createNote(noteBody);
-          if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
-          const adv = await hubspot.advanceDealStage(contact.id, 'presentationscheduled', 'email_clicked');
-          if (adv > 0) log.info('tracking', 'Deal avance a presentationscheduled pour ' + email.to + ' (clic email)');
-        }
-      } catch (crmErr) { log.warn('tracking', 'CRM sync click: ' + crmErr.message); }
-    })();
-  }
+  // v2.0-cleanup : sync CRM HubSpot supprimé. Folk CRM remplacera lundi
+  // (skills/trigger-engine/folk-client.js à coder avec FOLK_API_KEY).
 
   return { handlePixel, handleClick };
 }

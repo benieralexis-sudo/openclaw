@@ -67,7 +67,6 @@ services:
       DECLARATIVE_PAIN_ENABLED: ${DECLARATIVE_PAIN_ENABLED:-false}
 
       # ── HubSpot (lecture seule, optionnel) ──
-      HUBSPOT_API_KEY: ${HUBSPOT_API_KEY:-}
 
       # ── Google Calendar (booking RDV) ──
       GOOGLE_BOOKING_URL: ${GOOGLE_BOOKING_URL:-}
@@ -174,7 +173,6 @@ services:
       MEETING_SCHEDULER_DATA_DIR: /data/meeting-scheduler
       APP_CONFIG_DIR: /data/app-config
       DASHBOARD_DATA_DIR: /data/dashboard
-      HUBSPOT_API_KEY: ${HUBSPOT_API_KEY:-}
       CLIENT_NAME: ${CLIENT_NAME:-iFIND}
       ROUTER_URL: http://telegram-router:9090
     volumes:

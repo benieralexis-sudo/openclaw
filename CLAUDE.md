@@ -169,7 +169,7 @@ skills/trigger-engine/
 - `INPI_USERNAME/PASSWORD` (marques)
 - `META_AD_LIBRARY_TOKEN`
 - `RESEND_API_KEY` + `RESEND_WEBHOOK_SECRET`
-- `HUBSPOT_API_KEY` (CRM read)
+- `FOLK_API_KEY` (CRM lundi — remplace HubSpot)
 - `TELEGRAM_BOT_TOKEN` (admin notif)
 - `IMAP_HOST/USER/PASS` (inbox polling)
 - `GOOGLE_*` (calendar booking)

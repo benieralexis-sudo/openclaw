@@ -187,8 +187,6 @@ function recordSkillError(skill, errMsg) {
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const HUBSPOT_KEY = process.env.HUBSPOT_API_KEY;
-const APOLLO_KEY = process.env.APOLLO_API_KEY || '';
 const CLAUDE_KEY = process.env.CLAUDE_API_KEY || '';
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const SENDER_EMAIL = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
@@ -607,7 +605,7 @@ if (InboxListener) {
     },
     onReplyDetected: createReplyPipeline({
       openaiKey: OPENAI_KEY, callClaude, escTg,
-      automailerStorage: automailerStorageForInbox, getHubSpotClient: _getHubSpotClient,
+      automailerStorage: automailerStorageForInbox,
       sendMessage, sendMessageWithButtons, adminChatId: ADMIN_CHAT_ID,
       meetingHandler,
       getPendingDrafts: () => _pendingDrafts, hitlId: _hitlId, saveHitlDrafts: _saveHitlDrafts,
@@ -679,9 +677,8 @@ const autonomousPilotStorage = _safeRequire('../skills/autonomous-pilot/storage.
 const flowFastStorageRouter = _safeRequire('../skills/flowfast/storage.js', null);
 const leadEnrichStorageRouter = _safeRequire('../skills/lead-enrich/storage.js', null);
 
-// Cross-skill: HubSpot client legacy v9.5 — neutralisé v2.0 cleanup.
-// Sera réimplémenté dans skills/trigger-engine/sources/ si besoin de sync CRM.
-function _getHubSpotClient() { return null; }
+// v2.0-cleanup : HubSpot client supprimé. Folk CRM sera branché lundi
+// (skills/trigger-engine/folk-client.js avec FOLK_API_KEY).
 
 // Helper : enrichir un contact avec organization depuis lead-enrich (pour ProspectResearcher)
 function _enrichContactWithOrg(email, contactName, company, title) {
@@ -704,13 +701,13 @@ function _enrichContactWithOrg(email, contactName, company, title) {
 }
 
 // --- Cron Manager (module extrait) ---
-// Note : _getHubSpotClient est defini plus bas, on passe une closure pour resolution lazy
+// v2.0-cleanup : engines/handlers legacy stubés (no-op), HubSpot supprimé.
 const cronManager = createCronManager({
   engines: { proactiveEngine, autoPilotEngine },
   handlers: { selfImproveHandler, webIntelHandler, systemAdvisorHandler, automailerHandler, meetingHandler },
   storages: { proactiveAgentStorage, selfImproveStorage, webIntelStorage, systemAdvisorStorage, autonomousPilotStorage },
   sendMessage,
-  _getHubSpotClient: () => _getHubSpotClient(),
+  _getHubSpotClient: () => null,
   ADMIN_CHAT_ID
 });
 const { startAllCrons, stopAllCrons } = cronManager;
@@ -808,7 +805,7 @@ function buildSystemStatus() {
     { name: 'France Travail (Hiring API)', key: process.env.FRANCETRAVAIL_CLIENT_ID },
     { name: 'INPI (Marques)', key: process.env.INPI_USERNAME },
     { name: 'Meta Ad Library', key: process.env.META_AD_LIBRARY_TOKEN },
-    { name: 'HubSpot (CRM read)', key: HUBSPOT_KEY }
+    { name: 'Folk CRM (à brancher lundi)', key: process.env.FOLK_API_KEY }
   ];
 
   const emailSafe = SENDER_EMAIL && SENDER_EMAIL !== 'onboarding@resend.dev' && SENDER_EMAIL.trim() !== '';
@@ -1391,7 +1388,7 @@ const ProspectResearcher = _safeRequire('../skills/autonomous-pilot/prospect-res
 const resendHandlerModule = createResendHandler({
   automailerStorage,
   proactiveAgentStorage,
-  _getHubSpotClient,
+  _getHubSpotClient: () => null,
   _enrichContactWithOrg,
   sendMessage,
   sendMessageWithButtons,
@@ -1433,7 +1430,6 @@ const emailTracking = createEmailTracking({
   getProactiveAgentStorage: () => proactiveAgentStorage,
   getFlowFastStorage: () => flowFastStorageRouter,
   getLeadEnrichStorage: () => leadEnrichStorageRouter,
-  getHubSpotClient: _getHubSpotClient,
   getProspectResearcher: () => ProspectResearcher,
   enrichContactWithOrg: _enrichContactWithOrg,
   claudeKey: CLAUDE_KEY

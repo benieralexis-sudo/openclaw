@@ -20,7 +20,7 @@ const {
 function createReplyPipeline(deps) {
   const {
     openaiKey, callClaude, escTg,
-    automailerStorage, getHubSpotClient,
+    automailerStorage,
     sendMessage, sendMessageWithButtons, adminChatId,
     meetingHandler,
     getPendingDrafts, hitlId, saveHitlDrafts,
@@ -122,8 +122,7 @@ function createReplyPipeline(deps) {
     const tone = classification.tone || 'neutral';
     log.info('inbox-manager', 'Sentiment: ' + sentiment + ' (score=' + score + ', tone=' + tone + ') pour ' + replyData.from);
 
-    // === 3. Update CRM HubSpot avec sentiment ===
-    _syncCrmSentiment(replyData, classification, emailsToProcess, getHubSpotClient);
+    // v2.0-cleanup : sync CRM HubSpot supprimé. Folk CRM lundi via webhook tenant.
 
     // === 3a-bis. FEEDBACK LOOP ===
     _trackFeedbackLoop(replyData, sentiment);
@@ -661,34 +660,8 @@ function createReplyPipeline(deps) {
     }
   }
 
-  function _syncCrmSentiment(replyData, classification, emailsToProcess, getHubSpotClient) {
-    (async () => {
-      try {
-        const hubspot = getHubSpotClient();
-        if (!hubspot) return;
-        let contact = null;
-        for (const ep of emailsToProcess) {
-          contact = await hubspot.findContactByEmail(ep);
-          if (contact && contact.id) break;
-        }
-        if (contact && contact.id) {
-          const LABELS = { interested: 'POSITIF', question: 'QUESTION', not_interested: 'NEGATIF', out_of_office: 'OOO', bounce: 'BOUNCE' };
-          const noteBody = 'Reponse email recue de ' + replyData.from + '\n' +
-            'Sujet : ' + (replyData.subject || '(sans sujet)') + '\n' +
-            'Sentiment : ' + (LABELS[classification.sentiment] || classification.sentiment) + ' (score: ' + classification.score + ')\n' +
-            'Analyse : ' + (classification.reason || '') + '\n' +
-            '[Inbox Manager — classification IA]';
-          const note = await hubspot.createNote(noteBody);
-          if (note && note.id) await hubspot.associateNoteToContact(note.id, contact.id);
-          if (classification.sentiment === 'interested') {
-            await hubspot.advanceDealStage(contact.id, 'presentationscheduled', 'reply_interested').catch(() => {});
-          }
-        }
-      } catch (e) {
-        log.warn('inbox-manager', 'CRM update echoue:', e.message);
-      }
-    })();
-  }
+  // v2.0-cleanup : _syncCrmSentiment HubSpot supprimé. Folk CRM lundi via
+  // skills/trigger-engine/folk-client.js (webhook par tenant).
 
   function _trackFeedbackLoop(replyData, sentiment) {
     try {
