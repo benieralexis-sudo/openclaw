@@ -1,0 +1,72 @@
+---
+interface Props {
+  title: string;
+  lastUpdate: string;
+}
+
+const { title, lastUpdate } = Astro.props;
+---
+
+<section class="section">
+  <div class="container-page">
+    <div class="mx-auto max-w-3xl">
+      <a href="/" class="mb-8 inline-flex items-center gap-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+          <path d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
+        Retour à l'accueil
+      </a>
+
+      <h1 class="font-display text-4xl font-bold tracking-tight md:text-5xl">{title}</h1>
+
+      <article class="prose-legal mt-10">
+        <slot />
+      </article>
+
+      <p class="mt-12 border-t border-border pt-6 text-sm text-ink-muted">
+        Dernière mise à jour : {lastUpdate}
+      </p>
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  .prose-legal h2 {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    letter-spacing: -0.02em;
+    margin: 2.5rem 0 1rem;
+  }
+  .prose-legal h3 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    margin: 1.5rem 0 0.5rem;
+  }
+  .prose-legal p,
+  .prose-legal li {
+    font-size: 0.9375rem;
+    color: var(--color-ink-soft);
+    line-height: 1.75;
+    margin-bottom: 0.75rem;
+  }
+  .prose-legal ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .prose-legal a {
+    color: var(--color-primary-600);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .prose-legal a:hover {
+    color: var(--color-primary-700);
+  }
+  .prose-legal strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,64 @@
+---
+import LiveTriggerFeed from "./LiveTriggerFeed.astro";
+---
+
+<section class="relative overflow-hidden mesh-hero">
+  <!-- Grille subtile en background -->
+  <div
+    class="pointer-events-none absolute inset-0 opacity-[0.35]"
+    style="background-image: linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgb(15 23 42 / 0.04) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 0%, transparent 100%);"
+    aria-hidden="true"
+  ></div>
+
+  <div class="container-page relative pt-20 pb-24 md:pt-28 md:pb-32">
+    <div class="mx-auto max-w-3xl text-center">
+      <div class="reveal mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-4 py-1.5 text-sm text-ink-soft shadow-soft backdrop-blur-sm">
+        <span class="relative flex h-2 w-2">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60"></span>
+          <span class="relative inline-flex h-2 w-2 rounded-full bg-success"></span>
+        </span>
+        <span>Trigger Engine FR — propulsé par Claude Opus 4.7</span>
+      </div>
+
+      <h1 class="reveal text-4xl font-bold leading-[1.05] tracking-display text-ink sm:text-5xl md:text-6xl lg:text-[4rem]">
+        Les signaux d'achat de vos
+        <span class="relative inline-block">
+          <span class="relative z-10">prochains clients</span>
+          <span
+            class="absolute inset-x-0 bottom-1 -z-0 h-3 bg-primary-200/70 md:h-4"
+            aria-hidden="true"
+          ></span>
+        </span>
+        — détectés en temps réel.
+      </h1>
+
+      <p class="reveal mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-soft md:text-xl">
+        iFIND surveille 9 sources publiques françaises pour repérer les PME
+        qui <strong class="font-semibold text-ink">déclenchent un besoin maintenant</strong> :
+        levée de fonds, recrutement clé, dépôt INPI, nouveau dirigeant.
+        Vous recevez les leads qualifiés, attribués au SIRENE, prêts à être contactés.
+      </p>
+
+      <div class="reveal mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="/#offres" class="btn btn-primary btn-lg">
+          Voir les offres
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 5l7 7-7 7" />
+          </svg>
+        </a>
+        <a href="/#fonctionnement" class="btn btn-ghost btn-lg">
+          Comment ça marche
+        </a>
+      </div>
+
+      <p class="reveal mt-5 text-sm text-ink-muted">
+        Sans engagement · Résiliable à tout moment · Données SIRENE-attribuées
+      </p>
+    </div>
+
+    <!-- Live trigger feed -->
+    <div class="reveal mx-auto mt-16 max-w-4xl md:mt-20">
+      <LiveTriggerFeed />
+    </div>
+  </div>
+</section>

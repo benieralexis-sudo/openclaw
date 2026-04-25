@@ -1,0 +1,214 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Faq from "../components/Faq.astro";
+import FinalCta from "../components/FinalCta.astro";
+
+const title = "Leads Data 199€/mois — iFIND Trigger Engine FR";
+const description =
+  "Recevez jusqu'à 500 leads PME françaises qualifiés ≥ 7/10 chaque mois. Triggers détectés sur 9 sources, attribution SIRENE Pappers, scoring Claude Opus 4.7. Sans engagement, 199€/mois HT.";
+
+const productSchema = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: "iFIND — Leads Data",
+  description: "Flux mensuel de leads PME françaises qualifiés via détection de signaux d'achat publics.",
+  brand: { "@type": "Brand", name: "iFIND" },
+  offers: {
+    "@type": "Offer",
+    price: "199",
+    priceCurrency: "EUR",
+    priceSpecification: {
+      "@type": "UnitPriceSpecification",
+      price: "199",
+      priceCurrency: "EUR",
+      unitText: "MONTH",
+    },
+    availability: "https://schema.org/InStock",
+    url: "https://ifind.fr/leads-data",
+  },
+};
+
+const inclusions = [
+  {
+    title: "Jusqu'à 500 leads qualifiés / mois",
+    description:
+      "Plafond volontaire à 500 pour préserver la qualité. Tous les leads livrés sont notés ≥ 7/10 par notre moteur de scoring Claude Opus 4.7.",
+  },
+  {
+    title: "9 sources publiques FR surveillées 24h/24",
+    description:
+      "BODACC, JOAFE, INPI, France Travail, Pappers, Meta Ad Library, RSS levées, Trigify, Rodz. Aucune source US, aucun scraping LinkedIn agressif.",
+  },
+  {
+    title: "Attribution SIRENE premium via Pappers",
+    description:
+      "SIRET unique, dirigeants à jour, effectifs, bilans. Aucune confusion entre filiale et maison-mère.",
+  },
+  {
+    title: "Brief contextuel par lead",
+    description:
+      "Pour chaque lead, un briefing rédigé par Claude Opus 4.7 : pourquoi ce trigger compte pour vous, quelle accroche tenter, quelle objection anticiper.",
+  },
+  {
+    title: "Dashboard temps réel app.ifind.fr",
+    description:
+      "Visualisation des leads dès qu'ils sont qualifiés. Filtres par score, source, secteur, géographie. Marquage intéressé/non-intéressé pour affiner l'ICP.",
+  },
+  {
+    title: "Alertes pépites + digest hebdo",
+    description:
+      "Les leads 9-10/10 vous arrivent par email instantanément. Le digest du lundi récapitule tout le pipeline de la semaine précédente.",
+  },
+  {
+    title: "Export CSV / API webhook",
+    description:
+      "Branchez votre CRM (Folk, HubSpot, Pipedrive…) ou récupérez vos leads en CSV en un clic.",
+  },
+  {
+    title: "Calibration ICP en 48h",
+    description:
+      "Onboarding court : industrie, taille, géographie, signaux pertinents. Vous démarrez sous 72h après signature.",
+  },
+];
+
+const notIncluded = [
+  "Envoi des emails (vous gérez votre stack outbound)",
+  "Booking de RDV par notre commercial",
+  "Mailboxes warmup, anti-bounce, copywriting",
+];
+
+const idealFor = [
+  "Vous avez déjà un SDR / un commercial / un bizdev opérationnel",
+  "Vous maîtrisez votre stack outbound (Smartlead, Lemlist, Apollo…)",
+  "Vous voulez juste de la donnée fraîche et chaude, pas un service complet",
+  "Votre équipe préfère contrôler le ton, le call, la relation",
+];
+---
+
+<BaseLayout title={title} description={description} schema={productSchema}>
+  <!-- Hero offre -->
+  <section class="relative mesh-hero overflow-hidden border-b border-border">
+    <div class="container-page relative pt-20 pb-16 md:pt-28 md:pb-20">
+      <div class="mx-auto max-w-3xl text-center">
+        <p class="reveal eyebrow">Offre Leads Data</p>
+        <h1 class="reveal mt-3 text-4xl font-bold leading-tight tracking-display md:text-5xl">
+          La donnée brute, fraîche et qualifiée. Vous gérez l'outbound.
+        </h1>
+        <p class="reveal mx-auto mt-5 max-w-2xl text-lg text-ink-soft">
+          Si vous avez déjà votre stack et votre équipe, payez juste pour la donnée.
+          500 leads max/mois, tous scorés ≥ 7/10, attribués au SIRENE.
+        </p>
+
+        <div class="reveal mt-8 inline-flex items-baseline gap-1">
+          <span class="font-display text-6xl font-bold tracking-tight">199</span>
+          <span class="text-xl text-ink-soft">€/mois HT</span>
+        </div>
+        <p class="reveal mt-1 text-sm text-ink-muted">Sans engagement · Résiliable à tout moment</p>
+
+        <div class="reveal mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <a
+            href="https://tally.so/r/RGZ5JP"
+            target="_blank"
+            rel="noopener"
+            class="btn btn-primary btn-lg"
+          >
+            Démarrer Leads Data
+          </a>
+          <a href="/full-service" class="btn btn-ghost btn-lg">
+            Comparer avec Full Service
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pour qui -->
+  <section class="section">
+    <div class="container-page">
+      <div class="mx-auto max-w-3xl">
+        <p class="eyebrow reveal">Pour qui</p>
+        <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+          Cette offre est faite pour vous si…
+        </h2>
+        <ul class="mt-8 grid gap-4 md:grid-cols-2">
+          {
+            idealFor.map((point) => (
+              <li class="reveal flex items-start gap-3 rounded-xl border border-border bg-surface-soft p-5">
+                <svg class="mt-0.5 h-5 w-5 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span class="text-ink">{point}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Inclusions détaillées -->
+  <section class="section bg-surface-soft">
+    <div class="container-page">
+      <div class="mx-auto max-w-3xl">
+        <p class="eyebrow reveal">Inclus dans 199€/mois</p>
+        <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+          Tout ce qu'il faut pour alimenter votre outbound.
+        </h2>
+
+        <div class="mt-12 space-y-4">
+          {
+            inclusions.map((item) => (
+              <div class="reveal card-feature card grid gap-4 md:grid-cols-[auto_1fr] md:gap-6">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="font-display text-lg font-semibold text-ink">{item.title}</h3>
+                  <p class="mt-2 text-ink-soft">{item.description}</p>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+
+        <div class="reveal mt-12 rounded-xl border border-border bg-white p-6">
+          <p class="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+            Non inclus
+          </p>
+          <ul class="mt-3 space-y-2 text-sm">
+            {
+              notIncluded.map((n) => (
+                <li class="flex items-start gap-2 text-ink-faint">
+                  <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                  <span>{n}</span>
+                </li>
+              ))
+            }
+          </ul>
+          <p class="mt-4 text-sm text-ink-soft">
+            Si vous voulez aussi qu'on contacte les leads et qu'on book les RDV,
+            <a href="/full-service" class="font-medium text-primary-600 hover:text-primary-700">
+              regardez Full Service à 890€/mois
+            </a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <Faq
+    items={[
+      { q: "Combien de leads par mois exactement ?", a: "Jusqu'à 500 leads qualifiés ≥ 7/10. Plafond volontaire — on préfère vous donner 200 leads très chauds que 5 000 tièdes." },
+      { q: "Puis-je passer à Full Service en cours d'abonnement ?", a: "Oui, à tout moment. Le différentiel tarifaire est facturé au prorata." },
+      { q: "Quel format de livraison ?", a: "Dashboard temps réel app.ifind.fr + alertes email pépites + digest hebdo + export CSV/API webhook pour brancher votre CRM." },
+      { q: "Calibration de l'ICP, comment ça se passe ?", a: "Onboarding 30 minutes : industrie, taille, géographie, types de triggers à privilégier. Premiers leads sous 72h." },
+      { q: "Engagement ?", a: "Aucun. Préavis 30 jours, résiliable à tout moment depuis le dashboard." },
+    ]}
+  />
+
+  <FinalCta />
+</BaseLayout>

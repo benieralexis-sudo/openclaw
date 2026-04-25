@@ -1,0 +1,70 @@
+---
+const oldWay = [
+  {
+    label: "Intent data type Bombora",
+    points: [
+      "Données US, peu de PME FR",
+      "Mesure des recherches web (signal mou)",
+      "Pas d'attribution SIRENE",
+      "12 000 € / an minimum",
+    ],
+  },
+  {
+    label: "Listes Apollo / Cognism",
+    points: [
+      "Tout le monde a la même liste",
+      "Aucun contexte temps réel",
+      "Pas de raison de contacter aujourd'hui",
+      "Saturation de la boîte mail prospect",
+    ],
+  },
+  {
+    label: "SDR humain",
+    points: [
+      "60 K€ chargé · 3 mois de ramp-up",
+      "20-30 contacts qualifiés/jour max",
+      "Pas de couverture 24h/24 des sources",
+      "Tourne mal sans outils derrière",
+    ],
+  },
+];
+---
+
+<section class="section">
+  <div class="container-page">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="eyebrow reveal">Le problème</p>
+      <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+        L'outbound marche encore, mais pas avec les méthodes d'avant.
+      </h2>
+      <p class="reveal mx-auto mt-4 text-lg text-ink-soft">
+        Les solutions classiques mesurent l'intérêt général, pas le besoin immédiat.
+        Résultat : vous parlez à des gens qui pourraient avoir besoin de vous un jour, pas à
+        ceux qui en ont besoin <em>cette semaine</em>.
+      </p>
+    </div>
+
+    <div class="mt-14 grid gap-5 md:grid-cols-3">
+      {
+        oldWay.map((item) => (
+          <div class="reveal card relative overflow-hidden">
+            <div class="absolute right-4 top-4 text-ink-faint" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </div>
+            <h3 class="font-display text-lg font-semibold text-ink">{item.label}</h3>
+            <ul class="mt-4 space-y-2 text-sm text-ink-soft">
+              {item.points.map((p) => (
+                <li class="flex items-start gap-2">
+                  <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-ink-faint" />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>

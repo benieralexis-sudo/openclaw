@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /mentions-legales
+Disallow: /politique-confidentialite
+
+Sitemap: https://ifind.fr/sitemap-index.xml

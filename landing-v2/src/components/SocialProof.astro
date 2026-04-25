@@ -1,0 +1,26 @@
+---
+const stats = [
+  { value: "20 337", label: "events analysés ce mois-ci" },
+  { value: "217", label: "matches PME × triggers" },
+  { value: "134", label: "leads qualifiés ≥ 7/10" },
+  { value: "9", label: "sources publiques FR" },
+];
+---
+
+<section class="border-y border-border bg-surface-soft py-14">
+  <div class="container-page">
+    <p class="text-center text-xs uppercase tracking-wider text-ink-muted">
+      Pipeline de production · avril 2026
+    </p>
+    <div class="mt-8 grid grid-cols-2 gap-y-10 md:grid-cols-4">
+      {
+        stats.map((s) => (
+          <div class="reveal text-center">
+            <p class="font-display text-3xl font-bold text-ink md:text-4xl">{s.value}</p>
+            <p class="mt-1.5 text-sm text-ink-soft">{s.label}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>

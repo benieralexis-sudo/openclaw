@@ -1,0 +1,105 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/Hero.astro";
+import SocialProof from "../components/SocialProof.astro";
+import Problem from "../components/Problem.astro";
+import HowItWorks from "../components/HowItWorks.astro";
+import Pricing from "../components/Pricing.astro";
+import Faq from "../components/Faq.astro";
+import FinalCta from "../components/FinalCta.astro";
+
+const title = "iFIND — Trigger Engine FR · Détection de signaux d'achat temps réel";
+const description =
+  "iFIND détecte en temps réel les PME françaises qui déclenchent un besoin d'achat (levée de fonds, recrutement, INPI, dirigeant). 9 sources publiques, attribution SIRENE, scoring par Claude Opus 4.7. Leads Data 199€/mois ou Full Service 890€/mois.";
+
+const homeSchema = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      name: "iFIND",
+      alternateName: "Trigger Engine FR",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      description: "Moteur SaaS de détection de signaux d'achat temps réel sur les PME françaises.",
+      offers: [
+        {
+          "@type": "Offer",
+          name: "Leads Data",
+          price: "199",
+          priceCurrency: "EUR",
+          priceSpecification: {
+            "@type": "UnitPriceSpecification",
+            price: "199",
+            priceCurrency: "EUR",
+            unitText: "MONTH",
+          },
+          availability: "https://schema.org/InStock",
+          url: "https://ifind.fr/leads-data",
+        },
+        {
+          "@type": "Offer",
+          name: "Full Service",
+          price: "890",
+          priceCurrency: "EUR",
+          priceSpecification: {
+            "@type": "UnitPriceSpecification",
+            price: "890",
+            priceCurrency: "EUR",
+            unitText: "MONTH",
+          },
+          availability: "https://schema.org/InStock",
+          url: "https://ifind.fr/full-service",
+        },
+      ],
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "En quoi un trigger est-il différent de l'intent data classique ?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "L'intent data mesure des signaux de recherche web (probabilité). Un trigger est un événement public dur (levée de fonds, dépôt INPI, recrutement) — un fait, pas une probabilité.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Quelles sont les sources surveillées ?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "9 sources publiques françaises : BODACC, JOAFE, INPI, France Travail, Pappers, Meta Ad Library, RSS levées spécialisés, Trigify, Rodz.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Combien de leads par mois ?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Jusqu'à 500 leads qualifiés ≥ 7/10 par mois. Plafond volontaire pour préserver la qualité.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Puis-je résilier à tout moment ?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Oui. Sans engagement annuel, préavis 30 jours.",
+          },
+        },
+      ],
+    },
+  ],
+};
+---
+
+<BaseLayout title={title} description={description} schema={homeSchema}>
+  <Hero />
+  <SocialProof />
+  <Problem />
+  <HowItWorks />
+  <Pricing />
+  <Faq />
+  <FinalCta />
+</BaseLayout>

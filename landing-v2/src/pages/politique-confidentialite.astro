@@ -1,0 +1,135 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import LegalPage from "../components/LegalPage.astro";
+---
+
+<BaseLayout
+  title="Politique de confidentialité — iFIND"
+  description="Politique de confidentialité du site ifind.fr — collecte, traitement, durées de conservation et droits RGPD."
+  noindex={true}
+>
+  <LegalPage title="Politique de confidentialité" lastUpdate="25 avril 2026">
+    <p>
+      La présente politique de confidentialité décrit comment iFIND, exploité par Alexis Bénier
+      (auto-entrepreneur), collecte, utilise et protège les données personnelles dans le cadre de
+      son service de détection de signaux d'achat et de prospection B2B assistée par intelligence
+      artificielle.
+    </p>
+
+    <h2>1. Responsable de traitement</h2>
+    <ul>
+      <li><strong>Nom :</strong> Alexis Bénier</li>
+      <li><strong>Statut :</strong> Auto-entrepreneur (micro-entreprise)</li>
+      <li><strong>Email :</strong> <a href="mailto:benieralexis@gmail.com">benieralexis@gmail.com</a></li>
+    </ul>
+
+    <h2>2. Données personnelles collectées</h2>
+    <p>Dans le cadre de notre activité, nous collectons et traitons les catégories de données suivantes :</p>
+    <h3>2.1 Données de prospects (B2B)</h3>
+    <ul>
+      <li>Données professionnelles publiquement disponibles (nom, fonction, entreprise, email professionnel, téléphone professionnel, profil LinkedIn)</li>
+      <li>SIRET, dirigeants, effectifs, bilans (sources : Pappers, INPI, BODACC, JOAFE)</li>
+      <li>Signaux publics : levées de fonds, recrutements, dépôts INPI, campagnes pub</li>
+    </ul>
+    <h3>2.2 Données d'interaction email</h3>
+    <ul>
+      <li>Statut de délivrabilité, ouvertures, clics, réponses</li>
+      <li>Désinscriptions et opt-out</li>
+    </ul>
+    <h3>2.3 Données du site web ifind.fr</h3>
+    <ul>
+      <li>Données de navigation strictement nécessaires (logs serveur, anonymisés sous 30 jours)</li>
+    </ul>
+
+    <h2>3. Finalités du traitement</h2>
+    <ul>
+      <li>Identifier et qualifier des prospects B2B pertinents</li>
+      <li>Émettre des communications de prospection commerciale ciblées</li>
+      <li>Mesurer la performance des campagnes et améliorer le service</li>
+      <li>Répondre aux demandes des visiteurs et clients</li>
+    </ul>
+
+    <h2>4. Base légale du traitement</h2>
+    <p>Le traitement des données repose sur :</p>
+    <ul>
+      <li><strong>L'intérêt légitime</strong> (article 6.1.f du RGPD) pour la prospection B2B</li>
+      <li><strong>L'exécution contractuelle</strong> (article 6.1.b) pour les clients souscrits</li>
+      <li><strong>Le consentement</strong> lorsque requis</li>
+    </ul>
+
+    <h2>5. Durées de conservation</h2>
+    <ul>
+      <li>Données prospects non-clients : 3 ans après dernière interaction</li>
+      <li>Données clients actifs : durée de la relation contractuelle + 5 ans</li>
+      <li>Logs serveur : 30 jours puis anonymisation</li>
+      <li>Désinscrits : conservation de l'email haché à durée indéterminée pour respecter l'opt-out</li>
+    </ul>
+    <p>Au-delà de ces durées, les données sont supprimées ou anonymisées de manière irréversible.</p>
+
+    <h2>6. Destinataires des données</h2>
+    <p>Les données personnelles sont traitées exclusivement par iFIND (Alexis Bénier) et ne sont jamais vendues à des tiers.</p>
+    <p>Les données peuvent être partagées avec :</p>
+    <ul>
+      <li>Pappers (enrichissement SIRENE) — sous-traitant FR</li>
+      <li>Dropcontact (email finder) — sous-traitant FR</li>
+      <li>Resend (envoi email) — sous-traitant US sous DPF</li>
+      <li>Anthropic (qualification IA via Claude) — sous-traitant US sous DPF</li>
+    </ul>
+    <p>Aucun transfert de données hors de l'Union Européenne n'est effectué sans garanties appropriées (clauses contractuelles types ou décision d'adéquation).</p>
+
+    <h2>7. Pixel de suivi (tracking)</h2>
+    <p>
+      Les emails de prospection peuvent contenir un <strong>pixel de suivi anonymisé</strong> permettant
+      de mesurer les ouvertures. Les liens peuvent passer par un système de redirection pour mesurer
+      les clics. Cette mesure est anonymisée et agrégée.
+    </p>
+
+    <h2>8. Vos droits</h2>
+    <p>Conformément au RGPD (Articles 15 à 22) et à la loi Informatique et Libertés, vous disposez des droits suivants :</p>
+    <ul>
+      <li><strong>Droit d'accès</strong> à vos données</li>
+      <li><strong>Droit de rectification</strong></li>
+      <li><strong>Droit à l'effacement</strong> (« droit à l'oubli »)</li>
+      <li><strong>Droit à la limitation</strong> du traitement</li>
+      <li><strong>Droit d'opposition</strong> au traitement</li>
+      <li><strong>Droit à la portabilité</strong> de vos données</li>
+    </ul>
+    <h3>Comment exercer vos droits</h3>
+    <p>Vous pouvez exercer vos droits de deux façons :</p>
+    <ul>
+      <li>Par email à <a href="mailto:benieralexis@gmail.com">benieralexis@gmail.com</a></li>
+      <li>Via le lien de désinscription présent dans chaque email de prospection</li>
+    </ul>
+    <p>Nous nous engageons à traiter votre demande dans un <strong>délai maximum d'un mois</strong>.</p>
+
+    <h2>9. Sécurité des données</h2>
+    <ul>
+      <li>Hébergement 100% France (VPS Hostinger Paris)</li>
+      <li>Chiffrement TLS sur toutes les communications</li>
+      <li>Sauvegardes chiffrées quotidiennes</li>
+      <li>Accès restreint et journalisé</li>
+      <li>Mises à jour de sécurité régulières</li>
+    </ul>
+
+    <h2>10. Cookies du site web</h2>
+    <p>Le site ifind.fr utilise exclusivement des cookies techniques strictement nécessaires au fonctionnement du site (CSRF, session).</p>
+    <p>
+      Aucun cookie publicitaire, analytique ou de profilage n'est utilisé. Aucun consentement n'est
+      donc requis conformément à l'article 82 de la loi Informatique et Libertés et à la directive
+      ePrivacy.
+    </p>
+
+    <h2>11. Réclamation auprès de la CNIL</h2>
+    <p>
+      Si vous estimez que le traitement de vos données personnelles constitue une violation du RGPD,
+      vous avez le droit d'introduire une réclamation auprès de la Commission Nationale de l'Informatique
+      et des Libertés (CNIL) : <a href="https://www.cnil.fr" target="_blank" rel="noopener">www.cnil.fr</a>.
+    </p>
+
+    <h2>12. Modifications de la politique</h2>
+    <p>
+      Nous nous réservons le droit de modifier cette politique de confidentialité à tout moment.
+      En cas de modification substantielle, une notification sera affichée sur le site.
+    </p>
+  </LegalPage>
+</BaseLayout>

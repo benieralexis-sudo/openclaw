@@ -1,0 +1,80 @@
+---
+const steps = [
+  {
+    n: "01",
+    title: "Surveillance continue de 9 sources publiques FR",
+    description:
+      "BODACC, JOAFE, INPI, France Travail, Pappers, Meta Ad Library, RSS levées, Trigify, Rodz. 24h/24, zéro angle mort.",
+    chips: ["BODACC", "INPI", "France Travail", "Pappers", "+5"],
+  },
+  {
+    n: "02",
+    title: "Détection de 13 patterns combinatoires",
+    description:
+      "Levée + hiring sales = signal d'achat outils sales. Nouveau dirigeant + dépôt INPI = signal d'achat marketing. Combinaisons croisées par notre Trigger Engine.",
+    chips: ["Combo booster", "Hot triggers", "Declarative pain"],
+  },
+  {
+    n: "03",
+    title: "Attribution SIRENE premium via Pappers",
+    description:
+      "Chaque trigger est rattaché à une entité légale unique : SIRET, dirigeants à jour, effectifs, bilans. Aucune confusion entre filiale et maison-mère.",
+    chips: ["SIRET-attribué", "Dirigeants à jour", "Bilans"],
+  },
+  {
+    n: "04",
+    title: "Qualification et scoring par Claude Opus 4.7",
+    description:
+      "Lecture du contexte business, scoring 1-10, briefing personnalisé. Seuls les leads ≥ 7/10 entrent dans votre pipeline.",
+    chips: ["Opus 4.7", "Score ≥ 7/10", "Brief personnalisé"],
+  },
+  {
+    n: "05",
+    title: "Livraison dashboard + alertes pépites",
+    description:
+      "Vous voyez les leads en temps réel sur app.ifind.fr. Les pépites 9-10/10 vous arrivent par email instantanément, le digest hebdo récapitule le reste.",
+    chips: ["Temps réel", "Alertes pépites", "Digest hebdo"],
+  },
+];
+---
+
+<section id="fonctionnement" class="section bg-surface-soft">
+  <div class="container-page">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="eyebrow reveal">Comment ça marche</p>
+      <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+        De l'événement public à votre dashboard, en moins d'une heure.
+      </h2>
+      <p class="reveal mx-auto mt-4 text-lg text-ink-soft">
+        Pas de scraping LinkedIn agressif, pas de promesses de "millions de contacts".
+        Une chaîne de traitement claire, auditable, ancrée sur des sources publiques françaises.
+      </p>
+    </div>
+
+    <ol class="mx-auto mt-16 max-w-4xl space-y-4">
+      {
+        steps.map((s, i) => (
+          <li class="reveal card-feature card grid gap-5 md:grid-cols-[auto_1fr] md:gap-8">
+            <div class="flex md:flex-col md:items-center md:gap-3">
+              <span class="font-display text-3xl font-bold text-primary-600 md:text-4xl">{s.n}</span>
+              {i < steps.length - 1 && (
+                <span class="ml-4 hidden md:ml-0 md:block md:h-full md:w-px md:bg-border" aria-hidden="true" />
+              )}
+            </div>
+            <div>
+              <h3 class="font-display text-xl font-semibold text-ink">{s.title}</h3>
+              <p class="mt-2 text-ink-soft">{s.description}</p>
+              <div class="mt-4 flex flex-wrap gap-1.5">
+                {s.chips.map((c) => (
+                  <span class="rounded-md border border-border bg-white px-2 py-0.5 font-mono text-xs text-ink-soft">
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>

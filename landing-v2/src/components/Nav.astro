@@ -1,0 +1,42 @@
+---
+import Logo from "./Logo.astro";
+
+const links = [
+  { href: "/#fonctionnement", label: "Fonctionnement" },
+  { href: "/#offres", label: "Offres" },
+  { href: "/#faq", label: "FAQ" },
+];
+---
+
+<header class="sticky top-0 z-40 border-b border-border/60 bg-surface/85 backdrop-blur-md backdrop-saturate-150">
+  <div class="container-page flex h-16 items-center justify-between gap-6">
+    <a href="/" class="flex items-center gap-2 font-display font-semibold text-ink" aria-label="iFIND — Accueil">
+      <Logo />
+    </a>
+
+    <nav class="hidden items-center gap-7 text-sm text-ink-soft md:flex" aria-label="Navigation principale">
+      {
+        links.map((l) => (
+          <a
+            href={l.href}
+            class="transition-colors hover:text-ink"
+          >
+            {l.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="flex items-center gap-3">
+      <a
+        href="https://app.ifind.fr"
+        class="hidden text-sm font-medium text-ink-soft transition-colors hover:text-ink sm:inline-flex"
+      >
+        Connexion
+      </a>
+      <a href="/#offres" class="btn btn-primary text-sm">
+        Démarrer
+      </a>
+    </div>
+  </div>
+</header>

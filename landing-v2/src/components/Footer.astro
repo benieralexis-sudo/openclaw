@@ -1,0 +1,73 @@
+---
+import Logo from "./Logo.astro";
+
+const year = new Date().getFullYear();
+
+const cols = [
+  {
+    title: "Produit",
+    links: [
+      { href: "/#fonctionnement", label: "Fonctionnement" },
+      { href: "/leads-data", label: "Leads Data" },
+      { href: "/full-service", label: "Full Service" },
+      { href: "/#faq", label: "FAQ" },
+    ],
+  },
+  {
+    title: "Ressources",
+    links: [
+      { href: "https://app.ifind.fr", label: "Dashboard" },
+      { href: "mailto:contact@ifind.fr", label: "Nous contacter" },
+    ],
+  },
+  {
+    title: "Légal",
+    links: [
+      { href: "/mentions-legales", label: "Mentions légales" },
+      { href: "/politique-confidentialite", label: "Politique de confidentialité" },
+    ],
+  },
+];
+---
+
+<footer class="border-t border-border bg-surface-soft">
+  <div class="container-page py-14 md:py-20">
+    <div class="grid gap-12 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+      <div class="space-y-4">
+        <Logo />
+        <p class="max-w-xs text-sm leading-relaxed text-ink-soft">
+          Moteur de détection de signaux d'achat temps réel sur les PME françaises.
+          Conçu et hébergé en France.
+        </p>
+        <div class="flex flex-wrap gap-2 pt-1">
+          <span class="badge badge-success">🇫🇷 Hébergement FR</span>
+          <span class="badge">RGPD natif</span>
+        </div>
+      </div>
+
+      {
+        cols.map((col) => (
+          <div>
+            <h2 class="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-muted">
+              {col.title}
+            </h2>
+            <ul class="space-y-2.5 text-sm text-ink-soft">
+              {col.links.map((l) => (
+                <li>
+                  <a href={l.href} class="transition-colors hover:text-ink">
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="mt-14 flex flex-col items-start justify-between gap-3 border-t border-border pt-6 text-xs text-ink-muted md:flex-row md:items-center">
+      <p>© {year} iFIND. Tous droits réservés.</p>
+      <p>SIRENE-attribué · Pappers · INPI · BODACC · France Travail</p>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,83 @@
+---
+// Faux feed visuel — illustre le concept sans citer de noms réels
+const triggers = [
+  {
+    type: "Levée de fonds",
+    description: "PME industrielle (78) · Série A 4,5 M€",
+    score: "10/10 COMBO",
+    time: "il y a 2 min",
+    color: "warning",
+  },
+  {
+    type: "Recrutement Head of Sales",
+    description: "SaaS B2B (75) · 18 mois de runway · 0 commercial",
+    score: "9/10",
+    time: "il y a 8 min",
+    color: "primary",
+  },
+  {
+    type: "Dépôt INPI",
+    description: "ETI agro (44) · Nouvelle marque produit",
+    score: "8/10",
+    time: "il y a 17 min",
+    color: "primary",
+  },
+];
+---
+
+<div class="border-gradient overflow-hidden rounded-2xl bg-white shadow-lg">
+  <div class="flex items-center justify-between border-b border-border bg-surface-soft px-5 py-3">
+    <div class="flex items-center gap-2">
+      <div class="flex gap-1.5">
+        <span class="h-2.5 w-2.5 rounded-full bg-[#FF5F57]"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-[#FEBC2E]"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-[#28C840]"></span>
+      </div>
+      <span class="ml-3 font-mono text-xs text-ink-muted">app.ifind.fr — flux temps réel</span>
+    </div>
+    <div class="flex items-center gap-1.5 text-xs text-ink-muted">
+      <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-success"></span>
+      Live
+    </div>
+  </div>
+
+  <div class="divide-y divide-border">
+    {
+      triggers.map((t) => (
+        <div class="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-surface-soft">
+          <div
+            class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+              t.color === "warning"
+                ? "bg-warning-soft text-[#b45309]"
+                : "bg-primary-50 text-primary-700"
+            }`}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
+            </svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-baseline gap-2">
+              <p class="truncate font-medium text-ink">{t.type}</p>
+              <span class="font-mono text-xs text-ink-muted">{t.time}</span>
+            </div>
+            <p class="truncate text-sm text-ink-soft">{t.description}</p>
+          </div>
+          <span
+            class={`shrink-0 rounded-md px-2.5 py-1 font-mono text-xs font-semibold ${
+              t.color === "warning"
+                ? "bg-warning-soft text-[#b45309]"
+                : "bg-primary-50 text-primary-700"
+            }`}
+          >
+            {t.score}
+          </span>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="border-t border-border bg-surface-soft px-5 py-3 text-center text-xs text-ink-muted">
+    Aperçu illustratif · 134 leads qualifiés · 217 matches sur 20 337 events analysés ce mois-ci
+  </div>
+</div>

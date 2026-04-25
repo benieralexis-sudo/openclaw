@@ -1,0 +1,39 @@
+---
+interface Props {
+  variant?: "dark" | "white";
+  size?: "sm" | "md" | "lg";
+}
+
+const { variant = "dark", size = "md" } = Astro.props;
+
+const sizes = {
+  sm: "h-5",
+  md: "h-6",
+  lg: "h-8",
+};
+
+const colorClass = variant === "white" ? "text-white" : "text-ink";
+---
+
+<span class={`flex items-center gap-2 font-display ${colorClass}`}>
+  <svg
+    viewBox="0 0 32 32"
+    class={`${sizes[size]} w-auto`}
+    fill="none"
+    aria-hidden="true"
+  >
+    <rect width="32" height="32" rx="7" fill="url(#logoGradient)" />
+    <path
+      d="M10 9.5h2.4v13.2H10V9.5zm6 0h6.5v2.2h-4.1v3h3.6v2.2h-3.6v3.6H22v2.2h-6V9.5z"
+      fill="white"
+    />
+    <circle cx="22.5" cy="9.5" r="2.2" fill="#10b981" stroke="white" stroke-width="1.2" />
+    <defs>
+      <linearGradient id="logoGradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#2D4EF5" />
+        <stop offset="1" stop-color="#1F37B3" />
+      </linearGradient>
+    </defs>
+  </svg>
+  <span class={`text-[1.0625rem] font-semibold tracking-tight ${colorClass}`}>iFIND</span>
+</span>

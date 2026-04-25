@@ -1,0 +1,283 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Faq from "../components/Faq.astro";
+import FinalCta from "../components/FinalCta.astro";
+
+const title = "Full Service 890€/mois — iFIND Trigger Engine FR";
+const description =
+  "On détecte les signaux d'achat. On contacte vos prospects. On book les RDV sur votre Cal.com. Vous closez. Domaine, mailboxes, warmup, copywriting, anti-bounce inclus. 890€/mois HT, sans engagement.";
+
+const productSchema = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: "iFIND — Full Service",
+  description: "Outbound clé en main : détection de triggers + cold email + booking de RDV qualifiés.",
+  brand: { "@type": "Brand", name: "iFIND" },
+  offers: {
+    "@type": "Offer",
+    price: "890",
+    priceCurrency: "EUR",
+    priceSpecification: {
+      "@type": "UnitPriceSpecification",
+      price: "890",
+      priceCurrency: "EUR",
+      unitText: "MONTH",
+    },
+    availability: "https://schema.org/InStock",
+    url: "https://ifind.fr/full-service",
+  },
+};
+
+const flow = [
+  {
+    n: "01",
+    title: "Détection",
+    description: "Notre Trigger Engine identifie 134+ leads qualifiés/mois sur vos critères.",
+  },
+  {
+    n: "02",
+    title: "Contact",
+    description: "Cold email personnalisé (Smartlead) depuis votre domaine warmup, avec brief Opus 4.7 par lead.",
+  },
+  {
+    n: "03",
+    title: "Conversation",
+    description: "Notre commercial gère les réponses, lève les objections, qualifie le besoin.",
+  },
+  {
+    n: "04",
+    title: "Booking",
+    description: "Le RDV est posé sur votre Cal.com, avec un brief écrit du contexte et des objections.",
+  },
+  {
+    n: "05",
+    title: "Vous closez",
+    description: "Vous gardez la main sur le pitch, la démo, le closing — c'est votre relation client.",
+  },
+];
+
+const inclusions = [
+  {
+    title: "Tout le pack Leads Data inclus",
+    description: "500 leads/mois max ≥ 7/10, attribution SIRENE, dashboard temps réel, alertes pépites, digest hebdo.",
+  },
+  {
+    title: "Domaine d'envoi dédié + 3 mailboxes warmup",
+    description: "On configure un domaine alternatif (mêmes initiales, TLD différent), DNS SPF/DKIM/DMARC, 3 mailboxes Primeforge avec warmup Warmforge.",
+  },
+  {
+    title: "Cold email automatisé Smartlead",
+    description: "Séquences A/B testées par segment. Copywriting calé sur l'ICP, retravaillé tous les 30 jours selon les retours.",
+  },
+  {
+    title: "Réponses gérées par notre commercial",
+    description: "Notre commercial répond sous 4h ouvrées. Tone-of-voice aligné sur votre marque, pas de bot, pas de macro robotique.",
+  },
+  {
+    title: "Booking de RDV sur votre Cal.com",
+    description: "RDV posés directement sur votre agenda. Brief écrit envoyé 24h avant le call : trigger détecté, objections soulevées, niveau de chaud.",
+  },
+  {
+    title: "Anti-bounce MillionVerifier",
+    description: "Tous les emails vérifiés avant envoi. Maintien d'une délivrabilité > 95% pour préserver la réputation domaine.",
+  },
+  {
+    title: "Reporting hebdo détaillé",
+    description: "Lundi matin : RDV bookés, taux de réponse, top performers, alertes anomalies. Une page, lisible en 2 min.",
+  },
+  {
+    title: "Itération continue de l'ICP",
+    description: "Tous les 30 jours, on ajuste les filtres, le copywriting et la séquence selon les RDV qui transforment.",
+  },
+];
+
+const idealFor = [
+  "Vous êtes founder ou head of sales, vous voulez du RDV qualifié sans monter d'équipe",
+  "Vous n'avez pas de stack outbound (Smartlead, mailboxes, warmup) à gérer",
+  "Vous préférez closer vous-même mais déléguer toute la prospection en amont",
+  "Vous valorisez 1 RDV bien préparé > 50 emails envoyés sans contexte",
+];
+
+const transparency = [
+  {
+    label: "Reply rate honnête",
+    value: "M1 : 1-2% · M3 : 4-6%",
+    note: "Au-delà de 8% blended on vous le dit, c'est anormal sauf micro-liste.",
+  },
+  {
+    label: "Volume mensuel max",
+    value: "500 leads / 1500 emails",
+    note: "Plafonné pour préserver la qualité et la délivrabilité.",
+  },
+  {
+    label: "RDV attendus M3",
+    value: "25-35 RDV/mois",
+    note: "Selon ICP. Top 1% du marché FR. Pas de promesse miracle.",
+  },
+];
+---
+
+<BaseLayout title={title} description={description} schema={productSchema}>
+  <!-- Hero offre -->
+  <section class="relative mesh-hero overflow-hidden border-b border-border">
+    <div class="container-page relative pt-20 pb-16 md:pt-28 md:pb-20">
+      <div class="mx-auto max-w-3xl text-center">
+        <p class="reveal eyebrow">Offre Full Service</p>
+        <h1 class="reveal mt-3 text-4xl font-bold leading-tight tracking-display md:text-5xl">
+          On détecte. On contacte. On book.
+          <span class="block text-primary-600">Vous closez.</span>
+        </h1>
+        <p class="reveal mx-auto mt-5 max-w-2xl text-lg text-ink-soft">
+          Un canal outbound clé en main. Domaine, mailboxes, warmup, copywriting,
+          gestion des réponses, booking de RDV — tout est géré chez nous.
+          Vous récupérez juste un agenda rempli de calls qualifiés.
+        </p>
+
+        <div class="reveal mt-8 inline-flex items-baseline gap-1">
+          <span class="font-display text-6xl font-bold tracking-tight">890</span>
+          <span class="text-xl text-ink-soft">€/mois HT</span>
+        </div>
+        <p class="reveal mt-1 text-sm text-ink-muted">
+          Sans engagement · Premiers RDV sous 4 semaines
+        </p>
+
+        <div class="reveal mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <a
+            href="https://tally.so/r/QKYA6Y"
+            target="_blank"
+            rel="noopener"
+            class="btn btn-primary btn-lg"
+          >
+            Démarrer Full Service
+          </a>
+          <a href="/leads-data" class="btn btn-ghost btn-lg">
+            Comparer avec Leads Data
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Le flow -->
+  <section class="section">
+    <div class="container-page">
+      <div class="mx-auto max-w-2xl text-center">
+        <p class="eyebrow reveal">Le flow</p>
+        <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+          Du signal détecté au RDV booké, sans intervention de votre équipe.
+        </h2>
+      </div>
+
+      <ol class="mx-auto mt-14 grid max-w-5xl gap-4 md:grid-cols-5">
+        {
+          flow.map((step) => (
+            <li class="reveal card-feature card text-center">
+              <span class="font-display text-3xl font-bold text-primary-600">{step.n}</span>
+              <h3 class="mt-3 font-display text-base font-semibold text-ink">{step.title}</h3>
+              <p class="mt-2 text-sm text-ink-soft">{step.description}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- Pour qui -->
+  <section class="section bg-surface-soft">
+    <div class="container-page">
+      <div class="mx-auto max-w-3xl">
+        <p class="eyebrow reveal">Pour qui</p>
+        <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+          Cette offre est faite pour vous si…
+        </h2>
+        <ul class="mt-8 grid gap-4 md:grid-cols-2">
+          {
+            idealFor.map((point) => (
+              <li class="reveal flex items-start gap-3 rounded-xl border border-border bg-white p-5">
+                <svg class="mt-0.5 h-5 w-5 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span class="text-ink">{point}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Transparence chiffres -->
+  <section class="section">
+    <div class="container-page">
+      <div class="mx-auto max-w-3xl">
+        <p class="eyebrow reveal">Transparence</p>
+        <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+          On vous dit ce qu'on peut faire. Pas plus.
+        </h2>
+        <p class="reveal mt-4 text-ink-soft">
+          Trop d'agences vendent des promesses irréalistes. Voici les chiffres benchmark
+          de notre approche, en transparence — basés sur les standards Belkins du marché outbound.
+        </p>
+
+        <div class="mt-10 space-y-4">
+          {
+            transparency.map((t) => (
+              <div class="reveal flex flex-col justify-between gap-4 rounded-xl border border-border bg-surface-soft p-6 md:flex-row md:items-center">
+                <div class="md:flex-1">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                    {t.label}
+                  </p>
+                  <p class="mt-1 font-display text-2xl font-bold text-ink">{t.value}</p>
+                </div>
+                <p class="max-w-xs text-sm text-ink-soft md:text-right">{t.note}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Inclusions -->
+  <section class="section bg-surface-soft">
+    <div class="container-page">
+      <div class="mx-auto max-w-3xl">
+        <p class="eyebrow reveal">Inclus dans 890€/mois</p>
+        <h2 class="reveal mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+          Tout ce qu'il vous faut pour ne plus toucher à l'outbound.
+        </h2>
+
+        <div class="mt-12 space-y-4">
+          {
+            inclusions.map((item) => (
+              <div class="reveal card-feature card grid gap-4 md:grid-cols-[auto_1fr] md:gap-6">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="font-display text-lg font-semibold text-ink">{item.title}</h3>
+                  <p class="mt-2 text-ink-soft">{item.description}</p>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <Faq
+    items={[
+      { q: "Premiers RDV, c'est quand ?", a: "Compter 3-4 semaines après signature : 1 semaine de calibration ICP + 2-3 semaines de warmup mailbox avant les premiers envois sérieux." },
+      { q: "Vous écrivez les emails à ma place ?", a: "Oui, copywriting inclus. Notre commercial calibre le ton sur votre marque pendant l'onboarding, et vous validez les séquences avant lancement." },
+      { q: "Et si je veux changer le copywriting ?", a: "Itération tous les 30 jours minimum, plus souvent à la demande. Vous gardez le contrôle, on exécute." },
+      { q: "Qui répond aux prospects ?", a: "Notre commercial dédié, sous votre identité d'envoi, sous 4h ouvrées. Aucun bot, aucune macro automatisée. Le ton est aligné sur votre marque." },
+      { q: "Pourquoi 890€ et pas plus ?", a: "Tarif early-stage. On préfère démarrer avec quelques clients très satisfaits que vendre cher trop tôt. Garanti 12 mois pour les premiers signataires." },
+      { q: "Et si ça ne marche pas ?", a: "Sans engagement, préavis 30 jours. On vous prévient nous-mêmes si la délivrabilité décroche ou si l'ICP ne convertit pas — c'est notre intérêt aussi." },
+    ]}
+  />
+
+  <FinalCta />
+</BaseLayout>
