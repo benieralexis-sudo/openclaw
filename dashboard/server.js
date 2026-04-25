@@ -2991,84 +2991,138 @@ function loginPage(error = null, csrfToken = '') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mission Control — Connexion</title>
+<title>iFIND — Connexion</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%233B82F6'/%3E%3Cstop offset='100%25' stop-color='%232563EB'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Ctext x='16' y='22.5' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-size='21' font-weight='600'%3Ei%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#2563EB">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#09090b;color:#fafafa;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
-
-/* Animated gradient orbs */
-.orb{position:fixed;border-radius:50%;filter:blur(100px);opacity:.4;pointer-events:none;z-index:0}
-.orb-1{width:500px;height:500px;background:rgba(59,130,246,0.15);top:-150px;right:-100px;animation:orbMove 8s ease-in-out infinite}
-.orb-2{width:400px;height:400px;background:rgba(139,92,246,0.12);bottom:-100px;left:-100px;animation:orbMove 10s ease-in-out infinite reverse}
-.orb-3{width:300px;height:300px;background:rgba(6,182,212,0.08);top:50%;left:60%;animation:orbMove 12s ease-in-out infinite 2s}
-@keyframes orbMove{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,-40px)}}
-
-.login-container{width:100%;max-width:420px;padding:40px;position:relative;z-index:1;animation:loginFade .6s ease-out}
-@keyframes loginFade{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-
-.login-card{background:rgba(17,17,19,0.7);backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:52px 44px;text-align:center;position:relative;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.4)}
-.login-card::before{content:'';position:absolute;inset:-1px;border-radius:20px;background:linear-gradient(135deg,rgba(59,130,246,0.15),transparent 50%,rgba(139,92,246,0.1));z-index:-1;pointer-events:none}
-
-.logo-mark{margin-bottom:20px}
-.logo{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;background:linear-gradient(135deg,#a1a1aa,#fafafa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
-.title{font-family:'DM Sans',sans-serif;font-size:28px;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg,#fafafa,#d4d4d8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.subtitle{color:#71717a;font-size:14px;margin-bottom:36px}
-
-.input-group{margin-bottom:24px;text-align:left}
-.input-group label{display:block;font-size:13px;font-weight:500;color:#71717a;margin-bottom:8px}
-.input-group input{width:100%;padding:14px 18px;background:rgba(9,9,11,0.6);border:1.5px solid rgba(255,255,255,0.06);border-radius:10px;color:#fafafa;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:all 0.25s}
-.input-group input:focus{border-color:rgba(59,130,246,0.5);box-shadow:0 0 0 4px rgba(59,130,246,0.08)}
-.input-group input::placeholder{color:#52525b}
-
-.btn{width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6,#7c3aed);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden}
-.btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(59,130,246,0.3)}
-.btn::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.1) 45%,rgba(255,255,255,0.1) 55%,transparent 60%);transform:translateX(-100%)}
-.btn:hover::after{transform:translateX(100%);transition:transform .6s ease}
-
-.error{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#ef4444;font-size:13px;padding:12px 16px;border-radius:10px;margin-bottom:20px;animation:shake .4s ease}
-@keyframes shake{0%,100%{transform:translateX(0)}15%,45%,75%{transform:translateX(-4px)}30%,60%{transform:translateX(4px)}}
-.btn:active{transform:scale(0.97)}
-
-.footer-text{margin-top:32px;font-size:11px;color:#3f3f46;letter-spacing:0.5px}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#2563eb;--primary-dark:#1e40af;--primary-soft:#eff6ff;
+  --success:#10b981;--ink:#0f172a;--ink-soft:#475569;--ink-muted:#64748b;
+  --surface:#ffffff;--surface-soft:#f8fafc;--border:#e2e8f0;--border-strong:#cbd5e1;
+  --font-sans:"Inter",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --font-display:"Space Grotesk","Inter",ui-sans-serif,system-ui,sans-serif;
+}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body{
+  font-family:var(--font-sans);color:var(--ink);min-height:100vh;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  background:
+    radial-gradient(circle at 12% 20%, rgb(199 210 254 / 0.45), transparent 50%),
+    radial-gradient(circle at 88% 10%, rgb(167 243 208 / 0.30), transparent 45%),
+    radial-gradient(circle at 50% 90%, rgb(238 242 255 / 0.55), transparent 55%),
+    linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  overflow:hidden;position:relative;
+}
+/* Subtle grid */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.4;
+  background-image:
+    linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.04) 1px, transparent 1px);
+  background-size:56px 56px;
+  mask-image:radial-gradient(ellipse 70% 60% at 50% 30%, black 0%, transparent 100%);
+}
+.login-shell{width:100%;max-width:440px;position:relative;z-index:1;animation:fadeUp .5s cubic-bezier(.4,0,.2,1)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.brand{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:32px}
+.brand-mark{width:44px;height:44px;border-radius:11px;background:linear-gradient(135deg,#3b82f6,#2563eb);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px -2px rgb(37 99 235 / 0.35)}
+.brand-mark span{color:#fff;font-family:var(--font-sans);font-weight:600;font-size:24px;line-height:1}
+.brand-text{font-family:var(--font-display);font-weight:600;font-size:22px;letter-spacing:-0.02em;color:var(--ink)}
+.login-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:20px;
+  padding:40px 36px;text-align:left;
+  box-shadow:0 12px 32px -12px rgb(15 23 42 / 0.08), 0 4px 12px -4px rgb(15 23 42 / 0.04);
+  position:relative;overflow:hidden;
+}
+.login-card::before{
+  content:'';position:absolute;inset:0;border-radius:20px;pointer-events:none;
+  background:linear-gradient(180deg, rgb(255 255 255 / 0.6) 0%, transparent 30%);
+  z-index:-1;
+}
+.eyebrow{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--primary);margin-bottom:8px}
+.eyebrow::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 0 3px rgb(16 185 129 / 0.18);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgb(16 185 129 / 0.18)}50%{box-shadow:0 0 0 6px rgb(16 185 129 / 0.06)}}
+.title{font-family:var(--font-display);font-size:28px;font-weight:700;letter-spacing:-0.02em;color:var(--ink);margin-bottom:6px}
+.subtitle{color:var(--ink-soft);font-size:14px;line-height:1.5;margin-bottom:32px}
+.error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;font-size:13px;padding:12px 14px;border-radius:10px;margin-bottom:20px;display:flex;align-items:flex-start;gap:8px;animation:shake .35s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}50%{transform:translateX(4px)}75%{transform:translateX(-2px)}}
+.input-group{margin-bottom:18px}
+.input-group label{display:block;font-size:13px;font-weight:500;color:var(--ink-soft);margin-bottom:7px}
+.input-wrap{position:relative}
+.input-wrap input{
+  width:100%;padding:12px 16px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:10px;color:var(--ink);font-size:14px;font-family:var(--font-sans);
+  outline:none;transition:border-color .15s ease, box-shadow .15s ease;
+}
+.input-wrap input::placeholder{color:#94a3b8}
+.input-wrap input:hover{border-color:var(--border-strong)}
+.input-wrap input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgb(37 99 235 / 0.10)}
+.toggle-pw{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--ink-muted);cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.toggle-pw:hover{color:var(--ink);background:var(--surface-soft)}
+.btn-primary{
+  width:100%;padding:13px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;
+  border:none;border-radius:10px;font-size:15px;font-weight:600;font-family:var(--font-sans);
+  cursor:pointer;transition:transform .15s ease, box-shadow .15s ease;
+  margin-top:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 12px -2px rgb(37 99 235 / 0.30), inset 0 1px 0 rgb(255 255 255 / 0.15);
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 20px -4px rgb(37 99 235 / 0.40), inset 0 1px 0 rgb(255 255 255 / 0.15)}
+.btn-primary:active{transform:translateY(0)}
+.footer{margin-top:24px;text-align:center;font-size:12px;color:var(--ink-muted)}
+.footer a{color:var(--primary);text-decoration:none;font-weight:500}
+.footer a:hover{text-decoration:underline}
+.security-badge{margin-top:18px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--ink-muted)}
+.security-badge svg{color:var(--success)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
-<div class="orb orb-1"></div>
-<div class="orb orb-2"></div>
-<div class="orb orb-3"></div>
-<div class="login-container">
-<div class="login-card">
-  <div class="logo-mark">
-    <div style="display:inline-flex;align-items:center;gap:5px"><div style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:linear-gradient(135deg,#2563EB,#1e40af);border-radius:9px;box-shadow:0 1px 3px rgba(29,78,216,0.3)"><span style="color:#fff;font-family:Inter,system-ui,sans-serif;font-weight:600;font-size:22px;line-height:1">i</span></div><span style="font-family:Inter,system-ui,sans-serif;font-weight:500;font-size:24px;letter-spacing:-0.01em;background:linear-gradient(135deg,#fafafa,#d4d4d8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">find</span></div>
+<div class="login-shell">
+  <div class="brand">
+    <div class="brand-mark"><span>i</span></div>
+    <div class="brand-text">iFIND</div>
   </div>
-  <div class="logo">Mission Control</div>
-  <h1 class="title">Connexion</h1>
-  <p class="subtitle">Acc&eacute;dez &agrave; votre tableau de bord</p>
-  ${error ? '<div class="error" role="alert">' + error.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') + '</div>' : ''}
-  <form method="POST" action="/login">
-    <input type="hidden" name="_csrf" value="${csrfToken}">
-    <div class="input-group">
-      <label for="username">Identifiant</label>
-      <input type="text" id="username" name="username" placeholder="admin" value="admin" autocomplete="username" required>
-    </div>
-    <div class="input-group">
-      <label for="password">Mot de passe</label>
-      <div style="position:relative">
-        <input type="password" id="password" name="password" placeholder="Entrez votre mot de passe" autofocus required autocomplete="current-password" style="padding-right:44px">
-        <button type="button" id="toggle-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#71717a;cursor:pointer;padding:4px" aria-label="Afficher le mot de passe">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-        </button>
+  <div class="login-card">
+    <div class="eyebrow">Trigger Engine</div>
+    <h1 class="title">Bonjour 👋</h1>
+    <p class="subtitle">Accédez à votre tableau de bord pour suivre vos triggers et vos RDV en temps réel.</p>
+    ${error ? '<div class="error" role="alert"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>' + error.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') + '</span></div>' : ''}
+    <form method="POST" action="/login">
+      <input type="hidden" name="_csrf" value="${csrfToken}">
+      <div class="input-group">
+        <label for="username">Identifiant</label>
+        <div class="input-wrap">
+          <input type="text" id="username" name="username" placeholder="admin" value="admin" autocomplete="username" required>
+        </div>
       </div>
+      <div class="input-group">
+        <label for="password">Mot de passe</label>
+        <div class="input-wrap">
+          <input type="password" id="password" name="password" placeholder="Entrez votre mot de passe" autofocus required autocomplete="current-password" style="padding-right:44px">
+          <button type="button" id="toggle-pw" class="toggle-pw" aria-label="Afficher le mot de passe">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <button type="submit" class="btn-primary">
+        Se connecter
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </button>
+    </form>
+    <div class="security-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Connexion sécurisée · Hébergement France · RGPD
     </div>
-    <button type="submit" class="btn">Se connecter</button>
-  </form>
-  <div class="footer-text">Propuls&eacute; par ${process.env.CLIENT_NAME || 'iFIND'}</div>
+  </div>
+  <div class="footer">
+    <a href="https://ifind.fr">← Retour au site</a>
+  </div>
 </div>
 <script src="/public/js/login.js"></script>
-</div>
 </body>
 </html>`;
 }

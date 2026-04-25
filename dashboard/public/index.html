@@ -98,6 +98,30 @@
 <!-- Overlay mobile -->
 <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
+<!-- Top bar avec scope client -->
+<div class="topbar" id="topbar" role="banner">
+  <div class="topbar-left">
+    <h1 class="topbar-page-title" id="topbar-page-title">Dashboard</h1>
+  </div>
+  <div class="topbar-center">
+    <div id="client-scope-badge" class="client-scope-badge" style="display:none">
+      <span class="scope-dot" aria-hidden="true"></span>
+      <span class="scope-label">Vue</span>
+      <span id="scope-client-name" class="scope-name">—</span>
+      <button id="scope-switcher-btn" class="scope-switcher" style="display:none" aria-label="Changer de client">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+    <div id="client-scope-dropdown" class="client-scope-dropdown" style="display:none" role="menu"></div>
+  </div>
+  <div class="topbar-right">
+    <span id="topbar-fresh" class="topbar-fresh" title="Données rafraîchies">
+      <span class="fresh-dot"></span>
+      <span class="fresh-text">Live</span>
+    </span>
+  </div>
+</div>
+
 <!-- Notification bell (top-right) -->
 <div id="notif-bell" class="notif-bell" style="display:none">
   <button id="notif-bell-btn" class="notif-bell-btn" aria-label="Notifications">

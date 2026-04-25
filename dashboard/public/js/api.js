@@ -2,11 +2,28 @@
 
 const API = {
   cache: {},
-  CACHE_TTL: 5 * 60 * 1000, // 5 min localStorage cache
+  // Cache court (15s) pour fraîcheur perçue
+  CACHE_TTL: 15 * 1000,
+
+  /**
+   * Phase 0.3/0.4 — Injecte ?clientId= si commercial/admin a un scope actif.
+   * Garantit que chaque requête API affiche les résultats du bon client.
+   */
+  _withScope(endpoint) {
+    if (typeof App === 'undefined') return '/api/' + endpoint;
+    const role = App.userRole;
+    const activeId = App._activeClientId;
+    if ((role === 'commercial' || role === 'admin') && activeId) {
+      const sep = endpoint.includes('?') ? '&' : '?';
+      return '/api/' + endpoint + sep + 'clientId=' + encodeURIComponent(activeId);
+    }
+    return '/api/' + endpoint;
+  },
 
   async fetch(endpoint) {
-    // Check localStorage cache
-    const cacheKey = 'mc_' + endpoint;
+    // Cache key inclut le scope pour ne pas mélanger entre clients
+    const scopeKey = (typeof App !== 'undefined' && App._activeClientId) ? App._activeClientId : 'default';
+    const cacheKey = 'mc_' + scopeKey + '_' + endpoint;
     const cached = this.getCache(cacheKey);
     if (cached) return cached;
 
@@ -14,7 +31,7 @@ const API = {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const res = await fetch('/api/' + endpoint, { signal: controller.signal });
+      const res = await fetch(this._withScope(endpoint), { signal: controller.signal, credentials: 'same-origin' });
       clearTimeout(timeoutId);
       if (res.status === 401) {
         window.location.href = '/login';
@@ -63,6 +80,19 @@ const API = {
       // Storage full — clear old entries
       this.clearOldCache();
     }
+  },
+
+  // Phase 0.4 — Invalide tout le cache API (appelé après mutation ou switch client)
+  invalidateCache(scopePrefix) {
+    try {
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith('mc_')) continue;
+        if (!scopePrefix || k.startsWith('mc_' + scopePrefix + '_')) toRemove.push(k);
+      }
+      toRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {}
   },
 
   clearOldCache() {

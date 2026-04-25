@@ -13,6 +13,8 @@ const App = {
   _loadId: 0,
 
   init() {
+    // Restore saved active client (commercials/admin) before fetching user info
+    try { this._activeClientId = localStorage.getItem('ifind:activeClient') || null; } catch {}
     this.bindNav();
     this.bindMobile();
     this.loadUserInfo();
@@ -22,6 +24,25 @@ const App = {
     this.updateBadges();
     if (typeof Keyboard !== 'undefined') Keyboard.init();
     this.applyBranding();
+  },
+
+  _setTopbarTitle(page) {
+    const el = document.getElementById('topbar-page-title');
+    if (!el) return;
+    const titles = {
+      dashboard: 'Dashboard',
+      triggers: 'Leads FR',
+      pipeline: 'Pipeline RDV',
+      unibox: 'Replies',
+      clients: 'Clients',
+      settings: 'Paramètres',
+      system: 'Système',
+      onboarding: 'Onboarding',
+      chat: 'Chat',
+      finances: 'Finances',
+      intelligence: 'Intelligence'
+    };
+    el.textContent = titles[page] || (page ? page.charAt(0).toUpperCase() + page.slice(1) : 'Dashboard');
   },
 
   applyBranding() {
@@ -48,14 +69,136 @@ const App = {
     this.userRole = me.role || 'admin';
     this.userName = me.username || '';
     this.clientId = me.clientId || null;
+    this.clientName = me.clientName || me.company || null;
+    this.scopeClients = Array.isArray(me.scopeClients) ? me.scopeClients : [];
     const nameEl = document.querySelector('.client-selector span');
-    if (nameEl) nameEl.textContent = me.clientName || me.username;
+    if (nameEl) nameEl.textContent = me.clientName || me.company || me.username;
     this.applyRoleVisibility();
+    this.renderClientScope();
 
     // Redirect non-onboarded client users to onboarding wizard
     if (me.role === 'client' && me.clientId && me.onboardingDone === false) {
       window.location.hash = 'onboarding';
     }
+  },
+
+  /**
+   * Phase 0.3 — Affiche le scope client courant dans la topbar.
+   * - Client/editor/viewer : badge fixe avec leur nom (pas de switch possible)
+   * - Commercial : badge + switcher entre ses scopeClients
+   * - Admin : badge "Vue admin" + switcher pour consulter n'importe quel client
+   */
+  renderClientScope() {
+    const badge = document.getElementById('client-scope-badge');
+    const nameEl = document.getElementById('scope-client-name');
+    const switcherBtn = document.getElementById('scope-switcher-btn');
+    const dropdown = document.getElementById('client-scope-dropdown');
+    if (!badge || !nameEl) return;
+
+    const role = this.userRole;
+    const isClient = role === 'client' || role === 'editor' || role === 'viewer';
+    const isCommercial = role === 'commercial';
+    const isAdmin = role === 'admin';
+
+    if (isClient) {
+      const label = this.clientName || this.userName || 'Mon espace';
+      nameEl.textContent = label;
+      switcherBtn.style.display = 'none';
+      badge.style.display = 'inline-flex';
+      return;
+    }
+
+    if (isCommercial) {
+      const activeId = this._activeClientId || (this.scopeClients && this.scopeClients[0]) || null;
+      this._activeClientId = activeId;
+      this._fetchClientLabel(activeId).then((label) => {
+        nameEl.textContent = label || 'Sélectionner un client';
+      });
+      switcherBtn.style.display = (this.scopeClients.length > 1) ? 'inline-flex' : 'none';
+      badge.style.display = 'inline-flex';
+      this._setupScopeSwitcher();
+      return;
+    }
+
+    if (isAdmin) {
+      nameEl.textContent = this._activeClientId ? '...' : 'Vue admin';
+      if (this._activeClientId) this._fetchClientLabel(this._activeClientId).then((l) => { nameEl.textContent = l || 'Client'; });
+      switcherBtn.style.display = 'inline-flex';
+      badge.style.display = 'inline-flex';
+      this._setupScopeSwitcher();
+    }
+  },
+
+  async _fetchClientLabel(clientId) {
+    if (!clientId) return null;
+    try {
+      const res = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, { credentials: 'same-origin' });
+      if (!res.ok) return clientId;
+      const c = await res.json();
+      return c.name || c.company || c.id || clientId;
+    } catch { return clientId; }
+  },
+
+  async _setupScopeSwitcher() {
+    const badge = document.getElementById('client-scope-badge');
+    const dropdown = document.getElementById('client-scope-dropdown');
+    if (!badge || !dropdown || badge.dataset.bound === '1') return;
+    badge.dataset.bound = '1';
+
+    const open = async () => {
+      // Charge la liste des clients accessibles
+      let list = [];
+      try {
+        const res = await fetch('/api/clients', { credentials: 'same-origin' });
+        if (res.ok) list = await res.json();
+      } catch {}
+      // Si commercial : restreint à scopeClients
+      if (this.userRole === 'commercial' && this.scopeClients && this.scopeClients.length) {
+        list = list.filter(c => this.scopeClients.includes(c.id));
+      }
+      dropdown.innerHTML = '';
+      if (!list.length) {
+        dropdown.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:13px;text-align:center">Aucun client disponible</div>';
+      } else {
+        for (const c of list) {
+          const opt = document.createElement('div');
+          opt.className = 'scope-option' + (c.id === this._activeClientId ? ' active' : '');
+          opt.setAttribute('role', 'menuitem');
+          opt.tabIndex = 0;
+          opt.innerHTML = `<span>${(c.name || c.company || c.id).replace(/</g,'&lt;')}</span>`;
+          opt.addEventListener('click', () => this._switchClient(c.id));
+          dropdown.appendChild(opt);
+        }
+      }
+      dropdown.style.display = 'block';
+    };
+    const close = () => { dropdown.style.display = 'none'; };
+
+    badge.addEventListener('click', (e) => {
+      if (dropdown.style.display === 'block') close();
+      else open();
+      e.stopPropagation();
+    });
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target) && !badge.contains(e.target)) close();
+    });
+  },
+
+  _switchClient(clientId) {
+    this._activeClientId = clientId;
+    // Persiste le choix
+    try { localStorage.setItem('ifind:activeClient', clientId); } catch {}
+    // Invalide le cache API pour forcer un re-fetch sur le nouveau scope
+    if (typeof API !== 'undefined' && typeof API.invalidateCache === 'function') {
+      API.invalidateCache(); // tout le cache (autres clients aussi)
+    }
+    // Notifie les modules qui ont besoin de re-fetch sur le nouveau scope
+    document.dispatchEvent(new CustomEvent('ifind:client-changed', { detail: { clientId } }));
+    // Re-render le badge + reload la page courante
+    this.renderClientScope();
+    if (this.currentPage && typeof this.routeFromHash === 'function') this.routeFromHash();
+    const dropdown = document.getElementById('client-scope-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
   },
 
   applyRoleVisibility() {
@@ -175,6 +318,7 @@ const App = {
   async loadPage(page, silent) {
     this.currentPage = page;
     this.setActiveNav(page);
+    this._setTopbarTitle(page);
     Charts.destroyAll();
     const loadId = ++this._loadId;
 

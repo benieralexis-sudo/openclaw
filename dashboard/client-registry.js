@@ -36,7 +36,13 @@ const SKILL_DB_FILES = {
 // In-memory cache
 let _clients = null;
 let _loadedAt = 0;
-const CACHE_TTL = 5000; // 5s
+const CACHE_TTL = 1000; // 1s — fraîcheur max, mutations invalident immédiatement
+
+// Force-refresh sur prochain accès (appelé après save/update)
+function invalidateCache() {
+  _clients = null;
+  _loadedAt = 0;
+}
 
 // --- Load / Save ---
 
@@ -539,6 +545,7 @@ const http = require('http');
 module.exports = {
   loadClients,
   saveClients,
+  invalidateCache,
   getClient,
   listClients,
   createClient,
