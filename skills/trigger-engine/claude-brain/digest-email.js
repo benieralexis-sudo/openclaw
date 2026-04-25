@@ -35,13 +35,20 @@ function renderLeadHtml(lead) {
   const score = (lead.opus_score || 0).toFixed(1);
   const color = lead.opus_score >= 8 ? '#dc2626' : (lead.opus_score >= 6 ? '#ea580c' : '#ca8a04');
   const nafShort = (lead.naf_label || '').slice(0, 50);
+  // Badge combo si JACKPOT/COMBO (lit scoring_metadata depuis result_json si fourni par join)
+  let comboBadge = '';
+  if (lead.combo_label === 'JACKPOT') {
+    comboBadge = `<span style="display:inline-block;background:#7c3aed;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;letter-spacing:0.5px">⚡ JACKPOT</span>`;
+  } else if (lead.combo_label === 'COMBO') {
+    comboBadge = `<span style="display:inline-block;background:#0891b2;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;letter-spacing:0.5px">🎯 COMBO</span>`;
+  }
   return `
     <tr>
       <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top">
         <span style="display:inline-block;background:${color};color:#fff;padding:3px 8px;border-radius:4px;font-weight:600;font-size:13px">${score}</span>
       </td>
       <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb">
-        <a href="${DASHBOARD_URL}/#triggers" style="color:#1e40af;text-decoration:none;font-weight:600">${escapeHtml(lead.raison_sociale || 'Sans nom')}</a>
+        <a href="${DASHBOARD_URL}/#triggers" style="color:#1e40af;text-decoration:none;font-weight:600">${escapeHtml(lead.raison_sociale || 'Sans nom')}</a>${comboBadge}
         <div style="color:#6b7280;font-size:12px;margin-top:2px">
           SIREN ${escapeHtml(lead.siren)} · ${escapeHtml(nafShort)} · Dpt ${escapeHtml(lead.departement || '?')}
         </div>
@@ -97,11 +104,13 @@ function parisDayOfWeek() {
 }
 
 function getWeeklyDigestLeads(db, tenantId) {
-  return db.prepare(`
+  const rows = db.prepare(`
     SELECT cl.id, cl.siren, cl.opus_score, cl.opus_qualified_at, cl.status, cl.created_at,
-           c.raison_sociale, c.naf_label, c.departement, c.effectif_min
+           c.raison_sociale, c.naf_label, c.departement, c.effectif_min,
+           cbr.result_json AS qualify_json
     FROM client_leads cl
     LEFT JOIN companies c ON c.siren = cl.siren
+    LEFT JOIN claude_brain_results cbr ON cbr.id = cl.opus_result_id
     WHERE cl.client_id = ?
       AND cl.status IN ('new', 'qualifying', 'sent')
       AND (
@@ -112,6 +121,19 @@ function getWeeklyDigestLeads(db, tenantId) {
     ORDER BY cl.opus_score DESC
     LIMIT 100
   `).all(tenantId);
+  // Extract combo_label depuis scoring_metadata pour rendu badge
+  for (const r of rows) {
+    if (r.qualify_json) {
+      try {
+        const q = JSON.parse(r.qualify_json);
+        if (q?.scoring_metadata?.combo_label) {
+          r.combo_label = q.scoring_metadata.combo_label;
+        }
+      } catch {}
+    }
+    delete r.qualify_json;
+  }
+  return rows;
 }
 
 function buildWeeklyDigest(db, tenantId, tenantName = '') {

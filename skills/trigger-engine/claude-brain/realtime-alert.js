@@ -42,6 +42,13 @@ function buildAlertEmail(lead, qualification) {
   const decisionMaker = qualification?.decision_maker_real || '';
   const urgency = qualification?.urgency_reason || '';
   const phase = qualification?.phase || '';
+  const comboLabel = qualification?.scoring_metadata?.combo_label || null;
+  const comboCategories = qualification?.scoring_metadata?.hard_signals_categories || [];
+  const comboBadge = comboLabel === 'JACKPOT'
+    ? `<span style="display:inline-block;background:#7c3aed;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;font-weight:700;margin-left:8px">⚡ JACKPOT (${comboCategories.length} signaux durs)</span>`
+    : comboLabel === 'COMBO'
+      ? `<span style="display:inline-block;background:#0891b2;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;font-weight:700;margin-left:8px">🎯 COMBO (${comboCategories.length} signaux durs)</span>`
+      : '';
 
   const html = `
 <!DOCTYPE html>
@@ -50,10 +57,11 @@ function buildAlertEmail(lead, qualification) {
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
     <div style="background:#dc2626;padding:20px;color:#fff">
       <div style="font-size:14px;opacity:0.9;margin-bottom:4px">🔴 PÉPITE DÉTECTÉE</div>
-      <h1 style="margin:0;font-size:24px">${escapeHtml(lead.raison_sociale || 'Lead')}</h1>
+      <h1 style="margin:0;font-size:24px">${escapeHtml(lead.raison_sociale || 'Lead')}${comboBadge}</h1>
       <div style="margin-top:8px;font-size:14px;opacity:0.9">
         Score Opus : <strong>${(lead.opus_score || 0).toFixed(1)}/10</strong>
         · SIREN ${escapeHtml(lead.siren)}
+        ${comboCategories.length > 0 ? `<div style="margin-top:4px;font-size:12px">Signaux durs : ${comboCategories.map(escapeHtml).join(' · ')}</div>` : ''}
       </div>
     </div>
     <div style="padding:20px">

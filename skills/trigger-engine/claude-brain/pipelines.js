@@ -14,6 +14,7 @@
  */
 
 const { callAnthropic } = require('./anthropic-client');
+const { computeComboBooster, applyBoost } = require('./combo-booster');
 
 const PIPELINE_CONFIG = {
   qualify: { json: true, maxTokens: 2048 },
@@ -127,14 +128,35 @@ class PipelineExecutor {
 
   async _postProcess(pipeline, tenantId, siren, result, resultId) {
     if (pipeline === 'qualify' && result && typeof result === 'object') {
-      const score = Number(result.priority_score_opus);
-      if (!Number.isNaN(score)) {
-        // Met à jour les client_leads pour ce (tenant, siren)
+      const rawScore = Number(result.priority_score_opus);
+      if (!Number.isNaN(rawScore)) {
+        let finalScore = rawScore;
+        // Combo booster désactivable via env (défaut: ON)
+        if (process.env.COMBO_BOOSTER_ENABLED !== 'false') {
+          const combo = computeComboBooster(this.db, siren);
+          finalScore = applyBoost(rawScore, combo.multiplier);
+          // Stocke la metadata dans le result pour transparence (digest, dashboard)
+          result.scoring_metadata = {
+            raw_score: rawScore,
+            final_score: finalScore,
+            combo_multiplier: combo.multiplier,
+            combo_label: combo.label,
+            hard_signals_count: combo.hard_signals_count,
+            hard_signals_categories: combo.categories,
+            excluded: combo.excluded
+          };
+          if (combo.label) {
+            this.log.info?.(`[combo-booster] ${combo.label} ×${combo.multiplier} sur ${siren}: ${rawScore.toFixed(1)} → ${finalScore.toFixed(1)} (${combo.hard_signals_count} signaux durs <90j: ${combo.categories.join(', ')})`);
+          }
+          // Re-écrit le result_json avec metadata
+          this.db.prepare('UPDATE claude_brain_results SET result_json = ? WHERE id = ?')
+            .run(JSON.stringify(result), resultId);
+        }
         this.db.prepare(`
           UPDATE client_leads
           SET opus_score = ?, opus_qualified_at = CURRENT_TIMESTAMP, opus_result_id = ?
           WHERE client_id = ? AND siren = ?
-        `).run(score, resultId, tenantId, siren);
+        `).run(finalScore, resultId, tenantId, siren);
       }
     }
     if (pipeline === 'discover' && result && Array.isArray(result.proposed_patterns)) {
