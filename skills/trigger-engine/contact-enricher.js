@@ -14,6 +14,7 @@
 'use strict';
 
 const sirene = require('./sources/sirene');
+const pappers = require('./sources/pappers');
 const dropcontact = require('./sources/dropcontact');
 const mxVerify = require('./lib/mx-verify');
 
@@ -85,6 +86,13 @@ async function enrichMatches(db, opts = {}) {
 
   for (const c of candidates) {
     try {
+      // Pappers enrichment (premium FR) — bilans + dirigeants nominatifs + naf_label propre
+      // Si token absent ou erreur : skip silencieux, on continue avec sirene gratuit
+      if (pappers.isAvailable()) {
+        try { await pappers.enrichCompanyRow(db, c.siren, log); }
+        catch (e) { log.debug?.(`[contact-enricher] pappers enrich ${c.siren} skipped: ${e.message}`); }
+      }
+
       const result = await sirene.lookupDirigeants(c.siren, { log });
       sirensProcessed += 1;
       if (!result || !result.dirigeants?.length) continue;

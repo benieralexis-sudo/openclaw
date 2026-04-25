@@ -22,8 +22,8 @@ describe('estimateCost', () => {
     assert.ok(Math.abs(cost - expected) < 0.0001);
   });
 
-  it('Claude Opus 4.6 : input=0.015, output=0.075', () => {
-    const cost = appConfig.estimateCost('claude-opus-4-6', 2000, 1000);
+  it('Claude Opus 4.7 : input=0.015, output=0.075', () => {
+    const cost = appConfig.estimateCost('claude-opus-4-7', 2000, 1000);
     const expected = 0.030 + 0.075;
     assert.ok(Math.abs(cost - expected) < 0.0001);
   });
@@ -94,7 +94,7 @@ describe('budget tracking', () => {
     let called = false;
     appConfig.onBudgetExceeded(() => { called = true; });
     // Gros appel Opus pour depasser 5$
-    appConfig.recordApiSpend('claude-opus-4-6', 1000000, 1000000);
+    appConfig.recordApiSpend('claude-opus-4-7', 1000000, 1000000);
     assert.equal(called, true);
   });
 });

@@ -497,8 +497,8 @@ const _cleanupInterval = setInterval(() => {
 
 // --- Modeles IA multi-niveaux ---
 // GPT-4o-mini  : NLP rapide (classification, routage)
-// Sonnet 4.5   : Redaction, conversation, humanisation
-// Opus 4.6     : Rapports strategiques (hebdo/mensuel)
+// Sonnet 4.6   : Redaction, conversation, humanisation
+// Opus 4.7     : Rapports strategiques + Trigger Engine (qualify/pitch/brief)
 
 async function callOpenAINLP(systemPrompt, userMessage, maxTokens) {
   const result = await callOpenAI(OPENAI_KEY, [
@@ -566,7 +566,7 @@ function _callClaudeOnce(systemPrompt, userMessage, maxTokens, model) {
 function callClaude(systemPrompt, userMessage, maxTokens, model) {
   // Budget guard : bloquer si budget depasse
   appConfig.assertBudgetAvailable();
-  const breakerName = model === 'claude-opus-4-6' ? 'claude-opus' : 'claude-sonnet';
+  const breakerName = model === 'claude-opus-4-7' ? 'claude-opus' : 'claude-sonnet';
   const breaker = getBreaker(breakerName, { failureThreshold: 5, cooldownMs: 30000 });
   return breaker.call(() => retryAsync(() => _callClaudeOnce(systemPrompt, userMessage, maxTokens, model), 4, 3000));
 }
@@ -574,7 +574,7 @@ function callClaude(systemPrompt, userMessage, maxTokens, model) {
 // --- Proactive Agent ---
 
 function callClaudeOpus(systemPrompt, userMessage, maxTokens) {
-  return callClaude(systemPrompt, userMessage, maxTokens, 'claude-opus-4-6');
+  return callClaude(systemPrompt, userMessage, maxTokens, 'claude-opus-4-7');
 }
 
 const proactiveEngine = new ProactiveEngine({
