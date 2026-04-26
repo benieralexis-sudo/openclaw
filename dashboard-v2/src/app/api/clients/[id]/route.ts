@@ -212,8 +212,22 @@ export async function PATCH(
     );
   }
 
+  // Merge ICP partiel avec l'existant (évite d'écraser des clés non envoyées)
+  const dataDraft: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.icp !== undefined && parsed.data.icp !== null) {
+    const current = await db.client.findUnique({
+      where: { id },
+      select: { icp: true },
+    });
+    const previous =
+      current?.icp && typeof current.icp === "object" && !Array.isArray(current.icp)
+        ? (current.icp as Record<string, unknown>)
+        : {};
+    dataDraft.icp = { ...previous, ...parsed.data.icp };
+  }
+
   // Restriction d'édition selon le rôle
-  let data: Record<string, unknown> = parsed.data;
+  let data: Record<string, unknown> = dataDraft;
   if (s.user.role === "VIEWER" || s.user.role === "COMMERCIAL") {
     return NextResponse.json({ error: "Lecture seule" }, { status: 403 });
   }
