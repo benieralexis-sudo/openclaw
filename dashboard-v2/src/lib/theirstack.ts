@@ -340,10 +340,18 @@ export async function createSavedSearch(input: {
   name: string;
   search_type: "jobs" | "companies";
   filters: Record<string, unknown>;
+  is_alert_active?: boolean;
 }): Promise<SavedSearch> {
+  // ⚠️ API TheirStack attend : { name, body: {filters}, type, is_alert_active }
+  // (et non pas { search_type, filters })
   return tsFetch("/v0/saved_searches", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      name: input.name,
+      type: input.search_type,
+      body: input.filters,
+      is_alert_active: input.is_alert_active ?? false,
+    }),
   });
 }
 
