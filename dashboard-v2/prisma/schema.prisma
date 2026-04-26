@@ -145,6 +145,7 @@ model Client {
   campaigns    Campaign[]
   replies      Reply[]
   notifications Notification[]
+  rodzSignals   RodzSignal[]
 
   @@index([status])
   @@index([deletedAt])
@@ -481,4 +482,37 @@ model AuditLog {
   @@index([userId, createdAt(sort: Desc)])
   @@index([clientId, createdAt(sort: Desc)])
   @@index([action, createdAt(sort: Desc)])
+}
+
+// =====================================================================
+// RODZ SIGNAL — tracking des monitors Rodz créés par client
+// =====================================================================
+
+model RodzSignal {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  // Référence Rodz
+  rodzSignalId    String   @unique
+  signalType      String   // "fundraising", "job-changes", "mergers-acquisitions", ...
+  name            String
+  webhookUrl      String
+  // Config envoyée à Rodz (filtres ICP, keywords, ...)
+  config          Json
+  dailyLeadLimit  Int?
+  // État
+  status          String   @default("draft") // "draft", "active", "paused"
+  active          Boolean  @default(false)
+  // Métriques
+  leadsReceived   Int      @default(0)
+  creditsUsed     Decimal  @default(0) @db.Decimal(10, 2)
+  lastLeadAt      DateTime?
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  @@index([clientId, active])
+  @@index([signalType])
+  @@index([deletedAt])
 }
