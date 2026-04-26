@@ -37,6 +37,7 @@ model User {
   // Préférences
   locale          String    @default("fr-FR")
   timezone        String    @default("Europe/Paris")
+  preferences     Json?
   // Flags
   onboardingDone  Boolean   @default(false)
   // Audit
