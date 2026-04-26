@@ -6,23 +6,40 @@ export async function GET(req: NextRequest) {
   const s = await requireApiSession(req);
   if (!s.ok) return s.response;
 
-  // Charge le client associé (pour client/editor/viewer)
+  // Lecture fraîche depuis la DB (la session Better Auth ne refresh
+  // pas onboardingDone après update — on resync ici)
+  const fresh = await db.user.findUnique({
+    where: { id: s.user.id },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      clientId: true,
+      scopeClientIds: true,
+      onboardingDone: true,
+    },
+  });
+  if (!fresh) {
+    return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+  }
+
   let client = null;
-  if (s.user.clientId) {
+  if (fresh.clientId) {
     client = await db.client.findUnique({
-      where: { id: s.user.clientId },
+      where: { id: fresh.clientId },
       select: { id: true, slug: true, name: true, plan: true, status: true },
     });
   }
 
   return NextResponse.json({
-    id: s.user.id,
-    email: s.user.email,
-    name: s.user.name,
-    role: s.user.role,
-    clientId: s.user.clientId,
+    id: fresh.id,
+    email: fresh.email,
+    name: fresh.name,
+    role: fresh.role,
+    clientId: fresh.clientId,
     client,
-    scopeClientIds: s.user.scopeClientIds ?? [],
-    onboardingDone: s.user.onboardingDone,
+    scopeClientIds: fresh.scopeClientIds ?? [],
+    onboardingDone: fresh.onboardingDone,
   });
 }

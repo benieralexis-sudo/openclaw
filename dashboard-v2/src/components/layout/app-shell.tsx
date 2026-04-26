@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { CommandPalette } from "./command-palette";
 import { Toaster } from "@/components/ui/sonner";
+import { useScope } from "@/hooks/use-scope";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -23,7 +24,19 @@ const TITLES: Record<string, { title: string; description?: string }> = {
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { me } = useScope();
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+
+  // Force CLIENT/EDITOR sans onboarding fini sur /onboarding
+  React.useEffect(() => {
+    if (!me) return;
+    const needsOnboarding =
+      (me.role === "CLIENT" || me.role === "EDITOR") && !me.onboardingDone;
+    if (needsOnboarding && !pathname.startsWith("/onboarding")) {
+      router.replace("/onboarding" as never);
+    }
+  }, [me, pathname, router]);
 
   const meta = React.useMemo(() => {
     for (const [path, m] of Object.entries(TITLES)) {
@@ -49,6 +62,18 @@ export function AppShell({ children }: AppShellProps) {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, []);
+
+  // Mode plein écran (wizard onboarding) : pas de sidebar/topbar
+  const fullscreen = pathname.startsWith("/onboarding");
+
+  if (fullscreen) {
+    return (
+      <div className="min-h-screen bg-ink-50/40">
+        <main>{children}</main>
+        <Toaster />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-ink-50/40">

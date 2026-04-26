@@ -179,6 +179,18 @@ const EDITOR_ALLOWED_FIELDS: ReadonlyArray<keyof z.infer<typeof PatchSchema>> = 
   "contactPhone",
 ];
 
+// Champs additionnels autorisés au CLIENT/EDITOR pendant l'onboarding
+// (avant que User.onboardingDone passe à true)
+const ONBOARDING_EXTRA_FIELDS: ReadonlyArray<keyof z.infer<typeof PatchSchema>> = [
+  "name",
+  "legalName",
+  "industry",
+  "region",
+  "size",
+  "plan",
+  "status",
+];
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -206,9 +218,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Lecture seule" }, { status: 403 });
   }
   if (s.user.role === "CLIENT" || s.user.role === "EDITOR") {
+    const allowed: ReadonlyArray<keyof z.infer<typeof PatchSchema>> = s.user.onboardingDone
+      ? EDITOR_ALLOWED_FIELDS
+      : [...EDITOR_ALLOWED_FIELDS, ...ONBOARDING_EXTRA_FIELDS];
     data = Object.fromEntries(
       Object.entries(parsed.data).filter(([key]) =>
-        EDITOR_ALLOWED_FIELDS.includes(key as keyof z.infer<typeof PatchSchema>),
+        allowed.includes(key as keyof z.infer<typeof PatchSchema>),
       ),
     );
     if (Object.keys(data).length === 0) {
@@ -219,8 +234,8 @@ export async function PATCH(
     }
   }
 
-  // ADMIN : audit auto activatedAt/pausedAt selon status
-  if (s.user.role === "ADMIN" && parsed.data.status) {
+  // Audit auto activatedAt/pausedAt selon status (admin OU onboarding)
+  if (parsed.data.status && data.status) {
     if (parsed.data.status === "ACTIVE") {
       data.activatedAt = data.activatedAt ?? new Date();
       data.pausedAt = null;
