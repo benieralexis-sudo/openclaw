@@ -10,9 +10,7 @@ import {
   Users,
   Settings,
   Activity,
-  ArrowRight,
-  Plus,
-  Building2,
+  LogOut,
   Sparkles,
 } from "lucide-react";
 import {
@@ -83,31 +81,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandSeparator />
 
         <CommandGroup heading="Actions rapides">
-          <CommandItem onSelect={() => go("/triggers?filter=hot")}>
+          <CommandItem onSelect={() => go("/triggers")}>
             <Sparkles />
             <span>Voir les pépites du jour (≥9/10)</span>
           </CommandItem>
-          <CommandItem onSelect={() => go("/clients/new")}>
-            <Plus />
-            <span>Ajouter un client</span>
-            <CommandShortcut>⌘ N</CommandShortcut>
-          </CommandItem>
-          <CommandItem onSelect={() => go("/pipeline?view=kanban")}>
-            <ArrowRight />
-            <span>Vue Kanban du pipeline</span>
-          </CommandItem>
-        </CommandGroup>
-
-        <CommandSeparator />
-
-        <CommandGroup heading="Switch client">
-          <CommandItem onSelect={() => go("/clients/digitestlab")}>
-            <Building2 />
-            <span>DigitestLab</span>
-          </CommandItem>
-          <CommandItem onSelect={() => go("/clients/fimmop")}>
-            <Building2 />
-            <span>FIMMOP</span>
+          <CommandItem onSelect={() => go("/logout")}>
+            <LogOut />
+            <span>Se déconnecter</span>
           </CommandItem>
         </CommandGroup>
       </CommandList>

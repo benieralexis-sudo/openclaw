@@ -29,10 +29,15 @@ export function AppShell({ children }: AppShellProps) {
   const [paletteOpen, setPaletteOpen] = React.useState(false);
 
   // Force CLIENT/EDITOR sans onboarding fini sur /onboarding
+  // Garde-fou : on n'envoie sur /onboarding QUE si un clientId est rattaché.
+  // Sinon le wizard plante (pas de client à activer) → on laisse l'user voir
+  // les pages protégées qui afficheront un état vide propre.
   React.useEffect(() => {
     if (!me) return;
     const needsOnboarding =
-      (me.role === "CLIENT" || me.role === "EDITOR") && !me.onboardingDone;
+      (me.role === "CLIENT" || me.role === "EDITOR") &&
+      !me.onboardingDone &&
+      !!me.clientId;
     if (needsOnboarding && !pathname.startsWith("/onboarding")) {
       router.replace("/onboarding" as never);
     }

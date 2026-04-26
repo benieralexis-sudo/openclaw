@@ -176,11 +176,12 @@ export function OnboardingWizard() {
       if (!onboardRes.ok) throw new Error("Erreur fin d'onboarding");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Bienvenue dans iFIND 🚀", {
         description: "Le moteur scanne déjà les premiers signaux.",
       });
-      queryClient.invalidateQueries({ queryKey: ["me"] });
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
+      await queryClient.refetchQueries({ queryKey: ["me"] });
       queryClient.invalidateQueries({ queryKey: ["clients-enriched"] });
       queryClient.invalidateQueries({ queryKey: ["client", me?.clientId] });
       router.replace("/dashboard");
@@ -222,11 +223,15 @@ export function OnboardingWizard() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              fetch("/api/me/onboarding-done", { method: "POST" }).then(() => {
-                queryClient.invalidateQueries({ queryKey: ["me"] });
-                router.replace("/dashboard");
-              });
+            onClick={async () => {
+              const res = await fetch("/api/me/onboarding-done", { method: "POST" });
+              if (!res.ok) {
+                toast.error("Skip impossible");
+                return;
+              }
+              await queryClient.invalidateQueries({ queryKey: ["me"] });
+              await queryClient.refetchQueries({ queryKey: ["me"] });
+              router.replace("/dashboard");
             }}
           >
             Skip wizard (admin)

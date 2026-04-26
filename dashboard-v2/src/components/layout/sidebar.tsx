@@ -91,6 +91,7 @@ export function Sidebar() {
         <Link
           href={"/logout" as never}
           className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-600 transition-colors hover:bg-ink-50 hover:text-ink-900"
+          prefetch={false}
         >
           <LogOut className="h-4 w-4" />
           <span>Déconnexion</span>
