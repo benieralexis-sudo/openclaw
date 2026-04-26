@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
           jobTitle: true,
           companyName: true,
           email: true,
+          triggerId: true,
         },
       },
     },

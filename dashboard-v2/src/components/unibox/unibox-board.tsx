@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
   Building2,
   Check,
   Clock,
+  ExternalLink,
   Filter,
   Inbox,
   Mail,
@@ -53,6 +55,7 @@ interface ReplyLead {
   jobTitle: string | null;
   companyName: string;
   email: string | null;
+  triggerId: string | null;
 }
 
 interface Reply {
@@ -185,6 +188,7 @@ const FILTERS: FilterDef[] = [
 export function UniboxBoard() {
   const { activeClientId } = useScope();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = React.useState<string>("all");
   const [search, setSearch] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
@@ -414,6 +418,11 @@ export function UniboxBoard() {
               <ReplyDetail
                 reply={selected}
                 onMutate={(status) => updateStatus.mutate({ id: selected.id, status })}
+                onOpenBrief={
+                  selected.lead?.triggerId
+                    ? () => router.push(`/triggers/${selected.lead!.triggerId}` as never)
+                    : undefined
+                }
               />
             ) : (
               <div className="flex h-full items-center justify-center text-[13px] text-ink-400">
@@ -567,9 +576,11 @@ function ReplyListItem({
 function ReplyDetail({
   reply,
   onMutate,
+  onOpenBrief,
 }: {
   reply: Reply;
   onMutate: (status: Status) => void;
+  onOpenBrief?: () => void;
 }) {
   const intentMeta = INTENT_META[reply.intent];
   const IntentIcon = intentMeta.icon;
@@ -627,6 +638,17 @@ function ReplyDetail({
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-1.5">
+          {onOpenBrief && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onOpenBrief}
+              className="gap-1.5"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Brief</span>
+            </Button>
+          )}
           {reply.status !== "UNREAD" && (
             <Button
               variant="ghost"

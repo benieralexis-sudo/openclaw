@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import { ChevronRight, Filter, Flame, Target, Zap, Sparkles } from "lucide-react";
@@ -49,6 +50,7 @@ const STATUS_LABEL: Record<Trigger["status"], { variant: "warning" | "info" | "b
 
 export default function TriggersPage() {
   const { activeClientId } = useScope();
+  const router = useRouter();
   const [activeFilter, setActiveFilter] = React.useState<keyof typeof FILTER_LABELS>("all");
   const [search, setSearch] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
@@ -178,9 +180,17 @@ export default function TriggersPage() {
     {
       id: "actions",
       header: "",
-      cell: () => (
+      cell: ({ row }) => (
         <div className="flex justify-end">
-          <Button variant="ghost" size="icon-sm" aria-label="Voir détail">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Voir le brief"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/triggers/${row.original.id}` as never);
+            }}
+          >
             <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -229,7 +239,7 @@ export default function TriggersPage() {
           data={triggers}
           loading={isLoading}
           pageSize={25}
-          onRowClick={(t) => console.log("Open detail", t.id)}
+          onRowClick={(t) => router.push(`/triggers/${t.id}` as never)}
         />
       ) : (
         <Card>

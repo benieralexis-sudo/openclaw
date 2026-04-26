@@ -261,6 +261,9 @@ model Lead {
   // Pipeline
   status        LeadStatus @default(NEW)
   enrichedAt    DateTime?  // Quand on a enrichi via Pappers/Dropcontact
+  // Brief commercial Opus (généré on-demand, cache 7j)
+  briefJson     Json?
+  briefGeneratedAt DateTime?
   // Audit
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
