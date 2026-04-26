@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Target,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useScope } from "@/hooks/use-scope";
 
 interface NavItem {
   href: string;
@@ -24,13 +26,6 @@ interface NavItem {
   shortcut?: string;
 }
 
-const navMain: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, shortcut: "G D" },
-  { href: "/triggers", label: "Leads FR", icon: Target, shortcut: "G L", badge: { count: 5, variant: "fire" } },
-  { href: "/pipeline", label: "Pipeline RDV", icon: GitBranch, shortcut: "G P" },
-  { href: "/unibox", label: "Replies", icon: Inbox, shortcut: "G U", badge: { count: 12, variant: "brand" } },
-];
-
 const navManagement: NavItem[] = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/settings", label: "Paramètres", icon: Settings },
@@ -39,6 +34,33 @@ const navManagement: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { activeClientId } = useScope();
+
+  const { data: unreadCount = 0 } = useQuery<number>({
+    queryKey: ["replies-unread-count", activeClientId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ status: "UNREAD", count: "true" });
+      if (activeClientId) params.set("clientId", activeClientId);
+      const res = await fetch(`/api/replies?${params.toString()}`);
+      if (!res.ok) return 0;
+      const json = await res.json();
+      return json.count ?? 0;
+    },
+    refetchInterval: 30 * 1000,
+  });
+
+  const navMain: NavItem[] = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, shortcut: "G D" },
+    { href: "/triggers", label: "Leads FR", icon: Target, shortcut: "G L", badge: { count: 5, variant: "fire" } },
+    { href: "/pipeline", label: "Pipeline RDV", icon: GitBranch, shortcut: "G P" },
+    {
+      href: "/unibox",
+      label: "Replies",
+      icon: Inbox,
+      shortcut: "G U",
+      ...(unreadCount > 0 ? { badge: { count: unreadCount, variant: "brand" as const } } : {}),
+    },
+  ];
 
   return (
     <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[240px] flex-col border-r border-ink-200 bg-white md:flex">
