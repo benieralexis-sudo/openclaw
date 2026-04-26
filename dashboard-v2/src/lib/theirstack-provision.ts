@@ -104,9 +104,9 @@ function buildSearches(client: { name: string; icp: ClientIcpExtended }): Search
         job_country_code_or: countryCodes,
         job_title_or: hiringKeywords,
         posted_at_max_age_days: 30,
-        ...(employees.gte && { company_employee_count_gte: employees.gte }),
-        ...(employees.lte && { company_employee_count_lte: employees.lte }),
-        ...(tsIndustries.length > 0 && { company_industry_or: tsIndustries }),
+        ...(employees.gte && { min_employee_count: employees.gte }),
+        ...(employees.lte && { max_employee_count: employees.lte }),
+        ...(tsIndustries.length > 0 && { industry_or: tsIndustries }),
         limit: 50,
       },
     });
@@ -118,9 +118,9 @@ function buildSearches(client: { name: string; icp: ClientIcpExtended }): Search
     search_type: "companies",
     filters: {
       company_country_code_or: countryCodes,
-      ...(tsIndustries.length > 0 && { company_industry_or: tsIndustries }),
-      ...(employees.gte && { company_employee_count_gte: employees.gte }),
-      ...(employees.lte && { company_employee_count_lte: employees.lte }),
+      ...(tsIndustries.length > 0 && { industry_or: tsIndustries }),
+      ...(employees.gte && { min_employee_count: employees.gte }),
+      ...(employees.lte && { max_employee_count: employees.lte }),
       limit: 30,
     },
   });
@@ -143,9 +143,9 @@ function buildSearches(client: { name: string; icp: ClientIcpExtended }): Search
         job_country_code_or: countryCodes,
         job_title_or: expandedTitles,
         posted_at_max_age_days: 30,
-        ...(employees.gte && { company_employee_count_gte: employees.gte }),
-        ...(employees.lte && { company_employee_count_lte: employees.lte }),
-        ...(tsIndustries.length > 0 && { company_industry_or: tsIndustries }),
+        ...(employees.gte && { min_employee_count: employees.gte }),
+        ...(employees.lte && { max_employee_count: employees.lte }),
+        ...(tsIndustries.length > 0 && { industry_or: tsIndustries }),
         limit: 30,
       },
     });
@@ -160,7 +160,7 @@ function buildSearches(client: { name: string; icp: ClientIcpExtended }): Search
 
 /**
  * NOTE Phase 3.B : l'API saved_searches TheirStack rejette certains champs
- * filtres (company_employee_count_gte, company_industry_or, etc.) dans le
+ * filtres (min_employee_count, industry_or, etc.) dans le
  * body avec un format spécifique. Au lieu de persister des saved_searches,
  * on utilise les filtres directement via searchJobs/searchCompanies en
  * appels ad-hoc depuis le poller du bot. Ce helper retourne les filtres

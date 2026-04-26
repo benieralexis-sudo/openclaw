@@ -317,17 +317,51 @@ export async function getDatasetItems<T = Record<string, unknown>>(
 /**
  * Lance un actor, attend la fin, récupère les items du dataset par défaut.
  * Idéal pour des scrapers <60s qui retournent peu de résultats.
+ *
+ * Utilise l'endpoint /run-sync-get-dataset-items qui combine run + items
+ * en un seul appel HTTP (plus robuste que runActorSync + getDatasetItems
+ * séparés).
  */
 export async function runAndGetItems<T = Record<string, unknown>>(
   actorIdOrName: string,
   input: Record<string, unknown>,
   options: RunActorOptions & { itemsLimit?: number } = {},
-): Promise<{ run: ApifyRun; items: T[] }> {
-  const run = await runActorSync(actorIdOrName, input, options);
-  const items = await getDatasetItems<T>(run.defaultDatasetId, {
-    limit: options.itemsLimit ?? 1000,
-  });
-  return { run, items };
+): Promise<{ run: ApifyRun | null; items: T[] }> {
+  const id = resolveActorId(actorIdOrName);
+  const qs = new URLSearchParams();
+  if (options.timeout) qs.set("timeout", String(options.timeout));
+  if (options.memory) qs.set("memory", String(options.memory));
+  if (options.build) qs.set("build", options.build);
+  if (options.itemsLimit) qs.set("limit", String(options.itemsLimit));
+  qs.set("format", "json");
+
+  const token = process.env.APIFY_API_TOKEN;
+  if (!token) throw new Error("APIFY_API_TOKEN non configuré");
+
+  const res = await fetch(
+    `${BASE_URL}/v2/acts/${id}/run-sync-get-dataset-items?${qs.toString()}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApifyApiError(
+      res.status,
+      "RUN_SYNC_FAILED",
+      `Apify run-sync ${res.status}: ${text.slice(0, 200)}`,
+    );
+  }
+
+  const items = (await res.json()) as T[];
+  return { run: null, items: Array.isArray(items) ? items : [] };
 }
 
 export { ApifyApiError };

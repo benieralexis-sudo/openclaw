@@ -59,15 +59,21 @@ export interface JobSearchFilters {
   job_seniority_or?: Array<"c_level" | "vp" | "director" | "manager" | "senior" | "mid" | "junior" | "intern">;
   // Entreprise (pour scoper)
   company_name_or?: string[];
+  company_name_case_insensitive_or?: string[];
   company_name_partial_match_or?: string[];
   company_domain_or?: string[];
   company_linkedin_url_or?: string[];
   company_country_code_or?: string[];
-  company_industry_or?: string[];
-  company_employee_count_gte?: number;
-  company_employee_count_lte?: number;
-  // Tech stack
-  company_technology_or?: string[];
+  // ⚠️ TheirStack utilise industry_or (pas company_industry_or) + min/max_employee_count
+  industry_or?: string[];
+  industry_not?: string[];
+  industry_id_or?: number[];
+  min_employee_count?: number;
+  max_employee_count?: number;
+  // Tech stack (slugs TheirStack — différent de simple noms)
+  company_technology_slug_or?: string[];
+  company_technology_slug_and?: string[];
+  company_technology_slug_not?: string[];
   // Pagination + tri
   limit?: number;
   offset?: number;
@@ -128,12 +134,13 @@ export interface CompanySearchFilters {
   company_linkedin_url_or?: string[];
   company_country_code_or?: string[];
   company_industry_or?: string[];
-  company_employee_count_gte?: number;
-  company_employee_count_lte?: number;
-  company_revenue_usd_gte?: number;
-  company_revenue_usd_lte?: number;
-  company_technology_or?: string[];
-  company_buying_intent_or?: string[];
+  // ⚠️ noms exacts API TheirStack
+  min_employee_count?: number;
+  max_employee_count?: number;
+  industry_or?: string[];
+  industry_not?: string[];
+  company_technology_slug_or?: string[];
+  company_buying_intent_slug_or?: string[];
   // Pagination
   limit?: number;
   offset?: number;
