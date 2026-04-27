@@ -1,10 +1,15 @@
 /**
  * Seed initial — clients de démo + triggers réalistes
- * Lancer : npm run db:seed
+ * Lancer : ALLOW_SEEDS=true npm run db:seed
  *
- * Note Phase 1.6 : ce seed est temporaire, il sera remplacé par
- * la vraie migration depuis /opt/moltbot/data/dashboard/clients.json
+ * ⚠️  PROD GUARD ajouté 27/04 : ce seed contient des données fake (TechFlow,
+ * Maison Verte, etc) qui polluent le dashboard DTL.
  */
+if (process.env.ALLOW_SEEDS !== "true") {
+  console.error("⛔ Seed bloqué (prod guard). ALLOW_SEEDS=true npm run db:seed");
+  process.exit(1);
+}
+
 import {
   PrismaClient,
   ClientStatus,

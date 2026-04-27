@@ -144,20 +144,41 @@ async function syncToPostgres(sqliteDb, options = {}) {
 
       stats.scanned += rows.length;
 
+      // Listes de neutralisation hors-ICP (collectivités, géants, conseil RH généraliste)
+      const namePatternsBlock = [
+        /agglomeration/i, /commune/i, /mairie/i, /conseil\s+(régional|departemental|général)/i,
+        /saint-gobain/i, /bnp\s*paribas/i, /cnp\s+assurances/i, /total\s*energies/i,
+        /carrefour/i, /orange\s*business/i, /sncf/i, /la\s+poste/i, /pole\s+emploi/i, /paritel/i,
+        /les\s+recruteurs/i, /\bcimem\b/i, /^e\.?\s*leclerc/i, /tous\s+bénévoles/i,
+        /jeveuxaider/i, /aerocontact/i, /jober\s+group/i, /alphéa\s+conseil/i,
+      ];
+
       for (const r of rows) {
         try {
-          // SIRENE non résolu (FT_xxx ID interne France Travail) → skip si pas de raison_sociale
-          // (sinon on pollue Postgres avec leads non-attribués)
+          // 1. SIRENE non résolu (raison_sociale absente OU SIREN non numérique type FT_xxx)
           if (!r.raison_sociale) {
+            stats.skipped_quality += 1;
+            continue;
+          }
+          if (typeof r.siren === 'string' && !/^\d+$/.test(r.siren)) {
+            stats.skipped_quality += 1;
+            continue;
+          }
+          // 2. Patterns de raison sociale hors ICP (collectivités, mastodontes connus)
+          if (namePatternsBlock.some((re) => re.test(r.raison_sociale))) {
+            stats.skipped_quality += 1;
+            continue;
+          }
+          // 3. Volume événements anormal (>=50 = signal noyé, ex: 48 events CIMEM, 245 Saint-Gobain)
+          //    Indique entreprise géante ou mal attribuée — on n'a pas le bon scope DTL.
+          let signalsCount = 0;
+          try { signalsCount = JSON.parse(r.signals || '[]').length; } catch {}
+          if (signalsCount >= 50) {
             stats.skipped_quality += 1;
             continue;
           }
 
           const triggerId = `te-${code}-${r.siren}-${r.pattern_id || 'p'}`.slice(0, 30);
-          const signalsCount = (() => {
-            try { return JSON.parse(r.signals || '[]').length; } catch { return 0; }
-          })();
-
           const triggerType = patternToTriggerType(r.pattern_id);
           const title = buildTriggerTitle(r.pattern_id, signalsCount);
           const score10 = Math.round(Math.min(10, Math.max(1, r.score || 5)));

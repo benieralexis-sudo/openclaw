@@ -266,42 +266,14 @@ export async function pollTheirstackForClient(
 
   // ────────────────────────────────────────────────────────────────────
   // 2) Companies : match ICP firmographic
+  //
+  // Désactivé 27/04/2026 : trop bruité (Leclerc, plateformes RH, assoc).
+  // searchCompanies remonte des entreprises matchant l'ICP firmographique
+  // mais SANS signal d'achat (pas de hire récent, pas de levée). Score 6
+  // par défaut → pollue le dashboard sans valeur. Réactiver uniquement si
+  // searchJobs ne suffit pas.
   // ────────────────────────────────────────────────────────────────────
-  try {
-    const companyFilters: Record<string, unknown> = {
-      company_country_code_or: ["FR"],
-      limit: options.companiesLimit ?? 15,
-    };
-    if (sizeRange.gte !== undefined) companyFilters.min_employee_count = sizeRange.gte;
-    if (sizeRange.lte !== undefined) companyFilters.max_employee_count = sizeRange.lte;
-    if (tsIndustries.length > 0) companyFilters.industry_or = tsIndustries;
-
-    const { data: companies } = await searchCompanies(companyFilters);
-    result.companiesFound = companies.length;
-    result.creditsEstimateUsed += companies.length * 3; // 3 cr/company
-
-    if (!options.dryRun) {
-      for (const company of companies) {
-        if (antiCompanies.some((a) => company.name.toLowerCase().includes(a))) continue;
-        if (await isAlreadyCaptured(clientId, company.name, "theirstack.company-match")) continue;
-        try {
-          await db.trigger.create({
-            data: companyToTriggerData(company, clientId, "company-match"),
-          });
-        } catch (e) {
-          result.errors.push({
-            kind: "company-create",
-            error: e instanceof Error ? e.message : String(e),
-          });
-        }
-      }
-    }
-  } catch (e) {
-    result.errors.push({
-      kind: "searchCompanies",
-      error: e instanceof Error ? e.message : String(e),
-    });
-  }
+  // (bloc supprimé — voir git history pour réactivation)
 
   return result;
 }

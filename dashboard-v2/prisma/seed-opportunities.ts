@@ -1,15 +1,15 @@
 /**
- * Seed Phase 2.1 — Pipeline Kanban
+ * Seed Phase 2.1 — Pipeline Kanban (FAKE DATA — DEV ONLY)
  *
- * Crée des Leads + Opportunities réparties sur les 7 stages, pour les
- * triggers existants (créés par seed.ts) + complète avec un set DigitestLab
- * étoffé pour démo visuelle riche.
+ * ⚠️  PROD GUARD ajouté 27/04. Active ALLOW_SEEDS=true uniquement en dev.
  *
- * Idempotent : nettoie d'abord les Opportunities + Leads existants des
- * clients de démo avant de re-seeder.
- *
- * Lancer : npx tsx prisma/seed-opportunities.ts
+ * Lancer : ALLOW_SEEDS=true npx tsx prisma/seed-opportunities.ts
  */
+if (process.env.ALLOW_SEEDS !== "true") {
+  console.error("⛔ Seed bloqué (prod guard). ALLOW_SEEDS=true npx tsx prisma/seed-opportunities.ts");
+  process.exit(1);
+}
+
 import {
   PrismaClient,
   EmailStatus,

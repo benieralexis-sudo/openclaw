@@ -1,13 +1,15 @@
 /**
- * Seed Phase 2.2 — Unibox Replies
+ * Seed Phase 2.2 — Unibox Replies (FAKE DATA — DEV ONLY)
  *
- * Crée ~26 replies réparties sur les 9 intents et 5 statuts, attachées
- * aux leads créés par seed-opportunities.ts.
+ * ⚠️  PROD GUARD ajouté 27/04. Activer ALLOW_SEEDS=true uniquement en dev.
  *
- * Idempotent : nettoie les Replies des 3 clients de démo avant re-seed.
- *
- * Lancer : npx tsx prisma/seed-replies.ts
+ * Lancer : ALLOW_SEEDS=true npx tsx prisma/seed-replies.ts
  */
+if (process.env.ALLOW_SEEDS !== "true") {
+  console.error("⛔ Seed bloqué (prod guard). ALLOW_SEEDS=true npx tsx prisma/seed-replies.ts");
+  process.exit(1);
+}
+
 import {
   PrismaClient,
   ReplyIntent,
