@@ -265,6 +265,14 @@ model Lead {
   // Brief commercial Opus (généré on-demand, cache 7j)
   briefJson     Json?
   briefGeneratedAt DateTime?
+  // Kaspr enrichment (LinkedIn → email pro + tel + titre, cache 7j)
+  kasprEnrichedAt     DateTime?
+  kasprWorkEmail      String?
+  kasprPersonalEmail  String?
+  kasprPhone          String?
+  kasprTitle          String?
+  kasprCreditsUsed    Int?      @default(0)
+  kasprResponseJson   Json?
   // Cache des contenus on-demand (pitch / linkedin DM / call brief) — économie tokens Opus
   pitchJson         Json?
   pitchGeneratedAt  DateTime?

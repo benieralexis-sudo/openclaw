@@ -26,7 +26,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { cn, formatNumberFr, formatRelativeFr } from "@/lib/utils";
 import { SendEmailModal } from "@/components/lead/send-email-modal";
-import { Send } from "lucide-react";
+import { EnrichKasprModal } from "@/components/lead/enrich-kaspr-modal";
+import { Database, Phone, Send } from "lucide-react";
 
 // ──────────────────────────────────────────────────────────────────────
 // Types
@@ -54,6 +55,8 @@ interface TriggerData {
   lead: {
     id: string;
     fullName: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
     jobTitle: string | null;
     linkedinUrl: string | null;
     email: string | null;
@@ -62,6 +65,12 @@ interface TriggerData {
     companyName: string;
     briefJson: Brief | null;
     briefGeneratedAt: string | null;
+    // Kaspr enrichment
+    kasprEnrichedAt?: string | null;
+    kasprWorkEmail?: string | null;
+    kasprPersonalEmail?: string | null;
+    kasprPhone?: string | null;
+    kasprTitle?: string | null;
   } | null;
   client: {
     id: string;
@@ -125,6 +134,7 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [sendOpen, setSendOpen] = React.useState(false);
+  const [enrichOpen, setEnrichOpen] = React.useState(false);
 
   const { data, isLoading } = useQuery<TriggerData>({
     queryKey: ["trigger-detail", triggerId],
@@ -186,17 +196,29 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
         </button>
 
         {lead && (
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => setSendOpen(true)}
-            disabled={!lead.email}
-            className="gap-1.5"
-            title={lead.email ?? "Pas d'email destinataire enrichi"}
-          >
-            <Send className="h-3.5 w-3.5" />
-            Envoyer email
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setEnrichOpen(true)}
+              className="gap-1.5"
+              title="Enrichir via Kaspr (email pro + tel + titre)"
+            >
+              <Database className="h-3.5 w-3.5 text-cyan-600" />
+              Enrichir Kaspr
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setSendOpen(true)}
+              disabled={!lead.email}
+              className="gap-1.5"
+              title={lead.email ?? "Pas d'email destinataire enrichi"}
+            >
+              <Send className="h-3.5 w-3.5" />
+              Envoyer email
+            </Button>
+          </div>
         )}
       </div>
 
@@ -228,17 +250,31 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
       )}
 
       {lead && (
-        <SendEmailModal
-          open={sendOpen}
-          onOpenChange={setSendOpen}
-          lead={{
-            id: lead.id,
-            fullName: lead.fullName,
-            email: lead.email,
-            companyName: lead.companyName,
-            jobTitle: lead.jobTitle,
-          }}
-        />
+        <>
+          <SendEmailModal
+            open={sendOpen}
+            onOpenChange={setSendOpen}
+            lead={{
+              id: lead.id,
+              fullName: lead.fullName,
+              email: lead.email,
+              companyName: lead.companyName,
+              jobTitle: lead.jobTitle,
+            }}
+          />
+          <EnrichKasprModal
+            open={enrichOpen}
+            onOpenChange={setEnrichOpen}
+            lead={{
+              id: lead.id,
+              fullName: lead.fullName,
+              firstName: lead.firstName ?? null,
+              lastName: lead.lastName ?? null,
+              linkedinUrl: lead.linkedinUrl,
+              kasprEnrichedAt: lead.kasprEnrichedAt ?? null,
+            }}
+          />
+        </>
       )}
     </div>
   );
@@ -355,6 +391,40 @@ function TriggerHeader({
                   LinkedIn
                   <ExternalLink className="h-2.5 w-2.5" />
                 </a>
+              )}
+              {lead.kasprEnrichedAt && (
+                <div className="mt-2 border-t border-ink-100 pt-2 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="info" size="sm" className="gap-1">
+                      <Database className="h-2.5 w-2.5" />
+                      Kaspr
+                    </Badge>
+                    <span className="text-[10px] text-ink-400">
+                      {formatRelativeFr(lead.kasprEnrichedAt)}
+                    </span>
+                  </div>
+                  {lead.kasprTitle && (
+                    <div className="text-[11px] text-ink-700">{lead.kasprTitle}</div>
+                  )}
+                  {lead.kasprWorkEmail && lead.kasprWorkEmail !== lead.email && (
+                    <a
+                      href={`mailto:${lead.kasprWorkEmail}`}
+                      className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
+                    >
+                      <Mail className="h-3 w-3" />
+                      {lead.kasprWorkEmail}
+                    </a>
+                  )}
+                  {lead.kasprPhone && (
+                    <a
+                      href={`tel:${lead.kasprPhone}`}
+                      className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
+                    >
+                      <Phone className="h-3 w-3" />
+                      {lead.kasprPhone}
+                    </a>
+                  )}
+                </div>
               )}
             </div>
           )}

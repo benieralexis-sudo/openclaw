@@ -60,6 +60,12 @@ export async function GET(
       enrichedAt: true,
       briefJson: true,
       briefGeneratedAt: true,
+      // Kaspr enrichment
+      kasprEnrichedAt: true,
+      kasprWorkEmail: true,
+      kasprPersonalEmail: true,
+      kasprPhone: true,
+      kasprTitle: true,
     },
   });
 
