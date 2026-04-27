@@ -104,14 +104,15 @@ function mapLocations(icpRegions: string[] | undefined): string[] {
   if (!icpRegions) return [];
   const out = new Set<string>();
   for (const r of icpRegions) {
-    if (r.includes("France") || r === "France entière") out.add("France");
-    if (r === "Paris" || r.includes("Île-de-France")) out.add("Paris");
-    if (r === "Lyon" || r.includes("Auvergne-Rhône-Alpes")) out.add("Lyon");
-    if (r === "Bordeaux") out.add("Bordeaux");
-    if (r === "Marseille" || r === "PACA") out.add("Marseille");
-    if (r === "Toulouse" || r === "Occitanie") out.add("Toulouse");
-    if (r === "Nantes" || r === "Pays de la Loire") out.add("Nantes");
-    if (r === "Lille" || r === "Hauts-de-France") out.add("Lille");
+    const lower = r.toLowerCase();
+    if (r === "France entière" || lower === "france") out.add("France");
+    if (r === "Paris" || lower.includes("île-de-france") || lower.includes("ile-de-france")) out.add("Paris");
+    if (r === "Lyon" || lower.includes("auvergne-rhône-alpes") || lower.includes("auvergne-rhone-alpes")) out.add("Lyon");
+    if (r === "Bordeaux" || lower.includes("nouvelle-aquitaine") || lower.includes("aquitaine")) out.add("Bordeaux");
+    if (r === "Marseille" || r === "PACA" || lower.includes("provence-alpes") || lower.includes("côte d'azur") || lower.includes("cote d'azur")) out.add("Marseille");
+    if (r === "Toulouse" || lower.includes("occitanie") || lower.includes("midi-pyrénées") || lower.includes("midi-pyrenees")) out.add("Toulouse");
+    if (r === "Nantes" || lower.includes("pays de la loire") || lower.includes("loire-atlantique")) out.add("Nantes");
+    if (r === "Lille" || lower.includes("hauts-de-france") || lower.includes("nord-pas-de-calais")) out.add("Lille");
   }
   // Fallback : si rien matché, on ajoute "France"
   if (out.size === 0) out.add("France");
