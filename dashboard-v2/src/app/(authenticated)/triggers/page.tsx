@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
-import { ChevronRight, Filter, Flame, Target, Zap, Sparkles } from "lucide-react";
+import { ChevronRight, Filter, Flame, Target, Zap, Sparkles, Award, ListFilter } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,10 +48,18 @@ const STATUS_LABEL: Record<Trigger["status"], { variant: "warning" | "info" | "b
   IGNORED: { variant: "default", label: "Ignoré" },
 };
 
+type Quality = "all" | "qualified" | "pepites";
+const QUALITY_LABELS: Record<Quality, { label: string; icon: typeof Target; tip: string }> = {
+  all: { label: "Tous", icon: ListFilter, tip: "Tous les leads, même score 1-5 (debug)" },
+  qualified: { label: "Qualifiés", icon: Target, tip: "Score Opus ≥ 6, prêts à approcher" },
+  pepites: { label: "Pépites", icon: Award, tip: "Score Opus ≥ 8, attaque immédiate" },
+};
+
 export default function TriggersPage() {
   const { activeClientId } = useScope();
   const router = useRouter();
   const [activeFilter, setActiveFilter] = React.useState<keyof typeof FILTER_LABELS>("all");
+  const [quality, setQuality] = React.useState<Quality>("qualified");
   const [search, setSearch] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
 
@@ -61,11 +69,12 @@ export default function TriggersPage() {
   }, [search]);
 
   const { data: triggers = [], isLoading } = useQuery<Trigger[]>({
-    queryKey: ["triggers", activeClientId, activeFilter, debouncedSearch],
+    queryKey: ["triggers", activeClientId, activeFilter, quality, debouncedSearch],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (activeClientId) params.set("clientId", activeClientId);
       if (activeFilter !== "all") params.set("filter", activeFilter);
+      params.set("quality", quality);
       if (debouncedSearch) params.set("q", debouncedSearch);
       const res = await fetch(`/api/triggers?${params.toString()}`);
       if (!res.ok) throw new Error("Erreur chargement triggers");
@@ -74,12 +83,13 @@ export default function TriggersPage() {
     refetchInterval: 30 * 1000, // Live data every 30s
   });
 
-  // Compteurs réels (sans le filter actif, juste search) — séparé pour ne pas se rafraîchir au switch tab
+  // Compteurs réels (sans filter ni quality, juste search) — pour ne pas se rafraîchir au switch tab
   const { data: allTriggers = [] } = useQuery<Trigger[]>({
     queryKey: ["triggers", activeClientId, "_counts", debouncedSearch],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (activeClientId) params.set("clientId", activeClientId);
+      params.set("quality", "all");
       if (debouncedSearch) params.set("q", debouncedSearch);
       const res = await fetch(`/api/triggers?${params.toString()}`);
       if (!res.ok) throw new Error("Erreur chargement triggers");
@@ -94,6 +104,15 @@ export default function TriggersPage() {
       hot: allTriggers.filter((t) => t.isHot).length,
       combo: allTriggers.filter((t) => t.isCombo).length,
       new: allTriggers.filter((t) => t.status === "NEW").length,
+    }),
+    [allTriggers],
+  );
+
+  const qualityCounts: Record<Quality, number> = React.useMemo(
+    () => ({
+      all: allTriggers.length,
+      qualified: allTriggers.filter((t) => t.score >= 6).length,
+      pepites: allTriggers.filter((t) => t.score >= 8).length,
     }),
     [allTriggers],
   );
@@ -201,22 +220,41 @@ export default function TriggersPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as keyof typeof FILTER_LABELS)}>
-          <TabsList className="bg-white border border-ink-200 shadow-xs">
-            {(Object.entries(FILTER_LABELS) as [keyof typeof FILTER_LABELS, (typeof FILTER_LABELS)[string]][]).map(([key, f]) => {
-              const Icon = f.icon;
-              return (
-                <TabsTrigger key={key} value={key} className="gap-1.5 group">
-                  <Icon className="h-3.5 w-3.5" />
-                  <span>{f.label}</span>
-                  <span className="ml-1 rounded bg-ink-100 px-1.5 py-0 text-[10.5px] font-mono tabular-nums text-ink-600 group-data-[state=active]:bg-brand-50 group-data-[state=active]:text-brand-700">
-                    {counts[key]}
-                  </span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-wrap items-center gap-2">
+          <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as keyof typeof FILTER_LABELS)}>
+            <TabsList className="bg-white border border-ink-200 shadow-xs">
+              {(Object.entries(FILTER_LABELS) as [keyof typeof FILTER_LABELS, (typeof FILTER_LABELS)[string]][]).map(([key, f]) => {
+                const Icon = f.icon;
+                return (
+                  <TabsTrigger key={key} value={key} className="gap-1.5 group">
+                    <Icon className="h-3.5 w-3.5" />
+                    <span>{f.label}</span>
+                    <span className="ml-1 rounded bg-ink-100 px-1.5 py-0 text-[10.5px] font-mono tabular-nums text-ink-600 group-data-[state=active]:bg-brand-50 group-data-[state=active]:text-brand-700">
+                      {counts[key]}
+                    </span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+
+          <Tabs value={quality} onValueChange={(v) => setQuality(v as Quality)}>
+            <TabsList className="bg-white border border-ink-200 shadow-xs">
+              {(Object.entries(QUALITY_LABELS) as [Quality, (typeof QUALITY_LABELS)[Quality]][]).map(([key, q]) => {
+                const Icon = q.icon;
+                return (
+                  <TabsTrigger key={key} value={key} className="gap-1.5 group" title={q.tip}>
+                    <Icon className="h-3.5 w-3.5" />
+                    <span>{q.label}</span>
+                    <span className="ml-1 rounded bg-ink-100 px-1.5 py-0 text-[10.5px] font-mono tabular-nums text-ink-600 group-data-[state=active]:bg-brand-50 group-data-[state=active]:text-brand-700">
+                      {qualityCounts[key]}
+                    </span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        </div>
 
         <div className="flex items-center gap-2">
           <Input

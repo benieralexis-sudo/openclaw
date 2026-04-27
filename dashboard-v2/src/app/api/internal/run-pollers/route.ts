@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { pollTheirstackForClient, enrichRecentTriggersWithSirene } from "@/lib/theirstack-poller";
 import { pollApifyForClient } from "@/lib/apify-poller";
+import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
+import { detectCombosForClient } from "@/lib/combo-detector";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -30,10 +32,10 @@ export async function POST(req: NextRequest) {
     ? await db.client.findMany({ where: { id: targetClientId, deletedAt: null }, select: { id: true, name: true, icp: true } })
     : await db.client.findMany({ where: { deletedAt: null, status: { in: ["ACTIVE", "PROSPECT"] } }, select: { id: true, name: true, icp: true } });
 
-  const summary: Array<{ client: string; theirstack?: unknown; apify?: unknown; sireneEnriched?: number; error?: string; skipped?: string }> = [];
+  const summary: Array<{ client: string; theirstack?: unknown; apify?: unknown; sireneEnriched?: number; opusQualified?: number; error?: string; skipped?: string }> = [];
 
   for (const c of clients) {
-    const entry: { client: string; theirstack?: unknown; apify?: unknown; sireneEnriched?: number; error?: string; skipped?: string } = { client: c.name };
+    const entry: { client: string; theirstack?: unknown; apify?: unknown; sireneEnriched?: number; opusQualified?: number; error?: string; skipped?: string } = { client: c.name };
     if (!c.icp) {
       entry.skipped = "no icp";
       summary.push(entry);
@@ -47,6 +49,14 @@ export async function POST(req: NextRequest) {
       }
       if (source === "all" || source === "apify") {
         entry.apify = await pollApifyForClient(c.id, { dryRun, useFranceJobs: true, useLinkedin: false });
+      }
+      // Qualify Opus tous les Triggers du client sans scoreReason (limite 30/run pour budget tokens).
+      if (!dryRun) {
+        const q = await qualifyPendingTriggers(c.id, { limit: 30 });
+        entry.opusQualified = q.qualified;
+        // Combo detector : flag isCombo=true sur les boîtes avec 2+ sources
+        const combo = await detectCombosForClient(c.id);
+        (entry as { combos?: unknown }).combos = combo;
       }
     } catch (e) {
       entry.error = e instanceof Error ? e.message : String(e);

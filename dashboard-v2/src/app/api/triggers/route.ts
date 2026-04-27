@@ -16,12 +16,16 @@ export async function GET(req: NextRequest) {
 
   const filter = searchParams.get("filter");
   const search = searchParams.get("q");
+  // Quality filter : "all" (tout), "qualified" (≥6, défaut), "pepites" (≥8)
+  const quality = searchParams.get("quality") ?? "qualified";
 
   const where: Prisma.TriggerWhereInput = { deletedAt: null };
   if (scope.clientId) where.clientId = scope.clientId;
   if (filter === "hot") where.isHot = true;
   else if (filter === "combo") where.isCombo = true;
   else if (filter === "new") where.status = "NEW";
+  if (quality === "qualified") where.score = { gte: 6 };
+  else if (quality === "pepites") where.score = { gte: 8 };
   if (search) {
     where.OR = [
       { companyName: { contains: search, mode: "insensitive" } },

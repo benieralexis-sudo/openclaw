@@ -181,7 +181,12 @@ async function syncToPostgres(sqliteDb, options = {}) {
           const triggerId = `te-${code}-${r.siren}-${r.pattern_id || 'p'}`.slice(0, 30);
           const triggerType = patternToTriggerType(r.pattern_id);
           const title = buildTriggerTitle(r.pattern_id, signalsCount);
-          const score10 = Math.round(Math.min(10, Math.max(1, r.score || 5)));
+          // Score composite Opus-driven : si Opus a évalué le lead (qualify pipeline),
+          // on prend son verdict (qui pondère NAF + persona + freshness + ICP fit).
+          // Sinon fallback sur le score brut du pattern matcher.
+          const opusInt = r.opus_score ? Math.round(Math.min(10, Math.max(1, r.opus_score))) : null;
+          const rawInt = Math.round(Math.min(10, Math.max(1, r.score || 5)));
+          const score10 = opusInt ?? rawInt;
           const isHot = score10 >= 9;
           const sizeStr = r.effectif_min || r.effectif_max
             ? `${r.effectif_min || 0}-${r.effectif_max || '?'}p`

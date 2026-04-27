@@ -292,7 +292,11 @@ class TriggerEngineCron {
           // Enqueue Claude Brain qualify pour les nouveaux leads (si activé)
           this._enqueueQualifyForNewLeads();
         }
-        if (result.matches > 0) {
+        // ⚠️ Alertes Telegram leads désactivées 27/04/2026 (user request).
+        // Telegram = alertes SYSTÈME uniquement (containers down, source health, quota).
+        // Leads + pépites = visibles dans le dashboard (filtre Pépites ≥8) + emails Resend.
+        // Réactiver via TELEGRAM_LEAD_ALERTS_ENABLED=true si besoin.
+        if (process.env.TELEGRAM_LEAD_ALERTS_ENABLED === 'true' && result.matches > 0) {
           try {
             const alert = await telegramAlert.checkAndAlert(this.handler.storage.db, { log: this.log });
             if (alert.sent > 0) this.log.info?.(`[cron] Telegram alerts sent: ${alert.sent}/${alert.candidates}`);
@@ -303,8 +307,8 @@ class TriggerEngineCron {
         // Auto-pitch pour les leads red (opus_score ≥ seuil tenant)
         this._enqueueAutoPitchesForRedLeads();
 
-        // Alertes temps réel sur pépites score ≥ 9 (dédup 24h)
-        if (this.claudeBrain && this.claudeBrain.enabled) {
+        // Alertes temps réel pépites (Telegram) — DÉSACTIVÉES par défaut.
+        if (process.env.TELEGRAM_LEAD_ALERTS_ENABLED === 'true' && this.claudeBrain && this.claudeBrain.enabled) {
           try {
             const alertStats = await sendRealtimeAlerts(this.handler.storage.db, { log: this.log });
             if (alertStats.sent > 0) {

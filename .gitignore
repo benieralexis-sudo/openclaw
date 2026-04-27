@@ -105,3 +105,4 @@ landing/prospects.json
 # Node package managers (on utilise pnpm, pas npm)
 package-lock.json
 skills/trigger-engine/lib/node_modules/
+data/
