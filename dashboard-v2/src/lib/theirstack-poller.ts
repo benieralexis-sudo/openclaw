@@ -286,7 +286,7 @@ export async function pollTheirstackForClient(
 export async function enrichRecentTriggersWithSirene(
   clientId: string,
   options: { limit?: number } = {},
-): Promise<{ enriched: number; skipped: number; errors: number }> {
+): Promise<{ enriched: number; skipped: number; errors: number; pruned?: number }> {
   const limit = options.limit ?? 20;
   const since = new Date();
   since.setHours(since.getHours() - 24);
@@ -302,7 +302,8 @@ export async function enrichRecentTriggersWithSirene(
     take: limit,
   });
 
-  const stats = { enriched: 0, skipped: 0, errors: 0 };
+  const stats: { enriched: number; skipped: number; errors: number; pruned: number } =
+    { enriched: 0, skipped: 0, errors: 0, pruned: 0 };
 
   for (const t of triggers) {
     try {
@@ -321,6 +322,42 @@ export async function enrichRecentTriggersWithSirene(
       stats.enriched += 1;
     } catch {
       stats.errors += 1;
+    }
+  }
+
+  // Cleanup post-enrichissement : supprimer triggers avec NAF non-tech.
+  // Whitelist NAF tech : 58.29* (édition logiciels), 62.0* (services info),
+  // 63.* (traitement données), 70.22Z (conseil affaires), 71.12B (ingénierie).
+  // Déclenche uniquement si l'ICP du client a `industries` qui ressemble à tech/SaaS.
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { icp: true },
+  });
+  const icp = (client?.icp ?? {}) as { industries?: string[] };
+  const isTechIcp = (icp.industries ?? []).some((i) =>
+    /saas|logiciel|tech|esn|ssii|software|it/i.test(i),
+  );
+  if (!isTechIcp) return stats;
+
+  const techNafPrefixes = ["58.29", "62.0", "62.01", "62.02", "62.03", "63.1", "63.99", "70.22", "71.12B"];
+  const recentTriggers = await db.trigger.findMany({
+    where: {
+      clientId,
+      companyNaf: { not: null },
+      capturedAt: { gte: since },
+      deletedAt: null,
+    },
+    select: { id: true, companyName: true, companyNaf: true },
+  });
+  for (const t of recentTriggers) {
+    if (!t.companyNaf) continue;
+    const isTech = techNafPrefixes.some((p) => t.companyNaf!.startsWith(p));
+    if (!isTech) {
+      await db.trigger.update({
+        where: { id: t.id },
+        data: { deletedAt: new Date() },
+      });
+      stats.pruned += 1;
     }
   }
 

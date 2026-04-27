@@ -169,11 +169,11 @@ async function syncToPostgres(sqliteDb, options = {}) {
             stats.skipped_quality += 1;
             continue;
           }
-          // 3. Volume événements anormal (>=50 = signal noyé, ex: 48 events CIMEM, 245 Saint-Gobain)
-          //    Indique entreprise géante ou mal attribuée — on n'a pas le bon scope DTL.
+          // 3. Volume événements anormal (>=20 = signal noyé, indique mauvaise attribution
+          //    ou groupe géant — un vrai PME ICP DTL recrute typiquement 1-5 personnes/30j).
           let signalsCount = 0;
           try { signalsCount = JSON.parse(r.signals || '[]').length; } catch {}
-          if (signalsCount >= 50) {
+          if (signalsCount >= 20) {
             stats.skipped_quality += 1;
             continue;
           }
@@ -183,10 +183,34 @@ async function syncToPostgres(sqliteDb, options = {}) {
           const title = buildTriggerTitle(r.pattern_id, signalsCount);
           const score10 = Math.round(Math.min(10, Math.max(1, r.score || 5)));
           const isHot = score10 >= 9;
-          const opusReason = r.opus_score ? `Opus score: ${r.opus_score.toFixed(2)}/10` : null;
           const sizeStr = r.effectif_min || r.effectif_max
             ? `${r.effectif_min || 0}-${r.effectif_max || '?'}p`
             : null;
+
+          // Récupère les 5 derniers signaux concrets (offres d'emploi, levées, etc)
+          // pour enrichir le `detail` du Trigger côté commerciaux.
+          let signalDetails = '';
+          try {
+            const sigIds = JSON.parse(r.signals || '[]');
+            if (sigIds.length > 0) {
+              const events = sqliteDb.prepare(
+                `SELECT source, event_type, event_date, normalized FROM events
+                 WHERE id IN (${sigIds.slice(0, 8).map(() => '?').join(',')})
+                 ORDER BY event_date DESC LIMIT 5`
+              ).all(...sigIds.slice(0, 8));
+              const lines = events.map((e) => {
+                let label = '';
+                try {
+                  const n = JSON.parse(e.normalized || '{}');
+                  label = (n.job_title || n.title || n.intitule || n.objet || n.event_subtype || e.event_type).toString().slice(0, 80);
+                } catch { label = e.event_type; }
+                return `• ${e.event_date} — ${label}`;
+              });
+              if (lines.length > 0) signalDetails = `Signaux détectés :\n${lines.join('\n')}`;
+            }
+          } catch {}
+          const opusLine = r.opus_score ? `Opus score: ${r.opus_score.toFixed(2)}/10` : null;
+          const fullDetail = [signalDetails, opusLine].filter(Boolean).join('\n\n') || null;
 
           // UPSERT Trigger
           await pg.query(`
@@ -205,12 +229,14 @@ async function syncToPostgres(sqliteDb, options = {}) {
               score = EXCLUDED.score,
               "scoreReason" = EXCLUDED."scoreReason",
               "isHot" = EXCLUDED."isHot",
+              detail = EXCLUDED.detail,
+              title = EXCLUDED.title,
               "updatedAt" = NOW()
           `, [
             triggerId, pgClientId, `trigger-engine.${r.pattern_id || 'unknown'}`,
             new Date(r.matched_at || r.created_at), null,
             r.raison_sociale, r.siren, r.naf_code, r.naf_label, r.region || r.departement, sizeStr,
-            triggerType, title, opusReason, score10, opusReason, isHot,
+            triggerType, title, fullDetail, score10, opusLine, isHot,
           ]);
           stats.upserted_triggers += 1;
 
