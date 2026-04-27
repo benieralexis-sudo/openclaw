@@ -61,14 +61,17 @@ class TriggerEngineCron {
       const pipelines = cfg.pipelines || ['pitch', 'linkedin-dm', 'call-brief'];
 
       // Canaux à auto-générer selon config tenant
+      // ⚠️  Defaults désactivés depuis 27/04/2026 : pitch/linkedin/call-brief
+      // ne sont générés en cron que si le tenant les ré-active EXPLICITEMENT
+      // via auto_*_enabled === true. On-demand via dashboard sinon.
       const channels = [];
-      if (cfg.auto_pitch_enabled !== false && pipelines.includes('pitch')) {
+      if (cfg.auto_pitch_enabled === true && pipelines.includes('pitch')) {
         channels.push({ name: 'pitch', enqueueFn: 'enqueuePitch' });
       }
-      if (cfg.auto_linkedin_enabled !== false && pipelines.includes('linkedin-dm')) {
+      if (cfg.auto_linkedin_enabled === true && pipelines.includes('linkedin-dm')) {
         channels.push({ name: 'linkedin-dm', enqueueFn: 'enqueueLinkedinDm' });
       }
-      if (cfg.auto_call_brief_enabled !== false && pipelines.includes('call-brief')) {
+      if (cfg.auto_call_brief_enabled === true && pipelines.includes('call-brief')) {
         channels.push({ name: 'call-brief', enqueueFn: 'enqueueCallBrief' });
       }
       if (channels.length === 0) continue;
@@ -108,6 +111,7 @@ class TriggerEngineCron {
   /**
    * Enqueue qualify jobs for newly routed client_leads.
    * Only if Claude Brain enabled and lead score >= tenant threshold.
+   * Respecte le flag tenant `auto_qualify_enabled` (défaut: true — cœur du bot).
    */
   _enqueueQualifyForNewLeads() {
     if (!this.claudeBrain || !this.claudeBrain.enabled) return { enqueued: 0 };
@@ -126,6 +130,9 @@ class TriggerEngineCron {
 
     let enqueued = 0;
     for (const lead of rows) {
+      // Filtre tenant : auto_qualify_enabled=false ⇒ skip (rare, mais respecté)
+      const cfg = this.claudeBrain.getTenantConfig(lead.client_id);
+      if (cfg.auto_qualify_enabled === false) continue;
       const r = this.claudeBrain.enqueueQualify(lead.client_id, lead.siren);
       if (r.enqueued) enqueued += 1;
     }
@@ -178,6 +185,9 @@ class TriggerEngineCron {
 
     let enqueued = 0;
     for (const lead of rows) {
+      // Filtre tenant : auto_stale_requalify_enabled=false ⇒ skip
+      const cfg = this.claudeBrain.getTenantConfig(lead.client_id);
+      if (cfg.auto_stale_requalify_enabled === false) continue;
       const r = this.claudeBrain.enqueueQualify(lead.client_id, lead.siren);
       if (r.enqueued) enqueued += 1;
     }
@@ -332,10 +342,14 @@ class TriggerEngineCron {
         if (Date.now() - lastRun < 20 * 3600 * 1000) return;
         this._lastDiscoverRun = Date.now();
         // Un job discover par tenant actif
+        // ⚠️  Désactivé par défaut depuis 27/04/2026 — économie tokens.
+        // Tenants doivent ré-activer explicitement via discover_enabled=true.
         const db = this.handler.storage.db;
         const tenants = db.prepare("SELECT id FROM clients WHERE status = 'active'").all();
         let enqueued = 0;
         for (const t of tenants) {
+          const cfg = this.claudeBrain.getTenantConfig(t.id);
+          if (cfg.discover_enabled !== true) continue;
           const r = this.claudeBrain._enqueuePipeline(t.id, null, 'discover', { priority: 8 });
           if (r.enqueued) enqueued += 1;
         }

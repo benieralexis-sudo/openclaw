@@ -32,10 +32,16 @@ const DEFAULT_TENANT_CONFIG = {
   auto_send_threshold_opus: 8.5,
   auto_send_threshold_email_confidence: 0.85,
   auto_send_enabled: false,
-  auto_pitch_enabled: true,
+  // ── Pipelines auto en cron (économie tokens : pitch/linkedin/call-brief on-demand uniquement) ──
+  auto_qualify_enabled: true,            // CŒUR du bot — scoring leads, jamais désactivable
+  auto_stale_requalify_enabled: true,    // re-score leads anciens (4h cycle, limit 30)
+  auto_realtime_alert_enabled: true,     // email pépites score ≥ 9 (0 token)
+  weekly_digest_enabled: true,           // digest hebdo lundi 8h Paris (~0.50€/sem)
+  auto_pitch_enabled: false,             // ❌ on-demand uniquement via dashboard
   auto_pitch_threshold: 8.0,
-  auto_linkedin_enabled: true,
-  auto_call_brief_enabled: true,
+  auto_linkedin_enabled: false,          // ❌ on-demand uniquement via dashboard
+  auto_call_brief_enabled: false,        // ❌ on-demand uniquement via dashboard
+  discover_enabled: false,               // ❌ insights marché Opus désactivés
   max_pitch_regenerations: 3,
   max_linkedin_regenerations: 3,
   max_call_brief_regenerations: 2,
