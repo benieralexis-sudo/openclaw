@@ -34,6 +34,10 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  // sourceCode visible UNIQUEMENT pour ADMIN + COMMERCIAL (pas client final).
+  // Le moat tient : le client ne sait pas d'où vient le lead, mais ton équipe oui.
+  const showSource = s.user.role === "ADMIN" || s.user.role === "COMMERCIAL";
+
   const triggers = await db.trigger.findMany({
     where,
     orderBy: [{ isHot: "desc" }, { score: "desc" }, { capturedAt: "desc" }],
@@ -41,6 +45,8 @@ export async function GET(req: NextRequest) {
     select: {
       id: true,
       companyName: true,
+      companySiret: true,
+      companyNaf: true,
       industry: true,
       region: true,
       size: true,
@@ -48,13 +54,52 @@ export async function GET(req: NextRequest) {
       title: true,
       detail: true,
       score: true,
+      scoreReason: true,
       isHot: true,
       isCombo: true,
       status: true,
       capturedAt: true,
-      // sourceCode reste invisible — moat
+      sourceCode: showSource ? true : false,
     },
   });
+
+  // Pour les triggers en combo : enrichir avec la liste de sources distinctes
+  // détectées sur la même boîte (sur 30j). Permet aux commerciaux de comprendre
+  // pourquoi le lead est en combo et quelles sources ont matché.
+  if (showSource) {
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const comboTriggers = triggers.filter((t) => t.isCombo);
+    if (comboTriggers.length > 0) {
+      const byCompany = new Map<string, string[]>();
+      const sirets = comboTriggers.map((t) => t.companySiret).filter(Boolean) as string[];
+      const names = comboTriggers.map((t) => t.companyName);
+      const siblings = await db.trigger.findMany({
+        where: {
+          clientId: scope.clientId ?? undefined,
+          deletedAt: null,
+          capturedAt: { gte: since },
+          OR: [
+            sirets.length > 0 ? { companySiret: { in: sirets } } : {},
+            { companyName: { in: names } },
+          ],
+        },
+        select: { companySiret: true, companyName: true, sourceCode: true },
+      });
+      for (const sib of siblings) {
+        const key = sib.companySiret ?? sib.companyName.toLowerCase();
+        const set = byCompany.get(key) ?? [];
+        const prefix = (sib.sourceCode ?? "").split(".")[0] || "?";
+        if (!set.includes(prefix)) set.push(prefix);
+        byCompany.set(key, set);
+      }
+      for (const t of triggers) {
+        if (!t.isCombo) continue;
+        const key = t.companySiret ?? t.companyName.toLowerCase();
+        (t as { comboSources?: string[] }).comboSources = byCompany.get(key) ?? [];
+      }
+    }
+  }
 
   return NextResponse.json(triggers);
 }

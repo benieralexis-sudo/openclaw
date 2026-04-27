@@ -25,10 +25,25 @@ interface Trigger {
   title: string;
   detail: string | null;
   score: number;
+  scoreReason?: string | null;
   isHot: boolean;
   isCombo: boolean;
   status: "NEW" | "CONTACTED" | "REPLIED" | "BOOKED" | "WON" | "LOST" | "IGNORED";
   capturedAt: string;
+  sourceCode?: string | null;          // visible si ADMIN/COMMERCIAL
+  comboSources?: string[];             // sources distinctes si combo
+}
+
+// Mapping sourceCode → badge label + couleur pour commerciaux
+const SOURCE_LABEL: Record<string, { label: string; color: string }> = {
+  rodz: { label: "Rodz", color: "bg-purple-100 text-purple-700 border-purple-200" },
+  theirstack: { label: "TheirStack", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  "trigger-engine": { label: "Bot FR", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  apify: { label: "Apify", color: "bg-amber-100 text-amber-700 border-amber-200" },
+};
+function sourcePrefix(sc: string | null | undefined): string | null {
+  if (!sc) return null;
+  return sc.split(".")[0] ?? null;
 }
 
 const FILTER_LABELS: Record<string, { label: string; icon: typeof Target }> = {
@@ -166,11 +181,46 @@ export default function TriggersPage() {
               {s}/10
             </Badge>
             {row.original.isCombo && (
-              <Badge variant="brand" size="sm" className="shrink-0">
+              <Badge variant="brand" size="sm" className="shrink-0" title={
+                row.original.comboSources?.length
+                  ? `Combo : ${row.original.comboSources.map((p) => SOURCE_LABEL[p]?.label ?? p).join(" + ")}`
+                  : "Multi-source détecté"
+              }>
                 <Sparkles className="h-2.5 w-2.5" />
                 Combo
               </Badge>
             )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "source",
+      header: "Source",
+      cell: ({ row }) => {
+        const prefix = sourcePrefix(row.original.sourceCode);
+        if (!prefix) return <span className="text-[11px] text-ink-400">—</span>;
+        const cfg = SOURCE_LABEL[prefix];
+        const sources = row.original.comboSources?.length
+          ? row.original.comboSources
+          : [prefix];
+        return (
+          <div className="flex flex-wrap gap-1">
+            {sources.map((p) => {
+              const c = SOURCE_LABEL[p] ?? { label: p, color: "bg-ink-100 text-ink-700 border-ink-200" };
+              return (
+                <span
+                  key={p}
+                  className={cn(
+                    "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium",
+                    c.color,
+                  )}
+                  title={`Détecté via ${c.label}${row.original.sourceCode && p === prefix ? ` (${row.original.sourceCode})` : ""}`}
+                >
+                  {c.label}
+                </span>
+              );
+            })}
           </div>
         );
       },

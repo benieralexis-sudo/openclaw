@@ -237,6 +237,22 @@ export async function pollTheirstackForClient(
           result.jobsSkipped += 1;
           continue;
         }
+        // Strict FR : skip si country_code != FR (TheirStack peut remonter cross-border)
+        if (job.country_code && job.country_code !== "FR") {
+          result.jobsSkipped += 1;
+          continue;
+        }
+        // Skip si nom de boîte avec suffixe légal étranger (GmbH, LLC, Ltd, Inc)
+        if (/\b(GmbH|LLC|Ltd|Inc|Pty|S\.r\.l\.|S\.A\.R\.L\. España)\b/i.test(job.company)) {
+          result.jobsSkipped += 1;
+          continue;
+        }
+        // Skip si location contient marqueur non-FR
+        const loc = `${job.long_location ?? ""} ${job.short_location ?? ""}`.toLowerCase();
+        if (/\b(us|usa|united states|united kingdom|germany|spain|italy|netherlands|belgium)\b/i.test(loc)) {
+          result.jobsSkipped += 1;
+          continue;
+        }
         // Anti-doublons
         if (await isAlreadyCaptured(clientId, job.company, "theirstack.job-offer")) {
           result.jobsSkipped += 1;
@@ -309,6 +325,10 @@ export async function enrichRecentTriggersWithSirene(
     try {
       const result = await attributeSirene(t.companyName);
       if (!result) {
+        // Pas de SIRET trouvé via Pappers — on garde le trigger en attente,
+        // les commerciaux pourront enrichir manuellement (LinkedIn search,
+        // ajout fiche). On NE SUPPRIME PAS — la stratégie est d'enrichir
+        // à fond les leads qu'on garde, pas de jeter ceux pas auto-enrichis.
         stats.skipped += 1;
         continue;
       }

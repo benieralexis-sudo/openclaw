@@ -5,6 +5,7 @@ import { pollTheirstackForClient, enrichRecentTriggersWithSirene } from "@/lib/t
 import { pollApifyForClient } from "@/lib/apify-poller";
 import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
 import { detectCombosForClient } from "@/lib/combo-detector";
+import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -57,6 +58,12 @@ export async function POST(req: NextRequest) {
         // Combo detector : flag isCombo=true sur les boîtes avec 2+ sources
         const combo = await detectCombosForClient(c.id);
         (entry as { combos?: unknown }).combos = combo;
+        // Enrichissement dirigeants Pappers : récupère CTO/CEO/Founder pour
+        // chaque Trigger ICP qualifié et crée le Lead avec fullName + jobTitle.
+        // Le commercial déclenchera ensuite Kaspr depuis la fiche pour
+        // récupérer email pro + téléphone.
+        const enrichDir = await enrichDirigeantsForClient(c.id, { limit: 30 });
+        (entry as { dirigeants?: unknown }).dirigeants = enrichDir;
       }
     } catch (e) {
       entry.error = e instanceof Error ? e.message : String(e);
