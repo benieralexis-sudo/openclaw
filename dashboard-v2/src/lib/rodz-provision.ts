@@ -143,14 +143,14 @@ function mapPersonas(icpPersonas: string[] | undefined): string[] {
 // Construction des params par type de signal
 // ──────────────────────────────────────────────────────────────────────
 
-interface SignalSpec {
+export interface SignalSpec {
   type: RodzSignalType;
   name: string;
   config: Record<string, unknown>;
   dailyLeadLimit?: number;
 }
 
-function buildSignals(client: { name: string; icp: ClientIcpExtended }): SignalSpec[] {
+export function buildSignals(client: { name: string; icp: ClientIcpExtended }): SignalSpec[] {
   const sizes = mapSizes(client.icp.sizes);
   const locations = mapLocations(client.icp.regions);
   const personas = mapPersonas(client.icp.personaTitles);
@@ -260,6 +260,22 @@ function buildSignals(client: { name: string; icp: ClientIcpExtended }): SignalS
       announcedPeriod: "60d",
       hqLocations: locations,
       industryFilters: ["SaaS", "Enterprise Software", "Information Technology"],
+      companySizeFilters: sizes,
+    },
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // 6. COMPANY REGISTRATION — nouvelles boîtes tech FR (Création société)
+  // ────────────────────────────────────────────────────────────────────
+  signals.push({
+    type: "company-registration",
+    name: `${client.name} — Création société Tech FR`,
+    dailyLeadLimit: 2,
+    config: {
+      ...baseEnrichment,
+      registrationPeriod: "30d",
+      hqLocations: locations,
+      industryFilters: ["SaaS", "Enterprise Software", "Information Technology", "Software Development", "IT Services and IT Consulting"],
       companySizeFilters: sizes,
     },
   });
