@@ -34,6 +34,16 @@ services:
       IMAP_MAILBOXES: ${IMAP_MAILBOXES:-}
       NOTIFY_POSITIVE_EMAILS: ${NOTIFY_POSITIVE_EMAILS:-}
 
+      # ── Primeforge mailboxes (DigitestLab cold email manuel — IMAP poller replies) ──
+      MAILBOX_1_USER: ${MAILBOX_1_USER:-}
+      MAILBOX_1_APP_PASSWORD: ${MAILBOX_1_APP_PASSWORD:-}
+      MAILBOX_1_LABEL: ${MAILBOX_1_LABEL:-}
+      MAILBOX_2_USER: ${MAILBOX_2_USER:-}
+      MAILBOX_2_APP_PASSWORD: ${MAILBOX_2_APP_PASSWORD:-}
+      MAILBOX_2_LABEL: ${MAILBOX_2_LABEL:-}
+      # Postgres dashboard-v2 (ifind-postgres ajouté au network moltbot_default)
+      DASHBOARD_DATABASE_URL: ${DASHBOARD_DATABASE_URL:-postgresql://ifind:b7718738d59bc43b64810242d0f5d961fd3569229f1d94ff@ifind-postgres:5432/ifind}
+
       # ── Trigger Engine sources FR ──
       PAPPERS_API_TOKEN: ${PAPPERS_API_TOKEN:-}
       DROPCONTACT_API_KEY: ${DROPCONTACT_API_KEY:-}
@@ -118,6 +128,8 @@ services:
       - app-config-data:/data/app-config
       - visitor-data:/data/visitors
       - trigger-engine-data:/app/skills/trigger-engine/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     init: true
     restart: unless-stopped
     security_opt:

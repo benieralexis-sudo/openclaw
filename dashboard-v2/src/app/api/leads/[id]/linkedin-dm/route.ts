@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireApiSession, resolveClientScope } from "@/server/session";
 import { getAnthropic, BRIEF_MODEL } from "@/lib/anthropic";
@@ -8,10 +9,8 @@ export const maxDuration = 60;
 // ──────────────────────────────────────────────────────────────────────
 // Endpoint on-demand LinkedIn DM (connection note + followup J+3)
 // ──────────────────────────────────────────────────────────────────────
-// Remplace la génération auto en cron (désactivée le 27/04/2026 — économie tokens).
+// Cache DB (Lead.linkedinDmJson + linkedinDmGeneratedAt). TTL 7j.
 // LinkedIn = action manuelle humaine (cf règle non-négociable Trigger Engine #1).
-// TODO: ajouter une migration Prisma pour cacher en DB (linkedinDmJson + linkedinDmGeneratedAt)
-// quand le user pourra valider la migration.
 // ──────────────────────────────────────────────────────────────────────
 
 interface LinkedinDmPayload {
@@ -19,6 +18,14 @@ interface LinkedinDmPayload {
   followup: string;
   inmail: string;
   comment: string;
+}
+
+const CACHE_TTL_DAYS = 7;
+
+function isCacheFresh(generatedAt: Date | null): boolean {
+  if (!generatedAt) return false;
+  const ageMs = Date.now() - generatedAt.getTime();
+  return ageMs < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
 }
 
 function buildPrompt(args: {
@@ -96,6 +103,33 @@ function extractJson(text: string): LinkedinDmPayload {
   return JSON.parse(cleaned) as LinkedinDmPayload;
 }
 
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const s = await requireApiSession(req);
+  if (!s.ok) return s.response;
+  const { id } = await params;
+
+  const lead = await db.lead.findUnique({
+    where: { id },
+    select: { id: true, clientId: true, linkedinDmJson: true, linkedinDmGeneratedAt: true },
+  });
+  if (!lead) return NextResponse.json({ error: "Lead introuvable" }, { status: 404 });
+
+  const scope = resolveClientScope(s.user, lead.clientId);
+  if (!scope.ok || (scope.clientId !== null && scope.clientId !== lead.clientId)) {
+    return NextResponse.json({ error: "Hors périmètre" }, { status: 403 });
+  }
+
+  return NextResponse.json({
+    linkedinDm: lead.linkedinDmJson,
+    generatedAt: lead.linkedinDmGeneratedAt,
+    fresh: isCacheFresh(lead.linkedinDmGeneratedAt),
+    cached: !!lead.linkedinDmJson,
+  });
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -103,6 +137,7 @@ export async function POST(
   const s = await requireApiSession(req);
   if (!s.ok) return s.response;
   const { id } = await params;
+  const force = new URL(req.url).searchParams.get("force") === "true";
 
   const lead = await db.lead.findUnique({
     where: { id },
@@ -130,6 +165,15 @@ export async function POST(
   const scope = resolveClientScope(s.user, lead.clientId);
   if (!scope.ok || (scope.clientId !== null && scope.clientId !== lead.clientId)) {
     return NextResponse.json({ error: "Hors périmètre" }, { status: 403 });
+  }
+
+  if (!force && isCacheFresh(lead.linkedinDmGeneratedAt) && lead.linkedinDmJson) {
+    return NextResponse.json({
+      linkedinDm: lead.linkedinDmJson,
+      generatedAt: lead.linkedinDmGeneratedAt,
+      fresh: true,
+      cached: true,
+    });
   }
 
   if (!lead.trigger) {
@@ -180,9 +224,18 @@ export async function POST(
     );
   }
 
+  const generatedAt = new Date();
+  await db.lead.update({
+    where: { id },
+    data: {
+      linkedinDmJson: dm as unknown as Prisma.InputJsonValue,
+      linkedinDmGeneratedAt: generatedAt,
+    },
+  });
+
   return NextResponse.json({
     linkedinDm: dm,
-    generatedAt: new Date().toISOString(),
+    generatedAt: generatedAt.toISOString(),
     fresh: true,
     cached: false,
   });

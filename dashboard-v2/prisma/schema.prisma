@@ -265,13 +265,21 @@ model Lead {
   // Brief commercial Opus (généré on-demand, cache 7j)
   briefJson     Json?
   briefGeneratedAt DateTime?
+  // Cache des contenus on-demand (pitch / linkedin DM / call brief) — économie tokens Opus
+  pitchJson         Json?
+  pitchGeneratedAt  DateTime?
+  linkedinDmJson    Json?
+  linkedinDmGeneratedAt DateTime?
+  callBriefJson     Json?
+  callBriefGeneratedAt DateTime?
   // Audit
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   deletedAt     DateTime?
 
-  opportunities Opportunity[]
-  replies       Reply[]
+  opportunities  Opportunity[]
+  replies        Reply[]
+  emailActivity  EmailActivity[]
 
   @@index([clientId, status, createdAt(sort: Desc)])
   @@index([email])
@@ -482,6 +490,41 @@ model AuditLog {
   @@index([userId, createdAt(sort: Desc)])
   @@index([clientId, createdAt(sort: Desc)])
   @@index([action, createdAt(sort: Desc)])
+}
+
+// =====================================================================
+// EMAIL ACTIVITY — historique cold email manuel + replies IMAP
+// =====================================================================
+// SENT     : un commercial a cliqué "Envoyer email" depuis le dashboard
+// RECEIVED : un poller IMAP (skills/trigger-engine/lib/mailbox-poller.js)
+//            a détecté un reply matchant un Lead.email
+// Le messageId est dédupliqué via @unique pour éviter doublons sur replays.
+
+model EmailActivity {
+  id              String      @id @default(cuid())
+  leadId          String
+  lead            Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  direction       EmailDirection
+  fromMailbox     String      // user@domain (notre mailbox côté SENT, sender côté RECEIVED)
+  toEmail         String      // destinataire (le lead côté SENT, notre mailbox côté RECEIVED)
+  subject         String
+  bodyText        String?     @db.Text
+  bodyHtml        String?     @db.Text
+  messageId       String?     @unique // SMTP Message-ID header
+  inReplyTo       String?     // Message-ID auquel on répond
+  sentAt          DateTime    @default(now()) // = receivedAt côté RECEIVED
+  sentByUserId    String?     // Better Auth User id (NULL si reçu)
+  template        String?     // 'pitch' | 'linkedin-dm' | 'call-brief' | 'manual'
+  createdAt       DateTime    @default(now())
+
+  @@index([leadId, sentAt(sort: Desc)])
+  @@index([fromMailbox, sentAt(sort: Desc)])
+  @@index([direction, sentAt(sort: Desc)])
+}
+
+enum EmailDirection {
+  SENT
+  RECEIVED
 }
 
 // =====================================================================

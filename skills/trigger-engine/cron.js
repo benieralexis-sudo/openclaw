@@ -24,6 +24,7 @@ const googleTrends = require('./sources/google-trends');
 const metaAdLibrary = require('./sources/meta-ad-library');
 const telegramAlert = require('./lib/telegram-alert');
 const sourceHealth = require('./lib/source-health');
+const mailboxPoller = require('./lib/mailbox-poller');
 const { enrichMatches } = require('./contact-enricher');
 const { parisHour, sendWeeklyDigests, parisDayOfWeek } = require('./claude-brain/digest-email');
 const { sendRealtimeAlerts } = require('./claude-brain/realtime-alert');
@@ -400,6 +401,17 @@ class TriggerEngineCron {
       }
     }, 3600 * 1000);
     this.intervals.push(healthInterval);
+
+    // Mailbox IMAP replies poller : every 15 min
+    // Lit les Primeforge mailboxes (MAILBOX_*_USER/PASSWORD) → matche replies aux Lead.email
+    // → INSERT EmailActivity{direction: RECEIVED} dans Postgres dashboard-v2.
+    // Aucun envoi auto. Pas de send. Lecture only.
+    const mailboxPollInterval = setInterval(() => {
+      mailboxPoller.runPollCycle({}).catch((e) => {
+        this.log.warn?.('[cron] mailbox-poller error: ' + (e.message || e));
+      });
+    }, 15 * 60 * 1000);
+    this.intervals.push(mailboxPollInterval);
 
     // Cleanup expired: every 24h
     const cleanupInterval = setInterval(() => {

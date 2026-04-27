@@ -25,6 +25,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { cn, formatNumberFr, formatRelativeFr } from "@/lib/utils";
+import { SendEmailModal } from "@/components/lead/send-email-modal";
+import { Send } from "lucide-react";
 
 // ──────────────────────────────────────────────────────────────────────
 // Types
@@ -122,6 +124,7 @@ function copyToClipboard(text: string, label = "Copié dans le presse-papiers") 
 export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [sendOpen, setSendOpen] = React.useState(false);
 
   const { data, isLoading } = useQuery<TriggerData>({
     queryKey: ["trigger-detail", triggerId],
@@ -172,14 +175,30 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
 
   return (
     <div className="space-y-5">
-      {/* Bouton retour */}
-      <button
-        onClick={() => router.back()}
-        className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-500 hover:text-ink-800 transition-colors"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Retour
-      </button>
+      {/* Bouton retour + actions */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-500 hover:text-ink-800 transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Retour
+        </button>
+
+        {lead && (
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setSendOpen(true)}
+            disabled={!lead.email}
+            className="gap-1.5"
+            title={lead.email ?? "Pas d'email destinataire enrichi"}
+          >
+            <Send className="h-3.5 w-3.5" />
+            Envoyer email
+          </Button>
+        )}
+      </div>
 
       <TriggerHeader trigger={trigger} lead={lead} opportunity={opportunity} />
 
@@ -205,6 +224,20 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
           regenerating={generate.isPending}
           leadEmail={lead.email}
           leadLinkedin={lead.linkedinUrl}
+        />
+      )}
+
+      {lead && (
+        <SendEmailModal
+          open={sendOpen}
+          onOpenChange={setSendOpen}
+          lead={{
+            id: lead.id,
+            fullName: lead.fullName,
+            email: lead.email,
+            companyName: lead.companyName,
+            jobTitle: lead.jobTitle,
+          }}
         />
       )}
     </div>

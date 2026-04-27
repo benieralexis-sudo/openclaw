@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireApiSession, resolveClientScope } from "@/server/session";
 import { getAnthropic, BRIEF_MODEL } from "@/lib/anthropic";
@@ -8,10 +9,10 @@ export const maxDuration = 60; // Opus peut prendre 15-30s
 // ──────────────────────────────────────────────────────────────────────
 // Endpoint on-demand pitch (email cold-outreach personnalisé)
 // ──────────────────────────────────────────────────────────────────────
-// Remplace la génération auto en cron (désactivée le 27/04/2026 — économie tokens).
-// TODO: ajouter une migration Prisma pour cacher en DB (pitchJson + pitchGeneratedAt)
-// quand le user pourra valider la migration. Pour l'instant : génération à chaque
-// clic, le front doit donc gérer son propre cache local si besoin.
+// Cache DB (Lead.pitchJson + pitchGeneratedAt). TTL 7j.
+// POST sans force=true → renvoie le cache si frais.
+// POST ?force=true → régénère (consomme tokens Opus).
+// GET → retourne le cache uniquement (pas d'appel Opus).
 // ──────────────────────────────────────────────────────────────────────
 
 interface PitchPayload {
@@ -19,6 +20,14 @@ interface PitchPayload {
   body: string;
   followup: string;
   variants: { subject: string; openLine: string }[];
+}
+
+const CACHE_TTL_DAYS = 7;
+
+function isCacheFresh(generatedAt: Date | null): boolean {
+  if (!generatedAt) return false;
+  const ageMs = Date.now() - generatedAt.getTime();
+  return ageMs < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
 }
 
 function buildPrompt(args: {
@@ -99,6 +108,41 @@ function extractJson(text: string): PitchPayload {
   return JSON.parse(cleaned) as PitchPayload;
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// GET — retourne le cache uniquement (pas d'appel Opus)
+// ──────────────────────────────────────────────────────────────────────
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const s = await requireApiSession(req);
+  if (!s.ok) return s.response;
+  const { id } = await params;
+
+  const lead = await db.lead.findUnique({
+    where: { id },
+    select: { id: true, clientId: true, pitchJson: true, pitchGeneratedAt: true },
+  });
+  if (!lead) return NextResponse.json({ error: "Lead introuvable" }, { status: 404 });
+
+  const scope = resolveClientScope(s.user, lead.clientId);
+  if (!scope.ok || (scope.clientId !== null && scope.clientId !== lead.clientId)) {
+    return NextResponse.json({ error: "Hors périmètre" }, { status: 403 });
+  }
+
+  return NextResponse.json({
+    pitch: lead.pitchJson,
+    generatedAt: lead.pitchGeneratedAt,
+    fresh: isCacheFresh(lead.pitchGeneratedAt),
+    cached: !!lead.pitchJson,
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// POST — génère ou retourne le cache (force=true pour régénérer)
+// ──────────────────────────────────────────────────────────────────────
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -106,6 +150,7 @@ export async function POST(
   const s = await requireApiSession(req);
   if (!s.ok) return s.response;
   const { id } = await params;
+  const force = new URL(req.url).searchParams.get("force") === "true";
 
   const lead = await db.lead.findUnique({
     where: { id },
@@ -133,6 +178,16 @@ export async function POST(
   const scope = resolveClientScope(s.user, lead.clientId);
   if (!scope.ok || (scope.clientId !== null && scope.clientId !== lead.clientId)) {
     return NextResponse.json({ error: "Hors périmètre" }, { status: 403 });
+  }
+
+  // Cache check
+  if (!force && isCacheFresh(lead.pitchGeneratedAt) && lead.pitchJson) {
+    return NextResponse.json({
+      pitch: lead.pitchJson,
+      generatedAt: lead.pitchGeneratedAt,
+      fresh: true,
+      cached: true,
+    });
   }
 
   if (!lead.trigger) {
@@ -183,9 +238,19 @@ export async function POST(
     );
   }
 
+  // Save cache
+  const generatedAt = new Date();
+  await db.lead.update({
+    where: { id },
+    data: {
+      pitchJson: pitch as unknown as Prisma.InputJsonValue,
+      pitchGeneratedAt: generatedAt,
+    },
+  });
+
   return NextResponse.json({
     pitch,
-    generatedAt: new Date().toISOString(),
+    generatedAt: generatedAt.toISOString(),
     fresh: true,
     cached: false,
   });
