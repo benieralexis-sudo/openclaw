@@ -28,6 +28,7 @@ const mailboxPoller = require('./lib/mailbox-poller');
 const { enrichMatches } = require('./contact-enricher');
 const { parisHour, sendWeeklyDigests, parisDayOfWeek } = require('./claude-brain/digest-email');
 const { sendRealtimeAlerts } = require('./claude-brain/realtime-alert');
+const { syncToPostgres } = require('./lib/postgres-sync');
 
 class TriggerEngineCron {
   constructor(handler, processor, options = {}) {
@@ -331,6 +332,65 @@ class TriggerEngineCron {
       }
     }, 2 * 3600 * 1000);
     this.intervals.push(enrichInterval);
+
+    // Postgres sync : every 10 min — pousse les leads qualifiés (DTL, score≥7, opus≥5, ≤200p)
+    // depuis SQLite client_leads vers Postgres Lead+Trigger pour visibilité dashboard.
+    const pgSyncInterval = setInterval(async () => {
+      try {
+        const stats = await syncToPostgres(this.handler.storage.db, {
+          minScore: 7, minOpus: 5, clientCodes: ['digitestlab'],
+        });
+        if (stats.upserted_leads > 0 || stats.errors > 0) {
+          this.log.info?.(`[cron] postgres-sync: scanned=${stats.scanned} triggers=${stats.upserted_triggers} new_leads=${stats.upserted_leads} skipped=${stats.skipped_quality} errs=${stats.errors}`);
+        }
+      } catch (e) {
+        this.log.warn?.(`[cron] postgres-sync error: ${e.message}`);
+      }
+    }, 10 * 60 * 1000);
+    this.intervals.push(pgSyncInterval);
+
+    // Pollers premium dashboard-v2 (TheirStack + Apify) : every 6h
+    // Appelle https://app.ifind.fr/api/internal/run-pollers (route protégée x-cron-secret).
+    // TheirStack remonte des jobs FR matchant ICP, Pappers enrichit SIRENE post-poll.
+    const dashboardPollersInterval = setInterval(async () => {
+      try {
+        const url = process.env.DASHBOARD_INTERNAL_URL || 'https://app.ifind.fr/api/internal/run-pollers';
+        const secret = process.env.DASHBOARD_CRON_SECRET;
+        if (!secret) {
+          this.log.warn?.(`[cron] dashboard-pollers: DASHBOARD_CRON_SECRET non configuré, skip`);
+          return;
+        }
+        const https = require('node:https');
+        const http = require('node:http');
+        const targetUrl = new URL(url + '?source=all');
+        const lib = targetUrl.protocol === 'https:' ? https : http;
+        const result = await new Promise((resolve, reject) => {
+          const req = lib.request({
+            hostname: targetUrl.hostname,
+            port: targetUrl.port || (targetUrl.protocol === 'https:' ? 443 : 80),
+            path: targetUrl.pathname + targetUrl.search,
+            method: 'POST',
+            headers: { 'x-cron-secret': secret, 'content-type': 'application/json' },
+            timeout: 5 * 60 * 1000,
+          }, (res) => {
+            let body = '';
+            res.on('data', (c) => body += c);
+            res.on('end', () => resolve({ status: res.statusCode, body }));
+          });
+          req.on('error', reject);
+          req.on('timeout', () => req.destroy(new Error('timeout')));
+          req.end();
+        });
+        if (result.status === 200) {
+          this.log.info?.(`[cron] dashboard-pollers: ${result.body.slice(0, 200)}`);
+        } else {
+          this.log.warn?.(`[cron] dashboard-pollers HTTP ${result.status}: ${result.body.slice(0, 200)}`);
+        }
+      } catch (e) {
+        this.log.warn?.(`[cron] dashboard-pollers error: ${e.message}`);
+      }
+    }, 6 * 3600 * 1000);
+    this.intervals.push(dashboardPollersInterval);
 
     // Claude Brain Discover : weekly dimanche 23h
     const discoverCheckInterval = setInterval(() => {

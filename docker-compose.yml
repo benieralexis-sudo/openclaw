@@ -43,6 +43,9 @@ services:
       MAILBOX_2_LABEL: ${MAILBOX_2_LABEL:-}
       # Postgres dashboard-v2 (ifind-postgres ajouté au network moltbot_default)
       DASHBOARD_DATABASE_URL: ${DASHBOARD_DATABASE_URL:-postgresql://ifind:b7718738d59bc43b64810242d0f5d961fd3569229f1d94ff@ifind-postgres:5432/ifind}
+      # Cron pollers premium (TheirStack + Apify) — appelle dashboard-v2 toutes les 6h
+      DASHBOARD_CRON_SECRET: ${DASHBOARD_CRON_SECRET:-}
+      DASHBOARD_INTERNAL_URL: ${DASHBOARD_INTERNAL_URL:-https://app.ifind.fr/api/internal/run-pollers}
 
       # ── Trigger Engine sources FR ──
       PAPPERS_API_TOKEN: ${PAPPERS_API_TOKEN:-}
