@@ -1,8 +1,8 @@
 /**
- * Seed Phase 2.3 — ICP des 3 clients démo + activatedAt
+ * Seed Phase 2.3 — ICP des clients démo + activatedAt
  *
  * Pousse un ICP riche (JSON) + active DigitestLab (signature 25/04).
- * FIMMOP en onboarding (PROSPECT). iFIND interne ACTIVE depuis longtemps.
+ * iFIND interne ACTIVE depuis longtemps.
  *
  * Idempotent : update only.
  *
@@ -25,20 +25,6 @@ const ICP_DIGITESTLAB = {
   ],
   notes:
     "Cible PME en croissance avec besoins en outils digitaux structurants. Préférer signaux durs (levée, recrutement clé) à signaux faibles (RP/SEO).",
-};
-
-const ICP_FIMMOP = {
-  industries: ["Immobilier", "Gestion de patrimoine", "Notariat", "Promotion immobilière"],
-  sizes: ["TPE", "PME"],
-  regions: ["PACA", "Île-de-France", "Occitanie", "Nouvelle-Aquitaine"],
-  minScore: 7,
-  preferredSignals: ["RFP", "HIRING_KEY", "EXPANSION"],
-  antiPersonas: [
-    "Agences > 50 personnes (process internes verrouillés)",
-    "Notaires sans présence digitale",
-  ],
-  notes:
-    "Cible petits cabinets/agences en phase de structuration. Insister sur le ROI court terme (3 mois max).",
 };
 
 const ICP_IFIND = {
@@ -84,24 +70,7 @@ async function main() {
     },
   });
 
-  const fimmop = await db.client.update({
-    where: { slug: "fimmop" },
-    data: {
-      icp: ICP_FIMMOP,
-      legalName: "FIMMOP",
-      contactEmail: "clement@fimmop.fr",
-      contactPhone: "+33 6 98 76 54 32",
-      primaryColor: "#F59E0B",
-      industry: "Immobilier",
-      region: "Île-de-France",
-      size: "TPE",
-      status: ClientStatus.ACTIVE,
-      plan: ClientPlan.LEADS_DATA,
-      activatedAt: new Date("2026-04-20T10:00:00Z"),
-    },
-  });
-
-  console.log(`✅ ICP seedés : ${ifind.slug}, ${digitestlab.slug}, ${fimmop.slug}`);
+  console.log(`✅ ICP seedés : ${ifind.slug}, ${digitestlab.slug}`);
 }
 
 main()

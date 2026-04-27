@@ -115,7 +115,7 @@ model Verification {
 
 model Client {
   id          String       @id @default(cuid())
-  slug        String       @unique // "digitestlab", "fimmop", "ifind"
+  slug        String       @unique // "digitestlab", "ifind"
   name        String
   legalName   String?
   industry    String?

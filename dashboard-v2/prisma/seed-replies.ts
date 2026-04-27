@@ -154,16 +154,6 @@ const SPECS: ReplySpec[] = [
     status: ReplyStatus.ARCHIVED,
     hoursAgo: 96,
   },
-  {
-    leadEmail: "p.simon@simon-immo.fr",
-    subject: "Re: Patrimoine immobilier",
-    body: "Bonjour,\n\nOn ne fait pas d'outbound, ce n'est pas notre style. Merci.\n\nPatrick Simon",
-    intent: ReplyIntent.REFUSED,
-    intentConfidence: 0.93,
-    status: ReplyStatus.ARCHIVED,
-    hoursAgo: 120,
-  },
-
   // === OUT_OF_OFFICE ===
   {
     leadEmail: "emilie.h@a2micile-europe.com",
@@ -184,27 +174,7 @@ const SPECS: ReplySpec[] = [
     hoursAgo: 30,
   },
 
-  // === UNSUBSCRIBE ===
-  {
-    leadEmail: "e.roche@patrimo-conseil.fr",
-    subject: "Re: Recrutement conseillers",
-    body: "Veuillez me retirer de votre liste. Merci.",
-    intent: ReplyIntent.UNSUBSCRIBE,
-    intentConfidence: 0.97,
-    status: ReplyStatus.ARCHIVED,
-    hoursAgo: 60,
-  },
-
   // === WRONG_PERSON ===
-  {
-    leadEmail: "t.bernardini@innovat-mfg.fr",
-    subject: "Re: Sujet supply",
-    body: "Bonjour,\n\nCe n'est pas mon périmètre. Adressez-vous à notre Directeur Achats : philippe.lecocq@innovat-mfg.fr.\n\nThomas Bernardini\nDAF",
-    intent: ReplyIntent.WRONG_PERSON,
-    intentConfidence: 0.94,
-    status: ReplyStatus.READ,
-    hoursAgo: 22,
-  },
   {
     leadEmail: "frederic@digitestlab.fr",
     subject: "Re: Bot Trigger",
@@ -213,17 +183,6 @@ const SPECS: ReplySpec[] = [
     intentConfidence: 0.78,
     status: ReplyStatus.UNREAD,
     hoursAgo: 3,
-  },
-
-  // === UNCLASSIFIED (à traiter) ===
-  {
-    leadEmail: "clement@fimmop.fr",
-    subject: "Re: Onboarding",
-    body: "ok",
-    intent: ReplyIntent.UNCLASSIFIED,
-    intentConfidence: 0.42,
-    status: ReplyStatus.UNREAD,
-    hoursAgo: 1,
   },
 
   // === Quelques replies de plus pour densité ===
@@ -278,7 +237,7 @@ async function main() {
   console.log("🌱 Seeding Replies (Phase 2.2)...");
 
   const clients = await db.client.findMany({
-    where: { slug: { in: ["ifind", "digitestlab", "fimmop"] } },
+    where: { slug: { in: ["ifind", "digitestlab"] } },
     select: { id: true },
   });
   const clientIds = clients.map((c) => c.id);

@@ -54,22 +54,7 @@ async function main() {
     },
   });
 
-  const fimmop = await db.client.upsert({
-    where: { slug: "fimmop" },
-    update: {},
-    create: {
-      slug: "fimmop",
-      name: "FIMMOP",
-      industry: "Immobilier",
-      region: "Île-de-France",
-      size: "PME",
-      status: ClientStatus.ACTIVE,
-      plan: ClientPlan.LEADS_DATA,
-      activatedAt: new Date("2026-03-15"),
-    },
-  });
-
-  console.log(`  ✓ ${[ifind, digitestlab, fimmop].length} clients`);
+  console.log(`  ✓ ${[ifind, digitestlab].length} clients`);
 
   // === Admin user (Alexis) ===
   await db.user.upsert({
@@ -156,23 +141,6 @@ async function main() {
       isCombo: true,
       status: TriggerStatus.NEW,
       capturedAt: new Date(Date.now() - 45 * 60_000),
-    },
-    {
-      clientId: fimmop.id,
-      sourceCode: "bodacc.levee_serie_b",
-      companyName: "Innovat Manufacturing",
-      companySiret: "55012345600065",
-      industry: "Manufacturing",
-      region: "Hauts-de-France",
-      size: "ETI",
-      type: TriggerType.FUNDRAISING,
-      title: "Levée Série B — 12 M€ + recrutement Sales",
-      detail: "Combo : levée + 3 offres d'emploi sales/marketing publiées dans la semaine.",
-      score: 10,
-      isHot: true,
-      isCombo: true,
-      status: TriggerStatus.BOOKED,
-      capturedAt: new Date(Date.now() - 120 * 60_000),
     },
     {
       clientId: digitestlab.id,

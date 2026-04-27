@@ -6,7 +6,7 @@
  * étoffé pour démo visuelle riche.
  *
  * Idempotent : nettoie d'abord les Opportunities + Leads existants des
- * 3 clients de démo avant de re-seeder.
+ * clients de démo avant de re-seeder.
  *
  * Lancer : npx tsx prisma/seed-opportunities.ts
  */
@@ -22,7 +22,7 @@ import {
 const db = new PrismaClient();
 
 interface OppSpec {
-  clientSlug: "ifind" | "digitestlab" | "fimmop";
+  clientSlug: "ifind" | "digitestlab";
   triggerCompany?: string; // si on attache à un trigger existant
   // Données lead
   firstName: string;
@@ -120,21 +120,6 @@ const SPECS: OppSpec[] = [
     dealValueEur: 84000,
     daysAgo: 18,
   },
-  // === Trigger existant FIMMOP ===
-  {
-    clientSlug: "fimmop",
-    triggerCompany: "Innovat Manufacturing",
-    firstName: "Thomas",
-    lastName: "Bernardini",
-    jobTitle: "DAF",
-    email: "t.bernardini@innovat-mfg.fr",
-    companyName: "Innovat Manufacturing",
-    stage: OpportunityStage.MEETING_SET,
-    dealValueEur: 56000,
-    daysAgo: 4,
-    meetingInDays: 5,
-  },
-
   // === Compléments DigitestLab (créés avec triggers ad hoc) ===
   {
     clientSlug: "digitestlab",
@@ -296,42 +281,6 @@ const SPECS: OppSpec[] = [
     daysAgo: 0,
   },
 
-  // === FIMMOP supplémentaires ===
-  {
-    clientSlug: "fimmop",
-    firstName: "Patrick",
-    lastName: "Simon",
-    jobTitle: "Gérant",
-    email: "p.simon@simon-immo.fr",
-    companyName: "Simon Immobilier",
-    industry: "Immobilier",
-    region: "PACA",
-    size: "TPE",
-    triggerTitle: "Nouveau mandat exclusif >2M€",
-    triggerScore: 8,
-    triggerType: TriggerType.OTHER,
-    stage: OpportunityStage.CONTACTED,
-    dealValueEur: 18000,
-    daysAgo: 1,
-  },
-  {
-    clientSlug: "fimmop",
-    firstName: "Élise",
-    lastName: "Roche",
-    jobTitle: "Directrice Patrimoine",
-    email: "e.roche@patrimo-conseil.fr",
-    companyName: "Patrimo Conseil",
-    industry: "Gestion de patrimoine",
-    region: "Occitanie",
-    size: "PME",
-    triggerTitle: "Recrutement 3 conseillers seniors",
-    triggerScore: 7,
-    triggerType: TriggerType.HIRING_KEY,
-    stage: OpportunityStage.PROPOSAL,
-    dealValueEur: 24000,
-    daysAgo: 8,
-  },
-
   // === iFIND interne (test) ===
   {
     clientSlug: "ifind",
@@ -350,32 +299,14 @@ const SPECS: OppSpec[] = [
     dealValueEur: 199 * 12,
     daysAgo: 1,
   },
-  {
-    clientSlug: "ifind",
-    firstName: "Clément",
-    lastName: "—",
-    jobTitle: "Fondateur FIMMOP",
-    email: "clement@fimmop.fr",
-    companyName: "FIMMOP",
-    industry: "Immobilier",
-    region: "Île-de-France",
-    size: "TPE",
-    triggerTitle: "Onboarding actif",
-    triggerScore: 9,
-    triggerType: TriggerType.OTHER,
-    stage: OpportunityStage.MEETING_SET,
-    dealValueEur: 890 * 12,
-    daysAgo: 7,
-    meetingInDays: 1,
-  },
 ];
 
 async function main() {
   console.log("🌱 Seeding Pipeline (Phase 2.1)...");
 
-  // Charger les 3 clients
+  // Charger les clients démo
   const clients = await db.client.findMany({
-    where: { slug: { in: ["ifind", "digitestlab", "fimmop"] } },
+    where: { slug: { in: ["ifind", "digitestlab"] } },
     select: { id: true, slug: true },
   });
   const slugToId = new Map(clients.map((c) => [c.slug, c.id]));
