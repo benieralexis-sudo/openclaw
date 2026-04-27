@@ -269,6 +269,26 @@ export async function POST(req: NextRequest) {
   const isHot = score >= 9;
   const { title, detail } = buildTitleDetail(payload);
 
+  // 6.0) Dédup : Rodz peut renvoyer le même payload (retry sur timeout).
+  // Si un Trigger existe déjà avec (clientId, companyName, sourceCode) dans les 7j,
+  // on ne crée pas de doublon — on retourne 200 pour que Rodz arrête les retries.
+  const sourceCode = `rodz.${payload.signal.type}`;
+  const since = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+  const existing = await db.trigger.findFirst({
+    where: {
+      clientId: dbSignal.clientId,
+      companyName: payload.company.name,
+      sourceCode,
+      capturedAt: { gte: since },
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (existing) {
+    console.log(`[rodz-webhook] dédup : ${payload.company.name} / ${payload.signal.type} déjà en DB depuis <7j`);
+    return NextResponse.json({ status: "ignored", reason: "duplicate" });
+  }
+
   const trigger = await db.trigger.create({
     data: {
       clientId: dbSignal.clientId,
