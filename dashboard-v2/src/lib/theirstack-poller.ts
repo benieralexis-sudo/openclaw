@@ -292,15 +292,56 @@ export async function pollTheirstackForClient(
   }
 
   // ────────────────────────────────────────────────────────────────────
-  // 2) Companies : match ICP firmographic
+  // 2) Companies : match ICP firmographic + buying intent (RÉACTIVÉ 28/04)
   //
-  // Désactivé 27/04/2026 : trop bruité (Leclerc, plateformes RH, assoc).
-  // searchCompanies remonte des entreprises matchant l'ICP firmographique
-  // mais SANS signal d'achat (pas de hire récent, pas de levée). Score 6
-  // par défaut → pollue le dashboard sans valeur. Réactiver uniquement si
-  // searchJobs ne suffit pas.
+  // Désactivé puis ré-activé avec filtres SERRÉS :
+  //   - tech_stack (Python/JS/React/Node/K8s) ET
+  //   - buying_intent_or (DevOps/SaaS/QA/testing/security) → signal d'achat
+  // Plafond 10 companies/run pour budget 5K crédits/mois.
   // ────────────────────────────────────────────────────────────────────
-  // (bloc supprimé — voir git history pour réactivation)
+  if (icp.industries && Array.isArray(icp.industries) && icp.industries.length > 0) {
+    try {
+      const companiesFound = await searchCompanies({
+        company_country_code_or: ["FR"],
+        min_employee_count: 11,
+        max_employee_count: 200,
+        company_technology_slug_or: ["python", "javascript", "react", "nodejs", "kubernetes", "typescript"],
+        // Note : buying_intent_slug_or pas supporté par l'API actuelle.
+        // On utilise industry_or pour cibler IT/SaaS/Software.
+        industry_or: ["Information Technology", "Computer Software", "Internet"],
+        limit: Math.min(options.companiesLimit ?? 10, 10),
+      });
+      result.companiesFound = companiesFound.data?.length ?? 0;
+      // Crée Triggers à partir des companies (signal "buying intent" + tech stack matché)
+      for (const c of companiesFound.data ?? []) {
+        if (!c.country_code || c.country_code !== "FR") continue;
+        if (/\b(GmbH|LLC|Ltd|Inc|Corp|Pty)\b/i.test(c.name)) continue;
+        if (await isAlreadyCaptured(clientId, c.name, "theirstack.buying-intent")) {
+          result.jobsSkipped += 1;
+          continue;
+        }
+        if (options.dryRun) continue;
+        try {
+          // Utilise companyToTriggerData existant (avec triggerKind = "buying-intent")
+          const triggerData = companyToTriggerData(c, clientId, "buying-intent");
+          // Override type pour BUYING_INTENT spécifique
+          triggerData.type = TriggerType.BUYING_INTENT;
+          await db.trigger.create({ data: triggerData });
+          result.jobsCreated += 1;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!msg.includes("Unique constraint failed") && !msg.includes("P2002")) {
+            result.errors.push({ kind: "company-create", error: msg });
+          }
+        }
+      }
+    } catch (e) {
+      result.errors.push({
+        kind: "searchCompanies",
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
 
   return result;
 }

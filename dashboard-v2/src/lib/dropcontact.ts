@@ -31,6 +31,11 @@ type DropcontactEnriched = {
   company?: string;
   num_siren?: string;
   num_tva?: string;
+  // Job moves detection (équivalent gratuit du signal Rodz job-changes)
+  job_started_at?: string;
+  job_changed?: boolean;
+  previous_company?: string;
+  previous_job?: string;
 };
 
 type BatchResponse =
@@ -54,7 +59,16 @@ export async function submitBatch(rows: DropcontactInput[]): Promise<{ requestId
       "Content-Type": "application/json",
       "X-Access-Token": getApiKey(),
     },
-    body: JSON.stringify({ data: rows, siren: true, language: "fr" }),
+    // siren: true → enrichit avec SIREN + numéro TVA
+    // num_siren: true → matching nom entreprise → SIRET officiel
+    // job_move: true → détecte si la personne a changé de poste <6 mois (signal d'achat)
+    body: JSON.stringify({
+      data: rows,
+      siren: true,
+      num_siren: true,
+      job_move: true,
+      language: "fr",
+    }),
     signal: AbortSignal.timeout(30_000),
   });
   const json = (await res.json()) as BatchResponse;

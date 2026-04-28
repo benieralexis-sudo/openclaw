@@ -134,12 +134,20 @@ function extractFields(apiResult) {
 /**
  * Call API avec retry simple sur 429 (backoff linéaire).
  */
-async function fetchApiWithRetry(query, log) {
+async function fetchApiWithRetry(query, log, filters = {}) {
   if (isCircuitOpen()) {
     // Silent skip pendant cooldown — évite de polluer les logs WARN.
     return null;
   }
-  const url = `${API_BASE}?q=${encodeURIComponent(query)}&per_page=5`;
+  // Filtres ICP avancés (gratuits, réduisent le bruit + évitent rate-limit) :
+  //   tranche_effectif_salarie : 21|22|31|32|41 (11-49 / 50-99 / 100-249)
+  //   categorie_juridique : 5499|5710|5485 (SAS, SARL, SASU, etc.)
+  const qs = new URLSearchParams({ q: query, per_page: '5' });
+  if (filters.tranche_effectif) qs.set('tranche_effectif_salarie', filters.tranche_effectif);
+  if (filters.categorie_juridique) qs.set('categorie_juridique', filters.categorie_juridique);
+  if (filters.code_postal) qs.set('code_postal', filters.code_postal);
+  if (filters.est_qualiopi) qs.set('est_qualiopi', 'true');
+  const url = `${API_BASE}?${qs.toString()}`;
   for (let attempt = 0; attempt < 4; attempt++) {
     await throttle();
     try {
@@ -210,8 +218,8 @@ async function lookupByName(nom, db, opts = {}) {
     }
   }
 
-  // API call
-  const data = await fetchApiWithRetry(nom, log);
+  // API call (filtres ICP optionnels via opts.filters pour réduire le bruit)
+  const data = await fetchApiWithRetry(nom, log, opts.filters);
 
   // API failure (rate limit, timeout, 5xx) → don't poison cache, return null for retry later
   if (data === null) {

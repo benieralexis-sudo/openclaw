@@ -20,9 +20,10 @@ const BODACC_API = 'https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/ca
 /**
  * Normalise un type d'annonce BODACC vers notre taxonomie d'events
  */
-function mapFamilleAvis(familleAvis, typeAvis) {
+function mapFamilleAvis(familleAvis, typeAvis, contenu) {
   const f = (familleAvis || '').toLowerCase();
   const t = (typeAvis || '').toLowerCase();
+  const c = (contenu || '').toLowerCase();
 
   if (f.includes('création') || t.includes('création')) return 'company_creation';
   if (f.includes('radiation') || t.includes('radiation')) return 'company_cessation';
@@ -30,6 +31,15 @@ function mapFamilleAvis(familleAvis, typeAvis) {
     return 'procedure_collective';
   }
   if (f.includes('fusion') || t.includes('fusion')) return 'company_merger';
+  // Augmentation de capital = signal levée pré-officiel (1-2 sem avant Rodz/RSS).
+  // Détection sur familleAvis OU contenu (ex: "augmentation du capital social")
+  if (
+    /augmentation\s+(de\s+|du\s+)?capital/.test(f) ||
+    /augmentation\s+(de\s+|du\s+)?capital/.test(t) ||
+    /augmentation\s+(de\s+|du\s+)?capital/.test(c)
+  ) {
+    return 'capital_increase';
+  }
   if (f.includes('modification') || t.includes('modification')) return 'modification_statuts';
   return 'bodacc_other';
 }
@@ -93,7 +103,14 @@ async function ingest({ lastEventId, log } = {}) {
 
   for (const record of records) {
     const siren = extractSiren(record);
-    const eventType = mapFamilleAvis(record.familleavis_lib, record.typeavis_lib);
+    // Combine plusieurs champs pour la détection (ex: contenu_modification, modificationsgenerales)
+    const contenuExtra = [
+      record.contenu_modification,
+      record.modificationsgenerales,
+      record.contenu,
+      typeof record.commercant === 'string' ? record.commercant : null,
+    ].filter(Boolean).join(' ');
+    const eventType = mapFamilleAvis(record.familleavis_lib, record.typeavis_lib, contenuExtra);
     const eventDate = record.dateparution || new Date().toISOString().slice(0, 10);
 
     events.push({

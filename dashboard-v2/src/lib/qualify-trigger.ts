@@ -1,5 +1,5 @@
 import "server-only";
-import { getAnthropic, BRIEF_MODEL } from "@/lib/anthropic";
+import { getAnthropic, QUALIFY_MODEL } from "@/lib/anthropic";
 import { db } from "@/lib/db";
 
 /**
@@ -118,7 +118,7 @@ SIGNAL :
   try {
     const anthropic = getAnthropic();
     const resp = await anthropic.messages.create({
-      model: BRIEF_MODEL,
+      model: QUALIFY_MODEL,
       max_tokens: 200,
       system: [
         { type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } },

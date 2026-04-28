@@ -1,0 +1,39 @@
+{
+  "id": "capital-increase",
+  "name": "Augmentation de capital BODACC (signal levée pré-officiel)",
+  "description": "Entreprise qui a déposé une augmentation de capital au BODACC. Signal de levée détectable 1-2 semaines AVANT l'annonce presse Maddyness/RSS. Permet de contacter en avance la concurrence.",
+  "verticaux": ["saas", "conseil", "outsourcing", "recruitment", "tools", "finance-ops"],
+  "pitch_angle": "Vu l'augmentation de capital récente — on accompagne souvent les boîtes en post-levée pour {solution}. 15 min cette semaine ?",
+  "min_score": 7.5,
+  "max_score": 10.0,
+  "window_days": 30,
+  "signals_required": {
+    "must_have_at_least_one_of": [
+      {
+        "types": ["capital_increase"],
+        "min_count": 1,
+        "weight": 7.5,
+        "description": "Augmentation de capital BODACC <30j"
+      }
+    ]
+  },
+  "bonuses": [
+    {
+      "types": ["funding", "funding_seed", "funding_series"],
+      "weight": 1.5,
+      "description": "Bonus si déjà confirmé via RSS levées (combo)"
+    },
+    {
+      "types": ["hiring_tech", "hiring_sales", "hiring_executive"],
+      "weight": 1.0,
+      "description": "Bonus si recrutements en parallèle (scaling)"
+    }
+  ],
+  "exclusions": [
+    {
+      "types": ["procedure_collective", "company_cessation"],
+      "description": "Entreprise en difficulté ou radiée"
+    }
+  ],
+  "enabled": true
+}

@@ -87,7 +87,34 @@ export async function enrichDirigeantsForClient(
         continue;
       }
 
-      const data = await getEntreprise(siren, { includeRepresentants: true });
+      // Récupération étendue : représentants + bilans + procédures + dépôts + établissements
+      // Forfait Pappers illimité = 0€ surcoût pour ces options.
+      const data = await getEntreprise(siren, {
+        includeRepresentants: true,
+        includeBilans: true,
+        includeProceduresCollectives: true,
+        includeDepotsActes: true,
+        includeEtablissements: true,
+      });
+
+      // EXCLUSION AUTO : procédure collective en cours (RJ/LJ) = boîte non-prospectable
+      if (data.procedure_collective_en_cours === true) {
+        await db.lead.updateMany({
+          where: { triggerId: t.id, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+        await db.trigger.update({
+          where: { id: t.id },
+          data: {
+            deletedAt: new Date(),
+            ignoredAt: new Date(),
+            ignoredReason: "procedure_collective_en_cours",
+          },
+        });
+        stats.skipped += 1;
+        continue;
+      }
+
       const reps = data.representants ?? [];
       if (reps.length === 0) {
         stats.skipped += 1;
@@ -160,21 +187,38 @@ export async function enrichDirigeantsForClient(
         ? ` (via ${best.holdingPath.join(" → ")})`
         : "";
 
+      // Extraction données Pappers étendues (si présentes)
+      const lastFinance = data.finances?.[0];
+      const companyRevenue = lastFinance?.chiffre_affaires ?? null;
+      const companyResultNet = lastFinance?.resultat ?? null;
+      const companyEtabsCount = data.etablissements?.filter((e) => e.actif !== false).length ?? null;
+      // Dépôts d'actes <90j = changements stratégiques récents
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const recentDepots = (data.depots_actes ?? [])
+        .filter((d) => d.date_depot && new Date(d.date_depot) > ninetyDaysAgo)
+        .map((d) => ({ date: d.date_depot, type: d.type, decisions: d.decisions }))
+        .slice(0, 5);
+
       // Upsert Lead lié à ce trigger
       const existingTriggerLead = await db.lead.findFirst({
         where: { triggerId: t.id, deletedAt: null },
         select: { id: true },
       });
       const jobTitleWithPath = personaLabel + holdingNote;
+      const enrichedFields = {
+        firstName,
+        lastName,
+        fullName: full,
+        jobTitle: jobTitleWithPath,
+        ...(companyRevenue !== null ? { companyRevenue } : {}),
+        ...(companyResultNet !== null ? { companyResultNet } : {}),
+        ...(companyEtabsCount !== null ? { companyEtabsCount } : {}),
+        ...(recentDepots.length > 0 ? { companyRecentDepots: recentDepots } : {}),
+      };
       if (existingTriggerLead) {
         await db.lead.update({
           where: { id: existingTriggerLead.id },
-          data: {
-            firstName,
-            lastName,
-            fullName: full,
-            jobTitle: jobTitleWithPath,
-          },
+          data: enrichedFields,
         });
       } else {
         await db.lead.create({
@@ -182,10 +226,7 @@ export async function enrichDirigeantsForClient(
             id: genCuid(),
             clientId,
             triggerId: t.id,
-            firstName,
-            lastName,
-            fullName: full,
-            jobTitle: jobTitleWithPath,
+            ...enrichedFields,
             companyName: t.companyName,
             companySiret: t.companySiret,
             status: "NEW",

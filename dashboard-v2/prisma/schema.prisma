@@ -223,6 +223,9 @@ enum TriggerType {
   AD_CAMPAIGN       // Campagne pub Meta/LinkedIn
   EXPANSION         // Ouverture site / pays
   REGULATORY        // Changement réglementaire / status
+  BUYING_INTENT     // Signal d'achat firmographique (TheirStack searchCompanies)
+  CAPITAL_INCREASE  // Augmentation de capital BODACC (signal levée pré-officiel)
+  JOB_MOVE          // Dirigeant a changé de poste <6m (Dropcontact job_move)
   OTHER
 }
 
@@ -273,6 +276,16 @@ model Lead {
   kasprTitle          String?
   kasprCreditsUsed    Int?      @default(0)
   kasprResponseJson   Json?
+  // Pappers — données financières + signaux pour scoring richesse
+  companyRevenue        Int?     // CA dernier exercice (€)
+  companyResultNet      Int?     // Résultat net dernier exercice (€)
+  companyHasInsolvency  Boolean  @default(false)  // procédure collective en cours
+  companyEtabsCount     Int?     // Nombre d'établissements (multi-sites = expansion)
+  companyRecentDepots   Json?    // Dépôts d'actes RCS <90j (nominations, modif. capital)
+  // Job moves Dropcontact (signal d'achat — équivalent gratuit Rodz job-changes)
+  jobMoveDetected       Boolean  @default(false)
+  previousCompany       String?
+  previousJob           String?
   // Cache des contenus on-demand (pitch / linkedin DM / call brief) — économie tokens Opus
   pitchJson         Json?
   pitchGeneratedAt  DateTime?
@@ -288,6 +301,7 @@ model Lead {
   opportunities  Opportunity[]
   replies        Reply[]
   emailActivity  EmailActivity[]
+  emailEvents    EmailEvent[]
 
   @@index([clientId, status, createdAt(sort: Desc)])
   @@index([email])
@@ -523,6 +537,8 @@ model EmailActivity {
   sentAt          DateTime    @default(now()) // = receivedAt côté RECEIVED
   sentByUserId    String?     // Better Auth User id (NULL si reçu)
   template        String?     // 'pitch' | 'linkedin-dm' | 'call-brief' | 'manual'
+  replyClassification String? // 'positive' | 'neutral' | 'negative' | 'ooo' | 'unsubscribe' (Haiku)
+  replyClassifiedAt DateTime?
   createdAt       DateTime    @default(now())
 
   @@index([leadId, sentAt(sort: Desc)])
@@ -533,6 +549,34 @@ model EmailActivity {
 enum EmailDirection {
   SENT
   RECEIVED
+}
+
+// Tracking événements email Resend (opens / clicks / bounces / complaints).
+// Permet d'identifier les leads "warm" (3+ opens = signal d'intérêt).
+model EmailEvent {
+  id          String           @id @default(cuid())
+  leadId      String?
+  lead        Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  emailId     String?          // Resend email_id si dispo
+  recipient   String           // email destinataire
+  type        EmailEventType
+  occurredAt  DateTime         @default(now())
+  metadata    Json?            // user agent, IP city, click URL, bounce code, etc.
+  createdAt   DateTime         @default(now())
+
+  @@index([leadId, occurredAt(sort: Desc)])
+  @@index([recipient, type, occurredAt(sort: Desc)])
+  @@index([emailId])
+}
+
+enum EmailEventType {
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  COMPLAINED
+  UNSUBSCRIBED
+  FAILED
 }
 
 // =====================================================================

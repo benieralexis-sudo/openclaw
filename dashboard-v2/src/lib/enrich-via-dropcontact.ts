@@ -19,6 +19,7 @@ type EnrichResult = {
   enrichedWithPhone: number;
   kasprChained: number;
   kasprMobileFound: number;
+  jobMovesDetected: number;
   errors: Array<{ leadId: string; reason: string }>;
   creditsLeft: number;
 };
@@ -49,6 +50,7 @@ export async function enrichLeadsViaDropcontact(
     enrichedWithPhone: 0,
     kasprChained: 0,
     kasprMobileFound: 0,
+    jobMovesDetected: 0,
     errors: [],
     creditsLeft: -1,
   };
@@ -109,7 +111,13 @@ export async function enrichLeadsViaDropcontact(
     const email = pickFirstEmail(en);
     const linkedinUrl = en.linkedin || null;
     let phone: string | null = en.mobile_phone || en.phone || null;
-    if (!email && !linkedinUrl && !phone) continue;
+
+    // Détection job_move (signal d'achat MAJEUR) : si Dropcontact remonte un
+    // changement de poste <6 mois sur le dirigeant, on log + booste le score.
+    const jobMoveDetected = en.job_changed === true || !!en.previous_company;
+    if (jobMoveDetected) result.jobMovesDetected++;
+
+    if (!email && !linkedinUrl && !phone && !jobMoveDetected) continue;
 
     // Chaining Dropcontact → Kaspr : si on a un LinkedIn URL valide ET pas
     // encore de mobile, on déclenche Kaspr pour récupérer le mobile (Kaspr

@@ -61,10 +61,37 @@ export interface PappersEntreprise {
     type?: string;
     date_jugement?: string;
   }>;
+  procedure_collective_existe?: boolean;
+  procedure_collective_en_cours?: boolean;
   marques?: Array<{
     nom?: string;
     date_depot?: string;
     classes?: number[];
+  }>;
+  depots_actes?: Array<{
+    date_depot?: string;
+    type?: string;
+    decisions?: string[];
+  }>;
+  etablissements?: Array<{
+    siret: string;
+    siege?: boolean;
+    code_postal?: string;
+    ville?: string;
+    actif?: boolean;
+    activite_principale_libelle?: string;
+  }>;
+  beneficiaires_effectifs?: Array<{
+    nom?: string;
+    prenom?: string;
+    nom_complet?: string;
+    nationalite?: string;
+    pourcentage_parts?: number;
+    pourcentage_votes?: number;
+  }>;
+  conventions_collectives?: Array<{
+    idcc?: string;
+    titre?: string;
   }>;
 }
 
@@ -136,7 +163,16 @@ async function pappersFetch<T>(path: string, params: Record<string, string | num
  */
 export async function getEntreprise(
   siren: string,
-  options: { includeBilans?: boolean; includeRepresentants?: boolean; includeMarques?: boolean } = {},
+  options: {
+    includeBilans?: boolean;
+    includeRepresentants?: boolean;
+    includeMarques?: boolean;
+    includeDepotsActes?: boolean;
+    includeProceduresCollectives?: boolean;
+    includeEtablissements?: boolean;
+    includeBeneficiaires?: boolean;
+    includeConventions?: boolean;
+  } = {},
 ): Promise<PappersEntreprise> {
   return pappersFetch<PappersEntreprise>("/v2/entreprise", {
     siren,
@@ -144,6 +180,27 @@ export async function getEntreprise(
     ...(options.includeBilans && { bilans: "true", finances: "true" }),
     ...(options.includeRepresentants && { representants: "true" }),
     ...(options.includeMarques && { marques: "true" }),
+    ...(options.includeDepotsActes && { depots_actes: "true" }),
+    ...(options.includeProceduresCollectives && { procedures_collectives: "true" }),
+    ...(options.includeEtablissements && { etablissements: "true" }),
+    ...(options.includeBeneficiaires && { beneficiaires_effectifs: "true" }),
+    ...(options.includeConventions && { conventions_collectives: "true" }),
+  });
+}
+
+/**
+ * Récupère "tout" : utile pour enrichForBrief des pépites.
+ * Coût Pappers : forfait fixe 75€/mois illimité = 0€ par appel.
+ */
+export async function getEntrepriseFull(siren: string): Promise<PappersEntreprise> {
+  return getEntreprise(siren, {
+    includeBilans: true,
+    includeRepresentants: true,
+    includeDepotsActes: true,
+    includeProceduresCollectives: true,
+    includeEtablissements: true,
+    includeBeneficiaires: true,
+    includeConventions: true,
   });
 }
 

@@ -21,6 +21,63 @@ try { simpleParser = require('mailparser').simpleParser; } catch (_e) { /* deps 
 const https = require('node:https');
 const { Client } = require('pg');
 
+/**
+ * Classification IA d'un reply via Claude Haiku 4.5 (ultra-cheap : ~0.0005€/call).
+ * Retourne 'positive' | 'neutral' | 'negative' | 'ooo' | 'unsubscribe' | null si fail.
+ *
+ * Heuristique de fallback rapide (sans appel API) si patterns évidents :
+ *   - "out of office", "vacation", "absent" → 'ooo'
+ *   - "unsubscribe", "ne plus recevoir", "désabonner" → 'unsubscribe'
+ *   - Sinon → Haiku.
+ */
+async function classifyReply(subject, bodyText) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const text = `${subject || ''}\n\n${bodyText || ''}`.toLowerCase();
+  // Heuristiques rapides (gratuit)
+  if (/(out of office|vacation|absent|i'm away|je suis absent|congés|vacances)/.test(text)) {
+    return 'ooo';
+  }
+  if (/(unsubscribe|ne plus recevoir|me désabonner|stop email|retirer.{1,20}liste|opt[\s-]?out)/.test(text)) {
+    return 'unsubscribe';
+  }
+
+  // Sinon Haiku (très cheap mais évitons d'appeler à chaque fois si on a déjà un signal clair)
+  const userPrompt = `Reply email reçu. Classe-le en 1 mot strict parmi : positive, neutral, negative, ooo, unsubscribe.
+
+Sujet : ${(subject || '').slice(0, 100)}
+Corps : ${(bodyText || '').slice(0, 500)}
+
+Réponds UNIQUEMENT le mot, rien d'autre.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const out = (data.content?.[0]?.text || '').trim().toLowerCase();
+    if (['positive', 'neutral', 'negative', 'ooo', 'unsubscribe'].includes(out)) {
+      return out;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 const log = (() => {
   try { return require('../../../gateway/logger.js'); }
   catch { return console; }
@@ -222,14 +279,18 @@ async function runPollCycle({ sinceMs } = {}) {
         }
         const lead = leadRes.rows[0];
 
+        // Classification IA (Haiku ~0.0005€/call avec heuristique préalable)
+        const classification = await classifyReply(msg.subject, msg.bodyText);
+
         // INSERT EmailActivity
         const id = genCuid();
         try {
           await pg.query(
             `INSERT INTO "EmailActivity" (
                 id, "leadId", direction, "fromMailbox", "toEmail", subject,
-                "bodyText", "bodyHtml", "messageId", "inReplyTo", "sentAt", "createdAt"
-              ) VALUES ($1, $2, 'RECEIVED', $3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
+                "bodyText", "bodyHtml", "messageId", "inReplyTo", "sentAt",
+                "replyClassification", "replyClassifiedAt", "createdAt"
+              ) VALUES ($1, $2, 'RECEIVED', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())`,
             [
               id, lead.id, msg.from, mb.user,
               msg.subject || '(sans sujet)',
@@ -238,30 +299,40 @@ async function runPollCycle({ sinceMs } = {}) {
               msg.messageId,
               msg.inReplyTo,
               new Date(msg.date),
+              classification,
+              classification ? new Date() : null,
             ]
           );
           stats.repliesDetected += 1;
+          if (classification) stats[`classified_${classification}`] = (stats[`classified_${classification}`] || 0) + 1;
 
-          // Bump lead status REPLIED si pas déjà
+          // Bump lead status selon classification
+          let newStatus = 'CONTACTED';
+          if (classification === 'unsubscribe') newStatus = 'NOT_INTERESTED';
+          // 'positive' garde 'CONTACTED' mais on aurait pu créer un statut 'WARM'
           await pg.query(
-            `UPDATE "Lead" SET status = 'CONTACTED', "updatedAt" = NOW()
-             WHERE id = $1 AND status NOT IN ('CONTACTED','NOT_INTERESTED','ARCHIVED')`,
-            [lead.id]
+            `UPDATE "Lead" SET status = $2, "updatedAt" = NOW()
+             WHERE id = $1 AND status NOT IN ('NOT_INTERESTED','ARCHIVED')`,
+            [lead.id, newStatus]
           );
 
-          // Notif Telegram admin
-          const text = [
-            '📬 *Reply email détecté*',
-            '',
-            `👤 *De :* ${escapeMarkdown(msg.fromName || msg.from)}`,
-            `📧 ${escapeMarkdown(msg.from)}`,
-            `📋 *Sujet :* ${escapeMarkdown(msg.subject)}`,
-            `🏢 *Lead :* ${escapeMarkdown(lead.fullName || '—')} — ${escapeMarkdown(lead.companyName || '—')}`,
-            `📥 *Mailbox :* ${escapeMarkdown(mb.label)}`,
-            '',
-            msg.bodyText ? '_' + escapeMarkdown(msg.bodyText.substring(0, 200)) + '_' : '',
-          ].filter(Boolean).join('\n');
-          await sendTelegram(text);
+          // Notif Telegram admin (sauf OOO et unsubscribe = système, on ne dérange pas)
+          if (classification !== 'ooo' && classification !== 'unsubscribe') {
+            const emoji = classification === 'positive' ? '🔥' : classification === 'negative' ? '❌' : '📬';
+            const classLabel = classification ? ` — *${classification.toUpperCase()}*` : '';
+            const text = [
+              `${emoji} *Reply email détecté*${classLabel}`,
+              '',
+              `👤 *De :* ${escapeMarkdown(msg.fromName || msg.from)}`,
+              `📧 ${escapeMarkdown(msg.from)}`,
+              `📋 *Sujet :* ${escapeMarkdown(msg.subject)}`,
+              `🏢 *Lead :* ${escapeMarkdown(lead.fullName || '—')} — ${escapeMarkdown(lead.companyName || '—')}`,
+              `📥 *Mailbox :* ${escapeMarkdown(mb.label)}`,
+              '',
+              msg.bodyText ? '_' + escapeMarkdown(msg.bodyText.substring(0, 200)) + '_' : '',
+            ].filter(Boolean).join('\n');
+            await sendTelegram(text);
+          }
         } catch (e) {
           // Double-check unique violation messageId race condition
           if (!/duplicate key|unique constraint/i.test(e.message || '')) {
