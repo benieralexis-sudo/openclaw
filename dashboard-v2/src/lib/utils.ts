@@ -82,6 +82,19 @@ export function normalizeLinkedinUrl(url: string | null | undefined): string | n
 }
 
 /**
+ * Détecte un mobile FR (06/07) à partir d'un numéro libre. Exclut 01-05
+ * (fixe géo), 08 (surtaxé), 09 (VoIP/standard entreprise). Utile pour décider
+ * si un Kaspr lookup vaut le coup côté UX.
+ */
+export function isFrenchMobile(phone: string | null | undefined): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/[^\d]/g, "");
+  if (/^0[67]\d{8}$/.test(digits)) return true;
+  if (/^33[67]\d{8}$/.test(digits)) return true;
+  return false;
+}
+
+/**
  * Génère une URL "Gmail compose" qui ouvre directement Gmail web (pas le client
  * mail système comme `mailto:`). Pratique pour envoyer depuis l'inbox Gmail
  * personnelle plutôt que via Mac Mail / Outlook.

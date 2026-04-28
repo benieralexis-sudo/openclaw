@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
-import { cn, formatNumberFr, formatRelativeFr, gmailComposeUrl, normalizeLinkedinUrl } from "@/lib/utils";
+import { cn, formatNumberFr, formatRelativeFr, gmailComposeUrl, isFrenchMobile, normalizeLinkedinUrl } from "@/lib/utils";
 import { SendEmailModal } from "@/components/lead/send-email-modal";
 import { EnrichKasprModal } from "@/components/lead/enrich-kaspr-modal";
 import { LeadActivityPanel } from "@/components/lead/lead-activity-panel";
@@ -208,31 +208,56 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
 
         {lead && (
           <div className="flex items-center gap-2">
-            {/* Bouton téléphone — 3 états :
-                1. Numéro déjà trouvé → "Appeler" (tel:)
-                2. LinkedIn présent, pas encore cherché → "Trouver le numéro" (modal Kaspr)
-                3. Pas de LinkedIn → caché (inactionnable) */}
-            {(lead.kasprPhone ?? lead.phone) ? (
-              <a
-                href={`tel:${lead.kasprPhone ?? lead.phone}`}
-                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
-                title="Appeler ce numéro"
-              >
-                <Phone className="h-3.5 w-3.5" />
-                Appeler {lead.kasprPhone ?? lead.phone}
-              </a>
-            ) : lead.linkedinUrl ? (
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={() => setEnrichOpen(true)}
-                className="gap-1.5"
-                title="Recherche le numéro et l'email pro à partir du profil LinkedIn"
-              >
-                <Phone className="h-3.5 w-3.5 text-cyan-600" />
-                Trouver le numéro
-              </Button>
-            ) : null}
+            {/* Bouton téléphone — logique : on cherche d'abord un MOBILE (06/07).
+                - Mobile trouvé (kasprPhone ou phone direct) → "Appeler +33 7..."
+                - Pas de mobile mais LinkedIn → "Trouver le numéro" (Kaspr 1 crédit)
+                - Pas de mobile et standard 09/01-05 affiché à côté pour fallback
+                - Aucun LinkedIn → bouton caché */}
+            {(() => {
+              const mobile = isFrenchMobile(lead.kasprPhone) ? lead.kasprPhone
+                : isFrenchMobile(lead.phone) ? lead.phone
+                : null;
+              const standard = !mobile && lead.phone ? lead.phone : null;
+              if (mobile) {
+                return (
+                  <a
+                    href={`tel:${mobile}`}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                    title="Mobile direct du dirigeant"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    Appeler {mobile}
+                  </a>
+                );
+              }
+              if (lead.linkedinUrl) {
+                return (
+                  <>
+                    {standard && (
+                      <a
+                        href={`tel:${standard}`}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-2.5 py-2 text-[12px] font-medium text-ink-700 shadow-xs hover:bg-ink-50"
+                        title="Standard de l'entreprise (passer par l'accueil)"
+                      >
+                        <Phone className="h-3 w-3" />
+                        Standard {standard}
+                      </a>
+                    )}
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => setEnrichOpen(true)}
+                      className="gap-1.5"
+                      title="Recherche le mobile direct via LinkedIn (consomme 1 crédit)"
+                    >
+                      <Phone className="h-3.5 w-3.5 text-cyan-600" />
+                      Trouver le numéro
+                    </Button>
+                  </>
+                );
+              }
+              return null;
+            })()}
             <Button
               variant="primary"
               size="md"
