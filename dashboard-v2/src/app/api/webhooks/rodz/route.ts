@@ -107,9 +107,14 @@ interface RodzWebhookContact {
   first_name?: string | null;
   last_name?: string | null;
   full_name?: string | null;
+  // Rodz envoie soit "job_title" soit "title" selon le signal — on lit les deux.
   job_title?: string | null;
+  title?: string | null;
   email?: string | null;
+  // Idem : "linkedin_url" sur certains signaux, "linkedin_profile_url" sur d'autres.
   linkedin_url?: string | null;
+  linkedin_profile_url?: string | null;
+  sales_navigator_profile_url?: string | null;
   phone?: string | null;
 }
 
@@ -334,8 +339,11 @@ export async function POST(req: NextRequest) {
         firstName: payload.contact.first_name ?? null,
         lastName: payload.contact.last_name ?? null,
         fullName,
-        jobTitle: payload.contact.job_title ?? null,
-        linkedinUrl: payload.contact.linkedin_url ?? null,
+        jobTitle: payload.contact.job_title ?? payload.contact.title ?? null,
+        linkedinUrl:
+          payload.contact.linkedin_profile_url ??
+          payload.contact.linkedin_url ??
+          null,
         email: payload.contact.email,
         emailStatus: EmailStatus.VALID, // Rodz garantit l'enrichissement email
         phone: payload.contact.phone ?? null,
