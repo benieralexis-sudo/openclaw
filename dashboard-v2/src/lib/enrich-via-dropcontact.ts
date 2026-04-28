@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { submitBatch, pollBatchResult, type DropcontactInput, type DropcontactEnriched } from "@/lib/dropcontact";
+import { enrichLinkedInProfile, isValidLinkedInUrl, pickPhone } from "@/lib/kaspr";
 
 // ═══════════════════════════════════════════════════════════════════
 // Pipeline : enrichir les Leads sans email via Dropcontact
@@ -16,9 +17,16 @@ type EnrichResult = {
   enrichedWithEmail: number;
   enrichedWithLinkedin: number;
   enrichedWithPhone: number;
+  kasprChained: number;
+  kasprMobileFound: number;
   errors: Array<{ leadId: string; reason: string }>;
   creditsLeft: number;
 };
+
+// Plafond Kaspr par run pour ne jamais brûler les crédits par accident.
+// 197 mobiles dispos / 30 leads/cycle / 6h cycle = on peut en faire jusqu'à 30
+// par run mais on plafonne à 15 pour garder de la marge sur les pépites.
+const KASPR_CHAIN_MAX_PER_RUN = 15;
 
 function pickFirstEmail(enriched: DropcontactEnriched): string | null {
   const emails = enriched.email;
@@ -39,6 +47,8 @@ export async function enrichLeadsViaDropcontact(
     enrichedWithEmail: 0,
     enrichedWithLinkedin: 0,
     enrichedWithPhone: 0,
+    kasprChained: 0,
+    kasprMobileFound: 0,
     errors: [],
     creditsLeft: -1,
   };
@@ -98,8 +108,44 @@ export async function enrichLeadsViaDropcontact(
     if (!lead || !en) continue;
     const email = pickFirstEmail(en);
     const linkedinUrl = en.linkedin || null;
-    const phone = en.mobile_phone || en.phone || null;
+    let phone: string | null = en.mobile_phone || en.phone || null;
     if (!email && !linkedinUrl && !phone) continue;
+
+    // Chaining Dropcontact → Kaspr : si on a un LinkedIn URL valide ET pas
+    // encore de mobile, on déclenche Kaspr pour récupérer le mobile (Kaspr
+    // 70-80% mobile vs Dropcontact 30-40%). Plafonné à KASPR_CHAIN_MAX_PER_RUN.
+    let kasprWorkEmail: string | null = null;
+    if (
+      linkedinUrl &&
+      !phone &&
+      result.kasprChained < KASPR_CHAIN_MAX_PER_RUN &&
+      isValidLinkedInUrl(linkedinUrl)
+    ) {
+      result.kasprChained++;
+      const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
+      try {
+        const kr = await enrichLinkedInProfile({
+          id: linkedinUrl,
+          name: fullName,
+          dataToGet: ["phone", "workEmail"],
+        });
+        if (kr.ok && kr.profile) {
+          const kPhone = pickPhone(kr.profile.phones ?? kr.profile.phone ?? null);
+          if (kPhone) {
+            phone = kPhone;
+            result.kasprMobileFound++;
+          }
+          const we = kr.profile.workEmail;
+          kasprWorkEmail = typeof we === "string" ? we : we?.email ?? null;
+        }
+      } catch (e) {
+        // Kaspr fail = silent. On a déjà Dropcontact, c'est un bonus.
+        result.errors.push({
+          leadId: lead.id,
+          reason: `kaspr_chain: ${e instanceof Error ? e.message : String(e)}`,
+        });
+      }
+    }
 
     try {
       await db.lead.update({
@@ -108,6 +154,9 @@ export async function enrichLeadsViaDropcontact(
           ...(email ? { email, emailStatus: "UNVERIFIED" } : {}),
           ...(linkedinUrl ? { linkedinUrl } : {}),
           ...(phone ? { phone } : {}),
+          ...(kasprWorkEmail
+            ? { kasprWorkEmail, kasprEnrichedAt: new Date() }
+            : {}),
           status: "ENRICHED",
           enrichedAt: new Date(),
         },
