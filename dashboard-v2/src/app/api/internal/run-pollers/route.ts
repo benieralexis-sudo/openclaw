@@ -8,6 +8,7 @@ import { detectCombosForClient } from "@/lib/combo-detector";
 import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
 import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
 import { detectDeclarativePainForClient } from "@/lib/declarative-pain";
+import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -68,6 +69,11 @@ export async function POST(req: NextRequest) {
       if (!dryRun) {
         const q = await qualifyPendingTriggers(c.id, { limit: 30 });
         entry.opusQualified = q.qualified;
+        // Ensure Lead : crée Lead minimal pour chaque Trigger actif sans Lead.
+        // Permet à Apify/Rodz/TheirStack d'apparaître dans le dashboard même
+        // sans dirigeant Pappers résolu.
+        const ensured = await ensureLeadsForAllTriggers(c.id);
+        (entry as { ensuredLeads?: unknown }).ensuredLeads = ensured;
         // Combo detector : flag isCombo=true sur les boîtes avec 2+ sources
         const combo = await detectCombosForClient(c.id);
         (entry as { combos?: unknown }).combos = combo;

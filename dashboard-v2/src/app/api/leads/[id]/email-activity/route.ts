@@ -30,24 +30,57 @@ export async function GET(
     100,
   );
 
-  const activity = await db.emailActivity.findMany({
-    where: { leadId: id },
-    orderBy: { sentAt: "desc" },
-    take: limit,
-    select: {
-      id: true,
-      direction: true,
-      fromMailbox: true,
-      toEmail: true,
-      subject: true,
-      bodyText: true,
-      messageId: true,
-      inReplyTo: true,
-      sentAt: true,
-      sentByUserId: true,
-      template: true,
-    },
-  });
+  const [activity, events] = await Promise.all([
+    db.emailActivity.findMany({
+      where: { leadId: id },
+      orderBy: { sentAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        direction: true,
+        fromMailbox: true,
+        toEmail: true,
+        subject: true,
+        bodyText: true,
+        messageId: true,
+        inReplyTo: true,
+        sentAt: true,
+        sentByUserId: true,
+        template: true,
+        replyClassification: true,
+      },
+    }),
+    db.emailEvent.findMany({
+      where: { leadId: id },
+      orderBy: { occurredAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        type: true,
+        occurredAt: true,
+        emailId: true,
+      },
+    }),
+  ]);
 
-  return NextResponse.json({ activity });
+  // Stats agrégées EmailEvent
+  const eventCounts = {
+    delivered: 0,
+    opened: 0,
+    clicked: 0,
+    bounced: 0,
+    complained: 0,
+    unsubscribed: 0,
+  };
+  for (const e of events) {
+    const k = e.type.toLowerCase() as keyof typeof eventCounts;
+    if (k in eventCounts) eventCounts[k]++;
+  }
+
+  return NextResponse.json({
+    activity,
+    events,
+    eventCounts,
+    isWarm: eventCounts.opened >= 3 || eventCounts.clicked >= 1,
+  });
 }

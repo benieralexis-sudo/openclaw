@@ -544,9 +544,111 @@ function TriggerHeader({
               )}
             </div>
           )}
+          {/* Email activity timeline + tracking opens/clicks */}
+          {lead && <EmailActivitySection leadId={lead.id} />}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Email activity timeline
+// ──────────────────────────────────────────────────────────────────────
+
+function EmailActivitySection({ leadId }: { leadId: string }) {
+  const { data } = useQuery<{
+    activity: Array<{
+      id: string;
+      direction: "SENT" | "RECEIVED";
+      subject: string;
+      sentAt: string;
+      template?: string | null;
+      replyClassification?: string | null;
+    }>;
+    eventCounts: {
+      delivered: number;
+      opened: number;
+      clicked: number;
+      bounced: number;
+      complained: number;
+      unsubscribed: number;
+    };
+    isWarm: boolean;
+  }>({
+    queryKey: ["lead-email-activity", leadId],
+    queryFn: async () => {
+      const res = await fetch(`/api/leads/${leadId}/email-activity?limit=10`);
+      if (!res.ok) return { activity: [], eventCounts: { delivered: 0, opened: 0, clicked: 0, bounced: 0, complained: 0, unsubscribed: 0 }, isWarm: false };
+      return res.json();
+    },
+    refetchInterval: 60 * 1000,
+  });
+
+  const activity = data?.activity ?? [];
+  const counts = data?.eventCounts;
+  const hasContent = activity.length > 0 || (counts && (counts.opened + counts.clicked + counts.bounced) > 0);
+  if (!hasContent) return null;
+
+  const classificationVariant: Record<string, "success" | "warning" | "danger" | "info" | "default"> = {
+    positive: "success",
+    negative: "danger",
+    neutral: "info",
+    ooo: "warning",
+    unsubscribe: "danger",
+  };
+
+  return (
+    <div className="rounded-md border border-ink-100 bg-white p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10.5px] uppercase tracking-wider text-ink-500">
+          Activité email
+        </div>
+        {data?.isWarm && (
+          <Badge variant="fire" size="sm">🔥 Warm</Badge>
+        )}
+      </div>
+      {counts && (counts.opened > 0 || counts.clicked > 0 || counts.bounced > 0) && (
+        <div className="flex flex-wrap gap-1.5 mb-2 text-[11px]">
+          {counts.opened > 0 && (
+            <Badge variant="success" size="sm">📭 {counts.opened} ouvert{counts.opened > 1 ? "s" : ""}</Badge>
+          )}
+          {counts.clicked > 0 && (
+            <Badge variant="brand" size="sm">🔗 {counts.clicked} clic{counts.clicked > 1 ? "s" : ""}</Badge>
+          )}
+          {counts.bounced > 0 && (
+            <Badge variant="danger" size="sm">⚠️ {counts.bounced} bounce{counts.bounced > 1 ? "s" : ""}</Badge>
+          )}
+          {counts.unsubscribed > 0 && (
+            <Badge variant="warning" size="sm">🚫 désinscrit</Badge>
+          )}
+        </div>
+      )}
+      {activity.length > 0 && (
+        <ul className="space-y-1.5">
+          {activity.slice(0, 5).map((a) => {
+            const isSent = a.direction === "SENT";
+            const cls = a.replyClassification?.toLowerCase();
+            return (
+              <li key={a.id} className="flex items-start gap-2 text-[11px]">
+                <span className={`mt-0.5 ${isSent ? "text-brand-600" : "text-emerald-600"}`}>
+                  {isSent ? "→" : "←"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="text-ink-700 truncate">{a.subject}</span>
+                    {cls && classificationVariant[cls] && (
+                      <Badge variant={classificationVariant[cls]} size="sm">{cls}</Badge>
+                    )}
+                  </div>
+                  <span className="text-ink-400">{formatRelativeFr(a.sentAt)}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
