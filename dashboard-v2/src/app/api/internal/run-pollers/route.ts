@@ -7,6 +7,7 @@ import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
 import { detectCombosForClient } from "@/lib/combo-detector";
 import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
 import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
+import { detectDeclarativePainForClient } from "@/lib/declarative-pain";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -50,17 +51,18 @@ export async function POST(req: NextRequest) {
         entry.sireneEnriched = sirene.enriched;
       }
       if (source === "all" || source === "apify") {
-        // Apify run-sync DÉSACTIVÉ 28/04 — les 2 actors retournent 0 items :
-        //   - joyouscam35875/france-job-scraper : sites scrapés ont changé HTML
-        //     (WTTJ/Hellowork/FT, log = "0 jobs found" sur tous keywords)
-        //   - curious_coder/linkedin-jobs-scraper : exige `input.urls` au lieu
-        //     de `input.searchTerm` (notre code passe searchTerm, refusé)
-        //
-        // On laisse les SCHEDULES Apify configurés tourner (cron Apify côté
-        // serveur Apify) — leurs runs auto-déclenchés les mardi 02h utilisent
-        // l'input task pré-configuré côté Apify avec le bon format. Mais on ne
-        // déclenche plus de run-sync inutile depuis le bot.
-        entry.apify = { skipped: "actors_broken_28avril", note: "schedules continuent côté Apify" };
+        // Apify RÉACTIVÉ 28/04 après diagnostic API live :
+        //   - LinkedIn : input fixé (urls + count >= 10), actor curious_coder OK
+        //   - WTTJ : nouvel actor clearpath (filtre companySize ICP-aware)
+        //   - Indeed FR : nouvel actor misceres (leader Apify)
+        //   - france-jobs (joyouscam) : deprecated (Hellowork/FT cassés)
+        entry.apify = await pollApifyForClient(c.id, {
+          dryRun,
+          useFranceJobs: false,
+          useLinkedin: true,
+          useWttj: true,
+          useIndeed: true,
+        });
       }
       // Qualify Opus tous les Triggers du client sans scoreReason (limite 30/run pour budget tokens).
       if (!dryRun) {
@@ -82,6 +84,14 @@ export async function POST(req: NextRequest) {
           (entry as { dropcontact?: unknown }).dropcontact = dc;
         } catch (e) {
           (entry as { dropcontactError?: string }).dropcontactError = e instanceof Error ? e.message : String(e);
+        }
+        // Declarative pain detection (HarvestAPI LinkedIn posts + Opus)
+        // Plafond strict 50 entreprises × 5 posts = 250 posts max/run = ~$0.40
+        try {
+          const pain = await detectDeclarativePainForClient(c.id, { limit: 50 });
+          (entry as { declarativePain?: unknown }).declarativePain = pain;
+        } catch (e) {
+          (entry as { painError?: string }).painError = e instanceof Error ? e.message : String(e);
         }
       }
     } catch (e) {

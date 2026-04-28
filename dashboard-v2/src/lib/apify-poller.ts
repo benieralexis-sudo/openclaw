@@ -47,15 +47,18 @@ export interface ApifyPollerResult {
 // ──────────────────────────────────────────────────────────────────────
 
 /**
- * Bouquet d'actors par préférence.
- * - france-job-scraper : 3-en-1 FR (WTTJ + France Travail + Hellowork)
- * - linkedin-jobs-scraper : LinkedIn Jobs (international)
- * - welcome-to-the-jungle-jobs-api : WTTJ FR pur
+ * Bouquet d'actors par préférence (audit 28/04 : 3-en-1 cassé, switch vers actors dédiés).
+ * - linkedin-jobs-scraper : LinkedIn Jobs (curious_coder, leader 59K users — fix input urls/count 28/04)
+ * - wttjJobs : WTTJ FR avec filtre companySize ICP-aware (clearpath, le seul WTTJ vivant)
+ * - indeedJobs : Indeed FR (misceres, leader Apify 21K users 1.34M runs)
+ * - linkedinCompanyPosts : declarative pain detection (harvestapi, 872K runs, $1.50/1k posts)
  */
 export const APIFY_ACTORS = {
-  franceJobs: "joyouscam35875/france-job-scraper",
+  franceJobs: "joyouscam35875/france-job-scraper", // ⚠️ deprecated — Hellowork/FT cassés
   linkedinJobs: "curious_coder/linkedin-jobs-scraper",
   wttjJobs: "clearpath/welcome-to-the-jungle-jobs-api",
+  indeedJobs: "misceres/indeed-scraper",
+  linkedinCompanyPosts: "harvestapi/linkedin-company-posts",
 } as const;
 
 // ──────────────────────────────────────────────────────────────────────
@@ -161,31 +164,93 @@ function adaptFranceJobItem(item: FranceJobItem): NormalizedJob | null {
 }
 
 interface LinkedinJobItem {
-  jobTitle?: string;
+  // Schéma actor curious_coder/linkedin-jobs-scraper (28/04/2026)
   title?: string;
   companyName?: string;
+  location?: string;
+  postedAt?: string;
+  link?: string;
+  descriptionText?: string;
+  applicantsCount?: number;
+  country?: string;
+  // Compat anciens champs
+  jobTitle?: string;
   company?: string;
   jobUrl?: string;
   url?: string;
-  location?: string;
-  postedAt?: string;
-  postedTimeAgo?: string;
   jobDescription?: string;
   description?: string;
 }
 
 function adaptLinkedinJobItem(item: LinkedinJobItem): NormalizedJob | null {
-  const title = item.jobTitle ?? item.title;
+  const title = item.title ?? item.jobTitle;
+  const company = item.companyName ?? item.company;
+  if (!title || !company) return null;
+  // Filtre FR strict (l'actor remonte aussi PT/BE/etc.)
+  if (item.country && item.country !== "FR" && item.country !== "France") return null;
+  return {
+    jobTitle: title,
+    companyName: company,
+    url: item.link ?? item.jobUrl ?? item.url,
+    location: item.location,
+    postedAt: item.postedAt,
+    description: item.descriptionText ?? item.jobDescription ?? item.description,
+    sourceUrl: item.link ?? item.jobUrl ?? item.url,
+  };
+}
+
+// ── Adapter WTTJ (clearpath/welcome-to-the-jungle-jobs-api) ──
+interface WttjJobItem {
+  name?: string;
+  url?: string;
+  organization?: { name?: string; size?: string };
+  office?: { city?: string; country_code?: string };
+  contract_type?: string;
+  description?: string;
+  published_at?: string;
+}
+
+function adaptWttjItem(item: WttjJobItem): NormalizedJob | null {
+  const title = item.name;
+  const company = item.organization?.name;
+  if (!title || !company) return null;
+  if (item.office?.country_code && item.office.country_code !== "FR") return null;
+  return {
+    jobTitle: title,
+    companyName: company,
+    url: item.url,
+    location: item.office?.city,
+    postedAt: item.published_at,
+    description: item.description?.slice(0, 600),
+    sourceUrl: item.url,
+  };
+}
+
+// ── Adapter Indeed (misceres/indeed-scraper) ──
+interface IndeedJobItem {
+  positionName?: string;
+  company?: string;
+  companyName?: string;
+  location?: string;
+  description?: string;
+  url?: string;
+  externalApplyLink?: string;
+  postingDateParsed?: string;
+  jobType?: string[];
+}
+
+function adaptIndeedItem(item: IndeedJobItem): NormalizedJob | null {
+  const title = item.positionName;
   const company = item.companyName ?? item.company;
   if (!title || !company) return null;
   return {
     jobTitle: title,
     companyName: company,
-    url: item.jobUrl ?? item.url,
+    url: item.externalApplyLink ?? item.url,
     location: item.location,
-    postedAt: item.postedAt,
-    description: item.jobDescription ?? item.description,
-    sourceUrl: item.jobUrl ?? item.url,
+    postedAt: item.postingDateParsed,
+    description: item.description?.slice(0, 600),
+    sourceUrl: item.externalApplyLink ?? item.url,
   };
 }
 
@@ -263,10 +328,18 @@ async function runActorAndPushTriggers(args: {
 
 export async function pollApifyForClient(
   clientId: string,
-  options: { dryRun?: boolean; useFranceJobs?: boolean; useLinkedin?: boolean } = {},
+  options: {
+    dryRun?: boolean;
+    useFranceJobs?: boolean;
+    useLinkedin?: boolean;
+    useWttj?: boolean;
+    useIndeed?: boolean;
+  } = {},
 ): Promise<ApifyPollerResult> {
-  const useFranceJobs = options.useFranceJobs ?? true;
-  const useLinkedin = options.useLinkedin ?? false; // par défaut OFF, plus cher
+  const useFranceJobs = options.useFranceJobs ?? false; // 28/04 deprecated
+  const useLinkedin = options.useLinkedin ?? true;
+  const useWttj = options.useWttj ?? true;
+  const useIndeed = options.useIndeed ?? true;
 
   const client = await db.client.findUnique({
     where: { id: clientId },
@@ -313,18 +386,64 @@ export async function pollApifyForClient(
     result.totalTriggersCreated += r.triggersCreated;
   }
 
-  // 2. LinkedIn Jobs (optionnel — plus cher)
+  // 2. LinkedIn Jobs (curious_coder/linkedin-jobs-scraper)
+  // Schéma corrigé 28/04 : urls (array LinkedIn search URLs) + count >= 10
+  // f_TPR=r604800 = "posted last week" (jobs frais 7j)
   if (useLinkedin) {
+    const kw = keywords[0] ?? "QA Engineer";
+    const linkedinUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}&location=France&f_TPR=r604800`;
     const r = await runActorAndPushTriggers({
       actor: APIFY_ACTORS.linkedinJobs,
       input: {
-        searchTerm: keywords[0] ?? "QA",
-        location: "France",
-        rows: 30,
+        urls: [linkedinUrl],
+        count: 30,
+        scrapeCompany: false,
       },
       clientId,
       sourceCode: "apify.linkedin-jobs",
       adapter: (item) => adaptLinkedinJobItem(item as LinkedinJobItem),
+      antiCompanies,
+      dryRun: options.dryRun,
+    });
+    result.actorRuns.push(r);
+    result.totalTriggersCreated += r.triggersCreated;
+  }
+
+  // 3. WTTJ — clearpath/welcome-to-the-jungle-jobs-api
+  // Filtre companySize ICP-aware : 50-250p (cible DTL Tech 11-200)
+  if (useWttj) {
+    const r = await runActorAndPushTriggers({
+      actor: APIFY_ACTORS.wttjJobs,
+      input: {
+        query: keywords[0] ?? "test logiciel",
+        countryCode: "FR",
+        companySize: "50-250",
+        contractType: ["full_time"],
+      },
+      clientId,
+      sourceCode: "apify.wttj-jobs",
+      adapter: (item) => adaptWttjItem(item as WttjJobItem),
+      antiCompanies,
+      dryRun: options.dryRun,
+    });
+    result.actorRuns.push(r);
+    result.totalTriggersCreated += r.triggersCreated;
+  }
+
+  // 4. Indeed FR — misceres/indeed-scraper
+  if (useIndeed) {
+    const r = await runActorAndPushTriggers({
+      actor: APIFY_ACTORS.indeedJobs,
+      input: {
+        position: keywords[0] ?? "QA Engineer",
+        country: "FR",
+        location: "France",
+        maxItems: 30,
+        parseCompanyDetails: false,
+      },
+      clientId,
+      sourceCode: "apify.indeed-jobs",
+      adapter: (item) => adaptIndeedItem(item as IndeedJobItem),
       antiCompanies,
       dryRun: options.dryRun,
     });
