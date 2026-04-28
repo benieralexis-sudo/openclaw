@@ -14,6 +14,7 @@ import { auditAndHeal } from "@/lib/audit-heal";
 import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
 import { enrichLeadsViaRodz } from "@/lib/enrich-via-rodz";
 import { enrichLeadsViaKasprDirect } from "@/lib/enrich-via-kaspr-direct";
+import { enrichLeadsViaEmailPattern } from "@/lib/enrich-via-email-pattern";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -152,6 +153,16 @@ export async function POST(req: NextRequest) {
           (entry as { kasprDirect?: unknown }).kasprDirect = kasprDirect;
         } catch (e) {
           (entry as { kasprDirectError?: string }).kasprDirectError = e instanceof Error ? e.message : String(e);
+        }
+        // Email pattern DIY — pour leads avec firstName+lastName+company mais
+        // sans email après Dropcontact + Rodz findEmail. Génère prenom.nom@domain
+        // (50% PME FR), MX check, marque UNVERIFIED. Le commercial valide via
+        // 1er envoi + bounce tracking Resend.
+        try {
+          const emailPattern = await enrichLeadsViaEmailPattern(c.id, { limit: 30, probe: false });
+          (entry as { emailPattern?: unknown }).emailPattern = emailPattern;
+        } catch (e) {
+          (entry as { emailPatternError?: string }).emailPatternError = e instanceof Error ? e.message : String(e);
         }
         // 3e passe cross-source pour propager les emails/mobiles Kaspr
         // direct aux Leads sœurs de la même boîte.
