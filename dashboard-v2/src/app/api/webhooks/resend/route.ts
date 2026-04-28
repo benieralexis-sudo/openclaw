@@ -2,7 +2,8 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { EmailEventType } from "@prisma/client";
+import type { ActivityType, EmailEventType } from "@prisma/client";
+import { logActivity } from "@/lib/lead-activity";
 
 // Resend webhooks doc : https://resend.com/docs/dashboard/webhooks/introduction
 // Signature : Svix-Id + Svix-Timestamp + Svix-Signature (HMAC SHA256)
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
     select: { id: true },
   });
 
-  await db.emailEvent.create({
+  const evt = await db.emailEvent.create({
     data: {
       leadId: lead?.id ?? null,
       emailId: event.data.email_id ?? null,
@@ -99,6 +100,32 @@ export async function POST(req: NextRequest) {
       },
     },
   });
+
+  // Trace dans LeadActivity (timeline temps réel) si lead matché et type pertinent
+  if (lead?.id) {
+    const activityTypeMap: Partial<Record<EmailEventType, ActivityType>> = {
+      OPENED: "EMAIL_OPEN",
+      CLICKED: "EMAIL_CLICK",
+      BOUNCED: "EMAIL_BOUNCE",
+    };
+    const activityType = activityTypeMap[mappedType];
+    if (activityType) {
+      await logActivity({
+        leadId: lead.id,
+        type: activityType,
+        source: "WEBHOOK",
+        direction: "INBOUND",
+        occurredAt: event.created_at ? new Date(event.created_at) : new Date(),
+        emailEventId: evt.id,
+        payload: {
+          recipient,
+          click: event.data.click ?? null,
+          open: event.data.open ?? null,
+          bounce: event.data.bounce ?? null,
+        },
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true, leadMatched: !!lead });
 }

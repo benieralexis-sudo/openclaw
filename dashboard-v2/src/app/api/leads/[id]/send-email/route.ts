@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiSession, resolveClientScope } from "@/server/session";
 import { sendEmail, getMailbox } from "@/lib/mailbox";
+import { logActivity } from "@/lib/lead-activity";
 
 export const maxDuration = 30;
 
@@ -174,6 +175,22 @@ export async function POST(
       inReplyTo: body.inReplyTo,
       sentAt: new Date(),
       sentByUserId: s.user.id,
+      template: body.template ?? "manual",
+    },
+  });
+
+  // Trace dans LeadActivity (timeline temps réel multi-canal)
+  await logActivity({
+    leadId: lead.id,
+    type: "EMAIL_SENT",
+    source: "MANUAL",
+    direction: "OUTBOUND",
+    userId: s.user.id,
+    emailActivityId: activity.id,
+    payload: {
+      subject: body.subject,
+      fromMailbox: mb.user,
+      toEmail,
       template: body.template ?? "manual",
     },
   });

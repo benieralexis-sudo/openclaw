@@ -9,6 +9,7 @@ import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
 import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
 import { detectDeclarativePainForClient } from "@/lib/declarative-pain";
 import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
+import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -103,6 +104,14 @@ export async function POST(req: NextRequest) {
           (entry as { declarativePain?: unknown }).declarativePain = pain;
         } catch (e) {
           (entry as { painError?: string }).painError = e instanceof Error ? e.message : String(e);
+        }
+        // Sync EmailActivity (écrites par bot IMAP poller hors dashboard)
+        // → LeadActivity miroir pour timeline temps réel.
+        try {
+          const sync = await syncEmailActivitiesToLeadActivity({ limit: 200 });
+          (entry as { activitySync?: unknown }).activitySync = sync;
+        } catch (e) {
+          (entry as { activitySyncError?: string }).activitySyncError = e instanceof Error ? e.message : String(e);
         }
       }
     } catch (e) {

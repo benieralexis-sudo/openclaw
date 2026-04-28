@@ -49,6 +49,7 @@ model User {
   sessions        Session[]
   accounts        Account[]
   notifications   Notification[]
+  activities      LeadActivity[]
 
   @@index([clientId])
   @@index([role])
@@ -302,6 +303,7 @@ model Lead {
   replies        Reply[]
   emailActivity  EmailActivity[]
   emailEvents    EmailEvent[]
+  activities     LeadActivity[]
 
   @@index([clientId, status, createdAt(sort: Desc)])
   @@index([email])
@@ -577,6 +579,68 @@ enum EmailEventType {
   COMPLAINED
   UNSUBSCRIBED
   FAILED
+}
+
+// =====================================================================
+// LEAD ACTIVITY — table unifiée multi-canal (email/LinkedIn/appel/RDV/note)
+// Permet timeline temps réel + compteurs par lead + stats agrégées par
+// commercial. Auto (bot/webhook) + manuel (commercial coche/log).
+// =====================================================================
+
+model LeadActivity {
+  id              String          @id @default(cuid())
+  leadId          String
+  lead            Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  clientId        String           // denorm pour stats par client
+  type            ActivityType
+  source          ActivitySource
+  direction       ActivityDirection
+  occurredAt      DateTime         @default(now())
+  userId          String?          // commercial qui a fait l'action (null si bot/webhook)
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Liens facultatifs vers entités existantes (compat ascendante)
+  emailActivityId String?          // ref EmailActivity si type=EMAIL_*
+  emailEventId    String?          // ref EmailEvent si OPEN/CLICK/BOUNCE
+  opportunityId   String?          // ref Opportunity si MEETING_*
+  // Données libres (subject, body excerpt, durée appel, message LinkedIn, note...)
+  payload         Json?
+  createdAt       DateTime         @default(now())
+
+  @@index([leadId, occurredAt(sort: Desc)])
+  @@index([clientId, type, occurredAt(sort: Desc)])
+  @@index([userId, occurredAt(sort: Desc)])
+}
+
+enum ActivityType {
+  EMAIL_SENT
+  EMAIL_REPLY
+  EMAIL_OPEN
+  EMAIL_CLICK
+  EMAIL_BOUNCE
+  LINKEDIN_DM_SENT
+  LINKEDIN_DM_REPLY
+  LINKEDIN_VIEW_PROFILE
+  LINKEDIN_CONNECT
+  CALL_OUTBOUND
+  CALL_INBOUND
+  VOICEMAIL_LEFT
+  MEETING_BOOKED
+  MEETING_HELD
+  MEETING_NO_SHOW
+  NOTE
+  STATUS_CHANGE
+}
+
+enum ActivitySource {
+  AUTO          // bot interne (qualify, brief, pipelines)
+  WEBHOOK       // Resend, Cal.com, IMAP poller
+  MANUAL        // commercial coche / clique
+  GMAIL_API     // futur — auto-detect Gmail Sent
+}
+
+enum ActivityDirection {
+  OUTBOUND
+  INBOUND
 }
 
 // =====================================================================

@@ -207,17 +207,31 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
 
         {lead && (
           <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => setEnrichOpen(true)}
-              disabled={!lead.linkedinUrl}
-              className="gap-1.5"
-              title={lead.linkedinUrl ? "Enrichir via Kaspr (email pro + tel + titre depuis LinkedIn)" : "URL LinkedIn manquante — Kaspr nécessite une URL pour fonctionner"}
-            >
-              <Database className="h-3.5 w-3.5 text-cyan-600" />
-              Enrichir Kaspr
-            </Button>
+            {/* Bouton téléphone — 3 états :
+                1. Numéro déjà trouvé → "Appeler" (tel:)
+                2. LinkedIn présent, pas encore cherché → "Trouver le numéro" (modal Kaspr)
+                3. Pas de LinkedIn → caché (inactionnable) */}
+            {(lead.kasprPhone ?? lead.phone) ? (
+              <a
+                href={`tel:${lead.kasprPhone ?? lead.phone}`}
+                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-[13px] font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                title="Appeler ce numéro"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                Appeler {lead.kasprPhone ?? lead.phone}
+              </a>
+            ) : lead.linkedinUrl ? (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setEnrichOpen(true)}
+                className="gap-1.5"
+                title="Recherche le numéro et l'email pro à partir du profil LinkedIn"
+              >
+                <Phone className="h-3.5 w-3.5 text-cyan-600" />
+                Trouver le numéro
+              </Button>
+            ) : null}
             <Button
               variant="primary"
               size="md"

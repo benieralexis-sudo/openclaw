@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { logActivity } from "@/lib/lead-activity";
 
 // ═══════════════════════════════════════════════════════════════════
 // Cal.com webhook handler
@@ -112,6 +113,7 @@ export async function POST(req: NextRequest) {
           select: { id: true },
         })
       : null;
+    let opportunityId: string;
     if (existing) {
       await db.opportunity.update({
         where: { id: existing.id },
@@ -121,8 +123,9 @@ export async function POST(req: NextRequest) {
           meetingUrl,
         },
       });
+      opportunityId = existing.id;
     } else {
-      await db.opportunity.create({
+      const created = await db.opportunity.create({
         data: {
           id: genCuid(),
           clientId: lead.clientId,
@@ -132,8 +135,25 @@ export async function POST(req: NextRequest) {
           meetingDate,
           meetingUrl,
         },
+        select: { id: true },
       });
+      opportunityId = created.id;
     }
+
+    // Trace dans LeadActivity (timeline temps réel)
+    await logActivity({
+      leadId: lead.id,
+      type: "MEETING_BOOKED",
+      source: "WEBHOOK",
+      direction: "INBOUND",
+      occurredAt: meetingDate ?? new Date(),
+      opportunityId,
+      payload: {
+        meetingDate: meetingDate?.toISOString() ?? null,
+        meetingUrl,
+        attendeeEmail,
+      },
+    });
 
     await notifyTelegram(
       `📅 *RDV booké via Cal.com*\n` +
