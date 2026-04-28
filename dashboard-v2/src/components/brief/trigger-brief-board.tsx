@@ -321,6 +321,7 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
               fullName: lead.fullName,
               firstName: lead.firstName ?? null,
               lastName: lead.lastName ?? null,
+              companyName: lead.companyName ?? null,
               linkedinUrl: lead.linkedinUrl,
               kasprEnrichedAt: lead.kasprEnrichedAt ?? null,
             }}

@@ -10,6 +10,7 @@ import {
   Mail,
   Phone,
   RefreshCw,
+  Search,
   Sparkles,
 } from "lucide-react";
 import {
@@ -58,8 +59,30 @@ interface LeadInfo {
   fullName: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  companyName?: string | null;
   linkedinUrl: string | null;
   kasprEnrichedAt?: string | null;
+}
+
+/**
+ * Construit une URL de recherche LinkedIn pré-remplie.
+ * Filet humain quand HarvestAPI/Rodz n'ont pas trouvé le profil.
+ * 30 secondes pour le commercial : il clique, voit 1-3 profils,
+ * copie l'URL du bon, la colle dans le champ ci-dessus.
+ */
+function buildLinkedInSearchUrl(lead: LeadInfo): string | null {
+  const parts: string[] = [];
+  if (lead.fullName) {
+    parts.push(lead.fullName);
+  } else if (lead.firstName || lead.lastName) {
+    parts.push([lead.firstName, lead.lastName].filter(Boolean).join(" "));
+  }
+  if (lead.companyName) parts.push(lead.companyName);
+  const keywords = parts.filter(Boolean).join(" ").trim();
+  if (!keywords) return null;
+  // geoUrn pour France + filtre People search
+  const geo = "%5B%22105015875%22%5D"; // France LinkedIn geoUrn
+  return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keywords)}&geoUrn=${geo}&origin=GLOBAL_SEARCH_HEADER`;
 }
 
 interface EnrichKasprModalProps {
@@ -140,22 +163,46 @@ export function EnrichKasprModal({ open, onOpenChange, lead }: EnrichKasprModalP
         </DialogHeader>
 
         <div className="grid gap-4">
-          {/* URL LinkedIn input */}
+          {/* URL LinkedIn input + bouton "Chercher LinkedIn" (filet humain) */}
           <div className="grid gap-1.5">
             <Label className="flex items-center gap-1.5">
               <Linkedin className="h-3.5 w-3.5 text-[#0A66C2]" />
               URL LinkedIn de la cible
             </Label>
-            <Input
-              type="url"
-              value={linkedinUrl}
-              onChange={(e) => setLinkedinUrl(e.target.value)}
-              placeholder="https://www.linkedin.com/in/marc-dupont/"
-              className="font-mono text-[12.5px]"
-            />
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                placeholder="https://www.linkedin.com/in/marc-dupont/"
+                className="flex-1 font-mono text-[12.5px]"
+              />
+              {(() => {
+                const searchUrl = buildLinkedInSearchUrl(lead);
+                if (!searchUrl) return null;
+                return (
+                  <a
+                    href={searchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-3 py-1.5 text-[12px] font-medium text-ink-700 hover:bg-ink-50"
+                    title={`Chercher "${[lead.firstName, lead.lastName, lead.companyName].filter(Boolean).join(" ")}" sur LinkedIn (nouvel onglet)`}
+                  >
+                    <Search className="h-3.5 w-3.5" />
+                    Chercher
+                  </a>
+                );
+              })()}
+            </div>
             {linkedinUrl && !isUrlValid && (
               <p className="text-[11px] text-amber-600">
                 URL invalide — attendu : linkedin.com/in/&lt;slug&gt;
+              </p>
+            )}
+            {!linkedinUrl && (
+              <p className="text-[11px] text-ink-500">
+                Pas de LinkedIn ? Clique &quot;Chercher&quot; → ouvre LinkedIn avec la
+                recherche pré-remplie. Copie l&apos;URL du bon profil et colle-la ici (30s).
               </p>
             )}
             {alreadyEnriched && !result && (
