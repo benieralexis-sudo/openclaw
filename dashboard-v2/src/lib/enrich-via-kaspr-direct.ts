@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { enrichLinkedInProfile, isValidLinkedInUrl, pickPhone } from "@/lib/kaspr";
+import { enrichLinkedInProfile, isValidLinkedInUrl, pickPhone, type KasprProfile } from "@/lib/kaspr";
 
 /**
  * Kaspr enrichProfile DIRECT — rattrape les leads avec LinkedIn mais
@@ -164,8 +164,30 @@ export async function enrichLeadsViaKasprDirect(
       }
 
       const kPhone = pickPhone(profile.phones ?? profile.phone ?? null) ?? null;
-      const we = profile.workEmail;
-      const kasprWorkEmail = typeof we === "string" ? we : we?.email ?? null;
+      // API Kaspr v2.0 renvoie workEmails (pluriel array), pas workEmail (singleton).
+      // Audit 28/04 : 14 enrichis = 0 work emails car bug mapping. Fix : lire les
+      // 2 formats (compat) et prendre le premier email valide non vide.
+      const profileAny = profile as KasprProfile & {
+        workEmails?: Array<string | { email?: string; status?: string }>;
+        directEmails?: Array<string | { email?: string; status?: string }>;
+        emails?: Array<string | { email?: string; status?: string }>;
+      };
+      const pickFirstEmail = (
+        list: Array<string | { email?: string; status?: string }> | undefined,
+      ): string | null => {
+        if (!list || list.length === 0) return null;
+        for (const item of list) {
+          if (typeof item === "string" && item) return item;
+          if (item && typeof item === "object" && item.email) return item.email;
+        }
+        return null;
+      };
+      const kasprWorkEmail =
+        pickFirstEmail(profileAny.workEmails) ??
+        (typeof profile.workEmail === "string"
+          ? profile.workEmail
+          : profile.workEmail?.email ?? null) ??
+        pickFirstEmail(profileAny.emails);
 
       const updates: Record<string, unknown> = {
         kasprEnrichedAt: new Date(),

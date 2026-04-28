@@ -164,8 +164,27 @@ export async function enrichLeadsViaDropcontact(
             kasprPhone = kPhone;
             result.kasprMobileFound++;
           }
+          // Fix 28/04 : Kaspr API v2.0 renvoie workEmails (array) et non
+          // workEmail (singleton). On lit les 2 formats pour ne plus rater.
+          const prof = kr.profile as typeof kr.profile & {
+            workEmails?: Array<string | { email?: string }>;
+            emails?: Array<string | { email?: string }>;
+          };
+          const pickFirst = (
+            list: Array<string | { email?: string }> | undefined,
+          ): string | null => {
+            if (!list || list.length === 0) return null;
+            for (const it of list) {
+              if (typeof it === "string" && it) return it;
+              if (it && typeof it === "object" && it.email) return it.email;
+            }
+            return null;
+          };
           const we = kr.profile.workEmail;
-          kasprWorkEmail = typeof we === "string" ? we : we?.email ?? null;
+          kasprWorkEmail =
+            pickFirst(prof.workEmails) ??
+            (typeof we === "string" ? we : we?.email ?? null) ??
+            pickFirst(prof.emails);
         }
       } catch (e) {
         // Kaspr fail = silent. On a déjà Dropcontact, c'est un bonus.
