@@ -17,7 +17,21 @@ export function getAnthropic(): Anthropic {
 /** Modèle pour la génération des briefs commerciaux (qualité copywriting). */
 export const BRIEF_MODEL = "claude-opus-4-7";
 
-/** Modèle pour le scoring qualify 1-10. Sonnet 4.6 retenu après test A/B :
- * Haiku 4.5 trop défensif sur edge cases (-2 points sur 1/5 leads test 28/04),
- * Sonnet 4.6 garde la qualité Opus pour 80% d'économie (vs 93% Haiku, écart 18€/mois). */
-export const QUALIFY_MODEL = "claude-sonnet-4-6";
+/** Modèle pour le scoring qualify 1-10.
+ *
+ * DÉCISION 28/04 (post test profond sur 26 leads) : Opus 4.7 retenu.
+ *
+ * Comparatif Opus vs Sonnet 4.6 :
+ * - 14/26 scores identiques (54%)
+ * - 6/26 écarts légers ±1 (23%)
+ * - 2/26 écarts ±2 (8%)
+ * - 4/26 écarts ≥3 (15%) — TOUS Sonnet trop généreux
+ * - 2 erreurs critiques Sonnet : LYNX RH (cabinet de recrutement = ANTI-ICP) noté 8 par Sonnet vs 2 Opus ; PRECIA (balances industrielles) noté 8 vs 3.
+ *
+ * Le scoring qualify exige une compréhension contextuelle du secteur basée
+ * sur le NOM de l'entreprise (recherche Google implicite). Sonnet rate ces
+ * inférences. Opus 4.7 reste indispensable malgré coût +111€/mois — le risque
+ * d'envoyer des cold emails à des concurrents/anti-ICP coûte plus cher en
+ * temps commercial perdu et en deliverability dégradée.
+ */
+export const QUALIFY_MODEL = "claude-opus-4-7";
