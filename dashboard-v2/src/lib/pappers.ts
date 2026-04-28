@@ -226,4 +226,110 @@ export async function enrichForBrief(siren: string): Promise<PappersEntreprise> 
   });
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Récursion holdings — findUltimateBeneficialOwner
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Trouve un dirigeant personne physique en remontant les holdings parentes.
+ *
+ * Cas d'usage : entreprises FR détenues par des holdings (très courant pour
+ * les PME 11-200p) où Pappers ne renvoie que des personnes morales en
+ * représentants directs. La récursion remonte jusqu'à 3 niveaux pour
+ * trouver le vrai humain (typiquement le fondateur).
+ *
+ * Coût : forfait Pappers fixe → 0€ supplémentaire par appel.
+ *
+ * Retourne :
+ * - { nom_complet, qualite, holdingPath } si humain trouvé
+ * - null si aucun humain trouvé en max 3 niveaux ou loop détectée
+ */
+type RecursiveDirigeantOptions = {
+  maxDepth?: number;
+  isPersonneMorale: (nom: string) => boolean;
+  isWrongPersona: (qualite: string) => boolean;
+  matchPersonaPriority: (qualite: string) => { weight: number; label: string };
+  visited?: Set<string>;
+};
+
+export async function findHumanDirigeantRecursive(
+  siren: string,
+  opts: RecursiveDirigeantOptions,
+  depth = 0,
+): Promise<{
+  nom_complet: string;
+  qualite: string;
+  weight: number;
+  label: string;
+  holdingPath: string[];
+} | null> {
+  const maxDepth = opts.maxDepth ?? 3;
+  const visited = opts.visited ?? new Set<string>();
+  if (visited.has(siren) || depth >= maxDepth) return null;
+  visited.add(siren);
+
+  let entreprise: PappersEntreprise;
+  try {
+    entreprise = await getEntreprise(siren, { includeRepresentants: true });
+  } catch {
+    return null;
+  }
+  const reps = entreprise.representants ?? [];
+  if (reps.length === 0) return null;
+
+  // 1. D'abord chercher une personne physique au niveau actuel
+  let bestHuman: { nom_complet?: string; qualite?: string; weight: number; label: string } | null = null;
+  for (const r of reps) {
+    if (r.type && /morale/i.test(r.type)) continue;
+    if (!r.nom_complet) continue;
+    if (opts.isPersonneMorale(r.nom_complet)) continue;
+    if (r.qualite && opts.isWrongPersona(r.qualite)) continue;
+    const m = opts.matchPersonaPriority(r.qualite ?? "");
+    if (!bestHuman || m.weight > bestHuman.weight) {
+      bestHuman = { nom_complet: r.nom_complet, qualite: r.qualite, weight: m.weight, label: m.label };
+    }
+  }
+  if (bestHuman?.nom_complet) {
+    return {
+      nom_complet: bestHuman.nom_complet,
+      qualite: bestHuman.qualite ?? "",
+      weight: bestHuman.weight,
+      label: bestHuman.label,
+      holdingPath: [],
+    };
+  }
+
+  // 2. Sinon, récursion sur les holdings (Président prioritaire, puis DG)
+  const moraleRepsTriees = reps
+    .filter((r) => !r.qualite || !opts.isWrongPersona(r.qualite))
+    .filter((r) => r.nom_complet && opts.isPersonneMorale(r.nom_complet))
+    .sort((a, b) => {
+      const wa = opts.matchPersonaPriority(a.qualite ?? "").weight;
+      const wb = opts.matchPersonaPriority(b.qualite ?? "").weight;
+      return wb - wa;
+    });
+
+  for (const morale of moraleRepsTriees) {
+    if (!morale.nom_complet) continue;
+    // Cherche le SIREN de la holding via /recherche
+    let holdingSiren: string | null = null;
+    try {
+      const search = await searchByName(morale.nom_complet, { precision: "exact", par_page: 3 });
+      holdingSiren = search.resultats[0]?.siren ?? null;
+    } catch {
+      continue;
+    }
+    if (!holdingSiren || visited.has(holdingSiren)) continue;
+    const found = await findHumanDirigeantRecursive(holdingSiren, opts, depth + 1);
+    if (found) {
+      return {
+        ...found,
+        holdingPath: [morale.nom_complet, ...found.holdingPath],
+      };
+    }
+  }
+
+  return null;
+}
+
 export { PappersError };

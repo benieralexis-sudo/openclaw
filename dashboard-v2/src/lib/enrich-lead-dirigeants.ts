@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { getEntreprise } from "@/lib/pappers";
+import { getEntreprise, findHumanDirigeantRecursive } from "@/lib/pappers";
 
 /**
  * Enrichissement Pappers dirigeants : pour chaque Trigger ICP qualifié sans Lead
@@ -116,7 +116,7 @@ export async function enrichDirigeantsForClient(
         if (!qualite) return false;
         return /commissaire\s+aux\s+comptes|expert[\s-]comptable|administrateur\s+judiciaire|liquidateur/i.test(qualite);
       };
-      let best: { nom_complet?: string; qualite?: string; weight: number } | null = null;
+      let best: { nom_complet?: string; qualite?: string; weight: number; holdingPath?: string[] } | null = null;
       for (const r of reps) {
         if (r.type && /morale/i.test(r.type)) continue;
         if (isPersonneMorale(r.nom_complet)) continue;
@@ -124,7 +124,31 @@ export async function enrichDirigeantsForClient(
         const m = matchPersonaPriority(r.qualite);
         if (!best || m.weight > best.weight) best = { ...r, weight: m.weight };
       }
-      // Si aucune personne physique : skip (pas le bon contact à attaquer)
+
+      // FALLBACK : si aucune personne physique au niveau 1, on remonte les
+      // holdings parentes (max 3 niveaux) pour trouver le vrai dirigeant.
+      // Très efficace sur les PME FR détenues par holding patrimoniale.
+      if (!best || !best.nom_complet) {
+        try {
+          const recursive = await findHumanDirigeantRecursive(siren, {
+            isPersonneMorale: (n: string) => isPersonneMorale(n),
+            isWrongPersona: (q: string) => isWrongPersona(q),
+            matchPersonaPriority: (q: string) => matchPersonaPriority(q),
+            maxDepth: 3,
+          });
+          if (recursive) {
+            best = {
+              nom_complet: recursive.nom_complet,
+              qualite: recursive.qualite,
+              weight: recursive.weight,
+              holdingPath: recursive.holdingPath,
+            };
+          }
+        } catch {
+          // skip silencieux
+        }
+      }
+
       if (!best || !best.nom_complet) {
         stats.skipped += 1;
         continue;
@@ -132,12 +156,16 @@ export async function enrichDirigeantsForClient(
 
       const { firstName, lastName, full } = splitFullName(best.nom_complet);
       const personaLabel = matchPersonaPriority(best.qualite).label;
+      const holdingNote = best.holdingPath?.length
+        ? ` (via ${best.holdingPath.join(" → ")})`
+        : "";
 
       // Upsert Lead lié à ce trigger
       const existingTriggerLead = await db.lead.findFirst({
         where: { triggerId: t.id, deletedAt: null },
         select: { id: true },
       });
+      const jobTitleWithPath = personaLabel + holdingNote;
       if (existingTriggerLead) {
         await db.lead.update({
           where: { id: existingTriggerLead.id },
@@ -145,7 +173,7 @@ export async function enrichDirigeantsForClient(
             firstName,
             lastName,
             fullName: full,
-            jobTitle: personaLabel,
+            jobTitle: jobTitleWithPath,
           },
         });
       } else {
@@ -157,7 +185,7 @@ export async function enrichDirigeantsForClient(
             firstName,
             lastName,
             fullName: full,
-            jobTitle: personaLabel,
+            jobTitle: jobTitleWithPath,
             companyName: t.companyName,
             companySiret: t.companySiret,
             status: "NEW",
