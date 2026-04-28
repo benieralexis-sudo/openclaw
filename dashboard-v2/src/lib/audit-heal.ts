@@ -8,9 +8,13 @@ import { db } from "@/lib/db";
 // Heals appliqués (par ordre, idempotent — peut tourner 100x sans dégât) :
 //   1. Lead.linkedinUrl : ajout https:// manquant
 //   2. Lead.companySiret : sync depuis Trigger.companySiret si Lead vide
-//   3. Lead.firstName/lastName/jobTitle/linkedinUrl : backfill depuis
-//      Trigger.rawPayload.contact (Rodz, Apify HarvestAPI) — couvre les
-//      mappings ratés ou ajoutés a posteriori.
+//   3a. Lead.firstName/lastName/jobTitle/linkedinUrl : backfill depuis
+//       Trigger.rawPayload.contact (format Rodz, HarvestAPI)
+//   3b. Lead : backfill depuis Trigger.rawPayload.posterFullName/posterLinkedinUrl
+//       (format Apify NormalizedJob — LinkedIn jobs, WTTJ recruiter)
+//   3c. Lead : backfill depuis Trigger.rawPayload.hiring_team[0] (format
+//       TheirStack jobs avec décideurs identifiés)
+//   3d. Lead : backfill depuis Trigger.rawPayload.decision_makers[0] (générique)
 //   4. Trigger.companyName : trim espaces parasites
 // ═══════════════════════════════════════════════════════════════════
 
@@ -20,6 +24,9 @@ export interface AuditResult {
     linkedinUrlNormalized: number;
     siretSyncedFromTrigger: number;
     rodzPayloadBackfilled: number;
+    apifyPosterBackfilled: number;
+    theirstackHiringTeamBackfilled: number;
+    decisionMakersBackfilled: number;
     triggerCompanyTrimmed: number;
   };
   remaining: {
@@ -49,6 +56,9 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
       linkedinUrlNormalized: 0,
       siretSyncedFromTrigger: 0,
       rodzPayloadBackfilled: 0,
+      apifyPosterBackfilled: 0,
+      theirstackHiringTeamBackfilled: 0,
+      decisionMakersBackfilled: 0,
       triggerCompanyTrimmed: 0,
     },
     remaining: {
@@ -122,6 +132,105 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
         (l."jobTitle" IS NULL OR l."jobTitle" = '') OR
         (l."linkedinUrl" IS NULL OR l."linkedinUrl" = '') OR
         (l."email" IS NULL OR l."email" = '')
+      )
+      AND (${cId}::text IS NULL OR l."clientId" = ${cId}::text)
+  `;
+
+  // ─────────────────────────────────────────────
+  // HEAL 3b — Backfill Lead depuis Trigger.rawPayload poster fields (Apify)
+  // Format : NormalizedJob avec posterFullName/posterFirstName/posterLastName
+  //          /posterLinkedinUrl/posterTitle au top-level du rawPayload.
+  // Source : LinkedIn jobs (curious_coder), WTTJ recruiter.
+  // ─────────────────────────────────────────────
+  result.healed.apifyPosterBackfilled = await db.$executeRaw`
+    UPDATE "Lead" l
+    SET
+      "firstName" = COALESCE(NULLIF(l."firstName", ''), t."rawPayload"->>'posterFirstName'),
+      "lastName" = COALESCE(NULLIF(l."lastName", ''), t."rawPayload"->>'posterLastName'),
+      "fullName" = COALESCE(NULLIF(l."fullName", ''), t."rawPayload"->>'posterFullName'),
+      "jobTitle" = COALESCE(NULLIF(l."jobTitle", ''), t."rawPayload"->>'posterTitle'),
+      "linkedinUrl" = COALESCE(NULLIF(l."linkedinUrl", ''), t."rawPayload"->>'posterLinkedinUrl'),
+      "updatedAt" = NOW()
+    FROM "Trigger" t
+    WHERE l."triggerId" = t.id
+      AND (
+        t."rawPayload"->>'posterFullName' IS NOT NULL OR
+        t."rawPayload"->>'posterLinkedinUrl' IS NOT NULL
+      )
+      AND l."deletedAt" IS NULL
+      AND (
+        (l."firstName" IS NULL OR l."firstName" = '') OR
+        (l."lastName" IS NULL OR l."lastName" = '') OR
+        (l."jobTitle" IS NULL OR l."jobTitle" = '') OR
+        (l."linkedinUrl" IS NULL OR l."linkedinUrl" = '')
+      )
+      AND (${cId}::text IS NULL OR l."clientId" = ${cId}::text)
+  `;
+
+  // ─────────────────────────────────────────────
+  // HEAL 3c — Backfill Lead depuis Trigger.rawPayload.hiring_team[0] (TheirStack)
+  // Format : { name, linkedin_url, title } au sein de hiring_team JSON array.
+  // ─────────────────────────────────────────────
+  result.healed.theirstackHiringTeamBackfilled = await db.$executeRaw`
+    UPDATE "Lead" l
+    SET
+      "fullName" = COALESCE(NULLIF(l."fullName", ''), t."rawPayload"->'hiring_team'->0->>'name'),
+      "jobTitle" = COALESCE(NULLIF(l."jobTitle", ''), t."rawPayload"->'hiring_team'->0->>'title'),
+      "linkedinUrl" = COALESCE(NULLIF(l."linkedinUrl", ''), t."rawPayload"->'hiring_team'->0->>'linkedin_url'),
+      "updatedAt" = NOW()
+    FROM "Trigger" t
+    WHERE l."triggerId" = t.id
+      AND jsonb_typeof(t."rawPayload"->'hiring_team') = 'array'
+      AND jsonb_array_length(t."rawPayload"->'hiring_team') > 0
+      AND l."deletedAt" IS NULL
+      AND (
+        (l."fullName" IS NULL OR l."fullName" = '') OR
+        (l."jobTitle" IS NULL OR l."jobTitle" = '') OR
+        (l."linkedinUrl" IS NULL OR l."linkedinUrl" = '')
+      )
+      AND (${cId}::text IS NULL OR l."clientId" = ${cId}::text)
+  `;
+
+  // ─────────────────────────────────────────────
+  // HEAL 3d — Backfill Lead depuis Trigger.rawPayload.decision_makers[0] (générique)
+  // Format : { full_name | name, linkedin_url, title } — mêmes patterns variés.
+  // ─────────────────────────────────────────────
+  result.healed.decisionMakersBackfilled = await db.$executeRaw`
+    UPDATE "Lead" l
+    SET
+      "fullName" = COALESCE(
+        NULLIF(l."fullName", ''),
+        t."rawPayload"->'decision_makers'->0->>'full_name',
+        t."rawPayload"->'decision_makers'->0->>'name'
+      ),
+      "firstName" = COALESCE(
+        NULLIF(l."firstName", ''),
+        t."rawPayload"->'decision_makers'->0->>'first_name'
+      ),
+      "lastName" = COALESCE(
+        NULLIF(l."lastName", ''),
+        t."rawPayload"->'decision_makers'->0->>'last_name'
+      ),
+      "jobTitle" = COALESCE(
+        NULLIF(l."jobTitle", ''),
+        t."rawPayload"->'decision_makers'->0->>'title',
+        t."rawPayload"->'decision_makers'->0->>'job_title'
+      ),
+      "linkedinUrl" = COALESCE(
+        NULLIF(l."linkedinUrl", ''),
+        t."rawPayload"->'decision_makers'->0->>'linkedin_url',
+        t."rawPayload"->'decision_makers'->0->>'profile_url'
+      ),
+      "updatedAt" = NOW()
+    FROM "Trigger" t
+    WHERE l."triggerId" = t.id
+      AND jsonb_typeof(t."rawPayload"->'decision_makers') = 'array'
+      AND jsonb_array_length(t."rawPayload"->'decision_makers') > 0
+      AND l."deletedAt" IS NULL
+      AND (
+        (l."fullName" IS NULL OR l."fullName" = '') OR
+        (l."jobTitle" IS NULL OR l."jobTitle" = '') OR
+        (l."linkedinUrl" IS NULL OR l."linkedinUrl" = '')
       )
       AND (${cId}::text IS NULL OR l."clientId" = ${cId}::text)
   `;

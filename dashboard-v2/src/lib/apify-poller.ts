@@ -62,6 +62,30 @@ export const APIFY_ACTORS = {
 } as const;
 
 // ──────────────────────────────────────────────────────────────────────
+// Filtre boîtes étrangères / agrégateurs / agences (centralisé)
+// ──────────────────────────────────────────────────────────────────────
+
+const FOREIGN_LEGAL_RE = /\b(GmbH|LLC|Ltd|Inc|Corp|Pty|S\.r\.l\.|S\.A\.R\.L\. España|UAB|s\.r\.o\.|AB|Oy|BV|N\.V\.|GmbH & Co|KG|spol\. s r\.o\.|d\.o\.o\.)\b/i;
+const FOREIGN_BIG_NAMES_RE = /\b(Berkeley\s+Payments|Stott\s+and\s+May|Apple|Google|Microsoft|Amazon|Meta\s+Platforms)\b/i;
+const AGGREGATOR_PREFIX_RE = /^(jobs\s+via\s+|jobs\s+at\s+)/i;
+const AGENCY_RE = /\b(recruitment\s+agency|staffing|recruiter|talent\s+acquisition)\b/i;
+
+/**
+ * Retourne false si le nom de boîte évoque une entité étrangère, un
+ * agrégateur de jobs (jobs via X) ou une agence de recrutement (= n'est
+ * pas le client final). Centralisé pour les 3 adapters Apify (LinkedIn /
+ * WTTJ / Indeed) — pattern aligné avec theirstack-poller.
+ */
+function isFrenchCompany(name: string | undefined): boolean {
+  if (!name) return false;
+  if (FOREIGN_LEGAL_RE.test(name)) return false;
+  if (FOREIGN_BIG_NAMES_RE.test(name)) return false;
+  if (AGGREGATOR_PREFIX_RE.test(name)) return false;
+  if (AGENCY_RE.test(name)) return false;
+  return true;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Anti-doublons
 // ──────────────────────────────────────────────────────────────────────
 
@@ -79,6 +103,36 @@ async function isAlreadyCaptured(
       sourceCode,
       deletedAt: null,
       capturedAt: { gte: since },
+    },
+    select: { id: true },
+  });
+  return !!existing;
+}
+
+/**
+ * Vérifie si une annonce HIRING pour cette boîte a déjà été captée par
+ * UNE QUELCONQUE source jobs (Apify/TheirStack) dans les 30 derniers jours.
+ * Évite la duplication "Asys via apify.linkedin-jobs + theirstack.job-offer".
+ * Les sources non-HIRING (Rodz fundraising, BODACC capital_increase) sont
+ * EXEMPTÉES — leur signal d'événement est unique et doit toujours être capté.
+ */
+async function isHiringAlreadyCapturedCrossSource(
+  clientId: string,
+  companyName: string,
+): Promise<boolean> {
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  const existing = await db.trigger.findFirst({
+    where: {
+      clientId,
+      companyName,
+      type: "HIRING_KEY",
+      deletedAt: null,
+      capturedAt: { gte: since },
+      OR: [
+        { sourceCode: { startsWith: "apify." } },
+        { sourceCode: { startsWith: "theirstack.job-offer" } },
+      ],
     },
     select: { id: true },
   });
@@ -382,12 +436,25 @@ async function runActorAndPushTriggers(args: {
         start.skipped += 1;
         continue;
       }
-      // Anti-personas
+      // Filtre étrangers / agrégateurs / agences (aligné TheirStack)
+      if (!isFrenchCompany(job.companyName)) {
+        start.skipped += 1;
+        continue;
+      }
+      // Anti-personas (anti-ICP confirmé du client)
       if (args.antiCompanies.some((a) => job.companyName.toLowerCase().includes(a))) {
         start.skipped += 1;
         continue;
       }
-      // Anti-doublons
+      // Anti-doublons cross-source : si Asys est déjà capté via theirstack.job-offer
+      // ou un autre apify.* dans les 30j, on skip pour éviter le doublon dans
+      // le dashboard. La cross-fertilisation Lead se fait ensuite via
+      // mergeLeadsBySiret.
+      if (await isHiringAlreadyCapturedCrossSource(args.clientId, job.companyName)) {
+        start.skipped += 1;
+        continue;
+      }
+      // Anti-doublons same-source (filet de sécurité contre race conditions)
       if (await isAlreadyCaptured(args.clientId, job.companyName, args.sourceCode)) {
         start.skipped += 1;
         continue;

@@ -43,10 +43,14 @@ const KASPR_CHAIN_MAX_PER_RUN = 15;
 function pickFirstEmail(enriched: DropcontactEnriched): string | null {
   const emails = enriched.email;
   if (!emails || emails.length === 0) return null;
-  // Privilégie les emails "valid" si qualification présente
+  // Mode strict : on ne garde QUE les emails confirmés "valid" / "ok" par
+  // Dropcontact. Les autres qualifications (uncertain, risky, catch_all,
+  // unknown) génèrent 5-10% de bounces qui détériorent la réputation
+  // Primeforge → mails partent en spam. On préfère ne pas avoir d'email
+  // plutôt qu'un email douteux ; le commercial peut tenter Kaspr work email
+  // ou une recherche manuelle si vraiment pépite.
   const valid = emails.find((e) => e.qualification === "valid" || e.qualification === "ok");
-  const picked = valid ?? emails[0];
-  return picked?.email || null;
+  return valid?.email || null;
 }
 
 export async function enrichLeadsViaDropcontact(

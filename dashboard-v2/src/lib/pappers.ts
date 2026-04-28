@@ -154,6 +154,45 @@ async function pappersFetch<T>(path: string, params: Record<string, string | num
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Cache in-process LRU — TTL 1h, max 200 entrées
+// ──────────────────────────────────────────────────────────────────────
+//
+// Plusieurs chemins du pipeline (rodz webhook, theirstack-poller, enrich-
+// dirigeants, audit-heal) peuvent appeler le même SIREN dans la même
+// fenêtre de quelques minutes. Forfait Pappers illimité donc pas d'enjeu $,
+// mais évite la latence × 3 et le risque de rate-limit (429) sur les
+// pics. Cache stocké en mémoire process — invalidé à chaque redéploiement.
+
+interface CacheEntry<T> {
+  data: T;
+  ts: number;
+}
+
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+const CACHE_MAX_ENTRIES = 200;
+const entrepriseCache = new Map<string, CacheEntry<PappersEntreprise>>();
+const searchCache = new Map<string, CacheEntry<PappersSearchResult>>();
+
+function cacheGet<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function cacheSet<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): void {
+  if (cache.size >= CACHE_MAX_ENTRIES) {
+    // Eviction LRU naïve : supprime la plus ancienne entrée (1ère insérée).
+    const firstKey = cache.keys().next().value;
+    if (firstKey !== undefined) cache.delete(firstKey);
+  }
+  cache.set(key, { data, ts: Date.now() });
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Lookup direct par SIREN/SIRET
 // ──────────────────────────────────────────────────────────────────────
 
@@ -174,7 +213,11 @@ export async function getEntreprise(
     includeConventions?: boolean;
   } = {},
 ): Promise<PappersEntreprise> {
-  return pappersFetch<PappersEntreprise>("/v2/entreprise", {
+  const cacheKey = `${siren}|${JSON.stringify(options)}`;
+  const cached = cacheGet(entrepriseCache, cacheKey);
+  if (cached) return cached;
+
+  const data = await pappersFetch<PappersEntreprise>("/v2/entreprise", {
     siren,
     format_publications_bodacc: "json",
     ...(options.includeBilans && { bilans: "true", finances: "true" }),
@@ -186,6 +229,8 @@ export async function getEntreprise(
     ...(options.includeBeneficiaires && { beneficiaires_effectifs: "true" }),
     ...(options.includeConventions && { conventions_collectives: "true" }),
   });
+  cacheSet(entrepriseCache, cacheKey, data);
+  return data;
 }
 
 /**
@@ -228,7 +273,11 @@ export async function searchByName(
   query: string,
   options: SearchOptions = {},
 ): Promise<PappersSearchResult> {
-  return pappersFetch<PappersSearchResult>("/v2/recherche", {
+  const cacheKey = `${query}|${JSON.stringify(options)}`;
+  const cached = cacheGet(searchCache, cacheKey);
+  if (cached) return cached;
+
+  const data = await pappersFetch<PappersSearchResult>("/v2/recherche", {
     q: query,
     precision: options.precision ?? "standard",
     page: options.page ?? 1,
@@ -237,6 +286,8 @@ export async function searchByName(
     ...(options.code_postal && { code_postal: options.code_postal }),
     ...(options.region && { region: options.region }),
   });
+  cacheSet(searchCache, cacheKey, data);
+  return data;
 }
 
 // ──────────────────────────────────────────────────────────────────────

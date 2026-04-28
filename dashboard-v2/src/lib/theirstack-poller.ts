@@ -180,6 +180,33 @@ async function isAlreadyCaptured(
   return !!existing;
 }
 
+/**
+ * Cross-source dédup HIRING — voir apify-poller pour détails. Évite
+ * Asys créée 2x (apify.* + theirstack.job-offer) dans le dashboard.
+ */
+async function isHiringAlreadyCapturedCrossSource(
+  clientId: string,
+  companyName: string,
+): Promise<boolean> {
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  const existing = await db.trigger.findFirst({
+    where: {
+      clientId,
+      companyName,
+      type: "HIRING_KEY",
+      deletedAt: null,
+      capturedAt: { gte: since },
+      OR: [
+        { sourceCode: { startsWith: "apify." } },
+        { sourceCode: { startsWith: "theirstack.job-offer" } },
+      ],
+    },
+    select: { id: true },
+  });
+  return !!existing;
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // Poller principal
 // ──────────────────────────────────────────────────────────────────────
@@ -268,7 +295,14 @@ export async function pollTheirstackForClient(
           result.jobsSkipped += 1;
           continue;
         }
-        // Anti-doublons
+        // Anti-doublons cross-source : si Asys déjà capté via apify.* ou autre
+        // theirstack.job-offer dans les 30j → skip. Cross-fertilisation des
+        // Leads se fait ensuite via mergeLeadsBySiret.
+        if (await isHiringAlreadyCapturedCrossSource(clientId, job.company)) {
+          result.jobsSkipped += 1;
+          continue;
+        }
+        // Anti-doublons same-source (filet race conditions)
         if (await isAlreadyCaptured(clientId, job.company, "theirstack.job-offer")) {
           result.jobsSkipped += 1;
           continue;

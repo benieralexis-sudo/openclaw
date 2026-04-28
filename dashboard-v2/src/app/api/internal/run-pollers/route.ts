@@ -11,6 +11,7 @@ import { detectDeclarativePainForClient } from "@/lib/declarative-pain";
 import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
 import { auditAndHeal } from "@/lib/audit-heal";
+import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -101,6 +102,16 @@ export async function POST(req: NextRequest) {
         // récupérer email pro + téléphone.
         const enrichDir = await enrichDirigeantsForClient(c.id, { limit: 30 });
         (entry as { dirigeants?: unknown }).dirigeants = enrichDir;
+        // Cross-source merge — propage LinkedIn/email/phone entre Leads
+        // de la même boîte (même SIRET) issus de sources différentes.
+        // Tourne AVANT Dropcontact pour que le LinkedIn cross-fertilisé
+        // alimente le chaining Kaspr en aval.
+        try {
+          const merged = await mergeLeadsBySiret(c.id);
+          (entry as { crossSourceMerged?: unknown }).crossSourceMerged = merged;
+        } catch (e) {
+          (entry as { crossSourceError?: string }).crossSourceError = e instanceof Error ? e.message : String(e);
+        }
         // Enrichissement contact via Dropcontact (email + LinkedIn + tel)
         // pour les Leads avec dirigeant nommé mais sans email.
         try {
@@ -108,6 +119,14 @@ export async function POST(req: NextRequest) {
           (entry as { dropcontact?: unknown }).dropcontact = dc;
         } catch (e) {
           (entry as { dropcontactError?: string }).dropcontactError = e instanceof Error ? e.message : String(e);
+        }
+        // 2e passe cross-source — propage les enrichissements Dropcontact
+        // (email/phone) vers les Leads sœurs de la même boîte qui n'ont pas
+        // été touchés par Dropcontact (limit 30/run).
+        try {
+          await mergeLeadsBySiret(c.id);
+        } catch {
+          // skip silencieux — la 1re passe a déjà loggué les groupes
         }
         // Declarative pain detection (HarvestAPI LinkedIn posts + Opus)
         // Plafond strict 50 entreprises × 5 posts = 250 posts max/run = ~$0.40
