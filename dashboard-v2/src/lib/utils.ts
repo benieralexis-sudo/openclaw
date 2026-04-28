@@ -66,3 +66,37 @@ export function truncate(str: string, max: number): string {
   if (str.length <= max) return str;
   return str.slice(0, max - 1).trimEnd() + "…";
 }
+
+/**
+ * Normalise une URL LinkedIn : ajoute https:// si manquant, accepte
+ * "linkedin.com/in/...", "www.linkedin.com/in/...", "fr.linkedin.com/in/...".
+ * Les enregistrements en base sont parfois stockés sans schéma (Pappers,
+ * Apify) — sans https:// le navigateur les traite comme chemins relatifs.
+ */
+export function normalizeLinkedinUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed.replace(/^\/+/, "")}`;
+}
+
+/**
+ * Génère une URL "Gmail compose" qui ouvre directement Gmail web (pas le client
+ * mail système comme `mailto:`). Pratique pour envoyer depuis l'inbox Gmail
+ * personnelle plutôt que via Mac Mail / Outlook.
+ */
+export function gmailComposeUrl(opts: {
+  to: string;
+  subject?: string;
+  body?: string;
+}): string {
+  const params = new URLSearchParams({
+    view: "cm",
+    fs: "1",
+    to: opts.to,
+  });
+  if (opts.subject) params.set("su", opts.subject);
+  if (opts.body) params.set("body", opts.body);
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}

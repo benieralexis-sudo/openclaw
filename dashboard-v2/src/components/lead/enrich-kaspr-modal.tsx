@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { formatRelativeFr } from "@/lib/utils";
+import { formatRelativeFr, gmailComposeUrl, normalizeLinkedinUrl } from "@/lib/utils";
 
 // ──────────────────────────────────────────────────────────────────────
 // Types
@@ -198,6 +198,15 @@ export function EnrichKasprModal({ open, onOpenChange, lead }: EnrichKasprModalP
                     >
                       {result.profile.workEmail}
                     </a>
+                    <a
+                      href={gmailComposeUrl({ to: result.profile.workEmail })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Ouvrir dans Gmail"
+                      className="rounded bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-100"
+                    >
+                      Gmail
+                    </a>
                     <button
                       type="button"
                       onClick={() => {
@@ -230,11 +239,11 @@ export function EnrichKasprModal({ open, onOpenChange, lead }: EnrichKasprModalP
                     </a>
                   </div>
                 )}
-                {result.profile.linkedinUrl && (
+                {result.profile.linkedinUrl && normalizeLinkedinUrl(result.profile.linkedinUrl) && (
                   <div className="flex items-center gap-1.5">
                     <Linkedin className="h-3 w-3 text-[#0A66C2]" />
                     <a
-                      href={result.profile.linkedinUrl}
+                      href={normalizeLinkedinUrl(result.profile.linkedinUrl)!}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-brand-700 hover:underline inline-flex items-center gap-0.5"

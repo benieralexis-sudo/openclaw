@@ -48,8 +48,6 @@ export async function POST(req: NextRequest) {
     try {
       if (source === "all" || source === "theirstack") {
         entry.theirstack = await pollTheirstackForClient(c.id, { dryRun, jobsLimit: 30, companiesLimit: 15 });
-        const sirene = await enrichRecentTriggersWithSirene(c.id, { limit: 30 });
-        entry.sireneEnriched = sirene.enriched;
       }
       if (source === "all" || source === "apify") {
         // Apify RÉACTIVÉ 28/04 après diagnostic API live :
@@ -64,6 +62,13 @@ export async function POST(req: NextRequest) {
           useWttj: true,
           useIndeed: true,
         });
+      }
+      // Attribution SIRENE Pappers — APRÈS tous les pollers pour couvrir
+      // TheirStack + Apify dans une seule passe (fix 28/04 : Apify n'était
+      // jamais attribué, créant des Leads orphelins sans SIRET → unactionnable).
+      if (!dryRun && (source === "all" || source === "theirstack" || source === "apify")) {
+        const sirene = await enrichRecentTriggersWithSirene(c.id, { limit: 60 });
+        entry.sireneEnriched = sirene.enriched;
       }
       // Qualify Opus tous les Triggers du client sans scoreReason (limite 30/run pour budget tokens).
       if (!dryRun) {

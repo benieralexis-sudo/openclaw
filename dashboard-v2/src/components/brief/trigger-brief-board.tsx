@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
-import { cn, formatNumberFr, formatRelativeFr } from "@/lib/utils";
+import { cn, formatNumberFr, formatRelativeFr, gmailComposeUrl, normalizeLinkedinUrl } from "@/lib/utils";
 import { SendEmailModal } from "@/components/lead/send-email-modal";
 import { EnrichKasprModal } from "@/components/lead/enrich-kaspr-modal";
 import { Database, Phone, Send } from "lucide-react";
@@ -383,17 +383,28 @@ function TriggerHeader({
               </div>
               <div className="text-[11.5px] text-ink-600">{lead.jobTitle ?? "—"}</div>
               {lead.email && (
-                <a
-                  href={`mailto:${lead.email}`}
-                  className="mt-1 flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
-                >
-                  <Mail className="h-3 w-3" />
-                  {lead.email}
-                </a>
+                <div className="mt-1 flex items-center gap-2">
+                  <a
+                    href={`mailto:${lead.email}`}
+                    className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
+                  >
+                    <Mail className="h-3 w-3" />
+                    {lead.email}
+                  </a>
+                  <a
+                    href={gmailComposeUrl({ to: lead.email })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Ouvrir dans Gmail"
+                    className="rounded bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-100"
+                  >
+                    Gmail
+                  </a>
+                </div>
               )}
-              {lead.linkedinUrl && (
+              {lead.linkedinUrl && normalizeLinkedinUrl(lead.linkedinUrl) && (
                 <a
-                  href={lead.linkedinUrl}
+                  href={normalizeLinkedinUrl(lead.linkedinUrl)!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-0.5 flex items-center gap-1 text-[11px] text-brand-700 hover:underline"
@@ -418,24 +429,46 @@ function TriggerHeader({
                     <div className="text-[11px] text-ink-700">{lead.kasprTitle}</div>
                   )}
                   {lead.kasprWorkEmail && lead.kasprWorkEmail !== lead.email && (
-                    <a
-                      href={`mailto:${lead.kasprWorkEmail}`}
-                      className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
-                    >
-                      <Mail className="h-3 w-3" />
-                      {lead.kasprWorkEmail}
-                      <Badge variant="success" size="sm" className="ml-1">Pro</Badge>
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`mailto:${lead.kasprWorkEmail}`}
+                        className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
+                      >
+                        <Mail className="h-3 w-3" />
+                        {lead.kasprWorkEmail}
+                        <Badge variant="success" size="sm" className="ml-1">Pro</Badge>
+                      </a>
+                      <a
+                        href={gmailComposeUrl({ to: lead.kasprWorkEmail })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Ouvrir dans Gmail"
+                        className="rounded bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-100"
+                      >
+                        Gmail
+                      </a>
+                    </div>
                   )}
                   {lead.kasprPersonalEmail && lead.kasprPersonalEmail !== lead.email && (
-                    <a
-                      href={`mailto:${lead.kasprPersonalEmail}`}
-                      className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
-                    >
-                      <Mail className="h-3 w-3" />
-                      {lead.kasprPersonalEmail}
-                      <Badge variant="warning" size="sm" className="ml-1">Perso</Badge>
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`mailto:${lead.kasprPersonalEmail}`}
+                        className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
+                      >
+                        <Mail className="h-3 w-3" />
+                        {lead.kasprPersonalEmail}
+                        <Badge variant="warning" size="sm" className="ml-1">Perso</Badge>
+                      </a>
+                      <a
+                        href={gmailComposeUrl({ to: lead.kasprPersonalEmail })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Ouvrir dans Gmail"
+                        className="rounded bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-100"
+                      >
+                        Gmail
+                      </a>
+                    </div>
                   )}
                   {lead.kasprPhone && (
                     <a
@@ -939,13 +972,24 @@ function EmailTab({
               Destinataire :{" "}
               <span className="font-mono font-medium text-ink-800">{leadEmail}</span>
             </div>
-            <a
-              href={`mailto:${leadEmail}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`}
-              className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-[12px] font-medium text-white shadow-sm hover:bg-brand-700 transition-colors"
-            >
-              <Mail className="h-3 w-3" />
-              Ouvrir dans Mail
-            </a>
+            <div className="flex items-center gap-2">
+              <a
+                href={gmailComposeUrl({ to: leadEmail, subject: email.subject, body: email.body })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-[12px] font-medium text-white shadow-sm hover:bg-brand-700 transition-colors"
+              >
+                <Mail className="h-3 w-3" />
+                Ouvrir dans Gmail
+              </a>
+              <a
+                href={`mailto:${leadEmail}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-3 py-1.5 text-[12px] font-medium text-ink-700 shadow-xs hover:bg-ink-50 transition-colors"
+              >
+                <Mail className="h-3 w-3" />
+                Mail système
+              </a>
+            </div>
           </div>
         )}
       </CardContent>

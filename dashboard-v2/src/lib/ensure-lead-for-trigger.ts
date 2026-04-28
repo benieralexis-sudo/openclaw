@@ -2,11 +2,16 @@ import "server-only";
 import { db } from "@/lib/db";
 
 // ═══════════════════════════════════════════════════════════════════
-// Ensure Lead — pour CHAQUE Trigger actif, crée un Lead minimal s'il n'existe
-// pas. Permet au dashboard d'afficher tous les signaux remontés (Apify, Rodz,
-// TheirStack) même quand Pappers n'a pas encore résolu le dirigeant.
+// Ensure Lead — pour CHAQUE Trigger actif AVEC SIRET, crée un Lead minimal
+// s'il n'existe pas. Permet au dashboard d'afficher tous les signaux remontés
+// (Apify, Rodz, TheirStack) même quand Pappers n'a pas encore résolu le dirigeant.
 //
-// Le Lead minimal a juste : companyName + companySiret (si présent) + status NEW.
+// Garde-fou : on ignore les Triggers sans companySiret. L'attribution SIRENE
+// (via Pappers) tourne en amont à l'ingestion ; l'absence de SIRET signifie
+// boîte étrangère ou nom ambigu non résolu → Lead inactionnable (pas de
+// dirigeants Pappers, pas de domain Dropcontact, Kaspr skip si pas LinkedIn).
+//
+// Le Lead minimal a juste : companyName + companySiret + status NEW.
 // Les pipelines downstream (enrichDirigeants Pappers, Dropcontact, Kaspr)
 // rempliront firstName/lastName/email/phone progressivement.
 // ═══════════════════════════════════════════════════════════════════
@@ -27,6 +32,7 @@ export async function ensureLeadsForAllTriggers(
       clientId,
       deletedAt: null,
       score: { gte: 4 }, // skip vraiment hors-ICP (score 1-3 = anti-ICP confirmé)
+      companySiret: { not: null }, // pas de SIRET = attribution SIRENE échouée (boîte étrangère / nom ambigu) → lead inactionnable
     },
     select: {
       id: true,
