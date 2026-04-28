@@ -242,8 +242,17 @@ export async function pollTheirstackForClient(
           result.jobsSkipped += 1;
           continue;
         }
-        // Skip si nom de boîte avec suffixe légal étranger (GmbH, LLC, Ltd, Inc)
-        if (/\b(GmbH|LLC|Ltd|Inc|Pty|S\.r\.l\.|S\.A\.R\.L\. España)\b/i.test(job.company)) {
+        // Skip si nom de boîte avec suffixe légal étranger (GmbH, LLC, Ltd, Inc, Corp)
+        if (/\b(GmbH|LLC|Ltd|Inc|Corp|Pty|S\.r\.l\.|S\.A\.R\.L\. España|UAB|s\.r\.o\.|AB)\b/i.test(job.company)) {
+          result.jobsSkipped += 1;
+          continue;
+        }
+        // Skip patterns d'agrégateurs / agences de recrutement (qui ne sont pas le client final)
+        if (/^(jobs\s+via\s+|jobs\s+at\s+)/i.test(job.company)) {
+          result.jobsSkipped += 1;
+          continue;
+        }
+        if (/\b(recruitment\s+agency|staffing|recruiter|talent\s+acquisition)\b/i.test(job.company)) {
           result.jobsSkipped += 1;
           continue;
         }

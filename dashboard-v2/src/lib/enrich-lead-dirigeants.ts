@@ -104,8 +104,10 @@ export async function enrichDirigeantsForClient(
       const isPersonneMorale = (nom: string | undefined): boolean => {
         if (!nom) return false;
         const n = nom.trim();
-        if (/\b(holding|invest|gestion|patrimoine|finance|capital|conseil|conseils|sas|sarl|company|limited|group|cap|sci|fcpr|sci\s|société\s)\b/i.test(n)) return true;
+        if (/\b(holding|invest|gestion|patrimoine|finance|capital|conseil|conseils|sas|sarl|company|limited|group|cap|sci|fcpr|sci\s|société\s|services?|solutions?|systems?|consulting|partners?)\b/i.test(n)) return true;
         if (/\.\s*[A-Z]/.test(n)) return true; // sigles avec points (H.S.D, R.G.)
+        // Tout en MAJ avec tiret/chiffre/point = raison sociale (EVA-RH, K-NET, RH2A, M.A.X)
+        if (/^[A-Z][A-Z\s\-\.\d]+$/.test(n) && /[\-\.\d]/.test(n)) return true;
         if (/^[A-Z][A-Z]+(\s+[A-Z\d]+)*$/.test(n) && !/\s/.test(n.split(" ").slice(-1)[0] ?? "")) return true; // SOCIETE AAA BBB sans accent
         if (!/\s/.test(n) && /^[A-Z][a-zA-Z]+$/.test(n)) return true; // un seul mot capitalisé = nom commercial
         return false;

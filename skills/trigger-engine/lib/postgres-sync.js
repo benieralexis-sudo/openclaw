@@ -153,6 +153,13 @@ async function syncToPostgres(sqliteDb, options = {}) {
         /jeveuxaider/i, /aerocontact/i, /jober\s+group/i, /alphéa\s+conseil/i,
       ];
 
+      // Blacklist SIRET explicite — pour les boîtes qu'on identifie hors-ICP
+      // mais dont le nom passe les regex (typo, abréviation, raison sociale en MAJ).
+      // Source : audit qualité 28/04. Étendre au fil du temps.
+      const SIRET_BLACKLIST = new Set([
+        '824400568', // CIMEM (tech-hiring mais BTP en réalité)
+      ]);
+
       for (const r of rows) {
         try {
           // 1. SIRENE non résolu (raison_sociale absente OU SIREN non numérique type FT_xxx)
@@ -166,6 +173,11 @@ async function syncToPostgres(sqliteDb, options = {}) {
           }
           // 2. Patterns de raison sociale hors ICP (collectivités, mastodontes connus)
           if (namePatternsBlock.some((re) => re.test(r.raison_sociale))) {
+            stats.skipped_quality += 1;
+            continue;
+          }
+          // 2b. Blacklist SIRET explicite
+          if (r.siren && SIRET_BLACKLIST.has(String(r.siren))) {
             stats.skipped_quality += 1;
             continue;
           }
