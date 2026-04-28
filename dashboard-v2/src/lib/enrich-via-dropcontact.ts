@@ -12,6 +12,17 @@ import { enrichLinkedInProfile, isValidLinkedInUrl, pickPhone } from "@/lib/kasp
 
 const BATCH_LIMIT = 50;
 
+// Détecte un mobile FR (06/07) au format national ou international.
+// Exclut 01-05 (fixe géo), 08 (surtaxé), 09 (VoIP/standard entreprise).
+function isFrenchMobile(phone: string): boolean {
+  const digits = phone.replace(/[^\d]/g, "");
+  // Format 0606060606 / 0707070707
+  if (/^0[67]\d{8}$/.test(digits)) return true;
+  // Format 33606060606 / 33707070707
+  if (/^33[67]\d{8}$/.test(digits)) return true;
+  return false;
+}
+
 type EnrichResult = {
   picked: number;
   enrichedWithEmail: number;
@@ -120,12 +131,15 @@ export async function enrichLeadsViaDropcontact(
     if (!email && !linkedinUrl && !phone && !jobMoveDetected) continue;
 
     // Chaining Dropcontact → Kaspr : si on a un LinkedIn URL valide ET pas
-    // encore de mobile, on déclenche Kaspr pour récupérer le mobile (Kaspr
-    // 70-80% mobile vs Dropcontact 30-40%). Plafonné à KASPR_CHAIN_MAX_PER_RUN.
+    // de MOBILE direct (06/07 français), on déclenche Kaspr pour le mobile.
+    // Note : un 08/09 (VoIP/standard entreprise) ne compte pas comme mobile —
+    // c'est le standard de la boîte, pas le tel direct du dirigeant.
     let kasprWorkEmail: string | null = null;
+    let kasprPhone: string | null = null;
+    const hasMobile = phone ? isFrenchMobile(phone) : false;
     if (
       linkedinUrl &&
-      !phone &&
+      !hasMobile &&
       result.kasprChained < KASPR_CHAIN_MAX_PER_RUN &&
       isValidLinkedInUrl(linkedinUrl)
     ) {
@@ -140,7 +154,10 @@ export async function enrichLeadsViaDropcontact(
         if (kr.ok && kr.profile) {
           const kPhone = pickPhone(kr.profile.phones ?? kr.profile.phone ?? null);
           if (kPhone) {
-            phone = kPhone;
+            // On stocke le mobile Kaspr SÉPARÉMENT (kasprPhone) pour conserver
+            // le standard entreprise (phone) — le commercial peut vouloir les
+            // deux : standard pour passer par l'accueil, mobile pour direct.
+            kasprPhone = kPhone;
             result.kasprMobileFound++;
           }
           const we = kr.profile.workEmail;
@@ -162,8 +179,12 @@ export async function enrichLeadsViaDropcontact(
           ...(email ? { email, emailStatus: "UNVERIFIED" } : {}),
           ...(linkedinUrl ? { linkedinUrl } : {}),
           ...(phone ? { phone } : {}),
-          ...(kasprWorkEmail
-            ? { kasprWorkEmail, kasprEnrichedAt: new Date() }
+          ...(kasprPhone || kasprWorkEmail
+            ? {
+                ...(kasprPhone ? { kasprPhone } : {}),
+                ...(kasprWorkEmail ? { kasprWorkEmail } : {}),
+                kasprEnrichedAt: new Date(),
+              }
             : {}),
           status: "ENRICHED",
           enrichedAt: new Date(),
