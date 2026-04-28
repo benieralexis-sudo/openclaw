@@ -308,10 +308,10 @@ export function LeadActivityPanel({ leadId }: { leadId: string }) {
                           }
                         }}
                         disabled={deleteEntry.isPending}
-                        className="opacity-0 group-hover:opacity-100 rounded-md p-1 text-ink-400 hover:bg-red-50 hover:text-red-600 transition-opacity disabled:opacity-30"
+                        className="flex-shrink-0 rounded-md p-1 text-ink-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
                         title="Supprimer cette entrée (manuelle uniquement)"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
