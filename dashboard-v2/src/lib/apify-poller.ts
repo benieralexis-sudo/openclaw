@@ -97,6 +97,14 @@ interface NormalizedJob {
   postedAt?: string;
   description?: string;
   sourceUrl?: string;
+  // Poster / hiring manager extrait de l'annonce — alimente Lead.linkedinUrl
+  // quand présent (gratuit, ~30% des annonces LinkedIn). Si absent, Pappers
+  // dirigeant prend le relais.
+  posterFullName?: string;
+  posterFirstName?: string;
+  posterLastName?: string;
+  posterLinkedinUrl?: string;
+  posterTitle?: string;
 }
 
 function jobToTrigger(
@@ -180,6 +188,36 @@ interface LinkedinJobItem {
   url?: string;
   jobDescription?: string;
   description?: string;
+  // Poster / hiring manager (présent dans ~30% des annonces LinkedIn)
+  posterFullName?: string;
+  posterProfileUrl?: string;
+  posterTitle?: string;
+  posterName?: string;
+  posterLinkedinUrl?: string;
+  recruiter?: {
+    name?: string;
+    linkedinUrl?: string;
+    profileUrl?: string;
+    position?: string;
+    title?: string;
+  };
+  poster?: {
+    fullName?: string;
+    name?: string;
+    profileUrl?: string;
+    linkedinUrl?: string;
+    title?: string;
+    position?: string;
+  };
+}
+
+function splitName(full: string | undefined): { firstName?: string; lastName?: string } {
+  if (!full) return {};
+  const cleaned = full.trim().replace(/\s+/g, " ");
+  if (!cleaned) return {};
+  const parts = cleaned.split(" ");
+  if (parts.length === 1) return { firstName: parts[0] };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
 function adaptLinkedinJobItem(item: LinkedinJobItem): NormalizedJob | null {
@@ -188,6 +226,28 @@ function adaptLinkedinJobItem(item: LinkedinJobItem): NormalizedJob | null {
   if (!title || !company) return null;
   // Filtre FR strict (l'actor remonte aussi PT/BE/etc.)
   if (item.country && item.country !== "FR" && item.country !== "France") return null;
+
+  const posterFullName =
+    item.posterFullName ??
+    item.posterName ??
+    item.poster?.fullName ??
+    item.poster?.name ??
+    item.recruiter?.name;
+  const posterUrl =
+    item.posterProfileUrl ??
+    item.posterLinkedinUrl ??
+    item.poster?.profileUrl ??
+    item.poster?.linkedinUrl ??
+    item.recruiter?.linkedinUrl ??
+    item.recruiter?.profileUrl;
+  const posterTitle =
+    item.posterTitle ??
+    item.poster?.title ??
+    item.poster?.position ??
+    item.recruiter?.title ??
+    item.recruiter?.position;
+  const { firstName, lastName } = splitName(posterFullName);
+
   return {
     jobTitle: title,
     companyName: company,
@@ -196,6 +256,11 @@ function adaptLinkedinJobItem(item: LinkedinJobItem): NormalizedJob | null {
     postedAt: item.postedAt,
     description: item.descriptionText ?? item.jobDescription ?? item.description,
     sourceUrl: item.link ?? item.jobUrl ?? item.url,
+    posterFullName,
+    posterFirstName: firstName,
+    posterLastName: lastName,
+    posterLinkedinUrl: posterUrl && /linkedin\.com/i.test(posterUrl) ? posterUrl : undefined,
+    posterTitle,
   };
 }
 
@@ -208,6 +273,21 @@ interface WttjJobItem {
   contract_type?: string;
   description?: string;
   published_at?: string;
+  // WTTJ expose parfois le recruiter / hiring manager
+  recruiter?: {
+    first_name?: string;
+    last_name?: string;
+    full_name?: string;
+    linkedin_url?: string;
+    title?: string;
+  };
+  contact?: {
+    first_name?: string;
+    last_name?: string;
+    full_name?: string;
+    linkedin_url?: string;
+    title?: string;
+  };
 }
 
 function adaptWttjItem(item: WttjJobItem): NormalizedJob | null {
@@ -215,6 +295,12 @@ function adaptWttjItem(item: WttjJobItem): NormalizedJob | null {
   const company = item.organization?.name;
   if (!title || !company) return null;
   if (item.office?.country_code && item.office.country_code !== "FR") return null;
+
+  const r = item.recruiter ?? item.contact;
+  const composedName = [r?.first_name, r?.last_name].filter(Boolean).join(" ").trim();
+  const posterFullName = r?.full_name ?? (composedName.length > 0 ? composedName : undefined);
+  const { firstName, lastName } = splitName(posterFullName);
+
   return {
     jobTitle: title,
     companyName: company,
@@ -223,6 +309,11 @@ function adaptWttjItem(item: WttjJobItem): NormalizedJob | null {
     postedAt: item.published_at,
     description: item.description?.slice(0, 600),
     sourceUrl: item.url,
+    posterFullName,
+    posterFirstName: r?.first_name ?? firstName,
+    posterLastName: r?.last_name ?? lastName,
+    posterLinkedinUrl: r?.linkedin_url && /linkedin\.com/i.test(r.linkedin_url) ? r.linkedin_url : undefined,
+    posterTitle: r?.title,
   };
 }
 

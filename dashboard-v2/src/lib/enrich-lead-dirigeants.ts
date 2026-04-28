@@ -15,11 +15,12 @@ import { getEntreprise, findHumanDirigeantRecursive } from "@/lib/pappers";
 
 const PERSONA_PRIORITY = [
   { regex: /\bCTO\b|chief\s+technology|directeur\s+technique/i, label: "CTO", weight: 10 },
-  { regex: /chief\s+executive|directeur\s+général|président\s+du\s+directoire/i, label: "CEO", weight: 9 },
-  { regex: /\bDG\b|directeur\s+général/i, label: "Directeur Général", weight: 8 },
-  { regex: /president|fondateur|founder/i, label: "Président / Fondateur", weight: 8 },
-  { regex: /vp\s+engineering|head\s+of\s+engineering/i, label: "VP Engineering", weight: 7 },
+  { regex: /vp\s+engineering|head\s+of\s+engineering|engineering\s+manager|tech\s+lead/i, label: "Head of Engineering", weight: 9 },
+  { regex: /chief\s+executive|président\s+du\s+directoire/i, label: "CEO", weight: 8 },
+  { regex: /président|fondateur|founder|associé\s+gérant/i, label: "Président / Fondateur", weight: 8 },
+  { regex: /\bDG\b|directeur\s+général|gérant/i, label: "Directeur Général / Gérant", weight: 7 },
   { regex: /head\s+of\s+product|cpo|chief\s+product/i, label: "CPO / Head of Product", weight: 6 },
+  { regex: /coo|chief\s+operating|directeur\s+des?\s+opérations?/i, label: "COO", weight: 5 },
 ];
 
 function matchPersonaPriority(qualite: string | undefined): { label: string; weight: number } {
@@ -28,6 +29,26 @@ function matchPersonaPriority(qualite: string | undefined): { label: string; wei
     if (p.regex.test(qualite)) return { label: p.label, weight: p.weight };
   }
   return { label: qualite, weight: 1 };
+}
+
+/**
+ * Lit la `tranche_effectif` Pappers et retourne :
+ *  - "small" : 0-49p, dirigeant RCS = bonne cible (signal direct au décideur)
+ *  - "mid"   : 50-249p, dirigeant RCS = OK mais préférable hiring manager LinkedIn
+ *  - "large" : 250+p, dirigeant RCS = mauvaise cible (CEO ALTEN ne lit pas un mail QA)
+ *  - null    : effectif inconnu (Pappers retourne souvent null)
+ *
+ * Codes Pappers : "00"=0p · "01"=1-2p · "02"=3-5p · "03"=6-9p · "11"=10-19p
+ *  · "12"=20-49p · "21"=50-99p · "22"=100-199p · "31"=200-249p · "32"=250-499p
+ *  · "41"=500-999p · "42"=1000-1999p · "51"=2000-4999p · "52"=5000-9999p · "53"=10000+
+ */
+function bucketByEffectif(tranche: string | undefined): "small" | "mid" | "large" | null {
+  if (!tranche) return null;
+  const t = tranche.trim();
+  if (/^(00|01|02|03|11|12)$/.test(t)) return "small";
+  if (/^(21|22|31)$/.test(t)) return "mid";
+  if (/^(32|41|42|51|52|53)$/.test(t)) return "large";
+  return null;
 }
 
 function genCuid(): string {
@@ -141,7 +162,7 @@ export async function enrichDirigeantsForClient(
       };
       const isWrongPersona = (qualite: string | undefined): boolean => {
         if (!qualite) return false;
-        return /commissaire\s+aux\s+comptes|expert[\s-]comptable|administrateur\s+judiciaire|liquidateur/i.test(qualite);
+        return /commissaire\s+aux\s+comptes|expert[\s-]comptable|administrateur\s+judiciaire|liquidateur|censeur|représentant\s+permanent|membre\s+du\s+conseil|conseil\s+de\s+surveillance|administrateur(\s|$)|suppléant/i.test(qualite);
       };
       let best: { nom_complet?: string; qualite?: string; weight: number; holdingPath?: string[] } | null = null;
       for (const r of reps) {
@@ -186,6 +207,12 @@ export async function enrichDirigeantsForClient(
       const holdingNote = best.holdingPath?.length
         ? ` (via ${best.holdingPath.join(" → ")})`
         : "";
+      // Flag taille : pour les boîtes 250+p, le dirigeant RCS est rarement la
+      // bonne cible. On surface ça dans le jobTitle pour que le commercial
+      // privilégie le hiring manager LinkedIn (Apify poster / TheirStack
+      // hiring_team / HarvestAPI employees) plutôt que d'envoyer au CEO.
+      const bucket = bucketByEffectif(data.tranche_effectif);
+      const sizeWarning = bucket === "large" ? " ⚠️ 250+p — préférer hiring manager LinkedIn" : "";
 
       // Extraction données Pappers étendues (si présentes)
       const lastFinance = data.finances?.[0];
@@ -204,7 +231,7 @@ export async function enrichDirigeantsForClient(
         where: { triggerId: t.id, deletedAt: null },
         select: { id: true },
       });
-      const jobTitleWithPath = personaLabel + holdingNote;
+      const jobTitleWithPath = personaLabel + holdingNote + sizeWarning;
       const enrichedFields = {
         firstName,
         lastName,

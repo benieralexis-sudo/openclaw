@@ -38,6 +38,7 @@ export async function ensureLeadsForAllTriggers(
       id: true,
       companyName: true,
       companySiret: true,
+      rawPayload: true,
       lead: { select: { id: true } },
     },
   });
@@ -47,6 +48,10 @@ export async function ensureLeadsForAllTriggers(
       stats.alreadyExisted++;
       continue;
     }
+    // Hydrate Lead.linkedinUrl + nom + titre si l'annonce contenait le poster
+    // (Apify LinkedIn jobs / WTTJ recruiter / TheirStack decision_makers).
+    // Sinon Pappers prendra le relais sur les pipelines downstream.
+    const poster = extractPosterFromPayload(t.rawPayload);
     try {
       await db.lead.create({
         data: {
@@ -56,6 +61,11 @@ export async function ensureLeadsForAllTriggers(
           companyName: t.companyName,
           companySiret: t.companySiret,
           status: "NEW",
+          firstName: poster?.firstName ?? null,
+          lastName: poster?.lastName ?? null,
+          fullName: poster?.fullName ?? null,
+          jobTitle: poster?.title ?? null,
+          linkedinUrl: poster?.linkedinUrl ?? null,
         },
       });
       stats.created++;
@@ -65,4 +75,96 @@ export async function ensureLeadsForAllTriggers(
   }
 
   return stats;
+}
+
+interface ExtractedPoster {
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  linkedinUrl?: string;
+  title?: string;
+}
+
+function extractPosterFromPayload(payload: unknown): ExtractedPoster | null {
+  if (!payload || typeof payload !== "object") return null;
+  const p = payload as Record<string, unknown>;
+
+  // 1. Apify NormalizedJob (poster*) — LinkedIn jobs, WTTJ recruiter
+  const fullName =
+    asString(p.posterFullName) ??
+    asString(p.posterName) ??
+    asString(p.recruiterName) ??
+    asString(p.hiringManagerName);
+  const firstName = asString(p.posterFirstName);
+  const lastName = asString(p.posterLastName);
+  const linkedinUrl = pickLinkedinUrl(
+    p.posterLinkedinUrl,
+    p.posterProfileUrl,
+    p.recruiterLinkedinUrl,
+    p.hiringManagerLinkedinUrl,
+  );
+  const title = asString(p.posterTitle) ?? asString(p.recruiterTitle);
+
+  // 2. TheirStack hiring_team / decision_makers — premier décideur "tech" si présent
+  const dm = (p.hiring_team ?? p.hiringTeam ?? p.decision_makers ?? p.decisionMakers) as unknown;
+  if (Array.isArray(dm) && dm.length > 0 && !linkedinUrl) {
+    const tech = pickTechDecisionMaker(dm);
+    if (tech) {
+      const dmFull = asString(tech.full_name) ?? asString(tech.fullName) ?? asString(tech.name);
+      const { firstName: dmFirst, lastName: dmLast } = splitNameLocal(dmFull);
+      return {
+        fullName: dmFull,
+        firstName: asString(tech.first_name) ?? asString(tech.firstName) ?? dmFirst,
+        lastName: asString(tech.last_name) ?? asString(tech.lastName) ?? dmLast,
+        linkedinUrl: pickLinkedinUrl(tech.linkedin_url, tech.linkedinUrl, tech.profile_url, tech.profileUrl),
+        title: asString(tech.title) ?? asString(tech.job_title) ?? asString(tech.position),
+      };
+    }
+  }
+
+  if (!fullName && !firstName && !linkedinUrl) return null;
+  return {
+    fullName,
+    firstName: firstName ?? splitNameLocal(fullName).firstName,
+    lastName: lastName ?? splitNameLocal(fullName).lastName,
+    linkedinUrl,
+    title,
+  };
+}
+
+function asString(v: unknown): string | undefined {
+  return typeof v === "string" && v.trim() ? v.trim() : undefined;
+}
+
+function pickLinkedinUrl(...candidates: unknown[]): string | undefined {
+  for (const c of candidates) {
+    const s = asString(c);
+    if (s && /linkedin\.com\/(in|pub)\//i.test(s)) return s;
+  }
+  return undefined;
+}
+
+function splitNameLocal(full: string | undefined): { firstName?: string; lastName?: string } {
+  if (!full) return {};
+  const parts = full.trim().split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0] };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+const TECH_TITLE_RE =
+  /(cto|chief tech|head of (engineering|tech|qa|test|product)|engineering manager|tech lead|vp engineering|vp tech|directeur technique|responsable technique|founder|fondateur|ceo|chief executive|directeur général|président|gérant)/i;
+
+function pickTechDecisionMaker(dms: unknown[]): Record<string, unknown> | null {
+  // Prio 1 : titre tech matché
+  for (const d of dms) {
+    if (!d || typeof d !== "object") continue;
+    const r = d as Record<string, unknown>;
+    const t = asString(r.title) ?? asString(r.job_title) ?? asString(r.position);
+    if (t && TECH_TITLE_RE.test(t)) return r;
+  }
+  // Prio 2 : 1er décideur quelconque
+  for (const d of dms) {
+    if (d && typeof d === "object") return d as Record<string, unknown>;
+  }
+  return null;
 }
