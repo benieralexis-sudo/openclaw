@@ -26,15 +26,21 @@ interface NavItem {
   shortcut?: string;
 }
 
-const navManagement: NavItem[] = [
+// Items management dépendent du rôle (ADMIN voit tout, CLIENT/VIEWER voit moins).
+const navManagementBase: NavItem[] = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/settings", label: "Paramètres", icon: Settings },
+];
+const navManagementAdmin: NavItem[] = [
+  ...navManagementBase,
   { href: "/system", label: "Système", icon: Activity },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { activeClientId } = useScope();
+  const { activeClientId, role } = useScope();
+  // Cache /system pour CLIENT/EDITOR/VIEWER (pas de raison qu'ils le voient).
+  const navManagement = role === "admin" ? navManagementAdmin : navManagementBase;
 
   const { data: unreadCount = 0 } = useQuery<number>({
     queryKey: ["replies-unread-count", activeClientId],

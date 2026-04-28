@@ -77,6 +77,10 @@ export default function TriggersPage() {
   const [quality, setQuality] = React.useState<Quality>("qualified");
   const [search, setSearch] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  // Par défaut on n'affiche QUE les Triggers avec un Lead (= contact dirigeant
+  // identifié, exploitable commercialement). Toggle pour inclure les triggers
+  // en cours d'enrichissement (sans dirigeant Pappers résolu encore).
+  const [showOrphans, setShowOrphans] = React.useState(false);
 
   React.useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 200);
@@ -84,12 +88,13 @@ export default function TriggersPage() {
   }, [search]);
 
   const { data: triggers = [], isLoading } = useQuery<Trigger[]>({
-    queryKey: ["triggers", activeClientId, activeFilter, quality, debouncedSearch],
+    queryKey: ["triggers", activeClientId, activeFilter, quality, debouncedSearch, showOrphans],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (activeClientId) params.set("clientId", activeClientId);
       if (activeFilter !== "all") params.set("filter", activeFilter);
       params.set("quality", quality);
+      params.set("withLead", showOrphans ? "false" : "true");
       if (debouncedSearch) params.set("q", debouncedSearch);
       const res = await fetch(`/api/triggers?${params.toString()}`);
       if (!res.ok) throw new Error("Erreur chargement triggers");
@@ -100,17 +105,33 @@ export default function TriggersPage() {
 
   // Compteurs réels (sans filter ni quality, juste search) — pour ne pas se rafraîchir au switch tab
   const { data: allTriggers = [] } = useQuery<Trigger[]>({
-    queryKey: ["triggers", activeClientId, "_counts", debouncedSearch],
+    queryKey: ["triggers", activeClientId, "_counts", debouncedSearch, showOrphans],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (activeClientId) params.set("clientId", activeClientId);
       params.set("quality", "all");
+      params.set("withLead", showOrphans ? "false" : "true");
       if (debouncedSearch) params.set("q", debouncedSearch);
       const res = await fetch(`/api/triggers?${params.toString()}`);
       if (!res.ok) throw new Error("Erreur chargement triggers");
       return res.json();
     },
     refetchInterval: 30 * 1000,
+  });
+
+  // Compte global (avec orphelins) pour afficher le ratio "X / Y" dans le header
+  const { data: allWithOrphans = [] } = useQuery<Trigger[]>({
+    queryKey: ["triggers", activeClientId, "_total"],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (activeClientId) params.set("clientId", activeClientId);
+      params.set("quality", "all");
+      params.set("withLead", "false");
+      const res = await fetch(`/api/triggers?${params.toString()}`);
+      if (!res.ok) throw new Error("Erreur chargement triggers");
+      return res.json();
+    },
+    refetchInterval: 60 * 1000,
   });
 
   const counts: Record<keyof typeof FILTER_LABELS, number> = React.useMemo(
@@ -314,8 +335,32 @@ export default function TriggersPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full sm:w-72"
           />
-          {/* Filter button retiré 28/04 — non implémenté, induit en erreur */}
+          <Button
+            variant={showOrphans ? "primary" : "secondary"}
+            size="md"
+            className="gap-1.5 shrink-0"
+            onClick={() => setShowOrphans((v) => !v)}
+            title={showOrphans ? "Cacher les triggers en cours d'enrichissement" : "Inclure triggers sans dirigeant Pappers"}
+          >
+            <ListFilter className="h-3.5 w-3.5" />
+            {showOrphans ? "Masquer non-enrichis" : "Inclure non-enrichis"}
+          </Button>
         </div>
+      </div>
+
+      {/* Header explicatif compteurs */}
+      <div className="rounded-md border border-ink-100 bg-ink-50 px-3 py-2 text-[12px] text-ink-700 flex items-center gap-3">
+        <span>
+          <strong className="text-ink-900">{allTriggers.length}</strong> {showOrphans ? "signaux totaux" : "leads exploitables"}
+          {!showOrphans && allWithOrphans.length > allTriggers.length && (
+            <span className="ml-2 text-ink-500">
+              ({allWithOrphans.length - allTriggers.length} en cours d&apos;enrichissement Pappers)
+            </span>
+          )}
+        </span>
+        <span className="ml-auto text-ink-500">
+          Affichés : <strong className="text-ink-900">{triggers.length}</strong>
+        </span>
       </div>
 
       {triggers.length > 0 || isLoading ? (

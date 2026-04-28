@@ -18,6 +18,10 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("q");
   // Quality filter : "all" (tout), "qualified" (≥6, défaut), "pepites" (≥8)
   const quality = searchParams.get("quality") ?? "qualified";
+  // withLead : par défaut "true" = ne retourner que les triggers avec un Lead
+  // créé (exploitable commercialement). "false" = inclure les orphelins
+  // (en cours d'enrichissement Pappers). "all" = tout sans condition.
+  const withLead = searchParams.get("withLead") ?? "true";
 
   const where: Prisma.TriggerWhereInput = { deletedAt: null };
   if (scope.clientId) where.clientId = scope.clientId;
@@ -26,6 +30,9 @@ export async function GET(req: NextRequest) {
   else if (filter === "new") where.status = "NEW";
   if (quality === "qualified") where.score = { gte: 6 };
   else if (quality === "pepites") where.score = { gte: 8 };
+  if (withLead === "true") {
+    where.lead = { isNot: null };
+  }
   if (search) {
     where.OR = [
       { companyName: { contains: search, mode: "insensitive" } },
