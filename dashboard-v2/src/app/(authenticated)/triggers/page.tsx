@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
-import { ChevronRight, Flame, Target, Zap, Sparkles, Award, ListFilter } from "lucide-react";
+import { ChevronRight, Flame, Target, Zap, Sparkles, Award, ListFilter, Database } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,62 @@ const QUALITY_LABELS: Record<Quality, { label: string; icon: typeof Target; tip:
   qualified: { label: "Qualifiés", icon: Target, tip: "Score Opus ≥ 6, prêts à approcher" },
   pepites: { label: "Pépites", icon: Award, tip: "Score Opus ≥ 8, attaque immédiate" },
 };
+
+// Bouton bulk enrich Kaspr — pour la liste de triggers visibles, déclenche
+// l'enrichissement Kaspr sur les leads avec linkedinUrl. Plafond 20 leads.
+function BulkEnrichKasprButton({ triggers }: { triggers: Trigger[] }) {
+  const [running, setRunning] = React.useState(false);
+  const [result, setResult] = React.useState<string | null>(null);
+  // Compte combien ont un Lead avec linkedinUrl
+  const eligibleCount = triggers.filter((t) => (t as Trigger & { lead?: { linkedinUrl?: string | null } }).lead?.linkedinUrl).length;
+
+  async function runBulk() {
+    setRunning(true);
+    setResult(null);
+    try {
+      // Récupère leadIds depuis l'API triggers (les leads sont liés)
+      const leadIdsRes = await fetch("/api/triggers?withLead=true&quality=all", { cache: "no-store" });
+      if (!leadIdsRes.ok) throw new Error("triggers_fetch_failed");
+      const tList = (await leadIdsRes.json()) as Array<{ lead?: { id?: string } | null }>;
+      const leadIds = tList.map((t) => t.lead?.id).filter(Boolean).slice(0, 20);
+      if (leadIds.length === 0) {
+        setResult("Aucun lead à enrichir");
+        return;
+      }
+      const res = await fetch("/api/leads/bulk-enrich-kaspr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadIds }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { enriched: number; skipped_no_linkedin: number; skipped_recent: number };
+      setResult(`✓ ${data.enriched} enrichis, ${data.skipped_recent} déjà récents, ${data.skipped_no_linkedin} sans LinkedIn`);
+    } catch (e) {
+      setResult(`Erreur : ${e instanceof Error ? e.message : "inconnue"}`);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  if (eligibleCount === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="secondary"
+        size="md"
+        onClick={runBulk}
+        disabled={running}
+        className="gap-1.5 shrink-0"
+        title="Enrichir Kaspr sur les leads visibles avec LinkedIn (max 20/run)"
+      >
+        <Database className="h-3.5 w-3.5" />
+        {running ? "Enrichissement…" : `Enrichir Kaspr (${eligibleCount})`}
+      </Button>
+      {result && <span className="text-[11px] text-ink-600">{result}</span>}
+    </div>
+  );
+}
 
 export default function TriggersPage() {
   const { activeClientId } = useScope();
@@ -345,6 +401,7 @@ export default function TriggersPage() {
             <ListFilter className="h-3.5 w-3.5" />
             {showOrphans ? "Masquer non-enrichis" : "Inclure non-enrichis"}
           </Button>
+          <BulkEnrichKasprButton triggers={triggers} />
         </div>
       </div>
 

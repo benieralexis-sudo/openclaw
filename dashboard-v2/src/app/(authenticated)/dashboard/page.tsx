@@ -47,7 +47,7 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
-  const { activeClientId, activeClient } = useScope();
+  const { activeClientId, activeClient, role } = useScope();
 
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ["dashboard", activeClientId],
@@ -63,8 +63,22 @@ export default function DashboardPage() {
   const kpis = data?.kpis;
   const pipelineMax = Math.max(1, ...(data?.pipeline.map((p) => p.value) ?? [1]));
 
+  // Header contextuel pour les CLIENT (Frédéric DTL) : message bienvenue
+  // distinct du dashboard ADMIN. Permet à Frédéric de comprendre que ce
+  // qu'il voit = SES leads (pas tout le moteur iFIND).
+  const isClient = role === "client" || role === "editor" || role === "viewer";
+
   return (
     <div className="space-y-6">
+      {isClient && activeClient && (
+        <div className="rounded-md border border-brand-200 bg-brand-50 px-4 py-3">
+          <div className="text-[12.5px] text-ink-700">
+            Bienvenue sur le dashboard de <strong className="text-ink-900">{activeClient.name}</strong>.
+            Vous voyez ici <strong>vos leads identifiés</strong> ainsi que le pipeline RDV
+            géré par votre commercial dédié.
+          </div>
+        </div>
+      )}
       {/* KPI Grid */}
       <section>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
