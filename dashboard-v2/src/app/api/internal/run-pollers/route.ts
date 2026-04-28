@@ -13,6 +13,7 @@ import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
 import { auditAndHeal } from "@/lib/audit-heal";
 import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
 import { enrichLeadsViaRodz } from "@/lib/enrich-via-rodz";
+import { enrichLeadsViaKasprDirect } from "@/lib/enrich-via-kaspr-direct";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -141,6 +142,23 @@ export async function POST(req: NextRequest) {
           await mergeLeadsBySiret(c.id);
         } catch {
           // skip silencieux — la 1re passe a déjà loggué les groupes
+        }
+        // Kaspr direct sur les leads avec LinkedIn jamais enrichis Kaspr.
+        // Cas concret : Rodz enrichContact ramène un LinkedIn → si Dropcontact
+        // ne trouve pas d'email, le chaining Kaspr de enrichLeadsViaDropcontact
+        // est skip → on perd mobile + work email. Ce module rattrape (15/run).
+        try {
+          const kasprDirect = await enrichLeadsViaKasprDirect(c.id, { limit: 15 });
+          (entry as { kasprDirect?: unknown }).kasprDirect = kasprDirect;
+        } catch (e) {
+          (entry as { kasprDirectError?: string }).kasprDirectError = e instanceof Error ? e.message : String(e);
+        }
+        // 3e passe cross-source pour propager les emails/mobiles Kaspr
+        // direct aux Leads sœurs de la même boîte.
+        try {
+          await mergeLeadsBySiret(c.id);
+        } catch {
+          // skip silencieux
         }
         // Declarative pain detection (HarvestAPI LinkedIn posts + Opus)
         // Plafond strict 50 entreprises × 5 posts = 250 posts max/run = ~$0.40
