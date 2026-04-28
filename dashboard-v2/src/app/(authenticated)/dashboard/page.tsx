@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatRelativeFr } from "@/lib/utils";
+import { ActivityStatsSection } from "@/components/dashboard/activity-stats-section";
 
 interface DashboardData {
   kpis: {
@@ -119,6 +120,9 @@ export default function DashboardPage() {
           />
         </div>
       </section>
+
+      {/* Activité commerciale temps réel */}
+      <ActivityStatsSection activeClientId={activeClientId} />
 
       {/* Pépites + Pipeline */}
       <section className="grid gap-4 lg:grid-cols-3">

@@ -27,6 +27,7 @@ import { toast } from "@/components/ui/sonner";
 import { cn, formatNumberFr, formatRelativeFr, gmailComposeUrl, normalizeLinkedinUrl } from "@/lib/utils";
 import { SendEmailModal } from "@/components/lead/send-email-modal";
 import { EnrichKasprModal } from "@/components/lead/enrich-kaspr-modal";
+import { LeadActivityPanel } from "@/components/lead/lead-activity-panel";
 import { Database, Phone, Send } from "lucide-react";
 
 // ──────────────────────────────────────────────────────────────────────
@@ -592,8 +593,8 @@ function TriggerHeader({
               )}
             </div>
           )}
-          {/* Email activity timeline + tracking opens/clicks */}
-          {lead && <EmailActivitySection leadId={lead.id} />}
+          {/* Activité multi-canal : email + LinkedIn + appels + RDV + checklist */}
+          {lead && <LeadActivityPanel leadId={lead.id} />}
         </div>
       </CardContent>
     </Card>
