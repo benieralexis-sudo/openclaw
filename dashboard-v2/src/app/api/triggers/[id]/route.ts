@@ -66,6 +66,16 @@ export async function GET(
       kasprPersonalEmail: true,
       kasprPhone: true,
       kasprTitle: true,
+      // Pappers data (audit 28/04 — étaient sélectionnés en DB mais jamais retournés)
+      companyRevenue: true,
+      companyResultNet: true,
+      companyHasInsolvency: true,
+      companyEtabsCount: true,
+      companyRecentDepots: true,
+      // Dropcontact job moves
+      jobMoveDetected: true,
+      previousCompany: true,
+      previousJob: true,
     },
   });
 

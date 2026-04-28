@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
-import { ChevronRight, Filter, Flame, Target, Zap, Sparkles, Award, ListFilter } from "lucide-react";
+import { ChevronRight, Flame, Target, Zap, Sparkles, Award, ListFilter } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -314,10 +314,7 @@ export default function TriggersPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full sm:w-72"
           />
-          <Button variant="secondary" size="md" className="gap-1.5 shrink-0">
-            <Filter className="h-3.5 w-3.5" />
-            Filtres
-          </Button>
+          {/* Filter button retiré 28/04 — non implémenté, induit en erreur */}
         </div>
       </div>
 

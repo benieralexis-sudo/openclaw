@@ -71,6 +71,16 @@ interface TriggerData {
     kasprPersonalEmail?: string | null;
     kasprPhone?: string | null;
     kasprTitle?: string | null;
+    // Pappers data
+    companyRevenue?: number | null;
+    companyResultNet?: number | null;
+    companyHasInsolvency?: boolean;
+    companyEtabsCount?: number | null;
+    companyRecentDepots?: Array<{ date?: string; type?: string; decisions?: string[] }> | null;
+    // Dropcontact job moves
+    jobMoveDetected?: boolean;
+    previousCompany?: string | null;
+    previousJob?: string | null;
   } | null;
   client: {
     id: string;
@@ -413,6 +423,17 @@ function TriggerHeader({
                     >
                       <Mail className="h-3 w-3" />
                       {lead.kasprWorkEmail}
+                      <Badge variant="success" size="sm" className="ml-1">Pro</Badge>
+                    </a>
+                  )}
+                  {lead.kasprPersonalEmail && lead.kasprPersonalEmail !== lead.email && (
+                    <a
+                      href={`mailto:${lead.kasprPersonalEmail}`}
+                      className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
+                    >
+                      <Mail className="h-3 w-3" />
+                      {lead.kasprPersonalEmail}
+                      <Badge variant="warning" size="sm" className="ml-1">Perso</Badge>
                     </a>
                   )}
                   {lead.kasprPhone && (
@@ -424,6 +445,79 @@ function TriggerHeader({
                       {lead.kasprPhone}
                     </a>
                   )}
+                </div>
+              )}
+              {/* Job Move badge (Dropcontact a détecté changement de poste <6m) */}
+              {lead.jobMoveDetected && (
+                <div className="mt-2 rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="warning" size="sm">🔥 Job Move</Badge>
+                    <span className="text-[10.5px] text-orange-800">
+                      Changement de poste récent
+                    </span>
+                  </div>
+                  {lead.previousCompany && (
+                    <div className="mt-0.5 text-[11px] text-ink-700">
+                      Avant : <span className="font-medium">{lead.previousJob ?? "?"}</span>
+                      {lead.previousCompany && (
+                        <span className="text-ink-500"> chez {lead.previousCompany}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {/* Carte "Données Société" — Pappers + Dropcontact */}
+          {lead && (lead.companyRevenue || lead.companyResultNet || lead.companyHasInsolvency || lead.companyEtabsCount || (lead.companyRecentDepots && lead.companyRecentDepots.length > 0)) && (
+            <div className={`rounded-md border p-3 ${lead.companyHasInsolvency ? "border-red-200 bg-red-50" : "border-ink-100 bg-white"}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10.5px] uppercase tracking-wider text-ink-500">
+                  Données Société (Pappers)
+                </div>
+                {lead.companyHasInsolvency && (
+                  <Badge variant="danger" size="sm">⚠️ Procédure collective</Badge>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {lead.companyRevenue !== null && lead.companyRevenue !== undefined && (
+                  <div className="flex items-center justify-between text-[11.5px]">
+                    <span className="text-ink-600">CA dernier exercice</span>
+                    <span className="font-mono font-semibold text-ink-900">
+                      {(lead.companyRevenue / 1_000_000).toFixed(1)} M€
+                    </span>
+                  </div>
+                )}
+                {lead.companyResultNet !== null && lead.companyResultNet !== undefined && (
+                  <div className="flex items-center justify-between text-[11.5px]">
+                    <span className="text-ink-600">Résultat net</span>
+                    <span className={`font-mono font-semibold ${lead.companyResultNet >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                      {lead.companyResultNet >= 0 ? "+" : ""}{(lead.companyResultNet / 1_000_000).toFixed(2)} M€
+                    </span>
+                  </div>
+                )}
+                {lead.companyEtabsCount !== null && lead.companyEtabsCount !== undefined && lead.companyEtabsCount > 1 && (
+                  <div className="flex items-center justify-between text-[11.5px]">
+                    <span className="text-ink-600">Établissements actifs</span>
+                    <span className="font-mono text-ink-900">
+                      {lead.companyEtabsCount} sites
+                      <Badge variant="info" size="sm" className="ml-1">Multi-sites</Badge>
+                    </span>
+                  </div>
+                )}
+              </div>
+              {lead.companyRecentDepots && lead.companyRecentDepots.length > 0 && (
+                <div className="mt-2 border-t border-ink-100 pt-2">
+                  <div className="text-[10.5px] uppercase tracking-wider text-ink-500 mb-1">
+                    Dépôts d'actes RCS &lt; 90j
+                  </div>
+                  <ul className="space-y-0.5">
+                    {lead.companyRecentDepots.slice(0, 3).map((d, i) => (
+                      <li key={i} className="text-[11px] text-ink-700">
+                        <span className="text-ink-400">{d.date?.slice(0, 10)}</span> · {d.type ?? "Acte RCS"}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>

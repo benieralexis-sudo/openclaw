@@ -142,6 +142,23 @@ SIGNAL :
     return null;
   }
 
+  // Plancher de score pour sources fiables (signal d'achat fort garanti).
+  // Le NAF Pappers est souvent trompeur (holding, classement historique) →
+  // Opus rate parfois ces leads. On force min 7 pour Rodz fundraising/M&A
+  // et BODACC capital_increase. Le commercial filtrera si vraiment hors-ICP.
+  const TRUSTED_SOURCES_MIN_SCORE: Record<string, number> = {
+    "rodz.fundraising": 7,
+    "rodz.mergers-acquisitions": 7,
+    "rodz.job-changes": 7,
+    "bodacc.capital-increase": 7,
+    "trigger-engine.funding-recent": 7,
+  };
+  const minFloor = TRUSTED_SOURCES_MIN_SCORE[trigger.sourceCode];
+  if (minFloor && opusScore < minFloor) {
+    reason = `[Score plancher ${minFloor}/10 source fiable] ${reason}`;
+    opusScore = minFloor;
+  }
+
   const isHot = opusScore >= 9;
   await db.trigger.update({
     where: { id: triggerId },

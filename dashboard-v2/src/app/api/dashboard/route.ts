@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     bookedPrevWeek,
     pipeline,
     recentTriggers,
+    delaySamples,
   ] = await Promise.all([
     db.trigger.count({ where: { ...where, capturedAt: { gte: since24h } } }),
     db.trigger.count({
@@ -64,7 +65,32 @@ export async function GET(req: NextRequest) {
         capturedAt: true,
       },
     }),
+    // Échantillon pour calculer le délai signal → vous (capturedAt → publishedAt)
+    db.trigger.findMany({
+      where: {
+        ...where,
+        capturedAt: { gte: since24h },
+        publishedAt: { not: null },
+      },
+      select: { capturedAt: true, publishedAt: true },
+      take: 100,
+    }),
   ]);
+
+  // Calcul avgDelayMin : moyenne (capturedAt - publishedAt) en minutes
+  let avgDelayMin = 0;
+  if (delaySamples.length > 0) {
+    const deltas = delaySamples
+      .map((t) => {
+        if (!t.publishedAt) return null;
+        const delta = (t.capturedAt.getTime() - t.publishedAt.getTime()) / 60_000;
+        return delta > 0 ? delta : null;
+      })
+      .filter((d): d is number => d !== null);
+    if (deltas.length > 0) {
+      avgDelayMin = Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length);
+    }
+  }
 
   const pipelineCounts = pipeline.reduce<Record<string, number>>((acc, p) => {
     acc[p.status] = p._count;
@@ -88,7 +114,7 @@ export async function GET(req: NextRequest) {
       signals24h: { value: triggers24h, delta: triggers24h - triggersPrev24h },
       hotPepites: { value: pepites, delta: pepites - pepitesPrev },
       bookedWeek: { value: bookedThisWeek, delta: bookedThisWeek - bookedPrevWeek },
-      avgDelayMin: { value: 28 },
+      avgDelayMin: { value: avgDelayMin },
     },
     pipeline: [
       { label: "Signaux qualifiés", value: totalQualified, color: "bg-brand-500" },
