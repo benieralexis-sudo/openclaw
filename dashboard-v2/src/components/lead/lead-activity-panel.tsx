@@ -14,6 +14,7 @@ import {
   StickyNote,
   Loader2,
   Plus,
+  X,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -140,6 +141,24 @@ export function LeadActivityPanel({ leadId }: { leadId: string }) {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur"),
   });
 
+  const deleteEntry = useMutation({
+    mutationFn: async (activityId: string) => {
+      const res = await fetch(`/api/leads/${leadId}/activities/${activityId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? "Erreur");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lead-activities", leadId] });
+      toast.success("Entrée supprimée");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur"),
+  });
+
   const counts = data?.counts ?? {};
   const timeline = data?.timeline ?? [];
 
@@ -249,10 +268,11 @@ export function LeadActivityPanel({ leadId }: { leadId: string }) {
                   (entry.payload as { subject?: string } | null)?.subject ?? null;
                 const note = (entry.payload as { note?: string } | null)?.note ?? null;
                 const userLabel = entry.user?.name ?? entry.user?.email ?? "Bot";
+                const isManual = entry.source === "MANUAL";
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-start gap-2 rounded-md px-1.5 py-1 text-[12px]"
+                    className="group flex items-start gap-2 rounded-md px-1.5 py-1 text-[12px] hover:bg-ink-50"
                   >
                     <Icon className="mt-0.5 h-3 w-3 flex-shrink-0 text-ink-400" />
                     <div className="flex-1">
@@ -279,6 +299,21 @@ export function LeadActivityPanel({ leadId }: { leadId: string }) {
                         </div>
                       )}
                     </div>
+                    {isManual && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm("Supprimer cette entrée de la timeline ?")) {
+                            deleteEntry.mutate(entry.id);
+                          }
+                        }}
+                        disabled={deleteEntry.isPending}
+                        className="opacity-0 group-hover:opacity-100 rounded-md p-1 text-ink-400 hover:bg-red-50 hover:text-red-600 transition-opacity disabled:opacity-30"
+                        title="Supprimer cette entrée (manuelle uniquement)"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                 );
               })
