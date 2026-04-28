@@ -221,8 +221,10 @@ export async function enrichLeadsViaRodz(
       result.jobTitleUpdated++;
     }
     if (emailFound) {
+      // Rodz findEmail ne renvoie l'email que si status === "Valid"
+      // (filtre dans le code ci-dessus) → on stocke en VALID enum Prisma.
       updates.email = emailFound;
-      updates.emailStatus = "VERIFIED"; // Rodz a fait le SMTP check
+      updates.emailStatus = "VALID";
       result.emailFound++;
     }
     if (Object.keys(updates).length > 0) {
