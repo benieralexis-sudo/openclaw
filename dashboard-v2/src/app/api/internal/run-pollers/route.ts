@@ -10,6 +10,7 @@ import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
 import { detectDeclarativePainForClient } from "@/lib/declarative-pain";
 import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
+import { auditAndHeal } from "@/lib/audit-heal";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -70,6 +71,17 @@ export async function POST(req: NextRequest) {
       if (!dryRun && (source === "all" || source === "theirstack" || source === "apify")) {
         const sirene = await enrichRecentTriggersWithSirene(c.id, { limit: 60 });
         entry.sireneEnriched = sirene.enriched;
+      }
+      // Audit & heal — backfill linkedinUrl/jobTitle/SIRET depuis rawPayload
+      // pour rattraper les leads créés AVANT un fix de mapping (Rodz, Apify,
+      // etc). Idempotent — safe à chaque run.
+      if (!dryRun) {
+        try {
+          const heal = await auditAndHeal({ clientId: c.id });
+          (entry as { auditHeal?: unknown }).auditHeal = heal;
+        } catch (e) {
+          (entry as { auditHealError?: string }).auditHealError = e instanceof Error ? e.message : String(e);
+        }
       }
       // Qualify Opus tous les Triggers du client sans scoreReason (limite 30/run pour budget tokens).
       if (!dryRun) {
