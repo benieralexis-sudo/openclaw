@@ -412,6 +412,18 @@ export async function enrichRecentTriggersWithSirene(
   if (!isTechIcp) return stats;
 
   const techNafPrefixes = ["58.29", "62.0", "62.01", "62.02", "62.03", "63.1", "63.99", "70.22", "71.12B"];
+  // Sources fiables : on EXEMPTE du pruning NAF strict.
+  // Rodz fundraising = la boîte a levé, c'est qualifié à la source.
+  // BODACC capital_increase = augmentation de capital officielle.
+  // Pour ces sources, le NAF Pappers peut être trompeur (holding, classement
+  // historique) mais la pertinence est garantie. Le score Opus filtrera plus tard.
+  const TRUSTED_SOURCES = [
+    "rodz.fundraising",
+    "rodz.mergers-acquisitions",
+    "rodz.job-changes",
+    "bodacc.capital-increase",
+    "trigger-engine.funding-recent",
+  ];
   const recentTriggers = await db.trigger.findMany({
     where: {
       clientId,
@@ -419,10 +431,11 @@ export async function enrichRecentTriggersWithSirene(
       capturedAt: { gte: since },
       deletedAt: null,
     },
-    select: { id: true, companyName: true, companyNaf: true },
+    select: { id: true, companyName: true, companyNaf: true, sourceCode: true },
   });
   for (const t of recentTriggers) {
     if (!t.companyNaf) continue;
+    if (TRUSTED_SOURCES.includes(t.sourceCode)) continue;
     const isTech = techNafPrefixes.some((p) => t.companyNaf!.startsWith(p));
     if (!isTech) {
       await db.trigger.update({

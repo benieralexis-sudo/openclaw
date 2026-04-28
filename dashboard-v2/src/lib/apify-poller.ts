@@ -289,11 +289,17 @@ export async function pollApifyForClient(
   }
 
   // 1. France Jobs Scraper (WTTJ + France Travail + Hellowork)
+  // ⚠️ Actor `joyouscam35875/france-job-scraper` retourne 0 items depuis 28/04
+  // (sites scrapés ont changé leur HTML/API, actor non maintenu).
+  // Désactivé par défaut. Réactiver `useFranceJobs: true` quand actor patché
+  // ou switch vers actor alternatif (apimaestro/linkedin-jobs ou clockworks).
   if (useFranceJobs) {
     const r = await runActorAndPushTriggers({
       actor: APIFY_ACTORS.franceJobs,
       input: {
-        keywords: keywords.join(", "),
+        // Test live 28/04 : 1 keyword OU multi-keywords → tous renvoient [].
+        // Bug actor amont. On garde le code en place pour réactivation ultérieure.
+        keywords: keywords[0] ?? "QA Engineer",
         location: "France",
         maxResults: 50,
       },

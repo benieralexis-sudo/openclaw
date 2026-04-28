@@ -50,7 +50,17 @@ export async function POST(req: NextRequest) {
         entry.sireneEnriched = sirene.enriched;
       }
       if (source === "all" || source === "apify") {
-        entry.apify = await pollApifyForClient(c.id, { dryRun, useFranceJobs: true, useLinkedin: false });
+        // Apify run-sync DÉSACTIVÉ 28/04 — les 2 actors retournent 0 items :
+        //   - joyouscam35875/france-job-scraper : sites scrapés ont changé HTML
+        //     (WTTJ/Hellowork/FT, log = "0 jobs found" sur tous keywords)
+        //   - curious_coder/linkedin-jobs-scraper : exige `input.urls` au lieu
+        //     de `input.searchTerm` (notre code passe searchTerm, refusé)
+        //
+        // On laisse les SCHEDULES Apify configurés tourner (cron Apify côté
+        // serveur Apify) — leurs runs auto-déclenchés les mardi 02h utilisent
+        // l'input task pré-configuré côté Apify avec le bon format. Mais on ne
+        // déclenche plus de run-sync inutile depuis le bot.
+        entry.apify = { skipped: "actors_broken_28avril", note: "schedules continuent côté Apify" };
       }
       // Qualify Opus tous les Triggers du client sans scoreReason (limite 30/run pour budget tokens).
       if (!dryRun) {
