@@ -99,6 +99,7 @@ async function rodzFetch<T>(
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },
+    signal: init.signal ?? AbortSignal.timeout(20_000),
   });
   const text = await res.text();
   let body: unknown = null;

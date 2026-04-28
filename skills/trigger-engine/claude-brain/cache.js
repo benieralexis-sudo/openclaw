@@ -16,10 +16,47 @@
  */
 
 // Seuil minimum pour marquer un bloc comme cacheable.
-// Anthropic accepte cache_control à partir de ~1024 tokens totaux mais le bloc
-// système 'qualify.md' fait 605 tokens + voice ~80 tokens => on abaisse à 512
-// pour que les prompts courts profitent du cache (économie -90% sur les cached).
-const MIN_CACHEABLE_TOKENS = 512;
+// Anthropic Claude Opus/Sonnet exige au minimum 1024 tokens par bloc cache_control.
+// En dessous, le tag est silencieusement ignoré (cache hit = 0%).
+const MIN_CACHEABLE_TOKENS = 1024;
+
+// Préambule stable injecté en tête de chaque system prompt pour atteindre le
+// seuil 1024t. Contenu = description iFIND (produit + moat + scoring rubric).
+// Stable par définition → garantit cache hit cross-pipelines.
+const STABLE_PREAMBLE = `# Contexte iFIND Trigger Engine FR
+
+Tu es un analyste senior B2B intégré au moteur **iFIND Trigger Engine**, système propriétaire de détection de signaux d'achat sur les PME françaises.
+
+## Différence clé vs intent data probabiliste (Bombora-like)
+iFIND n'agrège PAS de signaux flous (visites web, downloads anonymes). iFIND détecte des **TRIGGERS = événements publics durs et datés** :
+- Levées de fonds (BODACC, JOAFE, RSS presse spécialisée)
+- Recrutement clé (France Travail OAuth + LinkedIn jobs scrapés)
+- Dépôts marques INPI / brevets
+- Changements C-level (Pappers dirigeants)
+- Campagnes pub Meta Ad Library
+- Création société (BODACC immatriculations)
+
+## Moat propriétaire (à respecter dans tes raisonnements)
+1. **Attribution SIRENE Pappers** : chaque trigger est rattaché à un SIREN officiel (pas du fuzzy match marketing).
+2. **13 patterns combinatoires** : un signal isolé vaut peu, un combo (levée + hire + ad) vaut beaucoup.
+3. **Boosters v1.1** : combo cross-sources ×2.5, hot triggers <48h +1.5, declarative pain (signaux de douleur exprimée) +2.
+4. **Filtre ICP strict** : Tech/SaaS/ESN, taille 11-200p, NAF whitelist (58.29*, 62.0*, 63.*, 70.22Z, 71.12B), régions FR.
+
+## Rubrique scoring 1-10 (référentiel de tous les pipelines)
+- **9-10** : pépite — combo récent + ICP parfait + dirigeant nommé. RDV chaud.
+- **7-8** : qualifié fort — 1 trigger récent + ICP fit + persona accessible.
+- **5-6** : qualifié — signal valide mais ancien (>30j) ou ICP partiel.
+- **3-4** : marginal — hors-ICP léger ou signal faible.
+- **1-2** : à exclure — hors France, hors taille, secteur incompatible.
+
+## Règles non négociables
+- Ne JAMAIS recommander d'action LinkedIn auto (engagement = manuel humain).
+- Volume max client : 500 leads/mois Founding, 1000 Scale.
+- Toute mention d'effectif sans source SIRENE doit être marquée incertaine.
+- Réponses en FRANÇAIS sauf instruction explicite contraire.
+
+---
+`;
 
 /**
  * Ajoute cache_control: ephemeral à un bloc de message Anthropic.
@@ -40,23 +77,23 @@ function buildCachedMessages({ systemPrompt, voicePrompt, dataContext }, options
   const enableCache = options.enableCache !== false;
   const minTokens = options.minCacheableTokens || MIN_CACHEABLE_TOKENS;
 
-  // Estimation rapide tokens ≈ caractères/4 (heuristique standard)
-  const systemTokensEst = Math.ceil((systemPrompt || '').length / 4);
-  const voiceTokensEst = Math.ceil((voicePrompt || '').length / 4);
+  // Combine preamble + system + voice en UN bloc unique cacheable.
+  // Anthropic exige ≥1024 tokens par bloc cache_control, donc on additionne
+  // STABLE_PREAMBLE (~400t) + systemPrompt (500-700t) + voicePrompt (~150t)
+  // pour passer le seuil. Les 3 sont stables par tenant+pipeline → cache stable.
+  const parts = [];
+  if (STABLE_PREAMBLE) parts.push(STABLE_PREAMBLE);
+  if (systemPrompt) parts.push(systemPrompt);
+  if (voicePrompt) parts.push(`\n\n## Voice tenant\n\n${voicePrompt}`);
+  const combined = parts.join('\n');
+  const combinedTokensEst = Math.ceil(combined.length / 4);
 
-  // System blocks (instructions pipeline — toujours en tête)
-  const systemBlocks = [];
-  if (systemPrompt) {
-    const block = { type: 'text', text: systemPrompt };
-    // Ne cache que si assez de tokens pour que ça vaille le coup
-    systemBlocks.push(enableCache && systemTokensEst >= minTokens ? markEphemeral(block) : block);
-  }
-  if (voicePrompt) {
-    const block = { type: 'text', text: voicePrompt };
-    systemBlocks.push(enableCache && voiceTokensEst >= minTokens ? markEphemeral(block) : block);
-  }
+  const block = { type: 'text', text: combined };
+  const systemBlocks = [
+    enableCache && combinedTokensEst >= minTokens ? markEphemeral(block) : block,
+  ];
 
-  // Messages — le data context va dans le user message (non caché)
+  // Messages — le data context va dans le user message (non caché par design : variable)
   const messages = [
     {
       role: 'user',

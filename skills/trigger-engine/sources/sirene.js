@@ -27,19 +27,27 @@ let _throttleChain = Promise.resolve();
 const MIN_INTERVAL_MS = 1100;
 
 // Circuit breaker : après N 429 consécutifs, pause totale des appels SIRENE.
-// Évite de pérenniser une penalty côté API en continuant à hammer.
+// Cooldown adaptatif : 5 → 10 → 20 → 30 min selon récidive dans la fenêtre.
 let _consecutive429 = 0;
 let _circuitOpenUntil = 0;
-const CIRCUIT_THRESHOLD = 5;
-const CIRCUIT_COOLDOWN_MS = 30 * 60 * 1000; // 30 min
+let _circuitConsecutiveTrips = 0;
+let _lastTripAt = 0;
+const CIRCUIT_THRESHOLD = 3;
+const CIRCUIT_COOLDOWNS_MS = [5, 10, 20, 30].map(m => m * 60 * 1000);
 
 function isCircuitOpen() {
   return Date.now() < _circuitOpenUntil;
 }
 function tripCircuit(log) {
-  _circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+  // Si la dernière trip date de >1h, reset le compteur de récidive
+  if (Date.now() - _lastTripAt > 60 * 60 * 1000) _circuitConsecutiveTrips = 0;
+  const idx = Math.min(_circuitConsecutiveTrips, CIRCUIT_COOLDOWNS_MS.length - 1);
+  const cooldown = CIRCUIT_COOLDOWNS_MS[idx];
+  _circuitOpenUntil = Date.now() + cooldown;
   _consecutive429 = 0;
-  log?.warn?.(`[sirene] circuit breaker OPEN for ${CIRCUIT_COOLDOWN_MS / 60000}min — too many 429s, letting API cool down`);
+  _circuitConsecutiveTrips++;
+  _lastTripAt = Date.now();
+  log?.warn?.(`[sirene] circuit OPEN ${cooldown / 60000}min (trip #${_circuitConsecutiveTrips}) — too many 429s`);
 }
 function record429(log) {
   _consecutive429++;
@@ -128,7 +136,7 @@ function extractFields(apiResult) {
  */
 async function fetchApiWithRetry(query, log) {
   if (isCircuitOpen()) {
-    log?.debug?.(`[sirene] circuit open — skipping "${query}"`);
+    // Silent skip pendant cooldown — évite de polluer les logs WARN.
     return null;
   }
   const url = `${API_BASE}?q=${encodeURIComponent(query)}&per_page=5`;
@@ -141,9 +149,12 @@ async function fetchApiWithRetry(query, log) {
       });
       if (res.status === 429) {
         const retryAfterHeader = parseInt(res.headers.get('retry-after') || '', 10);
+        // Backoff exponentiel + jitter ±20% : 1500 → 3000 → 6000 → 12000 ms
+        const baseDelay = 1500 * Math.pow(2, attempt);
+        const jitter = 1 + (Math.random() * 0.4 - 0.2);
         const delay = Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
           ? (retryAfterHeader * 1000) + 500
-          : 1500 * (attempt + 1);
+          : Math.round(baseDelay * jitter);
         log?.debug?.(`[sirene] 429 → wait ${delay}ms (attempt ${attempt + 1}/4)`);
         record429(log);
         if (isCircuitOpen()) return null; // circuit vient de s'ouvrir
@@ -177,18 +188,25 @@ async function lookupByName(nom, db, opts = {}) {
   const key = normalizeName(nom);
   if (!key) return null;
 
-  // Cache hit
+  // Cache hit (TTL : 30j pour found, 7j pour not_found — au-delà on re-tente)
   if (!opts.skipCache) {
-    const cached = db.prepare('SELECT * FROM siren_lookup_cache WHERE normalized_name = ?').get(key);
+    const cached = db.prepare(`
+      SELECT *, julianday('now') - julianday(looked_up_at) AS age_days
+      FROM siren_lookup_cache WHERE normalized_name = ?
+    `).get(key);
     if (cached) {
-      if (cached.found === 0) return null;
-      return {
-        siren: cached.siren,
-        nom_complet: cached.nom_complet,
-        naf_code: cached.naf_code,
-        effectif: cached.effectif,
-        departement: cached.departement
-      };
+      const ttlDays = cached.found === 1 ? 30 : 7;
+      if (cached.age_days < ttlDays) {
+        if (cached.found === 0) return null;
+        return {
+          siren: cached.siren,
+          nom_complet: cached.nom_complet,
+          naf_code: cached.naf_code,
+          effectif: cached.effectif,
+          departement: cached.departement
+        };
+      }
+      // sinon : cache expiré, on re-fetch (l'UPSERT plus bas écrase l'entrée)
     }
   }
 
@@ -197,7 +215,10 @@ async function lookupByName(nom, db, opts = {}) {
 
   // API failure (rate limit, timeout, 5xx) → don't poison cache, return null for retry later
   if (data === null) {
-    log?.warn?.(`[sirene] API failed for "${nom}" — skipping cache write (will retry next run)`);
+    // Silent quand le circuit est ouvert (sinon spam de WARN identique)
+    if (!isCircuitOpen()) {
+      log?.warn?.(`[sirene] API failed for "${nom}" — skipping cache write (will retry next run)`);
+    }
     return null;
   }
 

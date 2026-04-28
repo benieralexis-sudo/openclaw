@@ -63,7 +63,8 @@ async function authenticate(log) {
       'X-XSRF-TOKEN': jar.get('XSRF-TOKEN'),
       'Cookie': cookieHeader(jar)
     },
-    body: JSON.stringify({ username: user, password: pwd, rememberMe: true })
+    body: JSON.stringify({ username: user, password: pwd, rememberMe: true }),
+    signal: AbortSignal.timeout(15_000)
   });
   updateJar(jar, r);
   if (!r.ok) { log?.warn?.(`[inpi] login ${r.status}`); return null; }
@@ -106,7 +107,8 @@ async function searchMarques(session, { since, from = 0, size = 100 } = {}) {
       fields: FIELDS,
       position: from,
       size
-    })
+    }),
+    signal: AbortSignal.timeout(20_000)
   });
 
   if (!res.ok) {

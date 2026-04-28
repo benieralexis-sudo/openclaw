@@ -129,6 +129,7 @@ async function apifyFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...(init.headers ?? {}),
     },
+    signal: init.signal ?? AbortSignal.timeout(60_000),
   });
   const text = await res.text();
   let body: unknown = null;
@@ -303,6 +304,7 @@ export async function getDatasetItems<T = Record<string, unknown>>(
   const token = process.env.APIFY_API_TOKEN;
   const res = await fetch(`${BASE_URL}/v2/datasets/${datasetId}/items?${qs.toString()}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(45_000),
   });
   if (!res.ok) {
     throw new ApifyApiError(res.status, "DATASET_ERROR", `HTTP ${res.status}`);
@@ -348,6 +350,9 @@ export async function runAndGetItems<T = Record<string, unknown>>(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(input),
+      // Apify run-sync peut prendre jusqu'à plusieurs minutes selon le scraper.
+      // 5 min de garde-fou pour ne pas geler la route indéfiniment.
+      signal: AbortSignal.timeout(300_000),
     },
   );
 

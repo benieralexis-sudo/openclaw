@@ -208,6 +208,7 @@ async function tsFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...(init.headers ?? {}),
     },
+    signal: init.signal ?? AbortSignal.timeout(45_000),
   });
   const text = await res.text();
   let body: unknown = null;

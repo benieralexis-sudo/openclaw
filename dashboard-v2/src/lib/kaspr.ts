@@ -147,7 +147,7 @@ export function pickPhone(
 export async function verifyKey(): Promise<unknown | null> {
   if (!KEY) return null;
   try {
-    const res = await fetch(`${BASE}/keys/verifyKey`, { headers: authHeaders() });
+    const res = await fetch(`${BASE}/keys/verifyKey`, { headers: authHeaders(), signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -161,7 +161,7 @@ export async function verifyKey(): Promise<unknown | null> {
 export async function getRemainingCredits(): Promise<KasprRemainingCredits | null> {
   if (!KEY) return null;
   try {
-    const res = await fetch(`${BASE}/keys/remainingCredits`, { headers: authHeaders() });
+    const res = await fetch(`${BASE}/keys/remainingCredits`, { headers: authHeaders(), signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return null;
     return (await res.json()) as KasprRemainingCredits;
   } catch {
@@ -175,7 +175,7 @@ export async function getRemainingCredits(): Promise<KasprRemainingCredits | nul
 export async function getRateLimits(): Promise<unknown | null> {
   if (!KEY) return null;
   try {
-    const res = await fetch(`${BASE}/keys/rateLimits`, { headers: authHeaders() });
+    const res = await fetch(`${BASE}/keys/rateLimits`, { headers: authHeaders(), signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return null;
     return await res.json();
   } catch {

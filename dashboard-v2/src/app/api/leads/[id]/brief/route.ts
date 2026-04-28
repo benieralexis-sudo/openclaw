@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireApiSession, resolveClientScope } from "@/server/session";
 import { getAnthropic, BRIEF_MODEL } from "@/lib/anthropic";
+import { buildCachedSystem } from "@/lib/anthropic-prompt";
 
 export const maxDuration = 60; // Opus peut prendre 15-30s
 
@@ -265,8 +266,9 @@ export async function POST(
     const completion = await anthropic.messages.create({
       model: BRIEF_MODEL,
       max_tokens: 4096,
-      system:
+      system: buildCachedSystem(
         "Tu es un assistant commercial expert en B2B FR. Tu réponds STRICTEMENT en JSON valide selon le schéma demandé, sans aucun texte autour.",
+      ),
       messages: [{ role: "user", content: prompt }],
     });
     const textBlock = completion.content.find((b) => b.type === "text");

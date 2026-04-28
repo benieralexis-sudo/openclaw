@@ -108,7 +108,7 @@ async function pappersFetch<T>(path: string, params: Record<string, string | num
     if (v !== undefined && v !== null) qs.set(k, String(v));
   }
 
-  const res = await fetch(`${BASE_URL}${path}?${qs.toString()}`);
+  const res = await fetch(`${BASE_URL}${path}?${qs.toString()}`, { signal: AbortSignal.timeout(20_000) });
   const text = await res.text();
   let body: unknown = null;
   try {

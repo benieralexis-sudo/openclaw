@@ -6,6 +6,7 @@ import { pollApifyForClient } from "@/lib/apify-poller";
 import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
 import { detectCombosForClient } from "@/lib/combo-detector";
 import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
+import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -64,6 +65,14 @@ export async function POST(req: NextRequest) {
         // récupérer email pro + téléphone.
         const enrichDir = await enrichDirigeantsForClient(c.id, { limit: 30 });
         (entry as { dirigeants?: unknown }).dirigeants = enrichDir;
+        // Enrichissement contact via Dropcontact (email + LinkedIn + tel)
+        // pour les Leads avec dirigeant nommé mais sans email.
+        try {
+          const dc = await enrichLeadsViaDropcontact(c.id, { limit: 30 });
+          (entry as { dropcontact?: unknown }).dropcontact = dc;
+        } catch (e) {
+          (entry as { dropcontactError?: string }).dropcontactError = e instanceof Error ? e.message : String(e);
+        }
       }
     } catch (e) {
       entry.error = e instanceof Error ? e.message : String(e);

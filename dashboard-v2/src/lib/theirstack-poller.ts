@@ -266,10 +266,12 @@ export async function pollTheirstackForClient(
           await db.trigger.create({ data: jobToTriggerData(job, clientId) });
           result.jobsCreated += 1;
         } catch (e) {
-          result.errors.push({
-            kind: "trigger-create",
-            error: e instanceof Error ? e.message : String(e),
-          });
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg.includes("Trigger_clientId_sourceCode_sourceUrl_unique") || msg.includes("P2002") || msg.includes("Unique constraint failed")) {
+            result.jobsSkipped += 1;
+          } else {
+            result.errors.push({ kind: "trigger-create", error: msg });
+          }
         }
       }
     } catch (e) {
