@@ -12,6 +12,7 @@ import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
 import { auditAndHeal } from "@/lib/audit-heal";
 import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
+import { enrichLeadsViaRodz } from "@/lib/enrich-via-rodz";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -102,6 +103,19 @@ export async function POST(req: NextRequest) {
         // récupérer email pro + téléphone.
         const enrichDir = await enrichDirigeantsForClient(c.id, { limit: 30 });
         (entry as { dirigeants?: unknown }).dirigeants = enrichDir;
+        // Rodz enrichContact — RÉSOUT LE LINKEDIN BOTTLENECK
+        // Pour chaque Lead avec firstName+lastName+companyName mais sans
+        // LinkedIn, demande à Rodz de résoudre. Rodz a une couverture
+        // PME FR bien meilleure que HarvestAPI Profile Search car ils
+        // agrégent plusieurs bases (LinkedIn public + RCS + Crunchbase).
+        // Endpoint payé via abonnement Rodz mais jamais appelé jusqu'au
+        // 28/04/2026 (commit b6zjfpwy7). +25-30% LinkedIn coverage attendu.
+        try {
+          const rodz = await enrichLeadsViaRodz(c.id, { limit: 30 });
+          (entry as { rodzEnrich?: unknown }).rodzEnrich = rodz;
+        } catch (e) {
+          (entry as { rodzEnrichError?: string }).rodzEnrichError = e instanceof Error ? e.message : String(e);
+        }
         // Cross-source merge — propage LinkedIn/email/phone entre Leads
         // de la même boîte (même SIRET) issus de sources différentes.
         // Tourne AVANT Dropcontact pour que le LinkedIn cross-fertilisé

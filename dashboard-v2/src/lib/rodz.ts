@@ -184,27 +184,119 @@ export async function enrichSirene(siret: string): Promise<unknown> {
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Rodz enrichContact — LE endpoint qui débloque tout
+// ──────────────────────────────────────────────────────────────────────
+//
+// Donne firstName + lastName + companyName → retourne :
+//  - linkedInUrl + linkedInId
+//  - headline (ex "CTO @ Audion") = jobTitle riche
+//  - activeCompany (vrai employeur actuel, pas le RCS Pappers !)
+//  - location, country, region, city
+//  - skillsList, yearsOfExperience, extractedRole, extractedSeniority
+//  - formerCompaniesList, education
+//  - companyWebsite (utile pour Hunter pattern email)
+//  - extractedGender, isPremium, etc.
+//
+// C'est l'outil d'enrichissement le plus complet de notre stack — déjà
+// payé via abonnement Rodz, jamais branché jusqu'à fin avril 2026.
+//
+// Cas d'usage : Pappers donne le dirigeant légal (nom RCS) → enrichContact
+// résout son LinkedIn + employeur actuel + headline → débloque Kaspr
+// downstream et donne aussi l'email pro via le mostProbableEmail.
+
+export interface RodzEnrichedContact {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  name?: string;
+  linkedInUrl?: string;
+  linkedInId?: string;
+  headline?: string;
+  activeCompany?: string;
+  numberOfCurrentCompanies?: string;
+  location?: string;
+  country?: string;
+  region?: string;
+  county?: string;
+  city?: string;
+  timezone?: string;
+  personalWebsite?: string;
+  twitter?: string;
+  followers?: string;
+  isCreator?: boolean;
+  isJobSeeker?: boolean;
+  isOpenLink?: boolean;
+  isRetired?: boolean;
+  isPremium?: boolean;
+  isVerified?: boolean;
+  languages?: string;
+  skillsList?: string;
+  yearsOfExperience?: string;
+  extractedRole?: string;
+  extractedSeniority?: string;
+  linkedinSummary?: string;
+  companyWebsite?: string;
+  linkedinSalesLink?: string;
+  extractedGender?: string;
+  status?: string;
+  formerCompaniesList?: string;
+  education?: unknown;
+}
+
+export interface RodzEnrichContactResponse {
+  data?: {
+    person?: RodzEnrichedContact;
+  };
+}
+
 export async function enrichContact(params: {
   linkedinUrl?: string;
   email?: string;
   firstName?: string;
   lastName?: string;
   companyName?: string;
-}): Promise<unknown> {
+}): Promise<RodzEnrichContactResponse> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v) qs.set(k, v);
   }
-  return rodzFetch(`/api/v1/enrichment/contact?${qs.toString()}`);
+  return rodzFetch<RodzEnrichContactResponse>(
+    `/api/v1/enrichment/contact?${qs.toString()}`,
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Rodz findEmail — résolution email avec validation SMTP
+// ──────────────────────────────────────────────────────────────────────
+
+export interface RodzFindEmailResponse {
+  data?: {
+    email?: string | null;
+    emailDomain?: string;
+    status?: "Valid" | "NotFound" | "Invalid" | "Risky" | string;
+    patterns?: string[];
+    mxfound?: boolean | null;
+    smtpCheck?: boolean | null;
+    cachAll?: boolean | null;
+    mostProbableEmail?: string[];
+    flags?: string[];
+    explanation?: string;
+    smtpProvider?: string;
+    mxRecord?: string;
+  };
+  requestId?: string;
 }
 
 export async function findEmail(params: {
   firstName: string;
   lastName: string;
   domain: string;
-}): Promise<unknown> {
+}): Promise<RodzFindEmailResponse> {
   const qs = new URLSearchParams(params as Record<string, string>);
-  return rodzFetch(`/api/v1/enrichment/find-email?${qs.toString()}`);
+  return rodzFetch<RodzFindEmailResponse>(
+    `/api/v1/enrichment/find-email?${qs.toString()}`,
+  );
 }
 
 export async function enrichFirmographic(domain: string): Promise<unknown> {
