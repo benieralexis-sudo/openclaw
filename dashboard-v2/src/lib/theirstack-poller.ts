@@ -243,7 +243,13 @@ export async function pollTheirstackForClient(
           continue;
         }
         // Skip si nom de boîte avec suffixe légal étranger (GmbH, LLC, Ltd, Inc, Corp)
+        // ou marqueur spécifique non-FR (Payments US, Berkeley, etc.)
         if (/\b(GmbH|LLC|Ltd|Inc|Corp|Pty|S\.r\.l\.|S\.A\.R\.L\. España|UAB|s\.r\.o\.|AB)\b/i.test(job.company)) {
+          result.jobsSkipped += 1;
+          continue;
+        }
+        // Filtre étendu : noms d'entreprises connues hors-ICP FR
+        if (/\b(Berkeley\s+Payments|Stott\s+and\s+May|Apple|Google|Microsoft|Amazon|Meta\s+Platforms)\b/i.test(job.company)) {
           result.jobsSkipped += 1;
           continue;
         }

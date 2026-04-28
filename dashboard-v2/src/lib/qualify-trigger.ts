@@ -143,15 +143,14 @@ SIGNAL :
   }
 
   // Plancher de score pour sources fiables (signal d'achat fort garanti).
-  // Le NAF Pappers est souvent trompeur (holding, classement historique) →
-  // Opus rate parfois ces leads. On force min 7 pour Rodz fundraising/M&A
-  // et BODACC capital_increase. Le commercial filtrera si vraiment hors-ICP.
+  // Une levée de fonds = cash frais + recrutements imminents + pression scaling
+  // = signal d'achat majeur, mérite score 8. Job change CTO/Tech Lead idem.
   const TRUSTED_SOURCES_MIN_SCORE: Record<string, number> = {
-    "rodz.fundraising": 7,
-    "rodz.mergers-acquisitions": 7,
-    "rodz.job-changes": 7,
-    "bodacc.capital-increase": 7,
-    "trigger-engine.funding-recent": 7,
+    "rodz.fundraising": 8,                    // levée = jackpot
+    "rodz.mergers-acquisitions": 8,           // M&A = restructuring
+    "rodz.job-changes": 8,                    // C-level change = budget freed
+    "bodacc.capital-increase": 8,             // augmentation capital = pré-levée
+    "trigger-engine.funding-recent": 8,       // levée détectée RSS presse spé
   };
   const minFloor = TRUSTED_SOURCES_MIN_SCORE[trigger.sourceCode];
   if (minFloor && opusScore < minFloor) {

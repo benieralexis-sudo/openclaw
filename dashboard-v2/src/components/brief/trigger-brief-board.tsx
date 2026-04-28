@@ -211,8 +211,9 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
               variant="secondary"
               size="md"
               onClick={() => setEnrichOpen(true)}
+              disabled={!lead.linkedinUrl}
               className="gap-1.5"
-              title="Enrichir via Kaspr (email pro + tel + titre)"
+              title={lead.linkedinUrl ? "Enrichir via Kaspr (email pro + tel + titre depuis LinkedIn)" : "URL LinkedIn manquante — Kaspr nécessite une URL pour fonctionner"}
             >
               <Database className="h-3.5 w-3.5 text-cyan-600" />
               Enrichir Kaspr
