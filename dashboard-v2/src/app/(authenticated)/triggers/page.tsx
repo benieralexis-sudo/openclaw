@@ -32,6 +32,17 @@ interface Trigger {
   capturedAt: string;
   sourceCode?: string | null;          // visible si ADMIN/COMMERCIAL
   comboSources?: string[];             // sources distinctes si combo
+  lead?: {
+    id: string;
+    dataQuality: number | null;
+    emailConfidence: number | null;
+    email: string | null;
+    kasprPhone: string | null;
+    phone: string | null;
+    pitchJson: unknown;
+    callBriefJson: unknown;
+    linkedinDmJson: unknown;
+  } | null;
 }
 
 // Mapping sourceCode → badge label + couleur pour commerciaux
@@ -298,6 +309,36 @@ export default function TriggersPage() {
                 </span>
               );
             })}
+          </div>
+        );
+      },
+    },
+    {
+      id: "contact",
+      header: "Contact",
+      cell: ({ row }) => {
+        const lead = row.original.lead;
+        if (!lead) return <span className="text-[11px] text-ink-400">—</span>;
+        const dq = lead.dataQuality ?? 0;
+        const dqVariant = dq >= 80 ? "success" : dq >= 50 ? "warning" : "default";
+        const hasEmail = !!lead.email;
+        const hasPhone = !!(lead.kasprPhone || lead.phone);
+        const hasContent =
+          !!lead.pitchJson || !!lead.callBriefJson || !!lead.linkedinDmJson;
+        return (
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge variant={dqVariant} size="sm" className="font-mono tabular-nums" title="Data quality 0-100">
+              DQ {dq}
+            </Badge>
+            {hasEmail && (
+              <span className="text-emerald-600" title="Email disponible">✉</span>
+            )}
+            {hasPhone && (
+              <span className="text-blue-600" title="Téléphone disponible">☎</span>
+            )}
+            {hasContent && (
+              <span className="text-purple-600" title="Pitch/Brief/DM Opus prêts">⚡</span>
+            )}
           </div>
         );
       },

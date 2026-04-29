@@ -47,7 +47,14 @@ export async function GET(req: NextRequest) {
 
   const triggers = await db.trigger.findMany({
     where,
-    orderBy: [{ isHot: "desc" }, { score: "desc" }, { capturedAt: "desc" }],
+    // Ordre : isHot → score → dataQuality lead (29/04 : trie les pépites avec
+    // contact actionable en premier) → capturedAt.
+    orderBy: [
+      { isHot: "desc" },
+      { score: "desc" },
+      { lead: { dataQuality: "desc" } },
+      { capturedAt: "desc" },
+    ],
     take: 200,
     select: {
       id: true,
@@ -67,6 +74,19 @@ export async function GET(req: NextRequest) {
       status: true,
       capturedAt: true,
       sourceCode: showSource ? true : false,
+      lead: {
+        select: {
+          id: true,
+          dataQuality: true,
+          emailConfidence: true,
+          email: true,
+          kasprPhone: true,
+          phone: true,
+          pitchJson: true,
+          callBriefJson: true,
+          linkedinDmJson: true,
+        },
+      },
     },
   });
 
