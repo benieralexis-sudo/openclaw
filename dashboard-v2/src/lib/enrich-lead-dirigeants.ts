@@ -65,6 +65,38 @@ function splitFullName(fullName: string): { firstName: string; lastName: string;
   return { firstName, lastName, full: fullName };
 }
 
+/**
+ * Extrait les champs entreprise (financials / établissements / dépôts d'actes)
+ * d'un payload Pappers et les applique à TOUS les leads d'un trigger sans
+ * toucher au contact (firstName/lastName/jobTitle/linkedinUrl).
+ *
+ * Utilisé en mode "company-only" quand on ne veut pas écraser un hiring
+ * manager Apify avec le dirigeant Pappers RCS (audit qualité Q1, 29/04).
+ */
+async function applyCompanyOnlyFields(
+  trigger: { id: string },
+  data: Awaited<ReturnType<typeof getEntreprise>>,
+): Promise<void> {
+  const lastFinance = data.finances?.[0];
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const recentDepots = (data.depots_actes ?? [])
+    .filter((d) => d.date_depot && new Date(d.date_depot) > ninetyDaysAgo)
+    .map((d) => ({ date: d.date_depot, type: d.type, decisions: d.decisions }))
+    .slice(0, 5);
+  const fields: Record<string, unknown> = {};
+  if (lastFinance?.chiffre_affaires != null) fields.companyRevenue = lastFinance.chiffre_affaires;
+  if (lastFinance?.resultat != null) fields.companyResultNet = lastFinance.resultat;
+  const etabsCount = data.etablissements?.filter((e) => e.actif !== false).length ?? null;
+  if (etabsCount !== null) fields.companyEtabsCount = etabsCount;
+  if (recentDepots.length > 0) fields.companyRecentDepots = recentDepots;
+  if (data.procedure_collective_en_cours === true) fields.companyHasInsolvency = true;
+  if (Object.keys(fields).length === 0) return;
+  await db.lead.updateMany({
+    where: { triggerId: trigger.id, deletedAt: null },
+    data: fields,
+  });
+}
+
 export async function enrichDirigeantsForClient(
   clientId: string,
   options: { limit?: number } = {},
@@ -85,7 +117,7 @@ export async function enrichDirigeantsForClient(
         { pappersDirigeantsAttemptedAt: { lt: fourteenDaysAgo } },
       ],
     },
-    select: { id: true, companyName: true, companySiret: true },
+    select: { id: true, companyName: true, companySiret: true, sourceCode: true },
     take: limit * 2, // overshoot car certains auront déjà un Lead
   });
 
@@ -95,14 +127,55 @@ export async function enrichDirigeantsForClient(
     if (stats.enriched >= limit) break;
     if (!t.companySiret) continue;
 
-    // Skip si Lead existe déjà avec fullName (déjà enrichi)
+    // Charge le Lead existant pour décider si on enrichit le contact ou
+    // SEULEMENT les financials de l'entreprise (cas Q1 audit qualité 29/04).
     const existingLead = await db.lead.findFirst({
-      where: { triggerId: t.id, deletedAt: null, fullName: { not: null } },
-      select: { id: true },
+      where: { triggerId: t.id, deletedAt: null },
+      select: {
+        id: true,
+        fullName: true,
+        firstName: true,
+        lastName: true,
+        linkedinUrl: true,
+      },
     });
-    if (existingLead) {
+
+    // Q1 — Si Apify a posé un hiring manager (LinkedIn + nom), Pappers ne doit
+    // PAS écraser le contact (le hiring manager d'une offre QA est un meilleur
+    // contact que le CEO RCS sur une boîte 50p+). On va juste enrichir les
+    // financials Pappers et passer au suivant.
+    const isApifyPoster = (t.sourceCode ?? "").startsWith("apify.");
+    const hasGoodContact =
+      !!existingLead?.fullName && !!existingLead?.linkedinUrl;
+
+    if (isApifyPoster && hasGoodContact) {
+      // Mode "company-only" : on va chercher uniquement les financials.
+      try {
+        const siren = t.companySiret.replace(/\s+/g, "").slice(0, 9);
+        if (/^\d{9}$/.test(siren)) {
+          const data = await getEntreprise(siren, {
+            includeBilans: true,
+            includeProceduresCollectives: true,
+            includeDepotsActes: true,
+            includeEtablissements: true,
+          });
+          await applyCompanyOnlyFields(t, data);
+        }
+      } catch {
+        // best effort — pas critique si échec
+      }
       stats.skipped += 1;
-      // Marque le trigger pour que la query candidate skippe au prochain cron.
+      await db.trigger.update({
+        where: { id: t.id },
+        data: { pappersDirigeantsAttemptedAt: new Date() },
+      }).catch(() => {});
+      continue;
+    }
+
+    // Skip si Lead existe déjà avec fullName ET pas Apify (déjà enrichi par
+    // un précédent run Pappers — pas la peine de retoucher).
+    if (existingLead?.fullName) {
+      stats.skipped += 1;
       await db.trigger.update({
         where: { id: t.id },
         data: { pappersDirigeantsAttemptedAt: new Date() },
@@ -231,26 +304,35 @@ export async function enrichDirigeantsForClient(
       const holdingNote = best.holdingPath?.length
         ? ` (via ${best.holdingPath.join(" → ")})`
         : "";
-      // Flag taille : pour les boîtes 250+p, le dirigeant RCS est rarement la
-      // bonne cible. On surface ça dans le jobTitle pour que le commercial
-      // privilégie le hiring manager LinkedIn (Apify poster / TheirStack
-      // hiring_team / HarvestAPI employees) plutôt que d'envoyer au CEO.
       const bucket = bucketByEffectif(data.tranche_effectif);
-      const sizeWarning = bucket === "large" ? " ⚠️ 250+p — préférer hiring manager LinkedIn" : "";
+      const isLarge = bucket === "large";
+      const sizeWarning = isLarge ? " ⚠️ 250+p — préférer hiring manager LinkedIn" : "";
 
       // Extraction données Pappers étendues (si présentes)
       const lastFinance = data.finances?.[0];
       const companyRevenue = lastFinance?.chiffre_affaires ?? null;
       const companyResultNet = lastFinance?.resultat ?? null;
       const companyEtabsCount = data.etablissements?.filter((e) => e.actif !== false).length ?? null;
-      // Dépôts d'actes <90j = changements stratégiques récents
-      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const ninetyDaysAgo2 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
       const recentDepots = (data.depots_actes ?? [])
-        .filter((d) => d.date_depot && new Date(d.date_depot) > ninetyDaysAgo)
+        .filter((d) => d.date_depot && new Date(d.date_depot) > ninetyDaysAgo2)
         .map((d) => ({ date: d.date_depot, type: d.type, decisions: d.decisions }))
         .slice(0, 5);
 
-      // Upsert Lead lié à ce trigger
+      // Q2 — Pour les boîtes 250+p, le dirigeant RCS n'est presque jamais le
+      // bon contact. On stocke ses infos pour référence MAIS on flag le lead
+      // pour bloquer Dropcontact + Rodz (gaspillage de crédits sur le CEO
+      // d'un grand groupe). Le commercial trouvera le hiring manager via
+      // Apify poster / TheirStack hiring_team manuellement.
+      const blockOutreachOnLargeCo = isLarge
+        ? {
+            dropcontactAttemptedAt: new Date(),
+            rodzAttemptedAt: new Date(),
+            // kasprAttemptedAt non posé : Kaspr direct ne tournera de toute
+            // façon pas car pas de linkedinUrl résolu pour le CEO.
+          }
+        : {};
+
       const existingTriggerLead = await db.lead.findFirst({
         where: { triggerId: t.id, deletedAt: null },
         select: { id: true },
@@ -265,6 +347,7 @@ export async function enrichDirigeantsForClient(
         ...(companyResultNet !== null ? { companyResultNet } : {}),
         ...(companyEtabsCount !== null ? { companyEtabsCount } : {}),
         ...(recentDepots.length > 0 ? { companyRecentDepots: recentDepots } : {}),
+        ...blockOutreachOnLargeCo,
       };
       if (existingTriggerLead) {
         await db.lead.update({

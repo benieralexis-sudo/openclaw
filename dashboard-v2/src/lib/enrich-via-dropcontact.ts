@@ -40,17 +40,44 @@ type EnrichResult = {
 // par run mais on plafonne à 15 pour garder de la marge sur les pépites.
 const KASPR_CHAIN_MAX_PER_RUN = 15;
 
+// Blacklist domaines emails perso (Q6 audit qualité 29/04). Cold email B2B
+// envoyé à gmail/yahoo/hotmail/etc = blacklist sender immédiate par les
+// providers (= réputation Primeforge détruite). On préfère un lead sans email
+// à un lead avec email perso.
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com",
+  "yahoo.fr", "yahoo.com", "ymail.com",
+  "hotmail.fr", "hotmail.com", "outlook.com", "outlook.fr", "live.fr", "live.com",
+  "msn.com", "windowslive.com",
+  "orange.fr", "wanadoo.fr", "free.fr", "sfr.fr", "neuf.fr", "noos.fr",
+  "laposte.net", "club-internet.fr", "bbox.fr", "numericable.fr",
+  "icloud.com", "me.com", "mac.com",
+  "protonmail.com", "proton.me", "tutanota.com", "tuta.io",
+  "aol.com", "aol.fr", "gmx.fr", "gmx.com",
+  "zoho.com", "fastmail.com",
+]);
+
+function isPersonalEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase().trim();
+  if (!domain) return false;
+  return PERSONAL_EMAIL_DOMAINS.has(domain);
+}
+
 function pickFirstEmail(enriched: DropcontactEnriched): string | null {
   const emails = enriched.email;
   if (!emails || emails.length === 0) return null;
   // Mode strict : on ne garde QUE les emails confirmés "valid" / "ok" par
   // Dropcontact. Les autres qualifications (uncertain, risky, catch_all,
   // unknown) génèrent 5-10% de bounces qui détériorent la réputation
-  // Primeforge → mails partent en spam. On préfère ne pas avoir d'email
-  // plutôt qu'un email douteux ; le commercial peut tenter Kaspr work email
-  // ou une recherche manuelle si vraiment pépite.
-  const valid = emails.find((e) => e.qualification === "valid" || e.qualification === "ok");
-  return valid?.email || null;
+  // Primeforge → mails partent en spam.
+  // ET on rejette les domaines perso (gmail/yahoo/...) — cf. PERSONAL_EMAIL_DOMAINS.
+  for (const e of emails) {
+    if (e.qualification !== "valid" && e.qualification !== "ok") continue;
+    if (!e.email) continue;
+    if (isPersonalEmail(e.email)) continue; // skip perso → cold email pro non envoyable
+    return e.email;
+  }
+  return null;
 }
 
 export async function enrichLeadsViaDropcontact(
