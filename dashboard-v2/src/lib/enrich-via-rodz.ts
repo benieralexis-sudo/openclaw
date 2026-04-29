@@ -108,22 +108,30 @@ export async function enrichLeadsViaRodz(
     errorDetails: [],
   };
 
-  // Eligibilité : Lead avec nom + entreprise mais SANS LinkedIn URL,
-  // jamais tenté Rodz (ou tenté >14j → Rodz a peut-être ajouté le profil
-  // depuis). Sans ce filtre, les leads "no match" étaient re-tentés à
-  // chaque cron 6h → latence + 502 cumul + bruit log.
-  // On priorise les Leads les plus récents (createdAt DESC) pour traiter
-  // les derniers signaux d'achat en priorité.
+  // Eligibilité élargie 29/04 : Lead avec nom + entreprise, jamais tenté
+  // Rodz (ou tenté >14j), ET (sans LinkedIn URL OU sans email).
+  // Auparavant : uniquement leads sans LinkedIn → on ratait les leads avec
+  // LinkedIn mais sans email (Rodz findEmail aurait pu les enrichir gratos
+  // vs Dropcontact 79€/mo). Élargi à OR (sans LinkedIn, sans email) :
+  //   - sans LinkedIn → enrichContact() pour le résoudre
+  //   - sans email   → findEmail() pour résoudre l'email
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
   const candidates = await db.lead.findMany({
     where: {
       clientId,
       deletedAt: null,
-      OR: [{ linkedinUrl: null }, { linkedinUrl: "" }],
       firstName: { not: null },
       lastName: { not: null },
       companyName: { not: "" },
       AND: [
+        {
+          OR: [
+            { linkedinUrl: null },
+            { linkedinUrl: "" },
+            { email: null },
+            { email: "" },
+          ],
+        },
         {
           OR: [
             { rodzAttemptedAt: null },
@@ -138,6 +146,7 @@ export async function enrichLeadsViaRodz(
       lastName: true,
       companyName: true,
       jobTitle: true,
+      linkedinUrl: true,
       email: true,
     },
     take: limit,
@@ -162,35 +171,38 @@ export async function enrichLeadsViaRodz(
 
     // ─────────────────────────────────────────────
     // 1. enrichContact (firstName + lastName + companyName) → LinkedIn + headline
+    //    Skip si lead a déjà un LinkedIn URL (évite call inutile).
     // ─────────────────────────────────────────────
     let linkedinUrl: string | null = null;
     let headline: string | null = null;
     let companyWebsite: string | null = null;
 
-    try {
-      result.enrichContactCalled++;
-      const fn = lead.firstName!;
-      const ln = lead.lastName!;
-      const cn = lead.companyName!;
-      const rsp = await withRetry(
-        () => enrichContact({ firstName: fn, lastName: ln, companyName: cn }),
-        "enrichContact",
-      );
-      const person = rsp?.data?.person;
-      if (person?.linkedInUrl) {
-        // Normalize URL https://
-        const url = person.linkedInUrl.startsWith("http")
-          ? person.linkedInUrl
-          : `https://${person.linkedInUrl}`;
-        linkedinUrl = url;
+    if (!lead.linkedinUrl) {
+      try {
+        result.enrichContactCalled++;
+        const fn = lead.firstName!;
+        const ln = lead.lastName!;
+        const cn = lead.companyName!;
+        const rsp = await withRetry(
+          () => enrichContact({ firstName: fn, lastName: ln, companyName: cn }),
+          "enrichContact",
+        );
+        const person = rsp?.data?.person;
+        if (person?.linkedInUrl) {
+          // Normalize URL https://
+          const url = person.linkedInUrl.startsWith("http")
+            ? person.linkedInUrl
+            : `https://${person.linkedInUrl}`;
+          linkedinUrl = url;
+        }
+        if (person?.headline) headline = person.headline;
+        if (person?.companyWebsite) companyWebsite = person.companyWebsite;
+      } catch (e) {
+        // SERVICE_ERROR Rodz est récurrent — on log doucement, on continue
+        const msg = e instanceof RodzApiError ? `${e.code}: ${e.message}` : String(e);
+        result.errors++;
+        result.errorDetails.push({ leadId: lead.id, error: `enrichContact: ${msg}` });
       }
-      if (person?.headline) headline = person.headline;
-      if (person?.companyWebsite) companyWebsite = person.companyWebsite;
-    } catch (e) {
-      // SERVICE_ERROR Rodz est récurrent — on log doucement, on continue
-      const msg = e instanceof RodzApiError ? `${e.code}: ${e.message}` : String(e);
-      result.errors++;
-      result.errorDetails.push({ leadId: lead.id, error: `enrichContact: ${msg}` });
     }
 
     // ─────────────────────────────────────────────
