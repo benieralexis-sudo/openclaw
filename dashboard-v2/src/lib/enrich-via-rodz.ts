@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { enrichContact, findEmail, RodzApiError } from "@/lib/rodz";
+import { recomputeEmailConfidenceForLead } from "@/lib/recompute-email-confidence";
 
 /**
  * Enrichissement Rodz — DÉBLOQUE LE LINKEDIN COVERAGE
@@ -237,17 +238,19 @@ export async function enrichLeadsViaRodz(
       result.jobTitleUpdated++;
     }
     if (emailFound) {
-      // Rodz findEmail ne renvoie l'email que si status === "Valid"
-      // (filtre dans le code ci-dessus) → on stocke en VALID enum Prisma.
-      updates.email = emailFound;
-      updates.emailStatus = "VALID";
-      result.emailFound++;
+      // Q3 — stocke dans `emailRodz` (source-tagged). Le champ `email` final
+      // est calculé par recomputeEmailConfidenceForLead à partir des 3 sources.
+      updates.emailRodz = emailFound;
     }
     try {
       await db.lead.update({
         where: { id: lead.id },
         data: updates,
       });
+      if (emailFound) {
+        await recomputeEmailConfidenceForLead(lead.id);
+        result.emailFound++;
+      }
     } catch (e) {
       result.errors++;
       result.errorDetails.push({

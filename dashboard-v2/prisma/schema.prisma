@@ -284,6 +284,13 @@ model Lead {
   dropcontactAttemptedAt DateTime?
   // Rodz dedup — évite ré-essai des "no LinkedIn match" à chaque cron
   rodzAttemptedAt        DateTime?
+  // Multi-source emails (audit qualité Q3, 29/04). On stocke chaque source
+  // séparément + un `emailConfidence` calculé pour identifier les emails
+  // validés par 2+ sources concordantes (~95% deliverability).
+  emailRodz              String?
+  emailDropcontact       String?
+  emailConfidence        Int      @default(0)  // 0-100 (cf. recompute-email-confidence.ts)
+  emailSourceCount       Int      @default(0)  // 0-3 sources renseignées
   // Pappers — données financières + signaux pour scoring richesse
   companyRevenue        Int?     // CA dernier exercice (€)
   companyResultNet      Int?     // Résultat net dernier exercice (€)

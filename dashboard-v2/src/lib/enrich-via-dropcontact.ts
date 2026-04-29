@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { submitBatch, pollBatchResult, type DropcontactInput, type DropcontactEnriched } from "@/lib/dropcontact";
 import { enrichLinkedInProfile, isValidLinkedInUrl, pickPhone } from "@/lib/kaspr";
+import { recomputeEmailConfidenceForLead } from "@/lib/recompute-email-confidence";
 
 // ═══════════════════════════════════════════════════════════════════
 // Pipeline : enrichir les Leads sans email via Dropcontact
@@ -263,7 +264,9 @@ export async function enrichLeadsViaDropcontact(
       await db.lead.update({
         where: { id: lead.id },
         data: {
-          ...(email ? { email, emailStatus: "UNVERIFIED" } : {}),
+          // Q3 — email stocké dans emailDropcontact (source-tagged).
+          // Le champ `email` final est calculé par recomputeEmailConfidence.
+          ...(email ? { emailDropcontact: email } : {}),
           ...(linkedinUrl ? { linkedinUrl } : {}),
           ...(phone ? { phone } : {}),
           ...(kasprPhone || kasprWorkEmail
@@ -279,6 +282,9 @@ export async function enrichLeadsViaDropcontact(
           enrichedAt: new Date(),
         },
       });
+      if (email || kasprWorkEmail) {
+        await recomputeEmailConfidenceForLead(lead.id);
+      }
       if (email) result.enrichedWithEmail++;
       if (linkedinUrl) result.enrichedWithLinkedin++;
       if (phone) result.enrichedWithPhone++;

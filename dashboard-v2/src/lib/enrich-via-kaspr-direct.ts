@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { enrichLinkedInProfile, isValidLinkedInUrl, pickPhone, type KasprProfile } from "@/lib/kaspr";
+import { recomputeEmailConfidenceForLead } from "@/lib/recompute-email-confidence";
 
 /**
  * Kaspr enrichProfile DIRECT — rattrape les leads avec LinkedIn mais
@@ -237,6 +238,10 @@ export async function enrichLeadsViaKasprDirect(
       }
 
       await db.lead.update({ where: { id: lead.id }, data: updates });
+      // Q3 — recalcule email final + confidence si on a trouvé un workEmail.
+      if (kasprWorkEmail) {
+        await recomputeEmailConfidenceForLead(lead.id);
+      }
       result.enriched++;
     } catch (e) {
       result.errors++;
