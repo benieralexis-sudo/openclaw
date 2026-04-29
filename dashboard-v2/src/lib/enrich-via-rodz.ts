@@ -92,6 +92,26 @@ function extractDomainFromUrl(url: string | undefined): string | null {
   }
 }
 
+// Récupère le domaine officiel via Pappers en backup quand Rodz enrichContact
+// ne retourne pas companyWebsite. Pappers `entreprise.domaine` est la source
+// canonique pour les PME FR. Audit 29/04 : findEmail retournait NotFound car
+// guessDomainFromCompany("BNP Paribas") → "bnp.fr" (faux) — Pappers donne le
+// vrai domain "bnpparibas.fr".
+async function getDomainViaPappers(siret: string | null): Promise<string | null> {
+  if (!siret) return null;
+  try {
+    // Import dynamique pour éviter cycle deps + alléger l'import path
+    const { getEntreprise } = await import("@/lib/pappers");
+    const data = await getEntreprise(siret);
+    if (data.domaine) {
+      return extractDomainFromUrl(data.domaine);
+    }
+  } catch {
+    // best effort — on passe au fallback guess
+  }
+  return null;
+}
+
 export async function enrichLeadsViaRodz(
   clientId: string,
   opts: { limit?: number; dryRun?: boolean } = {},
@@ -145,6 +165,7 @@ export async function enrichLeadsViaRodz(
       firstName: true,
       lastName: true,
       companyName: true,
+      companySiret: true,
       jobTitle: true,
       linkedinUrl: true,
       email: true,
@@ -207,11 +228,25 @@ export async function enrichLeadsViaRodz(
 
     // ─────────────────────────────────────────────
     // 2. findEmail (si pas d'email + on a un domaine plausible)
+    //
+    // Cascade domain (audit 29/04, RODZ-2 fix) :
+    //   1. companyWebsite extrait par enrichContact Rodz (priorité haute)
+    //   2. Pappers `entreprise.domaine` via SIRET (canonique PME FR)
+    //   3. guessDomainFromCompany (fallback minimaliste, ex "audion" → audion.fr)
+    //
+    // Avant le fix : étape 3 seule était utilisée → 0/33 emails trouvés
+    // ("BNP Paribas" → "bnp.fr" faux, vrai = "bnpparibas.fr").
     // ─────────────────────────────────────────────
     let emailFound: string | null = null;
     if (!lead.email) {
-      const domain =
-        extractDomainFromUrl(companyWebsite ?? undefined) ?? guessDomainFromCompany(lead.companyName);
+      let domain: string | null =
+        extractDomainFromUrl(companyWebsite ?? undefined);
+      if (!domain) {
+        domain = await getDomainViaPappers(lead.companySiret ?? null);
+      }
+      if (!domain) {
+        domain = guessDomainFromCompany(lead.companyName);
+      }
       if (domain) {
         try {
           result.findEmailCalled++;
