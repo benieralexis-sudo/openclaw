@@ -73,19 +73,36 @@ export async function enrichLeadsViaKasprDirect(
     errorDetails: [],
   };
 
-  // TTL 7j : on retente après 7j si Kaspr a échoué (ex pas de mobile dispo
-  // au moment du 1er appel mais ajouté depuis dans la base Kaspr).
+  // Stratégie TTL différenciée :
+  //  - kasprEnrichedAt : posé UNIQUEMENT si on a trouvé phone OU workEmail
+  //    → re-tentative après 7j (Kaspr peut ajouter un mobile entre temps)
+  //  - kasprAttemptedAt : posé à CHAQUE tentative même si profile vide
+  //    → cooldown 30j si rien trouvé (rare que Kaspr trouve à J+8 ce qu'il
+  //    n'a pas trouvé à J0 sur un profil sans phone/email du tout)
+  // Eligibilité = pas tenté OU dernier essai >30j (et pas enrichi <7j)
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   const candidates = await db.lead.findMany({
     where: {
       clientId,
       deletedAt: null,
       linkedinUrl: { not: null },
-      // Pas encore tenté OU dernier essai >7j
-      OR: [
-        { kasprEnrichedAt: null },
-        { kasprEnrichedAt: { lt: sevenDaysAgo } },
+      // Pas tenté OU dernier essai >30j
+      AND: [
+        {
+          OR: [
+            { kasprAttemptedAt: null },
+            { kasprAttemptedAt: { lt: thirtyDaysAgo } },
+          ],
+        },
+        // ET (jamais enrichi OU enrichi >7j → on retente pour mobile)
+        {
+          OR: [
+            { kasprEnrichedAt: null },
+            { kasprEnrichedAt: { lt: sevenDaysAgo } },
+          ],
+        },
       ],
     },
     select: {
@@ -160,6 +177,11 @@ export async function enrichLeadsViaKasprDirect(
       const profile = kr.profile;
       if (!profile) {
         result.skipped++;
+        // Marque tenté pour empêcher re-tentative <30j
+        await db.lead.update({
+          where: { id: lead.id },
+          data: { kasprAttemptedAt: new Date() },
+        }).catch(() => {});
         continue;
       }
 
@@ -189,21 +211,29 @@ export async function enrichLeadsViaKasprDirect(
           : profile.workEmail?.email ?? null) ??
         pickFirstEmail(profileAny.emails);
 
+      // kasprAttemptedAt toujours posé (cooldown 30j même sans match).
+      // kasprEnrichedAt posé UNIQUEMENT si on a phone ou workEmail (cooldown 7j).
       const updates: Record<string, unknown> = {
-        kasprEnrichedAt: new Date(),
+        kasprAttemptedAt: new Date(),
       };
+      let foundSomething = false;
       if (kPhone && !lead.kasprPhone) {
         updates.kasprPhone = kPhone;
         if (isFrenchMobile(kPhone)) result.mobileFound++;
+        foundSomething = true;
       }
       if (kasprWorkEmail && !lead.kasprWorkEmail) {
         updates.kasprWorkEmail = kasprWorkEmail;
         result.workEmailFound++;
+        foundSomething = true;
       }
       if (profile.title) {
         // Mémorise le titre Kaspr aussi (séparé de jobTitle Pappers)
         const t = typeof profile.title === "string" ? profile.title : null;
         if (t) updates.kasprTitle = t;
+      }
+      if (foundSomething) {
+        updates.kasprEnrichedAt = new Date();
       }
 
       await db.lead.update({ where: { id: lead.id }, data: updates });

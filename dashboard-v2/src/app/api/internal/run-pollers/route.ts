@@ -14,7 +14,8 @@ import { auditAndHeal } from "@/lib/audit-heal";
 import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
 import { enrichLeadsViaRodz } from "@/lib/enrich-via-rodz";
 import { enrichLeadsViaKasprDirect } from "@/lib/enrich-via-kaspr-direct";
-import { enrichLeadsViaEmailPattern } from "@/lib/enrich-via-email-pattern";
+// Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
+// Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -154,20 +155,9 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           (entry as { kasprDirectError?: string }).kasprDirectError = e instanceof Error ? e.message : String(e);
         }
-        // Email pattern DIY — DÉSACTIVÉ DANS LE PIPELINE AUTO 28/04 soir.
-        // Décision Alexis : on n'envoie pas d'emails UNVERIFIED, ce n'est pas
-        // pro et le risque de bounce >30% détruirait la réputation Primeforge.
-        // L'endpoint /api/internal/enrich-email-pattern reste dispo mais on
-        // n'auto-génère plus dans le cron. À réactiver UNIQUEMENT après l'achat
-        // de MillionVerifier (20€/mo) qui validera chaque email avant envoi.
-        // Pour l'instant : seul Kaspr (11 work emails VÉRIFIÉS) + Dropcontact
-        // strict valid-only alimentent les leads.
-        // try {
-        //   const emailPattern = await enrichLeadsViaEmailPattern(c.id, { limit: 30, probe: false });
-        //   (entry as { emailPattern?: unknown }).emailPattern = emailPattern;
-        // } catch (e) {
-        //   (entry as { emailPatternError?: string }).emailPatternError = e instanceof Error ? e.message : String(e);
-        // }
+        // Email pattern DIY — DÉSACTIVÉ COMPLÈTEMENT 29/04 (audit waterfall).
+        // Endpoint /api/internal/enrich-email-pattern retourne 410 Gone.
+        // Réactivation post-MillionVerifier (cf README).
         // 3e passe cross-source pour propager les emails/mobiles Kaspr
         // direct aux Leads sœurs de la même boîte.
         try {

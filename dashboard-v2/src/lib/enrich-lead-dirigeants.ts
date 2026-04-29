@@ -72,11 +72,18 @@ export async function enrichDirigeantsForClient(
   const limit = options.limit ?? 30;
 
   // Triggers avec SIRET qui n'ont PAS de Lead avec un contact (fullName) renseigné.
+  // Filtre dedup : ne re-tente pas Pappers <14j (récursion holdings 3 niveaux
+  // = coûteuse en latence même si forfait Pappers illimité couvre le coût €).
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
   const triggers = await db.trigger.findMany({
     where: {
       clientId,
       companySiret: { not: null },
       deletedAt: null,
+      OR: [
+        { pappersDirigeantsAttemptedAt: null },
+        { pappersDirigeantsAttemptedAt: { lt: fourteenDaysAgo } },
+      ],
     },
     select: { id: true, companyName: true, companySiret: true },
     take: limit * 2, // overshoot car certains auront déjà un Lead
@@ -95,6 +102,11 @@ export async function enrichDirigeantsForClient(
     });
     if (existingLead) {
       stats.skipped += 1;
+      // Marque le trigger pour que la query candidate skippe au prochain cron.
+      await db.trigger.update({
+        where: { id: t.id },
+        data: { pappersDirigeantsAttemptedAt: new Date() },
+      }).catch(() => {});
       continue;
     }
 
@@ -105,6 +117,10 @@ export async function enrichDirigeantsForClient(
       const siren = t.companySiret.replace(/\s+/g, "").slice(0, 9);
       if (!/^\d{9}$/.test(siren)) {
         stats.skipped += 1;
+        await db.trigger.update({
+          where: { id: t.id },
+          data: { pappersDirigeantsAttemptedAt: new Date() },
+        }).catch(() => {});
         continue;
       }
 
@@ -139,6 +155,10 @@ export async function enrichDirigeantsForClient(
       const reps = data.representants ?? [];
       if (reps.length === 0) {
         stats.skipped += 1;
+        await db.trigger.update({
+          where: { id: t.id },
+          data: { pappersDirigeantsAttemptedAt: new Date() },
+        }).catch(() => {});
         continue;
       }
 
@@ -199,6 +219,10 @@ export async function enrichDirigeantsForClient(
 
       if (!best || !best.nom_complet) {
         stats.skipped += 1;
+        await db.trigger.update({
+          where: { id: t.id },
+          data: { pappersDirigeantsAttemptedAt: new Date() },
+        }).catch(() => {});
         continue;
       }
 
@@ -260,10 +284,21 @@ export async function enrichDirigeantsForClient(
           },
         });
       }
+      // Marque le trigger comme tenté → pas de re-fetch Pappers <14j.
+      await db.trigger.update({
+        where: { id: t.id },
+        data: { pappersDirigeantsAttemptedAt: new Date() },
+      }).catch(() => {});
       stats.enriched += 1;
     } catch (e) {
       stats.errors += 1;
       console.warn(`[enrich-dirigeants] err ${t.companyName}:`, e instanceof Error ? e.message : e);
+      // Marque tenté même en cas d'erreur (sinon retry à chaque cron 6h).
+      // 14j de cooldown laisse le temps à Pappers de récupérer si bug transient.
+      await db.trigger.update({
+        where: { id: t.id },
+        data: { pappersDirigeantsAttemptedAt: new Date() },
+      }).catch(() => {});
     }
   }
 

@@ -107,9 +107,13 @@ export async function enrichLeadsViaRodz(
     errorDetails: [],
   };
 
-  // Eligibilité : Lead avec nom + entreprise mais SANS LinkedIn URL.
+  // Eligibilité : Lead avec nom + entreprise mais SANS LinkedIn URL,
+  // jamais tenté Rodz (ou tenté >14j → Rodz a peut-être ajouté le profil
+  // depuis). Sans ce filtre, les leads "no match" étaient re-tentés à
+  // chaque cron 6h → latence + 502 cumul + bruit log.
   // On priorise les Leads les plus récents (createdAt DESC) pour traiter
   // les derniers signaux d'achat en priorité.
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
   const candidates = await db.lead.findMany({
     where: {
       clientId,
@@ -118,6 +122,14 @@ export async function enrichLeadsViaRodz(
       firstName: { not: null },
       lastName: { not: null },
       companyName: { not: "" },
+      AND: [
+        {
+          OR: [
+            { rodzAttemptedAt: null },
+            { rodzAttemptedAt: { lt: fourteenDaysAgo } },
+          ],
+        },
+      ],
     },
     select: {
       id: true,
@@ -210,7 +222,11 @@ export async function enrichLeadsViaRodz(
     // ─────────────────────────────────────────────
     // 3. Update Lead avec ce qu'on a trouvé
     // ─────────────────────────────────────────────
-    const updates: Record<string, unknown> = {};
+    // On pose TOUJOURS rodzAttemptedAt (même sans match) pour empêcher la
+    // re-tentative au prochain cron 6h. TTL 14j (cf. query plus haut).
+    const updates: Record<string, unknown> = {
+      rodzAttemptedAt: new Date(),
+    };
     if (linkedinUrl) {
       updates.linkedinUrl = linkedinUrl;
       result.linkedinFound++;
@@ -227,19 +243,17 @@ export async function enrichLeadsViaRodz(
       updates.emailStatus = "VALID";
       result.emailFound++;
     }
-    if (Object.keys(updates).length > 0) {
-      try {
-        await db.lead.update({
-          where: { id: lead.id },
-          data: updates,
-        });
-      } catch (e) {
-        result.errors++;
-        result.errorDetails.push({
-          leadId: lead.id,
-          error: `db.update: ${e instanceof Error ? e.message : String(e)}`,
-        });
-      }
+    try {
+      await db.lead.update({
+        where: { id: lead.id },
+        data: updates,
+      });
+    } catch (e) {
+      result.errors++;
+      result.errorDetails.push({
+        leadId: lead.id,
+        error: `db.update: ${e instanceof Error ? e.message : String(e)}`,
+      });
     }
   }
 

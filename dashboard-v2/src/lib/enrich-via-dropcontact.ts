@@ -70,7 +70,11 @@ export async function enrichLeadsViaDropcontact(
     creditsLeft: -1,
   };
 
-  // Eligibilité : Lead avec nom + entreprise mais sans email, jamais tenté Dropcontact
+  // Eligibilité : Lead avec nom + entreprise mais sans email + jamais tenté
+  // Dropcontact (ou tenté >14j → on retente au cas où la base Dropcontact ait
+  // ajouté l'email entre temps). Sans ce flag, les ~25% de leads sans match
+  // étaient re-soumis à chaque cron 6h = ~840 crédits/mois gaspillés.
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
   const candidates = await db.lead.findMany({
     where: {
       clientId,
@@ -79,6 +83,14 @@ export async function enrichLeadsViaDropcontact(
       firstName: { not: null },
       lastName: { not: null },
       companyName: { not: "" },
+      AND: [
+        {
+          OR: [
+            { dropcontactAttemptedAt: null },
+            { dropcontactAttemptedAt: { lt: fourteenDaysAgo } },
+          ],
+        },
+      ],
     },
     select: {
       id: true,
@@ -119,10 +131,24 @@ export async function enrichLeadsViaDropcontact(
   }
 
   // Mapping par index : Dropcontact garantit l'ordre input == output
+  const attemptedAt = new Date();
   for (let i = 0; i < candidates.length; i++) {
     const lead = candidates[i];
     const en = enrichedRows[i];
-    if (!lead || !en) continue;
+    if (!lead) continue;
+    // Pose le flag `dropcontactAttemptedAt` même pour les leads sans match :
+    // c'est ce qui empêche la re-soumission au prochain cron.
+    if (!en) {
+      try {
+        await db.lead.update({
+          where: { id: lead.id },
+          data: { dropcontactAttemptedAt: attemptedAt },
+        });
+      } catch {
+        // best effort — un échec ici n'empêche pas le batch
+      }
+      continue;
+    }
     const email = pickFirstEmail(en);
     const linkedinUrl = en.linkedin || null;
     let phone: string | null = en.mobile_phone || en.phone || null;
@@ -132,7 +158,18 @@ export async function enrichLeadsViaDropcontact(
     const jobMoveDetected = en.job_changed === true || !!en.previous_company;
     if (jobMoveDetected) result.jobMovesDetected++;
 
-    if (!email && !linkedinUrl && !phone && !jobMoveDetected) continue;
+    // Cas "no result" : on marque tenté pour empêcher re-soumission, puis next.
+    if (!email && !linkedinUrl && !phone && !jobMoveDetected) {
+      try {
+        await db.lead.update({
+          where: { id: lead.id },
+          data: { dropcontactAttemptedAt: attemptedAt },
+        });
+      } catch {
+        // best effort
+      }
+      continue;
+    }
 
     // Chaining Dropcontact → Kaspr : si on a un LinkedIn URL valide ET pas
     // de MOBILE direct (06/07 français), on déclenche Kaspr pour le mobile.
@@ -207,8 +244,10 @@ export async function enrichLeadsViaDropcontact(
                 ...(kasprPhone ? { kasprPhone } : {}),
                 ...(kasprWorkEmail ? { kasprWorkEmail } : {}),
                 kasprEnrichedAt: new Date(),
+                kasprAttemptedAt: new Date(),
               }
             : {}),
+          dropcontactAttemptedAt: attemptedAt,
           status: "ENRICHED",
           enrichedAt: new Date(),
         },

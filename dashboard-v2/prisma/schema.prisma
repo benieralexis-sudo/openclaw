@@ -199,6 +199,8 @@ model Trigger {
   status        TriggerStatus @default(NEW)
   ignoredAt     DateTime?
   ignoredReason String?
+  // Enrichment dedup (évite re-fetch Pappers à chaque cron 6h)
+  pappersDirigeantsAttemptedAt DateTime?
   // Soft delete
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -271,12 +273,17 @@ model Lead {
   briefGeneratedAt DateTime?
   // Kaspr enrichment (LinkedIn → email pro + tel + titre, cache 7j)
   kasprEnrichedAt     DateTime?
+  kasprAttemptedAt    DateTime?  // Pose même si rien trouvé (évite retentatives <30j)
   kasprWorkEmail      String?
   kasprPersonalEmail  String?
   kasprPhone          String?
   kasprTitle          String?
   kasprCreditsUsed    Int?      @default(0)
   kasprResponseJson   Json?
+  // Dropcontact dedup — évite ré-essai des "no email found" à chaque cron
+  dropcontactAttemptedAt DateTime?
+  // Rodz dedup — évite ré-essai des "no LinkedIn match" à chaque cron
+  rodzAttemptedAt        DateTime?
   // Pappers — données financières + signaux pour scoring richesse
   companyRevenue        Int?     // CA dernier exercice (€)
   companyResultNet      Int?     // Résultat net dernier exercice (€)
