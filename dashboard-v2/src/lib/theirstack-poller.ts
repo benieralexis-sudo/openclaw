@@ -13,7 +13,7 @@ import "server-only";
 
 import { Prisma, TriggerStatus, TriggerType, LeadStatus, EmailStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { searchJobs, searchCompanies, type JobResult, type JobSearchFilters, type CompanyResult } from "@/lib/theirstack";
+import { searchJobs, type JobResult, type JobSearchFilters, type CompanyResult } from "@/lib/theirstack";
 import { attributeSirene } from "@/lib/pappers";
 
 // ──────────────────────────────────────────────────────────────────────
@@ -332,56 +332,17 @@ export async function pollTheirstackForClient(
   }
 
   // ────────────────────────────────────────────────────────────────────
-  // 2) Companies : match ICP firmographic + buying intent (RÉACTIVÉ 28/04)
+  // 2) Companies / buying-intent : DÉSACTIVÉ 29/04 (audit ROI).
   //
-  // Désactivé puis ré-activé avec filtres SERRÉS :
-  //   - tech_stack (Python/JS/React/Node/K8s) ET
-  //   - buying_intent_or (DevOps/SaaS/QA/testing/security) → signal d'achat
-  // Plafond 10 companies/run pour budget 5K crédits/mois.
+  // Sur 18 triggers buying-intent générés, 0 pépite ≥8 produite.
+  // Le signal "tech stack + industry" est trop large : remonte des grosses
+  // ESN/SaaS hors ICP DigitestLab ou des doublons des jobs déjà captés.
+  // On garde uniquement theirstack.job-offer qui produit les vraies pépites.
+  //
+  // Réactivation possible si on récupère un vrai endpoint buying_intent_slug
+  // côté API TheirStack avec signaux comportementaux (visites site, demos
+  // demandées, etc) — pas dispo dans le plan actuel.
   // ────────────────────────────────────────────────────────────────────
-  if (icp.industries && Array.isArray(icp.industries) && icp.industries.length > 0) {
-    try {
-      const companiesFound = await searchCompanies({
-        company_country_code_or: ["FR"],
-        min_employee_count: 11,
-        max_employee_count: 200,
-        company_technology_slug_or: ["python", "javascript", "react", "nodejs", "kubernetes", "typescript"],
-        // Note : buying_intent_slug_or pas supporté par l'API actuelle.
-        // On utilise industry_or pour cibler IT/SaaS/Software.
-        industry_or: ["Information Technology", "Computer Software", "Internet"],
-        limit: Math.min(options.companiesLimit ?? 10, 10),
-      });
-      result.companiesFound = companiesFound.data?.length ?? 0;
-      // Crée Triggers à partir des companies (signal "buying intent" + tech stack matché)
-      for (const c of companiesFound.data ?? []) {
-        if (!c.country_code || c.country_code !== "FR") continue;
-        if (/\b(GmbH|LLC|Ltd|Inc|Corp|Pty)\b/i.test(c.name)) continue;
-        if (await isAlreadyCaptured(clientId, c.name, "theirstack.buying-intent")) {
-          result.jobsSkipped += 1;
-          continue;
-        }
-        if (options.dryRun) continue;
-        try {
-          // Utilise companyToTriggerData existant (avec triggerKind = "buying-intent")
-          const triggerData = companyToTriggerData(c, clientId, "buying-intent");
-          // Override type pour BUYING_INTENT spécifique
-          triggerData.type = TriggerType.BUYING_INTENT;
-          await db.trigger.create({ data: triggerData });
-          result.jobsCreated += 1;
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (!msg.includes("Unique constraint failed") && !msg.includes("P2002")) {
-            result.errors.push({ kind: "company-create", error: msg });
-          }
-        }
-      }
-    } catch (e) {
-      result.errors.push({
-        kind: "searchCompanies",
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }
 
   return result;
 }

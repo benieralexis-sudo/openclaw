@@ -384,18 +384,30 @@ interface IndeedJobItem {
   jobType?: string[];
 }
 
+// Normalise sourceUrl Indeed pour dedup : keep uniquement le job key (jk=...)
+// L'URL applystart contient des params tracking (mobvjtk, astse, assa, ...)
+// qui changent à chaque scrape → 7× la même offre Sanofi en DB. Fix 29/04.
+function normalizeIndeedUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  const m = url.match(/[?&]jk=([a-f0-9]+)/i);
+  if (m) return `https://fr.indeed.com/viewjob?jk=${m[1]}`;
+  return url;
+}
+
 function adaptIndeedItem(item: IndeedJobItem): NormalizedJob | null {
   const title = item.positionName;
   const company = item.companyName ?? item.company;
   if (!title || !company) return null;
+  const rawUrl = item.externalApplyLink ?? item.url;
+  const normalized = normalizeIndeedUrl(rawUrl);
   return {
     jobTitle: title,
     companyName: company,
-    url: item.externalApplyLink ?? item.url,
+    url: normalized ?? rawUrl,
     location: item.location,
     postedAt: item.postingDateParsed,
     description: item.description?.slice(0, 600),
-    sourceUrl: item.externalApplyLink ?? item.url,
+    sourceUrl: normalized ?? rawUrl,
   };
 }
 
