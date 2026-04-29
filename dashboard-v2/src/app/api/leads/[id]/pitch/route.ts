@@ -53,11 +53,15 @@ function buildPrompt(args: {
     name: string;
     industry: string | null;
     icp: Record<string, unknown> | null;
+    calcomSlug: string | null;
   };
 }): string {
   const { trigger, lead, client } = args;
   const icp = client.icp ?? {};
-  return `Tu es l'assistant commercial d'iFIND. Tu produis un EMAIL DE COLD OUTREACH ultra-personnalisé pour transformer ce signal d'achat en RDV.
+  const calcomLine = client.calcomSlug
+    ? `\n# CTA OBLIGATOIRE\n- Inclure dans le body : "📅 Réserver 15 min : https://cal.com/${client.calcomSlug}"\n`
+    : "";
+  return `Tu es l'assistant commercial d'iFIND. Tu produis un EMAIL DE COLD OUTREACH ultra-personnalisé pour transformer ce signal d'achat en RDV.${calcomLine}
 
 # CONTEXTE CLIENT iFIND (qui paie)
 - Société : ${client.name}
@@ -171,7 +175,7 @@ export async function POST(
           companyName: true,
         },
       },
-      client: { select: { id: true, name: true, industry: true, icp: true } },
+      client: { select: { id: true, name: true, industry: true, icp: true, calcomSlug: true } },
     },
   });
   if (!lead) return NextResponse.json({ error: "Lead introuvable" }, { status: 404 });
@@ -212,6 +216,7 @@ export async function POST(
         lead.client.icp && typeof lead.client.icp === "object"
           ? (lead.client.icp as Record<string, unknown>)
           : null,
+      calcomSlug: lead.client.calcomSlug,
     },
   });
 

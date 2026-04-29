@@ -39,10 +39,17 @@ interface ClientCtx {
   name: string;
   industry: string | null;
   icp: Record<string, unknown> | null;
+  calcomSlug: string | null;
+}
+
+function calcomLine(c: ClientCtx, where: string): string {
+  return c.calcomSlug
+    ? `\n# CTA OBLIGATOIRE\n- ${where} : "https://cal.com/${c.calcomSlug}"\n`
+    : "";
 }
 
 function buildPitchPrompt(t: TriggerCtx, l: LeadCtx, c: ClientCtx): string {
-  return `Tu es l'assistant commercial d'iFIND. Tu produis un EMAIL DE COLD OUTREACH ultra-personnalisé pour transformer ce signal d'achat en RDV.
+  return `Tu es l'assistant commercial d'iFIND. Tu produis un EMAIL DE COLD OUTREACH ultra-personnalisé pour transformer ce signal d'achat en RDV.${calcomLine(c, 'Inclure dans le body : "📅 Réserver 15 min')}
 
 # CONTEXTE CLIENT iFIND (qui paie)
 - Société : ${c.name}
@@ -82,7 +89,7 @@ function buildPitchPrompt(t: TriggerCtx, l: LeadCtx, c: ClientCtx): string {
 }
 
 function buildDmPrompt(t: TriggerCtx, l: LeadCtx, c: ClientCtx): string {
-  return `Tu es l'assistant commercial d'iFIND. Tu produis des MESSAGES LINKEDIN ultra-personnalisés pour ce signal d'achat. Le commercial humain enverra à la main (LinkedIn = pas d'auto chez iFIND).
+  return `Tu es l'assistant commercial d'iFIND. Tu produis des MESSAGES LINKEDIN ultra-personnalisés pour ce signal d'achat. Le commercial humain enverra à la main (LinkedIn = pas d'auto chez iFIND).${calcomLine(c, "Mentionner dans la connection note OU l'inmail")}
 
 # CONTEXTE CLIENT iFIND
 - Société : ${c.name}
@@ -119,7 +126,7 @@ function buildDmPrompt(t: TriggerCtx, l: LeadCtx, c: ClientCtx): string {
 }
 
 function buildBriefPrompt(t: TriggerCtx, l: LeadCtx, c: ClientCtx): string {
-  return `Tu es l'assistant commercial d'iFIND. Tu produis un BRIEF DE CALL ultra-opérationnel pour aider un commercial humain à mener un appel découverte sur ce signal d'achat.
+  return `Tu es l'assistant commercial d'iFIND. Tu produis un BRIEF DE CALL ultra-opérationnel pour aider un commercial humain à mener un appel découverte sur ce signal d'achat.${calcomLine(c, 'Inclure dans le close exact')}
 
 # CONTEXTE CLIENT iFIND
 - Société : ${c.name}
@@ -232,7 +239,7 @@ async function main() {
           companyName: true,
         },
       },
-      client: { select: { name: true, industry: true, icp: true } },
+      client: { select: { name: true, industry: true, icp: true, calcomSlug: true } },
     },
     orderBy: [{ trigger: { score: "desc" } }, { createdAt: "desc" }],
   });
@@ -270,6 +277,7 @@ async function main() {
         lead.client.icp && typeof lead.client.icp === "object"
           ? (lead.client.icp as Record<string, unknown>)
           : null,
+      calcomSlug: lead.client.calcomSlug,
     };
 
     const tag = `[${t.score}${t.isHot ? "🔥" : ""}${t.isCombo ? "✨" : ""}] ${t.companyName}`;

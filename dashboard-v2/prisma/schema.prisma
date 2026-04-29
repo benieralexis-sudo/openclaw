@@ -130,6 +130,9 @@ model Client {
   // Contact
   contactEmail String?
   contactPhone String?
+  // Cal.com booking link slug (ex "alex/digitestlab-15min")
+  // Injecté dans body pitch Opus pour permettre booking 1-clic.
+  calcomSlug   String?
   // ICP config (JSON flexible)
   icp          Json?
   // Metadata
