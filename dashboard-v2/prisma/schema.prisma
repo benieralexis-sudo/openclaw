@@ -287,6 +287,29 @@ model Lead {
   dropcontactAttemptedAt DateTime?
   // Rodz dedup — évite ré-essai des "no LinkedIn match" à chaque cron
   rodzAttemptedAt        DateTime?
+  // HarvestAPI search-by-company dedup (audit 29/04, Levier 4 anti-pollution).
+  // Quand le signal n'apporte pas la personne (Apify Indeed, tech-hiring,
+  // TheirStack sans hiring_team), on cherche le décideur tech via
+  // harvestapi/linkedin-profile-search filtré par company + titre. Pose
+  // même si rien trouvé pour éviter retentatives <30j.
+  harvestapiAttemptedAt  DateTime?
+  // FullEnrich waterfall (audit 29/04 soir, fallback Kaspr).
+  // Pour les leads où Kaspr ne trouve pas email/phone (CTO startups, profils
+  // moins indexés Kaspr DB), on tape FullEnrich qui cascade sur 20+ providers
+  // (Hunter, Apollo, Anymail Finder, Findymail, Datagma, Lusha, Kaspr...).
+  // Crédits déduits seulement si succès (1 cr/email, 10 cr/phone). Pose
+  // même si rien trouvé pour éviter retentatives <30j.
+  fullenrichAttemptedAt  DateTime?
+  emailFullenrich        String?
+  phoneFullenrich        String?
+  // Tier du décideur trouvé : 1=parfait (CTO/Head of QA pour signal qa-hire),
+  // 2=bon (Founder/DSI/Eng Manager), 3=acceptable (CEO/Director), 4=fallback.
+  // Sert au filtre dashboard "ne montrer que tier ≤ 2".
+  personaTier            Int?
+  // Source d'attribution de la persona pour debug/analytics :
+  //   "rodz-payload" | "theirstack-hiring-team" | "apify-poster"
+  //   | "harvestapi-search" | "pappers-rcs" | "pappers-holding-fallback"
+  personaSource          String?
   // Multi-source emails (audit qualité Q3, 29/04). On stocke chaque source
   // séparément + un `emailConfidence` calculé pour identifier les emails
   // validés par 2+ sources concordantes (~95% deliverability).

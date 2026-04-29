@@ -39,14 +39,17 @@ export function computeEmailConfidence(
   emailRodz: string | null | undefined,
   emailDropcontact: string | null | undefined,
   kasprWorkEmail: string | null | undefined,
+  emailFullenrich?: string | null | undefined,
 ): EmailConfidenceResult {
   const sources: Array<{ source: string; raw: string; norm: string }> = [];
   const r = normalize(emailRodz);
   const d = normalize(emailDropcontact);
   const k = normalize(kasprWorkEmail);
+  const f = normalize(emailFullenrich);
   if (r) sources.push({ source: "rodz", raw: emailRodz!, norm: r });
   if (d) sources.push({ source: "dropcontact", raw: emailDropcontact!, norm: d });
   if (k) sources.push({ source: "kaspr", raw: kasprWorkEmail!, norm: k });
+  if (f) sources.push({ source: "fullenrich", raw: emailFullenrich!, norm: f });
 
   const sourceCount = sources.length;
   if (sourceCount === 0) {
@@ -81,15 +84,24 @@ export function computeEmailConfidence(
   else if (sourceCount === 3 && distinct === 1) confidence = 95;
   else if (sourceCount === 3 && distinct === 2) confidence = 70;
   else if (sourceCount === 3 && distinct === 3) confidence = 30;
+  else if (sourceCount === 4 && distinct === 1) confidence = 98;
+  else if (sourceCount === 4 && distinct === 2) confidence = 80;
+  else if (sourceCount === 4 && distinct >= 3) confidence = 50;
 
-  // Si conflit 50/50 (2 distincts) on prend Rodz > Dropcontact > Kaspr.
+  // Si conflit (multiple distincts) on prend l'ordre de priorité :
+  // Rodz > Dropcontact > Kaspr > FullEnrich (Rodz est le plus vérifié,
+  // FullEnrich est un waterfall donc moins déterministe).
   // Sinon la majorité gagne (déjà calculée plus haut).
   let email: string | null = bestRaw;
-  if (sourceCount === 2 && distinct === 2) {
-    if (r && emailRodz) email = emailRodz;
-    else if (d && emailDropcontact) email = emailDropcontact;
-    else if (k && kasprWorkEmail) email = kasprWorkEmail;
-    else email = null;
+  if (sourceCount >= 2 && distinct >= 2) {
+    // En cas de conflit où on n'a pas de majorité claire, on applique l'ordre
+    if (bestCount === 1 || (bestCount * 2 <= sourceCount)) {
+      if (r && emailRodz) email = emailRodz;
+      else if (d && emailDropcontact) email = emailDropcontact;
+      else if (k && kasprWorkEmail) email = kasprWorkEmail;
+      else if (f && emailFullenrich) email = emailFullenrich;
+      else email = null;
+    }
   }
 
   return {
@@ -110,6 +122,7 @@ export async function recomputeEmailConfidenceForLead(leadId: string): Promise<v
       emailRodz: true,
       emailDropcontact: true,
       kasprWorkEmail: true,
+      emailFullenrich: true,
       email: true,
       emailStatus: true,
       bouncedFromEmail: true,
@@ -129,6 +142,7 @@ export async function recomputeEmailConfidenceForLead(leadId: string): Promise<v
     filterBounced(lead.emailRodz),
     filterBounced(lead.emailDropcontact),
     filterBounced(lead.kasprWorkEmail),
+    filterBounced(lead.emailFullenrich),
   );
 
   // Préserve l'email actuel si user l'a saisi manuellement et qu'aucune source

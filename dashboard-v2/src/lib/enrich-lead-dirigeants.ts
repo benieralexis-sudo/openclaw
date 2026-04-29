@@ -259,27 +259,39 @@ export async function enrichDirigeantsForClient(
         if (!best || m.weight > best.weight) best = { ...r, weight: m.weight };
       }
 
-      // FALLBACK : si aucune personne physique au niveau 1, on remonte les
-      // holdings parentes (max 3 niveaux) pour trouver le vrai dirigeant.
-      // Très efficace sur les PME FR détenues par holding patrimoniale.
+      // FALLBACK HOLDINGS — DÉSACTIVÉ PAR DÉFAUT 29/04 (Levier P1 anti-pollution)
+      // Audit 29/04 : la récursion 3 niveaux remontait au CEO de la holding
+      // mère (DAVIDSON NG, NJJ STRATEGY, EVA-RH...) qui n'est PAS le décideur
+      // opérationnel pour un signal "QA Engineer hire". Résultat : 24% des
+      // leads pollués "(via HOLDING)" avec un décideur faux.
+      //
+      // Maintenant : si aucune personne physique au niveau 1, on N'ÉCRASE
+      // PAS et on flag `personaSource='pappers-no-human'` pour que HarvestAPI
+      // search-by-company (étage 3 amont) ait sa chance, ou que le commercial
+      // identifie manuellement via Sales Nav.
+      //
+      // Réactivable via env PAPPERS_HOLDING_RECURSION=true (kill switch).
       if (!best || !best.nom_complet) {
-        try {
-          const recursive = await findHumanDirigeantRecursive(siren, {
-            isPersonneMorale: (n: string) => isPersonneMorale(n),
-            isWrongPersona: (q: string) => isWrongPersona(q),
-            matchPersonaPriority: (q: string) => matchPersonaPriority(q),
-            maxDepth: 3,
-          });
-          if (recursive) {
-            best = {
-              nom_complet: recursive.nom_complet,
-              qualite: recursive.qualite,
-              weight: recursive.weight,
-              holdingPath: recursive.holdingPath,
-            };
+        const enableRecursion = process.env.PAPPERS_HOLDING_RECURSION === "true";
+        if (enableRecursion) {
+          try {
+            const recursive = await findHumanDirigeantRecursive(siren, {
+              isPersonneMorale: (n: string) => isPersonneMorale(n),
+              isWrongPersona: (q: string) => isWrongPersona(q),
+              matchPersonaPriority: (q: string) => matchPersonaPriority(q),
+              maxDepth: 3,
+            });
+            if (recursive) {
+              best = {
+                nom_complet: recursive.nom_complet,
+                qualite: recursive.qualite,
+                weight: recursive.weight,
+                holdingPath: recursive.holdingPath,
+              };
+            }
+          } catch {
+            // skip silencieux
           }
-        } catch {
-          // skip silencieux
         }
       }
 
@@ -331,11 +343,23 @@ export async function enrichDirigeantsForClient(
         select: { id: true },
       });
       const jobTitleWithPath = personaLabel + holdingNote + sizeWarning;
+      // personaSource pour traçabilité : pappers-holding-fallback si récursion
+      // a été utilisée, sinon pappers-rcs niveau 1.
+      // personaTier : 1 si CTO/Head Tech, 2 si CEO/Founder, 3 si autre.
+      const isHoldingPath = (best.holdingPath?.length ?? 0) > 0;
+      const tierFromQualite = (() => {
+        const q = (best.qualite ?? "").toLowerCase();
+        if (/cto|chief tech|directeur technique|responsable technique/.test(q)) return 1;
+        if (/founder|fondateur|ceo|directeur général|président|gérant/.test(q)) return 2;
+        return 3;
+      })();
       const enrichedFields = {
         firstName,
         lastName,
         fullName: full,
         jobTitle: jobTitleWithPath,
+        personaTier: isHoldingPath ? Math.min(4, tierFromQualite + 2) : tierFromQualite,
+        personaSource: isHoldingPath ? "pappers-holding-fallback" : "pappers-rcs",
         ...(companyRevenue !== null ? { companyRevenue } : {}),
         ...(companyResultNet !== null ? { companyResultNet } : {}),
         ...(companyEtabsCount !== null ? { companyEtabsCount } : {}),

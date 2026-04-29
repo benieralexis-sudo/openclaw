@@ -6,6 +6,8 @@ import { pollApifyForClient } from "@/lib/apify-poller";
 import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
 import { detectCombosForClient } from "@/lib/combo-detector";
 import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
+import { enrichDecisionMakersForClient } from "@/lib/harvestapi-decision-makers";
+import { enrichLeadsViaFullEnrich } from "@/lib/enrich-via-fullenrich";
 import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
 import { detectDeclarativePainForClient } from "@/lib/declarative-pain";
 import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
@@ -101,10 +103,30 @@ export async function POST(req: NextRequest) {
         // Combo detector : flag isCombo=true sur les boîtes avec 2+ sources
         const combo = await detectCombosForClient(c.id);
         (entry as { combos?: unknown }).combos = combo;
-        // Enrichissement dirigeants Pappers : récupère CTO/CEO/Founder pour
-        // chaque Trigger ICP qualifié et crée le Lead avec fullName + jobTitle.
-        // Le commercial déclenchera ensuite Kaspr depuis la fiche pour
-        // récupérer email pro + téléphone.
+        // ────────────────────────────────────────────────────────────
+        // ÉTAGE 3 — Trouver le bon décideur via HarvestAPI search-by-company
+        // (Levier 4 anti-pollution, audit 29/04). Priorité sur Pappers récursion
+        // holdings qui produit 24% de pollution "(via XXX HOLDING)" sur les
+        // signaux Apify QA-engineer. HarvestAPI cherche par nom d'entreprise +
+        // filtre titre tech (CTO/Head of QA/Eng Manager). Coût ~$0.16/lookup.
+        // Validé empiriquement sur 12 boîtes : 58% résolution avec décideur
+        // tech valable, 100% sur les top profils (CTO/Co-founder).
+        // S'applique aux Leads sans firstName/lastName (= signal n'a pas livré
+        // la persona). Skip si Rodz/Apify-poster/TheirStack-hiring_team déjà
+        // posé via ensureLeadsForAllTriggers.
+        // ────────────────────────────────────────────────────────────
+        try {
+          const dms = await enrichDecisionMakersForClient(c.id, { limit: 15 });
+          (entry as { harvestapiDM?: unknown }).harvestapiDM = dms;
+        } catch (e) {
+          (entry as { harvestapiDMError?: string }).harvestapiDMError =
+            e instanceof Error ? e.message : String(e);
+        }
+        // Enrichissement dirigeants Pappers : fallback ultime si HarvestAPI
+        // n'a rien trouvé. Récupère CTO/CEO/Founder pour chaque Trigger ICP
+        // qualifié et crée le Lead avec fullName + jobTitle. La récursion
+        // holdings est désactivée par défaut (cf. enrich-lead-dirigeants.ts)
+        // pour éviter la pollution "(via HOLDING)".
         const enrichDir = await enrichDirigeantsForClient(c.id, { limit: 30 });
         (entry as { dirigeants?: unknown }).dirigeants = enrichDir;
         // Rodz enrichContact — RÉSOUT LE LINKEDIN BOTTLENECK
@@ -155,6 +177,26 @@ export async function POST(req: NextRequest) {
           (entry as { kasprDirect?: unknown }).kasprDirect = kasprDirect;
         } catch (e) {
           (entry as { kasprDirectError?: string }).kasprDirectError = e instanceof Error ? e.message : String(e);
+        }
+        // ────────────────────────────────────────────────────────────
+        // ÉTAGE 4-bis — FullEnrich fallback (audit 29/04 soir, après mesure
+        // Kaspr 45% sur les nouveaux décideurs HarvestAPI).
+        //
+        // Pour les Leads avec persona identifiée mais sans email après tous
+        // les autres providers, on tape FullEnrich qui cascade sur 20+
+        // providers (Hunter, Apollo, Anymail Finder, Findymail, Datagma...).
+        // Crédits déduits seulement si succès. Plafond 5 leads/run par défaut.
+        //
+        // Activation : si FULLENRICH_API_KEY est configuré.
+        // ────────────────────────────────────────────────────────────
+        if (process.env.FULLENRICH_API_KEY) {
+          try {
+            const fe = await enrichLeadsViaFullEnrich(c.id, { limit: 5 });
+            (entry as { fullEnrich?: unknown }).fullEnrich = fe;
+          } catch (e) {
+            (entry as { fullEnrichError?: string }).fullEnrichError =
+              e instanceof Error ? e.message : String(e);
+          }
         }
         // Email pattern DIY — DÉSACTIVÉ COMPLÈTEMENT 29/04 (audit waterfall).
         // Endpoint /api/internal/enrich-email-pattern retourne 410 Gone.
