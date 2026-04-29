@@ -565,10 +565,12 @@ export async function pollApifyForClient(
 
   // 2. LinkedIn Jobs (curious_coder/linkedin-jobs-scraper)
   // Schéma corrigé 28/04 : urls (array LinkedIn search URLs) + count >= 10
-  // f_TPR=r604800 = "posted last week" (jobs frais 7j)
+  // - f_TPR=r604800 = posted last week (jobs frais 7j)
+  // - f_F=B,C = company size filter (B=11-50, C=51-200) — cible ICP DTL Tech 11-200p
+  //   (29/04 : limite naturellement les Sanofi/Capgemini/Atos qui sont taille E+)
   if (useLinkedin) {
     const kw = keywords[0] ?? "QA Engineer";
-    const linkedinUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}&location=France&f_TPR=r604800`;
+    const linkedinUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}&location=France&f_TPR=r604800&f_F=B%2CC`;
     const r = await runActorAndPushTriggers({
       actor: APIFY_ACTORS.linkedinJobs,
       input: {
@@ -608,13 +610,17 @@ export async function pollApifyForClient(
   }
 
   // 4. Indeed FR — misceres/indeed-scraper
+  // Location ciblée Île-de-France (90% des PME tech FR) au lieu de "France"
+  // entier — réduit le bruit (Sanofi/Avril/E.Leclerc rural moins exposés)
+  // tout en gardant Paris + couronne. Multi-villes (Lyon/Bdx/Mrs) fait via
+  // runs dédiés si volume nécessaire — pas la priorité ICP DTL.
   if (useIndeed) {
     const r = await runActorAndPushTriggers({
       actor: APIFY_ACTORS.indeedJobs,
       input: {
         position: keywords[0] ?? "QA Engineer",
         country: "FR",
-        location: "France",
+        location: "Île-de-France",
         maxItems: 30,
         parseCompanyDetails: false,
       },
