@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   Card,
@@ -44,6 +45,16 @@ interface DashboardData {
     score: number;
     isCombo: boolean;
     capturedAt: string;
+    lead?: {
+      id: string;
+      email: string | null;
+      kasprPhone: string | null;
+      phone: string | null;
+      pitchJson: unknown;
+      callBriefJson: unknown;
+      linkedinDmJson: unknown;
+      status: string;
+    } | null;
   }>;
 }
 
@@ -159,37 +170,62 @@ export default function DashboardPage() {
               </ul>
             ) : data?.recentTriggers.length ? (
               <ul className="divide-y divide-ink-100">
-                {data.recentTriggers.map((t) => (
-                  <li
-                    key={t.id}
-                    className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 group cursor-pointer transition-colors hover:bg-ink-50/50 -mx-2 px-2 rounded"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600">
-                      <Zap className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <p className="text-[13.5px] font-medium text-ink-900 truncate">{t.title}</p>
-                        <span className="font-mono text-[11px] text-ink-400 shrink-0">
-                          {formatRelativeFr(t.capturedAt)}
+                {data.recentTriggers.map((t) => {
+                  const hasContent = !!(t.lead?.pitchJson || t.lead?.callBriefJson || t.lead?.linkedinDmJson);
+                  const hasContact = !!(t.lead?.email || t.lead?.kasprPhone || t.lead?.phone);
+                  const statusLabel = !t.lead
+                    ? { text: "À enrichir", color: "bg-ink-100 text-ink-600" }
+                    : !hasContact
+                    ? { text: "Sans contact", color: "bg-amber-100 text-amber-700" }
+                    : !hasContent
+                    ? { text: "À briefer", color: "bg-blue-100 text-blue-700" }
+                    : t.lead.status === "CONTACTED"
+                    ? { text: "Contacté", color: "bg-purple-100 text-purple-700" }
+                    : { text: "Prêt à envoyer", color: "bg-emerald-100 text-emerald-700" };
+                  return (
+                    <li key={t.id} className="first:pt-0 last:pb-0">
+                      <Link
+                        href={`/triggers/${t.id}` as never}
+                        className="flex items-center gap-3 py-3 group transition-colors hover:bg-ink-50/50 -mx-2 px-2 rounded"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600">
+                          <Zap className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline gap-2">
+                            <p className="text-[13.5px] font-medium text-ink-900 truncate">{t.title}</p>
+                            <span className="font-mono text-[11px] text-ink-400 shrink-0">
+                              {formatRelativeFr(t.capturedAt)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-ink-500 truncate">
+                            {t.companyName}
+                            {t.industry && ` · ${t.industry}`}
+                            {t.region && ` · ${t.region}`}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-medium",
+                            statusLabel.color,
+                          )}
+                          title="Statut commercial"
+                        >
+                          {statusLabel.text}
                         </span>
-                      </div>
-                      <p className="text-xs text-ink-500 truncate">
-                        {t.companyName}
-                        {t.industry && ` · ${t.industry}`}
-                        {t.region && ` · ${t.region}`}
-                      </p>
-                    </div>
-                    <Badge variant="score" size="md" className="shrink-0">
-                      {t.score}/10
-                    </Badge>
-                    {t.isCombo && (
-                      <Badge variant="brand" size="sm" className="hidden md:inline-flex shrink-0">
-                        Combo
-                      </Badge>
-                    )}
-                  </li>
-                ))}
+                        <Badge variant="score" size="md" className="shrink-0">
+                          {t.score}/10
+                        </Badge>
+                        {t.isCombo && (
+                          <Badge variant="brand" size="sm" className="hidden md:inline-flex shrink-0">
+                            Combo
+                          </Badge>
+                        )}
+                        <ArrowUpRight className="h-3.5 w-3.5 text-ink-400 group-hover:text-brand-600 shrink-0 transition-colors" />
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="py-6 text-center text-sm text-ink-500">

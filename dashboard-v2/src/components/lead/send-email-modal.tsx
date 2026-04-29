@@ -25,6 +25,8 @@ interface MailboxPublic {
   id: string;
   user: string;
   label: string;
+  sentToday?: number;
+  dailyCap?: number;
 }
 
 interface PitchPayload {
@@ -127,6 +129,26 @@ export function SendEmailModal({ open, onOpenChange, lead }: SendEmailModalProps
   });
 
   const mailboxes = mailboxData?.mailboxes ?? [];
+
+  // Historique des emails déjà envoyés à ce lead — anti-doublon (UX-3 fix)
+  const { data: history } = useQuery<{
+    activity: Array<{
+      id: string;
+      direction: "SENT" | "RECEIVED";
+      subject: string | null;
+      sentAt: string;
+      template: string | null;
+    }>;
+  }>({
+    queryKey: ["lead-email-history", lead.id],
+    queryFn: async () => {
+      const r = await fetch(`/api/leads/${lead.id}/email-activity?limit=10`);
+      if (!r.ok) return { activity: [] };
+      return r.json();
+    },
+    enabled: open,
+  });
+  const previousSends = (history?.activity ?? []).filter((a) => a.direction === "SENT");
 
   // Hydrater depuis draft localStorage
   React.useEffect(() => {
@@ -286,21 +308,75 @@ export function SendEmailModal({ open, onOpenChange, lead }: SendEmailModalProps
           </DialogDescription>
         </DialogHeader>
 
+        {/* Historique anti-doublon (UX-3 fix) */}
+        {previousSends.length > 0 && (
+          <div className="mb-3 rounded-md border border-amber-200 bg-amber-50/50 p-3">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-800">
+              <span>⚠️</span>
+              {previousSends.length} email{previousSends.length > 1 ? "s" : ""} déjà envoyé{previousSends.length > 1 ? "s" : ""} à ce lead
+            </div>
+            <ul className="mt-1.5 space-y-0.5 text-[12px] text-amber-900">
+              {previousSends.slice(0, 3).map((a) => (
+                <li key={a.id} className="truncate">
+                  · <span className="font-mono text-[11px]">{new Date(a.sentAt).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}</span>
+                  {" — "}
+                  <span className="italic">{a.subject ?? "(sans sujet)"}</span>
+                  {a.template && a.template !== "manual" && (
+                    <span className="ml-1 rounded bg-amber-100 px-1 text-[10px]">{a.template}</span>
+                  )}
+                </li>
+              ))}
+              {previousSends.length > 3 && (
+                <li className="text-amber-700">+ {previousSends.length - 3} autre{previousSends.length - 3 > 1 ? "s" : ""}</li>
+              )}
+            </ul>
+          </div>
+        )}
+
         <div className="grid gap-4">
-          {/* Mailbox */}
+          {/* Mailbox + quota journalier visible AVANT envoi (UX-2 fix) */}
           <div className="grid gap-1.5">
-            <Label>Mailbox d'envoi</Label>
+            <div className="flex items-center justify-between">
+              <Label>Mailbox d'envoi</Label>
+              {(() => {
+                const selected = mailboxes.find((mb) => mb.id === fromMailboxId);
+                if (!selected || selected.dailyCap == null) return null;
+                const sent = selected.sentToday ?? 0;
+                const cap = selected.dailyCap;
+                const ratio = sent / cap;
+                const color =
+                  ratio >= 1
+                    ? "bg-red-100 text-red-700 border-red-200"
+                    : ratio >= 0.8
+                    ? "bg-amber-100 text-amber-700 border-amber-200"
+                    : "bg-emerald-100 text-emerald-700 border-emerald-200";
+                return (
+                  <span
+                    className={`rounded border px-1.5 py-0.5 text-[10.5px] font-mono tabular-nums ${color}`}
+                    title={`Quota journalier — ${sent} envois sur ${cap} dans les 24 dernières heures`}
+                  >
+                    {sent}/{cap} aujourd&apos;hui
+                  </span>
+                );
+              })()}
+            </div>
             <select
               value={fromMailboxId}
               onChange={(e) => setFromMailboxId(e.target.value)}
               className="flex h-10 w-full rounded-md border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 hover:border-ink-300 focus-visible:outline-none focus-visible:border-brand-500 focus-visible:ring-4 focus-visible:ring-brand-500/10"
             >
               {mailboxes.length === 0 && <option value="">Aucune mailbox configurée</option>}
-              {mailboxes.map((mb) => (
-                <option key={mb.id} value={mb.id}>
-                  {mb.label} — {mb.user}
-                </option>
-              ))}
+              {mailboxes.map((mb) => {
+                const sent = mb.sentToday ?? 0;
+                const cap = mb.dailyCap ?? 30;
+                const remainingTag = cap > 0 ? ` (${sent}/${cap})` : "";
+                return (
+                  <option key={mb.id} value={mb.id} disabled={sent >= cap}>
+                    {mb.label} — {mb.user}{remainingTag}
+                    {sent >= cap ? " — quota atteint" : ""}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

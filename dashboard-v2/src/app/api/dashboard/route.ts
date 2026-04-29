@@ -63,6 +63,18 @@ export async function GET(req: NextRequest) {
         score: true,
         isCombo: true,
         capturedAt: true,
+        lead: {
+          select: {
+            id: true,
+            email: true,
+            kasprPhone: true,
+            phone: true,
+            pitchJson: true,
+            callBriefJson: true,
+            linkedinDmJson: true,
+            status: true,
+          },
+        },
       },
     }),
     // Échantillon pour calculer le délai signal → vous (capturedAt → publishedAt)

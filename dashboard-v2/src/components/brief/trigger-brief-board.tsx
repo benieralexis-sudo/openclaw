@@ -436,6 +436,19 @@ function TriggerHeader({
           })()}
         </div>
 
+        {/* Pourquoi ce score Opus ? — UX-4 fix : commercial comprend la qualif */}
+        {trigger.scoreReason && (
+          <div className="rounded-md border border-amber-200 bg-amber-50/30 p-3">
+            <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-amber-700">
+              <span>🎯</span>
+              Pourquoi {trigger.score}/10 ? — IA Opus 4.7
+            </div>
+            <div className="mt-1 text-[12.5px] leading-relaxed text-ink-700">
+              {trigger.scoreReason}
+            </div>
+          </div>
+        )}
+
         {/* Contact + Opportunité */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {lead && (
