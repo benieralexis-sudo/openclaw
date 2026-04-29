@@ -14,16 +14,7 @@ import { splitFullName } from "@/lib/split-full-name";
 
 const BATCH_LIMIT = 50;
 
-// Détecte un mobile FR (06/07) au format national ou international.
-// Exclut 01-05 (fixe géo), 08 (surtaxé), 09 (VoIP/standard entreprise).
-function isFrenchMobile(phone: string): boolean {
-  const digits = phone.replace(/[^\d]/g, "");
-  // Format 0606060606 / 0707070707
-  if (/^0[67]\d{8}$/.test(digits)) return true;
-  // Format 33606060606 / 33707070707
-  if (/^33[67]\d{8}$/.test(digits)) return true;
-  return false;
-}
+import { isFrenchMobile, isFrenchPhone } from "@/lib/phone-fr";
 
 type EnrichResult = {
   picked: number;
@@ -199,6 +190,9 @@ export async function enrichLeadsViaDropcontact(
     const email = pickFirstEmail(en);
     const linkedinUrl = en.linkedin || null;
     let phone: string | null = en.mobile_phone || en.phone || null;
+    // Filtre FR (audit 29/04) : Dropcontact remonte parfois des phones de
+    // sociétés étrangères (UK/US/RO/...). Inutile pour cold call B2B FR.
+    if (phone && !isFrenchPhone(phone)) phone = null;
 
     // Détection job_move (signal d'achat MAJEUR) : si Dropcontact remonte un
     // changement de poste <6 mois sur le dirigeant, on log + booste le score.
@@ -242,12 +236,13 @@ export async function enrichLeadsViaDropcontact(
         });
         if (kr.ok && kr.profile) {
           const kPhone = pickPhone(kr.profile.phones ?? kr.profile.phone ?? null);
-          if (kPhone) {
+          if (kPhone && isFrenchPhone(kPhone)) {
             // On stocke le mobile Kaspr SÉPARÉMENT (kasprPhone) pour conserver
             // le standard entreprise (phone) — le commercial peut vouloir les
             // deux : standard pour passer par l'accueil, mobile pour direct.
+            // Filtre FR (audit 29/04) — reject phones internationaux.
             kasprPhone = kPhone;
-            result.kasprMobileFound++;
+            if (isFrenchMobile(kPhone)) result.kasprMobileFound++;
           }
           // Fix 28/04 : Kaspr API v2.0 renvoie workEmails (array) et non
           // workEmail (singleton). On lit les 2 formats pour ne plus rater.

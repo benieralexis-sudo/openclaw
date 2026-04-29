@@ -32,12 +32,7 @@ import { recomputeEmailConfidenceForLead } from "@/lib/recompute-email-confidenc
 const KASPR_DIRECT_MAX_PER_RUN = 15;
 const THROTTLE_MS = 1500; // Kaspr accepte 60/min = 1/sec, on prend une marge
 
-const FR_MOBILE_RE = /^(\+?33\s?[67]|0[67])/;
-
-function isFrenchMobile(phone: string | null | undefined): boolean {
-  if (!phone) return false;
-  return FR_MOBILE_RE.test(phone.replace(/\s+/g, ""));
-}
+import { isFrenchMobile, isFrenchPhone } from "@/lib/phone-fr";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -218,7 +213,10 @@ export async function enrichLeadsViaKasprDirect(
         kasprAttemptedAt: new Date(),
       };
       let foundSomething = false;
-      if (kPhone && !lead.kasprPhone) {
+      // Filtre FR (audit 29/04) : reject phones internationaux non-actionables
+      // pour cold call B2B FR (UK/US/RO/MX/...). Décompte mobileFound seulement
+      // sur mobile FR.
+      if (kPhone && !lead.kasprPhone && isFrenchPhone(kPhone)) {
         updates.kasprPhone = kPhone;
         if (isFrenchMobile(kPhone)) result.mobileFound++;
         foundSomething = true;
