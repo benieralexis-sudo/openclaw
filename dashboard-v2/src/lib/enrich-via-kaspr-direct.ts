@@ -29,7 +29,7 @@ import { recomputeEmailConfidenceForLead } from "@/lib/recompute-email-confidenc
  * rate limit Kaspr (60/min, 500/h, 500/jour selon doc).
  */
 
-const KASPR_DIRECT_MAX_PER_RUN = 15;
+const KASPR_DIRECT_MAX_PER_RUN = 30;
 const THROTTLE_MS = 1500; // Kaspr accepte 60/min = 1/sec, on prend une marge
 
 import { isFrenchMobile, isFrenchPhone } from "@/lib/phone-fr";
@@ -112,7 +112,11 @@ export async function enrichLeadsViaKasprDirect(
       kasprWorkEmail: true,
     },
     take: limit,
-    orderBy: { createdAt: "desc" },
+    // Priorité : jamais tentés (kasprAttemptedAt null) en premier, puis par
+    // récence. Postgres trie NULLS FIRST sur DESC par défaut → on profite
+    // de ça pour mettre les jamais-tentés en tête sans avoir besoin du
+    // syntax `{ sort, nulls }` qui plante sur le shadow Prisma.
+    orderBy: [{ kasprAttemptedAt: "desc" }, { createdAt: "desc" }],
   });
 
   result.scanned = candidates.length;

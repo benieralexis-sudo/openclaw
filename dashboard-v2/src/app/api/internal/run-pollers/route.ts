@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
         // ne trouve pas d'email, le chaining Kaspr de enrichLeadsViaDropcontact
         // est skip → on perd mobile + work email. Ce module rattrape (15/run).
         try {
-          const kasprDirect = await enrichLeadsViaKasprDirect(c.id, { limit: 15 });
+          const kasprDirect = await enrichLeadsViaKasprDirect(c.id, { limit: 30 });
           (entry as { kasprDirect?: unknown }).kasprDirect = kasprDirect;
         } catch (e) {
           (entry as { kasprDirectError?: string }).kasprDirectError = e instanceof Error ? e.message : String(e);
