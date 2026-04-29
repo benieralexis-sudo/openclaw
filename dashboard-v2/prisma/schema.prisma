@@ -291,6 +291,15 @@ model Lead {
   emailDropcontact       String?
   emailConfidence        Int      @default(0)  // 0-100 (cf. recompute-email-confidence.ts)
   emailSourceCount       Int      @default(0)  // 0-3 sources renseignées
+  // Bounce tracking (Q8 audit qualité, 29/04). Si Resend remonte un bounce,
+  // on stocke l'email rejeté pour que le waterfall ne re-essaie pas la même
+  // adresse au prochain cron + on reset les flags pour relancer Rodz/Dropcontact.
+  bouncedAt              DateTime?
+  bouncedFromEmail       String?
+  // Score qualité données (Q7 audit qualité, 29/04). 0-100 calculé à partir
+  // des sources, concordance email, présence mobile FR, signal hot. Permet
+  // au commercial de prioriser les pépites dans le dashboard.
+  dataQuality            Int      @default(0)
   // Pappers — données financières + signaux pour scoring richesse
   companyRevenue        Int?     // CA dernier exercice (€)
   companyResultNet      Int?     // Résultat net dernier exercice (€)

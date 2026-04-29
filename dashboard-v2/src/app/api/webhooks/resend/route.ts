@@ -125,6 +125,31 @@ export async function POST(req: NextRequest) {
         },
       });
     }
+
+    // Q8 — Sur bounce : on memorise l'email rejeté + on reset les flags pour
+    // que le prochain cron run-pollers re-tente Rodz/Dropcontact avec une
+    // chance de retrouver une autre adresse. Le waterfall doit exclure
+    // bouncedFromEmail des candidats Dropcontact (cf. enrich-via-dropcontact).
+    if (mappedType === "BOUNCED") {
+      await db.lead.update({
+        where: { id: lead.id },
+        data: {
+          emailStatus: "BOUNCED",
+          bouncedAt: new Date(),
+          bouncedFromEmail: recipient,
+          // Reset flags pour relancer le waterfall sur le prochain cron
+          email: null,
+          emailDropcontact: null,
+          emailRodz: null,
+          dropcontactAttemptedAt: null,
+          rodzAttemptedAt: null,
+          // kasprAttemptedAt préservé : Kaspr work email viens d'être réfuté,
+          // pas la peine de re-payer pour la même adresse.
+          emailConfidence: 0,
+          emailSourceCount: 0,
+        },
+      }).catch(() => {});
+    }
   }
 
   return NextResponse.json({ ok: true, leadMatched: !!lead });

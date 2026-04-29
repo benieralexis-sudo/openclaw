@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { recomputeDataQualityForLead } from "@/lib/recompute-data-quality";
 
 /**
  * Calcule emailConfidence (0-100) + emailSourceCount + le `email` final
@@ -111,10 +112,24 @@ export async function recomputeEmailConfidenceForLead(leadId: string): Promise<v
       kasprWorkEmail: true,
       email: true,
       emailStatus: true,
+      bouncedFromEmail: true,
     },
   });
   if (!lead) return;
-  const result = computeEmailConfidence(lead.emailRodz, lead.emailDropcontact, lead.kasprWorkEmail);
+
+  // Q8 — Si une source nous redonne l'email qui a déjà bounce, on l'ignore
+  // (pas la peine de relancer un email rejeté → bounce immédiat → réputation).
+  const bouncedNorm = lead.bouncedFromEmail?.trim().toLowerCase();
+  const filterBounced = (e: string | null | undefined): string | null => {
+    if (!e) return null;
+    if (bouncedNorm && e.trim().toLowerCase() === bouncedNorm) return null;
+    return e;
+  };
+  const result = computeEmailConfidence(
+    filterBounced(lead.emailRodz),
+    filterBounced(lead.emailDropcontact),
+    filterBounced(lead.kasprWorkEmail),
+  );
 
   // Préserve l'email actuel si user l'a saisi manuellement et qu'aucune source
   // ne le contredit (cas rare où le commercial a corrigé à la main).
@@ -133,4 +148,6 @@ export async function recomputeEmailConfidenceForLead(leadId: string): Promise<v
     where: { id: leadId },
     data: updates,
   });
+  // Cascade : email change → dataQuality bouge (concordance + presence email)
+  await recomputeDataQualityForLead(leadId).catch(() => {});
 }

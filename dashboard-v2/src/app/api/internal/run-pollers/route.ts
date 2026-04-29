@@ -16,6 +16,7 @@ import { enrichLeadsViaRodz } from "@/lib/enrich-via-rodz";
 import { enrichLeadsViaKasprDirect } from "@/lib/enrich-via-kaspr-direct";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
+import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
 
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
@@ -180,6 +181,14 @@ export async function POST(req: NextRequest) {
           (entry as { activitySync?: unknown }).activitySync = sync;
         } catch (e) {
           (entry as { activitySyncError?: string }).activitySyncError = e instanceof Error ? e.message : String(e);
+        }
+        // Recompute dataQuality pour tous les leads du client (Q7).
+        // En fin de pipeline pour intégrer tous les enrichissements de ce run.
+        try {
+          const dq = await recomputeDataQualityForClient(c.id);
+          (entry as { dataQuality?: unknown }).dataQuality = dq;
+        } catch (e) {
+          (entry as { dataQualityError?: string }).dataQualityError = e instanceof Error ? e.message : String(e);
         }
       }
     } catch (e) {
