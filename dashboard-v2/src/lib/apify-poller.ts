@@ -68,13 +68,19 @@ export const APIFY_ACTORS = {
 const FOREIGN_LEGAL_RE = /\b(GmbH|LLC|Ltd|Inc|Corp|Pty|S\.r\.l\.|S\.A\.R\.L\. España|UAB|s\.r\.o\.|AB|Oy|BV|N\.V\.|GmbH & Co|KG|spol\. s r\.o\.|d\.o\.o\.)\b/i;
 const FOREIGN_BIG_NAMES_RE = /\b(Berkeley\s+Payments|Stott\s+and\s+May|Apple|Google|Microsoft|Amazon|Meta\s+Platforms)\b/i;
 const AGGREGATOR_PREFIX_RE = /^(jobs\s+via\s+|jobs\s+at\s+)/i;
-const AGENCY_RE = /\b(recruitment\s+agency|staffing|recruiter|talent\s+acquisition)\b/i;
+// Élargi 29/04 : "Recruitment" suffit (Gentis Recruitment SAS, Kali Group...)
+const AGENCY_RE = /\b(recruitment(\s+agency)?|staffing|recruiter|talent\s+acquisition|cabinet\s+de\s+recrutement|RH(\s|$)|consulting\s+rh)\b/i;
+// Hors ICP DigitestLab (Tech/SaaS+ESN 11-200p) : ESN majeurs >200p,
+// grosses corp non-tech (pharma, retail, industrie lourde, agro).
+// Audit DB 29/04 : Sanofi 7×, Sword Group/Astek/Capgemini/Atos/Scalian/Hutchinson/
+// Avril/E.Leclerc/SEGULA pollutent les pépites Indeed/LinkedIn.
+const LARGE_FR_CORPS_RE = /\b(Sanofi|Sword\s+Group|Astek|Capgemini|Atos|Sopra(\s+Steria)?|Accenture|Scalian|SEGULA(\s+Technologies)?|Technology\s+(&|and)\s+Strategy|Alten|Davidson(\s+consulting)?|Akkodis|Inetum|Cegedim|Cegid|Bouygues|Vinci|Thales|Airbus|Safran|Dassault|Renault|Peugeot|Stellantis|Hutchinson|Avril|E\.?\s*Leclerc|Carrefour|Auchan|Decathlon|Total(\s*Energies)?|EDF|Engie|Orange|SFR|Free|BNP\s+Paribas|Cr[ée]dit\s+Agricole|Soci[ée]t[ée]\s+G[ée]n[ée]rale|AXA|Allianz|Generali|La\s+Poste|SNCF|RATP|L'?Or[ée]al|Danone|Pernod\s+Ricard|LVMH|Kering|Hermes|Michelin|BIC)\b/i;
 
 /**
  * Retourne false si le nom de boîte évoque une entité étrangère, un
- * agrégateur de jobs (jobs via X) ou une agence de recrutement (= n'est
- * pas le client final). Centralisé pour les 3 adapters Apify (LinkedIn /
- * WTTJ / Indeed) — pattern aligné avec theirstack-poller.
+ * agrégateur de jobs (jobs via X), une agence de recrutement, ou un
+ * grand groupe FR hors ICP (>200p, pharma/retail/industrie lourde).
+ * Centralisé pour les 3 adapters Apify — pattern aligné avec theirstack-poller.
  */
 function isFrenchCompany(name: string | undefined): boolean {
   if (!name) return false;
@@ -82,6 +88,7 @@ function isFrenchCompany(name: string | undefined): boolean {
   if (FOREIGN_BIG_NAMES_RE.test(name)) return false;
   if (AGGREGATOR_PREFIX_RE.test(name)) return false;
   if (AGENCY_RE.test(name)) return false;
+  if (LARGE_FR_CORPS_RE.test(name)) return false;
   return true;
 }
 
