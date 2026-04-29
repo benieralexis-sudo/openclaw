@@ -17,6 +17,18 @@ export function getAnthropic(): Anthropic {
 /** Modèle pour la génération des briefs commerciaux (qualité copywriting). */
 export const BRIEF_MODEL = "claude-opus-4-7";
 
+/** Modèle pour les tâches de classification binaire / extraction structurée
+ * où Sonnet 4.6 suffit (pas de copywriting créatif).
+ *
+ * Cas d'usage : declarative pain detection (binaire has_pain + extraction
+ * d'une citation 100 chars). 5x moins cher qu'Opus, qualité équivalente sur
+ * extraction simple.
+ *
+ * NE PAS utiliser pour : qualify scoring (Sonnet rate LYNX RH/PRECIA), pitch,
+ * DM, call-brief (copywriting nuancé).
+ */
+export const CLASSIFY_MODEL = "claude-sonnet-4-6";
+
 /** Modèle pour le scoring qualify 1-10.
  *
  * DÉCISION 28/04 (post test profond sur 26 leads) : Opus 4.7 retenu.

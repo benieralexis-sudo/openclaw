@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { runAndGetItems } from "@/lib/apify";
-import { getAnthropic, BRIEF_MODEL } from "@/lib/anthropic";
+import { getAnthropic, CLASSIFY_MODEL } from "@/lib/anthropic";
 import type { Prisma } from "@prisma/client";
 import { TriggerType, TriggerStatus } from "@prisma/client";
 
@@ -79,7 +79,10 @@ async function analyzePostForPain(post: LinkedinPost): Promise<PainAnalysis | nu
   try {
     const anthropic = getAnthropic();
     const resp = await anthropic.messages.create({
-      model: BRIEF_MODEL, // Opus 4.7 — qualité critique sur pain detection
+      // Sonnet 4.6 (29/04) : tâche de classification binaire + extraction
+      // citation 100 chars → pas de copywriting nuancé. Économie ~5€/mo
+      // vs Opus, qualité équivalente sur ce signal simple.
+      model: CLASSIFY_MODEL,
       max_tokens: 200,
       system: [
         { type: "text", text: PAIN_DETECTION_SYSTEM, cache_control: { type: "ephemeral" } },
