@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { getEntreprise, findHumanDirigeantRecursive } from "@/lib/pappers";
+import { splitFullName } from "@/lib/split-full-name";
 
 /**
  * Enrichissement Pappers dirigeants : pour chaque Trigger ICP qualifié sans Lead
@@ -55,66 +56,6 @@ function genCuid(): string {
   const ts = Date.now().toString(36);
   const rand = Math.random().toString(36).slice(2, 14);
   return `c${ts}${rand}`.slice(0, 25).padEnd(25, "0");
-}
-
-// Particules nobiliaires / liaisons préservées dans le lastName.
-// Pappers retourne souvent "Pierre de la Fontaine" ou "Eric Van Damme" —
-// le split naïf perd les particules ("Pierre de la" / "Fontaine" ou
-// "Van Damme" / "Eric"). Ces erreurs cascadent dans Rodz/Dropcontact/Kaspr
-// qui font un match strict sur lastName → "no match" sur des leads
-// pourtant valides.
-const NAME_PARTICLES = new Set([
-  "de", "du", "des", "d'", "da", "do",
-  "von", "van", "vander", "der", "den",
-  "le", "la", "les",
-  "el", "al", "ibn", "bin", "ben",
-  "saint", "st", "ste",
-  "mc", "mac", "o'",
-]);
-
-function splitFullName(fullName: string): { firstName: string; lastName: string; full: string } {
-  const cleaned = fullName.trim();
-  if (!cleaned) return { firstName: "", lastName: "", full: cleaned };
-  const parts = cleaned.split(/\s+/);
-  if (parts.length === 1) return { firstName: parts[0] ?? "", lastName: "", full: cleaned };
-
-  // Stratégie : on parcourt depuis la fin pour absorber les particules dans
-  // le lastName. Ex "Pierre de la Fontaine" → on absorbe "Fontaine", puis
-  // "la" (particule), puis "de" (particule), puis on s'arrête sur "Pierre".
-  // → firstName="Pierre", lastName="de la Fontaine"
-  let lastIdx = parts.length - 1;
-  // Cas "VAN DAMME Eric" — si l'avant-dernier est en MAJ et de longueur >1,
-  // c'est probablement la fin du nom (convention administrative FR).
-  // Sinon on absorbe les particules en remontant.
-  while (lastIdx > 0) {
-    const prev = (parts[lastIdx - 1] ?? "").toLowerCase().replace(/[.,]/g, "");
-    if (NAME_PARTICLES.has(prev)) {
-      lastIdx -= 1;
-      continue;
-    }
-    break;
-  }
-  // Cas où le NOM est en majuscules avant le prénom : "DUPOND Jean-Marc"
-  // ou "VAN DAMME Eric" → tous les segments en MAJ au DÉBUT sont le lastName.
-  const allUpperPrefix: string[] = [];
-  for (let i = 0; i < parts.length; i++) {
-    const p = parts[i] ?? "";
-    if (p.length >= 2 && p === p.toUpperCase() && /[A-ZÀ-Ý]/.test(p)) {
-      allUpperPrefix.push(p);
-    } else {
-      break;
-    }
-  }
-  if (allUpperPrefix.length >= 1 && allUpperPrefix.length < parts.length) {
-    // Convention "NOM Prenom" — on inverse
-    const lastName = allUpperPrefix.join(" ");
-    const firstName = parts.slice(allUpperPrefix.length).join(" ");
-    return { firstName, lastName, full: cleaned };
-  }
-
-  const lastName = parts.slice(lastIdx).join(" ");
-  const firstName = parts.slice(0, lastIdx).join(" ");
-  return { firstName, lastName, full: cleaned };
 }
 
 /**

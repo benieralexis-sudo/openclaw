@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { submitBatch, pollBatchResult, type DropcontactInput, type DropcontactEnriched } from "@/lib/dropcontact";
 import { enrichLinkedInProfile, isValidLinkedInUrl, pickPhone } from "@/lib/kaspr";
 import { recomputeEmailConfidenceForLead } from "@/lib/recompute-email-confidence";
+import { splitFullName } from "@/lib/split-full-name";
 
 // ═══════════════════════════════════════════════════════════════════
 // Pipeline : enrichir les Leads sans email via Dropcontact
@@ -103,15 +104,21 @@ export async function enrichLeadsViaDropcontact(
   // ajouté l'email entre temps). Sans ce flag, les ~25% de leads sans match
   // étaient re-soumis à chaque cron 6h = ~840 crédits/mois gaspillés.
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  // Élargi 29/04 : accepte (firstName + lastName) OU fullName seul.
+  // Les leads créés via Apify/Rodz n'ont parfois que `fullName` (ex hiring manager
+  // LinkedIn sans split) — splitFullName() les découpe avant l'appel Dropcontact.
   const candidates = await db.lead.findMany({
     where: {
       clientId,
       deletedAt: null,
       OR: [{ email: null }, { email: "" }],
-      firstName: { not: null },
-      lastName: { not: null },
-      companyName: { not: "" },
       AND: [
+        {
+          OR: [
+            { AND: [{ firstName: { not: null } }, { lastName: { not: null } }] },
+            { fullName: { not: null } },
+          ],
+        },
         {
           OR: [
             { dropcontactAttemptedAt: null },
@@ -119,11 +126,13 @@ export async function enrichLeadsViaDropcontact(
           ],
         },
       ],
+      companyName: { not: "" },
     },
     select: {
       id: true,
       firstName: true,
       lastName: true,
+      fullName: true,
       companyName: true,
       companySiret: true,
     },
@@ -134,12 +143,22 @@ export async function enrichLeadsViaDropcontact(
   result.picked = candidates.length;
   if (candidates.length === 0) return result;
 
-  const inputs: DropcontactInput[] = candidates.map((l) => ({
-    first_name: l.firstName ?? undefined,
-    last_name: l.lastName ?? undefined,
-    company: l.companyName,
-    num_siren: l.companySiret ?? undefined,
-  }));
+  const inputs: DropcontactInput[] = candidates.map((l) => {
+    let firstName = l.firstName ?? undefined;
+    let lastName = l.lastName ?? undefined;
+    // Auto-split si pas de firstName/lastName mais fullName disponible
+    if ((!firstName || !lastName) && l.fullName) {
+      const split = splitFullName(l.fullName);
+      firstName = firstName ?? split.firstName ?? undefined;
+      lastName = lastName ?? split.lastName ?? undefined;
+    }
+    return {
+      first_name: firstName,
+      last_name: lastName,
+      company: l.companyName,
+      num_siren: l.companySiret ?? undefined,
+    };
+  });
 
   let submitted: { requestId: string; creditsLeft: number };
   try {
@@ -213,7 +232,8 @@ export async function enrichLeadsViaDropcontact(
       isValidLinkedInUrl(linkedinUrl)
     ) {
       result.kasprChained++;
-      const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
+      const fullName =
+        lead.fullName ?? [lead.firstName, lead.lastName].filter(Boolean).join(" ");
       try {
         const kr = await enrichLinkedInProfile({
           id: linkedinUrl,
