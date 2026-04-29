@@ -109,6 +109,7 @@ export async function POST(
       fullName: true,
       companyName: true,
       status: true,
+      triggerId: true,
     },
   });
   if (!lead) return NextResponse.json({ error: "Lead introuvable" }, { status: 404 });
@@ -205,6 +206,40 @@ export async function POST(
       where: { id: lead.id },
       data: { status: "CONTACTED" },
     });
+  }
+
+  // Auto-création/upsert Opportunity stage CONTACTED.
+  // Permet au pipeline de tracker chaque envoi, sans clic supplémentaire.
+  // triggerId est @unique sur Opportunity → upsert garantit pas de doublon.
+  // Le stage ne descend JAMAIS : si l'opp est déjà ENGAGED/MEETING_SET/...,
+  // on garde l'avancement et on ne met à jour que leadId/assignedTo.
+  if (lead.triggerId) {
+    try {
+      const existing = await db.opportunity.findUnique({
+        where: { triggerId: lead.triggerId },
+        select: { stage: true },
+      });
+      const shouldPromoteToContacted =
+        !existing || existing.stage === "IDENTIFIED";
+      await db.opportunity.upsert({
+        where: { triggerId: lead.triggerId },
+        create: {
+          clientId: lead.clientId,
+          leadId: lead.id,
+          triggerId: lead.triggerId,
+          stage: "CONTACTED",
+          assignedToUserId: s.user.id,
+        },
+        update: {
+          ...(shouldPromoteToContacted && { stage: "CONTACTED" }),
+          leadId: lead.id,
+          assignedToUserId: s.user.id,
+        },
+      });
+    } catch (e) {
+      // best effort — un échec ici ne doit pas bloquer le confirm de l'envoi
+      console.error("[send-email] opportunity upsert failed:", e);
+    }
   }
 
   // Telegram notification (admin + commercial)
