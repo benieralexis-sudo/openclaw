@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatRelativeFr } from "@/lib/utils";
+import { truncateDetail } from "@/lib/format-trigger-detail";
 
 interface Trigger {
   id: string;
@@ -248,14 +249,21 @@ export default function TriggersPage() {
     {
       accessorKey: "title",
       header: "Signal détecté",
-      cell: ({ row }) => (
-        <div className="min-w-0 max-w-xs">
-          <div className="text-[13.5px] font-medium text-ink-800 truncate">{row.original.title}</div>
-          {row.original.detail && (
-            <div className="text-[11.5px] text-ink-500 truncate">{row.original.detail}</div>
-          )}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const detail = row.original.detail
+          ? truncateDetail(row.original.detail, 90)
+          : null;
+        return (
+          <div className="min-w-0 max-w-xs">
+            <div className="text-[13.5px] font-medium text-ink-800 truncate">{row.original.title}</div>
+            {detail && (
+              <div className="text-[11.5px] text-ink-500 truncate" title={row.original.detail ?? ""}>
+                {detail.text}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "score",

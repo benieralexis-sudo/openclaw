@@ -30,7 +30,11 @@ export async function GET(
       status: true,
       capturedAt: true,
       publishedAt: true,
-      // sourceCode reste hidden — moat
+      sourceUrl: true, // 29/04 : exposé pour bouton "Voir l'annonce"
+      // sourceCode conditionné plus bas (hidden pour CLIENT — moat)
+      ...(s.user.role === "ADMIN" || s.user.role === "COMMERCIAL"
+        ? { sourceCode: true }
+        : {}),
     },
   });
   if (!trigger) {

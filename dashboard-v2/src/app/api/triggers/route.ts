@@ -128,5 +128,34 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(triggers);
+  // Dedup cross-source : 29/04 audit terrain — Asys ressort 2× car 2 sources
+  // (theirstack + apify) ont détecté la même boîte avec scores différents.
+  // On collapse à 1 ligne par (clientId, companySiret OR companyName), en
+  // gardant le trigger au score le plus élevé (et hot=true en priorité).
+  // Les autres triggers restent en DB pour audit/cross-source merge, mais
+  // l'UI affiche la pépite synthétisée.
+  const dedupKey = (t: typeof triggers[number]): string =>
+    `${t.companySiret ?? t.companyName.toLowerCase()}`;
+  const byKey = new Map<string, typeof triggers[number]>();
+  for (const t of triggers) {
+    const k = dedupKey(t);
+    const existing = byKey.get(k);
+    if (!existing) {
+      byKey.set(k, t);
+      continue;
+    }
+    // Keep the one with higher score; tie-break on isHot then capturedAt
+    const aBetter =
+      t.score > existing.score ||
+      (t.score === existing.score && t.isHot && !existing.isHot) ||
+      (t.score === existing.score && t.isHot === existing.isHot && t.capturedAt > existing.capturedAt);
+    if (aBetter) byKey.set(k, t);
+  }
+  const deduped = Array.from(byKey.values()).sort((a, b) => {
+    if (a.isHot !== b.isHot) return a.isHot ? -1 : 1;
+    if (a.score !== b.score) return b.score - a.score;
+    return new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime();
+  });
+
+  return NextResponse.json(deduped);
 }

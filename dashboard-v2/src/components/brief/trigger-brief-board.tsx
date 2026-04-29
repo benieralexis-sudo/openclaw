@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { cn, formatNumberFr, formatRelativeFr, gmailComposeUrl, isFrenchMobile, normalizeLinkedinUrl } from "@/lib/utils";
+import { formatSourceLabel, truncateDetail } from "@/lib/format-trigger-detail";
 import { SendEmailModal } from "@/components/lead/send-email-modal";
 import { EnrichKasprModal } from "@/components/lead/enrich-kaspr-modal";
 import { LeadActivityPanel } from "@/components/lead/lead-activity-panel";
@@ -52,6 +53,8 @@ interface TriggerData {
     isCombo: boolean;
     status: string;
     capturedAt: string;
+    sourceUrl?: string | null;
+    sourceCode?: string | null;
   };
   lead: {
     id: string;
@@ -400,16 +403,37 @@ function TriggerHeader({
         </div>
 
         <div className="rounded-md border border-brand-200 bg-brand-50/40 p-3">
-          <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-brand-700">
-            <Target className="h-3 w-3" />
-            Signal détecté
-          </div>
-          <div className="mt-0.5 text-[13.5px] font-medium text-ink-900">{trigger.title}</div>
-          {trigger.detail && (
-            <div className="mt-0.5 text-[12px] leading-relaxed text-ink-600">
-              {trigger.detail}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-brand-700">
+              <Target className="h-3 w-3" />
+              Signal détecté
             </div>
-          )}
+            {formatSourceLabel(trigger.sourceCode) && (
+              <span className="rounded bg-white border border-brand-200 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">
+                {formatSourceLabel(trigger.sourceCode)}
+              </span>
+            )}
+          </div>
+          <div className="mt-1 text-[13.5px] font-medium text-ink-900">{trigger.title}</div>
+          {(() => {
+            const t = truncateDetail(trigger.detail);
+            if (!t) return null;
+            return (
+              <div className="mt-1 text-[12px] leading-relaxed text-ink-600">
+                {t.text}
+                {(t.truncated || trigger.sourceUrl) && trigger.sourceUrl && (
+                  <a
+                    href={trigger.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 text-brand-600 underline underline-offset-2 hover:text-brand-700"
+                  >
+                    Voir l&apos;annonce →
+                  </a>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Contact + Opportunité */}
