@@ -24,6 +24,11 @@ import { detectGrowthAlertsForClient } from "@/lib/growth-detector";
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
 
+// Documente l'intention de durée max — Next.js self-hosted ignore mais utile
+// pour Vercel + lisibilité humaine. Cohérent avec le timeout cron 15 min côté
+// telegram-router (skills/trigger-engine/cron.js).
+export const maxDuration = 900; // 15 min
+
 /**
  * Route cron interne — déclenche TheirStack + Apify pour tous les clients actifs
  * avec ICP. Protégée par header `x-cron-secret` (env CRON_SECRET).

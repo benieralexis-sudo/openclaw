@@ -379,7 +379,13 @@ class TriggerEngineCron {
             path: targetUrl.pathname + targetUrl.search,
             method: 'POST',
             headers: { 'x-cron-secret': secret, 'content-type': 'application/json' },
-            timeout: 5 * 60 * 1000,
+            // Timeout 15 min (audit 30/04 nuit) — augmenté de 5 → 15 min pour
+            // absorber FullEnrich bulk polling (90s timeout interne) +
+            // HarvestAPI Profile Search (jusqu'à 3 min/lookup) + dedup +
+            // declarativePain (60 posts × Sonnet classify ~2s chacun = 2 min).
+            // Le lock global côté run-pollers (TTL 90 min) protège quand même
+            // contre les runs zombies.
+            timeout: 15 * 60 * 1000,
           }, (res) => {
             let body = '';
             res.on('data', (c) => body += c);
