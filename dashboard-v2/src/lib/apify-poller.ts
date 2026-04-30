@@ -100,16 +100,28 @@ async function isAlreadyCaptured(
   clientId: string,
   companyName: string,
   sourceCode: string,
+  companySiret?: string | null,
 ): Promise<boolean> {
   const since = new Date();
   since.setDate(since.getDate() - 30);
+  // Audit 30/04 : ajout du match sur companySiret quand dispo (plus stable
+  // que companyName qui varie en casse/accents/espaces entre runs Apify).
+  // Avant : 84 doublons triggers détectés sur même siret+sourceCode.
+  // Match ENTRE companyName ILIKE OU companySiret EXACT (tolérant aux
+  // variations de nom commercial vs RCS).
+  const orClauses: Array<Record<string, unknown>> = [
+    { companyName: { equals: companyName, mode: "insensitive" } },
+  ];
+  if (companySiret) {
+    orClauses.push({ companySiret });
+  }
   const existing = await db.trigger.findFirst({
     where: {
       clientId,
-      companyName,
       sourceCode,
       deletedAt: null,
       capturedAt: { gte: since },
+      OR: orClauses,
     },
     select: { id: true },
   });

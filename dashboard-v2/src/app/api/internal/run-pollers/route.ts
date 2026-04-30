@@ -17,6 +17,7 @@ import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
 import { enrichLeadsViaRodz } from "@/lib/enrich-via-rodz";
 import { enrichLeadsViaKasprDirect } from "@/lib/enrich-via-kaspr-direct";
 import { enrichLeadsViaLinkedInFinder } from "@/lib/enrich-via-linkedin-finder";
+import { mergeDuplicatePersonaLeads } from "@/lib/dedup-persona-leads";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
@@ -101,6 +102,22 @@ export async function POST(req: NextRequest) {
         // sans dirigeant Pappers résolu.
         const ensured = await ensureLeadsForAllTriggers(c.id);
         (entry as { ensuredLeads?: unknown }).ensuredLeads = ensured;
+        // Dedup persona+siret (audit 30/04) : fusionne les leads doublons
+        // (même firstName+lastName+companySiret) en propageant le meilleur
+        // enrichissement vers un winner et soft-deletant les autres.
+        // Tourne avant enrichissement pour éviter d'enrichir 2 fois la même persona.
+        try {
+          const dedup = await mergeDuplicatePersonaLeads({ clientId: c.id });
+          (entry as { dedup?: unknown }).dedup = {
+            groupsScanned: dedup.groupsScanned,
+            groupsWithDuplicates: dedup.groupsWithDuplicates,
+            leadsMerged: dedup.leadsMerged,
+            leadsSoftDeleted: dedup.leadsSoftDeleted,
+          };
+        } catch (e) {
+          (entry as { dedupError?: string }).dedupError =
+            e instanceof Error ? e.message : String(e);
+        }
         // Combo detector : flag isCombo=true sur les boîtes avec 2+ sources
         const combo = await detectCombosForClient(c.id);
         (entry as { combos?: unknown }).combos = combo;

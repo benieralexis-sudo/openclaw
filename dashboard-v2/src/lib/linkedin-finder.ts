@@ -86,23 +86,25 @@ function scoreNameMatch(
   const el = normalize(expectedLast);
   if (!cf) return 0;
 
-  // STRICT MODE (30/04) — éviter Antoine→Romain Bidault :
-  // si firstName attendu contient au moins 3 chars ET le candidat NE contient
-  // PAS ce firstName, on retourne 0 (rejet hard). Évite les "famille proche"
-  // qui matchent par lastName seul.
-  if (ef.length >= 3 && !cf.includes(ef)) return 0;
-  // Idem pour les firstNames composés (ex "Quentin Nicolas Philippe") : on
-  // vérifie que le 1er token >= 3 chars match au moins.
+  // STRICT MODE (30/04 v2) — éviter Antoine→Romain Bidault MAIS accepter les
+  // firstNames composés (ex "Denis Marc Auguste Andre Lafont" doit matcher un
+  // profil LinkedIn affichant juste "Denis Lafont").
+  // Règle : le PREMIER token significatif (>=3 chars) du firstName attendu
+  // DOIT être présent dans le candidat. Sinon rejet hard.
   const firstToken = ef.split(" ").find((t) => t.length >= 3);
   if (firstToken && !cf.includes(firstToken)) return 0;
 
   let s = 0;
-  if (cf.includes(ef) && ef.length >= 2) s += 40;
+  // +40 si le 1er token du firstName match (cas commun, robuste aux noms composés)
+  if (firstToken && cf.includes(firstToken)) s += 40;
+  // Bonus +10 si le firstName complet match (ef long et présent en cf)
+  if (ef.length >= 4 && cf.includes(ef)) s += 10;
+  // +50 si le lastName match
   if (cf.includes(el) && el.length >= 2) s += 50;
-  // Si le full name candidat contient les deux mots dans le bon ordre
-  if (ef && el) {
-    const both = `${ef} ${el}`;
-    if (cf.includes(both)) s += 10;
+  // Si le full name candidat contient firstToken + lastName dans l'ordre
+  if (firstToken && el) {
+    const sequence = `${firstToken} ${el}`;
+    if (cf.includes(sequence)) s += 10;
   }
   return s;
 }
