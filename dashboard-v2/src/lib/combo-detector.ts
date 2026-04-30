@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 
 /**
  * Combo cross-sources : si une même boîte a 2+ Triggers de sources différentes
@@ -86,6 +87,24 @@ export async function detectCombosForClient(
         }
       }
       updated += 1;
+
+      // Invalider briefJson + pitchJson sur le Lead lié au target (audit 30/04)
+      // pour forcer régénération avec contexte combo. Sinon le pitch reste figé
+      // sur le 1er signal et ne mentionne pas les autres sources convergentes.
+      // Le commercial qui clique "regénérer" récupère un pitch enrichi des 2+ angles.
+      try {
+        await db.lead.updateMany({
+          where: { triggerId: target.id, deletedAt: null },
+          data: {
+            briefJson: null as unknown as Prisma.InputJsonValue,
+            briefGeneratedAt: null,
+            pitchJson: null as unknown as Prisma.InputJsonValue,
+            pitchGeneratedAt: null,
+          },
+        });
+      } catch {
+        // best effort — l'invalidation est cosmétique
+      }
     }
   }
 

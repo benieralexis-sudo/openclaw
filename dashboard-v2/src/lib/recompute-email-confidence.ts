@@ -115,6 +115,8 @@ export function computeEmailConfidence(
  * Recalcule + écrit emailConfidence/emailSourceCount/email pour un Lead.
  * Appelé après chaque writer (Rodz, Dropcontact, Kaspr).
  */
+import { appendToEmailHistoryIfReplacing } from "@/lib/email-history";
+
 export async function recomputeEmailConfidenceForLead(leadId: string): Promise<void> {
   const lead = await db.lead.findUnique({
     where: { id: leadId },
@@ -126,6 +128,7 @@ export async function recomputeEmailConfidenceForLead(leadId: string): Promise<v
       email: true,
       emailStatus: true,
       bouncedFromEmail: true,
+      emailHistory: true,
     },
   });
   if (!lead) return;
@@ -152,6 +155,14 @@ export async function recomputeEmailConfidenceForLead(leadId: string): Promise<v
     emailSourceCount: result.emailSourceCount,
   };
   if (result.email && result.email !== lead.email) {
+    // Archive l'ancien email dans emailHistory (audit 30/04 soir) — permet
+    // rollback si le nouveau est moins bon. Cap 5 entrées (FIFO).
+    const archive = appendToEmailHistoryIfReplacing(
+      lead.emailHistory,
+      lead.email,
+      "recompute-email-confidence",
+    );
+    Object.assign(updates, archive);
     updates.email = result.email;
     // emailStatus reste UNVERIFIED par défaut. Resend webhook bounce
     // basculera à BOUNCED si la deliverability foire.

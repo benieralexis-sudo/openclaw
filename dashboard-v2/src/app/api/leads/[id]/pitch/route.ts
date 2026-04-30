@@ -55,12 +55,40 @@ function buildPrompt(args: {
     icp: Record<string, unknown> | null;
     calcomSlug: string | null;
   };
+  siblingTriggers?: Array<{
+    title: string;
+    detail: string | null;
+    type: string;
+    capturedAt: Date;
+    sourceCode: string | null;
+  }>;
 }): string {
-  const { trigger, lead, client } = args;
+  const { trigger, lead, client, siblingTriggers } = args;
   const icp = client.icp ?? {};
   const calcomLine = client.calcomSlug
     ? `\n# CTA OBLIGATOIRE\n- Inclure dans le body : "📅 Réserver 15 min : https://cal.com/${client.calcomSlug}"\n`
     : "";
+
+  // Combo : si plusieurs Triggers actifs sur la même boîte, on les ajoute au
+  // prompt pour qu'Opus tisse les angles. Audit 30/04 : amélioration pitch
+  // sur les leads "convergents" (ex levée + hire QA + mention dette tech).
+  const comboBlock =
+    siblingTriggers && siblingTriggers.length > 0
+      ? `\n# AUTRES SIGNAUX SUR LA MÊME BOÎTE (${siblingTriggers.length})
+${siblingTriggers
+  .map(
+    (s, i) =>
+      `${i + 1}. ${s.type} — ${s.title}${s.detail ? ` (${s.detail.slice(0, 100)})` : ""}${s.sourceCode ? ` [${s.sourceCode}]` : ""}`,
+  )
+  .join("\n")}
+
+# DIRECTIVE COMBO
+La boîte montre plusieurs signaux convergents — tisse 2-3 angles dans l'email
+(pas seulement le trigger principal). Ouvre l'email avec une référence directe
+au signal le plus fort, mais glisse 1 phrase qui mentionne un autre signal en
+soutien. Ça maximise la résonance "tu nous comprends vraiment".`
+      : "";
+
   return `Tu es l'assistant commercial d'iFIND. Tu produis un EMAIL DE COLD OUTREACH ultra-personnalisé pour transformer ce signal d'achat en RDV.${calcomLine}
 
 # CONTEXTE CLIENT iFIND (qui paie)
@@ -68,13 +96,14 @@ function buildPrompt(args: {
 - Secteur : ${client.industry ?? "—"}
 - ICP cible : ${JSON.stringify(icp)}
 
-# TRIGGER DÉTECTÉ (signal d'achat public)
+# TRIGGER PRINCIPAL (signal d'achat public)
 - Entreprise cible : ${trigger.companyName}
 - Type : ${trigger.type}
 - Score : ${trigger.score}/10 ${trigger.isHot ? "🔥 HOT" : ""} ${trigger.isCombo ? "✨ COMBO" : ""}
 - Titre : ${trigger.title}
 - Détail : ${trigger.detail ?? "—"}
 - Industrie : ${trigger.industry ?? "—"} · Région : ${trigger.region ?? "—"} · Taille : ${trigger.size ?? "—"}
+${comboBlock}
 
 # CONTACT IDENTIFIÉ
 - Nom : ${lead.fullName ?? "Décideur à identifier"}
@@ -202,6 +231,45 @@ export async function POST(
     );
   }
 
+  // Sibling triggers : autres signaux actifs sur la MÊME boîte (siret) dans
+  // les 30 derniers jours. Permet à Opus de tisser plusieurs angles dans le
+  // pitch au lieu de se limiter au signal principal (audit 30/04 soir).
+  let siblingTriggers: Array<{
+    title: string;
+    detail: string | null;
+    type: string;
+    capturedAt: Date;
+    sourceCode: string | null;
+  }> = [];
+  if (lead.companySiret) {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const siblings = await db.trigger.findMany({
+      where: {
+        clientId: lead.clientId,
+        companySiret: lead.companySiret,
+        deletedAt: null,
+        capturedAt: { gte: since },
+        NOT: { id: lead.trigger.id ?? undefined },
+      },
+      select: {
+        title: true,
+        detail: true,
+        type: true,
+        capturedAt: true,
+        sourceCode: true,
+      },
+      orderBy: { score: "desc" },
+      take: 4,
+    });
+    siblingTriggers = siblings.map((s) => ({
+      title: s.title,
+      detail: s.detail,
+      type: s.type,
+      capturedAt: s.capturedAt,
+      sourceCode: s.sourceCode,
+    }));
+  }
+
   const prompt = buildPrompt({
     trigger: lead.trigger,
     lead: {
@@ -218,6 +286,7 @@ export async function POST(
           : null,
       calcomSlug: lead.client.calcomSlug,
     },
+    siblingTriggers,
   });
 
   let pitch: PitchPayload;

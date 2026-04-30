@@ -345,6 +345,11 @@ model Lead {
   doNotContact           Boolean  @default(false)
   doNotContactReason     String?  // "auto_imap_stop" | "auto_imap_unsub" | "manual_<userId>" | "bounce_repeat"
   doNotContactAt         DateTime?
+  // Email history (audit 30/04 soir) — archive les emails écrasés par
+  // de nouvelles sources. Format : Json array d'objets
+  // { email, source, replacedAt }. Permet audit/rollback en cas de mauvaise
+  // décision de waterfall. Limit 5 entrées (FIFO) pour éviter inflation.
+  emailHistory           Json?
   // Score qualité données (Q7 audit qualité, 29/04). 0-100 calculé à partir
   // des sources, concordance email, présence mobile FR, signal hot. Permet
   // au commercial de prioriser les pépites dans le dashboard.

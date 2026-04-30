@@ -18,6 +18,7 @@ import { enrichLeadsViaRodz } from "@/lib/enrich-via-rodz";
 import { enrichLeadsViaKasprDirect } from "@/lib/enrich-via-kaspr-direct";
 import { enrichLeadsViaLinkedInFinder } from "@/lib/enrich-via-linkedin-finder";
 import { mergeDuplicatePersonaLeads } from "@/lib/dedup-persona-leads";
+import { detectGrowthAlertsForClient } from "@/lib/growth-detector";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
@@ -121,6 +122,15 @@ export async function POST(req: NextRequest) {
         // Combo detector : flag isCombo=true sur les boîtes avec 2+ sources
         const combo = await detectCombosForClient(c.id);
         (entry as { combos?: unknown }).combos = combo;
+        // Growth detector (audit 30/04 soir) : crée un Trigger growth-alert
+        // pour les boîtes <11p qui hire 3+ en 60j (pré-ICP qui scale).
+        try {
+          const growth = await detectGrowthAlertsForClient(c.id, { limit: 30 });
+          (entry as { growthAlerts?: unknown }).growthAlerts = growth;
+        } catch (e) {
+          (entry as { growthError?: string }).growthError =
+            e instanceof Error ? e.message : String(e);
+        }
         // ────────────────────────────────────────────────────────────
         // ÉTAGE 3 — Trouver le bon décideur via HarvestAPI search-by-company
         // (Levier 4 anti-pollution, audit 29/04). Priorité sur Pappers récursion
