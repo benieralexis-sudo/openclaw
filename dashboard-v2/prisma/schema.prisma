@@ -310,6 +310,17 @@ model Lead {
   //   "rodz-payload" | "theirstack-hiring-team" | "apify-poster"
   //   | "harvestapi-search" | "pappers-rcs" | "pappers-holding-fallback"
   personaSource          String?
+  // LinkedIn finder cascade (étage 3-bis, 30/04). Quand persona connue
+  // (firstName+lastName+companyName) mais linkedinUrl manquant, on tape
+  // une cascade : Rodz enrichContact → HarvestAPI Profile Search
+  // → Google CSE site:linkedin.com/in/. TTL 30j sur le flag pour éviter
+  // les retentatives consécutives sur les leads vraiment introuvables.
+  linkedinFinderAttemptedAt DateTime?
+  // Source de résolution du LinkedIn pour debug/analytics :
+  //   "rodz-payload" | "theirstack-hiring-team" | "apify-poster"
+  //   | "harvestapi-search-company" | "rodz-enrich-contact"
+  //   | "harvestapi-profile-search" | "google-cse" | "dropcontact"
+  linkedinSource         String?
   // Multi-source emails (audit qualité Q3, 29/04). On stocke chaque source
   // séparément + un `emailConfidence` calculé pour identifier les emails
   // validés par 2+ sources concordantes (~95% deliverability).

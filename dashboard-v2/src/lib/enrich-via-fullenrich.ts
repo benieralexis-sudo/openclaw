@@ -103,7 +103,9 @@ export async function enrichLeadsViaFullEnrich(
       companyName: true,
       linkedinUrl: true,
       bouncedFromEmail: true,
-      trigger: { select: { sourceCode: true } },
+      // 30/04 : récupère le score Trigger pour décider si on demande aussi
+      // les phones (10 cr × 1 phone) ou seulement les emails (1 cr).
+      trigger: { select: { sourceCode: true, score: true } },
     },
     take: limit,
     orderBy: [{ dataQuality: "desc" }, { createdAt: "desc" }],
@@ -116,19 +118,28 @@ export async function enrichLeadsViaFullEnrich(
     return result;
   }
 
-  // Build bulk payload
-  const enrichFields: FullEnrichInput["enrich_fields"] = includePhones
-    ? ["contact.emails", "contact.phones"]
-    : ["contact.emails"];
+  // Stratégie phones différenciée par score (économie crédits Plan Start 500/mo) :
+  //  - Pépite ≥ 8 : email + phone (11 cr max si succès)
+  //  - Qualifié 6-7 : email seulement (1 cr max)
+  //  Conso prévue ~80-140 cr/mois sur 500 = 25% utilisation, marge confortable.
+  // L'option `includePhones: false` côté caller force email-only pour tous.
+  const PHONE_SCORE_GATE = 8;
 
-  const datas: FullEnrichInput[] = candidates.map((lead) => ({
-    firstname: lead.firstName ?? undefined,
-    lastname: lead.lastName ?? undefined,
-    company_name: lead.companyName,
-    linkedin_url: lead.linkedinUrl ?? undefined,
-    enrich_fields: enrichFields,
-    custom: { leadId: lead.id },
-  }));
+  const datas: FullEnrichInput[] = candidates.map((lead) => {
+    const leadScore = lead.trigger?.score ?? 0;
+    const wantPhone = includePhones && leadScore >= PHONE_SCORE_GATE;
+    const enrichFields: FullEnrichInput["enrich_fields"] = wantPhone
+      ? ["contact.emails", "contact.phones"]
+      : ["contact.emails"];
+    return {
+      firstname: lead.firstName ?? undefined,
+      lastname: lead.lastName ?? undefined,
+      company_name: lead.companyName,
+      linkedin_url: lead.linkedinUrl ?? undefined,
+      enrich_fields: enrichFields,
+      custom: { leadId: lead.id },
+    };
+  });
 
   let bulkId: string;
   try {

@@ -16,6 +16,7 @@ import { auditAndHeal } from "@/lib/audit-heal";
 import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
 import { enrichLeadsViaRodz } from "@/lib/enrich-via-rodz";
 import { enrichLeadsViaKasprDirect } from "@/lib/enrich-via-kaspr-direct";
+import { enrichLeadsViaLinkedInFinder } from "@/lib/enrich-via-linkedin-finder";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
@@ -142,6 +143,22 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           (entry as { rodzEnrichError?: string }).rodzEnrichError = e instanceof Error ? e.message : String(e);
         }
+        // ────────────────────────────────────────────────────────────
+        // ÉTAGE 3-bis — LinkedIn finder cascade (30/04)
+        // Pour les Leads avec persona connue (firstName+lastName+companyName)
+        // mais sans LinkedIn URL après Rodz enrichContact, on déclenche :
+        //   1. HarvestAPI Profile Search par nom+société (~70% hit, $0.005)
+        //   2. Google CSE site:linkedin.com/in/ (gratuit, ~50% du résidu)
+        // Gate strict : Trigger.score >= 6 (Qualifiés + Pépites uniquement).
+        // TTL 30j sur linkedinFinderAttemptedAt.
+        // ────────────────────────────────────────────────────────────
+        try {
+          const lif = await enrichLeadsViaLinkedInFinder(c.id, { limit: 15 });
+          (entry as { linkedinFinder?: unknown }).linkedinFinder = lif;
+        } catch (e) {
+          (entry as { linkedinFinderError?: string }).linkedinFinderError =
+            e instanceof Error ? e.message : String(e);
+        }
         // Cross-source merge — propage LinkedIn/email/phone entre Leads
         // de la même boîte (même SIRET) issus de sources différentes.
         // Tourne AVANT Dropcontact pour que le LinkedIn cross-fertilisé
@@ -191,7 +208,10 @@ export async function POST(req: NextRequest) {
         // ────────────────────────────────────────────────────────────
         if (process.env.FULLENRICH_API_KEY) {
           try {
-            const fe = await enrichLeadsViaFullEnrich(c.id, { limit: 5 });
+            // limit 15 : cohérent avec budget Yearly 1k crédits/mois.
+            // Gate score >= 6 déjà appliquée dans enrich-via-fullenrich.ts.
+            // includePhones: true par défaut → 1 cr email + 10 cr phone.
+            const fe = await enrichLeadsViaFullEnrich(c.id, { limit: 15 });
             (entry as { fullEnrich?: unknown }).fullEnrich = fe;
           } catch (e) {
             (entry as { fullEnrichError?: string }).fullEnrichError =
@@ -208,14 +228,22 @@ export async function POST(req: NextRequest) {
         } catch {
           // skip silencieux
         }
-        // Declarative pain detection (HarvestAPI LinkedIn posts + Opus)
-        // Plafond strict 50 entreprises × 5 posts = 250 posts max/run = ~$0.40
-        try {
-          const pain = await detectDeclarativePainForClient(c.id, { limit: 50 });
-          (entry as { declarativePain?: unknown }).declarativePain = pain;
-        } catch (e) {
-          (entry as { painError?: string }).painError = e instanceof Error ? e.message : String(e);
-        }
+        // Declarative pain detection — ❌ DÉSACTIVÉ 30/04 (audit billing Apify)
+        // Cause : le module a brûlé 65% du budget Apify ($18.83/$29 sur 4 jours)
+        // via 9416 posts LinkedIn scrapés alors que le plafond théorique était
+        // de ~250/run × 16 runs = 4000. Le dedup TTL ne fonctionne pas ou
+        // l'actor sur-livre. À patcher avant réactivation :
+        //  - dedup TTL 14j sur companyId
+        //  - gate score >= 7 (Pépites only)
+        //  - plafond strict 20 boîtes/run, maxPosts 3
+        // En attendant, on garde le signal HarvestAPI Profile Search (étage 3-bis)
+        // qui ne consomme que ~$0.005/lookup. Reactivation : retirer ce bloc commenté.
+        // try {
+        //   const pain = await detectDeclarativePainForClient(c.id, { limit: 50 });
+        //   (entry as { declarativePain?: unknown }).declarativePain = pain;
+        // } catch (e) {
+        //   (entry as { painError?: string }).painError = e instanceof Error ? e.message : String(e);
+        // }
         // Sync EmailActivity (écrites par bot IMAP poller hors dashboard)
         // → LeadActivity miroir pour timeline temps réel.
         try {

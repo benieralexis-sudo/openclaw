@@ -84,6 +84,10 @@ export async function enrichLeadsViaKasprDirect(
       clientId,
       deletedAt: null,
       linkedinUrl: { not: null },
+      // Gate score >= 6 (Qualifié+) pour économiser crédits Kaspr.
+      // 30/04 : on n'enrichit plus les leads marginaux/faibles que le
+      // commercial ne va pas attaquer.
+      trigger: { score: { gte: 6 } },
       // Pas tenté OU dernier essai >30j
       AND: [
         {

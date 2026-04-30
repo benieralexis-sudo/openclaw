@@ -107,6 +107,51 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "poll_failed", message: e instanceof Error ? e.message : String(e), bulkId }, { status: 504 });
   }
 
+  // Persistance auto en DB (30/04) :
+  // - persist=true par défaut quand on a des leadIds (= le caller veut écrire)
+  // - persist=false (?persist=false) pour test pur sans toucher DB
+  // - persist=true même sur firstname/lastname/company → no-op si pas de leadId
+  const persistParam = url.searchParams.get("persist");
+  const persist = persistParam !== "false" && (leadIdsRaw || leadId);
+  const persisted: Array<{ leadId: string; email?: string; phone?: string }> = [];
+
+  if (persist) {
+    for (let i = 0; i < bulk.datas.length; i++) {
+      const d = bulk.datas[i];
+      const dataIn = datas[i];
+      const lid = dataIn?.custom?.leadId;
+      if (!lid || !d) continue;
+      const c = d.contact;
+      const bestEmail = pickBestEmail(c) ?? null;
+      const bestPhone = pickBestPhone(c) ?? null;
+      try {
+        await db.lead.update({
+          where: { id: lid },
+          data: {
+            ...(bestEmail ? { emailFullenrich: bestEmail } : {}),
+            ...(bestPhone ? { phoneFullenrich: bestPhone } : {}),
+            fullenrichAttemptedAt: new Date(),
+            ...(bestEmail ? { email: bestEmail } : {}),
+            ...(bestPhone ? { phone: bestPhone } : {}),
+            ...(bestEmail || bestPhone
+              ? { status: "ENRICHED", enrichedAt: new Date() }
+              : {}),
+          },
+        });
+        persisted.push({
+          leadId: lid,
+          email: bestEmail ?? undefined,
+          phone: bestPhone ?? undefined,
+        });
+      } catch (e) {
+        console.warn(
+          `[test-fullenrich] persist failed for ${lid}:`,
+          e instanceof Error ? e.message : e,
+        );
+      }
+    }
+  }
+
   // Format human-readable summary
   const summary = bulk.datas.map((d, i) => {
     const c = d.contact;
@@ -130,6 +175,8 @@ export async function POST(req: NextRequest) {
     bulkId,
     status: bulk.status,
     creditsUsed: bulk.cost?.credits ?? 0,
+    persisted: persist ? persisted.length : 0,
+    persistedDetails: persist ? persisted : undefined,
     summary,
     raw: bulk,
   });
