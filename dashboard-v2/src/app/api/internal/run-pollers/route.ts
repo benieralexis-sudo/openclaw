@@ -8,7 +8,8 @@ import { detectCombosForClient } from "@/lib/combo-detector";
 import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
 import { enrichDecisionMakersForClient } from "@/lib/harvestapi-decision-makers";
 import { enrichLeadsViaFullEnrich } from "@/lib/enrich-via-fullenrich";
-import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
+// Dropcontact archivé 30/04/2026 (cf _archive/disabled-libs-20260430/)
+// import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
 import { detectDeclarativePainForClient } from "@/lib/declarative-pain";
 import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
@@ -34,6 +35,32 @@ import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
  *   - clientId=xxx (défaut: tous les clients actifs avec ICP)
  *   - dryRun=true|false
  */
+// Lock global pour éviter chevauchement (audit 30/04 nuit) — cron 1h vs run
+// pouvant prendre 8-15 min, on évite que 2 runs tournent en // s'il y a du
+// retard. Lock TTL 90 min (cron 1h + buffer). Si ?force=true, bypass le lock.
+let runPollersLock: { acquiredAt: number; runId: string } | null = null;
+const LOCK_TTL_MS = 90 * 60 * 1000;
+
+function tryAcquireLock(force: boolean): { ok: true; runId: string } | { ok: false; lockedAt: number; ageMinutes: number } {
+  const now = Date.now();
+  if (runPollersLock && !force) {
+    const age = now - runPollersLock.acquiredAt;
+    if (age < LOCK_TTL_MS) {
+      return { ok: false, lockedAt: runPollersLock.acquiredAt, ageMinutes: Math.round(age / 60_000) };
+    }
+    // Lock expiré → on le casse et on en prend un nouveau
+  }
+  const runId = `run-${now}-${Math.random().toString(36).slice(2, 8)}`;
+  runPollersLock = { acquiredAt: now, runId };
+  return { ok: true, runId };
+}
+
+function releaseLock(runId: string): void {
+  if (runPollersLock?.runId === runId) {
+    runPollersLock = null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-cron-secret");
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
@@ -44,7 +71,24 @@ export async function POST(req: NextRequest) {
   const source = url.searchParams.get("source") || "all";
   const targetClientId = url.searchParams.get("clientId");
   const dryRun = url.searchParams.get("dryRun") === "true";
+  const force = url.searchParams.get("force") === "true";
 
+  // Acquire lock (anti-chevauchement)
+  const lock = tryAcquireLock(force);
+  if (!lock.ok) {
+    return NextResponse.json(
+      {
+        error: "run_pollers_locked",
+        message: `Un run-pollers tourne déjà depuis ${lock.ageMinutes} min. Utiliser ?force=true pour bypass.`,
+        lockedAt: new Date(lock.lockedAt).toISOString(),
+      },
+      { status: 423 },
+    );
+  }
+  const runId = lock.runId;
+
+  // Le reste de la fonction est wrappé try/finally pour garantir releaseLock
+  try {
   const clients = targetClientId
     ? await db.client.findMany({ where: { id: targetClientId, deletedAt: null }, select: { id: true, name: true, icp: true } })
     : await db.client.findMany({ where: { deletedAt: null, status: { in: ["ACTIVE", "PROSPECT"] } }, select: { id: true, name: true, icp: true } });
@@ -286,7 +330,10 @@ export async function POST(req: NextRequest) {
     summary.push(entry);
   }
 
-  return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), summary });
+  return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), runId, summary });
+  } finally {
+    releaseLock(runId);
+  }
 }
 
 export async function GET() {
