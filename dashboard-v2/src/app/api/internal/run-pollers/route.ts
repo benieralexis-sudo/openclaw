@@ -169,22 +169,17 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           (entry as { crossSourceError?: string }).crossSourceError = e instanceof Error ? e.message : String(e);
         }
-        // Enrichissement contact via Dropcontact (email + LinkedIn + tel)
-        // pour les Leads avec dirigeant nommé mais sans email.
-        try {
-          const dc = await enrichLeadsViaDropcontact(c.id, { limit: 30 });
-          (entry as { dropcontact?: unknown }).dropcontact = dc;
-        } catch (e) {
-          (entry as { dropcontactError?: string }).dropcontactError = e instanceof Error ? e.message : String(e);
-        }
-        // 2e passe cross-source — propage les enrichissements Dropcontact
-        // (email/phone) vers les Leads sœurs de la même boîte qui n'ont pas
-        // été touchés par Dropcontact (limit 30/run).
-        try {
-          await mergeLeadsBySiret(c.id);
-        } catch {
-          // skip silencieux — la 1re passe a déjà loggué les groupes
-        }
+        // Dropcontact ❌ COUPÉ 30/04/2026 (audit empirique 1.66% hit rate sur ICP DTL)
+        // Compte Dropcontact fermé côté abonnement → appel = 401 silencieux.
+        // Remplacé par FullEnrich Yearly Start 1k (étage 4-bis) qui cascade
+        // sur 20+ providers (incl. Dropcontact lui-même) avec hit 100% mesuré.
+        // Économie : -35€/mo. Lib enrich-via-dropcontact.ts conservée pour rollback.
+        // try {
+        //   const dc = await enrichLeadsViaDropcontact(c.id, { limit: 30 });
+        //   (entry as { dropcontact?: unknown }).dropcontact = dc;
+        // } catch (e) {
+        //   (entry as { dropcontactError?: string }).dropcontactError = e instanceof Error ? e.message : String(e);
+        // }
         // Kaspr direct sur les leads avec LinkedIn jamais enrichis Kaspr.
         // Cas concret : Rodz enrichContact ramène un LinkedIn → si Dropcontact
         // ne trouve pas d'email, le chaining Kaspr de enrichLeadsViaDropcontact

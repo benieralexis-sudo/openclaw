@@ -75,6 +75,17 @@ interface TriggerData {
     kasprPersonalEmail?: string | null;
     kasprPhone?: string | null;
     kasprTitle?: string | null;
+    // FullEnrich enrichment (waterfall 20+ providers)
+    emailFullenrich?: string | null;
+    phoneFullenrich?: string | null;
+    fullenrichAttemptedAt?: string | null;
+    // LinkedIn finder source
+    linkedinSource?: string | null;
+    // Multi-source emails
+    emailRodz?: string | null;
+    emailSourceCount?: number;
+    bouncedAt?: string | null;
+    bouncedFromEmail?: string | null;
     // Pappers data
     companyRevenue?: number | null;
     companyResultNet?: number | null;
@@ -557,6 +568,71 @@ function TriggerHeader({
                       {lead.kasprPhone}
                     </a>
                   )}
+                </div>
+              )}
+              {/* FullEnrich enrichment (waterfall 20+ providers, audit 30/04) */}
+              {lead.fullenrichAttemptedAt && (lead.emailFullenrich || lead.phoneFullenrich) && (
+                <div className="mt-2 border-t border-ink-100 pt-2 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="info" size="sm" className="gap-1 bg-purple-100 text-purple-800 border-purple-200">
+                      <Database className="h-2.5 w-2.5" />
+                      FullEnrich
+                    </Badge>
+                    <span className="text-[10px] text-ink-400">
+                      {formatRelativeFr(lead.fullenrichAttemptedAt)}
+                    </span>
+                    <span className="text-[10px] text-ink-400">· waterfall 20+ sources</span>
+                  </div>
+                  {lead.emailFullenrich && lead.emailFullenrich !== lead.email && lead.emailFullenrich !== lead.kasprWorkEmail && (
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`mailto:${lead.emailFullenrich}`}
+                        className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
+                      >
+                        <Mail className="h-3 w-3" />
+                        {lead.emailFullenrich}
+                        <Badge variant="success" size="sm" className="ml-1">FE</Badge>
+                      </a>
+                      <a
+                        href={gmailComposeUrl({ to: lead.emailFullenrich })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Ouvrir dans Gmail"
+                        className="rounded bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-100"
+                      >
+                        Gmail
+                      </a>
+                    </div>
+                  )}
+                  {lead.phoneFullenrich && lead.phoneFullenrich !== lead.kasprPhone && lead.phoneFullenrich !== lead.phone && (
+                    <a
+                      href={`tel:${lead.phoneFullenrich}`}
+                      className="flex items-center gap-1 font-mono text-[11px] text-brand-700 hover:underline"
+                    >
+                      <Phone className="h-3 w-3" />
+                      {lead.phoneFullenrich}
+                      <Badge variant="success" size="sm" className="ml-1">FE Mobile</Badge>
+                    </a>
+                  )}
+                </div>
+              )}
+              {/* Bounce alert (Resend a remonté un bounce — l'email a été marqué) */}
+              {lead.bouncedAt && lead.bouncedFromEmail && (
+                <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="danger" size="sm">⚠️ Bounce</Badge>
+                    <span className="text-[10.5px] text-red-800">
+                      Email rejeté : {lead.bouncedFromEmail}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {/* Multi-source confidence badge — affiche si email validé par 2+ sources */}
+              {lead.emailSourceCount !== undefined && lead.emailSourceCount >= 2 && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <Badge variant="success" size="sm">
+                    ✓ Email confirmé par {lead.emailSourceCount} sources
+                  </Badge>
                 </div>
               )}
               {/* Job Move badge (Dropcontact a détecté changement de poste <6m) */}

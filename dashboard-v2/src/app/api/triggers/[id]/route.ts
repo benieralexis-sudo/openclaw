@@ -70,6 +70,25 @@ export async function GET(
       kasprPersonalEmail: true,
       kasprPhone: true,
       kasprTitle: true,
+      // FullEnrich enrichment (audit 30/04 — étage 4-bis)
+      emailFullenrich: true,
+      phoneFullenrich: true,
+      fullenrichAttemptedAt: true,
+      // Multi-source emails (Q3 audit qualité 29/04)
+      emailRodz: true,
+      emailDropcontact: true,
+      emailConfidence: true,
+      emailSourceCount: true,
+      // LinkedIn source (audit 30/04 — étage 3-bis)
+      linkedinSource: true,
+      linkedinFinderAttemptedAt: true,
+      // Persona source (audit 29/04 soir)
+      personaSource: true,
+      personaTier: true,
+      // Data quality (Q7 audit qualité 29/04)
+      dataQuality: true,
+      bouncedAt: true,
+      bouncedFromEmail: true,
       // Pappers data (audit 28/04 — étaient sélectionnés en DB mais jamais retournés)
       companyRevenue: true,
       companyResultNet: true,
