@@ -20,8 +20,17 @@ import { TriggerType, TriggerStatus } from "@prisma/client";
 // ═══════════════════════════════════════════════════════════════════
 
 const ACTOR = "harvestapi/linkedin-company-posts";
-const MAX_COMPANIES_PER_RUN = 50;
-const POSTS_PER_COMPANY = 5;
+// Patches sécurité 30/04 (audit billing Apify : $18.83/$29 brûlés en 4j sur 9416 posts) :
+//  - MAX_COMPANIES_PER_RUN : 50 → 20 (×0.4)
+//  - POSTS_PER_COMPANY : 5 → 3 (×0.6)
+//  - Dedup TTL 14j via Trigger.declarativePainScannedAt
+//  - Gate score >= 7 (Pépites only, plus de Qualifiés 6)
+//  Conso prédite : ~20 boîtes × 3 posts × 1 run/h × 24h = 1440 max théoriques,
+//  mais dedup 14j → ~6 posts/jour réels = $0.36/mois (vs $18 avant).
+const MAX_COMPANIES_PER_RUN = 20;
+const POSTS_PER_COMPANY = 3;
+const SCORE_GATE = 7;
+const TTL_DAYS = 14;
 
 interface LinkedinPost {
   id?: string;
@@ -128,13 +137,18 @@ export async function detectDeclarativePainForClient(
     errors: 0,
   };
 
-  // Sélection : Triggers ICP-fit récents avec un linkedinUrl entreprise
-  // (on extrait depuis Lead.linkedinUrl si dispo, sinon on skip)
+  // Sélection (patches 30/04) : Triggers Pépites (score >= 7) avec linkedinUrl
+  // entreprise + dedup TTL 14j via declarativePainScannedAt.
+  const ttlAgo = new Date(Date.now() - TTL_DAYS * 24 * 60 * 60 * 1000);
   const candidates = await db.trigger.findMany({
     where: {
       clientId,
       deletedAt: null,
-      score: { gte: 5 },
+      score: { gte: SCORE_GATE },
+      OR: [
+        { declarativePainScannedAt: null },
+        { declarativePainScannedAt: { lt: ttlAgo } },
+      ],
     },
     select: {
       id: true,
@@ -217,6 +231,21 @@ export async function detectDeclarativePainForClient(
       result.triggersBoostedScore++;
     } catch {
       result.errors++;
+    }
+  }
+
+  // Marque tous les triggers candidats comme "scannés" (TTL 14j) — y compris
+  // ceux où aucun pain n'a été détecté, pour éviter de les re-scraper avant
+  // 14j (économie Apify confirmée).
+  const scannedAt = new Date();
+  for (const c of withUrls) {
+    try {
+      await db.trigger.update({
+        where: { id: c.triggerId },
+        data: { declarativePainScannedAt: scannedAt },
+      });
+    } catch {
+      // best effort
     }
   }
 

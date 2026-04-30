@@ -135,6 +135,9 @@ async function pappersFetch<T>(path: string, params: Record<string, string | num
     if (v !== undefined && v !== null) qs.set(k, String(v));
   }
 
+  // Tracking conso (audit 30/04)
+  trackEndpointCall(path);
+
   const res = await fetch(`${BASE_URL}${path}?${qs.toString()}`, { signal: AbortSignal.timeout(20_000) });
   const text = await res.text();
   let body: unknown = null;
@@ -144,12 +147,14 @@ async function pappersFetch<T>(path: string, params: Record<string, string | num
     body = text;
   }
   if (!res.ok) {
+    pappersStats.apiCallsError++;
     throw new PappersError(
       res.status,
       `Pappers ${res.status}`,
       body,
     );
   }
+  pappersStats.apiCallsSuccess++;
   return body as T;
 }
 
@@ -173,13 +178,35 @@ const CACHE_MAX_ENTRIES = 200;
 const entrepriseCache = new Map<string, CacheEntry<PappersEntreprise>>();
 const searchCache = new Map<string, CacheEntry<PappersSearchResult>>();
 
+// Compteurs in-memory (audit 30/04) — visibilité conso Pappers depuis restart.
+// Pappers n'expose pas /credits ; on instrumente nos appels (cache miss = 1 cr).
+// Reset à chaque restart du service. À persister en DB plus tard si besoin.
+export const pappersStats = {
+  startedAt: new Date(),
+  cacheHits: 0,
+  cacheMisses: 0,
+  apiCallsSuccess: 0,
+  apiCallsError: 0,
+  apiCallsByEndpoint: {} as Record<string, number>,
+};
+
+function trackEndpointCall(endpoint: string): void {
+  pappersStats.apiCallsByEndpoint[endpoint] =
+    (pappersStats.apiCallsByEndpoint[endpoint] ?? 0) + 1;
+}
+
 function cacheGet<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
   const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL_MS) {
-    cache.delete(key);
+  if (!entry) {
+    pappersStats.cacheMisses++;
     return null;
   }
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    cache.delete(key);
+    pappersStats.cacheMisses++;
+    return null;
+  }
+  pappersStats.cacheHits++;
   return entry.data;
 }
 

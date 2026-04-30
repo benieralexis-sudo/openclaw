@@ -240,22 +240,19 @@ export async function POST(req: NextRequest) {
         } catch {
           // skip silencieux
         }
-        // Declarative pain detection — ❌ DÉSACTIVÉ 30/04 (audit billing Apify)
-        // Cause : le module a brûlé 65% du budget Apify ($18.83/$29 sur 4 jours)
-        // via 9416 posts LinkedIn scrapés alors que le plafond théorique était
-        // de ~250/run × 16 runs = 4000. Le dedup TTL ne fonctionne pas ou
-        // l'actor sur-livre. À patcher avant réactivation :
-        //  - dedup TTL 14j sur companyId
-        //  - gate score >= 7 (Pépites only)
-        //  - plafond strict 20 boîtes/run, maxPosts 3
-        // En attendant, on garde le signal HarvestAPI Profile Search (étage 3-bis)
-        // qui ne consomme que ~$0.005/lookup. Reactivation : retirer ce bloc commenté.
-        // try {
-        //   const pain = await detectDeclarativePainForClient(c.id, { limit: 50 });
-        //   (entry as { declarativePain?: unknown }).declarativePain = pain;
-        // } catch (e) {
-        //   (entry as { painError?: string }).painError = e instanceof Error ? e.message : String(e);
-        // }
+        // Declarative pain detection — ✅ RÉACTIVÉ 30/04 SOIR avec gates strictes
+        // Patches sécurité après l'incident $18.83/$29 (65% budget Apify) :
+        //  - Dedup TTL 14j via Trigger.declarativePainScannedAt (marqué après scan)
+        //  - Gate score >= 7 (Pépites only, plus de Qualifiés 6)
+        //  - Plafond 20 boîtes/run (au lieu de 50)
+        //  - maxPostsPerCompany: 3 (au lieu de 5)
+        //  Conso prédite : $0.36/mois (vs $18 avant) = -$18.50/mois économie maintenue.
+        try {
+          const pain = await detectDeclarativePainForClient(c.id, { limit: 20 });
+          (entry as { declarativePain?: unknown }).declarativePain = pain;
+        } catch (e) {
+          (entry as { painError?: string }).painError = e instanceof Error ? e.message : String(e);
+        }
         // Sync EmailActivity (écrites par bot IMAP poller hors dashboard)
         // → LeadActivity miroir pour timeline temps réel.
         try {

@@ -204,6 +204,11 @@ model Trigger {
   ignoredReason String?
   // Enrichment dedup (évite re-fetch Pappers à chaque cron 6h)
   pappersDirigeantsAttemptedAt DateTime?
+  // Declarative pain dedup (audit 30/04). Pose même si rien détecté pour
+  // éviter re-scrape Apify $0.002/post × 5 posts/run × 16 runs/jour.
+  // TTL 14j : on retente après 2 semaines au cas où la boîte poste enfin
+  // une nouvelle douleur.
+  declarativePainScannedAt DateTime?
   // Soft delete
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
