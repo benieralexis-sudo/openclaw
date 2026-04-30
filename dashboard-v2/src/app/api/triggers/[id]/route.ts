@@ -89,6 +89,10 @@ export async function GET(
       dataQuality: true,
       bouncedAt: true,
       bouncedFromEmail: true,
+      // RGPD opt-out (audit 30/04)
+      doNotContact: true,
+      doNotContactReason: true,
+      doNotContactAt: true,
       // Pappers data (audit 28/04 — étaient sélectionnés en DB mais jamais retournés)
       companyRevenue: true,
       companyResultNet: true,

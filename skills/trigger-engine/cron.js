@@ -353,9 +353,13 @@ class TriggerEngineCron {
     }, 10 * 60 * 1000);
     this.intervals.push(pgSyncInterval);
 
-    // Pollers premium dashboard-v2 (TheirStack + Apify) : every 6h
+    // Pollers premium dashboard-v2 (TheirStack + Apify + cascade enrichissement) : every 1h
+    // Audit 30/04 : passé de 6h à 1h pour réduire le délai signal→enrichissement
+    // (Rodz webhook arrive en temps réel mais l'enrichissement HarvestAPI/FullEnrich
+    // attendait 6h). Coût marginal payant ~nul car TTL flags 30j/14j/7j sur tous
+    // les outils (Kaspr/FullEnrich/HarvestAPI/Pappers récursion) → un 2e run dans
+    // la même heure ne re-tente rien.
     // Appelle https://app.ifind.fr/api/internal/run-pollers (route protégée x-cron-secret).
-    // TheirStack remonte des jobs FR matchant ICP, Pappers enrichit SIRENE post-poll.
     const dashboardPollersInterval = setInterval(async () => {
       try {
         const url = process.env.DASHBOARD_INTERNAL_URL || 'https://app.ifind.fr/api/internal/run-pollers';
@@ -393,7 +397,7 @@ class TriggerEngineCron {
       } catch (e) {
         this.log.warn?.(`[cron] dashboard-pollers error: ${e.message}`);
       }
-    }, 6 * 3600 * 1000);
+    }, 1 * 3600 * 1000);
     this.intervals.push(dashboardPollersInterval);
 
     // Claude Brain Discover : weekly dimanche 23h

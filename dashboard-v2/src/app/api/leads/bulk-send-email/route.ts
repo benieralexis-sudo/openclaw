@@ -39,17 +39,54 @@ export async function POST(req: NextRequest) {
       id: true,
       clientId: true,
       companyName: true,
+      companySiret: true,
       fullName: true,
       firstName: true,
       lastName: true,
       email: true,
       emailStatus: true,
       status: true,
+      bouncedAt: true,
+      doNotContact: true,
+      doNotContactReason: true,
     },
   });
 
+  // Cooldown 7j par société (audit 30/04) : on évite d'envoyer 2 emails à des
+  // personas différentes de la même boîte en moins de 7 jours. Triple message
+  // sur la même boîte = signal de spam fort pour les providers email.
+  const COOLDOWN_DAYS = 7;
+  const sevenDaysAgo = new Date(Date.now() - COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+  const sirets = leads
+    .map((l) => l.companySiret)
+    .filter((s): s is string => !!s);
+  // Trouver pour chaque SIRET le dernier email envoyé < 7j (via EmailActivity
+  // SENT joint sur Lead.companySiret).
+  const recentSends = sirets.length
+    ? await db.emailActivity.findMany({
+        where: {
+          direction: "SENT",
+          sentAt: { gte: sevenDaysAgo },
+          lead: { companySiret: { in: sirets } },
+        },
+        select: {
+          sentAt: true,
+          lead: { select: { companySiret: true, fullName: true } },
+        },
+        orderBy: { sentAt: "desc" },
+      })
+    : [];
+  const cooldownBySiret = new Map<string, { sentAt: Date; toFullName: string | null }>();
+  for (const ea of recentSends) {
+    const siret = ea.lead?.companySiret;
+    if (!siret) continue;
+    if (!cooldownBySiret.has(siret)) {
+      cooldownBySiret.set(siret, { sentAt: ea.sentAt, toFullName: ea.lead?.fullName ?? null });
+    }
+  }
+
   const eligible: typeof leads = [];
-  const skipped: Array<{ leadId: string; reason: string }> = [];
+  const skipped: Array<{ leadId: string; reason: string; detail?: string }> = [];
 
   for (const lead of leads) {
     const scope = resolveClientScope(s.user, lead.clientId);
@@ -64,6 +101,30 @@ export async function POST(req: NextRequest) {
     if (lead.status === "NOT_INTERESTED" || lead.status === "ARCHIVED") {
       skipped.push({ leadId: lead.id, reason: "status_blocked" });
       continue;
+    }
+    if (lead.bouncedAt) {
+      skipped.push({ leadId: lead.id, reason: "previous_bounce", detail: lead.bouncedAt.toISOString() });
+      continue;
+    }
+    if (lead.doNotContact) {
+      skipped.push({
+        leadId: lead.id,
+        reason: "do_not_contact",
+        detail: lead.doNotContactReason ?? "opt_out",
+      });
+      continue;
+    }
+    if (lead.companySiret) {
+      const cooldown = cooldownBySiret.get(lead.companySiret);
+      if (cooldown) {
+        const daysAgo = Math.floor((Date.now() - cooldown.sentAt.getTime()) / (24 * 60 * 60 * 1000));
+        skipped.push({
+          leadId: lead.id,
+          reason: "cooldown_company",
+          detail: `Email envoyé à ${cooldown.toFullName ?? "qqn"} il y a ${daysAgo}j sur cette boîte (cooldown ${COOLDOWN_DAYS}j)`,
+        });
+        continue;
+      }
     }
     eligible.push(lead);
   }

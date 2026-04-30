@@ -86,6 +86,10 @@ interface TriggerData {
     emailSourceCount?: number;
     bouncedAt?: string | null;
     bouncedFromEmail?: string | null;
+    // RGPD opt-out
+    doNotContact?: boolean;
+    doNotContactReason?: string | null;
+    doNotContactAt?: string | null;
     // Pappers data
     companyRevenue?: number | null;
     companyResultNet?: number | null;
@@ -287,7 +291,7 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
         )}
       </div>
 
-      <TriggerHeader trigger={trigger} lead={lead} opportunity={opportunity} />
+      <TriggerHeader trigger={trigger} lead={lead} opportunity={opportunity} brief={brief} />
 
       {!lead ? (
         <Card>
@@ -354,10 +358,12 @@ function TriggerHeader({
   trigger,
   lead,
   opportunity,
+  brief,
 }: {
   trigger: TriggerData["trigger"];
   lead: TriggerData["lead"];
   opportunity: TriggerData["opportunity"];
+  brief: Brief | null;
 }) {
   const scoreVariant = trigger.isHot
     ? "fire"
@@ -481,13 +487,17 @@ function TriggerHeader({
                     {lead.email}
                   </a>
                   <a
-                    href={gmailComposeUrl({ to: lead.email })}
+                    href={gmailComposeUrl({
+                      to: lead.email,
+                      subject: brief?.email?.subject,
+                      body: brief?.email?.body,
+                    })}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title="Ouvrir dans Gmail"
+                    title={brief?.email ? "Ouvrir Gmail avec pitch pré-rempli" : "Ouvrir dans Gmail"}
                     className="rounded bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-100"
                   >
-                    Gmail
+                    Gmail{brief?.email ? " ✨" : ""}
                   </a>
                 </div>
               )}
@@ -528,13 +538,17 @@ function TriggerHeader({
                         <Badge variant="success" size="sm" className="ml-1">Pro</Badge>
                       </a>
                       <a
-                        href={gmailComposeUrl({ to: lead.kasprWorkEmail })}
+                        href={gmailComposeUrl({
+                          to: lead.kasprWorkEmail,
+                          subject: brief?.email?.subject,
+                          body: brief?.email?.body,
+                        })}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="Ouvrir dans Gmail"
+                        title={brief?.email ? "Ouvrir Gmail avec pitch pré-rempli" : "Ouvrir dans Gmail"}
                         className="rounded bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-100"
                       >
-                        Gmail
+                        Gmail{brief?.email ? " ✨" : ""}
                       </a>
                     </div>
                   )}
@@ -549,13 +563,17 @@ function TriggerHeader({
                         <Badge variant="warning" size="sm" className="ml-1">Perso</Badge>
                       </a>
                       <a
-                        href={gmailComposeUrl({ to: lead.kasprPersonalEmail })}
+                        href={gmailComposeUrl({
+                          to: lead.kasprPersonalEmail,
+                          subject: brief?.email?.subject,
+                          body: brief?.email?.body,
+                        })}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="Ouvrir dans Gmail"
+                        title={brief?.email ? "Ouvrir Gmail avec pitch pré-rempli" : "Ouvrir dans Gmail"}
                         className="rounded bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-100"
                       >
-                        Gmail
+                        Gmail{brief?.email ? " ✨" : ""}
                       </a>
                     </div>
                   )}
@@ -594,13 +612,17 @@ function TriggerHeader({
                         <Badge variant="success" size="sm" className="ml-1">FE</Badge>
                       </a>
                       <a
-                        href={gmailComposeUrl({ to: lead.emailFullenrich })}
+                        href={gmailComposeUrl({
+                          to: lead.emailFullenrich,
+                          subject: brief?.email?.subject,
+                          body: brief?.email?.body,
+                        })}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="Ouvrir dans Gmail"
+                        title={brief?.email ? "Ouvrir Gmail avec pitch pré-rempli" : "Ouvrir dans Gmail"}
                         className="rounded bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-100"
                       >
-                        Gmail
+                        Gmail{brief?.email ? " ✨" : ""}
                       </a>
                     </div>
                   )}
@@ -614,6 +636,26 @@ function TriggerHeader({
                       <Badge variant="success" size="sm" className="ml-1">FE Mobile</Badge>
                     </a>
                   )}
+                </div>
+              )}
+              {/* RGPD opt-out badge (audit 30/04 — l'IMAP a détecté "stop"/"unsubscribe") */}
+              {lead.doNotContact && (
+                <div className="mt-2 rounded-md border border-red-300 bg-red-100 px-2 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="danger" size="sm">🚫 Ne pas contacter</Badge>
+                    <span className="text-[10.5px] text-red-900 font-medium">
+                      {lead.doNotContactReason === "auto_imap_unsub"
+                        ? "Désabonnement détecté"
+                        : lead.doNotContactReason === "auto_imap_stop"
+                        ? "Réponse 'stop' détectée"
+                        : lead.doNotContactReason === "auto_imap_remove"
+                        ? "Demande de suppression"
+                        : `Opt-out (${lead.doNotContactReason ?? "manual"})`}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-red-800">
+                    Lead exclu de tous les bulk-send-email (RGPD).
+                  </div>
                 </div>
               )}
               {/* Bounce alert (Resend a remonté un bounce — l'email a été marqué) */}

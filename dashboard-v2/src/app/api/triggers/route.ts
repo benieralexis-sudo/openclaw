@@ -47,13 +47,15 @@ export async function GET(req: NextRequest) {
 
   const triggers = await db.trigger.findMany({
     where,
-    // Ordre : isHot → score → dataQuality lead (29/04 : trie les pépites avec
-    // contact actionable en premier) → capturedAt.
+    // Ordre (audit 30/04) : isHot → score → capturedAt (FRAÎCHEUR avant qualité
+    // de données : un signal d'hier passe avant un signal de 3 semaines même
+    // si moins enrichi, parce que la fenêtre commerciale est plus courte) →
+    // dataQuality (tranche entre 2 leads identiques score+date).
     orderBy: [
       { isHot: "desc" },
       { score: "desc" },
-      { lead: { dataQuality: "desc" } },
       { capturedAt: "desc" },
+      { lead: { dataQuality: "desc" } },
     ],
     take: 200,
     select: {
@@ -89,6 +91,8 @@ export async function GET(req: NextRequest) {
           personaTier: true,
           personaSource: true,
           bouncedAt: true,
+          doNotContact: true,
+          doNotContactReason: true,
           pitchJson: true,
           callBriefJson: true,
           linkedinDmJson: true,

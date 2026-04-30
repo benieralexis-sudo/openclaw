@@ -59,6 +59,9 @@ export async function logActivity(args: LogActivityArgs): Promise<{ ok: true; id
 // Sync : rattrape les EmailActivity (RECEIVED notamment, écrites par le bot
 // IMAP poller hors dashboard) qui n'ont pas encore de LeadActivity miroir.
 // Idempotent — sécurise contre une double trace via emailActivityId déjà utilisé.
+//
+// Bonus 30/04 : détecte les opt-out RGPD dans les replies RECEIVED et pose
+// `Lead.doNotContact = true` automatiquement quand un keyword est matché.
 export async function syncEmailActivitiesToLeadActivity(opts: { since?: Date; limit?: number } = {}) {
   const since = opts.since ?? new Date(Date.now() - 7 * 24 * 3600 * 1000);
   const limit = opts.limit ?? 200;
@@ -73,6 +76,7 @@ export async function syncEmailActivitiesToLeadActivity(opts: { since?: Date; li
       sentAt: true,
       sentByUserId: true,
       subject: true,
+      bodyText: true,
       fromMailbox: true,
       toEmail: true,
       template: true,
@@ -92,6 +96,7 @@ export async function syncEmailActivitiesToLeadActivity(opts: { since?: Date; li
   const orphans = candidates.filter((c) => !existingIds.has(c.id));
 
   let created = 0;
+  let optOutDetected = 0;
   for (const ea of orphans) {
     const result = await logActivity({
       leadId: ea.leadId,
@@ -110,8 +115,70 @@ export async function syncEmailActivitiesToLeadActivity(opts: { since?: Date; li
       },
     });
     if (result.ok) created += 1;
+
+    // Détection opt-out RGPD sur les RECEIVED (audit 30/04). Si la réponse
+    // contient des mots-clés de désabonnement, pose Lead.doNotContact = true
+    // pour que le lead soit exclu de tout futur bulk-send-email.
+    if (ea.direction === "RECEIVED") {
+      const detected = detectOptOut(ea.subject, ea.bodyText);
+      if (detected) {
+        try {
+          // findFirst avec doNotContact: false pour éviter d'écraser une raison existante
+          const lead = await db.lead.findFirst({
+            where: { id: ea.leadId, doNotContact: false },
+            select: { id: true },
+          });
+          if (lead) {
+            await db.lead.update({
+              where: { id: lead.id },
+              data: {
+                doNotContact: true,
+                doNotContactReason: detected.reason,
+                doNotContactAt: ea.sentAt,
+              },
+            });
+            optOutDetected += 1;
+          }
+        } catch {
+          // best effort
+        }
+      }
+    }
   }
-  return { scanned: orphans.length, created };
+  return { scanned: orphans.length, created, optOutDetected };
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Détection opt-out RGPD sur une réponse email (audit 30/04)
+// ──────────────────────────────────────────────────────────────────────
+//
+// Match strict : le mot-clé doit apparaître comme un signal explicite
+// (début de phrase, ligne complète, ou réponse courte). Évite de
+// déclencher sur "stop spam ce produit" ou "désabonner mon ancien provider".
+const OPT_OUT_PATTERNS: Array<{ regex: RegExp; reason: string }> = [
+  // Patterns explicites en français
+  { regex: /\b(d[ée]sabonn(e|er|ez|ement))\b/i, reason: "auto_imap_unsub" },
+  { regex: /\b(ne plus|cessez de|arr[êe]tez de)\s+(me|nous)\s+(contacter|envoyer|écrire|relancer)/i, reason: "auto_imap_stop" },
+  { regex: /\b(retirez?|supprimez?)\s+(moi|mon adresse|mon email)/i, reason: "auto_imap_remove" },
+  // Patterns explicites en anglais
+  { regex: /\b(unsubscribe|opt[\s-]?out)\b/i, reason: "auto_imap_unsub" },
+  { regex: /\bremove\s+(me|my\s+email|my\s+address)\s+from/i, reason: "auto_imap_remove" },
+  // Réponse courte "stop" (mot isolé ou ligne complète, max 10 chars)
+  { regex: /^\s*stop\s*\.?\s*$/i, reason: "auto_imap_stop" },
+];
+
+function detectOptOut(
+  subject: string | null | undefined,
+  bodyText: string | null | undefined,
+): { reason: string } | null {
+  const corpus = [subject ?? "", bodyText ?? ""].join("\n").trim();
+  if (!corpus || corpus.length < 3) return null;
+  // Limiter au début du body (réponses cold email, le user écrit en haut).
+  const head = corpus.slice(0, 500);
+  for (const { regex, reason } of OPT_OUT_PATTERNS) {
+    if (regex.test(head)) return { reason };
+  }
+  return null;
 }
 
 // Helper : compteurs agrégés par type pour un lead (UI fiche).
