@@ -25,6 +25,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { cn, formatNumberFr, formatRelativeFr, gmailComposeUrl, isFrenchMobile, normalizeLinkedinUrl } from "@/lib/utils";
+import { computeLeadVerdict, type VerdictResult } from "@/lib/lead-verdict";
+import { humanizeCompanySize, humanizeRevenue, humanizeResultNet, humanizeEtabsCount } from "@/lib/format-company";
+import { CheckCircle2, AlertTriangle, XCircle, Info, Clock } from "lucide-react";
 import { formatSourceLabel, truncateDetail } from "@/lib/format-trigger-detail";
 import { SendEmailModal } from "@/components/lead/send-email-modal";
 import { EnrichKasprModal } from "@/components/lead/enrich-kaspr-modal";
@@ -104,11 +107,14 @@ interface TriggerData {
     warmMailJson?: { subject: string; body: string } | null;
     warmMailGeneratedAt?: string | null;
     copyGeneratedAt?: string | null;
+    // Chantier D9 — Fit Score v4.2 pour le verdict
+    fitScore?: number | null;
   } | null;
   client: {
     id: string;
     slug: string;
     name: string;
+    icp?: Record<string, unknown> | null;
   } | null;
   opportunity: {
     id: string;
@@ -236,12 +242,43 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
 
   if (isLoading || !data) return <BoardSkeleton />;
 
-  const { trigger, lead, opportunity } = data;
+  const { trigger, lead, opportunity, client } = data;
   const brief = lead?.briefJson ?? null;
   const hasBrief = !!brief;
 
+  // Chantier D9 (01/05) — Verdict humain calculé depuis tous les signaux
+  const icp = (client?.icp ?? {}) as Record<string, unknown>;
+  const icpSizeMin = typeof icp.company_size_min === "number" ? icp.company_size_min : undefined;
+  const icpSizeMax = typeof icp.company_size_max === "number" ? icp.company_size_max : undefined;
+  const verdict = computeLeadVerdict({
+    score: trigger.score,
+    priorityScore: (trigger as { priorityScore?: number | null }).priorityScore ?? null,
+    fitScore: lead?.fitScore ?? null,
+    isHot: trigger.isHot,
+    hasContact: !!(lead?.email || lead?.kasprWorkEmail || lead?.emailFullenrich || lead?.kasprPhone || lead?.phoneFullenrich || lead?.phone),
+    hasMobile: isFrenchMobile(lead?.kasprPhone) || isFrenchMobile(lead?.phoneFullenrich) || isFrenchMobile(lead?.phone),
+    hasLinkedin: !!lead?.linkedinUrl,
+    hasFirstName: !!(lead?.firstName ?? lead?.fullName),
+    bouncedAt: lead?.bouncedAt ?? null,
+    doNotContact: lead?.doNotContact ?? false,
+    companyHasInsolvency: lead?.companyHasInsolvency ?? false,
+    companyEtabsCount: lead?.companyEtabsCount ?? null,
+    companySizeText: trigger.size ?? null,
+    icpSizeMin,
+    icpSizeMax,
+    opportunityStage: opportunity?.stage ?? null,
+    contactFullName: lead?.fullName ?? null,
+    contactPhone: lead?.kasprPhone ?? lead?.phoneFullenrich ?? lead?.phone ?? null,
+    contactJobTitle: lead?.jobTitle ?? null,
+    capturedAt: trigger.capturedAt,
+    triggerSourceCode: trigger.sourceCode ?? null,
+  });
+
   return (
     <div className="space-y-5">
+      {/* Chantier D9 — Bannière VERDICT humain : un commercial comprend en 3 sec */}
+      <LeadVerdictBanner verdict={verdict} />
+
       {/* Bouton retour + actions */}
       <div className="flex items-center justify-between">
         <button
@@ -742,28 +779,28 @@ function TriggerHeader({
                 )}
               </div>
               <div className="space-y-1.5">
+                {/* Chantier D9 — humanizers : "63 M€ — solide" au lieu de "63.0 M€" brut */}
                 {lead.companyRevenue !== null && lead.companyRevenue !== undefined && (
-                  <div className="flex items-center justify-between text-[11.5px]">
-                    <span className="text-ink-600">CA dernier exercice</span>
-                    <span className="font-mono font-semibold text-ink-900">
-                      {(lead.companyRevenue / 1_000_000).toFixed(1)} M€
+                  <div className="flex items-center justify-between text-[11.5px] gap-2">
+                    <span className="text-ink-600 shrink-0">Chiffre d'affaires</span>
+                    <span className="text-ink-900 text-right">
+                      {humanizeRevenue(lead.companyRevenue)}
                     </span>
                   </div>
                 )}
                 {lead.companyResultNet !== null && lead.companyResultNet !== undefined && (
-                  <div className="flex items-center justify-between text-[11.5px]">
-                    <span className="text-ink-600">Résultat net</span>
-                    <span className={`font-mono font-semibold ${lead.companyResultNet >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                      {lead.companyResultNet >= 0 ? "+" : ""}{(lead.companyResultNet / 1_000_000).toFixed(2)} M€
+                  <div className="flex items-center justify-between text-[11.5px] gap-2">
+                    <span className="text-ink-600 shrink-0">Résultat net</span>
+                    <span className={`text-right ${lead.companyResultNet >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                      {humanizeResultNet(lead.companyResultNet)}
                     </span>
                   </div>
                 )}
                 {lead.companyEtabsCount !== null && lead.companyEtabsCount !== undefined && lead.companyEtabsCount > 1 && (
-                  <div className="flex items-center justify-between text-[11.5px]">
-                    <span className="text-ink-600">Établissements actifs</span>
-                    <span className="font-mono text-ink-900">
-                      {lead.companyEtabsCount} sites
-                      <Badge variant="info" size="sm" className="ml-1">Multi-sites</Badge>
+                  <div className="flex items-center justify-between text-[11.5px] gap-2">
+                    <span className="text-ink-600 shrink-0">Établissements</span>
+                    <span className="text-ink-900 text-right">
+                      {humanizeEtabsCount(lead.companyEtabsCount)}
                     </span>
                   </div>
                 )}
@@ -1612,6 +1649,64 @@ function WarmMailTab({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Lead Verdict Banner — chantier D9 (01/05/2026)
+// Phrase humaine + action recommandée + flags warnings
+// ──────────────────────────────────────────────────────────────────────
+
+const VERDICT_STYLES: Record<VerdictResult["color"], { bg: string; border: string; text: string; icon: typeof CheckCircle2 }> = {
+  success: { bg: "bg-emerald-50", border: "border-emerald-300", text: "text-emerald-900", icon: CheckCircle2 },
+  info: { bg: "bg-brand-50", border: "border-brand-300", text: "text-brand-900", icon: Info },
+  warning: { bg: "bg-amber-50", border: "border-amber-300", text: "text-amber-900", icon: AlertTriangle },
+  danger: { bg: "bg-red-50", border: "border-red-300", text: "text-red-900", icon: XCircle },
+  default: { bg: "bg-ink-50", border: "border-ink-200", text: "text-ink-700", icon: Clock },
+};
+
+const FLAG_LABELS: Record<string, string> = {
+  societe_trop_grosse: "Société plus grosse que ta cible ICP",
+  decideur_juridique_pas_hiring: "Le contact identifié est juridique (DG/Gérant) — pas le décideur opérationnel du recrutement",
+  hors_icp_taille: "Taille hors cible",
+  rgpd_opt_out: "Contact en opt-out RGPD",
+  email_bounced: "Email cassé / boîte invalide",
+  insolvency: "Procédure collective en cours",
+};
+
+function LeadVerdictBanner({ verdict }: { verdict: VerdictResult }) {
+  const style = VERDICT_STYLES[verdict.color];
+  const Icon = style.icon;
+  return (
+    <div className={cn("rounded-lg border-2 p-4 shadow-sm", style.bg, style.border)}>
+      <div className="flex items-start gap-3">
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white shadow-xs", style.text)}>
+          <Icon className="h-5 w-5" strokeWidth={2} />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h2 className={cn("font-display text-[16px] font-semibold tracking-tight leading-tight", style.text)}>
+            {verdict.label}
+          </h2>
+          <p className={cn("text-[12.5px] leading-relaxed", style.text, "opacity-80")}>
+            <span className="font-medium">Pourquoi : </span>{verdict.reason}
+          </p>
+          <div className={cn("mt-2 rounded-md border bg-white/80 px-3 py-2 text-[13px] font-medium", style.border, style.text)}>
+            <span className="text-[10.5px] uppercase tracking-wider opacity-60">À faire maintenant</span>
+            <div className="mt-0.5">{verdict.action}</div>
+          </div>
+          {verdict.flags.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {verdict.flags.map((flag) => (
+                <li key={flag} className={cn("flex items-start gap-1.5 text-[11.5px]", style.text, "opacity-80")}>
+                  <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                  <span>{FLAG_LABELS[flag] ?? flag}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
