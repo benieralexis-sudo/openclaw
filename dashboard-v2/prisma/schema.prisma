@@ -510,6 +510,8 @@ model Reply {
   body         String
   bodyHtml     String?
   receivedAt   DateTime    @default(now())
+  // Threading IMAP — UNIQUE pour dédup sync-inbox (cron 5 min sur fenêtre 1h)
+  messageId    String?     @unique
   // Catégorisation IA
   intent       ReplyIntent @default(UNCLASSIFIED)
   intentConfidence Decimal? @db.Decimal(3, 2)
