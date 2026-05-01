@@ -100,6 +100,10 @@ interface TriggerData {
     jobMoveDetected?: boolean;
     previousCompany?: string | null;
     previousJob?: string | null;
+    // Chantier D2 (01/05) — warmMail (mail post-LinkedIn) du Copy Engine v4.0
+    warmMailJson?: { subject: string; body: string } | null;
+    warmMailGeneratedAt?: string | null;
+    copyGeneratedAt?: string | null;
   } | null;
   client: {
     id: string;
@@ -203,6 +207,30 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
     },
     onError: (err: Error) => {
       toast.error("Génération impossible", { description: err.message });
+    },
+  });
+
+  // Chantier D2 (01/05) — Copy Engine v4.0 : génère les 4 contextes
+  // (coldMail/warmMail/linkedinDm/callBrief) en 1 seul appel Opus.
+  // Branché sur le tab "Warm Mail" pour combler le gap commercial.
+  const generateCopy = useMutation({
+    mutationFn: async ({ force }: { force?: boolean } = {}) => {
+      const url = `/api/leads/${data!.lead!.id}/copy${force ? "?force=true" : ""}`;
+      const res = await fetch(url, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Erreur génération copy");
+      return body;
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["trigger-detail", triggerId] });
+      if (!res?.cached) {
+        toast.success("Copy 4 contextes générée ✨", {
+          description: "Cold mail, warm mail post-LinkedIn, DM et brief call prêts.",
+        });
+      }
+    },
+    onError: (err: Error) => {
+      toast.error("Génération copy impossible", { description: err.message });
     },
   });
 
@@ -315,6 +343,10 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
           regenerating={generate.isPending}
           leadEmail={lead.email}
           leadLinkedin={lead.linkedinUrl}
+          warmMail={lead.warmMailJson ?? null}
+          warmMailGeneratedAt={lead.warmMailGeneratedAt ?? null}
+          onGenerateCopy={() => generateCopy.mutate({ force: true })}
+          generatingCopy={generateCopy.isPending}
         />
       )}
 
@@ -949,6 +981,10 @@ function BriefTabs({
   regenerating,
   leadEmail,
   leadLinkedin,
+  warmMail,
+  warmMailGeneratedAt,
+  onGenerateCopy,
+  generatingCopy,
 }: {
   brief: Brief;
   generatedAt: string | null;
@@ -956,6 +992,10 @@ function BriefTabs({
   regenerating: boolean;
   leadEmail: string | null;
   leadLinkedin: string | null;
+  warmMail: { subject: string; body: string } | null;
+  warmMailGeneratedAt: string | null;
+  onGenerateCopy: () => void;
+  generatingCopy: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -995,6 +1035,10 @@ function BriefTabs({
             <Linkedin className="h-3.5 w-3.5" />
             LinkedIn
           </TabsTrigger>
+          <TabsTrigger value="warm" className="gap-1.5" title="Mail à envoyer APRÈS un échange LinkedIn (réf. à la conversation)">
+            <Sparkles className="h-3.5 w-3.5" />
+            Warm mail
+          </TabsTrigger>
           <TabsTrigger value="call" className="gap-1.5">
             <PhoneCall className="h-3.5 w-3.5" />
             Script call
@@ -1009,6 +1053,15 @@ function BriefTabs({
         </TabsContent>
         <TabsContent value="linkedin">
           <LinkedinTab linkedin={brief.linkedin} leadLinkedin={leadLinkedin} />
+        </TabsContent>
+        <TabsContent value="warm">
+          <WarmMailTab
+            warmMail={warmMail}
+            warmMailGeneratedAt={warmMailGeneratedAt}
+            leadEmail={leadEmail}
+            onGenerate={onGenerateCopy}
+            generating={generatingCopy}
+          />
         </TabsContent>
         <TabsContent value="call">
           <CallTab callScript={brief.callScript} />
@@ -1381,6 +1434,184 @@ function ScriptBlock({ label, text, icon }: { label: string; text: string; icon:
         {text}
       </div>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Tab : Warm Mail (post-LinkedIn) — chantier D2 (01/05/2026)
+// ──────────────────────────────────────────────────────────────────────
+
+function WarmMailTab({
+  warmMail,
+  warmMailGeneratedAt,
+  leadEmail,
+  onGenerate,
+  generating,
+}: {
+  warmMail: { subject: string; body: string } | null;
+  warmMailGeneratedAt: string | null;
+  leadEmail: string | null;
+  onGenerate: () => void;
+  generating: boolean;
+}) {
+  // Pas encore généré → CTA pour appeler /api/leads/[id]/copy (4 contextes en 1 appel)
+  if (!warmMail) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-purple-100 to-pink-100">
+            <Sparkles className="h-5 w-5 text-purple-600" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-display text-[15px] font-semibold tracking-tight text-ink-900">
+              Mail post-LinkedIn pas encore généré
+            </h3>
+            <p className="max-w-md text-[13px] text-ink-600">
+              Le warm mail référence votre échange LinkedIn préalable (ton plus
+              direct, plus court). Génère aussi le cold mail, DM LinkedIn et
+              brief call optimisés en 1 seul appel Opus.
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={onGenerate}
+            disabled={generating}
+            className="gap-2"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Génération en cours (~30s)...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5" />
+                Générer copy 4 contextes
+              </>
+            )}
+          </Button>
+          <div className="text-[11px] text-ink-400">
+            ~$0.19 par lead · 1 appel Opus 4.7 · cache 7 jours
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const fullEmail = `Sujet : ${warmMail.subject}\n\n${warmMail.body}`;
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="space-y-0.5">
+            <h3 className="font-display text-[15px] font-semibold tracking-tight text-ink-900">
+              Warm mail (post-LinkedIn)
+            </h3>
+            <p className="text-[11.5px] text-ink-500">
+              ⚠️ À utiliser uniquement APRÈS un échange LinkedIn préalable (like, réponse, visite profil)
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(warmMail.subject, "Sujet copié")}
+              className="gap-1.5"
+            >
+              <Copy className="h-3 w-3" />
+              Sujet
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(warmMail.body, "Corps copié")}
+              className="gap-1.5"
+            >
+              <Copy className="h-3 w-3" />
+              Corps
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => copyToClipboard(fullEmail, "Email complet copié")}
+              className="gap-1.5"
+            >
+              <Copy className="h-3 w-3" />
+              Tout
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-500">
+            Sujet ({warmMail.subject.length} caractères)
+          </div>
+          <div className="rounded-md border border-purple-200 bg-purple-50/30 p-3 font-mono text-[12.5px] text-ink-900 shadow-xs">
+            {warmMail.subject}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-500">
+            Corps ({warmMail.body.length} caractères) — plus court que cold mail (référence implicite à l'échange LI)
+          </div>
+          <div className="rounded-md border border-purple-200 bg-purple-50/30 p-4 text-[13px] leading-relaxed text-ink-800 shadow-xs whitespace-pre-wrap">
+            {warmMail.body}
+          </div>
+        </div>
+
+        {leadEmail && (
+          <div className="flex items-center justify-between rounded-md border border-ink-100 bg-ink-50/40 p-3">
+            <div className="text-[11.5px] text-ink-600">
+              Destinataire :{" "}
+              <span className="font-mono font-medium text-ink-800">{leadEmail}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={gmailComposeUrl({ to: leadEmail, subject: warmMail.subject, body: warmMail.body })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md bg-purple-600 px-3 py-1.5 text-[12px] font-medium text-white shadow-sm hover:bg-purple-700 transition-colors"
+              >
+                <Mail className="h-3 w-3" />
+                Ouvrir dans Gmail
+              </a>
+              <a
+                href={`mailto:${leadEmail}?subject=${encodeURIComponent(warmMail.subject)}&body=${encodeURIComponent(warmMail.body)}`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-3 py-1.5 text-[12px] font-medium text-ink-700 shadow-xs hover:bg-ink-50 transition-colors"
+              >
+                <Mail className="h-3 w-3" />
+                Mail système
+              </a>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between border-t border-ink-100 pt-3">
+          <div className="text-[10.5px] text-ink-400">
+            {warmMailGeneratedAt
+              ? `Généré ${formatRelativeFr(warmMailGeneratedAt)} · Copy Engine v4.0`
+              : "Cache"}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onGenerate}
+            disabled={generating}
+            className="gap-1.5"
+          >
+            {generating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Régénérer copy
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
