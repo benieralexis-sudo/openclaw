@@ -285,10 +285,18 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // 5-bis) Skip silencieux des signal types à faible valeur (anti-bruit)
-  if (LOW_VALUE_SIGNAL_TYPES.has(payload.signal.type)) {
+  // 5-bis) BUGFIX 01/05 (audit user) : Rodz envoie le signal type avec
+  // underscore (ex "company_registration", "mergers_acquisitions") mais nos
+  // maps utilisaient le format tiret. Tous nos filtres LOW_VALUE et nos
+  // SIGNAL_TYPE_MAP/DEFAULT_SCORE ne matchaient JAMAIS → tous les signaux
+  // tombaient sur fallback OTHER score 5 et passaient à travers le filtre
+  // anti-bruit. On normalise underscore → tiret avant lookup.
+  const normalizedSignalType = (payload.signal.type ?? "").replace(/_/g, "-");
+
+  // Skip silencieux des signal types à faible valeur (anti-bruit)
+  if (LOW_VALUE_SIGNAL_TYPES.has(normalizedSignalType)) {
     console.log(
-      `[rodz-webhook] skip signal low-value type=${payload.signal.type} company=${payload.company.name}`,
+      `[rodz-webhook] skip signal low-value type=${payload.signal.type} (normalized=${normalizedSignalType}) company=${payload.company.name}`,
     );
     return NextResponse.json({
       status: "ignored",
@@ -299,8 +307,8 @@ export async function POST(req: NextRequest) {
 
   // 6) Création Trigger + Lead
   const triggerType =
-    SIGNAL_TYPE_MAP[payload.signal.type] ?? TriggerType.OTHER;
-  const score = DEFAULT_SCORE[payload.signal.type] ?? 5;
+    SIGNAL_TYPE_MAP[normalizedSignalType] ?? TriggerType.OTHER;
+  const score = DEFAULT_SCORE[normalizedSignalType] ?? 5;
   const isHot = score >= 9;
   const { title, detail } = buildTitleDetail(payload);
 
