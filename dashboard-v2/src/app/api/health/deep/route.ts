@@ -93,24 +93,38 @@ async function checkFullEnrich(): Promise<ComponentStatus> {
 }
 
 async function checkLastRunPollers(): Promise<ComponentStatus> {
-  // On regarde la dernière LeadActivity (ou sinon le dernier Lead créé) comme
-  // proxy d'activité du pipeline.
+  // Le pipeline run-pollers exécute `recomputeDataQualityForClient` à CHAQUE run
+  // (vu dans /api/internal/run-pollers/route.ts). Cette étape met à jour
+  // `Lead.updatedAt` pour tous les leads du client, même quand aucun nouveau
+  // lead n'est créé (jours de doublons SIRET). Donc MAX(updatedAt) est un
+  // proxy fiable "dernier run pipeline OK".
+  //
+  // Avant 01/05 on regardait createdAt → faux positif les jours de doublons
+  // alors que le pipeline tournait bien.
   try {
-    const lastLead = await db.lead.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
+    const lastUpdated = await db.lead.findFirst({
+      where: { deletedAt: null },
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
     });
-    if (!lastLead) {
+    if (!lastUpdated) {
       return { status: "degraded", message: "Aucun lead en DB — pipeline neuf ?" };
     }
     const ageMinutes = Math.floor(
-      (Date.now() - lastLead.createdAt.getTime()) / 60_000,
+      (Date.now() - lastUpdated.updatedAt.getTime()) / 60_000,
     );
-    // Cron run-pollers tourne toutes les 1h → on alerte si > 90 min sans nouveau lead
+    // Cron run-pollers tourne toutes les 1h → on alerte si > 90 min sans run
+    if (ageMinutes > 180) {
+      return {
+        status: "down",
+        message: `Aucune activité pipeline depuis ${ageMinutes} min (cron 1h cassé ?)`,
+        details: { ageMinutes },
+      };
+    }
     if (ageMinutes > 90) {
       return {
         status: "degraded",
-        message: `Dernier lead créé il y a ${ageMinutes} min (cron 1h)`,
+        message: `Dernier run pipeline il y a ${ageMinutes} min (cron 1h)`,
         details: { ageMinutes },
       };
     }

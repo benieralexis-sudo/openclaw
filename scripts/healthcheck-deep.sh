@@ -57,11 +57,20 @@ fi
 # Log toujours
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] status=$STATUS" >> "$LOG_FILE"
 
-# State management pour anti-spam
+# State management pour anti-spam.
+# Format state file : "STATUS|EPOCH_DERNIERE_NOTIF"
+# - Notif au changement d'état (toujours)
+# - Re-notif si même état degraded/down depuis > 12h (rappel quotidien)
 PREV_STATE="up"
+PREV_NOTIF_EPOCH=0
 if [ -f "$STATE_FILE" ]; then
-  PREV_STATE=$(cat "$STATE_FILE")
+  RAW=$(cat "$STATE_FILE")
+  PREV_STATE=$(echo "$RAW" | cut -d'|' -f1)
+  PREV_NOTIF_EPOCH=$(echo "$RAW" | cut -d'|' -f2)
+  [ -z "$PREV_NOTIF_EPOCH" ] && PREV_NOTIF_EPOCH=0
 fi
+NOW_EPOCH=$(date +%s)
+RENOTIF_AFTER=$((12 * 3600))  # 12h
 
 if [ "$STATUS" = "up" ]; then
   if [ "$PREV_STATE" != "up" ]; then
@@ -70,19 +79,28 @@ if [ "$STATUS" = "up" ]; then
 Tous les composants sont de retour en ligne.
 $(date '+%Y-%m-%d %H:%M:%S')"
   fi
-  echo "up" > "$STATE_FILE"
+  echo "up|$NOW_EPOCH" > "$STATE_FILE"
 else
-  # Alerter seulement au changement d'état (pas spam toutes les 5 min)
-  if [ "$PREV_STATE" != "$STATUS" ]; then
+  # Alerter au changement d'état OU si même état degraded/down depuis >12h
+  AGE=$((NOW_EPOCH - PREV_NOTIF_EPOCH))
+  if [ "$PREV_STATE" != "$STATUS" ] || [ "$AGE" -gt "$RENOTIF_AFTER" ]; then
     EMOJI="⚠️"
     [ "$STATUS" = "down" ] && EMOJI="🚨"
-    send_telegram "${EMOJI} *iFIND Pipeline — ${STATUS^^}*
+    REMINDER=""
+    if [ "$PREV_STATE" = "$STATUS" ] && [ "$AGE" -gt "$RENOTIF_AFTER" ]; then
+      HOURS=$((AGE / 3600))
+      REMINDER=" (toujours dégradé depuis ${HOURS}h)"
+    fi
+    send_telegram "${EMOJI} *iFIND Pipeline — ${STATUS^^}*${REMINDER}
 
 ${ALERT_MSG}
 
 Heure: $(date '+%Y-%m-%d %H:%M:%S')
 
 Détails: \`curl http://127.0.0.1:3100/api/health/deep | jq\`"
+    echo "$STATUS|$NOW_EPOCH" > "$STATE_FILE"
+  else
+    # même état dégradé mais <12h : on garde l'epoch précédent (pas re-notif)
+    echo "$STATUS|$PREV_NOTIF_EPOCH" > "$STATE_FILE"
   fi
-  echo "$STATUS" > "$STATE_FILE"
 fi

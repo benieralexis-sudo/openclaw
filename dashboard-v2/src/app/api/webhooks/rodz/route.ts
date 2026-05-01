@@ -47,6 +47,24 @@ const DEFAULT_SCORE: Record<string, number> = {
   "competitor-relationships": 6,
 };
 
+// Signal types qu'on ignore à l'entrée du webhook pour ne pas polluer la DB.
+// Mesure 30/04 : signal-performance.ts montre que ces types finissent
+// systématiquement à score Opus 1-3 (pas d'intent réel pour DTL) :
+// - company-registration (4 triggers / score moy 2)
+// - mergers-acquisitions (1 trigger / score 3)
+// - company-followers / social-* / influencer-engagement / competitor-relationships
+// On répond 200 OK pour stopper les retries Rodz, mais on ne crée pas de Trigger.
+const LOW_VALUE_SIGNAL_TYPES = new Set<string>([
+  "company-registration",
+  "mergers-acquisitions",
+  "company-followers",
+  "company-page-engagement",
+  "social-mentions",
+  "social-reactions",
+  "influencer-engagement",
+  "competitor-relationships",
+]);
+
 // ──────────────────────────────────────────────────────────────────────
 // HMAC verification (cf. doc Rodz : timestamp + "." + body)
 // ──────────────────────────────────────────────────────────────────────
@@ -264,6 +282,18 @@ export async function POST(req: NextRequest) {
       mode: "test",
       signalType: payload.signal.type,
       company: payload.company.name,
+    });
+  }
+
+  // 5-bis) Skip silencieux des signal types à faible valeur (anti-bruit)
+  if (LOW_VALUE_SIGNAL_TYPES.has(payload.signal.type)) {
+    console.log(
+      `[rodz-webhook] skip signal low-value type=${payload.signal.type} company=${payload.company.name}`,
+    );
+    return NextResponse.json({
+      status: "ignored",
+      reason: "low_value_signal_type",
+      signalType: payload.signal.type,
     });
   }
 

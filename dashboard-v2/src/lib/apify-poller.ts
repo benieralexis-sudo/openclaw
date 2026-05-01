@@ -431,6 +431,25 @@ function adaptIndeedItem(item: IndeedJobItem): NormalizedJob | null {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Filtre titre QA strict (anti-bruit Indeed/LinkedIn FR)
+// ──────────────────────────────────────────────────────────────────────
+// Indeed FR matche large : "QA Engineer" → tout job avec "Engineer".
+// On post-filtre sur jobTitle pour ne garder QUE les vraies offres
+// QA/Test/Quality/Tester/Automation. Évite Sophia Engineering, Climater
+// CVC, COMET Aerospace qui pollutent à score 1-3.
+const QA_TITLE_REGEX =
+  /\b(qa|q\.a\.|test(?:eur|ing|er|s)?|quality\s*assurance|automaticien|sdet|qualiticien|recette|validation\s+log)/i;
+
+const NON_QA_TITLE_REGEX =
+  /\b(m[ée]canique|cvc|a[eé]rospatial|a[eé]ronautique|industriel(?!le.*qa)|paqa\b|chimie|bio[mt]|process(?!.*qa)|cadre\s+de\s+sant)/i;
+
+function titleMatchesQaIntent(title: string | undefined | null): boolean {
+  if (!title) return false;
+  if (NON_QA_TITLE_REGEX.test(title)) return false;
+  return QA_TITLE_REGEX.test(title);
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Run + push triggers
 // ──────────────────────────────────────────────────────────────────────
 
@@ -442,6 +461,7 @@ async function runActorAndPushTriggers(args: {
   adapter: (item: unknown) => NormalizedJob | null;
   antiCompanies: string[];
   dryRun?: boolean;
+  titleFilter?: (title: string) => boolean;
 }): Promise<ApifyPollerResult["actorRuns"][number]> {
   const start = {
     actor: args.actor,
@@ -474,6 +494,13 @@ async function runActorAndPushTriggers(args: {
       }
       // Anti-personas (anti-ICP confirmé du client)
       if (args.antiCompanies.some((a) => job.companyName.toLowerCase().includes(a))) {
+        start.skipped += 1;
+        continue;
+      }
+      // Post-filter titre (anti-bruit Indeed/LinkedIn : "Ingénieur Méthodes
+      // Industrielles", "Ingénieur CVC", "Process Engineer Aerospace" matchent
+      // "Engineer" mais ne sont pas du QA — score 1-3 = pure pollution).
+      if (args.titleFilter && !args.titleFilter(job.jobTitle)) {
         start.skipped += 1;
         continue;
       }
@@ -595,6 +622,7 @@ export async function pollApifyForClient(
       adapter: (item) => adaptLinkedinJobItem(item as LinkedinJobItem),
       antiCompanies,
       dryRun: options.dryRun,
+      titleFilter: titleMatchesQaIntent,
     });
     result.actorRuns.push(r);
     result.totalTriggersCreated += r.triggersCreated;
@@ -641,6 +669,7 @@ export async function pollApifyForClient(
       adapter: (item) => adaptIndeedItem(item as IndeedJobItem),
       antiCompanies,
       dryRun: options.dryRun,
+      titleFilter: titleMatchesQaIntent,
     });
     result.actorRuns.push(r);
     result.totalTriggersCreated += r.triggersCreated;
