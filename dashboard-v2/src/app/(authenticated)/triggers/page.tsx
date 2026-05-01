@@ -15,6 +15,12 @@ import { Input } from "@/components/ui/input";
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatRelativeFr } from "@/lib/utils";
 import { truncateDetail } from "@/lib/format-trigger-detail";
+import {
+  getPriorityVariant,
+  getFitVariant,
+  formatPriorityBreakdown,
+  formatFitBreakdown,
+} from "@/lib/score-display";
 
 interface Trigger {
   id: string;
@@ -33,6 +39,10 @@ interface Trigger {
   capturedAt: string;
   sourceCode?: string | null;          // visible si ADMIN/COMMERCIAL
   comboSources?: string[];             // sources distinctes si combo
+  // Chantier D1 — Scores intelligents v3.9+ (priorité composite)
+  priorityScore: number | null;
+  freshnessScore: number | null;
+  multiSourceBoost: number | null;
   lead?: {
     id: string;
     dataQuality: number | null;
@@ -43,6 +53,10 @@ interface Trigger {
     pitchJson: unknown;
     callBriefJson: unknown;
     linkedinDmJson: unknown;
+    // Chantier D1 — Fit Score v4.2
+    fitScore?: number | null;
+    fitScoreBreakdown?: { base: number; tenureBoost: number; backgroundFit: number; sizeFit: number } | null;
+    linkedinProfileEnrichedAt?: string | null;
   } | null;
 }
 
@@ -266,25 +280,57 @@ export default function TriggersPage() {
       },
     },
     {
-      accessorKey: "score",
-      header: "Score",
+      // Chantier D1 (01/05) — Priorité composite v3.9+ remplace le score brut
+      // en cellule principale. Score Opus reste en sous-ligne pour traçabilité.
+      accessorKey: "priorityScore",
+      header: "Priorité",
       cell: ({ row }) => {
-        const s = row.original.score;
-        const variant = s >= 9 ? "fire" : s >= 7 ? "score" : s >= 5 ? "info" : "warning";
+        const p = row.original.priorityScore;
+        const breakdown = formatPriorityBreakdown({
+          score: row.original.score,
+          freshnessScore: row.original.freshnessScore,
+          multiSourceBoost: row.original.multiSourceBoost,
+        });
+        const tooltip = breakdown
+          ? `Priorité ${p ?? "?"} = ${breakdown}`
+          : `Score Opus ${row.original.score}/10 (priorité non encore calculée)`;
         return (
-          <div className="flex items-center gap-1.5">
-            <Badge variant={variant} size="md" className="font-mono tabular-nums shrink-0">
-              {s}/10
-            </Badge>
-            {row.original.isCombo && (
-              <Badge variant="brand" size="sm" className="shrink-0" title={
-                row.original.comboSources?.length
-                  ? `Combo : ${row.original.comboSources.map((p) => SOURCE_LABEL[p]?.label ?? p).join(" + ")}`
-                  : "Multi-source détecté"
-              }>
-                <Sparkles className="h-2.5 w-2.5" />
-                Combo
-              </Badge>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              {p !== null && p !== undefined ? (
+                <Badge
+                  variant={getPriorityVariant(p)}
+                  size="md"
+                  className="font-mono tabular-nums shrink-0"
+                  title={tooltip}
+                >
+                  {p}
+                </Badge>
+              ) : (
+                <Badge
+                  variant="default"
+                  size="md"
+                  className="font-mono tabular-nums shrink-0 opacity-60"
+                  title={tooltip}
+                >
+                  {row.original.score}/10
+                </Badge>
+              )}
+              {row.original.isCombo && (
+                <Badge variant="brand" size="sm" className="shrink-0" title={
+                  row.original.comboSources?.length
+                    ? `Combo : ${row.original.comboSources.map((p) => SOURCE_LABEL[p]?.label ?? p).join(" + ")}`
+                    : "Multi-source détecté"
+                }>
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Combo
+                </Badge>
+              )}
+            </div>
+            {breakdown && (
+              <div className="mt-0.5 text-[10.5px] font-mono text-ink-400 truncate" title={tooltip}>
+                {breakdown}
+              </div>
             )}
           </div>
         );
@@ -317,6 +363,47 @@ export default function TriggersPage() {
                 </span>
               );
             })}
+          </div>
+        );
+      },
+    },
+    {
+      // Chantier D1 (01/05) — Fit Score v4.2 visible avec barre horizontale
+      id: "fit",
+      header: "Fit",
+      cell: ({ row }) => {
+        const lead = row.original.lead;
+        const fit = lead?.fitScore ?? null;
+        const breakdown = formatFitBreakdown(lead?.fitScoreBreakdown ?? null);
+        const tooltip = fit !== null
+          ? breakdown
+            ? `Fit ${fit}/100 = ${breakdown}`
+            : `Fit ${fit}/100 (détails indisponibles)`
+          : "Profil non encore enrichi (LinkedIn manquant ou TTL 30j)";
+        if (fit === null || fit === undefined) {
+          return <span className="text-[11px] text-ink-400" title={tooltip}>—</span>;
+        }
+        const variant = getFitVariant(fit);
+        const barColor = variant === "success"
+          ? "bg-emerald-500"
+          : variant === "info"
+            ? "bg-brand-500"
+            : variant === "warning"
+              ? "bg-amber-500"
+              : "bg-ink-300";
+        return (
+          <div className="min-w-[72px] max-w-[100px]" title={tooltip}>
+            <div className="flex items-center gap-1.5">
+              <Badge variant={variant} size="sm" className="font-mono tabular-nums shrink-0">
+                {fit}
+              </Badge>
+            </div>
+            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-ink-100">
+              <div
+                className={cn("h-full rounded-full transition-all", barColor)}
+                style={{ width: `${Math.min(100, Math.max(0, fit))}%` }}
+              />
+            </div>
           </div>
         );
       },

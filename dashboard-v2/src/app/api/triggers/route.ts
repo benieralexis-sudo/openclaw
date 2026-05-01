@@ -47,11 +47,11 @@ export async function GET(req: NextRequest) {
 
   const triggers = await db.trigger.findMany({
     where,
-    // Ordre (audit 30/04) : isHot → score → capturedAt (FRAÎCHEUR avant qualité
-    // de données : un signal d'hier passe avant un signal de 3 semaines même
-    // si moins enrichi, parce que la fenêtre commerciale est plus courte) →
-    // dataQuality (tranche entre 2 leads identiques score+date).
+    // Ordre v3.9+ (chantier D1) : priorityScore en priorité (composite intelligent
+    // score×fraîcheur+multi-source). Fallback isHot+score+capturedAt+dataQuality
+    // pour les triggers pas encore recomputés (priorityScore null).
     orderBy: [
+      { priorityScore: { sort: "desc", nulls: "last" } },
       { isHot: "desc" },
       { score: "desc" },
       { capturedAt: "desc" },
@@ -76,6 +76,10 @@ export async function GET(req: NextRequest) {
       status: true,
       capturedAt: true,
       sourceCode: showSource ? true : false,
+      // Chantier D1 — Scores intelligents v3.9+ (rendus visibles en UI)
+      priorityScore: true,
+      freshnessScore: true,
+      multiSourceBoost: true,
       lead: {
         select: {
           id: true,
@@ -96,6 +100,10 @@ export async function GET(req: NextRequest) {
           pitchJson: true,
           callBriefJson: true,
           linkedinDmJson: true,
+          // Chantier D1 — Fit Score v4.2 (rendu visible en UI)
+          fitScore: true,
+          fitScoreBreakdown: true,
+          linkedinProfileEnrichedAt: true,
         },
       },
     },
@@ -163,6 +171,11 @@ export async function GET(req: NextRequest) {
     if (aBetter) byKey.set(k, t);
   }
   const deduped = Array.from(byKey.values()).sort((a, b) => {
+    // Chantier D1 : priorityScore prioritaire (composite intelligent v3.9+).
+    // Triggers sans priorityScore (pas encore recomputés) en fin de liste.
+    const ap = a.priorityScore ?? -1;
+    const bp = b.priorityScore ?? -1;
+    if (ap !== bp) return bp - ap;
     if (a.isHot !== b.isHot) return a.isHot ? -1 : 1;
     if (a.score !== b.score) return b.score - a.score;
     return new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime();

@@ -31,6 +31,10 @@ export async function GET(
       capturedAt: true,
       publishedAt: true,
       sourceUrl: true, // 29/04 : exposé pour bouton "Voir l'annonce"
+      // Chantier D1 — Scores intelligents v3.9+
+      priorityScore: true,
+      freshnessScore: true,
+      multiSourceBoost: true,
       // sourceCode conditionné plus bas (hidden pour CLIENT — moat)
       ...(s.user.role === "ADMIN" || s.user.role === "COMMERCIAL"
         ? { sourceCode: true }
@@ -103,6 +107,15 @@ export async function GET(
       jobMoveDetected: true,
       previousCompany: true,
       previousJob: true,
+      // Chantier D1 — Fit Score v4.2 + profil LinkedIn enrichi v4.1
+      fitScore: true,
+      fitScoreBreakdown: true,
+      linkedinProfileJson: true,
+      linkedinProfileEnrichedAt: true,
+      // Copy Engine v4.0 (warmMail + timestamp unifié)
+      warmMailJson: true,
+      warmMailGeneratedAt: true,
+      copyGeneratedAt: true,
     },
   });
 
