@@ -53,6 +53,21 @@ function cacheKey(companyName: string, signalType: string): string {
   return `${companyName.trim().toLowerCase()}|${signalType}`;
 }
 
+// Normalise un nom de société pour augmenter le hit rate HarvestAPI search.
+// Mesure 01/05 : 5 leads bloqués (Klanik, "SOCIETE GESER BEST", DOXALLIA,
+// Altares, Syneam) — Pappers et HarvestAPI ont tenté mais 0 résultat.
+// Cause probable : le RCS écrit "SOCIETE GESER BEST" mais LinkedIn enregistre
+// "Geser Best". On strip les préfixes/suffixes juridiques avant search.
+const COMPANY_NORMALIZATION_NOISE =
+  /\b(soci[eé]t[eé]|groupe|group|holding|sas|sasu|sarl|eurl|sa|snc|sci|consulting|services?|solutions?)\b/gi;
+
+function normalizeCompanyForSearch(name: string): string {
+  return name
+    .replace(COMPANY_NORMALIZATION_NOISE, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function cacheGet(key: string): CacheEntry | null {
   const e = cache.get(key);
   if (!e) return null;
@@ -209,29 +224,47 @@ export async function findDecisionMakerByCompany(args: {
     }
   }
 
+  // Normalisation : "SOCIETE GESER BEST" → "GESER BEST", "Klanik Consulting" → "Klanik".
+  // Si la version normalisée diffère, on tente les 2 (verbatim d'abord car
+  // certaines boîtes incluent volontairement "Consulting" dans leur brand LinkedIn).
+  const normalizedName = normalizeCompanyForSearch(companyName);
+  const searchVariants =
+    normalizedName && normalizedName.toLowerCase() !== companyName.toLowerCase()
+      ? [companyName, normalizedName]
+      : [companyName];
+
+  const maxItems = args.maxItems ?? 20;
   let items: HarvestProfile[] = [];
-  try {
-    const result = await runAndGetItems<HarvestProfile>(
-      ACTOR_ID,
-      {
-        currentCompanies: [companyName],
-        locations: args.locations ?? ["France"],
-        maxItems: args.maxItems ?? 12,
-        profileScraperMode: "Full",
-      },
-      { timeout: 180, memory: 512, itemsLimit: args.maxItems ?? 12 },
-    );
-    items = result.items;
-  } catch (e) {
-    console.warn(
-      `[harvestapi-dm] search failed for "${companyName}":`,
-      e instanceof Error ? e.message : e,
-    );
-    cacheSet(key, null);
-    return null;
+  let usedVariant = companyName;
+  for (const variant of searchVariants) {
+    try {
+      const result = await runAndGetItems<HarvestProfile>(
+        ACTOR_ID,
+        {
+          currentCompanies: [variant],
+          locations: args.locations ?? ["France"],
+          maxItems,
+          profileScraperMode: "Full",
+        },
+        { timeout: 180, memory: 512, itemsLimit: maxItems },
+      );
+      if (result.items.length > 0) {
+        items = result.items;
+        usedVariant = variant;
+        break;
+      }
+    } catch (e) {
+      console.warn(
+        `[harvestapi-dm] search failed for "${variant}":`,
+        e instanceof Error ? e.message : e,
+      );
+    }
   }
 
   if (items.length === 0) {
+    console.log(
+      `[harvestapi-dm] 0 profils trouvés pour "${companyName}" (variants tried: ${searchVariants.length})`,
+    );
     cacheSet(key, null);
     return null;
   }
@@ -239,14 +272,33 @@ export async function findDecisionMakerByCompany(args: {
   const rules = RULES_BY_SIGNAL[signalType];
 
   // Score chaque profil : tier le plus bas = meilleur, +bonus si company match exact
-  const scored = items
-    .map((p) => scoreProfile(p, rules, companyName))
+  let scored = items
+    .map((p) => scoreProfile(p, rules, usedVariant))
     .filter((s): s is NonNullable<typeof s> => s !== null)
     .sort((a, b) => {
       // Tier ascendant (1 = meilleur), puis confidence descendant
       if (a.tier !== b.tier) return a.tier - b.tier;
       return b.confidence - a.confidence;
     });
+
+  // Fallback : si 0 match avec les rules dédiées au signal, on tente RULES_DEFAULT
+  // (CTO/CEO/Founder/Director). Mieux vaut un CEO Tier 3 qu'un null total —
+  // le commercial peut au moins amorcer le contact via le décideur final.
+  if (scored.length === 0) {
+    const fallbackScored = items
+      .map((p) => scoreProfile(p, RULES_DEFAULT, usedVariant))
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+      .sort((a, b) => {
+        if (a.tier !== b.tier) return a.tier - b.tier;
+        return b.confidence - a.confidence;
+      });
+    if (fallbackScored.length > 0) {
+      console.log(
+        `[harvestapi-dm] fallback DEFAULT rules pour "${companyName}" → ${fallbackScored[0]?.category} tier=${fallbackScored[0]?.tier}`,
+      );
+      scored = fallbackScored;
+    }
+  }
 
   const best = scored[0];
   if (!best) {
