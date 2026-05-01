@@ -33,7 +33,7 @@ export interface VerdictInputs {
   bouncedAt: string | null;
   doNotContact: boolean;
   companyHasInsolvency: boolean;
-  companyEtabsCount: number | null; // proxy taille (Pappers)
+  companyEtabsCount: number | null; // proxy taille (Pappers, attention = établissements physiques pas employés)
   companySizeText: string | null;   // ex "1000+", "11-50" (Apify/LI)
   icpSizeMin: number | undefined;
   icpSizeMax: number | undefined;
@@ -43,6 +43,8 @@ export interface VerdictInputs {
   contactJobTitle?: string | null;
   capturedAt: string;
   triggerSourceCode: string | null; // ex "apify.linkedin-jobs"
+  scoreReason?: string | null;      // chantier D9 fix : Opus écrit la vraie taille en texte ("1400p")
+  triggerDetail?: string | null;    // chantier D9 fix : description Apify contient souvent la taille
 }
 
 export interface VerdictResult {
@@ -72,9 +74,48 @@ function parseSizeText(text: string | null): number | null {
   return null;
 }
 
+/**
+ * Extrait la taille employés depuis du texte libre (scoreReason Opus,
+ * jobTitle warning, triggerDetail Apify).
+ * Patterns reconnus : "1400p" / "1400 personnes" / "1400 employés" /
+ * "1400 ingénieurs" / "1400 collaborateurs" / "≥250p" / "250+p"
+ */
+export function extractSizeFromText(text: string | null | undefined): number | null {
+  if (!text) return null;
+  // Pattern principal : nombre suivi de "p" / "personnes" / "employés" / etc.
+  const patterns = [
+    /(\d{2,5})\s*\+?\s*p\b/i,
+    /(\d{2,5})\s*\+?\s*personnes?/i,
+    /(\d{2,5})\s*\+?\s*employ[eé]s?/i,
+    /(\d{2,5})\s*\+?\s*ing[eé]nieurs?/i,
+    /(\d{2,5})\s*\+?\s*collaborateurs?/i,
+    /(\d{2,5})\s*\+?\s*salari[eé]s?/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const n = parseInt(m[1]!, 10);
+      if (n >= 10 && n <= 100000) return n;
+    }
+  }
+  return null;
+}
+
 function getEffectiveSize(inputs: VerdictInputs): number | null {
-  if (inputs.companyEtabsCount !== null) return inputs.companyEtabsCount;
-  return parseSizeText(inputs.companySizeText);
+  // Priorité : texte libre (scoreReason Opus + jobTitle + detail) car contient
+  // la VRAIE taille en employés. companyEtabsCount = nb établissements
+  // physiques (peut être 17 pour un groupe de 1400p, faussant le calcul).
+  const fromScoreReason = extractSizeFromText(inputs.scoreReason);
+  if (fromScoreReason !== null) return fromScoreReason;
+  const fromJobTitle = extractSizeFromText(inputs.contactJobTitle);
+  if (fromJobTitle !== null) return fromJobTitle;
+  const fromDetail = extractSizeFromText(inputs.triggerDetail);
+  if (fromDetail !== null) return fromDetail;
+  // Fallback : sizeText structuré (Apify "1000+")
+  const fromSizeText = parseSizeText(inputs.companySizeText);
+  if (fromSizeText !== null) return fromSizeText;
+  // Dernier recours : etabs (proxy faible mais existant)
+  return inputs.companyEtabsCount;
 }
 
 // ──────────────────────────────────────────────────────────────────────

@@ -272,6 +272,8 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
     contactJobTitle: lead?.jobTitle ?? null,
     capturedAt: trigger.capturedAt,
     triggerSourceCode: trigger.sourceCode ?? null,
+    scoreReason: trigger.scoreReason,
+    triggerDetail: trigger.detail,
   });
 
   return (

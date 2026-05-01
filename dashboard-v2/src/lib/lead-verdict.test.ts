@@ -1,5 +1,52 @@
 import { describe, it, expect } from "vitest";
-import { computeLeadVerdict, type VerdictInputs, type VerdictKind } from "./lead-verdict";
+import { computeLeadVerdict, extractSizeFromText, type VerdictInputs, type VerdictKind } from "./lead-verdict";
+
+describe("extractSizeFromText", () => {
+  it("extrait '1400p' du scoreReason Opus", () => {
+    expect(extractSizeFromText("ESN ingénierie électronique 1400p hors taille ICP PME")).toBe(1400);
+  });
+  it("extrait '250+p' du jobTitle warning", () => {
+    expect(extractSizeFromText("Directeur Général / Gérant ⚠️ 250+p — préférer hiring manager")).toBe(250);
+  });
+  it("extrait '1400 ingénieurs' du triggerDetail", () => {
+    expect(extractSizeFromText("Le Groupe SERMA est un leader Européen, représentant 1400 ingénieurs")).toBe(1400);
+  });
+  it("extrait '500 personnes'", () => {
+    expect(extractSizeFromText("équipe de 500 personnes en France")).toBe(500);
+  });
+  it("retourne null si aucun pattern", () => {
+    expect(extractSizeFromText("rien à voir")).toBe(null);
+    expect(extractSizeFromText(null)).toBe(null);
+    expect(extractSizeFromText("")).toBe(null);
+  });
+  it("ignore nombres < 10 (faux positifs comme '5 ans')", () => {
+    expect(extractSizeFromText("équipe de 5 personnes")).toBe(null);
+  });
+});
+
+describe("computeLeadVerdict — cas SERMA Ingénierie réel (parser texte)", () => {
+  it("OFF_TARGET via scoreReason '1400p hors taille' (companyEtabsCount=17 trompeur)", () => {
+    const r = computeLeadVerdict({
+      score: 4, priorityScore: 1, fitScore: null, isHot: false,
+      hasContact: false, hasMobile: false, hasLinkedin: false, hasFirstName: true,
+      bouncedAt: null, doNotContact: false, companyHasInsolvency: false,
+      companyEtabsCount: 17, // établissements physiques, pas employés
+      companySizeText: null,
+      icpSizeMin: 11, icpSizeMax: 200,
+      opportunityStage: null,
+      contactFullName: "Etienne Manuel Gabriel Poirier",
+      contactPhone: null,
+      contactJobTitle: "Directeur Général / Gérant ⚠️ 250+p — préférer hiring manager LinkedIn",
+      capturedAt: "2026-04-28T22:11:21Z",
+      triggerSourceCode: "apify.linkedin-jobs",
+      scoreReason: "ESN ingénierie électronique 1400p hors taille ICP PME, mission client final automobile, NAF 71.12B",
+    });
+    // 1400 > 200×3=600 → OFF_TARGET via taille extraite du texte
+    expect(r.kind).toBe("OFF_TARGET");
+    expect(r.label).toContain("1400");
+    expect(r.label).toMatch(/grand|grosse|hors\s*cible/i);
+  });
+});
 
 function inp(over: Partial<VerdictInputs>): VerdictInputs {
   return {
