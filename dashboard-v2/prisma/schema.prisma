@@ -382,6 +382,11 @@ model Lead {
   warmMailGeneratedAt DateTime?
   // Timestamp de génération unifié si /api/leads/[id]/copy a généré les 4 d'un coup
   copyGeneratedAt   DateTime?
+  // Chantier #2a — Profil LinkedIn complet (HarvestAPI Profile Full, 01/05/2026)
+  // Données extraites : experiences, headline, summary, durée poste actuel.
+  // Consommé par chantier #2b (persona fit scoring dynamique).
+  linkedinProfileJson         Json?
+  linkedinProfileEnrichedAt   DateTime?
   // Audit
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
