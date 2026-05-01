@@ -376,6 +376,12 @@ model Lead {
   linkedinDmGeneratedAt DateTime?
   callBriefJson     Json?
   callBriefGeneratedAt DateTime?
+  // Chantier #3 — Copy Engine unifié (01/05/2026)
+  // warmMail = mail post-LinkedIn (référence à un échange préalable, ton plus direct)
+  warmMailJson      Json?
+  warmMailGeneratedAt DateTime?
+  // Timestamp de génération unifié si /api/leads/[id]/copy a généré les 4 d'un coup
+  copyGeneratedAt   DateTime?
   // Audit
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
