@@ -198,6 +198,10 @@ model Trigger {
   scoreReason   String?      // Brief contextuel généré par l'IA
   isHot         Boolean      @default(false) // ≥9
   isCombo       Boolean      @default(false) // pattern combiné (levée + hire ex)
+  // Priority Scoring Engine (chantier #1, 01/05/2026) — voir lib/priority-scoring.ts
+  freshnessScore   Int?      // 0-100, décroissance exponentielle (demi-vie 14j)
+  multiSourceBoost Int       @default(0) // 0/15/30 selon nb sources distinctes 7j
+  priorityScore    Int?      // composite final = score × freshness/100 + boost
   // Pipeline
   status        TriggerStatus @default(NEW)
   ignoredAt     DateTime?
@@ -223,6 +227,7 @@ model Trigger {
   @@index([sourceCode])
   @@index([companySiret])
   @@index([deletedAt])
+  @@index([clientId, priorityScore(sort: Desc)])
 }
 
 enum TriggerType {

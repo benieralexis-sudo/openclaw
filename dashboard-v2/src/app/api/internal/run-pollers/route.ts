@@ -5,6 +5,7 @@ import { pollTheirstackForClient, enrichRecentTriggersWithSirene } from "@/lib/t
 import { pollApifyForClient } from "@/lib/apify-poller";
 import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
 import { detectCombosForClient } from "@/lib/combo-detector";
+import { recomputePriorityScoresForClient } from "@/lib/priority-scoring-runner";
 import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
 import { enrichDecisionMakersForClient } from "@/lib/harvestapi-decision-makers";
 import { enrichLeadsViaFullEnrich } from "@/lib/enrich-via-fullenrich";
@@ -171,6 +172,16 @@ export async function POST(req: NextRequest) {
         // Combo detector : flag isCombo=true sur les boîtes avec 2+ sources
         const combo = await detectCombosForClient(c.id);
         (entry as { combos?: unknown }).combos = combo;
+        // Priority Scoring Engine (chantier #1, 01/05/2026) — recalcule
+        // freshnessScore + multiSourceBoost + priorityScore sur tous les
+        // triggers actifs. L'âge évolue à chaque heure → recompute essentiel.
+        try {
+          const priority = await recomputePriorityScoresForClient(c.id);
+          (entry as { priority?: unknown }).priority = priority;
+        } catch (e) {
+          (entry as { priorityError?: string }).priorityError =
+            e instanceof Error ? e.message : String(e);
+        }
         // Growth detector (audit 30/04 soir) : crée un Trigger growth-alert
         // pour les boîtes <11p qui hire 3+ en 60j (pré-ICP qui scale).
         try {
