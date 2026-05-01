@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiSession, resolveClientScope } from "@/server/session";
+import { combineScores, dedupTodoByCompany, type TodoItem } from "@/lib/todo-today";
 
 export async function GET(req: NextRequest) {
   const s = await requireApiSession(req);
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
     pipeline,
     recentTriggers,
     delaySamples,
+    todoCandidates,
   ] = await Promise.all([
     db.trigger.count({ where: { ...where, capturedAt: { gte: since24h } } }),
     db.trigger.count({
@@ -87,6 +89,47 @@ export async function GET(req: NextRequest) {
       select: { capturedAt: true, publishedAt: true },
       take: 100,
     }),
+    // Chantier D3 (01/05) — Todo du jour : tri par priorityScore composite
+    // (intègre fraîcheur + multi-source v3.9). Overshoot 30 pour dédupliquer
+    // par société côté code et obtenir 5 sociétés distinctes.
+    db.trigger.findMany({
+      where: {
+        ...where,
+        priorityScore: { not: null },
+        lead: { isNot: null },
+      },
+      orderBy: [
+        { priorityScore: { sort: "desc", nulls: "last" } },
+        { capturedAt: "desc" },
+      ],
+      take: 30,
+      select: {
+        id: true,
+        companyName: true,
+        companySiret: true,
+        title: true,
+        score: true,
+        priorityScore: true,
+        freshnessScore: true,
+        multiSourceBoost: true,
+        capturedAt: true,
+        lead: {
+          select: {
+            firstName: true,
+            lastName: true,
+            jobTitle: true,
+            email: true,
+            kasprWorkEmail: true,
+            emailFullenrich: true,
+            kasprPhone: true,
+            phoneFullenrich: true,
+            phone: true,
+            linkedinUrl: true,
+            fitScore: true,
+          },
+        },
+      },
+    }),
   ]);
 
   // Calcul avgDelayMin : moyenne (capturedAt - publishedAt) en minutes
@@ -121,6 +164,34 @@ export async function GET(req: NextRequest) {
   const replied = (pipelineCounts.REPLIED ?? 0) + (pipelineCounts.BOOKED ?? 0);
   const booked = pipelineCounts.BOOKED ?? 0;
 
+  // Chantier D3 — Construction de la todo du jour : map → tri composite → dédup → top 5
+  const todoMapped: TodoItem[] = todoCandidates.map((t) => ({
+    id: t.id,
+    companyName: t.companyName,
+    companySiret: t.companySiret,
+    firstName: t.lead?.firstName ?? null,
+    lastName: t.lead?.lastName ?? null,
+    jobTitle: t.lead?.jobTitle ?? null,
+    title: t.title,
+    score: t.score,
+    priorityScore: t.priorityScore,
+    freshnessScore: t.freshnessScore,
+    multiSourceBoost: t.multiSourceBoost,
+    fitScore: t.lead?.fitScore ?? null,
+    capturedAt: t.capturedAt.toISOString(),
+    hasEmail: !!(t.lead?.email || t.lead?.kasprWorkEmail || t.lead?.emailFullenrich),
+    hasPhone: !!(t.lead?.kasprPhone || t.lead?.phoneFullenrich || t.lead?.phone),
+    hasLinkedin: !!t.lead?.linkedinUrl,
+  }));
+  // Re-tri par combinedScore (priority + fit*0.3) puis dédup-by-company
+  const todoSorted = [...todoMapped].sort((a, b) => {
+    const ca = combineScores(a.priorityScore, a.fitScore);
+    const cb = combineScores(b.priorityScore, b.fitScore);
+    if (cb !== ca) return cb - ca;
+    return new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime();
+  });
+  const todoToday = dedupTodoByCompany(todoSorted).slice(0, 5);
+
   return NextResponse.json({
     kpis: {
       signals24h: { value: triggers24h, delta: triggers24h - triggersPrev24h },
@@ -135,5 +206,6 @@ export async function GET(req: NextRequest) {
       { label: "RDV bookés", value: booked, color: "bg-emerald-500" },
     ],
     recentTriggers,
+    todoToday,
   });
 }

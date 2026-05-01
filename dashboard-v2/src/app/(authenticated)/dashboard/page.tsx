@@ -26,6 +26,9 @@ import {
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatRelativeFr } from "@/lib/utils";
 import { ActivityStatsSection } from "@/components/dashboard/activity-stats-section";
+import { getPriorityVariant, getFitVariant } from "@/lib/score-display";
+import type { TodoItem } from "@/lib/todo-today";
+import { Sparkles, Mail, Phone as PhoneIcon, Linkedin } from "lucide-react";
 
 interface DashboardData {
   kpis: {
@@ -35,6 +38,7 @@ interface DashboardData {
     avgDelayMin: { value: number };
   };
   pipeline: Array<{ label: string; value: number; color: string }>;
+  todoToday: TodoItem[];
   recentTriggers: Array<{
     id: string;
     companyName: string;
@@ -134,6 +138,10 @@ export default function DashboardPage() {
 
       {/* Activité commerciale temps réel */}
       <ActivityStatsSection activeClientId={activeClientId} />
+
+      {/* Chantier D3 (01/05) — Ma todo du jour : top 5 leads à appeler MAINTENANT
+          (priorityScore composite v3.9 + fitScore v4.2, dédup par société). */}
+      <TodoTodaySection todoToday={data?.todoToday ?? []} isLoading={isLoading} />
 
       {/* Pépites + Pipeline */}
       <section className="grid gap-4 lg:grid-cols-3">
@@ -339,5 +347,141 @@ function KpiCard({
         </p>
       </div>
     </Card>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Chantier D3 (01/05) — Section "Ma todo du jour"
+// Top 5 leads à appeler MAINTENANT, dédupliqués par société.
+// Tri composite : priorityScore (v3.9) + fitScore × 0.3 (v4.2).
+// ──────────────────────────────────────────────────────────────────────
+
+function TodoTodaySection({
+  todoToday,
+  isLoading,
+}: {
+  todoToday: TodoItem[];
+  isLoading: boolean;
+}) {
+  return (
+    <section>
+      <Card className="border-brand-200 bg-gradient-to-br from-brand-50/40 to-white">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-brand-600" />
+              Ma todo du jour
+            </CardTitle>
+            <CardDescription>
+              Top 5 leads à appeler maintenant — tri par priorité composite (signal × fraîcheur × multi-source) + fit ICP
+            </CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" className="gap-1.5 text-brand-600" asChild>
+            <a href="/triggers">
+              Voir tous
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <ul className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <li key={i} className="flex items-center gap-3 rounded-md border border-ink-100 bg-white p-3">
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                  <Skeleton className="h-7 w-12 rounded" />
+                </li>
+              ))}
+            </ul>
+          ) : todoToday.length === 0 ? (
+            <div className="rounded-md border border-dashed border-ink-200 bg-white p-6 text-center">
+              <p className="text-[13px] text-ink-600">Pipeline en cours d'enrichissement.</p>
+              <p className="mt-1 text-[11.5px] text-ink-400">Les leads avec priorityScore apparaîtront ici dès le prochain run.</p>
+            </div>
+          ) : (
+            <ol className="space-y-2">
+              {todoToday.map((t, idx) => {
+                const fullName = [t.firstName, t.lastName].filter(Boolean).join(" ");
+                const priorityVar = getPriorityVariant(t.priorityScore);
+                const fitVar = getFitVariant(t.fitScore);
+                const fitBarColor = fitVar === "success"
+                  ? "bg-emerald-500"
+                  : fitVar === "info"
+                    ? "bg-brand-500"
+                    : fitVar === "warning"
+                      ? "bg-amber-500"
+                      : "bg-ink-300";
+                return (
+                  <li key={t.id}>
+                    <Link
+                      href={`/triggers/${t.id}` as never}
+                      className={cn(
+                        "group flex items-center gap-3 rounded-md border bg-white p-3 transition-all",
+                        "border-ink-100 hover:border-brand-300 hover:shadow-sm",
+                      )}
+                    >
+                      {/* Rang + initials société */}
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="font-mono text-[11px] font-bold text-ink-400 w-4 text-center tabular-nums">
+                          {idx + 1}
+                        </span>
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-100 to-brand-200 text-[10.5px] font-bold text-brand-700">
+                          {t.companyName.slice(0, 2).toUpperCase()}
+                        </div>
+                      </div>
+
+                      {/* Nom + société + signal */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-[13.5px] font-medium text-ink-900 truncate">
+                            {fullName || "Décideur à identifier"}
+                          </p>
+                          {t.jobTitle && (
+                            <span className="text-[11px] text-ink-500 truncate">— {t.jobTitle}</span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-ink-500 truncate">
+                          <span className="font-medium text-ink-700 truncate">{t.companyName}</span>
+                          <span className="text-ink-300">·</span>
+                          <span className="truncate">{t.title}</span>
+                        </div>
+                      </div>
+
+                      {/* Scores + signaux contact */}
+                      <div className="flex shrink-0 items-center gap-3">
+                        <div className="flex items-center gap-1 text-ink-400">
+                          {t.hasEmail && <Mail className="h-3 w-3 text-emerald-600" />}
+                          {t.hasPhone && <PhoneIcon className="h-3 w-3 text-brand-600" />}
+                          {t.hasLinkedin && <Linkedin className="h-3 w-3 text-blue-600" />}
+                        </div>
+                        {t.fitScore !== null && (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="font-mono text-[10.5px] tabular-nums text-ink-500">fit {t.fitScore}</span>
+                            <div className="h-1 w-12 overflow-hidden rounded-full bg-ink-100">
+                              <div
+                                className={cn("h-full rounded-full", fitBarColor)}
+                                style={{ width: `${Math.min(100, Math.max(0, t.fitScore))}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <Badge variant={priorityVar} size="md" className="font-mono tabular-nums">
+                          {t.priorityScore ?? "—"}
+                        </Badge>
+                        <ArrowUpRight className="h-3.5 w-3.5 text-ink-400 group-hover:text-brand-600 transition-colors" />
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </CardContent>
+      </Card>
+    </section>
   );
 }
