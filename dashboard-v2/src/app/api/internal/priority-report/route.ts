@@ -32,46 +32,65 @@ export async function GET(req: NextRequest) {
   }
   const recompute = url.searchParams.get("recompute") === "true";
 
+  // dedupByCompany=true : ne garde que le meilleur trigger par société
+  // (utile pour la todo commerciale finale qui veut 1 ligne par boîte).
+  // Mode par défaut (false) : utile pour debug — voir la dynamique multi-trigger.
+  const dedupByCompany = url.searchParams.get("dedupByCompany") === "true";
+
   let runResult = null;
   if (recompute) {
     runResult = await recomputePriorityScoresForClient(clientId);
   }
 
-  // Top 20 par score brut (legacy)
-  const topByScore = await db.trigger.findMany({
+  const selectFields = {
+    id: true,
+    companyName: true,
+    companySiret: true,
+    title: true,
+    score: true,
+    sourceCode: true,
+    capturedAt: true,
+    freshnessScore: true,
+    multiSourceBoost: true,
+    priorityScore: true,
+  };
+
+  // Helper dédup par société (siret > companyName fallback) — garde le top
+  // priority de chaque société.
+  type TriggerRow = {
+    id: string;
+    companyName: string;
+    companySiret: string | null;
+    [k: string]: unknown;
+  };
+  function dedupByCompanyKey<T extends TriggerRow>(rows: T[]): T[] {
+    const seen = new Map<string, T>();
+    for (const r of rows) {
+      const key = ((r.companySiret ?? r.companyName) || "").trim().toLowerCase();
+      if (!key) continue;
+      if (!seen.has(key)) seen.set(key, r);
+    }
+    return Array.from(seen.values());
+  }
+
+  // Top 20 par score brut (legacy). Si dedupByCompany, on overshoot puis dédup.
+  const fetchSize = dedupByCompany ? 60 : 20;
+  const rawByScore = await db.trigger.findMany({
     where: { clientId, deletedAt: null },
     orderBy: [{ score: "desc" }, { capturedAt: "desc" }],
-    take: 20,
-    select: {
-      id: true,
-      companyName: true,
-      title: true,
-      score: true,
-      sourceCode: true,
-      capturedAt: true,
-      freshnessScore: true,
-      multiSourceBoost: true,
-      priorityScore: true,
-    },
+    take: fetchSize,
+    select: selectFields,
   });
+  const topByScore = (dedupByCompany ? dedupByCompanyKey(rawByScore) : rawByScore).slice(0, 20);
 
   // Top 20 par priorityScore (nouveau)
-  const topByPriority = await db.trigger.findMany({
+  const rawByPriority = await db.trigger.findMany({
     where: { clientId, deletedAt: null, priorityScore: { not: null } },
     orderBy: [{ priorityScore: "desc" }, { capturedAt: "desc" }],
-    take: 20,
-    select: {
-      id: true,
-      companyName: true,
-      title: true,
-      score: true,
-      sourceCode: true,
-      capturedAt: true,
-      freshnessScore: true,
-      multiSourceBoost: true,
-      priorityScore: true,
-    },
+    take: fetchSize,
+    select: selectFields,
   });
+  const topByPriority = (dedupByCompany ? dedupByCompanyKey(rawByPriority) : rawByPriority).slice(0, 20);
 
   // Identifier les leads qui changent de position
   const idsByScore = topByScore.map((t) => t.id);
