@@ -44,6 +44,7 @@ interface TriggerData {
     clientId: string;
     companyName: string;
     companySiret: string | null;
+    companyNaf?: string | null;
     industry: string | null;
     region: string | null;
     size: string | null;
@@ -278,8 +279,9 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
 
   return (
     <div className="space-y-5">
-      {/* Chantier D9 — Bannière VERDICT humain : un commercial comprend en 3 sec */}
-      <LeadVerdictBanner verdict={verdict} />
+      {/* Chantier D9-bis (rectif user 02/05) — la bannière a été retirée pour
+          ne pas alourdir la fiche. Le verdict est intégré directement dans
+          la section "Notre analyse" en place (TriggerHeader). */}
 
       {/* Bouton retour + actions */}
       <div className="flex items-center justify-between">
@@ -358,7 +360,7 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
         )}
       </div>
 
-      <TriggerHeader trigger={trigger} lead={lead} opportunity={opportunity} brief={brief} />
+      <TriggerHeader trigger={trigger} lead={lead} opportunity={opportunity} brief={brief} verdict={verdict} />
 
       {!lead ? (
         <Card>
@@ -425,16 +427,36 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
 // Header trigger + lead + opportunity
 // ──────────────────────────────────────────────────────────────────────
 
+// Helper : strip les prénoms du milieu pour ne garder que prénom+nom usuels.
+// "Etienne Manuel Gabriel Poirier" → "Etienne Poirier"
+// "Jean-Marc Smith" → "Jean-Marc Smith" (préserve composés)
+function simplifyFullName(fullName: string | null): string | null {
+  if (!fullName) return null;
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 2) return fullName.trim();
+  // Premier prénom + dernier mot (= nom de famille)
+  return `${parts[0]} ${parts[parts.length - 1]}`;
+}
+
+// Strip le warning "⚠️ 250+p — préférer hiring manager LinkedIn" du jobTitle
+// (qui sera ré-affiché proprement dans une sous-ligne).
+function cleanJobTitle(jobTitle: string | null): string | null {
+  if (!jobTitle) return null;
+  return jobTitle.replace(/\s*[⚠️!].*$/u, "").trim() || jobTitle;
+}
+
 function TriggerHeader({
   trigger,
   lead,
   opportunity,
   brief,
+  verdict,
 }: {
   trigger: TriggerData["trigger"];
   lead: TriggerData["lead"];
   opportunity: TriggerData["opportunity"];
   brief: Brief | null;
+  verdict: VerdictResult;
 }) {
   const scoreVariant = trigger.isHot
     ? "fire"
@@ -472,15 +494,10 @@ function TriggerHeader({
                 </Badge>
               )}
             </div>
-            <p className="mt-1 text-[12.5px] text-ink-600">
-              {[trigger.industry, trigger.region, trigger.size].filter(Boolean).join(" · ") ||
-                "—"}
-              {trigger.companySiret && (
-                <span className="ml-2 font-mono text-[10.5px] text-ink-400">
-                  SIRET {trigger.companySiret.slice(0, 9)}…
-                </span>
-              )}
-            </p>
+            {/* Ville/région simplifiée (industry + size techniques retirés du header) */}
+            {trigger.region && (
+              <p className="mt-1 text-[12.5px] text-ink-600">{trigger.region}</p>
+            )}
           </div>
           <div className="text-right">
             <div className="text-[10.5px] uppercase tracking-wider text-ink-400">Détecté</div>
@@ -490,19 +507,16 @@ function TriggerHeader({
           </div>
         </div>
 
+        {/* Section "Ce qu'on a détecté" — réécriture commerciale du signal brut */}
         <div className="rounded-md border border-brand-200 bg-brand-50/40 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-brand-700">
-              <Target className="h-3 w-3" />
-              Signal détecté
-            </div>
-            {formatSourceLabel(trigger.sourceCode) && (
-              <span className="rounded bg-white border border-brand-200 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">
-                {formatSourceLabel(trigger.sourceCode)}
-              </span>
-            )}
+          <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-brand-700">
+            <Target className="h-3 w-3" />
+            Ce qu&apos;on a détecté
           </div>
-          <div className="mt-1 text-[13.5px] font-medium text-ink-900">{trigger.title}</div>
+          {/* Titre simplifié : retire (QA match) parasite + ID interne 042026/PST/ERZ */}
+          <div className="mt-1 text-[13.5px] font-medium text-ink-900">
+            {trigger.title.replace(/\s*\(QA\s*match\)\s*/gi, "").replace(/\s*-\s*\d{4,}[/_][\w/]+/g, "").trim()}
+          </div>
           {(() => {
             const t = truncateDetail(trigger.detail);
             if (!t) return null;
@@ -524,30 +538,55 @@ function TriggerHeader({
           })()}
         </div>
 
-        {/* Pourquoi ce score Opus ? — UX-4 fix : commercial comprend la qualif */}
-        {trigger.scoreReason && (
-          <div className="rounded-md border border-amber-200 bg-amber-50/30 p-3">
-            <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-amber-700">
-              <span>🎯</span>
-              Pourquoi {trigger.score}/10 ? — IA Opus 4.7
-            </div>
-            <div className="mt-1 text-[12.5px] leading-relaxed text-ink-700">
-              {trigger.scoreReason}
-            </div>
+        {/* Section "Notre analyse" — verdict humain inline (remplace "Pourquoi N/10 — IA Opus")
+            Couleur dépend du verdict : rouge OFF_TARGET, orange ENRICH, gris HOLD, etc. */}
+        <div className={cn(
+          "rounded-md border p-3",
+          verdict.color === "danger" && "border-red-200 bg-red-50/40",
+          verdict.color === "warning" && "border-amber-200 bg-amber-50/40",
+          verdict.color === "success" && "border-emerald-200 bg-emerald-50/40",
+          verdict.color === "info" && "border-brand-200 bg-brand-50/40",
+          verdict.color === "default" && "border-ink-200 bg-ink-50/40",
+        )}>
+          <div className={cn(
+            "flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider",
+            verdict.color === "danger" && "text-red-700",
+            verdict.color === "warning" && "text-amber-700",
+            verdict.color === "success" && "text-emerald-700",
+            verdict.color === "info" && "text-brand-700",
+            verdict.color === "default" && "text-ink-600",
+          )}>
+            <span>🎯</span>
+            Notre analyse
           </div>
-        )}
+          <div className="mt-1 text-[13px] font-medium leading-relaxed text-ink-900">
+            {verdict.label}
+          </div>
+          <div className="mt-1 text-[12.5px] leading-relaxed text-ink-700">
+            {verdict.reason}
+          </div>
+          <div className="mt-2 text-[12.5px] leading-relaxed text-ink-800">
+            <span className="font-semibold">→ </span>{verdict.action}
+          </div>
+        </div>
 
         {/* Contact + Opportunité */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {lead && (
             <div className="rounded-md border border-ink-100 bg-white p-3">
               <div className="text-[10.5px] uppercase tracking-wider text-ink-500">
-                Contact
+                Contact identifié
               </div>
               <div className="mt-1 text-[13px] font-medium text-ink-900">
-                {lead.fullName ?? "À identifier"}
+                {simplifyFullName(lead.fullName) ?? "À identifier"}
               </div>
-              <div className="text-[11.5px] text-ink-600">{lead.jobTitle ?? "—"}</div>
+              <div className="text-[11.5px] text-ink-600">{cleanJobTitle(lead.jobTitle) ?? "—"}</div>
+              {/* Warning "trop haut placé" en sous-ligne lisible (au lieu d'inline jobTitle) */}
+              {verdict.flags.includes("decideur_juridique_pas_hiring") && (
+                <div className="mt-1.5 text-[11.5px] leading-relaxed text-amber-700">
+                  ⚠️ Trop haut placé pour cette boîte. Cherche le bon contact technique sur LinkedIn de l&apos;annonce.
+                </div>
+              )}
               {lead.email && (
                 <div className="mt-1 flex items-center gap-2">
                   <a
@@ -847,6 +886,15 @@ function TriggerHeader({
           )}
           {/* Activité multi-canal : email + LinkedIn + appels + RDV + checklist */}
           {lead && <LeadActivityPanel leadId={lead.id} />}
+        </div>
+
+        {/* Footer technique discret : SIRET + NAF + source (info utile mais pas commerciale) */}
+        <div className="mt-2 border-t border-ink-100 pt-2 flex flex-wrap items-center gap-3 text-[10.5px] text-ink-400 font-mono">
+          {trigger.companySiret && <span>SIRET {trigger.companySiret.slice(0, 9)}</span>}
+          {trigger.companyNaf && <span>NAF {trigger.companyNaf}</span>}
+          {formatSourceLabel(trigger.sourceCode) && (
+            <span className="ml-auto">Source : {formatSourceLabel(trigger.sourceCode)}</span>
+          )}
         </div>
       </CardContent>
     </Card>

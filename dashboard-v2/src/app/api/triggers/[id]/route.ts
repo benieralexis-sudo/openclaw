@@ -17,6 +17,7 @@ export async function GET(
       clientId: true,
       companyName: true,
       companySiret: true,
+      companyNaf: true,
       industry: true,
       region: true,
       size: true,
