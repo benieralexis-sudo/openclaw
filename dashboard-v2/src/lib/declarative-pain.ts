@@ -178,11 +178,16 @@ export async function detectDeclarativePainForClient(
   // (l'actor accepte targetUrls: array)
   let posts: LinkedinPost[] = [];
   try {
+    // BUGFIX 01/05 : le paramètre actor est `maxPosts` (PAS `maxPostsPerCompany`).
+    // Mauvais nom détecté via Apify schema doc — l'actor ignorait notre limite
+    // et scrapait toute la pagination = $20.91 facturé en avril vs $0.50 attendu.
     const { items } = await runAndGetItems<LinkedinPost>(
       ACTOR,
       {
         targetUrls: withUrls.map((c) => c.url),
-        maxPostsPerCompany: POSTS_PER_COMPANY,
+        maxPosts: POSTS_PER_COMPANY,
+        scrapeReactions: false,
+        scrapeComments: false,
       },
       { itemsLimit: limit * POSTS_PER_COMPANY, timeout: 300 },
     );
