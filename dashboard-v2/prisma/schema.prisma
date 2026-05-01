@@ -387,6 +387,11 @@ model Lead {
   // Consommé par chantier #2b (persona fit scoring dynamique).
   linkedinProfileJson         Json?
   linkedinProfileEnrichedAt   DateTime?
+  // Chantier #2b — Persona Fit Scoring (01/05/2026)
+  // Score composite 0-100 = base(tier) + tenureBoost + backgroundFit + sizeFit
+  fitScore                Int?
+  fitScoreBreakdown       Json?
+  fitScoreComputedAt      DateTime?
   // Audit
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -402,6 +407,7 @@ model Lead {
   @@index([email])
   @@index([companySiret])
   @@index([deletedAt])
+  @@index([clientId, fitScore(sort: Desc)])
 }
 
 enum EmailStatus {

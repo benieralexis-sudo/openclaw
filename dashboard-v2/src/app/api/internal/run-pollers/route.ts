@@ -6,6 +6,7 @@ import { pollApifyForClient } from "@/lib/apify-poller";
 import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
 import { detectCombosForClient } from "@/lib/combo-detector";
 import { recomputePriorityScoresForClient } from "@/lib/priority-scoring-runner";
+import { recomputeFitScoresForClient } from "@/lib/persona-fit-runner";
 import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
 import { enrichDecisionMakersForClient } from "@/lib/harvestapi-decision-makers";
 import { enrichLeadsViaFullEnrich } from "@/lib/enrich-via-fullenrich";
@@ -180,6 +181,16 @@ export async function POST(req: NextRequest) {
           (entry as { priority?: unknown }).priority = priority;
         } catch (e) {
           (entry as { priorityError?: string }).priorityError =
+            e instanceof Error ? e.message : String(e);
+        }
+        // Persona Fit Scoring (chantier #2b, 01/05/2026) — recalcule fitScore
+        // composite (base tier + tenure + backgrounds + size). Recompute
+        // essentiel pour intégrer les nouveaux profils LinkedIn enrichis.
+        try {
+          const fit = await recomputeFitScoresForClient(c.id);
+          (entry as { fit?: unknown }).fit = fit;
+        } catch (e) {
+          (entry as { fitError?: string }).fitError =
             e instanceof Error ? e.message : String(e);
         }
         // Growth detector (audit 30/04 soir) : crée un Trigger growth-alert
