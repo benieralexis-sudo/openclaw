@@ -27,6 +27,7 @@ import { toast } from "@/components/ui/sonner";
 import { cn, formatNumberFr, formatRelativeFr, gmailComposeUrl, isFrenchMobile, normalizeLinkedinUrl } from "@/lib/utils";
 import { computeLeadVerdict, type VerdictResult } from "@/lib/lead-verdict";
 import { humanizeCompanySize, humanizeRevenue, humanizeResultNet, humanizeEtabsCount } from "@/lib/format-company";
+import { simplifyTriggerTitle } from "@/lib/simplify-trigger-title";
 import { CheckCircle2, AlertTriangle, XCircle, Info, Clock } from "lucide-react";
 import { formatSourceLabel, truncateDetail } from "@/lib/format-trigger-detail";
 import { SendEmailModal } from "@/components/lead/send-email-modal";
@@ -513,9 +514,9 @@ function TriggerHeader({
             <Target className="h-3 w-3" />
             Ce qu&apos;on a détecté
           </div>
-          {/* Titre simplifié : retire (QA match) parasite + ID interne 042026/PST/ERZ */}
+          {/* Titre simplifié : strip "[client] — ", suffixe société, parens parasites, IDs internes */}
           <div className="mt-1 text-[13.5px] font-medium text-ink-900">
-            {trigger.title.replace(/\s*\(QA\s*match\)\s*/gi, "").replace(/\s*-\s*\d{4,}[/_][\w/]+/g, "").trim()}
+            {simplifyTriggerTitle(trigger.title, trigger.companyName)}
           </div>
           {(() => {
             const t = truncateDetail(trigger.detail);
