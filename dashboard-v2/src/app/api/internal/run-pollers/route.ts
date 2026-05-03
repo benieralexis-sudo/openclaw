@@ -125,12 +125,15 @@ export async function POST(req: NextRequest) {
         //    offices[]) découvert via inspection dataset. L'ancien adapter
         //    nested retournait null sur 100% items → 0 trigger en 7j malgré
         //    $8.38 scrape. Réactivé après fix.
-        //  - Indeed désactivé : même après fix maxItemsPerSearch (30→15) qui
-        //    a divisé le coût par 2 ($0.15→$0.075/run), le contenu reste 100%
-        //    bruit ("Ingénieur maintenance/CVC/Méthodes/Pharma") car la query
-        //    `position: "QA Engineer"` matche trop large sur Indeed FR. Le
-        //    titleFilter rejette tout au post-scrape. À refondre côté query
-        //    (position multi + filtre catégorie Indeed) avant réactivation.
+        //  - Indeed ABANDON DÉFINITIF (audit 03/05 soir, A/B test 4 stratégies) :
+        //    1) `position: "QA Engineer"` simple → 0% pertinent (vu en prod 7j)
+        //    2) `startUrls` avec guillemets exact-match → actor FAILED (encodage)
+        //    3) `startUrls` query OR + exclusions → 1 item hors-sujet retourné
+        //    4) `startUrls` sans guillemets → 0/15 pertinents (DBA, AI, designer)
+        //    Indeed FR est dominé par industriel/aérospatial/finance/AI/data.
+        //    L'actor misceres ne supporte pas le filtre catégorie Indeed natif
+        //    (Quality Assurance). Aucun chemin viable identifié. À reconsidérer
+        //    seulement si on trouve un actor Indeed catégorisable.
         entry.apify = await pollApifyForClient(c.id, {
           dryRun,
           useFranceJobs: false,
