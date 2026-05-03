@@ -353,12 +353,12 @@ class TriggerEngineCron {
     }, 10 * 60 * 1000);
     this.intervals.push(pgSyncInterval);
 
-    // Pollers premium dashboard-v2 (TheirStack + Apify + cascade enrichissement) : every 1h
-    // Audit 30/04 : passé de 6h à 1h pour réduire le délai signal→enrichissement
-    // (Rodz webhook arrive en temps réel mais l'enrichissement HarvestAPI/FullEnrich
-    // attendait 6h). Coût marginal payant ~nul car TTL flags 30j/14j/7j sur tous
-    // les outils (Kaspr/FullEnrich/HarvestAPI/Pappers récursion) → un 2e run dans
-    // la même heure ne re-tente rien.
+    // Pollers premium dashboard-v2 (TheirStack + Apify + cascade enrichissement) : every 6h
+    // Audit 03/05/2026 (incident plafond Apify $57.50/$60 brûlé en 8j) :
+    // 1h → 6h car pollApifyForClient scrapait Indeed/WTTJ/LinkedIn-jobs 24×/jour
+    // pour 0 nouveau trigger créé (dedup côté DB après scrape, on payait à vide).
+    // Le cron crontab horaire (run-pollers-cron.sh ?source=cron) continue à tourner
+    // pour les enrichissements idempotents (qualify, dedup, FullEnrich, finder).
     // Appelle https://app.ifind.fr/api/internal/run-pollers (route protégée x-cron-secret).
     const dashboardPollersInterval = setInterval(async () => {
       try {
@@ -403,7 +403,7 @@ class TriggerEngineCron {
       } catch (e) {
         this.log.warn?.(`[cron] dashboard-pollers error: ${e.message}`);
       }
-    }, 1 * 3600 * 1000);
+    }, 6 * 3600 * 1000);
     this.intervals.push(dashboardPollersInterval);
 
     // Claude Brain Discover : weekly dimanche 23h
