@@ -120,19 +120,22 @@ export async function POST(req: NextRequest) {
         //   - Indeed FR : nouvel actor misceres (leader Apify)
         //   - france-jobs (joyouscam) : deprecated (Hellowork/FT cassés)
         // Audit 03/05/2026 (incident plafond Apify $57.50/$60) :
-        //  - useIndeed: false → 30 jobs/run, 0 sont du QA software (pollution
-        //    "Ingénieur maintenance/CVC/Aerospace"), $11.67 brûlés sur 7j pour
-        //    5 Pépites de qualité douteuse. À réactiver si on affine la query
-        //    côté actor (filter titre côté Indeed au lieu de post-scrape).
-        //  - useWttj: false → 0 trigger créé en 7j malgré $8.38 dépensés. Bug
-        //    latent (adapter, isFrenchCompany, dedup cross-source). À investiguer
-        //    avant réactivation. Schedule Apify hebdo (samedi 3h) garde un filet.
-        //  - useLinkedin: true → seul actor productif (17 Pépites en 7j, $2.31).
+        //  - cron pollApifyForClient passé 1h → 6h côté gateway/cron.js
+        //  - WTTJ adapter fixé : nouveau schéma flat (organizationName +
+        //    offices[]) découvert via inspection dataset. L'ancien adapter
+        //    nested retournait null sur 100% items → 0 trigger en 7j malgré
+        //    $8.38 scrape. Réactivé après fix.
+        //  - Indeed désactivé : même après fix maxItemsPerSearch (30→15) qui
+        //    a divisé le coût par 2 ($0.15→$0.075/run), le contenu reste 100%
+        //    bruit ("Ingénieur maintenance/CVC/Méthodes/Pharma") car la query
+        //    `position: "QA Engineer"` matche trop large sur Indeed FR. Le
+        //    titleFilter rejette tout au post-scrape. À refondre côté query
+        //    (position multi + filtre catégorie Indeed) avant réactivation.
         entry.apify = await pollApifyForClient(c.id, {
           dryRun,
           useFranceJobs: false,
           useLinkedin: true,
-          useWttj: false,
+          useWttj: true,
           useIndeed: false,
         });
       }

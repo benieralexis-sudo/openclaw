@@ -338,55 +338,60 @@ function adaptLinkedinJobItem(item: LinkedinJobItem): NormalizedJob | null {
 }
 
 // ── Adapter WTTJ (clearpath/welcome-to-the-jungle-jobs-api) ──
+// Schéma vérifié 03/05/2026 via run dataset : flat fields organizationName +
+// offices[] (array) + contractType/publishedAt camelCase. Ancien schéma avec
+// `organization.name` / `office.country_code` (snake_case nested) est mort —
+// adaptWttjItem retournait null sur 100% des items, expliquant les 0 triggers
+// créés malgré $8.38 de scrape sur 7 jours (incident 03/05).
 interface WttjJobItem {
   name?: string;
   url?: string;
-  organization?: { name?: string; size?: string };
-  office?: { city?: string; country_code?: string };
-  contract_type?: string;
+  contractType?: string;
+  remote?: string;
+  language?: string;
+  publishedAt?: string;
+  category?: string;
+  subcategory?: string;
+  summary?: string;
   description?: string;
-  published_at?: string;
-  // WTTJ expose parfois le recruiter / hiring manager
-  recruiter?: {
-    first_name?: string;
-    last_name?: string;
-    full_name?: string;
-    linkedin_url?: string;
-    title?: string;
-  };
-  contact?: {
-    first_name?: string;
-    last_name?: string;
-    full_name?: string;
-    linkedin_url?: string;
-    title?: string;
-  };
+  offices?: Array<{
+    city?: string;
+    country_code?: string;
+    district?: string;
+    address?: string;
+    zip_code?: string;
+  }>;
+  organizationName?: string;
+  organizationSlug?: string;
+  organizationEmployees?: number;
+  organizationCreationYear?: number;
 }
 
 function adaptWttjItem(item: WttjJobItem): NormalizedJob | null {
   const title = item.name;
-  const company = item.organization?.name;
+  const company = item.organizationName;
   if (!title || !company) return null;
-  if (item.office?.country_code && item.office.country_code !== "FR") return null;
+  // Filtre pays : si offices renseigné, exiger au moins un FR
+  const offices = item.offices ?? [];
+  if (offices.length > 0) {
+    const hasFr = offices.some((o) => !o.country_code || o.country_code === "FR");
+    if (!hasFr) return null;
+  }
+  // Pré-filtre ICP DTL côté adapter : exclure boîtes >250p (gain bruit
+  // 30/04 : Sword/Atos/Capgemini/Sopra polluent les Pépites). Le filtre
+  // companySize côté input actor `50-250` ne suffit pas toujours.
+  const employees = item.organizationEmployees ?? 0;
+  if (employees > 0 && employees > 250) return null;
 
-  const r = item.recruiter ?? item.contact;
-  const composedName = [r?.first_name, r?.last_name].filter(Boolean).join(" ").trim();
-  const posterFullName = r?.full_name ?? (composedName.length > 0 ? composedName : undefined);
-  const { firstName, lastName } = splitName(posterFullName);
-
+  const office = offices[0];
   return {
     jobTitle: title,
     companyName: company,
     url: item.url,
-    location: item.office?.city,
-    postedAt: item.published_at,
-    description: item.description?.slice(0, 600),
+    location: office?.city,
+    postedAt: item.publishedAt,
+    description: (item.summary ?? item.description)?.slice(0, 600),
     sourceUrl: item.url,
-    posterFullName,
-    posterFirstName: r?.first_name ?? firstName,
-    posterLastName: r?.last_name ?? lastName,
-    posterLinkedinUrl: r?.linkedin_url && /linkedin\.com/i.test(r.linkedin_url) ? r.linkedin_url : undefined,
-    posterTitle: r?.title,
   };
 }
 
@@ -661,7 +666,14 @@ export async function pollApifyForClient(
         position: keywords[0] ?? "QA Engineer",
         country: "FR",
         location: "Île-de-France",
-        maxItems: 30,
+        // BUGFIX 03/05 : le param actor est `maxItemsPerSearch` (PAS `maxItems`).
+        // Même classe d'erreur que maxPostsPerCompany→maxPosts (commit 446b136b5).
+        // Avant : actor ignorait notre limite et scrapait toute la pagination
+        // → ~30 jobs facturés/run mais 100% bruit "Ingénieur Maintenance/CVC"
+        // rejetés au post-filtre titleMatchesQaIntent.
+        // Baisse 30→15 : on filtre 80% au post-scrape, garder 30 = waste.
+        maxItemsPerSearch: 15,
+        saveOnlyUniqueItems: true,
         parseCompanyDetails: false,
       },
       clientId,
