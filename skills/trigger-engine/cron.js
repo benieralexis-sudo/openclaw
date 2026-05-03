@@ -360,7 +360,7 @@ class TriggerEngineCron {
     // Le cron crontab horaire (run-pollers-cron.sh ?source=cron) continue à tourner
     // pour les enrichissements idempotents (qualify, dedup, FullEnrich, finder).
     // Appelle https://app.ifind.fr/api/internal/run-pollers (route protégée x-cron-secret).
-    const dashboardPollersInterval = setInterval(async () => {
+    const runDashboardPollers = async () => {
       try {
         const url = process.env.DASHBOARD_INTERNAL_URL || 'https://app.ifind.fr/api/internal/run-pollers';
         const secret = process.env.DASHBOARD_CRON_SECRET;
@@ -403,8 +403,19 @@ class TriggerEngineCron {
       } catch (e) {
         this.log.warn?.(`[cron] dashboard-pollers error: ${e.message}`);
       }
-    }, 6 * 3600 * 1000);
+    };
+    const dashboardPollersInterval = setInterval(runDashboardPollers, 6 * 3600 * 1000);
     this.intervals.push(dashboardPollersInterval);
+    // Run au démarrage (audit 03/05 soir) : sans ça, après chaque restart bot
+    // on attend 6h avant le 1er run complet (incl. enrichissements coûteux
+    // gated derrière source=all). Timer 30s pour laisser le bot finir son init
+    // (Telegram, Calendar, IMAP) avant de taper le pipeline. Idempotent — le
+    // lock global TTL 90 min côté run-pollers évite tout chevauchement si un
+    // crontab horaire vient de tourner.
+    setTimeout(() => {
+      this.log.info?.('[cron] dashboard-pollers: startup run (post-restart)');
+      runDashboardPollers().catch((e) => this.log.warn?.(`[cron] dashboard-pollers startup: ${e?.message ?? e}`));
+    }, 30 * 1000);
 
     // Claude Brain Discover : weekly dimanche 23h
     const discoverCheckInterval = setInterval(() => {

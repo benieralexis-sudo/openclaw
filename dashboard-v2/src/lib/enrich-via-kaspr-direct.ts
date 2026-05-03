@@ -226,6 +226,11 @@ export async function enrichLeadsViaKasprDirect(
       // sur mobile FR.
       if (kPhone && !lead.kasprPhone && isFrenchPhone(kPhone)) {
         updates.kasprPhone = kPhone;
+        // Propage vers Lead.phone (champ final) si vide. Audit 03/05 :
+        // 10 leads avaient kasprPhone NOT NULL mais phone NULL → fiche/UI
+        // n'affichait pas le téléphone Kaspr. enrich-via-fullenrich.ts:209
+        // fait la même propagation pour phoneFullenrich, on s'aligne.
+        if (!lead.phone) updates.phone = kPhone;
         if (isFrenchMobile(kPhone)) result.mobileFound++;
         foundSomething = true;
       }
