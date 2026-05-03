@@ -146,6 +146,20 @@ export async function POST(req: NextRequest) {
         const sirene = await enrichRecentTriggersWithSirene(c.id, { limit: 60 });
         entry.sireneEnriched = sirene.enriched;
       }
+      // ────────────────────────────────────────────────────────────
+      // Split léger (1h, source=cron) vs lourd (6h, source=all)
+      // Audit 03/05 : profile-search brûlait $2.32/jour (16 runs) car
+      // enrichDecisionMakers + linkedinFinder + dirigeants tournaient 24×/jour
+      // via le crontab horaire `run-pollers-cron.sh ?source=cron`. Or ces
+      // enrichissements ont des TTL 30j → 23 runs/24 ne font rien d'utile
+      // (juste payer le start cost + la query).
+      // - source=cron (crontab 1h)  → léger : audit-heal, qualify, ensure,
+      //                                dedup, combo, priority, fit, sirene,
+      //                                activity-sync, dataQuality. DB only.
+      // - source=all  (bot 6h)       → tout (léger + enrichissements coûteux).
+      // Économie projetée ~$18-25/mois (profile-search 16 runs/jour → 4).
+      // ────────────────────────────────────────────────────────────
+      const isFullPipeline = source === "all";
       // Audit & heal — backfill linkedinUrl/jobTitle/SIRET depuis rawPayload
       // pour rattraper les leads créés AVANT un fix de mapping (Rodz, Apify,
       // etc). Idempotent — safe à chaque run.
@@ -214,6 +228,12 @@ export async function POST(req: NextRequest) {
           (entry as { growthError?: string }).growthError =
             e instanceof Error ? e.message : String(e);
         }
+        // ════════════════════════════════════════════════════════════
+        // ENRICHISSEMENTS COÛTEUX — gated par isFullPipeline (source=all, 6h)
+        // Skippés sur source=cron (crontab horaire) car TTL 30j rend les runs
+        // intermédiaires inutiles. Économie majeure profile-search/HarvestAPI.
+        // ════════════════════════════════════════════════════════════
+        if (isFullPipeline) {
         // ────────────────────────────────────────────────────────────
         // ÉTAGE 3 — Trouver le bon décideur via HarvestAPI search-by-company
         // (Levier 4 anti-pollution, audit 29/04). Priorité sur Pappers récursion
@@ -346,6 +366,7 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           (entry as { painError?: string }).painError = e instanceof Error ? e.message : String(e);
         }
+        } // end if (isFullPipeline) — fin enrichissements coûteux
         // Sync EmailActivity (écrites par bot IMAP poller hors dashboard)
         // → LeadActivity miroir pour timeline temps réel.
         try {
