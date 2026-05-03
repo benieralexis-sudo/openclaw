@@ -125,6 +125,25 @@ SIGNAL :
       ],
       messages: [{ role: "user", content: userPrompt }],
     });
+    // Instrumentation cache (audit 03/05) : log structuré JSON pour mesurer
+    // hit rate effectif sur 24-48h et calibrer estimation coût qualify.
+    // Format compact pour parsing journalctl ultérieur.
+    const u = resp.usage as {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
+    console.log(
+      `[qualify-trigger.usage] ${JSON.stringify({
+        triggerId,
+        model: QUALIFY_MODEL,
+        in: u.input_tokens ?? 0,
+        out: u.output_tokens ?? 0,
+        cache_create: u.cache_creation_input_tokens ?? 0,
+        cache_read: u.cache_read_input_tokens ?? 0,
+      })}`,
+    );
     const text = resp.content
       .filter((c) => c.type === "text")
       .map((c) => (c as { text: string }).text)
