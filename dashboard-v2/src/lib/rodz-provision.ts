@@ -432,6 +432,91 @@ export async function provisionRodzForClient(
 }
 
 /**
+ * Re-provisionne les signaux Rodz EXISTANTS pour un client en mettant
+ * à jour leur config (sans recréer). Utile quand l'ICP a changé ou
+ * quand une fonction de mapping a été corrigée (ex: mapIndustriesToLinkedin
+ * fixé 04/05 mais signaux DTL provisionnés 26/04 avec ancien mapping).
+ *
+ * Pour chaque RodzSignal du client :
+ * 1. Re-build le spec via buildSignals() (utilise la nouvelle ICP + helpers fix)
+ * 2. Si spec match le signalType existant → updateSignal() côté Rodz API
+ * 3. Met à jour aussi RodzSignal.config en DB locale
+ *
+ * Les signaux qui n'ont plus de spec correspondant restent inchangés
+ * (sécurité contre suppression accidentelle).
+ */
+export async function reprovisionRodzForClient(
+  clientId: string,
+): Promise<{
+  clientId: string;
+  signalsUpdated: Array<{ rodzSignalId: string; signalType: string }>;
+  signalsUntouched: Array<{ signalType: string; reason: string }>;
+  errors: Array<{ signalType: string; error: string }>;
+}> {
+  const { updateSignal } = await import("@/lib/rodz");
+
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, name: true, icp: true },
+  });
+  if (!client) throw new Error(`Client ${clientId} introuvable`);
+  if (!client.icp) throw new Error(`Client ${client.name} sans ICP`);
+
+  const icp = client.icp as ClientIcpExtended;
+  const newSpecs = buildSignals({ name: client.name, icp });
+  const specByType = new Map(newSpecs.map((s) => [s.type, s]));
+
+  const existing = await db.rodzSignal.findMany({
+    where: { clientId, deletedAt: null },
+    select: { id: true, rodzSignalId: true, signalType: true, status: true },
+  });
+
+  const result = {
+    clientId,
+    signalsUpdated: [] as Array<{ rodzSignalId: string; signalType: string }>,
+    signalsUntouched: [] as Array<{ signalType: string; reason: string }>,
+    errors: [] as Array<{ signalType: string; error: string }>,
+  };
+
+  for (const s of existing) {
+    const spec = specByType.get(s.signalType);
+    if (!spec) {
+      result.signalsUntouched.push({
+        signalType: s.signalType,
+        reason: "no spec correspondant dans buildSignals",
+      });
+      continue;
+    }
+    try {
+      await updateSignal(s.rodzSignalId, {
+        name: spec.name,
+        config: spec.config,
+        ...(spec.dailyLeadLimit && { dailyLeadLimit: spec.dailyLeadLimit }),
+      });
+      await db.rodzSignal.update({
+        where: { id: s.id },
+        data: {
+          name: spec.name,
+          config: spec.config as never,
+          dailyLeadLimit: spec.dailyLeadLimit ?? null,
+        },
+      });
+      result.signalsUpdated.push({
+        rodzSignalId: s.rodzSignalId,
+        signalType: s.signalType,
+      });
+    } catch (e) {
+      result.errors.push({
+        signalType: s.signalType,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  return result;
+}
+
+/**
  * Helper : preview ce qui SERAIT créé (sans toucher Rodz ni la DB).
  * Pratique pour valider la config avant d'appuyer sur le gros bouton.
  */
