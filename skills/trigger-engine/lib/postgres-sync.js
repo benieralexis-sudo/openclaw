@@ -30,6 +30,32 @@ function getDashboardDbUrl() {
       || 'postgresql://ifind:b7718738d59bc43b64810242d0f5d961fd3569229f1d94ff@127.0.0.1:5433/ifind';
 }
 
+// C10 (04/05) — Mapping pattern_id → sourceCode dashboard.
+// Avant : tous les patterns SQLite avaient sourceCode="trigger-engine.{pattern_id}"
+// → BODACC capital_increase, INPI marque_deposee, JOAFE association_* étaient
+// invisibles sous leur vraie source dans qualify-trigger TRUSTED_SOURCES_MIN_SCORE
+// et dans le dashboard. Maintenant on ré-attribue selon le pattern.
+function mapPatternToSourceCode(patternId, eventTypes) {
+  if (!patternId) return 'trigger-engine.unknown';
+  const p = patternId.toLowerCase();
+  // BODACC — augmentation de capital = signal levée pré-officiel
+  if (p === 'capital-increase' || p.includes('capital-increase')) {
+    return 'bodacc.capital-increase';
+  }
+  // INPI — dépôt de marque = signal scaling produit
+  if (p === 'new-brand-launch' || p.includes('brand') || p.includes('marque')) {
+    return 'inpi.marque';
+  }
+  // JOAFE — déclaration d'association (rarement utile pour ICP DTL Tech/SaaS)
+  if (p === 'joafe-fondation-entreprise' || p.includes('joafe')) {
+    return 'joafe.publication';
+  }
+  // RSS presse spécialisée — levée annoncée
+  if (p === 'funding-recent') return 'trigger-engine.funding-recent';
+  // Patterns combinatoires internes (pas de source unique)
+  return `trigger-engine.${patternId}`;
+}
+
 // Mapping pattern_id → TriggerType Prisma enum
 function patternToTriggerType(patternId) {
   if (!patternId) return 'OTHER';
@@ -250,7 +276,7 @@ async function syncToPostgres(sqliteDb, options = {}) {
               title = EXCLUDED.title,
               "updatedAt" = NOW()
           `, [
-            triggerId, pgClientId, `trigger-engine.${r.pattern_id || 'unknown'}`,
+            triggerId, pgClientId, mapPatternToSourceCode(r.pattern_id, r.event_types),
             new Date(r.matched_at || r.created_at), null,
             r.raison_sociale, r.siren, r.naf_code, r.naf_label, r.region || r.departement, sizeStr,
             triggerType, title, fullDetail, score10, opusLine, isHot,

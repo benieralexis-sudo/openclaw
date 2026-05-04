@@ -103,13 +103,28 @@ async function ingest({ lastEventId, log } = {}) {
 
   for (const record of records) {
     const siren = extractSiren(record);
-    // Combine plusieurs champs pour la détection (ex: contenu_modification, modificationsgenerales)
+    // C10 (04/05) — Combine TOUS les champs textuels pertinents pour la regex
+    // mapFamilleAvis. BODACC stocke souvent "augmentation de capital" dans
+    // record.modificationsgenerales.descriptif (JSON imbriqué) et record
+    // .listepersonnes (JSON string). L'ancien code faisait join(' ') sur les
+    // objets → "[object Object]" → la regex ne matchait jamais → 83 events
+    // historiques mappés en 'modification_statuts' au lieu de 'capital_increase'.
+    // Fix : flatten récursivement tout JSON en chaîne de tokens recherchables.
+    const flatten = (val) => {
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'string') return val;
+      if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+      if (Array.isArray(val)) return val.map(flatten).join(' ');
+      if (typeof val === 'object') return Object.values(val).map(flatten).join(' ');
+      return '';
+    };
     const contenuExtra = [
       record.contenu_modification,
       record.modificationsgenerales,
       record.contenu,
-      typeof record.commercant === 'string' ? record.commercant : null,
-    ].filter(Boolean).join(' ');
+      record.listepersonnes,
+      record.commercant,
+    ].map(flatten).filter(Boolean).join(' ');
     const eventType = mapFamilleAvis(record.familleavis_lib, record.typeavis_lib, contenuExtra);
     const eventDate = record.dateparution || new Date().toISOString().slice(0, 10);
 
