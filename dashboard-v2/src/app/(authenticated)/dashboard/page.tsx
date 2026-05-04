@@ -26,7 +26,12 @@ import {
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatRelativeFr } from "@/lib/utils";
 import { ActivityStatsSection } from "@/components/dashboard/activity-stats-section";
-import { getPriorityVariant, getFitVariant } from "@/lib/score-display";
+import {
+  getCombinedScore,
+  getCombinedTier,
+  getCombinedLabel,
+  getCombinedColors,
+} from "@/lib/score-display";
 import type { TodoItem } from "@/lib/todo-today";
 import { Sparkles, Mail, Phone as PhoneIcon, Linkedin } from "lucide-react";
 
@@ -406,15 +411,19 @@ function TodoTodaySection({
             <ol className="space-y-2">
               {todoToday.map((t, idx) => {
                 const fullName = [t.firstName, t.lastName].filter(Boolean).join(" ");
-                const priorityVar = getPriorityVariant(t.priorityScore);
-                const fitVar = getFitVariant(t.fitScore);
-                const fitBarColor = fitVar === "success"
-                  ? "bg-emerald-500"
-                  : fitVar === "info"
-                    ? "bg-brand-500"
-                    : fitVar === "warning"
-                      ? "bg-amber-500"
-                      : "bg-ink-300";
+                // Score unifié 04/05/2026 (mockup validé) : remplace
+                // l'affichage Priorité+Fit séparé par 1 colonne lisible.
+                const combinedScore = getCombinedScore({
+                  priorityScore: t.priorityScore,
+                  fitScore: t.fitScore,
+                });
+                const tier = getCombinedTier(combinedScore);
+                const tierLabel = getCombinedLabel(tier);
+                const tierColors = getCombinedColors(tier);
+                const tooltip =
+                  combinedScore !== null
+                    ? `Score ${combinedScore}/100 — ${tierLabel} (priorité ${t.priorityScore ?? "?"}, fit ${t.fitScore ?? "?"})`
+                    : "Score non calculé";
                 return (
                   <li key={t.id}>
                     <Link
@@ -451,27 +460,44 @@ function TodoTodaySection({
                         </div>
                       </div>
 
-                      {/* Scores + signaux contact */}
+                      {/* Score unifié + signaux contact */}
                       <div className="flex shrink-0 items-center gap-3">
                         <div className="flex items-center gap-1 text-ink-400">
                           {t.hasEmail && <Mail className="h-3 w-3 text-emerald-600" />}
                           {t.hasPhone && <PhoneIcon className="h-3 w-3 text-brand-600" />}
                           {t.hasLinkedin && <Linkedin className="h-3 w-3 text-blue-600" />}
                         </div>
-                        {t.fitScore !== null && (
-                          <div className="flex flex-col items-end gap-0.5">
-                            <span className="font-mono text-[10.5px] tabular-nums text-ink-500">fit {t.fitScore}</span>
-                            <div className="h-1 w-12 overflow-hidden rounded-full bg-ink-100">
+                        {combinedScore !== null ? (
+                          <div
+                            className="flex items-center gap-2"
+                            title={tooltip}
+                          >
+                            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-ink-100">
                               <div
-                                className={cn("h-full rounded-full", fitBarColor)}
-                                style={{ width: `${Math.min(100, Math.max(0, t.fitScore))}%` }}
+                                className={cn("h-full rounded-full transition-all", tierColors.bar)}
+                                style={{ width: `${Math.min(100, Math.max(0, combinedScore))}%` }}
                               />
                             </div>
+                            <span
+                              className={cn(
+                                "font-mono text-[12px] font-bold tabular-nums",
+                                tierColors.text,
+                              )}
+                            >
+                              {combinedScore}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[11px] font-medium hidden sm:inline",
+                                tierColors.text,
+                              )}
+                            >
+                              {tierLabel}
+                            </span>
                           </div>
+                        ) : (
+                          <span className="text-[11px] text-ink-400">—</span>
                         )}
-                        <Badge variant={priorityVar} size="md" className="font-mono tabular-nums">
-                          {t.priorityScore ?? "—"}
-                        </Badge>
                         <ArrowUpRight className="h-3.5 w-3.5 text-ink-400 group-hover:text-brand-600 transition-colors" />
                       </div>
                     </Link>

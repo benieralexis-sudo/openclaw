@@ -16,10 +16,12 @@ import { useScope } from "@/hooks/use-scope";
 import { cn, formatRelativeFr } from "@/lib/utils";
 import { truncateDetail } from "@/lib/format-trigger-detail";
 import {
-  getPriorityVariant,
-  getFitVariant,
   formatPriorityBreakdown,
   formatFitBreakdown,
+  getCombinedScore,
+  getCombinedTier,
+  getCombinedLabel,
+  getCombinedColors,
 } from "@/lib/score-display";
 
 interface Trigger {
@@ -224,41 +226,67 @@ export default function TriggersPage() {
       },
     },
     {
-      // Chantier D1 (01/05) — Priorité composite v3.9+ remplace le score brut
-      // en cellule principale. Score Opus reste en sous-ligne pour traçabilité.
+      // Score unifié 04/05/2026 — refonte UI validée par mockup.
+      // Remplace les 2 colonnes Priorité + Fit (échelles différentes
+      // illisibles) par 1 score 0-100 + label + barre + tooltip détaillé.
+      // accessorKey priorityScore conservé pour le tri natif (la colonne
+      // tri par priorité, le fit module la pondération en cellule).
       accessorKey: "priorityScore",
-      header: "Priorité",
+      header: "Score",
+      sortingFn: (rowA, rowB) => {
+        const sA = getCombinedScore({
+          priorityScore: rowA.original.priorityScore,
+          fitScore: rowA.original.lead?.fitScore ?? null,
+        }) ?? -1;
+        const sB = getCombinedScore({
+          priorityScore: rowB.original.priorityScore,
+          fitScore: rowB.original.lead?.fitScore ?? null,
+        }) ?? -1;
+        return sA - sB;
+      },
       cell: ({ row }) => {
         const p = row.original.priorityScore;
-        const breakdown = formatPriorityBreakdown({
+        const f = row.original.lead?.fitScore ?? null;
+        const combinedScore = getCombinedScore({ priorityScore: p, fitScore: f });
+        const tier = getCombinedTier(combinedScore);
+        const tierLabel = getCombinedLabel(tier);
+        const colors = getCombinedColors(tier);
+        const priorityBreakdown = formatPriorityBreakdown({
           score: row.original.score,
           freshnessScore: row.original.freshnessScore,
           multiSourceBoost: row.original.multiSourceBoost,
         });
-        const tooltip = breakdown
-          ? `Priorité ${p ?? "?"} = ${breakdown}`
-          : `Score Opus ${row.original.score}/10 (priorité non encore calculée)`;
+        const fitBreakdown = formatFitBreakdown(row.original.lead?.fitScoreBreakdown ?? null);
+        const tooltipParts: string[] = [];
+        if (combinedScore !== null) {
+          tooltipParts.push(`Score ${combinedScore}/100 — ${tierLabel}`);
+        }
+        if (priorityBreakdown) tooltipParts.push(`Priorité ${p}: ${priorityBreakdown}`);
+        if (fitBreakdown && f !== null) tooltipParts.push(`Fit ${f}: ${fitBreakdown}`);
+        if (tooltipParts.length === 0) {
+          tooltipParts.push(`Score Opus ${row.original.score}/10 (priorité non calculée)`);
+        }
+        const tooltip = tooltipParts.join("\n");
         return (
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              {p !== null && p !== undefined ? (
-                <Badge
-                  variant={getPriorityVariant(p)}
-                  size="md"
-                  className="font-mono tabular-nums shrink-0"
-                  title={tooltip}
-                >
-                  {p}
-                </Badge>
+          <div className="min-w-0" title={tooltip}>
+            <div className="flex items-center gap-2">
+              {combinedScore !== null ? (
+                <>
+                  <div className="h-1.5 w-16 overflow-hidden rounded-full bg-ink-100 shrink-0">
+                    <div
+                      className={cn("h-full rounded-full transition-all", colors.bar)}
+                      style={{ width: `${Math.min(100, Math.max(0, combinedScore))}%` }}
+                    />
+                  </div>
+                  <span className={cn("font-mono text-[12.5px] font-bold tabular-nums shrink-0", colors.text)}>
+                    {combinedScore}
+                  </span>
+                  <span className={cn("text-[11px] font-medium shrink-0 hidden md:inline", colors.text)}>
+                    {tierLabel}
+                  </span>
+                </>
               ) : (
-                <Badge
-                  variant="default"
-                  size="md"
-                  className="font-mono tabular-nums shrink-0 opacity-60"
-                  title={tooltip}
-                >
-                  {row.original.score}/10
-                </Badge>
+                <span className="text-[11px] text-ink-400 shrink-0">— ({row.original.score}/10)</span>
               )}
               {row.original.isCombo && (
                 <Badge variant="brand" size="sm" className="shrink-0" title={
@@ -271,11 +299,6 @@ export default function TriggersPage() {
                 </Badge>
               )}
             </div>
-            {breakdown && (
-              <div className="mt-0.5 text-[10.5px] font-mono text-ink-400 truncate" title={tooltip}>
-                {breakdown}
-              </div>
-            )}
           </div>
         );
       },
@@ -311,47 +334,9 @@ export default function TriggersPage() {
         );
       },
     },
-    {
-      // Chantier D1 (01/05) — Fit Score v4.2 visible avec barre horizontale
-      id: "fit",
-      header: "Fit",
-      cell: ({ row }) => {
-        const lead = row.original.lead;
-        const fit = lead?.fitScore ?? null;
-        const breakdown = formatFitBreakdown(lead?.fitScoreBreakdown ?? null);
-        const tooltip = fit !== null
-          ? breakdown
-            ? `Fit ${fit}/100 = ${breakdown}`
-            : `Fit ${fit}/100 (détails indisponibles)`
-          : "Profil non encore enrichi (LinkedIn manquant ou TTL 30j)";
-        if (fit === null || fit === undefined) {
-          return <span className="text-[11px] text-ink-400" title={tooltip}>—</span>;
-        }
-        const variant = getFitVariant(fit);
-        const barColor = variant === "success"
-          ? "bg-emerald-500"
-          : variant === "info"
-            ? "bg-brand-500"
-            : variant === "warning"
-              ? "bg-amber-500"
-              : "bg-ink-300";
-        return (
-          <div className="min-w-[72px] max-w-[100px]" title={tooltip}>
-            <div className="flex items-center gap-1.5">
-              <Badge variant={variant} size="sm" className="font-mono tabular-nums shrink-0">
-                {fit}
-              </Badge>
-            </div>
-            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-ink-100">
-              <div
-                className={cn("h-full rounded-full transition-all", barColor)}
-                style={{ width: `${Math.min(100, Math.max(0, fit))}%` }}
-              />
-            </div>
-          </div>
-        );
-      },
-    },
+    // Colonne "Fit" supprimée 04/05/2026 : fusionnée dans la colonne "Score"
+    // unifiée (priority+fit combinés). Détail fit toujours dispo via tooltip
+    // au survol du score.
     {
       id: "contact",
       header: "Contact",
