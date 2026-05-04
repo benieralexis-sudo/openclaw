@@ -408,6 +408,14 @@ model Lead {
   @@index([companySiret])
   @@index([deletedAt])
   @@index([clientId, fitScore(sort: Desc)])
+  // C14 (04/05) — UNIQUE INDEX partiel ajouté hors-Prisma car PARTIAL unique
+  // pas supporté par @@unique. Empêche les doublons SIRET sur les leads
+  // ACTIFS (deletedAt IS NULL). Permet les Lead.deletedAt NOT NULL en doublon
+  // pour préserver l'historique d'archivages successifs sur la même boîte.
+  // Migration : prisma/migrations/manual_unique_lead_active_siret.sql
+  // SQL : CREATE UNIQUE INDEX "Lead_clientId_companySiret_active_unique"
+  //         ON "Lead" ("clientId", "companySiret")
+  //         WHERE "deletedAt" IS NULL AND "companySiret" IS NOT NULL;
 }
 
 enum EmailStatus {
