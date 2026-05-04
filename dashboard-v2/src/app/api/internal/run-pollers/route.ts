@@ -23,6 +23,7 @@ import { enrichLeadsViaKasprDirect } from "@/lib/enrich-via-kaspr-direct";
 import { enrichLeadsViaLinkedInFinder } from "@/lib/enrich-via-linkedin-finder";
 import { mergeDuplicatePersonaLeads } from "@/lib/dedup-persona-leads";
 import { detectGrowthAlertsForClient } from "@/lib/growth-detector";
+import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
@@ -243,6 +244,18 @@ export async function POST(req: NextRequest) {
           (entry as { growthAlerts?: unknown }).growthAlerts = growth;
         } catch (e) {
           (entry as { growthError?: string }).growthError =
+            e instanceof Error ? e.message : String(e);
+        }
+        // QA stuck scanner (Bougie 3 — 04/05) : boost score 9 + isHot=true
+        // sur les triggers HIRING_KEY QA dont publishedAt ∈ [30j, 90j] et
+        // dont le lead n'est pas encore contacté. Signal frustration
+        // recrutement = bascule externalisation imminente, cible parfaite
+        // pour DTL. Idempotent (marker [QA-STUCK Xj] dans scoreReason).
+        try {
+          const qaStuck = await scanQaStuckForClient(c.id);
+          (entry as { qaStuck?: unknown }).qaStuck = qaStuck;
+        } catch (e) {
+          (entry as { qaStuckError?: string }).qaStuckError =
             e instanceof Error ? e.message : String(e);
         }
         // ════════════════════════════════════════════════════════════
