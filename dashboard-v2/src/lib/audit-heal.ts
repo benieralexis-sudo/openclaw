@@ -29,6 +29,7 @@ export interface AuditResult {
     decisionMakersBackfilled: number;
     triggerCompanyTrimmed: number;
     exEmployerEmailsCleaned: number;
+    orphanLeadsArchived: number;
   };
   remaining: {
     leadsWithoutLinkedin: number;
@@ -62,6 +63,7 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
       decisionMakersBackfilled: 0,
       triggerCompanyTrimmed: 0,
       exEmployerEmailsCleaned: 0,
+      orphanLeadsArchived: 0,
     },
     remaining: {
       leadsWithoutLinkedin: 0,
@@ -339,6 +341,31 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
     }
   }
   result.healed.exEmployerEmailsCleaned = cleaned;
+
+  // ─────────────────────────────────────────────
+  // HEAL 6 — Fix H7 (04/05) Archive les Leads orphelins (Trigger soft-deleted).
+  // Audit edge case Cas 12 a flaggé 7 leads avec Trigger.deletedAt NOT NULL
+  // mais Lead encore actif. Cause : pruning NAF non-cascade dans theirstack-
+  // poller.ts:683 → soft-delete Trigger sans toucher au Lead. Fred clique
+  // brief → crash ou vide.
+  //
+  // Fix : à chaque cron, archive les Leads dont le Trigger est soft-deleted.
+  // ─────────────────────────────────────────────
+  const orphanArchive = await db.$executeRaw`
+    UPDATE "Lead" l
+    SET status = 'ARCHIVED'::"LeadStatus",
+        "updatedAt" = NOW()
+    FROM "Trigger" t
+    WHERE l."triggerId" = t.id
+      AND l."deletedAt" IS NULL
+      AND t."deletedAt" IS NOT NULL
+      AND l.status NOT IN ('ARCHIVED', 'NOT_INTERESTED')
+      AND (${cId}::text IS NULL OR l."clientId" = ${cId}::text)
+  `;
+  result.healed.orphanLeadsArchived = orphanArchive;
+  if (orphanArchive > 0) {
+    console.log(`[heal.H7] orphan leads archived: ${orphanArchive}`);
+  }
 
   // ─────────────────────────────────────────────
   // STATS RESTANTES
