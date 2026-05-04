@@ -76,7 +76,12 @@ function looksLikeFunding(title, description) {
  */
 function extractCompanyName(title) {
   if (!title) return null;
-  const t = title.trim();
+  let t = title.trim();
+
+  // Fix M7 (04/05) — Strip prefix bracket "[Funding]", "[Levée]", "[News]" etc.
+  // Maddyness/FrenchWeb mettent souvent un tag entre crochets en début de titre
+  // qui empêche les patterns suivants de matcher.
+  t = t.replace(/^\s*\[[^\]]{1,30}\]\s*/i, "");
 
   // Pattern: "La startup/scaleup/fintech/entreprise X ..."
   const mStartup = t.match(/\b(?:la startup|la scaleup|la scale-up|la fintech|l'entreprise|la soci[ée]t[ée]|le groupe)\s+([A-Z][A-Za-zÀ-ÿ0-9\-\.']+(?:\s+[A-Z][A-Za-zÀ-ÿ0-9\-\.']+){0,2})/i);
@@ -86,9 +91,28 @@ function extractCompanyName(title) {
   const mBefore = t.match(/^([A-Z][A-Za-zÀ-ÿ0-9\-\.' ]{1,40}?)\s+(?:l[èe]ve|boucle|annonce|s[ée]curise|obtient|d[ée]croche|r[ée]alise|raises?|raises|secures|closes|bags)/);
   if (mBefore) return mBefore[1].trim();
 
+  // Fix M7 (04/05) — Pattern "5M€ pour <Company>" / "ABC raises 5M for <Company>"
+  // Maddyness titre parfois "Funding: 10 M€ pour Voodoo"
+  const mAfterAmount = t.match(/\d+[\.\,]?\d*\s*(?:m€|m\$|millions?|k€)\s+(?:pour|for|to|à)\s+([A-Z][A-Za-zÀ-ÿ0-9\-\.']+(?:\s+[A-Z][A-Za-zÀ-ÿ0-9\-\.']+){0,2})/i);
+  if (mAfterAmount) return mAfterAmount[1].trim();
+
   // Pattern "[Company]" en tête avant un tiret ou deux-points
   const mPrefix = t.match(/^([A-Z][A-Za-zÀ-ÿ0-9\-\.']{1,30}(?:\s+[A-Z][A-Za-zÀ-ÿ0-9\-\.']+){0,2})\s*[:|\-–—]/);
   if (mPrefix) return mPrefix[1].trim();
+
+  // Fix M7 (04/05) — Fallback final : extraire le 1er token capitalisé qui n'est
+  // pas un mot stop courant. Catch les titres "Funding: ABC Corp s'envole avec 5M€"
+  // que les patterns précédents ratent.
+  const FALLBACK_STOPWORDS = new Set([
+    "funding", "levée", "levee", "news", "exclusive", "breaking",
+    "scoop", "interview", "interview", "the", "le", "la", "une", "un",
+  ]);
+  const tokens = t.split(/\s+/);
+  for (const tok of tokens) {
+    if (/^[A-Z][A-Za-zÀ-ÿ0-9\-\.']{2,}$/.test(tok) && !FALLBACK_STOPWORDS.has(tok.toLowerCase())) {
+      return tok;
+    }
+  }
 
   return null;
 }
