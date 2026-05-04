@@ -13,8 +13,52 @@ import "server-only";
 
 import { Prisma, TriggerStatus, TriggerType, LeadStatus, EmailStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { searchJobs, type JobResult, type JobSearchFilters, type CompanyResult } from "@/lib/theirstack";
+import { searchJobs, searchCompanies, type JobResult, type JobSearchFilters, type CompanyResult, type CompanySearchFilters } from "@/lib/theirstack";
 import { attributeSirene } from "@/lib/pappers";
+
+/**
+ * Slugs TheirStack des outils de test/QA — utilisés par DTL et tout
+ * client positionné sur le testing externalisé. Une boîte qui en utilise
+ * au moins un a investi dans son infra test → cible naturelle DTL.
+ *
+ * Liste basée sur la nomenclature kebab-case standard TheirStack.
+ * À valider en run réel (slugs exacts peuvent varier — voir
+ * /v0/technologies/search côté API TheirStack si besoin de check).
+ */
+export const QA_TESTING_TECH_SLUGS = [
+  // E2E / browser automation
+  "selenium",
+  "cypress",
+  "playwright",
+  "puppeteer",
+  "katalon",
+  "testcafe",
+  // Unit / integration
+  "jest",
+  "mocha",
+  "jasmine",
+  "vitest",
+  // Test management
+  "testrail",
+  "qtest",
+  "xray",
+  "zephyr",
+  // API testing
+  "postman",
+  "soapui",
+  "karate",
+  // Mobile / cross-browser
+  "appium",
+  "browserstack",
+  "saucelabs",
+  // Performance
+  "jmeter",
+  "gatling",
+  "k6",
+  // Robot frameworks
+  "robot-framework",
+  "ranorex",
+];
 
 // ──────────────────────────────────────────────────────────────────────
 // Types
@@ -332,17 +376,173 @@ export async function pollTheirstackForClient(
   }
 
   // ────────────────────────────────────────────────────────────────────
-  // 2) Companies / buying-intent : DÉSACTIVÉ 29/04 (audit ROI).
+  // 2) Companies / buying-intent : reboot 04/05 (Bougie 2).
   //
-  // Sur 18 triggers buying-intent générés, 0 pépite ≥8 produite.
-  // Le signal "tech stack + industry" est trop large : remonte des grosses
-  // ESN/SaaS hors ICP DigitestLab ou des doublons des jobs déjà captés.
-  // On garde uniquement theirstack.job-offer qui produit les vraies pépites.
-  //
-  // Réactivation possible si on récupère un vrai endpoint buying_intent_slug
-  // côté API TheirStack avec signaux comportementaux (visites site, demos
-  // demandées, etc) — pas dispo dans le plan actuel.
+  // Ancienne approche (29/04) cherchait "tech stack + industry" trop
+  // large → 0 pépite. Nouvelle approche : cible précise sur outils de
+  // test installés (Selenium/Cypress/TestRail/etc) → boîte qui a investi
+  // dans l'infra test = candidate naturelle pour externalisation/renfort.
+  // Voir pollTheirstackBuyingIntentForClient() ci-dessous, appelée
+  // séparément (cron quotidien dédié, pas dans le poll principal pour
+  // garder le coût lisible).
   // ────────────────────────────────────────────────────────────────────
+
+  return result;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Buying intent — outils de test installés (cible DTL)
+// ──────────────────────────────────────────────────────────────────────
+
+export interface BuyingIntentPollerResult {
+  clientId: string;
+  companiesFound: number;
+  triggersCreated: number;
+  triggersSkipped: number;
+  errors: Array<{ kind: string; error: string }>;
+  creditsEstimateUsed: number;
+}
+
+/**
+ * Cherche les boîtes qui utilisent un outil de test (Selenium, Cypress,
+ * TestRail…) ET qui matchent l'ICP du client (FR, taille, industrie).
+ *
+ * Crée des triggers BUYING_INTENT score plancher 7 — Opus peut booster
+ * via qualify-trigger.ts. Dédup cross-source : skip si déjà en HIRING_KEY
+ * dans les 30j (la boîte est déjà dans le pipeline via une autre route).
+ *
+ * Coût : 3 credits / company retournée (limite par défaut 15 → ~45 cr).
+ */
+export async function pollTheirstackBuyingIntentForClient(
+  clientId: string,
+  options: {
+    dryRun?: boolean;
+    techSlugs?: string[]; // par défaut QA_TESTING_TECH_SLUGS
+    companiesLimit?: number;
+  } = {},
+): Promise<BuyingIntentPollerResult> {
+  const result: BuyingIntentPollerResult = {
+    clientId,
+    companiesFound: 0,
+    triggersCreated: 0,
+    triggersSkipped: 0,
+    errors: [],
+    creditsEstimateUsed: 0,
+  };
+
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, name: true, icp: true },
+  });
+  if (!client) throw new Error(`Client ${clientId} introuvable`);
+  if (!client.icp) throw new Error(`Client ${client.name} sans ICP`);
+
+  const icp = client.icp as ClientIcpExtended;
+  const sizeRange = rangeForSizes(icp.sizes);
+  const tsIndustries = mapIndustries(icp.industries);
+  const antiCompanies = (icp.antiPersonas ?? []).map((a) => a.toLowerCase());
+  const techSlugs = options.techSlugs ?? QA_TESTING_TECH_SLUGS;
+  const limit = options.companiesLimit ?? 15;
+
+  if (techSlugs.length === 0) {
+    result.errors.push({ kind: "config", error: "techSlugs vide" });
+    return result;
+  }
+
+  try {
+    const filters: CompanySearchFilters = {
+      company_country_code_or: ["FR"],
+      company_technology_slug_or: techSlugs,
+      limit,
+      ...(sizeRange.gte !== undefined && { min_employee_count: sizeRange.gte }),
+      ...(sizeRange.lte !== undefined && { max_employee_count: sizeRange.lte }),
+      ...(tsIndustries.length > 0 && { industry_or: tsIndustries }),
+    };
+
+    const { data: companies } = await searchCompanies(filters);
+    result.companiesFound = companies.length;
+    result.creditsEstimateUsed += companies.length * 3;
+
+    // Dédup intra-batch sur linkedin_url (TheirStack peut renvoyer plusieurs
+    // rows pour la même company quand elle matche plusieurs technos demandées).
+    const seenUrls = new Set<string>();
+    const uniqueCompanies = companies.filter((c) => {
+      if (!c.linkedin_url) return true;
+      if (seenUrls.has(c.linkedin_url)) return false;
+      seenUrls.add(c.linkedin_url);
+      return true;
+    });
+
+    for (const company of uniqueCompanies) {
+      // Anti-personas
+      if (antiCompanies.some((a) => company.name.toLowerCase().includes(a))) {
+        result.triggersSkipped += 1;
+        continue;
+      }
+      // Strict FR (TheirStack peut lâcher du bruit cross-border)
+      if (company.country_code && company.country_code !== "FR") {
+        result.triggersSkipped += 1;
+        continue;
+      }
+      // Suffixes légaux étrangers
+      if (/\b(GmbH|LLC|Ltd|Inc|Corp|Pty|S\.r\.l\.|UAB|s\.r\.o\.|AB)\b/i.test(company.name)) {
+        result.triggersSkipped += 1;
+        continue;
+      }
+      // Dédup cross-source : skip si déjà capté en HIRING_KEY récemment
+      // (la boîte est déjà dans le pipeline via apify ou theirstack jobs,
+      // pas la peine d'ajouter un buying-intent en plus)
+      if (await isHiringAlreadyCapturedCrossSource(clientId, company.name)) {
+        result.triggersSkipped += 1;
+        continue;
+      }
+      // Dédup same-source
+      if (await isAlreadyCaptured(clientId, company.name, "theirstack.buying-intent")) {
+        result.triggersSkipped += 1;
+        continue;
+      }
+
+      if (options.dryRun) {
+        result.triggersCreated += 1;
+        continue;
+      }
+
+      try {
+        // Détail = liste des outils QA détectés (intersection avec notre liste)
+        const matchedTools = (company.technologies ?? []).filter((t) =>
+          techSlugs.some((s) => t.toLowerCase().includes(s.toLowerCase())),
+        );
+        const trigger = companyToTriggerData(company, clientId, "buying-intent");
+        // Override score + type pour buying-intent QA (signal d'achat
+        // outils test = vraie cible DTL, plus fort qu'un simple match ICP)
+        trigger.type = TriggerType.BUYING_INTENT;
+        trigger.score = 7;
+        trigger.title = `${company.name} — utilise outils QA${matchedTools.length > 0 ? ` (${matchedTools.slice(0, 3).join(", ")})` : ""}`;
+        trigger.detail = [
+          company.industry,
+          company.employee_count ? `${company.employee_count} employés` : null,
+          matchedTools.length > 0 ? `Tools détectés : ${matchedTools.join(", ")}` : null,
+          "Signal : a investi dans l'infra test, candidat externalisation/renfort QA",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        await db.trigger.create({ data: trigger });
+        result.triggersCreated += 1;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes("Trigger_clientId_sourceCode_sourceUrl_unique") || msg.includes("P2002")) {
+          result.triggersSkipped += 1;
+        } else {
+          result.errors.push({ kind: "trigger-create", error: msg });
+        }
+      }
+    }
+  } catch (e) {
+    result.errors.push({
+      kind: "searchCompanies",
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 
   return result;
 }

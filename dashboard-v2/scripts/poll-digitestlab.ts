@@ -18,7 +18,7 @@ Module._resolveFilename = function (request, ...args) {
 import { config } from "dotenv";
 config({ path: "/opt/moltbot/dashboard-v2/.env" });
 
-import { pollTheirstackForClient, enrichRecentTriggersWithSirene } from "../src/lib/theirstack-poller";
+import { pollTheirstackForClient, pollTheirstackBuyingIntentForClient, enrichRecentTriggersWithSirene } from "../src/lib/theirstack-poller";
 import { pollApifyForClient } from "../src/lib/apify-poller";
 
 async function main() {
@@ -73,6 +73,23 @@ async function main() {
     if (r.error) console.log(`    ❌ ${r.error}`);
   }
   console.log(`  Total triggers Apify : ${apifyResult.totalTriggersCreated}`);
+
+  // ────────────────────────────────────────────────────────────────────
+  // 2-bis) TheirStack Buying Intent QA (Bougie 2)
+  // ────────────────────────────────────────────────────────────────────
+  console.log("\n=== TheirStack Buying Intent (outils QA) ===");
+  const biResult = await pollTheirstackBuyingIntentForClient(client.id, {
+    dryRun,
+    companiesLimit: 15,
+  });
+  console.log(`  Companies found    : ${biResult.companiesFound}`);
+  console.log(`  Triggers created   : ${biResult.triggersCreated}`);
+  console.log(`  Triggers skipped   : ${biResult.triggersSkipped}`);
+  console.log(`  Credits estimés    : ${biResult.creditsEstimateUsed}`);
+  if (biResult.errors.length > 0) {
+    console.log(`  ❌ ${biResult.errors.length} erreurs :`);
+    for (const e of biResult.errors) console.log(`    - ${e.kind}: ${e.error}`);
+  }
 
   // ────────────────────────────────────────────────────────────────────
   // 3) Pappers enrichissement SIRENE des nouveaux triggers

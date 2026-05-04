@@ -1,7 +1,7 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { pollTheirstackForClient, enrichRecentTriggersWithSirene } from "@/lib/theirstack-poller";
+import { pollTheirstackForClient, pollTheirstackBuyingIntentForClient, enrichRecentTriggersWithSirene } from "@/lib/theirstack-poller";
 import { pollApifyForClient } from "@/lib/apify-poller";
 import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
 import { detectCombosForClient } from "@/lib/combo-detector";
@@ -113,6 +113,19 @@ export async function POST(req: NextRequest) {
     try {
       if (source === "all" || source === "theirstack") {
         entry.theirstack = await pollTheirstackForClient(c.id, { dryRun, jobsLimit: 30, companiesLimit: 15 });
+      }
+      // Buying-intent QA (Bougie 2 — 04/05) : uniquement sur run "all"
+      // (cron 6h) pour limiter coût ~45 cr/jour × 30j = ~1.4€/mois/client.
+      // Cible boîtes FR Tech qui utilisent Selenium/Cypress/TestRail/etc
+      // — candidates naturelles pour externalisation QA (DTL).
+      if (!dryRun && source === "all") {
+        try {
+          (entry as { theirstackBuyingIntent?: unknown }).theirstackBuyingIntent =
+            await pollTheirstackBuyingIntentForClient(c.id, { companiesLimit: 15 });
+        } catch (e) {
+          (entry as { theirstackBuyingIntentError?: string }).theirstackBuyingIntentError =
+            e instanceof Error ? e.message : String(e);
+        }
       }
       if (source === "all" || source === "apify") {
         // Apify RÉACTIVÉ 28/04 après diagnostic API live :
