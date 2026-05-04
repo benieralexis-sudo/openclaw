@@ -25,6 +25,7 @@ import { mergeDuplicatePersonaLeads } from "@/lib/dedup-persona-leads";
 import { detectGrowthAlertsForClient } from "@/lib/growth-detector";
 import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
 import { pollFranceTravailForClient } from "@/lib/francetravail-poller";
+import { autoGenerateBriefsForHotLeads } from "@/lib/auto-generate-briefs";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
@@ -271,6 +272,21 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           (entry as { qaStuckError?: string }).qaStuckError =
             e instanceof Error ? e.message : String(e);
+        }
+        // Auto-génération briefs Opus (Étape C — 04/05) : pour les leads
+        // chauds (trigger.score >= 8 + isHot OU fitScore >= 75 OU QA-stuck)
+        // qui n'ont pas encore de briefJson valide. Max 5/run pour borner
+        // le coût (~5 × 0,02€ = 0,10€/run worst case = 0,40€/jour avec
+        // 4 runs/jour si beaucoup de nouveaux). Tourne sur source=all
+        // uniquement (cron 6h) car coût Anthropic non-négligeable.
+        if (source === "all") {
+          try {
+            const autoBriefs = await autoGenerateBriefsForHotLeads(c.id, { maxPerRun: 5 });
+            (entry as { autoBriefs?: unknown }).autoBriefs = autoBriefs;
+          } catch (e) {
+            (entry as { autoBriefsError?: string }).autoBriefsError =
+              e instanceof Error ? e.message : String(e);
+          }
         }
         // ════════════════════════════════════════════════════════════
         // ENRICHISSEMENTS COÛTEUX — gated par isFullPipeline (source=all, 6h)
