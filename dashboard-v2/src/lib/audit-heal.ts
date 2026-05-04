@@ -122,7 +122,16 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
         t."rawPayload"->'contact'->>'linkedin_url'
       ),
       "email" = COALESCE(NULLIF(l."email", ''), t."rawPayload"->'contact'->>'email'),
-      "phone" = COALESCE(NULLIF(l."phone", ''), t."rawPayload"->'contact'->>'phone'),
+      -- Fix H6 (04/05) : valide format FR avant backfill (rejette +1 US, +40 RO, +44 UK, etc.)
+      -- Patterns FR acceptés : +33xxx, 0033xxx, 0[1-9]xxx (avec espaces/tirets/points OK).
+      "phone" = COALESCE(
+        NULLIF(l."phone", ''),
+        CASE
+          WHEN regexp_replace(t."rawPayload"->'contact'->>'phone', '[\s\.\-]', '', 'g') ~ '^(\+33|0033)[1-79][0-9]{8}$' THEN t."rawPayload"->'contact'->>'phone'
+          WHEN regexp_replace(t."rawPayload"->'contact'->>'phone', '[\s\.\-]', '', 'g') ~ '^0[1-79][0-9]{8}$' THEN t."rawPayload"->'contact'->>'phone'
+          ELSE NULL
+        END
+      ),
       "updatedAt" = NOW()
     FROM "Trigger" t
     WHERE l."triggerId" = t.id
