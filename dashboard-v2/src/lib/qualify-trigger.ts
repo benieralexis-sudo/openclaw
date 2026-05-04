@@ -19,6 +19,30 @@ interface QualifyResult {
   isHot: boolean;
 }
 
+// Extrait la description complète depuis rawPayload (Apify/TheirStack/Rodz).
+// Trigger.detail est tronqué à 600 chars en amont (apify-poller.ts:211/393/433),
+// ce qui prive Opus des signaux durs : "200 collaborateurs", "3 jours en présentiel",
+// "chez nos clients grands comptes", "7600 talents". On fallback sur detail si rien.
+const FULL_DESC_MAX_CHARS = 4000;
+const FULL_DESC_FIELDS = [
+  "description",
+  "descriptionText",
+  "jobDescription",
+  "summary",
+  "fullDescription",
+] as const;
+function extractFullDescription(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const p = payload as Record<string, unknown>;
+  for (const f of FULL_DESC_FIELDS) {
+    const v = p[f];
+    if (typeof v === "string" && v.length > 100) {
+      return v.slice(0, FULL_DESC_MAX_CHARS);
+    }
+  }
+  return null;
+}
+
 // Bloc stable cacheable (≥1024 tokens). Préambule iFIND + voice + scoring rubric.
 // Anthropic prompt caching réduit les coûts de 90% sur les blocs cachés (TTL 5min).
 const SYSTEM = `# Contexte iFIND Trigger Engine FR
@@ -85,6 +109,8 @@ export async function qualifyTrigger(
   if (!trigger.client?.icp) return null;
 
   const icp = trigger.client.icp as Record<string, unknown>;
+  const fullDesc = extractFullDescription(trigger.rawPayload);
+  const detailToSend = fullDesc ?? trigger.detail ?? "(vide)";
   const userPrompt = `CLIENT : ${trigger.client.name}
 ICP : ${JSON.stringify({
     industries: icp.industries,
@@ -106,7 +132,7 @@ SIGNAL :
 - Type : ${trigger.type}
 - Source : ${trigger.sourceCode}
 - Titre : ${trigger.title}
-- Détail : ${trigger.detail ?? "(vide)"}
+- Détail : ${detailToSend}
 - Capté : ${trigger.capturedAt.toISOString()}
 - Publié : ${trigger.publishedAt?.toISOString() ?? "?"}
 
