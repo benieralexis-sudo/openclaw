@@ -76,7 +76,10 @@ function sourcePrefix(sc: string | null | undefined): string | null {
 
 const FILTER_LABELS: Record<string, { label: string; icon: typeof Target }> = {
   all: { label: "Tous", icon: Target },
-  hot: { label: "Pépites ≥ 9", icon: Flame },
+  // Renommé 04/05 (anomalie 1) : "Pépites ≥ 9" → "Hot" pour éviter
+  // confusion avec le tab "Pépites" (≥ 8) du sélecteur Quality juste en
+  // dessous. "Hot" = isHot=true (gratte ≥9 + bonus combo/declarative-pain).
+  hot: { label: "Hot", icon: Flame },
   combo: { label: "Combo", icon: Sparkles },
   new: { label: "À traiter", icon: Zap },
 };

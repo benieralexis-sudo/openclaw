@@ -42,6 +42,9 @@ export async function GET(req: NextRequest) {
     // Garde les Triggers qui ont SOIT priorityScore élevé SOIT fitScore élevé
     // SOIT au moins un canal de contact (email/phone). Cache uniquement les
     // "vraiment morts" (Faible <35 sans aucun contact).
+    // Anomalie 2 fix 04/05 : exclure les Triggers IGNORED (action user manuelle
+    // de rejet — ne doivent pas réapparaître dans la liste "actionable").
+    where.status = { not: "IGNORED" };
     where.OR = [
       // Combined score ≥ 35 (Tiède+) — approximation côté DB :
       // priorityScore élevé (≥10 → contribue ≥28 au combined)
