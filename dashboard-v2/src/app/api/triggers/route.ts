@@ -16,8 +16,13 @@ export async function GET(req: NextRequest) {
 
   const filter = searchParams.get("filter");
   const search = searchParams.get("q");
-  // Quality filter : "all" (tout), "qualified" (≥6, défaut), "pepites" (≥8)
-  const quality = searchParams.get("quality") ?? "qualified";
+  // Quality filter (par défaut "actionable" depuis 04/05/2026 Phase 4 recovery) :
+  //  - "actionable" : combined ≥ 35 OU has_contact (email/phone) → cache les
+  //                   inactionables sans tier ni contact (~55 leads filtrés)
+  //  - "qualified" : score Opus ≥ 6 (Pépites + Qualifiés)
+  //  - "pepites"   : score Opus ≥ 8 (Pépites uniquement)
+  //  - "all"       : tout (audit/debug)
+  const quality = searchParams.get("quality") ?? "actionable";
   // withLead : par défaut "true" = ne retourner que les triggers avec un Lead
   // créé (exploitable commercialement). "false" = inclure les orphelins
   // (en cours d'enrichissement Pappers). "all" = tout sans condition.
@@ -28,9 +33,29 @@ export async function GET(req: NextRequest) {
   if (filter === "hot") where.isHot = true;
   else if (filter === "combo") where.isCombo = true;
   else if (filter === "new") where.status = "NEW";
-  if (quality === "qualified") where.score = { gte: 6 };
-  else if (quality === "pepites") where.score = { gte: 8 };
+  if (quality === "qualified") {
+    where.score = { gte: 6 };
+  } else if (quality === "pepites") {
+    where.score = { gte: 8 };
+  } else if (quality === "actionable") {
+    // Filtre intelligent (Phase 4 recovery 04/05) :
+    // Garde les Triggers qui ont SOIT priorityScore élevé SOIT fitScore élevé
+    // SOIT au moins un canal de contact (email/phone). Cache uniquement les
+    // "vraiment morts" (Faible <35 sans aucun contact).
+    where.OR = [
+      // Combined score ≥ 35 (Tiède+) — approximation côté DB :
+      // priorityScore élevé (≥10 → contribue ≥28 au combined)
+      { priorityScore: { gte: 10 } },
+      // OR Lead avec fitScore ≥ 35 (≥ Tiède sur fit seul)
+      { lead: { fitScore: { gte: 35 } } },
+      // OR Lead avec contact (au moins email)
+      { lead: { email: { not: null } } },
+      // OR Pépite Opus≥7 (signal contextuel fort, peut justifier malgré scores bas)
+      { score: { gte: 7 } },
+    ];
+  }
   if (withLead === "true") {
+    // Combine avec le filtre OR ci-dessus via AND implicite Prisma
     where.lead = { isNot: null };
   }
   if (search) {

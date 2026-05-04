@@ -2,18 +2,20 @@ import "server-only";
 import { db } from "@/lib/db";
 
 // ═══════════════════════════════════════════════════════════════════
-// Ensure Lead — pour CHAQUE Trigger actif AVEC SIRET, crée un Lead minimal
-// s'il n'existe pas. Permet au dashboard d'afficher tous les signaux remontés
-// (Apify, Rodz, TheirStack) même quand Pappers n'a pas encore résolu le dirigeant.
+// Ensure Lead — pour CHAQUE Trigger actif, crée un Lead minimal.
 //
-// Garde-fou : on ignore les Triggers sans companySiret. L'attribution SIRENE
-// (via Pappers) tourne en amont à l'ingestion ; l'absence de SIRET signifie
-// boîte étrangère ou nom ambigu non résolu → Lead inactionnable (pas de
-// dirigeants Pappers, pas de domain Dropcontact, Kaspr skip si pas LinkedIn).
+// Phase 2 recovery 04/05/2026 : assouplissement règle SIRET.
+//   AVANT : on exigeait companySiret IS NOT NULL → 9 Pépites Opus≥7
+//           sans SIRET (Viaxoft, Air Apps, CTS, Asys-no-lead, etc.)
+//           restaient invisibles du dashboard alors qu'elles sont valides
+//           (juste attribution SIRENE Pappers échouée).
+//   APRÈS : on crée un Lead AUSSI pour les Triggers Opus≥7 sans SIRET,
+//           pour permettre HarvestAPI search-by-company (qui n'a pas
+//           besoin de SIRET) de poser la persona ultérieurement.
 //
-// Le Lead minimal a juste : companyName + companySiret + status NEW.
-// Les pipelines downstream (enrichDirigeants Pappers, Dropcontact, Kaspr)
-// rempliront firstName/lastName/email/phone progressivement.
+// Le Lead minimal a juste : companyName + (companySiret nullable) + status NEW.
+// Les pipelines downstream (enrichDirigeants Pappers, HarvestAPI DM,
+// Kaspr, FullEnrich) rempliront firstName/lastName/email/phone progressivement.
 // ═══════════════════════════════════════════════════════════════════
 
 function genCuid(): string {
@@ -27,17 +29,26 @@ export async function ensureLeadsForAllTriggers(
 ): Promise<{ created: number; alreadyExisted: number }> {
   const stats = { created: 0, alreadyExisted: 0 };
 
+  // Phase 2 recovery 04/05 : on accepte les Triggers SANS SIRET si Opus≥7
+  // (Pépites confirmées par scoring contextuel). Pour les autres, on garde
+  // la règle stricte SIRET requis (anti-pollution boîtes ambiguës).
   const triggers = await db.trigger.findMany({
     where: {
       clientId,
       deletedAt: null,
-      score: { gte: 4 }, // skip vraiment hors-ICP (score 1-3 = anti-ICP confirmé)
-      companySiret: { not: null }, // pas de SIRET = attribution SIRENE échouée (boîte étrangère / nom ambigu) → lead inactionnable
+      score: { gte: 4 },
+      OR: [
+        { companySiret: { not: null } },
+        // Exception Pépite : Opus≥7 = signal contextuel fort, on crée le
+        // Lead même sans SIRET (HarvestAPI search-by-company résoudra).
+        { score: { gte: 7 } },
+      ],
     },
     select: {
       id: true,
       companyName: true,
       companySiret: true,
+      score: true,
       rawPayload: true,
       lead: { select: { id: true } },
     },
