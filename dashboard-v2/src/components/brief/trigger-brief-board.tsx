@@ -359,8 +359,11 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
               // (confidence=50) ou bounced ou DNC → bouton actif → Fred bulk-send →
               // bounce 15-30% → blacklist Primeforge garantie.
               const hasEmail = !!lead.email;
+              // Seuil 70 (industry standard outreach) : <70 = pattern guess
+              // ou single-source non vérifié → risque bounce 15-30% → blacklist
+              // Primeforge. ≥70 = multi-source ou vérifié SMTP/MillionVerifier.
               const lowConfidence =
-                typeof lead.emailConfidence === "number" && lead.emailConfidence < 50;
+                typeof lead.emailConfidence === "number" && lead.emailConfidence < 70;
               const isBounced = !!lead.bouncedAt;
               const isDnc = !!lead.doNotContact;
               const blocked = !hasEmail || lowConfidence || isBounced || isDnc;
