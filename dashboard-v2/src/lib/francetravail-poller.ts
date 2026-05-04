@@ -182,11 +182,28 @@ export async function pollFranceTravailForClient(
     });
     result.offersFetched = offers.length;
 
+    // C15 — Pré-calcul keywordsHiring du client pour filtrage métier strict.
+    // Avant : seul isFTTechOffer (large : dev, devops, data, QA, fullstack)
+    // → laissait passer "Lead Architecte Data" (INFORMATIS), "R&D Énergies"
+    // (EPSYL) qui ne sont PAS QA pour DTL. Maintenant : l'intitulé doit
+    // matcher au moins 1 keywordHiring du client (24 termes pour DTL après C13).
+    const clientKeywords = (icp.keywordsHiring ?? []).map((k) => k.toLowerCase());
+
     for (const offer of offers) {
       // Filtre tech strict (sécurité même si ROME devrait suffire)
       if (!isFTTechOffer(offer.intitule)) {
         result.triggersSkipped += 1;
         continue;
+      }
+      // C15 — Filtre métier client : l'intitulé doit matcher 1 keywordHiring.
+      // Si keywordsHiring vide, on garde le comportement large (passe).
+      if (clientKeywords.length > 0) {
+        const titleLower = offer.intitule.toLowerCase();
+        const matchKeyword = clientKeywords.some((k) => titleLower.includes(k));
+        if (!matchKeyword) {
+          result.triggersSkipped += 1;
+          continue;
+        }
       }
       // Anti-blacklist (intérim, collectivités, restos, etc.)
       const company = offer.entreprise?.nom;

@@ -502,6 +502,42 @@ export async function pollTheirstackBuyingIntentForClient(
         continue;
       }
 
+      // C15 — Gate taille buying-intent (signal faible "utilise outils QA").
+      // L'audit Agent #4 a montré 70% bruit — capte ALTEN 39169p, Capgemini
+      // 46k, secteurs Oil&Gas/Broadcast hors ICP DTL. On force la cohérence
+      // ICP-taille AVANT création trigger pour ne pas polluer le pool.
+      const employeeCount =
+        typeof company.employee_count === "number" ? company.employee_count : null;
+      if (employeeCount !== null && (employeeCount < 11 || employeeCount > 200)) {
+        result.triggersSkipped += 1;
+        continue;
+      }
+      // Industry hors-tech : Oil&Gas, Broadcast Media, Manufacturing pure,
+      // Defense, Aerospace, Mining. Si TheirStack a une catégorie explicite
+      // hors ICP DTL Tech/SaaS+ESN, on skip avant qualif.
+      const industryLower = (company.industry ?? "").toLowerCase();
+      const HARD_ANTI_INDUSTRIES = [
+        "oil",
+        "gas",
+        "petroleum",
+        "mining",
+        "broadcast",
+        "defense",
+        "defence",
+        "aerospace",
+        "automotive manufacturing",
+        "construction",
+        "real estate",
+        "agriculture",
+        "food production",
+        "shipping",
+        "trucking",
+      ];
+      if (HARD_ANTI_INDUSTRIES.some((k) => industryLower.includes(k))) {
+        result.triggersSkipped += 1;
+        continue;
+      }
+
       if (options.dryRun) {
         result.triggersCreated += 1;
         continue;
