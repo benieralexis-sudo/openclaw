@@ -1,5 +1,6 @@
 import "server-only";
 import { getAnthropic, QUALIFY_MODEL } from "@/lib/anthropic";
+import { buildCachedSystem } from "@/lib/anthropic-prompt";
 import { db } from "@/lib/db";
 
 /**
@@ -146,51 +147,69 @@ function detectOpusHedging(
   return { score, reason, matchedLabel: null, softened: false };
 }
 
-// Bloc stable cacheable (≥1024 tokens). Préambule iFIND + voice + scoring rubric.
-// Anthropic prompt caching réduit les coûts de 90% sur les blocs cachés (TTL 5min).
-const SYSTEM = `# Contexte iFIND Trigger Engine FR
-
-Tu es un analyste senior B2B FR intégré au moteur **iFIND Trigger Engine**, système propriétaire de détection de signaux d'achat sur les PME françaises.
-
-## Différence clé vs intent data probabiliste
-iFIND n'agrège PAS de signaux flous (visites web, downloads anonymes). iFIND détecte des **TRIGGERS = événements publics durs et datés** :
-- Levées de fonds (BODACC, JOAFE, RSS presse spécialisée, Rodz fundraising)
-- Recrutement clé (France Travail OAuth + LinkedIn jobs scrapés via TheirStack/Apify)
-- Dépôts marques INPI / brevets
-- Changements C-level (Pappers dirigeants, Rodz job-changes)
-- Campagnes pub Meta Ad Library
-- Création société Tech (BODACC immatriculations, Rodz company-registration)
-
-## Moat propriétaire
-1. **Attribution SIRENE Pappers** : chaque trigger est rattaché à un SIREN officiel.
-2. **13 patterns combinatoires** : un signal isolé vaut peu, un combo (levée + hire + ad) vaut beaucoup.
-3. **Boosters réels** : combo cross-sources +2 cap 10 (combo-detector.ts), declarative pain +2 cap 10, freshness via priorityScore demi-vie 14j. isHot = score ≥9 (binaire, pas une fenêtre temporelle).
-4. **Filtre ICP strict** : par défaut Tech/SaaS/ESN, taille 11-200p, NAF whitelist (58.29*, 62.0*, 63.*, 70.22Z), régions FR.
+// Fix H1 (04/05) — Refonte SYSTEM prompt utilisant buildCachedSystem.
+// Avant : SYSTEM local ~950 tokens dupliquait STABLE_PREAMBLE (Contexte/Moat/
+// Boosters) → en dessous du seuil 1024 tk Anthropic → cache_control: ephemeral
+// silencieusement IGNORÉ → ~$13/mois gaspillé sur ~30 calls/jour.
+// Maintenant : QUALIFY_SPECIFIC contient UNIQUEMENT la spec qualify (mission,
+// rubrique, pénalités, échelle, FEW-SHOTS, format). buildCachedSystem() ajoute
+// le STABLE_PREAMBLE (~510 tk) → total ~1100 tk → cache OK.
+//
+// Few-shots ajoutés résolvent aussi la variance constatée Onepoint=4 vs
+// ALTEN=2 (même profil ESN géante hors ICP, scorés différemment) en
+// fournissant à Opus des ancres concrètes.
+const QUALIFY_SPECIFIC = `
 
 ## Mission de qualification
-Tu reçois un Trigger fraîchement capté + l'ICP du client. Tu dois retourner un score 1-10 strict + une raison courte.
+Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1-10 strict + une raison courte (max 200 chars, citer 1 élément concret).
 
-## Rubrique scoring
-- ICP fit : la boîte correspond-elle au profil cible (industrie, taille, region) ?
-- Signal strength : vrai déclencheur d'achat (levée, hire clé QA/Test, tender) ou bruit (job junior, mentorat) ?
-- Persona match : le contact ciblable est-il décisionnaire (CTO, CEO, Founder, Head of Eng, VP Eng) ou périphérique (RH, Junior, stagiaire) ?
-- Freshness : signal très récent <7j = boost, ancien >30j = malus, >90j = exclure.
+## Rubrique scoring (4 axes, poids égaux)
+1. **ICP fit** — industrie / NAF whitelist / taille / région matchent ?
+2. **Signal strength** — vrai déclencheur d'achat (levée fraîche, hire clé QA/Test senior, M&A, C-level change) vs bruit (job junior, alternance, mentorat, RH) ?
+3. **Persona match** — décisionnaire (CTO, CEO, Founder, Head of Eng, VP Eng) vs périphérique (RH, junior, stagiaire) ?
+4. **Freshness** — <7j = boost, >30j = malus, >90j = exclure.
+
+## Fiabilité des sources (calibration)
+- \`apify.wttj-jobs\` : board d'éditeurs SaaS FR — très haute fiabilité
+- \`apify.linkedin-jobs\` : moyenne, vérifier ICP / pays
+- \`apify.indeed-jobs\` : généraliste (souvent désactivé) — beaucoup de bruit
+- \`rodz.fundraising\` / \`rodz.job-changes\` / \`rodz.mergers-acquisitions\` : signaux durs vérifiés
+- \`bodacc.*\` / \`joafe.*\` / \`inpi.*\` : sources officielles, attribution SIREN garantie
+- \`theirstack.buying-intent\` : déclaratif (utilise outils QA), vérifier industrie
+- \`francetravail.tech\` : Pôle Emploi OAuth — souvent ESN qui sourcent pour client final
 
 ## Règles de pénalité automatique
-- Hors France (country_code != FR, GmbH/LLC/Ltd/Inc/Pty dans le nom) → score ≤ 2
-- Holding / société de capitaux / cabinet comptable / mairie / agglomération → score ≤ 3
-- ICP antiPersonas matché (concurrent direct ou client incompatible) → score ≤ 2
-- Effectif > 200p si ICP exige PME (sauf instruction contraire) → score ≤ 4
-
-## Format de réponse OBLIGATOIRE
-Réponds UNIQUEMENT en JSON valide, sans markdown, sans préfixe : {"score": <int 1-10>, "reason": "<1 phrase max 100 chars>"}
+- Hors France (country_code != FR, suffixes GmbH/AG/SE/BV/NV/Ltd/PLC/Inc/LLC/SpA/Srl/SL/SA dans le nom) → score ≤ 2
+- Holding / SCI / cabinet comptable / mairie / agglo / université → score ≤ 3
+- ICP antiPersonas matché (concurrent direct, ex: Capgemini, Sopra, Onepoint, Alten, Amaris) → score ≤ 2
+- Effectif > 5× max ICP (ex: ICP 200p, lead >1000p) → score ≤ 2 systématique
+- Effectif 1.5×-5× max ICP → score ≤ 4
+- Régie ESN détectée ("chez nos clients", "client final", "en régie") → score ≤ 3
+- Freelance / alternance / stage dans le titre → score ≤ 3
+- NAF connu mais hors whitelist client → score ≤ 5
+- Données critiques manquantes (NAF + taille tous deux non résolus) → score ≤ 5
 
 ## Échelle finale
-- 9-10 : signal HOT, à attaquer dans les 24h (levée fraîche + ICP parfait + persona accessible)
-- 7-8 : qualifié, à mettre dans la queue commerciale
+- 9-10 : signal HOT, à attaquer dans les 24h (levée fraîche / hire QA Senior frais + ICP parfait + persona accessible)
+- 7-8 : qualifié, queue commerciale (ICP fit fort, 1 doute mineur OK)
 - 5-6 : à valider manuellement, doute sur ICP fit
-- 3-4 : marginal, hors-ICP léger ou signal faible
-- 1-2 : à exclure (hors France, hors taille, secteur incompatible)
+- 3-4 : marginal, hors-ICP léger / signal faible / taille trop grande
+- 1-2 : exclure (hors France, hors taille majeur, anti-persona)
+
+## Few-shots (calibration)
+- Éditeur SaaS FR 50p NAF 5829C, hire QA Engineer <7j, CTO accessible → 9
+- ESN FR 80p NAF 6202A, hire QA Lead Paris <14j, taille à confirmer → 8
+- Cabinet conseil 70.22Z FR 80p, hire QA Manager <30j → 6 (NAF border)
+- Boîte FR taille inconnue NAF non résolu, hire QA générique → 4
+- ESN 3000p hire QA pour client final assurance (régie) → 3
+- Capgemini/Sopra/Atos/Onepoint/Alten/Amaris hire QA → 1 (anti-persona concurrent)
+- Boîte allemande GmbH hire QA Berlin → 1 (hors-FR)
+- Holding SCI / mairie / SAS de capitaux → 2 (hors ICP structurel)
+- ALTEN 39000p toutes filiales — score 1, pas 4 (oversize 195× ICP)
+
+## Format de réponse OBLIGATOIRE
+Réponds UNIQUEMENT en JSON valide, sans markdown, sans préfixe :
+{"score": <int 1-10>, "reason": "<1-2 phrases ≤200 chars citant 1 élément concret du trigger>"}
 
 ## Règles non négociables
 - Ne JAMAIS recommander d'action LinkedIn auto (engagement = manuel humain).
@@ -271,9 +290,7 @@ SIGNAL :
     const resp = await anthropic.messages.create({
       model: QUALIFY_MODEL,
       max_tokens: 200,
-      system: [
-        { type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } },
-      ],
+      system: buildCachedSystem(QUALIFY_SPECIFIC),
       messages: [{ role: "user", content: userPrompt }],
     });
     // Instrumentation cache (audit 03/05) : log structuré JSON pour mesurer
