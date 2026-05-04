@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useScope } from "@/hooks/use-scope";
-import { cn, formatRelativeFr } from "@/lib/utils";
+import { cn, formatRelativeFr, isFrenchMobile } from "@/lib/utils";
 import { truncateDetail } from "@/lib/format-trigger-detail";
 import {
   formatPriorityBreakdown,
@@ -52,6 +52,7 @@ interface Trigger {
     email: string | null;
     kasprPhone: string | null;
     phone: string | null;
+    phoneFullenrich?: string | null;
     pitchJson: unknown;
     callBriefJson: unknown;
     linkedinDmJson: unknown;
@@ -355,7 +356,13 @@ export default function TriggersPage() {
         const dq = lead.dataQuality ?? 0;
         const dqVariant = dq >= 80 ? "success" : dq >= 50 ? "warning" : "default";
         const hasEmail = !!lead.email;
-        const hasPhone = !!(lead.kasprPhone || lead.phone);
+        // Distingue mobile direct (06/07/+336/+337) vs standard fixe (01-05).
+        // Mobile = appel direct au dirigeant. Standard = passe par l'accueil.
+        const hasMobile =
+          isFrenchMobile(lead.kasprPhone) ||
+          isFrenchMobile(lead.phoneFullenrich) ||
+          isFrenchMobile(lead.phone);
+        const hasStandard = !hasMobile && !!(lead.kasprPhone || lead.phoneFullenrich || lead.phone);
         const hasContent =
           !!lead.pitchJson || !!lead.callBriefJson || !!lead.linkedinDmJson;
         return (
@@ -366,8 +373,11 @@ export default function TriggersPage() {
             {hasEmail && (
               <span className="text-emerald-600" title="Email disponible">✉</span>
             )}
-            {hasPhone && (
-              <span className="text-blue-600" title="Téléphone disponible">☎</span>
+            {hasMobile && (
+              <span className="text-emerald-600" title="Mobile direct du dirigeant">📱</span>
+            )}
+            {hasStandard && (
+              <span className="text-amber-600" title="Standard d'entreprise (passer par l'accueil)">☎</span>
             )}
             {hasContent && (
               <span className="text-purple-600" title="Pitch/Brief/DM Opus prêts">⚡</span>
