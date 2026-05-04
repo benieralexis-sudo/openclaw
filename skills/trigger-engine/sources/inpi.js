@@ -193,7 +193,14 @@ async function ingest({ lastEventId, log, storage } = {}) {
       const appNum = Array.isArray(hit.ApplicationNumber) ? hit.ApplicationNumber[0] : hit.ApplicationNumber;
       if (!appNum) continue;
       const id = `marque_${appNum}`;
-      if (lastEventId && id <= lastEventId) continue;
+      // C11 (04/05) — Ancien filtre `if (lastEventId && id <= lastEventId) continue`
+      // SUPPRIMÉ : il comparait lexicographiquement (string) les ApplicationNumber
+      // INPI, qui ne sont PAS triés lexicographiquement par l'API. Conséquence :
+      // tous les hits d'une page dont l'appNum string <= 'marque_5247424' étaient
+      // skip silencieusement → 1218 marques perdues par run depuis 02/05.
+      // Maintenant : dédup garantie via UNIQUE(source, source_id) côté storage
+      // (comme bodacc.js:80-83). Si l'event existe déjà, l'INSERT échoue
+      // silencieusement, sinon il passe. Pas de filtre côté ingestion.
 
       const deposant = Array.isArray(hit.DEPOSANT) ? hit.DEPOSANT[0] : hit.DEPOSANT;
       if (!deposant) continue;
