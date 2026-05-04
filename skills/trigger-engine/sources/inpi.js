@@ -173,8 +173,16 @@ async function ingest({ lastEventId, log, storage } = {}) {
   let totalCount = 0;
   let skippedNoSirenResolved = 0;
   let sirenResolved = 0;
-  const MAX_SIRENE_LOOKUPS_PER_RUN = 50; // SIRENE rate-limite fortement
+  // Fix C5 (04/05) — Plafond 50→200. Avant : page=100 + plafond 50 →
+  // 50 marques par run perdues définitivement (la pagination INPI ne
+  // revient jamais sur les anciens deposants non-résolus). 200 = page
+  // maximale × 2 pour overflow safety. Le module sirene.js a déjà un
+  // circuit breaker (cooldown 5min sur rate-limit 429) qui protège
+  // contre l'overload SIRENE. Si circuit OPEN → lookupByName retourne
+  // null silencieusement → on passe au suivant. Pas de risque cascade.
+  const MAX_SIRENE_LOOKUPS_PER_RUN = 200;
   let lookupsDone = 0;
+  let plafondReached = false;
 
   // Une seule page de 100 — on fait 1 run/jour via cron, ça suffit (indexation INPI hebdo)
   for (let page = 0; page < 1; page++) {
@@ -205,7 +213,8 @@ async function ingest({ lastEventId, log, storage } = {}) {
       const deposant = Array.isArray(hit.DEPOSANT) ? hit.DEPOSANT[0] : hit.DEPOSANT;
       if (!deposant) continue;
 
-      // Résoudre via SIRENE — plafond de 50 lookups par run pour éviter rate-limit cascade
+      // Résoudre via SIRENE — plafond de 200 lookups par run (Fix C5).
+      // Le circuit breaker SIRENE (sirene.js) gère déjà le rate-limit 429.
       let siren = null;
       let confidence = 0.6;
       if (sireneLookup && db && lookupsDone < MAX_SIRENE_LOOKUPS_PER_RUN) {
@@ -217,12 +226,19 @@ async function ingest({ lastEventId, log, storage } = {}) {
             confidence = 0.9;
             sirenResolved++;
           }
-        } catch (e) { /* silent */ }
+        } catch (e) { /* silent : circuit breaker OPEN → on passe */ }
+      } else if (sireneLookup && db && !plafondReached) {
+        // Log unique quand le plafond est atteint pour la 1ère fois (monitoring)
+        plafondReached = true;
+        log?.warn?.(
+          `[inpi] plafond SIRENE atteint (${MAX_SIRENE_LOOKUPS_PER_RUN} lookups). ` +
+          `${items.length - lookupsDone} marques restantes sur la page seront skippées sans résolution.`,
+        );
       }
 
       if (!siren) {
         skippedNoSirenResolved++;
-        continue; // pas de SIREN résolu = skip (retenté au prochain run)
+        continue; // pas de SIREN résolu = skip
       }
 
       const mark = Array.isArray(hit.Mark) ? hit.Mark[0] : hit.Mark;
