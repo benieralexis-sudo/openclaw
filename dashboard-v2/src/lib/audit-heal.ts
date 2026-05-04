@@ -30,6 +30,7 @@ export interface AuditResult {
     triggerCompanyTrimmed: number;
     exEmployerEmailsCleaned: number;
     orphanLeadsArchived: number;
+    smtpEmailsVerified: number;
   };
   remaining: {
     leadsWithoutLinkedin: number;
@@ -64,6 +65,7 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
       triggerCompanyTrimmed: 0,
       exEmployerEmailsCleaned: 0,
       orphanLeadsArchived: 0,
+      smtpEmailsVerified: 0,
     },
     remaining: {
       leadsWithoutLinkedin: 0,
@@ -366,6 +368,85 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
   if (orphanArchive > 0) {
     console.log(`[heal.H7] orphan leads archived: ${orphanArchive}`);
   }
+
+  // ─────────────────────────────────────────────
+  // HEAL 7 — Vérification SMTP réelle des emails UNVERIFIED.
+  // Audit (04/05/2026) — `emailStatus = VALID` était posé par hardcode Rodz
+  // (route.ts:384), pas par vraie vérification. Tous les emails Kaspr/
+  // FullEnrich/pattern guess restaient UNVERIFIED. Conséquence : Fred ne
+  // savait pas lesquels étaient vraiment valides → bouton désactivé partout
+  // ou bulk-send risqué.
+  //
+  // Fix : on scan les leads avec emailStatus=UNVERIFIED + email présent +
+  // doNotContact=false + bouncedAt=null. Pour chacun, on fait un test SMTP
+  // réel (DNS MX + RCPT TO). Selon le verdict :
+  //  - VALID → emailStatus=VALID, confidence ≥80 (single-source verifié)
+  //  - INVALID → emailStatus=INVALID + doNotContact=true (RGPD safe)
+  //  - CATCH_ALL → emailStatus reste UNVERIFIED + confidence 60 (à valider
+  //    manuellement, le serveur accepte tout)
+  //  - UNKNOWN → emailStatus reste UNVERIFIED (timeout/blocked, pas testable)
+  //
+  // Limite à 30 leads/run pour éviter de bloquer le cron (chaque test ≈ 3-10s).
+  // ─────────────────────────────────────────────
+  const { verifyEmailSMTP } = await import("@/lib/email-smtp-verifier");
+  const SMTP_BATCH_LIMIT = 30;
+  const unverifiedLeads = await db.lead.findMany({
+    where: {
+      deletedAt: null,
+      ...(cId ? { clientId: cId } : {}),
+      emailStatus: "UNVERIFIED",
+      email: { not: null },
+      doNotContact: false,
+      bouncedAt: null,
+    },
+    select: { id: true, email: true, companyName: true },
+    take: SMTP_BATCH_LIMIT,
+    orderBy: { updatedAt: "asc" },
+  });
+  let smtpVerified = 0;
+  for (const l of unverifiedLeads) {
+    if (!l.email) continue;
+    try {
+      const r = await verifyEmailSMTP(l.email);
+      if (r.status === "VALID") {
+        await db.lead.update({
+          where: { id: l.id },
+          data: {
+            emailStatus: "VALID",
+            emailConfidence: 80, // single-source verified SMTP
+            updatedAt: new Date(),
+          },
+        });
+        smtpVerified++;
+        console.log(`[heal.H7-smtp] ${l.companyName} ${l.email} → VALID`);
+      } else if (r.status === "INVALID") {
+        await db.lead.update({
+          where: { id: l.id },
+          data: {
+            emailStatus: "INVALID",
+            doNotContact: true,
+            doNotContactReason: `email_smtp_invalid:${r.detail}`.slice(0, 200),
+            doNotContactAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+        console.log(`[heal.H7-smtp] ${l.companyName} ${l.email} → INVALID (${r.detail})`);
+      } else if (r.status === "CATCH_ALL") {
+        await db.lead.update({
+          where: { id: l.id },
+          data: {
+            emailConfidence: 60, // catch-all = à valider manuellement
+            updatedAt: new Date(),
+          },
+        });
+        console.log(`[heal.H7-smtp] ${l.companyName} ${l.email} → CATCH_ALL`);
+      }
+      // UNKNOWN : on ne touche pas. Sera retesté au prochain cron.
+    } catch (e) {
+      console.warn(`[heal.H7-smtp] error ${l.email}: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+  result.healed.smtpEmailsVerified = smtpVerified;
 
   // ─────────────────────────────────────────────
   // STATS RESTANTES

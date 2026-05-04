@@ -381,7 +381,11 @@ export async function POST(req: NextRequest) {
           payload.contact.linkedin_url ??
           null,
         email: payload.contact.email,
-        emailStatus: EmailStatus.VALID, // Rodz garantit l'enrichissement email
+        // Fix VS (04/05) : ne plus hardcode VALID. Rodz pose l'email mais ne
+        // le vérifie pas en SMTP réellement → on laisse UNVERIFIED, le HEAL 7
+        // (audit-heal verifyEmailSMTP) tournera dans les ~10 min suivantes
+        // et passera à VALID/INVALID/CATCH_ALL selon test SMTP réel.
+        emailStatus: EmailStatus.UNVERIFIED,
         phone: payload.contact.phone ?? null,
         companyName: payload.company.name,
         companySiret: payload.company.siret ?? payload.company.siren ?? null,
