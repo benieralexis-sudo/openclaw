@@ -237,9 +237,12 @@ export async function qualifyTrigger(
 ICP : ${JSON.stringify({
     industries: icp.industries,
     sizes: icp.sizes,
+    naf_codes: icp.naf_codes, // C13 — NAF whitelist envoyée à Opus
     personaTitles: icp.personaTitles,
     keywordsHiring: icp.keywordsHiring,
     antiPersonas: icp.antiPersonas,
+    preferredSignals: icp.preferredSignals, // C13 — pondération signaux DTL
+    minScore: icp.minScore, // C13 — seuil de qualification
   })}
 
 LEAD :
