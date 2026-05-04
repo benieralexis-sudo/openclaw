@@ -28,6 +28,7 @@ export interface AuditResult {
     theirstackHiringTeamBackfilled: number;
     decisionMakersBackfilled: number;
     triggerCompanyTrimmed: number;
+    exEmployerEmailsCleaned: number;
   };
   remaining: {
     leadsWithoutLinkedin: number;
@@ -60,6 +61,7 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
       theirstackHiringTeamBackfilled: 0,
       decisionMakersBackfilled: 0,
       triggerCompanyTrimmed: 0,
+      exEmployerEmailsCleaned: 0,
     },
     remaining: {
       leadsWithoutLinkedin: 0,
@@ -246,6 +248,57 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
       AND "deletedAt" IS NULL
       AND (${cId}::text IS NULL OR "clientId" = ${cId}::text)
   `;
+
+  // ─────────────────────────────────────────────
+  // HEAL 5 — Fix C1 (04/05) Nettoyer les emails d'ex-employeurs.
+  // Audit edge case Cas 5 a flaggé 6 leads avec email d'un domain qui ne
+  // matche pas la boîte cible (helios → younited-credit.fr, Novaquark →
+  // taragaming.com, eXalt → compass-group.fr, Shape It → teledyne.com,
+  // LYNX RH → mistertemp-group.com, Insitoo → ouidesk.com).
+  // Si Fred envoie "Bonjour Maeva, je vois que helios..." → arrive chez
+  // Younited Credit. Réputation Primeforge cassée + embarras commercial.
+  //
+  // On scanne tous les leads actifs avec email + companyName, on applique
+  // domainMatchesCompany() (helper TS), si mismatch on vide email + flag
+  // doNotContact avec raison traçable.
+  // ─────────────────────────────────────────────
+  const { domainMatchesCompany } = await import("@/lib/verify-persona-coherence");
+  const candidates = await db.lead.findMany({
+    where: {
+      deletedAt: null,
+      ...(cId ? { clientId: cId } : {}),
+      AND: [
+        { email: { not: null } },
+        { email: { not: "" } },
+        { companyName: { not: null } },
+        { doNotContact: false }, // déjà flag = skip
+      ],
+    },
+    select: { id: true, email: true, companyName: true, kasprWorkEmail: true, emailFullenrich: true },
+  });
+  let cleaned = 0;
+  for (const c of candidates) {
+    const check = domainMatchesCompany({ email: c.email!, companyName: c.companyName });
+    if (!check.ok && check.reason === "domain_mismatch") {
+      console.warn(
+        `[heal.C1] ex-employer email lead=${c.id} company="${c.companyName}" email=${c.email} (${check.details})`,
+      );
+      await db.lead.update({
+        where: { id: c.id },
+        data: {
+          email: null,
+          // si autres sources email étaient le même mismatch, vider aussi
+          ...(c.kasprWorkEmail === c.email ? { kasprWorkEmail: null } : {}),
+          ...(c.emailFullenrich === c.email ? { emailFullenrich: null } : {}),
+          doNotContact: true,
+          doNotContactReason: `email_domain_mismatch_ex_employer:${check.details ?? ""}`.slice(0, 200),
+          doNotContactAt: new Date(),
+        },
+      });
+      cleaned++;
+    }
+  }
+  result.healed.exEmployerEmailsCleaned = cleaned;
 
   // ─────────────────────────────────────────────
   // STATS RESTANTES

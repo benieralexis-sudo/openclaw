@@ -135,3 +135,121 @@ export function looksAdministrativeFirstName(firstName: string | null | undefine
   const parts = firstName.trim().split(/\s+/).filter(Boolean);
   return parts.length >= 4;
 }
+
+/**
+ * Vérifie que le DOMAINE d'un email correspond bien à la boîte cible.
+ *
+ * Bug source (audit edge case Cas 5, 04/05/2026) : 6 leads pollués en DB :
+ * - Maeva Courtois CEO helios → email maeva.courtois@younited-credit.fr
+ *   (Younited Credit = ANCIEN employeur, pas chez helios)
+ * - Nouredine Abboud Co-Founder Novaquark → email @taragaming.com
+ * - Jean-loup Wirotius LYNX RH → email @mistertemp-group.com
+ * - Eudes Fontenoy eXalt → email @compass-group.fr
+ * - Jonathan Marin Shape It → email @teledyne.com
+ * - Eric Lacomblez Insitoo → email @ouidesk.com
+ *
+ * Si Fred envoie "Bonjour Maeva, je vois que helios..." → arrive chez
+ * Younited Credit. Réputation Primeforge cassée + embarras commercial.
+ *
+ * Logique : extraire le domaine (sans TLD) et comparer aux tokens
+ * significatifs du companyName normalisé. Tolère :
+ * - Variantes case/accents
+ * - Abréviations (ex: GitGuardian → "gitguardian")
+ * - Séparateurs (& -, espaces)
+ * - Sufixes "group", "tech", "labs" qu'on ignore
+ *
+ * Refuse :
+ * - Domaines perso bien connus (gmail, outlook, etc.)
+ * - Domaines totalement étrangers au nom de la boîte
+ *
+ * Exceptions (return true même si pas de match strict) :
+ * - Sous-domaines connus de la boîte (ex: dastra.eu pour Dastra → OK)
+ * - Si companyName contient "Group" et le domaine matche un mot du nom
+ *   ex: "Mister Temp Group" + "mistertemp-group.com" → OK
+ *   MAIS "LYNX RH" + "mistertemp-group.com" → REFUS (rien en commun)
+ */
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  "gmail.com", "yahoo.com", "yahoo.fr", "hotmail.com", "hotmail.fr",
+  "outlook.com", "outlook.fr", "live.com", "live.fr", "icloud.com",
+  "me.com", "orange.fr", "free.fr", "wanadoo.fr", "laposte.net",
+  "sfr.fr", "neuf.fr", "bbox.fr", "aol.com", "protonmail.com",
+  "proton.me", "tutanota.com", "tuta.com", "gmx.com", "gmx.fr",
+  "fastmail.com", "yopmail.com", "msn.com",
+]);
+
+const COMPANY_NAME_STOPWORDS = new Set([
+  "group", "groupe", "sa", "sas", "sarl", "sasu", "eurl", "snc", "sci",
+  "consulting", "conseil", "tech", "labs", "lab", "studio", "studios",
+  "solutions", "solution", "services", "service", "international", "france",
+  "paris", "lyon", "the", "le", "la", "les", "de", "du", "des", "et", "and",
+]);
+
+function extractDomainRoot(email: string): { full: string; root: string } | null {
+  const domainMatch = email.match(/@([^@]+)$/);
+  if (!domainMatch) return null;
+  const full = domainMatch[1]!.toLowerCase().trim();
+  // Retire le TLD (dernier .xxx)
+  const parts = full.split(".");
+  if (parts.length < 2) return null;
+  // root = avant-dernier segment (ex: weward.com → weward, sub.weward.com → weward)
+  const root = parts[parts.length - 2]!;
+  return { full, root };
+}
+
+export interface DomainCheck {
+  ok: boolean;
+  reason?: "personal_email" | "domain_mismatch" | "no_email" | "no_company";
+  details?: string;
+}
+
+export function domainMatchesCompany(args: {
+  email: string | null | undefined;
+  companyName: string | null | undefined;
+}): DomainCheck {
+  if (!args.email || !args.email.includes("@")) {
+    return { ok: false, reason: "no_email" };
+  }
+  if (!args.companyName) {
+    return { ok: false, reason: "no_company" };
+  }
+
+  const domain = extractDomainRoot(args.email);
+  if (!domain) return { ok: false, reason: "no_email" };
+
+  // Email perso (gmail, etc.) → refuse pour outreach B2B pro
+  if (PERSONAL_EMAIL_DOMAINS.has(domain.full)) {
+    return {
+      ok: false,
+      reason: "personal_email",
+      details: `email perso ${domain.full} pour ${args.companyName}`,
+    };
+  }
+
+  // Tokens significatifs du companyName (sans stopwords, ≥3 chars)
+  const companyTokens = args.companyName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3 && !COMPANY_NAME_STOPWORDS.has(t));
+
+  if (companyTokens.length === 0) return { ok: true }; // company tokens trop génériques
+
+  const domainNormalized = domain.root.replace(/[^a-z0-9]/g, "");
+  const fullNormalized = domain.full.replace(/[.\-_]/g, "");
+
+  // Match si AU MOINS un token significatif (≥3 chars) est dans le domain root OU full
+  const match = companyTokens.some(
+    (t) => domainNormalized.includes(t) || fullNormalized.includes(t),
+  );
+
+  if (!match) {
+    return {
+      ok: false,
+      reason: "domain_mismatch",
+      details: `domain=${domain.full} ne contient aucun token de "${args.companyName}" (tokens: ${companyTokens.join(",")})`,
+    };
+  }
+
+  return { ok: true };
+}

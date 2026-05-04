@@ -203,7 +203,8 @@ export async function enrichLeadsViaFullEnrich(
       // C9 — Cross-check email vs firstName/lastName du Lead avant de poser.
       // FullEnrich peut renvoyer l'email d'un autre dirigeant homonyme/successeur
       // qui ne match pas le Lead Pappers RCS. Voir bug Kestra Lafont/Dehon.
-      const { verifyPersonaCoherence } = await import("@/lib/verify-persona-coherence");
+      const { verifyPersonaCoherence, domainMatchesCompany } =
+        await import("@/lib/verify-persona-coherence");
       const check = verifyPersonaCoherence({
         firstName: lead.firstName,
         lastName: lead.lastName,
@@ -215,8 +216,20 @@ export async function enrichLeadsViaFullEnrich(
         );
         emailFinal = null;
       } else {
-        updates.emailFullenrich = emailFinal;
-        result.emailFound += 1;
+        // Fix C1 — Vérifie aussi que le domain matche la boîte cible (cas helios/younited).
+        const domainCheck = domainMatchesCompany({
+          email: emailFinal,
+          companyName: lead.companyName,
+        });
+        if (!domainCheck.ok && domainCheck.reason === "domain_mismatch") {
+          console.warn(
+            `[fullenrich.C1] domain mismatch lead=${lead.id} company="${lead.companyName}" email=${emailFinal} (${domainCheck.details})`,
+          );
+          emailFinal = null;
+        } else {
+          updates.emailFullenrich = emailFinal;
+          result.emailFound += 1;
+        }
       }
     }
     if (phoneFinal) {
