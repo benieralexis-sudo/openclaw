@@ -283,8 +283,14 @@ async function syncToPostgres(sqliteDb, options = {}) {
           ]);
           stats.upserted_triggers += 1;
 
-          // UPSERT Lead — clé : triggerId (unique)
-          // Si lead existe déjà sur ce trigger : update soft (status seul)
+          // Fix C3 (04/05/2026) — UPSERT Lead : si Lead existe déjà sur ce
+          // trigger, on UPDATE les champs vides côté Postgres avec ceux du
+          // SQLite. Avant : INSERT-only → les enrichissements SQLite
+          // ultérieurs (decision_maker_email résolu plus tard, decision_maker_
+          // linkedin, etc.) ne propageaient JAMAIS vers Postgres → >20% des
+          // Leads Postgres avec email=null alors qu'il existe en SQLite.
+          // Stratégie COALESCE : on n'écrase JAMAIS un champ Postgres déjà
+          // rempli (préserve les enrichissements Postgres-only Kaspr/FullEnrich).
           const existing = await pg.query(`SELECT id FROM "Lead" WHERE "triggerId" = $1 LIMIT 1`, [triggerId]);
           if (existing.rows.length === 0) {
             const leadId = genCuid();
@@ -308,6 +314,35 @@ async function syncToPostgres(sqliteDb, options = {}) {
               r.raison_sociale, r.siren,
             ]);
             stats.upserted_leads += 1;
+          } else {
+            // Lead existant → UPDATE COALESCE-only sur fullName/email/linkedinUrl
+            // /companySiret si Postgres NULL ET SQLite a une valeur.
+            // ON NE TOUCHE PAS firstName/lastName/jobTitle/personaTier/dataQuality
+            // (gérés côté Postgres par enrich-lead-dirigeants + cross-checks).
+            const upd = await pg.query(`
+              UPDATE "Lead"
+              SET
+                "fullName" = COALESCE(NULLIF("fullName", ''), $2),
+                email = COALESCE(NULLIF(email, ''), $3),
+                "linkedinUrl" = COALESCE(NULLIF("linkedinUrl", ''), $4),
+                "companySiret" = COALESCE(NULLIF("companySiret", ''), $5),
+                "updatedAt" = NOW()
+              WHERE "triggerId" = $1
+                AND "deletedAt" IS NULL
+                AND (
+                  (("fullName" IS NULL OR "fullName" = '') AND $2 IS NOT NULL)
+                  OR ((email IS NULL OR email = '') AND $3 IS NOT NULL)
+                  OR (("linkedinUrl" IS NULL OR "linkedinUrl" = '') AND $4 IS NOT NULL)
+                  OR (("companySiret" IS NULL OR "companySiret" = '') AND $5 IS NOT NULL)
+                )
+            `, [
+              triggerId,
+              r.decision_maker_name || null,
+              r.decision_maker_email || null,
+              r.decision_maker_linkedin || null,
+              r.siren,
+            ]);
+            if (upd.rowCount > 0) stats.upserted_leads += 1;
           }
         } catch (e) {
           stats.errors += 1;
