@@ -70,12 +70,17 @@ export async function scanQaStuckForClient(
   const minPublishedAt = new Date(now.getTime() - maxDays * 24 * 3600 * 1000);
   const maxPublishedAt = new Date(now.getTime() - minDays * 24 * 3600 * 1000);
 
+  // Fix C4 (04/05) — Gates anti-override aveugle.
+  // Avant : status non checké → un trigger archivé par C3 minScore ou Fix L
+  // hedging pouvait être ressuscité avec score=9 + isHot=true forcé.
+  // Maintenant : skip status IGNORED dès la query (pas de boost sur archivés).
   const candidates = await db.trigger.findMany({
     where: {
       clientId,
       type: "HIRING_KEY",
       publishedAt: { gte: minPublishedAt, lte: maxPublishedAt },
       deletedAt: null,
+      status: { not: "IGNORED" }, // C4 fix : ne jamais ressusciter un IGNORED
     },
     select: {
       id: true,
@@ -98,12 +103,40 @@ export async function scanQaStuckForClient(
       continue;
     }
 
-    // Skip si lead associé est déjà contacté/archivé
+    // Skip si lead associé est déjà contacté/archivé OU oversized/bounced/DNC.
+    // C4 fix (04/05) : ajouter check companyEtabsCount/companyRevenue/bouncedAt
+    // /doNotContact pour éviter de booster en Brûlant un lead pourri.
     const linkedLead = await db.lead.findFirst({
       where: { triggerId: t.id, deletedAt: null },
-      select: { status: true },
+      select: {
+        status: true,
+        companyEtabsCount: true,
+        companyRevenue: true,
+        bouncedAt: true,
+        doNotContact: true,
+      },
     });
-    if (linkedLead?.status === "CONTACTED" || linkedLead?.status === "NOT_INTERESTED" || linkedLead?.status === "ARCHIVED") {
+    if (
+      linkedLead?.status === "CONTACTED" ||
+      linkedLead?.status === "NOT_INTERESTED" ||
+      linkedLead?.status === "ARCHIVED"
+    ) {
+      continue;
+    }
+    if (linkedLead?.bouncedAt || linkedLead?.doNotContact) {
+      // Lead emails ont bouncé OU flag DNC posé → ne pas le pousser en HOT
+      continue;
+    }
+    if (
+      (linkedLead?.companyEtabsCount !== null &&
+        linkedLead?.companyEtabsCount !== undefined &&
+        linkedLead.companyEtabsCount > 20) ||
+      (linkedLead?.companyRevenue !== null &&
+        linkedLead?.companyRevenue !== undefined &&
+        linkedLead.companyRevenue > 50_000_000)
+    ) {
+      // Lead oversize hors-ICP DTL (>20 étabs ou >50M€). Le QA-stuck reste
+      // un signal mais pas un Brûlant — laisser le score Opus tel quel.
       continue;
     }
 
