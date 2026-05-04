@@ -30,9 +30,18 @@ export async function GET(req: NextRequest) {
 
   const where: Prisma.TriggerWhereInput = { deletedAt: null };
   if (scope.clientId) where.clientId = scope.clientId;
+  // Anomalie 2 fix v2 (04/05/2026) : exclure les Triggers IGNORED par
+  // défaut sur TOUS les quality sauf "all". L'user a explicitement marqué
+  // ces leads comme "à ignorer" via action manuelle, ils ne doivent pas
+  // réapparaître dans le default. Toggle quality=all pour audit complet.
+  if (quality !== "all") {
+    where.status = { not: "IGNORED" };
+  }
+  // Filtres rapides (top filter UI)
   if (filter === "hot") where.isHot = true;
   else if (filter === "combo") where.isCombo = true;
-  else if (filter === "new") where.status = "NEW";
+  else if (filter === "new") where.status = "NEW";  // override pour ce filter spécifique
+  // Quality (sélecteur en dessous des filters)
   if (quality === "qualified") {
     where.score = { gte: 6 };
   } else if (quality === "pepites") {
@@ -42,9 +51,6 @@ export async function GET(req: NextRequest) {
     // Garde les Triggers qui ont SOIT priorityScore élevé SOIT fitScore élevé
     // SOIT au moins un canal de contact (email/phone). Cache uniquement les
     // "vraiment morts" (Faible <35 sans aucun contact).
-    // Anomalie 2 fix 04/05 : exclure les Triggers IGNORED (action user manuelle
-    // de rejet — ne doivent pas réapparaître dans la liste "actionable").
-    where.status = { not: "IGNORED" };
     where.OR = [
       // Combined score ≥ 35 (Tiède+) — approximation côté DB :
       // priorityScore élevé (≥10 → contribue ≥28 au combined)
