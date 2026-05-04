@@ -295,10 +295,30 @@ SIGNAL :
   }
 
   const isHot = opusScore >= 9;
+
+  // C3 — Filtre minScore client : si score final < icp.minScore, le trigger
+  // ne sera jamais actionnable. Au lieu de le laisser pollute le pool dashboard
+  // (audit 04/05 : 49 triggers score<5 visibles malgré minScore=7), on le
+  // passe en IGNORED auto avec raison traceable. Le seuil minScore vient de
+  // Client.icp.minScore (7 pour DTL). Sans minScore défini → pas de filtre.
+  const icpMinScore = typeof icp.minScore === "number" ? icp.minScore : null;
+  const belowMinScore = icpMinScore !== null && opusScore < icpMinScore;
   await db.trigger.update({
     where: { id: triggerId },
-    data: { score: opusScore, scoreReason: reason, isHot },
+    data: {
+      score: opusScore,
+      scoreReason: belowMinScore
+        ? `[C3 below_min_score:${opusScore}<${icpMinScore}] ${reason}`
+        : reason,
+      isHot,
+      ...(belowMinScore ? { status: "IGNORED" as const } : {}),
+    },
   });
+  if (belowMinScore) {
+    console.log(
+      `[qualify-trigger.C3] ${triggerId}: IGNORED auto (score=${opusScore} < minScore=${icpMinScore})`,
+    );
+  }
 
   return { opusScore, reason, isHot };
 }
