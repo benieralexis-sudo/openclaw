@@ -160,14 +160,36 @@ export async function detectDeclarativePainForClient(
     take: limit,
   });
 
-  // Filtre : seulement ceux avec un LinkedIn company URL exploitable
+  // Helper local : normalise un nom/slug pour matching robuste.
+  // "WeWard" → "weward", "Mister Temp Group" → "mistertempgroup",
+  // "https://linkedin.com/company/Mister-Temp-Group/" → "mistertempgroup"
+  const normalizeForMatch = (s: string | null | undefined): string =>
+    (s ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+
+  // Extrait le slug LinkedIn depuis une URL company.
+  // "https://www.linkedin.com/company/foo-bar/" → "foo-bar"
+  // "https://www.linkedin.com/company/foo-bar" → "foo-bar"
+  const extractLinkedinSlug = (url: string | null | undefined): string => {
+    if (!url) return "";
+    const m = url.match(/linkedin\.com\/company\/([^/?#]+)/i);
+    return m ? normalizeForMatch(m[1]!) : "";
+  };
+
+  // Filtre : seulement ceux avec un LinkedIn company URL exploitable.
+  // On pré-calcule le slug LinkedIn et le name normalisé pour matching robuste.
   const withUrls = candidates
     .filter((c) => c.lead?.linkedinUrl)
     .map((c) => ({
       triggerId: c.id,
       companyName: c.companyName,
+      companyNameNorm: normalizeForMatch(c.companyName),
       score: c.score,
       url: c.lead!.linkedinUrl!,
+      slugNorm: extractLinkedinSlug(c.lead!.linkedinUrl),
     }));
 
   result.scanned = withUrls.length;
@@ -205,11 +227,39 @@ export async function detectDeclarativePainForClient(
     const analysis = await analyzePostForPain(post);
     if (!analysis || !analysis.has_pain || analysis.confidence < 6) continue;
 
-    // Match company → trigger via authorCompanyUrl
-    const candidate = withUrls.find(
-      (c) => c.url && post.authorCompanyUrl && c.url.toLowerCase().includes(post.authorCompanyUrl.toLowerCase().split("/").pop() ?? "_NOMATCH"),
-    );
-    if (!candidate) continue;
+    // Fix C2 (04/05) — Match company → trigger ROBUSTE.
+    //
+    // Bug d'origine : `c.url.includes(post.authorCompanyUrl.split("/").pop())`.
+    // Si authorCompanyUrl finit par "/" (cas LinkedIn canonique très courant),
+    // .pop() retourne "" → `includes("")` = TRUE pour TOUTE URL → matche le
+    // PREMIER candidate de la liste, pain attribué à la mauvaise boîte.
+    //
+    // Fix : on matche d'abord par slug LinkedIn extrait (foo-bar vs Foo-Bar),
+    // sinon par companyName normalisé (post.authorCompanyName vs candidate name).
+    // Pas de match → on skip (pas de fallback fuzzy qui peut introduire des bugs).
+    const postSlugNorm = extractLinkedinSlug(post.authorCompanyUrl);
+    const postNameNorm = normalizeForMatch(post.authorCompanyName);
+    let candidate: typeof withUrls[number] | undefined;
+    if (postSlugNorm) {
+      candidate = withUrls.find((c) => c.slugNorm && c.slugNorm === postSlugNorm);
+    }
+    if (!candidate && postNameNorm) {
+      // Fallback : match par companyName (les 2 normalisés doivent être égaux
+      // OU l'un contient l'autre, pour gérer "WeWard" vs "WeWard SAS")
+      candidate = withUrls.find(
+        (c) =>
+          c.companyNameNorm &&
+          (c.companyNameNorm === postNameNorm ||
+            (c.companyNameNorm.length >= 4 && postNameNorm.includes(c.companyNameNorm)) ||
+            (postNameNorm.length >= 4 && c.companyNameNorm.includes(postNameNorm))),
+      );
+    }
+    if (!candidate) {
+      console.log(
+        `[declarative-pain.C2] no match for post company="${post.authorCompanyName}" url=${post.authorCompanyUrl}`,
+      );
+      continue;
+    }
 
     result.painDetected++;
     // Boost score +2 (cap 10) + log raison
