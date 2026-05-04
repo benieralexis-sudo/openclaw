@@ -43,6 +43,53 @@ function extractFullDescription(payload: unknown): string | null {
   return null;
 }
 
+// C4+C5 — Patterns rédhibitoires détectés dans le titre OU la description
+// complète AVANT même le scoring Opus. Évite de cramer des tokens Opus sur
+// des leads qu'on est sûr à 100% de rejeter (régie ESN, freelance/stage/
+// alternance, présentiel obligatoire, mention oversize >250 collaborateurs).
+//
+// Si HIGH match → force score=2 + status=IGNORED, raison tracée. Skip Opus.
+//
+// Patterns issus de l'audit forensique 04/05 sur les 7 rejets Fred + 17
+// patterns HIGH sur 39 leads (agent #3 audit total C). Ces 5 patterns
+// auraient évité Byron, WeFiiT, Onepoint, INFORMATIS, ChapsVision, Vif,
+// Deodis, Bizzdesign, L'Atelier, Hubvisory, Digistrat, Linkup Partner.
+const PRE_OPUS_REJECT_PATTERNS: Array<{ pattern: RegExp; label: string; field: "title" | "description" | "both" }> = [
+  // C4 — Régie ESN : "chez nos clients", "client final", "en régie",
+  // "dans le cadre d'un projet [chez/client/partenaire]", "en immersion chez",
+  // "intervention chez", "contrat de prestation chez"
+  { pattern: /chez\s+(un\s+de\s+)?nos?\s+clients?|client\s+final|\ben\s+régie\b|sur\s+(le\s+)?site\s+du\s+client|consultant\s+en\s+régie|équipe.*chez\s+notre\s+client|mission\s+chez\s+(un\s+de\s+)?nos?\s+clients?|en\s+immersion\s+chez\s+nos?\s+(clients?|partenaires?)|dans\s+le\s+cadre\s+d['']un\s+projet\s+(chez|d['']envergure\s+chez|client)/i, label: "regie-esn", field: "description" },
+  // C5a — Freelance / portage / mission courte dans le titre = pas un pain
+  // QA pérenne, DTL vend du long terme. Aussi détecte "Independant".
+  { pattern: /\b(freelance|indépendant|en\s+portage|portage\s+salarial|mission\s+courte|consultant\s+indépendant)\b/i, label: "freelance-indep", field: "title" },
+  // C5b — Alternance / Stage / Apprenti dans le titre = recrutement junior,
+  // pas un signal d'investissement QA structurel.
+  { pattern: /\b(alternance|alternant|alternant\(e\)|apprenti|apprentissage|stage|stagiaire|stagiair\(e\))\b/i, label: "junior-contract", field: "title" },
+  // C5c — Présentiel obligatoire : DTL est offshore Bucarest 100% remote.
+  // Détecte "5 jours sur site", "100% présentiel", "aucun télétravail",
+  // "obligatoire au bureau", "PAS DE FULL REMOTE NI SOUS TRAITANCE" etc.
+  { pattern: /présentiel\s+obligatoire|5\s*jours?\s+(sur\s+site|de\s+présentiel|au\s+bureau|en\s+présentiel)|100\s*%\s+(présentiel|sur\s+site|on.?site)|aucun\s+télétravail|pas\s+de\s+(full\s+)?remote|obligatoire\s+au\s+bureau|sur\s+place\s+chez\s+(un\s+de\s+)?nos?\s+clients?/i, label: "onsite-only", field: "description" },
+  // C5d — Mention oversize : si le texte annonce >250 collaborateurs/talents/
+  // employés, c'est qu'on est sur une boîte hors-ICP DTL (PME 11-200).
+  // 3 chiffres consécutifs avec mention de personnel.
+  { pattern: /(?:[2-9]\d{2,}|\d{4,})\s*(collaborateurs?|talents?|salariés?|consultants?|employees?|employés?)\b/i, label: "oversized-text", field: "description" },
+];
+
+function preOpusRejectScan(
+  title: string,
+  description: string,
+): { reject: boolean; label: string | null } {
+  for (const { pattern, label, field } of PRE_OPUS_REJECT_PATTERNS) {
+    if (field === "title" || field === "both") {
+      if (pattern.test(title)) return { reject: true, label };
+    }
+    if (field === "description" || field === "both") {
+      if (pattern.test(description)) return { reject: true, label };
+    }
+  }
+  return { reject: false, label: null };
+}
+
 // Fix L — Détection des "aveux d'hedging" dans la reason d'Opus.
 // Quand Opus donne un score >=7 mais avoue dans sa reason un mismatch ICP
 // ("hors ICP", "non whitelist", "grand groupe", "atypique"…), on downgrade.
@@ -167,6 +214,25 @@ export async function qualifyTrigger(
   const icp = trigger.client.icp as Record<string, unknown>;
   const fullDesc = extractFullDescription(trigger.rawPayload);
   const detailToSend = fullDesc ?? trigger.detail ?? "(vide)";
+
+  // C4+C5 — Pre-Opus reject scan : si pattern HIGH match (régie ESN, freelance,
+  // alternance/stage, présentiel obligatoire, oversize >250p), on skip Opus
+  // et on archive direct. Économise tokens + évite faux Brûlants en haut du dash.
+  const preReject = preOpusRejectScan(trigger.title ?? "", fullDesc ?? trigger.detail ?? "");
+  if (preReject.reject) {
+    const rejectReason = `[C4-C5 pre-opus-reject:${preReject.label}] Pattern rédhibitoire détecté avant scoring Opus`;
+    console.log(`[qualify-trigger.C4C5] ${triggerId}: IGNORED auto (${preReject.label})`);
+    await db.trigger.update({
+      where: { id: triggerId },
+      data: {
+        score: 2,
+        scoreReason: rejectReason,
+        isHot: false,
+        status: "IGNORED",
+      },
+    });
+    return { opusScore: 2, reason: rejectReason, isHot: false };
+  }
   const userPrompt = `CLIENT : ${trigger.client.name}
 ICP : ${JSON.stringify({
     industries: icp.industries,
