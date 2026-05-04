@@ -230,4 +230,80 @@ describe("computeFitScore", () => {
     expect(r.score).toBeGreaterThanOrEqual(0);
     expect(r.score).toBeLessThanOrEqual(100);
   });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Pénalité non-buyer (04/05/2026) : Angel/Investor/Advisor pur
+  // ────────────────────────────────────────────────────────────────────
+
+  it("non-buyer pur 'Angel Investor' SANS exec title → pénalité -25", () => {
+    const r = computeFitScore({
+      personaTier: 1,
+      currentTenureMonths: 24,
+      backgrounds: null,
+      companyEtabsCount: null,
+      icp: {},
+      jobTitleAndHeadline: "Angel Investor",
+    });
+    // 60 + 15 + 0 + 0 - 25 = 50
+    expect(r.score).toBe(50);
+    expect(r.breakdown.nonBuyerPenalty).toBe(-25);
+  });
+
+  it("'Angel Investor' MAIS aussi CTO Co-founder → pas de pénalité (vrai acheteur)", () => {
+    // Cas réel Paul Vidal Collective.work
+    const r = computeFitScore({
+      personaTier: 1,
+      currentTenureMonths: 24,
+      backgrounds: null,
+      companyEtabsCount: null,
+      icp: {},
+      jobTitleAndHeadline:
+        "Angel Investor | Co-founder & CTO @Collective, the AI recruiting platform",
+    });
+    // 60 + 15 + 0 + 0 - 0 = 75 (pas de pénalité car CTO détecté)
+    expect(r.score).toBe(75);
+    expect(r.breakdown.nonBuyerPenalty).toBe(0);
+  });
+
+  it("'Board Member' pur sans exec → pénalité", () => {
+    const r = computeFitScore({
+      personaTier: 2,
+      currentTenureMonths: 12,
+      backgrounds: null,
+      companyEtabsCount: null,
+      icp: {},
+      jobTitleAndHeadline: "Board Member at WeWard",
+    });
+    // 50 + 15 - 25 = 40
+    expect(r.score).toBe(40);
+    expect(r.breakdown.nonBuyerPenalty).toBe(-25);
+  });
+
+  it("'Group General Manager / Board Member' → pas de pénalité (DG actif)", () => {
+    // Cas Silvano Sansoni ChapsVision
+    const r = computeFitScore({
+      personaTier: 2,
+      currentTenureMonths: 36,
+      backgrounds: null,
+      companyEtabsCount: null,
+      icp: {},
+      jobTitleAndHeadline:
+        "Group General Manager / Directeur Général Groupe / Board Member",
+    });
+    // 50 + 15 - 0 = 65 (pas de pénalité, DG détecté)
+    expect(r.breakdown.nonBuyerPenalty).toBe(0);
+    expect(r.score).toBe(65);
+  });
+
+  it("jobTitleAndHeadline absent → pas de pénalité (compat backward)", () => {
+    const r = computeFitScore({
+      personaTier: 1,
+      currentTenureMonths: 24,
+      backgrounds: null,
+      companyEtabsCount: null,
+      icp: {},
+    });
+    expect(r.breakdown.nonBuyerPenalty).toBe(0);
+    expect(r.score).toBe(75);
+  });
 });

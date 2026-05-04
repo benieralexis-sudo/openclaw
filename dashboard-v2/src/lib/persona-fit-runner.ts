@@ -91,6 +91,7 @@ export async function recomputeFitScoresForClient(clientId: string): Promise<Fit
       personaTier: true,
       linkedinProfileJson: true,
       companyEtabsCount: true,
+      jobTitle: true,
     },
   });
 
@@ -109,6 +110,7 @@ export async function recomputeFitScoresForClient(clientId: string): Promise<Fit
 
     let currentTenureMonths: number | null = null;
     let backgrounds = null;
+    let headline: string | null = null;
     if (lead.linkedinProfileJson) {
       const extracted = extractLinkedInProfile(lead.linkedinProfileJson);
       currentTenureMonths = extracted.currentTenureMonths;
@@ -117,7 +119,14 @@ export async function recomputeFitScoresForClient(clientId: string): Promise<Fit
         hasSaaSBackground: extracted.hasSaaSBackground,
         hasStartupBackground: extracted.hasStartupBackground,
       };
+      // Extract headline pour penalty non-buyer (Angel/Investor pur)
+      const profile = lead.linkedinProfileJson as { headline?: string } | null;
+      headline = profile?.headline ?? null;
     }
+    // Concat jobTitle + headline pour scorer non-buyer (04/05/2026)
+    const jobTitleAndHeadline = [lead.jobTitle, headline]
+      .filter(Boolean)
+      .join(" | ") || null;
 
     const fit = computeFitScore({
       personaTier: lead.personaTier,
@@ -125,6 +134,7 @@ export async function recomputeFitScoresForClient(clientId: string): Promise<Fit
       backgrounds,
       companyEtabsCount: lead.companyEtabsCount,
       icp: icpFit,
+      jobTitleAndHeadline,
     });
 
     if (result.topFitScore === null || fit.score > result.topFitScore) {

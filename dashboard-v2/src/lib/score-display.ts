@@ -76,10 +76,12 @@ export interface FitBreakdown {
   tenureBoost: number;
   backgroundFit: number;
   sizeFit: number;
+  /** Pénalité non-buyer (04/05/2026), négative ou 0 */
+  nonBuyerPenalty?: number;
 }
 
 /**
- * "base 60 · tenure +15 · background +25 · size +15" — pour tooltip.
+ * "base 60 · tenure +15 · background +25 · size +15 · non-buyer -25" — tooltip.
  * Omet les composantes à 0 pour rester lisible.
  */
 export function formatFitBreakdown(
@@ -90,6 +92,9 @@ export function formatFitBreakdown(
   if (breakdown.tenureBoost > 0) parts.push(`tenure +${breakdown.tenureBoost}`);
   if (breakdown.backgroundFit > 0) parts.push(`background +${breakdown.backgroundFit}`);
   if (breakdown.sizeFit > 0) parts.push(`size +${breakdown.sizeFit}`);
+  if (breakdown.nonBuyerPenalty && breakdown.nonBuyerPenalty < 0) {
+    parts.push(`non-buyer ${breakdown.nonBuyerPenalty}`);
+  }
   return parts.join(" · ");
 }
 

@@ -38,6 +38,9 @@ export interface FitInputs {
   backgrounds: BackgroundFlags | null;
   companyEtabsCount: number | null;
   icp: ICPProfile;
+  /** jobTitle (Pappers/HarvestAPI) + headline LinkedIn concaténés.
+   * Sert au scorer non-buyer (Angel/Investor/Advisor pur). 04/05/2026 */
+  jobTitleAndHeadline?: string | null;
 }
 
 export interface FitBreakdown {
@@ -45,6 +48,8 @@ export interface FitBreakdown {
   tenureBoost: number;
   backgroundFit: number;
   sizeFit: number;
+  /** Pénalité si profil non-acheteur (Angel/Investor/Advisor pur). 04/05 */
+  nonBuyerPenalty?: number;
 }
 
 export interface FitResult {
@@ -106,6 +111,36 @@ export function computeSizeFit(
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Sub-scorer 5 : pénalité non-buyer (04/05/2026)
+// ─────────────────────────────────────────────────────────────────────
+// Détecte les profils dont la fonction principale est investisseur ou
+// advisor (PAS d'achat B2B QA possible). Subtil : on ne pénalise que si
+// AUCUN titre exécutif n'est présent — sinon Paul Vidal "Angel Investor"
+// (qui est en fait CTO Co-founder Collective via headline LinkedIn) serait
+// faussement dégradé.
+// ──────────────────────────────────────────────────────────────────────
+
+const EXEC_TITLE_RX =
+  /\b(cto|ceo|cfo|coo|cio|cmo|cpo|cro|chief\s+\w+\s+officer|founder|cofounder|co-?founder|fondateur|cofond|directeur|director|head\s+of|vp\b|vice.president|président|gérant|managing.director|general.manager|engineering.manager|tech\s+lead)\b/i;
+
+const NON_BUYER_RX =
+  /\b(angel\s*investor|^investor\b|board\s*member|advisor|coach|consultant\s+ind[eé]pendant|venture\s+partner|limited\s+partner)\b/i;
+
+export function computeNonBuyerPenalty(
+  jobTitleAndHeadline: string | null | undefined,
+): number {
+  if (!jobTitleAndHeadline) return 0;
+  const text = jobTitleAndHeadline.trim();
+  if (!text) return 0;
+  // Si un titre exécutif est présent quelque part → pas de pénalité
+  // (le profil EST un acheteur, l'investisseur est secondaire)
+  if (EXEC_TITLE_RX.test(text)) return 0;
+  // Sinon, si le profil mentionne investor/advisor en pure → -25
+  if (NON_BUYER_RX.test(text)) return -25;
+  return 0;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Score composite final (cappé 0-100)
 // ──────────────────────────────────────────────────────────────────────
 
@@ -114,12 +149,13 @@ export function computeFitScore(inputs: FitInputs): FitResult {
   const tenureBoost = computeTenureBoost(inputs.currentTenureMonths);
   const backgroundFit = computeBackgroundFit(inputs.backgrounds, inputs.icp);
   const sizeFit = computeSizeFit(inputs.companyEtabsCount, inputs.icp);
+  const nonBuyerPenalty = computeNonBuyerPenalty(inputs.jobTitleAndHeadline);
 
-  const raw = base + tenureBoost + backgroundFit + sizeFit;
+  const raw = base + tenureBoost + backgroundFit + sizeFit + nonBuyerPenalty;
   const capped = Math.min(100, Math.max(0, raw));
 
   return {
     score: capped,
-    breakdown: { base, tenureBoost, backgroundFit, sizeFit },
+    breakdown: { base, tenureBoost, backgroundFit, sizeFit, nonBuyerPenalty },
   };
 }
