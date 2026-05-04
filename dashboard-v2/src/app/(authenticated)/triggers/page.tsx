@@ -134,13 +134,19 @@ export default function TriggersPage() {
     refetchInterval: 30 * 1000, // Live data every 30s
   });
 
-  // Compteurs réels (sans filter ni quality, juste search) — pour ne pas se rafraîchir au switch tab
+  // Fix H3 (04/05) — Compteurs HONNÊTES.
+  // Avant : `quality=all` désactivait le filtre IGNORED → "108 leads exploitables"
+  // alors que 98/110 étaient IGNORED. "Hot 19" → clic → 8 résultats.
+  //
+  // Maintenant : `_counts` utilise quality=actionable (le pool VRAI des leads
+  // exploitables, IGNORED exclus). counts.hot/combo/new sont corrects, alignés
+  // avec le résultat affiché à l'utilisateur quand il clique sur l'onglet.
   const { data: allTriggers = [] } = useQuery<Trigger[]>({
     queryKey: ["triggers", activeClientId, "_counts", debouncedSearch, showOrphans],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (activeClientId) params.set("clientId", activeClientId);
-      params.set("quality", "all");
+      params.set("quality", "actionable"); // ← H3 : pool réel exploitable
       params.set("withLead", showOrphans ? "false" : "true");
       if (debouncedSearch) params.set("q", debouncedSearch);
       const res = await fetch(`/api/triggers?${params.toString()}`);
@@ -150,7 +156,7 @@ export default function TriggersPage() {
     refetchInterval: 30 * 1000,
   });
 
-  // Compte global (avec orphelins) pour afficher le ratio "X / Y" dans le header
+  // Compte global incluant IGNORED + orphans pour le header (audit/transparence)
   const { data: allWithOrphans = [] } = useQuery<Trigger[]>({
     queryKey: ["triggers", activeClientId, "_total"],
     queryFn: async () => {
@@ -472,15 +478,22 @@ export default function TriggersPage() {
         </div>
       </div>
 
-      {/* Header explicatif compteurs */}
+      {/* Fix H3 (04/05) — Compteurs honnêtes : actifs / orphelins / archivés.
+          Avant : "108 leads exploitables" mensonger (98/110 étaient IGNORED).
+          Maintenant : allTriggers compte le pool actionable réel (IGNORED exclus). */}
       <div className="rounded-md border border-ink-100 bg-ink-50 px-3 py-2 text-[12px] text-ink-700 flex items-center gap-3">
         <span>
-          <strong className="text-ink-900">{allTriggers.length}</strong> {showOrphans ? "signaux totaux" : "leads exploitables"}
-          {!showOrphans && allWithOrphans.length > allTriggers.length && (
-            <span className="ml-2 text-ink-500">
-              ({allWithOrphans.length - allTriggers.length} en cours d&apos;enrichissement Pappers)
-            </span>
-          )}
+          <strong className="text-ink-900">{allTriggers.length}</strong> leads exploitables
+          {(() => {
+            const orphansCount = allWithOrphans.filter((t) => !t.lead).length;
+            const ignoredCount = Math.max(0, allWithOrphans.length - allTriggers.length - orphansCount);
+            const parts: string[] = [];
+            if (orphansCount > 0) parts.push(`${orphansCount} sans contact`);
+            if (ignoredCount > 0) parts.push(`${ignoredCount} archivés`);
+            return parts.length > 0 ? (
+              <span className="ml-2 text-ink-500">({parts.join(" · ")})</span>
+            ) : null;
+          })()}
         </span>
         <span className="ml-auto text-ink-500">
           Affichés : <strong className="text-ink-900">{triggers.length}</strong>
