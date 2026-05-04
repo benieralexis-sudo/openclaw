@@ -246,6 +246,12 @@ SIGNAL :
   // Plancher de score pour sources fiables (signal d'achat fort garanti).
   // Une levée de fonds = cash frais + recrutements imminents + pression scaling
   // = signal d'achat majeur, mérite score 8. Job change CTO/Tech Lead idem.
+  //
+  // CONDITION 04/05 (C2) : le plancher s'applique UNIQUEMENT si secteur ICP-fit.
+  // Une levée Audion (AdTech), Decade Energy (renewable), cobl (commerce gros)
+  // ou HrFlow.ai (RH) ne mérite PAS un score 8 forcé pour DTL — ce ne sont pas
+  // des éditeurs SaaS B2B / ESN tech. Sans ce check, le plancher trusted écrasait
+  // l'analyse fine d'Opus et rendait Fix L obligé de rattraper en aval.
   const TRUSTED_SOURCES_MIN_SCORE: Record<string, number> = {
     "rodz.fundraising": 8,                    // levée = jackpot
     "rodz.mergers-acquisitions": 8,           // M&A = restructuring
@@ -255,8 +261,26 @@ SIGNAL :
   };
   const minFloor = TRUSTED_SOURCES_MIN_SCORE[trigger.sourceCode];
   if (minFloor && opusScore < minFloor) {
-    reason = `[Score plancher ${minFloor}/10 source fiable] ${reason}`;
-    opusScore = minFloor;
+    // Check 1 : NAF dans la whitelist ICP du client (icp.naf_codes)
+    const icpNafCodes = (icp.naf_codes as string[] | undefined) ?? [];
+    const naf = (trigger.companyNaf ?? "").replace(/\./g, "");
+    const nafMatchIcp = icpNafCodes.some((c) => naf.startsWith(c.replace(/\./g, "")));
+    // Check 2 : industry annoncée par la source contient un mot-clé ICP
+    const icpIndustries = (icp.industries as string[] | undefined) ?? [];
+    const industryStr = (trigger.industry ?? "").toLowerCase();
+    const industryMatchIcp = icpIndustries.some((i) =>
+      industryStr.includes(i.toLowerCase().split(/\s/)[0] ?? ""),
+    );
+    // Si AUCUN des deux signaux ICP-fit, on ne force PAS le plancher.
+    // Le score Opus reste tel quel — Fix L et l'analyse fine décident.
+    if (nafMatchIcp || industryMatchIcp) {
+      reason = `[Score plancher ${minFloor}/10 source fiable + secteur ICP] ${reason}`;
+      opusScore = minFloor;
+    } else {
+      console.log(
+        `[qualify-trigger.C2] ${triggerId}: plancher ${minFloor} NON appliqué (secteur hors ICP) sourceCode=${trigger.sourceCode} naf=${trigger.companyNaf} industry=${trigger.industry}`,
+      );
+    }
   }
 
   // Fix L — Override le plancher trusted-source si Opus a détecté un mismatch
