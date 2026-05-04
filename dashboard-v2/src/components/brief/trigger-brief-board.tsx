@@ -540,36 +540,59 @@ function TriggerHeader({
         </div>
 
         {/* Section "Notre analyse" — verdict humain inline (remplace "Pourquoi N/10 — IA Opus")
-            Couleur dépend du verdict : rouge OFF_TARGET, orange ENRICH, gris HOLD, etc. */}
-        <div className={cn(
-          "rounded-md border p-3",
-          verdict.color === "danger" && "border-red-200 bg-red-50/40",
-          verdict.color === "warning" && "border-amber-200 bg-amber-50/40",
-          verdict.color === "success" && "border-emerald-200 bg-emerald-50/40",
-          verdict.color === "info" && "border-brand-200 bg-brand-50/40",
-          verdict.color === "default" && "border-ink-200 bg-ink-50/40",
-        )}>
-          <div className={cn(
-            "flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider",
-            verdict.color === "danger" && "text-red-700",
-            verdict.color === "warning" && "text-amber-700",
-            verdict.color === "success" && "text-emerald-700",
-            verdict.color === "info" && "text-brand-700",
-            verdict.color === "default" && "text-ink-600",
-          )}>
-            <span>🎯</span>
-            Notre analyse
-          </div>
-          <div className="mt-1 text-[13px] font-medium leading-relaxed text-ink-900">
-            {verdict.label}
-          </div>
-          <div className="mt-1 text-[12.5px] leading-relaxed text-ink-700">
-            {verdict.reason}
-          </div>
-          <div className="mt-2 text-[12.5px] leading-relaxed text-ink-800">
-            <span className="font-semibold">→ </span>{verdict.action}
-          </div>
-        </div>
+            Couleur dépend du verdict : rouge OFF_TARGET, orange ENRICH, gris HOLD, etc.
+            Étape A (04/05) : si briefJson.summary.whyNow + angle existent et sont non-vides,
+            on les affiche À LA PLACE des phrases génériques verdict.reason/verdict.action.
+            Garde la structure verdict (couleur + label) comme cadre visuel. */}
+        {(() => {
+          // Use brief Opus content si dispo, fallback verdict sinon.
+          // Restriction : pas pour OFF_TARGET / HOLD_LOW_PRIORITY / BOOKED
+          // (le verdict y est plus pertinent qu'un angle d'attaque commercial).
+          const useBriefContent =
+            !!brief?.summary?.whyNow?.trim()
+            && !!brief?.summary?.angle?.trim()
+            && verdict.kind !== "OFF_TARGET"
+            && verdict.kind !== "HOLD_LOW_PRIORITY"
+            && verdict.kind !== "BOOKED";
+          const reasonText = useBriefContent ? brief!.summary.whyNow : verdict.reason;
+          const actionText = useBriefContent ? brief!.summary.angle : verdict.action;
+          return (
+            <div className={cn(
+              "rounded-md border p-3",
+              verdict.color === "danger" && "border-red-200 bg-red-50/40",
+              verdict.color === "warning" && "border-amber-200 bg-amber-50/40",
+              verdict.color === "success" && "border-emerald-200 bg-emerald-50/40",
+              verdict.color === "info" && "border-brand-200 bg-brand-50/40",
+              verdict.color === "default" && "border-ink-200 bg-ink-50/40",
+            )}>
+              <div className={cn(
+                "flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider",
+                verdict.color === "danger" && "text-red-700",
+                verdict.color === "warning" && "text-amber-700",
+                verdict.color === "success" && "text-emerald-700",
+                verdict.color === "info" && "text-brand-700",
+                verdict.color === "default" && "text-ink-600",
+              )}>
+                <span>🎯</span>
+                Notre analyse
+                {useBriefContent && (
+                  <span className="ml-1 rounded bg-white/60 px-1 py-0.5 text-[9px] font-medium text-ink-500">
+                    Opus
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 text-[13px] font-medium leading-relaxed text-ink-900">
+                {verdict.label}
+              </div>
+              <div className="mt-1 text-[12.5px] leading-relaxed text-ink-700">
+                {reasonText}
+              </div>
+              <div className="mt-2 text-[12.5px] leading-relaxed text-ink-800">
+                <span className="font-semibold">→ </span>{actionText}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Contact + Opportunité */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
