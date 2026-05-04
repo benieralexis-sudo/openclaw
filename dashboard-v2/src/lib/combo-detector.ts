@@ -10,12 +10,22 @@ import type { Prisma } from "@prisma/client";
  *   - Levée Rodz + Hire QA TheirStack → "scaling post-funding"
  *   - Hire CTO bot trigger-engine + Levée RSS → "leadership change pre-funding"
  *
+ * + Pattern spécial SCALE-UP-TECH (Bougie 4, 04/05) : si combo = (FUNDRAISING
+ * ou CAPITAL_INCREASE) + ≥1 HIRING_KEY tech (dev/engineer/qa/devops/etc),
+ * on force score=10, isHot=true et reason explicit "scale-up-tech".
+ * C'est le pattern le plus puissant pour DTL : levée + scale équipe dev =
+ * besoin QA externe vital pour scaler sans casser.
+ *
  * Tourne périodiquement (toutes les 30 min via /api/internal/run-pollers).
  */
 
+const TECH_HIRING_KEYWORDS = /\b(dev|engineer|tech|qa|devops|sre|fullstack|backend|frontend|data|machine learning|ml|ai|software|architect|cto|vp eng|head of eng|lead|product manager|po|product owner)\b/i;
+
+const SCALE_UP_TECH_MARKER = "[SCALE-UP-TECH]";
+
 export async function detectCombosForClient(
   clientId: string,
-): Promise<{ scanned: number; combos: number; updated: number }> {
+): Promise<{ scanned: number; combos: number; updated: number; scaleUpTech: number }> {
   const since = new Date();
   since.setDate(since.getDate() - 30);
 
@@ -33,6 +43,9 @@ export async function detectCombosForClient(
       sourceCode: true,
       score: true,
       isCombo: true,
+      type: true,
+      title: true,
+      scoreReason: true,
     },
   });
 
@@ -54,6 +67,7 @@ export async function detectCombosForClient(
 
   let combos = 0;
   let updated = 0;
+  let scaleUpTech = 0;
 
   for (const [, items] of groups) {
     const sources = new Set(items.map((t) => sourcePrefix(t.sourceCode)));
@@ -65,6 +79,72 @@ export async function detectCombosForClient(
     const target = items[0];
     if (!target) continue;
 
+    // ──────────────────────────────────────────────────────────────────
+    // Pattern SCALE-UP-TECH : (funding ou capital-increase) + hire tech
+    // ──────────────────────────────────────────────────────────────────
+    const hasFunding = items.some(
+      (t) => t.type === "FUNDRAISING" || t.type === "CAPITAL_INCREASE",
+    );
+    const techHires = items.filter(
+      (t) => t.type === "HIRING_KEY" && TECH_HIRING_KEYWORDS.test(t.title),
+    );
+    const isScaleUpTech = hasFunding && techHires.length >= 1;
+
+    if (isScaleUpTech) {
+      scaleUpTech += 1;
+      const fundingTrigger = items.find((t) => t.type === "FUNDRAISING" || t.type === "CAPITAL_INCREASE");
+      const fundingTitle = fundingTrigger?.title ?? "Levée";
+      const techTitlesPreview = techHires
+        .slice(0, 2)
+        .map((t) => t.title.replace(/\s*\(QA match\)\s*$/, ""))
+        .join(" + ");
+      const newReason = `${SCALE_UP_TECH_MARKER} ${fundingTitle} + hire tech (${techTitlesPreview}) sur ${target.companyName} — scale post-funding = besoin QA externe vital pour scaler sans casser`.slice(0, 500);
+
+      // Skip si déjà boosté scale-up-tech (idempotence)
+      if (target.scoreReason?.includes(SCALE_UP_TECH_MARKER) && target.score >= 10 && target.isCombo) {
+        // déjà à jour
+        for (const other of items) {
+          if (other.id !== target.id && !other.isCombo) {
+            await db.trigger.update({ where: { id: other.id }, data: { isCombo: true } });
+          }
+        }
+        continue;
+      }
+
+      await db.trigger.update({
+        where: { id: target.id },
+        data: {
+          isCombo: true,
+          score: 10,
+          isHot: true,
+          scoreReason: newReason,
+        },
+      });
+      // Flag isCombo=true sur les autres aussi
+      for (const other of items) {
+        if (other.id !== target.id && !other.isCombo) {
+          await db.trigger.update({ where: { id: other.id }, data: { isCombo: true } });
+        }
+      }
+      // Invalider pitch/brief sur le lead lié (sera régénéré avec contexte scale-up)
+      try {
+        await db.lead.updateMany({
+          where: { triggerId: target.id, deletedAt: null },
+          data: {
+            briefJson: null as unknown as Prisma.InputJsonValue,
+            briefGeneratedAt: null,
+            pitchJson: null as unknown as Prisma.InputJsonValue,
+            pitchGeneratedAt: null,
+          },
+        });
+      } catch {
+        // best effort
+      }
+      updated += 1;
+      continue;
+    }
+
+    // Combo générique (existant)
     if (!target.isCombo || target.score < Math.min(10, target.score + 2)) {
       const newScore = Math.min(10, target.score + 2);
       const isHot = newScore >= 9;
@@ -108,5 +188,5 @@ export async function detectCombosForClient(
     }
   }
 
-  return { scanned: triggers.length, combos, updated };
+  return { scanned: triggers.length, combos, updated, scaleUpTech };
 }
