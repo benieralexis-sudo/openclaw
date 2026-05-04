@@ -282,7 +282,7 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
       AND: [
         { email: { not: null } },
         { email: { not: "" } },
-        { companyName: { not: null } },
+        { companyName: { not: "" } },
         { doNotContact: false }, // déjà flag = skip
       ],
     },

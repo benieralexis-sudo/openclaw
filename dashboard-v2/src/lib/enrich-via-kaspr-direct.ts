@@ -110,6 +110,7 @@ export async function enrichLeadsViaKasprDirect(
       firstName: true,
       lastName: true,
       fullName: true,
+      companyName: true, // Fix C1 04/05 — pour domainMatchesCompany check
       linkedinUrl: true,
       phone: true,
       kasprPhone: true,

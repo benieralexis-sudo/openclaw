@@ -27,6 +27,7 @@ interface ClientIcpExtended {
   sizes?: string[];
   regions?: string[];
   antiPersonas?: string[];
+  keywordsHiring?: string[];
 }
 
 export interface FranceTravailPollerResult {

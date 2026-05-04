@@ -90,7 +90,6 @@ interface TriggerData {
     emailRodz?: string | null;
     emailSourceCount?: number;
     emailConfidence?: number | null;
-    emailStatus?: string | null;
     bouncedAt?: string | null;
     bouncedFromEmail?: string | null;
     // RGPD opt-out

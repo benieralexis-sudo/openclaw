@@ -479,7 +479,7 @@ export async function reprovisionRodzForClient(
   };
 
   for (const s of existing) {
-    const spec = specByType.get(s.signalType);
+    const spec = specByType.get(s.signalType as RodzSignalType);
     if (!spec) {
       result.signalsUntouched.push({
         signalType: s.signalType,
