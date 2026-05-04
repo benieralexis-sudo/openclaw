@@ -302,10 +302,16 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
                 - Pas de mobile et standard 09/01-05 affiché à côté pour fallback
                 - Aucun LinkedIn → bouton caché */}
             {(() => {
+              // Fix H9 (04/05) — isFrenchMobile checke aussi phoneFullenrich.
+              // Avant : seul kasprPhone+phone testés → bouton "Trouver le numéro"
+              // affiché alors que phoneFullenrich contenait déjà un mobile FR.
               const mobile = isFrenchMobile(lead.kasprPhone) ? lead.kasprPhone
+                : isFrenchMobile(lead.phoneFullenrich) ? lead.phoneFullenrich
                 : isFrenchMobile(lead.phone) ? lead.phone
                 : null;
-              const standard = !mobile && lead.phone ? lead.phone : null;
+              const standard = !mobile && (lead.phone || lead.phoneFullenrich)
+                ? (lead.phone || lead.phoneFullenrich)
+                : null;
               if (mobile) {
                 return (
                   <a
