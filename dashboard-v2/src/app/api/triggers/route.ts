@@ -41,38 +41,50 @@ export async function GET(req: NextRequest) {
   if (filter === "hot") where.isHot = true;
   else if (filter === "combo") where.isCombo = true;
   else if (filter === "new") where.status = "NEW";  // override pour ce filter spécifique
-  // Quality (sélecteur en dessous des filters)
+  // Fix H8 (04/05) — Search ET quality combinés via where.AND.
+  // Avant : `where.OR = [...]` (quality) puis `where.OR = [...]` (search)
+  // → l'écriture search écrasait le filtre quality. Dès que Fred tapait
+  // dans la search box, le filtre actionable disparaissait silencieusement
+  // → il pouvait voir des Triggers IGNORED ou bas score.
+  //
+  // Maintenant : on construit qualityOR et searchOR séparément, puis on
+  // les compose via where.AND (Prisma combine les conditions).
+  const qualityOR: Prisma.TriggerWhereInput[] | null =
+    quality === "actionable"
+      ? [
+          { priorityScore: { gte: 10 } },
+          { lead: { fitScore: { gte: 35 } } },
+          { lead: { email: { not: null } } },
+          { score: { gte: 7 } },
+        ]
+      : null;
+
+  // Quality scalaires (qualified/pepites) restent en filter direct
   if (quality === "qualified") {
     where.score = { gte: 6 };
   } else if (quality === "pepites") {
     where.score = { gte: 8 };
-  } else if (quality === "actionable") {
-    // Filtre intelligent (Phase 4 recovery 04/05) :
-    // Garde les Triggers qui ont SOIT priorityScore élevé SOIT fitScore élevé
-    // SOIT au moins un canal de contact (email/phone). Cache uniquement les
-    // "vraiment morts" (Faible <35 sans aucun contact).
-    where.OR = [
-      // Combined score ≥ 35 (Tiède+) — approximation côté DB :
-      // priorityScore élevé (≥10 → contribue ≥28 au combined)
-      { priorityScore: { gte: 10 } },
-      // OR Lead avec fitScore ≥ 35 (≥ Tiède sur fit seul)
-      { lead: { fitScore: { gte: 35 } } },
-      // OR Lead avec contact (au moins email)
-      { lead: { email: { not: null } } },
-      // OR Pépite Opus≥7 (signal contextuel fort, peut justifier malgré scores bas)
-      { score: { gte: 7 } },
-    ];
   }
+
   if (withLead === "true") {
-    // Combine avec le filtre OR ci-dessus via AND implicite Prisma
     where.lead = { isNot: null };
   }
-  if (search) {
-    where.OR = [
-      { companyName: { contains: search, mode: "insensitive" } },
-      { title: { contains: search, mode: "insensitive" } },
-      { industry: { contains: search, mode: "insensitive" } },
-    ];
+
+  const searchOR: Prisma.TriggerWhereInput[] | null = search
+    ? [
+        { companyName: { contains: search, mode: "insensitive" } },
+        { title: { contains: search, mode: "insensitive" } },
+        { industry: { contains: search, mode: "insensitive" } },
+      ]
+    : null;
+
+  // Compose les 2 OR via AND si les deux existent. Sinon affecte directement.
+  if (qualityOR && searchOR) {
+    where.AND = [{ OR: qualityOR }, { OR: searchOR }];
+  } else if (qualityOR) {
+    where.OR = qualityOR;
+  } else if (searchOR) {
+    where.OR = searchOR;
   }
 
   // sourceCode visible UNIQUEMENT pour ADMIN + COMMERCIAL (pas client final).
