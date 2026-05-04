@@ -119,6 +119,55 @@ function mapLocations(icpRegions: string[] | undefined): string[] {
   return Array.from(out);
 }
 
+/**
+ * Mappe les industries ICP (souvent saisies en français via Tally onboarding)
+ * vers la nomenclature LinkedIn industries (anglais) attendue par Rodz.
+ *
+ * Un libellé FR peut produire 1-3 libellés EN équivalents pour élargir le match.
+ * Bug détecté 04/05 : job-changes DTL avec industries FR brutes ne ramenait 0
+ * lead car aucune ne matchait la taxonomie LinkedIn.
+ */
+function mapIndustriesToLinkedin(icpIndustries: string[] | undefined): string[] {
+  if (!icpIndustries || icpIndustries.length === 0) return [];
+  const out = new Set<string>();
+  for (const i of icpIndustries) {
+    const lower = i.toLowerCase();
+    // Tech / SaaS / logiciel (libellés FR Tally + variantes EN)
+    if (lower.includes("saas") || lower.includes("logiciel") || lower.includes("édition") || lower.includes("edition") || lower.includes("software")) {
+      out.add("Software Development");
+      out.add("Computer Software");
+      out.add("Information Technology and Services");
+    }
+    // ESN / SSII / Cabinet IT
+    if (lower.includes("esn") || lower.includes("ssii") || lower.includes("cabinet it") || lower.includes("it consulting") || lower.includes("services it")) {
+      out.add("IT Services and IT Consulting");
+      out.add("Information Technology and Services");
+    }
+    // Cybersécurité
+    if (lower.includes("cyber") || lower.includes("security")) {
+      out.add("Computer and Network Security");
+    }
+    // Industrie / manufacturing
+    if (lower.includes("industrie") || lower.includes("manufacturing")) {
+      out.add("Industrial Automation");
+      out.add("Mechanical or Industrial Engineering");
+    }
+    // Si déjà en anglais reconnu → passer tel quel
+    const passThrough = new Set([
+      "SaaS",
+      "Enterprise Software",
+      "Information Technology",
+      "Software Development",
+      "IT Services and IT Consulting",
+      "Computer Software",
+      "Information Technology and Services",
+      "Computer and Network Security",
+    ]);
+    if (passThrough.has(i)) out.add(i);
+  }
+  return Array.from(out);
+}
+
 /** Mappe les personaTitles ICP → targetPersonas Rodz. */
 function mapPersonas(icpPersonas: string[] | undefined): string[] {
   if (!icpPersonas) return ["CEO"];
@@ -224,7 +273,7 @@ export function buildSignals(client: { name: string; icp: ClientIcpExtended }): 
       jobTitles: personas, // CTO, CEO, Founder
       locations,
       companySizeFilters: sizes,
-      industryFilters: client.icp.industries ?? [],
+      industryFilters: mapIndustriesToLinkedin(client.icp.industries),
       maxJobAgeDays: 60,
       publishedDate: "30 days",
     },

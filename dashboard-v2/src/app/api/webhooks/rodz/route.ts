@@ -48,15 +48,13 @@ const DEFAULT_SCORE: Record<string, number> = {
 };
 
 // Signal types qu'on ignore à l'entrée du webhook pour ne pas polluer la DB.
-// Mesure 30/04 : signal-performance.ts montre que ces types finissent
-// systématiquement à score Opus 1-3 (pas d'intent réel pour DTL) :
-// - company-registration (4 triggers / score moy 2)
-// - mergers-acquisitions (1 trigger / score 3)
-// - company-followers / social-* / influencer-engagement / competitor-relationships
-// On répond 200 OK pour stopper les retries Rodz, mais on ne crée pas de Trigger.
+// Mesure 30/04 v3.6 incluait company-registration et mergers-acquisitions sur
+// la base de stats faussées par le bug underscore/tiret (v4.7 fix 01/05 :
+// avant fix, tous les Rodz tombaient en TriggerType.OTHER score 5 par défaut,
+// ce qui faussait l'évaluation Opus). 04/05 : ré-ouverture des 2 signaux
+// (qualify-trigger.ts donne déjà un score plancher 8 pour ces sources fiables).
+// Restent en LOW_VALUE uniquement les signaux sociaux pur bruit confirmé.
 const LOW_VALUE_SIGNAL_TYPES = new Set<string>([
-  "company-registration",
-  "mergers-acquisitions",
   "company-followers",
   "company-page-engagement",
   "social-mentions",
