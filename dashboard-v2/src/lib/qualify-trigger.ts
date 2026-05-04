@@ -56,24 +56,20 @@ function extractFullDescription(payload: unknown): string | null {
 // auraient évité Byron, WeFiiT, Onepoint, INFORMATIS, ChapsVision, Vif,
 // Deodis, Bizzdesign, L'Atelier, Hubvisory, Digistrat, Linkup Partner.
 const PRE_OPUS_REJECT_PATTERNS: Array<{ pattern: RegExp; label: string; field: "title" | "description" | "both" }> = [
-  // C4 — Régie ESN : "chez nos clients", "client final", "en régie",
-  // "dans le cadre d'un projet [chez/client/partenaire]", "en immersion chez",
-  // "intervention chez", "contrat de prestation chez"
+  // C4 — Régie ESN FR + EN : "chez nos clients", "at our client", etc.
   { pattern: /chez\s+(un\s+de\s+)?nos?\s+clients?|client\s+final|\ben\s+régie\b|sur\s+(le\s+)?site\s+du\s+client|consultant\s+en\s+régie|équipe.*chez\s+notre\s+client|mission\s+chez\s+(un\s+de\s+)?nos?\s+clients?|en\s+immersion\s+chez\s+nos?\s+(clients?|partenaires?)|dans\s+le\s+cadre\s+d['']un\s+projet\s+(chez|d['']envergure\s+chez|client)/i, label: "regie-esn", field: "description" },
-  // C5a — Freelance / portage / mission courte dans le titre = pas un pain
-  // QA pérenne, DTL vend du long terme. Aussi détecte "Independant".
-  { pattern: /\b(freelance|indépendant|en\s+portage|portage\s+salarial|mission\s+courte|consultant\s+indépendant)\b/i, label: "freelance-indep", field: "title" },
-  // C5b — Alternance / Stage / Apprenti dans le titre = recrutement junior,
-  // pas un signal d'investissement QA structurel.
-  { pattern: /\b(alternance|alternant|alternant\(e\)|apprenti|apprentissage|stage|stagiaire|stagiair\(e\))\b/i, label: "junior-contract", field: "title" },
-  // C5c — Présentiel obligatoire : DTL est offshore Bucarest 100% remote.
-  // Détecte "5 jours sur site", "100% présentiel", "aucun télétravail",
-  // "obligatoire au bureau", "PAS DE FULL REMOTE NI SOUS TRAITANCE" etc.
+  // M9 (04/05) — versions EN du pattern régie ESN
+  { pattern: /\bat\s+(our|one\s+of\s+our)\s+clients?\b|\bclient\s+site\b|\bon\s+behalf\s+of\s+(our|the)\s+client\b|\bembed(ded)?\s+(at|with)\s+(our|the)\s+client\b|\bdelegate(d)?\s+to\s+client\b|\bbody\s+shopping\b/i, label: "regie-esn-en", field: "description" },
+  // C5a — Freelance / portage / mission courte dans le titre (FR + EN)
+  { pattern: /\b(freelance|indépendant|en\s+portage|portage\s+salarial|mission\s+courte|consultant\s+indépendant|contractor|independant\s+contractor|self[- ]employed)\b/i, label: "freelance-indep", field: "title" },
+  // C5b — Alternance / Stage / Apprenti dans le titre (FR + EN)
+  { pattern: /\b(alternance|alternant|alternant\(e\)|apprenti|apprentissage|stage|stagiaire|stagiair\(e\)|intern|internship|trainee|apprentice)\b/i, label: "junior-contract", field: "title" },
+  // C5c — Présentiel obligatoire (FR + EN)
   { pattern: /présentiel\s+obligatoire|5\s*jours?\s+(sur\s+site|de\s+présentiel|au\s+bureau|en\s+présentiel)|100\s*%\s+(présentiel|sur\s+site|on.?site)|aucun\s+télétravail|pas\s+de\s+(full\s+)?remote|obligatoire\s+au\s+bureau|sur\s+place\s+chez\s+(un\s+de\s+)?nos?\s+clients?/i, label: "onsite-only", field: "description" },
-  // C5d — Mention oversize : si le texte annonce >250 collaborateurs/talents/
-  // employés, c'est qu'on est sur une boîte hors-ICP DTL (PME 11-200).
-  // 3 chiffres consécutifs avec mention de personnel.
-  { pattern: /(?:[2-9]\d{2,}|\d{4,})\s*(collaborateurs?|talents?|salariés?|consultants?|employees?|employés?)\b/i, label: "oversized-text", field: "description" },
+  // M9 (04/05) — versions EN du pattern présentiel
+  { pattern: /\b5\s*days?\s+(on[- ]?site|in\s+(the\s+)?office|at\s+(the\s+)?office|per\s+week\s+on[- ]?site)\b|\bon[- ]?site\s+(only|mandatory|required|obligatory|5\s*days)\b|\bno\s+(remote|telework|work[- ]?from[- ]?home|wfh)\b|\bfull[- ]?time\s+on[- ]?site\b|\bin[- ]?office\s+(only|mandatory|required)\b/i, label: "onsite-only-en", field: "description" },
+  // C5d — Mention oversize FR + EN
+  { pattern: /(?:[2-9]\d{2,}|\d{4,})\s*(collaborateurs?|talents?|salariés?|consultants?|employees?|employés?|people|staff\s+members?|professionals)\b/i, label: "oversized-text", field: "description" },
 ];
 
 function preOpusRejectScan(
