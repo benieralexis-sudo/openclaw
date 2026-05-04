@@ -109,6 +109,28 @@ export async function enrichLeadsViaLinkedInFinder(
       });
 
       if (found) {
+        // C9 — Cross-check LinkedIn URL slug vs firstName/lastName du Lead
+        // avant de poser. LinkedInFinder peut renvoyer le profil d'un homonyme
+        // ou d'un ex-employé. Voir bug Kestra (Pappers a posé Lafont, mais
+        // findLinkedInUrl peut résoudre ldehon-kestra car même boîte).
+        const { verifyPersonaCoherence } = await import("@/lib/verify-persona-coherence");
+        const linkedinCheck = verifyPersonaCoherence({
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          linkedinUrl: found.linkedinUrl,
+        });
+        if (!linkedinCheck.ok) {
+          console.warn(
+            `[linkedin-finder.C9] persona mismatch lead=${lead.id} firstName=${lead.firstName} lastName=${lead.lastName} linkedin=${found.linkedinUrl} reason=${linkedinCheck.reason}`,
+          );
+          await db.lead.update({
+            where: { id: lead.id },
+            data: { linkedinFinderAttemptedAt: attemptedAt },
+          });
+          result.bySource.none++;
+          continue;
+        }
+
         // Chaining Kaspr inline (audit 30/04) : on a un nouveau LinkedIn URL,
         // on appelle Kaspr immédiatement sur ce profil pour récupérer
         // workEmail + mobile FR. Évite d'attendre 1h le prochain run-pollers.

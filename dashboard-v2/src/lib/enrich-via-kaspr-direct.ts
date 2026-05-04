@@ -235,6 +235,31 @@ export async function enrichLeadsViaKasprDirect(
         foundSomething = true;
       }
       if (kasprWorkEmail && !lead.kasprWorkEmail) {
+        // C9 — Cross-check email vs firstName/lastName du Lead.
+        // Cas Kestra : Pappers a posé "Lafont" mais Kaspr résout ldehon@kestra.io
+        // (Ludovic Dehon, le VRAI CTO). Sans ce check, on stocke un email qui
+        // appartient à une AUTRE personne que le Lead. Pitch envoyé à Lafont
+        // arrive dans la boîte de Dehon → confusion totale.
+        const { verifyPersonaCoherence } = await import("@/lib/verify-persona-coherence");
+        const check = verifyPersonaCoherence({
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          email: kasprWorkEmail,
+        });
+        if (!check.ok) {
+          console.warn(
+            `[kaspr.C9] persona mismatch lead=${lead.id} firstName=${lead.firstName} lastName=${lead.lastName} email=${kasprWorkEmail} reason=${check.reason}`,
+          );
+          // Ne pose PAS l'email — il appartient à quelqu'un d'autre.
+          // Le commercial doit être alerté pour rectif manuelle (vrai contact à trouver).
+          // On marque kasprAttemptedAt pour ne pas re-tenter en boucle.
+          await db.lead.update({
+            where: { id: lead.id },
+            data: { kasprAttemptedAt: new Date() },
+          });
+          result.skipped++;
+          continue;
+        }
         updates.kasprWorkEmail = kasprWorkEmail;
         result.workEmailFound++;
         foundSomething = true;

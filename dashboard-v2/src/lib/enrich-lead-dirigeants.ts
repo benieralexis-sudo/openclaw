@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { getEntreprise, findHumanDirigeantRecursive } from "@/lib/pappers";
 import { splitFullName } from "@/lib/split-full-name";
+import { looksAdministrativeFirstName } from "@/lib/verify-persona-coherence";
 
 /**
  * Enrichissement Pappers dirigeants : pour chaque Trigger ICP qualifié sans Lead
@@ -373,6 +374,28 @@ export async function enrichDirigeantsForClient(
         where: { triggerId: t.id, deletedAt: null },
         select: { id: true },
       });
+
+      // C8 — Garde anti-Lead-fantôme : si le firstName Pappers contient 4+
+      // prénoms civils ("Denis Marc Auguste Andre Lafont") c'est un dirigeant
+      // statutaire RCS souvent NON décideur tech. Et si on est sur boîte mid+
+      // (>10 étabs), le RCS désigne rarement le bon contact opérationnel.
+      // Dans ce cas on N'ÉCRIT PAS le Lead — on attend HarvestAPI/manuel.
+      const looksAdmin = looksAdministrativeFirstName(firstName);
+      const isMidPlusBoite = bucket === "mid" || bucket === "large";
+      if (looksAdmin && isMidPlusBoite && !existingTriggerLead) {
+        console.log(
+          `[enrich-dirigeants.C8] skip Lead fantôme ${t.companyName}: firstName=${firstName} (${firstName?.split(/\s+/).length} prénoms civils) bucket=${bucket}. Attendre HarvestAPI/Rodz/manuel.`,
+        );
+        await db.trigger
+          .update({
+            where: { id: t.id },
+            data: { pappersDirigeantsAttemptedAt: new Date() },
+          })
+          .catch(() => {});
+        stats.skipped += 1;
+        continue;
+      }
+
       const jobTitleWithPath = personaLabel + holdingNote + sizeWarning;
       // personaSource pour traçabilité : pappers-holding-fallback si récursion
       // a été utilisée, sinon pappers-rcs niveau 1.
