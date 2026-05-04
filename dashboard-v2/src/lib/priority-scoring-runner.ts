@@ -27,7 +27,11 @@ export interface PriorityScoringRunResult {
   multiSourceCompanies: number;
 }
 
-const MULTI_SOURCE_WINDOW_DAYS = 7;
+// Fenêtre multi-source : élargie 7→14 jours le 04/05/2026 après audit
+// distribution (avg multiSourceBoost = 1.64/30 max théorique). 14j matche
+// la demi-vie freshnessScore et permet de capter plus de Combos cross-source
+// sans dénaturer le signal "vraiment multi-source en parallèle".
+const MULTI_SOURCE_WINDOW_DAYS = 14;
 
 /**
  * Recalcule les 3 champs sur tous les triggers actifs du client.
