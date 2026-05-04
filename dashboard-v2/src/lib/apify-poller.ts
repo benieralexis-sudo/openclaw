@@ -560,7 +560,11 @@ export async function pollApifyForClient(
   const useFranceJobs = options.useFranceJobs ?? false; // 28/04 deprecated
   const useLinkedin = options.useLinkedin ?? true;
   const useWttj = options.useWttj ?? true;
-  const useIndeed = options.useIndeed ?? true;
+  // Indeed FR ABANDON DÉFINITIF 03/05/2026 (commit 9acab836b — A/B test 4 stratégies
+  // échouées, actor misceres ne supporte pas filtre catégorie Quality Assurance,
+  // 90% bruit industriel/aérospatial). Verrou dur ici : ignore options.useIndeed.
+  // Pour ressusciter (nouveau actor catégorisable), changer manuellement cette ligne.
+  const useIndeed = false;
 
   const client = await db.client.findUnique({
     where: { id: clientId },
