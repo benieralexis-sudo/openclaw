@@ -329,15 +329,28 @@ SIGNAL :
     return null;
   }
 
+  // Fix M2 (04/05) — Ordre Fix L AVANT plancher trusted-source.
+  // Avant : Opus → plancher (avec C2 condition secteur) → Fix L hedging.
+  // Le plancher pouvait écraser un score Opus 4 vers 8 (NAF match), puis
+  // Fix L redescendait à 4 si reason contenait "hors ICP". Si Opus n'écrivait
+  // pas "hors ICP" mais juste "data incomplete" sans justification ICP, le
+  // score restait à 8 indûment. Redondance fragile.
+  // Maintenant : Fix L PUIS plancher. Si Opus a hedgé → on garde son verdict
+  // (le plancher ne s'applique pas à un trigger downgradé). Plus propre.
+
+  // Fix L — Détection hedging Opus (override final si "hors ICP" / "atypique" etc.)
+  const hedged = detectOpusHedging(opusScore, reason);
+  if (hedged.matchedLabel) {
+    console.log(
+      `[qualify-trigger.fix-L] ${triggerId}: ${opusScore} → ${hedged.score} (hedging:${hedged.matchedLabel}${hedged.softened ? "/soft" : ""})`,
+    );
+    opusScore = hedged.score;
+    reason = hedged.reason;
+  }
+
   // Plancher de score pour sources fiables (signal d'achat fort garanti).
-  // Une levée de fonds = cash frais + recrutements imminents + pression scaling
-  // = signal d'achat majeur, mérite score 8. Job change CTO/Tech Lead idem.
-  //
-  // CONDITION 04/05 (C2) : le plancher s'applique UNIQUEMENT si secteur ICP-fit.
-  // Une levée Audion (AdTech), Decade Energy (renewable), cobl (commerce gros)
-  // ou HrFlow.ai (RH) ne mérite PAS un score 8 forcé pour DTL — ce ne sont pas
-  // des éditeurs SaaS B2B / ESN tech. Sans ce check, le plancher trusted écrasait
-  // l'analyse fine d'Opus et rendait Fix L obligé de rattraper en aval.
+  // CONDITION 04/05 (C2) : s'applique UNIQUEMENT si secteur ICP-fit.
+  // M2 (04/05) : appliqué APRÈS Fix L pour ne pas écraser un downgrade hedging.
   const TRUSTED_SOURCES_MIN_SCORE: Record<string, number> = {
     "rodz.fundraising": 8,                    // levée = jackpot
     "rodz.mergers-acquisitions": 8,           // M&A = restructuring
@@ -346,19 +359,17 @@ SIGNAL :
     "trigger-engine.funding-recent": 8,       // levée détectée RSS presse spé
   };
   const minFloor = TRUSTED_SOURCES_MIN_SCORE[trigger.sourceCode];
-  if (minFloor && opusScore < minFloor) {
-    // Check 1 : NAF dans la whitelist ICP du client (icp.naf_codes)
+  // M2 : si Fix L a déjà downgrade (hedged.matchedLabel) → ne PAS appliquer le
+  // plancher. Le hedging est une preuve qu'Opus a vu un mismatch ICP, on respecte.
+  if (minFloor && opusScore < minFloor && !hedged.matchedLabel) {
     const icpNafCodes = (icp.naf_codes as string[] | undefined) ?? [];
     const naf = (trigger.companyNaf ?? "").replace(/\./g, "");
     const nafMatchIcp = icpNafCodes.some((c) => naf.startsWith(c.replace(/\./g, "")));
-    // Check 2 : industry annoncée par la source contient un mot-clé ICP
     const icpIndustries = (icp.industries as string[] | undefined) ?? [];
     const industryStr = (trigger.industry ?? "").toLowerCase();
     const industryMatchIcp = icpIndustries.some((i) =>
       industryStr.includes(i.toLowerCase().split(/\s/)[0] ?? ""),
     );
-    // Si AUCUN des deux signaux ICP-fit, on ne force PAS le plancher.
-    // Le score Opus reste tel quel — Fix L et l'analyse fine décident.
     if (nafMatchIcp || industryMatchIcp) {
       reason = `[Score plancher ${minFloor}/10 source fiable + secteur ICP] ${reason}`;
       opusScore = minFloor;
@@ -367,17 +378,6 @@ SIGNAL :
         `[qualify-trigger.C2] ${triggerId}: plancher ${minFloor} NON appliqué (secteur hors ICP) sourceCode=${trigger.sourceCode} naf=${trigger.companyNaf} industry=${trigger.industry}`,
       );
     }
-  }
-
-  // Fix L — Override le plancher trusted-source si Opus a détecté un mismatch
-  // ICP dans sa propre reason. Évite "Audion 8 Rodz fundraising hors ICP édition".
-  const hedged = detectOpusHedging(opusScore, reason);
-  if (hedged.matchedLabel) {
-    console.log(
-      `[qualify-trigger.fix-L] ${triggerId}: ${opusScore} → ${hedged.score} (hedging:${hedged.matchedLabel}${hedged.softened ? "/soft" : ""})`,
-    );
-    opusScore = hedged.score;
-    reason = hedged.reason;
   }
 
   const isHot = opusScore >= 9;

@@ -148,13 +148,21 @@ export async function detectCombosForClient(
     if (!target.isCombo || target.score < Math.min(10, target.score + 2)) {
       const newScore = Math.min(10, target.score + 2);
       const isHot = newScore >= 9;
+      // Fix M1 (04/05) — Préserver le scoreReason d'Opus en concaténant.
+      // Avant : "Combo détecté : rodz + apify sur X" écrasait totalement la
+      // justification ICP fine d'Opus → traçabilité perdue, le commercial ne
+      // sait plus pourquoi le lead était bon à la base.
+      const comboLabel = `[Combo ${[...sources].join("+")}]`;
+      const preservedReason = target.scoreReason
+        ? `${comboLabel} ${target.scoreReason}`.slice(0, 500)
+        : `${comboLabel} sur ${target.companyName}`;
       await db.trigger.update({
         where: { id: target.id },
         data: {
           isCombo: true,
           score: newScore,
           isHot,
-          scoreReason: `Combo détecté : ${[...sources].join(" + ")} sur ${target.companyName}`,
+          scoreReason: preservedReason,
         },
       });
       // Flag isCombo=true sur les autres aussi (pour traçabilité)
