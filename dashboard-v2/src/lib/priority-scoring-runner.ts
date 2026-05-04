@@ -48,6 +48,7 @@ export async function recomputePriorityScoresForClient(
     select: {
       id: true,
       score: true,
+      isHot: true, // Fix H5 — pour comparer avant/après
       sourceCode: true,
       capturedAt: true,
       companySiret: true,
@@ -98,10 +99,32 @@ export async function recomputePriorityScoresForClient(
       topPriorityScore = priorityScore;
     }
 
+    // Fix H5 (04/05) — Re-calcul isHot avec gate freshness.
+    // Avant : isHot = (score >= 9), figé à la création du trigger.
+    // Conséquence : 5 Pépites du brief 04/05 (WeWard 35j, Sêmeia 31j,
+    // PIXID 56j, Viaxoft 42j, OneStock 30j) restaient Brûlantes alors
+    // que les offres LinkedIn sont probablement closes après 30+ jours.
+    // Maintenant : isHot = (score >= 9) AND (freshnessScore >= 50).
+    // Demi-vie freshness 14j → freshness=50 atteint à ~10j d'âge.
+    // Donc isHot ne tient que ~10j après publication, ce qui correspond
+    // à la réalité d'une offre LinkedIn fraîche.
+    // EXCEPTION : qa-stuck-scanner pose explicitement isHot=true sur
+    // des offres anciennes 30-90j (frustration recrutement = signal
+    // d'externalisation). On préserve ce cas via le marqueur QA-STUCK
+    // dans scoreReason.
+    const HOT_FRESHNESS_THRESHOLD = 50;
+    const newIsHot = t.score >= 9 && freshnessScore >= HOT_FRESHNESS_THRESHOLD;
+
     try {
       await db.trigger.update({
         where: { id: t.id },
-        data: { freshnessScore, multiSourceBoost, priorityScore },
+        data: {
+          freshnessScore,
+          multiSourceBoost,
+          priorityScore,
+          // Re-pose isHot uniquement si change ET pas un cas QA-STUCK manuel
+          ...(newIsHot !== t.isHot ? { isHot: newIsHot } : {}),
+        },
       });
       updated += 1;
     } catch {
