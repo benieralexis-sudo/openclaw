@@ -43,6 +43,62 @@ function extractFullDescription(payload: unknown): string | null {
   return null;
 }
 
+// Fix L — Détection des "aveux d'hedging" dans la reason d'Opus.
+// Quand Opus donne un score >=7 mais avoue dans sa reason un mismatch ICP
+// ("hors ICP", "non whitelist", "grand groupe", "atypique"…), on downgrade.
+// Override le plancher trusted-sources : une levée Rodz scorée 8 sur
+// "Audion AdTech hors ICP édition logiciels" doit retomber à 4.
+//
+// Sévérité variable selon présence d'un marqueur ICP positif fort :
+// - Hedging seul → hard downgrade vers 4 (Audion, cobl, HrFlow)
+// - Hedging + marqueur positif ("ICP fit", "parfait match", "signal QA fort")
+//   → soft downgrade -2 min 5 (Kestra "ICP-fit software Paris mais NAF atypique"
+//   reste à 6, ne tombe pas en rejet — Kestra est notre seul WON 30j).
+const HEDGING_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /hors\s+ICP/i, label: "hors-icp" },
+  { pattern: /non\s+whitelist/i, label: "non-whitelist" },
+  { pattern: /NAF\s+(?:non\s+)?(?:whitelist|atypique)/i, label: "naf-atypique" },
+  { pattern: /\bdata\s+(?:incomplete|incomplet|manquante)/i, label: "data-incomplete" },
+  { pattern: /\bà\s+(?:valider|confirmer)\s+manuellement/i, label: "a-valider-manuel" },
+  { pattern: /\bgrand\s+groupe\b/i, label: "grand-groupe" },
+  { pattern: />\s?(?:200|250|300|500|1000|2000|5000|10000)\s?p\b/i, label: "oversized" },
+  { pattern: /(?:[2-9]|[1-9]\d)\s?\d{3}\s+(?:collaborateurs|talents|salariés|consultants|employees|employés)/i, label: "oversized-text" },
+  { pattern: /signal\s+faible/i, label: "signal-faible" },
+  { pattern: /hire\s+(?:généraliste|junior)\s+non\s+QA/i, label: "hire-non-qa" },
+  { pattern: /industrie\s+non\s+résolu/i, label: "industrie-non-resolue" },
+];
+const POSITIVE_ICP_MARKERS: RegExp[] = [
+  /\bICP[-\s]+(?:fit|parfait|match)/i,
+  /parfait\s+match\s+ICP/i,
+  /match\s+(?:parfait\s+)?ICP/i,
+  /signal\s+QA\s+fort/i,
+  /ICP\s+fit\s+software/i,
+];
+const HEDGING_HARD_FLOOR = 4;
+const HEDGING_SOFT_DELTA = 2;
+const HEDGING_SOFT_MIN = 5;
+function detectOpusHedging(
+  score: number,
+  reason: string,
+): { score: number; reason: string; matchedLabel: string | null; softened: boolean } {
+  if (score < 7) return { score, reason, matchedLabel: null, softened: false };
+  const hasPositiveMarker = POSITIVE_ICP_MARKERS.some((p) => p.test(reason));
+  for (const { pattern, label } of HEDGING_PATTERNS) {
+    if (pattern.test(reason)) {
+      const newScore = hasPositiveMarker
+        ? Math.max(score - HEDGING_SOFT_DELTA, HEDGING_SOFT_MIN)
+        : Math.min(score, HEDGING_HARD_FLOOR);
+      return {
+        score: newScore,
+        reason: `[Fix L hedging:${label}${hasPositiveMarker ? "/soft" : ""}] ${reason}`,
+        matchedLabel: label,
+        softened: hasPositiveMarker,
+      };
+    }
+  }
+  return { score, reason, matchedLabel: null, softened: false };
+}
+
 // Bloc stable cacheable (≥1024 tokens). Préambule iFIND + voice + scoring rubric.
 // Anthropic prompt caching réduit les coûts de 90% sur les blocs cachés (TTL 5min).
 const SYSTEM = `# Contexte iFIND Trigger Engine FR
@@ -201,6 +257,17 @@ SIGNAL :
   if (minFloor && opusScore < minFloor) {
     reason = `[Score plancher ${minFloor}/10 source fiable] ${reason}`;
     opusScore = minFloor;
+  }
+
+  // Fix L — Override le plancher trusted-source si Opus a détecté un mismatch
+  // ICP dans sa propre reason. Évite "Audion 8 Rodz fundraising hors ICP édition".
+  const hedged = detectOpusHedging(opusScore, reason);
+  if (hedged.matchedLabel) {
+    console.log(
+      `[qualify-trigger.fix-L] ${triggerId}: ${opusScore} → ${hedged.score} (hedging:${hedged.matchedLabel}${hedged.softened ? "/soft" : ""})`,
+    );
+    opusScore = hedged.score;
+    reason = hedged.reason;
   }
 
   const isHot = opusScore >= 9;
