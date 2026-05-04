@@ -262,7 +262,8 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
   // domainMatchesCompany() (helper TS), si mismatch on vide email + flag
   // doNotContact avec raison traçable.
   // ─────────────────────────────────────────────
-  const { domainMatchesCompany } = await import("@/lib/verify-persona-coherence");
+  const { domainMatchesCompany, verifyPersonaCoherence } =
+    await import("@/lib/verify-persona-coherence");
   const candidates = await db.lead.findMany({
     where: {
       deletedAt: null,
@@ -274,24 +275,54 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
         { doNotContact: false }, // déjà flag = skip
       ],
     },
-    select: { id: true, email: true, companyName: true, kasprWorkEmail: true, emailFullenrich: true },
+    select: {
+      id: true,
+      email: true,
+      companyName: true,
+      firstName: true,
+      lastName: true,
+      kasprWorkEmail: true,
+      emailFullenrich: true,
+    },
   });
   let cleaned = 0;
   for (const c of candidates) {
-    const check = domainMatchesCompany({ email: c.email!, companyName: c.companyName });
-    if (!check.ok && check.reason === "domain_mismatch") {
+    // Check 1 : email domain matche-t-il le companyName ? (Fix C1 — ex-employeur)
+    const domainCheck = domainMatchesCompany({ email: c.email!, companyName: c.companyName });
+    let badReason: string | null = null;
+    let badDetails: string | null = null;
+    if (!domainCheck.ok && domainCheck.reason === "domain_mismatch") {
+      badReason = "email_domain_mismatch_ex_employer";
+      badDetails = domainCheck.details ?? "";
+    } else {
+      // Check 2 (Fix H4 04/05) : email local-part matche-t-il firstName/lastName ?
+      // Cas Kestra : firstName=Lafont (Pappers RCS) + email=ldehon@kestra.io
+      // (Ludovic Dehon, vrai CTO résolu par Kaspr/Rodz contact). Domain OK
+      // (kestra.io match Kestra) MAIS persona mismatch (Lafont != ldehon).
+      // verifyPersonaCoherence détecte ce cas : ni "lafont" ni "denis"/"marc"
+      // /"auguste"/"andre" n'est dans "ldehon".
+      const personaCheck = verifyPersonaCoherence({
+        firstName: c.firstName,
+        lastName: c.lastName,
+        email: c.email,
+      });
+      if (!personaCheck.ok) {
+        badReason = "email_persona_mismatch_wrong_person";
+        badDetails = personaCheck.details ?? "";
+      }
+    }
+    if (badReason) {
       console.warn(
-        `[heal.C1] ex-employer email lead=${c.id} company="${c.companyName}" email=${c.email} (${check.details})`,
+        `[heal.${badReason === "email_domain_mismatch_ex_employer" ? "C1" : "H4"}] lead=${c.id} company="${c.companyName}" firstName=${c.firstName} lastName=${c.lastName} email=${c.email} (${badDetails})`,
       );
       await db.lead.update({
         where: { id: c.id },
         data: {
           email: null,
-          // si autres sources email étaient le même mismatch, vider aussi
           ...(c.kasprWorkEmail === c.email ? { kasprWorkEmail: null } : {}),
           ...(c.emailFullenrich === c.email ? { emailFullenrich: null } : {}),
           doNotContact: true,
-          doNotContactReason: `email_domain_mismatch_ex_employer:${check.details ?? ""}`.slice(0, 200),
+          doNotContactReason: `${badReason}:${badDetails ?? ""}`.slice(0, 200),
           doNotContactAt: new Date(),
         },
       });
