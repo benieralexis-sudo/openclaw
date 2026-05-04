@@ -118,7 +118,7 @@ iFIND n'agrège PAS de signaux flous (visites web, downloads anonymes). iFIND d�
 1. **Attribution SIRENE Pappers** : chaque trigger est rattaché à un SIREN officiel.
 2. **13 patterns combinatoires** : un signal isolé vaut peu, un combo (levée + hire + ad) vaut beaucoup.
 3. **Boosters v1.1** : combo cross-sources ×2.5, hot triggers <48h +1.5, declarative pain +2.
-4. **Filtre ICP strict** : par défaut Tech/SaaS/ESN, taille 11-200p, NAF whitelist (58.29*, 62.0*, 63.*, 70.22Z, 71.12B), régions FR.
+4. **Filtre ICP strict** : par défaut Tech/SaaS/ESN, taille 11-200p, NAF whitelist (58.29*, 62.0*, 63.*, 70.22Z), régions FR.
 
 ## Mission de qualification
 Tu reçois un Trigger fraîchement capté + l'ICP du client. Tu dois retourner un score 1-10 strict + une raison courte.

@@ -600,7 +600,10 @@ export async function enrichRecentTriggersWithSirene(
 
   // Cleanup post-enrichissement : supprimer triggers avec NAF non-tech.
   // Whitelist NAF tech : 58.29* (édition logiciels), 62.0* (services info),
-  // 63.* (traitement données), 70.22Z (conseil affaires), 71.12B (ingénierie).
+  // 63.* (traitement données), 70.22Z (conseil affaires).
+  // 71.12B (ingénierie industrielle) RETIRÉ 04/05 — laissait passer B-HIVE,
+  // CTS Consulting (aérospatial), TechnicAtome, Ekium, Nepsen, Sophia Engineering,
+  // SETELIA, Klanik, INGELIANCE etc. = ESN industrielles hors ICP DTL Tech/SaaS.
   // Déclenche uniquement si l'ICP du client a `industries` qui ressemble à tech/SaaS.
   const client = await db.client.findUnique({
     where: { id: clientId },
@@ -612,7 +615,7 @@ export async function enrichRecentTriggersWithSirene(
   );
   if (!isTechIcp) return stats;
 
-  const techNafPrefixes = ["58.29", "62.0", "62.01", "62.02", "62.03", "63.1", "63.99", "70.22", "71.12B"];
+  const techNafPrefixes = ["58.29", "62.0", "62.01", "62.02", "62.03", "63.1", "63.99", "70.22"];
   // Sources fiables : on EXEMPTE du pruning NAF strict.
   // Rodz fundraising = la boîte a levé, c'est qualifié à la source.
   // BODACC capital_increase = augmentation de capital officielle.
