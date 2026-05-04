@@ -338,6 +338,37 @@ export async function enrichDirigeantsForClient(
           }
         : {};
 
+      // Fix M — Gate hard sur boîtes hors-ICP PME 11-200p.
+      // ALTEN 39169p, Capgemini, Sanofi, SPIE, Solutec 22 étabs, Smile 80M€…
+      // Pappers nous donne la taille MAIS le bot ne la regarde pas avant de
+      // pousser le lead à Fred. Si CA > 50M€ OU étabs > 20 → ARCHIVED auto
+      // + downgrade Trigger.score à 3 (cohérence dashboard).
+      const OVERSIZED_REVENUE_THRESHOLD = 50_000_000; // 50M€
+      const OVERSIZED_ETABS_THRESHOLD = 20;
+      const isOversized =
+        (companyRevenue !== null && companyRevenue > OVERSIZED_REVENUE_THRESHOLD) ||
+        (companyEtabsCount !== null && companyEtabsCount > OVERSIZED_ETABS_THRESHOLD);
+      const oversizedFields = isOversized
+        ? { status: "ARCHIVED" as const }
+        : {};
+      if (isOversized) {
+        const sizeStr = `${companyEtabsCount ?? "?"} étabs / ${
+          companyRevenue !== null ? Math.round(companyRevenue / 1_000_000) + "M€" : "?€"
+        } CA`;
+        console.log(
+          `[enrich-dirigeants.fix-M] ARCHIVED ${t.companyName}: ${sizeStr} (hors ICP PME 11-200p)`,
+        );
+        await db.trigger
+          .update({
+            where: { id: t.id },
+            data: {
+              score: 3,
+              scoreReason: `[Fix M oversized:${sizeStr}] Hors ICP PME 11-200p — archivé auto`,
+            },
+          })
+          .catch(() => {});
+      }
+
       const existingTriggerLead = await db.lead.findFirst({
         where: { triggerId: t.id, deletedAt: null },
         select: { id: true },
@@ -365,6 +396,7 @@ export async function enrichDirigeantsForClient(
         ...(companyEtabsCount !== null ? { companyEtabsCount } : {}),
         ...(recentDepots.length > 0 ? { companyRecentDepots: recentDepots } : {}),
         ...blockOutreachOnLargeCo,
+        ...oversizedFields,
       };
       if (existingTriggerLead) {
         await db.lead.update({
@@ -380,7 +412,7 @@ export async function enrichDirigeantsForClient(
             ...enrichedFields,
             companyName: t.companyName,
             companySiret: t.companySiret,
-            status: "NEW",
+            status: isOversized ? "ARCHIVED" : "NEW",
           },
         });
       }
