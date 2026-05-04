@@ -7,6 +7,7 @@ import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
 import { detectCombosForClient } from "@/lib/combo-detector";
 import { recomputePriorityScoresForClient } from "@/lib/priority-scoring-runner";
 import { recomputeFitScoresForClient } from "@/lib/persona-fit-runner";
+import { recomputePersonaTierFromHeadlineForClient } from "@/lib/recompute-persona-tier-from-headline-runner";
 import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
 import { enrichDecisionMakersForClient } from "@/lib/harvestapi-decision-makers";
 import { enrichLeadsViaFullEnrich } from "@/lib/enrich-via-fullenrich";
@@ -290,6 +291,39 @@ export async function POST(req: NextRequest) {
           (entry as { linkedinFinder?: unknown }).linkedinFinder = lif;
         } catch (e) {
           (entry as { linkedinFinderError?: string }).linkedinFinderError =
+            e instanceof Error ? e.message : String(e);
+        }
+        // ────────────────────────────────────────────────────────────
+        // Sprint 1, 04/05/2026 — Upgrade personaTier depuis headline LinkedIn
+        // ────────────────────────────────────────────────────────────
+        // Bug Paul Vidal résolu : Pappers RCS écrit qualite="Angel Investor"
+        // pour des CTO Co-founders → personaTier reste null/3 alors que le
+        // headline LinkedIn dit "Co-founder & CTO". Tourne APRÈS linkedinFinder
+        // (qui enrichit linkedinProfileJson) et AVANT le re-recompute fitScore
+        // pour que le fit utilise le tier upgradé. UPGRADE-only (jamais downgrade).
+        try {
+          const tierUp = await recomputePersonaTierFromHeadlineForClient(c.id);
+          (entry as { tierUpgrade?: unknown }).tierUpgrade = {
+            scanned: tierUp.scanned,
+            upgraded: tierUp.upgraded,
+            skipped: tierUp.skipped,
+            errors: tierUp.errors,
+            // Limite log à 5 details pour ne pas exploser le summary
+            sample: tierUp.upgradeDetails.slice(0, 5),
+          };
+        } catch (e) {
+          (entry as { tierUpgradeError?: string }).tierUpgradeError =
+            e instanceof Error ? e.message : String(e);
+        }
+        // Recompute fitScore APRÈS tier upgrade pour appliquer le nouveau base
+        // (Tier 1 base 60 vs Tier 3 base 35). Sinon le fit sortirait obsolète
+        // jusqu'au prochain cron 1h.
+        try {
+          const fitAfterTier = await recomputeFitScoresForClient(c.id);
+          (entry as { fitAfterTierUpgrade?: unknown }).fitAfterTierUpgrade =
+            fitAfterTier;
+        } catch (e) {
+          (entry as { fitAfterTierUpgradeError?: string }).fitAfterTierUpgradeError =
             e instanceof Error ? e.message : String(e);
         }
         // Cross-source merge — propage LinkedIn/email/phone entre Leads
