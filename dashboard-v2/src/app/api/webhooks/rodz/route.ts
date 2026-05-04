@@ -313,7 +313,7 @@ export async function POST(req: NextRequest) {
   // 6.0) Dédup : Rodz peut renvoyer le même payload (retry sur timeout).
   // Si un Trigger existe déjà avec (clientId, companyName, sourceCode) dans les 7j,
   // on ne crée pas de doublon — on retourne 200 pour que Rodz arrête les retries.
-  const sourceCode = `rodz.${payload.signal.type}`;
+  const sourceCode = `rodz.${normalizedSignalType}`;
   const since = new Date(Date.now() - 7 * 24 * 3600 * 1000);
   const existing = await db.trigger.findFirst({
     where: {
@@ -333,7 +333,7 @@ export async function POST(req: NextRequest) {
   const trigger = await db.trigger.create({
     data: {
       clientId: dbSignal.clientId,
-      sourceCode: `rodz.${payload.signal.type}`,
+      sourceCode,
       sourceUrl:
         typeof payload.signal.article_source_url === "string"
           ? payload.signal.article_source_url
