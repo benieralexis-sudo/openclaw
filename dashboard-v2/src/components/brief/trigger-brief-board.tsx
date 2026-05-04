@@ -89,6 +89,8 @@ interface TriggerData {
     // Multi-source emails
     emailRodz?: string | null;
     emailSourceCount?: number;
+    emailConfidence?: number | null;
+    emailStatus?: string | null;
     bouncedAt?: string | null;
     bouncedFromEmail?: string | null;
     // RGPD opt-out
@@ -352,17 +354,40 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
               }
               return null;
             })()}
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => setSendOpen(true)}
-              disabled={!lead.email}
-              className="gap-1.5"
-              title={lead.email ?? "Pas d'email destinataire enrichi"}
-            >
-              <Send className="h-3.5 w-3.5" />
-              Envoyer email
-            </Button>
+            {(() => {
+              // Fix H10 (04/05) — Désactive "Envoyer email" si risque deliverability.
+              // Avant : seul `!lead.email` désactivait. Mais email pattern guess
+              // (confidence=50) ou bounced ou DNC → bouton actif → Fred bulk-send →
+              // bounce 15-30% → blacklist Primeforge garantie.
+              const hasEmail = !!lead.email;
+              const lowConfidence =
+                typeof lead.emailConfidence === "number" && lead.emailConfidence < 50;
+              const isBounced = !!lead.bouncedAt;
+              const isDnc = !!lead.doNotContact;
+              const blocked = !hasEmail || lowConfidence || isBounced || isDnc;
+              const blockedReason = !hasEmail
+                ? "Pas d'email destinataire enrichi"
+                : isDnc
+                  ? `Désinscrit (${lead.doNotContactReason ?? "manuel"})`
+                  : isBounced
+                    ? `Email a bouncé (${lead.bouncedFromEmail ?? lead.email})`
+                    : lowConfidence
+                      ? `Confiance email faible (${lead.emailConfidence}/100) — risque bounce`
+                      : (lead.email ?? "");
+              return (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => setSendOpen(true)}
+                  disabled={blocked}
+                  className="gap-1.5"
+                  title={blockedReason}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Envoyer email
+                </Button>
+              );
+            })()}
           </div>
         )}
       </div>
