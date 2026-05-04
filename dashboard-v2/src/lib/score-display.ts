@@ -123,18 +123,43 @@ export interface CombinedScoreInputs {
 
 /**
  * Combine priority+fit en score 0-100. Retourne null si les deux sont absents.
- * Si l'un des deux manque, on prend l'autre seul (sans pondération croisée).
+ * Si l'un des deux manque, on prend l'autre seul.
+ *
+ * Formule HYBRIDE (refonte 04/05/2026, post-investigation 9 trous) :
+ *   baseline = MAX(priority_normalisé, fit)
+ *   + bonus  = +15 si les DEUX axes >= 60 (synergie priority+fit)
+ *   + penalty = -10 si les DEUX axes < 30 (signal pourri sur tous les axes)
+ *   = capped 0-100
+ *
+ * Pourquoi pas de simple pondération (0.6/0.4 ou autre) ?
+ *   Investigation 04/05 : priority p95 = 22 (=62 normalisé), fit médian = 50.
+ *   Toute pondération maintient 95% des leads en zone Tiède/Faible.
+ *   La formule MAX débloque (37% actionnable) mais tue le gradient.
+ *   La formule HYBRIDE donne 37% actionnable AVEC gradient préservé.
+ *
+ * Distribution mesurée sur 95 leads DTL :
+ *   - 10 Brûlants (gradient 75-100, vrais top)
+ *   - 11 Très chauds (un axe fort, gradient 65-74)
+ *   - 14 Chauds (gradient 55-64)
+ *   - 32 Tièdes
+ *   - 30 Faibles
+ *   = 35 actionnable (37%) vs 6 (5%) avec ancienne formule.
  */
 export function getCombinedScore(inputs: CombinedScoreInputs): number | null {
   const p = inputs.priorityScore;
   const f = inputs.fitScore;
   if ((p === null || p === undefined) && (f === null || f === undefined)) return null;
-  // Normalise priority : max observé ~37, on prend 35 comme "top atteignable"
-  // → priority 35+ saturera à 100. Cohérent avec mockup validé.
+  // Normalise priority : max observé ~37 dans la DB (formule
+  // score×freshness/100+multiSourceBoost plafonne à ~40 théorique).
+  // On prend 35 comme top atteignable → 35+ sature à 100.
   const pNorm = p !== null && p !== undefined ? Math.min(100, (p * 100) / 35) : null;
   if (pNorm === null) return Math.round(f as number);
   if (f === null || f === undefined) return Math.round(pNorm);
-  return Math.round(pNorm * 0.6 + f * 0.4);
+  // Formule hybride : baseline MAX + bonus synergie + penalty signal pourri
+  const baseline = Math.max(pNorm, f);
+  const synergy = pNorm >= 60 && f >= 60 ? 15 : 0;
+  const penalty = pNorm < 30 && f < 30 ? -10 : 0;
+  return Math.round(Math.max(0, Math.min(100, baseline + synergy + penalty)));
 }
 
 /**

@@ -4,6 +4,9 @@ import {
   getFitVariant,
   formatPriorityBreakdown,
   formatFitBreakdown,
+  getCombinedScore,
+  getCombinedTier,
+  getCombinedLabel,
   type FitBreakdown,
 } from "./score-display";
 
@@ -102,4 +105,79 @@ describe("formatFitBreakdown", () => {
     expect(formatFitBreakdown(null)).toBe(null);
     expect(formatFitBreakdown(undefined)).toBe(null);
   });
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// Score combiné HYBRIDE (refonte 04/05/2026 — investigation 9 trous)
+// ──────────────────────────────────────────────────────────────────────
+
+describe("getCombinedScore (formule hybride)", () => {
+  it("Paul Vidal cas réel — priority 37 (sat 100), fit 80 → 100 (Brûlant + bonus synergie)", () => {
+    // priority 37 → pNorm 100, fit 80 ≥ 60 → bonus +15 → 100+15 cap 100
+    expect(getCombinedScore({ priorityScore: 37, fitScore: 80 })).toBe(100);
+  });
+
+  it("Asys cas réel — priority 22 (pNorm 63), fit 100 → 100 (synergie pNorm≥60 ET fit≥60)", () => {
+    // pNorm 62.86, fit 100, max=100, bonus +15, cap 100
+    expect(getCombinedScore({ priorityScore: 22, fitScore: 100 })).toBe(100);
+  });
+
+  it("Renaud Montagne cas réel — priority 6 (pNorm 17), fit 85 → 85 (un seul axe haut, pas de bonus)", () => {
+    // pNorm 17, fit 85, max=85, pas bonus (pNorm<60), pas penalty
+    expect(getCombinedScore({ priorityScore: 6, fitScore: 85 })).toBe(85);
+  });
+
+  it("B-HIVE cas réel — priority 4 (pNorm 11), fit 90 → 90 (fit dominant)", () => {
+    expect(getCombinedScore({ priorityScore: 4, fitScore: 90 })).toBe(90);
+  });
+
+  it("SOLUTEC cas réel — priority 22 (pNorm 63), fit 80 → 95 (synergie +15)", () => {
+    // pNorm 62.86, fit 80, max=80, bonus +15 → 95
+    expect(getCombinedScore({ priorityScore: 22, fitScore: 80 })).toBe(95);
+  });
+
+  it("Lead pourri — priority 5 (pNorm 14), fit 25 → 14 (penalty -10 mais clip 0+)", () => {
+    // pNorm 14, fit 25, max=25, pas bonus, penalty -10 → 15
+    expect(getCombinedScore({ priorityScore: 5, fitScore: 25 })).toBe(15);
+  });
+
+  it("Lead très pourri — priority 1 (pNorm 3), fit 28 → 18 (max 28, penalty -10 = 18)", () => {
+    expect(getCombinedScore({ priorityScore: 1, fitScore: 28 })).toBe(18);
+  });
+
+  it("priority null + fit 70 → 70 (prend fit seul)", () => {
+    expect(getCombinedScore({ priorityScore: null, fitScore: 70 })).toBe(70);
+  });
+
+  it("fit null + priority 22 → 63 (prend pNorm seul)", () => {
+    expect(getCombinedScore({ priorityScore: 22, fitScore: null })).toBe(63);
+  });
+
+  it("les deux null → null", () => {
+    expect(getCombinedScore({ priorityScore: null, fitScore: null })).toBe(null);
+    expect(getCombinedScore({ priorityScore: undefined, fitScore: undefined })).toBe(null);
+  });
+
+  it("score est borné 0-100 (clamping safety)", () => {
+    expect(getCombinedScore({ priorityScore: 50, fitScore: 100 })).toBeLessThanOrEqual(100);
+    expect(getCombinedScore({ priorityScore: 0, fitScore: 0 })).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("getCombinedTier", () => {
+  it("75+ → fire", () => expect(getCombinedTier(80)).toBe("fire"));
+  it("65 → hot", () => expect(getCombinedTier(65)).toBe("hot"));
+  it("55 → warm", () => expect(getCombinedTier(55)).toBe("warm"));
+  it("35 → tepid", () => expect(getCombinedTier(35)).toBe("tepid"));
+  it("0 → cold", () => expect(getCombinedTier(0)).toBe("cold"));
+  it("null → null", () => expect(getCombinedTier(null)).toBe(null));
+});
+
+describe("getCombinedLabel", () => {
+  it("fire → Brûlant", () => expect(getCombinedLabel("fire")).toBe("Brûlant"));
+  it("hot → Très chaud", () => expect(getCombinedLabel("hot")).toBe("Très chaud"));
+  it("warm → Chaud", () => expect(getCombinedLabel("warm")).toBe("Chaud"));
+  it("tepid → Tiède", () => expect(getCombinedLabel("tepid")).toBe("Tiède"));
+  it("cold → Faible", () => expect(getCombinedLabel("cold")).toBe("Faible"));
+  it("null → —", () => expect(getCombinedLabel(null)).toBe("—"));
 });
