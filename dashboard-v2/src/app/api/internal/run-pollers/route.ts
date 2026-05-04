@@ -24,6 +24,7 @@ import { enrichLeadsViaLinkedInFinder } from "@/lib/enrich-via-linkedin-finder";
 import { mergeDuplicatePersonaLeads } from "@/lib/dedup-persona-leads";
 import { detectGrowthAlertsForClient } from "@/lib/growth-detector";
 import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
+import { pollFranceTravailForClient } from "@/lib/francetravail-poller";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
@@ -125,6 +126,19 @@ export async function POST(req: NextRequest) {
             await pollTheirstackBuyingIntentForClient(c.id, { companiesLimit: 15 });
         } catch (e) {
           (entry as { theirstackBuyingIntentError?: string }).theirstackBuyingIntentError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // France Travail (Bougie 5 — 04/05) : poller gratuit (3000 req/jour).
+      // Codes ROME M180* (info) + filtre tech strict + dédup cross-source.
+      // Tourne sur source=all (cron 6h, lookback 24h glissante = pas de
+      // doublons même si tourné 4×/jour théoriquement).
+      if (!dryRun && source === "all") {
+        try {
+          (entry as { francetravail?: unknown }).francetravail =
+            await pollFranceTravailForClient(c.id, { lookbackHours: 24 });
+        } catch (e) {
+          (entry as { francetravailError?: string }).francetravailError =
             e instanceof Error ? e.message : String(e);
         }
       }
