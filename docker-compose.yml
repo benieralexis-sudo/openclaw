@@ -74,9 +74,9 @@ services:
       CLAUDE_BRAIN_BUDGET_MONTHLY_EUR: ${CLAUDE_BRAIN_BUDGET_MONTHLY_EUR:-300}
       CLAUDE_BRAIN_BUDGET_HARD_EUR: ${CLAUDE_BRAIN_BUDGET_HARD_EUR:-500}
 
-      # ── Boosters v1.1 (combo + hot + declarative-pain) ──
-      COMBO_BOOSTER_ENABLED: ${COMBO_BOOSTER_ENABLED:-true}
-      HOT_TRIGGERS_ENABLED: ${HOT_TRIGGERS_ENABLED:-true}
+      # ── Boosters (état réel 04/05) ──
+      # COMBO_BOOSTER_ENABLED / HOT_TRIGGERS_ENABLED retirés (faux flags
+      # jamais lus). Combo et freshness tournent inconditionnellement.
       DECLARATIVE_PAIN_ENABLED: ${DECLARATIVE_PAIN_ENABLED:-false}
 
       # ── HubSpot (lecture seule, optionnel) ──

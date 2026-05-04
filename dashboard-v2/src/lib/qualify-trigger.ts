@@ -164,7 +164,7 @@ iFIND n'agrège PAS de signaux flous (visites web, downloads anonymes). iFIND d�
 ## Moat propriétaire
 1. **Attribution SIRENE Pappers** : chaque trigger est rattaché à un SIREN officiel.
 2. **13 patterns combinatoires** : un signal isolé vaut peu, un combo (levée + hire + ad) vaut beaucoup.
-3. **Boosters v1.1** : combo cross-sources ×2.5, hot triggers <48h +1.5, declarative pain +2.
+3. **Boosters réels** : combo cross-sources +2 cap 10 (combo-detector.ts), declarative pain +2 cap 10, freshness via priorityScore demi-vie 14j. isHot = score ≥9 (binaire, pas une fenêtre temporelle).
 4. **Filtre ICP strict** : par défaut Tech/SaaS/ESN, taille 11-200p, NAF whitelist (58.29*, 62.0*, 63.*, 70.22Z), régions FR.
 
 ## Mission de qualification

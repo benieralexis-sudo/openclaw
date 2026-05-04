@@ -836,12 +836,13 @@ function buildSystemStatus() {
   lines.push('*Sécurités :*');
   lines.push('  Email sender : ' + (emailSafe ? '✅ Configuré' : '⚠️ Non configuré (test only)'));
 
-  // Boosters
+  // Boosters (état réel 04/05 — ex-flags COMBO/HOT retirés car jamais lus)
   lines.push('');
-  lines.push('*Boosters v1.1 :*');
-  lines.push('  ' + (process.env.COMBO_BOOSTER_ENABLED !== 'false' ? '✅' : '⏸️') + ' Combo ×2.5 sur 3 signaux durs <90j');
-  lines.push('  ' + (process.env.HOT_TRIGGERS_ENABLED !== 'false' ? '✅' : '⏸️') + ' Hot triggers <48h (+0.5/+1.0)');
-  lines.push('  ' + (process.env.DECLARATIVE_PAIN_ENABLED === 'true' ? '✅' : '⏸️') + ' Declarative pain detection (opt-in)');
+  lines.push('*Boosters :*');
+  lines.push('  ✅ Combo cross-sources +2 cap 10 (auto, fenêtre 30j)');
+  lines.push('  ✅ Pattern SCALE-UP-TECH = score 10 + isHot');
+  lines.push('  ✅ Freshness via priorityScore demi-vie 14j');
+  lines.push('  ' + (process.env.DECLARATIVE_PAIN_ENABLED === 'true' ? '✅' : '⏸️') + ' Declarative pain +2 (opt-in)');
 
   // Budget
   const budget = appConfig.getBudgetStatus();
