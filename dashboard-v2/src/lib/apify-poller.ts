@@ -617,12 +617,23 @@ export async function pollApifyForClient(
   // - f_F=B,C = company size filter (B=11-50, C=51-200) — cible ICP DTL Tech 11-200p
   //   (29/04 : limite naturellement les Sanofi/Capgemini/Atos qui sont taille E+)
   if (useLinkedin) {
-    const kw = keywords[0] ?? "QA Engineer";
-    const linkedinUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}&location=France&f_TPR=r604800&f_F=B%2CC`;
+    // Fix M5 (04/05) — Boucle sur top 3 keywords au lieu de keywords[0] seul.
+    // Avant : 1 keyword sur 24 (avec C13 keywordsHiring élargi) → 95% des
+    // termes ICP DTL ne sont jamais cherchés dans LinkedIn-jobs.
+    // Maintenant : on cherche les 3 plus pertinents (QA Engineer, SDET,
+    // Test Automation Engineer typiquement). Le actor Apify reçoit 3 URLs
+    // dans le tableau `urls` → en parallèle, count: 30 par URL = max 90 jobs.
+    // L'actor fait ensuite la dédup interne (mêmes job-ids dans les runs).
+    const topKeywords = (keywords.length > 0 ? keywords : ["QA Engineer"])
+      .slice(0, 3);
+    const linkedinUrls = topKeywords.map(
+      (kw) =>
+        `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}&location=France&f_TPR=r604800&f_F=B%2CC`,
+    );
     const r = await runActorAndPushTriggers({
       actor: APIFY_ACTORS.linkedinJobs,
       input: {
-        urls: [linkedinUrl],
+        urls: linkedinUrls,
         count: 30,
         scrapeCompany: false,
       },
