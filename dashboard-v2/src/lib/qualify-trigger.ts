@@ -22,6 +22,88 @@ interface QualifyResult {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Sprint 9 helper (05/05/2026) — Negative signals (boîte en contraction)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Sprint 9 — Détecte les signaux négatifs depuis companyRecentDepots
+ * (Pappers déjà en BD via enrich-lead-dirigeants). Patterns recherchés
+ * dans depot.type + depot.decisions :
+ *   - Dissolution, Liquidation, Cessation → boîte ferme (score=1)
+ *   - Procédure collective, RJ/LJ, sauvegarde → en difficulté (score≤2)
+ *   - Plan social, PSE, licenciement collectif → contraction (score≤3)
+ *   - Réduction de capital → contraction modérée (score≤4)
+ *   - Restructuration → flou, signal négatif modéré (score≤5)
+ *   - Cession totale → fonds vendu, signal négatif fort
+ *
+ * Pourquoi c'est un moat : Apollo/Pharow ne détectent que des signaux
+ * POSITIFS (levée, hire, expansion). iFIND avec sources FR-natives
+ * (BODACC, Pappers RCS dépôts) voit aussi les signaux négatifs et les
+ * intègre dans le scoring. Une boîte qui licencie en pleine levée
+ * (apparente) ne sera plus scorée HOT par iFIND.
+ *
+ * Coût marginal : 0 (lecture in-memory de companyRecentDepots déjà chargé
+ * via Lead.include côté qualify-trigger).
+ */
+const NEGATIVE_DEPOT_PATTERNS: Array<{ regex: RegExp; label: string; severity: "hard" | "medium" | "soft" }> = [
+  { regex: /\bliquidation(?!\s+amiable)/i, label: "Liquidation", severity: "hard" },
+  { regex: /redressement\s+judiciaire|sauvegarde\s+judiciaire/i, label: "Procédure collective (RJ/sauvegarde)", severity: "hard" },
+  { regex: /\bdissolution(?!\s+sans\s+liquidation)/i, label: "Dissolution", severity: "hard" },
+  { regex: /cessation\s+(d['']activit|totale|partielle\s+d['']activit)/i, label: "Cessation d'activité", severity: "hard" },
+  { regex: /fermeture\s+(d['']établissement|de\s+l['']établissement|de\s+l['']entreprise|de\s+la\s+société)/i, label: "Fermeture", severity: "hard" },
+  { regex: /cession\s+(totale\s+d['']activit|du\s+fonds\s+de\s+commerce|de\s+l['']entreprise)/i, label: "Cession totale", severity: "hard" },
+  { regex: /plan\s+social|\bPSE\b|licenciement\s+(collectif|économique|pour\s+motif\s+économique)/i, label: "Plan social / PSE", severity: "medium" },
+  { regex: /réduction\s+(de\s+)?capital|capital\s+réduit|diminution\s+(du\s+)?capital/i, label: "Réduction de capital", severity: "medium" },
+  { regex: /restructuration|réorganisation/i, label: "Restructuration", severity: "soft" },
+];
+
+interface NegativeSignalResult {
+  block: string;
+  hasHardSignal: boolean;
+}
+
+function getNegativeSignalsForCompany(
+  companyRecentDepots: unknown,
+): NegativeSignalResult | null {
+  if (!Array.isArray(companyRecentDepots) || companyRecentDepots.length === 0) {
+    return null;
+  }
+  const detected: Array<{ label: string; severity: "hard" | "medium" | "soft"; date: string }> = [];
+  for (const d of companyRecentDepots) {
+    if (!d || typeof d !== "object") continue;
+    const depot = d as { date?: unknown; type?: unknown; decisions?: unknown };
+    const dateStr = depot.date ? String(depot.date) : "?";
+    const text = [
+      String(depot.type ?? ""),
+      Array.isArray(depot.decisions)
+        ? depot.decisions.map(String).join(" ")
+        : String(depot.decisions ?? ""),
+    ].join(" ");
+    for (const pattern of NEGATIVE_DEPOT_PATTERNS) {
+      if (pattern.regex.test(text)) {
+        detected.push({ label: pattern.label, severity: pattern.severity, date: dateStr });
+      }
+    }
+  }
+  if (detected.length === 0) return null;
+  // Dédup par (label) avec date la plus récente
+  const dedupMap = new Map<string, (typeof detected)[number]>();
+  for (const sig of detected) {
+    const existing = dedupMap.get(sig.label);
+    if (!existing || sig.date > existing.date) dedupMap.set(sig.label, sig);
+  }
+  const unique = Array.from(dedupMap.values()).slice(0, 5);
+  const hasHardSignal = unique.some((s) => s.severity === "hard");
+  const lines = unique.map(
+    (s) => `${s.label} (${s.severity}, RCS ${s.date})`,
+  );
+  return {
+    block: `NEGATIVE SIGNALS détectés (Pappers RCS <90j) :\n- ${lines.join("\n- ")}`,
+    hasHardSignal,
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Sprint 6 helper (05/05/2026) — Prior signals (same client, same SIRET)
 // ──────────────────────────────────────────────────────────────────────
 
@@ -343,6 +425,13 @@ Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1
 - \`theirstack.buying-intent\` : déclaratif (utilise outils QA), vérifier industrie
 - \`francetravail.tech\` : Pôle Emploi OAuth — souvent ESN qui sourcent pour client final
 
+## Negative signals (si présent dans le prompt — PRIORITÉ ABSOLUE)
+Le bloc "NEGATIVE SIGNALS détectés (Pappers RCS <90j)" liste les dépôts d'actes négatifs récents qui indiquent une boîte en contraction ou en difficulté. **Ces signaux ÉCRASENT TOUS les autres axes positifs** (même un combo SCALE-UP-TECH à 10 doit retomber si la boîte est en liquidation). Échelle de pénalité :
+- Sévérité **hard** (Liquidation, Dissolution, Cessation, Fermeture, Cession totale, Procédure collective) → score ≤ 2 (souvent = 1, boîte non-prospectable)
+- Sévérité **medium** (Plan social / PSE, Réduction de capital, licenciement collectif) → score ≤ 3 (boîte coupe les coûts, pas de budget outsourcing testing)
+- Sévérité **soft** (Restructuration, Réorganisation) → score ≤ 5, signaler dans la reason mais permettre si fundamentaux ICP très forts par ailleurs
+La reason DOIT mentionner explicitement le signal négatif détecté pour traçabilité commerciale.
+
 ## Prior signals sur cette boîte (si présent dans le prompt)
 Le bloc "PRIOR SIGNALS sur ce SIRET" liste les autres Triggers du MÊME client sur la même boîte dans les 90 derniers jours. Interprétation :
 - **Combo convergent** (FUNDRAISING + HIRING_KEY <14j, ou LEADERSHIP_CHANGE + HIRING_KEY <30j) = signal d'achat très fort, +1 à +2 points
@@ -528,6 +617,16 @@ export async function qualifyTrigger(
   );
   const priorSignalsBlock = priorSignals ? `\n${priorSignals}` : "";
 
+  // Sprint 9 (05/05) — Negative signals (Pappers RCS dépôts <90j).
+  // Détecte dissolution/liquidation/cessation/PSE/réduction capital depuis
+  // companyRecentDepots déjà chargé via Lead.include. Si présent, le judge
+  // doit scorer ≤ 3-5 selon sévérité (override les positifs comme un combo
+  // SCALE-UP-TECH). Le moat : Apollo/Pharow ne détectent QUE le positif.
+  const negativeSignals = trigger.lead
+    ? getNegativeSignalsForCompany(trigger.lead.companyRecentDepots)
+    : null;
+  const negativeSignalsBlock = negativeSignals ? `\n${negativeSignals.block}` : "";
+
   const userPrompt = `CLIENT : ${trigger.client.name}
 ICP : ${JSON.stringify({
     industries: icp.industries,
@@ -547,7 +646,7 @@ LEAD :
 - Industrie : ${trigger.industry ?? "?"}
 - Région : ${trigger.region ?? "?"}
 - Taille : ${trigger.size ?? "?"}
-${personaBlock}${crossTenantBlock}${priorSignalsBlock}
+${personaBlock}${crossTenantBlock}${priorSignalsBlock}${negativeSignalsBlock}
 
 SIGNAL :
 - Type : ${trigger.type}
@@ -625,6 +724,20 @@ SIGNAL :
     reason = hedged.reason;
   }
 
+  // Sprint 9 hard cap — Si signal négatif "hard" (liquidation/dissolution/
+  // cessation/RJ/LJ/cession totale) détecté, on cap à 2 même si Opus a
+  // relevé. Filet de sécurité absolu : un client iFIND ne doit JAMAIS
+  // recevoir en NEW une boîte qui est en train de fermer. Override
+  // s'applique aussi sur le plancher trusted-source (un Rodz funding sur
+  // une boîte en LJ doit retomber à 2, pas rester à 8).
+  if (negativeSignals?.hasHardSignal && opusScore > 2) {
+    console.log(
+      `[qualify-trigger.sprint9-hard-cap] ${triggerId}: ${opusScore} → 2 (hard negative signal détecté)`,
+    );
+    opusScore = 2;
+    reason = `[Sprint9 hard-negative-cap] ${reason}`.slice(0, 500);
+  }
+
   // Plancher de score pour sources fiables (signal d'achat fort garanti).
   // CONDITION 04/05 (C2) : s'applique UNIQUEMENT si secteur ICP-fit.
   // M2 (04/05) : appliqué APRÈS Fix L pour ne pas écraser un downgrade hedging.
@@ -638,7 +751,11 @@ SIGNAL :
   const minFloor = TRUSTED_SOURCES_MIN_SCORE[trigger.sourceCode];
   // M2 : si Fix L a déjà downgrade (hedged.matchedLabel) → ne PAS appliquer le
   // plancher. Le hedging est une preuve qu'Opus a vu un mismatch ICP, on respecte.
-  if (minFloor && opusScore < minFloor && !hedged.matchedLabel) {
+  // Sprint 9 (05/05) — Le plancher trusted-source ne doit PAS s'appliquer
+  // si on a un signal négatif hard (liquidation/dissolution etc.). Une
+  // levée Rodz sur une boîte en cessation = peut-être levée fictive ou
+  // contexte de liquidation, à NE PAS booster.
+  if (minFloor && opusScore < minFloor && !hedged.matchedLabel && !negativeSignals?.hasHardSignal) {
     const icpNafCodes = (icp.naf_codes as string[] | undefined) ?? [];
     const naf = (trigger.companyNaf ?? "").replace(/\./g, "");
     const nafMatchIcp = icpNafCodes.some((c) => naf.startsWith(c.replace(/\./g, "")));
