@@ -4,6 +4,7 @@ import { buildCachedSystem } from "@/lib/anthropic-prompt";
 import { db } from "@/lib/db";
 import { extractLinkedInProfile } from "@/lib/linkedin-profile-extractor";
 import { readDynamicFewShotsFromIcp } from "@/lib/dynamic-few-shots";
+import { searchLayoffsNews } from "@/lib/layoffs-news-search";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -743,6 +744,34 @@ SIGNAL :
     );
     opusScore = 2;
     reason = `[Sprint9 hard-negative-cap] ${reason}`.slice(0, 500);
+  }
+
+  // Bonus C (05/05) — Google CSE layoffs/PSE news soft cap (post-Opus).
+  // Gate score>=8 ET pas déjà hard-capped Sprint 9 (sinon redondant).
+  // Détecte les annonces presse de PSE/restructuration/layoffs <3 mois sur
+  // 9 sources FR whitelist (lesechos, maddyness, bfm, légifrance, etc).
+  // Soft cap à 5 si ≥2 sources distinctes hits → la boîte est probablement
+  // en contraction (presse plus rapide que BODACC RCS dépôts).
+  if (opusScore >= 8 && !negativeSignals?.hasHardSignal) {
+    try {
+      const layoffsCheck = await searchLayoffsNews(trigger.companyName);
+      if (layoffsCheck.found) {
+        const topSources = layoffsCheck.topHits
+          .map((h) => h.source)
+          .slice(0, 2)
+          .join("/");
+        console.log(
+          `[qualify-trigger.bonus-C] ${triggerId}: ${opusScore} → 5 (layoffs news ${layoffsCheck.distinctSources} sources)`,
+        );
+        reason = `[Bonus C layoffs-news-cap ${topSources}] ${reason}`.slice(0, 500);
+        opusScore = 5;
+      }
+    } catch (e) {
+      console.warn(
+        `[qualify-trigger.bonus-C] ${triggerId} err:`,
+        e instanceof Error ? e.message : e,
+      );
+    }
   }
 
   // Plancher de score pour sources fiables (signal d'achat fort garanti).
