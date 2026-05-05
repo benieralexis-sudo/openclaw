@@ -2,6 +2,7 @@ import "server-only";
 import { getAnthropic, QUALIFY_MODEL } from "@/lib/anthropic";
 import { buildCachedSystem } from "@/lib/anthropic-prompt";
 import { db } from "@/lib/db";
+import { extractLinkedInProfile } from "@/lib/linkedin-profile-extractor";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -18,6 +19,66 @@ interface QualifyResult {
   opusScore: number; // 1-10
   reason: string;
   isHot: boolean;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Sprint 2 helpers (05/05/2026)
+// ──────────────────────────────────────────────────────────────────────
+
+/** Format compact € pour le bloc COMPANY HEALTH (B.3). Cible : 5-10 chars. */
+function formatEuros(value: number | null | undefined): string {
+  if (value == null) return "?";
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M€`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}K€`;
+  return `${sign}${abs}€`;
+}
+
+/**
+ * B.2 — Format LinkedIn profile pour le judge.
+ *
+ * Réutilise extractLinkedInProfile (linkedin-profile-extractor.ts) pour
+ * parser le JSON HarvestAPI Profile Full puis le condense en bloc texte
+ * ~250 chars maximum. Le judge a besoin de :
+ *   - Headline (vrai poste tel qu'il s'autodéfinit)
+ *   - Ancienneté (un CTO 6 mois ≠ un CTO 8 ans, signal très différent)
+ *   - 3 derniers postes (vérifier cohérence persona, détecter ESN parcours)
+ *   - Backgrounds (ESN/SaaS/Startup = signal de fit ICP fort)
+ *
+ * Retourne null si payload absent ou inutilisable (le bloc est alors omis,
+ * pas pollué avec "non disponible" à chaque fois — économise tokens).
+ */
+function formatLinkedinProfileForJudge(payload: unknown): string | null {
+  if (!payload) return null;
+  const profile = extractLinkedInProfile(payload);
+  if (!profile.headline && profile.experiences.length === 0) return null;
+
+  const lines: string[] = [];
+  if (profile.headline) {
+    lines.push(`Headline : "${profile.headline.slice(0, 120)}"`);
+  }
+  if (profile.currentTenureMonths != null) {
+    const years = (profile.currentTenureMonths / 12).toFixed(1);
+    lines.push(`Ancienneté poste actuel : ${profile.currentTenureMonths}m (~${years}y)`);
+  }
+  if (profile.totalExperienceYears != null) {
+    lines.push(`Expérience totale : ${profile.totalExperienceYears}y`);
+  }
+  const bg: string[] = [];
+  if (profile.hasESNBackground) bg.push("ESN");
+  if (profile.hasSaaSBackground) bg.push("SaaS");
+  if (profile.hasStartupBackground) bg.push("Startup");
+  if (bg.length > 0) lines.push(`Backgrounds : ${bg.join("/")}`);
+  // 3 derniers postes pour vérifier cohérence + detection ESN parcours.
+  const recent = profile.experiences.slice(0, 3).map((e) => {
+    const dur = e.durationMonths != null ? `${Math.round(e.durationMonths / 12)}y` : "?";
+    return `${e.title} @ ${e.companyName} (${dur})`;
+  });
+  if (recent.length > 0) {
+    lines.push(`3 derniers postes : ${recent.join(" | ")}`);
+  }
+  return `LinkedIn Profile :\n- ${lines.join("\n- ")}`;
 }
 
 // Extrait la description complète depuis rawPayload (Apify/TheirStack/Rodz).
@@ -160,9 +221,9 @@ const QUALIFY_SPECIFIC = `
 Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1-10 strict + une raison courte (max 200 chars, citer 1 élément concret).
 
 ## Rubrique scoring (4 axes, poids égaux)
-1. **ICP fit** — industrie / NAF whitelist / taille / région matchent ?
+1. **ICP fit** — industrie / NAF whitelist / taille / région matchent ? **Si COMPANY HEALTH contient une procédure collective EN COURS → score ≤ 2 systématique (boîte non-prospectable). CA + résultat net présents : pondère selon viabilité financière. Multi-établissements ou dépôts RCS récents = signal d'expansion / mouvement à exploiter.**
 2. **Signal strength** — vrai déclencheur d'achat (levée fraîche, hire clé QA/Test senior, M&A, C-level change) vs bruit (job junior, alternance, mentorat, RH) ?
-3. **Persona match** — décisionnaire (CTO, CEO, Founder, Head of Eng, VP Eng) vs périphérique (RH, junior, stagiaire) ? **Si le bloc PERSONA QUAL contient un fitScore et un personaTier (calcul interne), utilise-les comme signal fort : fitScore≥70 ou personaTier=1 → décideur quasi-certain ; fitScore<40 ou personaTier≥3 → décideur faible (pénalise la dimension persona dans ton scoring).**
+3. **Persona match** — décisionnaire (CTO, CEO, Founder, Head of Eng, VP Eng) vs périphérique (RH, junior, stagiaire) ? **Si le bloc PERSONA QUAL contient un fitScore et un personaTier (calcul interne), utilise-les comme signal fort : fitScore≥70 ou personaTier=1 → décideur quasi-certain ; fitScore<40 ou personaTier≥3 → décideur faible (pénalise la dimension persona dans ton scoring). Si LinkedIn Profile présent : ancienneté <6 mois sur poste C-level = mandat frais, signal d'achat ; backgrounds ESN dans les 3 derniers postes = parcours conseil, pertinence ICP fonction du contexte ; 0 expérience SaaS sur poste tech d'éditeur SaaS = mismatch fort.**
 4. **Freshness** — <7j = boost, >30j = malus, >90j = exclure.
 
 ## Fiabilité des sources (calibration)
@@ -229,7 +290,29 @@ export async function qualifyTrigger(
       // que ces 2 champs sont remplis pour 81-84% des leads DTL mais jamais lus
       // par le judge → ~+15% précision attendu sur la dimension "Persona match".
       lead: {
-        select: { fitScore: true, personaTier: true, fullName: true, jobTitle: true },
+        select: {
+          // Sprint 1 Q1
+          fitScore: true,
+          personaTier: true,
+          fullName: true,
+          jobTitle: true,
+          // Sprint 2 B.1 (05/05) — linkedinUrl ajouté pour confirmer le persona
+          // (un CTO sans linkedin = soit erreur de matching, soit profil discret).
+          linkedinUrl: true,
+          // Sprint 2 B.2 (05/05) — linkedinProfileJson HarvestAPI Profile Full :
+          // headline, summary, expériences, ancienneté, posts. 25/146 leads DTL
+          // l'ont rempli mais le judge ne l'a jamais lu. Parsé via
+          // linkedin-profile-extractor.ts existant (réutilisé persona-fit-runner).
+          linkedinProfileJson: true,
+          // Sprint 2 B.3 (05/05) — Pappers riche : santé entreprise.
+          // companyHasInsolvency redondant avec gate Q2 mais utile en defense
+          // (Lead pré-existant peut avoir flag set sans avoir été archivé).
+          companyHasInsolvency: true,
+          companyRecentDepots: true,
+          companyEtabsCount: true,
+          companyRevenue: true,
+          companyResultNet: true,
+        },
       },
     },
   });
@@ -261,15 +344,47 @@ export async function qualifyTrigger(
     });
     return { opusScore: 2, reason: rejectReason, isHot: false };
   }
-  // Sprint 1 Q1 (05/05/2026) — Bloc PERSONA QUAL : transmis seulement si le Lead
-  // existe en DB (qualify peut être appelé avant auto-create-lead.ts pour certains
-  // pollers). Quand absent, on signale "non résolue" pour éviter qu'Opus suppose.
-  const personaBlock = trigger.lead
-    ? `\nPERSONA QUAL (calcul interne) :
-- fitScore : ${trigger.lead.fitScore ?? "non calculé"} / 100
-- personaTier : ${trigger.lead.personaTier ?? "non calculé"} / 4 (1=parfait, 4=fallback)
-- Décideur identifié : ${trigger.lead.fullName ?? "non résolu"} (${trigger.lead.jobTitle ?? "?"})`
-    : `\nPERSONA QUAL : non encore calculée (Lead pas créé)`;
+  // Sprint 1 Q1 + Sprint 2 B.1/B.2/B.3 (05/05/2026) — Bloc PERSONA + COMPANY HEALTH.
+  // Transmis seulement si le Lead existe en DB (qualify peut être appelé avant
+  // auto-create-lead.ts pour certains pollers). Quand absent, on signale
+  // "non résolue" pour éviter qu'Opus suppose.
+  let personaBlock: string;
+  if (trigger.lead) {
+    const lead = trigger.lead;
+    // B.2 — Extrait headline + 3 derniers postes + ancienneté du
+    // linkedinProfileJson HarvestAPI. Fallback silencieux si non rempli.
+    const linkedinSummary = formatLinkedinProfileForJudge(lead.linkedinProfileJson);
+    // B.3 — Pappers riche bloc COMPANY HEALTH. Affiché seulement si au moins
+    // un signal financier ou de santé est présent (sinon on sature le prompt
+    // pour rien).
+    const healthSignals: string[] = [];
+    if (lead.companyHasInsolvency === true) {
+      healthSignals.push("⚠️ procédure collective EN COURS (RJ/LJ)");
+    }
+    if (lead.companyRevenue != null) {
+      healthSignals.push(`CA dernier exercice : ${formatEuros(lead.companyRevenue)}`);
+    }
+    if (lead.companyResultNet != null) {
+      healthSignals.push(`Résultat net : ${formatEuros(lead.companyResultNet)}`);
+    }
+    if (lead.companyEtabsCount != null && lead.companyEtabsCount > 1) {
+      healthSignals.push(`${lead.companyEtabsCount} établissements (multi-sites)`);
+    }
+    if (Array.isArray(lead.companyRecentDepots) && lead.companyRecentDepots.length > 0) {
+      healthSignals.push(`${lead.companyRecentDepots.length} dépôts RCS <90j (signal mouvement)`);
+    }
+    const healthBlock = healthSignals.length > 0
+      ? `\nCOMPANY HEALTH (Pappers) :\n- ${healthSignals.join("\n- ")}`
+      : "";
+
+    personaBlock = `\nPERSONA QUAL (calcul interne) :
+- fitScore : ${lead.fitScore ?? "non calculé"} / 100
+- personaTier : ${lead.personaTier ?? "non calculé"} / 4 (1=parfait, 4=fallback)
+- Décideur identifié : ${lead.fullName ?? "non résolu"} (${lead.jobTitle ?? "?"})
+- LinkedIn : ${lead.linkedinUrl ?? "non résolu"}${linkedinSummary ? `\n${linkedinSummary}` : ""}${healthBlock}`;
+  } else {
+    personaBlock = `\nPERSONA QUAL : non encore calculée (Lead pas créé)`;
+  }
 
   const userPrompt = `CLIENT : ${trigger.client.name}
 ICP : ${JSON.stringify({
