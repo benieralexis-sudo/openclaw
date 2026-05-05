@@ -252,8 +252,18 @@ async function syncToPostgres(sqliteDb, options = {}) {
               if (lines.length > 0) signalDetails = `Signaux détectés :\n${lines.join('\n')}`;
             }
           } catch {}
-          const opusLine = r.opus_score ? `Opus score: ${r.opus_score.toFixed(2)}/10` : null;
-          const fullDetail = [signalDetails, opusLine].filter(Boolean).join('\n\n') || null;
+          // Fix A0 (05/05/2026) — Tous les triggers ingérés par le bot doivent
+          // passer par le judge Opus 4.7 (qualifyPendingTriggers côté dashboard
+          // qui filtre `where scoreReason IS NULL`). On ne pose PLUS de
+          // scoreReason placeholder ("Opus score: X.XX/10") qui :
+          //   1) ferait croire que le trigger a déjà été qualifié alors qu'il
+          //      ne l'a jamais été (rule-based interne uniquement)
+          //   2) bloquerait `qualifyPendingTriggers` qui ne traite que les
+          //      triggers à scoreReason NULL.
+          // Le `score` rule-based reste posé en INSERT initial comme fallback,
+          // mais sur ON CONFLICT on ne touche plus à score/scoreReason/isHot
+          // pour préserver le verdict Opus s'il a déjà tourné entre 2 syncs.
+          const fullDetail = signalDetails || null;
 
           // UPSERT Trigger
           await pg.query(`
@@ -269,9 +279,6 @@ async function syncToPostgres(sqliteDb, options = {}) {
               'NEW'::"TriggerStatus", NOW(), NOW()
             )
             ON CONFLICT (id) DO UPDATE SET
-              score = EXCLUDED.score,
-              "scoreReason" = EXCLUDED."scoreReason",
-              "isHot" = EXCLUDED."isHot",
               detail = EXCLUDED.detail,
               title = EXCLUDED.title,
               "updatedAt" = NOW()
@@ -279,7 +286,7 @@ async function syncToPostgres(sqliteDb, options = {}) {
             triggerId, pgClientId, mapPatternToSourceCode(r.pattern_id, r.event_types),
             new Date(r.matched_at || r.created_at), null,
             r.raison_sociale, r.siren, r.naf_code, r.naf_label, r.region || r.departement, sizeStr,
-            triggerType, title, fullDetail, score10, opusLine, isHot,
+            triggerType, title, fullDetail, score10, null, isHot,
           ]);
           stats.upserted_triggers += 1;
 
