@@ -13,13 +13,15 @@ import "server-only";
  * - Tourne uniquement sur source=all (cron 6h, pas le 1h)
  * - TTL réutilisé : skip implicite si briefJson déjà présent et valide
  *
- * Réutilise buildPrompt + extractJson exportés depuis la route brief.
+ * Réutilise buildPrompt + extractJson depuis brief-builder.ts (extraction
+ * post Sprint 1 setup fix : Next.js Route Handlers interdisent les exports
+ * custom).
  */
 
 import { db } from "@/lib/db";
 import { getAnthropic, BRIEF_MODEL } from "@/lib/anthropic";
 import { buildCachedSystem } from "@/lib/anthropic-prompt";
-import { buildPrompt, extractJson } from "@/app/api/leads/[id]/brief/route";
+import { buildPrompt, extractJson } from "@/lib/brief-builder";
 import type { Prisma } from "@prisma/client";
 
 export interface AutoBriefsResult {
