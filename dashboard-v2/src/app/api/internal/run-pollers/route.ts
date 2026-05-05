@@ -29,6 +29,7 @@ import { autoGenerateBriefsForHotLeads } from "@/lib/auto-generate-briefs";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
+import { recoverIgnoredTriggersForClient } from "@/lib/requalify-engine";
 
 // Documente l'intention de durée max — Next.js self-hosted ignore mais utile
 // pour Vercel + lisibilité humaine. Cohérent avec le timeout cron 15 min côté
@@ -277,6 +278,29 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           (entry as { qaStuckError?: string }).qaStuckError =
             e instanceof Error ? e.message : String(e);
+        }
+        // Sprint 3.3 (05/05) — Recovery sweep ARCHIVED riches.
+        // Audit Phase 1 du 05/05 : 22 leads DTL ARCHIVED avec score≥8 ET
+        // linkedinProfileJson volumineux (WeFiiT 76k chars, Smile 71k…) =
+        // trésor potentiel. La query trouve les Triggers status=IGNORED
+        // dont le Lead a un profil LinkedIn dense (>3000c) et force re-judge
+        // avec les blocs PERSONA QUAL + LinkedIn Profile + COMPANY HEALTH
+        // (Sprint 1+2). Estimation conservatrice : 5-8 récupérables par sweep.
+        // Tourne UNIQUEMENT sur source=all (cron 6h) car coût Anthropic
+        // non-négligeable (~$0.005 × 30 = $0.15/run worst case).
+        if (source === "all") {
+          try {
+            const recovered = await recoverIgnoredTriggersForClient(c.id, { limit: 30 });
+            (entry as { recovery?: unknown }).recovery = {
+              candidates: recovered.candidates,
+              revived: recovered.revived,
+              stillIgnored: recovered.stillIgnored,
+              errors: recovered.errors,
+            };
+          } catch (e) {
+            (entry as { recoveryError?: string }).recoveryError =
+              e instanceof Error ? e.message : String(e);
+          }
         }
         // Auto-génération briefs Opus (Étape C — 04/05) : pour les leads
         // chauds (trigger.score >= 8 + isHot OU fitScore >= 75 OU QA-stuck)
