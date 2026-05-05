@@ -275,7 +275,7 @@ async function syncToPostgres(sqliteDb, options = {}) {
             ) VALUES (
               $1, $2, $3, $4, $5,
               $6, $7, $8, $9, $10, $11,
-              $12::"TriggerType", $13, $14, $15, $16, $17, false,
+              $12::"TriggerType", $13, $14, $15, $16::text, $17, false,
               'NEW'::"TriggerStatus", NOW(), NOW()
             )
             ON CONFLICT (id) DO UPDATE SET
