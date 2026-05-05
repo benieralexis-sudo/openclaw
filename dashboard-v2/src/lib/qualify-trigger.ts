@@ -162,7 +162,7 @@ Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1
 ## Rubrique scoring (4 axes, poids égaux)
 1. **ICP fit** — industrie / NAF whitelist / taille / région matchent ?
 2. **Signal strength** — vrai déclencheur d'achat (levée fraîche, hire clé QA/Test senior, M&A, C-level change) vs bruit (job junior, alternance, mentorat, RH) ?
-3. **Persona match** — décisionnaire (CTO, CEO, Founder, Head of Eng, VP Eng) vs périphérique (RH, junior, stagiaire) ?
+3. **Persona match** — décisionnaire (CTO, CEO, Founder, Head of Eng, VP Eng) vs périphérique (RH, junior, stagiaire) ? **Si le bloc PERSONA QUAL contient un fitScore et un personaTier (calcul interne), utilise-les comme signal fort : fitScore≥70 ou personaTier=1 → décideur quasi-certain ; fitScore<40 ou personaTier≥3 → décideur faible (pénalise la dimension persona dans ton scoring).**
 4. **Freshness** — <7j = boost, >30j = malus, >90j = exclure.
 
 ## Fiabilité des sources (calibration)
@@ -218,7 +218,20 @@ export async function qualifyTrigger(
 ): Promise<QualifyResult | null> {
   const trigger = await db.trigger.findUnique({
     where: { id: triggerId },
-    include: { client: { select: { name: true, icp: true } } },
+    include: {
+      client: { select: { name: true, icp: true } },
+      // Sprint 1 Q1 (05/05/2026) — Lead persona qual transmise au judge.
+      // Avant : le judge devait deviner la qualité du décideur depuis le seul
+      // titre du signal (ex: "Recrute QA Lead" → CTO ? RH ? Directeur ?).
+      // Maintenant : on lui passe fitScore (0-100, calculé par persona-fit-runner :
+      // base tier + tenureBoost + backgroundFit + sizeFit) + personaTier (1-4,
+      // 1=parfait CTO/Head of QA, 4=fallback). Audit Phase 1 du 05/05 a montré
+      // que ces 2 champs sont remplis pour 81-84% des leads DTL mais jamais lus
+      // par le judge → ~+15% précision attendu sur la dimension "Persona match".
+      lead: {
+        select: { fitScore: true, personaTier: true, fullName: true, jobTitle: true },
+      },
+    },
   });
   if (!trigger) return null;
   if (trigger.scoreReason && !opts.force) {
@@ -248,6 +261,16 @@ export async function qualifyTrigger(
     });
     return { opusScore: 2, reason: rejectReason, isHot: false };
   }
+  // Sprint 1 Q1 (05/05/2026) — Bloc PERSONA QUAL : transmis seulement si le Lead
+  // existe en DB (qualify peut être appelé avant auto-create-lead.ts pour certains
+  // pollers). Quand absent, on signale "non résolue" pour éviter qu'Opus suppose.
+  const personaBlock = trigger.lead
+    ? `\nPERSONA QUAL (calcul interne) :
+- fitScore : ${trigger.lead.fitScore ?? "non calculé"} / 100
+- personaTier : ${trigger.lead.personaTier ?? "non calculé"} / 4 (1=parfait, 4=fallback)
+- Décideur identifié : ${trigger.lead.fullName ?? "non résolu"} (${trigger.lead.jobTitle ?? "?"})`
+    : `\nPERSONA QUAL : non encore calculée (Lead pas créé)`;
+
   const userPrompt = `CLIENT : ${trigger.client.name}
 ICP : ${JSON.stringify({
     industries: icp.industries,
@@ -267,6 +290,7 @@ LEAD :
 - Industrie : ${trigger.industry ?? "?"}
 - Région : ${trigger.region ?? "?"}
 - Taille : ${trigger.size ?? "?"}
+${personaBlock}
 
 SIGNAL :
 - Type : ${trigger.type}
