@@ -738,6 +738,12 @@ enum ActivityType {
   MEETING_NO_SHOW
   NOTE
   STATUS_CHANGE
+  // Sprint 7 (05/05/2026) — Outcomes loop Data-only.
+  // Track les interactions dashboard du commercial (copy email/phone,
+  // click LinkedIn, export CSV, view profil). Payload distingue le kind :
+  //   { kind: "view" | "copy_email" | "copy_phone" | "copy_linkedin"
+  //          | "copy_brief" | "click_linkedin" | "export_csv" | "archive_manual" }
+  DASHBOARD_INTERACTION
 }
 
 enum ActivitySource {

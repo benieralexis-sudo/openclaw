@@ -163,9 +163,20 @@ interface BriefResponse {
 // Helpers UI
 // ──────────────────────────────────────────────────────────────────────
 
-function copyToClipboard(text: string, label = "Copié dans le presse-papiers") {
+function copyToClipboard(
+  text: string,
+  label = "Copié dans le presse-papiers",
+  track?: { leadId: string; kind: import("@/lib/track-lead-interaction").LeadInteractionKind },
+) {
   navigator.clipboard.writeText(text);
   toast.success(label);
+  // Sprint 7 (05/05) — Track passif les copies pour la boucle outcomes
+  // Data-only. Best-effort, silent fail si erreur réseau.
+  if (track?.leadId) {
+    void import("@/lib/track-lead-interaction").then((m) =>
+      m.trackLeadInteraction(track.leadId, track.kind),
+    );
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -422,6 +433,7 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
           warmMailGeneratedAt={lead.warmMailGeneratedAt ?? null}
           onGenerateCopy={() => generateCopy.mutate({ force: true })}
           generatingCopy={generateCopy.isPending}
+          leadId={lead.id}
         />
       )}
 
@@ -1129,6 +1141,7 @@ function BriefTabs({
   warmMailGeneratedAt,
   onGenerateCopy,
   generatingCopy,
+  leadId,
 }: {
   brief: Brief;
   generatedAt: string | null;
@@ -1140,6 +1153,7 @@ function BriefTabs({
   warmMailGeneratedAt: string | null;
   onGenerateCopy: () => void;
   generatingCopy: boolean;
+  leadId: string;
 }) {
   return (
     <div className="space-y-4">
@@ -1190,10 +1204,10 @@ function BriefTabs({
         </TabsList>
 
         <TabsContent value="summary">
-          <SummaryTab summary={brief.summary} />
+          <SummaryTab summary={brief.summary} leadId={leadId} />
         </TabsContent>
         <TabsContent value="email">
-          <EmailTab email={brief.email} leadEmail={leadEmail} />
+          <EmailTab email={brief.email} leadEmail={leadEmail} leadId={leadId} />
         </TabsContent>
         <TabsContent value="linkedin">
           <LinkedinTab linkedin={brief.linkedin} leadLinkedin={leadLinkedin} />
@@ -1219,7 +1233,7 @@ function BriefTabs({
 // Tab : Brief stratégique
 // ──────────────────────────────────────────────────────────────────────
 
-function SummaryTab({ summary }: { summary: Brief["summary"] }) {
+function SummaryTab({ summary, leadId }: { summary: Brief["summary"]; leadId: string }) {
   const sections: Array<{ label: string; content: React.ReactNode; copy?: string }> = [
     { label: "Pourquoi maintenant", content: summary.whyNow, copy: summary.whyNow },
     { label: "Match ICP", content: summary.icpMatch, copy: summary.icpMatch },
@@ -1240,7 +1254,9 @@ function SummaryTab({ summary }: { summary: Brief["summary"] }) {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => copyToClipboard(allText, "Brief copié")}
+            onClick={() =>
+              copyToClipboard(allText, "Brief copié", { leadId, kind: "copy_brief" })
+            }
             className="gap-1.5"
           >
             <Copy className="h-3 w-3" />
@@ -1298,9 +1314,11 @@ function SummaryTab({ summary }: { summary: Brief["summary"] }) {
 function EmailTab({
   email,
   leadEmail,
+  leadId,
 }: {
   email: Brief["email"];
   leadEmail: string | null;
+  leadId: string;
 }) {
   const fullEmail = `Sujet : ${email.subject}\n\n${email.body}`;
   return (
@@ -1314,7 +1332,9 @@ function EmailTab({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => copyToClipboard(email.subject, "Sujet copié")}
+              onClick={() =>
+                copyToClipboard(email.subject, "Sujet copié", { leadId, kind: "copy_email" })
+              }
               className="gap-1.5"
             >
               <Copy className="h-3 w-3" />
@@ -1323,7 +1343,9 @@ function EmailTab({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => copyToClipboard(email.body, "Corps copié")}
+              onClick={() =>
+                copyToClipboard(email.body, "Corps copié", { leadId, kind: "copy_email" })
+              }
               className="gap-1.5"
             >
               <Copy className="h-3 w-3" />
@@ -1332,7 +1354,9 @@ function EmailTab({
             <Button
               variant="primary"
               size="sm"
-              onClick={() => copyToClipboard(fullEmail, "Email complet copié")}
+              onClick={() =>
+                copyToClipboard(fullEmail, "Email complet copié", { leadId, kind: "copy_email" })
+              }
               className="gap-1.5"
             >
               <Copy className="h-3 w-3" />

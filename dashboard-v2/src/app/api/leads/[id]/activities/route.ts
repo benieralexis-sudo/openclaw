@@ -20,9 +20,15 @@ const MANUAL_TYPES: ActivityType[] = [
   "LINKEDIN_CONNECT",
   "CALL_OUTBOUND",
   "VOICEMAIL_LEFT",
+  "MEETING_BOOKED",
   "MEETING_HELD",
   "MEETING_NO_SHOW",
   "NOTE",
+  // Sprint 7 (05/05) — Outcomes loop Data-only.
+  // STATUS_CHANGE : utilisé par les boutons 1-clic "Closed Won/Lost" + "Archived manual"
+  // DASHBOARD_INTERACTION : track passif des copies/clicks/exports (kind dans payload)
+  "STATUS_CHANGE",
+  "DASHBOARD_INTERACTION",
 ];
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

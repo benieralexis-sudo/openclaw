@@ -102,7 +102,10 @@ const CHECKLIST: ChecklistItem[] = [
   { type: "LINKEDIN_DM_SENT", label: "LinkedIn DM envoyé", manual: true },
   { type: "CALL_OUTBOUND", label: "1er appel passé", manual: true },
   { type: "VOICEMAIL_LEFT", label: "Voicemail laissé", manual: true },
-  { type: "MEETING_BOOKED", label: "RDV booké" },
+  // Sprint 7 (05/05) — Activé manual:true pour permettre 1-clic "RDV booké"
+  // depuis le dashboard. Signal le plus fort de la boucle outcomes Data-only :
+  // un client qui marque un RDV booké = ce lead a été qualifié bon par lui.
+  { type: "MEETING_BOOKED", label: "RDV booké", manual: true },
 ];
 
 export function LeadActivityPanel({ leadId }: { leadId: string }) {
