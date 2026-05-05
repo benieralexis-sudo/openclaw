@@ -117,11 +117,15 @@ export async function POST(req: NextRequest) {
       if (source === "all" || source === "theirstack") {
         entry.theirstack = await pollTheirstackForClient(c.id, { dryRun, jobsLimit: 30, companiesLimit: 15 });
       }
-      // Buying-intent QA (Bougie 2 — 04/05) : uniquement sur run "all"
-      // (cron 6h) pour limiter coût ~45 cr/jour × 30j = ~1.4€/mois/client.
-      // Cible boîtes FR Tech qui utilisent Selenium/Cypress/TestRail/etc
-      // — candidates naturelles pour externalisation QA (DTL).
-      if (!dryRun && source === "all") {
+      // Buying-intent QA (Bougie 2 — 04/05) : 2×/jour (6h + 14h UTC).
+      // Audit 05/05 : cron run-pollers tourne 24×/j, le commentaire d'origine
+      // "cron 6h ~45 cr/j" était faux → 1080 cr/j théorique, conso réelle
+      // ~960 cr/j (76% du quota mensuel 5200 atteint en 10j). Gate horaire
+      // 6h+14h ramène à 90 cr/j en gardant une fenêtre de rattrapage si VPS
+      // down sur une exécution. Yield observé 04/05 : 6 Pépites Opus≥8 en
+      // 1 fenêtre — 2×/j suffit largement (techstacks ne bougent pas/heure).
+      const buyingIntentHour = new Date().getUTCHours();
+      if (!dryRun && source === "all" && (buyingIntentHour === 6 || buyingIntentHour === 14)) {
         try {
           (entry as { theirstackBuyingIntent?: unknown }).theirstackBuyingIntent =
             await pollTheirstackBuyingIntentForClient(c.id, { companiesLimit: 15 });
