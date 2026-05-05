@@ -48,7 +48,7 @@ function isCacheFresh(generatedAt: Date | null): boolean {
   return ageMs < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
 }
 
-function buildPrompt(args: {
+export function buildPrompt(args: {
   trigger: {
     title: string;
     detail: string | null;
@@ -138,7 +138,7 @@ Réponds UNIQUEMENT avec un JSON valide qui matche exactement cette structure (p
 }`;
 }
 
-function extractJson(text: string): BriefPayload {
+export function extractJson(text: string): BriefPayload {
   // L'API peut entourer la réponse de markdown ```json ... ``` malgré la consigne
   let cleaned = text.trim();
   if (cleaned.startsWith("```")) {
