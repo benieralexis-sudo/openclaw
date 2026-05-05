@@ -673,11 +673,44 @@ export async function enrichRecentTriggersWithSirene(
     // filtrés en amont par postgres-sync.js:196 mais defensive coding).
     if (!/^\d+$/.test(t.companySiret)) continue;
     try {
-      const entreprise = await getEntreprise(t.companySiret);
+      // Sprint 1 Q2 (05/05/2026) — Inclure procedures_collectives pour le gate
+      // insolvency. Même appel Pappers, +1 paramètre query, 0 cr supplémentaire.
+      const entreprise = await getEntreprise(t.companySiret, {
+        includeProceduresCollectives: true,
+      });
       if (!entreprise) {
         stats.skipped += 1;
         continue;
       }
+
+      // Sprint 1 Q2 (05/05/2026) — Insolvency gate AVANT Lead creation.
+      // L'audit Phase 1 du 05/05 a constaté 0/146 leads avec
+      // companyHasInsolvency=true côté DTL alors que le check post-hoc dans
+      // enrich-lead-dirigeants.ts:205-220 fonctionne (les leads sont
+      // soft-deleted retroactivement). Ici on gate plus tôt : si la boîte est
+      // en RJ/LJ, on archive le Trigger AVANT que ensureLeadsForAllTriggers
+      // ne crée le Lead → économise 1 Lead créé puis enrichers cramés
+      // (Kaspr/FullEnrich/HarvestAPI ~$0.10/lead) inutilement.
+      if (entreprise.procedure_collective_en_cours === true) {
+        await db.lead.updateMany({
+          where: { triggerId: t.id, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+        await db.trigger.update({
+          where: { id: t.id },
+          data: {
+            deletedAt: new Date(),
+            ignoredAt: new Date(),
+            ignoredReason: "q2-gate-insolvency-pre-lead",
+          },
+        });
+        stats.skipped += 1;
+        console.log(
+          `[Q2 insolvency-gate] ${t.id} (${t.sourceCode}) siren=${t.companySiret} → ARCHIVED (RJ/LJ en cours)`,
+        );
+        continue;
+      }
+
       const updates: {
         companyNaf?: string;
         size?: string;
