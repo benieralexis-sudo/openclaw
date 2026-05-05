@@ -21,6 +21,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { runAndGetItems } from "@/lib/apify";
+import { invalidateTriggerForRequalify } from "@/lib/requalify-engine";
 
 const ACTOR_ID = "harvestapi/linkedin-profile-search";
 const TTL_DAYS = 30;
@@ -112,7 +113,7 @@ export async function enrichLinkedInProfilesForClient(
           }),
       trigger: { score: { gte: SCORE_GATE } },
     },
-    select: { id: true, firstName: true, lastName: true, companyName: true },
+    select: { id: true, firstName: true, lastName: true, companyName: true, triggerId: true },
     take: limit,
     orderBy: { createdAt: "desc" },
   });
@@ -177,6 +178,13 @@ export async function enrichLinkedInProfilesForClient(
           },
         });
         result.enriched += 1;
+        // Sprint 3.2 (05/05) — Le profil LinkedIn Full vient d'être posé.
+        // Le judge avait jugé sans cette data → invalide pour qu'il re-juge
+        // au prochain run. Bénéficie auto des blocs Sprint 1+2 (PERSONA QUAL
+        // + LinkedIn Profile Section + ESN/SaaS/Startup backgrounds).
+        if (lead.triggerId) {
+          await invalidateTriggerForRequalify(lead.triggerId, "linkedinProfileJson-resolved");
+        }
       } else {
         // Profil trouvé mais mauvais (homonyme) → skip propre
         await db.lead.update({

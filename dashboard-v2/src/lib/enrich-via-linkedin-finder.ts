@@ -4,6 +4,7 @@ import { findLinkedInUrl, type LinkedInFinderSource } from "@/lib/linkedin-finde
 import { enrichLinkedInProfile, isValidLinkedInUrl, pickPhone } from "@/lib/kaspr";
 import { isFrenchPhone, isFrenchMobile } from "@/lib/phone-fr";
 import { recomputeEmailConfidenceForLead } from "@/lib/recompute-email-confidence";
+import { invalidateTriggerForRequalify } from "@/lib/requalify-engine";
 
 /**
  * Pipeline étage 3-bis — applique la cascade LinkedIn finder sur les Leads
@@ -88,6 +89,7 @@ export async function enrichLeadsViaLinkedInFinder(
       lastName: true,
       companyName: true,
       jobTitle: true,
+      triggerId: true,
     },
     take: limit,
     orderBy: { createdAt: "desc" },
@@ -212,6 +214,13 @@ export async function enrichLeadsViaLinkedInFinder(
           } catch {
             // best effort
           }
+        }
+        // Sprint 3.2 (05/05) — linkedinUrl résolu (et potentiellement
+        // workEmail/phone via chaining Kaspr inline). Le judge avait jugé
+        // sans LinkedIn → invalide pour qu'il re-juge avec PERSONA QUAL
+        // complet (linkedinUrl + jobTitle + persona vraisemblable).
+        if (lead.triggerId) {
+          await invalidateTriggerForRequalify(lead.triggerId, "linkedinUrl-resolved");
         }
         result.found++;
         result.bySource[found.source]++;
