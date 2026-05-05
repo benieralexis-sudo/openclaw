@@ -1,14 +1,23 @@
 import "server-only";
 import { db } from "@/lib/db";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, TriggerType } from "@prisma/client";
+import { invalidateTriggerForRequalify } from "@/lib/requalify-engine";
 
 /**
  * Combo cross-sources : si une même boîte a 2+ Triggers de sources différentes
- * dans les 30 derniers jours, on flag isCombo=true et on boost score +2 (cap 10).
+ * dans la fenêtre dynamique (14-60j selon type-pair), on flag isCombo=true et
+ * on boost score +2 (cap 10).
+ *
+ * Sprint 6 v2 (05/05/2026) :
+ *   - Fenêtre dynamique 30j → 60j max + per-pair narrowing (cf. COMBO_WINDOW_DAYS)
+ *   - Combo rétrospectif : les Triggers du groupe DÉJÀ jugés sont invalidés
+ *     (scoreReason=null) pour que qualifyPendingTriggers re-pickup et bénéficie
+ *     du PRIOR SIGNALS bloc côté qualify-trigger.ts
  *
  * Exemples de combo :
- *   - Levée Rodz + Hire QA TheirStack → "scaling post-funding"
- *   - Hire CTO bot trigger-engine + Levée RSS → "leadership change pre-funding"
+ *   - Levée Rodz + Hire QA TheirStack → "scaling post-funding" (14j window)
+ *   - Hire CTO bot trigger-engine + Levée RSS → "leadership change pre-funding" (30j)
+ *   - M&A + Restructuring → "consolidation post-deal" (60j)
  *
  * + Pattern spécial SCALE-UP-TECH (Bougie 4, 04/05) : si combo = (FUNDRAISING
  * ou CAPITAL_INCREASE) + ≥1 HIRING_KEY tech (dev/engineer/qa/devops/etc),
@@ -19,17 +28,64 @@ import type { Prisma } from "@prisma/client";
  * Tourne périodiquement (toutes les 30 min via /api/internal/run-pollers).
  */
 
+/**
+ * Fenêtre dynamique combo selon paire de types (jours max d'écart).
+ * Clé = paire triée alphabétiquement de TriggerType ("|" séparateur).
+ * Si paire absente → fallback DEFAULT_COMBO_WINDOW_DAYS (30j).
+ *
+ * Logique :
+ *   - 14j : couples très urgents (post-funding hire = budget frais à activer)
+ *   - 30j : couples standards (funding + leadership change)
+ *   - 60j : couples lents (M&A + restructuring, expansion strategique)
+ */
+const DEFAULT_COMBO_WINDOW_DAYS = 30;
+const MAX_FETCH_WINDOW_DAYS = 60; // largest pair window — bound for query
+
+const COMBO_WINDOW_DAYS: Record<string, number> = {
+  // Tight (14j) — urgence maximale
+  "FUNDRAISING|HIRING_KEY": 14,
+  "CAPITAL_INCREASE|HIRING_KEY": 14,
+  // Standard (30j) — défaut implicite, listé pour lisibilité
+  "FUNDRAISING|LEADERSHIP_CHANGE": 30,
+  "HIRING_KEY|LEADERSHIP_CHANGE": 30,
+  // Slow (60j) — M&A et expansion sont des signaux à long terme
+  "FUNDRAISING|EXPANSION": 60,
+  "EXPANSION|HIRING_KEY": 60,
+  "REGULATORY|HIRING_KEY": 60,
+};
+
+function pairKey(a: TriggerType, b: TriggerType): string {
+  return [a, b].sort().join("|");
+}
+
+function getComboWindowDays(types: TriggerType[]): number {
+  if (types.length < 2) return DEFAULT_COMBO_WINDOW_DAYS;
+  // Plus restrictif des window applicables si plusieurs paires (combo 3+ types).
+  let minWindow = MAX_FETCH_WINDOW_DAYS;
+  for (let i = 0; i < types.length; i++) {
+    for (let j = i + 1; j < types.length; j++) {
+      const a = types[i];
+      const b = types[j];
+      if (a == null || b == null) continue;
+      const w = COMBO_WINDOW_DAYS[pairKey(a, b)] ?? DEFAULT_COMBO_WINDOW_DAYS;
+      minWindow = Math.min(minWindow, w);
+    }
+  }
+  return minWindow;
+}
+
 const TECH_HIRING_KEYWORDS = /\b(dev|engineer|tech|qa|devops|sre|fullstack|backend|frontend|data|machine learning|ml|ai|software|architect|cto|vp eng|head of eng|lead|product manager|po|product owner)\b/i;
 
 const SCALE_UP_TECH_MARKER = "[SCALE-UP-TECH]";
 
 export async function detectCombosForClient(
   clientId: string,
-): Promise<{ scanned: number; combos: number; updated: number; scaleUpTech: number }> {
+): Promise<{ scanned: number; combos: number; updated: number; scaleUpTech: number; retroInvalidated: number }> {
+  // Sprint 6 v2 : fetch sur la fenêtre la PLUS large (60j) puis narrow per-pair
+  // côté logique. Indexé sur (clientId, capturedAt) → query rapide.
   const since = new Date();
-  since.setDate(since.getDate() - 30);
+  since.setDate(since.getDate() - MAX_FETCH_WINDOW_DAYS);
 
-  // Group triggers par companySiret (ou companyName si pas de SIRET) sur 30j
   const triggers = await db.trigger.findMany({
     where: {
       clientId,
@@ -46,7 +102,9 @@ export async function detectCombosForClient(
       type: true,
       title: true,
       scoreReason: true,
+      capturedAt: true,
     },
+    orderBy: { capturedAt: "desc" },
   });
 
   // Clé d'identification entreprise : SIRET prioritaire, sinon nom normalisé
@@ -68,11 +126,30 @@ export async function detectCombosForClient(
   let combos = 0;
   let updated = 0;
   let scaleUpTech = 0;
+  let retroInvalidated = 0;
 
   for (const [, items] of groups) {
     const sources = new Set(items.map((t) => sourcePrefix(t.sourceCode)));
-    const isCombo = sources.size >= 2;
-    if (!isCombo) continue;
+    if (sources.size < 2) continue;
+
+    // Sprint 6 v2 — Fenêtre dynamique : on ne déclare un combo que si le delta
+    // entre le 1er et le dernier trigger du groupe est dans la fenêtre permise
+    // par la paire de types la plus restrictive. Évite les faux combos sur
+    // saga (funding + hire 50j après = pas un combo urgent).
+    const types = Array.from(new Set(items.map((t) => t.type)));
+    const windowDays = getComboWindowDays(types as TriggerType[]);
+    const sortedByDate = [...items].sort(
+      (a, b) => a.capturedAt.getTime() - b.capturedAt.getTime(),
+    );
+    const oldest = sortedByDate[0]!;
+    const newest = sortedByDate[sortedByDate.length - 1]!;
+    const deltaDays = (newest.capturedAt.getTime() - oldest.capturedAt.getTime()) / 86400_000;
+    if (deltaDays > windowDays) {
+      // Trop espacé pour être un combo significatif sur cette paire.
+      // (Note : on continue d'évaluer le groupe au cas où un sous-set récent
+      // formerait un combo, mais on garde simple pour V2 — pruner si nécessaire.)
+      continue;
+    }
 
     combos += 1;
     // Boost +2 sur le PREMIER trigger du groupe (résultats déjà ordonnés capturedAt desc côté DB)
@@ -120,10 +197,17 @@ export async function detectCombosForClient(
           scoreReason: newReason,
         },
       });
-      // Flag isCombo=true sur les autres aussi
+      // Flag isCombo=true sur les autres + Sprint 6 v2 : invalider les triggers
+      // déjà jugés du groupe (scoreReason rempli) pour qu'ils re-jugent avec
+      // le contexte combo (PRIOR SIGNALS bloc côté qualify-trigger.ts).
       for (const other of items) {
-        if (other.id !== target.id && !other.isCombo) {
+        if (other.id === target.id) continue;
+        if (!other.isCombo) {
           await db.trigger.update({ where: { id: other.id }, data: { isCombo: true } });
+        }
+        if (other.scoreReason) {
+          await invalidateTriggerForRequalify(other.id, "combo-retroactive-scale-up-tech");
+          retroInvalidated += 1;
         }
       }
       // Invalider pitch/brief sur le lead lié (sera régénéré avec contexte scale-up)
@@ -165,13 +249,20 @@ export async function detectCombosForClient(
           scoreReason: preservedReason,
         },
       });
-      // Flag isCombo=true sur les autres aussi (pour traçabilité)
+      // Flag isCombo=true sur les autres + Sprint 6 v2 : invalider les triggers
+      // déjà jugés du groupe (scoreReason rempli) pour qu'ils re-jugent avec
+      // le contexte combo (PRIOR SIGNALS bloc côté qualify-trigger.ts).
       for (const other of items) {
-        if (other.id !== target.id && !other.isCombo) {
+        if (other.id === target.id) continue;
+        if (!other.isCombo) {
           await db.trigger.update({
             where: { id: other.id },
             data: { isCombo: true },
           });
+        }
+        if (other.scoreReason) {
+          await invalidateTriggerForRequalify(other.id, "combo-retroactive-generic");
+          retroInvalidated += 1;
         }
       }
       updated += 1;
@@ -196,5 +287,5 @@ export async function detectCombosForClient(
     }
   }
 
-  return { scanned: triggers.length, combos, updated, scaleUpTech };
+  return { scanned: triggers.length, combos, updated, scaleUpTech, retroInvalidated };
 }

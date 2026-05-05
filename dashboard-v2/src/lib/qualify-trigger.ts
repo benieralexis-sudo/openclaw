@@ -22,6 +22,59 @@ interface QualifyResult {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Sprint 6 helper (05/05/2026) — Prior signals (same client, same SIRET)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Sprint 6 — Donne au judge le contexte des AUTRES Triggers du même client
+ * sur le même SIRET dans les 90 derniers jours. Critique pour qualifier un
+ * combo correctement : "ce hire QA arrive 12j après une levée 5M€" doit
+ * scorer plus haut que "ce hire QA solo".
+ *
+ * Travaille avec le combo-detector v2 : quand un combo est détecté, les
+ * Triggers précédents sont invalidés → re-pickup → ce helper leur donne le
+ * contexte des nouveaux signaux convergents → score affiné.
+ *
+ * Cost : 1 query DB par qualify call (indexée companySiret + clientId).
+ * Limite 5 prior signals max pour borner la taille du prompt.
+ */
+async function getPriorSignalsForCompany(
+  clientId: string,
+  companySiret: string | null,
+  currentTriggerId: string,
+): Promise<string | null> {
+  if (!companySiret) return null;
+  if (!/^\d{9,14}$/.test(companySiret)) return null;
+  const since = new Date();
+  since.setDate(since.getDate() - 90);
+  const others = await db.trigger.findMany({
+    where: {
+      clientId,
+      companySiret,
+      id: { not: currentTriggerId },
+      deletedAt: null,
+      capturedAt: { gte: since },
+    },
+    select: {
+      type: true,
+      sourceCode: true,
+      capturedAt: true,
+      status: true,
+      score: true,
+      title: true,
+    },
+    orderBy: { capturedAt: "desc" },
+    take: 5,
+  });
+  if (others.length === 0) return null;
+  const lines = others.map((t) => {
+    const ageDays = Math.round((Date.now() - t.capturedAt.getTime()) / 86400_000);
+    return `${t.type} (${t.sourceCode}, il y a ${ageDays}j) score=${t.score} status=${t.status} : "${(t.title ?? "").slice(0, 80)}"`;
+  });
+  return `PRIOR SIGNALS sur ce SIRET (90j) :\n- ${lines.join("\n- ")}`;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Sprint 5 helper (05/05/2026) — Cross-tenant signal
 // ──────────────────────────────────────────────────────────────────────
 
@@ -290,6 +343,14 @@ Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1
 - \`theirstack.buying-intent\` : déclaratif (utilise outils QA), vérifier industrie
 - \`francetravail.tech\` : Pôle Emploi OAuth — souvent ESN qui sourcent pour client final
 
+## Prior signals sur cette boîte (si présent dans le prompt)
+Le bloc "PRIOR SIGNALS sur ce SIRET" liste les autres Triggers du MÊME client sur la même boîte dans les 90 derniers jours. Interprétation :
+- **Combo convergent** (FUNDRAISING + HIRING_KEY <14j, ou LEADERSHIP_CHANGE + HIRING_KEY <30j) = signal d'achat très fort, +1 à +2 points
+- **Combo lent** (M&A + EXPANSION 30-60j) = consolidation post-deal, +1 point
+- **Signaux contradictoires** (FUNDRAISING + layoffs implicites dans titre) = à signaler dans la reason
+- **Plusieurs prior IGNORED** = la boîte a déjà été disqualifiée → confirmer la disqualification (ne PAS inventer un nouveau signal positif sans preuve)
+N'invente JAMAIS un prior signal si le bloc n'est pas dans le prompt.
+
 ## Signal cross-tenant (si présent dans le prompt)
 Le bloc "Cross-tenant : vu chez X autre(s) client(s) iFIND" indique que cette boîte est aussi pipelinée par d'autres clients du moteur iFIND. Interprétation :
 - **Plusieurs clients NEW/CONTACTED/REPLIED** → signal de traction marché (cible chaude transversale, +1 point au scoring final possible)
@@ -457,6 +518,16 @@ export async function qualifyTrigger(
   );
   const crossTenantBlock = crossTenantSignal ? `\n${crossTenantSignal}` : "";
 
+  // Sprint 6 (05/05) — Prior signals (mêmes clientId+SIRET, 90j, autres triggers).
+  // Permet au judge de voir le combo : "hire QA arrive 12j après levée 5M€"
+  // = score plus élevé que "hire QA solo".
+  const priorSignals = await getPriorSignalsForCompany(
+    trigger.clientId,
+    trigger.companySiret,
+    triggerId,
+  );
+  const priorSignalsBlock = priorSignals ? `\n${priorSignals}` : "";
+
   const userPrompt = `CLIENT : ${trigger.client.name}
 ICP : ${JSON.stringify({
     industries: icp.industries,
@@ -476,7 +547,7 @@ LEAD :
 - Industrie : ${trigger.industry ?? "?"}
 - Région : ${trigger.region ?? "?"}
 - Taille : ${trigger.size ?? "?"}
-${personaBlock}${crossTenantBlock}
+${personaBlock}${crossTenantBlock}${priorSignalsBlock}
 
 SIGNAL :
 - Type : ${trigger.type}
