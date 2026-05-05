@@ -46,18 +46,49 @@ iFIND n'agrège PAS de signaux flous (visites web, downloads anonymes). iFIND d�
 /**
  * Construit un bloc system cacheable Anthropic avec préambule iFIND + prompt spécifique.
  * Le bloc combiné dépasse 1024 tokens → cache_control: ephemeral activé.
+ *
+ * Bonus D (05/05/2026) — Support multi-bloc : si `dynamicTail` est fourni,
+ * on retourne 2 blocs system :
+ *   - bloc 1 : STABLE_PREAMBLE + specificPrompt (cached, change rarement)
+ *   - bloc 2 : dynamicTail (NON cached, rotated weekly par cron Bonus D)
+ *
+ * Bénéfice : les rotations hebdomadaires des few-shots dynamiques
+ * n'invalident QUE le bloc 2. Le bloc 1 reste chaud → ~70% des calls hit
+ * le cache STABLE_PREAMBLE+QUALIFY_SPECIFIC sans penalty. Économie estimée
+ * ~$0.30-0.40/semaine vs single-bloc rotation.
+ *
+ * Anthropic supporte jusqu'à 4 cache_control breakpoints en system message
+ * multi-bloc (validation API officielle 2024+).
  */
-export function buildCachedSystem(specificPrompt: string): Array<{
+export function buildCachedSystem(
+  specificPrompt: string,
+  dynamicTail?: string,
+): Array<{
   type: "text";
   text: string;
   cache_control?: { type: "ephemeral" };
 }> {
-  const combined = STABLE_PREAMBLE + specificPrompt;
-  return [
+  const stable = STABLE_PREAMBLE + specificPrompt;
+  const blocks: Array<{
+    type: "text";
+    text: string;
+    cache_control?: { type: "ephemeral" };
+  }> = [
     {
       type: "text" as const,
-      text: combined,
+      text: stable,
       cache_control: { type: "ephemeral" as const },
     },
   ];
+  // Si dynamicTail non vide, ajout d'un 2e bloc NON cached.
+  // Sécurité : on ne push pas un bloc vide (Anthropic peut rejeter).
+  if (dynamicTail && dynamicTail.trim().length > 0) {
+    blocks.push({
+      type: "text" as const,
+      text: dynamicTail,
+      // PAS de cache_control → bloc fresh à chaque call (ce qu'on veut
+      // pour les few-shots dynamiques rotated hebdo)
+    });
+  }
+  return blocks;
 }

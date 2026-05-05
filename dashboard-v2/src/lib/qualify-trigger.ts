@@ -3,6 +3,7 @@ import { getAnthropic, QUALIFY_MODEL } from "@/lib/anthropic";
 import { buildCachedSystem } from "@/lib/anthropic-prompt";
 import { db } from "@/lib/db";
 import { extractLinkedInProfile } from "@/lib/linkedin-profile-extractor";
+import { readDynamicFewShotsFromIcp } from "@/lib/dynamic-few-shots";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -666,7 +667,13 @@ SIGNAL :
     const resp = await anthropic.messages.create({
       model: QUALIFY_MODEL,
       max_tokens: 200,
-      system: buildCachedSystem(QUALIFY_SPECIFIC),
+      // Bonus D (05/05) — Multi-bloc cache : bloc stable cached + bloc
+      // dynamic fresh (si few-shots dynamiques disponibles dans Client.icp).
+      // Kill switch via icp.dynamicFewShotsEnabled = false → fallback static.
+      system: buildCachedSystem(
+        QUALIFY_SPECIFIC,
+        readDynamicFewShotsFromIcp(icp) ?? undefined,
+      ),
       messages: [{ role: "user", content: userPrompt }],
     });
     // Instrumentation cache (audit 03/05) : log structuré JSON pour mesurer
