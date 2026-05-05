@@ -234,8 +234,40 @@ async function lookupByName(nom, db, opts = {}) {
 
   // Trouve le meilleur match
   let match = results.find(r => isGoodMatch(nom, r));
-  // Fallback : si pas de match strict mais un seul résultat, prendre avec confidence réduite
-  if (!match && results.length === 1) match = results[0];
+  // Fix A2 (05/05) — Fallback dangereux supprimé. Avant : si pas de match strict
+  // ET 1 seul résultat, on prenait l'unique résultat sans valider la similarité.
+  // Bug observé : "LYFT" (RSS Maddyness sur Lyft Inc US) → SARL FR homonyme
+  // SIREN 500714522 attribué à tort. Le judge Opus voyait ensuite "LYFT" + un
+  // NAF/SIREN bidon et devait deviner que c'était un homonyme.
+  //
+  // Fallback remplacé : on accepte un résultat unique UNIQUEMENT si une forme
+  // normalisée du nom cherché apparaît comme substring du nom complet API
+  // (ou inverse). Ex: "Voodoo" ⊂ "VOODOO SAS" OK ; "LYFT" vs "LYFT IMPORT
+  // EXPORT BERTRAND" : la denomination API contient "LYFT" comme token, donc
+  // OK aussi mais le substring strict empêche les attributions hasardeuses.
+  // Pour les cas vraiment ambigus, on préfère un FAUX NEGATIF (pseudo FT-hash
+  // + filtre isPlausibleCompanyName en amont) à un FAUX POSITIF.
+  if (!match && results.length === 1) {
+    const candidate = results[0];
+    const normSearch = stripLegalForms(normalizeName(nom));
+    const normCand = stripLegalForms(normalizeName(candidate.nom_complet || candidate.nom_raison_sociale || ''));
+    // Seuil 6 caractères : pour les noms courts (≤5 chars type "LYFT", "ATMOS",
+    // "OVH"), on exige un match strict via isGoodMatch. Le substring permissif
+    // sur 4 chars accepterait "lyft" ⊂ "lyft import export bertrand" → faux
+    // positif. Pour les noms ≥6 chars (Voodoo, Doctolib...), un substring
+    // unique est suffisamment discriminant.
+    const minLen = 6;
+    if (
+      normSearch.length >= minLen &&
+      normCand.length >= minLen &&
+      (normCand.includes(normSearch) || normSearch.includes(normCand))
+    ) {
+      match = candidate;
+      log?.debug?.(`[sirene] fallback substring-match accepté pour "${nom}" → "${candidate.nom_complet}"`);
+    } else {
+      log?.debug?.(`[sirene] fallback rejeté (nom mismatch) pour "${nom}" vs "${candidate.nom_complet}"`);
+    }
+  }
 
   const upsert = db.prepare(`
     INSERT INTO siren_lookup_cache (normalized_name, siren, nom_complet, naf_code, effectif, departement, found, looked_up_at)
