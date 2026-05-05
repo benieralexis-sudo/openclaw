@@ -14,7 +14,7 @@ import "server-only";
 import { Prisma, TriggerStatus, TriggerType, LeadStatus, EmailStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { searchJobs, searchCompanies, type JobResult, type JobSearchFilters, type CompanyResult, type CompanySearchFilters } from "@/lib/theirstack";
-import { attributeSirene } from "@/lib/pappers";
+import { attributeSirene, getEntreprise } from "@/lib/pappers";
 
 /**
  * Slugs TheirStack des outils de test/QA — utilisés par DTL et tout
@@ -626,9 +626,89 @@ export async function enrichRecentTriggersWithSirene(
         data: {
           companySiret: result.siren,
           companyNaf: result.code_naf ?? null,
+          size: result.effectif ?? null,
         },
       });
       stats.enriched += 1;
+    } catch {
+      stats.errors += 1;
+    }
+  }
+
+  // Sprint 1 A3 (05/05/2026) — Triggers AVEC SIRET mais SANS companyNaf/size.
+  // Cas typique : funding-recent depuis postgres-sync.js. Le sync attribue
+  // un SIREN au moment où il transfère SQLite → Postgres (ligne 288), mais
+  // la SQLite "companies" table peut être partielle (rss-levees ingest n'a pas
+  // forcément hydraté NAF/effectif au moment de l'attribution SIRENE initiale).
+  // Résultat : 6/8 triggers funding-recent en prod arrivent avec
+  // companyNaf=null + size=null → judge Opus aveugle sur l'industrie.
+  //
+  // Fix : sweep ciblé via getEntreprise(siren) Pappers (1 cr/call, cache 1h
+  // in-process). On comble companyNaf, size, industry, region quand vides.
+  // Coût marginal : ~6-8 calls/jour selon volume rss-levees.
+  const triggersIncomplete = await db.trigger.findMany({
+    where: {
+      clientId,
+      companySiret: { not: null },
+      OR: [{ companyNaf: null }, { size: null }],
+      capturedAt: { gte: since },
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      companySiret: true,
+      companyName: true,
+      companyNaf: true,
+      size: true,
+      industry: true,
+      region: true,
+      sourceCode: true,
+    },
+    take: limit,
+  });
+
+  for (const t of triggersIncomplete) {
+    if (!t.companySiret) continue;
+    // Garde-fou : pseudo-SIREN type "FTabc1234" doivent être ignorés (déjà
+    // filtrés en amont par postgres-sync.js:196 mais defensive coding).
+    if (!/^\d+$/.test(t.companySiret)) continue;
+    try {
+      const entreprise = await getEntreprise(t.companySiret);
+      if (!entreprise) {
+        stats.skipped += 1;
+        continue;
+      }
+      const updates: {
+        companyNaf?: string;
+        size?: string;
+        industry?: string;
+        region?: string;
+      } = {};
+      if (!t.companyNaf && entreprise.code_naf) {
+        updates.companyNaf = entreprise.code_naf;
+      }
+      if (!t.size && entreprise.tranche_effectif) {
+        updates.size = entreprise.tranche_effectif;
+      }
+      if (!t.industry && entreprise.libelle_code_naf) {
+        updates.industry = entreprise.libelle_code_naf;
+      }
+      if (!t.region && entreprise.siege?.region) {
+        updates.region = entreprise.siege.region;
+      }
+      if (Object.keys(updates).length > 0) {
+        await db.trigger.update({
+          where: { id: t.id },
+          data: updates,
+        });
+        stats.enriched += 1;
+        console.log(
+          `[A3 enrich-incomplete] ${t.id} (${t.sourceCode}) siren=${t.companySiret} → ` +
+            Object.keys(updates).join("+"),
+        );
+      } else {
+        stats.skipped += 1;
+      }
     } catch {
       stats.errors += 1;
     }
