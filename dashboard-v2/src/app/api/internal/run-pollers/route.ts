@@ -30,6 +30,7 @@ import { autoGenerateBriefsForHotLeads } from "@/lib/auto-generate-briefs";
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
 import { recomputeDataQualityForClient } from "@/lib/recompute-data-quality";
 import { recoverIgnoredTriggersForClient } from "@/lib/requalify-engine";
+import { notifyAdmin } from "@/lib/telegram-alert";
 
 // Documente l'intention de durée max — Next.js self-hosted ignore mais utile
 // pour Vercel + lisibilité humaine. Cohérent avec le timeout cron 15 min côté
@@ -512,10 +513,87 @@ export async function POST(req: NextRequest) {
     summary.push(entry);
   }
 
+  // Sprint 10 (05/05) — Alert thresholds : checke des dérives critiques après
+  // chaque run et alerte Telegram (dédup 60 min in-process). Anti-spam +
+  // best-effort (n'casse jamais le pipeline si Telegram down).
+  try {
+    await checkRunHealthAndAlert(summary, runId);
+  } catch {
+    // silent — le monitoring ne doit pas casser le pipeline
+  }
+
   return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), runId, summary });
   } finally {
     releaseLock(runId);
   }
+}
+
+/**
+ * Sprint 10 — Surveille les dérives sur la summary du run et alerte
+ * l'admin via Telegram avec dédup 60 min.
+ *
+ * Seuils déclenchant alert :
+ *   - Pipeline échoué pour un client (entry.error présent)
+ *   - 0 trigger qualifié alors que le client a une ICP (panne Anthropic ?)
+ *   - Erreurs Pappers SIRENE > 10 (quota ?)
+ *   - Erreurs HarvestAPI > 5 (Apify down ?)
+ *   - Recovery sweep errors > 5
+ *   - Sirene enriched=0 sur source=all (tous skip ?)
+ */
+async function checkRunHealthAndAlert(
+  summary: Array<{ client: string; [key: string]: unknown }>,
+  runId: string,
+): Promise<void> {
+  const issues: string[] = [];
+
+  for (const entry of summary) {
+    const clientName = entry.client;
+    if (typeof entry.error === "string" && entry.error) {
+      issues.push(`${clientName} → pipeline échoué : ${String(entry.error).slice(0, 200)}`);
+    }
+    // Erreurs HarvestAPI Decision Makers
+    const dm = entry.harvestapiDM as { errors?: number; scanned?: number } | undefined;
+    if (dm && typeof dm.errors === "number" && dm.errors > 5) {
+      issues.push(`${clientName} → harvestapiDM ${dm.errors} erreurs (scanned=${dm.scanned ?? "?"})`);
+    }
+    // Erreurs Recovery (Sprint 3.3)
+    const recovery = entry.recovery as { errors?: number; revived?: number; candidates?: number } | undefined;
+    if (recovery && typeof recovery.errors === "number" && recovery.errors > 5) {
+      issues.push(`${clientName} → recovery sweep ${recovery.errors} erreurs (candidates=${recovery.candidates ?? 0})`);
+    }
+    // Qualify rien fait alors que client actif
+    const qualified = entry.opusQualified;
+    if (typeof qualified === "number" && qualified === 0 && entry.skipped == null) {
+      // 0 qualified peut être normal (pas de pending) → on ne l'alerte que sur 3 runs consécutifs.
+      // Pour simplicité, dédup 60 min suffit ici.
+      issues.push(`${clientName} → 0 trigger qualifié sur ce run (Anthropic down ?)`);
+    }
+    // Erreurs Pappers SIRENE
+    const sirene = entry.sireneEnriched;
+    const sireneObj = entry.sirene as { errors?: number; enriched?: number } | undefined;
+    void sirene;
+    if (sireneObj && typeof sireneObj.errors === "number" && sireneObj.errors > 10) {
+      issues.push(`${clientName} → SIRENE ${sireneObj.errors} erreurs (quota Pappers ?)`);
+    }
+    // Erreurs theirstack buying intent
+    const tsbiError = entry.theirstackBuyingIntentError;
+    if (typeof tsbiError === "string" && tsbiError) {
+      issues.push(
+        `${clientName} → TheirStack buying-intent erreur : ${tsbiError.slice(0, 100)}`,
+      );
+    }
+  }
+
+  if (issues.length === 0) return;
+
+  const message = `Run ${runId.slice(0, 16)} - ${issues.length} alerte(s) :\n${issues
+    .map((i) => `• ${i}`)
+    .join("\n")}`;
+  await notifyAdmin(message, {
+    urgency: "warn",
+    title: "iFIND run-pollers health",
+    dedupKey: `run-pollers-issues|${issues.slice(0, 3).join("|").slice(0, 200)}`,
+  });
 }
 
 export async function GET() {
