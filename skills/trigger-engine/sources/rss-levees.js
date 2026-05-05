@@ -74,6 +74,27 @@ function looksLikeFunding(title, description) {
  *   - "La startup <Company>" → Company = mots après
  *   - Fallback : 1er mot capitalisé
  */
+// Fix A1 (05/05) — Liste centralisée appliquée à tous les patterns + au fallback.
+// Le 1er token du candidat doit être un nom propre, pas un mot éditorial /
+// pays / déterminant. Stopwords étendus pour éliminer "Les", "Chine", "Funding",
+// "ATMOS" (acronymes vagues) qui produisaient des triggers fantômes.
+const FIRST_TOKEN_STOPWORDS = new Set([
+  // Articles / déterminants
+  "the", "le", "la", "les", "un", "une", "des", "ce", "ces", "cette", "leur", "leurs", "ses",
+  // Mots éditoriaux RSS
+  "funding", "levée", "levee", "news", "exclusive", "breaking", "scoop",
+  "interview", "tribune", "édito", "edito", "podcast", "analyse", "actualité", "actualite",
+  "tech", "startup", "scaleup", "entreprise", "société", "societe", "groupe", "marché", "marche",
+  // Pays / régions / continents (FR + EN)
+  "france", "chine", "inde", "japon", "corée", "coree", "allemagne", "italie", "espagne",
+  "royaume", "états", "etats", "etats-unis", "états-unis", "us", "usa", "uk",
+  "canada", "brésil", "bresil", "russie", "afrique", "asie", "europe", "amérique", "amerique",
+  "africa", "asia", "america", "china", "india", "germany", "japan",
+  // Mois / saisonniers
+  "janvier", "février", "fevrier", "mars", "avril", "mai", "juin", "juillet",
+  "août", "aout", "septembre", "octobre", "novembre", "décembre", "decembre",
+]);
+
 function extractCompanyName(title) {
   if (!title) return null;
   let t = title.trim();
@@ -83,38 +104,76 @@ function extractCompanyName(title) {
   // qui empêche les patterns suivants de matcher.
   t = t.replace(/^\s*\[[^\]]{1,30}\]\s*/i, "");
 
+  // Fix A1 (05/05) — Stopword check appliqué à tous les patterns (pas seulement
+  // le fallback). Le 1er token du candidat doit être un nom propre, pas un mot
+  // éditorial / pays / déterminant. Sans ça, mPrefix sur "Funding: ABC..."
+  // capture "Funding", et mBefore sur "Les startups françaises lèvent..."
+  // capture "Les startups françaises".
+  const tryReturn = (candidate) => {
+    if (!candidate) return null;
+    const trimmed = candidate.trim();
+    const firstTok = (trimmed.split(/\s+/)[0] || "").toLowerCase();
+    if (FIRST_TOKEN_STOPWORDS.has(firstTok)) return null;
+    return trimmed;
+  };
+
   // Pattern: "La startup/scaleup/fintech/entreprise X ..."
   const mStartup = t.match(/\b(?:la startup|la scaleup|la scale-up|la fintech|l'entreprise|la soci[ée]t[ée]|le groupe)\s+([A-Z][A-Za-zÀ-ÿ0-9\-\.']+(?:\s+[A-Z][A-Za-zÀ-ÿ0-9\-\.']+){0,2})/i);
-  if (mStartup) return mStartup[1].trim();
+  if (mStartup) {
+    const out = tryReturn(mStartup[1]);
+    if (out) return out;
+  }
 
   // Pattern: "<Company> lève/boucle/annonce/..."
   const mBefore = t.match(/^([A-Z][A-Za-zÀ-ÿ0-9\-\.' ]{1,40}?)\s+(?:l[èe]ve|boucle|annonce|s[ée]curise|obtient|d[ée]croche|r[ée]alise|raises?|raises|secures|closes|bags)/);
-  if (mBefore) return mBefore[1].trim();
+  if (mBefore) {
+    const out = tryReturn(mBefore[1]);
+    if (out) return out;
+  }
 
   // Fix M7 (04/05) — Pattern "5M€ pour <Company>" / "ABC raises 5M for <Company>"
   // Maddyness titre parfois "Funding: 10 M€ pour Voodoo"
   const mAfterAmount = t.match(/\d+[\.\,]?\d*\s*(?:m€|m\$|millions?|k€)\s+(?:pour|for|to|à)\s+([A-Z][A-Za-zÀ-ÿ0-9\-\.']+(?:\s+[A-Z][A-Za-zÀ-ÿ0-9\-\.']+){0,2})/i);
-  if (mAfterAmount) return mAfterAmount[1].trim();
+  if (mAfterAmount) {
+    const out = tryReturn(mAfterAmount[1]);
+    if (out) return out;
+  }
 
   // Pattern "[Company]" en tête avant un tiret ou deux-points
   const mPrefix = t.match(/^([A-Z][A-Za-zÀ-ÿ0-9\-\.']{1,30}(?:\s+[A-Z][A-Za-zÀ-ÿ0-9\-\.']+){0,2})\s*[:|\-–—]/);
-  if (mPrefix) return mPrefix[1].trim();
+  if (mPrefix) {
+    const out = tryReturn(mPrefix[1]);
+    if (out) return out;
+  }
 
-  // Fix M7 (04/05) — Fallback final : extraire le 1er token capitalisé qui n'est
-  // pas un mot stop courant. Catch les titres "Funding: ABC Corp s'envole avec 5M€"
-  // que les patterns précédents ratent.
-  const FALLBACK_STOPWORDS = new Set([
-    "funding", "levée", "levee", "news", "exclusive", "breaking",
-    "scoop", "interview", "interview", "the", "le", "la", "une", "un",
-  ]);
+  // Fallback final : extraire le 1er token capitalisé non-stopword.
+  // Fix A1 (05/05) : stopwords centralisés au niveau module (FIRST_TOKEN_STOPWORDS),
+  // exigence ≥4 caractères pour éviter les acronymes ambigus type "ABC", "ATM".
   const tokens = t.split(/\s+/);
   for (const tok of tokens) {
-    if (/^[A-Z][A-Za-zÀ-ÿ0-9\-\.']{2,}$/.test(tok) && !FALLBACK_STOPWORDS.has(tok.toLowerCase())) {
+    if (/^[A-Z][A-Za-zÀ-ÿ0-9\-\.']{3,}$/.test(tok) && !FIRST_TOKEN_STOPWORDS.has(tok.toLowerCase())) {
       return tok;
     }
   }
 
   return null;
+}
+
+// Fix A1 (05/05) — Validation post-extraction : un nom d'entreprise plausible doit
+// soit avoir été résolu par SIRENE (vrai SIREN), soit ressembler crédiblement à un
+// nom propre (≥4 chars, contient au moins une voyelle, n'est pas un acronyme
+// 100%-majuscules sans contexte). Évite l'émission de triggers FT-hash sur "Les",
+// "Chine", "ATMOS" qui polluent le dashboard et cramaient des tokens Opus.
+function isPlausibleCompanyName(name, sireneResolved) {
+  if (!name) return false;
+  if (sireneResolved) return true; // SIRENE a tranché, on fait confiance
+  const trimmed = name.trim();
+  if (trimmed.length < 4) return false;
+  // Doit contenir au moins une voyelle (élimine acronymes type "MGT", "CSE")
+  if (!/[aeiouyàèéêëïî]/i.test(trimmed)) return false;
+  // 100% majuscules ≤6 chars sans SIRENE → suspect (LYFT, ATMOS, OPEN, etc.)
+  if (trimmed.length <= 6 && trimmed === trimmed.toUpperCase()) return false;
+  return true;
 }
 
 /**
@@ -225,6 +284,13 @@ async function ingest({ lastEventId, log, storage } = {}) {
         }
       }
       if (!siren) {
+        // Fix A1 (05/05) — Si SIRENE n'a pas résolu, on vérifie que le nom
+        // est plausible avant d'émettre un trigger pseudo-hashé. Évite les
+        // "Les", "Chine", "ATMOS" qui polluaient la file de qualification.
+        if (!isPlausibleCompanyName(companyName, false)) {
+          log?.debug?.(`[rss-levees] reject implausible companyName=${companyName} title="${norm.title.slice(0, 80)}"`);
+          continue;
+        }
         siren = pseudoSirenFromName(companyName);
         confidence = 0.5;
       }
