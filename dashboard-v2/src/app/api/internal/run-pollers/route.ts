@@ -117,15 +117,16 @@ export async function POST(req: NextRequest) {
       if (source === "all" || source === "theirstack") {
         entry.theirstack = await pollTheirstackForClient(c.id, { dryRun, jobsLimit: 30, companiesLimit: 15 });
       }
-      // Buying-intent QA (Bougie 2 — 04/05) : 2×/jour (6h + 14h UTC).
+      // Buying-intent QA (Bougie 2 — 04/05) : 2×/jour (12h + 18h UTC).
       // Audit 05/05 : cron run-pollers tourne 24×/j, le commentaire d'origine
       // "cron 6h ~45 cr/j" était faux → 1080 cr/j théorique, conso réelle
       // ~960 cr/j (76% du quota mensuel 5200 atteint en 10j). Gate horaire
-      // 6h+14h ramène à 90 cr/j en gardant une fenêtre de rattrapage si VPS
-      // down sur une exécution. Yield observé 04/05 : 6 Pépites Opus≥8 en
-      // 1 fenêtre — 2×/j suffit largement (techstacks ne bougent pas/heure).
+      // 12h+18h ramène à 90 cr/j en gardant une fenêtre de rattrapage si VPS
+      // down sur une exécution. Heures choisies après audit DB : 100% des
+      // Pépites historiques (28/04 + 04/05) ont été captées à 12h ou 18h UTC,
+      // jamais à 06h ou 00h (TheirStack ne réindexe pas la nuit FR).
       const buyingIntentHour = new Date().getUTCHours();
-      if (!dryRun && source === "all" && (buyingIntentHour === 6 || buyingIntentHour === 14)) {
+      if (!dryRun && source === "all" && (buyingIntentHour === 12 || buyingIntentHour === 18)) {
         try {
           (entry as { theirstackBuyingIntent?: unknown }).theirstackBuyingIntent =
             await pollTheirstackBuyingIntentForClient(c.id, { companiesLimit: 15 });
