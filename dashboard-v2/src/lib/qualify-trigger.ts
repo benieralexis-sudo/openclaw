@@ -85,7 +85,13 @@ function formatLinkedinProfileForJudge(payload: unknown): string | null {
 // Trigger.detail est tronqué à 600 chars en amont (apify-poller.ts:211/393/433),
 // ce qui prive Opus des signaux durs : "200 collaborateurs", "3 jours en présentiel",
 // "chez nos clients grands comptes", "7600 talents". On fallback sur detail si rien.
-const FULL_DESC_MAX_CHARS = 4000;
+//
+// Sprint 2 B.4 (05/05) : passé de 4000 → 8000 chars. TheirStack rawPayload
+// peut atteindre 50 KB sur job-offer descriptions complètes. Opus 4.7 a 200K
+// de contexte, on peut largement absorber +4K tokens si la description est
+// dense (ex : "infrastructure 200p répartis Paris+Lyon+Bordeaux + 12 ESN
+// partenaires actuels + équipe QA externalisée chez Capgemini en régie").
+const FULL_DESC_MAX_CHARS = 8000;
 const FULL_DESC_FIELDS = [
   "description",
   "descriptionText",

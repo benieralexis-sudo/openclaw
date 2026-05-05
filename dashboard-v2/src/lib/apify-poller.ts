@@ -168,7 +168,14 @@ interface NormalizedJob {
   url?: string;
   location?: string;
   postedAt?: string;
+  // Sprint 2 B.4 (05/05) — `description` reste la version 600c pour Trigger.detail
+  // (affichage dashboard). `fullDescription` (jusqu'à 8000c) est conservée dans
+  // rawPayload pour que extractFullDescription() côté qualify-trigger.ts puisse
+  // donner au judge Opus les vrais signaux durs : "10 ans d'historique on-site",
+  // "équipe 200p", "présentiel obligatoire", etc. Nom `fullDescription` aligné
+  // sur FULL_DESC_FIELDS (qualify-trigger.ts:28-34) — pas de modif côté lecture.
   description?: string;
+  fullDescription?: string;
   sourceUrl?: string;
   // Poster / hiring manager extrait de l'annonce — alimente Lead.linkedinUrl
   // quand présent (gratuit, ~30% des annonces LinkedIn). Si absent, Pappers
@@ -239,7 +246,8 @@ function adaptFranceJobItem(item: FranceJobItem): NormalizedJob | null {
     url: item.url,
     location: item.location,
     postedAt: item.publishedAt,
-    description: item.description,
+    description: item.description?.slice(0, 600),
+    fullDescription: item.description?.slice(0, 8000),
     sourceUrl: item.url,
   };
 }
@@ -327,7 +335,8 @@ function adaptLinkedinJobItem(item: LinkedinJobItem): NormalizedJob | null {
     url: item.link ?? item.jobUrl ?? item.url,
     location: item.location,
     postedAt: item.postedAt,
-    description: item.descriptionText ?? item.jobDescription ?? item.description,
+    description: (item.descriptionText ?? item.jobDescription ?? item.description)?.slice(0, 600),
+    fullDescription: (item.descriptionText ?? item.jobDescription ?? item.description)?.slice(0, 8000),
     sourceUrl: item.link ?? item.jobUrl ?? item.url,
     posterFullName,
     posterFirstName: firstName,
@@ -391,6 +400,7 @@ function adaptWttjItem(item: WttjJobItem): NormalizedJob | null {
     location: office?.city,
     postedAt: item.publishedAt,
     description: (item.summary ?? item.description)?.slice(0, 600),
+    fullDescription: (item.summary ?? item.description)?.slice(0, 8000),
     sourceUrl: item.url,
   };
 }
@@ -431,6 +441,7 @@ function adaptIndeedItem(item: IndeedJobItem): NormalizedJob | null {
     location: item.location,
     postedAt: item.postingDateParsed,
     description: item.description?.slice(0, 600),
+    fullDescription: item.description?.slice(0, 8000),
     sourceUrl: normalized ?? rawUrl,
   };
 }
