@@ -22,6 +22,55 @@ interface QualifyResult {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Sprint 5 helper (05/05/2026) — Cross-tenant signal
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Sprint 5 — Signal cross-tenant : ce SIRET apparaît-il chez d'autres
+ * clients iFIND ? Donne au judge un signal de "traction marché" (si plusieurs
+ * clients pipelinent la même boîte = cible chaude transversale) ou de
+ * "rejection consensus" (si tous les autres clients l'ont IGNORED = signal
+ * négatif fort).
+ *
+ * Asset défensif : Apollo/Pharow/Cognism ne peuvent PAS faire ça car (a) pas
+ * d'attribution SIRENE commune, (b) ICP rigides non comparables, (c)
+ * structure DB non multi-tenant pivotable. Pour iFIND c'est natif (clientId
+ * sur Lead + Trigger, query trivial).
+ *
+ * Cost : 1 query par qualify call (~30/run × 24/jour = 720 q/jour). Indexé
+ * sur companySiret. Négligeable.
+ *
+ * Retourne null si SIRET absent/invalide ou si aucun autre client n'a vu
+ * cette boîte (ne pollue pas le prompt avec "0 autre(s) client" inutile).
+ */
+async function getCrossTenantSignal(
+  currentClientId: string,
+  companySiret: string | null,
+): Promise<string | null> {
+  if (!companySiret) return null;
+  // Pseudo-SIRET (FT* hash de rss-levees) ne sert pas pour cross-tenant.
+  if (!/^\d{9,14}$/.test(companySiret)) return null;
+  const others = await db.lead.findMany({
+    where: {
+      clientId: { not: currentClientId },
+      companySiret,
+      deletedAt: null,
+    },
+    select: { status: true, clientId: true },
+  });
+  if (others.length === 0) return null;
+  const counts: Record<string, number> = {};
+  for (const l of others) {
+    counts[l.status] = (counts[l.status] ?? 0) + 1;
+  }
+  const distinctClients = new Set(others.map((l) => l.clientId)).size;
+  const breakdown = Object.entries(counts)
+    .map(([s, n]) => `${s}=${n}`)
+    .join(", ");
+  return `Cross-tenant : vu chez ${distinctClients} autre(s) client(s) iFIND (${breakdown})`;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Sprint 2 helpers (05/05/2026)
 // ──────────────────────────────────────────────────────────────────────
 
@@ -241,6 +290,13 @@ Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1
 - \`theirstack.buying-intent\` : déclaratif (utilise outils QA), vérifier industrie
 - \`francetravail.tech\` : Pôle Emploi OAuth — souvent ESN qui sourcent pour client final
 
+## Signal cross-tenant (si présent dans le prompt)
+Le bloc "Cross-tenant : vu chez X autre(s) client(s) iFIND" indique que cette boîte est aussi pipelinée par d'autres clients du moteur iFIND. Interprétation :
+- **Plusieurs clients NEW/CONTACTED/REPLIED** → signal de traction marché (cible chaude transversale, +1 point au scoring final possible)
+- **Tous les autres clients ont status=IGNORED** → signal de rejection consensus (cette boîte a échoué partout, -1 à -2 points possible)
+- **Mix** → information neutre, ne modifie pas le score
+N'invente JAMAIS un signal cross-tenant si le bloc n'est pas dans le prompt.
+
 ## Règles de pénalité automatique
 - Hors France (country_code != FR, suffixes GmbH/AG/SE/BV/NV/Ltd/PLC/Inc/LLC/SpA/Srl/SL/SA dans le nom) → score ≤ 2
 - Holding / SCI / cabinet comptable / mairie / agglo / université → score ≤ 3
@@ -392,6 +448,15 @@ export async function qualifyTrigger(
     personaBlock = `\nPERSONA QUAL : non encore calculée (Lead pas créé)`;
   }
 
+  // Sprint 5 (05/05) — Cross-tenant signal (si dispo). Bloc omis si SIRET
+  // absent/pseudo OU si aucun autre client iFIND n'a cette boîte. Évite
+  // de polluer le prompt avec "0 autre client" inutile.
+  const crossTenantSignal = await getCrossTenantSignal(
+    trigger.clientId,
+    trigger.companySiret,
+  );
+  const crossTenantBlock = crossTenantSignal ? `\n${crossTenantSignal}` : "";
+
   const userPrompt = `CLIENT : ${trigger.client.name}
 ICP : ${JSON.stringify({
     industries: icp.industries,
@@ -411,7 +476,7 @@ LEAD :
 - Industrie : ${trigger.industry ?? "?"}
 - Région : ${trigger.region ?? "?"}
 - Taille : ${trigger.size ?? "?"}
-${personaBlock}
+${personaBlock}${crossTenantBlock}
 
 SIGNAL :
 - Type : ${trigger.type}
