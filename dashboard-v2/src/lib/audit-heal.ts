@@ -131,7 +131,7 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
       "phone" = COALESCE(
         NULLIF(l."phone", ''),
         CASE
-          WHEN regexp_replace(t."rawPayload"->'contact'->>'phone', '[[:space:].-]', '', 'g') ~ '^(\+33|0033)[1-79][0-9]{8}$' THEN t."rawPayload"->'contact'->>'phone'
+          WHEN regexp_replace(t."rawPayload"->'contact'->>'phone', '[[:space:].-]', '', 'g') ~ '^([+]33|0033)[1-79][0-9]{8}$' THEN t."rawPayload"->'contact'->>'phone'
           WHEN regexp_replace(t."rawPayload"->'contact'->>'phone', '[[:space:].-]', '', 'g') ~ '^0[1-79][0-9]{8}$' THEN t."rawPayload"->'contact'->>'phone'
           ELSE NULL
         END
