@@ -329,18 +329,18 @@ async function syncToPostgres(sqliteDb, options = {}) {
             const upd = await pg.query(`
               UPDATE "Lead"
               SET
-                "fullName" = COALESCE(NULLIF("fullName", ''), $2),
-                email = COALESCE(NULLIF(email, ''), $3),
-                "linkedinUrl" = COALESCE(NULLIF("linkedinUrl", ''), $4),
-                "companySiret" = COALESCE(NULLIF("companySiret", ''), $5),
+                "fullName" = COALESCE(NULLIF("fullName", ''), $2::text),
+                email = COALESCE(NULLIF(email, ''), $3::text),
+                "linkedinUrl" = COALESCE(NULLIF("linkedinUrl", ''), $4::text),
+                "companySiret" = COALESCE(NULLIF("companySiret", ''), $5::text),
                 "updatedAt" = NOW()
               WHERE "triggerId" = $1
                 AND "deletedAt" IS NULL
                 AND (
-                  (("fullName" IS NULL OR "fullName" = '') AND $2 IS NOT NULL)
-                  OR ((email IS NULL OR email = '') AND $3 IS NOT NULL)
-                  OR (("linkedinUrl" IS NULL OR "linkedinUrl" = '') AND $4 IS NOT NULL)
-                  OR (("companySiret" IS NULL OR "companySiret" = '') AND $5 IS NOT NULL)
+                  (("fullName" IS NULL OR "fullName" = '') AND $2::text IS NOT NULL)
+                  OR ((email IS NULL OR email = '') AND $3::text IS NOT NULL)
+                  OR (("linkedinUrl" IS NULL OR "linkedinUrl" = '') AND $4::text IS NOT NULL)
+                  OR (("companySiret" IS NULL OR "companySiret" = '') AND $5::text IS NOT NULL)
                 )
             `, [
               triggerId,
