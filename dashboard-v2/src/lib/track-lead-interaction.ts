@@ -22,6 +22,7 @@ export type LeadInteractionKind =
   | "copy_phone"
   | "copy_linkedin"
   | "copy_brief"
+  | "copy_callscript"
   | "click_linkedin"
   | "click_website"
   | "export_csv"

@@ -15,6 +15,13 @@ import { enrichLeadsViaFullEnrich } from "@/lib/enrich-via-fullenrich";
 // import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
 import { detectDeclarativePainForClient } from "@/lib/declarative-pain";
 import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
+// Audit fix B.1.3 (06/05) — enrichLinkedInProfilesForClient n'était appelé
+// par PERSONNE (route /api/internal/enrich-linkedin-profiles existe mais
+// aucun cron ne la frappe — ancien clay-linkedin-cron disabled 06/04).
+// Conséquence : Sprint 2 B.2 inerte (0 leads avec linkedinProfileJson dense).
+// Wire-le ici en source=all (pipeline complet 6h) pour que le judge bénéficie
+// du parsing LinkedIn Profile Full sur les leads chauds.
+import { enrichLinkedInProfilesForClient } from "@/lib/enrich-linkedin-profile-runner";
 import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
 import { auditAndHeal } from "@/lib/audit-heal";
 import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
@@ -287,9 +294,15 @@ export async function POST(req: NextRequest) {
         // dont le Lead a un profil LinkedIn dense (>3000c) et force re-judge
         // avec les blocs PERSONA QUAL + LinkedIn Profile + COMPANY HEALTH
         // (Sprint 1+2). Estimation conservatrice : 5-8 récupérables par sweep.
-        // Tourne UNIQUEMENT sur source=all (cron 6h) car coût Anthropic
-        // non-négligeable (~$0.005 × 30 = $0.15/run worst case).
-        if (source === "all") {
+        //
+        // Audit fix B.1.3 (06/05) — Le bot trigger-engine NE FAIT PAS d'appel
+        // ?source=all (0 trace 24h). Donc source=all bloqué = recovery sweep
+        // jamais déclenché. Gate horaire ajouté : tourne aussi sur source=cron
+        // si UTC hour % 6 === 1 (01h, 07h, 13h, 19h UTC = 4×/j vs 6×/j attendu).
+        // Coût : 4 × $0.15 = $0.60/jour worst case (acceptable).
+        const recoveryHour = new Date().getUTCHours();
+        const shouldRunRecovery = source === "all" || (source === "cron" && recoveryHour % 6 === 1);
+        if (shouldRunRecovery) {
           try {
             const recovered = await recoverIgnoredTriggersForClient(c.id, { limit: 30 });
             (entry as { recovery?: unknown }).recovery = {
@@ -300,6 +313,30 @@ export async function POST(req: NextRequest) {
             };
           } catch (e) {
             (entry as { recoveryError?: string }).recoveryError =
+              e instanceof Error ? e.message : String(e);
+          }
+        }
+        // Audit fix B.1.3 (06/05) — Sprint 2 B.2 wire enrichLinkedInProfilesForClient.
+        // Idem : gate horaire pour ne pas dépendre de source=all (jamais déclenché).
+        // TTL 30j sur Lead.linkedinProfileEnrichedAt → ne re-traite pas ceux déjà
+        // enrichis. Apify HarvestAPI ~$0.005/lead × 30 max = $0.15/run.
+        // Cron 4×/j = $0.60/jour. Couvre 26 candidats DTL en attente.
+        const linkedinProfilesHour = new Date().getUTCHours();
+        const shouldRunLinkedinProfiles =
+          source === "all" || (source === "cron" && linkedinProfilesHour % 6 === 2);
+        if (shouldRunLinkedinProfiles && !dryRun) {
+          try {
+            const liProfiles = await enrichLinkedInProfilesForClient(c.id, { limit: 30 });
+            (entry as { linkedinProfiles?: unknown }).linkedinProfiles = {
+              scanned: liProfiles.scanned,
+              enriched: liProfiles.enriched,
+              emptyResponses: liProfiles.emptyResponses,
+              mismatchCompany: liProfiles.mismatchCompany,
+              skipped: liProfiles.skipped,
+              errorsCount: liProfiles.errors.length,
+            };
+          } catch (e) {
+            (entry as { linkedinProfilesError?: string }).linkedinProfilesError =
               e instanceof Error ? e.message : String(e);
           }
         }

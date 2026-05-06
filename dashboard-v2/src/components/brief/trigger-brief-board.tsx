@@ -1210,7 +1210,7 @@ function BriefTabs({
           <EmailTab email={brief.email} leadEmail={leadEmail} leadId={leadId} />
         </TabsContent>
         <TabsContent value="linkedin">
-          <LinkedinTab linkedin={brief.linkedin} leadLinkedin={leadLinkedin} />
+          <LinkedinTab linkedin={brief.linkedin} leadLinkedin={leadLinkedin} leadId={leadId} />
         </TabsContent>
         <TabsContent value="warm">
           <WarmMailTab
@@ -1219,10 +1219,11 @@ function BriefTabs({
             leadEmail={leadEmail}
             onGenerate={onGenerateCopy}
             generating={generatingCopy}
+            leadId={leadId}
           />
         </TabsContent>
         <TabsContent value="call">
-          <CallTab callScript={brief.callScript} />
+          <CallTab callScript={brief.callScript} leadId={leadId} />
         </TabsContent>
       </Tabs>
     </div>
@@ -1421,9 +1422,11 @@ function EmailTab({
 function LinkedinTab({
   linkedin,
   leadLinkedin,
+  leadId,
 }: {
   linkedin: Brief["linkedin"];
   leadLinkedin: string | null;
+  leadId: string;
 }) {
   return (
     <Card>
@@ -1451,6 +1454,8 @@ function LinkedinTab({
           warning={linkedin.connection.length > 280}
           text={linkedin.connection}
           copyLabel="Connexion copiée"
+          leadId={leadId}
+          kind="copy_linkedin"
         />
 
         <MessageBlock
@@ -1458,6 +1463,8 @@ function LinkedinTab({
           warning={false}
           text={linkedin.followup}
           copyLabel="Follow-up copié"
+          leadId={leadId}
+          kind="copy_linkedin"
         />
 
         <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">
@@ -1477,11 +1484,15 @@ function MessageBlock({
   warning,
   text,
   copyLabel,
+  leadId,
+  kind,
 }: {
   label: string;
   warning: boolean;
   text: string;
   copyLabel: string;
+  leadId?: string;
+  kind?: import("@/lib/track-lead-interaction").LeadInteractionKind;
 }) {
   return (
     <div className="space-y-1">
@@ -1497,7 +1508,9 @@ function MessageBlock({
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => copyToClipboard(text, copyLabel)}
+          onClick={() =>
+            copyToClipboard(text, copyLabel, leadId && kind ? { leadId, kind } : undefined)
+          }
           className="gap-1.5"
         >
           <Copy className="h-3 w-3" />
@@ -1515,7 +1528,13 @@ function MessageBlock({
 // Tab : Script call
 // ──────────────────────────────────────────────────────────────────────
 
-function CallTab({ callScript }: { callScript: Brief["callScript"] }) {
+function CallTab({
+  callScript,
+  leadId,
+}: {
+  callScript: Brief["callScript"];
+  leadId: string;
+}) {
   const allText = `INTRO : ${callScript.intro}\n\nHOOK : ${callScript.hook}\n\nQUESTIONS :\n${callScript.questions.map((q, i) => `${i + 1}. ${q}`).join("\n")}\n\nOBJECTIONS :\n${callScript.objectionHandling
     .map((o) => `- ${o.obj} → ${o.response}`)
     .join("\n")}\n\nCLOSE : ${callScript.close}`;
@@ -1530,7 +1549,9 @@ function CallTab({ callScript }: { callScript: Brief["callScript"] }) {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => copyToClipboard(allText, "Script copié")}
+            onClick={() =>
+              copyToClipboard(allText, "Script copié", { leadId, kind: "copy_callscript" })
+            }
             className="gap-1.5"
           >
             <Copy className="h-3 w-3" />
@@ -1615,12 +1636,14 @@ function WarmMailTab({
   leadEmail,
   onGenerate,
   generating,
+  leadId,
 }: {
   warmMail: { subject: string; body: string } | null;
   warmMailGeneratedAt: string | null;
   leadEmail: string | null;
   onGenerate: () => void;
   generating: boolean;
+  leadId: string;
 }) {
   // Pas encore généré → CTA pour appeler /api/leads/[id]/copy (4 contextes en 1 appel)
   if (!warmMail) {
@@ -1685,7 +1708,9 @@ function WarmMailTab({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => copyToClipboard(warmMail.subject, "Sujet copié")}
+              onClick={() =>
+                copyToClipboard(warmMail.subject, "Sujet copié", { leadId, kind: "copy_email" })
+              }
               className="gap-1.5"
             >
               <Copy className="h-3 w-3" />
@@ -1694,7 +1719,9 @@ function WarmMailTab({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => copyToClipboard(warmMail.body, "Corps copié")}
+              onClick={() =>
+                copyToClipboard(warmMail.body, "Corps copié", { leadId, kind: "copy_email" })
+              }
               className="gap-1.5"
             >
               <Copy className="h-3 w-3" />
@@ -1703,7 +1730,9 @@ function WarmMailTab({
             <Button
               variant="primary"
               size="sm"
-              onClick={() => copyToClipboard(fullEmail, "Email complet copié")}
+              onClick={() =>
+                copyToClipboard(fullEmail, "Email complet copié", { leadId, kind: "copy_email" })
+              }
               className="gap-1.5"
             >
               <Copy className="h-3 w-3" />

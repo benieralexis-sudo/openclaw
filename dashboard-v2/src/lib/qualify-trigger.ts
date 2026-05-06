@@ -752,6 +752,12 @@ SIGNAL :
   // 9 sources FR whitelist (lesechos, maddyness, bfm, légifrance, etc).
   // Soft cap à 5 si ≥2 sources distinctes hits → la boîte est probablement
   // en contraction (presse plus rapide que BODACC RCS dépôts).
+  //
+  // Audit fix (06/05) — flag layoffsCapApplied : empêche le plancher
+  // trusted-source ci-dessous de re-booster à 8 le score qu'on vient de
+  // capper à 5. Avant ce flag : un Rodz funding score=10 + layoffs news
+  // → Bonus C cap à 5 → plancher minFloor=8 → re-boost à 8. Bug confirmé.
+  let layoffsCapApplied = false;
   if (opusScore >= 8 && !negativeSignals?.hasHardSignal) {
     try {
       const layoffsCheck = await searchLayoffsNews(trigger.companyName);
@@ -765,6 +771,7 @@ SIGNAL :
         );
         reason = `[Bonus C layoffs-news-cap ${topSources}] ${reason}`.slice(0, 500);
         opusScore = 5;
+        layoffsCapApplied = true;
       }
     } catch (e) {
       console.warn(
@@ -791,7 +798,10 @@ SIGNAL :
   // si on a un signal négatif hard (liquidation/dissolution etc.). Une
   // levée Rodz sur une boîte en cessation = peut-être levée fictive ou
   // contexte de liquidation, à NE PAS booster.
-  if (minFloor && opusScore < minFloor && !hedged.matchedLabel && !negativeSignals?.hasHardSignal) {
+  // Audit fix (06/05) — !layoffsCapApplied : pareil pour Bonus C cap à 5
+  // sur news layoffs. Sans ce garde, une levée Rodz score=10 + news PSE
+  // était capped à 5 par Bonus C puis re-boosted à 8 par le plancher.
+  if (minFloor && opusScore < minFloor && !hedged.matchedLabel && !negativeSignals?.hasHardSignal && !layoffsCapApplied) {
     const icpNafCodes = (icp.naf_codes as string[] | undefined) ?? [];
     const naf = (trigger.companyNaf ?? "").replace(/\./g, "");
     const nafMatchIcp = icpNafCodes.some((c) => naf.startsWith(c.replace(/\./g, "")));
