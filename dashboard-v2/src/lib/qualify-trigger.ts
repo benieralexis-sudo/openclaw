@@ -322,7 +322,11 @@ const PRE_OPUS_REJECT_PATTERNS: Array<{ pattern: RegExp; label: string; field: "
   // M9 (04/05) — versions EN du pattern présentiel
   { pattern: /\b5\s*days?\s+(on[- ]?site|in\s+(the\s+)?office|at\s+(the\s+)?office|per\s+week\s+on[- ]?site)\b|\bon[- ]?site\s+(only|mandatory|required|obligatory|5\s*days)\b|\bno\s+(remote|telework|work[- ]?from[- ]?home|wfh)\b|\bfull[- ]?time\s+on[- ]?site\b|\bin[- ]?office\s+(only|mandatory|required)\b/i, label: "onsite-only-en", field: "description" },
   // C5d — Mention oversize FR + EN
-  { pattern: /(?:[2-9]\d{2,}|\d{4,})\s*(collaborateurs?|talents?|salariés?|consultants?|employees?|employés?|people|staff\s+members?|professionals)\b/i, label: "oversized-text", field: "description" },
+  // Sprint B.7 (06/05) — seuil monté de 200+ → 500+ pour réduire faux positifs
+  // sur SaaS frontière qui mentionnent leur taille en passant ("250 collaborateurs"
+  // dans une description Pixid/Hublo). Visait initialement les ESN géantes type
+  // "5000 talents" ou "10000 employés" — ces cas restent bloqués.
+  { pattern: /(?:[5-9]\d{2,}|\d{4,})\s*(collaborateurs?|talents?|salariés?|consultants?|employees?|employés?|people|staff\s+members?|professionals)\b/i, label: "oversized-text", field: "description" },
 ];
 
 function preOpusRejectScan(
@@ -414,7 +418,7 @@ Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1
 
 ## Rubrique scoring (4 axes, poids égaux)
 1. **ICP fit** — industrie / NAF whitelist / taille / région matchent ? **Si COMPANY HEALTH contient une procédure collective EN COURS → score ≤ 2 systématique (boîte non-prospectable). CA + résultat net présents : pondère selon viabilité financière. Multi-établissements ou dépôts RCS récents = signal d'expansion / mouvement à exploiter.**
-2. **Signal strength** — vrai déclencheur d'achat (levée fraîche, hire clé QA/Test senior, M&A, C-level change) vs bruit (job junior, alternance, mentorat, RH) ? **Si le bloc CLIENT contient \`signalPrimary\` (le signal #1 explicite du client validé par leur fondateur), évalue PRIORITAIREMENT sa présence/absence — c'est le signal le plus fort. Le signal #1 peut être une PRÉSENCE (ex: "hire VP Sales") OU une ABSENCE (ex: "absence de QA dans une équipe 100% devs sur éditeur SaaS"). Pour les signaux d'absence, regarde les indices indirects : équipe sans QA mentionnée, postes ouverts qui contournent le besoin (ex: dev fullstack qui "fait aussi les tests"), descriptions où le testing est implicite côté dev. \`signalSecondary\` est un signal mou, à pondérer plus faiblement.**
+2. **Signal strength** — vrai déclencheur d'achat (levée fraîche, hire clé QA/Test senior, M&A, C-level change) vs bruit (job junior, alternance, mentorat, RH) ? **Si le bloc CLIENT contient \`signalPrimary\` : c'est un signal qui DÉCLENCHE un BOOST positif quand détecté. C'est UNIQUEMENT un BONUS (+), JAMAIS un MALUS (-). Quand le signalPrimary décrit une condition d'absence (ex: "absence de QA dans équipe 100% devs"), interprète ainsi : si le critère est rempli (boîte sans QA détecté) → applique le bonus ; si le critère n'est PAS rempli (boîte avec QA présent ou hire QA en cours) → le bonus ne s'applique pas (NEUTRE), tu continues à scorer normalement les autres axes. NE JAMAIS écrire "signal #1 invalidé" ou "signal #1 inversé" dans la reason — la non-application du bonus n'est PAS une pénalité. Si le bloc CLIENT contient \`signalSecondary\` étiqueté NEUTRE/ambigu, ne pénalise PAS sa présence et n'invente PAS un anti-signal qui n'existe pas.**
 3. **Persona match** — décisionnaire (CTO, CEO, Founder, Head of Eng, VP Eng) vs périphérique ? **Si le bloc PERSONA QUAL contient un fitScore et un personaTier (calcul interne), utilise-les comme signal fort : fitScore≥70 ou personaTier=1 → décideur quasi-certain ; fitScore<40 ou personaTier≥3 → décideur faible (pénalise la dimension persona dans ton scoring). Si LinkedIn Profile présent : ancienneté <6 mois sur poste C-level = mandat frais, signal d'achat ; backgrounds ESN dans les 3 derniers postes = parcours conseil, pertinence ICP fonction du contexte ; 0 expérience SaaS sur poste tech d'éditeur SaaS = mismatch fort. NOTE : Si \`nonRedFlags\` du client mentionne explicitement "RH/Achats persona OK", NE PAS pénaliser un contact RH/Achats — le client gère lui-même cette nuance via ses messages d'outreach.**
 4. **Freshness** — <7j = boost, >30j = malus, >90j = exclure. **Si le bloc CLIENT contient \`freshnessByTrigger\` (fenêtres pif intelligent par type de signal), respecte les bornes minDays/maxDays/staleAfterDays plutôt que la règle générique.**
 
@@ -915,6 +919,16 @@ SIGNAL :
   // Client.icp.minScore (7 pour DTL). Sans minScore défini → pas de filtre.
   const icpMinScore = typeof icp.minScore === "number" ? icp.minScore : null;
   const belowMinScore = icpMinScore !== null && opusScore < icpMinScore;
+
+  // Sprint B.7 (06/05/2026) — Promotion IGNORED→NEW si re-qualify remonte
+  // le score ≥ minScore. Si on arrive ici (= preOpusRejectScan a return false,
+  // pas de hardCap Sprint 9 puisque belowMinScore=false implique score ≥ minScore
+  // ≥ 2+1, donc pas de hard cap actif), le trigger MÉRITE NEW. La seule raison
+  // pour qu'il soit encore en IGNORED est un héritage d'un précédent run.
+  // On ne se fie PAS au scoreReason précédent (peut avoir été overwritten
+  // par un qualify intermédiaire qui a effacé le préfixe `[C3 below_min_score`).
+  const promoteToNew = !belowMinScore && trigger.status === "IGNORED";
+
   await db.trigger.update({
     where: { id: triggerId },
     data: {
@@ -924,11 +938,16 @@ SIGNAL :
         : reason,
       isHot,
       ...(belowMinScore ? { status: "IGNORED" as const } : {}),
+      ...(promoteToNew ? { status: "NEW" as const } : {}),
     },
   });
   if (belowMinScore) {
     console.log(
       `[qualify-trigger.C3] ${triggerId}: IGNORED auto (score=${opusScore} < minScore=${icpMinScore})`,
+    );
+  } else if (promoteToNew) {
+    console.log(
+      `[qualify-trigger.B7-promote] ${triggerId}: IGNORED→NEW (score remonté à ${opusScore} ≥ minScore=${icpMinScore})`,
     );
   }
 

@@ -339,12 +339,13 @@ class TriggerEngineCron {
 
     // Postgres sync : every 10 min — pousse les leads qualifiés (DTL, score≥7, opus≥5, ≤200p)
     // depuis SQLite client_leads vers Postgres Lead+Trigger pour visibilité dashboard.
+    // 06/05 — Log toujours visible quand scanned > 0 (audit Bug #8 fix data type $2).
     const pgSyncInterval = setInterval(async () => {
       try {
         const stats = await syncToPostgres(this.handler.storage.db, {
           minScore: 7, minOpus: 5, clientCodes: ['digitestlab'],
         });
-        if (stats.upserted_leads > 0 || stats.errors > 0) {
+        if (stats.scanned > 0 || stats.errors > 0) {
           this.log.info?.(`[cron] postgres-sync: scanned=${stats.scanned} triggers=${stats.upserted_triggers} new_leads=${stats.upserted_leads} skipped=${stats.skipped_quality} errs=${stats.errors}`);
         }
       } catch (e) {
