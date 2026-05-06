@@ -85,6 +85,39 @@ except: print('||||')
       ALERTS+=("⚠️ *Apify* ${APIFY_PCT}% utilisé (\$${APIFY_USED}/\$${APIFY_LIMIT}), cycle à ${APIFY_TIME_PCT}%")
     fi
   fi
+
+  # 1.bis Burn 24h — détection précoce d'un actor qui dérape (audit 06/05 :
+  # plafond $70/$70 atteint suite wire-up Sprint 2 B.2 + restart-spam bot).
+  # Somme usageTotalUsd des runs des dernières 24h. Seuil $3 = trajectoire
+  # cible <$70/mois (~$2.30/j), au-dessus on veut un coup d'œil rapide.
+  APIFY_24H=$(curl -sS --max-time 15 -H "Authorization: Bearer ${APIFY_API_TOKEN}" \
+    "https://api.apify.com/v2/actor-runs?limit=200&desc=true" 2>/dev/null | python3 -c "
+import json, sys, datetime
+try:
+    d = json.load(sys.stdin)
+    items = d.get('data', {}).get('items', [])
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
+    total = 0.0
+    by_actor = {}
+    for r in items:
+        s = r.get('startedAt','')
+        if not s: continue
+        t = datetime.datetime.fromisoformat(s.replace('Z','+00:00'))
+        if t < cutoff: continue
+        usd = r.get('usageTotalUsd', 0) or 0
+        total += usd
+        a = r.get('actId','?')[:6]
+        by_actor[a] = by_actor.get(a, 0) + usd
+    top = sorted(by_actor.items(), key=lambda x: -x[1])[:2]
+    top_str = ', '.join(f'{a}=\${u:.2f}' for a, u in top)
+    print(f'{total:.2f}|{top_str}')
+except: print('|')
+")
+  IFS='|' read -r BURN_24H BURN_TOP <<< "$APIFY_24H"
+  log "APIFY_24H: \$${BURN_24H} (top: ${BURN_TOP})"
+  if [ -n "$BURN_24H" ] && (( $(echo "$BURN_24H > 3.0" | bc -l 2>/dev/null || echo 0) )); then
+    ALERTS+=("🔥 *Apify burn 24h* \$${BURN_24H} (seuil \$3.00) — top: ${BURN_TOP}")
+  fi
 fi
 
 # ──────────────────────────────────────────────────────────────────

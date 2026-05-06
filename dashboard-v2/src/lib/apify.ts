@@ -167,6 +167,50 @@ export async function getLimits(): Promise<ApifyLimits> {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Circuit breaker budget — audit 06/05/2026 ($70.02/$70 atteint avant fix)
+// ──────────────────────────────────────────────────────────────────────
+// Cache 5 min de getLimits() + assertion avant tout runActor*. Si on dépasse
+// ABORT_THRESHOLD_PCT (95%), on throw RunActorBudgetError → tous les pollers
+// (declarative-pain, profile-search, WTTJ, …) skippent leurs runs sans toucher
+// Apify. Évite le dépassement du plafond mensuel quoi que fasse le caller.
+const BUDGET_CACHE_TTL_MS = 5 * 60 * 1000;
+const ABORT_THRESHOLD_PCT = 95;
+let budgetCache: { fetchedAt: number; usagePct: number; usedUsd: number; maxUsd: number } | null = null;
+
+export class ApifyBudgetExceededError extends Error {
+  constructor(public usagePct: number, public usedUsd: number, public maxUsd: number) {
+    super(`Apify budget gate: ${usagePct.toFixed(1)}% utilisé ($${usedUsd.toFixed(2)}/$${maxUsd}) >= ${ABORT_THRESHOLD_PCT}%`);
+    this.name = "ApifyBudgetExceededError";
+  }
+}
+
+async function getCachedBudget(): Promise<{ usagePct: number; usedUsd: number; maxUsd: number } | null> {
+  const now = Date.now();
+  if (budgetCache && now - budgetCache.fetchedAt < BUDGET_CACHE_TTL_MS) {
+    return { usagePct: budgetCache.usagePct, usedUsd: budgetCache.usedUsd, maxUsd: budgetCache.maxUsd };
+  }
+  try {
+    const limits = await getLimits();
+    const usedUsd = limits.current?.monthlyUsageUsd ?? 0;
+    const maxUsd = limits.limits?.maxMonthlyUsageUsd ?? 0;
+    const usagePct = maxUsd > 0 ? (usedUsd / maxUsd) * 100 : 0;
+    budgetCache = { fetchedAt: now, usagePct, usedUsd, maxUsd };
+    return { usagePct, usedUsd, maxUsd };
+  } catch {
+    // Si l'endpoint Apify échoue, on n'aveugle pas le caller — fail-open.
+    return null;
+  }
+}
+
+async function assertApifyBudgetOk(): Promise<void> {
+  const b = await getCachedBudget();
+  if (!b) return;
+  if (b.usagePct >= ABORT_THRESHOLD_PCT) {
+    throw new ApifyBudgetExceededError(b.usagePct, b.usedUsd, b.maxUsd);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Actors — liste + lookup
 // ──────────────────────────────────────────────────────────────────────
 
@@ -216,6 +260,7 @@ export async function runActor(
   input: Record<string, unknown>,
   options: RunActorOptions = {},
 ): Promise<ApifyRun> {
+  await assertApifyBudgetOk();
   const id = resolveActorId(actorIdOrName);
   const qs = new URLSearchParams();
   if (options.timeout) qs.set("timeout", String(options.timeout));
@@ -239,6 +284,7 @@ export async function runActorSync(
   input: Record<string, unknown>,
   options: RunActorOptions = {},
 ): Promise<ApifyRun> {
+  await assertApifyBudgetOk();
   const id = resolveActorId(actorIdOrName);
   const qs = new URLSearchParams();
   if (options.timeout) qs.set("timeout", String(options.timeout));
@@ -329,6 +375,7 @@ export async function runAndGetItems<T = Record<string, unknown>>(
   input: Record<string, unknown>,
   options: RunActorOptions & { itemsLimit?: number } = {},
 ): Promise<{ run: ApifyRun | null; items: T[] }> {
+  await assertApifyBudgetOk();
   const id = resolveActorId(actorIdOrName);
   const qs = new URLSearchParams();
   if (options.timeout) qs.set("timeout", String(options.timeout));
