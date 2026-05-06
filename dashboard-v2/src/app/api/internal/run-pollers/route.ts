@@ -513,19 +513,15 @@ export async function POST(req: NextRequest) {
         } catch {
           // skip silencieux
         }
-        // Declarative pain detection — ✅ RÉACTIVÉ 30/04 SOIR avec gates strictes
-        // Patches sécurité après l'incident $18.83/$29 (65% budget Apify) :
-        //  - Dedup TTL 14j via Trigger.declarativePainScannedAt (marqué après scan)
-        //  - Gate score >= 7 (Pépites only, plus de Qualifiés 6)
-        //  - Plafond 20 boîtes/run (au lieu de 50)
-        //  - maxPostsPerCompany: 3 (au lieu de 5)
-        //  Conso prédite : $0.36/mois (vs $18 avant) = -$18.50/mois économie maintenue.
-        try {
-          const pain = await detectDeclarativePainForClient(c.id, { limit: 20 });
-          (entry as { declarativePain?: unknown }).declarativePain = pain;
-        } catch (e) {
-          (entry as { painError?: string }).painError = e instanceof Error ? e.message : String(e);
-        }
+        // Declarative pain detection — ❌ DÉSACTIVÉ 06/05/2026 (audit Apify)
+        // Mesure empirique : 0 pain détecté sur 51 scans en 30 jours côté DTL.
+        // Cause : `Lead.linkedinUrl` = profil persona (/in/...) au lieu de
+        // page company (/company/...) → l'actor harvestapi/linkedin-company-posts
+        // scrape les mauvaises URLs, le LLM analyse des posts persos cherchant
+        // une douleur entreprise. Signal corrompu structurellement.
+        // Pour réactiver proprement : ajouter Lead.companyLinkedinUrl + résoudre
+        // via Pappers/HarvestAPI puis re-câbler ici. Estimé 1-2h dev.
+        // const pain = await detectDeclarativePainForClient(c.id, { limit: 20 });
         } // end if (isFullPipeline) — fin enrichissements coûteux
         // Sync EmailActivity (écrites par bot IMAP poller hors dashboard)
         // → LeadActivity miroir pour timeline temps réel.

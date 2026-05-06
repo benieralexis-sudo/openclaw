@@ -661,23 +661,37 @@ export async function pollApifyForClient(
 
   // 3. WTTJ — clearpath/welcome-to-the-jungle-jobs-api
   // Filtre companySize ICP-aware : 50-250p (cible DTL Tech 11-200)
-  if (useWttj) {
-    const r = await runActorAndPushTriggers({
-      actor: APIFY_ACTORS.wttjJobs,
-      input: {
-        query: keywords[0] ?? "test logiciel",
-        countryCode: "FR",
-        companySize: "50-250",
-        contractType: ["full_time"],
-      },
-      clientId,
-      sourceCode: "apify.wttj-jobs",
-      adapter: (item) => adaptWttjItem(item as WttjJobItem),
-      antiCompanies,
-      dryRun: options.dryRun,
-    });
-    result.actorRuns.push(r);
-    result.totalTriggersCreated += r.triggersCreated;
+  //
+  // Patch A1+B (06/05/2026, audit Apify) :
+  //  - Gate horaire 06h UTC : 1×/jour au lieu de 4×/jour. Mesure empirique
+  //    sur 2 runs WTTJ à 6h d'intervalle = 100% overlap (36/36 jobs identiques),
+  //    0 NEW triggers DTL en 24h sur les 4 runs. Conclusion : WTTJ ne refresh
+  //    pas en 6h, scraper à cette fréquence = gaspillage pur.
+  //  - Multi-keyword : top 3 keywordsHiring au lieu de keywords[0] seul.
+  //    Avant : 1 query "QA Engineer" sur 24 keywords ICP DTL. Après : "QA",
+  //    "Software Tester", "Test Engineer" en parallèle. Gain estimé +10-50%
+  //    triggers WTTJ uniques (mesure DB : 6% boîtes ont 2+ titles distincts).
+  //  - Coût : 3 runs/j × $0.11 = $0.33/j vs $0.44/j avant = -$3/mois net.
+  if (useWttj && new Date().getUTCHours() === 6) {
+    const wttjKeywords = (keywords.length > 0 ? keywords : ["test logiciel"]).slice(0, 3);
+    for (const kw of wttjKeywords) {
+      const r = await runActorAndPushTriggers({
+        actor: APIFY_ACTORS.wttjJobs,
+        input: {
+          query: kw,
+          countryCode: "FR",
+          companySize: "50-250",
+          contractType: ["full_time"],
+        },
+        clientId,
+        sourceCode: "apify.wttj-jobs",
+        adapter: (item) => adaptWttjItem(item as WttjJobItem),
+        antiCompanies,
+        dryRun: options.dryRun,
+      });
+      result.actorRuns.push(r);
+      result.totalTriggersCreated += r.triggersCreated;
+    }
   }
 
   // 4. Indeed FR — misceres/indeed-scraper

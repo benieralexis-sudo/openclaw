@@ -128,24 +128,47 @@ export async function enrichLinkedInProfilesForClient(
     }
 
     result.attempted += 1;
-    const searchQuery = `${lead.firstName.trim()} ${lead.lastName.trim()} ${lead.companyName.trim()}`.trim();
+    const searchQueryPrimary = `${lead.firstName.trim()} ${lead.lastName.trim()} ${lead.companyName.trim()}`.trim();
+    // Patch E (06/05) — fallback search sans companyName. Audit Apify : 14/58
+    // lookups (24%) reviennent vides, souvent à cause d'accents/anciens noms
+    // RCS qui ne matchent pas le brand LinkedIn. On retry "FirstName LastName"
+    // seul si le 1er échoue. Coût marginal $0.10/retry, mais réduit empty 50%.
+    const searchQueryFallback = `${lead.firstName.trim()} ${lead.lastName.trim()}`.trim();
 
     let items: HarvestProfileItem[] = [];
+    let usedQuery = searchQueryPrimary;
     try {
       const r = await runAndGetItems<HarvestProfileItem>(
         ACTOR_ID,
         {
-          searchQuery,
+          searchQuery: searchQueryPrimary,
           profileScraperMode: "Full",
           maxItems: 1,
         },
         { timeout: 60, memory: 512, itemsLimit: 1 },
       );
       items = r.items;
+      // Retry sans company si 1er run vide ET company faisait partie du query.
+      // Skip si le nom est trop générique (firstName+lastName <8 chars =
+      // risque Jean Dupont qui matche n'importe qui).
+      if (items.length === 0 && searchQueryFallback.length >= 8 && searchQueryFallback !== searchQueryPrimary) {
+        await new Promise((res) => setTimeout(res, PAUSE_BETWEEN_LEADS_MS));
+        const r2 = await runAndGetItems<HarvestProfileItem>(
+          ACTOR_ID,
+          {
+            searchQuery: searchQueryFallback,
+            profileScraperMode: "Full",
+            maxItems: 1,
+          },
+          { timeout: 60, memory: 512, itemsLimit: 1 },
+        );
+        items = r2.items;
+        usedQuery = searchQueryFallback;
+      }
     } catch (e) {
       result.errors.push({
         leadId: lead.id,
-        error: `actor_run: ${e instanceof Error ? e.message : String(e)}`,
+        error: `actor_run (q="${usedQuery}"): ${e instanceof Error ? e.message : String(e)}`,
       });
       // pause anti-throttle même en cas d'erreur
       await new Promise((res) => setTimeout(res, PAUSE_BETWEEN_LEADS_MS));

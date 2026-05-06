@@ -135,6 +135,13 @@ export interface ResolvedDecisionMaker {
   /** Titre catégorisé pour analytics */
   matchedTitle: string;
   fromCache: boolean;
+  /**
+   * Profil LinkedIn brut (mode Full) retourné par harvestapi/linkedin-profile-search.
+   * Patch C (06/05) — exposé pour stockage Lead.linkedinProfileJson, évite
+   * le double-paiement profile-search par lead (audit : 23 lookups redondants /
+   * cycle = $5/mois). Optionnel pour ne pas casser callers existants.
+   */
+  rawProfile?: HarvestProfile;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -340,6 +347,7 @@ export async function findDecisionMakerByCompany(args: {
     tier: best.tier,
     matchedTitle: best.category,
     fromCache: false,
+    rawProfile: best.profile,
   };
 
   cacheSet(key, result);
@@ -533,6 +541,14 @@ export async function enrichDecisionMakersForClient(
         updates.linkedinUrl = dm.profileUrl;
         updates.personaTier = dm.tier;
         updates.personaSource = "harvestapi-search";
+        // Patch C (06/05) — stocker le profil LinkedIn complet déjà payé en
+        // mode Full ($0.10 + $0.004/profile). Évite que enrichLinkedInProfilesForClient
+        // refasse $0.10/lead pour la même donnée. TTL 30j sur linkedinProfileEnrichedAt
+        // bloque automatiquement le ré-enrichissement.
+        if (dm.rawProfile) {
+          updates.linkedinProfileJson = dm.rawProfile as unknown as object;
+          updates.linkedinProfileEnrichedAt = new Date();
+        }
         result.found += 1;
       } else {
         result.skipped += 1;
