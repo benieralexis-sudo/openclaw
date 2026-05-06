@@ -43,6 +43,41 @@ const URL_FIELD_CANDIDATES = [
   "webUrl",
 ];
 
+// Sprint C.1 fix (06/05/2026 backfill) — Blacklist plateformes recrutement.
+// L'URL trouvée dans le rawPayload est souvent l'URL de l'offre sur la
+// plateforme (welcometothejungle.com/companies/pixid/jobs/xxx, linkedin.com,
+// indeed.com, etc.). Si on fetch ces URLs, on récupère le HTML de la plateforme
+// et le résumé Sonnet décrit la plateforme au lieu de la cible. Ces domaines
+// sont SKIP — bloc COMPANY WEBSITE simplement omis (pas de régression vs B.7).
+const PLATFORM_DOMAINS_BLACKLIST = [
+  "linkedin.com",
+  "welcometothejungle.com",
+  "indeed.com",
+  "indeed.fr",
+  "free-work.com",
+  "emploi.afjv.com",
+  "jobteaser.com",
+  "monster.fr",
+  "monster.com",
+  "regionsjob.com",
+  "apec.fr",
+  "hellowork.com",
+  "michaelpage.fr",
+  "talent.io",
+  "fr.linkedin.com",
+  "uk.linkedin.com",
+  "de.linkedin.com",
+  "francetravail.fr",
+  "pole-emploi.fr",
+];
+
+function isBlacklistedDomain(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return PLATFORM_DOMAINS_BLACKLIST.some(
+    (d) => h === d || h.endsWith(`.${d}`),
+  );
+}
+
 function extractUrlFromPayload(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
@@ -52,7 +87,9 @@ function extractUrlFromPayload(payload: unknown): string | null {
       const normalized = v.startsWith("http") ? v : `https://${v}`;
       try {
         const u = new URL(normalized);
-        if (u.hostname.length >= 4) return u.origin;
+        if (u.hostname.length >= 4 && !isBlacklistedDomain(u.hostname)) {
+          return u.origin;
+        }
       } catch {
         // invalid URL, skip
       }
