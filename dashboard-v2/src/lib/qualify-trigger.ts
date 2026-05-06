@@ -414,9 +414,9 @@ Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1
 
 ## Rubrique scoring (4 axes, poids égaux)
 1. **ICP fit** — industrie / NAF whitelist / taille / région matchent ? **Si COMPANY HEALTH contient une procédure collective EN COURS → score ≤ 2 systématique (boîte non-prospectable). CA + résultat net présents : pondère selon viabilité financière. Multi-établissements ou dépôts RCS récents = signal d'expansion / mouvement à exploiter.**
-2. **Signal strength** — vrai déclencheur d'achat (levée fraîche, hire clé QA/Test senior, M&A, C-level change) vs bruit (job junior, alternance, mentorat, RH) ?
-3. **Persona match** — décisionnaire (CTO, CEO, Founder, Head of Eng, VP Eng) vs périphérique (RH, junior, stagiaire) ? **Si le bloc PERSONA QUAL contient un fitScore et un personaTier (calcul interne), utilise-les comme signal fort : fitScore≥70 ou personaTier=1 → décideur quasi-certain ; fitScore<40 ou personaTier≥3 → décideur faible (pénalise la dimension persona dans ton scoring). Si LinkedIn Profile présent : ancienneté <6 mois sur poste C-level = mandat frais, signal d'achat ; backgrounds ESN dans les 3 derniers postes = parcours conseil, pertinence ICP fonction du contexte ; 0 expérience SaaS sur poste tech d'éditeur SaaS = mismatch fort.**
-4. **Freshness** — <7j = boost, >30j = malus, >90j = exclure.
+2. **Signal strength** — vrai déclencheur d'achat (levée fraîche, hire clé QA/Test senior, M&A, C-level change) vs bruit (job junior, alternance, mentorat, RH) ? **Si le bloc CLIENT contient \`signalPrimary\` (le signal #1 explicite du client validé par leur fondateur), évalue PRIORITAIREMENT sa présence/absence — c'est le signal le plus fort. Le signal #1 peut être une PRÉSENCE (ex: "hire VP Sales") OU une ABSENCE (ex: "absence de QA dans une équipe 100% devs sur éditeur SaaS"). Pour les signaux d'absence, regarde les indices indirects : équipe sans QA mentionnée, postes ouverts qui contournent le besoin (ex: dev fullstack qui "fait aussi les tests"), descriptions où le testing est implicite côté dev. \`signalSecondary\` est un signal mou, à pondérer plus faiblement.**
+3. **Persona match** — décisionnaire (CTO, CEO, Founder, Head of Eng, VP Eng) vs périphérique ? **Si le bloc PERSONA QUAL contient un fitScore et un personaTier (calcul interne), utilise-les comme signal fort : fitScore≥70 ou personaTier=1 → décideur quasi-certain ; fitScore<40 ou personaTier≥3 → décideur faible (pénalise la dimension persona dans ton scoring). Si LinkedIn Profile présent : ancienneté <6 mois sur poste C-level = mandat frais, signal d'achat ; backgrounds ESN dans les 3 derniers postes = parcours conseil, pertinence ICP fonction du contexte ; 0 expérience SaaS sur poste tech d'éditeur SaaS = mismatch fort. NOTE : Si \`nonRedFlags\` du client mentionne explicitement "RH/Achats persona OK", NE PAS pénaliser un contact RH/Achats — le client gère lui-même cette nuance via ses messages d'outreach.**
+4. **Freshness** — <7j = boost, >30j = malus, >90j = exclure. **Si le bloc CLIENT contient \`freshnessByTrigger\` (fenêtres pif intelligent par type de signal), respecte les bornes minDays/maxDays/staleAfterDays plutôt que la règle générique.**
 
 ## Fiabilité des sources (calibration)
 - \`apify.wttj-jobs\` : board d'éditeurs SaaS FR — très haute fiabilité
@@ -449,12 +449,18 @@ Le bloc "Cross-tenant : vu chez X autre(s) client(s) iFIND" indique que cette bo
 - **Mix** → information neutre, ne modifie pas le score
 N'invente JAMAIS un signal cross-tenant si le bloc n'est pas dans le prompt.
 
+## Red flags client (si présent dans le bloc CLIENT — PRIORITÉ ABSOLUE)
+Si le bloc CLIENT contient \`redFlagsHard\` : ce sont les profils que le fondateur du client REFUSE NET. Match sur n'importe quel item → score ≤ 2 systématique, même si tous les autres signaux sont positifs. \`redFlagsSoft\` : downgrade modéré (-2 points, plancher 4), pas exclusion. \`nonRedFlags\` : contre-signaux explicites du client ("ce critère que tu pourrais croire éliminatoire ne l'est PAS pour moi") — N'utilise PAS ces critères pour pénaliser, le client a tranché.
+
+## Few-shots client (si présent dans le bloc CLIENT — calibration empirique)
+Si le bloc CLIENT contient \`fewShotPositives.confirmedClients\` : ce sont les boîtes que le client a déjà SIGNÉES. Profil = cible idéale absolue. Si la boîte évaluée match leur archétype (NAF + taille + secteur + persona) → score ≥ 8 quasi-systématique. \`fewShotPositives.dreamProspects\` : boîtes que le fondateur cible activement (validés par jugement, pas closing) — match → score ≥ 7. \`dreamArchetype\` : description en une ligne du profil cible idéal.
+
 ## Règles de pénalité automatique
 - Hors France (country_code != FR, suffixes GmbH/AG/SE/BV/NV/Ltd/PLC/Inc/LLC/SpA/Srl/SL/SA dans le nom) → score ≤ 2
 - Holding / SCI / cabinet comptable / mairie / agglo / université → score ≤ 3
 - ICP antiPersonas matché (concurrent direct, ex: Capgemini, Sopra, Onepoint, Alten, Amaris) → score ≤ 2
 - Effectif > 5× max ICP (ex: ICP 200p, lead >1000p) → score ≤ 2 systématique
-- Effectif 1.5×-5× max ICP → score ≤ 4
+- Effectif 1.5×-5× max ICP → score ≤ 4 (sauf si \`nonRedFlags\` du client mentionne explicitement ">250p downgrade only" — alors -1 point seulement, plancher 5)
 - Régie ESN détectée ("chez nos clients", "client final", "en régie") → score ≤ 3
 - Freelance / alternance / stage dans le titre → score ≤ 3
 - NAF connu mais hors whitelist client → score ≤ 5
@@ -629,6 +635,86 @@ export async function qualifyTrigger(
     : null;
   const negativeSignalsBlock = negativeSignals ? `\n${negativeSignals.block}` : "";
 
+  // Sprint B.3 (06/05/2026) — Bloc CLIENT enrichi avec réponses Fred 9 questions.
+  // Avant : JSON.stringify aveugle de l'ICP → Opus voyait tous les champs avec
+  // poids égal → signaux importants noyés dans la liste.
+  // Maintenant : on isole et on label explicitement les champs critiques
+  // (signalPrimary, redFlagsHard/Soft, fewShotPositives, pitchVerbatim) pour
+  // qu'Opus les pondère selon les sections dédiées de QUALIFY_SPECIFIC.
+  const dreamArchetype = typeof icp.dreamArchetype === "string" ? icp.dreamArchetype : null;
+  const signalPrimary = typeof icp.signalPrimary === "string" ? icp.signalPrimary : null;
+  const signalSecondary = typeof icp.signalSecondary === "string" ? icp.signalSecondary : null;
+  const redFlagsHard = Array.isArray(icp.redFlagsHard) ? (icp.redFlagsHard as string[]) : null;
+  const redFlagsSoft = Array.isArray(icp.redFlagsSoft) ? (icp.redFlagsSoft as string[]) : null;
+  const nonRedFlags = Array.isArray(icp.nonRedFlags) ? (icp.nonRedFlags as string[]) : null;
+  const fewShotPositives = (icp.fewShotPositives && typeof icp.fewShotPositives === "object")
+    ? icp.fewShotPositives as Record<string, unknown>
+    : null;
+  const pitchVerbatim = typeof icp.pitchVerbatim === "string" ? icp.pitchVerbatim : null;
+  const freshnessByTrigger = (icp.freshnessByTrigger && typeof icp.freshnessByTrigger === "object")
+    ? icp.freshnessByTrigger as Record<string, unknown>
+    : null;
+
+  const fredEnrichedSection: string[] = [];
+  if (dreamArchetype) {
+    fredEnrichedSection.push(`dreamArchetype : "${dreamArchetype}"`);
+  }
+  if (signalPrimary) {
+    fredEnrichedSection.push(`signalPrimary (signal #1 du client, à évaluer en priorité) : ${signalPrimary}`);
+  }
+  if (signalSecondary) {
+    fredEnrichedSection.push(`signalSecondary (signal mou, pondère plus faiblement) : ${signalSecondary}`);
+  }
+  if (redFlagsHard && redFlagsHard.length > 0) {
+    fredEnrichedSection.push(`redFlagsHard (match → score ≤ 2 systématique) :\n  - ${redFlagsHard.join("\n  - ")}`);
+  }
+  if (redFlagsSoft && redFlagsSoft.length > 0) {
+    fredEnrichedSection.push(`redFlagsSoft (match → -2 points plancher 4, pas exclusion) :\n  - ${redFlagsSoft.join("\n  - ")}`);
+  }
+  if (nonRedFlags && nonRedFlags.length > 0) {
+    fredEnrichedSection.push(`nonRedFlags (NE PAS pénaliser ces critères, le client a tranché) :\n  - ${nonRedFlags.join("\n  - ")}`);
+  }
+  if (fewShotPositives) {
+    const lines: string[] = [];
+    if (Array.isArray(fewShotPositives.confirmedClients)) {
+      const names = (fewShotPositives.confirmedClients as Array<Record<string, unknown>>)
+        .map((c) => String(c.name ?? "?"))
+        .filter(Boolean);
+      if (names.length > 0) {
+        lines.push(`confirmedClients (déjà signés — match → score ≥ 8) : ${names.join(", ")}`);
+      }
+    }
+    if (Array.isArray(fewShotPositives.dreamProspects)) {
+      const names = (fewShotPositives.dreamProspects as Array<Record<string, unknown>>)
+        .map((c) => String(c.name ?? "?"))
+        .filter(Boolean);
+      if (names.length > 0) {
+        lines.push(`dreamProspects (cibles validées par jugement — match → score ≥ 7) : ${names.join(", ")}`);
+      }
+    }
+    if (lines.length > 0) {
+      fredEnrichedSection.push(`fewShotPositives :\n  - ${lines.join("\n  - ")}`);
+    }
+  }
+  if (freshnessByTrigger) {
+    const parts: string[] = [];
+    for (const [k, v] of Object.entries(freshnessByTrigger)) {
+      if (v && typeof v === "object" && "minDays" in (v as object)) {
+        const w = v as { minDays?: number; maxDays?: number; staleAfterDays?: number };
+        parts.push(`${k}: J+${w.minDays ?? "?"} → J+${w.maxDays ?? "?"}${w.staleAfterDays ? ` (stale après J+${w.staleAfterDays})` : ""}`);
+      }
+    }
+    if (parts.length > 0) {
+      fredEnrichedSection.push(`freshnessByTrigger : ${parts.join(", ")}`);
+    }
+  }
+  if (pitchVerbatim) {
+    fredEnrichedSection.push(`pitchVerbatim (style/ton du client pour cohérence brief) : "${pitchVerbatim.slice(0, 600)}"`);
+  }
+  const fredEnrichedBlock = fredEnrichedSection.length > 0
+    ? `\n\nCLIENT ENRICHED (réponses fondateur, autorité maximale) :\n${fredEnrichedSection.map((s) => `- ${s}`).join("\n")}`
+    : "";
+
   const userPrompt = `CLIENT : ${trigger.client.name}
 ICP : ${JSON.stringify({
     industries: icp.industries,
@@ -639,7 +725,7 @@ ICP : ${JSON.stringify({
     antiPersonas: icp.antiPersonas,
     preferredSignals: icp.preferredSignals, // C13 — pondération signaux DTL
     minScore: icp.minScore, // C13 — seuil de qualification
-  })}
+  })}${fredEnrichedBlock}
 
 LEAD :
 - Entreprise : ${trigger.companyName}
