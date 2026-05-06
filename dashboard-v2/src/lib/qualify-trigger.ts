@@ -4,7 +4,8 @@ import { buildCachedSystem } from "@/lib/anthropic-prompt";
 import { db } from "@/lib/db";
 import { extractLinkedInProfile } from "@/lib/linkedin-profile-extractor";
 import { readDynamicFewShotsFromIcp } from "@/lib/dynamic-few-shots";
-import { searchLayoffsNews } from "@/lib/layoffs-news-search";
+import { searchLayoffsNews, searchCompanyNews, formatCompanyNewsBlock } from "@/lib/layoffs-news-search";
+import { fetchCompanyWebsiteSummary, formatCompanyWebsiteBlock } from "@/lib/company-website-fetcher";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -110,22 +111,89 @@ function getNegativeSignalsForCompany(
 // ──────────────────────────────────────────────────────────────────────
 
 /**
- * Sprint 6 — Donne au judge le contexte des AUTRES Triggers du même client
- * sur le même SIRET dans les 90 derniers jours. Critique pour qualifier un
- * combo correctement : "ce hire QA arrive 12j après une levée 5M€" doit
- * scorer plus haut que "ce hire QA solo".
+ * Sprint 6 + Sprint C.3 (06/05/2026) — Donne au judge le contexte des AUTRES
+ * Triggers du même client sur le même SIRET dans les 90 derniers jours +
+ * détecte les patterns combo d'urgence (scale-up sprint, post-funding scaling).
  *
- * Travaille avec le combo-detector v2 : quand un combo est détecté, les
- * Triggers précédents sont invalidés → re-pickup → ce helper leur donne le
- * contexte des nouveaux signaux convergents → score affiné.
+ * Sprint C.3 enhancements :
+ *   - take 5 → 20 (taille format compact, budget tokens absorbé)
+ *   - détection patterns combo : 3+ hires QA/Test <7j = sprint hiring,
+ *     levée + hire <14j = post-funding scaling, M&A + LEADERSHIP_CHANGE
+ *     <30j = consolidation post-deal
+ *   - groupage par type pour montrer convergence
  *
  * Cost : 1 query DB par qualify call (indexée companySiret + clientId).
- * Limite 5 prior signals max pour borner la taille du prompt.
  */
+interface ComboPattern {
+  label: string;
+  reason: string;
+  triggerCount: number;
+}
+
+function detectComboPatterns(
+  current: { type: string; capturedAt: Date; sourceCode: string; title?: string | null },
+  priors: Array<{ type: string; capturedAt: Date; sourceCode: string; title: string | null }>,
+): ComboPattern[] {
+  const patterns: ComboPattern[] = [];
+  const allEvents = [current, ...priors];
+  const now = Date.now();
+
+  // Pattern 1 — Sprint hiring : 3+ HIRING_KEY events <7j
+  const hiringRecent = allEvents.filter(
+    (e) => e.type === "HIRING_KEY" && (now - e.capturedAt.getTime()) / 86400_000 <= 7,
+  );
+  if (hiringRecent.length >= 3) {
+    patterns.push({
+      label: "sprint-hiring",
+      reason: `${hiringRecent.length} hires détectés <7j sur ce SIRET = scale-up sprint, urgence externalisation testing forte`,
+      triggerCount: hiringRecent.length,
+    });
+  }
+
+  // Pattern 2 — Post-funding scaling : FUNDRAISING + HIRING_KEY <14j
+  const funding = allEvents.find((e) => e.type === "FUNDRAISING");
+  if (funding) {
+    const fundingAge = (now - funding.capturedAt.getTime()) / 86400_000;
+    const recentHires = allEvents.filter(
+      (e) =>
+        e.type === "HIRING_KEY" &&
+        Math.abs((funding.capturedAt.getTime() - e.capturedAt.getTime()) / 86400_000) <= 14,
+    );
+    if (recentHires.length >= 1 && fundingAge <= 90) {
+      patterns.push({
+        label: "post-funding-scaling",
+        reason: `Levée détectée il y a ${Math.round(fundingAge)}j + ${recentHires.length} hire(s) dans la fenêtre ±14j = scaling post-deal classique, signal d'achat très fort`,
+        triggerCount: recentHires.length + 1,
+      });
+    }
+  }
+
+  // Pattern 3 — Consolidation post-deal : M&A + LEADERSHIP_CHANGE <30j (M&A est dans type FUNDRAISING ou OTHER selon source)
+  const leadership = allEvents.find((e) => e.type === "LEADERSHIP_CHANGE");
+  const ma = allEvents.find(
+    (e) => e.sourceCode.includes("mergers-acquisitions") || e.sourceCode.includes("m-a"),
+  );
+  if (leadership && ma) {
+    const gap = Math.abs(
+      (leadership.capturedAt.getTime() - ma.capturedAt.getTime()) / 86400_000,
+    );
+    if (gap <= 30) {
+      patterns.push({
+        label: "post-deal-consolidation",
+        reason: `M&A détecté + changement C-level dans la fenêtre ±${Math.round(gap)}j = restructuration post-deal, opportunité d'externalisation testing`,
+        triggerCount: 2,
+      });
+    }
+  }
+
+  return patterns;
+}
+
 async function getPriorSignalsForCompany(
   clientId: string,
   companySiret: string | null,
   currentTriggerId: string,
+  currentTrigger?: { type: string; capturedAt: Date; sourceCode: string; title: string | null } | null,
 ): Promise<string | null> {
   if (!companySiret) return null;
   if (!/^\d{9,14}$/.test(companySiret)) return null;
@@ -148,14 +216,30 @@ async function getPriorSignalsForCompany(
       title: true,
     },
     orderBy: { capturedAt: "desc" },
-    take: 5,
+    take: 20,
   });
   if (others.length === 0) return null;
-  const lines = others.map((t) => {
+
+  // Détection patterns combo (urgence)
+  const patterns = currentTrigger ? detectComboPatterns(currentTrigger, others) : [];
+
+  // Format compact des signaux (max 10 affichés pour budget tokens)
+  const displayed = others.slice(0, 10);
+  const lines = displayed.map((t) => {
     const ageDays = Math.round((Date.now() - t.capturedAt.getTime()) / 86400_000);
     return `${t.type} (${t.sourceCode}, il y a ${ageDays}j) score=${t.score} status=${t.status} : "${(t.title ?? "").slice(0, 80)}"`;
   });
-  return `PRIOR SIGNALS sur ce SIRET (90j) :\n- ${lines.join("\n- ")}`;
+  const moreCount = others.length - displayed.length;
+  const moreLine = moreCount > 0 ? `\n- ... +${moreCount} autre(s) signal(aux) sur ce SIRET 90j (non affichés)` : "";
+
+  let block = `PRIOR SIGNALS sur ce SIRET (${others.length} sur 90j) :\n- ${lines.join("\n- ")}${moreLine}`;
+
+  if (patterns.length > 0) {
+    const patternLines = patterns.map((p) => `[${p.label}] ${p.reason}`);
+    block += `\n\n🔥 COMBO PATTERNS DÉTECTÉS :\n- ${patternLines.join("\n- ")}`;
+  }
+
+  return block;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -431,6 +515,24 @@ Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1
 - \`theirstack.buying-intent\` : déclaratif (utilise outils QA), vérifier industrie
 - \`francetravail.tech\` : Pôle Emploi OAuth — souvent ESN qui sourcent pour client final
 
+## Company website summary (si présent dans le prompt — homepage scraped)
+Le bloc "COMPANY WEBSITE summary" contient un résumé Sonnet de la homepage de la boîte. C'est une vérité indirecte : ce qu'ils disent d'eux-mêmes au monde. Interprétation :
+- Mentions de "200+ collaborateurs", "équipe en Inde", "régie", "client final" → confirmer red flag oversize/ESN/régie même si autres signaux positifs
+- "Éditeur SaaS B2B" / "10-50 développeurs" / mentions stack tech (Java, Python, K8s) → confirme ICP éditeur SaaS, pondère favorablement
+- "Cabinet conseil" / "transformation digitale" / "accompagnement client" sans mention produit propre → red flag conseil, score ≤ 5
+- Si le résumé contradit la signalSecondary "présence QA" (ex: site mentionne "0 QA, équipe 100% devs") → applique signalPrimary BOOST
+N'invente JAMAIS un fait du website si le bloc n'est pas dans le prompt.
+
+## Company news (si présent dans le prompt — Google CSE FR <30j)
+Le bloc "COMPANY NEWS positives" liste les signaux récents (levée, expansion, partenariat, M&A, lancement produit, hiring spree) issus de presse FR whitelist (Les Echos, Maddyness, BFM, etc.). Interprétation :
+- **Levée/funding récent** confirmée presse <30j → boost +1 (signal d'achat très chaud)
+- **Expansion / nouveau bureau** → +1 (scaling = besoin testing accru)
+- **Partenariat stratégique** → contexte positif, +0 à +1
+- **Lancement produit** → boost +1 si éditeur SaaS (release = sprint testing)
+- **M&A** → +1 (consolidation, restructuration probable)
+Le bloc "COMPANY NEWS négatives" duplique partiellement Bonus C (layoffs/PSE) — pondère mais ne hard-cap pas (Bonus C s'applique en post-Opus pour ça).
+N'invente JAMAIS un signal news si le bloc n'est pas dans le prompt.
+
 ## Negative signals (si présent dans le prompt — PRIORITÉ ABSOLUE)
 Le bloc "NEGATIVE SIGNALS détectés (Pappers RCS <90j)" liste les dépôts d'actes négatifs récents qui indiquent une boîte en contraction ou en difficulté. **Ces signaux ÉCRASENT TOUS les autres axes positifs** (même un combo SCALE-UP-TECH à 10 doit retomber si la boîte est en liquidation). Échelle de pénalité :
 - Sévérité **hard** (Liquidation, Dissolution, Cessation, Fermeture, Cession totale, Procédure collective) → score ≤ 2 (souvent = 1, boîte non-prospectable)
@@ -619,15 +721,55 @@ export async function qualifyTrigger(
   );
   const crossTenantBlock = crossTenantSignal ? `\n${crossTenantSignal}` : "";
 
-  // Sprint 6 (05/05) — Prior signals (mêmes clientId+SIRET, 90j, autres triggers).
-  // Permet au judge de voir le combo : "hire QA arrive 12j après levée 5M€"
-  // = score plus élevé que "hire QA solo".
+  // Sprint 6 (05/05) + Sprint C.3 (06/05) — Prior signals (mêmes clientId+SIRET,
+  // 90j, autres triggers) + détection patterns combos urgence (sprint-hiring,
+  // post-funding-scaling, post-deal-consolidation). Permet au judge de voir
+  // le combo : "hire QA arrive 12j après levée 5M€" = score plus élevé que
+  // "hire QA solo".
   const priorSignals = await getPriorSignalsForCompany(
     trigger.clientId,
     trigger.companySiret,
     triggerId,
+    {
+      type: trigger.type,
+      capturedAt: trigger.capturedAt,
+      sourceCode: trigger.sourceCode,
+      title: trigger.title,
+    },
   );
   const priorSignalsBlock = priorSignals ? `\n${priorSignals}` : "";
+
+  // Sprint C.1 (06/05) — Fetch homepage entreprise + résumé Sonnet (cache 7j).
+  // Best-effort : si pas d'URL dans rawPayload ou fetch échec, bloc omis.
+  let companyWebsiteBlock = "";
+  if (trigger.companyName) {
+    try {
+      const summary = await fetchCompanyWebsiteSummary(
+        trigger.companyName,
+        trigger.companySiret,
+        trigger.rawPayload,
+      );
+      const formatted = formatCompanyWebsiteBlock(summary);
+      if (formatted) companyWebsiteBlock = `\n${formatted}`;
+    } catch {
+      // silent fail
+    }
+  }
+
+  // Sprint C.2 (06/05) — Google CSE news 30j (positif + négatif) sur la boîte.
+  // Best-effort : silencieux si Google CSE quota épuisé ou erreur réseau.
+  // Block COMPANY NEWS distinct de NEGATIVE NEWS (Bonus C → soft cap score).
+  // Ici on enrichit le contexte que voit le judge en amont du scoring.
+  let companyNewsBlock = "";
+  if (trigger.companyName) {
+    try {
+      const news = await searchCompanyNews(trigger.companyName, { dateRestrict: "m1" });
+      const formatted = formatCompanyNewsBlock(news);
+      if (formatted) companyNewsBlock = `\n${formatted}`;
+    } catch {
+      // silent fail
+    }
+  }
 
   // Sprint 9 (05/05) — Negative signals (Pappers RCS dépôts <90j).
   // Détecte dissolution/liquidation/cessation/PSE/réduction capital depuis
@@ -738,7 +880,7 @@ LEAD :
 - Industrie : ${trigger.industry ?? "?"}
 - Région : ${trigger.region ?? "?"}
 - Taille : ${trigger.size ?? "?"}
-${personaBlock}${crossTenantBlock}${priorSignalsBlock}${negativeSignalsBlock}
+${personaBlock}${crossTenantBlock}${priorSignalsBlock}${negativeSignalsBlock}${companyWebsiteBlock}${companyNewsBlock}
 
 SIGNAL :
 - Type : ${trigger.type}
