@@ -60,12 +60,12 @@ const NEGATIVE_DEPOT_PATTERNS: Array<{ regex: RegExp; label: string; severity: "
   { regex: /restructuration|réorganisation/i, label: "Restructuration", severity: "soft" },
 ];
 
-interface NegativeSignalResult {
+export interface NegativeSignalResult {
   block: string;
   hasHardSignal: boolean;
 }
 
-function getNegativeSignalsForCompany(
+export function getNegativeSignalsForCompany(
   companyRecentDepots: unknown,
 ): NegativeSignalResult | null {
   if (!Array.isArray(companyRecentDepots) || companyRecentDepots.length === 0) {
@@ -189,7 +189,7 @@ function detectComboPatterns(
   return patterns;
 }
 
-async function getPriorSignalsForCompany(
+export async function getPriorSignalsForCompany(
   clientId: string,
   companySiret: string | null,
   currentTriggerId: string,
@@ -264,7 +264,7 @@ async function getPriorSignalsForCompany(
  * Retourne null si SIRET absent/invalide ou si aucun autre client n'a vu
  * cette boîte (ne pollue pas le prompt avec "0 autre(s) client" inutile).
  */
-async function getCrossTenantSignal(
+export async function getCrossTenantSignal(
   currentClientId: string,
   companySiret: string | null,
 ): Promise<string | null> {
@@ -296,7 +296,7 @@ async function getCrossTenantSignal(
 // ──────────────────────────────────────────────────────────────────────
 
 /** Format compact € pour le bloc COMPANY HEALTH (B.3). Cible : 5-10 chars. */
-function formatEuros(value: number | null | undefined): string {
+export function formatEuros(value: number | null | undefined): string {
   if (value == null) return "?";
   const abs = Math.abs(value);
   const sign = value < 0 ? "-" : "";
@@ -319,7 +319,7 @@ function formatEuros(value: number | null | undefined): string {
  * Retourne null si payload absent ou inutilisable (le bloc est alors omis,
  * pas pollué avec "non disponible" à chaque fois — économise tokens).
  */
-function formatLinkedinProfileForJudge(payload: unknown): string | null {
+export function formatLinkedinProfileForJudge(payload: unknown): string | null {
   if (!payload) return null;
   const profile = extractLinkedInProfile(payload);
   if (!profile.headline && profile.experiences.length === 0) return null;
@@ -369,7 +369,7 @@ const FULL_DESC_FIELDS = [
   "summary",
   "fullDescription",
 ] as const;
-function extractFullDescription(payload: unknown): string | null {
+export function extractFullDescription(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
   for (const f of FULL_DESC_FIELDS) {
