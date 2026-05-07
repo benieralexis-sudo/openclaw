@@ -6,6 +6,10 @@ import { extractLinkedInProfile } from "@/lib/linkedin-profile-extractor";
 import { readDynamicFewShotsFromIcp } from "@/lib/dynamic-few-shots";
 import { searchLayoffsNews } from "@/lib/layoffs-news-search";
 import { buildLeadDossierForJudge, formatDossierForOpus } from "@/lib/lead-dossier";
+import {
+  parseLeadBriefV2WithError,
+  type LeadBriefV2,
+} from "@/lib/lead-brief-v2";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -896,4 +900,263 @@ export async function qualifyPendingTriggers(
     }
   }
   return { qualified, errors };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Sprint D.2 (07/05/2026) — Judge V2 brief raisonné OUI/NON/ENRICH
+// ══════════════════════════════════════════════════════════════════════
+//
+// qualifyTriggerV2 est une fonction DORMANTE :
+//   - exportée et testable via scripts/test-judge-v2.ts
+//   - APPELÉE PAR AUCUN CHEMIN PROD (pas de feature flag, pas de shadow,
+//     pas de fallback)
+//   - aucune écriture DB (pas de Trigger.update, pas de Trigger.briefV2Json)
+//
+// Le mode déploiement (shadow vs switch vs flag) sera tranché en D.5
+// avec les données mesurées en D.6 (taux d'accord v1↔v2 sur 50 leads,
+// taux de validation Zod, qualité opener).
+//
+// Différence clé avec qualifyTrigger v1 :
+//   - v1 produit { score: int 1-10, reason: string } → écrit Trigger.score
+//   - v2 produit LeadBriefV2 (verdict OUI/NON/ENRICH + thesis + triggers
+//     + risks ≥2 + opener + sources avec citations [src:#X])
+//
+// Mêmes blocs de contexte (LeadDossier réutilisé), seul le SYSTEM diffère
+// (QUALIFY_V2_SPECIFIC) + parsing différent (Zod LeadBriefV2Schema).
+
+const QUALIFY_V2_SPECIFIC = `
+
+## Mission (Judge V2 — brief raisonné)
+Tu reçois un Trigger fraîchement capté + un dossier de contexte riche (CLIENT ICP, PERSONA, COMPANY HEALTH, PRIOR SIGNALS, NEGATIVE SIGNALS, COMPANY WEBSITE, COMPANY NEWS, CLIENT ENRICHED Fred). Tu produis un brief raisonné JSON pour le commercial du client.
+
+Le brief V2 remplace l'ancien score numérique \`{score, reason}\` par un verdict tranché \`{verdict, confidence, thesis, triggers, risks, opener, sources, enrichmentNeeded?}\` traçable et actionnable.
+
+## Décision verdict (3 valeurs strictes)
+- **OUI** : ICP fit confirmé + signal d'achat dur + persona accessible. Le commercial doit attaquer.
+- **NON** : red flag hard match (anti-persona concurrent, hors-FR, oversize 3×ICP, régie ESN claire, procédure collective hard, stage/alternance/freelance, NAF clairement hors whitelist). NE PAS approcher.
+- **ENRICH** : signal d'achat présent ET pas de red flag hard, MAIS il manque ≥1 donnée critique pour trancher OUI/NON sereinement (NAF non résolu, taille effectif inconnue, persona décideur absent, secteur ambigu). NE PAS approcher tant que l'enrichissement n'a pas eu lieu.
+
+## confidence (0-100, entier)
+- 90-100 : verdict évident, multi-signaux convergents, aucun doute
+- 70-89 : verdict fort, 1 doute mineur signalé dans risks
+- 40-69 : verdict défendable, plusieurs zones grises (souvent ENRICH)
+- 0-39 : verdict mais beaucoup d'incertitude
+
+## Sections obligatoires du brief
+
+### thesis (20-800 chars)
+Pourquoi ce verdict en 1-3 phrases denses. DOIT citer ≥1 \`[src:#X]\` pour traçabilité. Exemple OUI : "Éditeur SaaS B2B 80p Paris (NAF 6201Z), levée Série A 8M€ <14j [src:#1] + 5 hires QA/Test [src:#2]. ICP parfait. CTO Marc Dupont accessible LinkedIn [src:#3]."
+
+### triggers[] (≥1 — array d'objets)
+Format : \`{source: string, date: string, relevance: string ≤400 chars}\`. Liste les triggers/signaux concrets qui ont contribué au verdict. \`source\` = sourceCode du trigger ou nom de bloc (ex: "rodz.fundraising", "apify.wttj-jobs", "linkedin-profile", "company-website", "company-news"). \`date\` = date capturedAt ou date du signal cité (format libre court "2026-04-29"). \`relevance\` = 1 phrase explicative.
+
+### risks[] (≥2 obligatoires — array d'objets)
+Format : \`{severity: "high"|"medium"|"low", description: string ≤400 chars}\`. Au moins 2 risks pour FORCER l'équilibre du brief : aucun lead n'est parfait, le commercial doit avoir des garde-fous. Cite ≥1 \`[src:#X]\` dans description quand pertinent. Sévérité :
+- **high** : risque qui peut faire perdre le deal ou cramer la relation (anti-persona, oversize, régie, procédure collective, secteur excluant)
+- **medium** : risque qui demande un check rapide avant outreach (taille frontière, persona ambigu, NAF border)
+- **low** : risque mineur à mentionner pour transparence (timing serré, sollicitations attendues, signal isolé)
+
+Si verdict=NON, les risks expliquent POURQUOI on rejette (typiquement 2 high). Si verdict=OUI, les risks anticipent les objections du commercial.
+
+### opener (20-2000 chars)
+Message prêt-à-coller pour le commercial (email cold OU LinkedIn DM, le commercial choisira). Règles :
+- Mentionne le signal d'achat détecté (citer 1-2 éléments concrets)
+- Ton iFIND : direct, pro, francophone soutenu mais pas guindé. PAS d'emoji.
+- AUCUNE promesse "doubler le CA / x10 ROI" sans data
+- AUCUN CTA Cal.com / lien réservation : le client gère son propre lien d'agenda. Termine par une question ouverte ou "30 min pour échanger ?"
+- Pas de signature : le commercial mettra la sienne.
+- Cible D.3 stricte : ≤250 mots.
+- Si verdict=NON ou verdict=ENRICH : opener court "(Hors ICP — pas d'opener)" ou "(Verdict ENRICH — opener à finaliser après enrichissement)" — minimum 20 chars, maximum quelques phrases pour expliquer pourquoi.
+
+### sources[] (≥1 — array d'objets)
+Format : \`{id: int 1-99, type: string ≤32 chars, ref: string ≤512 chars}\`. Table de référence numérotée. CHAQUE \`[src:#X]\` cité dans thesis/risks/opener DOIT correspondre à un \`id\` ici. Les ids commencent à 1 et sont contigus dans l'ordre où tu les cites. Exemples de \`type\` : "rodz.fundraising", "apify.wttj-jobs", "linkedin-profile", "company-website", "company-news", "trigger.companyName", "client-enriched", "pappers.health". Le \`ref\` est une description courte de ce que cette source dit ("Levée 8M€ Série A 2026-04-26", "Marc Dupont CTO Acme 3y in role").
+
+NE liste PAS toutes les sources reçues : juste celles que tu cites effectivement. Sources sans citation = pollution.
+
+### enrichmentNeeded[] (optionnel, REQUIS si verdict=ENRICH)
+Array de strings ≤200 chars. Liste des données manquantes qui empêchent de trancher OUI/NON. Sois précis et actionnable : "Attribution SIREN/NAF via Pappers (re-tenter ratio fuzzy plus large)" plutôt que "manque infos boîte". Maximum 10 éléments.
+
+## Règles métier (héritées V1)
+
+### ICP fit
+- Hors France (country_code != FR, suffixes GmbH/AG/SE/BV/NV/Ltd/PLC/Inc/LLC/SpA/Srl/SL/SA dans le nom) → verdict NON, confidence ≥90
+- Holding / SCI / cabinet comptable / mairie / agglo / université → verdict NON, confidence ≥85
+- Effectif > 5× max ICP → verdict NON, confidence ≥80
+- Effectif 1.5×-5× max ICP → verdict ENRICH ou NON selon autres signaux (sauf si \`nonRedFlags\` du client mentionne ">250p downgrade only")
+- NAF connu hors whitelist → verdict NON, confidence ≥75 ; sauf si signal d'achat exceptionnel + \`nonRedFlags\` permissif
+
+### redFlagsHard du client (CLIENT ENRICHED — autorité absolue)
+Match → verdict NON systématique, confidence ≥90, severity="high" pour le risk associé.
+
+### redFlagsSoft du client
+Match → verdict ENRICH par défaut (à confirmer via enrichissement), risk severity="medium".
+
+### nonRedFlags du client
+NE PAS pénaliser ces critères. Le client a tranché. Ne pas inventer un risk autour de ces dimensions.
+
+### signalPrimary du client (signal #1, BOOST positif uniquement)
+Si rempli → boost confidence (+10) sur verdict OUI. Si NON rempli → NEUTRE, pas de pénalité, pas d'invention d'anti-signal.
+
+### Negative signals (Pappers RCS <90j)
+- **hard** (Liquidation, Dissolution, Cessation, Fermeture, Cession totale, Procédure collective) → verdict NON systématique, confidence ≥90, risk severity="high"
+- **medium** (Plan social/PSE, Réduction capital) → verdict NON ou ENRICH selon contexte, risk severity="high"
+- **soft** (Restructuration, Réorganisation) → risk severity="medium" mais ne force pas NON si fundamentaux ICP forts
+
+### Layoffs news (Bonus C — Google CSE FR <30j)
+≥2 sources distinctes presse FR → verdict NON ou ENRICH, risk severity="high" obligatoire.
+
+### Hedging interdit
+N'écris JAMAIS dans thesis/risks/opener : "hors ICP", "non whitelist", "à valider manuellement", "data incomplete" PUIS verdict=OUI confidence=85. Si tu hésites, le verdict correct est ENRICH (pas OUI avec doute caché). Cohérence : le verdict reflète l'analyse, pas l'inverse.
+
+### Anti-personas / concurrents
+Capgemini, Sopra, Atos, Onepoint, Alten, Amaris, Accenture, Wavestone (et toute boîte listée \`antiPersonas\` dans le bloc CLIENT) → verdict NON, confidence ≥95, risk severity="high".
+
+### Régie ESN
+"chez nos clients", "client final", "en régie", "at our clients", "client site", "embedded at client" → verdict NON, confidence ≥90. Le pre-Opus reject scan attrape déjà la plupart, mais reste vigilant si la mention est subtile.
+
+### Freshness
+- Trigger >90j → verdict NON ou ENRICH selon contexte (signal périmé)
+- Trigger >30j → confidence ≤70 même si verdict OUI
+- Trigger <7j → confidence boostable jusqu'à 95 si tous signaux convergents
+- Si \`freshnessByTrigger\` du client défini : respecte les bornes minDays/maxDays/staleAfterDays
+
+### Persona
+- fitScore ≥70 ou personaTier=1 → décideur quasi-certain, supporte verdict OUI
+- fitScore <40 ou personaTier ≥3 → persona faible, dégrade vers ENRICH si pas d'autre persona accessible
+- LinkedIn ancienneté <6m sur poste C-level = mandat frais, signal d'achat fort
+- Backgrounds ESN dans 3 derniers postes = parcours conseil, prudence sauf si \`nonRedFlags\` "RH/Achats persona OK"
+
+## Few-shots (calibration)
+
+### Few-shot 1 — verdict OUI (cas idéal)
+{"verdict":"OUI","confidence":92,"thesis":"Éditeur SaaS B2B 80p Paris (NAF 6201Z), levée Série A 8M€ <14j confirmée presse [src:#1] + 5 hires QA/Test ouverts WTTJ [src:#2]. ICP parfait. CTO Marc Dupont accessible LinkedIn 3y in role [src:#3].","triggers":[{"source":"rodz.fundraising","date":"2026-04-26","relevance":"Levée 8M€ Série A confirmée Les Echos"},{"source":"apify.wttj-jobs","date":"2026-05-01","relevance":"5 hires QA/Test Engineer ouverts simultanément"},{"source":"linkedin-profile","date":"2026-05-05","relevance":"CTO Marc Dupont 3 ans in role, background SaaS"}],"risks":[{"severity":"low","description":"Boîte fraîchement levée → forte sollicitation attendue [src:#1], jouer le timing serré (J+15 à J+30 idéal post-levée)"},{"severity":"medium","description":"Mention 'QA Lead' parmi les 5 hires [src:#2] : décision possible de hire interne plutôt qu'outsourcing — clarifier en discovery si externalisation ouverte"}],"opener":"Bonjour Marc,\\n\\nFélicitations pour la Série A 8M€ chez Acme — vu hier dans Les Echos. J'ai noté en parallèle 5 ouvertures QA/Test sur votre WTTJ, ce qui m'a interpellé : 5 recrutements simultanés post-levée, c'est un signal de vraie urgence sprint testing.\\n\\nChez DigiTestLab, nous accompagnons des éditeurs SaaS post-Série A pour absorber le volume sprint sans hire interne (équipe QA dédiée à 100% sur votre roadmap).\\n\\nSi pertinent, 30 min pour échanger sur votre stratégie scaling testing ?","sources":[{"id":1,"type":"rodz.fundraising","ref":"Levée 8M€ Série A Acme 2026-04-26 (Les Echos)"},{"id":2,"type":"apify.wttj-jobs","ref":"5 hires QA/Test ouverts WTTJ Acme 2026-05-01"},{"id":3,"type":"linkedin-profile","ref":"Marc Dupont CTO Acme 3y, background SaaS"}]}
+
+### Few-shot 2 — verdict NON (anti-persona + régie)
+{"verdict":"NON","confidence":96,"thesis":"Capgemini SE 380000p [src:#1] hire QA Senior pour mission régie chez client BNP [src:#2]. Anti-persona concurrent direct externalisation testing + régie ESN explicite. Hors ICP structurel.","triggers":[{"source":"apify.wttj-jobs","date":"2026-05-04","relevance":"QA Senior pour mission régie chez BNP, mention explicite 'chez notre client BNP'"}],"risks":[{"severity":"high","description":"Capgemini est anti-persona client (ESN concurrent direct externalisation testing) [src:#1] — approcher = risque de griller la relation"},{"severity":"high","description":"Régie ESN détectée explicitement dans la description ('chez notre client BNP') [src:#2] — pas un besoin interne, pas de budget outsourcing potentiel"}],"opener":"(Hors ICP — pas d'opener. Capgemini est concurrent direct, ne pas approcher.)","sources":[{"id":1,"type":"trigger.companyName","ref":"Capgemini SE 380000p (anti-personas client)"},{"id":2,"type":"apify.wttj-jobs","ref":"Description WTTJ : 'mission chez notre client BNP'"}]}
+
+### Few-shot 3 — verdict ENRICH (NAF non résolu + persona absent)
+{"verdict":"ENRICH","confidence":55,"thesis":"Boîte FR (Acme SAS [src:#1]) hire QA Lead Paris [src:#2]. Mais NAF non résolu (Pappers absent du flow rss-levees) et taille inconnue → impossible de trancher ICP fit. Pas de persona décideur identifié sur LinkedIn non plus.","triggers":[{"source":"francetravail.tech","date":"2026-05-05","relevance":"Hire QA Lead Paris ouvert via France Travail"}],"risks":[{"severity":"medium","description":"Sans NAF [src:#1] : risque ESN ou cabinet conseil (hors ICP) si attribution Pappers échoue à enrichissement"},{"severity":"low","description":"Sans persona décideur : commercial ne saura pas à qui adresser l'opener, risque d'envoyer à RH périphérique [src:#2]"}],"opener":"(Verdict ENRICH — pas d'opener finalisé. À reprendre après enrichissement Pappers + LinkedIn finder.)","sources":[{"id":1,"type":"trigger.companyName","ref":"Acme SAS — SIREN absent du dossier"},{"id":2,"type":"francetravail.tech","ref":"Hire QA Lead Paris 2026-05-05"}],"enrichmentNeeded":["Attribution SIREN/NAF via Pappers (re-tenter ratio fuzzy plus large sur 'Acme SAS Paris')","Persona décideur via LinkedIn Finder (CTO/Head of Eng/CEO Acme SAS)","Taille effectif (LinkedIn employees count ou Pappers etabs count)"]}
+
+## Format de réponse OBLIGATOIRE
+Réponds UNIQUEMENT en JSON valide parsable directement, **sans markdown**, **sans préfixe**, **sans \`\`\`json**, **sans commentaire**. Une seule paire d'accolades \`{ ... }\` qui contient toutes les clés du LeadBriefV2.
+
+Ordre recommandé des clés : verdict, confidence, thesis, triggers, risks, opener, sources, enrichmentNeeded (si applicable).
+
+## Règles non négociables
+- Tu produis EXACTEMENT le format LeadBriefV2 défini ci-dessus, parsable Zod.
+- Au moins **2 risks**, au moins **1 trigger**, au moins **1 source** — toujours.
+- Chaque \`[src:#X]\` cité existe dans \`sources[]\` (id correspondant).
+- thesis ≥20 chars, opener ≥20 chars, confidence entier 0-100.
+- Si verdict=ENRICH : enrichmentNeeded REQUIS avec ≥1 élément.
+- Si verdict=NON ou ENRICH : opener court mais ≥20 chars (texte explicatif "Hors ICP" ou "à finaliser après enrichissement").
+- Réponses TOUJOURS en français.
+- N'invente JAMAIS un fait ou une source non présente dans le dossier reçu.`;
+
+const QUALIFY_V2_USER_SUFFIX = `
+
+Produis le brief V2 selon le format JSON LeadBriefV2 spécifié dans le SYSTEM (verdict OUI/NON/ENRICH + confidence + thesis + triggers + risks ≥2 + opener + sources avec citations [src:#X], plus enrichmentNeeded si verdict=ENRICH). JSON strict, pas de markdown.`;
+
+/**
+ * Sprint D.2 — Judge V2 dormant.
+ *
+ * Produit un LeadBriefV2 raisonné à partir d'un trigger. Réutilise le même
+ * dossier de contexte que qualifyTrigger v1 (LeadDossier complet) mais
+ * remplace le SYSTEM par QUALIFY_V2_SPECIFIC et parse la sortie via Zod
+ * LeadBriefV2Schema.
+ *
+ * Garanties :
+ *   - Aucune écriture DB (ni Trigger.score, ni Trigger.briefV2Json — D.5
+ *     décidera du mode de persistence avec les données de D.6)
+ *   - Aucun appel par un chemin prod (cron, webhook, route API) — fonction
+ *     uniquement utilisable via scripts/test-judge-v2.ts ou tests
+ *   - Pas de fallback : si Opus produit un JSON invalide, on log la raison
+ *     et on retourne null (D.6 mesurera le taux d'échec sur 50 leads)
+ *
+ * Returns :
+ *   - LeadBriefV2 si Opus a produit un brief Zod-valide
+ *   - null si trigger inexistant, dossier impossible à construire, Opus
+ *     erreur, JSON malformé, ou validation Zod échouée
+ */
+export async function qualifyTriggerV2(
+  triggerId: string,
+): Promise<LeadBriefV2 | null> {
+  const dossier = await buildLeadDossierForJudge(triggerId);
+  if (!dossier) {
+    console.warn(`[qualify-trigger-v2] ${triggerId}: dossier null (trigger absent ou client sans icp)`);
+    return null;
+  }
+
+  const userPrompt = formatDossierForOpus(dossier) + QUALIFY_V2_USER_SUFFIX;
+  const icp = dossier.client.icp;
+
+  try {
+    const anthropic = getAnthropic();
+    const resp = await anthropic.messages.create({
+      model: QUALIFY_MODEL,
+      max_tokens: 2000,
+      system: buildCachedSystem(
+        QUALIFY_V2_SPECIFIC,
+        readDynamicFewShotsFromIcp(icp) ?? undefined,
+      ),
+      messages: [{ role: "user", content: userPrompt }],
+    });
+
+    const u = resp.usage as {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
+    console.log(
+      `[qualify-trigger-v2.usage] ${JSON.stringify({
+        triggerId,
+        model: QUALIFY_MODEL,
+        in: u.input_tokens ?? 0,
+        out: u.output_tokens ?? 0,
+        cache_create: u.cache_creation_input_tokens ?? 0,
+        cache_read: u.cache_read_input_tokens ?? 0,
+      })}`,
+    );
+
+    const text = resp.content
+      .filter((c) => c.type === "text")
+      .map((c) => (c as { text: string }).text)
+      .join("");
+
+    // Sortie Opus = JSON brut. Tolérance défensive : on accepte un éventuel
+    // wrapping markdown ```json ... ``` (Opus peut dériver) en l'enlevant
+    // avant parse, plutôt que rejeter le brief utile pour une simple coquille
+    // de format.
+    const cleaned = text
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+    let raw: unknown;
+    try {
+      raw = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.warn(
+        `[qualify-trigger-v2] ${triggerId}: JSON.parse failed — ${parseErr instanceof Error ? parseErr.message : "?"} | first 200c: ${cleaned.slice(0, 200)}`,
+      );
+      return null;
+    }
+
+    const validated = parseLeadBriefV2WithError(raw);
+    if (!validated.ok) {
+      console.warn(
+        `[qualify-trigger-v2] ${triggerId}: Zod validation failed — ${validated.error}`,
+      );
+      return null;
+    }
+
+    return validated.brief;
+  } catch (e) {
+    console.warn(
+      `[qualify-trigger-v2] ${triggerId}: Opus error — ${e instanceof Error ? e.message : e}`,
+    );
+    return null;
+  }
 }
