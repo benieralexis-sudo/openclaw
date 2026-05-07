@@ -196,6 +196,11 @@ model Trigger {
   // Scoring (Claude Opus 4.7)
   score         Int          // 1-10
   scoreReason   String?      // Brief contextuel généré par l'IA
+  // Sprint D.1 (07/05/2026) — Brief raisonné v2 : verdict OUI/NON/ENRICH +
+  // thesis + triggers cités + risks + opener + sources. Schéma TS dans
+  // lib/lead-brief-v2.ts (Zod). Double-write avec scoreReason pendant 30j
+  // (Sprint D.5) puis migration progressive.
+  briefV2Json   Json?
   isHot         Boolean      @default(false) // ≥9
   isCombo       Boolean      @default(false) // pattern combiné (levée + hire ex)
   // Priority Scoring Engine (chantier #1, 01/05/2026) — voir lib/priority-scoring.ts
