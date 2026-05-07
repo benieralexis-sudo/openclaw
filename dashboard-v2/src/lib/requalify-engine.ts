@@ -92,6 +92,24 @@ export async function recoverIgnoredTriggersForClient(
   // en SQL Prisma sans raw query, et le set est petit en pratique).
   // Approche : query côté Lead (1:1 avec Trigger via triggerId @unique),
   // simpler typing pour Prisma JSON filter sur `linkedinProfileJson`.
+  // Sprint D fix anti-rebond (07/05/2026 nuit) — empêche la boucle infinie.
+  //
+  // Avant ce fix : à chaque cycle horaire, recoverIgnoredTriggersForClient
+  // re-jugeait les MÊMES 26 triggers DTL (status=IGNORED + linkedinProfileJson
+  // rich) qui restaient IGNORED après chaque tentative. Bug : aucun mécanisme
+  // pour éviter les re-essais. Résultat : 410 calls Opus/jour gaspillés en
+  // boucle (~$12/jour, ~85% du burn Anthropic observé).
+  //
+  // Fix Option A : on EXCLUT les triggers dont le scoreReason commence déjà
+  // par "[RE-JUDGED" — c'est-à-dire ceux qu'on a DÉJÀ tenté de récupérer.
+  // Ils ne seront re-tentés que si :
+  //   (a) un nouvel enrichissement les remet à status=NEW + scoreReason=null
+  //       via invalidateTriggerForRequalify (linkedinProfileJson nouvellement
+  //       résolu, combo retroactif détecté) → comportement souhaité
+  //   (b) une intervention manuelle reset scoreReason
+  //
+  // Triggers dont scoreReason commence par "[C3 below_min_score" ou autre
+  // (= IGNORED jamais tenté par recover) restent éligibles à 1 tentative.
   const richLeads = await db.lead.findMany({
     where: {
       clientId,
@@ -102,6 +120,7 @@ export async function recoverIgnoredTriggersForClient(
         is: {
           status: "IGNORED",
           deletedAt: null,
+          scoreReason: { not: { startsWith: "[RE-JUDGED" } },
         },
       },
     },
