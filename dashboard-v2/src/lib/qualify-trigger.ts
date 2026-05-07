@@ -10,6 +10,10 @@ import {
   parseLeadBriefV2WithError,
   type LeadBriefV2,
 } from "@/lib/lead-brief-v2";
+import {
+  validateLeadBriefV2Strict,
+  type ValidationResult,
+} from "@/lib/lead-brief-v2-validator";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -1159,4 +1163,71 @@ export async function qualifyTriggerV2(
     );
     return null;
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Sprint D.3 (07/05/2026) — Wrapper validator + V2 dormant
+// ══════════════════════════════════════════════════════════════════════
+//
+// qualifyTriggerV2WithValidation compose : qualifyTriggerV2 (D.2) + Zod
+// (D.1) + validator strict (D.3). Préparation D.5 pour activer le mode
+// shadow ou le switch progressif.
+//
+// Différence avec qualifyTriggerV2 :
+//   - V2 retourne LeadBriefV2 si Zod-valid, null sinon
+//   - V2WithValidation retourne TOUJOURS un objet structuré contenant :
+//     - brief : LeadBriefV2 si parsing OK, null sinon
+//     - validation : ValidationResult (strict) si parsing OK, undefined sinon
+//     - shippable : boolean = brief != null && validation.ok
+//     - reason : si !shippable, raison textuelle (Opus error / Zod fail / strict fail)
+//
+// Le pipeline prod (Sprint D.5 quand shadow ou switch) consultera `shippable`
+// pour décider : OUI → écrire briefV2Json + utiliser brief V2 ; NON →
+// fallback sur le pipeline qualifyTrigger v1 classique.
+
+export interface QualifyV2WithValidationResult {
+  brief: LeadBriefV2 | null;
+  validation: ValidationResult | null;
+  shippable: boolean;
+  reason: string | null;
+}
+
+/**
+ * Sprint D.3 — wrapper dormant. Compose V2 + Zod + validator strict.
+ *
+ * APPELÉE PAR AUCUN CHEMIN PROD. Utilisable via :
+ *   - scripts/audit-d3-validator.ts (mesure pass-strict sur briefs DB)
+ *   - tests
+ *   - futur shadow mode (Sprint D.5)
+ *
+ * N'écrit jamais en DB. La caller (script ou route shadow) décide
+ * quoi faire selon shippable.
+ */
+export async function qualifyTriggerV2WithValidation(
+  triggerId: string,
+): Promise<QualifyV2WithValidationResult> {
+  const brief = await qualifyTriggerV2(triggerId);
+  if (!brief) {
+    return {
+      brief: null,
+      validation: null,
+      shippable: false,
+      reason: "v2 returned null (Opus error, Zod invalid, dossier null)",
+    };
+  }
+  const validation = validateLeadBriefV2Strict(brief);
+  if (!validation.ok) {
+    return {
+      brief,
+      validation,
+      shippable: false,
+      reason: `validator strict KO (${validation.errors.length} errors)`,
+    };
+  }
+  return {
+    brief,
+    validation,
+    shippable: true,
+    reason: null,
+  };
 }
