@@ -33,6 +33,7 @@ import { formatSourceLabel, truncateDetail } from "@/lib/format-trigger-detail";
 import { SendEmailModal } from "@/components/lead/send-email-modal";
 import { EnrichKasprModal } from "@/components/lead/enrich-kaspr-modal";
 import { LeadActivityPanel } from "@/components/lead/lead-activity-panel";
+import { LeadBriefV2ViewSafe } from "@/components/brief/lead-brief-v2-view";
 import { Database, Phone, Send } from "lucide-react";
 
 // ──────────────────────────────────────────────────────────────────────
@@ -60,6 +61,9 @@ interface TriggerData {
     capturedAt: string;
     sourceUrl?: string | null;
     sourceCode?: string | null;
+    /** Sprint D.4 (07/05) — brief raisonné V2 (judge dormant). null tant que
+     *  pas backfillé. Validé Zod côté composant LeadBriefV2ViewSafe. */
+    briefV2Json?: unknown | null;
   };
   lead: {
     id: string;
@@ -406,6 +410,37 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
       </div>
 
       <TriggerHeader trigger={trigger} lead={lead} opportunity={opportunity} brief={brief} verdict={verdict} />
+
+      {/* Sprint D.4 (07/05) — Brief raisonné V2 (judge dormant). Affiché en
+          card collapsée par défaut. Visible uniquement sur les ~46 triggers
+          DTL backfillés Sprint D.6 (sample). Indépendant du Lead car le
+          brief V2 est porté par Trigger (pas Lead) — donc s'affiche même
+          si pas de contact identifié. */}
+      <details className="group rounded-lg border border-ink-200 bg-white shadow-xs">
+        <summary className="flex items-center justify-between gap-2 cursor-pointer px-4 py-3 text-[13px] font-semibold text-ink-800 hover:bg-ink-50/50 transition-colors list-none">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-ink-500" />
+            <span>Brief raisonné V2 (judge dormant)</span>
+            {Boolean(trigger.briefV2Json) && (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-mono px-1.5 py-0 border-ink-200 text-ink-600"
+              >
+                {(trigger.briefV2Json as { verdict?: string } | null)?.verdict ?? "?"}
+              </Badge>
+            )}
+          </div>
+          <span className="text-[11px] font-normal text-ink-500 group-open:hidden">
+            Voir
+          </span>
+          <span className="text-[11px] font-normal text-ink-500 hidden group-open:inline">
+            Masquer
+          </span>
+        </summary>
+        <div className="px-4 pb-4 pt-1">
+          <LeadBriefV2ViewSafe raw={trigger.briefV2Json ?? null} />
+        </div>
+      </details>
 
       {!lead ? (
         <Card>

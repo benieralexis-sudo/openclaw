@@ -36,6 +36,8 @@ export async function GET(
       priorityScore: true,
       freshnessScore: true,
       multiSourceBoost: true,
+      // Sprint D.4 (07/05) — brief raisonné V2 (judge dormant), affichage UI
+      briefV2Json: true,
       // sourceCode conditionné plus bas (hidden pour CLIENT — moat)
       ...(s.user.role === "ADMIN" || s.user.role === "COMMERCIAL"
         ? { sourceCode: true }
