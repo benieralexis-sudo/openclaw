@@ -4,8 +4,8 @@ import { buildCachedSystem } from "@/lib/anthropic-prompt";
 import { db } from "@/lib/db";
 import { extractLinkedInProfile } from "@/lib/linkedin-profile-extractor";
 import { readDynamicFewShotsFromIcp } from "@/lib/dynamic-few-shots";
-import { searchLayoffsNews, searchCompanyNews, formatCompanyNewsBlock } from "@/lib/layoffs-news-search";
-import { fetchCompanyWebsiteSummary, formatCompanyWebsiteBlock } from "@/lib/company-website-fetcher";
+import { searchLayoffsNews } from "@/lib/layoffs-news-search";
+import { buildLeadDossierForJudge, formatDossierForOpus } from "@/lib/lead-dossier";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -603,59 +603,36 @@ export async function qualifyTrigger(
   triggerId: string,
   opts: { force?: boolean } = {},
 ): Promise<QualifyResult | null> {
-  const trigger = await db.trigger.findUnique({
+  // Sprint D.0 (07/05) — Fetch léger pour idempotence + pre-Opus reject seulement.
+  // Le dossier complet (12 blocs : persona, cross-tenant, prior, negative, website,
+  // news, fred-enriched, etc.) est construit ensuite via buildLeadDossierForJudge,
+  // évitant la duplication précédente de la logique d'assemblage entre ce fichier
+  // et lead-dossier.ts. Ordre : lite → reject éventuel (skip dossier) → dossier
+  // complet → Opus. Cela évite aussi les fetches Pappers/homepage/news inutiles
+  // sur les triggers pre-rejected.
+  const triggerLite = await db.trigger.findUnique({
     where: { id: triggerId },
-    include: {
-      client: { select: { name: true, icp: true } },
-      // Sprint 1 Q1 (05/05/2026) — Lead persona qual transmise au judge.
-      // Avant : le judge devait deviner la qualité du décideur depuis le seul
-      // titre du signal (ex: "Recrute QA Lead" → CTO ? RH ? Directeur ?).
-      // Maintenant : on lui passe fitScore (0-100, calculé par persona-fit-runner :
-      // base tier + tenureBoost + backgroundFit + sizeFit) + personaTier (1-4,
-      // 1=parfait CTO/Head of QA, 4=fallback). Audit Phase 1 du 05/05 a montré
-      // que ces 2 champs sont remplis pour 81-84% des leads DTL mais jamais lus
-      // par le judge → ~+15% précision attendu sur la dimension "Persona match".
-      lead: {
-        select: {
-          // Sprint 1 Q1
-          fitScore: true,
-          personaTier: true,
-          fullName: true,
-          jobTitle: true,
-          // Sprint 2 B.1 (05/05) — linkedinUrl ajouté pour confirmer le persona
-          // (un CTO sans linkedin = soit erreur de matching, soit profil discret).
-          linkedinUrl: true,
-          // Sprint 2 B.2 (05/05) — linkedinProfileJson HarvestAPI Profile Full :
-          // headline, summary, expériences, ancienneté, posts. 25/146 leads DTL
-          // l'ont rempli mais le judge ne l'a jamais lu. Parsé via
-          // linkedin-profile-extractor.ts existant (réutilisé persona-fit-runner).
-          linkedinProfileJson: true,
-          // Sprint 2 B.3 (05/05) — Pappers riche : santé entreprise.
-          // companyHasInsolvency redondant avec gate Q2 mais utile en defense
-          // (Lead pré-existant peut avoir flag set sans avoir été archivé).
-          companyHasInsolvency: true,
-          companyRecentDepots: true,
-          companyEtabsCount: true,
-          companyRevenue: true,
-          companyResultNet: true,
-        },
-      },
+    select: {
+      score: true,
+      scoreReason: true,
+      isHot: true,
+      status: true,
+      title: true,
+      detail: true,
+      rawPayload: true,
     },
   });
-  if (!trigger) return null;
-  if (trigger.scoreReason && !opts.force) {
-    return { opusScore: trigger.score, reason: trigger.scoreReason, isHot: trigger.isHot };
+  if (!triggerLite) return null;
+  if (triggerLite.scoreReason && !opts.force) {
+    return { opusScore: triggerLite.score, reason: triggerLite.scoreReason, isHot: triggerLite.isHot };
   }
-  if (!trigger.client?.icp) return null;
 
-  const icp = trigger.client.icp as Record<string, unknown>;
-  const fullDesc = extractFullDescription(trigger.rawPayload);
-  const detailToSend = fullDesc ?? trigger.detail ?? "(vide)";
+  const fullDesc = extractFullDescription(triggerLite.rawPayload);
 
   // C4+C5 — Pre-Opus reject scan : si pattern HIGH match (régie ESN, freelance,
   // alternance/stage, présentiel obligatoire, oversize >250p), on skip Opus
   // et on archive direct. Économise tokens + évite faux Brûlants en haut du dash.
-  const preReject = preOpusRejectScan(trigger.title ?? "", fullDesc ?? trigger.detail ?? "");
+  const preReject = preOpusRejectScan(triggerLite.title ?? "", fullDesc ?? triggerLite.detail ?? "");
   if (preReject.reject) {
     const rejectReason = `[C4-C5 pre-opus-reject:${preReject.label}] Pattern rédhibitoire détecté avant scoring Opus`;
     console.log(`[qualify-trigger.C4C5] ${triggerId}: IGNORED auto (${preReject.label})`);
@@ -670,227 +647,20 @@ export async function qualifyTrigger(
     });
     return { opusScore: 2, reason: rejectReason, isHot: false };
   }
-  // Sprint 1 Q1 + Sprint 2 B.1/B.2/B.3 (05/05/2026) — Bloc PERSONA + COMPANY HEALTH.
-  // Transmis seulement si le Lead existe en DB (qualify peut être appelé avant
-  // auto-create-lead.ts pour certains pollers). Quand absent, on signale
-  // "non résolue" pour éviter qu'Opus suppose.
-  let personaBlock: string;
-  if (trigger.lead) {
-    const lead = trigger.lead;
-    // B.2 — Extrait headline + 3 derniers postes + ancienneté du
-    // linkedinProfileJson HarvestAPI. Fallback silencieux si non rempli.
-    const linkedinSummary = formatLinkedinProfileForJudge(lead.linkedinProfileJson);
-    // B.3 — Pappers riche bloc COMPANY HEALTH. Affiché seulement si au moins
-    // un signal financier ou de santé est présent (sinon on sature le prompt
-    // pour rien).
-    const healthSignals: string[] = [];
-    if (lead.companyHasInsolvency === true) {
-      healthSignals.push("⚠️ procédure collective EN COURS (RJ/LJ)");
-    }
-    if (lead.companyRevenue != null) {
-      healthSignals.push(`CA dernier exercice : ${formatEuros(lead.companyRevenue)}`);
-    }
-    if (lead.companyResultNet != null) {
-      healthSignals.push(`Résultat net : ${formatEuros(lead.companyResultNet)}`);
-    }
-    if (lead.companyEtabsCount != null && lead.companyEtabsCount > 1) {
-      healthSignals.push(`${lead.companyEtabsCount} établissements (multi-sites)`);
-    }
-    if (Array.isArray(lead.companyRecentDepots) && lead.companyRecentDepots.length > 0) {
-      healthSignals.push(`${lead.companyRecentDepots.length} dépôts RCS <90j (signal mouvement)`);
-    }
-    const healthBlock = healthSignals.length > 0
-      ? `\nCOMPANY HEALTH (Pappers) :\n- ${healthSignals.join("\n- ")}`
-      : "";
+  // Sprint D.0 (07/05) — buildLeadDossierForJudge centralise l'assemblage des
+  // 12 blocs (PERSONA QUAL + COMPANY HEALTH, Cross-tenant, PRIOR SIGNALS + COMBO
+  // PATTERNS, NEGATIVE SIGNALS, COMPANY WEBSITE, COMPANY NEWS, CLIENT ENRICHED
+  // Fred 9 questions). Avant ce refactor, ces ~220 lignes étaient dupliquées
+  // entre qualify-trigger.ts et lead-dossier.ts → divergence si on modifiait
+  // un seul côté. Maintenant : source unique. formatDossierForOpus produit
+  // exactement le même userPrompt (testé Sprint C.5).
+  const dossier = await buildLeadDossierForJudge(triggerId);
+  if (!dossier) return null;
+  const trigger = dossier.trigger;
+  const icp = dossier.client.icp;
+  const negativeSignals = dossier.blocks.negativeSignals;
 
-    personaBlock = `\nPERSONA QUAL (calcul interne) :
-- fitScore : ${lead.fitScore ?? "non calculé"} / 100
-- personaTier : ${lead.personaTier ?? "non calculé"} / 4 (1=parfait, 4=fallback)
-- Décideur identifié : ${lead.fullName ?? "non résolu"} (${lead.jobTitle ?? "?"})
-- LinkedIn : ${lead.linkedinUrl ?? "non résolu"}${linkedinSummary ? `\n${linkedinSummary}` : ""}${healthBlock}`;
-  } else {
-    personaBlock = `\nPERSONA QUAL : non encore calculée (Lead pas créé)`;
-  }
-
-  // Sprint 5 (05/05) — Cross-tenant signal (si dispo). Bloc omis si SIRET
-  // absent/pseudo OU si aucun autre client iFIND n'a cette boîte. Évite
-  // de polluer le prompt avec "0 autre client" inutile.
-  const crossTenantSignal = await getCrossTenantSignal(
-    trigger.clientId,
-    trigger.companySiret,
-  );
-  const crossTenantBlock = crossTenantSignal ? `\n${crossTenantSignal}` : "";
-
-  // Sprint 6 (05/05) + Sprint C.3 (06/05) — Prior signals (mêmes clientId+SIRET,
-  // 90j, autres triggers) + détection patterns combos urgence (sprint-hiring,
-  // post-funding-scaling, post-deal-consolidation). Permet au judge de voir
-  // le combo : "hire QA arrive 12j après levée 5M€" = score plus élevé que
-  // "hire QA solo".
-  const priorSignals = await getPriorSignalsForCompany(
-    trigger.clientId,
-    trigger.companySiret,
-    triggerId,
-    {
-      type: trigger.type,
-      capturedAt: trigger.capturedAt,
-      sourceCode: trigger.sourceCode,
-      title: trigger.title,
-    },
-  );
-  const priorSignalsBlock = priorSignals ? `\n${priorSignals}` : "";
-
-  // Sprint C.1 (06/05) — Fetch homepage entreprise + résumé Sonnet (cache 7j).
-  // Best-effort : si pas d'URL dans rawPayload ou fetch échec, bloc omis.
-  let companyWebsiteBlock = "";
-  if (trigger.companyName) {
-    try {
-      const summary = await fetchCompanyWebsiteSummary(
-        trigger.companyName,
-        trigger.companySiret,
-        trigger.rawPayload,
-      );
-      const formatted = formatCompanyWebsiteBlock(summary);
-      if (formatted) companyWebsiteBlock = `\n${formatted}`;
-    } catch {
-      // silent fail
-    }
-  }
-
-  // Sprint C.2 (06/05) — Google CSE news 30j (positif + négatif) sur la boîte.
-  // Best-effort : silencieux si Google CSE quota épuisé ou erreur réseau.
-  // Block COMPANY NEWS distinct de NEGATIVE NEWS (Bonus C → soft cap score).
-  // Ici on enrichit le contexte que voit le judge en amont du scoring.
-  let companyNewsBlock = "";
-  if (trigger.companyName) {
-    try {
-      const news = await searchCompanyNews(trigger.companyName, { dateRestrict: "m1" });
-      const formatted = formatCompanyNewsBlock(news);
-      if (formatted) companyNewsBlock = `\n${formatted}`;
-    } catch {
-      // silent fail
-    }
-  }
-
-  // Sprint 9 (05/05) — Negative signals (Pappers RCS dépôts <90j).
-  // Détecte dissolution/liquidation/cessation/PSE/réduction capital depuis
-  // companyRecentDepots déjà chargé via Lead.include. Si présent, le judge
-  // doit scorer ≤ 3-5 selon sévérité (override les positifs comme un combo
-  // SCALE-UP-TECH). Le moat : Apollo/Pharow ne détectent QUE le positif.
-  const negativeSignals = trigger.lead
-    ? getNegativeSignalsForCompany(trigger.lead.companyRecentDepots)
-    : null;
-  const negativeSignalsBlock = negativeSignals ? `\n${negativeSignals.block}` : "";
-
-  // Sprint B.3 (06/05/2026) — Bloc CLIENT enrichi avec réponses Fred 9 questions.
-  // Avant : JSON.stringify aveugle de l'ICP → Opus voyait tous les champs avec
-  // poids égal → signaux importants noyés dans la liste.
-  // Maintenant : on isole et on label explicitement les champs critiques
-  // (signalPrimary, redFlagsHard/Soft, fewShotPositives, pitchVerbatim) pour
-  // qu'Opus les pondère selon les sections dédiées de QUALIFY_SPECIFIC.
-  const dreamArchetype = typeof icp.dreamArchetype === "string" ? icp.dreamArchetype : null;
-  const signalPrimary = typeof icp.signalPrimary === "string" ? icp.signalPrimary : null;
-  const signalSecondary = typeof icp.signalSecondary === "string" ? icp.signalSecondary : null;
-  const redFlagsHard = Array.isArray(icp.redFlagsHard) ? (icp.redFlagsHard as string[]) : null;
-  const redFlagsSoft = Array.isArray(icp.redFlagsSoft) ? (icp.redFlagsSoft as string[]) : null;
-  const nonRedFlags = Array.isArray(icp.nonRedFlags) ? (icp.nonRedFlags as string[]) : null;
-  const fewShotPositives = (icp.fewShotPositives && typeof icp.fewShotPositives === "object")
-    ? icp.fewShotPositives as Record<string, unknown>
-    : null;
-  const pitchVerbatim = typeof icp.pitchVerbatim === "string" ? icp.pitchVerbatim : null;
-  const freshnessByTrigger = (icp.freshnessByTrigger && typeof icp.freshnessByTrigger === "object")
-    ? icp.freshnessByTrigger as Record<string, unknown>
-    : null;
-
-  const fredEnrichedSection: string[] = [];
-  if (dreamArchetype) {
-    fredEnrichedSection.push(`dreamArchetype : "${dreamArchetype}"`);
-  }
-  if (signalPrimary) {
-    fredEnrichedSection.push(`signalPrimary (signal #1 du client, à évaluer en priorité) : ${signalPrimary}`);
-  }
-  if (signalSecondary) {
-    fredEnrichedSection.push(`signalSecondary (signal mou, pondère plus faiblement) : ${signalSecondary}`);
-  }
-  if (redFlagsHard && redFlagsHard.length > 0) {
-    fredEnrichedSection.push(`redFlagsHard (match → score ≤ 2 systématique) :\n  - ${redFlagsHard.join("\n  - ")}`);
-  }
-  if (redFlagsSoft && redFlagsSoft.length > 0) {
-    fredEnrichedSection.push(`redFlagsSoft (match → -2 points plancher 4, pas exclusion) :\n  - ${redFlagsSoft.join("\n  - ")}`);
-  }
-  if (nonRedFlags && nonRedFlags.length > 0) {
-    fredEnrichedSection.push(`nonRedFlags (NE PAS pénaliser ces critères, le client a tranché) :\n  - ${nonRedFlags.join("\n  - ")}`);
-  }
-  if (fewShotPositives) {
-    const lines: string[] = [];
-    if (Array.isArray(fewShotPositives.confirmedClients)) {
-      const names = (fewShotPositives.confirmedClients as Array<Record<string, unknown>>)
-        .map((c) => String(c.name ?? "?"))
-        .filter(Boolean);
-      if (names.length > 0) {
-        lines.push(`confirmedClients (déjà signés — match → score ≥ 8) : ${names.join(", ")}`);
-      }
-    }
-    if (Array.isArray(fewShotPositives.dreamProspects)) {
-      const names = (fewShotPositives.dreamProspects as Array<Record<string, unknown>>)
-        .map((c) => String(c.name ?? "?"))
-        .filter(Boolean);
-      if (names.length > 0) {
-        lines.push(`dreamProspects (cibles validées par jugement — match → score ≥ 7) : ${names.join(", ")}`);
-      }
-    }
-    if (lines.length > 0) {
-      fredEnrichedSection.push(`fewShotPositives :\n  - ${lines.join("\n  - ")}`);
-    }
-  }
-  if (freshnessByTrigger) {
-    const parts: string[] = [];
-    for (const [k, v] of Object.entries(freshnessByTrigger)) {
-      if (v && typeof v === "object" && "minDays" in (v as object)) {
-        const w = v as { minDays?: number; maxDays?: number; staleAfterDays?: number };
-        parts.push(`${k}: J+${w.minDays ?? "?"} → J+${w.maxDays ?? "?"}${w.staleAfterDays ? ` (stale après J+${w.staleAfterDays})` : ""}`);
-      }
-    }
-    if (parts.length > 0) {
-      fredEnrichedSection.push(`freshnessByTrigger : ${parts.join(", ")}`);
-    }
-  }
-  if (pitchVerbatim) {
-    fredEnrichedSection.push(`pitchVerbatim (style/ton du client pour cohérence brief) : "${pitchVerbatim.slice(0, 600)}"`);
-  }
-  const fredEnrichedBlock = fredEnrichedSection.length > 0
-    ? `\n\nCLIENT ENRICHED (réponses fondateur, autorité maximale) :\n${fredEnrichedSection.map((s) => `- ${s}`).join("\n")}`
-    : "";
-
-  const userPrompt = `CLIENT : ${trigger.client.name}
-ICP : ${JSON.stringify({
-    industries: icp.industries,
-    sizes: icp.sizes,
-    naf_codes: icp.naf_codes, // C13 — NAF whitelist envoyée à Opus
-    personaTitles: icp.personaTitles,
-    keywordsHiring: icp.keywordsHiring,
-    antiPersonas: icp.antiPersonas,
-    preferredSignals: icp.preferredSignals, // C13 — pondération signaux DTL
-    minScore: icp.minScore, // C13 — seuil de qualification
-  })}${fredEnrichedBlock}
-
-LEAD :
-- Entreprise : ${trigger.companyName}
-- SIRET/SIREN : ${trigger.companySiret ?? "non résolu"}
-- NAF : ${trigger.companyNaf ?? "?"}
-- Industrie : ${trigger.industry ?? "?"}
-- Région : ${trigger.region ?? "?"}
-- Taille : ${trigger.size ?? "?"}
-${personaBlock}${crossTenantBlock}${priorSignalsBlock}${negativeSignalsBlock}${companyWebsiteBlock}${companyNewsBlock}
-
-SIGNAL :
-- Type : ${trigger.type}
-- Source : ${trigger.sourceCode}
-- Titre : ${trigger.title}
-- Détail : ${detailToSend}
-- Capté : ${trigger.capturedAt.toISOString()}
-- Publié : ${trigger.publishedAt?.toISOString() ?? "?"}
-
-Évalue ce lead pour ${trigger.client.name}.`;
+  const userPrompt = formatDossierForOpus(dossier);
 
   let opusScore = 5;
   let reason = "Évaluation par défaut (Opus indisponible)";
@@ -990,7 +760,7 @@ SIGNAL :
   // capper à 5. Avant ce flag : un Rodz funding score=10 + layoffs news
   // → Bonus C cap à 5 → plancher minFloor=8 → re-boost à 8. Bug confirmé.
   let layoffsCapApplied = false;
-  if (opusScore >= 8 && !negativeSignals?.hasHardSignal) {
+  if (opusScore >= 8 && !negativeSignals?.hasHardSignal && trigger.companyName) {
     try {
       const layoffsCheck = await searchLayoffsNews(trigger.companyName);
       if (layoffsCheck.found) {
@@ -1069,7 +839,7 @@ SIGNAL :
   // pour qu'il soit encore en IGNORED est un héritage d'un précédent run.
   // On ne se fie PAS au scoreReason précédent (peut avoir été overwritten
   // par un qualify intermédiaire qui a effacé le préfixe `[C3 below_min_score`).
-  const promoteToNew = !belowMinScore && trigger.status === "IGNORED";
+  const promoteToNew = !belowMinScore && triggerLite.status === "IGNORED";
 
   await db.trigger.update({
     where: { id: triggerId },
