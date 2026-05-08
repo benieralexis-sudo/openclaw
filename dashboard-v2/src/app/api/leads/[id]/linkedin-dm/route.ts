@@ -51,15 +51,11 @@ function buildPrompt(args: {
     name: string;
     industry: string | null;
     icp: Record<string, unknown> | null;
-    calcomSlug: string | null;
   };
 }): string {
   const { trigger, lead, client } = args;
   const icp = client.icp ?? {};
-  const calcomLine = client.calcomSlug
-    ? `\n# CTA OBLIGATOIRE\n- Mentionner dans la connection note OU l'inmail : "📅 https://cal.com/${client.calcomSlug}"\n`
-    : "";
-  return `Tu es l'assistant commercial d'iFIND. Tu produis des MESSAGES LINKEDIN ultra-personnalisés pour ce signal d'achat. Le commercial humain enverra à la main (LinkedIn = pas d'auto chez iFIND).${calcomLine}
+  return `Tu es l'assistant commercial d'iFIND. Tu produis des MESSAGES LINKEDIN ultra-personnalisés pour ce signal d'achat. Le commercial humain enverra à la main (LinkedIn = pas d'auto chez iFIND).
 
 # CONTEXTE CLIENT iFIND
 - Société : ${client.name}
@@ -162,7 +158,7 @@ export async function POST(
           companyName: true,
         },
       },
-      client: { select: { id: true, name: true, industry: true, icp: true, calcomSlug: true } },
+      client: { select: { id: true, name: true, industry: true, icp: true } },
     },
   });
   if (!lead) return NextResponse.json({ error: "Lead introuvable" }, { status: 404 });
@@ -202,7 +198,6 @@ export async function POST(
         lead.client.icp && typeof lead.client.icp === "object"
           ? (lead.client.icp as Record<string, unknown>)
           : null,
-      calcomSlug: lead.client.calcomSlug,
     },
   });
 

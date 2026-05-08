@@ -63,7 +63,6 @@ describe("buildCopyPrompt", () => {
       name: "Digi Test Lab",
       industry: "QA Externalisé",
       icp: { proof_points: ["Novrh — pas d'équipe QA → structuré"] },
-      calcomSlug: "alexis-benier/digitestlab-15min",
     },
   } satisfies Parameters<typeof buildCopyPrompt>[0];
 

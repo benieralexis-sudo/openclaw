@@ -120,7 +120,6 @@ export interface CopyPromptArgs {
     name: string;
     industry: string | null;
     icp: Record<string, unknown> | null;
-    calcomSlug: string | null;
   };
 }
 
@@ -129,11 +128,8 @@ export function buildCopyPrompt(args: CopyPromptArgs): string {
   const tone = resolveTonePolicy(lead.personaTier);
 
   const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "[Décideur à identifier]";
-  const calcomLine = client.calcomSlug
-    ? `\n# CTA OBLIGATOIRE\n- Inclure dans coldMail.body et warmMail.body : "📅 Réserver 15 min : https://cal.com/${client.calcomSlug}"\n`
-    : "";
 
-  return `Tu es l'assistant commercial d'iFIND. Tu produis 4 contenus de cold outreach en 1 seul appel pour transformer ce signal d'achat en RDV.${calcomLine}
+  return `Tu es l'assistant commercial d'iFIND. Tu produis 4 contenus de cold outreach en 1 seul appel pour transformer ce signal d'achat en RDV.
 
 # CONTEXTE CLIENT iFIND (qui paie)
 - Société : ${client.name}

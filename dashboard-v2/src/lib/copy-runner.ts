@@ -74,7 +74,7 @@ export async function generateCopyForLead(args: {
           capturedAt: true,
         },
       },
-      client: { select: { id: true, name: true, industry: true, icp: true, calcomSlug: true } },
+      client: { select: { id: true, name: true, industry: true, icp: true } },
     },
   });
 
@@ -129,7 +129,6 @@ export async function generateCopyForLead(args: {
         lead.client.icp && typeof lead.client.icp === "object"
           ? (lead.client.icp as Record<string, unknown>)
           : null,
-      calcomSlug: lead.client.calcomSlug,
     },
   });
 
