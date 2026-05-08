@@ -248,27 +248,34 @@ export async function enrichDirigeantsForClient(
         if (!best || m.weight > best.weight) best = { ...r, weight: m.weight };
       }
 
-      // FALLBACK HOLDINGS — DÉSACTIVÉ PAR DÉFAUT 29/04 (Levier P1 anti-pollution)
-      // Audit 29/04 : la récursion 3 niveaux remontait au CEO de la holding
-      // mère (DAVIDSON NG, NJJ STRATEGY, EVA-RH...) qui n'est PAS le décideur
-      // opérationnel pour un signal "QA Engineer hire". Résultat : 24% des
-      // leads pollués "(via HOLDING)" avec un décideur faux.
+      // FALLBACK HOLDINGS — RÉACTIVÉ 08/05 avec maxDepth=1 (anti-pollution)
+      // Audit 29/04 v1 : récursion maxDepth=3 remontait au CEO de la holding
+      // mère (DAVIDSON NG, NJJ STRATEGY, EVA-RH...) → décideur faux pour signal
+      // "QA Engineer hire". Résultat : 24% leads pollués "(via HOLDING)".
       //
-      // Maintenant : si aucune personne physique au niveau 1, on N'ÉCRASE
-      // PAS et on flag `personaSource='pappers-no-human'` pour que HarvestAPI
-      // search-by-company (étage 3 amont) ait sa chance, ou que le commercial
-      // identifie manuellement via Sales Nav.
+      // Diagnostic 08/05 : sans récursion, 15-20% des PME tech FR détenues par
+      // des holdings restaient "société-only" (cas VISIAN : AMALTH+MAYACC+KPMG
+      // au 1er niveau, aucune personne physique). LI Finder/Kaspr skip ces
+      // leads → frustration utilisateur.
       //
-      // Réactivable via env PAPPERS_HOLDING_RECURSION=true (kill switch).
+      // Compromis : maxDepth=2 = exactement 1 niveau de remontée (l'entreprise
+      // au niveau 0 + ses holdings parentes au niveau 1). Récupère le dirigeant
+      // direct de la holding mère (souvent le fondateur réel) sans remonter
+      // jusqu'au top des fonds d'investissement. Le `holdingPath` reste tracé
+      // pour transparence dans le jobTitle "(via X)".
+      //
+      // Toggle via env PAPPERS_HOLDING_RECURSION (true par défaut depuis 08/05).
+      // Profondeur configurable via PAPPERS_HOLDING_MAX_DEPTH (default 2 = 1 lvl).
       if (!best || !best.nom_complet) {
-        const enableRecursion = process.env.PAPPERS_HOLDING_RECURSION === "true";
+        const enableRecursion = process.env.PAPPERS_HOLDING_RECURSION !== "false";
+        const maxDepth = parseInt(process.env.PAPPERS_HOLDING_MAX_DEPTH ?? "2", 10);
         if (enableRecursion) {
           try {
             const recursive = await findHumanDirigeantRecursive(siren, {
               isPersonneMorale: (n: string) => isPersonneMorale(n),
               isWrongPersona: (q: string) => isWrongPersona(q),
               matchPersonaPriority: (q: string) => matchPersonaPriority(q),
-              maxDepth: 3,
+              maxDepth,
             });
             if (recursive) {
               best = {
