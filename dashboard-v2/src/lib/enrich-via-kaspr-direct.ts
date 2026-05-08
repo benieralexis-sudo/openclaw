@@ -175,6 +175,15 @@ export async function enrichLeadsViaKasprDirect(
           await sleep(60_000);
           continue;
         }
+        // Fix bug 08/05 — pose kasprAttemptedAt même en cas d'erreur API
+        // silencieuse (URL ID-encodé Koralplay-type, profil non disponible,
+        // etc.). Sans ça : kasprAttemptedAt reste null → FullEnrich ignore
+        // ce lead via son filtre `kasprAttemptedAt: { not: null }` →
+        // chaîne email cassée.
+        await db.lead.update({
+          where: { id: lead.id },
+          data: { kasprAttemptedAt: new Date() },
+        }).catch(() => {});
         result.skipped++;
         continue;
       }

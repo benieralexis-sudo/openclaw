@@ -68,8 +68,10 @@ export async function enrichLeadsViaFullEnrich(
   const ttlAgo = new Date(Date.now() - FULLENRICH_TTL_DAYS * 24 * 60 * 60 * 1000);
 
   // Sélection : Leads avec persona (firstName + lastName + companyName) mais
-  // sans email final ET Kaspr déjà tenté (= Kaspr a échoué). On veut éviter
-  // de doubler avec Kaspr qui pourrait encore tourner.
+  // sans email final. Fix bug 08/05 : on accepte aussi les leads sans LinkedIn
+  // (où Kaspr ne tournera JAMAIS car son filtre exige linkedinUrl). Avant ce
+  // fix, ces leads (DiXiO type, persona OK + no LI) étaient invisibles à
+  // FullEnrich → 0 chance email. Maintenant FullEnrich est leur seul recours.
   const candidates = await db.lead.findMany({
     where: {
       clientId,
@@ -82,10 +84,16 @@ export async function enrichLeadsViaFullEnrich(
         { email: null },
         { email: "" },
       ],
-      // Kaspr déjà tenté (sinon on attend que Kaspr ait sa chance)
-      kasprAttemptedAt: { not: null },
-      // Pas tenté FullEnrich <30j
+      // Précondition élargie 08/05 : soit Kaspr a tenté, soit Kaspr ne pourra
+      // jamais tenter (no linkedinUrl). Avant le fix, le filtre strict bloquait
+      // les leads DiXiO/Koralplay/etc. avec persona OK mais LI absent/invalide.
       AND: [
+        {
+          OR: [
+            { kasprAttemptedAt: { not: null } },           // Kaspr a déjà eu sa chance
+            { linkedinUrl: null },                          // Kaspr ne tournera jamais (skip silencieux)
+          ],
+        },
         {
           OR: [
             { fullenrichAttemptedAt: null },
