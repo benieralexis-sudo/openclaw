@@ -225,7 +225,7 @@ export async function mergeDuplicateTriggersBySiret(
       multiSourceBoost: true,
       capturedAt: true,
       status: true,
-      lead: { select: { id: true, fullName: true } },
+      lead: { select: { id: true, fullName: true, deletedAt: true } },
     },
   });
   if (!target || !target.companySiret) return null;
@@ -248,7 +248,7 @@ export async function mergeDuplicateTriggersBySiret(
       multiSourceBoost: true,
       capturedAt: true,
       status: true,
-      lead: { select: { id: true, fullName: true } },
+      lead: { select: { id: true, fullName: true, deletedAt: true } },
     },
     orderBy: { capturedAt: "asc" }, // si plusieurs, prend le plus ancien (le "vrai" original)
   });
@@ -299,19 +299,43 @@ export async function mergeDuplicateTriggersBySiret(
         ignoredReason: "dedup-merged",
       },
     });
-    // Transfert Lead si le winner n'a pas de Lead mais le loser oui
-    if (!winner.lead && loser.lead) {
+    // Transfert Lead intelligent (fix bug ViaXoft 08/05) :
+    // Considère un Lead comme "actif" SEULEMENT si !deletedAt. Sinon il est
+    // virtuellement absent — le trigger se retrouverait sans Lead actif et
+    // les enrichers (Kaspr/LI Finder) skipent → "Persona à identifier manuellement"
+    // dans le dashboard alors que le Trigger est NEW score élevé.
+    const winnerHasActiveLead = winner.lead && !winner.lead.deletedAt;
+    const loserHasActiveLead = loser.lead && !loser.lead.deletedAt;
+
+    if (!winnerHasActiveLead && loserHasActiveLead) {
+      // Transfert : loser a un Lead actif, on le rattache au winner
       await tx.lead.update({
-        where: { id: loser.lead.id },
+        where: { id: loser.lead!.id },
         data: { triggerId: winner.id },
       });
-    } else if (loser.lead) {
-      // winner a déjà un Lead, on soft-delete celui du loser
+    } else if (winnerHasActiveLead && loserHasActiveLead) {
+      // Les deux ont un Lead actif : on soft-delete celui du loser
       await tx.lead.update({
-        where: { id: loser.lead.id },
+        where: { id: loser.lead!.id },
         data: { deletedAt: new Date() },
       });
+    } else if (!winnerHasActiveLead && loser.lead && loser.lead.deletedAt) {
+      // Cas dégénéré : ni winner ni loser n'a de Lead actif. Restaurer
+      // celui du loser (puisqu'il existe en DB) et le rattacher au winner
+      // pour que le trigger ait au moins un Lead "shell" enrichissable.
+      await tx.lead.update({
+        where: { id: loser.lead.id },
+        data: { triggerId: winner.id, deletedAt: null, status: "NEW" },
+      });
+    } else if (!winnerHasActiveLead && winner.lead && winner.lead.deletedAt) {
+      // Cas symétrique : winner a un Lead soft-deleted seul. Le restaurer.
+      await tx.lead.update({
+        where: { id: winner.lead.id },
+        data: { deletedAt: null, status: "NEW" },
+      });
     }
+    // Si aucun des 2 n'a de Lead du tout : enrichDirigeants en créera un
+    // au prochain cycle.
   });
 
   console.log(
