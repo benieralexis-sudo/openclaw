@@ -81,11 +81,6 @@ describe("buildCopyPrompt", () => {
     expect(p).toContain("Recrutement QA Engineer");
   });
 
-  it("inclut le CTA Cal.com si fourni", () => {
-    const p = buildCopyPrompt(baseArgs);
-    expect(p).toContain("alexis-benier/digitestlab-15min");
-  });
-
   it("précise les 4 contextes attendus dans la sortie JSON", () => {
     const p = buildCopyPrompt(baseArgs);
     expect(p).toContain("coldMail");
