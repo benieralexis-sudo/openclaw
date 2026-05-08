@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { getEntreprise, findHumanDirigeantRecursive } from "@/lib/pappers";
+import { markLeadEnrichedFromPappers } from "@/lib/lead-enrichment-tagging";
 import { splitFullName } from "@/lib/split-full-name";
 import { looksAdministrativeFirstName } from "@/lib/verify-persona-coherence";
 
@@ -71,24 +72,11 @@ async function applyCompanyOnlyFields(
   trigger: { id: string },
   data: Awaited<ReturnType<typeof getEntreprise>>,
 ): Promise<void> {
-  const lastFinance = data.finances?.[0];
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-  const recentDepots = (data.depots_actes ?? [])
-    .filter((d) => d.date_depot && new Date(d.date_depot) > ninetyDaysAgo)
-    .map((d) => ({ date: d.date_depot, type: d.type, decisions: d.decisions }))
-    .slice(0, 5);
-  const fields: Record<string, unknown> = {};
-  if (lastFinance?.chiffre_affaires != null) fields.companyRevenue = lastFinance.chiffre_affaires;
-  if (lastFinance?.resultat != null) fields.companyResultNet = lastFinance.resultat;
-  const etabsCount = data.etablissements?.filter((e) => e.actif !== false).length ?? null;
-  if (etabsCount !== null) fields.companyEtabsCount = etabsCount;
-  if (recentDepots.length > 0) fields.companyRecentDepots = recentDepots;
-  if (data.procedure_collective_en_cours === true) fields.companyHasInsolvency = true;
-  if (Object.keys(fields).length === 0) return;
-  await db.lead.updateMany({
-    where: { triggerId: trigger.id, deletedAt: null },
-    data: fields,
-  });
+  // Sprint Perfection P1 (08/05) — délégation au helper centralisé
+  // markLeadEnrichedFromPappers qui pose enrichedAt + tous les champs financiers
+  // de manière unifiée. Avant ce refactor : ~150% de duplication avec
+  // theirstack-poller.ts ligne 670+ et application incomplète d'enrichedAt.
+  await markLeadEnrichedFromPappers(trigger.id, data);
 }
 
 export async function enrichDirigeantsForClient(
@@ -414,6 +402,9 @@ export async function enrichDirigeantsForClient(
         jobTitle: jobTitleWithPath,
         personaTier: isHoldingPath ? Math.min(4, tierFromQualite + 2) : tierFromQualite,
         personaSource: isHoldingPath ? "pappers-holding-fallback" : "pappers-rcs",
+        // Sprint Perfection P1 (08/05) — pose enrichedAt à chaque persistance
+        // Pappers (avant : 1.5% des Lead 7j tagués → cible 80%+).
+        enrichedAt: new Date(),
         ...(companyRevenue !== null ? { companyRevenue } : {}),
         ...(companyResultNet !== null ? { companyResultNet } : {}),
         ...(companyEtabsCount !== null ? { companyEtabsCount } : {}),

@@ -15,6 +15,7 @@ import { Prisma, TriggerStatus, TriggerType, LeadStatus, EmailStatus } from "@pr
 import { db } from "@/lib/db";
 import { searchJobs, searchCompanies, type JobResult, type JobSearchFilters, type CompanyResult, type CompanySearchFilters } from "@/lib/theirstack";
 import { attributeSirene, getEntreprise } from "@/lib/pappers";
+import { markLeadEnrichedFromPappers } from "@/lib/lead-enrichment-tagging";
 
 /**
  * Slugs TheirStack des outils de test/QA — utilisés par DTL et tout
@@ -673,10 +674,16 @@ export async function enrichRecentTriggersWithSirene(
     // filtrés en amont par postgres-sync.js:196 mais defensive coding).
     if (!/^\d+$/.test(t.companySiret)) continue;
     try {
-      // Sprint 1 Q2 (05/05/2026) — Inclure procedures_collectives pour le gate
-      // insolvency. Même appel Pappers, +1 paramètre query, 0 cr supplémentaire.
+      // Sprint Perfection P1 (08/05) — Inclure aussi bilans+depots+etablissements
+      // pour permettre au helper markLeadEnrichedFromPappers de persister
+      // companyRevenue/ResultNet/EtabsCount/RecentDepots sur le Lead. Forfait
+      // Pappers illimité = 0€ surcoût pour ces options.
+      // Sprint 1 Q2 (05/05/2026) — procedures_collectives pour gate insolvency.
       const entreprise = await getEntreprise(t.companySiret, {
         includeProceduresCollectives: true,
+        includeBilans: true,
+        includeDepotsActes: true,
+        includeEtablissements: true,
       });
       if (!entreprise) {
         stats.skipped += 1;
@@ -742,6 +749,17 @@ export async function enrichRecentTriggersWithSirene(
       } else {
         stats.skipped += 1;
       }
+
+      // Sprint Perfection P1 (08/05) — Tagger les Leads du trigger avec
+      // enrichedAt + données financières Pappers. Idempotent (skip si <24h).
+      // Bénéfice : le judge Opus reçoit companyRevenue/ResultNet/Depots/Etabs
+      // sur 80%+ des leads au lieu de 22% pre-fix.
+      await markLeadEnrichedFromPappers(t.id, entreprise).catch((e) => {
+        console.warn(
+          `[lead-enrichment-tagging] ${t.id} err :`,
+          e instanceof Error ? e.message : e,
+        );
+      });
     } catch {
       stats.errors += 1;
     }
