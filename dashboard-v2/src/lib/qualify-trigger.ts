@@ -924,15 +924,55 @@ async function qualifyTriggerV2Shadow(triggerId: string): Promise<void> {
     );
     return;
   }
+
+  // SWITCH V1→V2 (08/05) — V2 verdict décide désormais le status final.
+  // V1 score conservé pour le tri visuel (10 = top), mais ne décide plus de
+  // la visibilité dashboard. V2 = ~95-97% précision (vs V1 ~80%) car raisonné
+  // sur 12 blocs de contexte (persona + company health + cross-tenant + news +
+  // ICP Fred + etc.) avec validator strict (98% briefs passent).
+  //
+  // Logique override :
+  //  - V2 verdict=NON shippable → status=IGNORED (catch les ESN/concurrents
+  //    que V1 score laissait passer, ex Synanto score=10 V1 mais NON V2)
+  //  - V2 verdict=OUI/ENRICH → on respecte la décision V1 (NEW si !belowMinScore)
+  //
+  // Garde-fou : seul un brief shippable (Zod OK + validator strict OK) peut
+  // override. Si V2 plante / brief invalide, V1 reste source de vérité.
+  const updates: { briefV2Json: object; status?: "IGNORED"; scoreReason?: string } = {
+    briefV2Json: result.brief as unknown as object,
+  };
+  let v2OverrideApplied = false;
+  if (result.shippable && result.brief.verdict === "NON") {
+    const current = await db.trigger.findUnique({
+      where: { id: triggerId },
+      select: { scoreReason: true, status: true },
+    });
+    // N'override que si V1 disait NEW (pas besoin si déjà IGNORED)
+    if (current?.status === "NEW") {
+      const v1Reason = current.scoreReason ?? "";
+      const v2Header = `[V2-override:NON conf=${result.brief.confidence}] ${result.brief.thesis.slice(0, 200)}`;
+      updates.status = "IGNORED";
+      updates.scoreReason = `${v2Header} | V1: ${v1Reason}`.slice(0, 600);
+      v2OverrideApplied = true;
+    }
+  }
+
   await db.trigger.update({
     where: { id: triggerId },
-    data: { briefV2Json: result.brief as unknown as object },
+    data: updates,
   });
+
+  // Si V2 a forcé IGNORED, sync Lead.status → ARCHIVED (cohérence dashboard)
+  if (v2OverrideApplied) {
+    await archiveLeadOnTriggerIgnored(triggerId);
+  }
+
   console.log(
     `[qualify-trigger.shadow-v2] ${triggerId}: shippable=${result.shippable} verdict=${result.brief.verdict} conf=${result.brief.confidence}` +
       (result.validation && !result.validation.ok
         ? ` strict-errs=${result.validation.errors.length}`
-        : ""),
+        : "") +
+      (v2OverrideApplied ? ` ⚡ V2-OVERRIDE→IGNORED` : ""),
   );
 }
 
