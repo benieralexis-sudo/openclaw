@@ -3,6 +3,7 @@ import { getAnthropic, QUALIFY_MODEL } from "@/lib/anthropic";
 import { buildCachedSystem } from "@/lib/anthropic-prompt";
 import { db } from "@/lib/db";
 import { extractLinkedInProfile } from "@/lib/linkedin-profile-extractor";
+import { archiveLeadOnTriggerIgnored, unarchiveLeadOnTriggerRevived } from "@/lib/lead-status-sync";
 import { readDynamicFewShotsFromIcp } from "@/lib/dynamic-few-shots";
 import { searchLayoffsNews } from "@/lib/layoffs-news-search";
 import { buildLeadDossierForJudge, formatDossierForOpus } from "@/lib/lead-dossier";
@@ -653,6 +654,8 @@ export async function qualifyTrigger(
         status: "IGNORED",
       },
     });
+    // Sync Lead.status → ARCHIVED (fix bug 08/05 orphelins dashboard)
+    await archiveLeadOnTriggerIgnored(triggerId);
     return { opusScore: 2, reason: rejectReason, isHot: false };
   }
   // Sprint D.0 (07/05) — buildLeadDossierForJudge centralise l'assemblage des
@@ -861,6 +864,13 @@ export async function qualifyTrigger(
       ...(promoteToNew ? { status: "NEW" as const } : {}),
     },
   });
+  // Sync Lead.status (fix bug 08/05 orphelins bidirectionnels)
+  if (belowMinScore) {
+    await archiveLeadOnTriggerIgnored(triggerId);
+  } else if (promoteToNew) {
+    // B.7 promotion IGNORED→NEW : désarchive le Lead lié (cas désync inverse)
+    await unarchiveLeadOnTriggerRevived(triggerId);
+  }
   if (belowMinScore) {
     console.log(
       `[qualify-trigger.C3] ${triggerId}: IGNORED auto (score=${opusScore} < minScore=${icpMinScore})`,

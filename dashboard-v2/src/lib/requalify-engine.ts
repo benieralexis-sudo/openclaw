@@ -2,6 +2,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { qualifyTrigger } from "@/lib/qualify-trigger";
+import { archiveLeadOnTriggerIgnored, unarchiveLeadOnTriggerRevived } from "@/lib/lead-status-sync";
 
 /**
  * Sprint 3 (05/05/2026) — Re-qualify engine.
@@ -187,6 +188,8 @@ export async function recoverIgnoredTriggersForClient(
           scoreReason: `[RE-JUDGED v2 ${oldScore}→? FAILED] ${reasonDetail}`.slice(0, 500),
         },
       }).catch(() => {});
+      // Sync Lead.status → ARCHIVED (fix bug 08/05 orphelins)
+      await archiveLeadOnTriggerIgnored(t.id);
     };
 
     try {
@@ -224,7 +227,8 @@ export async function recoverIgnoredTriggersForClient(
           outcome: "still-IGNORED",
         });
       } else {
-        // Promu NEW
+        // Promu NEW — désarchive le Lead lié (fix bug 08/05 orphelins inverse)
+        await unarchiveLeadOnTriggerRevived(t.id);
         const annotated = `[RE-JUDGED v2 ${oldScore}→${result.opusScore} RECOVERED] ${result.reason}`.slice(0, 500);
         await db.trigger.update({
           where: { id: t.id },
