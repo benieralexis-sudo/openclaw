@@ -871,7 +871,59 @@ export async function qualifyTrigger(
     );
   }
 
+  // Sprint Perfection P6 (08/05) — V2 shadow parallel-write.
+  //
+  // Fire-and-forget : V2 calcule briefV2Json en parallèle, écrit le JSON en
+  // DB, et N'ATTEND PAS la réponse pour que qualifyTrigger v1 retourne au
+  // caller. Aucun changement pour le pipeline V1 (status/score/scoreReason
+  // restent gérés par V1, source de vérité jusqu'à décision D.5 de switch).
+  //
+  // Bénéfice : 100% des nouveaux triggers ont briefV2Json visible dans le
+  // dashboard, plus jamais de backfill manuel nécessaire. Coût marginal
+  // ~$0.04/trigger (qualifyTriggerV2 utilise même cache Anthropic ~7167 tk
+  // ≥97% hit, voir Sprint D.6 audit).
+  //
+  // Si V2 échoue (Opus error, Zod KO, validator strict KO) : log warning
+  // sans impact sur V1. Le briefV2Json reste null pour ce trigger.
+  qualifyTriggerV2Shadow(triggerId).catch((e) => {
+    console.warn(
+      `[qualify-trigger.shadow-v2] ${triggerId} err :`,
+      e instanceof Error ? e.message : e,
+    );
+  });
+
   return { opusScore, reason, isHot };
+}
+
+/**
+ * Sprint Perfection P6 (08/05) — Shadow parallel-write V2.
+ *
+ * Calcule briefV2Json via le judge V2 + validator strict (D.3) et écrit en
+ * DB. Pas de blocage du pipeline V1 — appelée en fire-and-forget.
+ *
+ * Si validator strict OK → écrit briefV2Json (Zod-valid + qualité business).
+ * Si validator KO mais Zod OK → écrit quand même (briefV2Json présent mais
+ * marqué comme borderline via reason absente).
+ * Si Opus error / Zod KO → ne fait rien (laisse briefV2Json = null).
+ */
+async function qualifyTriggerV2Shadow(triggerId: string): Promise<void> {
+  const result = await qualifyTriggerV2WithValidation(triggerId);
+  if (!result.brief) {
+    console.log(
+      `[qualify-trigger.shadow-v2] ${triggerId}: no brief (${result.reason ?? "?"})`,
+    );
+    return;
+  }
+  await db.trigger.update({
+    where: { id: triggerId },
+    data: { briefV2Json: result.brief as unknown as object },
+  });
+  console.log(
+    `[qualify-trigger.shadow-v2] ${triggerId}: shippable=${result.shippable} verdict=${result.brief.verdict} conf=${result.brief.confidence}` +
+      (result.validation && !result.validation.ok
+        ? ` strict-errs=${result.validation.errors.length}`
+        : ""),
+  );
 }
 
 /**
