@@ -623,6 +623,28 @@ export async function enrichRecentTriggersWithSirene(
         stats.skipped += 1;
         continue;
       }
+      // Sprint Vague 3 P16 (08/05) — Filtre NAF amont blacklist
+      // Si le NAF est dans la blacklist (immo, holding, recrutement, etc.),
+      // on soft-delete le trigger immédiatement après résolution SIRENE.
+      // Évite que le pipeline aval (enrichDirigeants/Kaspr/FullEnrich) consomme
+      // des crédits sur ces fantômes hors-ICP.
+      const { isBlacklistNaf } = await import("@/lib/naf-whitelist");
+      if (isBlacklistNaf(result.code_naf)) {
+        await db.trigger.update({
+          where: { id: t.id },
+          data: {
+            companySiret: result.siren,
+            companyNaf: result.code_naf ?? null,
+            size: result.effectif ?? null,
+            status: "IGNORED",
+            scoreReason: `[NAF-blacklist:${result.code_naf}] Secteur structurellement hors-ICP (immo/holding/recrutement/etc) — auto-skip P16`,
+            deletedAt: new Date(),
+          },
+        });
+        console.log(`[theirstack.naf-filter] ${t.companyName} NAF=${result.code_naf} → soft-deleted (blacklist)`);
+        stats.pruned += 1;
+        continue;
+      }
       await db.trigger.update({
         where: { id: t.id },
         data: {
