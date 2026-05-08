@@ -16,6 +16,7 @@ import { db } from "@/lib/db";
 import { searchJobs, searchCompanies, type JobResult, type JobSearchFilters, type CompanyResult, type CompanySearchFilters } from "@/lib/theirstack";
 import { attributeSirene, getEntreprise } from "@/lib/pappers";
 import { markLeadEnrichedFromPappers } from "@/lib/lead-enrichment-tagging";
+import { mergeDuplicateTriggersBySiret } from "@/lib/trigger-dedup";
 
 /**
  * Slugs TheirStack des outils de test/QA — utilisés par DTL et tout
@@ -631,6 +632,28 @@ export async function enrichRecentTriggersWithSirene(
         },
       });
       stats.enriched += 1;
+
+      // Sprint Perfection P3 (08/05) — Dédup post-attribution SIRENE.
+      // Si un autre trigger existe déjà avec ce SIRET (cas typique : Asys
+      // capté via apify.wttj-jobs ET via theirstack.job-offer), on fusionne
+      // les 2 maintenant que les SIRET sont alignés. Le trigger avec score
+      // max gagne, l'autre est soft-deleted (ignoredReason="dedup-merged"),
+      // multiSourceBoost cumulé, isCombo=true.
+      // Charge le client pour récupérer minScore (promote IGNORED→NEW si
+      // newScore atteint le seuil).
+      const clientForIcp = await db.client.findUnique({
+        where: { id: clientId },
+        select: { icp: true },
+      }).catch(() => null);
+      const icpMinScore = (clientForIcp?.icp as Record<string, unknown> | null)?.minScore;
+      await mergeDuplicateTriggersBySiret(t.id, {
+        icp: typeof icpMinScore === "number" ? { minScore: icpMinScore } : null,
+      }).catch((e) => {
+        console.warn(
+          `[trigger-dedup.merge] err on ${t.id}:`,
+          e instanceof Error ? e.message : e,
+        );
+      });
     } catch {
       stats.errors += 1;
     }
