@@ -174,6 +174,21 @@ export async function recoverIgnoredTriggersForClient(
       continue;
     }
 
+    // Helper rollback — restaure status=IGNORED + scoreReason annoté
+    // [RE-JUDGED-FAILED] pour empêcher l'état limbo (NEW + scoreReason=null)
+    // si qualifyTrigger plante après le reset. Filtre anti-boucle existant
+    // (richLeads.where.scoreReason.not.startsWith("[RE-JUDGED")) exclut
+    // automatiquement ces triggers du prochain sweep recover.
+    const rollbackToIgnored = async (reasonDetail: string): Promise<void> => {
+      await db.trigger.update({
+        where: { id: t.id },
+        data: {
+          status: "IGNORED",
+          scoreReason: `[RE-JUDGED v2 ${oldScore}→? FAILED] ${reasonDetail}`.slice(0, 500),
+        },
+      }).catch(() => {});
+    };
+
     try {
       await db.trigger.update({
         where: { id: t.id },
@@ -181,6 +196,10 @@ export async function recoverIgnoredTriggersForClient(
       });
       const result = await qualifyTrigger(t.id, { force: true });
       if (!result) {
+        // BUG ALDEMIA fix (08/05) — qualifyTrigger retourné null = Anthropic
+        // down, persistance échouée, ou autre. Rollback explicite à IGNORED
+        // pour ne pas laisser le trigger en limbo NEW + scoreReason=null.
+        await rollbackToIgnored("qualifyTrigger returned null (Anthropic down ou erreur silencieuse)");
         stats.errors += 1;
         stats.details.push({ triggerId: t.id, oldScore, newScore: -1, outcome: "ERROR" });
         continue;
@@ -223,11 +242,17 @@ export async function recoverIgnoredTriggersForClient(
         );
       }
     } catch (e) {
+      // BUG ALDEMIA fix (08/05) — exception lors de qualifyTrigger →
+      // rollback explicite à IGNORED. Sans ça, le trigger reste en limbo
+      // NEW + scoreReason=null avec son ancien score (cas observé : ALDEMIA
+      // score=1 NEW visible dans le dashboard alors que IGNORED par qualif).
+      const errMsg = e instanceof Error ? e.message : String(e);
+      await rollbackToIgnored(errMsg);
       stats.errors += 1;
       stats.details.push({ triggerId: t.id, oldScore, newScore: -1, outcome: "ERROR" });
       console.warn(
         `[requalify-engine.recover] err ${t.id}:`,
-        e instanceof Error ? e.message : e,
+        errMsg,
       );
     }
   }
