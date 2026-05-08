@@ -637,22 +637,31 @@ export async function enrichRecentTriggersWithSirene(
   }
 
   // Sprint 1 A3 (05/05/2026) — Triggers AVEC SIRET mais SANS companyNaf/size.
+  //
+  // Sprint Perfection P2 (08/05) — fenêtre étendue 24h → 7j + filtre élargi
+  // (industry, region) + take 20 → 50 pour absorber le backlog.
+  // KPI baseline : size rempli 29% / industry 29% sur 7j. Cible : ≥70%.
+  //
   // Cas typique : funding-recent depuis postgres-sync.js. Le sync attribue
   // un SIREN au moment où il transfère SQLite → Postgres (ligne 288), mais
   // la SQLite "companies" table peut être partielle (rss-levees ingest n'a pas
   // forcément hydraté NAF/effectif au moment de l'attribution SIRENE initiale).
-  // Résultat : 6/8 triggers funding-recent en prod arrivent avec
-  // companyNaf=null + size=null → judge Opus aveugle sur l'industrie.
   //
   // Fix : sweep ciblé via getEntreprise(siren) Pappers (1 cr/call, cache 1h
   // in-process). On comble companyNaf, size, industry, region quand vides.
-  // Coût marginal : ~6-8 calls/jour selon volume rss-levees.
+  // Coût marginal : ~30-40 calls/jour selon volume (forfait Pappers illimité).
+  const sweepWindow = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const triggersIncomplete = await db.trigger.findMany({
     where: {
       clientId,
       companySiret: { not: null },
-      OR: [{ companyNaf: null }, { size: null }],
-      capturedAt: { gte: since },
+      OR: [
+        { companyNaf: null },
+        { size: null },
+        { industry: null },
+        { region: null },
+      ],
+      capturedAt: { gte: sweepWindow },
       deletedAt: null,
     },
     select: {
@@ -665,7 +674,7 @@ export async function enrichRecentTriggersWithSirene(
       region: true,
       sourceCode: true,
     },
-    take: limit,
+    take: 50,
   });
 
   for (const t of triggersIncomplete) {
