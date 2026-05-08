@@ -164,60 +164,6 @@ services:
       start_period: 120s
 
   # ═══════════════════════════════════════════════════════════════════════
-  # Mission Control — Dashboard HTTPS (port 3000)
-  # ═══════════════════════════════════════════════════════════════════════
-  mission-control:
-    image: node:22-alpine
-    working_dir: /app
-    user: "root"
-    cap_drop: [ALL]
-    cap_add: [CHOWN, SETUID, SETGID]
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.5'
-    environment:
-      DASHBOARD_PORT: "3000"
-      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
-      DASHBOARD_OWNER: ${DASHBOARD_OWNER:-}
-      AUTOMAILER_DATA_DIR: /data/automailer
-      INBOX_MANAGER_DATA_DIR: /data/inbox-manager
-      MEETING_SCHEDULER_DATA_DIR: /data/meeting-scheduler
-      APP_CONFIG_DIR: /data/app-config
-      DASHBOARD_DATA_DIR: /data/dashboard
-      CLIENT_NAME: ${CLIENT_NAME:-iFIND}
-      ROUTER_URL: http://telegram-router:9090
-    volumes:
-      - ./dashboard:/app
-      - ./gateway/logger.js:/gateway/logger.js:ro
-      - ./clients:/clients
-      - dashboard-data:/data/dashboard
-      - automailer-data:/data/automailer:ro
-      - inbox-manager-data:/data/inbox-manager:ro
-      - meeting-scheduler-data:/data/meeting-scheduler:ro
-      - app-config-data:/data/app-config:ro
-      - trigger-engine-data:/app/skills/trigger-engine/data:ro
-    ports:
-      - "127.0.0.1:3000:3000"
-    init: true
-    restart: unless-stopped
-    entrypoint: ["sh", "-c", "chown -R node:node /data/dashboard && cd /app && su -s /bin/sh node -c 'npm install --production && exec node server.js'"]
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    healthcheck:
-      test: ["CMD", "node", "-e", "const h=require('http');h.get('http://localhost:3000/login',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-
-  # ═══════════════════════════════════════════════════════════════════════
   # Landing Page — pages rapports prospects (port 3080)
   # ═══════════════════════════════════════════════════════════════════════
   landing-page:
