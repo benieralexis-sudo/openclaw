@@ -1,234 +1,194 @@
 # iFIND — Trigger Engine FR (v2.0)
 
+> Document à jour au 08/05/2026 — post-pivot Data-only (05/05) + Sprints A-D + Vague 1 + Vague 2 perfection 100%.
+
 ## Identité produit
 
 **iFIND = Trigger Engine FR** : moteur propriétaire de détection de signaux d'achat B2B en temps réel sur les PME françaises. Universel, multi-vertical.
 
-**Différence clé** : pas d'intent data probabiliste (Bombora-like), mais **TRIGGERS = événements publics durs** (levées, hiring ICP, dépôts INPI, changements C-level, ads actives) agrégés via 14+ sources FR-natives, attribués SIRENE, qualifiés par Claude Opus 4.7.
+**Différence clé** : pas d'intent data probabiliste (Bombora-like), mais **TRIGGERS = événements publics durs** (levées, hiring ICP, dépôts INPI, changements C-level, jobs) agrégés via 9 sources FR-natives, attribués SIRENE, qualifiés par Claude Opus 4.7.
 
-**Moat** : attribution SIRENE (Pappers) + pattern matching combinatoire 13 patterns + Claude Opus 4.7 (cerveau propriétaire) + boosters v1.1 (combo ×2.5, hot <48h, declarative pain).
+**Moat** : attribution SIRENE (Pappers) + 13 patterns combinatoires + Claude Opus 4.7 (judge OUI/NON/ENRICH avec citations [src:#X]) + boosters v1.1 (combo ×2.5, hot <48h, declarative pain).
 
-## 2 offres commerciales (uniquement)
+## Offre unique (depuis pivot 05/05/2026)
 
 | Offre | Prix/mois | Périmètre |
 |---|---|---|
-| **Leads Data** | 299€ | Client reçoit leads + 3 canaux Opus pré-rédigés (email + LinkedIn DM + call brief) + briefs RDV. Client envoie/appelle/book/close TOUT SEUL via mailto. Volume 50-120/mois. |
-| **Full Service** | 1 490€ | Bot envoie séquence depuis domaines DÉDIÉS CLIENT (Primeforge + Warmforge 2-3 sem warmup). Commercial ami fait LinkedIn DM + cold call + book RDV dans cal client. Client close ses RDV. Setup one-time 1 500-3 000€. |
+| **Leads Data** | 199€ | Client reçoit dashboard avec leads qualifiés + 3 canaux Opus pré-rédigés (cold email + LinkedIn DM + call brief) + briefs raisonnés OUI/NON/ENRICH avec opener prêt-à-coller. **Le client gère 100% de l'outreach** (envoi, calls, booking, closing). |
+
+**Full Service ABANDONNÉ 05/05** — le bot n'envoie plus d'emails, ne book plus de RDV automatiques. Implication : Cal.com webhook + IMAP reply scraping = caducs. La boucle outcomes Tier 4 est repensée sur signaux dashboard implicites uniquement.
 
 **Règles non négociables** :
 1. LinkedIn actions = **manuel humain** uniquement (Trigify pour détection safe, jamais auto-engage)
-2. Volume plafonné : 500 leads/mois/client Founding, max 1 000 Scale
+2. Volume plafonné : 500 leads/mois Founding, max 1 000 Scale
 3. Seuil score min : ≥7 MVP, ≥5 Scale jamais en dessous
 4. Attribution SIRENE = cœur du moat (Pappers critique)
-5. Commission commerciaux : 15% du CA iFIND sur 12 premiers mois (PAS le CA client final)
 
 ## Infrastructure
 
 - **VPS** : srv1319748.hstgr.cloud (76.13.137.130)
-- **Repo** : /opt/moltbot/ — GitHub: benieralexis-sudo/openclaw
-- **Domaines** : ifind.fr (Resend verified), getifind.fr
-- **Containers Docker** :
-  - `telegram-router` : bot Telegram + Trigger Engine + Inbox + Meeting + webhooks
-  - `mission-control` : dashboard HTTPS (port 3000, nginx reverse proxy)
-  - `landing-page` : pages rapports prospects
-- **Mode** : STANDBY par défaut (bot legacy iFIND v9.5 ne fait plus d'envois auto), Trigger Engine tourne indépendamment
+- **Repo** : /opt/moltbot/ — GitHub: benieralexis-sudo/openclaw, branche `main`
+- **Domaines** : ifind.fr, getifind.fr
+- **Containers Docker actifs (3)** :
+  - `moltbot-telegram-router-1` : bot Telegram + skills legacy
+  - `moltbot-landing-page-1` : pages rapports prospects
+  - `ifind-postgres` : DB Postgres principale
+- **Containers supprimés** : `moltbot-mission-control-1` (P10 du 08/05 — remplacé par dashboard-v2 sur port 3100)
+- **Systemd units** :
+  - `dashboard-v2` (port 3100) — Next.js 15 + Better Auth, prod actuelle
+  - `digitestlab-frontend` (port 3333) — landing client DigitestLab
 
-## Architecture v2.0
+## Architecture
 
-### Composant principal : Trigger Engine (`skills/trigger-engine/`)
+### Composant principal : dashboard-v2 (`/opt/moltbot/dashboard-v2/`)
+
+Stack : Next.js 15 App Router + Prisma + PostgreSQL + Better Auth + Vitest + Tailwind.
 
 ```
-skills/trigger-engine/
-├── index.js              — Handler principal (TriggerEngineHandler)
-├── cron.js               — Schedule des ingestions + processing
-├── processor.js          — Pattern matching SIRENE-based
-├── router.js             — ClientRouter (multi-tenant ICP filtering)
-├── storage.js            — SQLite via node:sqlite (DatabaseSync)
-├── schema.sql            — Schema v1 + migrations 002→015
-├── contact-enricher.js   — Enrich dirigeants + emails
-├── pitch-generator.js    — Génération pitch (legacy v1.0, remplacé par claude-brain)
-├── clients-seed.json     — Clients initiaux (ifind, digitestlab, fimmop)
-├── sources/              — 9 sources d'ingestion FR
-│   ├── bodacc.js         — Annonces légales (3h cron)
-│   ├── inpi.js           — Marques déposées (24h cron)
-│   ├── joafe.js          — Associations + nominations C-level (6h cron)
-│   ├── francetravail.js  — Hiring ICP (2h cron, OAuth)
-│   ├── rss-levees.js     — Maddyness/Frenchweb levées (1h cron)
-│   ├── news-buzz.js      — Google News RSS (12h cron)
-│   ├── google-trends.js  — Tendances mots-clés (24h cron)
-│   ├── meta-ad-library.js — Ads Meta concurrents (24h cron)
-│   ├── sirene.js         — Attribution gouv gratuite + lookupDirigeants
-│   ├── pappers.js        — Enrichissement premium FR (token .env)
-│   └── dropcontact.js    — Email finder GDPR-by-design
-├── patterns/
-│   ├── matcher.js        — Évaluation pattern × events
-│   └── definitions/      — 13 patterns JSON (signaux + bonuses + exclusions)
-├── lib/
-│   ├── telegram-alert.js
-│   ├── mx-verify.js      — Vérification DNS MX pre-envoi
-│   └── source-health.js  — Monitoring santé sources
-└── claude-brain/         — Cerveau IA (Opus 4.7)
-    ├── index.js          — ClaudeBrain orchestrator
-    ├── pipelines.js      — 7 pipelines (qualify, pitch, linkedin-dm, call-brief, brief, discover, detect-pain)
-    ├── anthropic-client.js — SDK wrapper avec prompt caching + retry
-    ├── context-builder.js — Construction contexte par lead/pipeline
-    ├── budget.js         — Tracker coût Opus par tenant
-    ├── circuit-breaker.js
-    ├── cache.js          — Prompt caching Anthropic (TTL 5min)
-    ├── queue.js + worker.js — Queue async des jobs Opus
-    ├── auto-send-gate.js — 8 règles avant envoi auto (Full Service)
-    ├── digest-email.js   — Email hebdomadaire opt-in (lundi 8h Paris)
-    ├── realtime-alert.js — Alerte temps réel pépites ≥9 (dédup 24h)
-    ├── email-sender.js   — Wrapper Resend
-    ├── smartlead-client.js — Cold email Full Service (opt-in via SMARTLEAD_API_KEY)
-    ├── combo-booster.js   — v1.1: ×2.5 si 3 signaux durs <90j (JACKPOT)
-    ├── hot-signal-detector.js — v1.1: +0.5/+1.0 si signal <48h/<24h
-    ├── declarative-pain.js — v1.1: détection douleur exprimée (opt-in via flag)
-    └── prompts/          — System prompts MD par pipeline
+dashboard-v2/
+├── src/
+│   ├── middleware.ts            — Auth redirect + rate-limit /api/triggers + /api/leads
+│   ├── lib/
+│   │   ├── qualify-trigger.ts   — Judge V1 (score 1-10 + reason) + shadow V2 fire-and-forget
+│   │   ├── lead-brief-v2.ts     — Schéma Zod LeadBriefV2 (verdict OUI/NON/ENRICH + citations)
+│   │   ├── lead-brief-v2-validator.ts — Validator strict 8 règles métier (Sprint D.3)
+│   │   ├── requalify-engine.ts  — Re-qualify engine + recover IGNORED (anti-boucle)
+│   │   ├── lead-enrichment-tagging.ts — Helper markLeadEnrichedFromPappers (P1 Vague 1)
+│   │   ├── trigger-dedup.ts     — findOrFuseExistingTrigger cross-source (P3 Vague 1)
+│   │   ├── rate-limit.ts        — Token bucket in-memory 60 req/min/IP (P12)
+│   │   ├── pappers.ts           — Cache Pappers in-process 1h
+│   │   ├── kaspr.ts             — Email + phone enrichment
+│   │   └── ...
+│   ├── app/api/
+│   │   ├── triggers/[id]/qualify — Qualify Opus + parallel V2 shadow
+│   │   ├── leads/[id]/{call-brief,pitch,linkedin-dm} — Génération copy 4 contextes
+│   │   ├── webhooks/rodz        — Webhook Rodz (HMAC validé)
+│   │   ├── replies/             — UI Unibox (lecture historique post-pivot)
+│   │   └── internal/             — Cron secrets (poll-apify, poll-theirstack, run-pollers)
+│   └── components/brief/        — UI brief raisonné LeadBriefV2 + TriggerBriefBoard
+└── prisma/schema.prisma         — Lead + Trigger + Client + Reply + EmailEvent + ...
 ```
+
+### Composant secondaire : skills/ (bot legacy)
+
+Conservés pour compatibilité avec d'anciens flows :
+- `skills/trigger-engine/` — bot legacy iFIND v9.5 (drop-in remplacé par dashboard-v2 pour qualif/brief)
+- `skills/inbox-manager/`, `skills/meeting-scheduler/`, `skills/automailer/`
 
 ### Modèles IA
 
-- **Claude Opus 4.7** (`claude-opus-4-7`) — Trigger Engine pipelines (qualify, pitch, linkedin-dm, call-brief, brief, discover, detect-pain) + Rapports stratégiques. 1M context. Pricing : $15/M input, $75/M output.
-- **Claude Sonnet 4.6** (`claude-sonnet-4-6`) — Réponses inbox auto-classifiées. Pricing : $3/M input, $15/M output.
-- **GPT-4o-mini** — NLP routeur Telegram (classification rapide). Pricing : $0.15/M input.
-- **Coût observé** : ~3.77€ Opus pour 65 actions (qualifications + pitchs + briefs).
+- **Claude Opus 4.7** (`claude-opus-4-7`) — Qualify trigger + briefs (V1 + V2 shadow). 1M context. $15/M input, $75/M output. Cache prompt activé sur qualify (Sprint B.3).
+- **Claude Sonnet 4.6** (`claude-sonnet-4-6`) — Replies inbox + declarative-pain. $3/M input, $15/M output.
 
 ### Boosters de scoring v1.1 (actifs en prod)
-
-1. **Combo Booster** (`COMBO_BOOSTER_ENABLED=true` par défaut)
-   - 3+ catégories distinctes de signaux durs <90j → multiplier ×2.5 (JACKPOT)
-   - 2 catégories → ×1.7 (COMBO)
-   - Catégories: funding / exec_hire / hiring_typed / brand_launch / media_buzz / ma_activity / structural / ad_spend
-   - Exclusions: procedure_collective, company_cessation
-   - Score capé à 10.0
-
-2. **Hot Signal Detector** (`HOT_TRIGGERS_ENABLED=true` par défaut)
-   - Signal <24h (FRESH) → boost +1.0
-   - Signal <48h (HOT) → boost +0.5
-   - Combiné: `final = (raw + freshness) × combo_multiplier`
-   - Crons accélérés: RSS levées 1h, BODACC 3h, JOAFE 6h
-   - Alerte temps réel HOT seuil ≥7.5 (vs 9.0 standard)
-
-3. **Declarative Pain Detection** (`DECLARATIVE_PAIN_ENABLED=false` par défaut, opt-in)
-   - Analyse texte arbitraire (LinkedIn post, Glassdoor, Reddit, HN) via Opus
-   - Si match + nom entreprise + intent ≥5 → SIRENE attribution → event `declarative_pain` → boost score à 9.0
-   - Pattern dédié `declarative-pain` (min_score 9.0)
+- `COMBO_BOOSTER_ENABLED=true` — 3+ catégories signaux durs <90j → ×2.5 JACKPOT
+- `HOT_TRIGGERS_ENABLED=true` — Signal <24h → +1.0, <48h → +0.5
 
 ### Patterns (13)
 
-| ID | Window | Signal principal |
-|---|---|---|
-| funding-recent | 90j | Levée Seed/Série A/B/C |
-| tech-hiring | 30j | hiring_tech |
-| hiring-surge | 30j | 3+ offres typées (hiring_tech/sales/marketing/finance/hr/executive) |
-| sales-team-scaling | 60j | hiring_sales/marketing |
-| multi-role-scaling | 60j | hiring_executive + hiring_typed |
-| new-exec-hire | 30j | hiring_executive (C-level) |
-| scale-up-tech | 90j | funding + hiring_tech + media_buzz |
-| new-company-hiring | 60j | company_creation + hiring |
-| new-brand-launch | 60j | marque_deposee INPI |
-| media-buzz | 7j | 3+ articles presse |
-| ad-spend-active | 30j | ad_spend_detected (Meta) |
-| restructuring-opportunity | 60j | modification_statuts + hiring |
-| **declarative-pain** | 30j | declarative_pain (Opus) |
+funding-recent · tech-hiring · hiring-surge · sales-team-scaling · multi-role-scaling · new-exec-hire · scale-up-tech · new-company-hiring · new-brand-launch · media-buzz · ad-spend-active · restructuring-opportunity · declarative-pain
 
-### Multi-tenant
+## État actuel (08/05/2026)
 
-- Table `clients` avec `claude_brain_config` JSON par tenant
-- Isolation par `tenant_id` partout (queue, results, usage, leads, alerts)
-- Config par tenant : ICP (NAF allow/block, dept, effectif), patterns activés, min_score, monthly_lead_cap, voice_template, pitch_language (tu/vous), seuils alertes, opt-in digest hebdo
-- 3 clients seedés : `ifind` (interne), `digitestlab` (Frédéric Flandrin / QA), `fimmop` (Clément / BTP)
+### Sprints A-D (05-07/05) — livrés
+- **Sprint A** (05/05) : 4 patches Opus qualify + parser RSS durci + fallback SIRENE contraint
+- **Sprint B** (06/05) : prompt qualify v0.5 (réponses Fred) + cache Anthropic ACTIVÉ + sweep IGNORED→NEW
+- **Sprint C** (06/05 soir) : homepage scrap + Google CSE news 30j + module LeadDossier
+- **Sprint D** (07/05) : Schéma LeadBriefV2 + validator strict + UI brief raisonné + V2 shadow mode
 
-## Crons actifs (Trigger Engine)
+### Vague 1 perfection 100% (08/05 nuit) — livrée (6 commits)
+- **P1** (`c3249943a`) : Helper `markLeadEnrichedFromPappers()` central
+- **P2** (`b9dde290b`) : Sweep size/industry étendu 7j + take 50
+- **P3** (`7cfeb3c6c`) : Dédup intelligent cross-source + cleanup 6 doublons
+- **P4** (`0b64a5340`) : TTL purge soft-deleted >90j (cron 04h00)
+- **P6** (`71e18a045`) : V2 fire-and-forget après V1 (shadow parallel-write)
 
-| Fréquence | Action |
-|---|---|
-| 1h | RSS Levées Maddyness/Frenchweb (HOT optimisé) |
-| 2h | France Travail API (hiring) |
-| 3h | BODACC (HOT optimisé) |
-| 6h | JOAFE (nominations C-level) |
-| 12h | News Buzz Google News |
-| 24h | INPI / Google Trends / Meta Ad Library |
-| 15min | Pattern processing + alerts pépites + auto-pitch leads ≥8 |
-| 2h | Contact enricher (dirigeants + emails) |
-| 4h | Stale re-qualify (leads >14j) |
-| 1h | Source health monitoring |
-| Dim 23h | Claude Brain Discover (proposition nouveaux patterns) |
-| Lun 8h Paris | Digest hebdo opt-in |
-| 24h (3h00) | Cleanup expired matches |
+### Vague 2 perfection 100% (08/05) — livrée (6 commits)
+- **P8** (`6e9eb83ca`) : Cleanup calcomSlug branches mortes (-29 L)
+- **P9** (`3bb1a7de3`) : Cleanup IMAP/sync-inbox (write-side, -244 L)
+- **P10** (`00ff2517c`) : Suppression container mission-control zombie
+- **P11** (`4428845ae`) : Suppression route /api/webhooks/cal (-198 L)
+- **P11bis** (`c615928e3`) : Suppression route /api/webhooks/resend (-160 L)
+- **P12** (`d37de9a0e`) : Rate limiting middleware /api/triggers + /api/leads
+- **P14** (`bebf67647`) : Tests Vitest brief-v2 + validator (+24 tests, 272/272 verts)
 
-## API Keys (.env)
+**Bilan Vague 2 : -589 lignes mortes + protection rate-limit + tests strict +24.**
+
+## Crons actifs (post-Vague 2)
+
+```
+0 * * * * /opt/moltbot/scripts/run-pollers-cron.sh                        # ⏸️ DISABLED 07/05 (Anthropic à recharger)
+0 4 * * * cd /opt/moltbot/dashboard-v2 && npx tsx scripts/purge-old-soft-deleted.ts --apply  # P4 Vague 1
+0 4 * * * /opt/moltbot/scripts/healthcheck-daily.sh
+*/5 * * * * /opt/moltbot/scripts/healthcheck-external.sh
+*/5 * * * * /opt/moltbot/scripts/healthcheck-deep.sh
+*/5 * * * * /opt/moltbot/scripts/uptimerobot-to-telegram.sh
+*/30 * * * * /opt/moltbot/scripts/monitor-alerts.sh
+0 7 * * * /opt/moltbot/scripts/health-digest-cron.sh
+0 8 * * * /opt/moltbot/scripts/monitor-quotas.sh
+5 8 * * 1 /opt/moltbot/scripts/refresh-few-shots-cron.sh
+```
+
+**Crons supprimés Vague 2** : `*/5 sync-inbox-cron.sh` (P9, IMAP write-side mort post-pivot).
+
+## API Keys (.env dashboard-v2)
 
 ### ✅ Branchées et opérationnelles
-- `CLAUDE_API_KEY` (Opus 4.7 + Sonnet 4.6)
-- `OPENAI_API_KEY` (GPT-4o-mini routing)
-- `PAPPERS_API_TOKEN` (enrichissement premium FR)
-- `DROPCONTACT_API_KEY` (email finder GDPR)
-- `FRANCETRAVAIL_CLIENT_ID/SECRET` (OAuth hiring)
-- `INPI_USERNAME/PASSWORD` (marques)
-- `META_AD_LIBRARY_TOKEN`
-- `RESEND_API_KEY` + `RESEND_WEBHOOK_SECRET`
-- `FOLK_API_KEY` (CRM lundi — remplace HubSpot)
-- `TELEGRAM_BOT_TOKEN` (admin notif)
-- `IMAP_HOST/USER/PASS` (inbox polling)
-- `GOOGLE_*` (calendar booking)
+- `ANTHROPIC_API_KEY` (Opus 4.7 + Sonnet 4.6) — **⏸️ balance à 0 le 08/05, recharger avant test live**
+- `PAPPERS_API_TOKEN` (enrichissement premium FR) — cache 1h
+- `KASPR_API_KEY` (email + phone) — backbone emails
+- `FULLENRICH_API_KEY` (email finder)
+- `RODZ_API_KEY` (4 sources actives : funding/M&A/job-changes/recruitment)
+- `THEIRSTACK_API_KEY` (jobs API, gate 12h+18h UTC)
+- `APIFY_API_TOKEN` (LinkedIn-jobs + WTTJ + declarative pain)
+- `FRANCETRAVAIL_CLIENT_ID/SECRET` (OAuth)
+- `INPI_USERNAME/PASSWORD`
+- `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` (Custom Search news 30j)
+- `TELEGRAM_BOT_TOKEN`
 
-### 🟠 À brancher (achats stack lundi 28 avril)
-- `SMARTLEAD_API_KEY` — séquenceur cold email Full Service (code prêt dans `claude-brain/smartlead-client.js`)
-- `RODZ_API_KEY` — 14 signaux temps réel FR
-- `THEIRSTACK_API_KEY` — jobs API global dedup
-- `TRIGIFY_API_KEY` — LinkedIn engagement signals
-- `DATAGMA_API_KEY` — mobiles décideurs (waterfall avec Dropcontact)
-- `MILLIONVERIFIER_API_KEY` — anti-bounce pre-send
-- `APIFY_API_TOKEN` — scrapers (Glassdoor/Reddit/HN pour declarative pain)
-- `FOLK_API_KEY` — CRM pipeline multi-tenant
-- `AIRCALL_API_KEY` — VoIP cold call
+### 🟠 Caducs post-pivot 05/05 (à supprimer du `.env` lors d'un cleanup futur)
+- `RESEND_API_KEY` + `RESEND_WEBHOOK_SECRET` (route webhook supprimée P11bis)
+- Smartlead, MillionVerifier, Primeforge, Warmforge, Folk, Aircall, Sales Nav (le bot n'envoie plus, ne book plus, le client gère)
+
+## Tags rollback récents
+
+- `pre-perfection-100-08mai` — avant Vague 1 (08/05)
+- `pre-vague2-perfection-08mai` — avant Vague 2 (08/05)
+- Commit `cdf664207` — état post-fix recover anti-boucle (07/05)
 
 ## Commandes utiles
 
 ```bash
-# Restart bot complet
-cd /opt/moltbot && docker compose down && docker compose up -d
+# Service dashboard-v2 (Next.js prod)
+sudo systemctl status dashboard-v2
+sudo systemctl restart dashboard-v2
+journalctl -u dashboard-v2 -n 50
 
-# Logs router temps réel
+# Build + restart workflow standard
+cd /opt/moltbot/dashboard-v2 && npx tsc --noEmit && npm run build && sudo systemctl restart dashboard-v2
+
+# Tests Vitest
+cd /opt/moltbot/dashboard-v2 && npm test -- --run
+
+# Containers Docker
+docker compose -f /opt/moltbot/docker-compose.yml ps
 docker compose logs -f --tail 50 telegram-router
 
-# Tests Trigger Engine (Node 22 dans container)
-docker compose exec telegram-router sh -c "cd /app/skills/trigger-engine && node --test claude-brain/tests/*.test.js tests/*.test.js"
+# Crons
+sudo crontab -l
 
 # Health
-curl -sf http://localhost:9090/health
+curl -sf http://127.0.0.1:3100/login
 
-# Status containers
-docker compose ps
-
-# Backfill re-qualify forcé (active boosters v1.1 sur leads existants)
-docker compose exec telegram-router node /app/skills/trigger-engine/scripts/qualify-backfill.js
+# DB Prisma
+cd /opt/moltbot/dashboard-v2 && npx prisma studio  # UI lecture
+psql "$DATABASE_URL" -c 'SELECT COUNT(*) FROM "Trigger" WHERE "deletedAt" IS NULL'
 ```
 
-## Règles projet (mémoire utilisateur)
+## Règles projet
 
 - Toujours répondre en français (Jojo / Alexis Bénier)
-- Auto commit + push après modifications (préférence)
+- Auto commit + push après modifications (préférence durable)
 - Multi-VPS : toujours demander quel VPS avant intervention SSH
-- Les commerciaux amis bookent des RDV, ne closent PAS pour le client
+- Vérification exhaustive après chaque point (méthode validée 07/05)
 - Volume plafonné, jamais auto-engage LinkedIn, attribution SIRENE jamais skippée
-
-## Versions et tags
-
-- `v1.0-claude-brain` — Phase 1+2 Tier 1 (3 canaux Opus + digest matin + alertes pépites)
-- `v1.1-claude-brain-trigger-velocity` — Combo booster + Hot triggers + Declarative pain
-- `v2.0-trigger-engine-clean` (en cours) — Drop legacy iFIND v9.5 (-30k lignes), Pappers branché, Opus 4.7 partout
-- `pre-v2-cleanup` — Snapshot avant grand nettoyage v2.0 (rollback safety)
-
-## Stack outils prévue (achats lundi 28 avril)
-
-### Socle mutualisé (~722€/mois MVP)
-Pappers 75€ · Rodz 50€ · Apify 27€ · Dropcontact 79€ · Datagma 35€ · MillionVerifier 20€ · TheirStack 89€ · Trigify PAYG ~80€ · Smartlead 72€ · Primeforge 46€ · Warmforge 27€ · Folk 22€ · Claude API 80€ · Cal.com 0€ · VPS 20€
-
-### Per-client (168€/mois activé à la signature)
-Sales Nav Advanced 138€ · Aircall 30€ partagé
-
-### Sources gratuites FR (toujours actives)
-BODACC · INPI Open Data · JOAFE · France Travail API · SIRENE · Maddyness/Sifted/Frenchweb RSS · Meta Ad Library · Google Trends
