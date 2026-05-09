@@ -8,6 +8,7 @@ import {
   Building2,
   ChevronRight,
   Mail,
+  Plus,
   TrendingUp,
   Users,
   Zap,
@@ -88,10 +89,21 @@ export function ClientsBoard() {
     return <ClientProfile clientId={me.clientId} />;
   }
 
-  return <AdminClientsTable onOpen={(id) => router.push(`/clients/${id}` as never)} />;
+  return (
+    <AdminClientsTable
+      onOpen={(id) => router.push(`/clients/${id}` as never)}
+      onNew={me.role === "ADMIN" ? () => router.push("/clients/new" as never) : undefined}
+    />
+  );
 }
 
-function AdminClientsTable({ onOpen }: { onOpen: (id: string) => void }) {
+function AdminClientsTable({
+  onOpen,
+  onNew,
+}: {
+  onOpen: (id: string) => void;
+  onNew?: () => void;
+}) {
   const { data: clients = [], isLoading } = useQuery<EnrichedClient[]>({
     queryKey: ["clients-enriched"],
     queryFn: async () => {
@@ -237,6 +249,16 @@ function AdminClientsTable({ onOpen }: { onOpen: (id: string) => void }) {
 
   return (
     <div className="space-y-5">
+      {/* Header bar avec bouton "Nouveau client" pour ADMIN */}
+      {onNew && (
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-ink-900">Vos clients</h2>
+          <Button onClick={onNew} size="sm" className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            Nouveau client
+          </Button>
+        </div>
+      )}
       {/* KPIs récap admin */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard

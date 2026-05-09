@@ -3,8 +3,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/server/auth";
+import { resolveClientScope as _resolveClientScope, type ClientScopeUser, type Role as _Role } from "@/lib/client-scope";
 
-export type Role = "ADMIN" | "COMMERCIAL" | "CLIENT" | "EDITOR" | "VIEWER";
+export type Role = _Role;
 
 export interface SessionUser {
   id: string;
@@ -43,42 +44,13 @@ export async function requireApiSession(req: NextRequest) {
 }
 
 /**
- * Résout le clientId effectif pour la requête en respectant le rôle :
- * - ADMIN : peut consulter n'importe quel ?clientId, sinon null (vue globale)
- * - COMMERCIAL : doit fournir un ?clientId qui appartient à scopeClientIds
- *                (sinon défaut sur le 1er du scope, sinon null)
- * - CLIENT/EDITOR/VIEWER : forcé sur leur clientId, ?clientId ignoré
+ * Résout le clientId effectif pour la requête en respectant le rôle.
+ * Sprint 4 (10/05/2026) — Logique extraite dans @/lib/client-scope (pure
+ * function testable sans server-only).
  */
 export function resolveClientScope(
   user: SessionUser,
   requestedClientId: string | null,
-):
-  | { ok: true; clientId: string | null }
-  | { ok: false; status: number; error: string } {
-  switch (user.role) {
-    case "CLIENT":
-    case "EDITOR":
-    case "VIEWER":
-      if (!user.clientId) {
-        return { ok: false, status: 403, error: "Aucun client associé à votre compte" };
-      }
-      return { ok: true, clientId: user.clientId };
-
-    case "COMMERCIAL": {
-      const scope = user.scopeClientIds ?? [];
-      if (requestedClientId && scope.includes(requestedClientId)) {
-        return { ok: true, clientId: requestedClientId };
-      }
-      if (requestedClientId && !scope.includes(requestedClientId)) {
-        return { ok: false, status: 403, error: "Ce client n'est pas dans votre périmètre" };
-      }
-      return { ok: true, clientId: scope[0] ?? null };
-    }
-
-    case "ADMIN":
-      return { ok: true, clientId: requestedClientId };
-
-    default:
-      return { ok: false, status: 403, error: "Rôle inconnu" };
-  }
+) {
+  return _resolveClientScope(user as ClientScopeUser, requestedClientId);
 }
