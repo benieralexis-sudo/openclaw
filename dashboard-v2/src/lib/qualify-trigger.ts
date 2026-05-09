@@ -10,6 +10,8 @@ import { buildLeadDossierForJudge, formatDossierForOpus } from "@/lib/lead-dossi
 // Sprint 8 (10/05/2026) — Quota par client + cout reel Anthropic
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
 import { computeAnthropicCost } from "@/lib/anthropic-cost";
+// Sprint Saint Graal (10/05/2026) — Mecanique credits + garantie Pepite
+import { debitCreditForQualifiedLead } from "@/lib/credits";
 import {
   parseLeadBriefV2WithError,
   type LeadBriefV2,
@@ -920,6 +922,30 @@ export async function qualifyTrigger(
       e instanceof Error ? e.message : e,
     );
   });
+
+  // Sprint Saint Graal (10/05/2026) — Debit 1 credit si lead qualif livre.
+  // Conditions : score >= 6 ET pas IGNORED (= visible dans dashboard client).
+  // Pepite (score >= 8) : aussi increment pepitesThisMonth (compteur garantie).
+  // Idempotent : pas de double-debit si re-qualify.
+  if (!belowMinScore && opusScore >= 6) {
+    try {
+      const debit = await debitCreditForQualifiedLead({
+        clientId: triggerLite.clientId,
+        triggerId,
+        score: opusScore,
+      });
+      if (debit.debited) {
+        console.log(
+          `[qualify-trigger.credit] ${triggerId} debit ${debit.isPepite ? "PEPITE" : "qualif"} score=${opusScore} balance=${debit.balanceAfter}`,
+        );
+      }
+    } catch (e) {
+      console.warn(
+        `[qualify-trigger.credit] ${triggerId} debit failed:`,
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
 
   return { opusScore, reason, isHot };
 }

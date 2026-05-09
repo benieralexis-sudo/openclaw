@@ -115,43 +115,59 @@ model Verification {
 // =====================================================================
 
 model Client {
-  id             String       @id @default(cuid())
-  slug           String       @unique // "digitestlab", "ifind"
-  name           String
-  legalName      String?
-  industry       String?
-  region         String?
-  size           String? // "TPE", "PME", "ETI", "GE"
-  status         ClientStatus @default(PROSPECT)
-  plan           ClientPlan   @default(LEADS_DATA)
+  id                       String       @id @default(cuid())
+  slug                     String       @unique // "digitestlab", "ifind"
+  name                     String
+  legalName                String?
+  industry                 String?
+  region                   String?
+  size                     String? // "TPE", "PME", "ETI", "GE"
+  status                   ClientStatus @default(PROSPECT)
+  plan                     ClientPlan   @default(LEADS_DATA)
   // Branding (optionnel)
-  primaryColor   String?
-  logoUrl        String?
+  primaryColor             String?
+  logoUrl                  String?
   // Contact
-  contactEmail   String?
-  contactPhone   String?
+  contactEmail             String?
+  contactPhone             String?
   // Cal.com booking link slug (ex "alex/digitestlab-15min")
   // Injecté dans body pitch Opus pour permettre booking 1-clic.
-  calcomSlug     String?
+  calcomSlug               String?
   // ICP config (JSON flexible)
-  icp            Json?
+  icp                      Json?
   // Sprint 3 (10/05/2026) — Configuration delivery par client (digest hebdo,
   // alertes realtime, branding email). Voir lib/delivery-config.ts pour Zod.
-  deliveryConfig Json?
+  deliveryConfig           Json?
   // Sprint 7 (10/05/2026) — Quotas API par client (Anthropic, Apify, TheirStack).
   // Permet d'isoler la facture par tenant + alerter quand 80%/100% atteint.
   // Voir lib/quota-config.ts pour Zod schema + quota-checker.ts pour usage.
-  quotaConfig    Json?
+  quotaConfig              Json?
+  // Sprint Saint Graal (10/05/2026) — Systeme credits + garantie Pepite.
+  // Plan Growth public = 390eur/mo, 60 credits inclus, 6 Pepites garanties.
+  // Voir lib/credits.ts pour la mecanique.
+  creditsBalance           Int          @default(0) // solde credits leads qualif courant (incluant rollover non-expires)
+  creditsMonthlyQuota      Int          @default(60) // quota inclus chaque mois (Growth=60)
+  pepitesThisMonth         Int          @default(0) // compteur Pepites livrees mois courant
+  pepitesGuaranteed        Int          @default(6) // minimum garanti par mois (Growth=6)
+  creditsLastResetAt       DateTime? // dernier reset mensuel (1er du mois)
+  guaranteeBonusActive     Boolean      @default(false) // true si quota courant double (garantie precedente declenchee)
+  // Stripe (Sprint Saint Graal)
+  stripeCustomerId         String?      @unique
+  stripeSubscriptionId     String?      @unique
+  stripeSubscriptionStatus String? // active, past_due, canceled, trialing, incomplete
+  stripeCurrentPeriodEnd   DateTime?
+  stripePriceId            String? // ID du Stripe Price (pour identifier le plan)
   // Metadata
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  activatedAt    DateTime?
-  pausedAt       DateTime?
-  deletedAt      DateTime?
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  activatedAt              DateTime?
+  pausedAt                 DateTime?
+  deletedAt                DateTime?
 
   users       User[]       @relation("ClientOwner")
   triggers    Trigger[]
   leads       Lead[]
+  leadCredits LeadCredit[]
   // Sprint 6 (10/05/2026) — opportunities, campaigns, replies, notifications
   // retires (tables droppees post-pivot Data-only)
   rodzSignals RodzSignal[]
@@ -168,9 +184,10 @@ enum ClientStatus {
 }
 
 enum ClientPlan {
-  LEADS_DATA // 199€/mois
-  FULL_SERVICE // 890€/mois
-  CUSTOM
+  GROWTH // 390eur/mo annuel — Sprint Saint Graal (10/05/2026), offre publique unique
+  LEADS_DATA // 199eur/mo — DEPRECATED Sprint Saint Graal, garde pour grandfathered (DTL)
+  FULL_SERVICE // 890eur/mo — DEPRECATED Sprint Saint Graal
+  CUSTOM // Deals enterprise negocies a la main (>1000eur/mo)
 }
 
 // =====================================================================
@@ -454,6 +471,44 @@ enum LeadStatus {
 // Re-ajoute Sprint 6 (oubli initial dans le schema, table existait via
 // migration manuelle SQL avant — on regenere maintenant via Prisma).
 // =====================================================================
+
+// =====================================================================
+// LEAD CREDIT — transactions de credits (Sprint Saint Graal 10/05/2026)
+//
+// Chaque debit/credit est trace ici pour audit + calcul rollover + expiry.
+// Le solde courant est aussi cache dans Client.creditsBalance pour reads
+// rapides (computed depuis l'historique sinon).
+//
+// Reasons :
+//   - "credit_monthly"           : reset mensuel (1er du mois) +60 (ou +120 si guarantee bonus)
+//   - "credit_rollover"          : crédits non utilises rolles (expirent 3 mois)
+//   - "credit_overage_purchased" : achat overage Stripe metered (8eur/lead)
+//   - "credit_guarantee_double"  : bonus garantie Pepite declenchee (quota double mois suivant)
+//   - "debit_qualif"             : 1 lead qualif (score >= 6)
+//   - "debit_pepite"             : 1 Pepite (score >= 8) — debit credit + increment pepitesThisMonth
+//   - "expiry_rollover"          : credits rolles expirent apres 3 mois
+// =====================================================================
+
+model LeadCredit {
+  id           String    @id @default(cuid())
+  clientId     String
+  amount       Int // positif = credit ajoute, negatif = debit
+  reason       String // voir liste ci-dessus
+  triggerId    String? // ref au trigger qui a declenche (debits)
+  leadId       String?
+  score        Int? // score du trigger pour audit
+  isPepite     Boolean   @default(false)
+  expiresAt    DateTime? // pour les credits rolles (expiry 3 mois)
+  balanceAfter Int // solde apres cette tx (audit/debug)
+  metadata     Json? // contexte additionnel
+  createdAt    DateTime  @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, createdAt(sort: Desc)])
+  @@index([expiresAt])
+  @@index([reason, createdAt(sort: Desc)])
+}
 
 model AuditLog {
   id         String   @id @default(cuid())
