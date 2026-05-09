@@ -121,7 +121,15 @@ export async function recoverIgnoredTriggersForClient(
         is: {
           status: "IGNORED",
           deletedAt: null,
-          scoreReason: { not: { startsWith: "[RE-JUDGED" } },
+          // Exclure les triggers deja juges manuellement ou par V2-override.
+          // Sans ce filtre, le sweep les re-tente et si Anthropic plante,
+          // ecrase le scoreReason en "[RE-JUDGED FAILED]" — bug detecte 09/05
+          // sur Synanto/Sogelink/Hivebrite/ALDEMIA apres P31 fix scoreReason.
+          AND: [
+            { scoreReason: { not: { startsWith: "[RE-JUDGED" } } },
+            { scoreReason: { not: { startsWith: "[V2-" } } },
+            { scoreReason: { not: { startsWith: "[manual-IGNORED" } } },
+          ],
         },
       },
     },

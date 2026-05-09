@@ -90,24 +90,89 @@ async function checkLastBackup(): Promise<ComponentStatus> {
 }
 
 async function checkBriefV2Coverage(): Promise<ComponentStatus> {
+  // V2 ne tourne PAS sur les pre-Opus rejects (qualifyTrigger return early
+  // avant qualifyTriggerV2Shadow). Donc le denominateur correct = triggers
+  // post-Opus (scoreReason ne commence pas par "[C4-C5 pre-opus-reject").
+  // Sans ce filtre on aurait artificiellement un faible % et on alerterait
+  // a tort.
   try {
-    const since = new Date(Date.now() - 24 * 3_600_000);
-    const total = await db.trigger.count({
-      where: { capturedAt: { gte: since }, deletedAt: null, scoreReason: { not: null } },
-    });
-    if (total === 0) return { ok: true, status: "up", message: "0 trigger 24h", details: { total } };
-    const withV2 = await db.trigger.count({
-      where: {
-        capturedAt: { gte: since },
-        deletedAt: null,
-        scoreReason: { not: null },
-        briefV2Json: { not: undefined as any },
-      },
-    });
+    const rows = await db.$queryRawUnsafe<Array<{ total: bigint; with_v2: bigint }>>(`
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE "briefV2Json" IS NOT NULL) AS with_v2
+      FROM "Trigger"
+      WHERE "capturedAt" > NOW() - INTERVAL '24 hours'
+        AND "deletedAt" IS NULL
+        AND "scoreReason" IS NOT NULL
+        AND "scoreReason" NOT LIKE '[C4-C5 pre-opus-reject%'
+    `);
+    const total = Number(rows[0]?.total ?? 0n);
+    const withV2 = Number(rows[0]?.with_v2 ?? 0n);
+    if (total === 0) return { ok: true, status: "up", message: "0 trigger post-Opus 24h", details: { total } };
     const pct = Math.round((withV2 / total) * 100);
     if (pct < 50) return { ok: false, status: "down", message: `briefV2 ${pct}% < 50%`, details: { pct, withV2, total } };
     if (pct < 80) return { ok: false, status: "degraded", message: `briefV2 ${pct}% < 80%`, details: { pct, withV2, total } };
     return { ok: true, status: "up", details: { pct, withV2, total } };
+  } catch (e) {
+    return { ok: false, status: "degraded", message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+async function checkV2Quality(): Promise<ComponentStatus> {
+  // Audit qualite V2 sur 7 derniers jours :
+  //   - distribution verdicts (OUI/NON/ENRICH)
+  //   - count overrides V2-NON appliques (status IGNORED + scoreReason
+  //     commencant par [V2-override:NON ou [V2-NON)
+  //   - last brief V2 ecrit (proxy pour "shadow-v2 tourne ?")
+  // Pas de check Zod/strict pass-rate ici (necessite parser tous les briefs,
+  // trop lourd pour healthcheck) — voir scripts/audit-v2-validator-NN.ts.
+  try {
+    const rows = await db.$queryRawUnsafe<Array<{
+      verdict: string | null;
+      n: bigint;
+    }>>(`
+      SELECT "briefV2Json"->>'verdict' AS verdict, COUNT(*) AS n
+      FROM "Trigger"
+      WHERE "capturedAt" > NOW() - INTERVAL '7 days'
+        AND "deletedAt" IS NULL
+        AND "briefV2Json" IS NOT NULL
+      GROUP BY 1
+    `);
+    const verdicts: Record<string, number> = { OUI: 0, NON: 0, ENRICH: 0 };
+    let totalV2 = 0;
+    for (const r of rows) {
+      const v = r.verdict ?? "?";
+      const n = Number(r.n);
+      if (v in verdicts) verdicts[v] = n;
+      totalV2 += n;
+    }
+
+    const overrideRows = await db.$queryRawUnsafe<Array<{ n: bigint }>>(`
+      SELECT COUNT(*) AS n
+      FROM "Trigger"
+      WHERE "capturedAt" > NOW() - INTERVAL '7 days'
+        AND "deletedAt" IS NULL
+        AND "scoreReason" LIKE '[V2-%'
+    `);
+    const overridesApplied = Number(overrideRows[0]?.n ?? 0n);
+
+    const lastRows = await db.$queryRawUnsafe<Array<{ last_at: Date | null }>>(`
+      SELECT MAX("updatedAt") AS last_at
+      FROM "Trigger"
+      WHERE "deletedAt" IS NULL AND "briefV2Json" IS NOT NULL
+    `);
+    const lastV2At = lastRows[0]?.last_at ?? null;
+    const lastV2AgeHours = lastV2At ? Math.floor((Date.now() - lastV2At.getTime()) / 3_600_000) : null;
+
+    const details = {
+      totalV2_7d: totalV2,
+      verdicts,
+      overridesApplied,
+      lastV2AgeHours,
+    };
+
+    if (totalV2 === 0) return { ok: true, status: "degraded", message: "0 brief V2 sur 7j (cron OFF ou bug shadow-v2)", details };
+    return { ok: true, status: "up", details };
   } catch (e) {
     return { ok: false, status: "degraded", message: e instanceof Error ? e.message : String(e) };
   }
@@ -169,6 +234,7 @@ export async function GET(req: NextRequest) {
     lastCronRun,
     lastBackup,
     briefV2Coverage,
+    v2Quality,
     pappersEnrichRate,
     anthropicBurn,
     pappersClient,
@@ -177,6 +243,7 @@ export async function GET(req: NextRequest) {
     checkLastCronRun(),
     checkLastBackup(),
     checkBriefV2Coverage(),
+    checkV2Quality(),
     checkPappersEnrichmentRate(),
     checkAnthropicBurn(),
     Promise.resolve(checkPappersClient()),
@@ -191,6 +258,7 @@ export async function GET(req: NextRequest) {
     lastCronRun,
     lastBackup,
     briefV2Coverage,
+    v2Quality,
     pappersEnrichmentRate: pappersEnrichRate,
     anthropicBurn,
     pappersClient,
