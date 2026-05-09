@@ -32,6 +32,10 @@ import { mergeDuplicatePersonaLeads } from "@/lib/dedup-persona-leads";
 import { detectGrowthAlertsForClient } from "@/lib/growth-detector";
 import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
 import { pollFranceTravailForClient } from "@/lib/francetravail-poller";
+import { pollRssLeveesForClient } from "@/lib/rss-levees-poller";
+import { pollBodaccForClient } from "@/lib/bodacc-poller";
+import { pollInpiForClient } from "@/lib/inpi-poller";
+import { pollJoafeForClient } from "@/lib/joafe-poller";
 import { autoGenerateBriefsForHotLeads } from "@/lib/auto-generate-briefs";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
@@ -154,6 +158,54 @@ export async function POST(req: NextRequest) {
             await pollFranceTravailForClient(c.id, { lookbackHours: 24 });
         } catch (e) {
           (entry as { francetravailError?: string }).francetravailError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // Sprint 1 (10/05) — Sources migrees du bot trigger-engine.
+      // Strategie : on shutdown progressivement le bot. Ces pollers reprennent
+      // la collecte des sources uniques (BODACC/INPI/RSS-levees/JOAFE).
+      // RSS-levees : 1h cron (signal levee fraiche <14j = ULTRA fort).
+      if (!dryRun && (source === "all" || source === "rss-levees")) {
+        try {
+          (entry as { rssLevees?: unknown }).rssLevees =
+            await pollRssLeveesForClient(c.id);
+        } catch (e) {
+          (entry as { rssLeveesError?: string }).rssLeveesError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // BODACC : annonces commerciales. API publique sans auth, MAJ quotidienne 03h.
+      // Cron 3h. Filtre type : capital_increase (signal levee pre-officiel),
+      // company_merger (scaling), modification_statuts. Skip cessation/RJ/LJ.
+      if (!dryRun && (source === "all" || source === "bodacc")) {
+        try {
+          (entry as { bodacc?: unknown }).bodacc =
+            await pollBodaccForClient(c.id, { lookbackDays: 7, limit: 100 });
+        } catch (e) {
+          (entry as { bodaccError?: string }).bodaccError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // INPI : depots marques (signal "nouveau produit" 6-12 mois avant launch).
+      // Auth multi-step (XSRF + login). 1x/jour suffit (indexation INPI hebdo).
+      // Gate : UTC hour % 24 == 4 → 1 fois/jour a 4h UTC.
+      const inpiHour = new Date().getUTCHours();
+      if (!dryRun && (source === "inpi" || (source === "all" && inpiHour === 4))) {
+        try {
+          (entry as { inpi?: unknown }).inpi =
+            await pollInpiForClient(c.id, { lookbackDays: 30 });
+        } catch (e) {
+          (entry as { inpiError?: string }).inpiError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // JOAFE : STUB Sprint 1 (associations/fondations, ROI faible pour ICP DTL).
+      // Voir joafe-poller.ts header pour decision detaillee.
+      if (!dryRun && source === "joafe") {
+        try {
+          (entry as { joafe?: unknown }).joafe = await pollJoafeForClient(c.id);
+        } catch (e) {
+          (entry as { joafeError?: string }).joafeError =
             e instanceof Error ? e.message : String(e);
         }
       }
