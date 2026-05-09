@@ -1,6 +1,4 @@
-"use client";
 
-import { motion } from "motion/react";
 import { ReactNode } from "react";
 
 export function FeatureShowcase({
@@ -22,11 +20,7 @@ export function FeatureShowcase({
 }) {
   return (
     <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-      <motion.div
-        initial={{ opacity: 0, x: reverse ? 20 : -20 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
+      <div
         className={reverse ? "lg:order-2" : ""}
       >
         <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-5 ${accent === "amber" ? "bg-amber-100 text-amber-700" : "bg-brand-100 text-brand-700"}`}>
@@ -48,17 +42,13 @@ export function FeatureShowcase({
             </li>
           ))}
         </ul>
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, x: reverse ? -20 : 20, scale: 0.95 }}
-        whileInView={{ opacity: 1, x: 0, scale: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6, delay: 0.1 }}
+      <div
         className={reverse ? "lg:order-1" : ""}
       >
         {visual}
-      </motion.div>
+      </div>
     </div>
   );
 }

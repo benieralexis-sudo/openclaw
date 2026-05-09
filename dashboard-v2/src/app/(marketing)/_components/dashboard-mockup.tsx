@@ -10,7 +10,7 @@ const BRIEF = MOCK_BRIEF;
 export function DashboardMockup() {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
       className="relative"
@@ -111,7 +111,7 @@ export function DashboardMockup() {
               {PEPITES.map((p, i) => (
                 <motion.div
                   key={p.company}
-                  initial={{ opacity: 0, x: -10 }}
+                  initial={{ opacity: 1, x: 0 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 0.6 + i * 0.12 }}
                   className={`group flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${i === 0 ? "border-amber-300 bg-gradient-to-r from-amber-50 to-white shadow-md shadow-amber-500/10" : "border-ink-200 bg-white hover:border-brand-300 hover:shadow-md"}`}

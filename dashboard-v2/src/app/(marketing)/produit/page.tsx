@@ -38,7 +38,7 @@ export default function ProduitPage() {
       </section>
 
       {/* FEATURE 1 — Détection */}
-      <section className="py-24 bg-white">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <FeatureShowcase
             badge="01 — DÉTECTION"
@@ -60,7 +60,7 @@ export default function ProduitPage() {
       </section>
 
       {/* FEATURE 2 — Qualification IA */}
-      <section className="py-24 bg-gradient-to-b from-white to-brand-50/40">
+      <section className="py-16 bg-gradient-to-b from-white to-brand-50/40">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <FeatureShowcase
             badge="02 — QUALIFICATION IA"
@@ -81,7 +81,7 @@ export default function ProduitPage() {
       </section>
 
       {/* FEATURE 3 — Garantie */}
-      <section className="py-24 bg-gradient-to-br from-amber-50/50 via-white to-amber-50/30">
+      <section className="py-16 bg-gradient-to-br from-amber-50/50 via-white to-amber-50/30">
         <div className="max-w-5xl mx-auto px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold mb-6">
             03 — GARANTIE PÉPITE
@@ -124,9 +124,9 @@ export default function ProduitPage() {
       </section>
 
       {/* FEATURE 4 — Dashboard */}
-      <section className="py-24 bg-white">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">04 — DASHBOARD</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900 leading-[1.1]">
               Visibilité totale, en <span className="text-brand-600">temps réel</span>
@@ -147,7 +147,7 @@ export default function ProduitPage() {
       </section>
 
       {/* FEATURE 5 — Sécurité */}
-      <section className="py-24 bg-gradient-to-b from-white to-ink-50/50">
+      <section className="py-16 bg-gradient-to-b from-white to-ink-50/50">
         <div className="max-w-5xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">05 — SÉCURITÉ & RGPD</p>
@@ -169,7 +169,7 @@ export default function ProduitPage() {
       {/* CTA FINAL */}
       <section className="relative bg-ink-950 text-white overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-radial from-brand-600/30 via-transparent to-transparent blur-3xl" />
-        <div className="relative max-w-4xl mx-auto px-6 lg:px-8 py-24 text-center">
+        <div className="relative max-w-4xl mx-auto px-6 lg:px-8 py-16 text-center">
           <h2 className="font-display text-4xl md:text-6xl font-bold mb-6 tracking-tight leading-[1.0]">
             Une seule offre.
             <br />

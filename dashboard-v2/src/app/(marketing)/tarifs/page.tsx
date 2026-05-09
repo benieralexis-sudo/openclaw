@@ -182,9 +182,9 @@ export default function TarifsPage() {
       {/* ════════════════════════════════════════════════════════════
           3 — TEMOIGNAGES (3 cards)
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-gradient-to-b from-amber-50/30 via-white to-brand-50/30">
+      <section className="py-16 bg-gradient-to-b from-amber-50/30 via-white to-brand-50/30">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">Ils ont signé</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900">
               Le verdict de nos clients
@@ -197,7 +197,7 @@ export default function TarifsPage() {
       {/* ════════════════════════════════════════════════════════════
           4 — ROI CALCULATOR (visuel pas interactif pour l'instant)
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-white">
+      <section className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">Calcul ROI typique</p>
@@ -230,11 +230,11 @@ export default function TarifsPage() {
       {/* ════════════════════════════════════════════════════════════
           5 — COMPARATOR EXPANDED
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-ink-950 text-white relative overflow-hidden">
+      <section className="py-16 bg-ink-950 text-white relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-radial from-brand-600/30 via-transparent to-transparent blur-3xl" />
         <div className="absolute bottom-0 right-0 w-[400px] h-[300px] bg-gradient-radial from-amber-500/20 via-transparent to-transparent blur-3xl" />
         <div className="relative max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-400 font-bold mb-3">Benchmark marché 2026</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
               iFIND vs <span className="text-ink-500">les autres</span>
@@ -275,7 +275,7 @@ export default function TarifsPage() {
       {/* ════════════════════════════════════════════════════════════
           6 — FAQ
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-white">
+      <section className="py-16 bg-white">
         <div className="max-w-3xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">Questions fréquentes</p>
@@ -311,7 +311,7 @@ export default function TarifsPage() {
           </defs>
           <rect width="100%" height="100%" fill="url(#grid3)" />
         </svg>
-        <div className="relative max-w-4xl mx-auto px-6 lg:px-8 py-28 text-center">
+        <div className="relative max-w-4xl mx-auto px-6 lg:px-8 py-20 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-200 text-xs font-medium mb-8 backdrop-blur-sm">
             <Sparkles className="h-3 w-3" />
             48h pour vos premières Pépites

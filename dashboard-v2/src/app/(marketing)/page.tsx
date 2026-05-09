@@ -23,7 +23,7 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           1 — HERO MASSIVE avec mockup centré (style Linear)
           ═══════════════════════════════════════════════════════════ */}
-      <section className="relative pt-16 pb-24">
+      <section className="relative pt-10 pb-16">
         {/* Multi-layer background */}
         <div className="absolute inset-0 -z-10">
           <div className="absolute inset-0 bg-gradient-to-b from-brand-50/60 via-white to-white" />
@@ -116,9 +116,9 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           3 — STATS MASSIVES animées
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-white">
+      <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">Mesuré en production</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900">
               Des chiffres qui parlent
@@ -139,9 +139,9 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           4 — PROBLÈME / SOLUTION (Before/After)
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-gradient-to-b from-white via-rose-50/20 to-brand-50/30">
+      <section className="py-16 bg-gradient-to-b from-white via-rose-50/20 to-brand-50/30">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16 max-w-3xl mx-auto">
+          <div className="text-center mb-10 max-w-3xl mx-auto">
             <p className="text-xs uppercase tracking-[0.2em] text-rose-600 font-bold mb-3">Le problème</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900 leading-[1.1]">
               Vos commerciaux perdent
@@ -160,7 +160,7 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           5 — FEATURE SHOWCASE 1 : Détection temps réel
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-white">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <FeatureShowcase
             badge="01 — Détection"
@@ -180,7 +180,7 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           6 — FEATURE SHOWCASE 2 : Brief Opus
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-gradient-to-b from-white to-brand-50/40">
+      <section className="py-16 bg-gradient-to-b from-white to-brand-50/40">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <FeatureShowcase
             badge="02 — Qualification IA"
@@ -202,9 +202,9 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           7 — POURQUOI iFIND DIFFÉRENT (3 piliers)
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-white">
+      <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16 max-w-3xl mx-auto">
+          <div className="text-center mb-10 max-w-3xl mx-auto">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">Pourquoi iFIND</p>
             <h2 className="font-display text-4xl md:text-6xl font-bold text-ink-900 leading-[1.1]">
               Pas un fichier de leads.
@@ -239,11 +239,11 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           8 — COMPARATOR DRAMATIQUE
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-ink-950 text-white relative overflow-hidden">
+      <section className="py-16 bg-ink-950 text-white relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-radial from-brand-600/30 via-transparent to-transparent blur-3xl" />
         <div className="absolute bottom-0 right-0 w-[400px] h-[300px] bg-gradient-radial from-amber-500/20 via-transparent to-transparent blur-3xl" />
         <div className="relative max-w-5xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-400 font-bold mb-3">Comparaison marché</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
               Comparé à <span className="text-ink-500 line-through">vos outils actuels</span>
@@ -263,9 +263,9 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           9 — TÉMOIGNAGES (3 cards)
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-gradient-to-b from-white to-amber-50/30">
+      <section className="py-16 bg-gradient-to-b from-white to-amber-50/30">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16 max-w-3xl mx-auto">
+          <div className="text-center mb-10 max-w-3xl mx-auto">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">Ils utilisent iFIND</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900">
               Le verdict de nos clients
@@ -278,9 +278,9 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           10 — COMMENT CA MARCHE (3 steps)
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-white">
+      <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">Démarrage</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900">
               Vos premières Pépites en <span className="text-brand-600">48h chrono</span>
@@ -311,7 +311,7 @@ export default function HomePage() {
       {/* ════════════════════════════════════════════════════════════
           11 — PRICING TEASER
           ═══════════════════════════════════════════════════════════ */}
-      <section className="py-24 bg-ink-50/50">
+      <section className="py-16 bg-ink-50/50">
         <div className="max-w-3xl mx-auto px-6 lg:px-8">
           <div className="relative bg-gradient-to-b from-white to-brand-50/20 rounded-3xl border-2 border-brand-200 shadow-2xl overflow-hidden">
             <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-brand-600 via-brand-700 to-brand-800 text-white text-xs font-bold uppercase tracking-wider px-6 py-2.5 flex items-center justify-center gap-2">
@@ -355,7 +355,7 @@ export default function HomePage() {
           </defs>
           <rect width="100%" height="100%" fill="url(#grid2)" />
         </svg>
-        <div className="relative max-w-4xl mx-auto px-6 lg:px-8 py-28 text-center">
+        <div className="relative max-w-4xl mx-auto px-6 lg:px-8 py-20 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-200 text-xs font-medium mb-8 backdrop-blur-sm">
             <Sparkles className="h-3 w-3" />
             48h pour vos premières Pépites

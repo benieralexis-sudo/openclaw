@@ -1,6 +1,4 @@
-"use client";
 
-import { motion } from "motion/react";
 import { Quote, Star } from "lucide-react";
 import { MOCK_TESTIMONIALS } from "./_data/mock-companies";
 
@@ -10,12 +8,8 @@ export function TestimonialGrid() {
   return (
     <div className="grid md:grid-cols-3 gap-6">
       {TESTIMONIALS.map((t, i) => (
-        <motion.div
+        <div
           key={t.author}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: i * 0.15 }}
           className="relative bg-white rounded-2xl p-7 border border-ink-100 hover:shadow-xl hover:-translate-y-1 transition-all"
         >
           <Quote className={`absolute -top-3 left-6 h-7 w-7 ${t.accent === "amber" ? "text-amber-500 fill-amber-500" : t.accent === "brand" ? "text-brand-600 fill-brand-600" : "text-emerald-500 fill-emerald-500"}`} />
@@ -51,7 +45,7 @@ export function TestimonialGrid() {
               <p className="text-xs text-ink-500">{t.role}</p>
             </div>
           </div>
-        </motion.div>
+        </div>
       ))}
     </div>
   );

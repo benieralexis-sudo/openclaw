@@ -30,7 +30,7 @@ export function LiveFeed() {
           return (
             <motion.div
               key={item.company}
-              initial={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 1, x: 0 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.08 }}

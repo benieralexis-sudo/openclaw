@@ -18,10 +18,10 @@ const SOURCES = [
 
 export function SourcesMarquee() {
   return (
-    <div className="relative overflow-hidden bg-ink-900 py-10 border-y border-ink-800">
-      <div className="text-center mb-8">
-        <p className="text-xs uppercase tracking-[0.2em] text-ink-500 font-semibold">
-          Détecte les triggers depuis ces 11 sources françaises
+    <div className="relative overflow-hidden bg-ink-900 py-6 border-y border-ink-800">
+      <div className="text-center mb-4">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-ink-500 font-semibold">
+          11 sources publiques françaises scannées 24/7
         </p>
       </div>
       <div className="relative">

@@ -1,17 +1,11 @@
-"use client";
 
-import { motion } from "motion/react";
 import { X, Check, Clock, Search, Frown, Smile } from "lucide-react";
 
 export function BeforeAfter() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       {/* AVANT */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
+      <div
         className="relative rounded-2xl bg-gradient-to-br from-rose-50 to-white border border-rose-100 p-8"
       >
         <div className="absolute top-0 right-0 px-4 py-1.5 bg-rose-100 text-rose-700 text-xs font-bold uppercase tracking-wider rounded-bl-2xl rounded-tr-2xl">
@@ -45,14 +39,10 @@ export function BeforeAfter() {
             <span className="font-bold text-rose-600">12h/semaine</span> perdues par commercial
           </span>
         </div>
-      </motion.div>
+      </div>
 
       {/* APRÈS */}
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6, delay: 0.2 }}
+      <div
         className="relative rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 text-white p-8 shadow-2xl shadow-brand-500/20"
       >
         <div className="absolute top-0 right-0 px-4 py-1.5 bg-amber-400 text-amber-900 text-xs font-bold uppercase tracking-wider rounded-bl-2xl rounded-tr-2xl">
@@ -86,7 +76,7 @@ export function BeforeAfter() {
             <span className="font-bold text-amber-200">5 minutes/jour</span> pour piloter
           </span>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
