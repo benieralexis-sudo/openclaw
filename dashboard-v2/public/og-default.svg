@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e3a8a"/>
+      <stop offset="0.5" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0d3b66"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="240" cy="190" r="350" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f59e0b" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="960" cy="440" r="350" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b82f6" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="0.5" opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#glow1)"/>
+  <rect width="1200" height="630" fill="url(#glow2)"/>
+
+  <!-- Brand -->
+  <g transform="translate(80, 80)">
+    <rect width="56" height="56" rx="14" fill="white"/>
+    <text x="28" y="42" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="36" fill="#2563eb" text-anchor="middle">i</text>
+    <text x="80" y="40" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="36" fill="white">iFIND</text>
+    <rect x="200" y="14" width="80" height="28" rx="6" fill="#f59e0b" fill-opacity="0.18" stroke="#f59e0b" stroke-opacity="0.4"/>
+    <text x="240" y="33" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="14" fill="#fcd34d" text-anchor="middle" letter-spacing="1.5">FR</text>
+  </g>
+
+  <!-- Main title -->
+  <g transform="translate(600, 280)" text-anchor="middle">
+    <text font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="72" fill="white" letter-spacing="-2">
+      <tspan x="0" dy="0">Détectez les boîtes FR</tspan>
+      <tspan x="0" dy="84">qui ont besoin de vous</tspan>
+    </text>
+  </g>
+
+  <!-- Subtitle -->
+  <text x="600" y="500" font-family="Inter, system-ui, sans-serif" font-weight="500" font-size="26" fill="white" fill-opacity="0.85" text-anchor="middle">
+    11 sources publiques · Qualification IA Opus 4.7 · Garantie 6 Pépites/mois
+  </text>
+
+  <!-- Bottom badge -->
+  <g transform="translate(600, 558)">
+    <rect x="-180" y="0" width="360" height="48" rx="12" fill="white" fill-opacity="0.1" stroke="white" stroke-opacity="0.2"/>
+    <text x="0" y="32" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="22" fill="white" text-anchor="middle">
+      390€/mois · Setup gratuit
+    </text>
+  </g>
+</svg>

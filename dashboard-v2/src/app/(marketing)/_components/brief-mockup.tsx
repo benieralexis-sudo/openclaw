@@ -2,8 +2,10 @@
 
 import { motion } from "motion/react";
 import { Brain, Sparkles, MessageSquare, Target, TrendingUp } from "lucide-react";
+import { MOCK_BRIEF } from "./_data/mock-companies";
 
 export function BriefMockup() {
+  const brief = MOCK_BRIEF;
   return (
     <motion.div className="relative">
       {/* Glow */}
@@ -18,7 +20,7 @@ export function BriefMockup() {
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wider font-bold text-brand-200">Brief Opus 4.7</p>
-              <p className="text-sm font-semibold">Asys — Levée Série B 12M€</p>
+              <p className="text-sm font-semibold">{brief.company} — Levée Série B 12M€</p>
             </div>
           </div>
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-400/20 border border-amber-300/40 text-amber-100 text-[10px] font-bold backdrop-blur-sm">
@@ -31,25 +33,22 @@ export function BriefMockup() {
         <div className="p-6 space-y-5">
           {/* Section 1 : Contexte */}
           <Section icon={<Target className="h-4 w-4" />} title="Contexte" color="emerald">
-            <p>Asys (414 850 257) — ESN spécialisée test/QA, 180 collaborateurs, Paris 92.</p>
+            <p>{brief.contextLine1}</p>
             <p className="mt-1.5">
-              <strong className="text-ink-900">Vient de boucler 12M€ Série B</strong> (BPI Investissement, Sera Capital). Annoncé sur Maddyness le 8 mai. Plan d&apos;hyper-croissance : doublement effectif d&apos;ici fin 2026.
+              <strong className="text-ink-900">{brief.contextLine2Bold}</strong>{brief.contextLine2Suffix}
             </p>
           </Section>
 
           {/* Section 2 : Signal d'achat */}
           <Section icon={<TrendingUp className="h-4 w-4" />} title="Signal d'achat" color="amber">
-            <p>3 offres QA Engineer postées en 7 jours sur LinkedIn + WTTJ. Le CTO Vanacker (5 ans LinkedIn, profil tech actif) a publié personnellement le job &laquo; Test Automation Lead &raquo; le 12/05.</p>
-            <p className="mt-1.5"><strong className="text-amber-700">→ Frustration recrutement QA confirmée.</strong></p>
+            <p>{brief.signalLine}</p>
+            <p className="mt-1.5"><strong className="text-amber-700">{brief.signalEmphasis}</strong></p>
           </Section>
 
           {/* Section 3 : Pitch suggéré */}
           <Section icon={<MessageSquare className="h-4 w-4" />} title="Pitch suggéré" color="brand">
             <div className="bg-white rounded-lg p-3.5 border border-brand-100 italic text-ink-700">
-              &laquo; Bonjour Vanacker, j&apos;ai vu que vous recrutez 3 QA Engineers chez Asys.
-              On externalise l&apos;infra test pour des PME tech qui scalent vite — le ROI moyen
-              est de 6 mois avec une équipe externe dédiée. 15 minutes cette semaine pour
-              voir si ça matche votre roadmap post-Série B ? &raquo;
+              &laquo; {brief.pitch} &raquo;
             </div>
           </Section>
 

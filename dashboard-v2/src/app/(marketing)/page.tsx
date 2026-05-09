@@ -167,8 +167,8 @@ export default function HomePage() {
             title={<>11 sources françaises <span className="text-brand-600">en temps réel</span></>}
             description="Le moteur scanne 24/7 les sources publiques françaises les plus riches : annonces commerciales BODACC, dépôts INPI, financiers Pappers, offres tech France Travail, levées de fonds RSS, jobs LinkedIn et bien plus. Croisé par SIRET, dédupliqué automatiquement."
             bullets={[
-              "9 sources actives (BODACC, INPI, Pappers, France Travail, RSS, LinkedIn jobs, WTTJ, JOAFE, Maddyness)",
-              "Bonus : 2 sources premium (Rodz fundraising signals + TheirStack tech intent)",
+              "9 sources actives (BODACC, INPI, Pappers, France Travail, LinkedIn jobs, WTTJ, JOAFE, RSS Tech FR)",
+              "Bonus : 2 sources premium (intent data B2B + tech stack discovery)",
               "Attribution SIRENE Pappers automatique sur chaque trigger",
               "Dédup intelligente cross-source (zéro doublon)",
             ]}

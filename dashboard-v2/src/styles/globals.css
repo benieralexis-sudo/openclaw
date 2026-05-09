@@ -145,6 +145,12 @@
     padding-inline: 1.5rem;
   }
 
+  /* Sprint Saint Graal — bg-gradient-radial utility (Tailwind ne l'a pas nativement).
+     Combine avec from-* / via-* / to-* via les vars CSS Tailwind standard. */
+  .bg-gradient-radial {
+    background-image: radial-gradient(circle, var(--tw-gradient-stops));
+  }
+
   /* Mesh gradient subtil pour pages d'accueil */
   .mesh-soft {
     background-image:

@@ -1,16 +1,10 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Sparkles, Building2, Briefcase, Zap, Newspaper } from "lucide-react";
+import { Sparkles, Briefcase, Zap, Newspaper } from "lucide-react";
+import { MOCK_FEED } from "./_data/mock-companies";
 
-const ITEMS = [
-  { type: "pepite", company: "Asys", signal: "Recrute 3 QA Engineers + Série B 12M€", time: "il y a 2 min", source: "BODACC + LinkedIn" },
-  { type: "qualif", company: "DataNova", signal: "Nouveau dépôt INPI marque test logiciel", time: "il y a 8 min", source: "INPI" },
-  { type: "pepite", company: "B-Hive", signal: "Co-founder cherche QA Lead urgence", time: "il y a 14 min", source: "LinkedIn" },
-  { type: "qualif", company: "Cloudiway", signal: "Dirigeant publie offre Test Automation", time: "il y a 21 min", source: "WTTJ" },
-  { type: "news", company: "Mapping Control", signal: "Communiqué presse expansion Bordeaux", time: "il y a 38 min", source: "Frenchweb" },
-  { type: "pepite", company: "VISIAN", signal: "AMALTH groupe lève 8M€ + recrute tech", time: "il y a 1h", source: "Maddyness" },
-];
+const ITEMS = MOCK_FEED;
 
 export function LiveFeed() {
   return (

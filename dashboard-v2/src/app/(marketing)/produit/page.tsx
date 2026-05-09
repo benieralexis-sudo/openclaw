@@ -49,10 +49,10 @@ export default function ProduitPage() {
               "INPI — Dépôts de marques (signal pré-launch produit)",
               "Pappers — Données SIRENE complètes (dirigeants, financials)",
               "France Travail — Offres tech (5000 req/jour gratuit)",
-              "RSS Maddyness/Frenchweb — Levées de fonds en temps réel",
+              "RSS presse Tech FR — Levées de fonds en temps réel",
               "LinkedIn jobs + Welcome to the Jungle — Recrutement",
               "JOAFE — Associations & fondations",
-              "Rodz + TheirStack — Triggers premium (intent + tech stack)",
+              "Sources premium — intent data B2B + tech stack discovery",
             ]}
             visual={<LiveFeed />}
           />
@@ -137,7 +137,7 @@ export default function ProduitPage() {
             </p>
           </div>
           <DashboardMockup />
-          <div className="mt-12 grid mdisques-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+          <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
             <DashFeature icon={<BarChart3 className="h-5 w-5" />} title="Compteur garantie live" desc="Voir à tout moment combien de Pépites livrées vs 6 garanties" />
             <DashFeature icon={<Bell className="h-5 w-5" />} title="Alertes Telegram/Slack" desc="Ping instantané dès qu'une Pépite est détectée" />
             <DashFeature icon={<Database className="h-5 w-5" />} title="Brief Opus 1-clic" desc="Ouvrez le brief de chaque lead sans changer de page" />

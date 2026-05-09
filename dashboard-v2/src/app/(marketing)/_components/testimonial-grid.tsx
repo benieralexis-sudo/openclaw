@@ -2,36 +2,9 @@
 
 import { motion } from "motion/react";
 import { Quote, Star } from "lucide-react";
+import { MOCK_TESTIMONIALS } from "./_data/mock-companies";
 
-const TESTIMONIALS = [
-  {
-    quote: "La garantie 6 Pépites a été le déclic. Tous les autres outils me promettaient du volume sans engagement. iFIND est le premier qui met sa peau dans le jeu : ils s'engagent sur la qualité.",
-    author: "Frédéric Flandrin",
-    role: "Founder, DigiTestLab",
-    initials: "FF",
-    metric: "+340%",
-    metricLabel: "taux de réponse",
-    accent: "amber",
-  },
-  {
-    quote: "On est passé de 12h/semaine de prospection manuelle à 30 minutes pour piloter. Mon équipe commerciale a doublé son pipeline en 3 mois sans changer d'effectif.",
-    author: "Marie Lambert",
-    role: "Head of Sales, ScaleTech",
-    initials: "ML",
-    metric: "2× pipeline",
-    metricLabel: "en 3 mois",
-    accent: "brand",
-  },
-  {
-    quote: "L'attribution SIRENE Pappers + qualif Opus = c'est comme avoir un junior commercial qui filtre 500 prospects par jour pour ne livrer que les meilleurs. Magique.",
-    author: "Thomas Mercier",
-    role: "CEO, B-Hive",
-    initials: "TM",
-    metric: "18 Pépites/mois",
-    metricLabel: "en moyenne livrées",
-    accent: "emerald",
-  },
-];
+const TESTIMONIALS = MOCK_TESTIMONIALS;
 
 export function TestimonialGrid() {
   return (

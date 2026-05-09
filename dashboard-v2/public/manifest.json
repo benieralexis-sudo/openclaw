@@ -1,0 +1,19 @@
+{
+  "name": "iFIND — Trigger Engine FR",
+  "short_name": "iFIND",
+  "description": "Le moteur de détection de signaux d'achat sur les PME françaises.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563EB",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "lang": "fr-FR",
+  "categories": ["business", "productivity"]
+}

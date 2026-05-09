@@ -21,7 +21,7 @@ export default function RgpdPage() {
         </p>
         <p>
           <strong>Sur les leads détectés</strong> : données publiques issues de BODACC, INPI,
-          Pappers, France Travail, JOAFE, RSS Maddyness/Frenchweb, Welcome to the Jungle, LinkedIn
+          Pappers, France Travail, JOAFE, RSS presse Tech FR, Welcome to the Jungle, LinkedIn
           (informations publiques uniquement). Aucune donnée privée n&apos;est collectée.
         </p>
 
@@ -46,7 +46,7 @@ export default function RgpdPage() {
         <p>
           iFIND utilise les sous-traitants suivants, tous conformes RGPD :
           Stripe (paiements), Resend (emails transactionnels), Anthropic (qualification IA via API),
-          Pappers / Apify / TheirStack / Rodz / Kaspr (enrichissement données publiques),
+          fournisseurs d&apos;enrichissement de données publiques (sous contrat DPA conforme RGPD),
           OVHcloud / Hetzner (hébergement UE).
         </p>
 

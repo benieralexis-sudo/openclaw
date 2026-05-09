@@ -1,14 +1,11 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Sparkles, Building2, Briefcase, ChevronRight, Zap, TrendingUp, Bell, Search, Settings, Home, Users, CreditCard, Filter, ArrowUpRight, MapPin, Calendar, Mail, Phone, Linkedin, Brain, Target } from "lucide-react";
+import { Sparkles, Building2, Briefcase, Zap, TrendingUp, Search, Settings, Home, Users, CreditCard, Filter, ArrowUpRight, MapPin, Mail, Phone, Linkedin, Brain, Target } from "lucide-react";
+import { MOCK_PEPITES, MOCK_BRIEF } from "./_data/mock-companies";
 
-const PEPITES = [
-  { company: "Asys", siret: "414 850 257", industry: "ESN — Test & QA", size: "180p", location: "Paris 92", score: 9, signal: "Recrute 3 QA Engineers", funding: "Série B 12M€", time: "il y a 2h", isHot: true },
-  { company: "B-Hive", siret: "892 743 012", industry: "Plateforme SaaS", size: "45p", location: "Lyon", score: 10, signal: "Co-founder cherche QA Lead", funding: "Pré-seed 800k€", time: "il y a 5h", isHot: true },
-  { company: "Lacour Solutec", siret: "538 921 645", industry: "Ingénierie test", size: "120p", location: "Bordeaux", score: 8, signal: "DSI publie offre Test Automation", funding: "ETI 80M€ CA", time: "hier", isHot: false },
-  { company: "Vanacker Asys", siret: "732 489 110", industry: "Conseil tech", size: "80p", location: "Marseille", score: 8, signal: "CTO sortant + remplaçant publié", funding: "Série A 5M€", time: "hier", isHot: false },
-];
+const PEPITES = MOCK_PEPITES;
+const BRIEF = MOCK_BRIEF;
 
 export function DashboardMockup() {
   return (
@@ -71,8 +68,8 @@ export function DashboardMockup() {
             </div>
           </aside>
 
-          {/* Main */}
-          <main className="col-span-7 bg-ink-50/30 p-5">
+          {/* Main mockup zone */}
+          <div className="col-span-7 bg-ink-50/30 p-5">
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
               <div>
@@ -147,7 +144,7 @@ export function DashboardMockup() {
                 </motion.div>
               ))}
             </div>
-          </main>
+          </div>
 
           {/* Side panel — Pépite détail */}
           <aside className="col-span-3 bg-white border-l border-ink-100 p-4">
@@ -158,8 +155,8 @@ export function DashboardMockup() {
               </span>
               <ScoreBadge score={9} hot large />
             </div>
-            <h3 className="font-display text-base font-bold text-ink-900 mb-1">Asys</h3>
-            <p className="text-[11px] text-ink-500 mb-3">SIRET 414 850 257 · Paris</p>
+            <h3 className="font-display text-base font-bold text-ink-900 mb-1">{BRIEF.company}</h3>
+            <p className="text-[11px] text-ink-500 mb-3">SIRET {BRIEF.siret} · {BRIEF.location}</p>
 
             {/* Tags */}
             <div className="flex flex-wrap gap-1 mb-4">
@@ -177,7 +174,7 @@ export function DashboardMockup() {
                 <span className="text-[10px] font-bold text-brand-700 uppercase tracking-wider">Brief Opus</span>
               </div>
               <p className="text-[11px] leading-relaxed text-ink-700">
-                <span className="font-semibold">Angle d&apos;attaque :</span> Asys vient de boucler 12M€ Série B et publie 3 offres QA en 7 jours. Leur CTO Vanacker (LinkedIn 5y) a posté un job &laquo; Test Automation Lead &raquo; le 12/05.
+                <span className="font-semibold">Angle d&apos;attaque :</span> {BRIEF.company} vient de boucler 12M€ Série B et publie 3 offres QA en 7 jours. Le CTO a posté un job &laquo; Test Automation Lead &raquo; le 12/05.
               </p>
               <p className="text-[11px] leading-relaxed text-ink-700 mt-2">
                 <span className="font-semibold">Pitch :</span> &laquo; Bonjour, j&apos;ai vu que vous recrutiez 3 profils QA. On externalise votre infra test pour des PME tech qui scalent vite (≤ 6 mois ROI). 15min cette semaine ? &raquo;
@@ -186,9 +183,9 @@ export function DashboardMockup() {
 
             {/* Contacts */}
             <div className="space-y-1.5">
-              <ContactRow icon={<Mail className="h-3 w-3" />} value="vanacker@asys.fr" verified />
-              <ContactRow icon={<Phone className="h-3 w-3" />} value="+33 6 84 22 13 09" verified />
-              <ContactRow icon={<Linkedin className="h-3 w-3" />} value="linkedin.com/in/vanacker" />
+              <ContactRow icon={<Mail className="h-3 w-3" />} value={BRIEF.contactEmail} verified />
+              <ContactRow icon={<Phone className="h-3 w-3" />} value={BRIEF.contactPhone} verified />
+              <ContactRow icon={<Linkedin className="h-3 w-3" />} value={BRIEF.contactLinkedin} />
             </div>
 
             <button className="mt-4 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-br from-brand-600 to-brand-800 text-white text-[11px] font-semibold shadow-md shadow-brand-500/30 hover:shadow-lg transition-all">
@@ -293,5 +290,3 @@ function Lock() {
   );
 }
 
-// Suppress unused warnings for components used inline
-void Bell;

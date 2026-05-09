@@ -7,13 +7,13 @@ const SOURCES = [
   { name: "INPI", desc: "Dépôts marques" },
   { name: "Pappers", desc: "SIRENE complet" },
   { name: "France Travail", desc: "Offres tech" },
-  { name: "LinkedIn", desc: "Jobs + profils" },
+  { name: "LinkedIn Jobs", desc: "Recrutement live" },
   { name: "Welcome to the Jungle", desc: "Recrutement startups" },
   { name: "JOAFE", desc: "Associations" },
-  { name: "Maddyness", desc: "Levées de fonds" },
-  { name: "Frenchweb", desc: "News tech FR" },
-  { name: "Rodz", desc: "Triggers premium" },
-  { name: "TheirStack", desc: "Tech stack + intent" },
+  { name: "Presse Tech FR", desc: "Levées de fonds" },
+  { name: "RSS spécialisés", desc: "News sectoriels" },
+  { name: "Intent Data B2B", desc: "Signaux d'achat" },
+  { name: "Tech Stack Discovery", desc: "Outils installés" },
 ];
 
 export function SourcesMarquee() {
