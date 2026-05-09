@@ -194,6 +194,35 @@
     border-radius: 8px;
   }
 
+  /* Sprint Saint Graal — Polish global links + buttons */
+  /* Tous les a et button hover : transition smooth */
+  a, button {
+    transition: color 0.2s var(--ease-out-expo),
+                background-color 0.2s var(--ease-out-expo),
+                border-color 0.2s var(--ease-out-expo),
+                box-shadow 0.3s var(--ease-out-expo),
+                transform 0.2s var(--ease-out-expo),
+                opacity 0.2s var(--ease-out-expo);
+  }
+  /* Focus visible global premium */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-brand-500);
+    border-radius: 6px;
+  }
+  /* Disable transition pendant prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+  }
+
   /* Glow border subtil au hover (cards premium) */
   .hover-glow {
     transition: box-shadow 0.3s, transform 0.2s;
