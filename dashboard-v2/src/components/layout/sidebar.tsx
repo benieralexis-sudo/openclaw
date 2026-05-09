@@ -2,29 +2,28 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-// Sprint 6 (10/05/2026) — useQuery retire (replies-unread-count plus utilise)
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Target,
   Users,
   Settings,
   Activity,
-  Sparkles,
   LogOut,
+  CreditCard,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { useScope } from "@/hooks/use-scope";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  badge?: { count: number; variant: "fire" | "brand" | "warning" };
+  badge?: string;
   shortcut?: string;
 }
 
-// Items management dépendent du rôle (ADMIN voit tout, CLIENT/VIEWER voit moins).
 const navManagementBase: NavItem[] = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/settings", label: "Paramètres", icon: Settings },
@@ -34,52 +33,107 @@ const navManagementAdmin: NavItem[] = [
   { href: "/system", label: "Système", icon: Activity },
 ];
 
+interface CreditsStatus {
+  creditsBalance: number;
+  creditsMonthlyQuota: number;
+  pepitesThisMonth: number;
+  pepitesGuaranteed: number;
+}
+
 export function Sidebar() {
   const pathname = usePathname();
-  const { role } = useScope();
-  // Cache /system pour CLIENT/EDITOR/VIEWER (pas de raison qu'ils le voient).
+  const { role, me } = useScope();
   const navManagement = role === "admin" ? navManagementAdmin : navManagementBase;
-  // Sprint 6 (10/05/2026) — useQuery replies-unread-count retire (route /api/replies
-  // supprimee, table Reply droppee post-pivot Data-only).
+
+  const { data: credits } = useQuery<CreditsStatus | null>({
+    queryKey: ["credits-status"],
+    queryFn: async () => {
+      if (!me?.clientId) return null;
+      const res = await fetch(`/api/clients/${me.clientId}`).catch(() => null);
+      if (!res || !res.ok) return null;
+      const c = await res.json();
+      return {
+        creditsBalance: c.creditsBalance ?? 0,
+        creditsMonthlyQuota: c.creditsMonthlyQuota ?? 60,
+        pepitesThisMonth: c.pepitesThisMonth ?? 0,
+        pepitesGuaranteed: c.pepitesGuaranteed ?? 6,
+      };
+    },
+    enabled: !!me?.clientId,
+    refetchInterval: 60_000,
+  });
 
   const navMain: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, shortcut: "G D" },
-    { href: "/triggers", label: "Leads FR", icon: Target, shortcut: "G L", badge: { count: 5, variant: "fire" } },
-    // Sprint 6 (10/05/2026) — Liens supprimes :
-    //   - /pipeline (Pipeline RDV) : page caduque post-pivot Data-only (le client gere son propre CRM)
-    //   - /unibox (Replies) : page caduque post-pivot (bot ne envoie plus d'emails, pas de replies a traiter)
-    // Suppression unreadCount + GitBranch + Inbox aussi.
+    { href: "/triggers", label: "Leads & Pépites", icon: Target, shortcut: "G L" },
   ];
 
+  const pepitesPct = credits ? Math.min(100, Math.round((credits.pepitesThisMonth / credits.pepitesGuaranteed) * 100)) : 0;
+  const pepitesOk = credits ? credits.pepitesThisMonth >= credits.pepitesGuaranteed : false;
+
   return (
-    <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[240px] flex-col border-r border-ink-200 bg-white md:flex">
+    <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[240px] flex-col border-r border-ink-800 bg-ink-950 md:flex">
       {/* Logo */}
-      <div className="flex h-14 items-center gap-2.5 border-b border-ink-200 px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-gradient-to-br from-brand-500 to-brand-700 shadow-sm shadow-brand-500/30">
-          <span className="font-sans text-[18px] font-semibold leading-none text-white">i</span>
+      <div className="flex h-16 items-center gap-2.5 border-b border-ink-800 px-4">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 shadow-lg shadow-brand-500/30">
+          <span className="font-display text-[18px] font-bold leading-none text-white">i</span>
         </div>
         <div className="flex-1">
-          <div className="font-display text-[15px] font-semibold leading-tight tracking-tight text-ink-900">
+          <div className="font-display text-[15px] font-semibold leading-tight tracking-tight text-white">
             iFIND
           </div>
-          <div className="text-[10.5px] font-medium uppercase tracking-wider text-ink-400 leading-tight">
-            Trigger Engine
+          <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-brand-400 leading-tight">
+            <span>Trigger Engine</span>
+            <span className="text-ink-600">·</span>
+            <span className="text-ink-500">FR</span>
           </div>
         </div>
-        <Sparkles className="h-3.5 w-3.5 text-brand-500" />
       </div>
 
       {/* Sections */}
-      <nav className="flex-1 overflow-y-auto px-2 py-4">
+      <nav className="flex-1 overflow-y-auto px-2.5 py-4 space-y-1">
         <NavSection label="Trigger Engine" items={navMain} pathname={pathname} />
         <NavSection label="Gestion" items={navManagement} pathname={pathname} className="mt-6" />
       </nav>
 
+      {/* Garantie card */}
+      {credits && (
+        <div className="px-3 mb-3">
+          <div className={cn(
+            "rounded-xl p-3 border",
+            pepitesOk
+              ? "bg-gradient-to-br from-emerald-500/10 to-emerald-700/10 border-emerald-700/30"
+              : "bg-gradient-to-br from-amber-500/10 to-amber-700/10 border-amber-700/30"
+          )}>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Shield className={cn("h-3 w-3", pepitesOk ? "text-emerald-400" : "text-amber-400")} />
+              <p className={cn("text-[10px] font-bold uppercase tracking-wider", pepitesOk ? "text-emerald-300" : "text-amber-300")}>
+                Garantie Pépite
+              </p>
+            </div>
+            <div className="flex items-baseline gap-1.5 mb-2">
+              <span className="font-display text-2xl font-bold text-white leading-none">{credits.pepitesThisMonth}</span>
+              <span className="text-[10px] text-ink-400">/ {credits.pepitesGuaranteed} min</span>
+            </div>
+            <div className="h-1.5 bg-ink-800 rounded-full overflow-hidden">
+              <div className={cn(
+                "h-full transition-all",
+                pepitesOk ? "bg-gradient-to-r from-emerald-400 to-emerald-500" : "bg-gradient-to-r from-amber-400 to-amber-500"
+              )} style={{ width: `${pepitesPct}%` }} />
+            </div>
+            <p className="text-[10px] text-ink-500 mt-2">
+              <CreditCard className="h-2.5 w-2.5 inline mr-1" />
+              {credits.creditsBalance} crédits restants
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
-      <div className="border-t border-ink-200 p-3">
+      <div className="border-t border-ink-800 p-3">
         <Link
           href={"/logout" as never}
-          className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-600 transition-colors hover:bg-ink-50 hover:text-ink-900"
+          className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-ink-400 transition-colors hover:bg-ink-900 hover:text-white"
           prefetch={false}
         >
           <LogOut className="h-4 w-4" />
@@ -103,53 +157,40 @@ function NavSection({
 }) {
   return (
     <div className={className}>
-      <div className="mb-2 px-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-ink-400">
+      <p className="px-2.5 mb-2 text-[10px] font-bold uppercase tracking-wider text-ink-500">
         {label}
-      </div>
-      <ul className="space-y-0.5">
+      </p>
+      <div className="space-y-0.5">
         {items.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
-            <li key={item.href}>
-              <Link
-                href={item.href as never}
-                className={cn(
-                  "group relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13.5px] font-medium transition-all",
-                  active
-                    ? "bg-brand-50 text-brand-700"
-                    : "text-ink-600 hover:bg-ink-100 hover:text-ink-900",
-                )}
-              >
-                {active && (
-                  <span
-                    className="absolute -left-2 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-600"
-                    aria-hidden
-                  />
-                )}
-                <Icon
-                  className={cn(
-                    "h-4 w-4 shrink-0 transition-colors",
-                    active ? "text-brand-600" : "text-ink-500 group-hover:text-ink-700",
-                  )}
-                  strokeWidth={2}
-                />
-                <span className="flex-1 truncate">{item.label}</span>
-                {item.badge && item.badge.count > 0 && (
-                  <Badge variant={item.badge.variant} size="sm" className="font-mono tabular-nums">
-                    {item.badge.count}
-                  </Badge>
-                )}
-                {item.shortcut && !item.badge && (
-                  <span className="hidden font-mono text-[10px] text-ink-400 tracking-wider group-hover:inline">
-                    {item.shortcut}
-                  </span>
-                )}
-              </Link>
-            </li>
+            <Link
+              key={item.href}
+              href={item.href as never}
+              className={cn(
+                "group flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all",
+                isActive
+                  ? "bg-gradient-to-r from-brand-600/25 to-brand-600/5 text-white border-l-2 border-brand-500 -ml-0.5 shadow-sm"
+                  : "text-ink-400 hover:bg-ink-900/60 hover:text-ink-100"
+              )}
+            >
+              <span className="flex items-center gap-2.5">
+                <Icon className={cn("h-4 w-4 transition-colors", isActive ? "text-brand-400" : "text-ink-500 group-hover:text-ink-300")} strokeWidth={2} />
+                {item.label}
+              </span>
+              {item.badge && (
+                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold">
+                  {item.badge}
+                </span>
+              )}
+              {item.shortcut && (
+                <span className="text-[10px] font-mono text-ink-600 group-hover:text-ink-500">{item.shortcut}</span>
+              )}
+            </Link>
           );
         })}
-      </ul>
+      </div>
     </div>
   );
 }
