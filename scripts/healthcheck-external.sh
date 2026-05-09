@@ -20,9 +20,9 @@ send_telegram() {
     -d parse_mode="Markdown" > /dev/null 2>&1
 }
 
-# Verifier les 3 containers
-CONTAINERS=("moltbot-telegram-router-1" "moltbot-mission-control-1" "moltbot-landing-page-1")
-NAMES=("Telegram Router" "Dashboard" "Landing Page")
+# Verifier les containers actifs (mission-control supprime P10 08/05)
+CONTAINERS=("moltbot-telegram-router-1" "moltbot-landing-page-1" "ifind-postgres")
+NAMES=("Telegram Router" "Landing Page" "Postgres")
 ALL_OK=true
 ALERT_MSG=""
 
