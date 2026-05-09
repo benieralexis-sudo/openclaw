@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+// Sprint 6 (10/05/2026) — useQuery retire (replies-unread-count plus utilise)
 import {
   LayoutDashboard,
   Target,
-  GitBranch,
-  Inbox,
   Users,
   Settings,
   Activity,
@@ -38,34 +36,19 @@ const navManagementAdmin: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { activeClientId, role } = useScope();
+  const { role } = useScope();
   // Cache /system pour CLIENT/EDITOR/VIEWER (pas de raison qu'ils le voient).
   const navManagement = role === "admin" ? navManagementAdmin : navManagementBase;
-
-  const { data: unreadCount = 0 } = useQuery<number>({
-    queryKey: ["replies-unread-count", activeClientId],
-    queryFn: async () => {
-      const params = new URLSearchParams({ status: "UNREAD", count: "true" });
-      if (activeClientId) params.set("clientId", activeClientId);
-      const res = await fetch(`/api/replies?${params.toString()}`);
-      if (!res.ok) return 0;
-      const json = await res.json();
-      return json.count ?? 0;
-    },
-    refetchInterval: 30 * 1000,
-  });
+  // Sprint 6 (10/05/2026) — useQuery replies-unread-count retire (route /api/replies
+  // supprimee, table Reply droppee post-pivot Data-only).
 
   const navMain: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, shortcut: "G D" },
     { href: "/triggers", label: "Leads FR", icon: Target, shortcut: "G L", badge: { count: 5, variant: "fire" } },
-    { href: "/pipeline", label: "Pipeline RDV", icon: GitBranch, shortcut: "G P" },
-    {
-      href: "/unibox",
-      label: "Replies",
-      icon: Inbox,
-      shortcut: "G U",
-      ...(unreadCount > 0 ? { badge: { count: unreadCount, variant: "brand" as const } } : {}),
-    },
+    // Sprint 6 (10/05/2026) — Liens supprimes :
+    //   - /pipeline (Pipeline RDV) : page caduque post-pivot Data-only (le client gere son propre CRM)
+    //   - /unibox (Replies) : page caduque post-pivot (bot ne envoie plus d'emails, pas de replies a traiter)
+    // Suppression unreadCount + GitBranch + Inbox aussi.
   ];
 
   return (

@@ -46,10 +46,10 @@ model User {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  sessions      Session[]
-  accounts      Account[]
-  notifications Notification[]
-  activities    LeadActivity[]
+  sessions   Session[]
+  accounts   Account[]
+  // Sprint 6 (10/05/2026) — notifications retire (table Notification droppee)
+  activities LeadActivity[]
 
   @@index([clientId])
   @@index([role])
@@ -145,14 +145,12 @@ model Client {
   pausedAt       DateTime?
   deletedAt      DateTime?
 
-  users         User[]         @relation("ClientOwner")
-  triggers      Trigger[]
-  leads         Lead[]
-  opportunities Opportunity[]
-  campaigns     Campaign[]
-  replies       Reply[]
-  notifications Notification[]
-  rodzSignals   RodzSignal[]
+  users       User[]       @relation("ClientOwner")
+  triggers    Trigger[]
+  leads       Lead[]
+  // Sprint 6 (10/05/2026) — opportunities, campaigns, replies, notifications
+  // retires (tables droppees post-pivot Data-only)
+  rodzSignals RodzSignal[]
 
   @@index([status])
   @@index([deletedAt])
@@ -226,8 +224,8 @@ model Trigger {
   updatedAt                    DateTime      @updatedAt
   deletedAt                    DateTime?
 
-  lead        Lead?
-  opportunity Opportunity?
+  lead Lead?
+  // Sprint 6 (10/05/2026) — opportunity retire (Opportunity table droppee)
 
   @@index([clientId, status, capturedAt(sort: Desc)])
   @@index([clientId, score(sort: Desc)])
@@ -405,11 +403,9 @@ model Lead {
   updatedAt                 DateTime    @updatedAt
   deletedAt                 DateTime?
 
-  opportunities Opportunity[]
-  replies       Reply[]
-  emailActivity EmailActivity[]
-  emailEvents   EmailEvent[]
-  activities    LeadActivity[]
+  // Sprint 6 (10/05/2026) — opportunities, replies, emailActivity, emailEvents
+  // retires (tables droppees post-pivot Data-only)
+  activities LeadActivity[]
   // C14 (04/05) — UNIQUE INDEX partiel ajouté hors-Prisma car PARTIAL unique
   // pas supporté par @@unique. Empêche les doublons SIRET sur les leads
   // ACTIFS (deletedAt IS NULL). Permet les Lead.deletedAt NOT NULL en doublon
@@ -444,183 +440,22 @@ enum LeadStatus {
 }
 
 // =====================================================================
-// OPPORTUNITY — pipeline RDV / deal
+// Sprint 6 (10/05/2026) — 6 models supprimes (post-pivot Data-only) :
+//   Opportunity, Campaign, Reply, Notification, EmailActivity, EmailEvent
+// Voir backups/schema-pre-sprint6-cleanup.prisma pour restore.
 // =====================================================================
 
-model Opportunity {
-  id               String           @id @default(cuid())
-  clientId         String
-  client           Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  leadId           String?
-  lead             Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  triggerId        String?          @unique
-  trigger          Trigger?         @relation(fields: [triggerId], references: [id], onDelete: SetNull)
-  // Stage
-  stage            OpportunityStage @default(IDENTIFIED)
-  // Meeting
-  meetingDate      DateTime?
-  meetingUrl       String?
-  meetingNotes     String?
-  // Deal
-  dealValueEur     Decimal?         @db.Decimal(12, 2)
-  closedAt         DateTime?
-  wonAt            DateTime?
-  lostAt           DateTime?
-  lostReason       String?
-  // Assigné
-  assignedToUserId String?
-  // Audit
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  deletedAt        DateTime?
-
-  @@index([clientId, stage, updatedAt(sort: Desc)])
-  @@index([assignedToUserId])
-  @@index([meetingDate])
-  @@index([deletedAt])
-}
-
-enum OpportunityStage {
-  IDENTIFIED // Trigger reçu, lead identifié
-  CONTACTED // Email envoyé
-  ENGAGED // Réponse positive
-  MEETING_SET // RDV booké
-  PROPOSAL // En proposition
-  WON
-  LOST
-}
-
 // =====================================================================
-// CAMPAIGN — séquences cold email (Full Service)
-// =====================================================================
-
-model Campaign {
-  id            String         @id @default(cuid())
-  clientId      String
-  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  name          String
-  status        CampaignStatus @default(DRAFT)
-  // Smartlead binding
-  externalId    String? // ID dans Smartlead
-  // Stats agrégées
-  sent          Int            @default(0)
-  opened        Int            @default(0)
-  replied       Int            @default(0)
-  bookedMeeting Int            @default(0)
-  bounced       Int            @default(0)
-  // Audit
-  startedAt     DateTime?
-  pausedAt      DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  deletedAt     DateTime?
-
-  replies Reply[]
-
-  @@index([clientId, status])
-  @@index([deletedAt])
-}
-
-enum CampaignStatus {
-  DRAFT
-  WARMUP
-  RUNNING
-  PAUSED
-  ARCHIVED
-}
-
-// =====================================================================
-// REPLY — Unibox unifié
-// =====================================================================
-
-model Reply {
-  id               String      @id @default(cuid())
-  clientId         String
-  client           Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  leadId           String?
-  lead             Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  campaignId       String?
-  campaign         Campaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  // Contenu
-  fromEmail        String
-  fromName         String?
-  subject          String?
-  body             String
-  bodyHtml         String?
-  receivedAt       DateTime    @default(now())
-  // Threading IMAP — UNIQUE pour dédup sync-inbox (cron 5 min sur fenêtre 1h)
-  messageId        String?     @unique
-  // Catégorisation IA
-  intent           ReplyIntent @default(UNCLASSIFIED)
-  intentConfidence Decimal?    @db.Decimal(3, 2)
-  // Pipeline
-  status           ReplyStatus @default(UNREAD)
-  assignedToUserId String?
-  respondedAt      DateTime?
-  // Audit
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  deletedAt        DateTime?
-
-  @@index([clientId, status, receivedAt(sort: Desc)])
-  @@index([clientId, intent])
-  @@index([deletedAt])
-}
-
-enum ReplyIntent {
-  POSITIVE_INTEREST
-  REQUEST_INFO
-  ASK_TIMING
-  OBJECTION
-  REFUSED
-  OUT_OF_OFFICE
-  UNSUBSCRIBE
-  WRONG_PERSON
-  UNCLASSIFIED
-}
-
-enum ReplyStatus {
-  UNREAD
-  READ
-  RESPONDING
-  ANSWERED
-  ARCHIVED
-}
-
-// =====================================================================
-// NOTIFICATION
-// =====================================================================
-
-model Notification {
-  id        String    @id @default(cuid())
-  userId    String?
-  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clientId  String?
-  client    Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  // Contenu
-  type      String // "trigger.hot", "reply.positive", "system.alert"
-  title     String
-  body      String?
-  payload   Json?
-  link      String?
-  // État
-  readAt    DateTime?
-  // Audit
-  createdAt DateTime  @default(now())
-
-  @@index([userId, readAt])
-  @@index([clientId, createdAt(sort: Desc)])
-}
-
-// =====================================================================
-// AUDIT LOG (admin)
+// AUDIT LOG — trace des actions critiques (auth, ICP edit, delivery, etc.)
+// Re-ajoute Sprint 6 (oubli initial dans le schema, table existait via
+// migration manuelle SQL avant — on regenere maintenant via Prisma).
 // =====================================================================
 
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String?
   clientId   String?
-  action     String // "client.created", "trigger.scored", "user.login"
+  action     String // "client.created", "trigger.scored", "user.login", etc.
   entityType String?
   entityId   String?
   metadata   Json?
@@ -631,71 +466,6 @@ model AuditLog {
   @@index([userId, createdAt(sort: Desc)])
   @@index([clientId, createdAt(sort: Desc)])
   @@index([action, createdAt(sort: Desc)])
-}
-
-// =====================================================================
-// EMAIL ACTIVITY — historique cold email manuel + replies IMAP
-// =====================================================================
-// SENT     : un commercial a cliqué "Envoyer email" depuis le dashboard
-// RECEIVED : un poller IMAP (skills/trigger-engine/lib/mailbox-poller.js)
-//            a détecté un reply matchant un Lead.email
-// Le messageId est dédupliqué via @unique pour éviter doublons sur replays.
-
-model EmailActivity {
-  id                  String         @id @default(cuid())
-  leadId              String
-  lead                Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  direction           EmailDirection
-  fromMailbox         String // user@domain (notre mailbox côté SENT, sender côté RECEIVED)
-  toEmail             String // destinataire (le lead côté SENT, notre mailbox côté RECEIVED)
-  subject             String
-  bodyText            String?        @db.Text
-  bodyHtml            String?        @db.Text
-  messageId           String?        @unique // SMTP Message-ID header
-  inReplyTo           String? // Message-ID auquel on répond
-  sentAt              DateTime       @default(now()) // = receivedAt côté RECEIVED
-  sentByUserId        String? // Better Auth User id (NULL si reçu)
-  template            String? // 'pitch' | 'linkedin-dm' | 'call-brief' | 'manual'
-  replyClassification String? // 'positive' | 'neutral' | 'negative' | 'ooo' | 'unsubscribe' (Haiku)
-  replyClassifiedAt   DateTime?
-  createdAt           DateTime       @default(now())
-
-  @@index([leadId, sentAt(sort: Desc)])
-  @@index([fromMailbox, sentAt(sort: Desc)])
-  @@index([direction, sentAt(sort: Desc)])
-}
-
-enum EmailDirection {
-  SENT
-  RECEIVED
-}
-
-// Tracking événements email Resend (opens / clicks / bounces / complaints).
-// Permet d'identifier les leads "warm" (3+ opens = signal d'intérêt).
-model EmailEvent {
-  id         String         @id @default(cuid())
-  leadId     String?
-  lead       Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  emailId    String? // Resend email_id si dispo
-  recipient  String // email destinataire
-  type       EmailEventType
-  occurredAt DateTime       @default(now())
-  metadata   Json? // user agent, IP city, click URL, bounce code, etc.
-  createdAt  DateTime       @default(now())
-
-  @@index([leadId, occurredAt(sort: Desc)])
-  @@index([recipient, type, occurredAt(sort: Desc)])
-  @@index([emailId])
-}
-
-enum EmailEventType {
-  DELIVERED
-  OPENED
-  CLICKED
-  BOUNCED
-  COMPLAINED
-  UNSUBSCRIBED
-  FAILED
 }
 
 // =====================================================================

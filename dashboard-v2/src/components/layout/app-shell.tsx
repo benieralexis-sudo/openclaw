@@ -15,8 +15,7 @@ interface AppShellProps {
 const TITLES: Record<string, { title: string; description?: string }> = {
   "/dashboard": { title: "Dashboard", description: "Vue d'ensemble de votre pipeline temps réel" },
   "/triggers": { title: "Leads FR", description: "Tous les signaux d'achat détectés sur les PME françaises" },
-  "/pipeline": { title: "Pipeline RDV", description: "Suivi des opportunités du premier contact au RDV booké" },
-  "/unibox": { title: "Replies", description: "Inbox unifiée des réponses prospects" },
+  // Sprint 6 (10/05/2026) — /pipeline et /unibox retires (caducs post-pivot Data-only)
   "/clients": { title: "Clients", description: "Gestion des comptes clients et de leur configuration" },
   "/settings": { title: "Paramètres", description: "ICP, notifications, intégrations" },
   "/system": { title: "Système", description: "Santé du moteur, sources actives, logs" },

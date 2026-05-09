@@ -127,12 +127,10 @@ services:
       - ./skills/trigger-engine:/app/skills/trigger-engine
       - ./skills/package.json:/app/skills/package.json:ro
       # Volumes persistants
-      - automailer-data:/data/automailer
-      - inbox-manager-data:/data/inbox-manager
-      - meeting-scheduler-data:/data/meeting-scheduler
+      # Sprint 6 (10/05/2026) — automailer/inbox-manager/meeting-scheduler/
+      # trigger-engine volumes retires (skills supprimes post-pivot Data-only)
       - app-config-data:/data/app-config
       - visitor-data:/data/visitors
-      - trigger-engine-data:/app/skills/trigger-engine/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     init: true
@@ -217,12 +215,9 @@ services:
 # Volumes persistants
 # ═══════════════════════════════════════════════════════════════════════
 volumes:
-  # Volumes actifs v2.0
-  trigger-engine-data:
-  inbox-manager-data:
-  meeting-scheduler-data:
-  automailer-data:        # storage.js encore lazy-required par reply-pipeline
-  dashboard-data:
+  # Sprint 6 (10/05/2026) — trigger-engine-data + inbox-manager-data +
+  # meeting-scheduler-data + automailer-data + dashboard-data retires
+  # (skills supprimes post-pivot Data-only)
   visitor-data:
   app-config-data:
     name: moltbot_app-config-data

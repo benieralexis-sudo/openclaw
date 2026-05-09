@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Target,
-  GitBranch,
-  Inbox,
   Users,
   Settings,
   Activity,
@@ -54,16 +52,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <span>Leads FR (Triggers)</span>
             <CommandShortcut>G L</CommandShortcut>
           </CommandItem>
-          <CommandItem onSelect={() => go("/pipeline")}>
-            <GitBranch />
-            <span>Pipeline RDV</span>
-            <CommandShortcut>G P</CommandShortcut>
-          </CommandItem>
-          <CommandItem onSelect={() => go("/unibox")}>
-            <Inbox />
-            <span>Replies (Unibox)</span>
-            <CommandShortcut>G U</CommandShortcut>
-          </CommandItem>
+          {/* Sprint 6 (10/05/2026) — /pipeline et /unibox retires (caducs post-pivot Data-only) */}
           <CommandItem onSelect={() => go("/clients")}>
             <Users />
             <span>Clients</span>

@@ -62,7 +62,11 @@ export async function logActivity(args: LogActivityArgs): Promise<{ ok: true; id
 //
 // Bonus 30/04 : détecte les opt-out RGPD dans les replies RECEIVED et pose
 // `Lead.doNotContact = true` automatiquement quand un keyword est matché.
-export async function syncEmailActivitiesToLeadActivity(opts: { since?: Date; limit?: number } = {}) {
+export async function syncEmailActivitiesToLeadActivity(_opts: { since?: Date; limit?: number } = {}) {
+  // Sprint 6 (10/05/2026) — STUB no-op : EmailActivity table droppee post-pivot
+  // Data-only. Le sync n'a plus rien a synchroniser. Retourne 0 leads detectes.
+  return { synced: 0, optOutDetected: 0, skippedExisting: 0 };
+  /* OLD code conserve pour reference :
   const since = opts.since ?? new Date(Date.now() - 7 * 24 * 3600 * 1000);
   const limit = opts.limit ?? 200;
 
@@ -146,6 +150,7 @@ export async function syncEmailActivitiesToLeadActivity(opts: { since?: Date; li
     }
   }
   return { scanned: orphans.length, created, optOutDetected };
+  */ // Sprint 6 — fin OLD code commente
 }
 
 // ──────────────────────────────────────────────────────────────────────

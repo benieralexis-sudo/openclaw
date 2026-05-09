@@ -75,11 +75,26 @@ const WebIntelligenceHandler = _safeRequire('../skills/web-intelligence/web-inte
 const SystemAdvisorHandler = _safeRequire('../skills/system-advisor/system-advisor-handler.js', _LegacyStubHandler);
 const AutonomousHandler = _safeRequire('../skills/autonomous-pilot/autonomous-handler.js', _LegacyStubHandler);
 const BrainEngine = _safeRequire('../skills/autonomous-pilot/brain-engine.js', _LegacyStubHandler);
-const InboxHandler = require('../skills/inbox-manager/inbox-handler.js');
-let InboxListener;
-try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } catch (e) { InboxListener = null; }
-const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
-const { classifyReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, generateInterestedReplyViaClaude, parseOOOReturnDate, checkGrounding, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
+// Sprint 6 (10/05/2026) — skills/inbox-manager/* + skills/meeting-scheduler/*
+// physiquement supprimes (post-pivot Data-only). On utilise _safeRequire +
+// fallback stubs au lieu de require() hardcode (sinon crash au boot).
+const InboxHandler = _safeRequire('../skills/inbox-manager/inbox-handler.js', _LegacyStubHandler);
+const InboxListener = _safeRequire('../skills/inbox-manager/inbox-listener.js', null);
+const MeetingHandler = _safeRequire('../skills/meeting-scheduler/meeting-handler.js', _LegacyStubHandler);
+// reply-classifier supprime — exports remplaces par stubs no-op (jamais appeles
+// car InboxListener stub null et reply-pipeline jamais branche).
+const classifyReply = async () => ({ sentiment: 'unknown', confidence: 0 });
+const subClassifyObjection = async () => null;
+const generateObjectionReply = async () => null;
+const generateQuestionReplyViaClaude = async () => null;
+const generateInterestedReplyViaClaude = async () => null;
+const parseOOOReturnDate = () => null;
+const checkGrounding = () => ({ grounded: false });
+const REPLY_TEMPLATES = {};
+// Suppress unused warnings (les stubs sont references plus bas dans createReplyPipeline)
+void classifyReply; void subClassifyObjection; void generateObjectionReply;
+void generateQuestionReplyViaClaude; void generateInterestedReplyViaClaude;
+void parseOOOReturnDate; void checkGrounding; void REPLY_TEMPLATES;
 
 // --- Trigger Engine — DECOMMISSIONNE Sprint 2 (10/05/2026) ---
 // Migration sources vers dashboard-v2 effectuee Sprint 1.
@@ -113,7 +128,11 @@ const { createUnsubscribeHandler } = require('./unsubscribe-handler.js');
 const { createEmailTracking } = require('./email-tracking.js');
 const { createHitlApi } = require('./hitl-api.js');
 const { verifySvixSignature } = require('./resend-webhook-auth.js');
-const { createReplyPipeline } = require('./reply-pipeline.js');
+// Sprint 6 (10/05/2026) — reply-pipeline.js supprime (caduc post-pivot Data-only,
+// 934 lignes). Stub no-op : si IMAP listener jamais wire (vars vides), ce stub
+// ne sera jamais appele de toute facon.
+const createReplyPipeline = () => async () => { /* no-op */ };
+void createReplyPipeline; // suppress unused warning
 
 // --- Metriques globales (partage memoire pour System Advisor) ---
 const METRICS_FILE = (process.env.APP_CONFIG_DIR || '/data/app-config') + '/ifind-metrics.json';
@@ -613,7 +632,7 @@ const autoPilotHandler = new AutonomousHandler();
 const autoPilotEngine = new BrainEngine();
 
 // Inbox Listener IMAP — initialisation avec callbacks
-const automailerStorageForInbox = require('../skills/automailer/storage.js');
+const automailerStorageForInbox = require('./automailer-storage-stub.js');
 if (!InboxListener) {
   log.warn('router', 'inbox-listener non disponible (imapflow manquant). Installer avec: docker exec moltbot-telegram-router-1 pnpm add -w imapflow');
 }
@@ -1091,7 +1110,7 @@ async function _hitlSendReply(chatId, draftId) {
   }
 
   try {
-    const ResendClient = require('../skills/automailer/resend-client.js');
+    const ResendClient = (function(){try{return require('../skills/automailer/resend-client.js');}catch(e){return function(){return{send:async()=>({ok:false,error:'resend-client removed Sprint 6'})}};}}());
     const resendClient = new ResendClient(RESEND_KEY, SENDER_EMAIL);
 
     const sendResult = await resendClient.sendEmail(
@@ -1409,7 +1428,7 @@ if (!WEBHOOK_SECRET) {
 let _botReady = false;
 
 // --- FIX 23 : Webhook Resend — reception temps reel des evenements email ---
-const automailerStorage = require('../skills/automailer/storage.js');
+const automailerStorage = require('./automailer-storage-stub.js');
 
 // ProspectResearcher : legacy, recherche pré-envoi remplacée par Trigger Engine qualify pipeline
 const ProspectResearcher = _safeRequire('../skills/autonomous-pilot/prospect-researcher.js', null);
@@ -1444,7 +1463,7 @@ const handleHitlApi = createHitlApi({
   saveHitlDrafts: () => _saveHitlDrafts(),
   getAutomailerStorage: () => automailerStorageForInbox,
   getResendClient: () => {
-    const ResendClient = require('../skills/automailer/resend-client.js');
+    const ResendClient = (function(){try{return require('../skills/automailer/resend-client.js');}catch(e){return function(){return{send:async()=>({ok:false,error:'resend-client removed Sprint 6'})}};}}());
     return new ResendClient(RESEND_KEY, SENDER_EMAIL);
   },
   adminChatId: ADMIN_CHAT_ID,
@@ -1552,7 +1571,7 @@ const healthServer = http.createServer(async (req, res) => {
       return;
     }
     try {
-      const automailerStorage = require('../skills/automailer/storage.js');
+      const automailerStorage = require('./automailer-storage-stub.js');
       const emails = automailerStorage.getEmailEventsForRecipient(email);
       const isBlacklisted = automailerStorage.isBlacklisted(email);
       const sentiment = automailerStorage.getSentiment ? automailerStorage.getSentiment(email) : null;
@@ -1595,7 +1614,7 @@ const healthServer = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: 'email requis' }));
           return;
         }
-        const automailerStorage = require('../skills/automailer/storage.js');
+        const automailerStorage = require('./automailer-storage-stub.js');
         // 1. Supprimer tous les emails envoyes a cette adresse
         const before = automailerStorage.data.emails.length;
         automailerStorage.data.emails = automailerStorage.data.emails.filter(e => (e.to || '').toLowerCase() !== email);
@@ -1695,7 +1714,7 @@ const healthServer = http.createServer(async (req, res) => {
 
         // Charger le handler Instantly
         const { createInstantlyWebhookHandler } = require('./instantly-webhook-handler.js');
-        const automailerStorage = require('../skills/automailer/storage.js');
+        const automailerStorage = require('./automailer-storage-stub.js');
         const handler = createInstantlyWebhookHandler({
           sendTelegram: sendMessage,
           storage: automailerStorage,
@@ -1757,7 +1776,7 @@ const healthServer = http.createServer(async (req, res) => {
         }
         idemP.markSeen('pharow:batch:' + batchKey);
         const leads = Array.isArray(parsed) ? parsed : (parsed.prospects || parsed.leads || parsed.data || [parsed]);
-        const automailerStorage = require('../skills/automailer/storage.js');
+        const automailerStorage = require('./automailer-storage-stub.js');
         const ADMIN_CHAT = _getAdminChatId(pharowResolvedClient); // B2 — route to tenant admin
         let imported = 0, skipped = 0;
         for (const raw of leads) {
@@ -1873,7 +1892,7 @@ const healthServer = http.createServer(async (req, res) => {
         const prospect = data.prospect || data.company || {};
         const person = data.person || data.contact || {};
         const details = data.details || {};
-        const automailerStorage = require('../skills/automailer/storage.js');
+        const automailerStorage = require('./automailer-storage-stub.js');
         const ADMIN_CHAT = _getAdminChatId(rodzResolvedClient); // B2 — route to tenant admin
 
         // Construire le lead depuis le signal Rodz
@@ -2022,7 +2041,7 @@ const healthServer = http.createServer(async (req, res) => {
         // Support batch (array) ou single lead (object)
         const leads = Array.isArray(parsed) ? parsed : [parsed];
         const results = [];
-        const automailerStorage = require('../skills/automailer/storage.js');
+        const automailerStorage = require('./automailer-storage-stub.js');
         const ADMIN_CHAT_ID = _getAdminChatId(clayResolvedClient); // B2 — route to tenant admin
 
         // v9.1: Compute lead score server-side (Clay formulas don't resolve in HTTP API)

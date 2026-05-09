@@ -77,10 +77,7 @@ export async function GET(req: NextRequest) {
       _count: {
         select: {
           triggers: { where: { deletedAt: null, capturedAt: { gte: sevenDaysAgo } } },
-          opportunities: {
-            where: { deletedAt: null, stage: { notIn: ["WON", "LOST"] } },
-          },
-          replies: { where: { deletedAt: null, status: "UNREAD" } },
+          // Sprint 6 (10/05/2026) — opportunities + replies retires (tables droppees)
         },
       },
     },
@@ -103,8 +100,8 @@ export async function GET(req: NextRequest) {
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     triggersLast7d: c._count.triggers,
-    openOpportunities: c._count.opportunities,
-    unreadReplies: c._count.replies,
+    openOpportunities: 0, // Sprint 6 — Opportunity table droppee
+    unreadReplies: 0, // Sprint 6 — Reply table droppee
     mrrEur: c.status === "ACTIVE" ? (PLAN_MRR_EUR[c.plan] ?? 0) : 0,
   }));
 

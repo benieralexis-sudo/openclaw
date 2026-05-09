@@ -66,19 +66,10 @@ export async function GET(
       _count: {
         select: {
           triggers: { where: { deletedAt: null, capturedAt: { gte: sevenDaysAgo } } },
-          opportunities: {
-            where: { deletedAt: null, stage: { notIn: ["WON", "LOST"] } },
-          },
-          replies: { where: { deletedAt: null, status: "UNREAD" } },
+          // Sprint 6 (10/05/2026) — opportunities + replies retires (tables droppees)
         },
       },
-      opportunities: {
-        where: {
-          deletedAt: null,
-          stage: { in: ["WON", "LOST"] },
-        },
-        select: { stage: true, dealValueEur: true },
-      },
+      // Sprint 6 (10/05/2026) — opportunities relation retiree (table droppee)
       triggers: {
         where: { deletedAt: null },
         orderBy: { capturedAt: "desc" },
@@ -98,22 +89,11 @@ export async function GET(
 
   if (!client) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
-  // Conversion close basée sur opps fermées
-  const won = client.opportunities.filter((o) => o.stage === "WON").length;
-  const closed = client.opportunities.length;
-  const conversion = closed > 0 ? (won / closed) * 100 : 0;
-  const wonValue = client.opportunities
-    .filter((o) => o.stage === "WON")
-    .reduce((sum, o) => sum + (o.dealValueEur ? Number(o.dealValueEur) : 0), 0);
-
-  const meetingsThisWeek = await db.opportunity.count({
-    where: {
-      clientId: id,
-      deletedAt: null,
-      stage: "MEETING_SET",
-      meetingDate: { gte: startOfWeek, lte: endOfWeek },
-    },
-  });
+  // Sprint 6 (10/05/2026) — Metrics opportunities/conversion/meetings retires
+  // (table Opportunity droppee post-pivot Data-only — le client gere son propre CRM)
+  const conversion = 0;
+  const wonValue = 0;
+  const meetingsThisWeek = 0;
 
   return NextResponse.json({
     id: client.id,
@@ -136,8 +116,9 @@ export async function GET(
     updatedAt: client.updatedAt,
     metrics: {
       triggersLast7d: client._count.triggers,
-      openOpportunities: client._count.opportunities,
-      unreadReplies: client._count.replies,
+      // Sprint 6 — fields opportunites/replies retires (tables droppees)
+      openOpportunities: 0,
+      unreadReplies: 0,
       conversionClosePct: Math.round(conversion),
       wonValueEur: wonValue,
       meetingsThisWeek,

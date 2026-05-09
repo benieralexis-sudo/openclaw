@@ -32,13 +32,12 @@ export async function GET(req: NextRequest) {
     db.trigger.count({ where: { deletedAt: null, capturedAt: { gte: since24h } } }),
     db.trigger.count({ where: { deletedAt: null, capturedAt: { gte: since7d } } }),
     db.lead.count({ where: { deletedAt: null } }),
-    db.opportunity.count({ where: { deletedAt: null } }),
-    db.opportunity.count({
-      where: { deletedAt: null, stage: { notIn: ["WON", "LOST"] } },
-    }),
-    db.opportunity.count({ where: { deletedAt: null, stage: "WON" } }),
-    db.reply.count({ where: { deletedAt: null } }),
-    db.reply.count({ where: { deletedAt: null, status: "UNREAD" } }),
+    // Sprint 6 (10/05/2026) — opportunities + replies retires (tables droppees post-pivot Data-only)
+    Promise.resolve(0), // opportunitiesTotal
+    Promise.resolve(0), // opportunitiesActive
+    Promise.resolve(0), // opportunitiesWon
+    Promise.resolve(0), // repliesTotal
+    Promise.resolve(0), // repliesUnread
     db.user.count({ where: { deletedAt: null } }),
     db.client.count({ where: { deletedAt: null, status: "ACTIVE" } }),
     db.client.count({ where: { deletedAt: null, status: "PROSPECT" } }),

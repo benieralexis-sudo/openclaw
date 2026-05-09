@@ -133,29 +133,20 @@ export async function GET(
     },
   });
 
-  // Opportunity associée si elle existe
-  const opportunity = await db.opportunity.findUnique({
-    where: { triggerId: id },
-    select: {
-      id: true,
-      stage: true,
-      meetingDate: true,
-      meetingNotes: true,
-      dealValueEur: true,
-      wonAt: true,
-      lostAt: true,
-    },
-  });
+  // Sprint 6 (10/05/2026) — Opportunity table droppee, retourne null
+  const opportunity = null as null | {
+    id: string;
+    stage: string;
+    meetingDate: Date | null;
+    meetingNotes: string | null;
+    dealValueEur: unknown;
+    wonAt: Date | null;
+  };
 
   return NextResponse.json({
     trigger,
     lead,
     client,
-    opportunity: opportunity
-      ? {
-          ...opportunity,
-          dealValueEur: opportunity.dealValueEur ? Number(opportunity.dealValueEur) : null,
-        }
-      : null,
+    opportunity, // null Sprint 6+
   });
 }
