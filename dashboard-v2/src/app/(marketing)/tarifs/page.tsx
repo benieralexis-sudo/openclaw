@@ -368,15 +368,19 @@ function Trust({ icon, label, sub, color }: { icon: React.ReactNode; label: stri
 
 function CellValue({ value, highlight }: { value: boolean | string; highlight?: boolean }) {
   return (
-    <td className={`text-center py-3.5 px-4 ${highlight ? "bg-brand-600/5" : ""}`}>
+    <td className={`text-center py-4 px-4 ${highlight ? "bg-brand-600/15 border-x border-brand-500/30" : ""}`}>
       {typeof value === "boolean" ? (
         value ? (
-          <Check className={`h-5 w-5 inline ${highlight ? "text-brand-300" : "text-emerald-400"}`} />
+          <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${highlight ? "bg-emerald-400 text-emerald-950" : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"}`}>
+            <Check className="h-4 w-4" strokeWidth={3} />
+          </span>
         ) : (
-          <X className="h-5 w-5 inline text-ink-600" />
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">
+            <X className="h-4 w-4" strokeWidth={3} />
+          </span>
         )
       ) : (
-        <span className={`font-mono text-xs ${highlight ? "font-bold text-brand-300" : "text-ink-300"}`}>{value}</span>
+        <span className={`inline-block font-mono text-xs px-2.5 py-1 rounded-md ${highlight ? "font-bold text-brand-200 bg-brand-500/20 border border-brand-400/40" : "text-ink-300 bg-ink-800/60"}`}>{value}</span>
       )}
     </td>
   );
