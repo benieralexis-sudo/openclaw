@@ -42,6 +42,8 @@ import { fetchCompanyWebsiteSummary, formatCompanyWebsiteBlock } from "@/lib/com
 // ──────────────────────────────────────────────────────────────────────
 
 export interface LeadDossierClient {
+  // Sprint 8 (10/05/2026) — id ajoute pour quota-checker
+  id: string;
   name: string;
   icp: Record<string, unknown>;
 }
@@ -123,7 +125,7 @@ export async function buildLeadDossierForJudge(
   const trigger = await db.trigger.findUnique({
     where: { id: triggerId },
     include: {
-      client: { select: { name: true, icp: true } },
+      client: { select: { id: true, name: true, icp: true } },
       lead: {
         select: {
           fitScore: true,
@@ -239,7 +241,7 @@ export async function buildLeadDossierForJudge(
 
   return {
     triggerId,
-    client: { name: trigger.client.name, icp },
+    client: { id: trigger.client.id, name: trigger.client.name, icp },
     trigger: {
       id: trigger.id,
       type: trigger.type,

@@ -17,6 +17,14 @@ import "server-only";
 import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { runAndGetItems } from "@/lib/apify";
+import { checkQuota, recordSpend } from "@/lib/quota-checker";
+
+// Sprint 8 (10/05/2026) — Apify pricing approx : 1 CU ≈ $0.40 sur plan Starter.
+// Conservateur (CU réel facturé varie selon RAM allouée). Pour un calcul précis
+// post-facto, voir lib/apify.ts getCachedBudget() qui interroge le total mensuel.
+const APIFY_USD_PER_CU = 0.4;
+// Estimation par run (3 actors × ~0.4 CU moy = 1.2 CU = $0.48). On check à $0.50.
+const APIFY_ESTIMATE_PER_RUN_USD = 0.5;
 
 interface ClientIcpExtended {
   industries?: string[];
@@ -487,6 +495,16 @@ async function runActorAndPushTriggers(args: {
     skipped: 0,
   } as ApifyPollerResult["actorRuns"][number];
 
+  // Sprint 8 — Quota check Apify AVANT run. Bloque si client a depasse hard cap.
+  const quota = await checkQuota(args.clientId, "apify", APIFY_ESTIMATE_PER_RUN_USD);
+  if (!quota.ok) {
+    console.warn(
+      `[apify-poller.quota-blocked] client=${args.clientId} actor=${args.actor} reason=${quota.reason} pct=${quota.pctUsed}%`,
+    );
+    start.error = `quota-blocked: ${quota.reason}`;
+    return start;
+  }
+
   try {
     const { run, items } = await runAndGetItems<Record<string, unknown>>(
       args.actor,
@@ -496,6 +514,16 @@ async function runActorAndPushTriggers(args: {
     start.runId = run?.id ?? "(sync)";
     start.computeUnits = run?.stats?.computeUnits;
     start.itemsFound = items.length;
+
+    // Sprint 8 — record cost reel post-run (CU facture par Apify).
+    if (start.computeUnits !== undefined && start.computeUnits > 0) {
+      const actualCostUsd = start.computeUnits * APIFY_USD_PER_CU;
+      await recordSpend(args.clientId, "apify", actualCostUsd).catch((e) =>
+        console.warn(
+          `[apify-poller.recordSpend] client=${args.clientId} failed: ${e instanceof Error ? e.message : e}`,
+        ),
+      );
+    }
 
     for (const raw of items) {
       const job = args.adapter(raw);

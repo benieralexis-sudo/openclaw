@@ -17,6 +17,13 @@ import { searchJobs, searchCompanies, type JobResult, type JobSearchFilters, typ
 import { attributeSirene, getEntreprise } from "@/lib/pappers";
 import { markLeadEnrichedFromPappers } from "@/lib/lead-enrichment-tagging";
 import { mergeDuplicateTriggersBySiret } from "@/lib/trigger-dedup";
+import { checkQuota, recordSpend } from "@/lib/quota-checker";
+
+// Sprint 8 (10/05/2026) — TheirStack pricing : ~$89/5200 cr ≈ $0.0171/cr.
+// 1 cr/job · 3 cr/company. On record le cout post-call sur creditsEstimateUsed.
+const THEIRSTACK_USD_PER_CREDIT = 0.0171;
+// Estimation upper-bound par poll : jobs (30 cr) + companies buying-intent (45 cr) = ~$1.30
+const THEIRSTACK_ESTIMATE_PER_POLL_USD = 1.5;
 
 /**
  * Slugs TheirStack des outils de test/QA — utilisés par DTL et tout
@@ -278,6 +285,16 @@ export async function pollTheirstackForClient(
   if (!client) throw new Error(`Client ${clientId} introuvable`);
   if (!client.icp) throw new Error(`Client ${client.name} sans ICP`);
 
+  // Sprint 8 — Quota check TheirStack AVANT searchJobs (~30 cr ≈ $0.51 estim).
+  const quota = await checkQuota(clientId, "theirstack", THEIRSTACK_ESTIMATE_PER_POLL_USD);
+  if (!quota.ok) {
+    console.warn(
+      `[theirstack-poller.quota-blocked] client=${clientId} reason=${quota.reason} pct=${quota.pctUsed}%`,
+    );
+    result.errors.push({ kind: "quota-blocked", error: quota.reason ?? "unknown" });
+    return result;
+  }
+
   const icp = client.icp as ClientIcpExtended;
   const sizeRange = rangeForSizes(icp.sizes);
   const tsIndustries = mapIndustries(icp.industries);
@@ -389,6 +406,16 @@ export async function pollTheirstackForClient(
   // garder le coût lisible).
   // ────────────────────────────────────────────────────────────────────
 
+  // Sprint 8 — record cost reel (creditsEstimateUsed comptabilise jobs trouves)
+  if (result.creditsEstimateUsed > 0) {
+    const actualCostUsd = result.creditsEstimateUsed * THEIRSTACK_USD_PER_CREDIT;
+    await recordSpend(clientId, "theirstack", actualCostUsd).catch((e) =>
+      console.warn(
+        `[theirstack-poller.recordSpend] client=${clientId} failed: ${e instanceof Error ? e.message : e}`,
+      ),
+    );
+  }
+
   return result;
 }
 
@@ -438,6 +465,16 @@ export async function pollTheirstackBuyingIntentForClient(
   });
   if (!client) throw new Error(`Client ${clientId} introuvable`);
   if (!client.icp) throw new Error(`Client ${client.name} sans ICP`);
+
+  // Sprint 8 — Quota check TheirStack AVANT buying-intent (~45 cr ≈ $0.77 estim).
+  const quota = await checkQuota(clientId, "theirstack", 0.8);
+  if (!quota.ok) {
+    console.warn(
+      `[theirstack-poller-bi.quota-blocked] client=${clientId} reason=${quota.reason} pct=${quota.pctUsed}%`,
+    );
+    result.errors.push({ kind: "quota-blocked", error: quota.reason ?? "unknown" });
+    return result;
+  }
 
   const icp = client.icp as ClientIcpExtended;
   const sizeRange = rangeForSizes(icp.sizes);
@@ -580,6 +617,16 @@ export async function pollTheirstackBuyingIntentForClient(
       kind: "searchCompanies",
       error: e instanceof Error ? e.message : String(e),
     });
+  }
+
+  // Sprint 8 — record cost reel buying-intent (3 cr/company × companies trouvees)
+  if (result.creditsEstimateUsed > 0) {
+    const actualCostUsd = result.creditsEstimateUsed * THEIRSTACK_USD_PER_CREDIT;
+    await recordSpend(clientId, "theirstack", actualCostUsd).catch((e) =>
+      console.warn(
+        `[theirstack-poller-bi.recordSpend] client=${clientId} failed: ${e instanceof Error ? e.message : e}`,
+      ),
+    );
   }
 
   return result;

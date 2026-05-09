@@ -7,6 +7,9 @@ import { archiveLeadOnTriggerIgnored, unarchiveLeadOnTriggerRevived } from "@/li
 import { readDynamicFewShotsFromIcp } from "@/lib/dynamic-few-shots";
 import { searchLayoffsNews } from "@/lib/layoffs-news-search";
 import { buildLeadDossierForJudge, formatDossierForOpus } from "@/lib/lead-dossier";
+// Sprint 8 (10/05/2026) — Quota par client + cout reel Anthropic
+import { checkQuota, recordSpend } from "@/lib/quota-checker";
+import { computeAnthropicCost } from "@/lib/anthropic-cost";
 import {
   parseLeadBriefV2WithError,
   type LeadBriefV2,
@@ -622,6 +625,7 @@ export async function qualifyTrigger(
   const triggerLite = await db.trigger.findUnique({
     where: { id: triggerId },
     select: {
+      clientId: true, // Sprint 8 — pour quota check Anthropic
       score: true,
       scoreReason: true,
       isHot: true,
@@ -677,6 +681,16 @@ export async function qualifyTrigger(
   let reason = "Évaluation par défaut (Opus indisponible)";
 
   try {
+    // Sprint 8 (10/05/2026) — Quota check AVANT appel Opus (estimation $0.05/qualify
+    // ~5000 tk avec cache). Si hard cap atteint, on skip et retourne score=2 reject.
+    const quotaCheck = await checkQuota(triggerLite.clientId, "anthropic", 0.05);
+    if (!quotaCheck.ok) {
+      console.warn(
+        `[qualify-trigger.quota-blocked] ${triggerId} client=${triggerLite.clientId} reason=${quotaCheck.reason} spent=$${quotaCheck.currentSpendUsd}/${quotaCheck.hardCapUsd}`,
+      );
+      return { opusScore: 2, reason: `[quota-exceeded] Anthropic budget client epuise ($${quotaCheck.currentSpendUsd}/${quotaCheck.hardCapUsd})`, isHot: false };
+    }
+
     const anthropic = getAnthropic();
     const resp = await anthropic.messages.create({
       model: QUALIFY_MODEL,
@@ -708,6 +722,11 @@ export async function qualifyTrigger(
         cache_create: u.cache_creation_input_tokens ?? 0,
         cache_read: u.cache_read_input_tokens ?? 0,
       })}`,
+    );
+    // Sprint 8 — record cost reel pour quota tracking
+    const actualCostUsd = computeAnthropicCost(QUALIFY_MODEL, u);
+    await recordSpend(triggerLite.clientId, "anthropic", actualCostUsd).catch((e) =>
+      console.warn(`[qualify-trigger.recordSpend] ${triggerId} failed: ${e instanceof Error ? e.message : e}`),
     );
     const text = resp.content
       .filter((c) => c.type === "text")
@@ -1202,6 +1221,15 @@ export async function qualifyTriggerV2(
   const icp = dossier.client.icp;
 
   try {
+    // Sprint 8 — Quota check AVANT V2 brief (~$0.04 estimation max_tokens 2000 + cache)
+    const quotaCheck = await checkQuota(dossier.client.id, "anthropic", 0.04);
+    if (!quotaCheck.ok) {
+      console.warn(
+        `[qualify-trigger-v2.quota-blocked] ${triggerId} client=${dossier.client.id} reason=${quotaCheck.reason}`,
+      );
+      return null;
+    }
+
     const anthropic = getAnthropic();
     const resp = await anthropic.messages.create({
       model: QUALIFY_MODEL,
@@ -1228,6 +1256,11 @@ export async function qualifyTriggerV2(
         cache_create: u.cache_creation_input_tokens ?? 0,
         cache_read: u.cache_read_input_tokens ?? 0,
       })}`,
+    );
+    // Sprint 8 — record cost reel V2
+    const actualCostUsd = computeAnthropicCost(QUALIFY_MODEL, u);
+    await recordSpend(dossier.client.id, "anthropic", actualCostUsd).catch((e) =>
+      console.warn(`[qualify-trigger-v2.recordSpend] ${triggerId} failed: ${e instanceof Error ? e.message : e}`),
     );
 
     const text = resp.content
