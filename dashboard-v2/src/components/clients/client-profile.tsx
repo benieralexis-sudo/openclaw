@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeliveryEditor } from "@/components/clients/delivery-editor";
 import { TeamEditor } from "@/components/clients/team-editor";
+import { QuotaEditor } from "@/components/clients/quota-editor";
 import { toast } from "@/components/ui/sonner";
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatNumberFr, formatRelativeFr } from "@/lib/utils";
@@ -174,6 +175,10 @@ export function ClientProfile({ clientId }: { clientId: string }) {
             <Sparkles className="h-3.5 w-3.5" />
             Équipe
           </TabsTrigger>
+          <TabsTrigger value="quota" className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            Quotas
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="icp">
@@ -204,6 +209,10 @@ export function ClientProfile({ clientId }: { clientId: string }) {
 
         <TabsContent value="team">
           <TeamEditor clientId={client.id} canInvite={canEdit} />
+        </TabsContent>
+
+        <TabsContent value="quota">
+          <QuotaEditor clientId={client.id} canEdit={canEdit} />
         </TabsContent>
       </Tabs>
     </div>

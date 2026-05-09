@@ -138,6 +138,10 @@ model Client {
   // Sprint 3 (10/05/2026) — Configuration delivery par client (digest hebdo,
   // alertes realtime, branding email). Voir lib/delivery-config.ts pour Zod.
   deliveryConfig Json?
+  // Sprint 7 (10/05/2026) — Quotas API par client (Anthropic, Apify, TheirStack).
+  // Permet d'isoler la facture par tenant + alerter quand 80%/100% atteint.
+  // Voir lib/quota-config.ts pour Zod schema + quota-checker.ts pour usage.
+  quotaConfig    Json?
   // Metadata
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
