@@ -28,6 +28,15 @@ if (!dsn) {
       /Telegram.*\s4(0[139]|29)/,       // rate limits Telegram (429) et transient
       /self[_\s]signed certificate/i,
       'socket hang up',
+      // 09/05/2026 — post-pivot Data-only (Full Service abandonne 05/05) :
+      // - Google Calendar refresh token revoque cote Workspace, sync desactive
+      //   dans cron-manager.js mais boot check getProfile s'execute encore 1x/restart
+      // - Stub storage des skills supprimes (proactive-agent/self-improve/etc)
+      //   appellait updateConfig() qui n'existait pas → fix stub mais filet de
+      //   securite ici au cas ou un autre code legacy tomberait sur le meme cas
+      /Could not refresh access token/i,
+      /access_denied/,
+      /storages\.\w+\.updateConfig is not a function/,
     ],
 
     // Tag chaque event avec le client (Phase B3 — multi-tenant tagging)

@@ -668,7 +668,7 @@ for (const listener of inboxListeners) {
 
 // Storages des skills legacy (toggle config.enabled — deviendront no-op si fichiers droppés)
 // Tous wrappés en _safeRequire avec fallback objet vide pour résister au drop physique.
-const _emptyStorageStub = { data: {}, getConfig: () => ({}), getStats: () => ({}) };
+const _emptyStorageStub = { data: {}, getConfig: () => ({}), getStats: () => ({}), updateConfig: () => {} };
 const proactiveAgentStorage = _safeRequire('../skills/proactive-agent/storage.js', _emptyStorageStub);
 const selfImproveStorage = _safeRequire('../skills/self-improve/storage.js', _emptyStorageStub);
 const webIntelStorage = _safeRequire('../skills/web-intelligence/storage.js', _emptyStorageStub);
