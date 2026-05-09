@@ -23,33 +23,33 @@ datasource db {
 // =====================================================================
 
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
-  name            String?
-  image           String?
-  emailVerified   Boolean   @default(false)
-  passwordHash    String?
-  role            UserRole  @default(CLIENT)
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  image          String?
+  emailVerified  Boolean   @default(false)
+  passwordHash   String?
+  role           UserRole  @default(CLIENT)
   // Multi-tenant scope
-  clientId        String?   // Pour rôle CLIENT/EDITOR/VIEWER : leur unique client
-  scopeClientIds  String[]  @default([]) // Pour rôle COMMERCIAL : liste de clients gérés
-  client          Client?   @relation("ClientOwner", fields: [clientId], references: [id], onDelete: SetNull)
+  clientId       String? // Pour rôle CLIENT/EDITOR/VIEWER : leur unique client
+  scopeClientIds String[]  @default([]) // Pour rôle COMMERCIAL : liste de clients gérés
+  client         Client?   @relation("ClientOwner", fields: [clientId], references: [id], onDelete: SetNull)
   // Préférences
-  locale          String    @default("fr-FR")
-  timezone        String    @default("Europe/Paris")
-  preferences     Json?
+  locale         String    @default("fr-FR")
+  timezone       String    @default("Europe/Paris")
+  preferences    Json?
   // Flags
-  onboardingDone  Boolean   @default(false)
+  onboardingDone Boolean   @default(false)
   // Audit
-  lastLoginAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
 
-  sessions        Session[]
-  accounts        Account[]
-  notifications   Notification[]
-  activities      LeadActivity[]
+  sessions      Session[]
+  accounts      Account[]
+  notifications Notification[]
+  activities    LeadActivity[]
 
   @@index([clientId])
   @@index([role])
@@ -57,55 +57,55 @@ model User {
 }
 
 enum UserRole {
-  ADMIN       // Voit tout, peut tout faire
-  COMMERCIAL  // Voit ses scopeClientIds (commerciaux amis)
-  CLIENT      // Voit son seul client
-  EDITOR      // Comme CLIENT mais peut éditer
-  VIEWER      // Comme CLIENT mais lecture seule
+  ADMIN // Voit tout, peut tout faire
+  COMMERCIAL // Voit ses scopeClientIds (commerciaux amis)
+  CLIENT // Voit son seul client
+  EDITOR // Comme CLIENT mais peut éditer
+  VIEWER // Comme CLIENT mais lecture seule
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt    DateTime
-  token        String   @unique
-  ipAddress    String?
-  userAgent    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([expiresAt])
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  providerId        String
-  accountId         String
-  accessToken       String?
-  refreshToken      String?
-  accessTokenExpiresAt DateTime?
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId            String
+  accountId             String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
-  scope             String?
-  password          String?
-  idToken           String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  scope                 String?
+  password              String?
+  idToken               String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@unique([providerId, accountId])
   @@index([userId])
 }
 
 model Verification {
-  id          String   @id @default(cuid())
-  identifier  String
-  value       String
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([identifier, value])
 }
@@ -115,39 +115,42 @@ model Verification {
 // =====================================================================
 
 model Client {
-  id          String       @id @default(cuid())
-  slug        String       @unique // "digitestlab", "ifind"
-  name        String
-  legalName   String?
-  industry    String?
-  region      String?
-  size        String?      // "TPE", "PME", "ETI", "GE"
-  status      ClientStatus @default(PROSPECT)
-  plan        ClientPlan   @default(LEADS_DATA)
+  id             String       @id @default(cuid())
+  slug           String       @unique // "digitestlab", "ifind"
+  name           String
+  legalName      String?
+  industry       String?
+  region         String?
+  size           String? // "TPE", "PME", "ETI", "GE"
+  status         ClientStatus @default(PROSPECT)
+  plan           ClientPlan   @default(LEADS_DATA)
   // Branding (optionnel)
-  primaryColor String?
-  logoUrl      String?
+  primaryColor   String?
+  logoUrl        String?
   // Contact
-  contactEmail String?
-  contactPhone String?
+  contactEmail   String?
+  contactPhone   String?
   // Cal.com booking link slug (ex "alex/digitestlab-15min")
   // Injecté dans body pitch Opus pour permettre booking 1-clic.
-  calcomSlug   String?
+  calcomSlug     String?
   // ICP config (JSON flexible)
-  icp          Json?
+  icp            Json?
+  // Sprint 3 (10/05/2026) — Configuration delivery par client (digest hebdo,
+  // alertes realtime, branding email). Voir lib/delivery-config.ts pour Zod.
+  deliveryConfig Json?
   // Metadata
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  activatedAt  DateTime?
-  pausedAt     DateTime?
-  deletedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  activatedAt    DateTime?
+  pausedAt       DateTime?
+  deletedAt      DateTime?
 
-  users        User[]       @relation("ClientOwner")
-  triggers     Trigger[]
-  leads        Lead[]
+  users         User[]         @relation("ClientOwner")
+  triggers      Trigger[]
+  leads         Lead[]
   opportunities Opportunity[]
-  campaigns    Campaign[]
-  replies      Reply[]
+  campaigns     Campaign[]
+  replies       Reply[]
   notifications Notification[]
   rodzSignals   RodzSignal[]
 
@@ -156,14 +159,14 @@ model Client {
 }
 
 enum ClientStatus {
-  PROSPECT  // Pas encore signé
-  ACTIVE    // Signé, en production
-  PAUSED    // Suspendu (paiement, demande, ...)
-  CHURNED   // Parti
+  PROSPECT // Pas encore signé
+  ACTIVE // Signé, en production
+  PAUSED // Suspendu (paiement, demande, ...)
+  CHURNED // Parti
 }
 
 enum ClientPlan {
-  LEADS_DATA   // 199€/mois
+  LEADS_DATA // 199€/mois
   FULL_SERVICE // 890€/mois
   CUSTOM
 }
@@ -173,58 +176,58 @@ enum ClientPlan {
 // =====================================================================
 
 model Trigger {
-  id            String       @id @default(cuid())
-  clientId      String
-  client        Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id                           String        @id @default(cuid())
+  clientId                     String
+  client                       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   // Source (BODACC, INPI, France Travail, etc — interne, pas exposé client)
-  sourceCode    String       // "bodacc.levee", "francetravail.head_of_sales", "inpi.marque"
-  sourceUrl     String?
-  capturedAt    DateTime     @default(now()) // Quand notre moteur l'a vu
-  publishedAt   DateTime?    // Quand l'événement public est sorti
+  sourceCode                   String // "bodacc.levee", "francetravail.head_of_sales", "inpi.marque"
+  sourceUrl                    String?
+  capturedAt                   DateTime      @default(now()) // Quand notre moteur l'a vu
+  publishedAt                  DateTime? // Quand l'événement public est sorti
   // Entreprise détectée (attribution SIRENE)
-  companyName   String
-  companySiret  String?      // SIREN/SIRET
-  companyNaf    String?
-  industry      String?
-  region        String?
-  size          String?
+  companyName                  String
+  companySiret                 String? // SIREN/SIRET
+  companyNaf                   String?
+  industry                     String?
+  region                       String?
+  size                         String?
   // Lecture du signal
-  type          TriggerType
-  title         String       // "Levée de fonds Série A — 4,5 M€"
-  detail        String?      // Description longue
-  rawPayload    Json?        // Données brutes de la source
+  type                         TriggerType
+  title                        String // "Levée de fonds Série A — 4,5 M€"
+  detail                       String? // Description longue
+  rawPayload                   Json? // Données brutes de la source
   // Scoring (Claude Opus 4.7)
-  score         Int          // 1-10
-  scoreReason   String?      // Brief contextuel généré par l'IA
+  score                        Int // 1-10
+  scoreReason                  String? // Brief contextuel généré par l'IA
   // Sprint D.1 (07/05/2026) — Brief raisonné v2 : verdict OUI/NON/ENRICH +
   // thesis + triggers cités + risks + opener + sources. Schéma TS dans
   // lib/lead-brief-v2.ts (Zod). Double-write avec scoreReason pendant 30j
   // (Sprint D.5) puis migration progressive.
-  briefV2Json   Json?
-  isHot         Boolean      @default(false) // ≥9
-  isCombo       Boolean      @default(false) // pattern combiné (levée + hire ex)
+  briefV2Json                  Json?
+  isHot                        Boolean       @default(false) // ≥9
+  isCombo                      Boolean       @default(false) // pattern combiné (levée + hire ex)
   // Priority Scoring Engine (chantier #1, 01/05/2026) — voir lib/priority-scoring.ts
-  freshnessScore   Int?      // 0-100, décroissance exponentielle (demi-vie 14j)
-  multiSourceBoost Int       @default(0) // 0/15/30 selon nb sources distinctes 7j
-  priorityScore    Int?      // composite final = score × freshness/100 + boost
+  freshnessScore               Int? // 0-100, décroissance exponentielle (demi-vie 14j)
+  multiSourceBoost             Int           @default(0) // 0/15/30 selon nb sources distinctes 7j
+  priorityScore                Int? // composite final = score × freshness/100 + boost
   // Pipeline
-  status        TriggerStatus @default(NEW)
-  ignoredAt     DateTime?
-  ignoredReason String?
+  status                       TriggerStatus @default(NEW)
+  ignoredAt                    DateTime?
+  ignoredReason                String?
   // Enrichment dedup (évite re-fetch Pappers à chaque cron 6h)
   pappersDirigeantsAttemptedAt DateTime?
   // Declarative pain dedup (audit 30/04). Pose même si rien détecté pour
   // éviter re-scrape Apify $0.002/post × 5 posts/run × 16 runs/jour.
   // TTL 14j : on retente après 2 semaines au cas où la boîte poste enfin
   // une nouvelle douleur.
-  declarativePainScannedAt DateTime?
+  declarativePainScannedAt     DateTime?
   // Soft delete
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  deletedAt     DateTime?
+  createdAt                    DateTime      @default(now())
+  updatedAt                    DateTime      @updatedAt
+  deletedAt                    DateTime?
 
-  lead          Lead?
-  opportunity   Opportunity?
+  lead        Lead?
+  opportunity Opportunity?
 
   @@index([clientId, status, capturedAt(sort: Desc)])
   @@index([clientId, score(sort: Desc)])
@@ -236,28 +239,28 @@ model Trigger {
 }
 
 enum TriggerType {
-  FUNDRAISING       // Levée de fonds
-  HIRING_KEY        // Recrutement clé (Head of X, C-level)
+  FUNDRAISING // Levée de fonds
+  HIRING_KEY // Recrutement clé (Head of X, C-level)
   LEADERSHIP_CHANGE // Changement dirigeant
-  TRADEMARK         // Dépôt INPI marque
-  PATENT            // Dépôt brevet
-  AD_CAMPAIGN       // Campagne pub Meta/LinkedIn
-  EXPANSION         // Ouverture site / pays
-  REGULATORY        // Changement réglementaire / status
-  BUYING_INTENT     // Signal d'achat firmographique (TheirStack searchCompanies)
-  CAPITAL_INCREASE  // Augmentation de capital BODACC (signal levée pré-officiel)
-  JOB_MOVE          // Dirigeant a changé de poste <6m (Dropcontact job_move)
+  TRADEMARK // Dépôt INPI marque
+  PATENT // Dépôt brevet
+  AD_CAMPAIGN // Campagne pub Meta/LinkedIn
+  EXPANSION // Ouverture site / pays
+  REGULATORY // Changement réglementaire / status
+  BUYING_INTENT // Signal d'achat firmographique (TheirStack searchCompanies)
+  CAPITAL_INCREASE // Augmentation de capital BODACC (signal levée pré-officiel)
+  JOB_MOVE // Dirigeant a changé de poste <6m (Dropcontact job_move)
   OTHER
 }
 
 enum TriggerStatus {
-  NEW          // À traiter
-  CONTACTED    // Email envoyé
-  REPLIED      // Réponse reçue
-  BOOKED       // RDV pris
-  WON          // Deal signé
-  LOST         // Perdu
-  IGNORED      // Pas pertinent
+  NEW // À traiter
+  CONTACTED // Email envoyé
+  REPLIED // Réponse reçue
+  BOOKED // RDV pris
+  WON // Deal signé
+  LOST // Perdu
+  IGNORED // Pas pertinent
 }
 
 // =====================================================================
@@ -265,66 +268,66 @@ enum TriggerStatus {
 // =====================================================================
 
 model Lead {
-  id            String     @id @default(cuid())
-  clientId      String
-  client        Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  triggerId     String?    @unique
-  trigger       Trigger?   @relation(fields: [triggerId], references: [id], onDelete: SetNull)
+  id                        String      @id @default(cuid())
+  clientId                  String
+  client                    Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  triggerId                 String?     @unique
+  trigger                   Trigger?    @relation(fields: [triggerId], references: [id], onDelete: SetNull)
   // Personne
-  firstName     String?
-  lastName      String?
-  fullName      String?
-  jobTitle      String?
-  linkedinUrl   String?
+  firstName                 String?
+  lastName                  String?
+  fullName                  String?
+  jobTitle                  String?
+  linkedinUrl               String?
   // Contact
-  email         String?
-  emailStatus   EmailStatus @default(UNVERIFIED)
-  phone         String?
+  email                     String?
+  emailStatus               EmailStatus @default(UNVERIFIED)
+  phone                     String?
   // Entreprise (denormalisé pour requêtes rapides)
-  companyName   String
-  companySiret  String?
+  companyName               String
+  companySiret              String?
   // Pipeline
-  status        LeadStatus @default(NEW)
-  enrichedAt    DateTime?  // Quand on a enrichi via Pappers/Dropcontact
+  status                    LeadStatus  @default(NEW)
+  enrichedAt                DateTime? // Quand on a enrichi via Pappers/Dropcontact
   // Brief commercial Opus (généré on-demand, cache 7j)
-  briefJson     Json?
-  briefGeneratedAt DateTime?
+  briefJson                 Json?
+  briefGeneratedAt          DateTime?
   // Kaspr enrichment (LinkedIn → email pro + tel + titre, cache 7j)
-  kasprEnrichedAt     DateTime?
-  kasprAttemptedAt    DateTime?  // Pose même si rien trouvé (évite retentatives <30j)
-  kasprWorkEmail      String?
-  kasprPersonalEmail  String?
-  kasprPhone          String?
-  kasprTitle          String?
-  kasprCreditsUsed    Int?      @default(0)
-  kasprResponseJson   Json?
+  kasprEnrichedAt           DateTime?
+  kasprAttemptedAt          DateTime? // Pose même si rien trouvé (évite retentatives <30j)
+  kasprWorkEmail            String?
+  kasprPersonalEmail        String?
+  kasprPhone                String?
+  kasprTitle                String?
+  kasprCreditsUsed          Int?        @default(0)
+  kasprResponseJson         Json?
   // Dropcontact dedup — évite ré-essai des "no email found" à chaque cron
-  dropcontactAttemptedAt DateTime?
+  dropcontactAttemptedAt    DateTime?
   // Rodz dedup — évite ré-essai des "no LinkedIn match" à chaque cron
-  rodzAttemptedAt        DateTime?
+  rodzAttemptedAt           DateTime?
   // HarvestAPI search-by-company dedup (audit 29/04, Levier 4 anti-pollution).
   // Quand le signal n'apporte pas la personne (Apify Indeed, tech-hiring,
   // TheirStack sans hiring_team), on cherche le décideur tech via
   // harvestapi/linkedin-profile-search filtré par company + titre. Pose
   // même si rien trouvé pour éviter retentatives <30j.
-  harvestapiAttemptedAt  DateTime?
+  harvestapiAttemptedAt     DateTime?
   // FullEnrich waterfall (audit 29/04 soir, fallback Kaspr).
   // Pour les leads où Kaspr ne trouve pas email/phone (CTO startups, profils
   // moins indexés Kaspr DB), on tape FullEnrich qui cascade sur 20+ providers
   // (Hunter, Apollo, Anymail Finder, Findymail, Datagma, Lusha, Kaspr...).
   // Crédits déduits seulement si succès (1 cr/email, 10 cr/phone). Pose
   // même si rien trouvé pour éviter retentatives <30j.
-  fullenrichAttemptedAt  DateTime?
-  emailFullenrich        String?
-  phoneFullenrich        String?
+  fullenrichAttemptedAt     DateTime?
+  emailFullenrich           String?
+  phoneFullenrich           String?
   // Tier du décideur trouvé : 1=parfait (CTO/Head of QA pour signal qa-hire),
   // 2=bon (Founder/DSI/Eng Manager), 3=acceptable (CEO/Director), 4=fallback.
   // Sert au filtre dashboard "ne montrer que tier ≤ 2".
-  personaTier            Int?
+  personaTier               Int?
   // Source d'attribution de la persona pour debug/analytics :
   //   "rodz-payload" | "theirstack-hiring-team" | "apify-poster"
   //   | "harvestapi-search" | "pappers-rcs" | "pappers-holding-fallback"
-  personaSource          String?
+  personaSource             String?
   // LinkedIn finder cascade (étage 3-bis, 30/04). Quand persona connue
   // (firstName+lastName+companyName) mais linkedinUrl manquant, on tape
   // une cascade : Rodz enrichContact → HarvestAPI Profile Search
@@ -335,84 +338,78 @@ model Lead {
   //   "rodz-payload" | "theirstack-hiring-team" | "apify-poster"
   //   | "harvestapi-search-company" | "rodz-enrich-contact"
   //   | "harvestapi-profile-search" | "google-cse" | "dropcontact"
-  linkedinSource         String?
+  linkedinSource            String?
   // Multi-source emails (audit qualité Q3, 29/04). On stocke chaque source
   // séparément + un `emailConfidence` calculé pour identifier les emails
   // validés par 2+ sources concordantes (~95% deliverability).
-  emailRodz              String?
-  emailDropcontact       String?
-  emailConfidence        Int      @default(0)  // 0-100 (cf. recompute-email-confidence.ts)
-  emailSourceCount       Int      @default(0)  // 0-3 sources renseignées
+  emailRodz                 String?
+  emailDropcontact          String?
+  emailConfidence           Int         @default(0) // 0-100 (cf. recompute-email-confidence.ts)
+  emailSourceCount          Int         @default(0) // 0-3 sources renseignées
   // Bounce tracking (Q8 audit qualité, 29/04). Si Resend remonte un bounce,
   // on stocke l'email rejeté pour que le waterfall ne re-essaie pas la même
   // adresse au prochain cron + on reset les flags pour relancer Rodz/Dropcontact.
-  bouncedAt              DateTime?
-  bouncedFromEmail       String?
+  bouncedAt                 DateTime?
+  bouncedFromEmail          String?
   // RGPD opt-out (audit 30/04). Posé automatiquement quand l'IMAP poller
   // détecte une réponse contenant "stop" / "unsubscribe" / "désabonn" /
   // "ne plus me contacter" / "remove me". Filtre les leads de bulk-send-email
   // et du listing dashboard. Posable aussi manuellement par le commercial.
-  doNotContact           Boolean  @default(false)
-  doNotContactReason     String?  // "auto_imap_stop" | "auto_imap_unsub" | "manual_<userId>" | "bounce_repeat"
-  doNotContactAt         DateTime?
+  doNotContact              Boolean     @default(false)
+  doNotContactReason        String? // "auto_imap_stop" | "auto_imap_unsub" | "manual_<userId>" | "bounce_repeat"
+  doNotContactAt            DateTime?
   // Email history (audit 30/04 soir) — archive les emails écrasés par
   // de nouvelles sources. Format : Json array d'objets
   // { email, source, replacedAt }. Permet audit/rollback en cas de mauvaise
   // décision de waterfall. Limit 5 entrées (FIFO) pour éviter inflation.
-  emailHistory           Json?
+  emailHistory              Json?
   // Score qualité données (Q7 audit qualité, 29/04). 0-100 calculé à partir
   // des sources, concordance email, présence mobile FR, signal hot. Permet
   // au commercial de prioriser les pépites dans le dashboard.
-  dataQuality            Int      @default(0)
+  dataQuality               Int         @default(0)
   // Pappers — données financières + signaux pour scoring richesse
-  companyRevenue        Int?     // CA dernier exercice (€)
-  companyResultNet      Int?     // Résultat net dernier exercice (€)
-  companyHasInsolvency  Boolean  @default(false)  // procédure collective en cours
-  companyEtabsCount     Int?     // Nombre d'établissements (multi-sites = expansion)
-  companyRecentDepots   Json?    // Dépôts d'actes RCS <90j (nominations, modif. capital)
+  companyRevenue            Int? // CA dernier exercice (€)
+  companyResultNet          Int? // Résultat net dernier exercice (€)
+  companyHasInsolvency      Boolean     @default(false) // procédure collective en cours
+  companyEtabsCount         Int? // Nombre d'établissements (multi-sites = expansion)
+  companyRecentDepots       Json? // Dépôts d'actes RCS <90j (nominations, modif. capital)
   // Job moves Dropcontact (signal d'achat — équivalent gratuit Rodz job-changes)
-  jobMoveDetected       Boolean  @default(false)
-  previousCompany       String?
-  previousJob           String?
+  jobMoveDetected           Boolean     @default(false)
+  previousCompany           String?
+  previousJob               String?
   // Cache des contenus on-demand (pitch / linkedin DM / call brief) — économie tokens Opus
-  pitchJson         Json?
-  pitchGeneratedAt  DateTime?
-  linkedinDmJson    Json?
-  linkedinDmGeneratedAt DateTime?
-  callBriefJson     Json?
-  callBriefGeneratedAt DateTime?
+  pitchJson                 Json?
+  pitchGeneratedAt          DateTime?
+  linkedinDmJson            Json?
+  linkedinDmGeneratedAt     DateTime?
+  callBriefJson             Json?
+  callBriefGeneratedAt      DateTime?
   // Chantier #3 — Copy Engine unifié (01/05/2026)
   // warmMail = mail post-LinkedIn (référence à un échange préalable, ton plus direct)
-  warmMailJson      Json?
-  warmMailGeneratedAt DateTime?
+  warmMailJson              Json?
+  warmMailGeneratedAt       DateTime?
   // Timestamp de génération unifié si /api/leads/[id]/copy a généré les 4 d'un coup
-  copyGeneratedAt   DateTime?
+  copyGeneratedAt           DateTime?
   // Chantier #2a — Profil LinkedIn complet (HarvestAPI Profile Full, 01/05/2026)
   // Données extraites : experiences, headline, summary, durée poste actuel.
   // Consommé par chantier #2b (persona fit scoring dynamique).
-  linkedinProfileJson         Json?
-  linkedinProfileEnrichedAt   DateTime?
+  linkedinProfileJson       Json?
+  linkedinProfileEnrichedAt DateTime?
   // Chantier #2b — Persona Fit Scoring (01/05/2026)
   // Score composite 0-100 = base(tier) + tenureBoost + backgroundFit + sizeFit
-  fitScore                Int?
-  fitScoreBreakdown       Json?
-  fitScoreComputedAt      DateTime?
+  fitScore                  Int?
+  fitScoreBreakdown         Json?
+  fitScoreComputedAt        DateTime?
   // Audit
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  deletedAt     DateTime?
+  createdAt                 DateTime    @default(now())
+  updatedAt                 DateTime    @updatedAt
+  deletedAt                 DateTime?
 
-  opportunities  Opportunity[]
-  replies        Reply[]
-  emailActivity  EmailActivity[]
-  emailEvents    EmailEvent[]
-  activities     LeadActivity[]
-
-  @@index([clientId, status, createdAt(sort: Desc)])
-  @@index([email])
-  @@index([companySiret])
-  @@index([deletedAt])
-  @@index([clientId, fitScore(sort: Desc)])
+  opportunities Opportunity[]
+  replies       Reply[]
+  emailActivity EmailActivity[]
+  emailEvents   EmailEvent[]
+  activities    LeadActivity[]
   // C14 (04/05) — UNIQUE INDEX partiel ajouté hors-Prisma car PARTIAL unique
   // pas supporté par @@unique. Empêche les doublons SIRET sur les leads
   // ACTIFS (deletedAt IS NULL). Permet les Lead.deletedAt NOT NULL en doublon
@@ -421,6 +418,12 @@ model Lead {
   // SQL : CREATE UNIQUE INDEX "Lead_clientId_companySiret_active_unique"
   //         ON "Lead" ("clientId", "companySiret")
   //         WHERE "deletedAt" IS NULL AND "companySiret" IS NOT NULL;
+
+  @@index([clientId, status, createdAt(sort: Desc)])
+  @@index([email])
+  @@index([companySiret])
+  @@index([deletedAt])
+  @@index([clientId, fitScore(sort: Desc)])
 }
 
 enum EmailStatus {
@@ -445,31 +448,31 @@ enum LeadStatus {
 // =====================================================================
 
 model Opportunity {
-  id            String           @id @default(cuid())
-  clientId      String
-  client        Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  leadId        String?
-  lead          Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  triggerId     String?          @unique
-  trigger       Trigger?         @relation(fields: [triggerId], references: [id], onDelete: SetNull)
+  id               String           @id @default(cuid())
+  clientId         String
+  client           Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  leadId           String?
+  lead             Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  triggerId        String?          @unique
+  trigger          Trigger?         @relation(fields: [triggerId], references: [id], onDelete: SetNull)
   // Stage
-  stage         OpportunityStage @default(IDENTIFIED)
+  stage            OpportunityStage @default(IDENTIFIED)
   // Meeting
-  meetingDate   DateTime?
-  meetingUrl    String?
-  meetingNotes  String?
+  meetingDate      DateTime?
+  meetingUrl       String?
+  meetingNotes     String?
   // Deal
-  dealValueEur  Decimal?         @db.Decimal(12, 2)
-  closedAt      DateTime?
-  wonAt         DateTime?
-  lostAt        DateTime?
-  lostReason    String?
+  dealValueEur     Decimal?         @db.Decimal(12, 2)
+  closedAt         DateTime?
+  wonAt            DateTime?
+  lostAt           DateTime?
+  lostReason       String?
   // Assigné
   assignedToUserId String?
   // Audit
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  deletedAt     DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
 
   @@index([clientId, stage, updatedAt(sort: Desc)])
   @@index([assignedToUserId])
@@ -478,11 +481,11 @@ model Opportunity {
 }
 
 enum OpportunityStage {
-  IDENTIFIED   // Trigger reçu, lead identifié
-  CONTACTED    // Email envoyé
-  ENGAGED      // Réponse positive
-  MEETING_SET  // RDV booké
-  PROPOSAL     // En proposition
+  IDENTIFIED // Trigger reçu, lead identifié
+  CONTACTED // Email envoyé
+  ENGAGED // Réponse positive
+  MEETING_SET // RDV booké
+  PROPOSAL // En proposition
   WON
   LOST
 }
@@ -498,7 +501,7 @@ model Campaign {
   name          String
   status        CampaignStatus @default(DRAFT)
   // Smartlead binding
-  externalId    String?        // ID dans Smartlead
+  externalId    String? // ID dans Smartlead
   // Stats agrégées
   sent          Int            @default(0)
   opened        Int            @default(0)
@@ -512,7 +515,7 @@ model Campaign {
   updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
 
-  replies       Reply[]
+  replies Reply[]
 
   @@index([clientId, status])
   @@index([deletedAt])
@@ -531,33 +534,33 @@ enum CampaignStatus {
 // =====================================================================
 
 model Reply {
-  id           String      @id @default(cuid())
-  clientId     String
-  client       Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  leadId       String?
-  lead         Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  campaignId   String?
-  campaign     Campaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  id               String      @id @default(cuid())
+  clientId         String
+  client           Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  leadId           String?
+  lead             Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaignId       String?
+  campaign         Campaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   // Contenu
-  fromEmail    String
-  fromName     String?
-  subject      String?
-  body         String
-  bodyHtml     String?
-  receivedAt   DateTime    @default(now())
+  fromEmail        String
+  fromName         String?
+  subject          String?
+  body             String
+  bodyHtml         String?
+  receivedAt       DateTime    @default(now())
   // Threading IMAP — UNIQUE pour dédup sync-inbox (cron 5 min sur fenêtre 1h)
-  messageId    String?     @unique
+  messageId        String?     @unique
   // Catégorisation IA
-  intent       ReplyIntent @default(UNCLASSIFIED)
-  intentConfidence Decimal? @db.Decimal(3, 2)
+  intent           ReplyIntent @default(UNCLASSIFIED)
+  intentConfidence Decimal?    @db.Decimal(3, 2)
   // Pipeline
-  status       ReplyStatus @default(UNREAD)
+  status           ReplyStatus @default(UNREAD)
   assignedToUserId String?
-  respondedAt  DateTime?
+  respondedAt      DateTime?
   // Audit
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  deletedAt    DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
 
   @@index([clientId, status, receivedAt(sort: Desc)])
   @@index([clientId, intent])
@@ -589,21 +592,21 @@ enum ReplyStatus {
 // =====================================================================
 
 model Notification {
-  id          String   @id @default(cuid())
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clientId    String?
-  client      Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id        String    @id @default(cuid())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String?
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   // Contenu
-  type        String   // "trigger.hot", "reply.positive", "system.alert"
-  title       String
-  body        String?
-  payload     Json?
-  link        String?
+  type      String // "trigger.hot", "reply.positive", "system.alert"
+  title     String
+  body      String?
+  payload   Json?
+  link      String?
   // État
-  readAt      DateTime?
+  readAt    DateTime?
   // Audit
-  createdAt   DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
   @@index([clientId, createdAt(sort: Desc)])
@@ -614,16 +617,16 @@ model Notification {
 // =====================================================================
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  clientId    String?
-  action      String   // "client.created", "trigger.scored", "user.login"
-  entityType  String?
-  entityId    String?
-  metadata    Json?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String?
+  clientId   String?
+  action     String // "client.created", "trigger.scored", "user.login"
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([clientId, createdAt(sort: Desc)])
@@ -639,23 +642,23 @@ model AuditLog {
 // Le messageId est dédupliqué via @unique pour éviter doublons sur replays.
 
 model EmailActivity {
-  id              String      @id @default(cuid())
-  leadId          String
-  lead            Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  direction       EmailDirection
-  fromMailbox     String      // user@domain (notre mailbox côté SENT, sender côté RECEIVED)
-  toEmail         String      // destinataire (le lead côté SENT, notre mailbox côté RECEIVED)
-  subject         String
-  bodyText        String?     @db.Text
-  bodyHtml        String?     @db.Text
-  messageId       String?     @unique // SMTP Message-ID header
-  inReplyTo       String?     // Message-ID auquel on répond
-  sentAt          DateTime    @default(now()) // = receivedAt côté RECEIVED
-  sentByUserId    String?     // Better Auth User id (NULL si reçu)
-  template        String?     // 'pitch' | 'linkedin-dm' | 'call-brief' | 'manual'
+  id                  String         @id @default(cuid())
+  leadId              String
+  lead                Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  direction           EmailDirection
+  fromMailbox         String // user@domain (notre mailbox côté SENT, sender côté RECEIVED)
+  toEmail             String // destinataire (le lead côté SENT, notre mailbox côté RECEIVED)
+  subject             String
+  bodyText            String?        @db.Text
+  bodyHtml            String?        @db.Text
+  messageId           String?        @unique // SMTP Message-ID header
+  inReplyTo           String? // Message-ID auquel on répond
+  sentAt              DateTime       @default(now()) // = receivedAt côté RECEIVED
+  sentByUserId        String? // Better Auth User id (NULL si reçu)
+  template            String? // 'pitch' | 'linkedin-dm' | 'call-brief' | 'manual'
   replyClassification String? // 'positive' | 'neutral' | 'negative' | 'ooo' | 'unsubscribe' (Haiku)
-  replyClassifiedAt DateTime?
-  createdAt       DateTime    @default(now())
+  replyClassifiedAt   DateTime?
+  createdAt           DateTime       @default(now())
 
   @@index([leadId, sentAt(sort: Desc)])
   @@index([fromMailbox, sentAt(sort: Desc)])
@@ -670,15 +673,15 @@ enum EmailDirection {
 // Tracking événements email Resend (opens / clicks / bounces / complaints).
 // Permet d'identifier les leads "warm" (3+ opens = signal d'intérêt).
 model EmailEvent {
-  id          String           @id @default(cuid())
-  leadId      String?
-  lead        Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  emailId     String?          // Resend email_id si dispo
-  recipient   String           // email destinataire
-  type        EmailEventType
-  occurredAt  DateTime         @default(now())
-  metadata    Json?            // user agent, IP city, click URL, bounce code, etc.
-  createdAt   DateTime         @default(now())
+  id         String         @id @default(cuid())
+  leadId     String?
+  lead       Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  emailId    String? // Resend email_id si dispo
+  recipient  String // email destinataire
+  type       EmailEventType
+  occurredAt DateTime       @default(now())
+  metadata   Json? // user agent, IP city, click URL, bounce code, etc.
+  createdAt  DateTime       @default(now())
 
   @@index([leadId, occurredAt(sort: Desc)])
   @@index([recipient, type, occurredAt(sort: Desc)])
@@ -702,23 +705,23 @@ enum EmailEventType {
 // =====================================================================
 
 model LeadActivity {
-  id              String          @id @default(cuid())
+  id              String            @id @default(cuid())
   leadId          String
-  lead            Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  clientId        String           // denorm pour stats par client
+  lead            Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  clientId        String // denorm pour stats par client
   type            ActivityType
   source          ActivitySource
   direction       ActivityDirection
-  occurredAt      DateTime         @default(now())
-  userId          String?          // commercial qui a fait l'action (null si bot/webhook)
-  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  occurredAt      DateTime          @default(now())
+  userId          String? // commercial qui a fait l'action (null si bot/webhook)
+  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   // Liens facultatifs vers entités existantes (compat ascendante)
-  emailActivityId String?          // ref EmailActivity si type=EMAIL_*
-  emailEventId    String?          // ref EmailEvent si OPEN/CLICK/BOUNCE
-  opportunityId   String?          // ref Opportunity si MEETING_*
+  emailActivityId String? // ref EmailActivity si type=EMAIL_*
+  emailEventId    String? // ref EmailEvent si OPEN/CLICK/BOUNCE
+  opportunityId   String? // ref Opportunity si MEETING_*
   // Données libres (subject, body excerpt, durée appel, message LinkedIn, note...)
   payload         Json?
-  createdAt       DateTime         @default(now())
+  createdAt       DateTime          @default(now())
 
   @@index([leadId, occurredAt(sort: Desc)])
   @@index([clientId, type, occurredAt(sort: Desc)])
@@ -752,10 +755,10 @@ enum ActivityType {
 }
 
 enum ActivitySource {
-  AUTO          // bot interne (qualify, brief, pipelines)
-  WEBHOOK       // Resend, Cal.com, IMAP poller
-  MANUAL        // commercial coche / clique
-  GMAIL_API     // futur — auto-detect Gmail Sent
+  AUTO // bot interne (qualify, brief, pipelines)
+  WEBHOOK // Resend, Cal.com, IMAP poller
+  MANUAL // commercial coche / clique
+  GMAIL_API // futur — auto-detect Gmail Sent
 }
 
 enum ActivityDirection {
@@ -768,28 +771,28 @@ enum ActivityDirection {
 // =====================================================================
 
 model RodzSignal {
-  id              String   @id @default(cuid())
-  clientId        String
-  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id             String    @id @default(cuid())
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   // Référence Rodz
-  rodzSignalId    String   @unique
-  signalType      String   // "fundraising", "job-changes", "mergers-acquisitions", ...
-  name            String
-  webhookUrl      String
+  rodzSignalId   String    @unique
+  signalType     String // "fundraising", "job-changes", "mergers-acquisitions", ...
+  name           String
+  webhookUrl     String
   // Config envoyée à Rodz (filtres ICP, keywords, ...)
-  config          Json
-  dailyLeadLimit  Int?
+  config         Json
+  dailyLeadLimit Int?
   // État
-  status          String   @default("draft") // "draft", "active", "paused"
-  active          Boolean  @default(false)
+  status         String    @default("draft") // "draft", "active", "paused"
+  active         Boolean   @default(false)
   // Métriques
-  leadsReceived   Int      @default(0)
-  creditsUsed     Decimal  @default(0) @db.Decimal(10, 2)
-  lastLeadAt      DateTime?
+  leadsReceived  Int       @default(0)
+  creditsUsed    Decimal   @default(0) @db.Decimal(10, 2)
+  lastLeadAt     DateTime?
   // Audit
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  deletedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
 
   @@index([clientId, active])
   @@index([signalType])

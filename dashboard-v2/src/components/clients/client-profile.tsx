@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DeliveryEditor } from "@/components/clients/delivery-editor";
 import { toast } from "@/components/ui/sonner";
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatNumberFr, formatRelativeFr } from "@/lib/utils";
@@ -164,6 +165,10 @@ export function ClientProfile({ clientId }: { clientId: string }) {
             <Mail className="h-3.5 w-3.5" />
             Contact
           </TabsTrigger>
+          <TabsTrigger value="delivery" className="gap-1.5">
+            <Mail className="h-3.5 w-3.5" />
+            Delivery
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="icp">
@@ -186,6 +191,10 @@ export function ClientProfile({ clientId }: { clientId: string }) {
             onSave={(d) => updateClient.mutate(d as Partial<ClientDetail>)}
             saving={updateClient.isPending}
           />
+        </TabsContent>
+
+        <TabsContent value="delivery">
+          <DeliveryEditor clientId={client.id} canEdit={canEdit} />
         </TabsContent>
       </Tabs>
     </div>
