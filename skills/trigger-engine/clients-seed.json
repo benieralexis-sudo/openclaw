@@ -15,7 +15,7 @@
     "patterns": ["funding-recent", "tech-hiring", "media-buzz", "scale-up-tech", "new-exec-hire", "multi-role-scaling"],
     "min_score": 6.0,
     "monthly_lead_cap": 500,
-    "status": "active"
+    "status": "paused"
   },
   {
     "id": "digitestlab",
@@ -49,6 +49,6 @@
     "patterns": ["funding-recent", "new-exec-hire", "sales-team-scaling", "multi-role-scaling"],
     "min_score": 5.5,
     "monthly_lead_cap": 300,
-    "status": "active"
+    "status": "paused"
   }
 ]

@@ -21,6 +21,10 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 10,
     autoSignIn: true,
+    // Bloque le signup public — bug detecte 09/05 (curl POST /api/auth/sign-up/email
+    // creait des comptes role=CLIENT sans aucune verification). Onboarding nouveaux
+    // utilisateurs : passe par une route admin-only POST /api/users (a creer Sprint 4).
+    disableSignUp: true,
   },
   session: {
     expiresIn: 60 * 60 * 24 * 30, // 30j
