@@ -9,6 +9,7 @@ import { TestimonialGrid } from "./_components/testimonial-grid";
 import { FeatureShowcase } from "./_components/feature-showcase";
 import { BriefMockup } from "./_components/brief-mockup";
 import { LiveFeed } from "./_components/live-feed";
+import { IntelligenceIllustration, GarantieIllustration, TempsReelIllustration } from "./_components/pillar-illustrations";
 
 export const metadata: Metadata = {
   title: "iFIND — Détectez les boîtes FR qui ont besoin de vous",
@@ -230,12 +231,14 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <PillarCard
               icon={<Brain className="h-6 w-6" />}
+              illustration={<IntelligenceIllustration />}
               title="Intelligence"
               description="Cerveau Opus 4.7 + 12 blocs de contexte. Chaque lead est analysé comme par un commercial senior, pas par un keyword match."
               accent="brand"
             />
             <PillarCard
               icon={<Shield className="h-6 w-6" />}
+              illustration={<GarantieIllustration />}
               title="Garantie"
               description="6 Pépites minimum/mois — engagement contractuel. Si on tient pas, votre quota est doublé. Personne d'autre ne fait ça."
               accent="amber"
@@ -243,6 +246,7 @@ export default function HomePage() {
             />
             <PillarCard
               icon={<Zap className="h-6 w-6" />}
+              illustration={<TempsReelIllustration />}
               title="Temps réel"
               description="11 sources scannées 24/7. Vous recevez les Pépites quand elles sont chaudes — pas quand elles sont passées au scoring batch."
               accent="brand"
@@ -402,15 +406,21 @@ export default function HomePage() {
   );
 }
 
-function PillarCard({ icon, title, description, accent, highlight }: { icon: React.ReactNode; title: string; description: string; accent: "brand" | "amber"; highlight?: boolean }) {
+function PillarCard({ icon, illustration, title, description, accent, highlight }: { icon: React.ReactNode; illustration?: React.ReactNode; title: string; description: string; accent: "brand" | "amber"; highlight?: boolean }) {
   return (
-    <div className={`relative rounded-2xl p-8 transition-all ${highlight ? "bg-gradient-to-br from-amber-50 via-white to-amber-50 border-2 border-amber-300 shadow-2xl shadow-amber-500/10 -translate-y-2" : "bg-white border border-ink-100 hover:border-brand-200 hover:shadow-lg hover:-translate-y-0.5"}`}>
+    <div className={`relative rounded-2xl p-8 transition-all overflow-hidden ${highlight ? "bg-gradient-to-br from-amber-50 via-white to-amber-50 border-2 border-amber-300 shadow-2xl shadow-amber-500/10 md:-translate-y-2" : "bg-white border border-ink-100 hover:border-brand-200 hover:shadow-xl hover:-translate-y-1"}`}>
       {highlight && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg shadow-amber-500/30">
           Unique en France
         </div>
       )}
-      <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5 ${accent === "amber" ? "bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-lg shadow-amber-500/30" : "bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/30"}`}>
+      {/* Illustration custom SVG en haut */}
+      {illustration && (
+        <div className="mb-5 -mx-3 h-32 flex items-center justify-center">
+          {illustration}
+        </div>
+      )}
+      <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${accent === "amber" ? "bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-lg shadow-amber-500/30" : "bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/30"}`}>
         {icon}
       </div>
       <h3 className="font-display text-2xl font-bold text-ink-900 mb-3">{title}</h3>
