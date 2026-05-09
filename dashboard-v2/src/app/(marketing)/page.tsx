@@ -21,41 +21,49 @@ export default function HomePage() {
   return (
     <div className="bg-white overflow-hidden">
       {/* ════════════════════════════════════════════════════════════
-          1 — HERO MASSIVE avec mockup centré (style Linear)
+          1 — HERO ULTRA dramatique (style Linear/Vercel)
           ═══════════════════════════════════════════════════════════ */}
-      <section className="relative pt-10 pb-16">
-        {/* Multi-layer background */}
+      <section className="relative pt-12 pb-20 overflow-hidden">
+        {/* Ambient background : mesh + grid + glows multi-layer */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-b from-brand-50/60 via-white to-white" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1400px] h-[700px] bg-gradient-radial from-brand-300/30 via-transparent to-transparent blur-3xl" />
-          <div className="absolute top-32 right-0 w-[500px] h-[500px] bg-gradient-radial from-amber-200/30 via-transparent to-transparent blur-3xl" />
-          <div className="absolute top-60 left-0 w-[400px] h-[400px] bg-gradient-radial from-brand-200/30 via-transparent to-transparent blur-3xl" />
-          <svg className="absolute inset-0 w-full h-full opacity-[0.025]" xmlns="http://www.w3.org/2000/svg">
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-50/40 via-white to-white" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1600px] h-[800px] bg-gradient-radial from-brand-300/40 via-transparent to-transparent blur-3xl" />
+          <div className="absolute top-40 right-[10%] w-[600px] h-[600px] bg-gradient-radial from-amber-200/40 via-transparent to-transparent blur-3xl" />
+          <div className="absolute top-80 left-[5%] w-[500px] h-[500px] bg-gradient-radial from-brand-200/35 via-transparent to-transparent blur-3xl" />
+          <svg className="absolute inset-0 w-full h-full opacity-[0.03]" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1" />
+              <pattern id="hero-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+                <path d="M 48 0 L 0 0 0 48" fill="none" stroke="currentColor" strokeWidth="1" />
               </pattern>
             </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
+            <rect width="100%" height="100%" fill="url(#hero-grid)" />
           </svg>
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-amber-200 shadow-sm text-xs font-medium text-amber-800 mb-8">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Nouveau · Garantie contractuelle 6 Pépites/mois</span>
-            <ArrowRight className="h-3 w-3" />
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
+          {/* Live badge animated */}
+          <div className="flex justify-center mb-8">
+            <div className="group inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-amber-200 shadow-sm text-xs font-medium text-amber-800 hover:shadow-md hover:scale-105 transition-all cursor-default">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+              </span>
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Nouveau · Garantie contractuelle 6 Pépites/mois</span>
+              <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+            </div>
           </div>
 
-          <h1 className="font-display text-5xl md:text-7xl lg:text-[5.5rem] font-bold text-ink-900 tracking-tight leading-[1.0] max-w-5xl mx-auto">
+          {/* Headline gigantesque centré */}
+          <h1 className="text-center font-display text-[2.75rem] sm:text-6xl md:text-7xl lg:text-[6rem] xl:text-[7rem] font-bold text-ink-900 tracking-[-0.03em] leading-[0.95] max-w-6xl mx-auto">
             Les boîtes françaises qui
             <br />
-            <span className="relative inline-block mt-2">
+            <span className="relative inline-block mt-3">
               <span className="relative bg-gradient-to-r from-brand-600 via-brand-700 to-brand-900 bg-clip-text text-transparent">
                 ont besoin de vous
               </span>
-              <svg className="absolute -bottom-3 left-0 w-full" height="14" viewBox="0 0 200 14" fill="none">
-                <path d="M2 11 Q 50 4, 100 8 T 198 6" stroke="url(#u1)" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+              <svg className="absolute -bottom-3 left-0 w-full" height="16" viewBox="0 0 200 14" fill="none" preserveAspectRatio="none">
+                <path d="M2 11 Q 50 4, 100 8 T 198 6" stroke="url(#u1)" strokeWidth="4" strokeLinecap="round" fill="none" />
                 <defs>
                   <linearGradient id="u1" x1="0" x2="200" y1="0" y2="0">
                     <stop offset="0" stopColor="#f59e0b" />
@@ -65,27 +73,30 @@ export default function HomePage() {
               </svg>
             </span>
             <br />
-            <span className="text-ink-700">livrées chaque mois.</span>
+            <span className="text-ink-700 font-medium">livrées chaque mois.</span>
           </h1>
 
-          <p className="mt-10 text-lg md:text-xl text-ink-600 max-w-3xl mx-auto leading-relaxed">
+          <p className="mt-10 text-center text-lg md:text-xl text-ink-600 max-w-3xl mx-auto leading-relaxed">
             Le seul moteur français qui combine{" "}
             <span className="text-ink-900 font-semibold">détection temps réel</span>,{" "}
             <span className="text-ink-900 font-semibold">qualification IA Claude Opus 4.7</span>,
-            et <span className="text-amber-700 font-semibold">garantie contractuelle de 6 boîtes ULTRA chaudes</span> par mois.
+            et <span className="text-amber-700 font-bold">garantie contractuelle de 6 boîtes ULTRA chaudes</span> par mois.
           </p>
 
+          {/* CTA buttons */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/tarifs" className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 hover:from-brand-700 hover:to-brand-900 text-white font-semibold px-7 py-3.5 text-base shadow-xl shadow-brand-500/30 hover:shadow-2xl hover:shadow-brand-500/40 hover:-translate-y-0.5 transition-all">
-              Voir les tarifs · 390€/mois
-              <ArrowRight className="h-5 w-5 group-hover:translate-x-0.5 transition-transform" />
+            <Link href="/tarifs" className="group relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 hover:from-brand-700 hover:to-brand-900 text-white font-semibold px-8 py-4 text-base shadow-xl shadow-brand-500/30 hover:shadow-2xl hover:shadow-brand-500/50 hover:-translate-y-0.5 transition-all overflow-hidden">
+              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+              <span className="relative">Voir les tarifs · 390€/mois</span>
+              <ArrowRight className="relative h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <Link href="/produit" className="inline-flex items-center gap-2 text-ink-700 hover:text-ink-900 font-semibold px-5 py-3.5 text-base transition-all">
+            <Link href="/produit" className="group inline-flex items-center gap-2 rounded-xl bg-white text-ink-700 hover:text-ink-900 hover:bg-ink-50 font-semibold px-7 py-4 text-base border border-ink-200 hover:border-ink-300 transition-all">
               Voir le produit
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
 
+          {/* Trust badges */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-xs text-ink-500">
             {[
               "Setup 100% gratuit",
@@ -101,8 +112,12 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Hero mockup */}
-          <div className="mt-20 max-w-6xl mx-auto">
+          {/* Hero mockup avec vrai relief */}
+          <div className="mt-20 relative">
+            {/* Glow derrière le mockup */}
+            <div className="absolute -inset-x-20 -inset-y-10 -z-10">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-gradient-radial from-brand-400/30 via-transparent to-transparent blur-3xl" />
+            </div>
             <DashboardMockup />
           </div>
         </div>
@@ -363,7 +378,7 @@ export default function HomePage() {
           <h2 className="font-display text-5xl md:text-7xl font-bold mb-6 tracking-tight leading-[1.0]">
             Prêt à recevoir vos
             <br />
-            <span className="bg-gradient-to-r from-amber-300 via-amber-200 to-white bg-clip-text text-transparent">
+            <span className="text-amber-300 drop-shadow-[0_0_30px_rgba(251,191,36,0.4)]">
               premières Pépites&nbsp;?
             </span>
           </h2>

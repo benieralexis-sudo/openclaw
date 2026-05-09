@@ -173,7 +173,7 @@ export default function ProduitPage() {
           <h2 className="font-display text-4xl md:text-6xl font-bold mb-6 tracking-tight leading-[1.0]">
             Une seule offre.
             <br />
-            <span className="bg-gradient-to-r from-amber-300 via-amber-200 to-white bg-clip-text text-transparent">
+            <span className="text-amber-300 drop-shadow-[0_0_30px_rgba(251,191,36,0.4)]">
               Une seule promesse.
             </span>
           </h2>

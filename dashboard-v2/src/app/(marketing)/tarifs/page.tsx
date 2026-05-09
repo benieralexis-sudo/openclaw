@@ -319,9 +319,7 @@ export default function TarifsPage() {
           <h2 className="font-display text-5xl md:text-7xl font-bold mb-6 tracking-tight leading-[1.0]">
             Démarrez en
             <br />
-            <span className="bg-gradient-to-r from-amber-300 via-amber-200 to-white bg-clip-text text-transparent">
-              5 minutes.
-            </span>
+            <span className="text-amber-300 drop-shadow-[0_0_30px_rgba(251,191,36,0.4)]">5 minutes.</span>
           </h2>
           <p className="text-ink-300 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
             Setup gratuit. Premières Pépites sous 48h.
