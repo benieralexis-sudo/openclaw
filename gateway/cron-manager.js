@@ -81,15 +81,21 @@ function createCronManager(deps) {
       }, 30000);
     }
 
-    // Sync bookings Google Calendar toutes les 5 min
-    if (handlers.meetingHandler.gcal && handlers.meetingHandler.gcal.isApiConfigured()) {
-      _bookingSyncInterval = setInterval(async () => {
-        try {
-          await handlers.meetingHandler.syncBookings(sendMessage, _getHubSpotClient(), ADMIN_CHAT_ID);
-        } catch (e) { log.error('router', 'Booking sync echoue:', e.message); }
-      }, 5 * 60 * 1000);
-      log.info('router', 'Sync bookings Google Calendar toutes les 5 min');
-    }
+    // Sync bookings Google Calendar — DESACTIVE 09/05/2026
+    // Raison : pivot 05/05 Data-only (Full Service abandonne, le bot ne book
+    // plus de RDV). Refresh token Google revoque cote Workspace, le poll 5min
+    // remontait "access_denied" a Sentry → spam mails admin. Les usages
+    // ponctuels gcal restent dispo via reply-pipeline.js si besoin manuel.
+    // Pour reactiver : decommenter ci-dessous + regenerer le refresh token.
+    // if (handlers.meetingHandler.gcal && handlers.meetingHandler.gcal.isApiConfigured()) {
+    //   _bookingSyncInterval = setInterval(async () => {
+    //     try {
+    //       await handlers.meetingHandler.syncBookings(sendMessage, _getHubSpotClient(), ADMIN_CHAT_ID);
+    //     } catch (e) { log.error('router', 'Booking sync echoue:', e.message); }
+    //   }, 5 * 60 * 1000);
+    //   log.info('router', 'Sync bookings Google Calendar toutes les 5 min');
+    // }
+    log.info('router', 'Sync bookings Google Calendar DESACTIVE (post-pivot Data-only 05/05)');
 
     // Clay polling desactive — le webhook push (POST /webhook/clay) est le seul flux actif
     // Le clay-connector.js reste disponible si besoin d'un sync manuel ponctuel
