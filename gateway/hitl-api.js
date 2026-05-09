@@ -185,7 +185,10 @@ function createHitlApi(deps) {
         if (automailerStorage.setFirstSendDate) automailerStorage.setFirstSendDate();
         automailerStorage.incrementTodaySendCount();
         try {
-          const inboxStorage = require('../skills/inbox-manager/storage.js');
+          // Sprint 8 (10/05/2026) — inbox-manager retire Sprint 6 Data-only.
+          throw new Error('skills/inbox-manager removed Sprint 6 Data-only');
+          // eslint-disable-next-line no-unreachable
+          const inboxStorage = null;
           inboxStorage.addAutoReply({ prospectEmail: draft.replyData.from, prospectName: draft.replyData.fromName, sentiment: draft.sentiment, subClassification: draft.subClass ? draft.subClass.type : 'hitl', objectionType: draft.subClass ? draft.subClass.objectionType : '', replyBody: draft.autoReply.body, replySubject: draft.autoReply.subject, originalEmailId: draft.originalEmail && draft.originalEmail.subject, confidence: draft.autoReply.confidence, sendResult });
         } catch (e) { log.warn('hitl', 'addAutoReply tracking echoue: ' + e.message); }
         if (sendResult.messageId) {

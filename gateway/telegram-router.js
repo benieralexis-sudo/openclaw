@@ -108,13 +108,9 @@ const TriggerEngineProcessor = null;
 const TriggerEngineCron = null;
 const ClientRouter = null;
 const ClaudeBrain = null;
-// try {
-//   ({ TriggerEngineHandler } = require('../skills/trigger-engine/index.js'));
-//   ({ TriggerEngineProcessor } = require('../skills/trigger-engine/processor.js'));
-//   ({ TriggerEngineCron } = require('../skills/trigger-engine/cron.js'));
-//   ({ ClientRouter } = require('../skills/trigger-engine/router.js'));
-//   ({ ClaudeBrain } = require('../skills/trigger-engine/claude-brain/index.js'));
-// } catch (e) { /* Silent fail — Trigger Engine optional */ }
+// Sprint 8 (10/05/2026) — skills/trigger-engine retire Sprint 6 Data-only.
+// Le trigger engine vit maintenant dans dashboard-v2/src/lib/* (Next.js).
+// Ces handlers sont stubbed null definitivement, plus de require() commentes.
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
@@ -1131,7 +1127,10 @@ async function _hitlSendReply(chatId, draftId) {
 
       // Tracker dans inbox-manager storage
       try {
-        const inboxStorage = require('../skills/inbox-manager/storage.js');
+        // Sprint 8 (10/05/2026) — inbox-manager retire Sprint 6 Data-only.
+        throw new Error('skills/inbox-manager removed Sprint 6 Data-only');
+        // eslint-disable-next-line no-unreachable
+        const inboxStorage = null;
         inboxStorage.addAutoReply({
           prospectEmail: draft.replyData.from,
           prospectName: draft.replyData.fromName,
@@ -1223,7 +1222,10 @@ async function handleCallback(update) {
 
         // Enregistrer le prospect comme meeting "proposed" pour etre notifie si booking Cal.eu
         try {
-          const meetingStorage = require('../skills/meeting-scheduler/storage.js');
+          // Sprint 8 (10/05/2026) — meeting-scheduler retire Sprint 6 Data-only.
+          throw new Error('skills/meeting-scheduler removed Sprint 6 Data-only');
+          // eslint-disable-next-line no-unreachable
+          const meetingStorage = null;
           meetingStorage.createMeeting({
             leadEmail: prospectData.email,
             leadName: prospectData.prenom,
@@ -2252,7 +2254,10 @@ const healthServer = http.createServer(async (req, res) => {
 
           // v9.0: Injection FlowFast — ajouter le lead dans le pipeline
           try {
-            const ffStorage = require('../skills/flowfast/storage.js');
+            // Sprint 8 (10/05/2026) — flowfast retire Sprint 6 Data-only.
+            throw new Error('skills/flowfast removed Sprint 6 Data-only');
+            // eslint-disable-next-line no-unreachable
+            const ffStorage = null;
             ffStorage.addLead({
               email: lead.email.toLowerCase().trim(),
               nom: ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim(),

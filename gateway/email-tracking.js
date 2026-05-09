@@ -204,10 +204,14 @@ function createEmailTracking(deps) {
 
   function _trackNicheEvent(email, eventType) {
     try {
-      const apStorage = require('../skills/autonomous-pilot/storage.js');
+      // Sprint 8 (10/05/2026) — autonomous-pilot et automailer/storage retires
+      // Sprint 6 (Data-only). Niche tracking = no-op via throw -> catch silent.
+      throw new Error('skills/autonomous-pilot removed Sprint 6 Data-only');
+      // eslint-disable-next-line no-unreachable
+      const apStorage = null;
       const leadNiche = email.industry || email.niche || null;
       if (!leadNiche) {
-        const automailerSt = require('../skills/automailer/storage.js');
+        const automailerSt = null;
         const allEmails = automailerSt.getEmails ? automailerSt.getEmails() : [];
         const matched = allEmails.find(em => (em.to || '').toLowerCase() === (email.to || '').toLowerCase());
         if (matched) {

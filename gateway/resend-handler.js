@@ -54,7 +54,10 @@ function createResendHandler(deps) {
     if (emailRecord.niche) return emailRecord.niche;
     // Chercher dans FlowFast (leads stockes)
     try {
-      const ffStorage = require('../skills/flowfast/storage.js');
+      // Sprint 8 (10/05/2026) — flowfast/storage retire Sprint 6 Data-only.
+      throw new Error('skills/flowfast removed Sprint 6 Data-only');
+      // eslint-disable-next-line no-unreachable
+      const ffStorage = { data: { leads: {} } };
       const leadsObj = ffStorage.data ? ffStorage.data.leads || {} : {};
       for (const lid of Object.keys(leadsObj)) {
         const lead = leadsObj[lid];
@@ -169,8 +172,10 @@ function createResendHandler(deps) {
     // Niche performance tracking (opened/replied → alimenter nichePerformance pour self-improve)
     if ((status === 'opened' && !wasAlreadyOpened) || status === 'replied') {
       try {
-        const apStorage = require('../skills/autonomous-pilot/storage.js');
-        // Chercher la niche du lead dans les leads stockes
+        // Sprint 8 (10/05/2026) — autonomous-pilot retire Sprint 6 Data-only.
+        throw new Error('skills/autonomous-pilot removed Sprint 6 Data-only');
+        // eslint-disable-next-line no-unreachable
+        const apStorage = null;
         const leadNiche = _inferLeadNiche(email);
         if (leadNiche) {
           apStorage.trackNicheEvent(leadNiche, status === 'opened' ? 'opened' : 'replied');
@@ -196,7 +201,10 @@ function createResendHandler(deps) {
         // Soft bounce (mailbox full, temp DNS, rate limit) → retry dans 24-48h, PAS de blacklist
         log.info('webhook', 'Soft bounce: ' + email.to + ' — retry prevu (pas de blacklist). Type: ' + bounceType + ', message: ' + ((data.bounce && data.bounce.message) || '').substring(0, 100));
         try {
-          const proactiveStorage = require('../skills/proactive-agent/storage.js');
+          // Sprint 8 (10/05/2026) — proactive-agent retire Sprint 6 Data-only.
+          throw new Error('skills/proactive-agent removed Sprint 6 Data-only');
+          // eslint-disable-next-line no-unreachable
+          const proactiveStorage = null;
           const retryDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
           proactiveStorage.addPendingFollowUp({
             prospectEmail: email.to,
@@ -217,7 +225,10 @@ function createResendHandler(deps) {
       // B6 FIX : notifier le domain-manager pour l'auto-pause a 3% bounce rate
       // FIX: utiliser senderDomain (vrai domaine SMTP) au lieu de email.from (qui est souvent REPLY_TO)
       try {
-        const domainManager = require('../skills/automailer/domain-manager.js');
+        // Sprint 8 (10/05/2026) — automailer/domain-manager retire Sprint 6 Data-only.
+        throw new Error('skills/automailer/domain-manager removed Sprint 6 Data-only');
+        // eslint-disable-next-line no-unreachable
+        const domainManager = null;
         const senderDomain = email.senderDomain || (email.from || '').split('@').pop() || '';
         if (senderDomain && domainManager.recordBounce) {
           domainManager.recordBounce(senderDomain);
@@ -235,7 +246,10 @@ function createResendHandler(deps) {
 
       // B7 FIX : notifier le domain-manager (complaint = pire qu'un bounce)
       try {
-        const domainManager = require('../skills/automailer/domain-manager.js');
+        // Sprint 8 (10/05/2026) — automailer/domain-manager retire Sprint 6 Data-only.
+        throw new Error('skills/automailer/domain-manager removed Sprint 6 Data-only');
+        // eslint-disable-next-line no-unreachable
+        const domainManager = null;
         const senderDomain = email.senderDomain || (email.from || '').split('@').pop() || '';
         if (senderDomain && domainManager.recordBounce) {
           domainManager.recordBounce(senderDomain);
@@ -278,7 +292,10 @@ function createResendHandler(deps) {
       }
       // Clic = engagement fort → proposer meeting auto immediatement
       try {
-        const amStorage = require('../skills/automailer/storage.js');
+        // Sprint 8 (10/05/2026) — automailer/storage retire Sprint 6 Data-only.
+        throw new Error('skills/automailer/storage removed Sprint 6 Data-only');
+        // eslint-disable-next-line no-unreachable
+        const amStorage = null;
         const existingEmails = amStorage.getEmailEventsForRecipient(email.to);
         const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
         const recentAutoMeeting = existingEmails.find(e =>
