@@ -68,9 +68,11 @@ services:
       AIRCALL_API_ID: ${AIRCALL_API_ID:-}
       AIRCALL_API_TOKEN: ${AIRCALL_API_TOKEN:-}
 
-      # ── Trigger Engine toggles ──
-      TRIGGER_ENGINE_ENABLED: ${TRIGGER_ENGINE_ENABLED:-true}
-      CLAUDE_BRAIN_ENABLED: ${CLAUDE_BRAIN_ENABLED:-true}
+      # ── Trigger Engine toggles ── DECOMMISSIONNES Sprint 2 (10/05/2026)
+      # Sources migrees vers dashboard-v2 (rss-levees, bodacc, inpi pollers).
+      # Pour rollback : TRIGGER_ENGINE_ENABLED=true CLAUDE_BRAIN_ENABLED=true dans .env.
+      TRIGGER_ENGINE_ENABLED: ${TRIGGER_ENGINE_ENABLED:-false}
+      CLAUDE_BRAIN_ENABLED: ${CLAUDE_BRAIN_ENABLED:-false}
       CLAUDE_BRAIN_BUDGET_MONTHLY_EUR: ${CLAUDE_BRAIN_BUDGET_MONTHLY_EUR:-300}
       CLAUDE_BRAIN_BUDGET_HARD_EUR: ${CLAUDE_BRAIN_BUDGET_HARD_EUR:-500}
 

@@ -81,21 +81,25 @@ try { InboxListener = require('../skills/inbox-manager/inbox-listener.js'); } ca
 const MeetingHandler = require('../skills/meeting-scheduler/meeting-handler.js');
 const { classifyReply, subClassifyObjection, generateObjectionReply, generateQuestionReplyViaClaude, generateInterestedReplyViaClaude, parseOOOReturnDate, checkGrounding, REPLY_TEMPLATES } = require('../skills/inbox-manager/reply-classifier.js');
 
-// --- Trigger Engine (opt-in via TRIGGER_ENGINE_ENABLED env) ---
-let TriggerEngineHandler = null;
-let TriggerEngineProcessor = null;
-let TriggerEngineCron = null;
-let ClientRouter = null;
-let ClaudeBrain = null;
-try {
-  ({ TriggerEngineHandler } = require('../skills/trigger-engine/index.js'));
-  ({ TriggerEngineProcessor } = require('../skills/trigger-engine/processor.js'));
-  ({ TriggerEngineCron } = require('../skills/trigger-engine/cron.js'));
-  ({ ClientRouter } = require('../skills/trigger-engine/router.js'));
-  ({ ClaudeBrain } = require('../skills/trigger-engine/claude-brain/index.js'));
-} catch (e) {
-  // Silent fail — Trigger Engine is optional, skip if dependencies not installed yet
-}
+// --- Trigger Engine — DECOMMISSIONNE Sprint 2 (10/05/2026) ---
+// Migration sources vers dashboard-v2 effectuee Sprint 1.
+// Le code physique reste dans skills/trigger-engine/ pour rollback rapide.
+// Pour reactiver : decommenter les require ci-dessous + TRIGGER_ENGINE_ENABLED=true.
+//
+// Economie : ~30 MB RAM au boot (modules pas charges) + ~21 EUR/mois Anthropic
+// (claude-brain trigger-engine plus appele) + 200 MB SQLite (a supprimer Sprint 2.5).
+const TriggerEngineHandler = null;
+const TriggerEngineProcessor = null;
+const TriggerEngineCron = null;
+const ClientRouter = null;
+const ClaudeBrain = null;
+// try {
+//   ({ TriggerEngineHandler } = require('../skills/trigger-engine/index.js'));
+//   ({ TriggerEngineProcessor } = require('../skills/trigger-engine/processor.js'));
+//   ({ TriggerEngineCron } = require('../skills/trigger-engine/cron.js'));
+//   ({ ClientRouter } = require('../skills/trigger-engine/router.js'));
+//   ({ ClaudeBrain } = require('../skills/trigger-engine/claude-brain/index.js'));
+// } catch (e) { /* Silent fail — Trigger Engine optional */ }
 const appConfig = require('./app-config.js');
 const { ReportWorkflow, fetchProspectData } = require('./report-workflow.js');
 
@@ -302,11 +306,36 @@ const reportWorkflow = new ReportWorkflow({
   }
 });
 
-// Inbox Manager + Meeting Scheduler
-const inboxHandler = new InboxHandler(OPENAI_KEY);
-const meetingHandler = new MeetingHandler(OPENAI_KEY);
-inboxHandler.start();
-meetingHandler.start();
+// Inbox Manager + Meeting Scheduler — DESACTIVES Sprint 2 (10/05/2026)
+//
+// Post-pivot Data-only (05/05) :
+//   - inbox-manager : IMAP listener vide (pas de IMAP_USER configure), 20 replies
+//     historiques deja matchees. Plus de bot envoi email = plus de replies a traiter.
+//   - meeting-scheduler : Google Calendar refresh token revoque, sync gcal desactive
+//     le 09/05 (commit b74e696d0). Plus de RDV bookes par bot.
+//
+// Le code physique reste (skills/inbox-manager + skills/meeting-scheduler) pour
+// reactivation rapide si pivot. Les handlers sont juste plus instancies.
+//
+// Si un user envoie une commande Telegram /inbox ou /meeting, le router
+// retourne maintenant un message "feature desactivee" via le stub legacy.
+const inboxHandler = new (class {
+  start() { /* no-op */ }
+  stop() { /* no-op */ }
+  pendingConversations = {};
+  pendingConfirmations = {};
+  async handleMessage() { return { skipped: true, reason: 'inbox-disabled-sprint-2' }; }
+})();
+const meetingHandler = new (class {
+  start() { /* no-op */ }
+  stop() { /* no-op */ }
+  pendingConversations = {};
+  pendingConfirmations = {};
+  gcal = { isConfigured: () => false, isApiConfigured: () => false };
+  async handleMessage() { return { skipped: true, reason: 'meeting-disabled-sprint-2' }; }
+  async syncBookings() { return { skipped: true }; }
+})();
+// inboxHandler.start() / meetingHandler.start() retires (no-op stubs)
 
 // Inbox Listener (IMAP) — instancie apres les handlers pour le callback
 let inboxListeners = [];
@@ -2277,7 +2306,7 @@ telegramAPI('getMe').then(result => {
         { command: 'aide', description: '❓ Voir l\'aide' }
       ]
     }).catch(e => log.warn('router', 'setMyCommands echoue:', e.message));
-    log.info('router', 'Trigger Engine + Inbox + Meeting actifs (legacy v9.5 stubbé)');
+    log.info('router', 'Bot mode SHUTDOWN-LITE Sprint 2 (10/05/2026) — Trigger Engine + Inbox + Meeting + Claude Brain stubbes. Sources migrees vers dashboard-v2.');
     log.info('router', 'En attente de messages...');
     _botReady = true;
     poll();
