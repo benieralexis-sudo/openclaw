@@ -230,6 +230,18 @@ export async function enrichLinkedInProfile(args: {
     export: res.headers.get("Remaining-Export-Credits"),
   };
 
+  // P25 (Vague 3 perfection 100%) — log structure des credits Kaspr restants
+  // pour visibilite consommation. Parse les valeurs string en nombres si
+  // possible (les headers peuvent etre absents = null).
+  console.log(JSON.stringify({
+    skill: "kaspr.credits",
+    status: res.status,
+    workEmail: credits.workEmail ? Number(credits.workEmail) : null,
+    directEmail: credits.directEmail ? Number(credits.directEmail) : null,
+    phone: credits.phone ? Number(credits.phone) : null,
+    export: credits.export ? Number(credits.export) : null,
+  }));
+
   if (res.status === 402) return { ok: false, error: "no_credits_left", credits };
   if (res.status === 429) return { ok: false, error: "rate_limit_exceeded", credits };
   if (res.status === 404) return { ok: false, error: "profile_not_found", credits };
