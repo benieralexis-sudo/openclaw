@@ -10,6 +10,7 @@ import { FeatureShowcase } from "./_components/feature-showcase";
 import { BriefMockup } from "./_components/brief-mockup";
 import { LiveFeed } from "./_components/live-feed";
 import { IntelligenceIllustration, GarantieIllustration, TempsReelIllustration } from "./_components/pillar-illustrations";
+import { Reveal } from "./_components/reveal";
 
 export const metadata: Metadata = {
   title: "iFIND — Détectez les boîtes FR qui ont besoin de vous",
@@ -55,8 +56,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Headline gigantesque centré */}
-          <h1 className="text-center font-display text-[2.75rem] sm:text-6xl md:text-7xl lg:text-[6rem] xl:text-[7rem] font-bold text-ink-900 tracking-[-0.03em] leading-[0.95] max-w-6xl mx-auto">
+          {/* Headline gigantesque centré (mobile-friendly sizes) */}
+          <h1 className="text-center font-display text-[2.25rem] sm:text-5xl md:text-7xl lg:text-[6rem] xl:text-[7rem] font-bold text-ink-900 tracking-[-0.03em] leading-[0.95] max-w-6xl mx-auto">
             Les boîtes françaises qui
             <br />
             <span className="relative inline-block mt-3">
@@ -134,21 +135,25 @@ export default function HomePage() {
           ═══════════════════════════════════════════════════════════ */}
       <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">Mesuré en production</p>
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900">
-              Des chiffres qui parlent
-            </h2>
-            <p className="mt-3 text-ink-600 max-w-xl mx-auto">
-              Données réelles du bot iFIND DTL sur les 30 derniers jours.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
-            <AnimatedStat value={11} label="Sources françaises" sublabel="croisées 24/7" />
-            <AnimatedStat value={18} label="Pépites/mois" sublabel="livrées en moyenne" />
-            <AnimatedStat value={95} suffix="%" label="Précision Cerveau V2" sublabel="vs 80% V1" />
-            <AnimatedStat value={48} suffix="h" label="Premières Pépites" sublabel="après onboarding" />
-          </div>
+          <Reveal>
+            <div className="text-center mb-10">
+              <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">Mesuré en production</p>
+              <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900">
+                Des chiffres qui parlent
+              </h2>
+              <p className="mt-3 text-ink-600 max-w-xl mx-auto">
+                Données réelles du bot iFIND DTL sur les 30 derniers jours.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={0.15}>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
+              <AnimatedStat value={11} label="Sources françaises" sublabel="croisées 24/7" />
+              <AnimatedStat value={18} label="Pépites/mois" sublabel="livrées en moyenne" />
+              <AnimatedStat value={95} suffix="%" label="Précision Cerveau V2" sublabel="vs 80% V1" />
+              <AnimatedStat value={48} suffix="h" label="Premières Pépites" sublabel="après onboarding" />
+            </div>
+          </Reveal>
         </div>
       </section>
 

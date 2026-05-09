@@ -162,7 +162,20 @@
     to { opacity: 1; transform: translateY(0); }
   }
   .anim-fade-up {
-    animation: fade-up 0.6s var(--ease-out-expo) backwards;
+    animation: fade-up 0.7s var(--ease-out-expo) backwards;
+  }
+  .anim-fade-up-fast {
+    animation: fade-up 0.4s var(--ease-out-expo) backwards;
+  }
+  /* Animation reveal au scroll : commence invisible, fade-in via class .in-view */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s var(--ease-out-expo), transform 0.7s var(--ease-out-expo);
+  }
+  .reveal.in-view {
+    opacity: 1;
+    transform: translateY(0);
   }
   /* Stagger pour grilles (delay incremental) */
   .anim-stagger > * {
@@ -174,6 +187,12 @@
   .anim-stagger > *:nth-child(4) { animation-delay: 0.20s; }
   .anim-stagger > *:nth-child(5) { animation-delay: 0.25s; }
   .anim-stagger > *:nth-child(6) { animation-delay: 0.30s; }
+  /* Premium focus ring brand */
+  .focus-brand:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-brand-500);
+    border-radius: 8px;
+  }
 
   /* Glow border subtil au hover (cards premium) */
   .hover-glow {
