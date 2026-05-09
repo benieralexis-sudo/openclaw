@@ -947,12 +947,18 @@ async function qualifyTriggerV2Shadow(triggerId: string): Promise<void> {
       where: { id: triggerId },
       select: { scoreReason: true, status: true },
     });
-    // N'override que si V1 disait NEW (pas besoin si déjà IGNORED)
-    if (current?.status === "NEW") {
-      const v1Reason = current.scoreReason ?? "";
+    // Override si :
+    //  - V1 disait NEW (cas Synanto-type catch initial)
+    //  - OU V1 a rollback IGNORED+[RE-JUDGED...FAILED] (Anthropic down sur le
+    //    re-judge mais V2 fire-and-forget a quand meme reussi). Sans cette
+    //    branche, le scoreReason reste "FAILED" alors que V2 a un verdict NON
+    //    legitime — bug detecte 09/05 sur Synanto/Sogelink/Hivebrite/ALDEMIA.
+    const reason = current?.scoreReason ?? "";
+    const isRollbackFailed = reason.startsWith("[RE-JUDGED") && reason.includes("FAILED");
+    if (current?.status === "NEW" || isRollbackFailed) {
       const v2Header = `[V2-override:NON conf=${result.brief.confidence}] ${result.brief.thesis.slice(0, 200)}`;
       updates.status = "IGNORED";
-      updates.scoreReason = `${v2Header} | V1: ${v1Reason}`.slice(0, 600);
+      updates.scoreReason = `${v2Header} | V1: ${reason}`.slice(0, 600);
       v2OverrideApplied = true;
     }
   }
