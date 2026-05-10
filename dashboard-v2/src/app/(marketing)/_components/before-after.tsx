@@ -9,7 +9,7 @@ const AVANT = [
 
 const APRES = [
   "Détection sur 11 sources publiques FR",
-  "Qualification IA Opus 4.7 sur chaque signal",
+  "Qualification IA propriétaire sur chaque signal",
   "Brief contextuel prêt à utiliser",
   "Email + téléphone + LinkedIn vérifiés",
 ];

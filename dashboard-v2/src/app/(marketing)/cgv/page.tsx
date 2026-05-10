@@ -34,7 +34,7 @@ export default function CgvPage() {
 
         <h2 className="font-display text-xl md:text-2xl font-semibold tracking-tight mt-10 text-ink-900">4. Garantie Pépite</h2>
         <p>
-          iFIND s&apos;engage à livrer un minimum de 6 Pépites (leads avec score Opus ≥ 8/10) par
+          iFIND s&apos;engage à livrer un minimum de 6 Pépites (leads avec score IA ≥ 8/10) par
           mois. Si ce minimum n&apos;est pas atteint, le quota mensuel du mois suivant est
           automatiquement doublé (120 leads inclus au lieu de 60). Cet engagement constitue la
           seule garantie contractuelle quant au volume livré.

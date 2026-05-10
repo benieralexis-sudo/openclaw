@@ -31,10 +31,10 @@ export default function AProposPage() {
         <div className="max-w-3xl mx-auto px-6 lg:px-8">
           <div className="space-y-8 text-[16px] text-ink-700 leading-[1.7]">
             <p>
-              En 2026, la prospection B2B en France reste un casse-tête. Les outils américains
-              (Apollo, ZoomInfo, Cognism) couvrent mal la donnée FR. Les outils français
-              (Pharow, Société.info) vendent de la donnée brute sans intelligence. Et tous
-              demandent au commercial de trier 500 prospects pour trouver 5 vraies opportunités.
+              En 2026, la prospection B2B en France reste un casse-tête. Les outils
+              américains couvrent mal la donnée FR. Les outils français vendent de la
+              donnée brute sans intelligence. Et tous demandent au commercial de trier
+              500 prospects pour trouver 5 vraies opportunités.
             </p>
             <p className="font-display text-2xl md:text-3xl font-semibold text-ink-900 leading-tight">
               iFIND est né de cette frustration.
@@ -42,7 +42,7 @@ export default function AProposPage() {
             <p>
               On a construit le seul moteur français qui fait <strong className="text-ink-900">les trois à la fois</strong> :
               détecter en temps réel sur 11 sources publiques FR, qualifier chaque signal
-              avec Claude Opus 4.7, et garantir contractuellement un minimum de 6 Pépites par mois.
+              avec une IA propriétaire, et garantir contractuellement un minimum de 6 Pépites par mois.
             </p>
             <p>
               Le pari : une promesse mesurable bat un fichier de 50 000 contacts froids.
@@ -59,8 +59,9 @@ export default function AProposPage() {
               </h2>
               <p className="text-[16px] text-ink-700 leading-[1.7]">
                 Démocratiser l&apos;accès à la qualification IA pour toutes les PME tech françaises.
-                Aujourd&apos;hui, seules les ETI peuvent se permettre Cognism à 5 000 € par an et par utilisateur.
-                Demain, votre PME de 30 personnes le pourra aussi à 390 € par mois.
+                Aujourd&apos;hui, les outils enterprise coûtent plusieurs milliers d&apos;euros
+                par an et par utilisateur. Demain, votre PME de 30 personnes y aura accès à
+                390 € par mois.
               </p>
             </div>
 

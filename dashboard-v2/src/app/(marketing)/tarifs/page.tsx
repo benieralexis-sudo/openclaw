@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Check, Shield, ArrowRight, X } from "lucide-react";
+import { Check, Shield, ArrowRight } from "lucide-react";
 import { SectionHeading } from "../_components/section-heading";
 
 export const metadata: Metadata = {
@@ -78,7 +78,7 @@ export default function TarifsPage() {
                         Garantie 6 Pépites par mois
                       </p>
                       <p className="text-sm text-ink-700 leading-relaxed">
-                        Si on livre moins de 6 Pépites (score Opus ≥ 8/10) un mois,
+                        Si on livre moins de 6 Pépites (score IA ≥ 8/10) un mois,
                         votre quota du mois suivant est <strong className="text-ink-900">automatiquement doublé</strong> — 120 leads inclus au lieu de 60.
                       </p>
                     </div>
@@ -145,43 +145,6 @@ export default function TarifsPage() {
         </div>
       </section>
 
-      {/* ───────────────────────── COMPARATOR ───────────────────────── */}
-      <section className="py-20 md:py-24">
-        <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <SectionHeading
-            eyebrow="Benchmark marché"
-            title={<>iFIND vs <span className="text-ink-400">les autres</span>.</>}
-          />
-
-          <div className="mt-12 max-w-5xl mx-auto rounded-xl border border-ink-200 overflow-hidden bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[640px]">
-                <thead className="bg-ink-50 border-b border-ink-200">
-                  <tr>
-                    <th className="text-left py-4 px-5 font-medium text-ink-600 text-xs uppercase tracking-wider"></th>
-                    <th className="text-center py-4 px-4 font-display font-semibold text-brand-800 bg-brand-50 border-x border-brand-200">iFIND</th>
-                    <th className="text-center py-4 px-4 font-medium text-ink-600">Pharow</th>
-                    <th className="text-center py-4 px-4 font-medium text-ink-600">Cognism</th>
-                    <th className="text-center py-4 px-4 font-medium text-ink-600">Apollo</th>
-                    <th className="text-center py-4 px-4 font-medium text-ink-600">Société.info</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ink-100">
-                  {COMPARISON.map(([feature, ...values], i) => (
-                    <tr key={i} className="hover:bg-ink-50/50 transition-colors">
-                      <td className="py-3.5 px-5 text-ink-700 text-[14px]">{feature}</td>
-                      {values.map((v, j) => (
-                        <Cell key={j} value={v} highlight={j === 0} />
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ───────────────────────── FAQ ───────────────────────── */}
       <section className="py-20 md:py-24 bg-ink-50/40">
         <div className="max-w-3xl mx-auto px-6 lg:px-8">
@@ -229,28 +192,6 @@ export default function TarifsPage() {
   );
 }
 
-function Cell({ value, highlight }: { value: boolean | string; highlight?: boolean }) {
-  return (
-    <td className={`text-center py-3.5 px-4 ${highlight ? "bg-brand-50/60 border-x border-brand-100" : ""}`}>
-      {typeof value === "boolean" ? (
-        value ? (
-          highlight ? (
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-600 text-white">
-              <Check className="h-3 w-3" strokeWidth={3.5} />
-            </span>
-          ) : (
-            <Check className="h-4 w-4 mx-auto text-emerald-600" strokeWidth={3} />
-          )
-        ) : (
-          <X className="h-3.5 w-3.5 mx-auto text-ink-300" />
-        )
-      ) : (
-        <span className={`inline-block font-mono text-xs ${highlight ? "font-semibold text-brand-800 bg-white px-2 py-0.5 rounded border border-brand-200" : "text-ink-600"}`}>{value}</span>
-      )}
-    </td>
-  );
-}
-
 function RoiCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="rounded-xl bg-white border border-ink-200 p-6 text-center">
@@ -262,24 +203,12 @@ function RoiCard({ label, value, sub }: { label: string; value: string; sub: str
 }
 
 const INCLUS = [
-  { title: "60 leads qualifiés par mois", description: "Score Opus ≥ 6, prêts à approcher." },
+  { title: "60 leads qualifiés par mois", description: "Score IA ≥ 6, prêts à approcher." },
   { title: "Rollover crédits jusqu'à 4 mois", description: "Crédits non-consommés roulent automatiquement." },
   { title: "Overage flexible : 8 € par lead", description: "Topup à la demande si vous dépassez votre quota." },
-  { title: "Brief Opus 4.7 sur chaque Pépite", description: "Contexte, signal, angle, pitch, objections — prêt à utiliser." },
+  { title: "Brief IA sur chaque Pépite", description: "Contexte, signal, angle, pitch, objections — prêt à utiliser." },
   { title: "Setup ICP custom + tuning offerts", description: "Notre équipe configure votre profil cible avec vous." },
   { title: "Alertes Telegram et email", description: "Notification instantanée à chaque Pépite détectée." },
-];
-
-const COMPARISON: Array<[string, ...(boolean | string)[]]> = [
-  ["Données 100 % françaises", true, true, false, false, true],
-  ["Détection temps réel multi-sources", true, false, false, false, false],
-  ["Qualification IA Claude Opus 4.7", true, false, false, false, false],
-  ["Garantie qualité contractuelle", true, false, false, false, false],
-  ["Brief sur-mesure par lead", true, false, false, false, false],
-  ["Rollover crédits", true, false, false, false, false],
-  ["Setup ICP custom inclus", true, false, false, false, false],
-  ["RGPD by design", true, true, true, false, true],
-  ["Tarif starter", "390 €/mo", "139 €/mo", "$1500/an", "$49/user", "50 €/mo"],
 ];
 
 const FAQS = [
@@ -289,7 +218,7 @@ const FAQS = [
   },
   {
     q: "C'est quoi exactement une Pépite ?",
-    a: "Un lead avec un score Opus ≥ 8/10 — une boîte qui matche votre ICP ET qui présente un signal d'achat fort (levée de fonds, recrutement urgent, lancement produit, changement dirigeant…). Sur le bot DTL, on en détecte 18 par mois en moyenne.",
+    a: "Un lead avec un score IA ≥ 8/10 — une boîte qui matche votre ICP ET qui présente un signal d'achat fort (levée de fonds, recrutement urgent, lancement produit, changement dirigeant…). Sur le bot DTL, on en détecte 18 par mois en moyenne.",
   },
   {
     q: "Et si vous ne livrez pas mes 6 Pépites un mois ?",

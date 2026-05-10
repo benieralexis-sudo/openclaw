@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, Check, Shield, Zap, Brain } from "lucide-react";
+import { ArrowRight, Shield, Zap, Brain } from "lucide-react";
 import { DashboardMockup } from "./_components/dashboard-mockup";
 import { SourcesMarquee } from "./_components/sources-marquee";
 import { BeforeAfter } from "./_components/before-after";
@@ -14,7 +14,7 @@ import { STATS_PRODUIT } from "./_components/_data/mock-companies";
 export const metadata: Metadata = {
   title: "iFIND — Détection de signaux d'achat sur les PME françaises",
   description:
-    "Le moteur français de détection de signaux d'achat. 11 sources publiques scannées 24/7, qualification IA Claude Opus 4.7, garantie 6 Pépites par mois.",
+    "Le moteur français de détection de signaux d'achat. 11 sources publiques scannées 24/7, qualification IA propriétaire, garantie 6 Pépites par mois.",
   robots: { index: true, follow: true },
 };
 
@@ -55,7 +55,7 @@ export default function HomePage() {
 
           <p className="mt-6 text-center text-lg md:text-xl text-ink-600 max-w-2xl mx-auto leading-relaxed">
             iFIND scanne 11 sources publiques françaises en continu, qualifie chaque
-            signal avec Claude&nbsp;Opus&nbsp;4.7, et vous garantit 6 Pépites par mois minimum.
+            signal avec notre IA propriétaire, et vous garantit 6 Pépites par mois minimum.
           </p>
 
           {/* CTA */}
@@ -146,7 +146,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <FeatureShowcase
             eyebrow="02 · Qualification IA"
-            title={<>Cerveau Claude Opus 4.7 avec votre ICP en contexte.</>}
+            title={<>Cerveau IA propriétaire avec votre ICP en contexte.</>}
             description="Chaque signal est analysé avec 12 blocs de contexte (persona, santé entreprise, news, signaux négatifs, ICP enrichi). Verdict OUI/NON/ENRICH avec score 0-10, raison détaillée, et brief sur-mesure prêt à utiliser."
             bullets={[
               "Score 0-10 avec raison explicite — jamais de boîte noire",
@@ -173,7 +173,7 @@ export default function HomePage() {
             <Pillar
               icon={<Brain className="h-5 w-5" />}
               title="Intelligence"
-              description="Claude Opus 4.7 + 12 blocs de contexte. Chaque lead est analysé comme par un commercial senior, pas par un keyword match."
+              description="IA propriétaire + 12 blocs de contexte. Chaque lead est analysé comme par un commercial senior, pas par un keyword match."
             />
             <Pillar
               icon={<Shield className="h-5 w-5" />}
@@ -194,38 +194,22 @@ export default function HomePage() {
       <section className="py-20 md:py-24">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <SectionHeading
-            eyebrow="Comparaison marché"
-            title={<>iFIND vs <span className="text-ink-400">les autres</span>.</>}
-            description="Les outils de prospection FR vendent de la donnée brute. Les outils US n'ont pas la couverture FR. iFIND est le seul à combiner les trois piliers."
+            eyebrow="Différenciateurs"
+            title="Comment iFIND est différent."
+            description="Les autres outils vendent une base de données ou un fichier de leads. iFIND vend un engagement mesurable sur la qualité."
           />
 
-          <div className="mt-12 max-w-5xl mx-auto">
-            <div className="rounded-xl border border-ink-200 overflow-hidden bg-white shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
-                  <thead className="bg-ink-50 border-b border-ink-200">
-                    <tr>
-                      <th className="text-left py-4 px-5 font-medium text-ink-600 text-xs uppercase tracking-wider"></th>
-                      <th className="text-center py-4 px-4 font-display font-semibold text-brand-800 bg-brand-50 border-x border-brand-200">iFIND</th>
-                      <th className="text-center py-4 px-4 font-medium text-ink-600">Pharow</th>
-                      <th className="text-center py-4 px-4 font-medium text-ink-600">Cognism</th>
-                      <th className="text-center py-4 px-4 font-medium text-ink-600">Apollo</th>
-                      <th className="text-center py-4 px-4 font-medium text-ink-600">Société.info</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-ink-100">
-                    {COMPARISON.map(([feature, ...values], i) => (
-                      <tr key={i} className="hover:bg-ink-50/50 transition-colors">
-                        <td className="py-3.5 px-5 text-ink-700 text-[14px]">{feature}</td>
-                        {values.map((v, j) => (
-                          <Cell key={j} value={v} highlight={j === 0} />
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-5 max-w-5xl mx-auto">
+            {DIFFERENCIATEURS.map((d) => (
+              <div key={d.title} className="rounded-2xl bg-white border border-ink-200 p-7 hover:border-brand-200 hover:shadow-md transition-all">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <span className="font-mono text-xs text-brand-700 font-semibold tabular-nums">{d.num}</span>
+                  <h3 className="font-display text-lg font-semibold text-ink-900">{d.title}</h3>
+                </div>
+                <p className="text-sm text-ink-600 leading-relaxed mb-3">{d.description}</p>
+                <p className="text-xs text-ink-500 italic border-l-2 border-brand-200 pl-3">{d.contraste}</p>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
@@ -320,38 +304,31 @@ function Pillar({ icon, title, description, highlight }: { icon: React.ReactNode
   );
 }
 
-function Cell({ value, highlight }: { value: boolean | string; highlight?: boolean }) {
-  return (
-    <td className={`text-center py-3.5 px-4 ${highlight ? "bg-brand-50/60 border-x border-brand-100" : ""}`}>
-      {typeof value === "boolean" ? (
-        value ? (
-          highlight ? (
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-600 text-white">
-              <Check className="h-3 w-3" strokeWidth={3.5} />
-            </span>
-          ) : (
-            <Check className="h-4 w-4 mx-auto text-emerald-600" strokeWidth={3} />
-          )
-        ) : (
-          <span className="text-ink-300 text-sm">—</span>
-        )
-      ) : (
-        <span className={`inline-block font-mono text-xs ${highlight ? "font-semibold text-brand-800 bg-white px-2 py-0.5 rounded border border-brand-200" : "text-ink-600"}`}>{value}</span>
-      )}
-    </td>
-  );
-}
-
-const COMPARISON: Array<[string, ...(boolean | string)[]]> = [
-  ["Données 100 % françaises", true, true, false, false, true],
-  ["Détection temps réel multi-sources", true, false, false, false, false],
-  ["Qualification IA Claude Opus 4.7", true, false, false, false, false],
-  ["Garantie qualité contractuelle", true, false, false, false, false],
-  ["Brief sur-mesure par lead", true, false, false, false, false],
-  ["Rollover crédits inutilisés", true, false, false, false, false],
-  ["Setup ICP custom inclus", true, false, false, false, false],
-  ["Conforme RGPD by design", true, true, true, false, true],
-  ["Tarif starter", "390 €/mo", "139 €/mo", "$1500/an", "$49/user", "50 €/mo"],
+const DIFFERENCIATEURS = [
+  {
+    num: "01",
+    title: "Détection temps réel, pas batch nocturne",
+    description: "Le moteur scanne 11 sources publiques en continu. Vous recevez les signaux quand ils sont chauds — pas 24 h après le crawl quotidien.",
+    contraste: "Les bases de données classiques rafraîchissent les données mensuellement, voire trimestriellement.",
+  },
+  {
+    num: "02",
+    title: "Qualification IA contextuelle, pas filtres bruts",
+    description: "Chaque signal passe par 12 blocs de contexte (persona, santé entreprise, news, signaux négatifs, votre ICP). Verdict OUI/NON/ENRICH avec brief sur-mesure.",
+    contraste: "Les outils traditionnels livrent un fichier filtré par taille/industrie — vous re-triez 500 leads pour en sortir 5.",
+  },
+  {
+    num: "03",
+    title: "Garantie contractuelle, pas best effort",
+    description: "6 Pépites minimum par mois (score IA ≥ 8/10). Si on ne tient pas, votre quota du mois suivant est doublé. C'est écrit dans les CGV.",
+    contraste: "Aucun autre outil ne s'engage contractuellement sur la qualité des leads livrés. Vous payez pour de l'accès, pas pour un résultat.",
+  },
+  {
+    num: "04",
+    title: "Brief sur-mesure, pas juste des contacts",
+    description: "Chaque Pépite arrive avec contexte, signal d'achat détecté, angle d'attaque suggéré, pitch prêt à utiliser, et anticipation des objections.",
+    contraste: "Les autres outils livrent un email + un téléphone — vos commerciaux écrivent leur copie depuis zéro.",
+  },
 ];
 
 const STEPS = [
@@ -363,11 +340,11 @@ const STEPS = [
   {
     title: "Le moteur scanne 24/7",
     time: "Automatique",
-    description: "Triggers détectés en temps réel, qualifiés par Opus 4.7, enrichis (email, téléphone, LinkedIn vérifiés).",
+    description: "Triggers détectés en temps réel, qualifiés par notre IA, enrichis (email, téléphone, LinkedIn vérifiés).",
   },
   {
     title: "Recevez vos Pépites",
     time: "48 heures",
-    description: "Dashboard temps réel, alertes Telegram instantanées, briefs Opus prêts à utiliser. Vos commerciaux closent.",
+    description: "Dashboard temps réel, alertes Telegram instantanées, briefs IA prêts à utiliser. Vos commerciaux closent.",
   },
 ];

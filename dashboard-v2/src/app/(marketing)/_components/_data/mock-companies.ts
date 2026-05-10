@@ -86,7 +86,7 @@ export const MOCK_FEED: MockFeedItem[] = [
   { type: "pepite", company: "Demo Mediacore", signal: "Lève 8 M€ et recrute tech", time: "il y a 1 h", source: "Presse Tech FR" },
 ];
 
-// Brief illustratif (reprend la structure réelle d'un brief Opus)
+// Brief illustratif (reprend la structure réelle d'un brief IA)
 export const MOCK_BRIEF = {
   company: "Demo SaaS A",
   siret: "999 850 257",

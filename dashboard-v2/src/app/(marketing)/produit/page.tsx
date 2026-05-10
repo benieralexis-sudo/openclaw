@@ -10,7 +10,7 @@ import { SectionHeading } from "../_components/section-heading";
 export const metadata: Metadata = {
   title: "Produit — Détection, qualification, garantie",
   description:
-    "Comment iFIND détecte, qualifie et garantit les meilleures Pépites du marché PME français. 11 sources publiques, Claude Opus 4.7, garantie contractuelle.",
+    "Comment iFIND détecte, qualifie et garantit les meilleures Pépites du marché PME français. 11 sources publiques, IA propriétaire, garantie contractuelle.",
   robots: { index: true, follow: true },
 };
 
@@ -28,7 +28,7 @@ export default function ProduitPage() {
             <span className="text-brand-700">plus précis</span> sur le marché PME français.
           </h1>
           <p className="mt-6 text-lg md:text-xl text-ink-600 max-w-2xl mx-auto leading-relaxed">
-            iFIND combine 11 sources publiques françaises, qualification IA Claude Opus 4.7,
+            iFIND combine 11 sources publiques françaises, qualification IA propriétaire,
             et garantie qualité contractuelle. Voici comment, en détail.
           </p>
         </div>
@@ -61,10 +61,10 @@ export default function ProduitPage() {
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <FeatureShowcase
             eyebrow="02 · Qualification IA"
-            title="Cerveau Claude Opus 4.7 — précision 95 %."
+            title="Cerveau IA propriétaire — précision 95 %."
             description="Chaque trigger est analysé avec 12 blocs de contexte (persona, santé entreprise, news, signaux négatifs, ICP enrichi). Verdict OUI/NON/ENRICH avec score 0-10, raison détaillée, et brief sur-mesure prêt à utiliser."
             bullets={[
-              "12 blocs de contexte injectés à Claude Opus pour chaque trigger",
+              "12 blocs de contexte injectés à notre IA pour chaque trigger",
               "Verdict explicite OUI/NON/ENRICH — jamais de boîte noire",
               "Score 0-10 avec raison détaillée",
               "Brief en 5 sections : contexte, signal, angle, pitch, objections",
@@ -85,7 +85,7 @@ export default function ProduitPage() {
             title={<>6 Pépites garanties par mois <span className="text-ink-400">— ou quota doublé</span>.</>}
             description={
               <>
-                Engagement contractuel. Une <strong>Pépite</strong> = lead avec score Opus ≥ 8/10
+                Engagement contractuel. Une <strong>Pépite</strong> = lead avec score IA ≥ 8/10
                 (boîte qui matche votre ICP <em>et</em> présente un signal d&apos;achat fort).
                 Si on en livre moins de 6 un mois, votre quota du mois suivant est automatiquement doublé.
               </>
@@ -132,7 +132,7 @@ export default function ProduitPage() {
           <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
             <DashFeature icon={<BarChart3 className="h-4 w-4" />} title="Compteur garantie live" desc="Suivez en continu vos Pépites livrées vs les 6 garanties contractuelles." />
             <DashFeature icon={<Bell className="h-4 w-4" />} title="Alertes Telegram" desc="Ping instantané dès qu'une Pépite est détectée et qualifiée." />
-            <DashFeature icon={<Database className="h-4 w-4" />} title="Brief Opus 1-clic" desc="Ouvrez le brief de chaque lead sans changer de page." />
+            <DashFeature icon={<Database className="h-4 w-4" />} title="Brief IA 1-clic" desc="Ouvrez le brief de chaque lead sans changer de page." />
             <DashFeature icon={<Target className="h-4 w-4" />} title="Actions bulk" desc="Marquer contactés, archiver, exporter en CSV — par lots." />
           </div>
         </div>

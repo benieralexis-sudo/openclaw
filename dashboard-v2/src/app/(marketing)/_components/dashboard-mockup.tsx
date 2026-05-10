@@ -162,7 +162,7 @@ export function DashboardMockup() {
           <div className="rounded-md bg-white border border-ink-200 p-3 mb-3">
             <div className="flex items-center gap-1.5 mb-2">
               <Brain className="h-3 w-3 text-brand-600" />
-              <span className="text-[10px] font-semibold text-ink-700 uppercase tracking-wider">Brief Opus</span>
+              <span className="text-[10px] font-semibold text-ink-700 uppercase tracking-wider">Brief IA</span>
             </div>
             <p className="text-xs leading-relaxed text-ink-700">
               <strong>Angle :</strong> {MOCK_BRIEF.company} vient de boucler une Série B et publie 3 offres QA. CTO actif.

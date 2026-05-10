@@ -14,7 +14,7 @@ export function BriefMockup() {
               <Brain className="h-4 w-4 text-white" />
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-brand-200">Brief Opus 4.7</p>
+              <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-brand-200">Brief IA</p>
               <p className="text-sm font-semibold leading-tight">{brief.company}</p>
             </div>
           </div>
@@ -56,7 +56,7 @@ export function BriefMockup() {
 
         <div className="grid grid-cols-3 gap-3 pt-4 border-t border-ink-100">
           <Stat value="92%" label="Match ICP" />
-          <Stat value="9/10" label="Score Opus" highlight />
+          <Stat value="9/10" label="Score IA" highlight />
           <Stat value="2 h" label="Détecté" />
         </div>
       </div>
