@@ -613,21 +613,42 @@ Réponds UNIQUEMENT en JSON valide, sans markdown, sans préfixe :
 - Réponses TOUJOURS en français sauf indication contraire.
 - Si le signal manque d'informations critiques (NAF non résolu, taille inconnue), score ≤ 5 par prudence avec mention "data incomplete" dans reason.`;
 
+/**
+ * Refactor V2-only — Session 1 (10/05/2026).
+ *
+ * AVANT : V1 Opus (score 1-10) en source de vérité + V2 fire-and-forget shadow.
+ * MAINTENANT : V2 décide tout (verdict OUI/ENRICH/NON + confidence + thesis).
+ *
+ * Le score 0-10 est CONSERVÉ pour compat UX (mappé depuis verdict+conf) :
+ *   - OUI conf >= 90 → 10  (Pépite top)
+ *   - OUI 80-89      →  9  (Pépite)
+ *   - OUI 70-79      →  8  (Très chaud)
+ *   - OUI 60-69      →  7  (Qualifié)
+ *   - OUI <60        →  6  (faible mais OUI)
+ *   - ENRICH >= 70   →  7  (Qualifié à enrichir)
+ *   - ENRICH 50-69   →  6
+ *   - ENRICH <50     →  5
+ *   - NON            →  2
+ *
+ * Status : V2 OUI ou ENRICH shippable → NEW. V2 NON ou !shippable → IGNORED.
+ *
+ * Logique simplifiée : V2 voit déjà via le dossier les blocs negativeSignals,
+ * companyNews (layoffs), redFlags ICP, etc. donc plus besoin de couches
+ * legacy V1 (Fix L hedging, Sprint 9 hard cap, Bonus C layoffs, plancher
+ * trusted-source, C3 below_min_score). Si V2 plante (validation strict KO,
+ * Opus error), fail-safe IGNORED.
+ *
+ * Économie : V2-only ~$0.16/call vs V1+V2 ~$0.24/call = -33% Anthropic.
+ */
 export async function qualifyTrigger(
   triggerId: string,
   opts: { force?: boolean } = {},
 ): Promise<QualifyResult | null> {
-  // Sprint D.0 (07/05) — Fetch léger pour idempotence + pre-Opus reject seulement.
-  // Le dossier complet (12 blocs : persona, cross-tenant, prior, negative, website,
-  // news, fred-enriched, etc.) est construit ensuite via buildLeadDossierForJudge,
-  // évitant la duplication précédente de la logique d'assemblage entre ce fichier
-  // et lead-dossier.ts. Ordre : lite → reject éventuel (skip dossier) → dossier
-  // complet → Opus. Cela évite aussi les fetches Pappers/homepage/news inutiles
-  // sur les triggers pre-rejected.
+  // 1. Fetch trigger lite (idempotence + données pre-Opus reject)
   const triggerLite = await db.trigger.findUnique({
     where: { id: triggerId },
     select: {
-      clientId: true, // Sprint 8 — pour quota check Anthropic
+      clientId: true,
       score: true,
       scoreReason: true,
       isHot: true,
@@ -642,14 +663,13 @@ export async function qualifyTrigger(
     return { opusScore: triggerLite.score, reason: triggerLite.scoreReason, isHot: triggerLite.isHot };
   }
 
+  // 2. C4-C5 pre-Opus reject (économie tokens — 0 cost si rejet ici).
+  // Patterns rédhibitoires détectés avant V2 : régie ESN, freelance, alternance,
+  // présentiel obligatoire, oversize >250p. Évite ~$0.16 V2 inutile.
   const fullDesc = extractFullDescription(triggerLite.rawPayload);
-
-  // C4+C5 — Pre-Opus reject scan : si pattern HIGH match (régie ESN, freelance,
-  // alternance/stage, présentiel obligatoire, oversize >250p), on skip Opus
-  // et on archive direct. Économise tokens + évite faux Brûlants en haut du dash.
   const preReject = preOpusRejectScan(triggerLite.title ?? "", fullDesc ?? triggerLite.detail ?? "");
   if (preReject.reject) {
-    const rejectReason = `[C4-C5 pre-opus-reject:${preReject.label}] Pattern rédhibitoire détecté avant scoring Opus`;
+    const rejectReason = `[C4-C5 pre-V2-reject:${preReject.label}] Pattern rédhibitoire détecté avant V2`;
     console.log(`[qualify-trigger.C4C5] ${triggerId}: IGNORED auto (${preReject.label})`);
     await db.trigger.update({
       where: { id: triggerId },
@@ -660,274 +680,108 @@ export async function qualifyTrigger(
         status: "IGNORED",
       },
     });
-    // Sync Lead.status → ARCHIVED (fix bug 08/05 orphelins dashboard)
     await archiveLeadOnTriggerIgnored(triggerId);
     return { opusScore: 2, reason: rejectReason, isHot: false };
   }
-  // Sprint D.0 (07/05) — buildLeadDossierForJudge centralise l'assemblage des
-  // 12 blocs (PERSONA QUAL + COMPANY HEALTH, Cross-tenant, PRIOR SIGNALS + COMBO
-  // PATTERNS, NEGATIVE SIGNALS, COMPANY WEBSITE, COMPANY NEWS, CLIENT ENRICHED
-  // Fred 9 questions). Avant ce refactor, ces ~220 lignes étaient dupliquées
-  // entre qualify-trigger.ts et lead-dossier.ts → divergence si on modifiait
-  // un seul côté. Maintenant : source unique. formatDossierForOpus produit
-  // exactement le même userPrompt (testé Sprint C.5).
-  const dossier = await buildLeadDossierForJudge(triggerId);
-  if (!dossier) return null;
-  const trigger = dossier.trigger;
-  const icp = dossier.client.icp;
-  const negativeSignals = dossier.blocks.negativeSignals;
 
-  const userPrompt = formatDossierForOpus(dossier);
+  // 3. APPEL V2 SYNCHRONE (refactor 10/05 — plus de fire-and-forget).
+  // qualifyTriggerV2WithValidation fait déjà : quota check, dossier build,
+  // Opus call, Zod validation, validator strict. Renvoie shippable=true/false.
+  const v2Result = await qualifyTriggerV2WithValidation(triggerId);
 
-  let opusScore = 5;
-  let reason = "Évaluation par défaut (Opus indisponible)";
-
-  try {
-    // Sprint 8 (10/05/2026) — Quota check AVANT appel Opus (estimation $0.05/qualify
-    // ~5000 tk avec cache). Si hard cap atteint, on skip et retourne score=2 reject.
-    const quotaCheck = await checkQuota(triggerLite.clientId, "anthropic", 0.05);
-    if (!quotaCheck.ok) {
-      console.warn(
-        `[qualify-trigger.quota-blocked] ${triggerId} client=${triggerLite.clientId} reason=${quotaCheck.reason} spent=$${quotaCheck.currentSpendUsd}/${quotaCheck.hardCapUsd}`,
-      );
-      return { opusScore: 2, reason: `[quota-exceeded] Anthropic budget client epuise ($${quotaCheck.currentSpendUsd}/${quotaCheck.hardCapUsd})`, isHot: false };
-    }
-
-    const anthropic = getAnthropic();
-    const resp = await anthropic.messages.create({
-      model: QUALIFY_MODEL,
-      max_tokens: 200,
-      // Bonus D (05/05) — Multi-bloc cache : bloc stable cached + bloc
-      // dynamic fresh (si few-shots dynamiques disponibles dans Client.icp).
-      // Kill switch via icp.dynamicFewShotsEnabled = false → fallback static.
-      system: buildCachedSystem(
-        QUALIFY_SPECIFIC,
-        readDynamicFewShotsFromIcp(icp) ?? undefined,
-      ),
-      messages: [{ role: "user", content: userPrompt }],
+  if (!v2Result.brief) {
+    // V2 totalement échoué (Opus error, Zod KO, dossier null, quota exceeded).
+    // Fail-safe : IGNORED pour ne pas polluer le dashboard d'un lead non-jugé.
+    const reason = `[v2-failed] ${v2Result.reason ?? "V2 returned null"}`.slice(0, 500);
+    console.warn(`[qualify-trigger.v2-failed] ${triggerId}: ${reason}`);
+    await db.trigger.update({
+      where: { id: triggerId },
+      data: { score: 2, scoreReason: reason, isHot: false, status: "IGNORED" },
     });
-    // Instrumentation cache (audit 03/05) : log structuré JSON pour mesurer
-    // hit rate effectif sur 24-48h et calibrer estimation coût qualify.
-    // Format compact pour parsing journalctl ultérieur.
-    const u = resp.usage as {
-      input_tokens?: number;
-      output_tokens?: number;
-      cache_creation_input_tokens?: number;
-      cache_read_input_tokens?: number;
-    };
-    console.log(
-      `[qualify-trigger.usage] ${JSON.stringify({
-        triggerId,
-        model: QUALIFY_MODEL,
-        in: u.input_tokens ?? 0,
-        out: u.output_tokens ?? 0,
-        cache_create: u.cache_creation_input_tokens ?? 0,
-        cache_read: u.cache_read_input_tokens ?? 0,
-      })}`,
-    );
-    // Sprint 8 — record cost reel pour quota tracking
-    const actualCostUsd = computeAnthropicCost(QUALIFY_MODEL, u);
-    await recordSpend(triggerLite.clientId, "anthropic", actualCostUsd).catch((e) =>
-      console.warn(`[qualify-trigger.recordSpend] ${triggerId} failed: ${e instanceof Error ? e.message : e}`),
-    );
-    const text = resp.content
-      .filter((c) => c.type === "text")
-      .map((c) => (c as { text: string }).text)
-      .join("");
-    const match = text.match(/\{[^}]+\}/);
-    if (match) {
-      const parsed = JSON.parse(match[0]) as { score?: number; reason?: string };
-      if (typeof parsed.score === "number") {
-        opusScore = Math.round(Math.min(10, Math.max(1, parsed.score)));
-      }
-      if (typeof parsed.reason === "string") reason = parsed.reason.slice(0, 200);
-    }
-  } catch (e) {
-    console.warn(`[qualify-trigger] Opus error for ${triggerId}:`, e instanceof Error ? e.message : e);
+    await archiveLeadOnTriggerIgnored(triggerId);
     return null;
   }
 
-  // Fix M2 (04/05) — Ordre Fix L AVANT plancher trusted-source.
-  // Avant : Opus → plancher (avec C2 condition secteur) → Fix L hedging.
-  // Le plancher pouvait écraser un score Opus 4 vers 8 (NAF match), puis
-  // Fix L redescendait à 4 si reason contenait "hors ICP". Si Opus n'écrivait
-  // pas "hors ICP" mais juste "data incomplete" sans justification ICP, le
-  // score restait à 8 indûment. Redondance fragile.
-  // Maintenant : Fix L PUIS plancher. Si Opus a hedgé → on garde son verdict
-  // (le plancher ne s'applique pas à un trigger downgradé). Plus propre.
+  const v2Brief = v2Result.brief;
+  const verdict = v2Brief.verdict;
+  const conf = v2Brief.confidence;
 
-  // Fix L — Détection hedging Opus (override final si "hors ICP" / "atypique" etc.)
-  const hedged = detectOpusHedging(opusScore, reason);
-  if (hedged.matchedLabel) {
-    console.log(
-      `[qualify-trigger.fix-L] ${triggerId}: ${opusScore} → ${hedged.score} (hedging:${hedged.matchedLabel}${hedged.softened ? "/soft" : ""})`,
-    );
-    opusScore = hedged.score;
-    reason = hedged.reason;
-  }
-
-  // Sprint 9 hard cap — Si signal négatif "hard" (liquidation/dissolution/
-  // cessation/RJ/LJ/cession totale) détecté, on cap à 2 même si Opus a
-  // relevé. Filet de sécurité absolu : un client iFIND ne doit JAMAIS
-  // recevoir en NEW une boîte qui est en train de fermer. Override
-  // s'applique aussi sur le plancher trusted-source (un Rodz funding sur
-  // une boîte en LJ doit retomber à 2, pas rester à 8).
-  if (negativeSignals?.hasHardSignal && opusScore > 2) {
-    console.log(
-      `[qualify-trigger.sprint9-hard-cap] ${triggerId}: ${opusScore} → 2 (hard negative signal détecté)`,
-    );
+  // 4. Mapping verdict + confidence → score 0-10 (compat UX existante).
+  // Le score 0-10 reste utilisé par : tri dashboard, gates enrichissement
+  // Kaspr/FullEnrich/HarvestAPI, isHot, alerts, credits, brief builder.
+  // Session 2 du refactor changera l'UX dashboard pour afficher verdict+conf
+  // natif et ce mapping pourra disparaître.
+  let opusScore: number;
+  if (verdict === "OUI") {
+    if (conf >= 90) opusScore = 10;
+    else if (conf >= 80) opusScore = 9;
+    else if (conf >= 70) opusScore = 8;
+    else if (conf >= 60) opusScore = 7;
+    else opusScore = 6;
+  } else if (verdict === "ENRICH") {
+    if (conf >= 70) opusScore = 7;
+    else if (conf >= 50) opusScore = 6;
+    else opusScore = 5;
+  } else {
+    // NON
     opusScore = 2;
-    reason = `[Sprint9 hard-negative-cap] ${reason}`.slice(0, 500);
   }
-
-  // Bonus C (05/05) — Google CSE layoffs/PSE news soft cap (post-Opus).
-  // Gate score>=8 ET pas déjà hard-capped Sprint 9 (sinon redondant).
-  // Détecte les annonces presse de PSE/restructuration/layoffs <3 mois sur
-  // 9 sources FR whitelist (lesechos, maddyness, bfm, légifrance, etc).
-  // Soft cap à 5 si ≥2 sources distinctes hits → la boîte est probablement
-  // en contraction (presse plus rapide que BODACC RCS dépôts).
-  //
-  // Audit fix (06/05) — flag layoffsCapApplied : empêche le plancher
-  // trusted-source ci-dessous de re-booster à 8 le score qu'on vient de
-  // capper à 5. Avant ce flag : un Rodz funding score=10 + layoffs news
-  // → Bonus C cap à 5 → plancher minFloor=8 → re-boost à 8. Bug confirmé.
-  let layoffsCapApplied = false;
-  if (opusScore >= 8 && !negativeSignals?.hasHardSignal && trigger.companyName) {
-    try {
-      const layoffsCheck = await searchLayoffsNews(trigger.companyName);
-      if (layoffsCheck.found) {
-        const topSources = layoffsCheck.topHits
-          .map((h) => h.source)
-          .slice(0, 2)
-          .join("/");
-        console.log(
-          `[qualify-trigger.bonus-C] ${triggerId}: ${opusScore} → 5 (layoffs news ${layoffsCheck.distinctSources} sources)`,
-        );
-        reason = `[Bonus C layoffs-news-cap ${topSources}] ${reason}`.slice(0, 500);
-        opusScore = 5;
-        layoffsCapApplied = true;
-      }
-    } catch (e) {
-      console.warn(
-        `[qualify-trigger.bonus-C] ${triggerId} err:`,
-        e instanceof Error ? e.message : e,
-      );
-    }
-  }
-
-  // Plancher de score pour sources fiables (signal d'achat fort garanti).
-  // CONDITION 04/05 (C2) : s'applique UNIQUEMENT si secteur ICP-fit.
-  // M2 (04/05) : appliqué APRÈS Fix L pour ne pas écraser un downgrade hedging.
-  const TRUSTED_SOURCES_MIN_SCORE: Record<string, number> = {
-    "rodz.fundraising": 8,                    // levée = jackpot
-    "rodz.mergers-acquisitions": 8,           // M&A = restructuring
-    "rodz.job-changes": 8,                    // C-level change = budget freed
-    "bodacc.capital-increase": 8,             // augmentation capital = pré-levée
-    "trigger-engine.funding-recent": 8,       // levée détectée RSS presse spé
-  };
-  const minFloor = TRUSTED_SOURCES_MIN_SCORE[trigger.sourceCode];
-  // M2 : si Fix L a déjà downgrade (hedged.matchedLabel) → ne PAS appliquer le
-  // plancher. Le hedging est une preuve qu'Opus a vu un mismatch ICP, on respecte.
-  // Sprint 9 (05/05) — Le plancher trusted-source ne doit PAS s'appliquer
-  // si on a un signal négatif hard (liquidation/dissolution etc.). Une
-  // levée Rodz sur une boîte en cessation = peut-être levée fictive ou
-  // contexte de liquidation, à NE PAS booster.
-  // Audit fix (06/05) — !layoffsCapApplied : pareil pour Bonus C cap à 5
-  // sur news layoffs. Sans ce garde, une levée Rodz score=10 + news PSE
-  // était capped à 5 par Bonus C puis re-boosted à 8 par le plancher.
-  if (minFloor && opusScore < minFloor && !hedged.matchedLabel && !negativeSignals?.hasHardSignal && !layoffsCapApplied) {
-    const icpNafCodes = (icp.naf_codes as string[] | undefined) ?? [];
-    const naf = (trigger.companyNaf ?? "").replace(/\./g, "");
-    const nafMatchIcp = icpNafCodes.some((c) => naf.startsWith(c.replace(/\./g, "")));
-    const icpIndustries = (icp.industries as string[] | undefined) ?? [];
-    const industryStr = (trigger.industry ?? "").toLowerCase();
-    const industryMatchIcp = icpIndustries.some((i) =>
-      industryStr.includes(i.toLowerCase().split(/\s/)[0] ?? ""),
-    );
-    if (nafMatchIcp || industryMatchIcp) {
-      reason = `[Score plancher ${minFloor}/10 source fiable + secteur ICP] ${reason}`;
-      opusScore = minFloor;
-    } else {
-      console.log(
-        `[qualify-trigger.C2] ${triggerId}: plancher ${minFloor} NON appliqué (secteur hors ICP) sourceCode=${trigger.sourceCode} naf=${trigger.companyNaf} industry=${trigger.industry}`,
-      );
-    }
-  }
-
   const isHot = opusScore >= 9;
 
-  // C3 — Filtre minScore client : si score final < icp.minScore, le trigger
-  // ne sera jamais actionnable. Au lieu de le laisser pollute le pool dashboard
-  // (audit 04/05 : 49 triggers score<5 visibles malgré minScore=7), on le
-  // passe en IGNORED auto avec raison traceable. Le seuil minScore vient de
-  // Client.icp.minScore (7 pour DTL). Sans minScore défini → pas de filtre.
-  const icpMinScore = typeof icp.minScore === "number" ? icp.minScore : null;
-  const belowMinScore = icpMinScore !== null && opusScore < icpMinScore;
+  // 5. Status determination.
+  // V2 NON ou !shippable → IGNORED safe (validator strict bloque).
+  // V2 OUI ou ENRICH shippable → NEW (le commercial décide après enrichissement).
+  let status: "NEW" | "IGNORED";
+  if (verdict === "NON" || !v2Result.shippable) {
+    status = "IGNORED";
+  } else {
+    status = "NEW";
+  }
 
-  // Sprint B.7 (06/05/2026) — Promotion IGNORED→NEW si re-qualify remonte
-  // le score ≥ minScore. Si on arrive ici (= preOpusRejectScan a return false,
-  // pas de hardCap Sprint 9 puisque belowMinScore=false implique score ≥ minScore
-  // ≥ 2+1, donc pas de hard cap actif), le trigger MÉRITE NEW. La seule raison
-  // pour qu'il soit encore en IGNORED est un héritage d'un précédent run.
-  // On ne se fie PAS au scoreReason précédent (peut avoir été overwritten
-  // par un qualify intermédiaire qui a effacé le préfixe `[C3 below_min_score`).
-  const promoteToNew = !belowMinScore && triggerLite.status === "IGNORED";
+  // 6. Build scoreReason (cohérent avec la nouvelle UX V2).
+  const reason = `[V2 ${verdict} conf=${conf}] ${v2Brief.thesis.slice(0, 200)}${
+    !v2Result.shippable ? " (non-shippable→IGNORED)" : ""
+  }`.slice(0, 500);
 
+  // 7. B7 promotion : si re-qualify d'un IGNORED remonte le verdict → NEW.
+  const promoteToNew = status === "NEW" && triggerLite.status === "IGNORED";
+
+  // 8. Update Trigger : score mappé + briefV2Json + status + isHot.
   await db.trigger.update({
     where: { id: triggerId },
     data: {
       score: opusScore,
-      scoreReason: belowMinScore
-        ? `[C3 below_min_score:${opusScore}<${icpMinScore}] ${reason}`
-        : reason,
+      scoreReason: reason,
       isHot,
-      ...(belowMinScore ? { status: "IGNORED" as const } : {}),
-      ...(promoteToNew ? { status: "NEW" as const } : {}),
+      status,
+      briefV2Json: v2Brief as unknown as object,
     },
   });
-  // Sync Lead.status (fix bug 08/05 orphelins bidirectionnels)
-  if (belowMinScore) {
+
+  // 9. Sync Lead status (cohérence dashboard).
+  if (status === "IGNORED") {
     await archiveLeadOnTriggerIgnored(triggerId);
   } else if (promoteToNew) {
-    // B.7 promotion IGNORED→NEW : désarchive le Lead lié (cas désync inverse)
     await unarchiveLeadOnTriggerRevived(triggerId);
   }
-  if (belowMinScore) {
+
+  // 10. Logs structurés.
+  if (status === "IGNORED") {
     console.log(
-      `[qualify-trigger.C3] ${triggerId}: IGNORED auto (score=${opusScore} < minScore=${icpMinScore})`,
+      `[qualify-trigger.V2] ${triggerId}: IGNORED (verdict=${verdict} conf=${conf} shippable=${v2Result.shippable})`,
     );
   } else if (promoteToNew) {
     console.log(
-      `[qualify-trigger.B7-promote] ${triggerId}: IGNORED→NEW (score remonté à ${opusScore} ≥ minScore=${icpMinScore})`,
+      `[qualify-trigger.V2-promote] ${triggerId}: IGNORED→NEW (verdict=${verdict} conf=${conf})`,
+    );
+  } else {
+    console.log(
+      `[qualify-trigger.V2] ${triggerId}: NEW (verdict=${verdict} conf=${conf} score=${opusScore})`,
     );
   }
 
-  // Sprint Perfection P6 (08/05) — V2 shadow parallel-write.
-  //
-  // Fire-and-forget : V2 calcule briefV2Json en parallèle, écrit le JSON en
-  // DB, et N'ATTEND PAS la réponse pour que qualifyTrigger v1 retourne au
-  // caller. Aucun changement pour le pipeline V1 (status/score/scoreReason
-  // restent gérés par V1, source de vérité jusqu'à décision D.5 de switch).
-  //
-  // Bénéfice : 100% des nouveaux triggers ont briefV2Json visible dans le
-  // dashboard, plus jamais de backfill manuel nécessaire. Coût marginal
-  // ~$0.04/trigger (qualifyTriggerV2 utilise même cache Anthropic ~7167 tk
-  // ≥97% hit, voir Sprint D.6 audit).
-  //
-  // Si V2 échoue (Opus error, Zod KO, validator strict KO) : log warning
-  // sans impact sur V1. Le briefV2Json reste null pour ce trigger.
-  qualifyTriggerV2Shadow(triggerId).catch((e) => {
-    console.warn(
-      `[qualify-trigger.shadow-v2] ${triggerId} err :`,
-      e instanceof Error ? e.message : e,
-    );
-  });
-
-  // Sprint Saint Graal (10/05/2026) — Debit 1 credit si lead qualif livre.
-  // Conditions : score >= 6 ET pas IGNORED (= visible dans dashboard client).
-  // Pepite (score >= 8) : aussi increment pepitesThisMonth (compteur garantie).
-  // Idempotent : pas de double-debit si re-qualify.
-  if (!belowMinScore && opusScore >= 6) {
+  // 11. Debit credit (idempotent, score >= 6 = NEW visible dashboard).
+  if (status === "NEW" && opusScore >= 6) {
     try {
       const debit = await debitCreditForQualifiedLead({
         clientId: triggerLite.clientId,

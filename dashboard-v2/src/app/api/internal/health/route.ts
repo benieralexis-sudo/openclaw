@@ -92,9 +92,10 @@ async function checkLastBackup(): Promise<ComponentStatus> {
 async function checkBriefV2Coverage(): Promise<ComponentStatus> {
   // V2 ne tourne PAS sur les pre-Opus rejects (qualifyTrigger return early
   // avant qualifyTriggerV2Shadow). Donc le denominateur correct = triggers
-  // post-Opus (scoreReason ne commence pas par "[C4-C5 pre-opus-reject").
+  // post-Opus / post-V2 (scoreReason ne commence pas par "[C4-C5 pre-").
   // Sans ce filtre on aurait artificiellement un faible % et on alerterait
-  // a tort.
+  // a tort. Refactor V2-only (10/05) : prefix renommé "pre-V2-reject" donc
+  // pattern catch-all "[C4-C5 pre-" pour compat rétro + nouveau prefix.
   try {
     const rows = await db.$queryRawUnsafe<Array<{ total: bigint; with_v2: bigint }>>(`
       SELECT
@@ -104,7 +105,8 @@ async function checkBriefV2Coverage(): Promise<ComponentStatus> {
       WHERE "capturedAt" > NOW() - INTERVAL '24 hours'
         AND "deletedAt" IS NULL
         AND "scoreReason" IS NOT NULL
-        AND "scoreReason" NOT LIKE '[C4-C5 pre-opus-reject%'
+        AND "scoreReason" NOT LIKE '[C4-C5 pre-%'
+        AND "scoreReason" NOT LIKE '[v2-failed%'
     `);
     const total = Number(rows[0]?.total ?? 0n);
     const withV2 = Number(rows[0]?.with_v2 ?? 0n);
