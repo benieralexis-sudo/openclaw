@@ -627,3 +627,34 @@ model RodzSignal {
   @@index([signalType])
   @@index([deletedAt])
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// WAITLIST — Inscriptions publiques via /signup (en attente Stripe FR)
+// ─────────────────────────────────────────────────────────────────────
+// Le paiement automatique en ligne arrive sous peu (compte Stripe FR à
+// créer). En attendant, /signup remplit cette table + envoie un email
+// de notification interne pour onboarding manuel sous 24 h.
+
+model Waitlist {
+  id              String   @id @default(cuid())
+  email           String
+  firstName       String?
+  lastName        String?
+  company         String
+  phone           String?
+  volumeEstimate  String?  // "30-60", "60-120", "120-200", "200+"
+  industry        String?  // ESN, SaaS, Conseil, Industrie, Autre
+  message         String?
+  source          String?  // "/signup", "homepage", "tarifs", ...
+  status          String   @default("PENDING") // PENDING / CONTACTED / CONVERTED / REJECTED
+  contactedAt     DateTime?
+  convertedAt     DateTime?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+}

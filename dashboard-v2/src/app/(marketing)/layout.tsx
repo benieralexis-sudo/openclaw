@@ -27,14 +27,16 @@ export default async function MarketingLayout({ children }: { children: ReactNod
             </span>
           </Link>
 
-          {/* Nav */}
+          {/* Nav enrichie v6 */}
           <div className="hidden md:flex items-center gap-1">
             <NavLink href="/produit">Produit</NavLink>
+            <NavLink href="/cas-d-usage">Cas d&apos;usage</NavLink>
             <NavLink href="/tarifs">Tarifs</NavLink>
+            <NavLink href="/ressources">Ressources</NavLink>
             <NavLink href="/a-propos">À propos</NavLink>
           </div>
 
-          {/* CTA */}
+          {/* CTA — Connexion / Inscription séparés (pattern Clay/Stripe) */}
           <div className="flex items-center gap-2">
             {isAuthenticated ? (
               <Link
@@ -46,14 +48,17 @@ export default async function MarketingLayout({ children }: { children: ReactNod
               </Link>
             ) : (
               <>
-                <Link href="/login" className="hidden sm:inline-flex items-center text-sm font-medium text-ink-700 hover:text-ink-900 px-3 h-9 rounded-md hover:bg-ink-50">
+                <Link
+                  href="/login"
+                  className="hidden sm:inline-flex items-center text-sm font-medium text-ink-700 hover:text-ink-900 px-3 h-9 rounded-md hover:bg-ink-50 transition-colors"
+                >
                   Connexion
                 </Link>
                 <Link
-                  href="/tarifs"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 h-9"
+                  href="/signup"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 h-9 shadow-sm shadow-brand-500/20 hover:shadow-md hover:shadow-brand-500/30 transition-all"
                 >
-                  Démarrer
+                  Inscription
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </>
@@ -96,7 +101,7 @@ export default async function MarketingLayout({ children }: { children: ReactNod
               </p>
             </div>
 
-            <div className="md:col-span-3">
+            <div className="md:col-span-2">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-900 mb-4">Produit</h4>
               <ul className="space-y-3">
                 <FooterLink href="/produit">Fonctionnalités</FooterLink>
@@ -107,21 +112,32 @@ export default async function MarketingLayout({ children }: { children: ReactNod
             </div>
 
             <div className="md:col-span-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-900 mb-4">Société</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-900 mb-4">Solutions</h4>
               <ul className="space-y-3">
-                <FooterLink href="/a-propos">À propos</FooterLink>
-                <FooterLink href="/login">Connexion</FooterLink>
-                <FooterLink href="/signup">Démarrer</FooterLink>
+                <FooterLink href="/cas-d-usage">Cas d&apos;usage</FooterLink>
+                <FooterLink href="/cas-d-usage#esn">ESN tech</FooterLink>
+                <FooterLink href="/cas-d-usage#saas">SaaS B2B</FooterLink>
+                <FooterLink href="/cas-d-usage#conseil">Conseil tech</FooterLink>
               </ul>
             </div>
 
             <div className="md:col-span-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-900 mb-4">Ressources</h4>
+              <ul className="space-y-3">
+                <FooterLink href="/ressources">Toutes les ressources</FooterLink>
+                <FooterLink href="/ressources#academy">Academy</FooterLink>
+                <FooterLink href="/ressources#templates">Templates</FooterLink>
+                <FooterLink href="/a-propos">À propos</FooterLink>
+              </ul>
+            </div>
+
+            <div className="md:col-span-1">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-900 mb-4">Légal</h4>
               <ul className="space-y-3">
                 <FooterLink href="/cgv">CGV</FooterLink>
                 <FooterLink href="/cgu">CGU</FooterLink>
                 <FooterLink href="/rgpd">RGPD</FooterLink>
-                <FooterLink href="/mentions-legales">Mentions légales</FooterLink>
+                <FooterLink href="/mentions-legales">Mentions</FooterLink>
                 <FooterLink href="/cookies">Cookies</FooterLink>
               </ul>
             </div>
