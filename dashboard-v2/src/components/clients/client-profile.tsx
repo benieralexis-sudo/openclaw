@@ -23,6 +23,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeliveryEditor } from "@/components/clients/delivery-editor";
 import { TeamEditor } from "@/components/clients/team-editor";
+import {
+  getV2Tier,
+  getV2Label,
+  getV2Variant,
+  formatV2Badge,
+} from "@/lib/score-display";
 import { QuotaEditor } from "@/components/clients/quota-editor";
 import { toast } from "@/components/ui/sonner";
 import { useScope } from "@/hooks/use-scope";
@@ -77,6 +83,8 @@ interface ClientDetail {
     capturedAt: string;
     isHot: boolean;
     isCombo: boolean;
+    // Refactor V2-only Session 2 finalisation — verdict V2 natif
+    briefV2Json?: { verdict?: "OUI" | "ENRICH" | "NON"; confidence?: number } | null;
   }>;
 }
 
@@ -612,13 +620,25 @@ function ActivityPanel({ client }: { client: ClientDetail }) {
                     <span className="truncate text-[13px] font-medium text-ink-900">
                       {t.companyName}
                     </span>
-                    <Badge
-                      variant={t.isHot ? "fire" : t.score >= 7 ? "score" : "info"}
-                      size="sm"
-                      className="font-mono tabular-nums shrink-0"
-                    >
-                      {t.score}/10
-                    </Badge>
+                    {t.briefV2Json?.verdict ? (
+                      <Badge
+                        variant={getV2Variant(getV2Tier({ verdict: t.briefV2Json.verdict, confidence: t.briefV2Json.confidence }))}
+                        size="sm"
+                        className="font-mono tabular-nums shrink-0"
+                        title={getV2Label(getV2Tier({ verdict: t.briefV2Json.verdict, confidence: t.briefV2Json.confidence }))}
+                      >
+                        {formatV2Badge({ verdict: t.briefV2Json.verdict, confidence: t.briefV2Json.confidence })}
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant={t.isHot ? "fire" : t.score >= 7 ? "score" : "info"}
+                        size="sm"
+                        className="font-mono tabular-nums shrink-0"
+                        title="V2 absent (lead pre-Sprint 8)"
+                      >
+                        {t.score}/10
+                      </Badge>
+                    )}
                     {t.isCombo && (
                       <Badge variant="brand" size="sm" className="gap-0.5 shrink-0">
                         <Sparkles className="h-2.5 w-2.5" />

@@ -62,11 +62,28 @@ function priorityBadge(score: number): { label: string; bg: string; fg: string }
   return { label: "📋 Standard", bg: "#E5E7EB", fg: "#374151" };
 }
 
+/**
+ * Refactor V2-only Session 2 finalisation — badge V2 verdict pour digest.
+ * Si V2 dispo on l'affiche en priorité, sinon fallback sur priorityBadge.
+ */
+function v2Badge(verdict: "OUI" | "NON" | "ENRICH" | undefined, conf: number | undefined): { label: string; bg: string; fg: string } | null {
+  if (!verdict || conf === undefined) return null;
+  if (verdict === "OUI" && conf >= 90) return { label: `🔥 Pépite (${verdict} ${conf}%)`, bg: "#FEE2E2", fg: "#991B1B" };
+  if (verdict === "OUI" && conf >= 80) return { label: `⚡ Très chaud (${verdict} ${conf}%)`, bg: "#FED7AA", fg: "#9A3412" };
+  if (verdict === "OUI") return { label: `✅ Qualifié (${verdict} ${conf}%)`, bg: "#D1FAE5", fg: "#065F46" };
+  if (verdict === "ENRICH") return { label: `🔍 À enrichir (${verdict} ${conf}%)`, bg: "#FEF3C7", fg: "#92400E" };
+  return { label: `❌ Hors ICP (${verdict} ${conf}%)`, bg: "#E5E7EB", fg: "#6B7280" };
+}
+
 function formatLeadRow(lead: DigestLead, brand: BrandConfig): string {
-  const badge = priorityBadge(lead.score);
+  // Refactor V2-only Session 2 finalisation — badge V2 prioritaire si dispo,
+  // fallback priorityBadge score-based pour anciens triggers sans V2.
+  const v2 = v2Badge(lead.briefV2?.verdict, lead.briefV2?.confidence);
+  const badge = v2 ?? priorityBadge(lead.score);
   const dashLink = `${DASHBOARD_URL}/triggers/${lead.triggerId}`;
   const opener = lead.briefV2?.opener?.slice(0, 200) ?? lead.scoreReason?.slice(0, 200) ?? "";
-  const verdictBadge = lead.briefV2?.verdict
+  // verdictBadge secondaire (si V2 absent et score forme le badge principal)
+  const verdictBadge = !v2 && lead.briefV2?.verdict
     ? `<span style="background:${lead.briefV2.verdict === "OUI" ? "#D1FAE5" : lead.briefV2.verdict === "NON" ? "#FEE2E2" : "#FEF3C7"};color:${lead.briefV2.verdict === "OUI" ? "#065F46" : lead.briefV2.verdict === "NON" ? "#991B1B" : "#92400E"};padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px">${lead.briefV2.verdict} ${lead.briefV2.confidence}%</span>`
     : "";
 
@@ -105,13 +122,16 @@ function formatLeadRow(lead: DigestLead, brand: BrandConfig): string {
 
 function formatLeadText(lead: DigestLead, idx: number): string {
   const dashLink = `${DASHBOARD_URL}/triggers/${lead.triggerId}`;
-  const verdict = lead.briefV2 ? `[V2:${lead.briefV2.verdict} ${lead.briefV2.confidence}%]` : "";
+  // Refactor V2-only Session 2 finalisation — verdict V2 en priorité, score fallback
+  const headline = lead.briefV2
+    ? `${lead.briefV2.verdict} ${lead.briefV2.confidence}%`
+    : `score ${lead.score}/10`;
   const contact: string[] = [];
   if (lead.lead?.fullName) contact.push(lead.lead.fullName);
   if (lead.lead?.email) contact.push(lead.lead.email);
   if (lead.lead?.phone) contact.push(lead.lead.phone);
   return `
-${idx}. ${lead.companyName} (score=${lead.score}) ${verdict}
+${idx}. ${lead.companyName} (${headline})
    ${[lead.companyNaf, lead.size, lead.region].filter(Boolean).join(" • ")}
    Source: ${lead.sourceCode}
    ${contact.length ? "Contact: " + contact.join(" | ") : ""}

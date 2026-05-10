@@ -72,7 +72,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandGroup heading="Actions rapides">
           <CommandItem onSelect={() => go("/triggers")}>
             <Sparkles />
-            <span>Voir les pépites du jour (≥9/10)</span>
+            <span>Voir les Pépites du jour (V2 OUI conf ≥80%)</span>
           </CommandItem>
           <CommandItem onSelect={() => go("/logout")}>
             <LogOut />

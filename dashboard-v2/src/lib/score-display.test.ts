@@ -7,6 +7,10 @@ import {
   getCombinedScore,
   getCombinedTier,
   getCombinedLabel,
+  getV2Tier,
+  getV2Label,
+  getV2Variant,
+  formatV2Badge,
   type FitBreakdown,
 } from "./score-display";
 
@@ -180,4 +184,83 @@ describe("getCombinedLabel", () => {
   it("tepid → Tiède", () => expect(getCombinedLabel("tepid")).toBe("Tiède"));
   it("cold → Faible", () => expect(getCombinedLabel("cold")).toBe("Faible"));
   it("null → —", () => expect(getCombinedLabel(null)).toBe("—"));
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// V2 verdict helpers (Refactor V2-only Session 2 — 10/05/2026)
+// ──────────────────────────────────────────────────────────────────────
+
+describe("getV2Tier", () => {
+  it("verdict ou confidence absent → null", () => {
+    expect(getV2Tier({ verdict: null, confidence: 80 })).toBeNull();
+    expect(getV2Tier({ verdict: "OUI", confidence: null })).toBeNull();
+    expect(getV2Tier({ verdict: undefined, confidence: undefined })).toBeNull();
+  });
+  it("OUI conf >= 90 → fire (Pépite top)", () => {
+    expect(getV2Tier({ verdict: "OUI", confidence: 90 })).toBe("fire");
+    expect(getV2Tier({ verdict: "OUI", confidence: 100 })).toBe("fire");
+  });
+  it("OUI 80-89 → hot (Pépite, email perso)", () => {
+    expect(getV2Tier({ verdict: "OUI", confidence: 80 })).toBe("hot");
+    expect(getV2Tier({ verdict: "OUI", confidence: 89 })).toBe("hot");
+  });
+  it("OUI 70-79 → warm (Qualifié)", () => {
+    expect(getV2Tier({ verdict: "OUI", confidence: 70 })).toBe("warm");
+    expect(getV2Tier({ verdict: "OUI", confidence: 79 })).toBe("warm");
+  });
+  it("OUI < 70 → tepid (incertain)", () => {
+    expect(getV2Tier({ verdict: "OUI", confidence: 50 })).toBe("tepid");
+    expect(getV2Tier({ verdict: "OUI", confidence: 69 })).toBe("tepid");
+  });
+  it("ENRICH >= 70 → tepid (à enrichir, prometteur)", () => {
+    expect(getV2Tier({ verdict: "ENRICH", confidence: 70 })).toBe("tepid");
+    expect(getV2Tier({ verdict: "ENRICH", confidence: 100 })).toBe("tepid");
+  });
+  it("ENRICH < 70 → cold (manque d'info)", () => {
+    expect(getV2Tier({ verdict: "ENRICH", confidence: 50 })).toBe("cold");
+    expect(getV2Tier({ verdict: "ENRICH", confidence: 69 })).toBe("cold");
+  });
+  it("NON → off (Hors ICP)", () => {
+    expect(getV2Tier({ verdict: "NON", confidence: 95 })).toBe("off");
+    expect(getV2Tier({ verdict: "NON", confidence: 50 })).toBe("off");
+  });
+});
+
+describe("getV2Label", () => {
+  it("fire → Pépite", () => expect(getV2Label("fire")).toBe("Pépite"));
+  it("hot → Très chaud", () => expect(getV2Label("hot")).toBe("Très chaud"));
+  it("warm → Qualifié", () => expect(getV2Label("warm")).toBe("Qualifié"));
+  it("tepid → À enrichir", () => expect(getV2Label("tepid")).toBe("À enrichir"));
+  it("cold → Faible", () => expect(getV2Label("cold")).toBe("Faible"));
+  it("off → Hors ICP", () => expect(getV2Label("off")).toBe("Hors ICP"));
+  it("null → Non jugé", () => expect(getV2Label(null)).toBe("Non jugé"));
+});
+
+describe("getV2Variant", () => {
+  it("fire → fire", () => expect(getV2Variant("fire")).toBe("fire"));
+  it("hot → danger (rouge)", () => expect(getV2Variant("hot")).toBe("danger"));
+  it("warm → success (vert)", () => expect(getV2Variant("warm")).toBe("success"));
+  it("tepid → warning (orange)", () => expect(getV2Variant("tepid")).toBe("warning"));
+  it("cold → info (bleu)", () => expect(getV2Variant("cold")).toBe("info"));
+  it("off → default (gris)", () => expect(getV2Variant("off")).toBe("default"));
+  it("null → default", () => expect(getV2Variant(null)).toBe("default"));
+});
+
+describe("formatV2Badge", () => {
+  it("OUI 86 → 'OUI 86%'", () => {
+    expect(formatV2Badge({ verdict: "OUI", confidence: 86 })).toBe("OUI 86%");
+  });
+  it("ENRICH 58 → 'ENRICH 58%'", () => {
+    expect(formatV2Badge({ verdict: "ENRICH", confidence: 58 })).toBe("ENRICH 58%");
+  });
+  it("NON 95 → 'NON 95%'", () => {
+    expect(formatV2Badge({ verdict: "NON", confidence: 95 })).toBe("NON 95%");
+  });
+  it("verdict absent → '—'", () => {
+    expect(formatV2Badge({ verdict: null, confidence: 80 })).toBe("—");
+    expect(formatV2Badge({ verdict: undefined, confidence: undefined })).toBe("—");
+  });
+  it("confidence absent → '—'", () => {
+    expect(formatV2Badge({ verdict: "OUI", confidence: null })).toBe("—");
+  });
 });

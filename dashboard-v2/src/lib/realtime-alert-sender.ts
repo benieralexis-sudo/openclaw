@@ -103,21 +103,26 @@ export async function sendRealtimeAlertForTrigger(
     };
   }
 
-  const briefV2 = trigger.briefV2Json as { thesis?: string; opener?: string } | null;
+  const briefV2 = trigger.briefV2Json as { verdict?: string; confidence?: number; thesis?: string; opener?: string } | null;
   const thesis = briefV2?.thesis?.slice(0, 300) ?? trigger.scoreReason?.slice(0, 300) ?? "";
   const dashLink = `${DASHBOARD_URL}/triggers/${trigger.id}`;
-  const subject = `🔥 ${cfg.brand.senderName} — Pepite: ${trigger.companyName} (score ${trigger.score})`;
+  // Refactor V2-only Session 2 finalisation — affichage verdict V2 natif
+  // dans alerts (email + Telegram). Fallback score si V2 absent.
+  const verdictBadge = briefV2?.verdict
+    ? `${briefV2.verdict} ${briefV2.confidence ?? "?"}%`
+    : `score ${trigger.score}/10`;
+  const subject = `🔥 ${cfg.brand.senderName} — Pepite: ${trigger.companyName} (${verdictBadge})`;
 
   const html = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:20px auto;padding:24px;background:#fff;border:2px solid ${cfg.brand.primaryColor};border-radius:8px">
-  <div style="background:#FEE2E2;color:#991B1B;padding:6px 12px;border-radius:4px;display:inline-block;font-size:12px;font-weight:600">🔥 PEPITE • Score ${trigger.score}/10</div>
+  <div style="background:#FEE2E2;color:#991B1B;padding:6px 12px;border-radius:4px;display:inline-block;font-size:12px;font-weight:600">🔥 PEPITE • ${verdictBadge}</div>
   <h2 style="margin:16px 0 8px;color:#111827">${trigger.companyName}</h2>
   <div style="color:#6B7280;font-size:14px">${[trigger.companyNaf, trigger.size].filter(Boolean).join(" • ")} • Source: ${trigger.sourceCode}</div>
   <div style="margin-top:16px;padding:14px;background:#F9FAFB;border-left:3px solid ${cfg.brand.primaryColor};font-size:14px;line-height:1.6">${thesis}</div>
   <a href="${dashLink}" style="display:inline-block;margin-top:16px;background:${cfg.brand.primaryColor};color:#fff;padding:10px 20px;border-radius:4px;text-decoration:none;font-weight:500">Voir le brief complet →</a>
 </div>
 `;
-  const text = `🔥 PEPITE — ${trigger.companyName} (score ${trigger.score}/10)
+  const text = `🔥 PEPITE — ${trigger.companyName} (${verdictBadge})
 ${[trigger.companyNaf, trigger.size].filter(Boolean).join(" • ")}
 Source: ${trigger.sourceCode}
 
@@ -146,7 +151,7 @@ ${thesis}
   if (cfg.realtimeAlert.telegramChatId) {
     const tgRes = await sendTelegramMessage({
       chatId: cfg.realtimeAlert.telegramChatId,
-      text: `🔥 *PEPITE* — *${trigger.companyName}* (score ${trigger.score}/10)\n\n${thesis}\n\n[Voir brief](${dashLink})`,
+      text: `🔥 *PEPITE* — *${trigger.companyName}* (${verdictBadge})\n\n${thesis}\n\n[Voir brief](${dashLink})`,
       parseMode: "Markdown",
     });
     channels.telegram = tgRes.ok;

@@ -82,6 +82,8 @@ export async function GET(
           capturedAt: true,
           isHot: true,
           isCombo: true,
+          // Refactor V2-only Session 2 finalisation — verdict V2
+          briefV2Json: true,
         },
       },
     },
