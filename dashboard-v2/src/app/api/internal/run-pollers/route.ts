@@ -127,7 +127,12 @@ export async function POST(req: NextRequest) {
       continue;
     }
     try {
-      if (source === "all" || source === "theirstack") {
+      // TheirStack gate UTC=18 (audit 10/05) — quota tendu (4671/5200 cr,
+      // 16j restants). Si on tourne sur source=all 2×/j (8h+18h UTC), on
+      // limite TheirStack à 1×/j (18h UTC) pour rester sous le plafond.
+      // source=theirstack manuel reste autorisé pour debug/rattrapage.
+      const theirstackHour = new Date().getUTCHours();
+      if (source === "theirstack" || (source === "all" && theirstackHour === 18)) {
         entry.theirstack = await pollTheirstackForClient(c.id, { dryRun, jobsLimit: 30, companiesLimit: 15 });
       }
       // Buying-intent QA (Bougie 2 — 04/05) : 2×/jour (12h + 18h UTC).
