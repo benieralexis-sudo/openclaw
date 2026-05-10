@@ -52,7 +52,7 @@ export function AnimatedStat({ value, label, sublabel }: { value: string; label:
 
   return (
     <div ref={ref} className="text-center">
-      <div className="font-display text-5xl md:text-6xl font-semibold text-ink-900 tracking-tight tabular-nums">
+      <div className="font-display text-5xl md:text-6xl font-semibold tracking-tight tabular-nums bg-gradient-to-br from-ink-900 via-brand-800 to-brand-700 bg-clip-text text-transparent">
         {display}{isNumeric && suffix}
       </div>
       <p className="mt-3 text-sm font-medium text-ink-700">{label}</p>

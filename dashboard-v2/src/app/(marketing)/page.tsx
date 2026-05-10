@@ -22,27 +22,35 @@ export default function HomePage() {
   return (
     <>
       {/* ───────────────────────── HERO ───────────────────────── */}
-      <section className="pt-20 pb-24 md:pt-28 md:pb-32">
-        <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          {/* Badge live discret */}
+      <section className="relative pt-20 pb-24 md:pt-28 md:pb-32 overflow-hidden">
+        {/* Soft brand glow décoratif sous le mockup — pas de drama, juste un halo subtil */}
+        <div className="absolute inset-x-0 top-[60%] -z-0 pointer-events-none">
+          <div className="mx-auto h-[400px] max-w-5xl rounded-full bg-brand-200/30 blur-3xl" />
+        </div>
+
+        <div className="relative max-w-6xl mx-auto px-6 lg:px-8">
+          {/* Badge live — pop subtil */}
           <div className="flex justify-center mb-8">
             <Link
               href="/produit#garantie"
-              className="group inline-flex items-center gap-2 px-3 h-7 rounded-full bg-brand-50 border border-brand-100 text-xs font-medium text-brand-800 hover:bg-brand-100 transition-colors"
+              className="group inline-flex items-center gap-2 pl-2 pr-3 h-7 rounded-full bg-white border border-ink-200 shadow-sm text-xs font-medium text-ink-700 hover:border-brand-200 hover:shadow-md transition-all"
             >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-500 opacity-60" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand-600" />
+              <span className="inline-flex items-center gap-1 px-1.5 h-5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold uppercase tracking-wider border border-emerald-100">
+                <span className="relative flex h-1 w-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1 w-1 bg-emerald-500" />
+                </span>
+                Live
               </span>
-              Garantie contractuelle 6 Pépites par mois
-              <ArrowRight className="h-3 w-3 opacity-60 group-hover:translate-x-0.5 transition-transform" />
+              <span>Garantie contractuelle 6 Pépites par mois</span>
+              <ArrowRight className="h-3 w-3 text-ink-400 group-hover:text-brand-700 group-hover:translate-x-0.5 transition-all" />
             </Link>
           </div>
 
           {/* Headline sobre */}
           <h1 className="text-center font-display text-4xl sm:text-5xl md:text-6xl lg:text-[64px] font-semibold text-ink-900 tracking-tight leading-[1.05] max-w-4xl mx-auto">
             Détectez les PME françaises{" "}
-            <span className="text-brand-700">qui sont prêtes à acheter</span>.
+            <span className="bg-gradient-to-br from-brand-600 to-brand-800 bg-clip-text text-transparent">qui sont prêtes à acheter</span>.
           </h1>
 
           <p className="mt-6 text-center text-lg md:text-xl text-ink-600 max-w-2xl mx-auto leading-relaxed">
@@ -54,16 +62,17 @@ export default function HomePage() {
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/tarifs"
-              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 h-11 text-sm shadow-sm"
+              className="group inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 h-11 text-sm shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/30 hover:-translate-y-0.5"
             >
               Voir les tarifs
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <Link
               href="/produit"
-              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-white hover:bg-ink-50 text-ink-700 hover:text-ink-900 font-medium px-5 h-11 text-sm border border-ink-200"
+              className="group inline-flex items-center justify-center gap-1.5 rounded-md bg-white hover:bg-ink-50 text-ink-700 hover:text-ink-900 font-medium px-5 h-11 text-sm border border-ink-200 hover:border-ink-300"
             >
               Comment ça marche
+              <ArrowRight className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
             </Link>
           </div>
 
@@ -160,7 +169,7 @@ export default function HomePage() {
             description="iFIND est le seul moteur français qui combine détection temps réel, qualification IA, et garantie qualité contractuelle."
           />
 
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-px bg-ink-200 rounded-xl overflow-hidden border border-ink-200 max-w-5xl mx-auto">
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
             <Pillar
               icon={<Brain className="h-5 w-5" />}
               title="Intelligence"
@@ -286,9 +295,23 @@ export default function HomePage() {
 }
 
 function Pillar({ icon, title, description, highlight }: { icon: React.ReactNode; title: string; description: string; highlight?: boolean }) {
+  if (highlight) {
+    return (
+      <div className="relative rounded-2xl bg-gradient-to-br from-brand-700 to-brand-900 text-white p-8 shadow-xl shadow-brand-500/20 md:-translate-y-2">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-white text-brand-800 text-[10px] font-bold uppercase tracking-wider shadow-sm border border-brand-100">
+          Unique en France
+        </div>
+        <div className="inline-flex items-center justify-center w-10 h-10 rounded-md mb-5 bg-white/15 backdrop-blur-sm border border-white/20 text-white">
+          {icon}
+        </div>
+        <h3 className="font-display text-xl font-semibold mb-2.5">{title}</h3>
+        <p className="text-sm text-brand-100 leading-relaxed">{description}</p>
+      </div>
+    );
+  }
   return (
-    <div className={`p-8 ${highlight ? "bg-brand-50/40" : "bg-white"}`}>
-      <div className={`inline-flex items-center justify-center w-10 h-10 rounded-md mb-5 ${highlight ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-700"}`}>
+    <div className="rounded-2xl bg-white border border-ink-200 p-8 hover:border-brand-200 hover:shadow-md transition-all">
+      <div className="inline-flex items-center justify-center w-10 h-10 rounded-md mb-5 bg-brand-50 text-brand-700 border border-brand-100">
         {icon}
       </div>
       <h3 className="font-display text-lg font-semibold text-ink-900 mb-2.5">{title}</h3>

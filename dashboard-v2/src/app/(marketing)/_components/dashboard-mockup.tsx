@@ -77,7 +77,7 @@ export function DashboardMockup() {
 
         {/* Main */}
         <div className="lg:col-span-7 bg-white p-5 lg:p-6">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-display font-semibold text-ink-900">Pépites du mois</h3>
               <p className="text-xs text-ink-500">Mis à jour il y a 2 minutes · 14 nouvelles cette semaine</p>
@@ -92,6 +92,15 @@ export function DashboardMockup() {
                 Recherche
               </button>
             </div>
+          </div>
+
+          {/* Filter pills */}
+          <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
+            <FilterPill active>Tout</FilterPill>
+            <FilterPill>Score ≥ 9</FilterPill>
+            <FilterPill>Levée fonds</FilterPill>
+            <FilterPill>Recrutement</FilterPill>
+            <FilterPill>30 derniers jours</FilterPill>
           </div>
 
           {/* Stats — sobres */}
@@ -218,6 +227,14 @@ function ScoreBadge({ score, hot, large }: { score: number; hot?: boolean; large
 
 function Tag({ children }: { children: React.ReactNode }) {
   return <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-white text-ink-700 text-[10px] font-medium border border-ink-200">{children}</span>;
+}
+
+function FilterPill({ children, active }: { children: React.ReactNode; active?: boolean }) {
+  return (
+    <button className={`flex-shrink-0 px-2.5 h-6 inline-flex items-center rounded-full text-[11px] font-medium transition-colors ${active ? "bg-brand-700 text-white" : "bg-white text-ink-600 border border-ink-200 hover:border-ink-300"}`}>
+      {children}
+    </button>
+  );
 }
 
 function ContactRow({ icon, value, verified }: { icon: React.ReactNode; value: string; verified?: boolean }) {

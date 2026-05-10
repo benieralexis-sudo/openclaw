@@ -1,28 +1,41 @@
-import { Brain, MessageSquare, Target, TrendingUp } from "lucide-react";
+import { Brain, MessageSquare, Target, TrendingUp, MapPin, Building2, Users } from "lucide-react";
 import { MOCK_BRIEF } from "./_data/mock-companies";
 
 export function BriefMockup() {
   const brief = MOCK_BRIEF;
   return (
-    <div className="rounded-xl border border-ink-200 bg-white shadow-sm overflow-hidden">
-      {/* Header sobre */}
-      <div className="flex items-center justify-between px-5 h-12 border-b border-ink-200 bg-ink-50">
-        <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-brand-600" />
-          <p className="text-[11px] font-medium uppercase tracking-wider text-ink-700">Brief Opus 4.7</p>
+    <div className="rounded-2xl border border-ink-200 bg-white shadow-lg overflow-hidden">
+      {/* Header gradient brand */}
+      <div className="relative bg-gradient-to-br from-brand-700 to-brand-900 text-white px-5 py-4">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-md bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+              <Brain className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-brand-200">Brief Opus 4.7</p>
+              <p className="text-sm font-semibold leading-tight">{brief.company}</p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/15 backdrop-blur-sm border border-white/20 text-[11px] font-semibold text-white">
+            Pépite · 9/10
+          </span>
         </div>
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-brand-600 text-white text-[10px] font-semibold uppercase tracking-wider">
-          Pépite · 9/10
-        </span>
+      </div>
+
+      {/* Meta company */}
+      <div className="px-5 py-3 bg-ink-50/60 border-b border-ink-100 flex items-center gap-3 text-[11px] text-ink-600 flex-wrap">
+        <span className="font-mono text-ink-500">SIRET {brief.siret}</span>
+        <span className="text-ink-300">·</span>
+        <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{brief.location}</span>
+        <span className="text-ink-300">·</span>
+        <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{brief.size}</span>
+        <span className="text-ink-300">·</span>
+        <span className="inline-flex items-center gap-1"><Building2 className="h-3 w-3" />{brief.industry}</span>
       </div>
 
       <div className="p-6 space-y-5">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 mb-2">Société</p>
-          <p className="text-sm font-display font-semibold text-ink-900">{brief.company}</p>
-          <p className="text-xs text-ink-500 mt-0.5">SIRET {brief.siret} · {brief.location} · {brief.size}</p>
-        </div>
-
         <Section icon={<Target className="h-3.5 w-3.5" />} title="Contexte">
           <p>{brief.contextLine1}</p>
           <p className="mt-1.5">
@@ -36,7 +49,7 @@ export function BriefMockup() {
         </Section>
 
         <Section icon={<MessageSquare className="h-3.5 w-3.5" />} title="Pitch suggéré">
-          <div className="bg-ink-50 rounded-md p-3 border border-ink-200 italic text-ink-700 text-sm leading-relaxed">
+          <div className="bg-brand-50/60 rounded-md p-3.5 border border-brand-100 italic text-ink-700 text-sm leading-relaxed">
             « {brief.pitch} »
           </div>
         </Section>
@@ -55,10 +68,10 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
-        <div className="text-ink-500">{icon}</div>
-        <p className="text-[10px] font-semibold text-ink-500 uppercase tracking-wider">{title}</p>
+        <div className="w-5 h-5 rounded bg-brand-50 text-brand-700 border border-brand-100 flex items-center justify-center">{icon}</div>
+        <p className="text-[10px] font-semibold text-ink-500 uppercase tracking-[0.15em]">{title}</p>
       </div>
-      <div className="text-sm text-ink-700 leading-relaxed">{children}</div>
+      <div className="text-sm text-ink-700 leading-relaxed pl-7">{children}</div>
     </div>
   );
 }
@@ -66,7 +79,9 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
 function Stat({ value, label, highlight }: { value: string; label: string; highlight?: boolean }) {
   return (
     <div>
-      <div className={`font-display text-lg font-semibold tabular-nums ${highlight ? "text-brand-700" : "text-ink-900"}`}>{value}</div>
+      <div className={`font-display text-lg font-semibold tabular-nums ${highlight ? "bg-gradient-to-br from-brand-700 to-brand-900 bg-clip-text text-transparent" : "text-ink-900"}`}>
+        {value}
+      </div>
       <div className="text-[10px] text-ink-500 uppercase tracking-wider mt-0.5">{label}</div>
     </div>
   );
