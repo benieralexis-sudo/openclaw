@@ -19,13 +19,12 @@ const STALE_DAYS = Number(process.argv[2] ?? 5);
   const { Prisma } = await import("@prisma/client");
 
   const cutoff = new Date(Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000);
-  // Récup leads dashboard actifs avec brief stale
-  const leads = await db.lead.findMany({
+  // Récup leads dashboard actifs avec brief STALE (> N jours) OU MANQUANT.
+  // Le filtre Prisma JSON null est délicat, on filtre in-process.
+  const allActiveLeads = await db.lead.findMany({
     where: {
       deletedAt: null,
       status: { in: ["NEW", "ENRICHED"] },
-      briefJson: { not: Prisma.JsonNull as any },
-      briefGeneratedAt: { lt: cutoff },
       trigger: {
         deletedAt: null,
         status: { not: "IGNORED" },
@@ -55,8 +54,15 @@ const STALE_DAYS = Number(process.argv[2] ?? 5);
     orderBy: { briefGeneratedAt: "asc" },
   });
 
-  console.log(`\n=== REGEN STALE BRIEFS (> ${STALE_DAYS}j) ===`);
-  console.log(`${leads.length} leads candidats\n`);
+  // Filtre in-process : brief manquant OU stale > cutoff
+  const leads = allActiveLeads.filter((l) => {
+    if (l.briefJson == null) return true;
+    if (!l.briefGeneratedAt) return true;
+    return l.briefGeneratedAt < cutoff;
+  });
+
+  console.log(`\n=== REGEN BRIEFS (manquants OU > ${STALE_DAYS}j) ===`);
+  console.log(`${leads.length} leads candidats (sur ${allActiveLeads.length} dashboard actifs)\n`);
   if (leads.length === 0) {
     console.log("Rien à faire.");
     process.exit(0);
