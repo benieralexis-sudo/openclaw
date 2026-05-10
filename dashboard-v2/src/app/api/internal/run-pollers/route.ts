@@ -127,12 +127,16 @@ export async function POST(req: NextRequest) {
       continue;
     }
     try {
-      // TheirStack gate UTC=18 (audit 10/05) — quota tendu (4671/5200 cr,
-      // 16j restants). Si on tourne sur source=all 2×/j (8h+18h UTC), on
-      // limite TheirStack à 1×/j (18h UTC) pour rester sous le plafond.
+      // TheirStack job-offer DÉSACTIVÉ jusqu'au 26/05 (audit 10/05 19h) —
+      // quota tendu 4701/5200 cr (90%), 16j restants à 31 cr/j budget max.
+      // On garde seulement buying-intent (gate UTC=12+18 ci-dessous, plus
+      // précis selon mémoire 05/05 : 100% des Pépites historiques 28/04+04/05
+      // captées via buying-intent 12h ou 18h UTC).
       // source=theirstack manuel reste autorisé pour debug/rattrapage.
+      // Réactiver après reset 26/05 en retirant la condition false.
       const theirstackHour = new Date().getUTCHours();
-      if (source === "theirstack" || (source === "all" && theirstackHour === 18)) {
+      const theirstackJobOfferEnabled = false; // ← réactiver après 26/05
+      if (source === "theirstack" || (theirstackJobOfferEnabled && source === "all" && theirstackHour === 18)) {
         entry.theirstack = await pollTheirstackForClient(c.id, { dryRun, jobsLimit: 30, companiesLimit: 15 });
       }
       // Buying-intent QA (Bougie 2 — 04/05) : 2×/jour (12h + 18h UTC).
@@ -403,7 +407,13 @@ export async function POST(req: NextRequest) {
         // le coût (~5 × 0,02€ = 0,10€/run worst case = 0,40€/jour avec
         // 4 runs/jour si beaucoup de nouveaux). Tourne sur source=all
         // uniquement (cron 6h) car coût Anthropic non-négligeable.
-        if (source === "all") {
+        // Auto-briefs DÉSACTIVÉ (audit 10/05 19h) — Fred ne se connecte pas
+        // au dashboard (1 seule session 26/04 = test admin). Briefs Opus
+        // auto-générés inutilisés → gaspillage $0.40/jour ($12/mo).
+        // Briefs disponibles à la demande via /api/leads/[id]/brief uniquement.
+        // Réactiver si Fred utilise le dashboard à l'avenir.
+        const AUTO_BRIEFS_ENABLED = false;
+        if (AUTO_BRIEFS_ENABLED && source === "all") {
           try {
             const autoBriefs = await autoGenerateBriefsForHotLeads(c.id, { maxPerRun: 5 });
             (entry as { autoBriefs?: unknown }).autoBriefs = autoBriefs;
