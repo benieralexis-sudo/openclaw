@@ -199,10 +199,10 @@ export default function TriggersPage() {
         <div className="flex items-center gap-3">
           <div
             className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
               row.original.isHot
-                ? "bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600"
-                : "bg-gradient-to-br from-brand-50 to-brand-100 text-brand-600",
+                ? "bg-brand-600 text-white shadow-md shadow-brand-500/20"
+                : "bg-brand-50 text-brand-700 border border-brand-100",
             )}
           >
             <Zap className="h-4 w-4" />

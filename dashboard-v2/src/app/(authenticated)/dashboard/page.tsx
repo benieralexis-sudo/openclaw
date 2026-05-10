@@ -321,37 +321,35 @@ function KpiCard({
   }[accent];
 
   return (
-    <Card className="overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md">
-      <div className="px-5 pt-5">
-        <div className="flex items-start justify-between">
-          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accentBg}`}>
-            <Icon className="h-4 w-4" strokeWidth={2} />
-          </div>
-          {delta !== undefined && delta !== 0 && (
-            <Badge variant={delta > 0 ? "success" : "danger"} size="sm">
-              {delta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {delta > 0 ? `+${delta}` : delta}
-            </Badge>
-          )}
+    <div className="rounded-xl border border-ink-200 bg-white p-5 hover:border-brand-200 hover:shadow-md transition-all">
+      <div className="flex items-start justify-between mb-4">
+        <div className={`flex h-9 w-9 items-center justify-center rounded-md ${accentBg}`}>
+          <Icon className="h-4 w-4" strokeWidth={2} />
         </div>
-        <p className="mt-4 text-[12px] font-medium uppercase tracking-wider text-ink-500">{label}</p>
-        <div className="mt-1 flex items-baseline gap-1">
-          {isLoading ? (
-            <Skeleton className="h-8 w-16" />
-          ) : (
-            <>
-              <span className="font-display text-3xl font-bold tracking-tight text-ink-900 tabular-nums">
-                {value ?? 0}
-              </span>
-              {suffix && <span className="text-sm text-ink-500">{suffix}</span>}
-            </>
-          )}
-        </div>
-        <p className="mt-1 mb-5 text-xs text-ink-500">
-          {deltaLabel ?? (delta !== undefined ? "vs hier" : "")}
-        </p>
+        {delta !== undefined && delta !== 0 && (
+          <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[11px] font-semibold tabular-nums ${delta > 0 ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-rose-50 text-rose-700 border border-rose-100"}`}>
+            {delta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {delta > 0 ? `+${delta}` : delta}
+          </span>
+        )}
       </div>
-    </Card>
+      <p className="text-[11px] font-medium uppercase tracking-wider text-ink-500 mb-1">{label}</p>
+      <div className="flex items-baseline gap-1.5">
+        {isLoading ? (
+          <Skeleton className="h-8 w-16" />
+        ) : (
+          <>
+            <span className="font-display text-3xl font-semibold tracking-tight tabular-nums bg-gradient-to-br from-ink-900 via-brand-800 to-brand-700 bg-clip-text text-transparent">
+              {value ?? 0}
+            </span>
+            {suffix && <span className="text-sm text-ink-500">{suffix}</span>}
+          </>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-ink-500">
+        {deltaLabel ?? (delta !== undefined ? "vs hier" : "")}
+      </p>
+    </div>
   );
 }
 
