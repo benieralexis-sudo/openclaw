@@ -273,7 +273,7 @@ export function getV2Label(tier: V2Tier | null): string {
     case "fire":  return "Pépite";
     case "hot":   return "Très chaud";
     case "warm":  return "Qualifié";
-    case "tepid": return "À enrichir";
+    case "tepid": return "À vérifier";   // ex "À enrichir" — terme jargon remplacé (user feedback 10/05)
     case "cold":  return "Faible";
     case "off":   return "Hors ICP";
     default:      return "Non jugé";
@@ -297,10 +297,17 @@ export function getV2Variant(tier: V2Tier | null): BadgeVariant {
 
 /**
  * V2 verdict + tier → texte affichable dans le badge principal.
- * Format : "OUI 86%" ou "ENRICH 58%" ou "NON 95%" — toujours pratique.
+ *
+ * Mapping verdict interne → label UI français (user feedback 10/05) :
+ *   - OUI    → "OUI"        (clair)
+ *   - ENRICH → "À VÉRIFIER" (au lieu du jargon anglais)
+ *   - NON    → "NON"        (clair)
+ *
+ * Format final : "À VÉRIFIER 58%" ou "OUI 86%" ou "NON 95%".
  */
 export function formatV2Badge(inputs: V2Inputs): string {
   const { verdict, confidence } = inputs;
   if (!verdict || confidence === null || confidence === undefined) return "—";
-  return `${verdict} ${confidence}%`;
+  const label = verdict === "ENRICH" ? "À VÉRIFIER" : verdict;
+  return `${label} ${confidence}%`;
 }

@@ -231,7 +231,7 @@ describe("getV2Label", () => {
   it("fire → Pépite", () => expect(getV2Label("fire")).toBe("Pépite"));
   it("hot → Très chaud", () => expect(getV2Label("hot")).toBe("Très chaud"));
   it("warm → Qualifié", () => expect(getV2Label("warm")).toBe("Qualifié"));
-  it("tepid → À enrichir", () => expect(getV2Label("tepid")).toBe("À enrichir"));
+  it("tepid → À vérifier", () => expect(getV2Label("tepid")).toBe("À vérifier"));
   it("cold → Faible", () => expect(getV2Label("cold")).toBe("Faible"));
   it("off → Hors ICP", () => expect(getV2Label("off")).toBe("Hors ICP"));
   it("null → Non jugé", () => expect(getV2Label(null)).toBe("Non jugé"));
@@ -251,8 +251,8 @@ describe("formatV2Badge", () => {
   it("OUI 86 → 'OUI 86%'", () => {
     expect(formatV2Badge({ verdict: "OUI", confidence: 86 })).toBe("OUI 86%");
   });
-  it("ENRICH 58 → 'ENRICH 58%'", () => {
-    expect(formatV2Badge({ verdict: "ENRICH", confidence: 58 })).toBe("ENRICH 58%");
+  it("ENRICH 58 → 'À VÉRIFIER 58%' (label FR au lieu du jargon)", () => {
+    expect(formatV2Badge({ verdict: "ENRICH", confidence: 58 })).toBe("À VÉRIFIER 58%");
   });
   it("NON 95 → 'NON 95%'", () => {
     expect(formatV2Badge({ verdict: "NON", confidence: 95 })).toBe("NON 95%");

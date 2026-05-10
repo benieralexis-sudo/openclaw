@@ -71,7 +71,7 @@ function v2Badge(verdict: "OUI" | "NON" | "ENRICH" | undefined, conf: number | u
   if (verdict === "OUI" && conf >= 90) return { label: `🔥 Pépite (${verdict} ${conf}%)`, bg: "#FEE2E2", fg: "#991B1B" };
   if (verdict === "OUI" && conf >= 80) return { label: `⚡ Très chaud (${verdict} ${conf}%)`, bg: "#FED7AA", fg: "#9A3412" };
   if (verdict === "OUI") return { label: `✅ Qualifié (${verdict} ${conf}%)`, bg: "#D1FAE5", fg: "#065F46" };
-  if (verdict === "ENRICH") return { label: `🔍 À enrichir (${verdict} ${conf}%)`, bg: "#FEF3C7", fg: "#92400E" };
+  if (verdict === "ENRICH") return { label: `🔍 À vérifier (${conf}%)`, bg: "#FEF3C7", fg: "#92400E" };
   return { label: `❌ Hors ICP (${verdict} ${conf}%)`, bg: "#E5E7EB", fg: "#6B7280" };
 }
 

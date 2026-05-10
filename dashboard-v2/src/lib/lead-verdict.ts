@@ -164,8 +164,8 @@ export function computeLeadVerdict(inputs: VerdictInputs): VerdictResult {
     return {
       kind: "ENRICH_MANUALLY",
       color: "warning",
-      label: "Manque d'info — enrichir avant outreach",
-      reason: `V2 ENRICH ${inputs.v2Confidence ?? "?"}% — il manque des données critiques pour décider OUI/NON (taille équipe, NAF, persona)`,
+      label: "Manque d'info — vérifier avant de pitcher",
+      reason: `À vérifier ${inputs.v2Confidence ?? "?"}% — il manque des données critiques pour décider OUI/NON (taille équipe, NAF, persona)`,
       action: "Vérifier manuellement le NAF / la taille / le décideur avant tout outreach. Pas de pitch tant que pas confirmé.",
       flags: ["v2_enrich"],
     };
