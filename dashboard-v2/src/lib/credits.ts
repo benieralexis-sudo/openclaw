@@ -85,6 +85,24 @@ export async function debitCreditForQualifiedLead(args: {
     return { debited: false, isPepite: false, balanceAfter: -1 };
   }
 
+  // Bug B11 fix (Session 3, 10/05/2026) — Skip débit si plan != GROWTH.
+  // Avant : Tous les clients étaient débités, y compris DTL grandfathered
+  // (LEADS_DATA 199€/mo) → balance descendait en négatif. Maintenant :
+  // seuls les clients GROWTH (390€/mo offre publique 09/05) sont débités.
+  // Les LEADS_DATA / FULL_SERVICE / CUSTOM ne consomment pas de crédits
+  // (modèles sans quota/Pépite garantie).
+  const client = await db.client.findUnique({
+    where: { id: args.clientId },
+    select: { plan: true, creditsBalance: true },
+  });
+  if (!client) {
+    return { debited: false, isPepite: false, balanceAfter: -1 };
+  }
+  if (client.plan !== "GROWTH") {
+    // Pas de débit pour grandfathered. Retourne balance actuelle pour info.
+    return { debited: false, isPepite: false, balanceAfter: client.creditsBalance };
+  }
+
   // Idempotence : check si déjà débité pour ce trigger
   const existing = await db.leadCredit.findFirst({
     where: {

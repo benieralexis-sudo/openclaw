@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { extractLinkedInProfile } from "@/lib/linkedin-profile-extractor";
 import { archiveLeadOnTriggerIgnored, unarchiveLeadOnTriggerRevived } from "@/lib/lead-status-sync";
 import { readDynamicFewShotsFromIcp } from "@/lib/dynamic-few-shots";
-import { searchLayoffsNews } from "@/lib/layoffs-news-search";
+// Refactor V2-only Session 3 — searchLayoffsNews supprimé (V2 voit
+// companyNews via dossier, plus besoin du Bonus C cap externe).
 import { buildLeadDossierForJudge, formatDossierForOpus } from "@/lib/lead-dossier";
 // Sprint 8 (10/05/2026) — Quota par client + cout reel Anthropic
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
@@ -442,74 +443,15 @@ function preOpusRejectScan(
   return { reject: false, label: null };
 }
 
-// Fix L — Détection des "aveux d'hedging" dans la reason d'Opus.
-// Quand Opus donne un score >=7 mais avoue dans sa reason un mismatch ICP
-// ("hors ICP", "non whitelist", "grand groupe", "atypique"…), on downgrade.
-// Override le plancher trusted-sources : une levée Rodz scorée 8 sur
-// "Audion AdTech hors ICP édition logiciels" doit retomber à 4.
-//
-// Sévérité variable selon présence d'un marqueur ICP positif fort :
-// - Hedging seul → hard downgrade vers 4 (Audion, cobl, HrFlow)
-// - Hedging + marqueur positif ("ICP fit", "parfait match", "signal QA fort")
-//   → soft downgrade -2 min 5 (Kestra "ICP-fit software Paris mais NAF atypique"
-//   reste à 6, ne tombe pas en rejet — Kestra est notre seul WON 30j).
-const HEDGING_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
-  { pattern: /hors\s+ICP/i, label: "hors-icp" },
-  { pattern: /non\s+whitelist/i, label: "non-whitelist" },
-  { pattern: /NAF\s+(?:non\s+)?(?:whitelist|atypique)/i, label: "naf-atypique" },
-  { pattern: /\bdata\s+(?:incomplete|incomplet|manquante)/i, label: "data-incomplete" },
-  { pattern: /\bà\s+(?:valider|confirmer)\s+manuellement/i, label: "a-valider-manuel" },
-  { pattern: /\bgrand\s+groupe\b/i, label: "grand-groupe" },
-  { pattern: />\s?(?:200|250|300|500|1000|2000|5000|10000)\s?p\b/i, label: "oversized" },
-  { pattern: /(?:[2-9]|[1-9]\d)\s?\d{3}\s+(?:collaborateurs|talents|salariés|consultants|employees|employés)/i, label: "oversized-text" },
-  { pattern: /signal\s+faible/i, label: "signal-faible" },
-  { pattern: /hire\s+(?:généraliste|junior)\s+non\s+QA/i, label: "hire-non-qa" },
-  { pattern: /industrie\s+non\s+résolu/i, label: "industrie-non-resolue" },
-];
-const POSITIVE_ICP_MARKERS: RegExp[] = [
-  /\bICP[-\s]+(?:fit|parfait|match)/i,
-  /parfait\s+match\s+ICP/i,
-  /match\s+(?:parfait\s+)?ICP/i,
-  /signal\s+QA\s+fort/i,
-  /ICP\s+fit\s+software/i,
-];
-const HEDGING_HARD_FLOOR = 4;
-const HEDGING_SOFT_DELTA = 2;
-const HEDGING_SOFT_MIN = 5;
-function detectOpusHedging(
-  score: number,
-  reason: string,
-): { score: number; reason: string; matchedLabel: string | null; softened: boolean } {
-  if (score < 7) return { score, reason, matchedLabel: null, softened: false };
-  const hasPositiveMarker = POSITIVE_ICP_MARKERS.some((p) => p.test(reason));
-  for (const { pattern, label } of HEDGING_PATTERNS) {
-    if (pattern.test(reason)) {
-      const newScore = hasPositiveMarker
-        ? Math.max(score - HEDGING_SOFT_DELTA, HEDGING_SOFT_MIN)
-        : Math.min(score, HEDGING_HARD_FLOOR);
-      return {
-        score: newScore,
-        reason: `[Fix L hedging:${label}${hasPositiveMarker ? "/soft" : ""}] ${reason}`,
-        matchedLabel: label,
-        softened: hasPositiveMarker,
-      };
-    }
-  }
-  return { score, reason, matchedLabel: null, softened: false };
-}
+// Refactor V2-only Session 3 (10/05) — Fix L hedging supprimé.
+// Le V2 a son propre validator strict (Zod + qualité business) qui détecte
+// les briefs incohérents et force IGNORED. Plus besoin de patterns regex
+// pour rattraper les hedgings de V1 (qui n'existe plus).
 
-// Fix H1 (04/05) — Refonte SYSTEM prompt utilisant buildCachedSystem.
-// Avant : SYSTEM local ~950 tokens dupliquait STABLE_PREAMBLE (Contexte/Moat/
-// Boosters) → en dessous du seuil 1024 tk Anthropic → cache_control: ephemeral
-// silencieusement IGNORÉ → ~$13/mois gaspillé sur ~30 calls/jour.
-// Maintenant : QUALIFY_SPECIFIC contient UNIQUEMENT la spec qualify (mission,
-// rubrique, pénalités, échelle, FEW-SHOTS, format). buildCachedSystem() ajoute
-// le STABLE_PREAMBLE (~510 tk) → total ~1100 tk → cache OK.
-//
-// Few-shots ajoutés résolvent aussi la variance constatée Onepoint=4 vs
-// ALTEN=2 (même profil ESN géante hors ICP, scorés différemment) en
-// fournissant à Opus des ancres concrètes.
-const QUALIFY_SPECIFIC = `
+// Refactor V2-only Session 3 (10/05) — QUALIFY_SPECIFIC supprimé.
+// C'était le prompt V1 (score 1-10 numérique). Le V2 utilise QUALIFY_V2_SPECIFIC
+// (verdict OUI/ENRICH/NON + thesis + opener) défini plus bas.
+const _QUALIFY_SPECIFIC_DEPRECATED = `
 
 ## Mission de qualification
 Tu reçois un Trigger fraîchement capté + l'ICP du client. Retourne un score 1-10 strict + une raison courte (max 200 chars, citer 1 élément concret).
@@ -703,14 +645,44 @@ export async function qualifyTrigger(
   }
 
   const v2Brief = v2Result.brief;
-  const verdict = v2Brief.verdict;
-  const conf = v2Brief.confidence;
+  let verdict = v2Brief.verdict;
+  let conf = v2Brief.confidence;
+
+  // Bug B12 fix (Session 3, 10/05/2026) — Si V2 dit OUI mais le NAF du
+  // trigger n'est PAS dans la whitelist ICP du client, on downgrade en
+  // ENRICH par sécurité. V2 peut surévaluer si le contexte fundraising
+  // est fort (Rodz/RSS-levees) mais NAF Pappers est obsolète/erroné
+  // (cobl 46.90Z, Audion 74.2A, Dastra 70.22Z capés à tort).
+  // L'opérateur doit valider manuellement le NAF avant outreach.
+  if (verdict === "OUI") {
+    const trig = await db.trigger.findUnique({
+      where: { id: triggerId },
+      select: {
+        companyNaf: true,
+        client: { select: { icp: true } },
+      },
+    });
+    const icpNafCodes = (trig?.client.icp as { naf_codes?: string[] } | null)
+      ?.naf_codes;
+    const triggerNaf = (trig?.companyNaf ?? "").replace(/\./g, "");
+    if (
+      icpNafCodes &&
+      Array.isArray(icpNafCodes) &&
+      icpNafCodes.length > 0 &&
+      triggerNaf &&
+      !icpNafCodes.some((c) => triggerNaf.startsWith(c.replace(/\./g, "")))
+    ) {
+      console.log(
+        `[qualify-trigger.B12] ${triggerId}: NAF ${trig?.companyNaf} hors whitelist ICP — V2 OUI ${conf}% downgrade ENRICH`,
+      );
+      verdict = "ENRICH";
+      conf = Math.min(conf, 60); // bornage : signal incertain
+    }
+  }
 
   // 4. Mapping verdict + confidence → score 0-10 (compat UX existante).
   // Le score 0-10 reste utilisé par : tri dashboard, gates enrichissement
   // Kaspr/FullEnrich/HarvestAPI, isHot, alerts, credits, brief builder.
-  // Session 2 du refactor changera l'UX dashboard pour afficher verdict+conf
-  // natif et ce mapping pourra disparaître.
   let opusScore: number;
   if (verdict === "OUI") {
     if (conf >= 90) opusScore = 10;
@@ -804,82 +776,9 @@ export async function qualifyTrigger(
   return { opusScore, reason, isHot };
 }
 
-/**
- * Sprint Perfection P6 (08/05) — Shadow parallel-write V2.
- *
- * Calcule briefV2Json via le judge V2 + validator strict (D.3) et écrit en
- * DB. Pas de blocage du pipeline V1 — appelée en fire-and-forget.
- *
- * Si validator strict OK → écrit briefV2Json (Zod-valid + qualité business).
- * Si validator KO mais Zod OK → écrit quand même (briefV2Json présent mais
- * marqué comme borderline via reason absente).
- * Si Opus error / Zod KO → ne fait rien (laisse briefV2Json = null).
- */
-async function qualifyTriggerV2Shadow(triggerId: string): Promise<void> {
-  const result = await qualifyTriggerV2WithValidation(triggerId);
-  if (!result.brief) {
-    console.log(
-      `[qualify-trigger.shadow-v2] ${triggerId}: no brief (${result.reason ?? "?"})`,
-    );
-    return;
-  }
-
-  // SWITCH V1→V2 (08/05) — V2 verdict décide désormais le status final.
-  // V1 score conservé pour le tri visuel (10 = top), mais ne décide plus de
-  // la visibilité dashboard. V2 = ~95-97% précision (vs V1 ~80%) car raisonné
-  // sur 12 blocs de contexte (persona + company health + cross-tenant + news +
-  // ICP Fred + etc.) avec validator strict (98% briefs passent).
-  //
-  // Logique override :
-  //  - V2 verdict=NON shippable → status=IGNORED (catch les ESN/concurrents
-  //    que V1 score laissait passer, ex Synanto score=10 V1 mais NON V2)
-  //  - V2 verdict=OUI/ENRICH → on respecte la décision V1 (NEW si !belowMinScore)
-  //
-  // Garde-fou : seul un brief shippable (Zod OK + validator strict OK) peut
-  // override. Si V2 plante / brief invalide, V1 reste source de vérité.
-  const updates: { briefV2Json: object; status?: "IGNORED"; scoreReason?: string } = {
-    briefV2Json: result.brief as unknown as object,
-  };
-  let v2OverrideApplied = false;
-  if (result.shippable && result.brief.verdict === "NON") {
-    const current = await db.trigger.findUnique({
-      where: { id: triggerId },
-      select: { scoreReason: true, status: true },
-    });
-    // Override si :
-    //  - V1 disait NEW (cas Synanto-type catch initial)
-    //  - OU V1 a rollback IGNORED+[RE-JUDGED...FAILED] (Anthropic down sur le
-    //    re-judge mais V2 fire-and-forget a quand meme reussi). Sans cette
-    //    branche, le scoreReason reste "FAILED" alors que V2 a un verdict NON
-    //    legitime — bug detecte 09/05 sur Synanto/Sogelink/Hivebrite/ALDEMIA.
-    const reason = current?.scoreReason ?? "";
-    const isRollbackFailed = reason.startsWith("[RE-JUDGED") && reason.includes("FAILED");
-    if (current?.status === "NEW" || isRollbackFailed) {
-      const v2Header = `[V2-override:NON conf=${result.brief.confidence}] ${result.brief.thesis.slice(0, 200)}`;
-      updates.status = "IGNORED";
-      updates.scoreReason = `${v2Header} | V1: ${reason}`.slice(0, 600);
-      v2OverrideApplied = true;
-    }
-  }
-
-  await db.trigger.update({
-    where: { id: triggerId },
-    data: updates,
-  });
-
-  // Si V2 a forcé IGNORED, sync Lead.status → ARCHIVED (cohérence dashboard)
-  if (v2OverrideApplied) {
-    await archiveLeadOnTriggerIgnored(triggerId);
-  }
-
-  console.log(
-    `[qualify-trigger.shadow-v2] ${triggerId}: shippable=${result.shippable} verdict=${result.brief.verdict} conf=${result.brief.confidence}` +
-      (result.validation && !result.validation.ok
-        ? ` strict-errs=${result.validation.errors.length}`
-        : "") +
-      (v2OverrideApplied ? ` ⚡ V2-OVERRIDE→IGNORED` : ""),
-  );
-}
+// Refactor V2-only Session 3 (10/05) — qualifyTriggerV2Shadow supprimé.
+// La fonction faisait le V2 fire-and-forget shadow + override. Maintenant V2
+// est synchrone dans qualifyTrigger() (Session 1), ce shadow est mort.
 
 /**
  * Qualifie tous les Triggers d'un client qui n'ont pas encore été évalués

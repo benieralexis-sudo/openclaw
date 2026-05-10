@@ -396,10 +396,14 @@ export async function POST(req: NextRequest) {
   }
 
   // 8) Counters sur le RodzSignal
+  // S3 tracking (10/05) — incrémente aussi creditsUsed (1 cr par signal
+  // reçu d'après le pricing Rodz Pack Pro). Permet /api/internal/cost-report
+  // d'avoir une vraie vue Rodz consommation.
   await db.rodzSignal.update({
     where: { id: dbSignal.id },
     data: {
       leadsReceived: { increment: 1 },
+      creditsUsed: { increment: 1 },
       lastLeadAt: new Date(),
     },
   });

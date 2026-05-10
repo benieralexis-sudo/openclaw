@@ -115,6 +115,7 @@ export async function enrichLeadsViaKasprDirect(
       phone: true,
       kasprPhone: true,
       kasprWorkEmail: true,
+      kasprCreditsUsed: true, // S3 tracking — pour cumul incrémental
     },
     take: limit,
     // Priorité : jamais tentés (kasprAttemptedAt null) en premier, puis par
@@ -227,6 +228,10 @@ export async function enrichLeadsViaKasprDirect(
 
       // kasprAttemptedAt toujours posé (cooldown 30j même sans match).
       // kasprEnrichedAt posé UNIQUEMENT si on a phone ou workEmail (cooldown 7j).
+      // Tracking S3 (10/05) — kasprCreditsUsed estimé : 1 cr workEmail
+      // + 10 cr phone selon barème Kaspr standard. Pose en cumulatif sur
+      // le Lead pour permettre /api/internal/cost-report agrégat.
+      let creditsThisCall = 0;
       const updates: Record<string, unknown> = {
         kasprAttemptedAt: new Date(),
       };
@@ -243,6 +248,7 @@ export async function enrichLeadsViaKasprDirect(
         if (!lead.phone) updates.phone = kPhone;
         if (isFrenchMobile(kPhone)) result.mobileFound++;
         foundSomething = true;
+        creditsThisCall += 10; // S3 tracking : 10 cr Kaspr par phone
       }
       if (kasprWorkEmail && !lead.kasprWorkEmail) {
         // C9 — Cross-check email vs firstName/lastName du Lead.
@@ -289,6 +295,7 @@ export async function enrichLeadsViaKasprDirect(
         updates.kasprWorkEmail = kasprWorkEmail;
         result.workEmailFound++;
         foundSomething = true;
+        creditsThisCall += 1; // S3 tracking : 1 cr Kaspr par workEmail
       }
       if (profile.title) {
         // Mémorise le titre Kaspr aussi (séparé de jobTitle Pappers)
@@ -297,6 +304,11 @@ export async function enrichLeadsViaKasprDirect(
       }
       if (foundSomething) {
         updates.kasprEnrichedAt = new Date();
+      }
+      // S3 tracking : cumul des crédits utilisés par lead (B11 fix —
+      // permet /api/internal/cost-report d'avoir une vraie vue Kaspr).
+      if (creditsThisCall > 0) {
+        updates.kasprCreditsUsed = (lead.kasprCreditsUsed ?? 0) + creditsThisCall;
       }
 
       await db.lead.update({ where: { id: lead.id }, data: updates });

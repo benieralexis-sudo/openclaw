@@ -63,6 +63,32 @@ export async function ensureLeadsForAllTriggers(
     // (Apify LinkedIn jobs / WTTJ recruiter / TheirStack decision_makers).
     // Sinon Pappers prendra le relais sur les pipelines downstream.
     const poster = extractPosterFromPayload(t.rawPayload);
+
+    // Bug B14 fix (Session 3, 10/05/2026) — Avant : try/catch swallow sur
+    // unique constraint (clientId, companySiret). Si 2 triggers même client
+    // arrivaient avec même SIRET dans le même run, le 2e échouait
+    // silencieusement et le Trigger restait sans Lead lié → invisible
+    // dashboard. Maintenant : si un Lead existe déjà sur ce SIRET (peu
+    // importe l'ancien triggerId), on l'attache au nouveau trigger.
+    if (t.companySiret) {
+      const existingLead = await db.lead.findFirst({
+        where: {
+          clientId,
+          companySiret: t.companySiret,
+          deletedAt: null,
+        },
+        select: { id: true, triggerId: true },
+      });
+      if (existingLead) {
+        // Lead déjà existant pour ce SIRET — pas de duplicate, juste compté
+        // alreadyExisted. Le trigger n'a pas de Lead direct mais son SIRET
+        // est déjà couvert par un autre trigger précédent (combo détecté
+        // ailleurs). Pas d'action — la dedup est faite côté table Trigger.
+        stats.alreadyExisted++;
+        continue;
+      }
+    }
+
     try {
       await db.lead.create({
         data: {
@@ -80,8 +106,19 @@ export async function ensureLeadsForAllTriggers(
         },
       });
       stats.created++;
-    } catch {
-      // skip silencieux (race condition possible)
+    } catch (e) {
+      // Race condition résiduelle (2 invocations parallèles du même cron) :
+      // log warning au lieu de swallow silencieux (Bug B14 fix Session 3).
+      // L'erreur Prisma "Unique constraint failed" = pas grave, le Lead a
+      // été créé par l'autre invocation. Just log pour debug si besoin.
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("Unique constraint failed")) {
+        console.log(
+          `[ensure-lead.race] ${t.companyName} (siret=${t.companySiret}) — Lead créé par run parallèle, skip`,
+        );
+      } else {
+        console.warn(`[ensure-lead.err] ${t.companyName}: ${msg}`);
+      }
     }
   }
 

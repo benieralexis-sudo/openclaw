@@ -281,6 +281,22 @@ export async function pollRssLeveesForClient(
         continue;
       }
 
+      // Bug B15 fix (Session 3, 10/05/2026) — Skip création Trigger si
+      // SIRENE non résolu. Avant : on créait le Trigger quand même avec
+      // companySiret=null → Lead minimal sans SIRET → enrichissement
+      // (Pappers, Kaspr, HarvestAPI search-by-company) tous bloqués →
+      // leads vides depuis 7j (SEREACT, CLEO LABS, MOONLIGHT AI).
+      // Maintenant : on skip et on log pour audit. La levée pourra être
+      // re-captée par BODACC capital-increase, ou rss-levees au prochain
+      // run si SIRENE indexe entre temps (PME jeunes).
+      if (!sireneSiren) {
+        result.triggersSkippedNoCompany += 1;
+        console.log(
+          `[rss-levees-poller] ${clientId}: SKIP "${companyName}" — SIRENE non résolu (boîte trop récente Insee ou nom ambigu). Re-tenté au prochain run.`,
+        );
+        continue;
+      }
+
       // ICP filter
       const icpCheck = matchesClientIcp(pappersData, companyName, icp);
       if (!icpCheck.ok) {
