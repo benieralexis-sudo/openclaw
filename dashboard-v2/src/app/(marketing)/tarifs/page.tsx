@@ -159,7 +159,7 @@ export default function TarifsPage() {
                 <thead className="bg-ink-50 border-b border-ink-200">
                   <tr>
                     <th className="text-left py-4 px-5 font-medium text-ink-600 text-xs uppercase tracking-wider"></th>
-                    <th className="text-center py-4 px-4 font-display font-semibold text-brand-700 bg-brand-50/40">iFIND</th>
+                    <th className="text-center py-4 px-4 font-display font-semibold text-brand-800 bg-brand-50 border-x border-brand-200">iFIND</th>
                     <th className="text-center py-4 px-4 font-medium text-ink-600">Pharow</th>
                     <th className="text-center py-4 px-4 font-medium text-ink-600">Cognism</th>
                     <th className="text-center py-4 px-4 font-medium text-ink-600">Apollo</th>
@@ -168,7 +168,7 @@ export default function TarifsPage() {
                 </thead>
                 <tbody className="divide-y divide-ink-100">
                   {COMPARISON.map(([feature, ...values], i) => (
-                    <tr key={i}>
+                    <tr key={i} className="hover:bg-ink-50/50 transition-colors">
                       <td className="py-3.5 px-5 text-ink-700 text-[14px]">{feature}</td>
                       {values.map((v, j) => (
                         <Cell key={j} value={v} highlight={j === 0} />
@@ -231,15 +231,21 @@ export default function TarifsPage() {
 
 function Cell({ value, highlight }: { value: boolean | string; highlight?: boolean }) {
   return (
-    <td className={`text-center py-3.5 px-4 ${highlight ? "bg-brand-50/40" : ""}`}>
+    <td className={`text-center py-3.5 px-4 ${highlight ? "bg-brand-50/60 border-x border-brand-100" : ""}`}>
       {typeof value === "boolean" ? (
         value ? (
-          <Check className={`h-4 w-4 mx-auto ${highlight ? "text-brand-700" : "text-emerald-600"}`} strokeWidth={3} />
+          highlight ? (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-600 text-white">
+              <Check className="h-3 w-3" strokeWidth={3.5} />
+            </span>
+          ) : (
+            <Check className="h-4 w-4 mx-auto text-emerald-600" strokeWidth={3} />
+          )
         ) : (
           <X className="h-3.5 w-3.5 mx-auto text-ink-300" />
         )
       ) : (
-        <span className={`inline-block font-mono text-xs ${highlight ? "font-semibold text-brand-800" : "text-ink-600"}`}>{value}</span>
+        <span className={`inline-block font-mono text-xs ${highlight ? "font-semibold text-brand-800 bg-white px-2 py-0.5 rounded border border-brand-200" : "text-ink-600"}`}>{value}</span>
       )}
     </td>
   );

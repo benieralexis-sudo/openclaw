@@ -8,7 +8,7 @@ import { FeatureShowcase } from "./_components/feature-showcase";
 import { LiveFeed } from "./_components/live-feed";
 import { BriefMockup } from "./_components/brief-mockup";
 import { SectionHeading } from "./_components/section-heading";
-import { Reveal } from "./_components/reveal";
+import { AnimatedStat } from "./_components/animated-stat";
 import { STATS_PRODUIT } from "./_components/_data/mock-companies";
 
 export const metadata: Metadata = {
@@ -92,16 +92,8 @@ export default function HomePage() {
           />
 
           <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-y-12 gap-x-8 max-w-5xl mx-auto">
-            {STATS_PRODUIT.map((s, i) => (
-              <Reveal key={s.label} delay={i * 0.08}>
-                <div className="text-center">
-                  <div className="font-display text-4xl md:text-5xl font-semibold text-ink-900 tracking-tight tabular-nums">
-                    {s.value}
-                  </div>
-                  <p className="mt-3 text-sm font-medium text-ink-700">{s.label}</p>
-                  <p className="text-xs text-ink-500 mt-0.5">{s.sub}</p>
-                </div>
-              </Reveal>
+            {STATS_PRODUIT.map((s) => (
+              <AnimatedStat key={s.label} value={s.value} label={s.label} sublabel={s.sub} />
             ))}
           </div>
         </div>
@@ -205,7 +197,7 @@ export default function HomePage() {
                   <thead className="bg-ink-50 border-b border-ink-200">
                     <tr>
                       <th className="text-left py-4 px-5 font-medium text-ink-600 text-xs uppercase tracking-wider"></th>
-                      <th className="text-center py-4 px-4 font-display font-semibold text-brand-700 bg-brand-50/40">iFIND</th>
+                      <th className="text-center py-4 px-4 font-display font-semibold text-brand-800 bg-brand-50 border-x border-brand-200">iFIND</th>
                       <th className="text-center py-4 px-4 font-medium text-ink-600">Pharow</th>
                       <th className="text-center py-4 px-4 font-medium text-ink-600">Cognism</th>
                       <th className="text-center py-4 px-4 font-medium text-ink-600">Apollo</th>
@@ -214,7 +206,7 @@ export default function HomePage() {
                   </thead>
                   <tbody className="divide-y divide-ink-100">
                     {COMPARISON.map(([feature, ...values], i) => (
-                      <tr key={i}>
+                      <tr key={i} className="hover:bg-ink-50/50 transition-colors">
                         <td className="py-3.5 px-5 text-ink-700 text-[14px]">{feature}</td>
                         {values.map((v, j) => (
                           <Cell key={j} value={v} highlight={j === 0} />
@@ -238,17 +230,24 @@ export default function HomePage() {
             description="Setup en 5 minutes, première détection sous 48 heures, Pépites livrées en continu."
           />
 
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {STEPS.map((s, i) => (
-              <div key={i} className="bg-white rounded-xl p-7 border border-ink-200">
-                <div className="flex items-center gap-2 mb-5">
-                  <span className="font-display text-xs font-semibold text-brand-700 tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-ink-400">{s.time}</span>
+          <div className="mt-16 max-w-5xl mx-auto relative">
+            {/* Connecteur horizontal pointillé desktop */}
+            <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-px border-t border-dashed border-brand-300/60 -z-0" />
+
+            <div className="relative grid grid-cols-1 md:grid-cols-3 gap-6">
+              {STEPS.map((s, i) => (
+                <div key={i} className="bg-white rounded-xl p-7 border border-ink-200 hover:border-brand-200 hover:shadow-md transition-all">
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white font-display font-semibold text-sm tabular-nums shadow-md">
+                      {i + 1}
+                    </div>
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-ink-400 bg-ink-50 px-2 py-0.5 rounded-md font-mono">{s.time}</span>
+                  </div>
+                  <h3 className="font-display text-lg font-semibold text-ink-900 mb-2">{s.title}</h3>
+                  <p className="text-sm text-ink-600 leading-relaxed">{s.description}</p>
                 </div>
-                <h3 className="font-display text-lg font-semibold text-ink-900 mb-2">{s.title}</h3>
-                <p className="text-sm text-ink-600 leading-relaxed">{s.description}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -300,15 +299,21 @@ function Pillar({ icon, title, description, highlight }: { icon: React.ReactNode
 
 function Cell({ value, highlight }: { value: boolean | string; highlight?: boolean }) {
   return (
-    <td className={`text-center py-3.5 px-4 ${highlight ? "bg-brand-50/40" : ""}`}>
+    <td className={`text-center py-3.5 px-4 ${highlight ? "bg-brand-50/60 border-x border-brand-100" : ""}`}>
       {typeof value === "boolean" ? (
         value ? (
-          <Check className={`h-4 w-4 mx-auto ${highlight ? "text-brand-700" : "text-emerald-600"}`} strokeWidth={3} />
+          highlight ? (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-600 text-white">
+              <Check className="h-3 w-3" strokeWidth={3.5} />
+            </span>
+          ) : (
+            <Check className="h-4 w-4 mx-auto text-emerald-600" strokeWidth={3} />
+          )
         ) : (
           <span className="text-ink-300 text-sm">—</span>
         )
       ) : (
-        <span className={`inline-block font-mono text-xs ${highlight ? "font-semibold text-brand-800" : "text-ink-600"}`}>{value}</span>
+        <span className={`inline-block font-mono text-xs ${highlight ? "font-semibold text-brand-800 bg-white px-2 py-0.5 rounded border border-brand-200" : "text-ink-600"}`}>{value}</span>
       )}
     </td>
   );

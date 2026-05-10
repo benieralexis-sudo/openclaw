@@ -17,11 +17,14 @@ export default async function MarketingLayout({ children }: { children: ReactNod
       <header className="sticky top-0 z-50 bg-white/85 backdrop-blur-md border-b border-ink-100">
         <nav className="max-w-6xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-950">
+          <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-90">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-brand-500 to-brand-700 shadow-sm">
               <span className="font-display text-sm font-bold text-white leading-none">i</span>
             </div>
             <span className="font-display text-base font-semibold text-ink-900 tracking-tight">iFIND</span>
+            <span className="hidden sm:inline-flex items-center text-[10px] font-mono font-semibold uppercase tracking-wider text-brand-700 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded">
+              FR
+            </span>
           </Link>
 
           {/* Nav */}
@@ -69,10 +72,13 @@ export default async function MarketingLayout({ children }: { children: ReactNod
             {/* Brand */}
             <div className="col-span-2 md:col-span-5">
               <Link href="/" className="inline-flex items-center gap-2 mb-4">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-950">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-brand-500 to-brand-700 shadow-sm">
                   <span className="font-display text-sm font-bold text-white leading-none">i</span>
                 </div>
                 <span className="font-display text-base font-semibold text-ink-900 tracking-tight">iFIND</span>
+                <span className="inline-flex items-center text-[10px] font-mono font-semibold uppercase tracking-wider text-brand-700 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded">
+                  FR
+                </span>
               </Link>
               <p className="text-sm text-ink-600 max-w-xs leading-relaxed">
                 Le moteur de détection de signaux d&apos;achat sur les PME françaises.

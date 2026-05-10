@@ -25,10 +25,21 @@ export function DashboardMockup() {
         {/* Sidebar — desktop full, mobile mini */}
         <aside className="lg:col-span-2 bg-brand-950 text-ink-300 p-3 lg:flex flex-col hidden lg:block">
           <div className="flex items-center gap-2 px-2 mb-6 pt-1">
-            <div className="w-7 h-7 rounded-md bg-brand-600 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-md bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-md">
               <span className="text-white font-display font-bold text-sm">i</span>
             </div>
             <span className="font-display text-sm font-semibold text-white">iFIND</span>
+          </div>
+
+          {/* Live activity indicator */}
+          <div className="px-2 mb-4 -mt-2">
+            <div className="flex items-center gap-1.5 text-[10px] text-emerald-300">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              <span className="font-medium">3 signaux en cours d&apos;analyse</span>
+            </div>
           </div>
           <div className="space-y-0.5">
             <NavItem icon={<Home className="h-3.5 w-3.5" />} active>Dashboard</NavItem>
@@ -52,7 +63,7 @@ export function DashboardMockup() {
         {/* Mobile-only top bar (compact info on garantie) */}
         <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-brand-950 text-white border-b border-brand-800/50">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-brand-600 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-sm">
               <span className="text-white font-display font-bold text-xs">i</span>
             </div>
             <span className="font-display text-xs font-semibold">iFIND</span>
