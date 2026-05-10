@@ -31,6 +31,10 @@ import {
   getCombinedTier,
   getCombinedLabel,
   getCombinedColors,
+  getV2Tier,
+  getV2Label,
+  getV2Variant,
+  formatV2Badge,
 } from "@/lib/score-display";
 import type { TodoItem } from "@/lib/todo-today";
 import { Sparkles, Mail, Phone as PhoneIcon, Linkedin } from "lucide-react";
@@ -54,6 +58,8 @@ interface DashboardData {
     score: number;
     isCombo: boolean;
     capturedAt: string;
+    // Refactor V2-only Session 2 — verdict V2 natif
+    briefV2Json?: { verdict?: "OUI" | "ENRICH" | "NON"; confidence?: number } | null;
     lead?: {
       id: string;
       email: string | null;
@@ -226,9 +232,20 @@ export default function DashboardPage() {
                         >
                           {statusLabel.text}
                         </span>
-                        <Badge variant="score" size="md" className="shrink-0">
-                          {t.score}/10
-                        </Badge>
+                        {t.briefV2Json?.verdict ? (
+                          <Badge
+                            variant={getV2Variant(getV2Tier({ verdict: t.briefV2Json.verdict, confidence: t.briefV2Json.confidence }))}
+                            size="md"
+                            className="font-mono tabular-nums shrink-0"
+                            title={getV2Label(getV2Tier({ verdict: t.briefV2Json.verdict, confidence: t.briefV2Json.confidence }))}
+                          >
+                            {formatV2Badge({ verdict: t.briefV2Json.verdict, confidence: t.briefV2Json.confidence })}
+                          </Badge>
+                        ) : (
+                          <Badge variant="score" size="md" className="shrink-0" title="V2 absent (lead pre-Sprint 8)">
+                            {t.score}/10
+                          </Badge>
+                        )}
                         {t.isCombo && (
                           <Badge variant="brand" size="sm" className="hidden md:inline-flex shrink-0">
                             Combo

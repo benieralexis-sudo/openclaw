@@ -122,6 +122,9 @@ export async function GET(req: NextRequest) {
       status: true,
       capturedAt: true,
       sourceCode: showSource ? true : false,
+      // Refactor V2-only Session 2 (10/05) — verdict + thesis V2 exposés
+      // au frontend pour affichage badge "OUI 86%" + thesis hover.
+      briefV2Json: true,
       // Chantier D1 — Scores intelligents v3.9+ (rendus visibles en UI)
       priorityScore: true,
       freshnessScore: true,

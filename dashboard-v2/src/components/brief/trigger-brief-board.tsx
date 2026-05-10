@@ -26,6 +26,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { cn, formatNumberFr, formatRelativeFr, gmailComposeUrl, isFrenchMobile, normalizeLinkedinUrl } from "@/lib/utils";
 import { computeLeadVerdict, type VerdictResult } from "@/lib/lead-verdict";
+import {
+  getV2Tier,
+  getV2Label,
+  getV2Variant,
+  formatV2Badge,
+  type V2Verdict,
+} from "@/lib/score-display";
 import { humanizeCompanySize, humanizeRevenue, humanizeResultNet, humanizeEtabsCount } from "@/lib/format-company";
 import { simplifyTriggerTitle } from "@/lib/simplify-trigger-title";
 import { CheckCircle2, AlertTriangle, XCircle, Info, Clock } from "lucide-react";
@@ -539,6 +546,15 @@ function TriggerHeader({
   brief: Brief | null;
   verdict: VerdictResult;
 }) {
+  // Refactor V2-only Session 2 — badge verdict V2 (OUI/ENRICH/NON + conf%)
+  // au lieu du score 0-10. Fallback score si V2 absent (anciens triggers).
+  const v2 = (trigger.briefV2Json as { verdict?: V2Verdict; confidence?: number } | null) ?? null;
+  const v2Tier = getV2Tier({ verdict: v2?.verdict, confidence: v2?.confidence });
+  const v2Label = getV2Label(v2Tier);
+  const v2Variant = getV2Variant(v2Tier);
+  const v2Badge = formatV2Badge({ verdict: v2?.verdict, confidence: v2?.confidence });
+
+  // Fallback score (anciens triggers sans V2)
   const scoreVariant = trigger.isHot
     ? "fire"
     : trigger.score >= 7
@@ -559,10 +575,19 @@ function TriggerHeader({
               <h1 className="font-display text-[20px] font-semibold tracking-tight text-ink-900">
                 {trigger.companyName}
               </h1>
-              <Badge variant={scoreVariant} size="md" className="font-mono tabular-nums">
-                {trigger.score}/10
-              </Badge>
-              {trigger.isHot && (
+              {v2Tier ? (
+                <>
+                  <Badge variant={v2Variant} size="md" className="font-mono tabular-nums" title={v2Label}>
+                    {v2Badge}
+                  </Badge>
+                  <span className="text-[11px] uppercase tracking-wider text-ink-500">{v2Label}</span>
+                </>
+              ) : (
+                <Badge variant={scoreVariant} size="md" className="font-mono tabular-nums" title="Pas de verdict V2 (lead pre-Sprint 8)">
+                  {trigger.score}/10
+                </Badge>
+              )}
+              {trigger.isHot && !v2Tier && (
                 <Badge variant="fire" size="sm" className="gap-1">
                   <Zap className="h-2.5 w-2.5" />
                   Hot

@@ -22,6 +22,10 @@ import {
   getCombinedTier,
   getCombinedLabel,
   getCombinedColors,
+  getV2Tier,
+  getV2Label,
+  getV2Variant,
+  formatV2Badge,
 } from "@/lib/score-display";
 
 interface Trigger {
@@ -41,6 +45,8 @@ interface Trigger {
   capturedAt: string;
   sourceCode?: string | null;          // visible si ADMIN/COMMERCIAL
   comboSources?: string[];             // sources distinctes si combo
+  // Refactor V2-only Session 2 (10/05) — verdict natif V2
+  briefV2Json?: { verdict?: "OUI" | "ENRICH" | "NON"; confidence?: number; thesis?: string } | null;
   // Chantier D1 — Scores intelligents v3.9+ (priorité composite)
   priorityScore: number | null;
   freshnessScore: number | null;
@@ -267,20 +273,35 @@ export default function TriggersPage() {
           multiSourceBoost: row.original.multiSourceBoost,
         });
         const fitBreakdown = formatFitBreakdown(row.original.lead?.fitScoreBreakdown ?? null);
+        // Refactor V2-only Session 2 — verdict V2 natif (priorité d'affichage).
+        const v2 = row.original.briefV2Json ?? null;
+        const v2Tier = getV2Tier({ verdict: v2?.verdict, confidence: v2?.confidence });
+        const v2Label = getV2Label(v2Tier);
+        const v2Variant = getV2Variant(v2Tier);
+        const v2Badge = formatV2Badge({ verdict: v2?.verdict, confidence: v2?.confidence });
         const tooltipParts: string[] = [];
+        if (v2?.verdict) {
+          tooltipParts.push(`V2 ${v2.verdict} ${v2.confidence ?? "?"}% — ${v2Label}`);
+          if (v2.thesis) tooltipParts.push(v2.thesis.slice(0, 200));
+        }
         if (combinedScore !== null) {
-          tooltipParts.push(`Score ${combinedScore}/100 — ${tierLabel}`);
+          tooltipParts.push(`Combiné ${combinedScore}/100 — ${tierLabel}`);
         }
         if (priorityBreakdown) tooltipParts.push(`Priorité ${p}: ${priorityBreakdown}`);
         if (fitBreakdown && f !== null) tooltipParts.push(`Fit ${f}: ${fitBreakdown}`);
         if (tooltipParts.length === 0) {
-          tooltipParts.push(`Score Opus ${row.original.score}/10 (priorité non calculée)`);
+          tooltipParts.push(`Score Opus ${row.original.score}/10 (V2 absent — pre-Sprint 8)`);
         }
         const tooltip = tooltipParts.join("\n");
         return (
           <div className="min-w-0" title={tooltip}>
             <div className="flex items-center gap-2">
-              {combinedScore !== null ? (
+              {/* Badge verdict V2 natif (refactor Session 2) — affichage prioritaire */}
+              {v2Tier ? (
+                <Badge variant={v2Variant} size="sm" className="font-mono tabular-nums shrink-0">
+                  {v2Badge}
+                </Badge>
+              ) : combinedScore !== null ? (
                 <>
                   <div className="h-1.5 w-16 overflow-hidden rounded-full bg-ink-100 shrink-0">
                     <div
@@ -297,6 +318,12 @@ export default function TriggersPage() {
                 </>
               ) : (
                 <span className="text-[11px] text-ink-400 shrink-0">— ({row.original.score}/10)</span>
+              )}
+              {/* Tier secondaire si V2 dispo + score combined dispo (info contextuelle freshness/persona) */}
+              {v2Tier && combinedScore !== null && (
+                <span className={cn("text-[10.5px] font-medium shrink-0 hidden lg:inline", colors.text)} title={`Score combiné freshness+persona: ${combinedScore}/100 (${tierLabel})`}>
+                  ·{tierLabel}
+                </span>
               )}
               {row.original.isCombo && (
                 <Badge variant="brand" size="sm" className="shrink-0" title={

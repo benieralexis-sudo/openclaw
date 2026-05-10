@@ -210,3 +210,92 @@ export function getCombinedColors(tier: CombinedTier | null): {
     default:      return { bar: "bg-ink-200",     text: "text-ink-400" };
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// V2 verdict display helpers (refactor V2-only Session 2 — 10/05/2026)
+// ──────────────────────────────────────────────────────────────────────
+// Affichage natif du verdict V2 (OUI/ENRICH/NON) + confidence% au lieu
+// du score 0-10 (qui reste en interne pour compat avec les gates code).
+//
+// Mapping verdict + confidence → tier visuel :
+//   - OUI conf >= 90  → fire   (Pépite top, à appeler)
+//   - OUI 80-89       → hot    (Pépite, email perso)
+//   - OUI 70-79       → warm   (Qualifié solide)
+//   - OUI <70         → tepid  (OUI mais incertain, séquence cold)
+//   - ENRICH >= 70    → tepid  (À enrichir avant outreach)
+//   - ENRICH <70      → cold   (Manque trop d'info)
+//   - NON             → off    (IGNORED, ne pas approcher)
+// ──────────────────────────────────────────────────────────────────────
+
+export type V2Verdict = "OUI" | "ENRICH" | "NON";
+export type V2Tier = "fire" | "hot" | "warm" | "tepid" | "cold" | "off";
+
+export interface V2Inputs {
+  verdict: V2Verdict | null | undefined;
+  confidence: number | null | undefined;
+}
+
+/**
+ * Determine V2 tier from verdict + confidence.
+ * Returns null if verdict/confidence missing (no V2 brief yet).
+ */
+export function getV2Tier(inputs: V2Inputs): V2Tier | null {
+  const { verdict, confidence } = inputs;
+  if (!verdict || confidence === null || confidence === undefined) return null;
+  if (verdict === "NON") return "off";
+  if (verdict === "OUI") {
+    if (confidence >= 90) return "fire";
+    if (confidence >= 80) return "hot";
+    if (confidence >= 70) return "warm";
+    return "tepid";
+  }
+  // ENRICH
+  if (confidence >= 70) return "tepid";
+  return "cold";
+}
+
+/**
+ * V2 tier → label français court à afficher dans la table/badge.
+ *  - "Pépite" pour fire
+ *  - "Très chaud" pour hot
+ *  - "Qualifié" pour warm
+ *  - "À enrichir" pour tepid (ENRICH ou OUI faible conf)
+ *  - "Faible" pour cold
+ *  - "Hors ICP" pour off (NON)
+ */
+export function getV2Label(tier: V2Tier | null): string {
+  switch (tier) {
+    case "fire":  return "Pépite";
+    case "hot":   return "Très chaud";
+    case "warm":  return "Qualifié";
+    case "tepid": return "À enrichir";
+    case "cold":  return "Faible";
+    case "off":   return "Hors ICP";
+    default:      return "Non jugé";
+  }
+}
+
+/**
+ * V2 tier → BadgeVariant pour <Badge>.
+ */
+export function getV2Variant(tier: V2Tier | null): BadgeVariant {
+  switch (tier) {
+    case "fire":  return "fire";
+    case "hot":   return "danger";
+    case "warm":  return "success";
+    case "tepid": return "warning";
+    case "cold":  return "info";
+    case "off":   return "default";
+    default:      return "default";
+  }
+}
+
+/**
+ * V2 verdict + tier → texte affichable dans le badge principal.
+ * Format : "OUI 86%" ou "ENRICH 58%" ou "NON 95%" — toujours pratique.
+ */
+export function formatV2Badge(inputs: V2Inputs): string {
+  const { verdict, confidence } = inputs;
+  if (!verdict || confidence === null || confidence === undefined) return "—";
+  return `${verdict} ${confidence}%`;
+}

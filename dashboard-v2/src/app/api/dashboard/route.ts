@@ -65,6 +65,8 @@ export async function GET(req: NextRequest) {
         score: true,
         isCombo: true,
         capturedAt: true,
+        // Refactor V2-only Session 2 — expose verdict V2 au dashboard
+        briefV2Json: true,
         lead: {
           select: {
             id: true,

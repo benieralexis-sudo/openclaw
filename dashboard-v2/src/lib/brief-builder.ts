@@ -55,6 +55,8 @@ export function buildPrompt(args: {
     region: string | null;
     size: string | null;
     companyName: string;
+    // Refactor V2-only Session 2 — verdict V2 affiché dans le brief
+    briefV2Json?: { verdict?: "OUI" | "ENRICH" | "NON"; confidence?: number } | null;
   };
   lead: {
     fullName: string | null;
@@ -79,7 +81,7 @@ export function buildPrompt(args: {
 # TRIGGER DÉTECTÉ (signal d'achat public)
 - Entreprise cible : ${trigger.companyName}
 - Type de signal : ${trigger.type}
-- Score : ${trigger.score}/10 ${trigger.isHot ? "🔥 HOT" : ""} ${trigger.isCombo ? "✨ COMBO" : ""}
+- Verdict : ${trigger.briefV2Json?.verdict ? `${trigger.briefV2Json.verdict} ${trigger.briefV2Json.confidence ?? "?"}%` : `score ${trigger.score}/10`} ${trigger.isHot ? "🔥 HOT" : ""} ${trigger.isCombo ? "✨ COMBO" : ""}
 - Titre : ${trigger.title}
 - Détail : ${trigger.detail ?? "—"}
 - Industrie : ${trigger.industry ?? "—"} · Région : ${trigger.region ?? "—"} · Taille : ${trigger.size ?? "—"}

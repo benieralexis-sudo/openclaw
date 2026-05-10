@@ -108,6 +108,8 @@ export interface CopyPromptArgs {
     size: string | null;
     sourceCode: string | null;
     capturedAt: Date;
+    // Refactor V2-only Session 2 — verdict V2 affiché dans copy generator
+    briefV2Json?: { verdict?: "OUI" | "ENRICH" | "NON"; confidence?: number } | null;
   };
   lead: {
     firstName: string | null;
@@ -139,7 +141,7 @@ export function buildCopyPrompt(args: CopyPromptArgs): string {
 # TRIGGER (signal d'achat public)
 - Entreprise cible : ${lead.companyName}
 - Type : ${trigger.type}
-- Score : ${trigger.score}/10 ${trigger.isHot ? "🔥 HOT" : ""}
+- Verdict : ${trigger.briefV2Json?.verdict ? `${trigger.briefV2Json.verdict} ${trigger.briefV2Json.confidence ?? "?"}%` : `score ${trigger.score}/10`} ${trigger.isHot ? "🔥 HOT" : ""}
 - Titre : ${trigger.title}
 - Détail : ${trigger.detail ?? "—"}
 - Industrie : ${trigger.industry ?? "—"} · Région : ${trigger.region ?? "—"} · Taille : ${trigger.size ?? "—"}
