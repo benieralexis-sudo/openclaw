@@ -24,8 +24,8 @@ export default function TarifsPage() {
             <span className="text-brand-700">mesurable</span>.
           </h1>
           <p className="mt-6 text-lg md:text-xl text-ink-600 max-w-2xl mx-auto leading-relaxed">
-            6 Pépites par mois minimum, ou votre quota du mois suivant est doublé.
-            Engagement contractuel — sans rabais douteux ni tier confus.
+            390&nbsp;€ par mois. 6 Pépites garanties — ou quota doublé.
+            Pas de rabais douteux, pas de tier confus.
           </p>
         </div>
       </section>

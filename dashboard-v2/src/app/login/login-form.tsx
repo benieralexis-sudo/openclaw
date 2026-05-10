@@ -3,11 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ArrowRight, ShieldCheck, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
 
 const APP_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
@@ -15,8 +11,6 @@ const APP_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
 export function LoginForm() {
   const params = useSearchParams();
   const rawCallback = params.get("callbackUrl");
-  // Le middleware passe le pathname SANS basePath (Next.js le strip).
-  // Pour la nav navigateur, on doit recoller le basePath manuellement.
   const callbackUrl = rawCallback
     ? rawCallback.startsWith(APP_BASE_PATH) ? rawCallback : `${APP_BASE_PATH}${rawCallback}`
     : `${APP_BASE_PATH}/dashboard`;
@@ -32,147 +26,119 @@ export function LoginForm() {
     setPending(true);
     setError(null);
     try {
-      // PAS de callbackURL passé à Better Auth — il ferait un redirect serveur
-      // qui ignore le basePath /preview-v2. On gère la nav nous-mêmes en client.
       const res = (await signIn.email({ email, password })) as
         | { data?: unknown; error?: { message?: string; code?: string; status?: number } }
         | null;
-      console.log("[ifind v2] signIn response:", res);
       if (res?.error) {
-        const msg = res.error.message ?? `[v2] Erreur ${res.error.status ?? "?"} ${res.error.code ?? ""}`;
-        setError(`[v2 Better Auth] ${msg}`);
+        setError(res.error.message ?? "Identifiants incorrects.");
       } else {
-        // Hard navigation pour que les Server Components rechargent avec la session fresh
         window.location.href = callbackUrl;
       }
     } catch (err) {
-      console.error("[ifind v2] login fail:", err);
-      setError(`[v2] Connexion impossible : ${err instanceof Error ? err.message : "erreur inconnue"}`);
+      setError(`Connexion impossible : ${err instanceof Error ? err.message : "erreur inconnue"}`);
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <main className="relative min-h-screen mesh-soft flex items-center justify-center px-6 py-12">
-      <div className="pointer-events-none absolute inset-0 opacity-40" aria-hidden>
-        <div
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgb(15 23 42 / 0.04) 1px, transparent 1px)",
-            backgroundSize: "56px 56px",
-            maskImage:
-              "radial-gradient(ellipse 70% 60% at 50% 30%, black 0%, transparent 100%)",
-          }}
-          className="absolute inset-0"
-        />
+    <main className="relative min-h-screen flex items-center justify-center px-6 py-12 bg-white">
+      {/* Glow brand subtil */}
+      <div className="pointer-events-none absolute inset-0 -z-0">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-brand-200/20 blur-3xl" />
       </div>
 
-      <div className="relative w-full max-w-[440px]">
-        <div className="mb-8 flex items-center justify-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-gradient-to-br from-brand-500 to-brand-700 shadow-md shadow-brand-500/30">
-            <span className="font-sans text-2xl font-semibold leading-none text-white">i</span>
+      <div className="relative w-full max-w-[420px]">
+        {/* Logo */}
+        <Link href="/" className="mb-10 flex items-center justify-center gap-2 transition-opacity hover:opacity-80">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 shadow-md">
+            <span className="font-display text-lg font-bold leading-none text-white">i</span>
           </div>
-          <span className="font-display text-[22px] font-semibold tracking-tight text-ink-900">iFIND</span>
+          <span className="font-display text-xl font-semibold tracking-tight text-ink-900">iFIND</span>
+        </Link>
+
+        {/* Card */}
+        <div className="rounded-2xl border border-ink-200 bg-white shadow-lg p-8">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-900">
+            Connexion à votre dashboard
+          </h1>
+          <p className="mt-2 text-sm text-ink-600 leading-relaxed">
+            Suivez vos signaux, vos Pépites et votre garantie en temps réel.
+          </p>
+
+          {error && (
+            <div role="alert" className="mt-5 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] text-rose-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="block text-sm font-medium text-ink-900">Email</label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="vous@entreprise.fr"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoFocus
+                className="w-full h-10 px-3 rounded-md border border-ink-200 bg-white text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="block text-sm font-medium text-ink-900">Mot de passe</label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPw ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="••••••••••"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full h-10 pl-3 pr-10 rounded-md border border-ink-200 bg-white text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((s) => !s)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-900 transition-colors"
+                  aria-label={showPw ? "Cacher le mot de passe" : "Afficher le mot de passe"}
+                >
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={pending || !email || !password}
+              className="w-full h-11 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-medium text-sm shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
+            >
+              {pending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Connexion…
+                </>
+              ) : (
+                <>
+                  Se connecter
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-ink-500">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+            Connexion sécurisée · Hébergement France · RGPD
+          </div>
         </div>
 
-        <Card className="shadow-lg">
-          <CardContent className="px-9 py-8">
-            <div className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-mono font-semibold text-emerald-700 uppercase tracking-wider">
-              ✓ Dashboard v2 · Better Auth
-            </div>
-            <h1 className="font-display text-2xl font-bold tracking-tight text-ink-900">Bonjour 👋</h1>
-            <p className="mt-1 text-sm text-ink-600">
-              Accédez à votre tableau de bord pour suivre vos triggers et vos RDV en temps réel.
-            </p>
-            <p className="mt-2 text-xs text-ink-500 font-mono">URL: ifind.fr/preview-v2/login</p>
-
-            {error && (
-              <div role="alert" className="mt-5 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">
-                <svg className="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                <span>{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={onSubmit} className="mt-6 space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="vous@entreprise.fr"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Mot de passe</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPw ? "text" : "password"}
-                    autoComplete="current-password"
-                    placeholder="••••••••••"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pr-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw((s) => !s)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    aria-label={showPw ? "Cacher le mot de passe" : "Afficher le mot de passe"}
-                  >
-                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <Button type="submit" size="lg" className="w-full" disabled={pending || !email || !password}>
-                {pending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Connexion…
-                  </>
-                ) : (
-                  <>
-                    Se connecter
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </form>
-
-            {/* Bouton de pré-remplissage 1-clic pour debug */}
-            <button
-              type="button"
-              onClick={() => {
-                setEmail("benieralexis@gmail.com");
-                setPassword("ifind2026");
-                setError(null);
-              }}
-              className="mt-3 w-full rounded-md border border-dashed border-ink-300 bg-ink-50 px-3 py-2 text-[12px] text-ink-600 hover:bg-ink-100 transition-colors"
-            >
-              Pré-remplir : benieralexis@gmail.com / ifind2026
-            </button>
-
-            <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-ink-500">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-              Connexion sécurisée · Hébergement France · RGPD
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="mt-5 text-center text-[13px] text-ink-500">
-          <Link href="https://ifind.fr" className="font-medium text-brand-600 hover:text-brand-700">
+        <div className="mt-6 text-center text-[13px] text-ink-500">
+          <Link href="/" className="font-medium text-brand-700 hover:text-brand-800 link-underline">
             ← Retour au site
           </Link>
         </div>

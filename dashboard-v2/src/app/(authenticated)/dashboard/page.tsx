@@ -155,7 +155,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Flame className="h-4 w-4 text-orange-500" />
+                <Flame className="h-4 w-4 text-brand-700" />
                 Pépites du jour
               </CardTitle>
               <CardDescription>Les signaux les plus chauds détectés sur les dernières 24h</CardDescription>
@@ -201,7 +201,7 @@ export default function DashboardPage() {
                         href={`/triggers/${t.id}` as never}
                         className="flex items-center gap-3 py-3 group transition-colors hover:bg-ink-50/50 -mx-2 px-2 rounded"
                       >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700 border border-brand-200">
                           <Zap className="h-4 w-4" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -314,10 +314,10 @@ function KpiCard({
   isLoading?: boolean;
 }) {
   const accentBg = {
-    brand: "bg-brand-50 text-brand-600",
-    fire: "bg-orange-50 text-orange-600",
-    success: "bg-emerald-50 text-emerald-600",
-    info: "bg-cyan-50 text-cyan-600",
+    brand: "bg-brand-50 text-brand-700 border border-brand-100",
+    fire: "bg-brand-50 text-brand-700 border border-brand-100",
+    success: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+    info: "bg-brand-50 text-brand-700 border border-brand-100",
   }[accent];
 
   return (

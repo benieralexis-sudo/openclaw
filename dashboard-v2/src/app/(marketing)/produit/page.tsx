@@ -24,8 +24,8 @@ export default function ProduitPage() {
             Produit
           </p>
           <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-semibold text-ink-900 tracking-tight leading-[1.05]">
-            Le moteur de prospection le{" "}
-            <span className="text-brand-700">plus précis</span> sur le marché PME français.
+            Détection, qualification, garantie.{" "}
+            <span className="text-brand-700">En un seul moteur</span>.
           </h1>
           <p className="mt-6 text-lg md:text-xl text-ink-600 max-w-2xl mx-auto leading-relaxed">
             iFIND combine 11 sources publiques françaises, qualification IA propriétaire,

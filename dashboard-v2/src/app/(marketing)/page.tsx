@@ -49,13 +49,13 @@ export default function HomePage() {
 
           {/* Headline sobre */}
           <h1 className="text-center font-display text-4xl sm:text-5xl md:text-6xl lg:text-[64px] font-semibold text-ink-900 tracking-tight leading-[1.05] max-w-4xl mx-auto">
-            Détectez les PME françaises{" "}
-            <span className="bg-gradient-to-br from-brand-600 to-brand-800 bg-clip-text text-transparent">qui sont prêtes à acheter</span>.
+            Trouvez les boîtes FR{" "}
+            <span className="bg-gradient-to-br from-brand-600 to-brand-800 bg-clip-text text-transparent">au moment où elles signent</span>.
           </h1>
 
           <p className="mt-6 text-center text-lg md:text-xl text-ink-600 max-w-2xl mx-auto leading-relaxed">
-            iFIND scanne 11 sources publiques françaises en continu, qualifie chaque
-            signal avec notre IA propriétaire, et vous garantit 6 Pépites par mois minimum.
+            iFIND détecte les signaux d&apos;achat sur les PME françaises en temps réel,
+            les qualifie avec une IA propriétaire, et garantit 6 Pépites par mois minimum.
           </p>
 
           {/* CTA */}
@@ -113,8 +113,8 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <SectionHeading
             eyebrow="Le problème"
-            title={<>Vos commerciaux passent <span className="text-ink-500">12 h par semaine</span> à filtrer.</>}
-            description="80 % du temps en B2B est consacré à trier des prospects. iFIND inverse l'équation : on filtre, vos commerciaux closent."
+            title={<>80&nbsp;% du temps perdu <span className="text-ink-500">à trier des prospects</span>.</>}
+            description="iFIND inverse l'équation : on filtre, vos commerciaux closent. Vous gagnez 12 heures par semaine et par commercial."
           />
 
           <div className="mt-16 max-w-5xl mx-auto">
@@ -146,8 +146,8 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <FeatureShowcase
             eyebrow="02 · Qualification IA"
-            title={<>Cerveau IA propriétaire avec votre ICP en contexte.</>}
-            description="Chaque signal est analysé avec 12 blocs de contexte (persona, santé entreprise, news, signaux négatifs, ICP enrichi). Verdict OUI/NON/ENRICH avec score 0-10, raison détaillée, et brief sur-mesure prêt à utiliser."
+            title={<>Une IA qui pense comme votre commercial senior.</>}
+            description="Chaque signal est analysé avec 12 blocs de contexte (persona, santé entreprise, news, signaux négatifs, votre ICP). Verdict OUI/NON/ENRICH avec score 0-10, raison détaillée, et brief sur-mesure prêt à utiliser."
             bullets={[
               "Score 0-10 avec raison explicite — jamais de boîte noire",
               "Brief en 5 sections : contexte, signal, angle, pitch, objections",
@@ -250,11 +250,10 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
           <div className="rounded-2xl bg-brand-950 text-white px-8 py-14 md:px-14 md:py-20 text-center">
             <h2 className="font-display text-3xl md:text-5xl font-semibold tracking-tight leading-[1.1]">
-              Prêt à recevoir vos premières Pépites&nbsp;?
+              Vos premières Pépites sous 48&nbsp;heures.
             </h2>
             <p className="mt-5 text-base md:text-lg text-ink-300 max-w-xl mx-auto leading-relaxed">
-              Setup en 5 minutes. Premières détections sous 48 heures. Garantie
-              6 Pépites le premier mois ou quota doublé.
+              Setup en 5 minutes. 6 Pépites garanties le premier mois — sinon quota doublé.
             </p>
             <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
