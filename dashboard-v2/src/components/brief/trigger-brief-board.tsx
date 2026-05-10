@@ -392,24 +392,27 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
 
       <TriggerHeader trigger={trigger} lead={lead} opportunity={opportunity} brief={brief} verdict={verdict} />
 
-      {/* Sprint D.4 (07/05) — Brief raisonné V2 (judge dormant). Affiché en
-          card collapsée par défaut. Visible uniquement sur les ~46 triggers
-          DTL backfillés Sprint D.6 (sample). Indépendant du Lead car le
-          brief V2 est porté par Trigger (pas Lead) — donc s'affiche même
-          si pas de contact identifié. */}
+      {/* UX fix 10/05 — Renommé "Brief raisonné V2 (judge dormant)" en
+          "Analyse complète du cerveau". Le V2 n'est plus dormant depuis
+          le refactor V2-only Session 1 — c'est désormais LE seul cerveau.
+          Badge utilise le label localisé (À VÉRIFIER au lieu d'ENRICH). */}
       <details className="group rounded-lg border border-ink-200 bg-white shadow-xs">
         <summary className="flex items-center justify-between gap-2 cursor-pointer px-4 py-3 text-[13px] font-semibold text-ink-800 hover:bg-ink-50/50 transition-colors list-none">
           <div className="flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 text-ink-500" />
-            <span>Brief raisonné V2 (judge dormant)</span>
-            {Boolean(trigger.briefV2Json) && (
-              <Badge
-                variant="outline"
-                className="text-[10px] font-mono px-1.5 py-0 border-ink-200 text-ink-600"
-              >
-                {(trigger.briefV2Json as { verdict?: string } | null)?.verdict ?? "?"}
-              </Badge>
-            )}
+            <span>Analyse complète du cerveau</span>
+            {Boolean(trigger.briefV2Json) && (() => {
+              const v = (trigger.briefV2Json as { verdict?: string } | null)?.verdict;
+              const labelMap: Record<string, string> = { OUI: "OUI", NON: "NON", ENRICH: "À VÉRIFIER" };
+              return (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-mono px-1.5 py-0 border-ink-200 text-ink-600"
+                >
+                  {v ? (labelMap[v] ?? v) : "?"}
+                </Badge>
+              );
+            })()}
           </div>
           <span className="text-[11px] font-normal text-ink-500 group-open:hidden">
             Voir
