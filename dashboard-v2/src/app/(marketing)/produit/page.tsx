@@ -161,7 +161,7 @@ export default function ProduitPage() {
       {/* ───────────────────────── CTA ───────────────────────── */}
       <section className="py-20 md:py-24">
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
-          <div className="rounded-2xl border border-ink-200 bg-ink-950 text-white px-8 py-14 md:px-14 md:py-20 text-center">
+          <div className="rounded-2xl bg-brand-950 text-white px-8 py-14 md:px-14 md:py-20 text-center">
             <h2 className="font-display text-3xl md:text-5xl font-semibold tracking-tight leading-[1.1]">
               Une offre. Une promesse.
             </h2>

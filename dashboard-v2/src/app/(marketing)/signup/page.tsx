@@ -26,7 +26,7 @@ export default function SignupPage() {
           </p>
           <a
             href="mailto:contact@ifind.fr?subject=Souscription%20iFIND%20Growth%20-%20390%E2%82%AC%2Fmois&body=Bonjour%2C%20je%20souhaite%20d%C3%A9marrer%20avec%20iFIND%20Growth."
-            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-ink-900 hover:bg-ink-800 text-white font-medium px-5 h-11 text-sm w-full"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 h-11 text-sm w-full"
           >
             <Mail className="h-4 w-4" />
             Me faire contacter

@@ -23,7 +23,7 @@ export function DashboardMockup() {
       {/* Dashboard body */}
       <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[480px] bg-white">
         {/* Sidebar — desktop full, mobile mini */}
-        <aside className="lg:col-span-2 bg-ink-950 text-ink-300 p-3 lg:flex flex-col hidden lg:block">
+        <aside className="lg:col-span-2 bg-brand-950 text-ink-300 p-3 lg:flex flex-col hidden lg:block">
           <div className="flex items-center gap-2 px-2 mb-6 pt-1">
             <div className="w-7 h-7 rounded-md bg-brand-600 flex items-center justify-center">
               <span className="text-white font-display font-bold text-sm">i</span>
@@ -37,20 +37,20 @@ export function DashboardMockup() {
             <NavItem icon={<CreditCard className="h-3.5 w-3.5" />}>Crédits</NavItem>
             <NavItem icon={<Settings className="h-3.5 w-3.5" />}>Réglages</NavItem>
           </div>
-          <div className="mt-auto p-3 rounded-lg bg-ink-900 border border-ink-800">
+          <div className="mt-auto p-3 rounded-lg bg-brand-900/60 border border-brand-800/50">
             <p className="text-[10px] text-ink-400 font-medium uppercase tracking-wider mb-2">Garantie ce mois</p>
             <div className="flex items-baseline gap-1">
               <span className="font-display text-xl font-semibold text-white tabular-nums">14</span>
               <span className="text-[10px] text-ink-500">/ 6 min.</span>
             </div>
-            <div className="mt-2 h-1 bg-ink-800 rounded-full overflow-hidden">
+            <div className="mt-2 h-1 bg-brand-800/60 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500" style={{ width: "100%" }} />
             </div>
           </div>
         </aside>
 
         {/* Mobile-only top bar (compact info on garantie) */}
-        <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-ink-950 text-white border-b border-ink-800">
+        <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-brand-950 text-white border-b border-brand-800/50">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-md bg-brand-600 flex items-center justify-center">
               <span className="text-white font-display font-bold text-xs">i</span>
@@ -76,7 +76,7 @@ export function DashboardMockup() {
                 <Filter className="h-3 w-3" />
                 Filtrer
               </button>
-              <button className="px-2.5 h-7 inline-flex items-center gap-1 rounded-md bg-ink-900 text-white text-xs hover:bg-ink-800">
+              <button className="px-2.5 h-7 inline-flex items-center gap-1 rounded-md bg-brand-700 text-white text-xs hover:bg-brand-800">
                 <Search className="h-3 w-3" />
                 Recherche
               </button>
@@ -158,7 +158,7 @@ export function DashboardMockup() {
             <ContactRow icon={<Linkedin className="h-3 w-3" />} value="linkedin.com/in/…" />
           </div>
 
-          <button className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-ink-900 hover:bg-ink-800 text-white text-xs font-medium">
+          <button className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-xs font-medium">
             <Target className="h-3 w-3" />
             Marquer contacté
           </button>
@@ -170,7 +170,7 @@ export function DashboardMockup() {
 
 function NavItem({ icon, children, active, badge }: { icon: React.ReactNode; children: React.ReactNode; active?: boolean; badge?: string }) {
   return (
-    <div className={`flex items-center justify-between px-2 py-1.5 rounded-md text-[12px] ${active ? "bg-ink-900 text-white" : "text-ink-400 hover:bg-ink-900/50 hover:text-ink-200"}`}>
+    <div className={`flex items-center justify-between px-2 py-1.5 rounded-md text-[12px] ${active ? "bg-brand-700 text-white" : "text-ink-400 hover:bg-brand-900/40 hover:text-ink-200"}`}>
       <span className="flex items-center gap-2">{icon}{children}</span>
       {badge && <span className="px-1.5 py-0.5 rounded bg-brand-600 text-white text-[9px] font-semibold tabular-nums">{badge}</span>}
     </div>

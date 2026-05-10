@@ -93,7 +93,7 @@ export default function AProposPage() {
           <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
               href="mailto:contact@ifind.fr"
-              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-ink-900 hover:bg-ink-800 text-white font-medium px-5 h-11 text-sm"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 h-11 text-sm"
             >
               <Mail className="h-4 w-4" />
               contact@ifind.fr

@@ -32,7 +32,7 @@ export function BeforeAfter() {
         </ul>
       </div>
 
-      <div className="bg-ink-950 text-white p-8">
+      <div className="bg-brand-950 text-white p-8">
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-brand-300 mb-4">Avec iFIND</p>
         <h3 className="font-display text-xl font-semibold mb-5 leading-tight">
           100 % du temps à closer.

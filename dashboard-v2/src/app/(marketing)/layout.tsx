@@ -18,7 +18,7 @@ export default async function MarketingLayout({ children }: { children: ReactNod
         <nav className="max-w-6xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-ink-900">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-950">
               <span className="font-display text-sm font-bold text-white leading-none">i</span>
             </div>
             <span className="font-display text-base font-semibold text-ink-900 tracking-tight">iFIND</span>
@@ -36,7 +36,7 @@ export default async function MarketingLayout({ children }: { children: ReactNod
             {isAuthenticated ? (
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-1.5 rounded-md bg-ink-900 hover:bg-ink-800 text-white text-sm font-medium px-4 h-9"
+                className="inline-flex items-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 h-9"
               >
                 Mon dashboard
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -48,7 +48,7 @@ export default async function MarketingLayout({ children }: { children: ReactNod
                 </Link>
                 <Link
                   href="/tarifs"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-ink-900 hover:bg-ink-800 text-white text-sm font-medium px-4 h-9"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 h-9"
                 >
                   Démarrer
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -69,7 +69,7 @@ export default async function MarketingLayout({ children }: { children: ReactNod
             {/* Brand */}
             <div className="col-span-2 md:col-span-5">
               <Link href="/" className="inline-flex items-center gap-2 mb-4">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-ink-900">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-950">
                   <span className="font-display text-sm font-bold text-white leading-none">i</span>
                 </div>
                 <span className="font-display text-base font-semibold text-ink-900 tracking-tight">iFIND</span>

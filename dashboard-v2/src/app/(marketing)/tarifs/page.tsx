@@ -57,7 +57,7 @@ export default function TarifsPage() {
 
                 <Link
                   href="/signup"
-                  className="block w-full text-center rounded-md bg-ink-900 hover:bg-ink-800 text-white font-medium py-3 text-sm"
+                  className="block w-full text-center rounded-md bg-brand-700 hover:bg-brand-800 text-white font-medium py-3 text-sm"
                 >
                   Démarrer maintenant
                   <ArrowRight className="inline-block ml-1.5 h-4 w-4" />
@@ -130,7 +130,7 @@ export default function TarifsPage() {
             <RoiCard label="Deal moyen ESN" value="35 000 €" sub="ARR par contrat" />
           </div>
 
-          <div className="mt-6 max-w-4xl mx-auto rounded-xl bg-ink-950 text-white p-8 text-center">
+          <div className="mt-6 max-w-4xl mx-auto rounded-xl bg-brand-950 text-white p-8 text-center">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink-400 mb-3">
               ROI annuel typique
             </p>
@@ -207,7 +207,7 @@ export default function TarifsPage() {
       {/* ───────────────────────── CTA FINAL ───────────────────────── */}
       <section className="py-20 md:py-24">
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
-          <div className="rounded-2xl border border-ink-200 bg-ink-950 text-white px-8 py-14 md:px-14 md:py-20 text-center">
+          <div className="rounded-2xl bg-brand-950 text-white px-8 py-14 md:px-14 md:py-20 text-center">
             <h2 className="font-display text-3xl md:text-5xl font-semibold tracking-tight leading-[1.1]">
               Démarrez en 5 minutes.
             </h2>
