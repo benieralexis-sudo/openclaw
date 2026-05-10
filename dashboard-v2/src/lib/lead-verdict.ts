@@ -22,7 +22,7 @@ export type VerdictKind =
 export type VerdictColor = "success" | "info" | "warning" | "default" | "danger";
 
 export interface VerdictInputs {
-  score: number;                    // 1-10 Opus
+  score: number;                    // 1-10 Opus (mappé depuis V2)
   priorityScore: number | null;     // 0-130 (chantier #1)
   fitScore: number | null;          // 0-100 (chantier #2b)
   isHot: boolean;
@@ -45,6 +45,9 @@ export interface VerdictInputs {
   triggerSourceCode: string | null; // ex "apify.linkedin-jobs"
   scoreReason?: string | null;      // chantier D9 fix : Opus écrit la vraie taille en texte ("1400p")
   triggerDetail?: string | null;    // chantier D9 fix : description Apify contient souvent la taille
+  // UX2 fix 10/05 — V2 verdict cohérent avec label "Notre analyse"
+  v2Verdict?: "OUI" | "ENRICH" | "NON" | null;
+  v2Confidence?: number | null;
 }
 
 export interface VerdictResult {
@@ -136,6 +139,35 @@ export function computeLeadVerdict(inputs: VerdictInputs): VerdictResult {
       reason: `Opportunité au stade ${inputs.opportunityStage}`,
       action: "Ouvrir le brief commercial (tab Brief stratégique) avant l'appel",
       flags,
+    };
+  }
+
+  // UX2 fix 10/05 — V2 verdict en priorité pour la cohérence du label
+  // "Notre analyse". Avant : label basé sur le score 0-10 (V1) sans tenir
+  // compte du verdict V2 → un ENRICH apparaissait comme "Bon prospect"
+  // alors qu'il manque des infos.
+  // V2 NON : déjà géré par status=IGNORED en amont (Trigger pas affiché).
+  //   Double sécurité ici si V2 NON arrive quand même côté UI.
+  // V2 ENRICH : manque info critique, l'opérateur doit enrichir avant pitch.
+  // V2 OUI : continue le flow normal (ATTACK_NOW / WARM_OUTREACH plus bas).
+  if (inputs.v2Verdict === "NON") {
+    return {
+      kind: "OFF_TARGET",
+      color: "danger",
+      label: "Hors ICP — ne pas approcher",
+      reason: `V2 NON ${inputs.v2Confidence ?? "?"}% — signal négatif fort détecté par le cerveau qualité`,
+      action: "Ignorer ce lead — red flag hard (anti-persona, hors-FR, oversize, ESN pure, etc.)",
+      flags: ["v2_non"],
+    };
+  }
+  if (inputs.v2Verdict === "ENRICH") {
+    return {
+      kind: "ENRICH_MANUALLY",
+      color: "warning",
+      label: "Manque d'info — enrichir avant outreach",
+      reason: `V2 ENRICH ${inputs.v2Confidence ?? "?"}% — il manque des données critiques pour décider OUI/NON (taille équipe, NAF, persona)`,
+      action: "Vérifier manuellement le NAF / la taille / le décideur avant tout outreach. Pas de pitch tant que pas confirmé.",
+      flags: ["v2_enrich"],
     };
   }
 

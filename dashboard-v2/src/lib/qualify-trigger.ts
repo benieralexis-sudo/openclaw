@@ -773,7 +773,47 @@ export async function qualifyTrigger(
     }
   }
 
+  // 12. UX5 fix 10/05 — Auto-enrichissement immédiat après qualifyTrigger NEW.
+  // Avant : leads attendaient le cron 8h+18h UTC pour être enrichis Kaspr/
+  // FullEnrich/HarvestAPI → jusqu'à 12h de latence. Maintenant : on déclenche
+  // fire-and-forget les 3 enrichers avec limit=1 immédiatement. Le nouveau
+  // lead est en tête de queue (NULLS FIRST sur attemptedAt) donc il sera
+  // pris en priorité. Coût marginal ~$0.15-0.20 par new lead.
+  //
+  // Idempotent : les enrichers ont leurs propres TTL (Kaspr 30j, FullEnrich
+  // 30j) donc re-qualify d'un lead déjà enrichi ne re-call pas.
+  if (status === "NEW" && opusScore >= 6) {
+    void triggerImmediateEnrichment(triggerLite.clientId).catch((e) => {
+      console.warn(
+        `[qualify-trigger.auto-enrich] ${triggerId} err :`,
+        e instanceof Error ? e.message : e,
+      );
+    });
+  }
+
   return { opusScore, reason, isHot };
+}
+
+/**
+ * UX5 fix 10/05 — Auto-enrichissement fire-and-forget après qualifyTrigger NEW.
+ *
+ * Déclenche Kaspr + FullEnrich + HarvestAPI search-by-company avec limit=1
+ * chacun. Le nouveau lead est prioritaire grâce au tri NULLS FIRST sur
+ * attemptedAt dans chaque enricher. Coût marginal ~$0.15-0.20 par new lead.
+ */
+async function triggerImmediateEnrichment(clientId: string): Promise<void> {
+  // Import dynamique pour éviter circular deps + lazy load
+  const [{ enrichLeadsViaKasprDirect }, { enrichLeadsViaFullEnrich }, { enrichDecisionMakersForClient }] = await Promise.all([
+    import("@/lib/enrich-via-kaspr-direct"),
+    import("@/lib/enrich-via-fullenrich"),
+    import("@/lib/harvestapi-decision-makers"),
+  ]);
+  // Parallèle pour latence min — chaque enricher gère son propre rate-limit
+  await Promise.allSettled([
+    enrichLeadsViaKasprDirect(clientId, { limit: 1 }),
+    enrichLeadsViaFullEnrich(clientId, { limit: 1 }),
+    enrichDecisionMakersForClient(clientId, { limit: 1 }),
+  ]);
 }
 
 // Refactor V2-only Session 3 (10/05) — qualifyTriggerV2Shadow supprimé.

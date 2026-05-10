@@ -238,6 +238,11 @@ export interface V2Inputs {
 /**
  * Determine V2 tier from verdict + confidence.
  * Returns null if verdict/confidence missing (no V2 brief yet).
+ *
+ * UX fix 10/05 (UX1) — ENRICH peu importe la confidence → tier "tepid"
+ * (label "À enrichir"). Avant : ENRICH conf<70 → cold ("Faible") qui
+ * était trompeur car ENRICH veut dire "manque info pour décider OUI/NON",
+ * pas "lead faible".
  */
 export function getV2Tier(inputs: V2Inputs): V2Tier | null {
   const { verdict, confidence } = inputs;
@@ -249,9 +254,9 @@ export function getV2Tier(inputs: V2Inputs): V2Tier | null {
     if (confidence >= 70) return "warm";
     return "tepid";
   }
-  // ENRICH
-  if (confidence >= 70) return "tepid";
-  return "cold";
+  // ENRICH — toujours "À enrichir" (tier tepid), peu importe la confidence.
+  // La confidence reste affichée à côté du badge pour info nuancée.
+  return "tepid";
 }
 
 /**

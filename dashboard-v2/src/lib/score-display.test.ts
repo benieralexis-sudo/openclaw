@@ -212,13 +212,14 @@ describe("getV2Tier", () => {
     expect(getV2Tier({ verdict: "OUI", confidence: 50 })).toBe("tepid");
     expect(getV2Tier({ verdict: "OUI", confidence: 69 })).toBe("tepid");
   });
-  it("ENRICH >= 70 → tepid (à enrichir, prometteur)", () => {
+  it("ENRICH peu importe conf → tepid (à enrichir)", () => {
+    // UX fix 10/05 — avant : ENRICH<70 → cold ("Faible") qui était trompeur.
+    // Maintenant : ENRICH peu importe conf → tepid ("À enrichir"), la conf
+    // reste affichée à côté du badge pour info.
     expect(getV2Tier({ verdict: "ENRICH", confidence: 70 })).toBe("tepid");
     expect(getV2Tier({ verdict: "ENRICH", confidence: 100 })).toBe("tepid");
-  });
-  it("ENRICH < 70 → cold (manque d'info)", () => {
-    expect(getV2Tier({ verdict: "ENRICH", confidence: 50 })).toBe("cold");
-    expect(getV2Tier({ verdict: "ENRICH", confidence: 69 })).toBe("cold");
+    expect(getV2Tier({ verdict: "ENRICH", confidence: 50 })).toBe("tepid");
+    expect(getV2Tier({ verdict: "ENRICH", confidence: 69 })).toBe("tepid");
   });
   it("NON → off (Hors ICP)", () => {
     expect(getV2Tier({ verdict: "NON", confidence: 95 })).toBe("off");

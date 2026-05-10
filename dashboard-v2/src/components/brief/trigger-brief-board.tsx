@@ -38,7 +38,7 @@ import { simplifyTriggerTitle } from "@/lib/simplify-trigger-title";
 import { CheckCircle2, AlertTriangle, XCircle, Info, Clock } from "lucide-react";
 import { formatSourceLabel, truncateDetail } from "@/lib/format-trigger-detail";
 import { SendEmailModal } from "@/components/lead/send-email-modal";
-import { EnrichKasprModal } from "@/components/lead/enrich-kaspr-modal";
+// UX4 fix 10/05 — EnrichKasprModal supprimée (bouton "Trouver le numéro" retiré)
 import { LeadActivityPanel } from "@/components/lead/lead-activity-panel";
 import { LeadBriefV2ViewSafe } from "@/components/brief/lead-brief-v2-view";
 import { Database, Phone, Send } from "lucide-react";
@@ -198,7 +198,7 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [sendOpen, setSendOpen] = React.useState(false);
-  const [enrichOpen, setEnrichOpen] = React.useState(false);
+  // UX4 fix 10/05 — enrichOpen state supprimé (modal Kaspr manuelle retirée)
 
   const { data, isLoading } = useQuery<TriggerData>({
     queryKey: ["trigger-detail", triggerId],
@@ -275,6 +275,8 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
   const icp = (client?.icp ?? {}) as Record<string, unknown>;
   const icpSizeMin = typeof icp.company_size_min === "number" ? icp.company_size_min : undefined;
   const icpSizeMax = typeof icp.company_size_max === "number" ? icp.company_size_max : undefined;
+  // UX2 fix 10/05 — pass V2 verdict pour cohérence "Notre analyse"
+  const v2 = (trigger.briefV2Json as { verdict?: V2Verdict; confidence?: number } | null) ?? null;
   const verdict = computeLeadVerdict({
     score: trigger.score,
     priorityScore: (trigger as { priorityScore?: number | null }).priorityScore ?? null,
@@ -299,6 +301,8 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
     triggerSourceCode: trigger.sourceCode ?? null,
     scoreReason: trigger.scoreReason,
     triggerDetail: trigger.detail,
+    v2Verdict: v2?.verdict ?? null,
+    v2Confidence: v2?.confidence ?? null,
   });
 
   return (
@@ -319,21 +323,17 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
 
         {lead && (
           <div className="flex items-center gap-2">
-            {/* Bouton téléphone — logique : on cherche d'abord un MOBILE (06/07).
-                - Mobile trouvé (kasprPhone ou phone direct) → "Appeler +33 7..."
-                - Pas de mobile mais LinkedIn → "Trouver le numéro" (Kaspr 1 crédit)
-                - Pas de mobile et standard 09/01-05 affiché à côté pour fallback
-                - Aucun LinkedIn → bouton caché */}
+            {/* UX4 fix 10/05 — Bouton téléphone : MOBILE FR uniquement (06/07/+336/+337).
+                Avant : 3 cas (mobile / standard 01-05/09 / bouton "Trouver le numéro").
+                Maintenant : si mobile FR → bouton "Appeler". Sinon rien — les standards
+                01/09 ne sont pas affichés (pas actionnables pour cold call), et le
+                bouton manuel "Trouver le numéro" est supprimé car le pipeline auto
+                (cron source=all 8h+18h UTC + auto-enrich on lead creation) lance déjà
+                Kaspr + FullEnrich + HarvestAPI sur tous les nouveaux leads. */}
             {(() => {
-              // Fix H9 (04/05) — isFrenchMobile checke aussi phoneFullenrich.
-              // Avant : seul kasprPhone+phone testés → bouton "Trouver le numéro"
-              // affiché alors que phoneFullenrich contenait déjà un mobile FR.
               const mobile = isFrenchMobile(lead.kasprPhone) ? lead.kasprPhone
                 : isFrenchMobile(lead.phoneFullenrich) ? lead.phoneFullenrich
                 : isFrenchMobile(lead.phone) ? lead.phone
-                : null;
-              const standard = !mobile && (lead.phone || lead.phoneFullenrich)
-                ? (lead.phone || lead.phoneFullenrich)
                 : null;
               if (mobile) {
                 return (
@@ -345,32 +345,6 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
                     <Phone className="h-3.5 w-3.5" />
                     Appeler {mobile}
                   </a>
-                );
-              }
-              if (lead.linkedinUrl) {
-                return (
-                  <>
-                    {standard && (
-                      <a
-                        href={`tel:${standard}`}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-ink-200 bg-white px-2.5 py-2 text-[12px] font-medium text-ink-700 shadow-xs hover:bg-ink-50"
-                        title="Standard de l'entreprise (passer par l'accueil)"
-                      >
-                        <Phone className="h-3 w-3" />
-                        Standard {standard}
-                      </a>
-                    )}
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      onClick={() => setEnrichOpen(true)}
-                      className="gap-1.5"
-                      title="Recherche le mobile direct via LinkedIn (consomme 1 crédit)"
-                    >
-                      <Phone className="h-3.5 w-3.5 text-cyan-600" />
-                      Trouver le numéro
-                    </Button>
-                  </>
                 );
               }
               return null;
@@ -492,19 +466,10 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
               jobTitle: lead.jobTitle,
             }}
           />
-          <EnrichKasprModal
-            open={enrichOpen}
-            onOpenChange={setEnrichOpen}
-            lead={{
-              id: lead.id,
-              fullName: lead.fullName,
-              firstName: lead.firstName ?? null,
-              lastName: lead.lastName ?? null,
-              companyName: lead.companyName ?? null,
-              linkedinUrl: lead.linkedinUrl,
-              kasprEnrichedAt: lead.kasprEnrichedAt ?? null,
-            }}
-          />
+          {/* UX4 fix 10/05 — EnrichKasprModal supprimée. Plus de bouton manuel
+              "Trouver le numéro". Le pipeline auto (cron source=all 8h+18h UTC +
+              auto-enrich on lead creation) lance déjà Kaspr/FullEnrich/HarvestAPI
+              sur tous les nouveaux leads. */}
         </>
       )}
     </div>
@@ -908,14 +873,39 @@ function TriggerHeader({
                   </div>
                 </div>
               )}
-              {/* Multi-source confidence badge — affiche si email validé par 2+ sources */}
-              {lead.emailSourceCount !== undefined && lead.emailSourceCount >= 2 && (
-                <div className="mt-2 flex items-center gap-1.5">
-                  <Badge variant="success" size="sm">
-                    ✓ Email confirmé par {lead.emailSourceCount} sources
-                  </Badge>
-                </div>
-              )}
+              {/* UX3 fix 10/05 — Multi-source badge nuancé :
+                  - Si emails Kaspr + FullEnrich identiques → "✓ Email confirmé" (success vert)
+                  - Si emails DIFFÉRENTS → "2 candidats à vérifier" (warning orange)
+                  Avant : badge "✓ Email confirmé par N sources" affiché dès N>=2 même
+                  si les emails étaient différents → faux signal de confiance. */}
+              {lead.emailSourceCount !== undefined && lead.emailSourceCount >= 2 && (() => {
+                const kasprEmail = lead.kasprWorkEmail ?? lead.kasprPersonalEmail ?? null;
+                const feEmail = lead.emailFullenrich ?? null;
+                const rodzEmail = lead.emailRodz ?? null;
+                const emails = [kasprEmail, feEmail, rodzEmail].filter(Boolean) as string[];
+                const distinct = [...new Set(emails.map((e) => e.toLowerCase().trim()))];
+                const isConfirmed = distinct.length === 1 && emails.length >= 2;
+                if (isConfirmed) {
+                  return (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <Badge variant="success" size="sm">
+                        ✓ Email confirmé par {lead.emailSourceCount} sources
+                      </Badge>
+                    </div>
+                  );
+                }
+                // Emails différents entre Kaspr et FullEnrich/Rodz — à vérifier manuellement
+                return (
+                  <div className="mt-2 rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="warning" size="sm">⚠️ {distinct.length} emails candidats</Badge>
+                      <span className="text-[10.5px] text-orange-800">
+                        Les sources ne s&apos;accordent pas — vérifier lequel est le bon
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
               {/* Job Move badge (Dropcontact a détecté changement de poste <6m) */}
               {lead.jobMoveDetected && (
                 <div className="mt-2 rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5">
