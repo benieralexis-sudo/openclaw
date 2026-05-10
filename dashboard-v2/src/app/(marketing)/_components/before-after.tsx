@@ -1,81 +1,50 @@
+import { Check, X } from "lucide-react";
 
-import { X, Check, Clock, Search, Frown, Smile } from "lucide-react";
+const AVANT = [
+  "Achat de fichiers froids à 2 000 €",
+  "Cold emailing à 0,5 % de réponse",
+  "Aucun signal d'achat — tir à l'aveugle",
+  "Heures de qualification manuelle",
+];
+
+const APRES = [
+  "Détection sur 11 sources publiques FR",
+  "Qualification IA Opus 4.7 sur chaque signal",
+  "Brief contextuel prêt à utiliser",
+  "Email + téléphone + LinkedIn vérifiés",
+];
 
 export function BeforeAfter() {
   return (
-    <div className="grid md:grid-cols-2 gap-6">
-      {/* AVANT */}
-      <div
-        className="relative rounded-2xl bg-gradient-to-br from-rose-50 to-white border border-rose-100 p-8"
-      >
-        <div className="absolute top-0 right-0 px-4 py-1.5 bg-rose-100 text-rose-700 text-xs font-bold uppercase tracking-wider rounded-bl-2xl rounded-tr-2xl">
-          Avant iFIND
-        </div>
-        <Frown className="h-8 w-8 text-rose-400 mb-4" />
-        <h3 className="font-display text-2xl font-bold text-ink-900 mb-3">
-          70% du temps perdu à chercher
+    <div className="grid md:grid-cols-2 gap-px bg-ink-200 rounded-xl overflow-hidden border border-ink-200">
+      <div className="bg-white p-8">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink-500 mb-4">Avant</p>
+        <h3 className="font-display text-xl font-semibold text-ink-900 mb-5 leading-tight">
+          70 % du temps perdu à chercher.
         </h3>
-        <p className="text-ink-600 text-sm leading-relaxed mb-6">
-          Vos commerciaux passent leur journée sur Sales Nav, Pharow,
-          Société.info — à filtrer 500 prospects pour trouver 5 vraies opportunités.
-        </p>
-        <ul className="space-y-2.5">
-          {[
-            "Achat de fichiers froids à 2 000€",
-            "Cold emailing en masse à 0,5% de réponse",
-            "Aucun signal d'achat — vous tirez à l'aveugle",
-            "Briefs persona faits à la main, parfois bidons",
-            "Des heures de qualification manuelle",
-          ].map((item, i) => (
-            <li key={i} className="flex items-start gap-2.5 text-sm text-ink-700">
-              <X className="h-4 w-4 text-rose-400 flex-shrink-0 mt-0.5" />
+        <ul className="space-y-3">
+          {AVANT.map((item) => (
+            <li key={item} className="flex items-start gap-2.5 text-[15px] text-ink-600">
+              <X className="h-4 w-4 text-ink-400 flex-shrink-0 mt-0.5" />
               {item}
             </li>
           ))}
         </ul>
-        <div className="mt-6 pt-6 border-t border-rose-100 flex items-center gap-3">
-          <Clock className="h-5 w-5 text-rose-500" />
-          <span className="text-sm text-ink-700">
-            <span className="font-bold text-rose-600">12h/semaine</span> perdues par commercial
-          </span>
-        </div>
       </div>
 
-      {/* APRÈS */}
-      <div
-        className="relative rounded-2xl bg-gradient-to-br from-brand-600 to-brand-800 text-white p-8 shadow-2xl shadow-brand-500/20"
-      >
-        <div className="absolute top-0 right-0 px-4 py-1.5 bg-amber-400 text-amber-900 text-xs font-bold uppercase tracking-wider rounded-bl-2xl rounded-tr-2xl">
-          Avec iFIND
-        </div>
-        <Smile className="h-8 w-8 text-amber-300 mb-4" />
-        <h3 className="font-display text-2xl font-bold mb-3">
-          100% du temps à closer
+      <div className="bg-ink-950 text-white p-8">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-brand-300 mb-4">Avec iFIND</p>
+        <h3 className="font-display text-xl font-semibold mb-5 leading-tight">
+          100 % du temps à closer.
         </h3>
-        <p className="text-brand-100 text-sm leading-relaxed mb-6">
-          On vous livre 6 Pépites garanties par mois — boîtes ULTRA chaudes,
-          briefs Opus prêts. Vos commerciaux contactent direct, ils convertissent.
-        </p>
-        <ul className="space-y-2.5">
-          {[
-            "Détection temps réel sur 11 sources FR publiques",
-            "Qualification IA Opus 4.7 sur chaque signal",
-            "Brief sur-mesure prêt à utiliser pour chaque Pépite",
-            "Email + phone + LinkedIn vérifiés inclus",
-            "Garantie contractuelle 6 Pépites/mois minimum",
-          ].map((item, i) => (
-            <li key={i} className="flex items-start gap-2.5 text-sm">
-              <Check className="h-4 w-4 text-amber-300 flex-shrink-0 mt-0.5" />
+        <ul className="space-y-3">
+          {APRES.map((item) => (
+            <li key={item} className="flex items-start gap-2.5 text-[15px] text-ink-200">
+              <Check className="h-4 w-4 text-brand-400 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
               {item}
             </li>
           ))}
         </ul>
-        <div className="mt-6 pt-6 border-t border-brand-500/30 flex items-center gap-3">
-          <Search className="h-5 w-5 text-amber-300" />
-          <span className="text-sm">
-            <span className="font-bold text-amber-200">5 minutes/jour</span> pour piloter
-          </span>
-        </div>
       </div>
     </div>
   );

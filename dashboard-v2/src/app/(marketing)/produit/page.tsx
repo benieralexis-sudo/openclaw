@@ -1,56 +1,53 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, Database, Brain, Shield, BarChart3, Zap, Bell } from "lucide-react";
+import { ArrowRight, Brain, Shield, Zap, BarChart3, Bell, Database, Target, Lock, Server, FileCheck, RefreshCw } from "lucide-react";
 import { FeatureShowcase } from "../_components/feature-showcase";
 import { LiveFeed } from "../_components/live-feed";
 import { BriefMockup } from "../_components/brief-mockup";
 import { DashboardMockup } from "../_components/dashboard-mockup";
+import { SectionHeading } from "../_components/section-heading";
 
 export const metadata: Metadata = {
-  title: "Produit — Détection + qualification + garantie",
-  description: "Comment iFIND détecte, qualifie et garantit les meilleures Pépites du marché PME français.",
+  title: "Produit — Détection, qualification, garantie",
+  description:
+    "Comment iFIND détecte, qualifie et garantit les meilleures Pépites du marché PME français. 11 sources publiques, Claude Opus 4.7, garantie contractuelle.",
   robots: { index: true, follow: true },
 };
 
 export default function ProduitPage() {
   return (
-    <div className="bg-white overflow-hidden">
-      {/* HERO */}
-      <section className="relative pt-20 pb-16 overflow-hidden">
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-b from-brand-50/40 via-white to-white" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-radial from-brand-300/30 via-transparent to-transparent blur-3xl" />
-        </div>
-        <div className="relative max-w-5xl mx-auto px-6 lg:px-8 text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-5">Produit</p>
-          <h1 className="font-display text-5xl md:text-7xl font-bold text-ink-900 tracking-tight leading-[1.05]">
-            Le moteur le plus avancé sur les
-            <br />
-            <span className="bg-gradient-to-r from-brand-600 via-brand-700 to-brand-900 bg-clip-text text-transparent">
-              PME françaises
-            </span>
+    <>
+      {/* ───────────────────────── HERO ───────────────────────── */}
+      <section className="pt-20 pb-12 md:pt-28 md:pb-16">
+        <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-brand-700 mb-5">
+            Produit
+          </p>
+          <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-semibold text-ink-900 tracking-tight leading-[1.05]">
+            Le moteur de prospection le{" "}
+            <span className="text-brand-700">plus précis</span> sur le marché PME français.
           </h1>
-          <p className="mt-8 text-lg md:text-xl text-ink-600 max-w-2xl mx-auto leading-relaxed">
-            iFIND combine 11 sources publiques françaises, qualification IA Opus 4.7,
-            et garantie qualité unique sur le marché. Voici comment, en détail.
+          <p className="mt-6 text-lg md:text-xl text-ink-600 max-w-2xl mx-auto leading-relaxed">
+            iFIND combine 11 sources publiques françaises, qualification IA Claude Opus 4.7,
+            et garantie qualité contractuelle. Voici comment, en détail.
           </p>
         </div>
       </section>
 
-      {/* FEATURE 1 — Détection */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+      {/* ───────────────────────── FEATURE 1 — DÉTECTION ───────────────────────── */}
+      <section id="sources" className="py-20 md:py-24 bg-ink-50/40 scroll-mt-20">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <FeatureShowcase
-            badge="01 — DÉTECTION"
-            title={<>11 sources françaises <span className="text-brand-600">scannées 24/7</span></>}
-            description="Notre moteur agrège en continu les sources publiques FR les plus riches. Chaque trigger est rattaché à un SIRET unique avec attribution Pappers automatique. Aucun doublon, aucune fake."
+            eyebrow="01 · Détection"
+            title="11 sources publiques françaises, scannées 24/7."
+            description="Le moteur agrège en continu les sources publiques FR les plus riches. Chaque trigger est rattaché à un SIRET unique avec attribution Pappers automatique. Aucun doublon, aucune fausse donnée."
             bullets={[
               "BODACC — Annonces commerciales (levées, fusions, créations)",
               "INPI — Dépôts de marques (signal pré-launch produit)",
-              "Pappers — Données SIRENE complètes (dirigeants, financials)",
-              "France Travail — Offres tech (5000 req/jour gratuit)",
-              "RSS presse Tech FR — Levées de fonds en temps réel",
-              "LinkedIn jobs + Welcome to the Jungle — Recrutement",
+              "Pappers — Données SIRENE complètes (dirigeants, financiers)",
+              "France Travail — Offres tech (5 000 req/jour gratuit)",
+              "Presse Tech FR — Levées de fonds en temps réel",
+              "LinkedIn Jobs + Welcome to the Jungle — Recrutement",
               "JOAFE — Associations & fondations",
               "Sources premium — intent data B2B + tech stack discovery",
             ]}
@@ -59,20 +56,20 @@ export default function ProduitPage() {
         </div>
       </section>
 
-      {/* FEATURE 2 — Qualification IA */}
-      <section className="py-16 bg-gradient-to-b from-white to-brand-50/40">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+      {/* ───────────────────────── FEATURE 2 — QUALIFICATION ───────────────────────── */}
+      <section id="qualification" className="py-20 md:py-24 scroll-mt-20">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <FeatureShowcase
-            badge="02 — QUALIFICATION IA"
-            title={<>Cerveau Opus 4.7 — <span className="text-brand-600">95% précision</span></>}
-            description="Chaque trigger est analysé par notre cerveau IA propriétaire avec 12 blocs de contexte (persona, company health, cross-tenant, news, signaux négatifs, ICP enriched). Verdict OUI/NON/ENRICH avec score 0-10 et brief sur-mesure prêt à utiliser."
+            eyebrow="02 · Qualification IA"
+            title="Cerveau Claude Opus 4.7 — précision 95 %."
+            description="Chaque trigger est analysé avec 12 blocs de contexte (persona, santé entreprise, news, signaux négatifs, ICP enrichi). Verdict OUI/NON/ENRICH avec score 0-10, raison détaillée, et brief sur-mesure prêt à utiliser."
             bullets={[
               "12 blocs de contexte injectés à Claude Opus pour chaque trigger",
-              "Verdict explicite OUI/NON/ENRICH (pas de boîte noire)",
+              "Verdict explicite OUI/NON/ENRICH — jamais de boîte noire",
               "Score 0-10 avec raison détaillée",
-              "Brief 5 paragraphes : contexte, signal, angle, pitch, objections",
-              "Anti-hallucination : tous les faits sont vérifiés contre les sources",
-              "Cache prompt 97% hit rate (économie 10× sur les coûts API)",
+              "Brief en 5 sections : contexte, signal, angle, pitch, objections",
+              "Anti-hallucination : tous les faits vérifiés contre la source",
+              "Cache prompt à 97 % de hit rate — économie 10× sur les coûts API",
             ]}
             visual={<BriefMockup />}
             reverse
@@ -80,158 +77,151 @@ export default function ProduitPage() {
         </div>
       </section>
 
-      {/* FEATURE 3 — Garantie */}
-      <section className="py-16 bg-gradient-to-br from-amber-50/50 via-white to-amber-50/30">
-        <div className="max-w-5xl mx-auto px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold mb-6">
-            03 — GARANTIE PÉPITE
-          </div>
-          <h2 className="font-display text-4xl md:text-6xl font-bold text-ink-900 mb-6 leading-[1.1]">
-            6 Pépites garanties par mois
-            <br />
-            <span className="bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">— ou quota doublé.</span>
-          </h2>
-          <p className="text-lg text-ink-600 max-w-2xl mx-auto leading-relaxed mb-12">
-            C&apos;est notre engagement contractuel. Une Pépite = score Opus ≥ 8/10
-            (boîte ULTRA chaude : vient de lever, recrute en urgence, signal d&apos;achat fort).
-            <br />Si on livre moins de 6 → votre quota du mois suivant est automatiquement doublé.
-          </p>
+      {/* ───────────────────────── FEATURE 3 — GARANTIE ───────────────────────── */}
+      <section id="garantie" className="py-20 md:py-24 bg-ink-50/40 scroll-mt-20">
+        <div className="max-w-5xl mx-auto px-6 lg:px-8">
+          <SectionHeading
+            eyebrow="03 · Garantie"
+            title={<>6 Pépites garanties par mois <span className="text-ink-400">— ou quota doublé</span>.</>}
+            description={
+              <>
+                Engagement contractuel. Une <strong>Pépite</strong> = lead avec score Opus ≥ 8/10
+                (boîte qui matche votre ICP <em>et</em> présente un signal d&apos;achat fort).
+                Si on en livre moins de 6 un mois, votre quota du mois suivant est automatiquement doublé.
+              </>
+            }
+          />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-px bg-ink-200 rounded-xl overflow-hidden border border-ink-200">
             <GuaranteeCard
               title="Mois normal"
               value="18-25"
-              sub="Pépites livrées en moyenne"
-              status="ok"
-              detail="Garantie respectée — quota standard 60 leads"
+              sub="Pépites livrées"
+              detail="Garantie respectée, quota standard 60 leads."
             />
             <GuaranteeCard
               title="Mois calme"
               value="< 6"
               sub="Pépites — garantie ratée"
-              status="alert"
-              detail="Quota mois suivant automatiquement doublé : 120 leads"
+              detail="Quota du mois suivant automatiquement doublé : 120 leads inclus."
+              highlight
             />
             <GuaranteeCard
               title="Mois explosif"
               value="30+"
               sub="Pépites — overage flexible"
-              status="hot"
-              detail="Topup à 8€/lead supplémentaire si vous voulez plus"
+              detail="Topup à 8 € par lead supplémentaire si vous voulez plus."
             />
           </div>
         </div>
       </section>
 
-      {/* FEATURE 4 — Dashboard */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">04 — DASHBOARD</p>
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900 leading-[1.1]">
-              Visibilité totale, en <span className="text-brand-600">temps réel</span>
-            </h2>
-            <p className="mt-4 text-ink-600 max-w-2xl mx-auto">
-              Dashboard premium avec tous vos KPI en un seul écran : Pépites, garantie,
-              crédits, activité récente, alertes.
-            </p>
+      {/* ───────────────────────── FEATURE 4 — DASHBOARD ───────────────────────── */}
+      <section className="py-20 md:py-24">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8">
+          <SectionHeading
+            eyebrow="04 · Dashboard"
+            title="Visibilité totale, en temps réel."
+            description="Tous vos KPI en un seul écran : Pépites livrées, garantie en cours, crédits consommés, activité récente, alertes."
+          />
+
+          <div className="mt-12">
+            <DashboardMockup />
           </div>
-          <DashboardMockup />
-          <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            <DashFeature icon={<BarChart3 className="h-5 w-5" />} title="Compteur garantie live" desc="Voir à tout moment combien de Pépites livrées vs 6 garanties" />
-            <DashFeature icon={<Bell className="h-5 w-5" />} title="Alertes Telegram/Slack" desc="Ping instantané dès qu'une Pépite est détectée" />
-            <DashFeature icon={<Database className="h-5 w-5" />} title="Brief Opus 1-clic" desc="Ouvrez le brief de chaque lead sans changer de page" />
-            <DashFeature icon={<Zap className="h-5 w-5" />} title="Actions bulk" desc="Marquer contactés, archiver, exporter — en lot" />
+
+          <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
+            <DashFeature icon={<BarChart3 className="h-4 w-4" />} title="Compteur garantie live" desc="Suivez en continu vos Pépites livrées vs les 6 garanties contractuelles." />
+            <DashFeature icon={<Bell className="h-4 w-4" />} title="Alertes Telegram" desc="Ping instantané dès qu'une Pépite est détectée et qualifiée." />
+            <DashFeature icon={<Database className="h-4 w-4" />} title="Brief Opus 1-clic" desc="Ouvrez le brief de chaque lead sans changer de page." />
+            <DashFeature icon={<Target className="h-4 w-4" />} title="Actions bulk" desc="Marquer contactés, archiver, exporter en CSV — par lots." />
           </div>
         </div>
       </section>
 
-      {/* FEATURE 5 — Sécurité */}
-      <section className="py-16 bg-gradient-to-b from-white to-ink-50/50">
+      {/* ───────────────────────── SÉCURITÉ ───────────────────────── */}
+      <section className="py-20 md:py-24 bg-ink-50/40">
         <div className="max-w-5xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <p className="text-xs uppercase tracking-[0.2em] text-brand-600 font-bold mb-3">05 — SÉCURITÉ & RGPD</p>
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-ink-900">
-              Conforme par construction
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SecurityCard title="Sources publiques uniquement" desc="BODACC, INPI, Pappers, France Travail — tout est légal et public" />
-            <SecurityCard title="GDPR by design" desc="Article 6.1.f intérêt légitime + recommandations CNIL prospection BtoB" />
-            <SecurityCard title="Data EU uniquement" desc="Hébergement OVHcloud / Hetzner FR. Aucun transfert hors UE" />
-            <SecurityCard title="Chiffrement bout-en-bout" desc="HTTPS/TLS en transit, PostgreSQL chiffré au repos" />
-            <SecurityCard title="Audit log complet" desc="Toutes les actions critiques tracées (auth, edit ICP, delivery)" />
-            <SecurityCard title="Backups GPG offsite" desc="Sauvegardes quotidiennes chiffrées sur Backblaze B2" />
+          <SectionHeading
+            eyebrow="05 · Sécurité & RGPD"
+            title="Conforme par construction."
+            description="Tout est public, légal, hébergé en France. Sans compromis."
+          />
+
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <SecCard icon={<FileCheck className="h-4 w-4" />} title="Sources publiques uniquement" desc="BODACC, INPI, Pappers, France Travail — tout est légal et public." />
+            <SecCard icon={<Shield className="h-4 w-4" />} title="RGPD by design" desc="Article 6.1.f intérêt légitime + recommandations CNIL prospection BtoB." />
+            <SecCard icon={<Server className="h-4 w-4" />} title="Données EU uniquement" desc="Hébergement OVHcloud / Hetzner FR. Aucun transfert hors UE." />
+            <SecCard icon={<Lock className="h-4 w-4" />} title="Chiffrement bout-en-bout" desc="HTTPS/TLS en transit, PostgreSQL chiffré au repos." />
+            <SecCard icon={<Brain className="h-4 w-4" />} title="Audit log complet" desc="Toutes les actions critiques tracées (auth, edit ICP, delivery)." />
+            <SecCard icon={<RefreshCw className="h-4 w-4" />} title="Backups GPG offsite" desc="Sauvegardes quotidiennes chiffrées sur Backblaze B2." />
           </div>
         </div>
       </section>
 
-      {/* CTA FINAL */}
-      <section className="relative bg-ink-950 text-white overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-radial from-brand-600/30 via-transparent to-transparent blur-3xl" />
-        <div className="relative max-w-4xl mx-auto px-6 lg:px-8 py-16 text-center">
-          <h2 className="font-display text-4xl md:text-6xl font-bold mb-6 tracking-tight leading-[1.0]">
-            Une seule offre.
-            <br />
-            <span className="text-amber-300 drop-shadow-[0_0_30px_rgba(251,191,36,0.4)]">
-              Une seule promesse.
-            </span>
-          </h2>
-          <p className="text-ink-300 text-lg mb-10 max-w-xl mx-auto">
-            390€/mois en annuel. 60 leads + 6 Pépites garanties. Setup gratuit.
-          </p>
-          <Link href="/tarifs" className="inline-flex items-center gap-2 rounded-xl bg-white text-brand-700 hover:bg-brand-50 font-semibold px-10 py-5 text-lg shadow-2xl shadow-brand-500/30 transition-all">
-            Voir les tarifs
-            <ArrowRight className="h-5 w-5" />
-          </Link>
+      {/* ───────────────────────── CTA ───────────────────────── */}
+      <section className="py-20 md:py-24">
+        <div className="max-w-4xl mx-auto px-6 lg:px-8">
+          <div className="rounded-2xl border border-ink-200 bg-ink-950 text-white px-8 py-14 md:px-14 md:py-20 text-center">
+            <h2 className="font-display text-3xl md:text-5xl font-semibold tracking-tight leading-[1.1]">
+              Une offre. Une promesse.
+            </h2>
+            <p className="mt-5 text-base md:text-lg text-ink-300 max-w-xl mx-auto leading-relaxed">
+              390 €/mois en annuel. 60 leads inclus, 6 Pépites garanties. Setup gratuit.
+            </p>
+            <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/tarifs"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md bg-white text-ink-900 hover:bg-ink-100 font-medium px-5 h-11 text-sm"
+              >
+                Voir les tarifs
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md text-ink-300 hover:text-white font-medium px-5 h-11 text-sm"
+              >
+                Démarrer maintenant
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
-    </div>
+    </>
   );
 }
 
-function GuaranteeCard({ title, value, sub, status, detail }: { title: string; value: string; sub: string; status: "ok" | "alert" | "hot"; detail: string }) {
-  const colorClass = {
-    ok: "bg-gradient-to-br from-emerald-50 to-white border-emerald-200",
-    alert: "bg-gradient-to-br from-amber-50 to-white border-amber-300 shadow-lg shadow-amber-500/10",
-    hot: "bg-gradient-to-br from-brand-50 to-white border-brand-200",
-  }[status];
-  const valueColor = {
-    ok: "text-emerald-700",
-    alert: "text-amber-700",
-    hot: "text-brand-700",
-  }[status];
+function GuaranteeCard({ title, value, sub, detail, highlight }: { title: string; value: string; sub: string; detail: string; highlight?: boolean }) {
   return (
-    <div className={`rounded-2xl p-6 border-2 text-left ${colorClass}`}>
-      <p className="text-xs uppercase tracking-wider font-bold text-ink-500 mb-2">{title}</p>
-      <p className={`font-display text-4xl font-bold ${valueColor}`}>{value}</p>
-      <p className="text-xs text-ink-600 mb-3">{sub}</p>
-      <p className="text-xs text-ink-700 leading-relaxed">{detail}</p>
+    <div className={`p-7 ${highlight ? "bg-brand-50/40" : "bg-white"}`}>
+      <p className="text-xs font-medium uppercase tracking-wider text-ink-500 mb-3">{title}</p>
+      <p className="font-display text-3xl md:text-4xl font-semibold text-ink-900 tracking-tight tabular-nums">{value}</p>
+      <p className="text-xs text-ink-500 mb-3">{sub}</p>
+      <p className="text-sm text-ink-700 leading-relaxed">{detail}</p>
     </div>
   );
 }
 
 function DashFeature({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="rounded-xl bg-white border border-ink-100 p-5 hover:border-brand-200 hover:shadow-md transition-all">
-      <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-brand-50 text-brand-600 border border-brand-100 mb-3">
+    <div className="rounded-xl bg-white border border-ink-200 p-5">
+      <div className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-brand-50 text-brand-700 mb-3">
         {icon}
       </div>
-      <p className="font-semibold text-ink-900 text-sm mb-1">{title}</p>
+      <p className="font-medium text-ink-900 text-sm mb-1">{title}</p>
       <p className="text-xs text-ink-600 leading-relaxed">{desc}</p>
     </div>
   );
 }
 
-function SecurityCard({ title, desc }: { title: string; desc: string }) {
+function SecCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="rounded-xl bg-white border border-ink-100 p-5 hover:border-brand-200 hover:shadow-md transition-all">
+    <div className="rounded-xl bg-white border border-ink-200 p-5">
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
-          <Shield className="h-4 w-4" />
+        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center">
+          {icon}
         </div>
         <div>
-          <p className="font-semibold text-ink-900 text-sm mb-0.5">{title}</p>
+          <p className="font-medium text-ink-900 text-sm mb-0.5">{title}</p>
           <p className="text-xs text-ink-600 leading-relaxed">{desc}</p>
         </div>
       </div>
@@ -239,4 +229,4 @@ function SecurityCard({ title, desc }: { title: string; desc: string }) {
   );
 }
 
-void Brain;
+void Zap;

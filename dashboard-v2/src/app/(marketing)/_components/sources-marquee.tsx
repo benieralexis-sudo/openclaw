@@ -1,46 +1,39 @@
-"use client";
-
-import { motion } from "motion/react";
-
 const SOURCES = [
-  { name: "BODACC", desc: "Annonces commerciales" },
-  { name: "INPI", desc: "Dépôts marques" },
-  { name: "Pappers", desc: "SIRENE complet" },
-  { name: "France Travail", desc: "Offres tech" },
-  { name: "LinkedIn Jobs", desc: "Recrutement live" },
-  { name: "Welcome to the Jungle", desc: "Recrutement startups" },
-  { name: "JOAFE", desc: "Associations" },
-  { name: "Presse Tech FR", desc: "Levées de fonds" },
-  { name: "RSS spécialisés", desc: "News sectoriels" },
-  { name: "Intent Data B2B", desc: "Signaux d'achat" },
-  { name: "Tech Stack Discovery", desc: "Outils installés" },
+  "BODACC",
+  "INPI",
+  "Pappers",
+  "France Travail",
+  "LinkedIn Jobs",
+  "Welcome to the Jungle",
+  "JOAFE",
+  "Presse Tech FR",
+  "RSS spécialisés",
+  "Intent data B2B",
+  "Tech stack discovery",
 ];
 
 export function SourcesMarquee() {
   return (
-    <div className="relative overflow-hidden bg-ink-900 py-6 border-y border-ink-800">
-      <div className="text-center mb-4">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-ink-500 font-semibold">
-          11 sources publiques françaises scannées 24/7
+    <div className="relative overflow-hidden bg-white py-10 border-y border-ink-100">
+      <div className="text-center mb-6 px-6">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-500">
+          11 sources publiques françaises · scannées 24/7
         </p>
       </div>
       <div className="relative">
-        {/* Fade edges */}
-        <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-ink-900 to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-ink-900 to-transparent z-10 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
 
-        <motion.div
-          className="flex gap-12"
-          animate={{ x: [0, -1500] }}
-          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-        >
+        <div className="flex gap-10 animate-marquee w-max">
           {[...SOURCES, ...SOURCES, ...SOURCES].map((s, i) => (
-            <div key={i} className="flex-shrink-0 px-6 py-3 rounded-xl bg-ink-800/50 border border-ink-700 backdrop-blur-sm">
-              <p className="font-display text-lg font-bold text-white whitespace-nowrap">{s.name}</p>
-              <p className="text-[11px] text-ink-400 whitespace-nowrap">{s.desc}</p>
-            </div>
+            <span
+              key={i}
+              className="font-display text-base font-medium text-ink-400 whitespace-nowrap select-none"
+            >
+              {s}
+            </span>
           ))}
-        </motion.div>
+        </div>
       </div>
     </div>
   );
