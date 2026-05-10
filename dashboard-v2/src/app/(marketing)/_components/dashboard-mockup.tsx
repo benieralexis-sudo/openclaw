@@ -125,13 +125,13 @@ export function DashboardMockup() {
             </div>
           </div>
 
-          {/* Filter pills */}
-          <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
+          {/* Filter pills — adapte en mobile (mots courts) */}
+          <div className="flex items-center gap-1.5 mb-4 flex-wrap">
             <FilterPill active>Tout</FilterPill>
             <FilterPill>Score ≥ 9</FilterPill>
-            <FilterPill>Levée fonds</FilterPill>
+            <FilterPill>Levée</FilterPill>
             <FilterPill>Recrutement</FilterPill>
-            <FilterPill>30 derniers jours</FilterPill>
+            <FilterPill className="hidden lg:inline-flex">30 derniers jours</FilterPill>
           </div>
 
           {/* Liste Pépites animée — clé sur company pour reuse animations */}
@@ -246,9 +246,9 @@ function Tag({ children }: { children: React.ReactNode }) {
   return <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-white text-ink-700 text-[10px] font-medium border border-ink-200">{children}</span>;
 }
 
-function FilterPill({ children, active }: { children: React.ReactNode; active?: boolean }) {
+function FilterPill({ children, active, className = "" }: { children: React.ReactNode; active?: boolean; className?: string }) {
   return (
-    <button className={`flex-shrink-0 px-2.5 h-6 inline-flex items-center rounded-full text-[11px] font-medium transition-colors ${active ? "bg-brand-700 text-white" : "bg-white text-ink-600 border border-ink-200 hover:border-ink-300"}`}>
+    <button className={`flex-shrink-0 px-2.5 h-6 inline-flex items-center rounded-full text-[11px] font-medium transition-colors ${active ? "bg-brand-700 text-white" : "bg-white text-ink-600 border border-ink-200 hover:border-ink-300"} ${className}`}>
       {children}
     </button>
   );

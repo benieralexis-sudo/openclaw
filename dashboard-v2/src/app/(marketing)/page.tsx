@@ -193,6 +193,53 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ───────────────────────── MANIFESTO BREAK (full-bleed dark) ───────────────────────── */}
+      <section className="relative py-32 md:py-40 bg-brand-950 text-white overflow-hidden">
+        {/* Ambient gradients */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1400px] h-[700px] rounded-full bg-brand-700/20 blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 w-[600px] h-[400px] rounded-full bg-brand-600/15 blur-3xl" />
+          <div className="absolute top-0 left-1/4 w-[400px] h-[400px] rounded-full bg-brand-500/10 blur-3xl" />
+        </div>
+
+        {/* Grid texture subtile */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <pattern id="manifesto-grid" width="56" height="56" patternUnits="userSpaceOnUse">
+              <path d="M 56 0 L 0 0 0 56" fill="none" stroke="white" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#manifesto-grid)" />
+        </svg>
+
+        {/* Quote marks géantes en background */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="font-display text-[400px] md:text-[600px] leading-none text-white/[0.03] select-none -translate-y-12">&ldquo;</span>
+        </div>
+
+        <div className="relative max-w-5xl mx-auto px-6 lg:px-8 text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand-300 mb-8">
+            Le pari iFIND
+          </p>
+          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05]">
+            Une promesse{" "}
+            <span className="bg-gradient-to-br from-brand-200 via-brand-300 to-brand-400 bg-clip-text text-transparent">mesurable</span>{" "}
+            bat
+            <br className="hidden md:inline" />{" "}
+            un fichier de 50&nbsp;000 contacts froids.
+          </h2>
+          <p className="mt-10 text-base md:text-lg text-ink-300 max-w-2xl mx-auto leading-relaxed">
+            Plutôt que vendre du volume, on s&apos;engage sur la qualité.
+            Si on ne livre pas, on rembourse en quota doublé.
+            <br />
+            <span className="text-ink-400">C&apos;est écrit dans nos CGV.</span>
+          </p>
+
+          {/* Decorative line */}
+          <div className="mt-16 mx-auto w-12 h-px bg-gradient-to-r from-transparent via-brand-300 to-transparent" />
+        </div>
+      </section>
+
       {/* ───────────────────────── COMPARATOR ───────────────────────── */}
       <section className="py-20 md:py-24">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
