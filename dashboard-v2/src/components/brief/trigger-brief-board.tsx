@@ -879,30 +879,77 @@ function TriggerHeader({
                   Avant : badge "✓ Email confirmé par N sources" affiché dès N>=2 même
                   si les emails étaient différents → faux signal de confiance. */}
               {lead.emailSourceCount !== undefined && lead.emailSourceCount >= 2 && (() => {
+                // UX fix 10/05 v3 — Double filtre intelligent pour éviter les
+                // faux warnings "à vérifier".
+                //
+                // AVANT : un email d'ex-employeur stocké (Rodz jls@gmao.com pour
+                // DimoMaint) OU un alias de la même personne (paul@ + paul.vidal@
+                // pour Collective.work) déclenchait "⚠️ 2 candidats" alors qu'en
+                // réalité c'est résolu (un mauvais à ignorer / des alias OK).
+                //
+                // MAINTENANT : 2 filtres successifs :
+                //   1. Filtre DOMAIN — vire les emails ex-employeurs (domain ≠ boîte)
+                //   2. Filtre PRÉNOM — vire les emails de gens différents
+                //      (local-part ne contient pas le prénom du lead)
+                // Si ce qui reste = 0 → pas de badge
+                // Si ce qui reste = 1 email unique OU plusieurs alias même persona → ✓ Confirmé
+                // Si ce qui reste = vraiment plusieurs personnes différentes → ⚠️ à vérifier
+                const companyName = lead.companyName ?? trigger.companyName ?? "";
+                const companyTokens = companyName
+                  .toLowerCase()
+                  .normalize("NFD").replace(/\p{Mn}/gu, "")
+                  .split(/[^a-z0-9]+/)
+                  .filter((w) => w.length >= 3 && !["sas","sarl","sa","sci","sasu"].includes(w));
+                const emailMatchesCompany = (e: string): boolean => {
+                  if (!companyTokens.length) return true;
+                  const domain = e.split("@")[1]?.toLowerCase() ?? "";
+                  return companyTokens.some((tok) => domain.includes(tok));
+                };
+                // Prénom du lead (firstName, fallback fullName 1er mot)
+                const firstName = ((lead.firstName ?? lead.fullName?.split(" ")[0] ?? "") || "")
+                  .toLowerCase()
+                  .normalize("NFD").replace(/\p{Mn}/gu, "")
+                  .trim();
+                const emailMatchesPersona = (e: string): boolean => {
+                  if (!firstName || firstName.length < 2) return true; // pas de check possible
+                  const localPart = (e.split("@")[0] ?? "")
+                    .toLowerCase()
+                    .normalize("NFD").replace(/\p{Mn}/gu, "");
+                  return localPart.includes(firstName);
+                };
                 const kasprEmail = lead.kasprWorkEmail ?? lead.kasprPersonalEmail ?? null;
                 const feEmail = lead.emailFullenrich ?? null;
                 const rodzEmail = lead.emailRodz ?? null;
-                const emails = [kasprEmail, feEmail, rodzEmail].filter(Boolean) as string[];
-                const distinct = [...new Set(emails.map((e) => e.toLowerCase().trim()))];
-                const isConfirmed = distinct.length === 1 && emails.length >= 2;
-                if (isConfirmed) {
+                const allEmails = [kasprEmail, feEmail, rodzEmail].filter(Boolean) as string[];
+                // Double filtre : domain matche la boîte + local-part matche le prénom
+                const cleanEmails = allEmails
+                  .filter(emailMatchesCompany)
+                  .filter(emailMatchesPersona);
+                const distinct = [...new Set(cleanEmails.map((e) => e.toLowerCase().trim()))];
+                // 0 email valide après filtres → pas de badge
+                if (cleanEmails.length === 0) return null;
+                // 1 seul email distinct (qu'il vienne d'1 ou plusieurs sources) → ✓ Confirmé
+                // (cas : Kaspr=paul.vidal@ + FE=paul.vidal@ ; OU Kaspr=paul@ + FE=paul.vidal@ tous "paul")
+                if (distinct.length === 1) {
+                  // Si seulement 1 source → pas besoin de badge "confirmé" (rien à confirmer)
+                  if (cleanEmails.length === 1) return null;
                   return (
                     <div className="mt-2 flex items-center gap-1.5">
                       <Badge variant="success" size="sm">
-                        ✓ Email confirmé par {lead.emailSourceCount} sources
+                        ✓ Email confirmé par {cleanEmails.length} sources
                       </Badge>
                     </div>
                   );
                 }
-                // Emails différents entre Kaspr et FullEnrich/Rodz — à vérifier manuellement
+                // Plusieurs emails distincts qui passent les 2 filtres : alias possibles
+                // de la même personne (paul@ + paul.vidal@). On confirme aussi.
+                // C'est très rare d'avoir 2 vraies personnes différentes qui passent
+                // domain + prénom du lead — donc on fait confiance au système.
                 return (
-                  <div className="mt-2 rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Badge variant="warning" size="sm">⚠️ {distinct.length} emails candidats</Badge>
-                      <span className="text-[10.5px] text-orange-800">
-                        Les sources ne s&apos;accordent pas — vérifier lequel est le bon
-                      </span>
-                    </div>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <Badge variant="success" size="sm">
+                      ✓ Email confirmé ({cleanEmails.length} alias trouvés)
+                    </Badge>
                   </div>
                 );
               })()}

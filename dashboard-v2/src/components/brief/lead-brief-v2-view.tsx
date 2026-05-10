@@ -74,12 +74,12 @@ const VERDICT_STYLES: Record<
     headline: "Ne pas approcher — hors ICP ou red flag",
   },
   ENRICH: {
-    label: "ENRICH",
+    label: "À VÉRIFIER",   // UX fix 10/05 — au lieu du jargon "ENRICH"
     badgeBg: "bg-amber-50",
     badgeText: "text-amber-700",
     badgeBorder: "border-amber-200",
     icon: HelpCircle,
-    headline: "À enrichir avant — donnée critique manquante",
+    headline: "À vérifier avant pitch — donnée critique manquante",
   },
 };
 
