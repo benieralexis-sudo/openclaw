@@ -345,6 +345,78 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
   result.healed.exEmployerEmailsCleaned = cleaned;
 
   // ─────────────────────────────────────────────
+  // HEAL 5b (10/05/2026) — RECLEAR doNotContact si email actuel valide.
+  //
+  // Bug "deuxième chance" : avant ce fix, le HEAL 5 ci-dessus flag les leads
+  // doNotContact=true quand un email obsolète (ex-employeur) est détecté,
+  // MAIS le code ne re-vérifiait jamais les leads déjà flagués. Si plus tard
+  // Kaspr/FullEnrich trouvait le BON email (domain matche enfin la boîte),
+  // le lead restait bloqué à vie.
+  //
+  // Audit 10/05 a trouvé 3 faux positifs résiduels : DimoMaint, Shape It,
+  // eXalt — tous avec kasprWorkEmail/emailFullenrich valide mais
+  // doNotContact=true.
+  //
+  // Fix : à chaque cycle audit-heal, on scanne les leads doNotContact=true
+  // avec reason "ex_employer" et on vérifie si maintenant kasprWorkEmail ou
+  // emailFullenrich correspond au domain de la boîte (+ persona OK).
+  // Si oui → reclear doNotContact, restaurer email.
+  // ─────────────────────────────────────────────
+  const blockedExEmployer = await db.lead.findMany({
+    where: {
+      deletedAt: null,
+      ...(cId ? { clientId: cId } : {}),
+      doNotContact: true,
+      doNotContactReason: { startsWith: "email_domain_mismatch_ex_employer" },
+    },
+    select: {
+      id: true,
+      companyName: true,
+      firstName: true,
+      lastName: true,
+      kasprWorkEmail: true,
+      emailFullenrich: true,
+    },
+  });
+  let reclearedExEmployer = 0;
+  for (const l of blockedExEmployer) {
+    // Cherche un email candidat actuel (Kaspr d'abord, FullEnrich ensuite).
+    const candidateEmail = l.kasprWorkEmail ?? l.emailFullenrich;
+    if (!candidateEmail) continue;
+    // Check 1 : domain matche la boîte ?
+    const domainCheck = domainMatchesCompany({
+      email: candidateEmail,
+      companyName: l.companyName,
+    });
+    if (!domainCheck.ok) continue;
+    // Check 2 : persona OK (firstName/lastName dans le local-part) ?
+    const personaCheck = verifyPersonaCoherence({
+      firstName: l.firstName,
+      lastName: l.lastName,
+      email: candidateEmail,
+    });
+    if (!personaCheck.ok) continue;
+    // Les 2 checks passent → reclear. Restaure email + clear flag.
+    console.log(
+      `[heal.5b-reclear] lead=${l.id} company="${l.companyName}" → reclear doNotContact, restore email=${candidateEmail}`,
+    );
+    await db.lead.update({
+      where: { id: l.id },
+      data: {
+        email: candidateEmail,
+        doNotContact: false,
+        doNotContactReason: null,
+        doNotContactAt: null,
+      },
+    });
+    reclearedExEmployer++;
+  }
+  (result.healed as { exEmployerReclearedCount?: number }).exEmployerReclearedCount = reclearedExEmployer;
+  if (reclearedExEmployer > 0) {
+    console.log(`[heal.5b] ${reclearedExEmployer} leads recleared (bon email trouvé après blocage initial)`);
+  }
+
+  // ─────────────────────────────────────────────
   // HEAL 6 — Fix H7 (04/05) Archive les Leads orphelins (Trigger soft-deleted).
   // Audit edge case Cas 12 a flaggé 7 leads avec Trigger.deletedAt NOT NULL
   // mais Lead encore actif. Cause : pruning NAF non-cascade dans theirstack-
