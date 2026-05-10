@@ -11,6 +11,9 @@ import { SectionHeading } from "./_components/section-heading";
 import { AnimatedStat } from "./_components/animated-stat";
 import { SignalDetectionIllu, AIQualifyIllu, GuaranteeIllu } from "./_components/signature-illustrations";
 import { MagneticLink } from "./_components/magnetic-button";
+import { UseCasesGrid } from "./_components/use-cases-grid";
+import { IntegrationsGrid } from "./_components/integrations-grid";
+import { ResourcesTeaser } from "./_components/resources-teaser";
 import { STATS_PRODUIT } from "./_components/_data/mock-companies";
 
 export const metadata: Metadata = {
@@ -240,7 +243,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ───────────────────────── COMPARATOR ───────────────────────── */}
+      {/* ───────────────────────── DIFFÉRENCIATEURS ───────────────────────── */}
       <section className="py-20 md:py-24">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <SectionHeading
@@ -260,6 +263,75 @@ export default function HomePage() {
                 <p className="text-xs text-ink-500 italic border-l-2 border-brand-200 pl-3">{d.contraste}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────── CAS D'USAGE PAR PERSONA ───────────────────────── */}
+      <section className="py-20 md:py-24 bg-ink-50/40">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8">
+          <SectionHeading
+            eyebrow="Cas d'usage"
+            title="Vos signaux d'achat, par métier."
+            description="iFIND configure votre cerveau IA selon votre ICP et les patterns d'achat propres à votre marché."
+          />
+
+          <div className="mt-16 max-w-6xl mx-auto">
+            <UseCasesGrid />
+          </div>
+
+          <div className="mt-12 text-center">
+            <Link
+              href="/cas-d-usage"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 link-underline"
+            >
+              Voir tous les cas d&apos;usage en détail
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────── INTÉGRATIONS ───────────────────────── */}
+      <section className="py-20 md:py-24">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8">
+          <SectionHeading
+            eyebrow="Intégrations"
+            title="Branche iFIND à ta stack en 5 minutes."
+            description="Webhook + API + alertes natives sur Telegram et Slack. Connecté aussi à votre CRM, agenda et automatisation."
+          />
+
+          <div className="mt-16 max-w-6xl mx-auto">
+            <IntegrationsGrid />
+          </div>
+
+          <p className="mt-10 text-center text-xs text-ink-500">
+            13 intégrations natives ou via Zapier/Make · API REST documentée disponible
+          </p>
+        </div>
+      </section>
+
+      {/* ───────────────────────── ACADEMY/TEMPLATES TEASER ───────────────────────── */}
+      <section className="py-20 md:py-24 bg-ink-50/40">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8">
+          <SectionHeading
+            eyebrow="Ressources"
+            title="Maîtrisez la prospection IA française."
+            description="Academy, templates de briefs, scripts d'appel, études de cas — réservés aux clients iFIND."
+          />
+
+          <div className="mt-16 max-w-5xl mx-auto">
+            <ResourcesTeaser />
+          </div>
+
+          <div className="mt-12 text-center">
+            <Link
+              href="/ressources"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800 link-underline"
+            >
+              Voir toutes les ressources
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>
