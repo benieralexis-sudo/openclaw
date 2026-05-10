@@ -5,6 +5,7 @@
 // Aucun témoignage client réel — section témoignages remplacée par
 // stats produit anonymisées (cf. STATS_PRODUIT).
 
+// Note: type exporté pour le DashboardMockup (rotation animée).
 export interface MockCompany {
   company: string;
   siret: string;

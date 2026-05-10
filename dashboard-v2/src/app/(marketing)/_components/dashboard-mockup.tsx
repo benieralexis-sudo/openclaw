@@ -1,7 +1,37 @@
+"use client";
+
+import * as React from "react";
 import { Building2, Briefcase, Zap, Brain, Mail, Phone, Linkedin, MapPin, Search, Filter, Sparkles, Home, Users, CreditCard, Settings, Target } from "lucide-react";
-import { MOCK_PEPITES, MOCK_BRIEF } from "./_data/mock-companies";
+import { MOCK_PEPITES, MOCK_BRIEF, type MockCompany } from "./_data/mock-companies";
+
+// Pool de Pépites supplémentaires pour rotation animée
+const ROTATING_POOL: MockCompany[] = [
+  { company: "Demo Edutech E", siret: "999 224 891", industry: "EdTech B2B", size: "60 p.", location: "Nantes", score: 9, signal: "Recrute Lead Engineer", funding: "Série A 6 M€", time: "il y a 1 min", isHot: true },
+  { company: "Demo Fintech F", siret: "999 567 320", industry: "Fintech", size: "95 p.", location: "Paris", score: 8, signal: "Lance offre B2B", funding: "Série B 18 M€", time: "il y a 3 min", isHot: false },
+  { company: "Demo Cleantech G", siret: "999 102 478", industry: "Cleantech", size: "35 p.", location: "Lyon", score: 9, signal: "CTO change + 2 jobs Tech Lead", funding: "Pré-seed 1.2 M€", time: "il y a 5 min", isHot: true },
+  { company: "Demo AI Startup H", siret: "999 875 612", industry: "AI Tech", size: "25 p.", location: "Paris", score: 10, signal: "Sortie produit + recrute", funding: "Seed 3 M€", time: "à l'instant", isHot: true },
+];
 
 export function DashboardMockup() {
+  const [pepites, setPepites] = React.useState<MockCompany[]>(MOCK_PEPITES);
+  const [poolIndex, setPoolIndex] = React.useState(0);
+  const [counter, setCounter] = React.useState(14);
+
+  // Animation : toutes les 4.5s, une nouvelle Pépite arrive en haut, la
+  // dernière est éjectée. Compteur "14 nouvelles" s'incrémente.
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setPepites((prev) => {
+        const newPepite = ROTATING_POOL[poolIndex % ROTATING_POOL.length];
+        if (!newPepite) return prev;
+        return [newPepite, ...prev.slice(0, 3)];
+      });
+      setPoolIndex((i) => i + 1);
+      setCounter((c) => c + 1);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [poolIndex]);
+
   return (
     <div className="relative rounded-xl border border-ink-200 bg-white shadow-xl overflow-hidden">
       {/* Browser chrome — sobre */}
@@ -41,9 +71,10 @@ export function DashboardMockup() {
               <span className="font-medium">3 signaux en cours d&apos;analyse</span>
             </div>
           </div>
+
           <div className="space-y-0.5">
             <NavItem icon={<Home className="h-3.5 w-3.5" />} active>Dashboard</NavItem>
-            <NavItem icon={<Sparkles className="h-3.5 w-3.5" />} badge="14">Pépites</NavItem>
+            <NavItem icon={<Sparkles className="h-3.5 w-3.5" />} badge={String(counter)}>Pépites</NavItem>
             <NavItem icon={<Users className="h-3.5 w-3.5" />}>Leads</NavItem>
             <NavItem icon={<CreditCard className="h-3.5 w-3.5" />}>Crédits</NavItem>
             <NavItem icon={<Settings className="h-3.5 w-3.5" />}>Réglages</NavItem>
@@ -51,16 +82,16 @@ export function DashboardMockup() {
           <div className="mt-auto p-3 rounded-lg bg-brand-900/60 border border-brand-800/50">
             <p className="text-[10px] text-ink-400 font-medium uppercase tracking-wider mb-2">Garantie ce mois</p>
             <div className="flex items-baseline gap-1">
-              <span className="font-display text-xl font-semibold text-white tabular-nums">14</span>
+              <span className="font-display text-xl font-semibold text-white tabular-nums">{counter}</span>
               <span className="text-[10px] text-ink-500">/ 6 min.</span>
             </div>
             <div className="mt-2 h-1 bg-brand-800/60 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500" style={{ width: "100%" }} />
+              <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: "100%" }} />
             </div>
           </div>
         </aside>
 
-        {/* Mobile-only top bar (compact info on garantie) */}
+        {/* Mobile-only top bar */}
         <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-brand-950 text-white border-b border-brand-800/50">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-md bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-sm">
@@ -70,7 +101,7 @@ export function DashboardMockup() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-ink-400 uppercase tracking-wider">Garantie</span>
-            <span className="font-display text-sm font-semibold tabular-nums text-white">14</span>
+            <span className="font-display text-sm font-semibold tabular-nums text-white">{counter}</span>
             <span className="text-[10px] text-ink-500">/ 6</span>
           </div>
         </div>
@@ -80,7 +111,7 @@ export function DashboardMockup() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-base font-display font-semibold text-ink-900">Pépites du mois</h3>
-              <p className="text-xs text-ink-500">Mis à jour il y a 2 minutes · 14 nouvelles cette semaine</p>
+              <p className="text-xs text-ink-500 tabular-nums">Mis à jour à l&apos;instant · {counter} nouvelles cette semaine</p>
             </div>
             <div className="flex items-center gap-2">
               <button className="px-2.5 h-7 inline-flex items-center gap-1 rounded-md border border-ink-200 bg-white text-xs text-ink-700 hover:bg-ink-50">
@@ -103,41 +134,10 @@ export function DashboardMockup() {
             <FilterPill>30 derniers jours</FilterPill>
           </div>
 
-          {/* Stats — sobres */}
-          <div className="grid grid-cols-3 gap-2.5 mb-5">
-            <StatCard label="Pépites" value="14" sub="/ 6 garanties" highlight />
-            <StatCard label="Leads qualifiés" value="47" sub="/ 60 quota" />
-            <StatCard label="Crédits restants" value="13" sub="rollover 4 mois" />
-          </div>
-
-          {/* Liste Pépites */}
+          {/* Liste Pépites animée — clé sur company pour reuse animations */}
           <div className="space-y-1.5">
-            {MOCK_PEPITES.map((p, i) => (
-              <div
-                key={p.company}
-                className={`group flex items-center gap-3 p-3 rounded-lg border transition-colors ${i === 0 ? "border-brand-200 bg-brand-50/40" : "border-ink-100 bg-white hover:border-ink-200"}`}
-              >
-                <div className={`flex-shrink-0 w-9 h-9 rounded-md flex items-center justify-center ${i === 0 ? "bg-brand-100 text-brand-700" : "bg-ink-100 text-ink-600"}`}>
-                  {i === 0 ? <Zap className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-medium text-ink-900 truncate">{p.company}</span>
-                    <ScoreBadge score={p.score} hot={p.isHot} />
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-ink-600">
-                    <span className="flex items-center gap-1 truncate"><Briefcase className="h-2.5 w-2.5 flex-shrink-0" />{p.signal}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5 text-[11px] text-ink-400">
-                    <span className="flex items-center gap-1"><MapPin className="h-2.5 w-2.5" />{p.location}</span>
-                    <span>·</span>
-                    <span>{p.size}</span>
-                    <span>·</span>
-                    <span className="truncate">{p.industry}</span>
-                  </div>
-                </div>
-                <span className="text-[11px] text-ink-400 flex-shrink-0">{p.time}</span>
-              </div>
+            {pepites.map((p, i) => (
+              <PepiteRow key={p.company} pepite={p} highlight={i === 0} />
             ))}
           </div>
         </div>
@@ -188,23 +188,40 @@ export function DashboardMockup() {
   );
 }
 
+function PepiteRow({ pepite: p, highlight }: { pepite: MockCompany; highlight: boolean }) {
+  return (
+    <div
+      className={`group flex items-center gap-3 p-3 rounded-lg border transition-all duration-500 ${highlight ? "border-brand-200 bg-brand-50/40 anim-pepite-in" : "border-ink-100 bg-white hover:border-ink-200"}`}
+    >
+      <div className={`flex-shrink-0 w-9 h-9 rounded-md flex items-center justify-center ${highlight ? "bg-brand-100 text-brand-700" : "bg-ink-100 text-ink-600"}`}>
+        {highlight ? <Zap className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="text-sm font-medium text-ink-900 truncate">{p.company}</span>
+          <ScoreBadge score={p.score} hot={p.isHot} />
+        </div>
+        <div className="flex items-center gap-2 text-xs text-ink-600">
+          <span className="flex items-center gap-1 truncate"><Briefcase className="h-2.5 w-2.5 flex-shrink-0" />{p.signal}</span>
+        </div>
+        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-ink-400">
+          <span className="flex items-center gap-1"><MapPin className="h-2.5 w-2.5" />{p.location}</span>
+          <span>·</span>
+          <span>{p.size}</span>
+          <span>·</span>
+          <span className="truncate">{p.industry}</span>
+        </div>
+      </div>
+      <span className="text-[11px] text-ink-400 flex-shrink-0">{p.time}</span>
+    </div>
+  );
+}
+
 function NavItem({ icon, children, active, badge }: { icon: React.ReactNode; children: React.ReactNode; active?: boolean; badge?: string }) {
   return (
     <div className={`flex items-center justify-between px-2 py-1.5 rounded-md text-[12px] ${active ? "bg-brand-700 text-white" : "text-ink-400 hover:bg-brand-900/40 hover:text-ink-200"}`}>
       <span className="flex items-center gap-2">{icon}{children}</span>
       {badge && <span className="px-1.5 py-0.5 rounded bg-brand-600 text-white text-[9px] font-semibold tabular-nums">{badge}</span>}
-    </div>
-  );
-}
-
-function StatCard({ label, value, sub, highlight }: { label: string; value: string; sub: string; highlight?: boolean }) {
-  return (
-    <div className={`rounded-md p-3 border ${highlight ? "border-brand-200 bg-brand-50/40" : "border-ink-100 bg-white"}`}>
-      <p className="text-[10px] uppercase tracking-wider font-medium text-ink-500 mb-1">{label}</p>
-      <div className="flex items-baseline gap-1">
-        <span className={`font-display text-xl font-semibold tabular-nums ${highlight ? "text-brand-700" : "text-ink-900"}`}>{value}</span>
-        <span className="text-[10px] text-ink-500">{sub}</span>
-      </div>
     </div>
   );
 }

@@ -9,6 +9,8 @@ import { LiveFeed } from "./_components/live-feed";
 import { BriefMockup } from "./_components/brief-mockup";
 import { SectionHeading } from "./_components/section-heading";
 import { AnimatedStat } from "./_components/animated-stat";
+import { SignalDetectionIllu, AIQualifyIllu, GuaranteeIllu } from "./_components/signature-illustrations";
+import { MagneticLink } from "./_components/magnetic-button";
 import { STATS_PRODUIT } from "./_components/_data/mock-companies";
 
 export const metadata: Metadata = {
@@ -60,20 +62,18 @@ export default function HomePage() {
 
           {/* CTA */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/tarifs"
-              className="group inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 h-11 text-sm shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/30 hover:-translate-y-0.5"
-            >
-              Voir les tarifs
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <Link
-              href="/produit"
-              className="group inline-flex items-center justify-center gap-1.5 rounded-md bg-white hover:bg-ink-50 text-ink-700 hover:text-ink-900 font-medium px-5 h-11 text-sm border border-ink-200 hover:border-ink-300"
-            >
-              Comment ça marche
-              <ArrowRight className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-            </Link>
+            <MagneticLink href="/tarifs">
+              <span className="group inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 h-11 text-sm shadow-md shadow-brand-500/20 hover:shadow-lg hover:shadow-brand-500/30">
+                Voir les tarifs
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+              </span>
+            </MagneticLink>
+            <MagneticLink href="/produit" strength={4}>
+              <span className="group inline-flex items-center justify-center gap-1.5 rounded-md bg-white hover:bg-ink-50 text-ink-700 hover:text-ink-900 font-medium px-5 h-11 text-sm border border-ink-200 hover:border-ink-300">
+                Comment ça marche
+                <ArrowRight className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+              </span>
+            </MagneticLink>
           </div>
 
           {/* Trust micro-line */}
@@ -172,17 +172,20 @@ export default function HomePage() {
           <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
             <Pillar
               icon={<Brain className="h-5 w-5" />}
+              illustration={<AIQualifyIllu />}
               title="Intelligence"
               description="IA propriétaire + 12 blocs de contexte. Chaque lead est analysé comme par un commercial senior, pas par un keyword match."
             />
             <Pillar
               icon={<Shield className="h-5 w-5" />}
+              illustration={<GuaranteeIllu />}
               title="Garantie"
               description="6 Pépites minimum par mois. Engagement contractuel — si on ne tient pas, votre quota du mois suivant est doublé."
               highlight
             />
             <Pillar
               icon={<Zap className="h-5 w-5" />}
+              illustration={<SignalDetectionIllu />}
               title="Temps réel"
               description="11 sources scannées 24/7. Vous recevez les signaux quand ils sont chauds, pas après le batch nocturne."
             />
@@ -277,13 +280,18 @@ export default function HomePage() {
   );
 }
 
-function Pillar({ icon, title, description, highlight }: { icon: React.ReactNode; title: string; description: string; highlight?: boolean }) {
+function Pillar({ icon, illustration, title, description, highlight }: { icon: React.ReactNode; illustration?: React.ReactNode; title: string; description: string; highlight?: boolean }) {
   if (highlight) {
     return (
-      <div className="relative rounded-2xl bg-gradient-to-br from-brand-700 to-brand-900 text-white p-8 shadow-xl shadow-brand-500/20 md:-translate-y-2">
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-white text-brand-800 text-[10px] font-bold uppercase tracking-wider shadow-sm border border-brand-100">
+      <div className="relative rounded-2xl bg-gradient-to-br from-brand-700 to-brand-900 text-white p-8 shadow-xl shadow-brand-500/20 md:-translate-y-2 overflow-hidden">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-white text-brand-800 text-[10px] font-bold uppercase tracking-wider shadow-sm border border-brand-100 z-10">
           Unique en France
         </div>
+        {illustration && (
+          <div className="-mx-4 -mt-2 mb-5 opacity-90">
+            {illustration}
+          </div>
+        )}
         <div className="inline-flex items-center justify-center w-10 h-10 rounded-md mb-5 bg-white/15 backdrop-blur-sm border border-white/20 text-white">
           {icon}
         </div>
@@ -293,7 +301,12 @@ function Pillar({ icon, title, description, highlight }: { icon: React.ReactNode
     );
   }
   return (
-    <div className="rounded-2xl bg-white border border-ink-200 p-8 hover:border-brand-200 hover:shadow-md transition-all">
+    <div className="rounded-2xl bg-white border border-ink-200 p-8 hover:border-brand-200 hover:shadow-md transition-all overflow-hidden">
+      {illustration && (
+        <div className="-mx-4 -mt-2 mb-5">
+          {illustration}
+        </div>
+      )}
       <div className="inline-flex items-center justify-center w-10 h-10 rounded-md mb-5 bg-brand-50 text-brand-700 border border-brand-100">
         {icon}
       </div>

@@ -65,9 +65,17 @@ export default async function MarketingLayout({ children }: { children: ReactNod
       {/* CONTENT */}
       <main className="flex-1">{children}</main>
 
-      {/* FOOTER — aéré, sobre, blanc avec bordure */}
+      {/* FOOTER — manifesto + 4 colonnes + signature */}
       <footer className="bg-white border-t border-ink-100 mt-24">
-        <div className="max-w-6xl mx-auto px-6 lg:px-8 py-16">
+        {/* Manifesto signature — phrase qui plante le drapeau */}
+        <div className="max-w-6xl mx-auto px-6 lg:px-8 pt-20 pb-16 border-b border-ink-100">
+          <p className="font-display text-3xl md:text-5xl font-semibold tracking-tight leading-[1.1] max-w-4xl">
+            <span className="text-ink-300">Pas un fichier de leads.</span>{" "}
+            <span className="bg-gradient-to-br from-brand-700 to-brand-900 bg-clip-text text-transparent">Une promesse mesurable.</span>
+          </p>
+        </div>
+
+        <div className="max-w-6xl mx-auto px-6 lg:px-8 py-14">
           <div className="grid grid-cols-2 md:grid-cols-12 gap-10">
             {/* Brand */}
             <div className="col-span-2 md:col-span-5">
@@ -84,7 +92,7 @@ export default async function MarketingLayout({ children }: { children: ReactNod
                 Le moteur de détection de signaux d&apos;achat sur les PME françaises.
               </p>
               <p className="mt-6 text-xs text-ink-400">
-                <a href="mailto:contact@ifind.fr" className="hover:text-ink-700 transition-colors">contact@ifind.fr</a>
+                <a href="mailto:contact@ifind.fr" className="hover:text-ink-700 transition-colors link-underline">contact@ifind.fr</a>
               </p>
             </div>
 
@@ -119,9 +127,19 @@ export default async function MarketingLayout({ children }: { children: ReactNod
             </div>
           </div>
 
-          <div className="mt-16 pt-8 border-t border-ink-100 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-ink-500">
+          <div className="mt-14 pt-8 border-t border-ink-100 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-ink-500">
             <p>© {new Date().getFullYear()} iFIND · Tous droits réservés.</p>
-            <p>Hébergé en France · Conforme RGPD</p>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                Tous systèmes opérationnels
+              </span>
+              <span className="text-ink-300">·</span>
+              <span>Hébergé en France</span>
+            </div>
           </div>
         </div>
       </footer>
