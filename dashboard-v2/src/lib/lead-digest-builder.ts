@@ -9,6 +9,7 @@
 import type { BrandConfig } from "@/lib/delivery-config";
 import {
   deriveFirstName,
+  detectOpenerPersonaDesync,
   substituteOpenerPlaceholders,
 } from "@/lib/opener-substitution";
 
@@ -85,12 +86,18 @@ function formatLeadRow(lead: DigestLead, brand: BrandConfig): string {
   const v2 = v2Badge(lead.briefV2?.verdict, lead.briefV2?.confidence);
   const badge = v2 ?? priorityBadge(lead.score);
   const dashLink = `${DASHBOARD_URL}/triggers/${lead.triggerId}`;
+  // Fix B1 — détecter désynchro brief↔persona (opener mentionne mauvais prénom)
+  const desync = detectOpenerPersonaDesync(lead.briefV2?.opener ?? null, lead.lead);
   // Fix B3 — substituer placeholders avant slice (sinon [Prénom] survit dans l'email)
   const cleanOpener = substituteOpenerPlaceholders(
     lead.briefV2?.opener ?? null,
     deriveFirstName(lead.lead),
   );
-  const opener = cleanOpener?.slice(0, 200) || lead.scoreReason?.slice(0, 200) || "";
+  // Si désynchro détectée → masquer l'opener dans l'email (Fred ne doit pas
+  // copier-coller "Bonjour Thierry," sur un Lead Adrien). Affiche un avertissement.
+  const opener = desync.isDesync
+    ? `⚠️ Brief désynchronisé — l'opener s'adresse à "${desync.briefName}" mais le contact est "${lead.lead?.fullName ?? "?"}". Régénérer avant envoi.`
+    : cleanOpener?.slice(0, 200) || lead.scoreReason?.slice(0, 200) || "";
   // verdictBadge secondaire (si V2 absent et score forme le badge principal)
   const verdictBadge = !v2 && lead.briefV2?.verdict
     ? `<span style="background:${lead.briefV2.verdict === "OUI" ? "#D1FAE5" : lead.briefV2.verdict === "NON" ? "#FEE2E2" : "#FEF3C7"};color:${lead.briefV2.verdict === "OUI" ? "#065F46" : lead.briefV2.verdict === "NON" ? "#991B1B" : "#92400E"};padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px">${lead.briefV2.verdict} ${lead.briefV2.confidence}%</span>`
@@ -144,7 +151,11 @@ ${idx}. ${lead.companyName} (${headline})
    ${[lead.companyNaf, lead.size, lead.region].filter(Boolean).join(" • ")}
    Source: ${lead.sourceCode}
    ${contact.length ? "Contact: " + contact.join(" | ") : ""}
-   ${(substituteOpenerPlaceholders(lead.briefV2?.opener ?? null, deriveFirstName(lead.lead)).slice(0, 200)) || lead.scoreReason?.slice(0, 200) || ""}
+   ${(() => {
+     const d = detectOpenerPersonaDesync(lead.briefV2?.opener ?? null, lead.lead);
+     if (d.isDesync) return `⚠️ Brief désynchronisé — opener cite "${d.briefName}" mais contact = "${lead.lead?.fullName ?? "?"}". Régénérer.`;
+     return substituteOpenerPlaceholders(lead.briefV2?.opener ?? null, deriveFirstName(lead.lead)).slice(0, 200) || lead.scoreReason?.slice(0, 200) || "";
+   })()}
    → ${dashLink}
 `;
 }

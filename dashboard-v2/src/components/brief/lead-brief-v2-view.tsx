@@ -23,7 +23,10 @@ import {
   type Risk,
   type SourceRef,
 } from "@/lib/lead-brief-v2";
-import { substituteOpenerPlaceholders } from "@/lib/opener-substitution";
+import {
+  detectOpenerPersonaDesync,
+  substituteOpenerPlaceholders,
+} from "@/lib/opener-substitution";
 
 /**
  * Sprint D.4 (07/05/2026) — Vue brief raisonné LeadBriefV2.
@@ -154,15 +157,27 @@ function CopyButton({ text, label = "Copier" }: { text: string; label?: string }
 export function LeadBriefV2View({
   brief,
   leadFirstName,
+  leadLastName,
+  leadFullName,
 }: {
   brief: LeadBriefV2;
   /** Prénom du lead pour substituer `[Prénom]` placeholder (fix B3). */
   leadFirstName?: string | null;
+  /** Nom de famille du lead (fix B1 — détection désynchro). */
+  leadLastName?: string | null;
+  /** Nom complet du lead (fix B1 — fallback candidats). */
+  leadFullName?: string | null;
 }) {
   const v = VERDICT_STYLES[brief.verdict];
   const Icon = v.icon;
   // Fix B3 — substituer placeholders avant tout (affichage + copy)
   const opener = substituteOpenerPlaceholders(brief.opener, leadFirstName);
+  // Fix B1 — détecter si l'opener mentionne un autre prénom que le Lead actuel
+  const desync = detectOpenerPersonaDesync(brief.opener, {
+    firstName: leadFirstName,
+    lastName: leadLastName,
+    fullName: leadFullName,
+  });
   const wordCount = opener.trim().split(/\s+/).length;
   const overTarget = wordCount > 250;
 
@@ -304,9 +319,37 @@ export function LeadBriefV2View({
               >
                 {wordCount} mots
               </span>
-              <CopyButton text={opener} label="Copier opener" />
+              {desync.isDesync ? (
+                <span
+                  className="text-[10.5px] font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-0.5"
+                  title="Brief désynchronisé — copie désactivée"
+                >
+                  Copie bloquée
+                </span>
+              ) : (
+                <CopyButton text={opener} label="Copier opener" />
+              )}
             </div>
           </div>
+          {desync.isDesync && (
+            <div
+              role="alert"
+              className="mb-2 rounded-md border border-rose-200 bg-rose-50 p-3 text-[12px] text-rose-800"
+            >
+              <div className="font-semibold mb-1">
+                ⚠️ Brief désynchronisé — bug B1
+              </div>
+              <div className="leading-snug">
+                L&apos;opener s&apos;adresse à <strong>{desync.briefName}</strong>{" "}
+                mais le contact actuel du lead est{" "}
+                <strong>
+                  {leadFullName ?? leadFirstName ?? "(prénom non résolu)"}
+                </strong>
+                . Le brief a été généré avant un changement de persona.
+                Régénérer le brief avant tout envoi.
+              </div>
+            </div>
+          )}
           <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-ink-800 bg-amber-50/60 border border-amber-200 rounded-md p-3.5">
             {renderTextWithCitations(opener)}
           </pre>
@@ -374,10 +417,16 @@ export function LeadBriefV2View({
 export function LeadBriefV2ViewSafe({
   raw,
   leadFirstName,
+  leadLastName,
+  leadFullName,
 }: {
   raw: unknown | null | undefined;
   /** Prénom du lead pour substituer `[Prénom]` placeholder (fix B3). */
   leadFirstName?: string | null;
+  /** Nom du lead (fix B1 — détection désynchro). */
+  leadLastName?: string | null;
+  /** Nom complet du lead (fix B1 — fallback candidats). */
+  leadFullName?: string | null;
 }) {
   if (!raw) {
     return (
@@ -412,7 +461,14 @@ export function LeadBriefV2ViewSafe({
       </Card>
     );
   }
-  return <LeadBriefV2View brief={raw} leadFirstName={leadFirstName} />;
+  return (
+    <LeadBriefV2View
+      brief={raw}
+      leadFirstName={leadFirstName}
+      leadLastName={leadLastName}
+      leadFullName={leadFullName}
+    />
+  );
 }
 
 // Re-export pour faciliter l'import depuis trigger-brief-board.tsx

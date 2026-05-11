@@ -427,6 +427,8 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
             leadFirstName={
               lead?.firstName ?? lead?.fullName?.split(" ")[0] ?? null
             }
+            leadLastName={lead?.lastName ?? null}
+            leadFullName={lead?.fullName ?? null}
           />
         </div>
       </details>
