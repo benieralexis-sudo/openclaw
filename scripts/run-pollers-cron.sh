@@ -15,7 +15,10 @@ URL="http://127.0.0.1:3100/api/internal/run-pollers?source=cron&clientId=${CLIEN
 LOG="/var/log/ifind-pollers.log"
 TMP="/tmp/run-pollers.out"
 LOCK="/var/run/run-pollers.lock"
-ZOMBI_THRESHOLD=4   # cycles consecutifs opusQ=0 = bot inactif
+ZOMBI_THRESHOLD=24  # cycles consecutifs opusQ=0 = bot vraiment inactif (24h sans qualify)
+                    # Calibration 12/05 : opusQ=0 est NORMAL quand rien à qualifier
+                    # (cas observé : queue vide après runs manuels = 15 cycles consécutifs
+                    # opusQ=0 sans que le bot soit zombi). Ancien seuil 4 = faux positifs.
 BUDGET_THRESHOLD=5  # USD/jour seuil alerte burn
 
 # ---- Telegram helper -----------------------------------------------------
