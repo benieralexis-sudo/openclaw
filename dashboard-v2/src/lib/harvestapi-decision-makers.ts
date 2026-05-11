@@ -53,20 +53,11 @@ function cacheKey(companyName: string, signalType: string): string {
   return `${companyName.trim().toLowerCase()}|${signalType}`;
 }
 
-// Normalise un nom de société pour augmenter le hit rate HarvestAPI search.
-// Mesure 01/05 : 5 leads bloqués (Klanik, "SOCIETE GESER BEST", DOXALLIA,
-// Altares, Syneam) — Pappers et HarvestAPI ont tenté mais 0 résultat.
-// Cause probable : le RCS écrit "SOCIETE GESER BEST" mais LinkedIn enregistre
-// "Geser Best". On strip les préfixes/suffixes juridiques avant search.
-const COMPANY_NORMALIZATION_NOISE =
-  /\b(soci[eé]t[eé]|groupe|group|holding|sas|sasu|sarl|eurl|sa|snc|sci|consulting|services?|solutions?)\b/gi;
-
-function normalizeCompanyForSearch(name: string): string {
-  return name
-    .replace(COMPANY_NORMALIZATION_NOISE, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// Bug DiXiO escalation (11/05/2026) — generateCompanyVariants +
+// normalizeCompanyForSearch extraits dans `company-variants.ts` (sans
+// server-only) pour permettre tests Vitest. Re-export pour rétro-compat.
+export { generateCompanyVariants, normalizeCompanyForSearch } from "./company-variants";
+import { generateCompanyVariants, normalizeCompanyForSearch } from "./company-variants";
 
 function cacheGet(key: string): CacheEntry | null {
   const e = cache.get(key);
@@ -240,14 +231,12 @@ export async function findDecisionMakerByCompany(args: {
     }
   }
 
-  // Normalisation : "SOCIETE GESER BEST" → "GESER BEST", "Klanik Consulting" → "Klanik".
-  // Si la version normalisée diffère, on tente les 2 (verbatim d'abord car
-  // certaines boîtes incluent volontairement "Consulting" dans leur brand LinkedIn).
-  const normalizedName = normalizeCompanyForSearch(companyName);
-  const searchVariants =
-    normalizedName && normalizedName.toLowerCase() !== companyName.toLowerCase()
-      ? [companyName, normalizedName]
-      : [companyName];
+  // Bug DiXiO escalation (11/05/2026) — Utilise generateCompanyVariants pour
+  // tenter jusqu'à 4 variantes du nom de société (verbatim, normalisé,
+  // strippé suffixes métier, 1er mot). Cas Salvia Développement → ["Salvia
+  // Développement", "Salvia"]. Gain attendu sur les boîtes dont le nom
+  // LinkedIn diffère du nom RCS (brand vs raison sociale).
+  const searchVariants = generateCompanyVariants(companyName);
 
   const maxItems = args.maxItems ?? 20;
   let items: HarvestProfile[] = [];
@@ -628,6 +617,42 @@ export async function enrichDecisionMakersForClient(
           updates.linkedinProfileEnrichedAt = new Date();
         }
         result.found += 1;
+      } else if (signalType === "qa-hire" || signalType === "tech-hire") {
+        // Bug DiXiO escalation (11/05/2026) — Levier 2 cascade Google CSE.
+        // Si HarvestAPI strict échoue sur un tech-hire, on tape Google CSE
+        // `site:linkedin.com/in/ "Salvia" (CTO OR "Head of Engineering"...)`
+        // pour récupérer un profil tech leader directement depuis la SERP.
+        // Cas observé : Salvia Développement, Groupe Yoni — HarvestAPI 0
+        // tier 1-2 mais Google CSE peut trouver via mots-clés.
+        try {
+          const { findTechLeaderByCompany } = await import("@/lib/find-tech-leader-cascade");
+          const cascade = await findTechLeaderByCompany({
+            companyName: lead.companyName,
+            companyVariants: generateCompanyVariants(lead.companyName),
+            signalType,
+          });
+          if (cascade) {
+            updates.firstName = cascade.firstName;
+            updates.lastName = cascade.lastName;
+            updates.fullName = cascade.fullName;
+            updates.jobTitle = cascade.jobTitle;
+            updates.linkedinUrl = cascade.linkedinUrl;
+            updates.personaTier = cascade.tier;
+            updates.personaSource = "google-cse-tech-search";
+            result.found += 1;
+            console.log(
+              `[harvestapi-dm.cascade] ${lead.companyName} via Google CSE → ${cascade.fullName} (${cascade.jobTitle}) tier=${cascade.tier}`,
+            );
+          } else {
+            result.skipped += 1;
+          }
+        } catch (e) {
+          console.warn(
+            `[harvestapi-dm.cascade] err ${lead.companyName}:`,
+            e instanceof Error ? e.message : e,
+          );
+          result.skipped += 1;
+        }
       } else {
         result.skipped += 1;
       }
