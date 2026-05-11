@@ -78,6 +78,8 @@ interface TriggerData {
     firstName?: string | null;
     lastName?: string | null;
     jobTitle: string | null;
+    /** Chemin de holding "X Group → Y SAS" (fix B4 — séparé du jobTitle). */
+    holdingPath?: string | null;
     linkedinUrl: string | null;
     email: string | null;
     emailStatus: string;
@@ -685,6 +687,15 @@ function TriggerHeader({
                 {simplifyFullName(lead.fullName) ?? "À identifier"}
               </div>
               <div className="text-[11.5px] text-ink-600">{cleanJobTitle(lead.jobTitle) ?? "—"}</div>
+              {/* Fix B4 — holdingPath affiché en sous-ligne discrète si présent */}
+              {lead.holdingPath && (
+                <div
+                  className="text-[10.5px] text-ink-500 italic"
+                  title="Le décideur a été identifié via une holding (Pappers récursion)"
+                >
+                  via {lead.holdingPath}
+                </div>
+              )}
               {/* Warning "trop haut placé" en sous-ligne lisible (au lieu d'inline jobTitle) */}
               {verdict.flags.includes("decideur_juridique_pas_hiring") && (
                 <div className="mt-1.5 text-[11.5px] leading-relaxed text-amber-700">
@@ -852,26 +863,67 @@ function TriggerHeader({
                   )}
                 </div>
               )}
-              {/* RGPD opt-out badge (audit 30/04 — l'IMAP a détecté "stop"/"unsubscribe") */}
-              {lead.doNotContact && (
-                <div className="mt-2 rounded-md border border-red-300 bg-red-100 px-2 py-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="danger" size="sm">🚫 Ne pas contacter</Badge>
-                    <span className="text-[10.5px] text-red-900 font-medium">
-                      {lead.doNotContactReason === "auto_imap_unsub"
-                        ? "Désabonnement détecté"
-                        : lead.doNotContactReason === "auto_imap_stop"
-                        ? "Réponse 'stop' détectée"
-                        : lead.doNotContactReason === "auto_imap_remove"
-                        ? "Demande de suppression"
-                        : `Opt-out (${lead.doNotContactReason ?? "manual"})`}
-                    </span>
+              {/* RGPD opt-out badge — fix B5 (11/05/2026) : tous les motifs
+                  doNotContact sont désormais lisibles côté Fred. */}
+              {lead.doNotContact && (() => {
+                const reason = lead.doNotContactReason ?? "manual";
+                let shortLabel: string;
+                let detailHint: string;
+                if (reason === "auto_imap_unsub") {
+                  shortLabel = "Désabonnement détecté";
+                  detailHint = "L'IMAP a capté un opt-out sur l'email du lead.";
+                } else if (reason === "auto_imap_stop") {
+                  shortLabel = "Réponse 'stop' détectée";
+                  detailHint = "L'IMAP a capté une réponse STOP.";
+                } else if (reason === "auto_imap_remove") {
+                  shortLabel = "Demande de suppression";
+                  detailHint = "Le lead a explicitement demandé le retrait.";
+                } else if (reason.startsWith("email_domain_mismatch")) {
+                  shortLabel = "Email d'un ancien employeur";
+                  detailHint = "Le domaine de l'email ne matche pas la société cible (probable ex-employeur).";
+                } else if (reason.startsWith("AUDITOR")) {
+                  shortLabel = "Bloqué par audit qualité";
+                  detailHint = "Auditor a détecté un risque (brief désynchro, placeholder, etc.). Voir détails.";
+                } else if (reason.startsWith("Débloqué")) {
+                  shortLabel = "Recently unblocked";
+                  detailHint = "Lead récemment débloqué après fix code. Voir détails.";
+                } else if (reason === "manual") {
+                  shortLabel = "Opt-out manuel";
+                  detailHint = "Action humaine via l'UI ou SQL direct.";
+                } else {
+                  shortLabel = reason.length > 50
+                    ? `${reason.slice(0, 47)}…`
+                    : reason;
+                  detailHint = "Voir détails complets en tooltip.";
+                }
+                return (
+                  <div className="mt-2 rounded-md border border-red-300 bg-red-100 px-2 py-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="danger" size="sm">🚫 Ne pas contacter</Badge>
+                      <span
+                        className="text-[10.5px] text-red-900 font-medium"
+                        title={reason}
+                      >
+                        {shortLabel}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-red-800" title={reason}>
+                      {detailHint}
+                    </div>
+                    {/* Détails techniques (collapsible) pour debug humain */}
+                    {reason !== shortLabel && (
+                      <details className="mt-1 text-[10px] text-red-700">
+                        <summary className="cursor-pointer hover:text-red-900">
+                          Voir motif technique
+                        </summary>
+                        <code className="mt-1 block break-all bg-red-50 p-1 rounded text-[9.5px] font-mono">
+                          {reason}
+                        </code>
+                      </details>
+                    )}
                   </div>
-                  <div className="mt-0.5 text-[10px] text-red-800">
-                    Lead exclu de tous les bulk-send-email (RGPD).
-                  </div>
-                </div>
-              )}
+                );
+              })()}
               {/* Bounce alert (Resend a remonté un bounce — l'email a été marqué) */}
               {lead.bouncedAt && lead.bouncedFromEmail && (
                 <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5">

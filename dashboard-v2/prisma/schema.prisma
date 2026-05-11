@@ -297,6 +297,13 @@ model Lead {
   lastName                  String?
   fullName                  String?
   jobTitle                  String?
+  // Fix B4 (11/05/2026) — Chemin de holding séparé du jobTitle.
+  // Quand l'enrichissement Pappers récursif remonte via une holding pour
+  // trouver le dirigeant (cas AMALTH par exemple), le chemin est stocké
+  // ici sous forme "HOLDING-A → HOLDING-B" plutôt que d'être interpolé
+  // dans jobTitle "(via HOLDING-A → HOLDING-B)". Lecture UI plus propre,
+  // jobTitle reste lisible pour copier-coller dans un brief commercial.
+  holdingPath               String?
   linkedinUrl               String?
   // Contact
   email                     String?

@@ -342,11 +342,17 @@ export async function enrichDirigeantsForClient(
 
       const { firstName, lastName, full } = splitFullName(best.nom_complet);
       const personaLabel = matchPersonaPriority(best.qualite).label;
-      const holdingNote = best.holdingPath?.length
-        ? ` (via ${best.holdingPath.join(" → ")})`
-        : "";
+      // Fix B4 (11/05/2026) — holdingPath séparé du jobTitle.
+      // Avant : jobTitle = "CTO (via AMALTH)" — polluait copier-coller commercial.
+      // Après : jobTitle = "CTO" propre + holdingPath = "AMALTH" en metadata.
+      const holdingPathString = best.holdingPath?.length
+        ? best.holdingPath.join(" → ")
+        : null;
       const bucket = bucketByEffectif(data.tranche_effectif);
       const isLarge = bucket === "large";
+      // sizeWarning reste dans jobTitle pour visibilité immédiate UI (warning
+      // critique sur boîtes 250+p). Pas migré vers metadata car le commercial
+      // doit le voir au premier coup d'œil dans le champ jobTitle.
       const sizeWarning = isLarge ? " ⚠️ 250+p — préférer hiring manager LinkedIn" : "";
 
       // Extraction données Pappers étendues (si présentes)
@@ -431,7 +437,9 @@ export async function enrichDirigeantsForClient(
         continue;
       }
 
-      const jobTitleWithPath = personaLabel + holdingNote + sizeWarning;
+      // Fix B4 — jobTitle reste propre (sans "(via X Group)"). Le holdingPath
+      // est stocké dans son propre champ Lead.holdingPath pour rendu UI séparé.
+      const jobTitleClean = personaLabel + sizeWarning;
       // personaSource pour traçabilité : pappers-holding-fallback si récursion
       // a été utilisée, sinon pappers-rcs niveau 1.
       // personaTier : 1 si CTO/Head Tech, 2 si CEO/Founder, 3 si autre.
@@ -446,7 +454,8 @@ export async function enrichDirigeantsForClient(
         firstName,
         lastName,
         fullName: full,
-        jobTitle: jobTitleWithPath,
+        jobTitle: jobTitleClean,
+        holdingPath: holdingPathString,
         personaTier: isHoldingPath ? Math.min(4, tierFromQualite + 2) : tierFromQualite,
         personaSource: isHoldingPath ? "pappers-holding-fallback" : "pappers-rcs",
         // Sprint Perfection P1 (08/05) — pose enrichedAt à chaque persistance

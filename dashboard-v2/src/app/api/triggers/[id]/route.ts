@@ -62,6 +62,7 @@ export async function GET(
       firstName: true,
       lastName: true,
       jobTitle: true,
+      holdingPath: true,
       linkedinUrl: true,
       email: true,
       emailStatus: true,
