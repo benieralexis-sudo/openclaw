@@ -42,12 +42,11 @@ await runAgent({
     'mcp__ifind__query_postgres',
     'mcp__ifind__send_telegram_alert',
     'mcp__ifind__get_system_snapshot',
-    // Note Phase 2 : ajouter ici les 5 nouveaux MCP tools quand codés :
-    //   'mcp__ifind__get_api_quotas',
-    //   'mcp__ifind__check_external_endpoint',
-    //   'mcp__ifind__check_brief_persona_sync',
-    //   'mcp__ifind__get_cost_report',
-    //   'mcp__ifind__deep_dive_lead',
+    // Phase 2 (11/05/2026) — 4 nouveaux MCP tools dédiés Auditor
+    'mcp__ifind__get_cost_report',
+    'mcp__ifind__check_external_endpoint',
+    'mcp__ifind__check_brief_persona_sync',
+    'mcp__ifind__deep_dive_lead',
   ],
   mcpServer: buildIfindMcpServer(),
   hooks: buildHooks(),

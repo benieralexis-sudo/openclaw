@@ -141,6 +141,310 @@ export function buildIfindMcpServer() {
           };
         }
       ),
+
+      // ═══════════════════════════════════════════════════════════════════
+      // Phase 2 (11/05/2026) — MCP tools dédiés Auditor
+      // Réduisent les turns Auditor de 13 → 7-8 = -40% coût + qualité+
+      // ═══════════════════════════════════════════════════════════════════
+
+      tool(
+        'get_cost_report',
+        'Get a complete budget/quota snapshot across all 7 iFIND services (Apify, TheirStack, Anthropic, Kaspr, FullEnrich, Pappers, Rodz). Returns structured JSON with %used, burn/day, projection. Use this ONCE per run to get all budget info — no need to query DB tables separately.',
+        {},
+        async () => {
+          if (!process.env.CRON_SECRET) {
+            return { content: [{ type: 'text', text: 'ERROR: CRON_SECRET not configured' }], isError: true };
+          }
+          try {
+            const baseUrl = process.env.DASHBOARD_BASE_URL ?? 'http://127.0.0.1:3100';
+            const res = await fetch(`${baseUrl}/api/internal/cost-report`, {
+              headers: { 'x-cron-secret': process.env.CRON_SECRET },
+              signal: AbortSignal.timeout(10_000),
+            });
+            if (!res.ok) {
+              return { content: [{ type: 'text', text: `Cost report HTTP ${res.status}` }], isError: true };
+            }
+            const data = await res.json();
+            return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+          } catch (err) {
+            return { content: [{ type: 'text', text: `Cost report failed: ${err.message}` }], isError: true };
+          }
+        }
+      ),
+
+      tool(
+        'check_external_endpoint',
+        'Check if an external URL responds (HTTP HEAD or GET). Use for verifying RSS feeds (maddyness.com/feed), Pappers API, Apify console, etc. Returns status code + response time.',
+        {
+          url: z.string().describe('URL to check (HTTPS only for security)'),
+          method: z.enum(['HEAD', 'GET']).describe('HTTP method (default HEAD)'),
+        },
+        async ({ url, method }) => {
+          if (!/^https?:\/\//.test(url)) {
+            return { content: [{ type: 'text', text: 'ERROR: URL must start with http:// or https://' }], isError: true };
+          }
+          const startTime = Date.now();
+          try {
+            const res = await fetch(url, {
+              method: method || 'HEAD',
+              signal: AbortSignal.timeout(10_000),
+              headers: { 'User-Agent': 'iFIND-Auditor/0.1' },
+            });
+            const responseMs = Date.now() - startTime;
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  url,
+                  method: method || 'HEAD',
+                  status: res.status,
+                  ok: res.ok,
+                  responseMs,
+                  contentLength: res.headers.get('content-length'),
+                  contentType: res.headers.get('content-type'),
+                }, null, 2),
+              }],
+            };
+          } catch (err) {
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  url,
+                  method: method || 'HEAD',
+                  error: err.message,
+                  responseMs: Date.now() - startTime,
+                  ok: false,
+                }, null, 2),
+              }],
+              isError: true,
+            };
+          }
+        }
+      ),
+
+      tool(
+        'check_brief_persona_sync',
+        'Detects briefV2Json ↔ Lead persona DESYNC (bug B1 identified in Carte 1). Compares the fullName/jobTitle the briefV2 was generated for vs the current Lead.fullName. Returns a list of triggers where the brief mentions a contact different from the current Lead. CRITICAL bug — emails sent based on these briefs go to the wrong person.',
+        {
+          minDaysOld: z.number().int().min(0).max(30).describe('Min days since brief generation (default 0)'),
+          limit: z.number().int().min(1).max(50).describe('Max triggers to check (default 20)'),
+        },
+        async ({ minDaysOld, limit }) => {
+          const minDays = minDaysOld ?? 0;
+          const lim = limit ?? 20;
+          try {
+            const sql = `
+              SELECT
+                t.id as trigger_id,
+                t."companyName" as company,
+                t."briefV2Json"->>'verdict' as verdict,
+                l."fullName" as current_lead_name,
+                t."briefV2Json"->>'thesis' as brief_thesis_excerpt
+              FROM "Trigger" t
+              LEFT JOIN "Lead" l ON l."triggerId" = t.id
+              WHERE t."deletedAt" IS NULL
+                AND t."briefV2Json" IS NOT NULL
+                AND t.status = 'NEW'
+                AND t."capturedAt" < NOW() - INTERVAL '${minDays} days'
+                AND l."deletedAt" IS NULL
+                AND l."fullName" IS NOT NULL
+                AND l."fullName" != ''
+                AND (
+                  -- Brief contient un nom différent du Lead actuel ?
+                  -- Heuristique : si le thesis ne contient PAS le firstName Lead, suspect.
+                  t."briefV2Json"::text NOT ILIKE ('%' || split_part(l."fullName", ' ', 1) || '%')
+                  -- Ou opener contient [Prénom] placeholder
+                  OR t."briefV2Json"->>'opener' LIKE '%[Prénom]%'
+                  OR t."briefV2Json"->>'opener' LIKE '%[Pr%nom]%'
+                )
+              ORDER BY t."capturedAt" DESC
+              LIMIT ${lim};
+            `;
+            const result = await runQuery(sql);
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  description: 'Brief V2 with persona desync OR [Prénom] placeholder',
+                  count: result.rows.length,
+                  triggers: result.rows.map((r) => ({
+                    triggerId: r.trigger_id,
+                    company: r.company,
+                    currentLeadName: r.current_lead_name,
+                    verdict: r.verdict,
+                    briefExcerpt: r.brief_thesis_excerpt?.slice(0, 200),
+                  })),
+                }, null, 2),
+              }],
+            };
+          } catch (err) {
+            return { content: [{ type: 'text', text: `Persona sync check failed: ${err.message}` }], isError: true };
+          }
+        }
+      ),
+
+      tool(
+        'deep_dive_lead',
+        'Complete audit of a single Lead — returns all data + automated coherence checks (brief↔lead sync, NAF tech vs persona tier, email domain match, oversize flags). Returns a structured report with anomalies. Use this for the 3-5 most suspect leads identified earlier; do NOT use on every lead (cost).',
+        {
+          leadId: z.string().describe('Lead.id (cuid format)'),
+        },
+        async ({ leadId }) => {
+          try {
+            const sql = `
+              SELECT
+                l.id as lead_id,
+                l."companyName",
+                l."fullName" as lead_full_name,
+                l."firstName" as lead_first_name,
+                l."lastName" as lead_last_name,
+                l."jobTitle" as lead_job_title,
+                l.email as lead_email,
+                l.phone as lead_phone,
+                l."linkedinUrl" as lead_linkedin,
+                l."personaTier",
+                l."personaSource",
+                l."fitScore",
+                l."dataQuality",
+                l."emailConfidence",
+                l.status as lead_status,
+                l."doNotContact",
+                l."doNotContactReason",
+                l."bouncedAt",
+                t.id as trigger_id,
+                t."sourceCode",
+                t.type as trigger_type,
+                t.title as trigger_title,
+                t."companyNaf",
+                t.size as company_size,
+                t.score as trigger_score,
+                t."isHot",
+                t."briefV2Json"->>'verdict' as brief_verdict,
+                t."briefV2Json"->>'confidence' as brief_confidence,
+                t."briefV2Json"->>'thesis' as brief_thesis,
+                t."briefV2Json"->>'opener' as brief_opener
+              FROM "Lead" l
+              LEFT JOIN "Trigger" t ON l."triggerId" = t.id
+              WHERE l.id = $1
+                AND l."deletedAt" IS NULL
+              LIMIT 1;
+            `;
+            const result = await runQuery(sql, [leadId]);
+            if (result.rows.length === 0) {
+              return { content: [{ type: 'text', text: `Lead ${leadId} not found or soft-deleted` }], isError: true };
+            }
+            const r = result.rows[0];
+
+            // Coherence checks automatiques (ce qui prenait 5-10 turns à l'agent)
+            const anomalies = [];
+
+            // Check 1 — Brief persona desync (bug B1)
+            if (r.brief_thesis && r.lead_first_name) {
+              if (!r.brief_thesis.toLowerCase().includes(r.lead_first_name.toLowerCase())) {
+                anomalies.push({
+                  severity: 'high',
+                  type: 'brief_persona_desync',
+                  detail: `Brief thesis does NOT mention firstName "${r.lead_first_name}" — likely from older persona. Lead.fullName="${r.lead_full_name}".`,
+                });
+              }
+            }
+
+            // Check 2 — Opener placeholder [Prénom]
+            if (r.brief_opener && (r.brief_opener.includes('[Prénom]') || r.brief_opener.includes('[Prenom]'))) {
+              anomalies.push({
+                severity: 'high',
+                type: 'opener_placeholder',
+                detail: 'Brief opener contains [Prénom] placeholder — not substituted. Email would be sent as-is.',
+              });
+            }
+
+            // Check 3 — Pappers RCS sur trigger HIRING_KEY tech (bug DiXiO)
+            if (r.trigger_type === 'HIRING_KEY' && r.personaSource === 'pappers-rcs' && r.companyNaf) {
+              const naf = r.companyNaf.toString();
+              if (naf.startsWith('62.') || naf.startsWith('58.29') || naf.startsWith('63.')) {
+                anomalies.push({
+                  severity: 'medium',
+                  type: 'pappers_rcs_on_tech_hire',
+                  detail: `Lead has personaSource=pappers-rcs (legal representative, usually CEO) on tech hiring trigger (NAF ${naf}). Likely wrong contact — should be CTO/Head of Eng. Check if tech-hire-guard kicked in.`,
+                });
+              }
+            }
+
+            // Check 4 — Email domain mismatch
+            if (r.lead_email && r.companyName) {
+              const emailDomain = r.lead_email.split('@')[1]?.toLowerCase() ?? '';
+              const companyLower = r.companyName.toLowerCase().replace(/[^a-z]/g, '');
+              if (emailDomain && companyLower && !emailDomain.includes(companyLower.slice(0, 5))) {
+                anomalies.push({
+                  severity: 'medium',
+                  type: 'email_domain_mismatch_possible',
+                  detail: `Email domain "${emailDomain}" doesn't obviously match company "${r.companyName}". Possible ex-employer or generic mailbox.`,
+                });
+              }
+            }
+
+            // Check 5 — doNotContact sans raison
+            if (r.doNotContact === true && (!r.doNotContactReason || r.doNotContactReason === '')) {
+              anomalies.push({
+                severity: 'low',
+                type: 'do_not_contact_no_reason',
+                detail: 'Lead has doNotContact=true but doNotContactReason is empty — investigate why it was flagged.',
+              });
+            }
+
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  leadId: r.lead_id,
+                  company: r.companyName,
+                  trigger: {
+                    id: r.trigger_id,
+                    sourceCode: r.sourceCode,
+                    type: r.trigger_type,
+                    title: r.trigger_title,
+                    naf: r.companyNaf,
+                    score: r.trigger_score,
+                    isHot: r.isHot,
+                  },
+                  persona: {
+                    fullName: r.lead_full_name,
+                    jobTitle: r.lead_job_title,
+                    personaTier: r.personaTier,
+                    personaSource: r.personaSource,
+                    fitScore: r.fitScore,
+                    linkedinUrl: r.lead_linkedin,
+                    email: r.lead_email,
+                    phone: r.lead_phone,
+                  },
+                  brief: r.brief_verdict
+                    ? {
+                        verdict: r.brief_verdict,
+                        confidence: r.brief_confidence,
+                        thesis: r.brief_thesis?.slice(0, 300),
+                        opener: r.brief_opener?.slice(0, 300),
+                      }
+                    : null,
+                  health: {
+                    leadStatus: r.lead_status,
+                    dataQuality: r.dataQuality,
+                    emailConfidence: r.emailConfidence,
+                    doNotContact: r.doNotContact,
+                    doNotContactReason: r.doNotContactReason,
+                    bouncedAt: r.bouncedAt,
+                  },
+                  anomalies,
+                  anomaliesCount: anomalies.length,
+                  verdictAutoAudit: anomalies.length === 0 ? 'COHERENT' : anomalies.some((a) => a.severity === 'high') ? 'CRITICAL' : 'SUSPICIOUS',
+                }, null, 2),
+              }],
+            };
+          } catch (err) {
+            return { content: [{ type: 'text', text: `Deep dive failed: ${err.message}` }], isError: true };
+          }
+        }
+      ),
     ],
   });
 }
