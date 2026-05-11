@@ -13,10 +13,38 @@ function required(name) {
   return v;
 }
 
+function intEnv(name, fallback) {
+  const v = process.env[name];
+  if (!v) return fallback;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * DRY_RUN flag — détecte si N'IMPORTE quel agent est en dry-run.
+ * Accepte DOCTOR_DRY_RUN, AUDITOR_DRY_RUN, ..., AGENT_DRY_RUN.
+ * Chaque agent peut surcharger via sa propre var (rétro-compat Doctor).
+ */
+function isDryRun() {
+  return (
+    process.env.AGENT_DRY_RUN === '1' ||
+    process.env.DOCTOR_DRY_RUN === '1' ||
+    process.env.AUDITOR_DRY_RUN === '1' ||
+    process.env.WATCHDOG_DRY_RUN === '1' ||
+    process.env.VALIDATOR_DRY_RUN === '1'
+  );
+}
+
 export const ENV = {
   ANTHROPIC_API_KEY: required('ANTHROPIC_API_KEY'),
   TELEGRAM_BOT_TOKEN: required('TELEGRAM_BOT_TOKEN'),
   TELEGRAM_CHAT_ID: required('ADMIN_CHAT_ID'),
   DATABASE_URL: required('DATABASE_URL'),
-  DRY_RUN: process.env.DOCTOR_DRY_RUN === '1',
+  DRY_RUN: isDryRun(),
+  // Doctrine Anthropic agents — timeout paramétrable par agent.
+  // Default 8 min pour Doctor (run léger). Auditor surchargera à 15-20 min
+  // (deep dives multi-source plus longs). Optim 2 (11/05/2026).
+  AGENT_TIMEOUT_MS: intEnv('AGENT_TIMEOUT_MS', 8 * 60 * 1000),
+  // Rate limit SQL queries per run (warn si dépassé). Optim 4 (11/05/2026).
+  AGENT_MAX_SQL_QUERIES_PER_RUN: intEnv('AGENT_MAX_SQL_QUERIES_PER_RUN', 15),
 };

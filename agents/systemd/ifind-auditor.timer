@@ -1,0 +1,14 @@
+[Unit]
+Description=Run iFIND Auditor every 4 hours
+Requires=ifind-auditor.service
+
+[Timer]
+# Fréquence 4h (vs Doctor 1h) — Auditor fait des deep dives plus coûteux.
+# Cron pattern : 02h, 06h, 10h, 14h, 18h, 22h UTC.
+OnCalendar=*-*-* 02,06,10,14,18,22:00:00
+AccuracySec=2min
+Persistent=true
+RandomizedDelaySec=60s
+
+[Install]
+WantedBy=timers.target

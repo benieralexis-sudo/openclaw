@@ -1,10 +1,13 @@
 [Unit]
-Description=Run iFIND Doctor every 30 minutes
+Description=Run iFIND Doctor every hour
 Requires=ifind-doctor.service
 
 [Timer]
-# Fire every 30 minutes on absolute clock (00, 30) — predictable
-OnCalendar=*:0/30
+# Fire every hour on absolute clock (XX:00) — predictable.
+# Reduced from 30min to 1h after doctrine review (11/05/2026) :
+# - 30min × 48 runs/jour était trop agressif (~$14/jour estimé sans cache)
+# - 1h = 24 runs/jour, suffisant pour détecter pannes ; ~$0.30/jour avec cache
+OnCalendar=hourly
 AccuracySec=1min
 Persistent=true
 RandomizedDelaySec=30s

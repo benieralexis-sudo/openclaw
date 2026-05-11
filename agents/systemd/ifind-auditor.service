@@ -1,0 +1,26 @@
+[Unit]
+Description=iFIND Auditor — QA Lead virtuel (qualité leads + contacts + briefs)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/moltbot/agents
+ExecStart=/usr/bin/node /opt/moltbot/agents/auditor/auditor.mjs
+StandardOutput=append:/var/log/ifind-agents/auditor.log
+StandardError=append:/var/log/ifind-agents/auditor.log
+TimeoutStartSec=1500
+Restart=on-failure
+RestartSec=300
+StartLimitInterval=3600
+StartLimitBurst=3
+
+# Purge des variables Claude Code parentes (héritage cas dev local).
+# En prod systemd ces vars n'existent pas mais on les purge par défense.
+UnsetEnvironment=CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_EXECPATH CLAUDE_EFFORT CLAUDE_AGENT_SDK_PARENT
+
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/root
+
+[Install]
+WantedBy=multi-user.target

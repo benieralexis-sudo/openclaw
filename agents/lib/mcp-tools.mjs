@@ -2,6 +2,7 @@ import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { runQuery } from './postgres.mjs';
 import { sendTelegramMessage } from './telegram.mjs';
+import { ENV } from './env.mjs';
 
 const QUERY_TIMEOUT_MS = 15_000;
 const MAX_ROWS = 50;
@@ -9,7 +10,15 @@ const MAX_ROWS = 50;
 const READ_ONLY_REGEX = /^\s*(SELECT|WITH|EXPLAIN|SHOW)\b/i;
 const FORBIDDEN_REGEX = /\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE)\b/i;
 
+// Optim 4 (11/05/2026) — Rate limit SQL queries per run.
+// Compteur in-memory réinitialisé à chaque buildIfindMcpServer() call (= 1 par run agent).
+// Au-delà du seuil, warn dans logs + retour explicite à l'agent pour qu'il ralentisse.
+// Au-delà de 2× le seuil, hard-fail (anti scan abusive).
+
 export function buildIfindMcpServer() {
+  let sqlQueryCount = 0;
+  const sqlMaxSoft = ENV.AGENT_MAX_SQL_QUERIES_PER_RUN;
+  const sqlMaxHard = sqlMaxSoft * 2;
   return createSdkMcpServer({
     name: 'ifind',
     version: '0.1.0',
@@ -33,6 +42,20 @@ export function buildIfindMcpServer() {
               content: [{ type: 'text', text: 'ERROR: Mutation keywords detected. Read-only queries only.' }],
               isError: true,
             };
+          }
+          // Optim 4 — Rate limit per run.
+          sqlQueryCount += 1;
+          if (sqlQueryCount > sqlMaxHard) {
+            return {
+              content: [{
+                type: 'text',
+                text: `ERROR: SQL rate limit hit (${sqlQueryCount}/${sqlMaxHard} hard cap). Stop querying and write your final Telegram report now.`,
+              }],
+              isError: true,
+            };
+          }
+          if (sqlQueryCount > sqlMaxSoft) {
+            console.warn(`[mcp-tools.rate-limit] SQL query ${sqlQueryCount} > soft cap ${sqlMaxSoft} — agent should wrap up.`);
           }
           try {
             const queryPromise = runQuery(sql);
