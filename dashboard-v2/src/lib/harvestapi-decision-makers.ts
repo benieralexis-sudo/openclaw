@@ -217,6 +217,15 @@ export async function findDecisionMakerByCompany(args: {
   bypassCache?: boolean;
   /** Plafond de profils à scanner (mode Full, $0.004/profile). Default 12. */
   maxItems?: number;
+  /**
+   * Mode strict (audit DiXiO 11/05/2026) : refuse le fallback RULES_DEFAULT
+   * (CEO/Président tier 3) pour les signal types tech-orientés. Si on cherche
+   * un Head of QA ou un CTO et qu'on ne trouve qu'un CEO, retourner null
+   * (= pas de contact, flag manuel) est meilleur que pousser un CEO non-tech
+   * comme "décideur du recrutement Dev/QA". Activé auto pour qa-hire/tech-hire
+   * si non spécifié.
+   */
+  strict?: boolean;
 }): Promise<ResolvedDecisionMaker | null> {
   const companyName = args.companyName?.trim();
   if (!companyName) return null;
@@ -288,10 +297,32 @@ export async function findDecisionMakerByCompany(args: {
       return b.confidence - a.confidence;
     });
 
+  // Mode strict (audit DiXiO 11/05/2026) : pour signalType qa-hire/tech-hire,
+  // refuser le fallback RULES_DEFAULT qui retombe sur CEO/Président tier 3.
+  // Un CEO sur un signal QA-hire = mauvaise personne (Salvia Développement
+  // 100-199p, Groupe Yoni DG). Mieux vaut retourner null → Lead reste sans
+  // contact → flag manuel pour le commercial.
+  const strict = args.strict ?? (signalType === "qa-hire" || signalType === "tech-hire");
+
+  // Mode strict : on filtre aussi les tier 3 (CEO/Président) qui auraient
+  // matché les rules dédiées au signal mais qui sont en réalité un fallback
+  // implicite (ex: RULES_QA_HIRE liste CEO en tier 3 si pas de Head of QA).
+  if (strict && signalType !== "fundraising") {
+    const tier12 = scored.filter((s) => s.tier <= 2);
+    if (tier12.length > 0) {
+      scored = tier12;
+    } else if (scored.length > 0) {
+      console.log(
+        `[harvestapi-dm.strict] "${companyName}" (${signalType}) — seulement tier ${scored[0]?.tier} (${scored[0]?.category}) trouvé, REJET strict (pas de CEO/Président sur signal tech). Lead → flag manuel.`,
+      );
+      scored = [];
+    }
+  }
+
   // Fallback : si 0 match avec les rules dédiées au signal, on tente RULES_DEFAULT
   // (CTO/CEO/Founder/Director). Mieux vaut un CEO Tier 3 qu'un null total —
-  // le commercial peut au moins amorcer le contact via le décideur final.
-  if (scored.length === 0) {
+  // SAUF en mode strict (qa-hire / tech-hire) où on préfère null à un CEO.
+  if (scored.length === 0 && !strict) {
     const fallbackScored = items
       .map((p) => scoreProfile(p, RULES_DEFAULT, usedVariant))
       .filter((s): s is NonNullable<typeof s> => s !== null)

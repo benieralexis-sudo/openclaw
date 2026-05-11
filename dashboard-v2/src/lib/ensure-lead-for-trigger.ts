@@ -48,6 +48,9 @@ export async function ensureLeadsForAllTriggers(
       id: true,
       companyName: true,
       companySiret: true,
+      companyNaf: true,
+      title: true,
+      type: true,
       score: true,
       rawPayload: true,
       lead: { select: { id: true } },
@@ -62,7 +65,23 @@ export async function ensureLeadsForAllTriggers(
     // Hydrate Lead.linkedinUrl + nom + titre si l'annonce contenait le poster
     // (Apify LinkedIn jobs / WTTJ recruiter / TheirStack decision_makers).
     // Sinon Pappers prendra le relais sur les pipelines downstream.
-    const poster = extractPosterFromPayload(t.rawPayload);
+    let poster = extractPosterFromPayload(t.rawPayload);
+
+    // Bug Training Orchestra (audit 11/05/2026) — Sur un trigger HIRING_KEY
+    // tech, si le poster Apify de l'annonce est CEO/Président/DG/Communication
+    // ou un rôle non-tech, on REFUSE de le poser comme contact. Le LinkedIn
+    // jobs poster est souvent le CEO d'une PME qui partage son réseau pour
+    // recruter, mais ce n'est pas le décideur QA. Laisser HarvestAPI chercher
+    // un CTO/Head of Eng à la place. Cas observé : Laetitia Nourry CEO
+    // Training Orchestra postée comme contact QA Engineer.
+    if (poster?.title && isTechHiringTrigger(t.type, t.companyNaf, t.title)) {
+      if (!isTechPersonaTitle(poster.title)) {
+        console.log(
+          `[ensure-lead.poster-filter] ${t.companyName}: poster Apify "${poster.title}" non-tech sur trigger HIRING_KEY tech "${t.title}" → SKIP, on laisse HarvestAPI chercher un CTO/Head Eng.`,
+        );
+        poster = null;
+      }
+    }
 
     // Bug B14 fix (Session 3, 10/05/2026) — Avant : try/catch swallow sur
     // unique constraint (clientId, companySiret). Si 2 triggers même client
@@ -201,6 +220,51 @@ function splitNameLocal(full: string | undefined): { firstName?: string; lastNam
 
 const TECH_TITLE_RE =
   /(cto|chief tech|head of (engineering|tech|qa|test|product)|engineering manager|tech lead|vp engineering|vp tech|directeur technique|responsable technique|founder|fondateur|ceo|chief executive|directeur général|président|gérant)/i;
+
+// Bug Training Orchestra (11/05/2026) — Détermine si un trigger HIRING_KEY
+// porte sur un recrutement tech (NAF tech OU mots-clés du titre offrent un
+// indice). Si oui, on doit exiger un contact tech (CTO/Head Eng/Tech Lead,
+// pas CEO/Communication/RH/Sales).
+const TECH_NAF_RE = /^(62\.|58\.29|63\.)/;
+const TECH_TITLE_KEYWORDS_RE =
+  /\b(dev|développe|engineer|ingénieur|qa|test|backend|frontend|fullstack|devops|sre|data|cto|tech|lead|architect|ml|ai|software|cloud|sécurité|security)/i;
+
+export function isTechHiringTrigger(
+  type: string | null | undefined,
+  companyNaf: string | null | undefined,
+  title: string | null | undefined,
+): boolean {
+  if (type !== "HIRING_KEY") return false;
+  const nafTech = companyNaf ? TECH_NAF_RE.test(companyNaf) : false;
+  const titleTech = title ? TECH_TITLE_KEYWORDS_RE.test(title) : false;
+  return nafTech || titleTech;
+}
+
+// Bug Training Orchestra (11/05/2026) — Définit si un titre de poste est
+// "tech leader" (= décideur légitime sur un recrutement tech). On accepte
+// CTO, Head of Engineering/QA/Tech, Tech Lead, VP Eng, Engineering Manager,
+// Co-founder/Founder (en PME ils décident souvent du recrutement tech).
+// On REFUSE : CEO/Président/DG/Gérant seul, Communication/Marketing/Sales/RH,
+// Commercial, Finance, COO (sauf si combo "CTO & COO" qui matche déjà CTO).
+const TECH_PERSONA_RE =
+  /\b(cto|chief tech|head of (engineering|tech|qa|test|product|development)|vp (engineering|tech|product)|engineering manager|tech lead|tech manager|software development manager|dev manager|directeur technique|responsable technique|architecte|dsi|cio|chief information officer|directeur (des )?systèmes? d|head of qa|qa manager|qa director|qa lead|test manager|directeur (de la |des )?qualité|founder|fondateur|co.?founder|cofondateur)\b/i;
+const NON_TECH_PERSONA_RE =
+  /\b(communication|marketing|sales|commercial|business development|business developer|hr|rh|ressources humaines|talent|recruitment|recruiter|finance|cfo|chief financial|legal|juridique|operations|coo(?! &|\s*&)|chief operating)\b/i;
+
+export function isTechPersonaTitle(title: string | undefined | null): boolean {
+  if (!title) return false;
+  // CTO/Head Eng/Founder etc. = OK même si combo avec autre chose
+  if (TECH_PERSONA_RE.test(title)) return true;
+  // CEO/Président/DG seul → non-tech (sauf si combo avec CTO matché ci-dessus)
+  if (/\b(ceo|chief executive|directeur général|président|pr[eé]sident|gérant|managing director)\b/i.test(title)) {
+    return false;
+  }
+  // Communication/Sales/HR/Marketing = non-tech
+  if (NON_TECH_PERSONA_RE.test(title)) return false;
+  // Par défaut : on ne sait pas → accepte (évite faux négatifs sur titres
+  // exotiques type "Lead Architecte", "Staff Engineer" déjà couverts plus haut)
+  return true;
+}
 
 function pickTechDecisionMaker(dms: unknown[]): Record<string, unknown> | null {
   // Prio 1 : titre tech matché
