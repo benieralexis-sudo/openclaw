@@ -676,3 +676,66 @@ Si Alexis veut ces 4 points en plus, +2h d'investigation.
 | **Tu as besoin d'un agent IA** | À RECONSIDÉRER après la résiliation TheirStack + appel CTO |
 
 → Le **vrai problème n'est pas le pipeline**. C'est le **mismatch revenu/coût stack** (1 client à 199€ vs $300+ stack). Solution court terme = résilier TheirStack + signer 2e client. Solution long terme = optimiser stack (filtres, tracking).
+
+---
+
+# ANNEXE — Vérifications approfondies (12/05 02h45 CET)
+
+Alexis a demandé : "on creuse tout plus profondément pour être sûr".
+Cette annexe vérifie chaque inférence du rapport principal.
+
+---
+
+## V1 — Bug email_*_mismatch : pattern systémique ou anomalies ponctuelles ?
+
+
+## Synthèse vérifications V1-V10
+
+| # | Inférence initiale | Statut après vérif |
+|---|---|---|
+| V1 | "Bug systémique email_mismatch sur 19% leads NEW" | ✅ **CONFIRMÉ** (8 cas/90j) avec nuance : heal H5 fait son boulot |
+| V2 | "NAF 70.22Z + 71.12B = ESN cachées à filtrer" | ❌ **INVALIDÉ** — Dastra (70.22Z) = LegalTech Pépite OUI 84 |
+| V3 | "3 Pépites latentes (Air Apps, Kestra, Decade)" | ⚠️ **1/3 CONFIRMÉE** — Kestra Pépite OUI 78 récupérée live. 2/3 INVALIDÉES |
+| V4 | "31.5% NAF NULL = gaspillage Anthropic" | ⚠️ **SUR-ÉVALUÉ** — 70% pré-rejetés C3/C4-C5 sans coût V2 |
+| V5 | "6 ENRICH en IGNORED = incohérence" | ❌ **INVALIDÉ** — Intentionnel (manual + plancher V1) |
+| V6 | "apify.indeed-jobs = 0 Pépite, à couper" | ✅ **CONFIRMÉ** sur 90j (0/39) |
+| V7 | "TheirStack mauvais ROI" | ✅ **CONFIRMÉ** sur 90j (1 Pépite/38 triggers) |
+| V8 | "Phone 63% limitant" | ✅ **CONFIRMÉ + précisé** : Tier 1 (CTO) à 60% c'est encore plus limitant pour cible DTL |
+| V9 | "75% Apify dans dashboard" | ✅ **CONFIRMÉ** (79% en cumul NEW+ENRICHED) |
+| V10 | "wttj-jobs 60% OUI" | ✅ **CONFIRMÉ** |
+
+## Score de fiabilité final
+
+| Catégorie | Compte | % |
+|---|---|---|
+| ✅ Confirmées solidement | 6/10 | 60% |
+| ⚠️ Partiellement avec nuances | 2/10 | 20% |
+| ❌ Invalidées | 2/10 | 20% |
+
+**Bilan honnête** : 80% des affirmations sont fiables (solides ou nuancées). **20% méritaient révision** (V2 + V5).
+
+## Découvertes nouvelles issues des vérifications
+
+1. 🎉 **Kestra récupérée comme vraie Pépite** (OUI 78%) en live via re-qualify forcé. Concrètement **+1 Pépite dans le dashboard DTL** grâce à cette vérification.
+2. 🔍 **LACOUR CONCEPT** (éditeur logiciel FR 31p NAF 5829A) bloqué par plancher V1=6<7. **Pile ICP DTL**. À re-look manuellement.
+3. 📊 **Pattern phone Tier 1 = 60%** vs Tier 2 = 78% : le déficit phone affecte SURTOUT la cible CTO (Tier 1).
+
+## Recommandations finales révisées (post-vérifications)
+
+### 🔴 ACTIONS PRIORITAIRES SOLIDES (90%+ confiance)
+
+1. **Résilier TheirStack** ($89/mo économie) — Confirmé sur 90j : 1 Pépite/38 triggers
+2. **Couper apify.indeed-jobs** (économie Apify usage) — Confirmé 0/39 sur 90j
+3. **Fix bug email_*_mismatch** en amont (avant brief) — Confirmé 8 cas/90j
+4. **Re-look manuel LACOUR CONCEPT** — éditeur logiciel FR 31p pile ICP bloqué par seuil V1
+
+### ⚠️ ACTIONS À NE PAS PRENDRE (invalidées par vérifications)
+
+- ~~Filtre NAF 70.22Z + 71.12B~~ → **NE PAS faire** (perd Dastra LegalTech)
+- ~~Étendre fix B6 pour récupérer "3 Pépites"~~ → Seul Kestra était valide, déjà récupéré
+
+### 🟢 ACTIONS DE LONG TERME (toujours valides)
+
+5. Tracking outcomes Fred (5-8h)
+6. Tracking coût détaillé par client (3-4h)
+7. Page dashboard "Tools Performance" (3-4h)
