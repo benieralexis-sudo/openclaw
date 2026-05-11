@@ -1,0 +1,19 @@
+{
+  "name": "ifind-agents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "iFIND autonomous agents — 24/7 system monitoring, quality auditing, pattern hunting (Phase 1: Doctor)",
+  "scripts": {
+    "doctor": "node doctor/doctor.mjs",
+    "doctor:dry": "DOCTOR_DRY_RUN=1 node doctor/doctor.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.0",
+    "dotenv": "^16.4.5",
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

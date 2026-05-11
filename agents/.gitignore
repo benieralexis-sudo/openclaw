@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.env
+.env.local
+
+# Override repo root .gitignore (which excludes package-lock.json) — agents/ uses npm
+# because the Claude Agent SDK is npm-published. Force-track our lockfile here.
+!package-lock.json

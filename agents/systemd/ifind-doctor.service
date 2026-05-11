@@ -1,0 +1,24 @@
+[Unit]
+Description=iFIND Doctor — autonomous system health agent (Claude Sonnet 4.5)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/moltbot/agents
+ExecStart=/usr/bin/node /opt/moltbot/agents/doctor/doctor.mjs
+StandardOutput=append:/var/log/ifind-agents/doctor.log
+StandardError=append:/var/log/ifind-agents/doctor.log
+TimeoutStartSec=600
+# Explicitly clear inherited Claude Code session vars (for safety even when launched manually)
+Environment=CLAUDECODE=
+Environment=CLAUDE_CODE_SESSION_ID=
+Environment=CLAUDE_CODE_ENTRYPOINT=
+Environment=CLAUDE_CODE_EXECPATH=
+Environment=CLAUDE_EFFORT=
+# PATH must include the claude binary location
+Environment=PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/root
+
+[Install]
+WantedBy=multi-user.target

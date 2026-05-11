@@ -1,0 +1,13 @@
+[Unit]
+Description=Run iFIND Doctor every 30 minutes
+Requires=ifind-doctor.service
+
+[Timer]
+# Fire every 30 minutes on absolute clock (00, 30) — predictable
+OnCalendar=*:0/30
+AccuracySec=1min
+Persistent=true
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target
