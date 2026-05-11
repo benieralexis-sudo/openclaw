@@ -550,12 +550,17 @@ export async function qualifyTrigger(
   let verdict = v2Brief.verdict;
   let conf = v2Brief.confidence;
 
-  // Bug B12 fix (Session 3, 10/05/2026) — Si V2 dit OUI mais le NAF du
-  // trigger n'est PAS dans la whitelist ICP du client, on downgrade en
-  // ENRICH par sécurité. V2 peut surévaluer si le contexte fundraising
-  // est fort (Rodz/RSS-levees) mais NAF Pappers est obsolète/erroné
-  // (cobl 46.90Z, Audion 74.2A, Dastra 70.22Z capés à tort).
-  // L'opérateur doit valider manuellement le NAF avant outreach.
+  // Bug B12 fix (Session 3, 10/05/2026) + Fix B2 (11/05/2026 soir) — Si V2
+  // dit OUI mais le NAF du trigger n'est PAS dans la whitelist ICP du
+  // client, on downgrade en ENRICH par sécurité (filet anti faux-positif
+  // Pappers obsolète).
+  //
+  // EXCEPTION B2 : si Opus a explicitement adressé le NAF obsolète dans
+  // un risk (preuve qu'il a vu et statué OUI en connaissance de cause —
+  // typique pour AdTech/SaaS qui n'ont pas re-déclaré leur activité),
+  // on trust Opus et on skip le downgrade. Sinon Opus + B12 se neutralisent
+  // mutuellement et le verdict final n'a plus de sens (cas Audion 11/05 :
+  // briefV2Json OUI 78% mais score=6 stocké après downgrade B12).
   if (verdict === "OUI") {
     const trig = await db.trigger.findUnique({
       where: { id: triggerId },
@@ -574,11 +579,34 @@ export async function qualifyTrigger(
       triggerNaf &&
       !icpNafCodes.some((c) => triggerNaf.startsWith(c.replace(/\./g, "")))
     ) {
-      console.log(
-        `[qualify-trigger.B12] ${triggerId}: NAF ${trig?.companyNaf} hors whitelist ICP — V2 OUI ${conf}% downgrade ENRICH`,
-      );
-      verdict = "ENRICH";
-      conf = Math.min(conf, 60); // bornage : signal incertain
+      // Fix B2 — Vérifier si Opus a déjà adressé le NAF obsolète dans un risk.
+      // Pattern de détection : description du risk mentionne le code NAF lui-même
+      // OU les mots-clés "NAF" + ("obsolète"|"obsolete"|"manifestement"|"Pappers
+      // obsolète"|"pivot non re-déclaré"|"hors whitelist"|"incohérent").
+      const briefAddressedNaf = v2Brief.risks?.some((r) => {
+        const desc = (r.description ?? "").toLowerCase();
+        const mentionsNaf = desc.includes(triggerNaf.toLowerCase()) ||
+          desc.includes((trig?.companyNaf ?? "").toLowerCase()) ||
+          /\bnaf\b/.test(desc);
+        const acknowledgesObsolete =
+          /obsol[èe]te|incoh[ée]rent|pivot|non re-d[ée]clar|hors\s+whitelist|manifestement|pappers/.test(
+            desc,
+          );
+        return mentionsNaf && acknowledgesObsolete;
+      });
+
+      if (briefAddressedNaf) {
+        // Opus a vu et statué OUI en connaissance de cause → trust.
+        console.log(
+          `[qualify-trigger.B12-skip] ${triggerId}: NAF ${trig?.companyNaf} hors whitelist mais Opus a explicitement adressé l'obsolescence dans un risk — OUI maintenu ${conf}%.`,
+        );
+      } else {
+        console.log(
+          `[qualify-trigger.B12] ${triggerId}: NAF ${trig?.companyNaf} hors whitelist ICP — V2 OUI ${conf}% downgrade ENRICH (Opus n'a pas adressé l'obsolescence du NAF)`,
+        );
+        verdict = "ENRICH";
+        conf = Math.min(conf, 60); // bornage : signal incertain
+      }
     }
   }
 
@@ -841,6 +869,31 @@ Message prêt-à-coller pour le commercial (email cold OU LinkedIn DM, le commer
 - Si tu connais le prénom du décideur (champ \`Décideur identifié : <Prénom Nom>\` dans le dossier), utilise-le : \`Bonjour Eric,\`
 - Si le prénom est \`non résolu\` ou \`non encore calculée\`, écris simplement \`Bonjour,\` (sans prénom). Le commercial pourra ajouter le prénom manuellement après recherche LinkedIn.
 - Idem pour la société : utilise toujours le vrai nom de la société cible (issu de \`Entreprise : <Nom>\` ou \`companyName\`), jamais \`[Société]\`.
+
+### Cas spécial — NAF Pappers potentiellement obsolète (fix B2, 11/05/2026)
+
+Certains codes NAF sont fréquemment **obsolètes** pour des boîtes tech qui ont pivoté sans re-déclarer leur activité auprès du registre. Cas observé en prod : Audion (74.2A "photographie") = AdTech SaaS B2B IA audio publicitaire avec levée 15M USD. Le NAF n'a pas suivi le pivot business.
+
+**Liste des NAF potentiellement obsolètes pour boîtes tech** :
+- \`74.2A\` (activités photographiques)
+- \`70.22Z\` (conseil pour les affaires)
+- \`46.90Z\` (commerce de gros non spécialisé)
+- \`78.30Z\` (autre mise à disposition de personnel)
+- \`82.99Z\` (autres activités de soutien aux entreprises)
+- \`70.10Z\` (activités des sièges sociaux)
+- \`64.20Z\` (activités des sociétés holding)
+- \`68.20A/B\` (location immobilier — souvent SCI ancien)
+
+**Règle** : quand le NAF Pappers fait partie de cette liste OU n'est PAS dans la whitelist ICP du client :
+- **Si tu as ≥2 signaux forts indiquant que la boîte est tech/SaaS** :
+  * Source = \`rodz.fundraising\`, \`rss-levees\`, ou \`*-funding\`
+  * CTO/Head of Eng/VP Engineering identifié dans Décideur ou LinkedIn
+  * Mots-clés "SaaS", "platform", "AI", "software", "AdTech", "FinTech", "MarTech", "DeepTech" dans le titre/description/site web
+  * Nom de société contenant "tech", "soft", "platform", "ai", "data"
+  → **Maintenir verdict OUI** avec un \`risk\` de sévérité \`medium\` mentionnant explicitement : "NAF Pappers <code> potentiellement obsolète (boîte tech qui n'a pas re-déclaré). À confirmer côté Fred avant outreach via site web ou pitch deck."
+- **Si signaux faibles ou contradictoires** : verdict ENRICH avec \`enrichmentNeeded\` ["Vérifier activité réelle via site web", "Confirmer NAF actualisé via INPI/Bodacc récent"].
+
+Le bias par défaut = NE PAS bloquer un signal d'achat fort à cause d'un NAF possiblement obsolète. Mieux vaut un risk explicite que faire passer un OUI en ENRICH par sur-prudence.
 
 ### sources[] (≥1 — array d'objets)
 Format : \`{id: int 1-99, type: string ≤32 chars, ref: string ≤512 chars}\`. Table de référence numérotée. CHAQUE \`[src:#X]\` cité dans thesis/risks/opener DOIT correspondre à un \`id\` ici. Les ids commencent à 1 et sont contigus dans l'ordre où tu les cites. Exemples de \`type\` : "rodz.fundraising", "apify.wttj-jobs", "linkedin-profile", "company-website", "company-news", "trigger.companyName", "client-enriched", "pappers.health". Le \`ref\` est une description courte de ce que cette source dit ("Levée 8M€ Série A 2026-04-26", "Marc Dupont CTO Acme 3y in role").
