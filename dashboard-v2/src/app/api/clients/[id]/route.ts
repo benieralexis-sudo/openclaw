@@ -5,9 +5,9 @@ import { ClientPlan, ClientStatus } from "@prisma/client";
 import { requireApiSession } from "@/server/session";
 
 const PLAN_MRR_EUR: Record<string, number> = {
-  LEADS_DATA: 199,
-  FULL_SERVICE: 890,
-  CUSTOM: 0,
+  GROWTH: 390, // offre publique unique depuis 09/05/2026
+  LEADS_DATA: 199, // legacy DTL grandfathered
+  CUSTOM: 0, // deals enterprise négociés à la main
 };
 
 function canSeeClient(

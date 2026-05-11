@@ -16,7 +16,7 @@ export interface ApiClient {
   region: string | null;
   size: string | null;
   status: "PROSPECT" | "ACTIVE" | "PAUSED" | "CHURNED";
-  plan: "LEADS_DATA" | "FULL_SERVICE" | "CUSTOM";
+  plan: "GROWTH" | "LEADS_DATA" | "CUSTOM";
   activatedAt: string | null;
 }
 

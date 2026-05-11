@@ -5,9 +5,9 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 
 const PLAN_MRR_EUR: Record<string, number> = {
-  LEADS_DATA: 199,
-  FULL_SERVICE: 890,
-  CUSTOM: 0,
+  GROWTH: 390, // offre publique unique depuis 09/05/2026
+  LEADS_DATA: 199, // legacy DTL grandfathered
+  CUSTOM: 0, // deals enterprise négociés à la main
 };
 
 export async function GET(req: NextRequest) {
@@ -126,7 +126,7 @@ const CreateClientSchema = z.object({
   industry: z.string().max(100).nullable().optional(),
   region: z.string().max(100).nullable().optional(),
   size: z.string().max(20).nullable().optional(),
-  plan: z.enum(["LEADS_DATA", "FULL_SERVICE", "CUSTOM"]).default("LEADS_DATA"),
+  plan: z.enum(["GROWTH", "LEADS_DATA", "CUSTOM"]).default("GROWTH"),
   status: z.enum(["PROSPECT", "ACTIVE", "PAUSED", "CHURNED"]).default("PROSPECT"),
   contactEmail: z.string().email().nullable().optional(),
   contactPhone: z.string().max(30).nullable().optional(),

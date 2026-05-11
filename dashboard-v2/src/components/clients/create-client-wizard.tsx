@@ -32,7 +32,7 @@ interface WizardData {
   size: string;
   contactEmail: string;
   contactPhone: string;
-  plan: "LEADS_DATA" | "FULL_SERVICE" | "CUSTOM";
+  plan: "GROWTH" | "LEADS_DATA" | "CUSTOM";
   status: "PROSPECT" | "ACTIVE" | "PAUSED";
   // Step 2 (ICP de base)
   icpIndustries: string[];
@@ -280,9 +280,9 @@ export function CreateClientWizard() {
                   onChange={(e) => setData({ ...data, plan: e.target.value as WizardData["plan"] })}
                   className="w-full h-9 px-3 rounded-md border border-ink-200 bg-white text-sm"
                 >
-                  <option value="LEADS_DATA">Leads Data — 199€/mois</option>
-                  <option value="FULL_SERVICE">Full Service — 890€/mois</option>
-                  <option value="CUSTOM">Custom</option>
+                  <option value="GROWTH">Growth — 390€/mois (offre publique)</option>
+                  <option value="LEADS_DATA">Leads Data — 199€/mois (legacy)</option>
+                  <option value="CUSTOM">Custom (deal négocié)</option>
                 </select>
               </div>
               <div>

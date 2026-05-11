@@ -45,14 +45,23 @@ describe("QuotaConfig — parsing", () => {
 });
 
 describe("DEFAULT_QUOTAS_BY_PLAN", () => {
-  it("LEADS_DATA defaults < FULL_SERVICE defaults", () => {
+  it("LEADS_DATA defaults < GROWTH defaults (legacy DTL < new offer)", () => {
     const leads = DEFAULT_QUOTAS_BY_PLAN.LEADS_DATA;
-    const full = DEFAULT_QUOTAS_BY_PLAN.FULL_SERVICE;
-    expect(leads?.anthropic?.hardCapUsd).toBeLessThan(full?.anthropic?.hardCapUsd ?? Infinity);
-    expect(leads?.apify?.hardCapUsd).toBeLessThan(full?.apify?.hardCapUsd ?? Infinity);
+    const growth = DEFAULT_QUOTAS_BY_PLAN.GROWTH;
+    expect(leads?.anthropic?.hardCapUsd).toBeLessThan(growth?.anthropic?.hardCapUsd ?? Infinity);
+    expect(leads?.apify?.hardCapUsd).toBeLessThan(growth?.apify?.hardCapUsd ?? Infinity);
   });
-  it("CUSTOM defaults entre LEADS_DATA et FULL_SERVICE", () => {
+  it("GROWTH is the public offer (390€/mo) baseline", () => {
+    const growth = DEFAULT_QUOTAS_BY_PLAN.GROWTH;
+    expect(growth?.anthropic?.hardCapUsd).toBeGreaterThanOrEqual(100);
+    expect(growth?.apify?.hardCapUsd).toBeGreaterThanOrEqual(100);
+  });
+  it("CUSTOM aligned with GROWTH by default (overridable per client)", () => {
     const custom = DEFAULT_QUOTAS_BY_PLAN.CUSTOM;
-    expect(custom?.anthropic?.hardCapUsd).toBe(100);
+    const growth = DEFAULT_QUOTAS_BY_PLAN.GROWTH;
+    expect(custom?.anthropic?.hardCapUsd).toBe(growth?.anthropic?.hardCapUsd);
+  });
+  it("FULL_SERVICE no longer in defaults (deprecated 05/05/2026)", () => {
+    expect(DEFAULT_QUOTAS_BY_PLAN.FULL_SERVICE).toBeUndefined();
   });
 });

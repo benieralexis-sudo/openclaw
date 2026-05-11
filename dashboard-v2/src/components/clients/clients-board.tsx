@@ -24,7 +24,7 @@ import { ClientProfile } from "@/components/clients/client-profile";
 import { cn, formatNumberFr, formatRelativeFr } from "@/lib/utils";
 
 type Status = "PROSPECT" | "ACTIVE" | "PAUSED" | "CHURNED";
-type Plan = "LEADS_DATA" | "FULL_SERVICE" | "CUSTOM";
+type Plan = "GROWTH" | "LEADS_DATA" | "CUSTOM";
 
 interface EnrichedClient {
   id: string;
@@ -55,8 +55,8 @@ const STATUS_META: Record<Status, { label: string; variant: "warning" | "info" |
 };
 
 const PLAN_META: Record<Plan, { label: string; price: number }> = {
-  LEADS_DATA: { label: "Leads Data", price: 199 },
-  FULL_SERVICE: { label: "Full Service", price: 890 },
+  GROWTH: { label: "Growth", price: 390 },
+  LEADS_DATA: { label: "Leads Data (legacy)", price: 199 },
   CUSTOM: { label: "Custom", price: 0 },
 };
 

@@ -43,19 +43,29 @@ export function parseQuotaConfig(raw: unknown): QuotaConfig {
  * Cap defaults raisonnables par plan client (override possible via UI).
  */
 export const DEFAULT_QUOTAS_BY_PLAN: Record<string, Partial<Record<Provider, { monthlyBudgetUsd: number; hardCapUsd: number }>>> = {
+  // Offre publique unique depuis 09/05/2026 : iFIND Growth 390€/mo annuel
+  // (60 leads qualifiés/mois + 6 Pépites garanties + rollover 4 mois).
+  // Quotas calibrés pour viser marge brute >70% sur 390€.
+  GROWTH: {
+    anthropic: { monthlyBudgetUsd: 60, hardCapUsd: 110 },
+    apify: { monthlyBudgetUsd: 60, hardCapUsd: 120 },
+    theirstack: { monthlyBudgetUsd: 50, hardCapUsd: 90 },
+  },
+  // DEPRECATED depuis pivot Data-only 05/05/2026.
+  // Garde pour clients grandfathered (DTL Fred 199€/mo jusqu'à fin contrat).
   LEADS_DATA: {
     anthropic: { monthlyBudgetUsd: 25, hardCapUsd: 50 },
     apify: { monthlyBudgetUsd: 30, hardCapUsd: 60 },
     theirstack: { monthlyBudgetUsd: 30, hardCapUsd: 50 },
   },
-  FULL_SERVICE: {
-    anthropic: { monthlyBudgetUsd: 80, hardCapUsd: 150 },
-    apify: { monthlyBudgetUsd: 100, hardCapUsd: 200 },
-    theirstack: { monthlyBudgetUsd: 90, hardCapUsd: 150 },
-  },
+  // Deals enterprise négociés à la main — calé par défaut sur Growth,
+  // override possible via UI client par client.
   CUSTOM: {
-    anthropic: { monthlyBudgetUsd: 50, hardCapUsd: 100 },
-    apify: { monthlyBudgetUsd: 50, hardCapUsd: 100 },
-    theirstack: { monthlyBudgetUsd: 50, hardCapUsd: 100 },
+    anthropic: { monthlyBudgetUsd: 60, hardCapUsd: 110 },
+    apify: { monthlyBudgetUsd: 60, hardCapUsd: 120 },
+    theirstack: { monthlyBudgetUsd: 50, hardCapUsd: 90 },
   },
+  // FULL_SERVICE supprimé du config 11/05/2026 (offre abandonnée 05/05).
+  // Si un client legacy en a encore la valeur en DB, on retombe sur les
+  // defaults vides du QuotaConfigSchema (non-bloquant).
 };

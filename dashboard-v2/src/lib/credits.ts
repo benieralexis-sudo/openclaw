@@ -89,8 +89,10 @@ export async function debitCreditForQualifiedLead(args: {
   // Avant : Tous les clients étaient débités, y compris DTL grandfathered
   // (LEADS_DATA 199€/mo) → balance descendait en négatif. Maintenant :
   // seuls les clients GROWTH (390€/mo offre publique 09/05) sont débités.
-  // Les LEADS_DATA / FULL_SERVICE / CUSTOM ne consomment pas de crédits
-  // (modèles sans quota/Pépite garantie).
+  // Les LEADS_DATA (legacy DTL) et CUSTOM (deals enterprise) ne consomment
+  // pas de crédits (modèles sans quota/Pépite garantie). L'enum
+  // FULL_SERVICE existe encore en DB pour rétro-compat mais l'offre est
+  // abandonnée depuis le pivot Data-only du 05/05/2026.
   const client = await db.client.findUnique({
     where: { id: args.clientId },
     select: { plan: true, creditsBalance: true },

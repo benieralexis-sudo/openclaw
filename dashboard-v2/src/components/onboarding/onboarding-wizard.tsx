@@ -25,7 +25,7 @@ import { toast } from "@/components/ui/sonner";
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatNumberFr } from "@/lib/utils";
 
-type Plan = "LEADS_DATA" | "FULL_SERVICE" | "CUSTOM";
+type Plan = "GROWTH" | "LEADS_DATA" | "CUSTOM";
 
 interface ClientDetail {
   id: string;
@@ -198,7 +198,7 @@ export function OnboardingWizard() {
   const canNext = (() => {
     if (step === 1) return form.name.trim().length > 0;
     if (step === 2) return form.industries.length > 0 && form.regions.length > 0;
-    if (step === 3) return ["LEADS_DATA", "FULL_SERVICE", "CUSTOM"].includes(form.plan);
+    if (step === 3) return ["GROWTH", "LEADS_DATA", "CUSTOM"].includes(form.plan);
     return true;
   })();
 
@@ -577,30 +577,32 @@ const PLANS: Array<{
   highlight?: boolean;
 }> = [
   {
+    id: "GROWTH",
+    name: "Growth",
+    price: 390,
+    tagline: "60 leads qualifiés/mois + 6 Pépites garanties",
+    features: [
+      "Triggers temps réel scorés ≥ 7 (9 sources FR-natives)",
+      "Attribution SIRENE Pappers + email finder Kaspr/FullEnrich",
+      "6 Pépites minimum garanties (sinon quota doublé)",
+      "Rollover crédits jusqu'à 4 mois",
+      "Dashboard complet + digest hebdo + alertes pépites",
+      "ICP custom + setup gratuit",
+    ],
+    highlight: true,
+  },
+  {
     id: "LEADS_DATA",
-    name: "Leads Data",
+    name: "Leads Data (legacy)",
     price: 199,
-    tagline: "Vous prospectez vous-même avec nos signaux",
+    tagline: "Tarif grandfathered DTL, plus disponible en nouveau client",
     features: [
       "Triggers temps réel scorés ≥ 7",
       "Attribution SIRENE Pappers + email finder",
       "Digest hebdo + alertes pépites",
       "Dashboard complet",
+      "Sans garantie Pépite ni rollover crédits",
     ],
-  },
-  {
-    id: "FULL_SERVICE",
-    name: "Full Service",
-    price: 890,
-    tagline: "On envoie + on book vos RDV à votre place",
-    features: [
-      "Tout du Leads Data",
-      "Cold email automatisé (Smartlead) 5 mailboxes",
-      "Mailbox warmup 4-8 semaines",
-      "Booking de RDV par notre commercial",
-      "Reporting mensuel commenté",
-    ],
-    highlight: true,
   },
 ];
 

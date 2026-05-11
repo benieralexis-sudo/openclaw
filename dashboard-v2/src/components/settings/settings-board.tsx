@@ -828,7 +828,7 @@ const INTEGRATIONS: Array<{
     id: "smartlead",
     name: "Smartlead",
     category: "Cold email",
-    description: "Brancher vos campagnes Full Service. Replies remontent dans Unibox.",
+    description: "Intégration outbound (planifiée). Replies remonteraient dans Unibox. Stoppé suite au pivot Data-only 05/05/2026.",
     status: "planned",
   },
   {

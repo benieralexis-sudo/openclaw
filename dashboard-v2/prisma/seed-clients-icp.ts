@@ -48,7 +48,7 @@ async function main() {
       contactPhone: "+33 7 81 72 38 99",
       primaryColor: "#2D4EF5",
       status: ClientStatus.ACTIVE,
-      plan: ClientPlan.FULL_SERVICE,
+      plan: ClientPlan.GROWTH,
       activatedAt: new Date("2025-09-15T09:00:00Z"),
     },
   });
@@ -65,7 +65,7 @@ async function main() {
       region: "Île-de-France",
       size: "TPE",
       status: ClientStatus.ACTIVE,
-      plan: ClientPlan.FULL_SERVICE,
+      plan: ClientPlan.GROWTH,
       activatedAt: new Date("2026-04-25T18:00:00Z"),
     },
   });
