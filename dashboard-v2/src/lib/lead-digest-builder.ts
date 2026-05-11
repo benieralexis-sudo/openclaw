@@ -7,6 +7,10 @@
 // adapte pour le format dashboard-v2 (Trigger + Lead + briefV2Json).
 
 import type { BrandConfig } from "@/lib/delivery-config";
+import {
+  deriveFirstName,
+  substituteOpenerPlaceholders,
+} from "@/lib/opener-substitution";
 
 export interface DigestLead {
   triggerId: string;
@@ -81,7 +85,12 @@ function formatLeadRow(lead: DigestLead, brand: BrandConfig): string {
   const v2 = v2Badge(lead.briefV2?.verdict, lead.briefV2?.confidence);
   const badge = v2 ?? priorityBadge(lead.score);
   const dashLink = `${DASHBOARD_URL}/triggers/${lead.triggerId}`;
-  const opener = lead.briefV2?.opener?.slice(0, 200) ?? lead.scoreReason?.slice(0, 200) ?? "";
+  // Fix B3 — substituer placeholders avant slice (sinon [Prénom] survit dans l'email)
+  const cleanOpener = substituteOpenerPlaceholders(
+    lead.briefV2?.opener ?? null,
+    deriveFirstName(lead.lead),
+  );
+  const opener = cleanOpener?.slice(0, 200) || lead.scoreReason?.slice(0, 200) || "";
   // verdictBadge secondaire (si V2 absent et score forme le badge principal)
   const verdictBadge = !v2 && lead.briefV2?.verdict
     ? `<span style="background:${lead.briefV2.verdict === "OUI" ? "#D1FAE5" : lead.briefV2.verdict === "NON" ? "#FEE2E2" : "#FEF3C7"};color:${lead.briefV2.verdict === "OUI" ? "#065F46" : lead.briefV2.verdict === "NON" ? "#991B1B" : "#92400E"};padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px">${lead.briefV2.verdict} ${lead.briefV2.confidence}%</span>`
@@ -135,7 +144,7 @@ ${idx}. ${lead.companyName} (${headline})
    ${[lead.companyNaf, lead.size, lead.region].filter(Boolean).join(" • ")}
    Source: ${lead.sourceCode}
    ${contact.length ? "Contact: " + contact.join(" | ") : ""}
-   ${lead.briefV2?.opener?.slice(0, 200) ?? lead.scoreReason?.slice(0, 200) ?? ""}
+   ${(substituteOpenerPlaceholders(lead.briefV2?.opener ?? null, deriveFirstName(lead.lead)).slice(0, 200)) || lead.scoreReason?.slice(0, 200) || ""}
    → ${dashLink}
 `;
 }

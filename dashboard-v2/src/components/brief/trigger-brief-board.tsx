@@ -422,7 +422,12 @@ export function TriggerBriefBoard({ triggerId }: { triggerId: string }) {
           </span>
         </summary>
         <div className="px-4 pb-4 pt-1">
-          <LeadBriefV2ViewSafe raw={trigger.briefV2Json ?? null} />
+          <LeadBriefV2ViewSafe
+            raw={trigger.briefV2Json ?? null}
+            leadFirstName={
+              lead?.firstName ?? lead?.fullName?.split(" ")[0] ?? null
+            }
+          />
         </div>
       </details>
 

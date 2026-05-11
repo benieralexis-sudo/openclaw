@@ -23,6 +23,7 @@ import {
   type Risk,
   type SourceRef,
 } from "@/lib/lead-brief-v2";
+import { substituteOpenerPlaceholders } from "@/lib/opener-substitution";
 
 /**
  * Sprint D.4 (07/05/2026) — Vue brief raisonné LeadBriefV2.
@@ -150,10 +151,19 @@ function CopyButton({ text, label = "Copier" }: { text: string; label?: string }
   );
 }
 
-export function LeadBriefV2View({ brief }: { brief: LeadBriefV2 }) {
+export function LeadBriefV2View({
+  brief,
+  leadFirstName,
+}: {
+  brief: LeadBriefV2;
+  /** Prénom du lead pour substituer `[Prénom]` placeholder (fix B3). */
+  leadFirstName?: string | null;
+}) {
   const v = VERDICT_STYLES[brief.verdict];
   const Icon = v.icon;
-  const wordCount = brief.opener.trim().split(/\s+/).length;
+  // Fix B3 — substituer placeholders avant tout (affichage + copy)
+  const opener = substituteOpenerPlaceholders(brief.opener, leadFirstName);
+  const wordCount = opener.trim().split(/\s+/).length;
   const overTarget = wordCount > 250;
 
   // Tri risks par sévérité (high → medium → low)
@@ -294,11 +304,11 @@ export function LeadBriefV2View({ brief }: { brief: LeadBriefV2 }) {
               >
                 {wordCount} mots
               </span>
-              <CopyButton text={brief.opener} label="Copier opener" />
+              <CopyButton text={opener} label="Copier opener" />
             </div>
           </div>
           <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-ink-800 bg-amber-50/60 border border-amber-200 rounded-md p-3.5">
-            {renderTextWithCitations(brief.opener)}
+            {renderTextWithCitations(opener)}
           </pre>
         </section>
 
@@ -363,8 +373,11 @@ export function LeadBriefV2View({ brief }: { brief: LeadBriefV2 }) {
  */
 export function LeadBriefV2ViewSafe({
   raw,
+  leadFirstName,
 }: {
   raw: unknown | null | undefined;
+  /** Prénom du lead pour substituer `[Prénom]` placeholder (fix B3). */
+  leadFirstName?: string | null;
 }) {
   if (!raw) {
     return (
@@ -399,7 +412,7 @@ export function LeadBriefV2ViewSafe({
       </Card>
     );
   }
-  return <LeadBriefV2View brief={raw} />;
+  return <LeadBriefV2View brief={raw} leadFirstName={leadFirstName} />;
 }
 
 // Re-export pour faciliter l'import depuis trigger-brief-board.tsx

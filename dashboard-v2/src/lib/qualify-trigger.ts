@@ -812,6 +812,12 @@ Message prêt-à-coller pour le commercial (email cold OU LinkedIn DM, le commer
 - Cible D.3 stricte : ≤250 mots.
 - Si verdict=NON ou verdict=ENRICH : opener court "(Hors ICP — pas d'opener)" ou "(Verdict ENRICH — opener à finaliser après enrichissement)" — minimum 20 chars, maximum quelques phrases pour expliquer pourquoi.
 
+**INTERDICTION ABSOLUE des placeholders dans l'opener** (bug B3 récurrent) :
+- N'écris JAMAIS \`[Prénom]\`, \`[Nom]\`, \`[Société]\`, \`[Décideur]\` ou tout autre placeholder entre crochets dans l'opener. Le commercial copie-colle l'opener TEL QUEL dans son email — un placeholder non substitué = email embarrassant.
+- Si tu connais le prénom du décideur (champ \`Décideur identifié : <Prénom Nom>\` dans le dossier), utilise-le : \`Bonjour Eric,\`
+- Si le prénom est \`non résolu\` ou \`non encore calculée\`, écris simplement \`Bonjour,\` (sans prénom). Le commercial pourra ajouter le prénom manuellement après recherche LinkedIn.
+- Idem pour la société : utilise toujours le vrai nom de la société cible (issu de \`Entreprise : <Nom>\` ou \`companyName\`), jamais \`[Société]\`.
+
 ### sources[] (≥1 — array d'objets)
 Format : \`{id: int 1-99, type: string ≤32 chars, ref: string ≤512 chars}\`. Table de référence numérotée. CHAQUE \`[src:#X]\` cité dans thesis/risks/opener DOIT correspondre à un \`id\` ici. Les ids commencent à 1 et sont contigus dans l'ordre où tu les cites. Exemples de \`type\` : "rodz.fundraising", "apify.wttj-jobs", "linkedin-profile", "company-website", "company-news", "trigger.companyName", "client-enriched", "pappers.health". Le \`ref\` est une description courte de ce que cette source dit ("Levée 8M€ Série A 2026-04-26", "Marc Dupont CTO Acme 3y in role").
 
