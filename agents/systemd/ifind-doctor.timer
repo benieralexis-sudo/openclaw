@@ -1,14 +1,13 @@
 [Unit]
-Description=Run iFIND Doctor every 2 hours
+Description=Run iFIND Doctor every 4 hours
 Requires=ifind-doctor.service
 
 [Timer]
-# Fire every 2 hours on absolute clock (00, 02, 04, ..., 22).
-# Reduced from 30min → 1h → 2h after Carte 5 architecture review (11/05/2026).
-# Raison : 12 runs/jour suffisent pour détecter pannes infra. Économie 50%
-# vs fréquence 1h ($60/mo vs $120/mo). Si panne réelle entre 2 runs,
-# Auditor (toutes les 6h) sert de filet de sécurité secondaire.
-OnCalendar=*-*-* 00/2:00:00
+# Fire every 4 hours on absolute clock (00, 04, 08, 12, 16, 20 UTC).
+# Calibration Alexis 11/05/2026 soir : 2h → 4h pour économiser ~$30/mo.
+# 6 runs/jour suffisent pour système stable. Si panne entre 2 runs,
+# audit-heal + Auditor (toutes les 8h) servent de filet de sécurité.
+OnCalendar=*-*-* 00/4:00:00
 AccuracySec=1min
 Persistent=true
 RandomizedDelaySec=30s

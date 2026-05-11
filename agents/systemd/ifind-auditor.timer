@@ -1,12 +1,13 @@
 [Unit]
-Description=Run iFIND Auditor every 6 hours
+Description=Run iFIND Auditor every 8 hours
 Requires=ifind-auditor.service
 
 [Timer]
-# Fréquence 6h (décision Alexis 11/05/2026 — coût plus optimisé vs réactivité)
-# 4 runs/jour vs 6/jour → ~$60/mois au lieu de $90/mois.
-# Cron pattern : 02h, 08h, 14h, 20h UTC (espacés du cron run-pollers horaire).
-OnCalendar=*-*-* 02,08,14,20:00:00
+# Fréquence 8h (calibration Alexis 11/05/2026 soir — option "Équilibré")
+# 3 runs/jour : 03h, 11h, 19h UTC (= 05h, 13h, 21h Paris en été)
+# Couvre matin, après-midi, soir. ~$43/mo au lieu de $58/mo (6h) ou $90/mo (4h).
+# Espacé du cron run-pollers horaire et du Doctor (00/04/08/12/16/20).
+OnCalendar=*-*-* 03,11,19:00:00
 AccuracySec=2min
 Persistent=true
 RandomizedDelaySec=60s
