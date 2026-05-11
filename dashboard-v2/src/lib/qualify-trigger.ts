@@ -1,4 +1,5 @@
 import "server-only";
+import { Prisma } from "@prisma/client";
 import { getAnthropic, QUALIFY_MODEL } from "@/lib/anthropic";
 import { buildCachedSystem } from "@/lib/anthropic-prompt";
 import { db } from "@/lib/db";
@@ -492,10 +493,17 @@ export async function qualifyTrigger(
       title: true,
       detail: true,
       rawPayload: true,
+      // Fix B6 (11/05/2026) — Nécessaire pour distinguer "déjà scoré V1
+      // par le poller" (rss-levees) de "déjà qualifié V2 par le judge".
+      briefV2Json: true,
     },
   });
   if (!triggerLite) return null;
-  if (triggerLite.scoreReason && !opts.force) {
+  // Fix B6 — Idempotence : early-return seulement si DÉJÀ scoré V1 ET DÉJÀ
+  // qualifié V2. Sans la condition briefV2Json, les triggers rss-levees
+  // (pré-scorés V1 par le poller à l'ingestion) ne traversaient jamais
+  // le judge V2, laissant briefV2Json à NULL indéfiniment.
+  if (triggerLite.scoreReason && triggerLite.briefV2Json && !opts.force) {
     return { opusScore: triggerLite.score, reason: triggerLite.scoreReason, isHot: triggerLite.isHot };
   }
 
@@ -723,11 +731,27 @@ export async function qualifyPendingTriggers(
   opts: { limit?: number } = {},
 ): Promise<{ qualified: number; errors: number }> {
   const limit = opts.limit ?? 30;
+  // Fix B6 (11/05/2026) — Élargir le filtre pour piocher aussi les triggers
+  // déjà scorés V1 par leur poller (rss-levees attribue scoreReason inline)
+  // mais qui n'ont pas encore de briefV2Json. Sans ça, ces triggers restaient
+  // bloqués en NEW indéfiniment (cas MACHINA + OpsMill du 11/05).
   const pending = await db.trigger.findMany({
     where: {
       clientId,
-      scoreReason: null,
       deletedAt: null,
+      OR: [
+        // V1 path : pas encore scoré du tout
+        { scoreReason: null },
+        // V2 path : pas encore qualifié V2 (mais peut être déjà pré-scoré V1
+        // par le poller). On restreint aux status NEW pour ne pas rejouer
+        // sur les IGNORED/ARCHIVED.
+        {
+          AND: [
+            { briefV2Json: { equals: Prisma.DbNull } },
+            { status: "NEW" },
+          ],
+        },
+      ],
     },
     select: { id: true },
     take: limit,
