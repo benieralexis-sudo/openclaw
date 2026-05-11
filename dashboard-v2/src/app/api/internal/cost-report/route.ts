@@ -198,7 +198,7 @@ async function readRodzDb(): Promise<ServiceCost> {
     service: "rodz",
     status: "warn",
     used: `${totalLeads} leads reçus (${signals.filter((s) => s.active).length} signaux actifs)`,
-    total: "Pack Pro 200€ + ~$50/mo",
+    total: "Pack Pro 200€ one-shot (26/04, ~4 mois de crédits)",
     pctUsed: null,
     resetAt: null,
     burnPerDay: null,
