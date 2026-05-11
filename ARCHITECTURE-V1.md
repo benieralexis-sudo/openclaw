@@ -797,3 +797,295 @@ Format : { question, brique existante, brique manquante, criticité }
 
 **Document v1.0 — 11/05/2026 ~16h CET**
 Prochaine version après Carte 1 + Carte 2.
+
+---
+
+# Addendum v1.1 — Phase A (lecture 8 modules prioritaires, 11/05/2026 ~18h CET)
+
+Suite à la Carte 1 et aux 7 bugs systémiques + 5 patterns positifs découverts, exploration en profondeur des modules clés pour localiser les patterns et identifier les briques à extraire.
+
+## A1. Localisation des 5 patterns positifs (P1-P5)
+
+### ✅ P1 — RE-JUDGED 6→7 RECOVERED
+
+📍 **`src/lib/requalify-engine.ts` (274L)** — module clean et exemplaire
+
+**2 fonctions exportées** :
+- `invalidateTriggerForRequalify(triggerId, reason)` — marque pour requalif (scoreReason=null, status=NEW)
+- `recoverIgnoredTriggersForClient(clientId, opts?)` — sweep recovery sur IGNORED avec linkedinProfileJson riche
+
+**Mécanismes critiques découverts** :
+
+| Mécanisme | Détail | Localisation |
+|---|---|---|
+| Filtre **anti-boucle** | skip si scoreReason startsWith `"[RE-JUDGED"`, `"[V2-"`, `"[manual-IGNORED"` | requalify-engine.ts:128-132 |
+| **Trigger** du sweep | Lead a `linkedinProfileJson` >= 3000 chars (post-enrichissement HarvestAPI Profile Full) | requalify-engine.ts:114-149 |
+| **Anti-limbo NEW+scoreReason=null** | rollback explicite IGNORED si qualifyTrigger throw OU return null (bug ALDEMIA fix 08/05) | requalify-engine.ts:191-201 |
+| **Annotation traçabilité** | `[RE-JUDGED v2 X→Y RECOVERED]` ou `[RE-JUDGED v2 X→Y still-IGNORED]` ou `[RE-JUDGED v2 X→? FAILED]` | requalify-engine.ts:225-244 |
+
+**Économies historiques** : sans le filtre anti-boucle, le sweep re-jugeait 26 triggers DTL en boucle → 410 calls Opus/jour = ~$12/jour (~85% du burn Anthropic observé pré-07/05).
+
+**Brique candidate pour Carte 4** : `recoverIgnoredTriggersForClient` est prêt à devenir un **MCP tool** pour un futur agent Auditor ("Aujourd'hui, X leads IGNORED ont été re-jugés, dont Y RECOVERED").
+
+### ✅ P2 — jobtitle-upgrade + headline-upgrade
+
+📍 **3 modules** :
+- `src/lib/compute-tier-from-headline.ts` (102L) — pure function regex
+- `src/lib/compute-tier-from-jobtitle.ts` (95L) — pure function regex
+- `src/lib/recompute-persona-tier-from-headline-runner.ts` (151L) — runner DB qui orchestre
+
+**Règle UPGRADE-ONLY stricte** (jamais downgrade) :
+```ts
+const shouldUpgrade =
+  currentTier === null || computedTier < currentTier;
+```
+
+**Composition `personaSource` (Bug B7 confirmé)** :
+```ts
+const newSource = oldSource.includes(upgradeSource)
+  ? oldSource
+  : `${oldSource} + ${upgradeSource}`;
+```
+→ String concat ad-hoc. Pas typé. Pas d'enum. À fixer.
+
+**Modèle exemplaire** : `computeTierFromHeadline` et `computeTierFromJobTitle` sont **2 briques pures parfaites** (regex documentées, 0 dep, testables). À imiter pour les futurs scorers.
+
+### ✅ P3 — Score plancher source fiable
+
+📍 **`src/lib/francetravail-poller.ts:?`** — score plancher 6 (boost à 8 si QA match via `isFTQaOffer`)
+
+**Pattern observé** : chaque poller pose un score baseline selon la fiabilité de la source.
+
+| Source | Score baseline | Boost conditionnel |
+|---|---|---|
+| Rodz fundraising (webhook payload riche) | 7-8 | M&A → 8 + plancher si secteur ICP |
+| RSS levées (Maddyness, Frenchweb) | 7 | - |
+| France Travail (Bougie 5) | 6 | 8 si QA match |
+| Apify (LinkedIn/WTTJ/Indeed) | varie | Opus juge |
+| TheirStack jobs | varie | Opus juge |
+| BODACC capital_increase | ? | Signal pré-officiel |
+
+**Question pour Carte 4** : le score baseline est-il documenté quelque part, ou éparpillé dans chaque poller ? À unifier dans une **brique `getSourceBaseline(sourceCode) → number`**.
+
+### ✅ P4 — QA-STUCK pattern
+
+📍 **`src/lib/qa-stuck-scanner.ts` (167L)** — module clean, ✅
+
+**Pipeline** :
+1. Query Triggers HIRING_KEY publishedAt dans [30j, 90j], status != IGNORED (Fix C4)
+2. Filter `isQaJobTitle(title)` (regex robuste, anti faux-positifs méthode/électronique)
+3. Skip si déjà boosté (idempotence via marker `[QA-STUCK`)
+4. Skip si Lead lié CONTACTED/NOT_INTERESTED/ARCHIVED/bouncedAt/doNotContact/oversized
+5. Boost : score = max(t.score, 9), isHot=true, scoreReason préfixé `[QA-STUCK Xj]`
+
+**Pattern universel** : c'est le **pattern PURE du "second-pass scanner"** — précurseur d'un futur agent `PatternHunter` qui scannerait :
+- QA-STUCK (déjà fait)
+- Sales-STUCK (offres Sales/AE stuck >30j)
+- DevOps-STUCK
+- Post-acquisition silencieuse (M&A capté + 0 hire dans les 60j = signal d'intégration ratée)
+- etc.
+
+### ✅ P5 — Locations élargies HQ
+
+📍 **`src/lib/harvestapi-decision-makers.ts:581-583`** — patch 11/05 ce matin sur DiXiO Dubaï
+```ts
+const locations = ["France"];
+if (hqCountry && hqCountryCode !== "FR" && !locations.includes(hqCountry)) {
+  locations.push(hqCountry);
+}
+```
+✅ Déjà en place et testé.
+
+---
+
+## A2. Nouvelles découvertes architecturales
+
+### A2.1. Architecture PULL vs PUSH
+
+| Type | Sources | Pattern |
+|---|---|---|
+| **PULL** (cron query API) | Apify, TheirStack, BODACC, INPI, JOAFE, France Travail, RSS levées, Layoffs news | poller-style |
+| **PUSH** (webhook entrant) | Rodz | `/api/webhooks/rodz/route.ts` (417L) — handler crée Trigger + Lead direct avec contact riche |
+
+**Implication** : un futur agent qui ingère une nouvelle source devra savoir laquelle de ces 2 architectures appliquer.
+
+### A2.2. Aucun poller ne call qualifyTrigger inline
+
+**Tous les 7 pollers + webhook Rodz** dépendent du cron centralisé `/api/internal/run-pollers/route.ts:284` :
+```ts
+const q = await qualifyPendingTriggers(c.id, { limit: 30 });
+```
+
+**Conséquence** : un trigger fraîchement capté attend le prochain cron horaire pour être qualifié V2.
+→ **Bug B6 expliqué** (MACHINA capturé 11:34, en NEW score 7, attend cron suivant).
+
+**Solution proposée pour Carte 4** : `qualifyTriggerInlineIfQuotaOk(triggerId)` brique à appeler depuis chaque poller post-create.
+
+### A2.3. Orchestration cron — 2 modes
+
+`/api/internal/run-pollers/route.ts:270` :
+- **`source=cron`** (1h, léger) : auditHeal → qualifyPending → ensureLeads → dedup → combos → priority
+- **`source=all`** (6h, full pipeline) : tout ci-dessus + enrichissements coûteux (HarvestAPI search, Pappers récursion, Kaspr direct, FullEnrich)
+
+### A2.4. Combo-detector retroactivité
+
+📍 **`src/lib/combo-detector.ts` (291L)** — pattern intéressant :
+- Quand un combo est détecté (2+ Triggers cross-source sur même boîte <14-60j)
+- **Les Triggers déjà jugés** dans le groupe sont **invalidés** via `invalidateTriggerForRequalify`
+- Au prochain run, `qualifyPendingTriggers` les re-juge avec le bloc PRIOR SIGNALS + COMBO PATTERNS enrichi
+
+**Brique réutilisable** : pattern "détection d'un événement enrichit le contexte des décisions passées".
+
+### A2.5. JOAFE est un stub minimal (décision business assumée)
+
+📍 **`src/lib/joafe-poller.ts` (60L)** : 
+> "Le bot trigger-engine a capté 11278 events JOAFE sur 6 mois mais quasiment aucun n'a produit de lead utile pour DTL. La complexité de migration (tar-stream + ISO-8859-1 decoding) ne justifie pas le ROI sur l'ICP actuel."
+
+→ **Bonne décision** d'arbitrage ROI. À documenter pour les futurs clients dont l'ICP serait associations.
+
+### A2.6. INPI auth complexe
+
+📍 **`src/lib/inpi-poller.ts` (311L)** : auth via session XSRF + login DATA INPI (compte INPI_USERNAME/PASSWORD). Plus complexe que les autres pollers. ApplicantIdentifier (SIREN) pas dans la réponse → lookup SIRENE séparé via Pappers attributeSirene.
+
+→ **Brique candidate** : `lookupSireneFromCompanyName` à abstraire (utilisée par INPI + RSS levées + autres).
+
+### A2.7. BODACC capital_increase = signal pré-officiel précieux
+
+📍 **`src/lib/bodacc-poller.ts` (338L)** :
+- `capital_increase` = signal levée 1-2 semaines AVANT que Rodz/RSS-levées le détectent
+- `procedure_collective` = anti-signal hard (insolvabilité)
+- `company_merger` = signal scaling fort
+
+→ **À surveiller activement** : si BODACC tourne mais 0 cas en DB, soit poller HS soit aucun nouveau signal. À investiguer en Carte 2 avec Alexis.
+
+### A2.8. Linkedin-finder cascade utilise déjà Google CSE
+
+📍 **`src/lib/linkedin-finder.ts` (364L)** :
+> "1. HarvestAPI Profile Search par nom+société (~$0.005/lookup, ~70% hit)
+>  2. Google CSE site:linkedin.com/in/ 'Nom' 'Société' (gratuit, ~50% résidu)"
+
+→ **Le blocage Google CSE 403 aujourd'hui impacte aussi ce module**. Pas seulement `find-tech-leader-cascade.ts`.
+
+### A2.9. Enrich-via-rodz débloque le LinkedIn coverage
+
+📍 **`src/lib/enrich-via-rodz.ts` (311L)** : 
+- Pour Lead avec `firstName + lastName + companyName` mais sans LinkedIn
+- Call `Rodz.enrichContact()` → linkedinUrl + headline + activeCompany + skillsList + yearsOfExperience
+- Premier étage du waterfall LinkedIn finder (avant HarvestAPI search + Google CSE)
+
+→ **Bottleneck #1 du système : sans linkedinUrl, Kaspr ne tourne pas**. Rodz est la clé.
+
+---
+
+## A3. Mise à jour des 30 briques candidates pour extraction
+
+Liste enrichie avec les pointeurs précis post-Phase A :
+
+### Briques pures (extraction très facile)
+
+| # | Brique | Localisation actuelle | À extraire vers |
+|---|---|---|---|
+| 1 | ✅ generateCompanyVariants | extrait 11/05 | company-variants.ts |
+| 2 | ✅ isTechHiringTrigger | extrait 11/05 | ensure-lead-for-trigger.ts (exporté) |
+| 3 | ✅ isTechPersonaTitle | extrait 11/05 | idem |
+| 4 | ✅ computeTierFromHeadline | déjà extrait | déjà OK |
+| 5 | ✅ computeTierFromJobTitle | déjà extrait | déjà OK |
+| 6 | 🟡 bucketByEffectif | enrich-lead-dirigeants.ts:48 | lib/company-size.ts |
+| 7 | 🟡 isPersonneMorale | enrich-lead-dirigeants.ts:235 inline | lib/persona-filters.ts |
+| 8 | 🟡 isWrongPersona | enrich-lead-dirigeants.ts:246 inline | idem |
+| 9 | 🟡 mapVerdictToScore | qualify-trigger.ts:580-594 inline | lib/score-mapping.ts |
+| 10 | 🟡 isOversized (Fix M) | enrich-lead-dirigeants.ts:382-389 inline | lib/oversize-guard.ts |
+| 11 | 🟡 isQaJobTitle | qa-stuck-scanner.ts:37 (interne) | lib/job-classifiers.ts |
+| 12 | 🟡 isFrenchCompany (poller) | apify-poller.ts:93 (interne) | lib/company-filters.ts |
+| 13 | 🟡 isFTTechOffer / isFTQaOffer | francetravail-poller.ts (interne) | lib/job-classifiers.ts (avec 11) |
+| 14 | 🟡 extractFullDescription | qualify-trigger.ts:387 (exporté) | déjà OK, à réutiliser |
+| 15 | 🟡 inferSignalType | harvestapi-decision-makers.ts:453 (exporté) | déjà OK |
+
+### Briques DB read (faciles)
+
+| # | Brique | Localisation actuelle | Note |
+|---|---|---|---|
+| 16 | ✅ getPriorSignalsForCompany | qualify-trigger.ts:207 (exporté) | déjà OK |
+| 17 | ✅ getCrossTenantSignal | qualify-trigger.ts:282 (exporté) | déjà OK |
+| 18 | ✅ getNegativeSignalsForCompany | qualify-trigger.ts:83 (exporté) | déjà OK |
+| 19 | 🟡 findExistingLeadBySiret | ensure-lead-for-trigger.ts:92-109 inline | À extraire `lib/lead-lookups.ts` |
+| 20 | 🟡 isAlreadyCaptured | apify-poller.ts:107 (interne) | À extraire `lib/trigger-dedup-helpers.ts` |
+| 21 | 🟡 isHiringAlreadyCapturedCrossSource | apify-poller.ts:146 (interne) | idem |
+
+### Briques d'orchestration (à splitter de gros fichiers)
+
+| # | Brique | Source | Destination |
+|---|---|---|---|
+| 22 | 🟡 healLinkedInUrls | audit-heal.ts:80-91 inline | lib/heals/linkedin-url-normalize.ts |
+| 23 | 🟡 healSiretSync | audit-heal.ts:96-107 | lib/heals/siret-sync.ts |
+| 24 | 🟡 healContactBackfill (4 variants factorisés) | audit-heal.ts:110-251 | lib/heals/contact-backfill.ts |
+| 25 | 🟡 healTrimCompanyName | audit-heal.ts:256-263 | lib/heals/trim-company.ts |
+| 26 | 🟡 healExEmployerEmails | audit-heal.ts:278-345 | lib/heals/ex-employer-emails.ts |
+| 27 | 🟡 healReclearEmails | audit-heal.ts:365-417 | lib/heals/reclear-emails.ts |
+| 28 | 🟡 healOrphanLeads | audit-heal.ts:419-442 | lib/heals/orphan-leads.ts |
+| 29 | 🟡 healSmtpVerify | audit-heal.ts:447-521 | lib/heals/smtp-verify.ts |
+
+### Briques nouvelles candidates (à proposer)
+
+| # | Brique | But | Rationale Phase A |
+|---|---|---|---|
+| 30 | 🆕 `EnrichmentProvider` interface | Abstraction Kaspr/FullEnrich/Rodz/LinkedIn finder | 4 fichiers `enrich-via-*` avec MÊME squelette |
+| 31 | 🆕 `qualifyTriggerInlineIfQuotaOk(triggerId)` | Call inline après poller create | Bug B6 — résout latence cron horaire |
+| 32 | 🆕 `getSourceBaseline(sourceCode) → score` | Documenter les scores plancher éparpillés | P3 — actuellement dans chaque poller |
+| 33 | 🆕 `regenBriefV2IfPersonaChanged(triggerId)` | Auto re-gen brief si persona modifié | Bug B1 — DiXiO/DimoMaint désynchro |
+| 34 | 🆕 `ClientIcpSchema` (Zod) | Typer Client.icp JSON | ARCHITECTURE-V1 §5.5 — bloquant Onboarder |
+| 35 | 🆕 `PersonaSourceEnum` (Zod) | Typer personaSource composite | Bug B7 — "none + jobtitle-upgrade + headline-upgrade" |
+| 36 | 🆕 `JobTitleAndHoldingPath` model | Séparer `(via X)` du jobTitle | Bug B4 — DimoMaint |
+
+---
+
+## A4. Modules NON encore lus profondément (le reste, ~80 fichiers)
+
+Ce qui n'a PAS été lu en Phase A et qui mérite peut-être une Phase B :
+
+**Coeur business non exploré** :
+- `brief-builder.ts`, `copy-generator.ts`, `copy-runner.ts`, `auto-generate-briefs.ts` (génération outputs)
+- `lead-cross-source.ts`, `lead-enrichment-tagging.ts`, `lead-activity.ts`, `trigger-dedup.ts`
+- `delivery-config.ts`, `realtime-alert-sender.ts`, `weekly-digest-runner.ts`
+- `dynamic-few-shots.ts` (génération few-shots Opus depuis client ICP)
+- `priority-scoring.ts` (freshness + multi-source boost)
+- `persona-fit-scoring.ts` (fitScore 0-100)
+- `lead-brief-v2-validator.ts` (validator strict V2)
+
+**Clients API non lus** :
+- `pappers.ts` (470L), `kaspr.ts`, `fullenrich.ts`, `rodz.ts` (308L), `theirstack.ts` (397L)
+- `harvestapi-linkedin.ts`
+- `anthropic.ts`, `anthropic-prompt.ts`, `anthropic-cost.ts`
+- `email-smtp-verifier.ts`, `company-website-fetcher.ts`, `layoffs-news-search.ts` (338L)
+
+**Pollers non lus en profondeur** :
+- `theirstack-poller.ts` (948L), `apify-poller.ts` (759L) — seulement structure scannée
+- `bodacc-poller.ts`, `inpi-poller.ts`, `francetravail-poller.ts` — head seulement
+
+**Composants UI** :
+- Tous les composants React, brain UI, command-palette, trigger-board
+- 30+ API routes
+
+**Scripts** :
+- 30+ scripts audit/backfill/recovery
+
+→ **Estimation** : 80h+ de lecture restante pour couvrir 100% du code. Pour les agents V1, suffisant d'avoir cartographié les ~30 briques candidates et les patterns positifs P1-P5.
+
+---
+
+## A5. Reco mise à jour pour la suite
+
+**Phase A terminée** ✅. 12 + 8 = **20 modules lus en profondeur** (Phase Carte 3 + Phase A).
+
+**Prochain step recommandé** :
+
+1. **Session Carte 2 avec Alexis** (1-2h binôme) — Cartographier ses journées : c'est ce qui dit quoi déléguer en priorité aux agents.
+
+2. **Session Carte 4 — Problématiques atomiques** (1h après Carte 2) — Avec Cartes 1+3+A4 + Carte 2, on peut maintenant lister les 30-50 problématiques que le système doit résoudre.
+
+3. **Plan extraction des 30+ briques** (1-2 semaines de refacto post-Carte 4).
+
+4. **Construction Auditor agent** (2-3j) — premier agent post-Doctor. Utilise les HEALs extraits + briques persona déjà testées + RE-JUDGED engine.
+
+**Document v1.1 — 11/05/2026 ~18h CET**
+Prochaine version après Carte 2 (binôme Alexis) + Carte 4.
