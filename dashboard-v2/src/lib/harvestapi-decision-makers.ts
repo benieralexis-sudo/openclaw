@@ -483,13 +483,28 @@ export async function enrichDecisionMakersForClient(
       deletedAt: null,
       companyName: { not: "" },
       AND: [
-        // Leads sans persona identifiée
+        // Bug DiXiO (11/05/2026) — Étendre éligibilité : en plus des Leads sans
+        // persona (firstName vide), inclure aussi les Leads marqués
+        // `pappers-rcs` sur trigger HIRING_KEY tech (NAF 62/58.29/63). Pappers
+        // RCS sur un hiring tech = mandataire légal non-tech = mauvais contact
+        // structurellement → forcer HarvestAPI à chercher le vrai décideur.
         {
           OR: [
             { firstName: null },
             { firstName: "" },
             { lastName: null },
             { lastName: "" },
+            {
+              personaSource: "pappers-rcs",
+              trigger: {
+                type: "HIRING_KEY",
+                OR: [
+                  { companyNaf: { startsWith: "62." } },
+                  { companyNaf: { startsWith: "58.29" } },
+                  { companyNaf: { startsWith: "63." } },
+                ],
+              },
+            },
           ],
         },
         // Pas tenté <30j
@@ -505,7 +520,16 @@ export async function enrichDecisionMakersForClient(
     select: {
       id: true,
       companyName: true,
-      trigger: { select: { sourceCode: true, title: true } },
+      personaSource: true,
+      trigger: {
+        select: {
+          sourceCode: true,
+          title: true,
+          type: true,
+          companyNaf: true,
+          rawPayload: true,
+        },
+      },
     },
     take: limit,
     orderBy: { createdAt: "desc" },
@@ -521,11 +545,34 @@ export async function enrichDecisionMakersForClient(
     const triggerTitle = lead.trigger?.title ?? "";
     const signalType = inferSignalType(sourceCode, triggerTitle);
 
+    // Bug DiXiO (11/05/2026) — Élargir les locations selon le pays HQ
+    // détecté dans le payload TheirStack. Cas DiXiO : `company_object.country`
+    // = "United Arab Emirates", LinkedIn `ae.linkedin.com/company/dixio-experts`.
+    // Avec locations=["France"] seul, HarvestAPI retournait 0 résultat
+    // (les profils DiXiO sont taggés Dubai) → fallback Pappers RCS → Thierry
+    // Miskaoui (mauvais contact). Ajout du pays HQ + couverture globale en
+    // fallback si premier essai vide.
+    const rawPayload = lead.trigger?.rawPayload as
+      | { company_object?: { country?: string; country_code?: string } }
+      | null;
+    const hqCountry = rawPayload?.company_object?.country?.trim();
+    const hqCountryCode = rawPayload?.company_object?.country_code?.trim();
+    const locations = ["France"];
+    if (hqCountry && hqCountryCode !== "FR" && !locations.includes(hqCountry)) {
+      locations.push(hqCountry);
+    }
+
+    // Cas Lead pappers-rcs orphelin tech-hire : on bypass cache pour forcer
+    // un fetch frais (le cache 24h pourrait masquer une recherche élargie).
+    const forceRefresh = lead.personaSource === "pappers-rcs";
+
     try {
       const dm = await findDecisionMakerByCompany({
         companyName: lead.companyName,
         signalType,
-        maxItems: 12,
+        locations,
+        maxItems: forceRefresh ? 20 : 12,
+        bypassCache: forceRefresh,
       });
 
       // Pose toujours `harvestapiAttemptedAt` (TTL 30j) pour éviter retry

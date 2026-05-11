@@ -99,7 +99,15 @@ export async function enrichDirigeantsForClient(
         { pappersDirigeantsAttemptedAt: { lt: fourteenDaysAgo } },
       ],
     },
-    select: { id: true, companyName: true, companySiret: true, sourceCode: true },
+    select: {
+      id: true,
+      companyName: true,
+      companySiret: true,
+      sourceCode: true,
+      type: true,
+      title: true,
+      companyNaf: true,
+    },
     take: limit * 2, // overshoot car certains auront déjà un Lead
   });
 
@@ -297,6 +305,38 @@ export async function enrichDirigeantsForClient(
           where: { id: t.id },
           data: { pappersDirigeantsAttemptedAt: new Date() },
         }).catch(() => {});
+        continue;
+      }
+
+      // Bug DiXiO (11/05/2026) — Garde tech-hiring : pour un trigger HIRING_KEY
+      // sur boîte tech (NAF 62.*/58.29.*/63.*), le dirigeant légal Pappers RCS
+      // (Président, DG, Gérant) n'est presque JAMAIS le décideur du recrutement.
+      // Le vrai contact est CTO / Head of Engineering / Tech Lead, qui n'apparaît
+      // que rarement comme mandataire légal. Si best.weight < 9 (= pas tech tier
+      // 1), on saute la création Lead pour laisser HarvestAPI/manuel travailler
+      // sur le bon contact. Cas observé : DiXiO Dev/QA Lead → Thierry Miskaoui
+      // CCO/Président (Fred a confirmé : "pas la bonne personne").
+      const TECH_NAF_RE = /^(62\.|58\.29|63\.)/;
+      const isHiringKey = t.type === "HIRING_KEY";
+      const isTechNaf = t.companyNaf ? TECH_NAF_RE.test(t.companyNaf) : false;
+      const titleSuggestsTech = /\b(dev|développe|engineer|ingénieur|qa|test|backend|frontend|fullstack|devops|sre|data|cto|tech|lead|architect)/i.test(t.title ?? "");
+      const requiresTechPersona = isHiringKey && (isTechNaf || titleSuggestsTech);
+      const TECH_TIER1_WEIGHT = 9; // CTO=10, Head of Eng/VP Eng/Tech Lead=9
+      if (requiresTechPersona && best.weight < TECH_TIER1_WEIGHT && !existingLead?.fullName) {
+        console.log(
+          `[enrich-dirigeants.tech-hire-guard] skip ${t.companyName} (${t.companyNaf}): best=${best.qualite} weight=${best.weight} — trigger HIRING_KEY tech, on laisse HarvestAPI chercher CTO/Head Eng`,
+        );
+        // On enrichit quand même les financials de l'entreprise (utile au brief)
+        // mais on NE CRÉE PAS de Lead avec le mandataire légal non-tech.
+        await applyCompanyOnlyFields(t, data).catch(() => {});
+        // Pose le cooldown 14j pour ne pas re-cramer Pappers à chaque cron.
+        // Au prochain pass : si HarvestAPI a posé le bon contact, existingLead?.fullName
+        // sera renseigné → skip naturel. Sinon la garde se déclenche à nouveau.
+        await db.trigger.update({
+          where: { id: t.id },
+          data: { pappersDirigeantsAttemptedAt: new Date() },
+        }).catch(() => {});
+        stats.skipped += 1;
         continue;
       }
 

@@ -110,6 +110,19 @@ export interface JobResult {
   reposted?: boolean;
   date_reposted?: string | null;
   hiring_team?: Array<{ name: string; linkedin_url?: string; title?: string }>;
+  // company_object — bloc embarqué par TheirStack avec la fiche entreprise
+  // (employee_count, country HQ, linkedin_url groupe). Critique pour détecter
+  // les coquilles FR de groupes étrangers (DiXiO 42p Dubai → SIREN FR coquille
+  // 1-2 salariés). Cf. bug DiXiO 11/05/2026.
+  company_object?: {
+    employee_count?: number | null;
+    employee_count_range?: string | null;
+    country?: string | null;
+    country_code?: string | null;
+    linkedin_url?: string | null;
+    domain?: string | null;
+    industry?: string | null;
+  };
 }
 
 export interface JobSearchResponse {

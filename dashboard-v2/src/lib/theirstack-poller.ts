@@ -145,6 +145,15 @@ function jobToTriggerData(
   else if (job.seniority === "senior") score = 7;
   if (job.reposted) score = Math.max(score, 8); // republished = signal urgence
 
+  // Bug DiXiO (11/05/2026) — capter l'effectif réel du groupe depuis le bloc
+  // company_object de TheirStack au lieu de laisser size=null puis se faire
+  // écraser par la tranche Pappers de la coquille FR (cas DiXiO 42p Dubai →
+  // SIREN FR 1-2 salariés). 27/32 triggers job-offer perdaient l'info.
+  const employeeCount =
+    typeof job.company_object?.employee_count === "number"
+      ? job.company_object.employee_count
+      : null;
+
   return {
     client: { connect: { id: clientId } },
     sourceCode: "theirstack.job-offer",
@@ -155,7 +164,7 @@ function jobToTriggerData(
     companySiret: null, // sera enrichi via Pappers en post-traitement
     industry: null,
     region: job.country_code === "FR" ? job.short_location ?? job.country : job.country,
-    size: null,
+    size: employeeCount !== null ? String(employeeCount) : null,
     type: TriggerType.HIRING_KEY,
     title: `Recrutement ${job.job_title}${job.reposted ? " (republished)" : ""}`,
     detail: [
@@ -828,8 +837,25 @@ export async function enrichRecentTriggersWithSirene(
       if (!t.companyNaf && entreprise.code_naf) {
         updates.companyNaf = entreprise.code_naf;
       }
+      // Bug DiXiO (11/05/2026) — ne PAS écraser un effectif numérique TheirStack
+      // (`size` = "42") par une tranche Pappers ("01" = 1-2 salariés). Le cas
+      // typique : groupe étranger 42p + SIREN FR coquille 1-2p. La tranche
+      // Pappers est la vérité légale du SIREN, mais l'effectif TheirStack
+      // reflète le groupe (= la cible de recrutement réelle).
+      const sizeAlreadyNumeric = t.size ? /^\d+$/.test(t.size) : false;
       if (!t.size && entreprise.tranche_effectif) {
         updates.size = entreprise.tranche_effectif;
+      } else if (sizeAlreadyNumeric && entreprise.tranche_effectif) {
+        // Trigger size = "42", Pappers tranche = "01" → on conserve "42" mais
+        // on garde une trace de la divergence pour le brief Opus (signal
+        // coquille étrangère : "DiXiO global 42p / DiXiO FR 1-2p").
+        const numeric = parseInt(t.size!, 10);
+        const lowTranches = ["00", "01", "02", "03"];
+        if (numeric >= 11 && lowTranches.includes(entreprise.tranche_effectif.trim())) {
+          console.log(
+            `[theirstack-enrich coquille] ${t.companyName} (${t.companySiret}) — TheirStack=${numeric}p vs Pappers tranche=${entreprise.tranche_effectif} → coquille FR détectée, on garde TheirStack`,
+          );
+        }
       }
       if (!t.industry && entreprise.libelle_code_naf) {
         updates.industry = entreprise.libelle_code_naf;
