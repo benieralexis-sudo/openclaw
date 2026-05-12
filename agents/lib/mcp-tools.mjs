@@ -125,6 +125,25 @@ export function buildIfindMcpServer() {
               return `ERROR: ${err.message}`;
             }
           };
+          // last_run_pollers_all (audit 12/05) — détecte les pollers source=all
+          // silencieux >24h (cas vécu : lock conflit cron horaire/all pendant 38h
+          // sans alerte). Format : "<dernier END http=200 timestamp>|<heures écoulées>".
+          // Si > 24h → ANOMALIE (cron source=all tourne 2×/j à 8h05 + 18h05 UTC,
+          // pas plus de ~12h entre 2 runs OK attendu).
+          const lastRunAll = safeExec(
+            "grep -E 'END http=200' /var/log/ifind-pollers-all.log 2>/dev/null | tail -1 | awk -F'[][]' '{print $2}'"
+          );
+          let lastRunAllAgeHours = null;
+          if (lastRunAll && !lastRunAll.startsWith('ERROR') && lastRunAll.length > 0) {
+            const ageMs = Date.now() - new Date(lastRunAll).getTime();
+            if (!isNaN(ageMs)) lastRunAllAgeHours = +(ageMs / 3600_000).toFixed(1);
+          }
+          const lastRunAllStatus = lastRunAllAgeHours === null
+            ? 'unknown (log vide ou parsing échoué)'
+            : lastRunAllAgeHours > 24
+              ? `🔴 ANOMALIE — ${lastRunAllAgeHours}h depuis dernier run source=all OK (cron 2×/j attendu, max ~14h entre 2 runs sains). Lock coincé ? Check /var/log/ifind-pollers-all.log pour HTTP 423.`
+              : `✅ ${lastRunAllAgeHours}h depuis dernier run source=all OK`;
+
           const snapshot = {
             timestamp: new Date().toISOString(),
             docker_ps: safeExec('docker ps --format "{{.Names}}|{{.Status}}|{{.Ports}}"'),
@@ -135,6 +154,8 @@ export function buildIfindMcpServer() {
             mem_free: safeExec('free -h | head -2 | tail -1'),
             load_avg: safeExec('uptime'),
             postgres_up: safeExec('docker exec ifind-postgres pg_isready -U postgres 2>&1 || echo DOWN'),
+            last_run_pollers_all: lastRunAllStatus,
+            last_run_pollers_all_at: lastRunAll || null,
           };
           return {
             content: [{ type: 'text', text: JSON.stringify(snapshot, null, 2) }],

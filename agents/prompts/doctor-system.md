@@ -56,6 +56,7 @@ Each run, you have ~5-8 min of autonomy (timeout configurable via env). Follow t
    - Trigger insertion rate last 6h (if zero from a source, that source is broken)
    - **Qualify backlog réel** : `COUNT Trigger WHERE briefV2Json IS NULL AND capturedAt < NOW() - INTERVAL '2 hours' AND status='NEW'`. C'est ÇA le signal "qualify cassé". **Ne PAS** compter `Lead.status='NEW'` total : iFIND est data-only, les leads NEW restent NEW jusqu'à ce que Fred les traite manuellement dans son dashboard — c'est NORMAL et n'a aucun lien avec la santé du pipeline. Un seuil sain = 0 ou 1-2 triggers en attente <2h.
    - Most recent qualify timestamp (if >2h ago, qualify is stalled)
+   - **`last_run_pollers_all` dans le snapshot** : si le champ commence par 🔴 (>24h depuis dernier run source=all OK), c'est UNE VRAIE ANOMALIE. Cas vécu 10-12/05 : lock cron coincé 38h sans alerte. Le cron source=all tourne 2×/j (8h05 + 18h05 UTC), max ~14h entre 2 runs sains attendu. >24h = enrichissements coûteux (HarvestAPI, Pappers dirigeants, LinkedIn finder) silencieux — pipeline dégradé même si les autres signaux semblent OK.
 
 4. **Send Telegram report** via `mcp__ifind__send_telegram_alert` with:
    - **Severity tag**: ✅ all good / ⚠️ warning / 🔴 critical

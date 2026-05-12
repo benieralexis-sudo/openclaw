@@ -57,11 +57,31 @@ trap "rm -f $LOCK" EXIT
 START=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 echo "[$START] START source=all client=$CLIENT_ID" >> "$LOG"
 
-HTTP_CODE=$(curl -sS -o "$TMP" -w "%{http_code}" \
-  --max-time "$TIMEOUT_S" \
-  -X POST \
-  -H "x-cron-secret: $CRON_SECRET" \
-  "$URL" || echo "curl_error")
+# Retry HTTP 423 (audit 12/05 soir — 38h de lock orphelin causé par conflit
+# de timing avec le cron horaire light qui prend le runPollersLock 50ms
+# avant). Le crontab a été décalé de xx:00 à xx:05 pour réduire la collision,
+# mais si le cron horaire dépasse 5 min (rare mais possible quand l'audit-heal
+# est lourd), on rebondit toujours en 423. Retry 2x avec backoff 60s = 3 min
+# de tolérance totale, ce qui couvre 99% des cas. Si toujours 423 après 3
+# tentatives → vrai bug à alerter dure.
+ATTEMPT=0
+MAX_ATTEMPTS=3
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+  ATTEMPT=$((ATTEMPT + 1))
+  HTTP_CODE=$(curl -sS -o "$TMP" -w "%{http_code}" \
+    --max-time "$TIMEOUT_S" \
+    -X POST \
+    -H "x-cron-secret: $CRON_SECRET" \
+    "$URL" || echo "curl_error")
+  if [ "$HTTP_CODE" != "423" ]; then
+    break
+  fi
+  if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+    RETRY_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    echo "[$RETRY_AT] RETRY $ATTEMPT/$MAX_ATTEMPTS — HTTP 423 (lock pris par cron horaire), sleep 60s" >> "$LOG"
+    sleep 60
+  fi
+done
 
 END=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -98,5 +118,11 @@ echo "[$END] END $SUMMARY" >> "$LOG"
 
 # ---- Alerte si HTTP non-200 ----------------------------------------------
 if [ "$HTTP_CODE" != "200" ]; then
-  send_telegram "🔴 *iFIND run-pollers-all KO* — HTTP=\`${HTTP_CODE}\`, voir \`$LOG\`"
+  if [ "$HTTP_CODE" = "423" ]; then
+    # 423 après retries = lock vraiment coincé. Audit 12/05 — silencieux
+    # pendant 38h sans alerte. Maintenant alerte dure dès le 3e échec.
+    send_telegram "🔴 *iFIND run-pollers-all BLOQUÉ* — HTTP=\`423\` après ${MAX_ATTEMPTS} tentatives sur ${TIMEOUT_S}s. Le runPollersLock côté Next.js est tenu plus de 3 min. Possibles causes : (1) cron horaire light dépasse 3 min, (2) zombi run-pollers, (3) crash Next.js sans release lock. Action : \`curl -X POST -H \"x-cron-secret: \$CRON_SECRET\" 'http://127.0.0.1:3100/api/internal/run-pollers?source=all&force=true'\` pour bypass."
+  else
+    send_telegram "🔴 *iFIND run-pollers-all KO* — HTTP=\`${HTTP_CODE}\`, voir \`$LOG\`"
+  fi
 fi
