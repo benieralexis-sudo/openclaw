@@ -492,10 +492,14 @@ export async function qualifyTrigger(
       status: true,
       title: true,
       detail: true,
+      companyName: true,
       rawPayload: true,
       // Fix B6 (11/05/2026) — Nécessaire pour distinguer "déjà scoré V1
       // par le poller" (rss-levees) de "déjà qualifié V2 par le judge".
       briefV2Json: true,
+      // Fix F-antiPersonas (12/05/2026) — Charge l'ICP client pour appliquer
+      // le hard gate antiPersonas avant même le pre-Opus reject (safety net).
+      client: { select: { icp: true } },
     },
   });
   if (!triggerLite) return null;
@@ -505,6 +509,45 @@ export async function qualifyTrigger(
   // le judge V2, laissant briefV2Json à NULL indéfiniment.
   if (triggerLite.scoreReason && triggerLite.briefV2Json && !opts.force) {
     return { opusScore: triggerLite.score, reason: triggerLite.scoreReason, isHot: triggerLite.isHot };
+  }
+
+  // 2-pre. ANTI-PERSONA HARD GATE (12/05/2026, audit Asys 28/04).
+  //
+  // Bug Asys : trigger apify.linkedin-jobs créé 28/04 → score 10 NEW → pool HOT
+  // fitScore 100 alors que "Asys" est dans icp.antiPersonas DTL. Cause :
+  // l'antiPersona "Asys" a été AJOUTÉ à l'ICP au Sprint B (06/05) — APRÈS
+  // ingestion. Le brain V2 28/04 a justifié OUI ("éditeur SaaS RH"). Risque :
+  // Fred contacte un concurrent direct.
+  //
+  // Fix défensif : check HARD sur companyName vs icp.antiPersonas. Si match
+  // (substring case-insensitive sur anti ≥3 chars), force IGNORED sans appeler
+  // Opus. Économie tokens + protection contre tout futur leak (mise à jour ICP,
+  // nouveau filter, bug brain V2). Cohérent avec doctrine "redFlagsHard du
+  // client = autorité absolue" (qualify-trigger SYSTEM ligne 916).
+  const icp = triggerLite.client?.icp as { antiPersonas?: string[] } | null;
+  const antiPersonas = (icp?.antiPersonas ?? [])
+    .map((a) => (typeof a === "string" ? a.toLowerCase().trim() : ""))
+    .filter((a) => a.length >= 3);
+  if (antiPersonas.length > 0 && triggerLite.companyName) {
+    const nameLower = triggerLite.companyName.toLowerCase();
+    const matched = antiPersonas.find((a) => nameLower.includes(a));
+    if (matched) {
+      const rejectReason = `[antiPersona-hard:${matched}] companyName="${triggerLite.companyName}" match icp.antiPersonas — verdict NON forcé (skip brain V2)`;
+      console.log(`[qualify-trigger.antiPersona-hard] ${triggerId}: IGNORED auto (matched=${matched})`);
+      await db.trigger.update({
+        where: { id: triggerId },
+        data: {
+          score: 2,
+          scoreReason: rejectReason,
+          isHot: false,
+          status: "IGNORED",
+          ignoredAt: new Date(),
+          ignoredReason: rejectReason.slice(0, 500),
+        },
+      });
+      await archiveLeadOnTriggerIgnored(triggerId);
+      return { opusScore: 2, reason: rejectReason, isHot: false };
+    }
   }
 
   // 2. C4-C5 pre-Opus reject (économie tokens — 0 cost si rejet ici).
@@ -522,6 +565,9 @@ export async function qualifyTrigger(
         scoreReason: rejectReason,
         isHot: false,
         status: "IGNORED",
+        // Fix F7 cohérent — pre-Opus reject doit aussi remplir ignoredReason/At.
+        ignoredAt: new Date(),
+        ignoredReason: rejectReason.slice(0, 500),
       },
     });
     await archiveLeadOnTriggerIgnored(triggerId);
