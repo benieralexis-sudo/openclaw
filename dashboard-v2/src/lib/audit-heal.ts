@@ -1,4 +1,5 @@
 import "server-only";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -31,6 +32,7 @@ export interface AuditResult {
     exEmployerEmailsCleaned: number;
     orphanLeadsArchived: number;
     smtpEmailsVerified: number;
+    nonActionableLeadsBlocked: number;
   };
   remaining: {
     leadsWithoutLinkedin: number;
@@ -66,6 +68,7 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
       exEmployerEmailsCleaned: 0,
       orphanLeadsArchived: 0,
       smtpEmailsVerified: 0,
+      nonActionableLeadsBlocked: 0,
     },
     remaining: {
       leadsWithoutLinkedin: 0,
@@ -519,6 +522,56 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
     }
   }
   result.healed.smtpEmailsVerified = smtpVerified;
+
+  // ─────────────────────────────────────────────
+  // HEAL 8 (12/05/2026 soir — fix SoWeSoft) — Auto-DNC des Leads non-actionables.
+  //
+  // Cas observé : SoWeSoft (apify.linkedin-jobs HIRING_KEY verdict OUI conf=82,
+  // 12/05 18:06). Trigger sans SIRET ni NAF. L'exception "Pépite sans SIRET"
+  // (Trigger.score >= 7 dans ensure-lead-for-trigger.ts) crée le Lead malgré
+  // l'absence d'identifiant entreprise. HarvestAPI search-by-company tente
+  // sa chance dans le même run mais n'a rien trouvé. Sans SIRET, Pappers
+  // dirigeants ne peut pas démarrer. Sans firstName/lastName, ni Kaspr ni
+  // FullEnrich ni LinkedIn finder ne peuvent enrichir. Lead bloqué à vie
+  // avec fullName=null mais briefV2Json OUI → visible Fred, non actionable,
+  // embarrassant si copy-paste opener "Bonjour ," dans son outil.
+  //
+  // Fix : à >24h après création, si Lead.fullName toujours NULL ET
+  // briefV2Json déjà généré ET doNotContact pas déjà flag, on pose
+  // doNotContact=true avec raison traçable. Le Lead reste visible dashboard
+  // pour debug Alexis mais Fred sait qu'il n'est pas envoyable.
+  // Idempotent — un Lead enrichi plus tard (rare) sera reclear par HEAL 5b.
+  // ─────────────────────────────────────────────
+  const nonActionable = await db.lead.findMany({
+    where: {
+      deletedAt: null,
+      ...(cId ? { clientId: cId } : {}),
+      doNotContact: false,
+      fullName: null,
+      status: { in: ["NEW", "ENRICHED", "CONTACTABLE"] }, // skip CONTACTED/NOT_INTERESTED/ARCHIVED — déjà invisibles ou hors process
+      createdAt: { lt: new Date(Date.now() - 24 * 3600 * 1000) },
+      trigger: {
+        briefV2Json: { not: Prisma.DbNull },
+      },
+    },
+    select: { id: true, companyName: true, triggerId: true },
+    take: 50,
+  });
+  let blocked = 0;
+  for (const l of nonActionable) {
+    await db.lead.update({
+      where: { id: l.id },
+      data: {
+        doNotContact: true,
+        doNotContactReason: "non_actionable_no_persona:trigger sans SIRET résolu, HarvestAPI search-by-company a échoué, Pappers dirigeants impossible. Lead créé via exception Pépite (score>=7) mais aucun chemin d'enrichissement disponible.".slice(0, 200),
+        doNotContactAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+    console.log(`[heal.H8-non-actionable] ${l.companyName} (${l.id}) → doNotContact (no persona after 24h)`);
+    blocked++;
+  }
+  result.healed.nonActionableLeadsBlocked = blocked;
 
   // ─────────────────────────────────────────────
   // STATS RESTANTES

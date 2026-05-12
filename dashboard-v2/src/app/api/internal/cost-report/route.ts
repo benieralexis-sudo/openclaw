@@ -99,7 +99,13 @@ async function fetchTheirstack(): Promise<ServiceCost> {
     // Projection basée sur la tendance la PLUS RÉCENTE (3 derniers jours)
     // pour ne pas être biaisée par les pics historiques (ex. 05/05 = 1020 cr).
     const projDaysLeft = burnPerDay3d > 0 ? Math.floor(remaining / burnPerDay3d) : Infinity;
-    const status = projDaysLeft < daysLeft ? "critical" : pct > 90 ? "warn" : "ok";
+    // Verdict pre-mâché pour Auditor : ne plus laisser l'agent calculer.
+    // Le seul vrai signal d'anomalie = runway < cycle.
+    const holds = projDaysLeft >= daysLeft;
+    const status: ServiceCost["status"] = !holds ? "critical" : pct > 90 ? "warn" : "ok";
+    const verdictPrefix = holds
+      ? `✅ TIENT (${projDaysLeft}j runway vs ${daysLeft}j cycle, burn récent ${burnPerDay3d.toFixed(0)}/j)`
+      : `🔴 NE TIENT PAS (${projDaysLeft}j runway < ${daysLeft}j cycle, burn récent ${burnPerDay3d.toFixed(0)}/j)`;
     return {
       service: "theirstack",
       status,
@@ -109,9 +115,9 @@ async function fetchTheirstack(): Promise<ServiceCost> {
       resetAt,
       burnPerDay: +burnPerDay3d.toFixed(0),
       projection: burnPerDay3d > 0
-        ? `${remaining} cr restants. Burn 3j=${burnPerDay3d.toFixed(0)}/j (récent) vs 7j=${burnPerDay7d.toFixed(0)}/j (moyenne) → ${projDaysLeft}j runway vs ${daysLeft}j cycle.`
-        : `${remaining} cr restants`,
-      notes: "SKIP partiel : job-offer désactivé jusqu'au 26/05. Buying-intent ACTIF 2×/j (12h + 18h UTC, ~45 cr/run = 90 cr/j attendu). Si burn ≠ ~90/j → anomalie.",
+        ? `${verdictPrefix}. ${remaining} cr restants. Burn moyenne 7j=${burnPerDay7d.toFixed(0)}/j (biaisé par pics historiques type 05/05=1020 cr — NE PAS utiliser pour runway).`
+        : `${remaining} cr restants — pas d'activité récente, runway infini.`,
+      notes: "SKIP partiel : job-offer désactivé jusqu'au 26/05. Buying-intent ACTIF 2×/j (12h + 18h UTC, ~45 cr/run = 90 cr/j attendu max). Vraie anomalie SEULEMENT si verdict='NE TIENT PAS' OU burn > 150/j (= job-offer réactivé par erreur). 91% utilisé est NORMAL en fin de cycle.",
     };
   } catch (e) {
     return { service: "theirstack", status: "critical", used: 0, total: 0, pctUsed: null, resetAt: null, burnPerDay: null, projection: null, notes: e instanceof Error ? e.message : "err" };

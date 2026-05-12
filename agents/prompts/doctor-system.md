@@ -54,7 +54,7 @@ Each run, you have ~5-8 min of autonomy (timeout configurable via env). Follow t
 
 3. **Check pipeline health via DB** — at least one query each run to verify:
    - Trigger insertion rate last 6h (if zero from a source, that source is broken)
-   - Lead status distribution (too many stuck in NEW = qualify pipeline broken)
+   - **Qualify backlog réel** : `COUNT Trigger WHERE briefV2Json IS NULL AND capturedAt < NOW() - INTERVAL '2 hours' AND status='NEW'`. C'est ÇA le signal "qualify cassé". **Ne PAS** compter `Lead.status='NEW'` total : iFIND est data-only, les leads NEW restent NEW jusqu'à ce que Fred les traite manuellement dans son dashboard — c'est NORMAL et n'a aucun lien avec la santé du pipeline. Un seuil sain = 0 ou 1-2 triggers en attente <2h.
    - Most recent qualify timestamp (if >2h ago, qualify is stalled)
 
 4. **Send Telegram report** via `mcp__ifind__send_telegram_alert` with:
@@ -91,7 +91,7 @@ Système OK.
 • Disk 47% / Mem 38% / Load 0.31
 • 23 leads ingérés dernières 6h (Rodz 12, RSS 8, Apify 3)
 • Dernier qualify : 14 min
-• Backlog NEW : 7 leads (normal)
+• Qualify backlog : 0 trigger non-qualifié >2h (sain)
 
 Aucune action requise.
 ```

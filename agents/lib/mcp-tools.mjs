@@ -225,7 +225,7 @@ export function buildIfindMcpServer() {
 
       tool(
         'check_brief_persona_sync',
-        'Detects briefV2Json ↔ Lead persona DESYNC (bug B1 identified in Carte 1). Compares the fullName/jobTitle the briefV2 was generated for vs the current Lead.fullName. Returns a list of triggers where the brief mentions a contact different from the current Lead. CRITICAL bug — emails sent based on these briefs go to the wrong person.',
+        'Detects REAL B1 brief↔Lead persona desync. Refonte 12/05 (faux positifs Auditor) — 3 vrais critères : (1) opener mentionne un prénom différent de Lead.firstName (vrai B1 critical), (2) opener contient [Prénom]/[Nom] placeholder résiduel (info — substitution UI active, mais signal qualify imparfait), (3) verdict OUI avec Lead.firstName NULL (brief généré sans persona = non actionable). EXCLUS automatiquement : verdict ENRICH (brief volontairement non finalisé). Plus de test thesis-firstName (faux positif structurel : thesis parle de la boîte).',
         {
           minDaysOld: z.number().int().min(0).max(30).describe('Min days since brief generation (default 0)'),
           limit: z.number().int().min(1).max(50).describe('Max triggers to check (default 20)'),
@@ -236,11 +236,12 @@ export function buildIfindMcpServer() {
           try {
             const sql = `
               SELECT
-                t.id as trigger_id,
-                t."companyName" as company,
-                t."briefV2Json"->>'verdict' as verdict,
-                l."fullName" as current_lead_name,
-                t."briefV2Json"->>'thesis' as brief_thesis_excerpt
+                t.id AS trigger_id,
+                t."companyName" AS company,
+                t."briefV2Json"->>'verdict' AS verdict,
+                t."briefV2Json"->>'opener' AS opener,
+                l."fullName" AS lead_full_name,
+                l."firstName" AS lead_first_name
               FROM "Trigger" t
               LEFT JOIN "Lead" l ON l."triggerId" = t.id
               WHERE t."deletedAt" IS NULL
@@ -248,33 +249,82 @@ export function buildIfindMcpServer() {
                 AND t.status = 'NEW'
                 AND t."capturedAt" < NOW() - INTERVAL '${minDays} days'
                 AND l."deletedAt" IS NULL
-                AND l."fullName" IS NOT NULL
-                AND l."fullName" != ''
-                AND (
-                  -- Brief contient un nom différent du Lead actuel ?
-                  -- Heuristique : si le thesis ne contient PAS le firstName Lead, suspect.
-                  t."briefV2Json"::text NOT ILIKE ('%' || split_part(l."fullName", ' ', 1) || '%')
-                  -- Ou opener contient [Prénom] placeholder
-                  OR t."briefV2Json"->>'opener' LIKE '%[Prénom]%'
-                  OR t."briefV2Json"->>'opener' LIKE '%[Pr%nom]%'
-                )
+                AND t."briefV2Json"->>'verdict' != 'ENRICH'
               ORDER BY t."capturedAt" DESC
-              LIMIT ${lim};
+              LIMIT ${lim * 3};
             `;
             const result = await runQuery(sql);
+
+            // Analyse en JS — détection des vrais signaux
+            const anomalies = [];
+            for (const r of result.rows) {
+              const opener = (r.opener ?? '').toString();
+              const firstName = (r.lead_first_name ?? '').toString().trim();
+
+              // Critère 3 — verdict OUI mais Lead sans firstName (non actionable)
+              if ((r.verdict === 'OUI' || r.verdict === 'oui') && !firstName) {
+                anomalies.push({
+                  triggerId: r.trigger_id,
+                  company: r.company,
+                  verdict: r.verdict,
+                  severity: 'high',
+                  type: 'oui_without_persona',
+                  detail: `Brief OUI mais Lead.firstName vide — non actionable pour Fred. Lead.fullName="${r.lead_full_name ?? '∅'}".`,
+                });
+                continue;
+              }
+
+              // Critère 2 — placeholder [Prénom] / [Nom] dans opener
+              const hasPlaceholder = /\[Pr[eé]nom\]|\[Nom\]/i.test(opener);
+              if (hasPlaceholder) {
+                anomalies.push({
+                  triggerId: r.trigger_id,
+                  company: r.company,
+                  verdict: r.verdict,
+                  severity: firstName ? 'info' : 'high',
+                  type: 'opener_placeholder',
+                  detail: firstName
+                    ? `Opener contient [Prénom]/[Nom] mais substitution UI active (Lead.firstName="${firstName}") — affiché OK côté Fred. Signal qualify imparfait, pas urgent.`
+                    : `Opener contient [Prénom]/[Nom] ET Lead.firstName vide — substitution UI affiche "(prénom à vérifier)". À enrichir.`,
+                });
+                continue;
+              }
+
+              // Critère 1 — vrai B1 : opener mentionne un prénom DIFFÉRENT de Lead.firstName
+              // Heuristique : extraire "Bonjour <Mot>," au début de l'opener.
+              if (firstName) {
+                const greet = opener.match(/Bonjour\s+([A-ZÀ-Ÿ][a-zà-ÿ\-]{1,30})\s*[,\.]/);
+                if (greet) {
+                  const greetedName = greet[1];
+                  if (greetedName.toLowerCase() !== firstName.toLowerCase()) {
+                    anomalies.push({
+                      triggerId: r.trigger_id,
+                      company: r.company,
+                      verdict: r.verdict,
+                      severity: 'critical',
+                      type: 'brief_persona_desync',
+                      detail: `Opener s'adresse à "${greetedName}" mais Lead.firstName="${firstName}". VRAI B1 — brief généré avant rotation persona.`,
+                    });
+                    continue;
+                  }
+                }
+              }
+            }
+
+            const truncated = anomalies.slice(0, lim);
             return {
               content: [{
                 type: 'text',
                 text: JSON.stringify({
-                  description: 'Brief V2 with persona desync OR [Prénom] placeholder',
-                  count: result.rows.length,
-                  triggers: result.rows.map((r) => ({
-                    triggerId: r.trigger_id,
-                    company: r.company,
-                    currentLeadName: r.current_lead_name,
-                    verdict: r.verdict,
-                    briefExcerpt: r.brief_thesis_excerpt?.slice(0, 200),
-                  })),
+                  description: 'Vrais B1 desyncs détectés (refonte 12/05). severity: critical=vrai B1, high=lead non actionable, info=placeholder mais substitution UI OK.',
+                  scanned: result.rows.length,
+                  count: truncated.length,
+                  bySeverity: {
+                    critical: anomalies.filter(a => a.severity === 'critical').length,
+                    high: anomalies.filter(a => a.severity === 'high').length,
+                    info: anomalies.filter(a => a.severity === 'info').length,
+                  },
+                  anomalies: truncated,
                 }, null, 2),
               }],
             };
