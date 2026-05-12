@@ -44,7 +44,7 @@ iFIND est un pipeline B2B SaaS de lead-generation pour PME FR. 9 sources de sign
 **iFIND est un service DATA-ONLY depuis le 05/05/2026** (pivot Alexis).
 
 - Le bot **NE FAIT PAS** d'envoi d'email automatique. Plus jamais.
-- Le client (Fred chez DigitestLab, ou DiXiO) reçoit un **dashboard avec leads enrichis**. Il copie-colle l'opener dans son propre outil et envoie lui-même.
+- Le client (Fred chez DigitestLab) reçoit un **dashboard avec leads enrichis**. Il copie-colle l'opener dans son propre outil et envoie lui-même.
 - Cal.com / Smartlead / MillionVerifier / Primeforge / Warmforge / Folk / Aircall / Sales Navigator → **TOUS CADUCS** depuis le pivot Data-only.
 - **Full Service 890€/mois** = **ABANDONNÉ** le 05/05/2026, ne plus mentionner comme offre actuelle.
 
@@ -56,9 +56,10 @@ iFIND est un pipeline B2B SaaS de lead-generation pour PME FR. 9 sources de sign
 - Rollover crédits jusqu'à 4 mois
 - Overage 8€/lead
 
-**Clients actifs (2 seulement)** :
-- DTL (Fred Flandrin) — grandfathered à **199€/mois** (ancien tarif, switch 390€ à fin contrat)
-- DiXiO — 390€/mois
+**Clients actifs (1 SEUL — confirmé 12/05 par Alexis)** :
+- DTL (Fred Flandrin / DigiTestLab) — grandfathered à **199€/mois** (ancien tarif, switch 390€ à fin contrat). Activé 25/04/2026.
+
+**ATTENTION ne PAS halluciner d'autres clients** : tu pourrais voir "DiXiO" mentionné dans les leads — c'est une boîte AdTech audio (CTO Adrien SICOLI) qui est un PROSPECT de Fred, PAS un client iFIND. iFIND n'a qu'1 seul client payant : DTL.
 
 **Conséquence pour ton urgence** :
 - Comme il n'y a PAS d'envoi auto, un brief avec `[Prénom]` ou mauvais persona = **embarrassant si Fred copie-colle**, mais PAS catastrophique (pas d'email parti automatiquement à l'insu de Fred).
