@@ -517,11 +517,22 @@ async function runActorAndPushTriggers(args: {
     start.itemsFound = items.length;
 
     // Sprint 8 — record cost reel post-run (CU facture par Apify).
-    if (start.computeUnits !== undefined && start.computeUnits > 0) {
-      const actualCostUsd = start.computeUnits * APIFY_USD_PER_CU;
-      await recordSpend(args.clientId, "apify", actualCostUsd).catch((e) =>
-        console.warn(
-          `[apify-poller.recordSpend] client=${args.clientId} failed: ${e instanceof Error ? e.message : e}`,
+    // Fix F8 (12/05/2026) — runAndGetItems retourne `run: null` toujours
+    // (l'endpoint run-sync-get-dataset-items ne renvoie pas les stats du run).
+    // Donc start.computeUnits était toujours undefined → recordSpend JAMAIS
+    // appelé → currentSpendUsd resté à 0 pour apify dans quotaConfig (audit
+    // A.0.4). Fallback sur estimate constant si computeUnits manquant : pas
+    // précis mais conserve une trace dans /api/internal/cost-report. Pour
+    // précision future : sync hebdo via /v2/users/me/limits (TODO Batch 7+).
+    const usdToRecord =
+      start.computeUnits !== undefined && start.computeUnits > 0
+        ? start.computeUnits * APIFY_USD_PER_CU
+        : APIFY_ESTIMATE_PER_RUN_USD;
+    if (usdToRecord > 0) {
+      await recordSpend(args.clientId, "apify", usdToRecord).catch((e) =>
+        // Niveau error (vs warn) — important pour observabilité tracking.
+        console.error(
+          `[apify-poller.recordSpend] client=${args.clientId} actor=${args.actor} failed: ${e instanceof Error ? e.message : e} (usd=${usdToRecord} cu=${start.computeUnits ?? "n/a"})`,
         ),
       );
     }
