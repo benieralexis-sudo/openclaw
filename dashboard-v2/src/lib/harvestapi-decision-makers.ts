@@ -465,6 +465,7 @@ export function inferSignalType(sourceCode: string, triggerTitle?: string): Sign
 // ──────────────────────────────────────────────────────────────────────
 
 import { db } from "@/lib/db";
+import { clearStaleBriefsOnPersonaChange } from "@/lib/clear-stale-briefs";
 
 export interface EnrichDecisionMakersResult {
   scanned: number;
@@ -541,6 +542,8 @@ export async function enrichDecisionMakersForClient(
       id: true,
       companyName: true,
       personaSource: true,
+      fullName: true,
+      triggerId: true,
       trigger: {
         select: {
           sourceCode: true,
@@ -661,6 +664,25 @@ export async function enrichDecisionMakersForClient(
         where: { id: lead.id },
         data: updates,
       });
+
+      // Fix B1 racine (12/05/2026) — Si fullName a changé, invalider tous les
+      // briefs liés (briefJson/pitchJson/callBriefJson/warmMailJson/linkedinDmJson
+      // sur Lead + briefV2Json sur Trigger). Sinon ils citeraient l'ancien
+      // prénom et Fred copierait du contenu cassé via /api/leads/:id/copy.
+      const newFullName = (updates.fullName as string | undefined) ?? null;
+      if (newFullName) {
+        const cleared = await clearStaleBriefsOnPersonaChange(
+          lead.id,
+          lead.fullName,
+          newFullName,
+          lead.triggerId,
+        );
+        if (cleared.cleared) {
+          console.log(
+            `[harvestapi-dm] ${lead.companyName} persona changed "${cleared.oldName}" → "${cleared.newName}", cleared: lead=${cleared.leadFieldsCleared.join("+") || "none"} v2=${cleared.triggerV2Cleared}`,
+          );
+        }
+      }
     } catch (e) {
       result.errors += 1;
       result.errorDetails.push({

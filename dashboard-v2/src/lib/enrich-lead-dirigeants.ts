@@ -4,6 +4,7 @@ import { getEntreprise, findHumanDirigeantRecursive } from "@/lib/pappers";
 import { markLeadEnrichedFromPappers } from "@/lib/lead-enrichment-tagging";
 import { splitFullName } from "@/lib/split-full-name";
 import { looksAdministrativeFirstName } from "@/lib/verify-persona-coherence";
+import { clearStaleBriefsOnPersonaChange } from "@/lib/clear-stale-briefs";
 
 /**
  * Enrichissement Pappers dirigeants : pour chaque Trigger ICP qualifié sans Lead
@@ -413,7 +414,7 @@ export async function enrichDirigeantsForClient(
 
       const existingTriggerLead = await db.lead.findFirst({
         where: { triggerId: t.id, deletedAt: null },
-        select: { id: true },
+        select: { id: true, fullName: true, triggerId: true },
       });
 
       // C8 — Garde anti-Lead-fantôme : si le firstName Pappers contient 4+
@@ -473,6 +474,19 @@ export async function enrichDirigeantsForClient(
           where: { id: existingTriggerLead.id },
           data: enrichedFields,
         });
+        // Fix B1 racine (12/05) — clear briefs si persona change suite à
+        // ré-enrichissement Pappers (cascade holdings → nouveau dirigeant).
+        const cleared = await clearStaleBriefsOnPersonaChange(
+          existingTriggerLead.id,
+          existingTriggerLead.fullName,
+          full,
+          existingTriggerLead.triggerId,
+        );
+        if (cleared.cleared) {
+          console.log(
+            `[enrich-dirigeants] ${t.companyName} persona changed "${cleared.oldName}" → "${cleared.newName}", cleared: lead=${cleared.leadFieldsCleared.join("+") || "none"} v2=${cleared.triggerV2Cleared}`,
+          );
+        }
       } else {
         await db.lead.create({
           data: {
