@@ -1,9 +1,17 @@
 name: Docker Release
 
+# Fix 12/05/2026 — paths-ignore pour ne pas builder Docker openclaw
+# à chaque push iFIND. Les releases versionées (tags v*) continuent
+# de déclencher le build normal.
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "dashboard-v2/**"
+      - "agents/**"
+      - ".github/workflows/ifind-ci.yml"
+      - "*.md"
     tags:
       - "v*"
 

@@ -1,9 +1,20 @@
 name: Install Smoke
 
+# Fix 12/05/2026 — paths-ignore pour ne pas tourner sur changes iFIND.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "dashboard-v2/**"
+      - "agents/**"
+      - ".github/workflows/ifind-ci.yml"
+      - "*.md"
   pull_request:
+    paths-ignore:
+      - "dashboard-v2/**"
+      - "agents/**"
+      - ".github/workflows/ifind-ci.yml"
+      - "*.md"
   workflow_dispatch:
 
 concurrency:

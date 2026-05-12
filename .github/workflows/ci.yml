@@ -1,9 +1,22 @@
 name: CI
 
+# Fix 12/05/2026 — iFIND a pris le dessus sur openclaw. Ce workflow CI
+# d'openclaw échoue à chaque push iFIND. paths-ignore limite le déclenchement
+# aux fichiers openclaw-pertinents.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "dashboard-v2/**"
+      - "agents/**"
+      - ".github/workflows/ifind-ci.yml"
+      - "*.md"
   pull_request:
+    paths-ignore:
+      - "dashboard-v2/**"
+      - "agents/**"
+      - ".github/workflows/ifind-ci.yml"
+      - "*.md"
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.sha }}
