@@ -1,0 +1,76 @@
+# Sprint 5 (10/05/2026) — CI iFIND dashboard-v2
+#
+# Workflow indépendant du ci.yml original (openclaw). Tourne uniquement quand
+# du code dashboard-v2 / scripts iFIND change.
+#
+# Étapes : install → tsc → vitest → build → npm audit (warning only).
+# Échec bloque le merge sur main si tsc/tests/build KO.
+
+name: iFIND CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dashboard-v2/**"
+      - "scripts/**"
+      - ".github/workflows/ifind-ci.yml"
+  pull_request:
+    paths:
+      - "dashboard-v2/**"
+      - "scripts/**"
+      - ".github/workflows/ifind-ci.yml"
+
+# Évite les runs concurrents sur la même branche
+concurrency:
+  group: ifind-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Test + typecheck + build dashboard-v2
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: dashboard-v2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: dashboard-v2/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Vitest (unit + integration multi-tenant)
+        run: npm test -- --run
+
+      - name: Next.js production build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          # Stub minimal env (build n'execute pas le runtime)
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
+          DIRECT_URL: postgresql://stub:stub@localhost:5432/stub
+          BETTER_AUTH_SECRET: ci-stub-secret-do-not-use-in-prod
+          BETTER_AUTH_URL: http://localhost:3100
+
+      - name: npm audit (warning only — n'échoue pas la CI)
+        run: npm audit --omit=dev || echo "::warning::npm audit found vulnerabilities"
+        continue-on-error: true
