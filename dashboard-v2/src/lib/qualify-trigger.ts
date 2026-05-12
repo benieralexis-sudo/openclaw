@@ -22,6 +22,7 @@ import {
   validateLeadBriefV2Strict,
   type ValidationResult,
 } from "@/lib/lead-brief-v2-validator";
+import { getMinFreshnessDays } from "@/lib/freshness-min-gate";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -493,12 +494,15 @@ export async function qualifyTrigger(
       title: true,
       detail: true,
       companyName: true,
+      publishedAt: true,
+      type: true,
       rawPayload: true,
       // Fix B6 (11/05/2026) — Nécessaire pour distinguer "déjà scoré V1
       // par le poller" (rss-levees) de "déjà qualifié V2 par le judge".
       briefV2Json: true,
-      // Fix F-antiPersonas (12/05/2026) — Charge l'ICP client pour appliquer
-      // le hard gate antiPersonas avant même le pre-Opus reject (safety net).
+      // Fix F-antiPersonas + F-freshness-gate (12/05/2026) — Charge l'ICP
+      // client pour appliquer le hard gate antiPersonas avant pre-Opus reject
+      // et le gate min freshness après verdict.
       client: { select: { icp: true } },
     },
   });
@@ -652,6 +656,38 @@ export async function qualifyTrigger(
         );
         verdict = "ENRICH";
         conf = Math.min(conf, 60); // bornage : signal incertain
+      }
+    }
+  }
+
+  // 3-bis. FRESHNESS MIN GATE (12/05/2026, audit ICP DTL freshnessByTrigger).
+  //
+  // L'ICP du client peut définir une fenêtre min/max par type de signal :
+  //   levee : minDays=15, maxDays=120 (Fred ne veut PAS approcher J0-J14)
+  //   hireQA : minDays=0, maxDays=90
+  //   changementCLevel : minDays=30, maxDays=180
+  //
+  // Le brain V2 SYSTEM prompt (ligne 944-948) gère bien le MAX (>90j → ENRICH/NON)
+  // mais aucun gate MIN. Conséquence : RSS-levées capte J0-J14 qui passe en NEW
+  // alors que Fred veut J+15+. Fix : si verdict OUI et trigger trop frais selon
+  // minDays applicable au type, downgrade ENRICH + cap conf à 50 + log explicite.
+  // Le lead reste visible (NEW) avec scoreReason "trop frais, ré-évaluer à J+X".
+  if (verdict === "OUI" && triggerLite.publishedAt) {
+    const minDays = getMinFreshnessDays(
+      triggerLite.type,
+      triggerLite.title ?? "",
+      (triggerLite.client?.icp as { freshnessByTrigger?: Record<string, { minDays?: number }> } | null)
+        ?.freshnessByTrigger ?? null,
+    );
+    if (minDays != null && minDays > 0) {
+      const ageDays = (Date.now() - triggerLite.publishedAt.getTime()) / 86_400_000;
+      if (ageDays < minDays) {
+        const remainingDays = Math.max(1, Math.ceil(minDays - ageDays));
+        console.log(
+          `[qualify-trigger.freshness-min] ${triggerId}: type=${triggerLite.type} age=${ageDays.toFixed(1)}j < icp.minDays=${minDays} → downgrade OUI→ENRICH (attendre J+${remainingDays})`,
+        );
+        verdict = "ENRICH";
+        conf = Math.min(conf, 50);
       }
     }
   }
