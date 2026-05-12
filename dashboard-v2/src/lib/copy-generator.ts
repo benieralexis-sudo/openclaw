@@ -131,11 +131,16 @@ export function buildCopyPrompt(args: CopyPromptArgs): string {
 
   const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ") || "[Décideur à identifier]";
 
+  // Fix B2 sender (12/05/2026) — injection prénom commercial pour éviter
+  // les placeholders `[Prénom]` dans les call scripts.
+  const senderFirstName =
+    (client.icp as { senderFirstName?: string } | null)?.senderFirstName?.trim() || null;
+
   return `Tu es l'assistant commercial d'iFIND. Tu produis 4 contenus de cold outreach en 1 seul appel pour transformer ce signal d'achat en RDV.
 
 # CONTEXTE CLIENT iFIND (qui paie)
 - Société : ${client.name}
-- Secteur : ${client.industry ?? "—"}
+- Secteur : ${client.industry ?? "—"}${senderFirstName ? `\n- Commercial qui contactera : ${senderFirstName} (utilise ce prénom directement dans le call script et la signature — JAMAIS de placeholder [Prénom])` : ""}
 - ICP : ${JSON.stringify(client.icp ?? {})}
 
 # TRIGGER (signal d'achat public)

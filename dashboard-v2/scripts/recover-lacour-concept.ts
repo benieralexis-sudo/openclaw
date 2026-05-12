@@ -49,6 +49,15 @@ async function main(): Promise<void> {
       scoreReason: `[RE-JUDGED v2 manual-recovery ${before.score}→${result.opusScore} ${after?.status === "NEW" ? "RECOVERED" : "still-IGNORED"}] ${result.reason}`.slice(0, 500),
     },
   });
+
+  // Fix B3 (12/05/2026) — Unarchive le Lead si recovery réussi.
+  if (after?.status === "NEW") {
+    const unarchiveResult = await db.lead.updateMany({
+      where: { triggerId: TRIGGER_ID, status: "ARCHIVED", deletedAt: null },
+      data: { status: "NEW" },
+    });
+    console.log(`  Lead unarchive: ${unarchiveResult.count} row(s) ARCHIVED→NEW`);
+  }
 }
 
 main()

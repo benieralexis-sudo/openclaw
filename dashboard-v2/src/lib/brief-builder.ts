@@ -71,11 +71,16 @@ export function buildPrompt(args: {
 }): string {
   const { trigger, lead, client } = args;
   const icp = client.icp ?? {};
+  // Fix B2 sender (12/05/2026) — Opus laissait `[Prénom] de Digi Test Lab`
+  // dans les call scripts car le prompt ne fournissait pas le prénom du
+  // commercial. Injection directe via icp.senderFirstName.
+  const senderFirstName =
+    (icp as { senderFirstName?: string }).senderFirstName?.trim() || null;
   return `Tu es l'assistant commercial d'iFIND. Tu produis un BRIEF COMMERCIAL ULTRA-OPÉRATIONNEL pour aider un commercial humain à transformer ce signal d'achat en RDV.
 
 # CONTEXTE CLIENT iFIND (qui paie)
 - Société : ${client.name}
-- Secteur : ${client.industry ?? "—"}
+- Secteur : ${client.industry ?? "—"}${senderFirstName ? `\n- Commercial qui contactera : ${senderFirstName} (utilise ce prénom directement dans le call script et l'email signature — JAMAIS de placeholder [Prénom])` : ""}
 - ICP cible : ${JSON.stringify(icp)}
 
 # TRIGGER DÉTECTÉ (signal d'achat public)

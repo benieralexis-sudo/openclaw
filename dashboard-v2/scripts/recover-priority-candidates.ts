@@ -144,6 +144,17 @@ async function main(): Promise<void> {
             scoreReason: `[RE-JUDGED v2 manual-recovery ${oldScore}→${result.opusScore} RECOVERED] ${result.reason}`.slice(0, 500),
           },
         });
+        // Fix B3 (12/05/2026) — Unarchive le Lead lié pour qu'il réapparaisse
+        // dans le pool contactable. Sans ça, la dashboard query reste cohérente
+        // (filtre sur Trigger.status), mais l'API Lead /api/leads listant les
+        // contacts ARCHIVED les exclut → bug d'affichage selon le flow.
+        const unarchiveResult = await db.lead.updateMany({
+          where: { triggerId: c.id, status: "ARCHIVED", deletedAt: null },
+          data: { status: "NEW" },
+        });
+        if (unarchiveResult.count > 0) {
+          console.log(`    └─ Lead unarchive: ${unarchiveResult.count} row(s) ARCHIVED→NEW`);
+        }
       } else {
         stats.stillIgnored += 1;
         console.log(`  · still-IGNORED ${tag} ${oldScore}→${result.opusScore}`);
