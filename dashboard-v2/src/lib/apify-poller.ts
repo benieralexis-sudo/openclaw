@@ -18,6 +18,7 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { runAndGetItems } from "@/lib/apify";
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
+import { getRotatedKeywords } from "@/lib/keyword-rotation";
 
 // Sprint 8 (10/05/2026) — Apify pricing approx : 1 CU ≈ $0.40 sur plan Starter.
 // Conservateur (CU réel facturé varie selon RAM allouée). Pour un calcul précis
@@ -656,15 +657,16 @@ export async function pollApifyForClient(
   // - f_F=B,C = company size filter (B=11-50, C=51-200) — cible ICP DTL Tech 11-200p
   //   (29/04 : limite naturellement les Sanofi/Capgemini/Atos qui sont taille E+)
   if (useLinkedin) {
-    // Fix M5 (04/05) — Boucle sur top 3 keywords au lieu de keywords[0] seul.
-    // Avant : 1 keyword sur 24 (avec C13 keywordsHiring élargi) → 95% des
-    // termes ICP DTL ne sont jamais cherchés dans LinkedIn-jobs.
-    // Maintenant : on cherche les 3 plus pertinents (QA Engineer, SDET,
-    // Test Automation Engineer typiquement). Le actor Apify reçoit 3 URLs
-    // dans le tableau `urls` → en parallèle, count: 30 par URL = max 90 jobs.
-    // L'actor fait ensuite la dédup interne (mêmes job-ids dans les runs).
-    const topKeywords = (keywords.length > 0 ? keywords : ["QA Engineer"])
-      .slice(0, 3);
+    // Fix Batch 4 (12/05/2026) — Rotation 8 keywords par run (vs 3 avant).
+    // Avant : top 3 keywords cherchés à chaque run = 87% des 24 keywordsHiring
+    // ICP DTL jamais cherchés sur LinkedIn (on ratait "Test Manager", "SDET",
+    // "Performance Engineer", "QA Lead", etc.). Maintenant : rotation cyclique
+    // 8 keywords par run, cycle complet en ~1.5 jour (run 2×/j à 8h05+18h05).
+    // Coût Apify proportionnel : ×2.7 sur LinkedIn-jobs (3 URLs → 8 URLs),
+    // ~$0.55/run × 2 = $1.10/jour vs $0.40 avant. Acceptable vu le gain de
+    // couverture ICP. Voir keyword-rotation.ts pour la mécanique.
+    const allKw = keywords.length > 0 ? keywords : ["QA Engineer"];
+    const topKeywords = getRotatedKeywords(allKw, { batchSize: 8 });
     const linkedinUrls = topKeywords.map(
       (kw) =>
         `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}&location=France&f_TPR=r604800&f_F=B%2CC`,
@@ -701,7 +703,11 @@ export async function pollApifyForClient(
   //    triggers WTTJ uniques (mesure DB : 6% boîtes ont 2+ titles distincts).
   //  - Coût : 3 runs/j × $0.11 = $0.33/j vs $0.44/j avant = -$3/mois net.
   if (useWttj && new Date().getUTCHours() === 6) {
-    const wttjKeywords = (keywords.length > 0 ? keywords : ["test logiciel"]).slice(0, 3);
+    // Fix Batch 4 (12/05/2026) — Rotation 8 keywords. WTTJ tourne 1×/jour à 6h
+    // UTC → cycle complet des 24 keywordsHiring en 3 jours (3 buckets de 8).
+    // Coût marginal $0.50/run vs $0.33 avant = +$5/mo, large gain couverture.
+    const wttjAllKw = keywords.length > 0 ? keywords : ["test logiciel"];
+    const wttjKeywords = getRotatedKeywords(wttjAllKw, { batchSize: 8 });
     for (const kw of wttjKeywords) {
       const r = await runActorAndPushTriggers({
         actor: APIFY_ACTORS.wttjJobs,
