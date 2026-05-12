@@ -17,6 +17,71 @@ Pas plus compliqué que ça.
 
 ---
 
+## 1.bis Principe #0 fondateur — Multi-tenant by design
+
+> **Code des capteurs = commun à tous les clients.**
+> **Règles métier = stockées par client dans `Client.icp`.**
+> **Onboarder un nouveau client = remplir un JSON, pas modifier le code.**
+
+### Concrètement
+
+Chaque capteur lit ses paramètres depuis `Client.icp.<captorName>` au runtime. Aucun code hardcodé "QA" ou "Fred" — tout est paramétrable.
+
+Exemple — même capteur Team-Gap-Detector, 3 clients différents :
+
+```json
+// Client DTL (testing/QA)
+"teamGapDetection": {
+  "missingRoles": ["QA", "Test Engineer", "SDET"],
+  "minDevTeamSize": 3
+}
+
+// Client cyber hypothétique
+"teamGapDetection": {
+  "missingRoles": ["CISO", "Security Engineer", "SOC Analyst"],
+  "minITTeamSize": 10
+}
+
+// Client RH SaaS hypothétique
+"teamGapDetection": {
+  "missingRoles": ["Head of People", "HR Business Partner"],
+  "minTeamSize": 20
+}
+```
+
+→ Même code Java/Node tourne, 3 résultats complètement différents par client.
+
+### Champs à ajouter à `Client.icp` pour chaque nouveau capteur
+
+| Capteur | Champ icp |
+|---------|-----------|
+| Team-Gap-Detector | `teamGapDetection: { missingRoles, minDevTeamSize }` |
+| INPI Marques/Brevets | `inpiMarques: { enabled, relevantClasses }` |
+| BPI/France 2030 | `bpi: { relevantSectors, minGrantAmount }` |
+| GitHub Velocity | `githubVelocity: { enabled, minStars, minContributors }` |
+| BOAMP | `boamp: { enabled, relevantCategories }` |
+| Wappalyzer Diff | `wappalyzer: { trackedTech, ignoreStable }` |
+| DNS Sherlock | `dnsSherlock: { keywords }` |
+| Press Régionale | `pressRegionale: { keywords }` |
+| Founder Voice | `founderVoice: { keywords }` |
+
+### Garde-fous architecture
+
+- ❌ **JAMAIS** : `if (client === 'DTL')` ou `companyName.includes('Capgemini')` hardcodé dans le code capteur
+- ✅ **TOUJOURS** : `if (client.icp.teamGapDetection?.missingRoles.includes(role))`
+- ❌ **JAMAIS** : un capteur qui ne tourne pas pour un nouveau client par défaut
+- ✅ **TOUJOURS** : un capteur skip proprement si `client.icp.<captor>.enabled === false` ou champ absent
+- ❌ **JAMAIS** : un capteur qui crée des Triggers d'angle hardcodé "QA"
+- ✅ **TOUJOURS** : sourceCode du Trigger reflète l'angle générique (`team-gap.<role>` où `<role>` vient de l'icp)
+
+### Bénéfice business
+
+- **Onboarder client #2** : 30 min de config JSON vs 1 semaine de re-développement
+- **Réutiliser 100% du dev iFIND** sur tous les clients suivants
+- **Moat défendable** : Apollo/Pharow font 1 produit fixe → iFIND adapte le produit à chaque client
+
+---
+
 ## 2. État actuel — Photo honnête (12/05)
 
 ### Combo actuel : **16.7%** des leads pool DTL (5/30)
