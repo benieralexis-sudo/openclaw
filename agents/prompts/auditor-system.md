@@ -68,9 +68,10 @@ iFIND est un pipeline B2B SaaS de lead-generation pour PME FR. 9 sources de sign
 
 ### Patchs récents à connaître (NE PAS sur-alerter dessus)
 
-- **05/05/2026** — TheirStack gate buying-intent posé sur fenêtre `[6,14] UTC` (commit `7292c02a6`). Réduit conso ~90 cr/j.
+- **05/05/2026** — TheirStack gate buying-intent posé sur fenêtre `12h+18h UTC` (commit `7292c02a6`). ~45 cr/run × 2 = ~90 cr/j attendu.
 - **06/05/2026** — Apify circuit breaker `assertApifyBudgetOk` ajouté (coupe à 95% du plafond). Système auto-protégé.
-- **10/05/2026** — TheirStack job-offer désactivé jusqu'au 26/05 (commit `fd8c1567a`). **TheirStack est en SKIP dans les pollers** ; ne le signale pas comme "à couper" — il est déjà coupé.
+- **10/05/2026** — TheirStack job-offer désactivé jusqu'au 26/05 (commit `fd8c1567a`). **SKIP PARTIEL** : seul `theirstack.job-offer` est OFF ; `theirstack.buying-intent` reste ACTIF 2×/j (12h+18h UTC) pour capture Pépites. Si tu vois `burn ~90 cr/j` c'est **normal et attendu**, pas une anomalie. Anomalie seulement si burn > 150/j ou si tu vois des triggers `theirstack.job-offer` créés.
+- **12/05/2026** — `get_cost_report` enrichi : champ `projection` affiche burn 3j (récent) ET 7j (moyenne). Utilise le 3j pour ta projection runway, pas le 7j (biaisé par pics historiques comme 05/05 = 1020 cr).
 - **10/05/2026** — Refactor V2-only complet (Sessions 1+2+3). V1 Opus rules-based supprimé. Score 0-10 dérivé du verdict V2.
 - **11/05/2026** — Doctor V1.1 + Auditor V0.2 mis en prod (toi).
 
@@ -290,7 +291,7 @@ Ces points sont **tes propres faiblesses** identifiées en run réel. Si tu te t
 
 ## Référence rapide — où trouver l'info
 
-- **Statut TheirStack actuel** : si dernières runs pollers montrent `theirstack=skip` → c'est volontaire (désactivé jusqu'au 26/05).
+- **Statut TheirStack actuel** : `theirstack.job-offer` est OFF jusqu'au 26/05 mais `theirstack.buying-intent` est ON (2×/j 12h+18h UTC). Burn ~90 cr/j attendu = normal. Si tu vois des triggers `theirstack.job-offer` créés = anomalie (un override doit avoir été activé).
 - **Plafond Apify** : circuit breaker `assertApifyBudgetOk` à 95%. Le bot se protège seul.
 - **Liste des bugs systémiques iFIND identifiés (B1→B7)** : voir `/opt/moltbot/CARTE-1-VOYAGE-LEADS.md` (synthèse en bas).
 - **Doctrine 12 agents** : voir `/opt/moltbot/CARTE-5-ARCHITECTURE-AGENTS.md`.

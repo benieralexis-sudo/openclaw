@@ -78,19 +78,27 @@ async function fetchTheirstack(): Promise<ServiceCost> {
     const resetAt = data.earliest_expiration ?? null;
     const pct = (used / total) * 100;
     const daysLeft = resetAt ? Math.max(0, Math.floor((new Date(resetAt).getTime() - Date.now()) / 86400000)) : 0;
-    // Burn estimate from last 7 days consumption
-    let burnPerDay = 0;
+    // Burn estimate : 2 fenêtres pour distinguer tendance récente vs moyenne 7j.
+    // Fix Phase C (12/05) — Auditor confondait moyenne 7j (~101 cr/j) avec
+    // burn actuel et alertait "burn 94/j alors que pollers en SKIP" alors
+    // que c'est BUYING-INTENT qui tourne 2×/j (job-offer est OFF).
+    let burnPerDay7d = 0;
+    let burnPerDay3d = 0;
     try {
       const consRes = await fetch("https://api.theirstack.com/v0/teams/credits_consumption", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const cons = await consRes.json();
-      const recent = (Array.isArray(cons) ? cons : []).slice(-7);
-      const total7d = recent.reduce((s: number, d: { api_credits_consumed: number }) => s + (d.api_credits_consumed ?? 0), 0);
-      burnPerDay = total7d / 7;
+      const arr = Array.isArray(cons) ? cons : [];
+      const last7 = arr.slice(-7);
+      const last3 = arr.slice(-3);
+      burnPerDay7d = last7.reduce((s: number, d: { api_credits_consumed: number }) => s + (d.api_credits_consumed ?? 0), 0) / Math.max(last7.length, 1);
+      burnPerDay3d = last3.reduce((s: number, d: { api_credits_consumed: number }) => s + (d.api_credits_consumed ?? 0), 0) / Math.max(last3.length, 1);
     } catch {}
     const remaining = total - used;
-    const projDaysLeft = burnPerDay > 0 ? Math.floor(remaining / burnPerDay) : Infinity;
+    // Projection basée sur la tendance la PLUS RÉCENTE (3 derniers jours)
+    // pour ne pas être biaisée par les pics historiques (ex. 05/05 = 1020 cr).
+    const projDaysLeft = burnPerDay3d > 0 ? Math.floor(remaining / burnPerDay3d) : Infinity;
     const status = projDaysLeft < daysLeft ? "critical" : pct > 90 ? "warn" : "ok";
     return {
       service: "theirstack",
@@ -99,8 +107,11 @@ async function fetchTheirstack(): Promise<ServiceCost> {
       total,
       pctUsed: +pct.toFixed(1),
       resetAt,
-      burnPerDay: +burnPerDay.toFixed(0),
-      projection: burnPerDay > 0 ? `${remaining} cr restants pour ${projDaysLeft}j (cycle ${daysLeft}j)` : `${remaining} cr restants`,
+      burnPerDay: +burnPerDay3d.toFixed(0),
+      projection: burnPerDay3d > 0
+        ? `${remaining} cr restants. Burn 3j=${burnPerDay3d.toFixed(0)}/j (récent) vs 7j=${burnPerDay7d.toFixed(0)}/j (moyenne) → ${projDaysLeft}j runway vs ${daysLeft}j cycle.`
+        : `${remaining} cr restants`,
+      notes: "SKIP partiel : job-offer désactivé jusqu'au 26/05. Buying-intent ACTIF 2×/j (12h + 18h UTC, ~45 cr/run = 90 cr/j attendu). Si burn ≠ ~90/j → anomalie.",
     };
   } catch (e) {
     return { service: "theirstack", status: "critical", used: 0, total: 0, pctUsed: null, resetAt: null, burnPerDay: null, projection: null, notes: e instanceof Error ? e.message : "err" };
