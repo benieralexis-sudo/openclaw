@@ -239,10 +239,15 @@ export async function pollRssLeveesForClient(
     for (const item of items) {
       if (!item.title) continue;
 
-      // Filter <14j
+      // Filter freshness ICP-aware (12/05/2026) — Aligné sur ICP DTL
+      // freshnessByTrigger.levee : minDays=15, maxDays=120. Fred ne veut PAS
+      // approcher J0-J14 (trop tôt = sollicitations en masse) et J+120+ (signal
+      // périmé). Avant : `ageDays > 14 continue` capturait J0-J14 et jetait
+      // ensuite J+15+ — exactement l'inverse de l'ICP. Maintenant : on capte
+      // J+0 à J+120 (le brain V2 gate min freshness applique l'ICP par client).
       if (item.date) {
         const ageDays = (Date.now() - new Date(item.date).getTime()) / 86_400_000;
-        if (ageDays > 14) continue;
+        if (ageDays > 120) continue;
       }
 
       if (!looksLikeFunding(item.title, item.description)) continue;

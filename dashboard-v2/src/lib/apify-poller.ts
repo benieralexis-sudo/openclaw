@@ -708,7 +708,10 @@ export async function pollApifyForClient(
         input: {
           query: kw,
           countryCode: "FR",
-          companySize: "50-250",
+          // Fix 12/05/2026 — Aligné sur ICP DTL antiSizes (201-500 = anti).
+          // Avant "50-250" incluait 201-250 qui est antiSize. Fix → "50-200".
+          // Le post-filter ligne 401 (employees > 250) reste comme garde-fou.
+          companySize: "50-200",
           contractType: ["full_time"],
         },
         clientId,

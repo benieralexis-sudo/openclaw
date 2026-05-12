@@ -649,6 +649,10 @@ export async function qualifyTrigger(
   const promoteToNew = status === "NEW" && triggerLite.status === "IGNORED";
 
   // 8. Update Trigger : score mappé + briefV2Json + status + isHot.
+  // Fix F7 (12/05/2026) — Bug ignoredReason=null : audit A.0.1 a montré 231/245
+  // IGNORED avec ignoredReason=null (raison réelle uniquement dans scoreReason).
+  // On copie scoreReason → ignoredReason + ignoredAt quand status passe à IGNORED
+  // pour que les audits futurs et le dashboard puissent lire la raison directement.
   await db.trigger.update({
     where: { id: triggerId },
     data: {
@@ -657,6 +661,9 @@ export async function qualifyTrigger(
       isHot,
       status,
       briefV2Json: v2Brief as unknown as object,
+      ...(status === "IGNORED"
+        ? { ignoredAt: new Date(), ignoredReason: reason.slice(0, 500) }
+        : {}),
     },
   });
 

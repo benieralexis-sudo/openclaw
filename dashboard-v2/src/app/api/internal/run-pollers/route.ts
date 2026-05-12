@@ -526,17 +526,9 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           (entry as { crossSourceError?: string }).crossSourceError = e instanceof Error ? e.message : String(e);
         }
-        // Dropcontact ❌ COUPÉ 30/04/2026 (audit empirique 1.66% hit rate sur ICP DTL)
-        // Compte Dropcontact fermé côté abonnement → appel = 401 silencieux.
-        // Remplacé par FullEnrich Yearly Start 1k (étage 4-bis) qui cascade
-        // sur 20+ providers (incl. Dropcontact lui-même) avec hit 100% mesuré.
-        // Économie : -35€/mo. Lib enrich-via-dropcontact.ts conservée pour rollback.
-        // try {
-        //   const dc = await enrichLeadsViaDropcontact(c.id, { limit: 30 });
-        //   (entry as { dropcontact?: unknown }).dropcontact = dc;
-        // } catch (e) {
-        //   (entry as { dropcontactError?: string }).dropcontactError = e instanceof Error ? e.message : String(e);
-        // }
+        // Dropcontact COUPÉ 30/04/2026 — 1.66% hit rate sur ICP DTL, compte fermé.
+        // Remplacé par FullEnrich Yearly Start 1k (étage 4-bis). Lib
+        // enrich-via-dropcontact.ts archivée /_archive/disabled-libs-20260430/.
         // Kaspr direct sur les leads avec LinkedIn jamais enrichis Kaspr.
         // Cas concret : Rodz enrichContact ramène un LinkedIn → si Dropcontact
         // ne trouve pas d'email, le chaining Kaspr de enrichLeadsViaDropcontact
