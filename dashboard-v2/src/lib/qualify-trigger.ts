@@ -23,6 +23,7 @@ import {
   type ValidationResult,
 } from "@/lib/lead-brief-v2-validator";
 import { getMinFreshnessDays } from "@/lib/freshness-min-gate";
+import { detectOpenerPersonaDesync } from "@/lib/opener-substitution";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -596,7 +597,7 @@ export async function qualifyTrigger(
     return null;
   }
 
-  const v2Brief = v2Result.brief;
+  let v2Brief = v2Result.brief;
   let verdict = v2Brief.verdict;
   let conf = v2Brief.confidence;
 
@@ -729,6 +730,31 @@ export async function qualifyTrigger(
 
   // 7. B7 promotion : si re-qualify d'un IGNORED remonte le verdict → NEW.
   const promoteToNew = status === "NEW" && triggerLite.status === "IGNORED";
+
+  // Fix B5 (12/05/2026) — Garde anti-hallucination opener.
+  // Opus peut halluciner un prénom (ex. Kestra "Bonjour Ludovic," alors que
+  // Lead.fullName = Denis Marc Auguste Andre Lafont — Ludovic = co-fondateur
+  // connu de son training Anthropic). Avant de persister briefV2Json, on
+  // vérifie que l'opener ne cite pas un prénom incompatible avec le Lead
+  // actuel. Si desync → remplace l'opener par un fallback safe (Fred ne peut
+  // pas copier-coller du contenu cassé), garde le reste du brief (verdict +
+  // thesis + risks + sources restent valides).
+  if (status === "NEW" && v2Brief.opener && v2Brief.opener.length >= 20) {
+    const leadForCheck = await db.lead.findFirst({
+      where: { triggerId, deletedAt: null },
+      select: { firstName: true, lastName: true, fullName: true },
+    });
+    if (leadForCheck) {
+      const desync = detectOpenerPersonaDesync(v2Brief.opener, leadForCheck);
+      if (desync.isDesync) {
+        const safeFallback = `(Brief opener désynchronisé — Opus a cité "${desync.briefName}" mais le contact actuel est "${leadForCheck.fullName ?? "inconnu"}". Régénérer manuellement avant outreach.)`;
+        console.warn(
+          `[qualify-trigger.V2-desync-guard] ${triggerId}: opener cite "${desync.briefName}" ≠ Lead "${leadForCheck.fullName}". Opener remplacé par fallback.`,
+        );
+        v2Brief = { ...v2Brief, opener: safeFallback };
+      }
+    }
+  }
 
   // 8. Update Trigger : score mappé + briefV2Json + status + isHot.
   // Fix F7 (12/05/2026) — Bug ignoredReason=null : audit A.0.1 a montré 231/245
