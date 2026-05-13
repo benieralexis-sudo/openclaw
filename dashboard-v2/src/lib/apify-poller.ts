@@ -19,6 +19,7 @@ import { db } from "@/lib/db";
 import { runAndGetItems } from "@/lib/apify";
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
 import { getRotatedKeywords } from "@/lib/keyword-rotation";
+import { buildTitleFilterForClient } from "@/lib/icp-title-filter";
 
 // Sprint 8 (10/05/2026) — Apify pricing approx : 1 CU ≈ $0.40 sur plan Starter.
 // Conservateur (CU réel facturé varie selon RAM allouée). Pour un calcul précis
@@ -35,6 +36,11 @@ interface ClientIcpExtended {
   antiPersonas?: string[];
   personaTitles?: string[];
   keywordsHiring?: string[];
+  // Multi-tenant 13/05/2026 : filtres titre post-scrape paramétrables.
+  // - string : pattern regex direct (ex "\\b(qa|test)\\b")
+  // - string[] : array de mots-clés bruts (assemblés en \b(kw1|kw2|...)\b)
+  titleFilterInclude?: string | string[];
+  titleFilterExclude?: string | string[];
 }
 
 export interface ApifyPollerResult {
@@ -455,24 +461,9 @@ function adaptIndeedItem(item: IndeedJobItem): NormalizedJob | null {
   };
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// Filtre titre QA strict (anti-bruit Indeed/LinkedIn FR)
-// ──────────────────────────────────────────────────────────────────────
-// Indeed FR matche large : "QA Engineer" → tout job avec "Engineer".
-// On post-filtre sur jobTitle pour ne garder QUE les vraies offres
-// QA/Test/Quality/Tester/Automation. Évite Sophia Engineering, Climater
-// CVC, COMET Aerospace qui pollutent à score 1-3.
-const QA_TITLE_REGEX =
-  /\b(qa|q\.a\.|test(?:eur|ing|er|s)?|quality\s*assurance|automaticien|sdet|qualiticien|recette|validation\s+log)/i;
-
-const NON_QA_TITLE_REGEX =
-  /\b(m[ée]canique|cvc|a[eé]rospatial|a[eé]ronautique|industriel(?!le.*qa)|paqa\b|chimie|bio[mt]|process(?!.*qa)|cadre\s+de\s+sant)/i;
-
-function titleMatchesQaIntent(title: string | undefined | null): boolean {
-  if (!title) return false;
-  if (NON_QA_TITLE_REGEX.test(title)) return false;
-  return QA_TITLE_REGEX.test(title);
-}
+// Filtre titre — buildTitleFilterForClient extrait dans @/lib/icp-title-filter
+// (partagé avec francetravail-poller). Fallback DTL QA strict si client.icp
+// ne définit pas titleFilterInclude/Exclude.
 
 // ──────────────────────────────────────────────────────────────────────
 // Run + push triggers
@@ -627,6 +618,9 @@ export async function pollApifyForClient(
   const icp = client.icp as ClientIcpExtended;
   const keywords = icp.keywordsHiring ?? [];
   const antiCompanies = (icp.antiPersonas ?? []).map((a) => a.toLowerCase());
+  // Multi-tenant 13/05/2026 : construit le titleFilter depuis l'ICP du client.
+  // Si non défini → fallback DTL legacy (QA strict). Pour iFIND : SDR/Sales.
+  const clientTitleFilter = buildTitleFilterForClient(icp);
   const result: ApifyPollerResult = {
     clientId,
     actorRuns: [],
@@ -694,7 +688,7 @@ export async function pollApifyForClient(
       adapter: (item) => adaptLinkedinJobItem(item as LinkedinJobItem),
       antiCompanies,
       dryRun: options.dryRun,
-      titleFilter: titleMatchesQaIntent,
+      titleFilter: clientTitleFilter,
     });
     result.actorRuns.push(r);
     result.totalTriggersCreated += r.triggersCreated;
@@ -769,7 +763,7 @@ export async function pollApifyForClient(
       adapter: (item) => adaptIndeedItem(item as IndeedJobItem),
       antiCompanies,
       dryRun: options.dryRun,
-      titleFilter: titleMatchesQaIntent,
+      titleFilter: clientTitleFilter,
     });
     result.actorRuns.push(r);
     result.totalTriggersCreated += r.triggersCreated;

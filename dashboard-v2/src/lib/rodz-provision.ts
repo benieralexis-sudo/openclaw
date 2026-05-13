@@ -223,12 +223,12 @@ export function buildSignals(client: { name: string; icp: ClientIcpExtended }): 
   const signals: SignalSpec[] = [];
 
   // ────────────────────────────────────────────────────────────────────
-  // 1. JOB OFFERS — recrutement de testeur/QA (signal #1 DigitestLab)
+  // 1. JOB OFFERS — recrutement keywords ICP (signal #1 — défini par client)
   // ────────────────────────────────────────────────────────────────────
   if (customHiringTitles.length > 0) {
     signals.push({
       type: "job-offers",
-      name: `${client.name} — Recrutement QA/Testeur (HOT)`,
+      name: `${client.name} — Recrutement clé (HOT)`,
       dailyLeadLimit: 5,
       config: {
         ...baseEnrichment,
@@ -243,17 +243,23 @@ export function buildSignals(client: { name: string; icp: ClientIcpExtended }): 
   }
 
   // ────────────────────────────────────────────────────────────────────
-  // 2. RECRUITMENT CAMPAIGN — campagne massive de recrutement Test/QA
+  // 2. RECRUITMENT CAMPAIGN — campagne massive de recrutement (filtré par
+  // jobDescriptionKeywords ICP, fallback DTL legacy ["test","QA"...])
   // ────────────────────────────────────────────────────────────────────
   if (customHiringTitles.length > 0) {
+    // Fix multi-tenant 13/05/2026 — extraction depuis Client.icp pour ne pas
+    // hardcoder QA. Fallback préserve comportement DTL existant.
+    const jobDescKeywords =
+      (client.icp as { jobDescriptionKeywords?: string[] }).jobDescriptionKeywords
+      ?? ["test", "QA", "quality assurance"];
     signals.push({
       type: "recruitment-campaign",
-      name: `${client.name} — Campagne recrutement Test`,
+      name: `${client.name} — Campagne recrutement massive`,
       dailyLeadLimit: 3,
       config: {
         ...baseEnrichment,
         jobTitleInclude: customHiringTitles,
-        jobDescriptionInclude: ["test", "QA", "quality assurance"],
+        jobDescriptionInclude: jobDescKeywords,
         locations,
         companySize: sizes,
         publishedDate: "30d",

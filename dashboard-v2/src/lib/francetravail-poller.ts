@@ -21,6 +21,7 @@ import {
   isFTQaOffer,
   type FranceTravailOffer,
 } from "@/lib/francetravail";
+import { buildTitleFilterForClient } from "@/lib/icp-title-filter";
 
 interface ClientIcpExtended {
   industries?: string[];
@@ -28,6 +29,17 @@ interface ClientIcpExtended {
   regions?: string[];
   antiPersonas?: string[];
   keywordsHiring?: string[];
+  // Multi-tenant 13/05/2026 — codes ROME francetravail paramétrables.
+  // Default DTL : ["M1805","M1810","M1811"] (informatique).
+  // iFIND : ["M1701","M1704","M1707","M1702"] (sales/commercial/marketing).
+  francetravailRomeCodes?: string[];
+  // Active le pré-filtre isFTTechOffer (sectoriel tech). Default true (DTL).
+  // iFIND : false (pas de filtre sectoriel — keywordsHiring suffit).
+  francetravailRequireTechFilter?: boolean;
+  // Multi-tenant 13/05 — réutilisé par buildTitleFilterForClient pour le boost
+  // de score (anciennement isFTQaOffer hardcodé).
+  titleFilterInclude?: string | string[];
+  titleFilterExclude?: string | string[];
 }
 
 export interface FranceTravailPollerResult {
@@ -80,10 +92,14 @@ function regionsToDepartements(regions: string[] | undefined): string | undefine
 function offerToTriggerData(
   offer: FranceTravailOffer,
   clientId: string,
+  signalBoostHit: boolean = false,
 ): Prisma.TriggerCreateInput {
-  const isQa = isFTQaOffer(offer.intitule);
+  // Multi-tenant 13/05 — boost générique si l'intitulé match le signal #1
+  // du client (calculé en amont via buildTitleFilterForClient). Fallback
+  // DTL legacy : isFTQaOffer pour rétro-compat si signalBoostHit non passé.
+  const boostHit = signalBoostHit || isFTQaOffer(offer.intitule);
   let score = 6;
-  if (isQa) score = 8;
+  if (boostHit) score = 8;
   // Senior boost
   if (/\b(senior|lead|head|expert)\b/i.test(offer.intitule)) score = Math.min(10, score + 1);
 
@@ -98,7 +114,7 @@ function offerToTriggerData(
     industry: null,
     region: offer.lieuTravail?.libelle ?? null,
     type: TriggerType.HIRING_KEY,
-    title: `${offer.intitule}${isQa ? " (QA match)" : ""}`,
+    title: `${offer.intitule}${boostHit ? " (signal match)" : ""}`,
     detail: [
       offer.lieuTravail?.libelle,
       offer.typeContrat,
@@ -163,6 +179,15 @@ export async function pollFranceTravailForClient(
   const departement = regionsToDepartements(icp.regions);
   const lookbackHours = options.lookbackHours ?? 24;
 
+  // Multi-tenant 13/05 — codes ROME paramétrables via ICP.
+  // Default DTL : informatique (M1805/M1810/M1811).
+  // iFIND/sales : M17xx (commercial/marketing).
+  const romeCodes = icp.francetravailRomeCodes ?? ["M1805", "M1810", "M1811"];
+  const requireTechFilter = icp.francetravailRequireTechFilter ?? true;
+  // Signal #1 boost (anciennement isFTQaOffer hardcodé) — désormais générique
+  // via titleFilterInclude / titleFilterExclude du client.icp.
+  const signalBoostFilter = buildTitleFilterForClient(icp);
+
   // Fenêtre 24h glissante (API exige min+max)
   const now = new Date();
   const since = new Date(now.getTime() - lookbackHours * 3600 * 1000);
@@ -170,14 +195,10 @@ export async function pollFranceTravailForClient(
   const maxCreationDate = now.toISOString().slice(0, 19) + "Z";
 
   try {
-    // Codes ROME M180* (informatique) + M181* (administration SI)
-    // M1805 Études et développement informatique
-    // M1810 Production et exploitation de systèmes d'information
-    // M1811 Data engineering / data science
     const offers = await searchFranceTravailOffers({
       minCreationDate,
       maxCreationDate,
-      codeROME: "M1805,M1810,M1811",
+      codeROME: romeCodes.join(","),
       departement,
       range: "0-149",
     });
@@ -191,8 +212,9 @@ export async function pollFranceTravailForClient(
     const clientKeywords = (icp.keywordsHiring ?? []).map((k) => k.toLowerCase());
 
     for (const offer of offers) {
-      // Filtre tech strict (sécurité même si ROME devrait suffire)
-      if (!isFTTechOffer(offer.intitule)) {
+      // Filtre tech strict (sécurité même si ROME devrait suffire) — DTL only.
+      // Multi-tenant : skip ce filtre si client.icp.francetravailRequireTechFilter=false.
+      if (requireTechFilter && !isFTTechOffer(offer.intitule)) {
         result.triggersSkipped += 1;
         continue;
       }
@@ -229,7 +251,7 @@ export async function pollFranceTravailForClient(
       }
 
       try {
-        await db.trigger.create({ data: offerToTriggerData(offer, clientId) });
+        await db.trigger.create({ data: offerToTriggerData(offer, clientId, signalBoostFilter(offer.intitule)) });
         result.triggersCreated += 1;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
