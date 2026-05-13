@@ -139,7 +139,22 @@ async function searchMarques(
       signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) {
-      console.warn(`[inpi-poller] search HTTP ${res.status}`);
+      const bodyPreview = (await res.text().catch(() => "")).slice(0, 300);
+      // 13/05/2026 nuit — Audit Alexis : 0 trigger INPI en 90 jours. Investigation
+      // a confirmé que api-gateway.inpi.fr `/services/apidiffusion/api/marques/
+      // search` retourne HTTP 500 systématique côté SERVEUR INPI (avec auth XSRF
+      // correcte ET avec body {} minimal). C'est une panne côté INPI, pas
+      // notre code. Notre auth XSRF est conforme à la doc.
+      // Action long-terme : migrer vers le bulk FTP/SFTP INPI (MAJ hebdo
+      // vendredi) si la gateway reste HS. Voir agent investigation 13/05.
+      console.warn(
+        `[inpi-poller] search HTTP ${res.status} | body: ${bodyPreview}`,
+      );
+      if (res.status === 500) {
+        console.warn(
+          `[inpi-poller] API INPI down côté serveur (panne récurrente depuis ~12/05). Re-tester dans 24h ou switch vers bulk FTP.`,
+        );
+      }
       return [];
     }
     const xml = await res.text();
