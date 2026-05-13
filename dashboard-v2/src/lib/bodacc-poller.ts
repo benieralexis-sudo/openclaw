@@ -81,11 +81,26 @@ function mapBodaccType(
   ) {
     return "procedure_collective";
   }
-  if (f.includes("fusion") || t.includes("fusion")) return "company_merger";
+  // 13/05 — chercher fusion + augmentation_capital AVANT le générique modification
+  // (sinon "Modifications diverses" famille capture tout en modification_statuts
+  // alors que c'est en réalité une augmentation capital ou fusion qu'on a filtrée
+  // côté API). Bug détecté : YUKAN/lempire/ADAPT1SOLUTION classés modification
+  // alors qu'ils étaient bien des augmentations capital.
+  if (
+    /fusion/i.test(f) ||
+    /fusion/i.test(t) ||
+    /fusion/i.test(c)
+  ) {
+    return "company_merger";
+  }
+  // 13/05 — Détection capital_increase élargie : le descriptif BODACC réel
+  // est souvent "modification survenue sur le capital (augmentation)" ou
+  // "augmentation du capital", on cherche les 2 patterns (mots colocs).
   if (
     /augmentation\s+(de\s+|du\s+)?capital/.test(f) ||
     /augmentation\s+(de\s+|du\s+)?capital/.test(t) ||
-    /augmentation\s+(de\s+|du\s+)?capital/.test(c)
+    /augmentation\s+(de\s+|du\s+)?capital/.test(c) ||
+    (c.includes("capital") && c.includes("augmentation"))
   ) {
     return "capital_increase";
   }
@@ -196,36 +211,64 @@ export async function pollBodaccForClient(
     .toISOString()
     .slice(0, 10);
 
-  const url = new URL(BODACC_API);
-  url.searchParams.set("limit", String(limit));
-  url.searchParams.set("order_by", "dateparution DESC");
-  url.searchParams.set("where", `dateparution >= date'${sinceDate}'`);
+  // 13/05/2026 nuit — Audit Alexis a montré que 0/100 triggers étaient créés
+  // (100% type-filter skipped). Cause : sans filtre côté API, on récupérait
+  // mécaniquement les 100 records les plus récents = 95% "Dépôts de comptes"
+  // et "Créations" (= shouldCreate=false). BODACC publie 100k+ records/jour
+  // donc on ratait systématiquement les ~30-50 capital_increase et ~5 fusions
+  // qui sont noyés dans le bruit. Maintenant : 2 queries ciblées avec filtre
+  // server-side qui ne ramène QUE les modifications avec "augmentation
+  // capital" ou "fusion" dans le descriptif. Volume attendu : ~30-50/jour FR
+  // total → ~5-10 après ICP filter tech (NAF 62/58/63).
+  const filteredWhere = `dateparution >= date'${sinceDate}' AND familleavis_lib="Modifications diverses"`;
+  const queries = [
+    {
+      label: "augmentation_capital",
+      where: `${filteredWhere} AND search(modificationsgenerales, "augmentation capital")`,
+    },
+    {
+      label: "fusion",
+      where: `${filteredWhere} AND search(modificationsgenerales, "fusion")`,
+    },
+  ];
 
-  console.log(`[bodacc-poller] ${clientId}: fetching ${url.toString()}`);
+  const allRecords: BodaccRecord[] = [];
+  for (const q of queries) {
+    const url = new URL(BODACC_API);
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("order_by", "dateparution DESC");
+    url.searchParams.set("where", q.where);
 
-  let response: Response;
-  try {
-    response = await fetch(url.toString(), {
-      headers: {
-        "User-Agent": "iFIND TriggerEngine/1.0 (contact: hello@ifind.fr)",
-        Accept: "application/json",
-      },
-      signal: AbortSignal.timeout(20_000),
-    });
-  } catch (err) {
-    result.errors.push(
-      `BODACC fetch failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
-    return result;
+    console.log(`[bodacc-poller] ${clientId}: fetching ${q.label} (${url.toString().slice(0, 200)}...)`);
+
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        headers: {
+          "User-Agent": "iFIND TriggerEngine/1.0 (contact: hello@ifind.fr)",
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch (err) {
+      result.errors.push(
+        `BODACC fetch ${q.label} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      continue;
+    }
+
+    if (!response.ok) {
+      result.errors.push(`BODACC ${q.label} HTTP ${response.status}`);
+      continue;
+    }
+
+    const data = (await response.json()) as { results?: BodaccRecord[] };
+    const records = data.results ?? [];
+    console.log(`[bodacc-poller] ${clientId}: ${q.label} → ${records.length} records`);
+    allRecords.push(...records);
   }
 
-  if (!response.ok) {
-    result.errors.push(`BODACC HTTP ${response.status}`);
-    return result;
-  }
-
-  const data = (await response.json()) as { results?: BodaccRecord[] };
-  const records = data.results ?? [];
+  const records = allRecords;
   result.itemsFetched = records.length;
 
   for (const record of records) {
