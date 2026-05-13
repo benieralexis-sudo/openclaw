@@ -241,7 +241,60 @@ export async function findDecisionMakerByCompany(args: {
   const maxItems = args.maxItems ?? 20;
   let items: HarvestProfile[] = [];
   let usedVariant = companyName;
+  let usedTechFilter = false;
+
+  // 13/05/2026 nuit — Audit Google CSE 403 + test live confirmé : l'actor
+  // `harvestapi/linkedin-profile-search` supporte `currentJobTitles` (array).
+  // Sans ce filtre : sur `currentCompanies: ["happn"]` on remonte Karima CEO,
+  // PR Manager, Head of Product Design, etc. dans le top 10 (Karima en tête →
+  // accepté en tier 2 founder). AVEC le filtre `currentJobTitles: ["CTO",
+  // "Head of Engineering",...]` on remonte Cyril Leroux CTO en 2 secondes.
+  //
+  // Stratégie 2 passes pour qa-hire/tech-hire :
+  // 1) Passe ciblée tech (currentJobTitles strict) — vise le VRAI CTO/Head of Eng
+  // 2) Passe large (sans filtre) — fallback compatibilité (cas où la passe 1
+  //    retourne 0 alors qu'on aurait un Engineering Manager hors filtre)
+  //
+  // Pour fundraising/expansion/default : passe large directe (CEO/Founder OK).
+  const TECH_TITLES_QA = ["Head of QA", "QA Manager", "Test Manager", "QA Lead", "CTO", "Head of Engineering", "VP Engineering", "Chief Technology Officer", "Directeur Technique", "DSI", "Engineering Manager"];
+  const TECH_TITLES_HIRE = ["CTO", "Chief Technology Officer", "Head of Engineering", "VP Engineering", "Directeur Technique", "DSI", "Tech Lead", "Engineering Manager"];
+  const techJobTitles =
+    signalType === "qa-hire" ? TECH_TITLES_QA :
+    signalType === "tech-hire" ? TECH_TITLES_HIRE :
+    null;
+
   for (const variant of searchVariants) {
+    // Passe 1 — filtre tech strict si applicable
+    if (techJobTitles) {
+      try {
+        const result = await runAndGetItems<HarvestProfile>(
+          ACTOR_ID,
+          {
+            currentCompanies: [variant],
+            currentJobTitles: techJobTitles,
+            locations: args.locations ?? ["France"],
+            maxItems: Math.min(maxItems, 10),
+            profileScraperMode: "Full",
+          },
+          { timeout: 180, memory: 512, itemsLimit: Math.min(maxItems, 10) },
+        );
+        if (result.items.length > 0) {
+          console.log(
+            `[harvestapi-dm.tech-filter] ${variant} (${signalType}) — ${result.items.length} profils tech trouvés via currentJobTitles`,
+          );
+          items = result.items;
+          usedVariant = variant;
+          usedTechFilter = true;
+          break;
+        }
+      } catch (e) {
+        console.warn(
+          `[harvestapi-dm.tech-filter] search failed for "${variant}":`,
+          e instanceof Error ? e.message : e,
+        );
+      }
+    }
+    // Passe 2 — recherche large (sans filtre) en fallback
     try {
       const result = await runAndGetItems<HarvestProfile>(
         ACTOR_ID,
@@ -277,8 +330,11 @@ export async function findDecisionMakerByCompany(args: {
   const rules = RULES_BY_SIGNAL[signalType];
 
   // Score chaque profil : tier le plus bas = meilleur, +bonus si company match exact
+  // 13/05 — Si on a utilisé le filtre tech actor (passe 1), on fait confiance au
+  // filtre côté LinkedIn et on saute le check local companyMatch (qui rejetait
+  // Cyril Leroux CTO @happn car son headline ne mentionne pas "happn").
   let scored = items
-    .map((p) => scoreProfile(p, rules, usedVariant))
+    .map((p) => scoreProfile(p, rules, usedVariant, usedTechFilter))
     .filter((s): s is NonNullable<typeof s> => s !== null)
     .sort((a, b) => {
       // Tier ascendant (1 = meilleur), puis confidence descendant
@@ -313,7 +369,7 @@ export async function findDecisionMakerByCompany(args: {
   // SAUF en mode strict (qa-hire / tech-hire) où on préfère null à un CEO.
   if (scored.length === 0 && !strict) {
     const fallbackScored = items
-      .map((p) => scoreProfile(p, RULES_DEFAULT, usedVariant))
+      .map((p) => scoreProfile(p, RULES_DEFAULT, usedVariant, usedTechFilter))
       .filter((s): s is NonNullable<typeof s> => s !== null)
       .sort((a, b) => {
         if (a.tier !== b.tier) return a.tier - b.tier;
@@ -390,6 +446,11 @@ function scoreProfile(
   p: HarvestProfile,
   rules: TitleRule[],
   targetCompany: string,
+  /** 13/05 — Si true, on saute le check companyMatch (l'actor HarvestAPI
+   * a déjà filtré par currentCompanies côté LinkedIn). Le check local
+   * rejetait Cyril Leroux CTO @happn parce que son headline ne contient
+   * pas "happn" (il dit "CTO building high-performing engineering teams"). */
+  trustActorCompanyFilter: boolean = false,
 ): {
   profile: HarvestProfile;
   tier: 1 | 2 | 3 | 4;
@@ -413,6 +474,7 @@ function scoreProfile(
   const cpNorm = cps.map((cp) => normalize(cp.companyName));
   const headlineNorm = normalize(headline);
   const companyMatch =
+    trustActorCompanyFilter ||
     cpNorm.includes(targetNorm) ||
     cpNorm.some((c) => c.includes(targetNorm) || targetNorm.includes(c)) ||
     headlineNorm.includes(targetNorm);
@@ -509,11 +571,13 @@ export async function enrichDecisionMakersForClient(
       deletedAt: null,
       companyName: { not: "" },
       AND: [
-        // Bug DiXiO (11/05/2026) — Étendre éligibilité : en plus des Leads sans
-        // persona (firstName vide), inclure aussi les Leads marqués
-        // `pappers-rcs` sur trigger HIRING_KEY tech (NAF 62/58.29/63). Pappers
-        // RCS sur un hiring tech = mandataire légal non-tech = mauvais contact
-        // structurellement → forcer HarvestAPI à chercher le vrai décideur.
+        // Éligibilité élargie :
+        // - Leads sans persona (firstName vide) — cas standard
+        // - Leads `pappers-rcs` sur HIRING_KEY tech (NAF 62/58.29/63) — bug DiXiO 11/05
+        // - 13/05/2026 nuit : Leads CEO/Co-Founder/Président sur HIRING_KEY tech
+        //   où on aurait dû avoir un CTO/Head of Eng (pattern happn Karima, GitGuardian,
+        //   StrangeBee, etc.). Avec le nouveau filtre `currentJobTitles` côté actor,
+        //   on a une vraie chance de trouver le bon contact tech à la place.
         {
           OR: [
             { firstName: null },
@@ -522,6 +586,24 @@ export async function enrichDecisionMakersForClient(
             { lastName: "" },
             {
               personaSource: "pappers-rcs",
+              trigger: {
+                type: "HIRING_KEY",
+                OR: [
+                  { companyNaf: { startsWith: "62." } },
+                  { companyNaf: { startsWith: "58.29" } },
+                  { companyNaf: { startsWith: "63." } },
+                ],
+              },
+            },
+            // Pattern 13/05 — CEO/Co-Founder/Président sur signal HIRING_KEY tech.
+            // Le filtre tech HarvestAPI peut maintenant trouver mieux.
+            {
+              jobTitle: {
+                in: [
+                  "CEO", "ceo", "CEO & Co-founder", "CEO & Founder", "co-founder", "Co-founder", "Co-Founder",
+                  "founder", "Founder", "fondateur", "Fondateur", "Président", "President", "Co-Founder & CEO",
+                ],
+              },
               trigger: {
                 type: "HIRING_KEY",
                 OR: [
@@ -551,6 +633,7 @@ export async function enrichDecisionMakersForClient(
       companyName: true,
       personaSource: true,
       fullName: true,
+      jobTitle: true, // 13/05 — pour détecter CEO/Founder sur tech-signal et bypass cache
       triggerId: true,
       trigger: {
         select: {
@@ -595,7 +678,14 @@ export async function enrichDecisionMakersForClient(
 
     // Cas Lead pappers-rcs orphelin tech-hire : on bypass cache pour forcer
     // un fetch frais (le cache 24h pourrait masquer une recherche élargie).
-    const forceRefresh = lead.personaSource === "pappers-rcs";
+    // 13/05/2026 nuit — Étendu : pour les leads avec jobTitle CEO/Founder
+    // sur signal qa-hire/tech-hire, on bypass le cache aussi. Le cache 24h
+    // contient potentiellement l'ancienne réponse non-filtrée (Karima happn,
+    // etc.), on veut le résultat filtré par currentJobTitles tech.
+    const jt = (lead.jobTitle ?? "").toLowerCase();
+    const isCeoFounder = /\b(ceo|founder|fondateur|co.?founder|président)\b/i.test(jt) && !/\b(cto|head of eng|directeur technique)\b/i.test(jt);
+    const isTechSignal = signalType === "qa-hire" || signalType === "tech-hire";
+    const forceRefresh = lead.personaSource === "pappers-rcs" || (isCeoFounder && isTechSignal);
 
     try {
       const dm = await findDecisionMakerByCompany({
