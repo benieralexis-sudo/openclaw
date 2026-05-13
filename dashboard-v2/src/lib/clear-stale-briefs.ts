@@ -22,6 +22,30 @@ import "server-only";
  *
  * Solution structurelle : quand fullName change, clear TOUS les briefs Lead
  * + Trigger.briefV2Json. Ils repartiront vides en attendant régénération.
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * Extension 13/05/2026 — Bug racine #2 (mismatch persona/email)
+ * ─────────────────────────────────────────────────────────────────────
+ *
+ * Le fix B1 (briefs) ne suffit pas : Kaspr/FullEnrich posent aussi un
+ * email + téléphone sur le Lead pour la persona courante. Quand HarvestAPI
+ * change la persona APRÈS coup, les emails/phones restent ceux de l'ancien.
+ *
+ * Cas observés en prod (13/05) — 4/89 Leads avec email (4.5%) :
+ *   - GitGuardian : persona=Eric Grabarczyk (Eng. Manager) / email=eric.fourrier@ (CEO)
+ *   - ViaXoft     : persona=Vincent Gautier (CTO) / email=ebarthelemy@ (CEO)
+ *   - happn       : persona=Paul-Antoine Campos / email=karima.ben-abdelmalek@
+ *   - Kestra      : persona=Denis Lafont / email=ldehon@ (Ludovic Dehon CTO)
+ *
+ * Pattern : Kaspr appelé EN PREMIER sur persona initiale faible → pose email
+ * de la "persona dominante" de la boîte (CEO via cross-check coherence).
+ * HarvestAPI tourne ENSUITE et trouve une persona plus pertinente → écrase
+ * firstName/lastName/linkedinUrl/jobTitle MAIS NE TOUCHE PAS l'email. Fred
+ * envoie à la mauvaise personne avec un opener qui cite la nouvelle.
+ *
+ * Solution : étendre l'invalidation aux champs email/phone + reset des
+ * `*AttemptedAt` pour permettre une re-tentative Kaspr/FullEnrich avec la
+ * persona corrigée au prochain run-pollers.
  */
 
 import { db } from "@/lib/db";
@@ -39,12 +63,16 @@ export interface ClearStaleBriefsResult {
 }
 
 /**
- * Clear tous les briefs liés à un Lead quand sa persona change.
+ * Clear tous les briefs ET les emails/phones de la persona précédente
+ * quand un Lead voit sa persona changer.
  *
- * Idempotent : si les briefs sont déjà null, no-op silencieux.
+ * Idempotent : si les champs sont déjà null, no-op silencieux.
  * Atomique dans une transaction Prisma : Lead + Trigger updates ensemble.
  *
  * Retourne le détail de ce qui a été clear pour logs/observabilité.
+ *
+ * Nom historique conservé (`clearStaleBriefsOnPersonaChange`) pour ne pas
+ * casser les call sites existants. Scope étendu 13/05 — voir doc ci-dessus.
  */
 export async function clearStaleBriefsOnPersonaChange(
   leadId: string,
@@ -72,6 +100,15 @@ export async function clearStaleBriefsOnPersonaChange(
         pitchJson: true,
         warmMailJson: true,
         linkedinDmJson: true,
+        // Extension 13/05 — emails/phones de l'ancienne persona
+        email: true,
+        kasprWorkEmail: true,
+        kasprPersonalEmail: true,
+        emailFullenrich: true,
+        emailDropcontact: true,
+        emailRodz: true,
+        kasprPhone: true,
+        phoneFullenrich: true,
       },
     });
     if (!lead) return { v2Cleared: false };
@@ -101,6 +138,60 @@ export async function clearStaleBriefsOnPersonaChange(
       leadUpdate.linkedinDmJson = null;
       leadUpdate.linkedinDmGeneratedAt = null;
       leadCleared.push("linkedinDmJson");
+    }
+    // Extension 13/05 — invalider les emails/phones de la persona précédente.
+    // Kaspr/FullEnrich seront re-déclenchés au prochain run-pollers avec la
+    // persona corrigée (firstName/lastName/linkedinUrl que HarvestAPI vient
+    // de poser). Reset des `*AttemptedAt` débloque les retries (TTL 30j).
+    let enrichmentTouched = false;
+    if (lead.email !== null) {
+      leadUpdate.email = null;
+      // emailStatus + emailConfidence sont NOT NULL en DB — on les reset à
+      // leurs defaults plutôt que null (UNVERIFIED / 0).
+      leadUpdate.emailStatus = "UNVERIFIED";
+      leadUpdate.emailConfidence = 0;
+      leadCleared.push("email");
+      enrichmentTouched = true;
+    }
+    if (lead.kasprWorkEmail !== null) {
+      leadUpdate.kasprWorkEmail = null;
+      leadCleared.push("kasprWorkEmail");
+      enrichmentTouched = true;
+    }
+    if (lead.kasprPersonalEmail !== null) {
+      leadUpdate.kasprPersonalEmail = null;
+      leadCleared.push("kasprPersonalEmail");
+      enrichmentTouched = true;
+    }
+    if (lead.emailFullenrich !== null) {
+      leadUpdate.emailFullenrich = null;
+      leadCleared.push("emailFullenrich");
+      enrichmentTouched = true;
+    }
+    if (lead.emailDropcontact !== null) {
+      leadUpdate.emailDropcontact = null;
+      leadCleared.push("emailDropcontact");
+      enrichmentTouched = true;
+    }
+    if (lead.emailRodz !== null) {
+      leadUpdate.emailRodz = null;
+      leadCleared.push("emailRodz");
+      enrichmentTouched = true;
+    }
+    if (lead.kasprPhone !== null) {
+      leadUpdate.kasprPhone = null;
+      leadCleared.push("kasprPhone");
+      enrichmentTouched = true;
+    }
+    if (lead.phoneFullenrich !== null) {
+      leadUpdate.phoneFullenrich = null;
+      leadCleared.push("phoneFullenrich");
+      enrichmentTouched = true;
+    }
+    if (enrichmentTouched) {
+      // Débloquer les retries Kaspr/FullEnrich (gates TTL 30j sur attemptedAt).
+      leadUpdate.kasprAttemptedAt = null;
+      leadUpdate.fullenrichAttemptedAt = null;
     }
     if (Object.keys(leadUpdate).length > 0) {
       leadUpdate.copyGeneratedAt = null;
