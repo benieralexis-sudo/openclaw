@@ -239,13 +239,16 @@ export async function enrichLeadsViaKasprDirect(
       // Filtre FR (audit 29/04) : reject phones internationaux non-actionables
       // pour cold call B2B FR (UK/US/RO/MX/...). Décompte mobileFound seulement
       // sur mobile FR.
+      //
+      // 12/05 nuit — Restriction : Lead.phone ne reçoit QUE des mobiles FR
+      // (06/07). Les fixes (01/02/.../09) renvoyés par Kaspr (cas Stormshield,
+      // Shift Tech) sont des standards d'entreprise qui passent par la
+      // standardiste et ne servent à rien en cold call B2B. On garde kasprPhone
+      // (traçabilité du raw Kaspr) mais on ne propage que si c'est un mobile.
       if (kPhone && !lead.kasprPhone && isFrenchPhone(kPhone)) {
         updates.kasprPhone = kPhone;
-        // Propage vers Lead.phone (champ final) si vide. Audit 03/05 :
-        // 10 leads avaient kasprPhone NOT NULL mais phone NULL → fiche/UI
-        // n'affichait pas le téléphone Kaspr. enrich-via-fullenrich.ts:209
-        // fait la même propagation pour phoneFullenrich, on s'aligne.
-        if (!lead.phone) updates.phone = kPhone;
+        // Propage vers Lead.phone (champ final) UNIQUEMENT si mobile FR (06/07).
+        if (!lead.phone && isFrenchMobile(kPhone)) updates.phone = kPhone;
         if (isFrenchMobile(kPhone)) result.mobileFound++;
         foundSomething = true;
         creditsThisCall += 10; // S3 tracking : 10 cr Kaspr par phone

@@ -16,6 +16,18 @@ export async function GET(req: NextRequest) {
     ? { clientId: scope.clientId, deletedAt: null }
     : { deletedAt: null };
 
+  // 12/05 nuit — Cache les triggers dont le Lead est en INCOMPLETE
+  // (= sans persona enrichie, donc non actionable côté Fred).
+  // Le retry tente jusqu'à J+7, après quoi HEAL 8C archive. Tant que
+  // c'est INCOMPLETE, on ne pollue pas le dashboard avec des leads à demi cuits.
+  const whereVisible = {
+    ...where,
+    OR: [
+      { lead: null },
+      { lead: { status: { not: "INCOMPLETE" as const } } },
+    ],
+  };
+
   const since24h = new Date(Date.now() - 24 * 60 * 60_000);
   const sinceWeek = new Date(Date.now() - 7 * 24 * 60 * 60_000);
   const since48h = new Date(Date.now() - 48 * 60 * 60_000);
@@ -52,7 +64,7 @@ export async function GET(req: NextRequest) {
     }),
     db.trigger.groupBy({ by: ["status"], where, _count: true }),
     db.trigger.findMany({
-      where: { ...where, isHot: true },
+      where: { ...whereVisible, isHot: true },
       orderBy: [{ score: "desc" }, { capturedAt: "desc" }],
       take: 5,
       select: {
@@ -98,7 +110,8 @@ export async function GET(req: NextRequest) {
       where: {
         ...where,
         priorityScore: { not: null },
-        lead: { isNot: null },
+        // Lead obligatoire ET non INCOMPLETE (12/05 nuit)
+        lead: { status: { not: "INCOMPLETE" } },
       },
       orderBy: [
         { priorityScore: { sort: "desc", nulls: "last" } },

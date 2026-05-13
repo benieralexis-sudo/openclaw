@@ -524,54 +524,109 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
   result.healed.smtpEmailsVerified = smtpVerified;
 
   // ─────────────────────────────────────────────
-  // HEAL 8 (12/05/2026 soir — fix SoWeSoft) — Auto-DNC des Leads non-actionables.
+  // HEAL 8 (refondu 12/05/2026 nuit) — Cycle de vie INCOMPLETE.
   //
-  // Cas observé : SoWeSoft (apify.linkedin-jobs HIRING_KEY verdict OUI conf=82,
-  // 12/05 18:06). Trigger sans SIRET ni NAF. L'exception "Pépite sans SIRET"
-  // (Trigger.score >= 7 dans ensure-lead-for-trigger.ts) crée le Lead malgré
-  // l'absence d'identifiant entreprise. HarvestAPI search-by-company tente
-  // sa chance dans le même run mais n'a rien trouvé. Sans SIRET, Pappers
-  // dirigeants ne peut pas démarrer. Sans firstName/lastName, ni Kaspr ni
-  // FullEnrich ni LinkedIn finder ne peuvent enrichir. Lead bloqué à vie
-  // avec fullName=null mais briefV2Json OUI → visible Fred, non actionable,
-  // embarrassant si copy-paste opener "Bonjour ," dans son outil.
+  // Stratégie : un Lead créé sans persona (cas SoWeSoft) est marqué
+  // INCOMPLETE à la création (cf. ensure-lead-for-trigger.ts), donc invisible
+  // côté Fred. Ce HEAL gère 3 transitions :
   //
-  // Fix : à >24h après création, si Lead.fullName toujours NULL ET
-  // briefV2Json déjà généré ET doNotContact pas déjà flag, on pose
-  // doNotContact=true avec raison traçable. Le Lead reste visible dashboard
-  // pour debug Alexis mais Fred sait qu'il n'est pas envoyable.
-  // Idempotent — un Lead enrichi plus tard (rare) sera reclear par HEAL 5b.
+  //   HEAL 8A — INCOMPLETE → NEW : si la persona a été trouvée entretemps
+  //   par HarvestAPI/Pappers/Kaspr, on remet le lead visible côté Fred.
+  //
+  //   HEAL 8B — backfill : si un Lead existant est passé en "NEW" mais a
+  //   perdu sa persona (rare, mais désincronisation possible), on le
+  //   bascule en INCOMPLETE pour éviter d'envoyer du n'importe quoi à Fred.
+  //
+  //   HEAL 8C — INCOMPLETE → ARCHIVED : après 7 jours sans persona malgré
+  //   les retries, on archive. Le lead est définitivement out — Fred ne
+  //   le verra jamais. Les crédits API consommés sont sunk cost.
+  //
+  // Note : on ne marque PLUS doNotContact=true (ancien HEAL 8 retiré).
+  // Le status INCOMPLETE est suffisant et plus propre — doNotContact
+  // garde sa sémantique d'origine (= ne pas contacter, jamais).
   // ─────────────────────────────────────────────
-  const nonActionable = await db.lead.findMany({
+
+  // 8A — INCOMPLETE → NEW (persona trouvée)
+  const recovered = await db.lead.updateMany({
     where: {
       deletedAt: null,
       ...(cId ? { clientId: cId } : {}),
-      doNotContact: false,
-      fullName: null,
-      status: { in: ["NEW", "ENRICHED", "CONTACTABLE"] }, // skip CONTACTED/NOT_INTERESTED/ARCHIVED — déjà invisibles ou hors process
-      createdAt: { lt: new Date(Date.now() - 24 * 3600 * 1000) },
-      trigger: {
-        briefV2Json: { not: Prisma.DbNull },
-      },
+      status: "INCOMPLETE",
+      fullName: { not: null },
     },
-    select: { id: true, companyName: true, triggerId: true },
-    take: 50,
+    data: { status: "NEW", updatedAt: new Date() },
   });
-  let blocked = 0;
-  for (const l of nonActionable) {
+  if (recovered.count > 0) {
+    console.log(`[heal.8A] ${recovered.count} leads INCOMPLETE → NEW (persona enrichie)`);
+  }
+
+  // 8B — NEW sans persona → INCOMPLETE (defensive, normalement déjà géré
+  // par ensure-lead-for-trigger.ts mais filet de sécurité pour les leads
+  // historiques pré-INCOMPLETE)
+  const hidden = await db.lead.updateMany({
+    where: {
+      deletedAt: null,
+      ...(cId ? { clientId: cId } : {}),
+      status: "NEW",
+      fullName: null,
+    },
+    data: { status: "INCOMPLETE", updatedAt: new Date() },
+  });
+  if (hidden.count > 0) {
+    console.log(`[heal.8B] ${hidden.count} leads NEW sans persona → INCOMPLETE (caché Fred)`);
+  }
+
+  // 8D — Cleanup phones fixes existants (12/05 nuit).
+  // Audit a montré 3 leads (Dastra, Stormshield, Shift Tech) avec Lead.phone
+  // = standard d'entreprise fixe (01/02/.../09) — inutile en cold call B2B.
+  // Désormais on n'écrit plus que des mobiles dans Lead.phone (cf. fix
+  // enrich-via-kaspr-direct + enrich-via-fullenrich), mais on doit nettoyer
+  // les leads créés AVANT ce fix. On vide phone si NOT mobile FR.
+  // - Si kasprPhone OU phoneFullenrich a un mobile valide → on bascule.
+  // - Sinon on vide juste (phone = null) pour ne plus afficher de fixe trompeur.
+  const phoneFixCandidates = await db.lead.findMany({
+    where: {
+      deletedAt: null,
+      ...(cId ? { clientId: cId } : {}),
+      phone: { not: null },
+    },
+    select: { id: true, companyName: true, phone: true, kasprPhone: true, phoneFullenrich: true },
+  });
+  const { isFrenchMobile } = await import("@/lib/phone-fr");
+  let phoneFixed = 0;
+  for (const l of phoneFixCandidates) {
+    if (!l.phone || isFrenchMobile(l.phone)) continue;
+    // Cherche un mobile parmi les sources raw
+    let mobileReplacement: string | null = null;
+    if (l.kasprPhone && isFrenchMobile(l.kasprPhone)) mobileReplacement = l.kasprPhone;
+    else if (l.phoneFullenrich && isFrenchMobile(l.phoneFullenrich)) mobileReplacement = l.phoneFullenrich;
     await db.lead.update({
       where: { id: l.id },
-      data: {
-        doNotContact: true,
-        doNotContactReason: "non_actionable_no_persona:trigger sans SIRET résolu, HarvestAPI search-by-company a échoué, Pappers dirigeants impossible. Lead créé via exception Pépite (score>=7) mais aucun chemin d'enrichissement disponible.".slice(0, 200),
-        doNotContactAt: new Date(),
-        updatedAt: new Date(),
-      },
+      data: { phone: mobileReplacement, updatedAt: new Date() },
     });
-    console.log(`[heal.H8-non-actionable] ${l.companyName} (${l.id}) → doNotContact (no persona after 24h)`);
-    blocked++;
+    console.log(`[heal.8D-phone-fixe] ${l.companyName} : phone="${l.phone}" (fixe) → "${mobileReplacement ?? "null"}"`);
+    phoneFixed++;
   }
-  result.healed.nonActionableLeadsBlocked = blocked;
+  if (phoneFixed > 0) {
+    console.log(`[heal.8D] ${phoneFixed} leads avec phone fixe nettoyés`);
+  }
+
+  // 8C — INCOMPLETE > 7 jours → ARCHIVED (abandon)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+  const archivedIncomplete = await db.lead.updateMany({
+    where: {
+      deletedAt: null,
+      ...(cId ? { clientId: cId } : {}),
+      status: "INCOMPLETE",
+      fullName: null,
+      createdAt: { lt: sevenDaysAgo },
+    },
+    data: { status: "ARCHIVED", updatedAt: new Date() },
+  });
+  if (archivedIncomplete.count > 0) {
+    console.log(`[heal.8C] ${archivedIncomplete.count} leads INCOMPLETE >7j → ARCHIVED (enrichissement définitivement échoué)`);
+  }
+  result.healed.nonActionableLeadsBlocked = hidden.count + archivedIncomplete.count;
 
   // ─────────────────────────────────────────────
   // STATS RESTANTES

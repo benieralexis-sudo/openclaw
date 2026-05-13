@@ -108,6 +108,13 @@ export async function ensureLeadsForAllTriggers(
       }
     }
 
+    // 12/05/2026 — Crée en INCOMPLETE si pas de persona à la création.
+    // Cas SoWeSoft : trigger sans SIRET ni poster non-tech → Lead "shell"
+    // visible Fred mais inutile. Maintenant on le crée INCOMPLETE (caché Fred),
+    // les enrichissements (HarvestAPI search-by-company, Pappers dirigeants
+    // si SIRET résolu, Kaspr) tentent de remplir. Dès que firstName/lastName
+    // arrive, audit-heal le bascule en NEW (visible Fred).
+    const initialStatus = poster?.fullName ? "NEW" : "INCOMPLETE";
     try {
       await db.lead.create({
         data: {
@@ -116,7 +123,7 @@ export async function ensureLeadsForAllTriggers(
           triggerId: t.id,
           companyName: t.companyName,
           companySiret: t.companySiret,
-          status: "NEW",
+          status: initialStatus,
           firstName: poster?.firstName ?? null,
           lastName: poster?.lastName ?? null,
           fullName: poster?.fullName ?? null,

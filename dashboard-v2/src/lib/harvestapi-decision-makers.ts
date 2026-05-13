@@ -477,6 +477,10 @@ export interface EnrichDecisionMakersResult {
 
 const HARVESTAPI_MAX_PER_RUN = 15;
 const HARVESTAPI_TTL_DAYS = 30;
+// 12/05/2026 nuit — Retry court pour les leads INCOMPLETE (= sans persona,
+// invisibles côté Fred). On retente HarvestAPI à J+1 puis à chaque run
+// (audit-heal cycle 1h). Si toujours rien après 7 jours, HEAL 8C archive.
+const HARVESTAPI_INCOMPLETE_TTL_DAYS = 1;
 
 /**
  * Pipeline étape 3 : trouver le décideur tech pour les Leads sans persona.
@@ -497,6 +501,7 @@ export async function enrichDecisionMakersForClient(
   };
 
   const ttlAgo = new Date(Date.now() - HARVESTAPI_TTL_DAYS * 24 * 60 * 60 * 1000);
+  const ttlAgoIncomplete = new Date(Date.now() - HARVESTAPI_INCOMPLETE_TTL_DAYS * 24 * 60 * 60 * 1000);
 
   const candidates = await db.lead.findMany({
     where: {
@@ -528,11 +533,14 @@ export async function enrichDecisionMakersForClient(
             },
           ],
         },
-        // Pas tenté <30j
+        // TTL différencié (12/05 nuit) :
+        // - Leads INCOMPLETE : retry à J+1 (court, on veut débloquer vite)
+        // - Autres leads : TTL 30j (économie credits sur recherches stables)
         {
           OR: [
             { harvestapiAttemptedAt: null },
-            { harvestapiAttemptedAt: { lt: ttlAgo } },
+            { AND: [{ status: "INCOMPLETE" }, { harvestapiAttemptedAt: { lt: ttlAgoIncomplete } }] },
+            { AND: [{ status: { not: "INCOMPLETE" } }, { harvestapiAttemptedAt: { lt: ttlAgo } }] },
           ],
         },
       ],

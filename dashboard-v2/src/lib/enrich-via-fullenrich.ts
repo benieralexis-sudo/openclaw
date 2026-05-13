@@ -1,4 +1,5 @@
 import "server-only";
+import { isFrenchMobile } from "@/lib/phone-fr";
 
 /**
  * FullEnrich pipeline integration — fallback Kaspr
@@ -242,8 +243,13 @@ export async function enrichLeadsViaFullEnrich(
     }
     if (phoneFinal) {
       updates.phoneFullenrich = phoneFinal;
-      // On pose aussi `phone` final si vide
-      updates.phone = phoneFinal;
+      // On pose `phone` final UNIQUEMENT si mobile FR (06/07). Fix 12/05 nuit :
+      // FullEnrich peut renvoyer des fixes standards d'entreprise — inutiles
+      // pour cold call B2B. On garde phoneFullenrich (traçabilité raw) mais
+      // phone reste vide tant qu'on n'a pas de mobile.
+      if (isFrenchMobile(phoneFinal)) {
+        updates.phone = phoneFinal;
+      }
       result.phoneFound += 1;
     }
     if (personalEmail) {

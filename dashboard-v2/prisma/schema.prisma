@@ -465,6 +465,7 @@ enum LeadStatus {
   CONTACTED
   NOT_INTERESTED
   ARCHIVED
+  INCOMPLETE // 12/05/2026 — Lead créé sans persona résolue (cas SoWeSoft). Caché de la vue Fred jusqu'à enrichissement réussi (retry J+1/J+3/J+7). Si toujours rien après J+7 → bascule ARCHIVED.
 }
 
 // =====================================================================

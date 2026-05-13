@@ -28,6 +28,11 @@ export async function GET(req: NextRequest) {
   // (en cours d'enrichissement Pappers). "all" = tout sans condition.
   const withLead = searchParams.get("withLead") ?? "true";
 
+  // 12/05 nuit — Track si on doit filtrer INCOMPLETE (= cacher les leads
+  // sans persona en cours d'enrichissement). On l'applique sur where.lead
+  // plus bas pour ne pas être écrasé par les autres conditions OR/AND.
+  const hideIncomplete = quality !== "all";
+
   const where: Prisma.TriggerWhereInput = { deletedAt: null };
   if (scope.clientId) where.clientId = scope.clientId;
   // Anomalie 2 fix v2 (04/05/2026) : exclure les Triggers IGNORED par
@@ -67,7 +72,17 @@ export async function GET(req: NextRequest) {
   }
 
   if (withLead === "true") {
-    where.lead = { isNot: null };
+    // 12/05 nuit — Lead requis ET non INCOMPLETE. Le filtre `status: { not: "INCOMPLETE" }`
+    // implique déjà que le Lead existe (sinon pas de status à comparer).
+    where.lead = hideIncomplete ? { status: { not: "INCOMPLETE" } } : { isNot: null };
+  } else if (hideIncomplete) {
+    // Mode all/orphan : on accepte les triggers sans Lead OU avec Lead != INCOMPLETE.
+    const existingOr = (where.OR as Prisma.TriggerWhereInput[]) ?? [];
+    where.OR = [
+      ...existingOr,
+      { lead: null },
+      { lead: { status: { not: "INCOMPLETE" } } },
+    ];
   }
 
   const searchOR: Prisma.TriggerWhereInput[] | null = search
