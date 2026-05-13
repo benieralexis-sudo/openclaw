@@ -110,8 +110,16 @@ export async function GET(req: NextRequest) {
       where: {
         ...where,
         priorityScore: { not: null },
-        // Lead obligatoire ET non INCOMPLETE (12/05 nuit)
-        lead: { status: { not: "INCOMPLETE" } },
+        // 12/05 nuit — Lead non INCOMPLETE.
+        // 13/05 fix Sêmeia — autorise aussi triggers sans Lead direct (cas
+        // ensureLeadsForAllTriggers skip 2e trigger d'une boîte déjà couverte
+        // par un Lead actif). Sinon les briefs hot multi-source du 2e signal
+        // (rss-levees post-wttj sur Sêmeia, isHot=t, priorityScore=24) sont
+        // invisibles côté Fred sur la todo. Aligné sur triggers/route.ts:79.
+        OR: [
+          { lead: null },
+          { lead: { status: { not: "INCOMPLETE" } } },
+        ],
       },
       orderBy: [
         { priorityScore: { sort: "desc", nulls: "last" } },
