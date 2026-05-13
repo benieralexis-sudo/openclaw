@@ -24,9 +24,18 @@ import { runAndGetItems } from "@/lib/apify";
 import { invalidateTriggerForRequalify } from "@/lib/requalify-engine";
 
 const ACTOR_ID = "harvestapi/linkedin-profile-search";
-const TTL_DAYS = 30;
+// Anti-burn Apify 13/05 — TTL augmenté 30j→90j (les profils LinkedIn changent
+// rarement plus vite que ça, et 30j cause re-enrichissements futiles sur
+// leads stables). Économie estimée ~$2-3/mois.
+const TTL_DAYS = 90;
+// Score gate maintenu à 6 (= verdict V2 OUI/ENRICH minimum, NON exclus avant ici).
+// Voir filtre verdict V2 ajouté ligne 114+ ci-dessous (patch anti-burn 13/05).
 const SCORE_GATE = 6;
 const DEFAULT_LIMIT = 30;
+// Anti-burn cap dur 13/05 — au-delà de ce seuil par 24h sur ce client, on bloque
+// l'enrich pour éviter l'explosion budgétaire (cas où ICP mal calibré fait
+// des centaines de leads sans value). Reset auto chaque jour.
+const DAILY_CAP_PER_CLIENT = 30;
 const PAUSE_BETWEEN_LEADS_MS = 1500; // anti-throttle (1 req/1.5s)
 
 export interface EnrichLinkedInProfileResult {
@@ -95,6 +104,24 @@ export async function enrichLinkedInProfilesForClient(
     errors: [],
   };
 
+  // Anti-burn 13/05 — cap dur quotidien par client.
+  // Compte les Leads enrichis dans les dernières 24h sur ce client.
+  const todayStart = new Date(Date.now() - 24 * 86400_000 / 24);
+  const enrichedToday = await db.lead.count({
+    where: {
+      clientId,
+      linkedinProfileEnrichedAt: { gte: todayStart },
+    },
+  });
+  if (enrichedToday >= DAILY_CAP_PER_CLIENT && !force) {
+    console.warn(
+      `[enrich-linkedin-profiles] cap quotidien ${DAILY_CAP_PER_CLIENT} atteint pour client ${clientId} (${enrichedToday} enrichis 24h). Skip ce run.`,
+    );
+    return result;
+  }
+  const remainingCap = DAILY_CAP_PER_CLIENT - enrichedToday;
+  const effectiveLimit = Math.min(limit, remainingCap);
+
   const candidates = await db.lead.findMany({
     where: {
       clientId,
@@ -111,10 +138,25 @@ export async function enrichLinkedInProfilesForClient(
               { linkedinProfileEnrichedAt: { lt: ttlAgo } },
             ],
           }),
-      trigger: { score: { gte: SCORE_GATE } },
+      // Anti-burn 13/05 — Score gate + filtre verdict V2.
+      // On enrichit UNIQUEMENT les Leads dont le Trigger a verdict V2 = OUI
+      // OU sans verdict V2 encore (à qualifier). On NE PAS enrichir les NON
+      // (Lead jetable) ni les ENRICH si confidence ≥80 (déjà tranché).
+      // Économie estimée ~$5-10/mois en filtrant les leads inactionnables.
+      trigger: {
+        score: { gte: SCORE_GATE },
+        // Anti-burn 13/05 — exclure les Leads dont le verdict V2 est NON
+        // (= jetables, pas la peine d'enrichir LinkedIn). On garde :
+        // - briefV2Json NULL (pas encore jugé, à enrichir pour qualifier)
+        // - briefV2Json verdict OUI (Pépite, enrichir pour brief commercial)
+        // - briefV2Json verdict ENRICH (le judge demande plus d'info)
+        NOT: {
+          briefV2Json: { path: ["verdict"], equals: "NON" },
+        },
+      },
     },
     select: { id: true, firstName: true, lastName: true, companyName: true, triggerId: true },
-    take: limit,
+    take: effectiveLimit,
     orderBy: { createdAt: "desc" },
   });
 
