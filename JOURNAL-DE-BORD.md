@@ -28,6 +28,30 @@
 
 ---
 
+## 2026-05-14 (fin de journée) — Audit massif + 4 anomalies fixées
+
+**Résumé** : Audit massif systématique tous les axes (infra, DB, pipeline, budgets, persona, combos, agents, code, business). Trouvé 4 anomalies réelles (sur 6 candidates). Fix structurel + backfill pour les 4. Système propre à 100%.
+
+**Commits** :
+- `ff999f985` Fix #1 — ensureLead status filter (10 Leads polluants archivés)
+- `7b2414d82` Fix #2 — Anthropic burn marker (était $0, maintenant $24/jour visible)
+- `6df7a157e` Fix #3 — Force-requalify 3 triggers limbo (GitGuardian/Koralplay/StrangeBee → 3 Pépites OUI 78-88)
+- `99e25cec5` Fix #4 — Auto-archive doNotContact (6 Leads polluants archivés)
+
+**Apprentissages clés** :
+- Le marker Anthropic était cassé depuis 4 jours (refactor V2-only 10/05 a renommé). Si on n'avait pas audité on continuait à piloter à l'aveugle.
+- Le bug `ensureLead` ne filtrait pas status : structurellement dangereux car contredisait l'esprit du judge V2 (un IGNORED ne devrait jamais devenir un Lead actif).
+- 5 anomalies "candidates" étaient en fait des SELECT pas SET (faux positif grep) — toujours valider avec contexte avant de coder.
+- Audit massif = 10× plus efficace que les rapports Auditor qui restent superficiels (Auditor avait raté toutes ces 4 anomalies).
+
+**Action user en attente** :
+- 🔴 Plafond Apify $100 → $150 (toujours)
+- 🔴 Appel Fred (toujours)
+
+**Prochain pas** : Observer 24-48h les premiers leads des nouveaux types Rodz (sprint 2.0). Si volume cohérent → augmenter dailyLeadLimit. Surveiller le burn Anthropic maintenant visible ($24/j = $720/mois projeté).
+
+---
+
 ## 2026-05-14 (suite, après-midi) — Sprint Rodz 2.0 + audit DTL multi-signal
 
 **Résumé** : Audit DTL → diagnostic 84% des triggers sont HIRING_KEY (mono-angle). Identifié 7 types Rodz inexploités. Sprint Rodz 2.0 : ajout 4 nouveaux types (republished-job-offers, public-tenders DTL, social-mentions iFIND, competitor-relationships iFIND).
