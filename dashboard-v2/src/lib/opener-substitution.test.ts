@@ -163,7 +163,30 @@ describe("detectOpenerPersonaDesync (Fix B1)", () => {
   it("handles null/empty opener/lead gracefully", () => {
     expect(detectOpenerPersonaDesync(null, { firstName: "Eric" }).isDesync).toBe(false);
     expect(detectOpenerPersonaDesync("Bonjour Marc,", null).isDesync).toBe(false);
-    expect(detectOpenerPersonaDesync("Bonjour Marc,", {}).isDesync).toBe(false);
+  });
+
+  // Fix Salvia/Groupe Yoni (14/05/2026) — Si Lead sans persona ET opener cite
+  // un prénom, c'est forcément une hallucination Opus → forcer isDesync=true.
+  it("detects hallucination : Lead sans persona + opener cite prénom (cas Salvia/Yoni)", () => {
+    const r = detectOpenerPersonaDesync("Bonjour Françoise,\n\nVu l'offre QA chez Salvia.", {});
+    expect(r.isDesync).toBe(true);
+    expect(r.briefName).toBe("Françoise");
+    expect(r.leadCandidates).toEqual([]);
+  });
+
+  it("detects hallucination : Lead avec tous champs null + opener cite prénom", () => {
+    const r = detectOpenerPersonaDesync("Bonjour Sophie,\n\nMessage.", {
+      firstName: null,
+      lastName: null,
+      fullName: null,
+    });
+    expect(r.isDesync).toBe(true);
+    expect(r.briefName).toBe("Sophie");
+  });
+
+  it("ne détecte PAS hallucination : Lead sans persona + opener neutre", () => {
+    expect(detectOpenerPersonaDesync("Bonjour,\n\nMessage.", {}).isDesync).toBe(false);
+    expect(detectOpenerPersonaDesync("Bonjour (prénom à vérifier),", {}).isDesync).toBe(false);
   });
 
   it("matches Jean-Luc partial to Lead Jean (compound prénom)", () => {

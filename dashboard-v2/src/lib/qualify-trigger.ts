@@ -747,9 +747,15 @@ export async function qualifyTrigger(
     if (leadForCheck) {
       const desync = detectOpenerPersonaDesync(v2Brief.opener, leadForCheck);
       if (desync.isDesync) {
-        const safeFallback = `(Brief opener désynchronisé — Opus a cité "${desync.briefName}" mais le contact actuel est "${leadForCheck.fullName ?? "inconnu"}". Régénérer manuellement avant outreach.)`;
+        // Fix Salvia/Yoni (14/05) — Distingue les 2 cas :
+        // (a) Lead a persona MAIS différente du prénom Opus → désync vraie
+        // (b) Lead sans aucune persona + Opus a cité un prénom → hallucination
+        const hasAnyLeadPersona = !!(leadForCheck.firstName || leadForCheck.lastName || leadForCheck.fullName);
+        const safeFallback = hasAnyLeadPersona
+          ? `(Brief opener désynchronisé — Opus a cité "${desync.briefName}" mais le contact actuel est "${leadForCheck.fullName ?? "inconnu"}". Régénérer manuellement avant outreach.)`
+          : `(Brief opener halluciné — Opus a cité "${desync.briefName}" mais aucune persona n'est encore posée sur ce Lead. Attendre HarvestAPI/Pappers avant outreach.)`;
         console.warn(
-          `[qualify-trigger.V2-desync-guard] ${triggerId}: opener cite "${desync.briefName}" ≠ Lead "${leadForCheck.fullName}". Opener remplacé par fallback.`,
+          `[qualify-trigger.V2-desync-guard] ${triggerId}: opener cite "${desync.briefName}" ${hasAnyLeadPersona ? `≠ Lead "${leadForCheck.fullName}"` : "alors que Lead sans persona (hallucination)"}. Opener remplacé par fallback.`,
         );
         v2Brief = { ...v2Brief, opener: safeFallback };
       }

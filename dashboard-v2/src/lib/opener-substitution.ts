@@ -120,8 +120,17 @@ export function detectOpenerPersonaDesync(
     }
   }
   const leadCandidates = Array.from(candidates);
+  // Fix Salvia/Groupe Yoni (14/05/2026) — Si Lead n'a AUCUNE persona posée
+  // (firstName + lastName + fullName tous null) mais que l'opener cite un
+  // prénom, c'est nécessairement une hallucination d'Opus. Cas observés :
+  //   - Salvia Développement → "Bonjour Françoise," (aucune persona en DB)
+  //   - Groupe Yoni          → "Bonjour Sophie,"    (aucune persona en DB)
+  // Avant : leadCandidates=[] → isDesync=false → opener halluciné conservé.
+  // Maintenant : forcer isDesync=true pour déclencher le fallback safe en
+  // amont. Le brief retient verdict/thesis/risks/sources, seul l'opener
+  // est remplacé par le placeholder "à régénérer après enrichissement".
   if (leadCandidates.length === 0) {
-    return { isDesync: false, briefName, leadCandidates: [] };
+    return { isDesync: true, briefName, leadCandidates: [] };
   }
 
   // Match fuzzy : briefName vs chaque candidat Lead (normalisé)
