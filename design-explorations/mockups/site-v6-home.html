@@ -229,19 +229,18 @@
    * NAV
    ============================================================ */
   nav.site-nav{
-    position:sticky;top:0;z-index:50;
-    /* Fond cream presque opaque pour rester stable peu importe ce qui défile
-     * derrière (canvas Three.js sombre au top, sections cream-warm ensuite).
-     * Évite l'effet "header qui change de couleur en scrollant". */
-    background:rgba(245,241,234,0.96);
-    backdrop-filter:saturate(180%) blur(8px);
-    -webkit-backdrop-filter:saturate(180%) blur(8px);
+    position:sticky;top:0;z-index:100;
+    /* Fond cream PLEINEMENT opaque + isolation stacking context.
+     * Plus de backdrop-filter (qui causait des artefacts avec le canvas Three.js
+     * fixed derrière à z-index:0). Header stable peu importe ce qui défile. */
+    background:var(--cream);
+    isolation:isolate;
     border-bottom:1px solid transparent;
-    transition:border-color 200ms,background 200ms;
+    transition:border-color 200ms;
   }
   nav.site-nav.scrolled{
-    background:rgba(245,241,234,0.98);
     border-bottom-color:var(--line);
+    box-shadow:0 4px 16px -8px rgba(15,13,10,0.06);
   }
   .nav-inner{display:flex;align-items:center;justify-content:space-between;padding:18px 0;gap:24px}
   .nav-links{display:flex;align-items:center;gap:32px;font-weight:500;font-size:14px}
@@ -547,17 +546,44 @@
   /* Pins/labels passent au-dessus du canvas */
   .map-container .map-pin,.map-container .map-label,.map-container .map-foot{z-index:3}
   @media (prefers-reduced-motion:reduce){#fr-3d{opacity:0.85;transition:none}}
-  .map-container svg.fr-map path.fr-shape{fill:var(--cream-warm);stroke:var(--line);stroke-width:1.2}
-  .map-pin{position:absolute;width:14px;height:14px;transform:translate(-50%,-50%)}
-  .map-pin .ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--amber);animation:pinRipple 2.4s ease-out infinite}
-  .map-pin .dot{position:absolute;inset:3px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber-glow)}
-  .map-pin.hot .ring{border-color:var(--alert-hot)}
-  .map-pin.hot .dot{background:var(--alert-hot);box-shadow:0 0 12px rgba(122,46,46,0.5)}
-  .map-pin:nth-child(2) .ring{animation-delay:0.4s}
-  .map-pin:nth-child(3) .ring{animation-delay:0.8s}
-  .map-pin:nth-child(4) .ring{animation-delay:1.2s}
-  .map-pin:nth-child(5) .ring{animation-delay:1.6s}
-  .map-pin:nth-child(6) .ring{animation-delay:2.0s}
+  .map-container svg.fr-map path.fr-shape{fill:url(#frGradient);stroke:rgba(15,13,10,0.18);stroke-width:1.5;stroke-linejoin:round}
+  /* === Pins SVG natifs (coords géographiques exactes lat/lng→x/y) === */
+  .map-pin-svg .ring{
+    fill:none;stroke:var(--amber);stroke-width:1.5;
+    transform-origin:center;transform-box:fill-box;
+    animation:pinRippleSvg 2.4s ease-out infinite;
+  }
+  .map-pin-svg .ring-2{animation-delay:0.6s;stroke-width:1}
+  .map-pin-svg .dot{fill:var(--amber);filter:drop-shadow(0 0 4px var(--amber-glow))}
+  .map-pin-svg .map-pin-label{
+    fill:var(--ink);
+    font-family:var(--font-mono);font-size:13px;font-weight:500;
+    letter-spacing:0.04em;
+    paint-order:stroke;stroke:rgba(245,241,234,0.75);stroke-width:3px;
+  }
+  .map-pin-svg.hot .ring{stroke:var(--alert-hot);animation-duration:1.8s}
+  .map-pin-svg.hot .dot{fill:var(--alert-hot);filter:drop-shadow(0 0 6px rgba(122,46,46,0.5))}
+  .map-pin-svg .map-pin-label.hot{fill:var(--alert-hot)}
+  /* Staggered animation delay sur chaque pin */
+  .map-pin-svg:nth-of-type(2) .ring{animation-delay:0.35s}
+  .map-pin-svg:nth-of-type(3) .ring{animation-delay:0.7s}
+  .map-pin-svg:nth-of-type(4) .ring{animation-delay:1.05s}
+  .map-pin-svg:nth-of-type(5) .ring{animation-delay:1.4s}
+  .map-pin-svg:nth-of-type(6) .ring{animation-delay:1.75s}
+  .map-pin-svg:nth-of-type(7) .ring{animation-delay:2.1s}
+  @keyframes pinRippleSvg{
+    0%   {transform:scale(0.55);opacity:1}
+    100% {transform:scale(1.9);opacity:0}
+  }
+  /* === Réseau lignes de connexion (dash animé) === */
+  .fr-network line{
+    stroke-dasharray:6 8;
+    animation:networkFlow 12s linear infinite;
+  }
+  @keyframes networkFlow{
+    0%   {stroke-dashoffset:0}
+    100% {stroke-dashoffset:-140}
+  }
   @keyframes pinRipple{0%{transform:scale(0.5);opacity:1}100%{transform:scale(3.2);opacity:0}}
   .map-label{position:absolute;font-family:var(--font-mono);font-size:10px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-transform:uppercase;white-space:nowrap;transform:translate(-50%,-180%);pointer-events:none}
   .map-foot{position:absolute;bottom:16px;left:20px;right:20px;display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);pointer-events:none}
@@ -1024,42 +1050,112 @@
 
       <div class="map-container reveal reveal-delay-1" data-cursor="terminal">
         <canvas id="fr-3d" aria-hidden="true"></canvas>
-        <svg class="fr-map" viewBox="0 0 480 500" preserveAspectRatio="xMidYMid meet">
-          <!-- Outline approximatif de la France métropolitaine -->
-          <path class="fr-shape" d="M180 30 Q220 25 240 50 L280 60 Q310 70 320 90 L350 100 Q380 110 400 140 L420 180 Q430 220 420 260 L410 290 Q400 320 380 340 L360 370 Q340 400 310 420 L280 440 Q250 460 220 460 L190 450 Q160 440 140 420 L110 400 Q80 380 70 350 L60 320 Q50 280 60 250 L70 220 Q80 180 100 150 L120 120 Q140 80 160 60 L180 30 Z"/>
-          <!-- Corse approximative -->
-          <path class="fr-shape" d="M380 420 Q390 415 395 425 L398 445 Q395 460 388 458 L380 450 Q377 435 380 420 Z"/>
+        <svg class="fr-map" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <!-- Gradient subtil pour donner du relief à la France -->
+            <linearGradient id="frGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%"   stop-color="#F5F1EA" stop-opacity="1"/>
+              <stop offset="100%" stop-color="#EDE7DA" stop-opacity="1"/>
+            </linearGradient>
+            <!-- Filter pour shadow douce sur la silhouette -->
+            <filter id="frShadow" x="-5%" y="-5%" width="110%" height="110%">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feOffset dx="0" dy="3" result="offsetBlur"/>
+              <feFlood flood-color="#0F0D0A" flood-opacity="0.08"/>
+              <feComposite in2="offsetBlur" operator="in"/>
+              <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <!-- Ripple animation reusable -->
+            <circle id="pinRing" r="14" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          </defs>
+
+          <!-- France métropolitaine (contour réel basé sur coords lat/lng → projection linéaire viewBox) -->
+          <path class="fr-shape" filter="url(#frShadow)" d="
+            M557 47
+            Q535 50 525 53
+            L500 75 Q470 90 450 105
+            L400 191 Q380 200 350 200
+            L264 200 Q230 210 200 230
+            L71 296 Q50 310 60 350
+            L229 401 L236 449
+            L308 506 Q320 580 308 649
+            L265 773 Q300 800 350 825
+            L414 838 L607 858
+            Q650 830 700 810
+            L779 772 Q820 780 870 790
+            L907 791 L929 734
+            Q920 700 894 667
+            L858 572 L836 496 L858 439
+            Q880 415 893 391
+            L950 277 Q910 250 843 220
+            L743 162 L693 114
+            L571 86 Z
+          "/>
+          <!-- Corse (encart bas-droite, échelle préservée) -->
+          <path class="fr-shape" filter="url(#frShadow)" d="
+            M928 845 L935 905 L920 960 L890 962
+            L875 920 L880 870 L905 850 Z
+          "/>
+
+          <!-- Lignes de connexion réseau (subtle, suggère le pipeline pan-national) -->
+          <g class="fr-network" stroke="rgba(232,159,44,0.18)" stroke-width="0.8" fill="none">
+            <line x1="560" y1="251" x2="738" y2="547"/> <!-- Paris-Lyon -->
+            <line x1="560" y1="251" x2="282" y2="408"/> <!-- Paris-Nantes -->
+            <line x1="560" y1="251" x2="611" y2="83"/>  <!-- Paris-Lille -->
+            <line x1="738" y1="547" x2="776" y2="781"/> <!-- Lyon-Marseille -->
+            <line x1="738" y1="547" x2="496" y2="752"/> <!-- Lyon-Toulouse -->
+            <line x1="282" y1="408" x2="351" y2="634"/> <!-- Nantes-Bordeaux -->
+            <line x1="496" y1="752" x2="351" y2="634"/> <!-- Toulouse-Bordeaux -->
+            <line x1="776" y1="781" x2="496" y2="752"/> <!-- Marseille-Toulouse -->
+          </g>
+
+          <!-- Pins villes (en SVG natif, coords lat/lng exactes) -->
+          <g class="fr-pins">
+            <g class="map-pin-svg" transform="translate(560, 251)" data-pin="paris">
+              <circle class="ring" r="18"/>
+              <circle class="ring ring-2" r="12"/>
+              <circle class="dot" r="5"/>
+              <text class="map-pin-label" x="14" y="-10">Paris · 184</text>
+            </g>
+            <g class="map-pin-svg" transform="translate(738, 547)" data-pin="lyon">
+              <circle class="ring" r="15"/>
+              <circle class="dot" r="4"/>
+              <text class="map-pin-label" x="14" y="-8">Lyon · 62</text>
+            </g>
+            <g class="map-pin-svg" transform="translate(496, 752)" data-pin="toulouse">
+              <circle class="ring" r="14"/>
+              <circle class="dot" r="4"/>
+              <text class="map-pin-label" x="14" y="-8">Toulouse · 41</text>
+            </g>
+            <g class="map-pin-svg" transform="translate(282, 408)" data-pin="nantes">
+              <circle class="ring" r="13"/>
+              <circle class="dot" r="3.5"/>
+              <text class="map-pin-label" x="-14" y="-8" text-anchor="end">Nantes · 38</text>
+            </g>
+            <g class="map-pin-svg" transform="translate(611, 83)" data-pin="lille">
+              <circle class="ring" r="13"/>
+              <circle class="dot" r="3.5"/>
+              <text class="map-pin-label" x="14" y="-8">Lille · 29</text>
+            </g>
+            <g class="map-pin-svg" transform="translate(351, 634)" data-pin="bordeaux">
+              <circle class="ring" r="12"/>
+              <circle class="dot" r="3"/>
+              <text class="map-pin-label" x="-14" y="-8" text-anchor="end">Bordeaux</text>
+            </g>
+            <g class="map-pin-svg" transform="translate(946, 278)" data-pin="strasbourg">
+              <circle class="ring" r="12"/>
+              <circle class="dot" r="3"/>
+              <text class="map-pin-label" x="-14" y="-8" text-anchor="end">Strasbourg</text>
+            </g>
+            <!-- Marseille en HOT (pin rouge) -->
+            <g class="map-pin-svg hot" transform="translate(776, 781)" data-pin="marseille">
+              <circle class="ring" r="16"/>
+              <circle class="ring ring-2" r="11"/>
+              <circle class="dot" r="4.5"/>
+              <text class="map-pin-label hot" x="14" y="-9">Marseille · HOT</text>
+            </g>
+          </g>
         </svg>
-        <!-- Pins (positions approximatives en % du SVG container) -->
-        <div class="map-pin" style="left:48%;top:31%">
-          <div class="ring"></div><div class="dot"></div>
-        </div>
-        <div class="map-label" style="left:48%;top:31%">Paris · 184</div>
-
-        <div class="map-pin" style="left:62%;top:52%">
-          <div class="ring"></div><div class="dot"></div>
-        </div>
-        <div class="map-label" style="left:62%;top:52%">Lyon · 62</div>
-
-        <div class="map-pin" style="left:42%;top:72%">
-          <div class="ring"></div><div class="dot"></div>
-        </div>
-        <div class="map-label" style="left:42%;top:72%">Toulouse · 41</div>
-
-        <div class="map-pin" style="left:22%;top:46%">
-          <div class="ring"></div><div class="dot"></div>
-        </div>
-        <div class="map-label" style="left:22%;top:46%">Nantes · 38</div>
-
-        <div class="map-pin" style="left:50%;top:14%">
-          <div class="ring"></div><div class="dot"></div>
-        </div>
-        <div class="map-label" style="left:50%;top:14%">Lille · 29</div>
-
-        <div class="map-pin hot" style="left:74%;top:80%">
-          <div class="ring"></div><div class="dot"></div>
-        </div>
-        <div class="map-label" style="left:74%;top:80%;color:var(--alert-hot)">Marseille · HOT</div>
 
         <div class="map-foot">
           <span>// FR · 412 triggers · 30j</span>
@@ -2486,7 +2582,7 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
 
   // --- Sample N points dans la silhouette FR via isPointInFill ---
   const N_PARTICLES = 110;
-  const VIEWBOX_W = 480, VIEWBOX_H = 500;
+  const VIEWBOX_W = 1000, VIEWBOX_H = 1000;
   const samples = []; // {x, y} en NDC -1..1
   try {
     const bbox = svgPath.getBBox();
