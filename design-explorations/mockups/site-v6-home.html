@@ -1274,20 +1274,14 @@
    * CTA FINAL CINÉMATIQUE
    ============================================================ */
   .cta-final{padding:180px 0;background:var(--ink);color:var(--cream);position:relative;overflow:hidden;text-align:center}
-  /* Photo Paris vue de nuit en background, fortement assombrie pour rester lisible */
-  .cta-final::after{
-    content:"";position:absolute;inset:0;z-index:0;
-    background-image:url("https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=2000&q=70&fm=webp&fit=crop");
-    background-size:cover;background-position:center 30%;
-    opacity:0.22;
-    filter:saturate(0.4) contrast(0.85);
-    mix-blend-mode:luminosity;
-  }
+  /* Photo Tour Eiffel retirée (trop cliché tourist). Remplacée par
+   * gradient amber centré + vignette dégradé bottom — visuel pur signature
+   * iFIND, cohérent avec la palette Vélin & Ambre INPI. */
   .cta-final::before{
-    content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+    content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
     background:
-      radial-gradient(ellipse 800px 500px at 50% 30%,rgba(232,159,44,0.18),transparent 60%),
-      linear-gradient(180deg,rgba(15,13,10,0.50) 0%,rgba(15,13,10,0.85) 100%);
+      radial-gradient(ellipse 900px 600px at 50% 35%,rgba(232,159,44,0.20),transparent 65%),
+      radial-gradient(ellipse 600px 400px at 50% 100%,rgba(232,159,44,0.06),transparent 60%);
   }
   .cta-final h2{color:var(--cream);max-width:760px;margin:0 auto 32px;position:relative;z-index:2}
   .cta-final h2 em{color:var(--amber);font-style:italic;font-weight:500;position:relative}
