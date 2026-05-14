@@ -9,10 +9,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- Lenis (smooth scroll) + GSAP + ScrollTrigger -->
+<!-- Lenis (smooth scroll) + GSAP + ScrollTrigger + SplitType (text reveal) -->
 <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/split-type@0.3.4/umd/index.min.js"></script>
 <!-- Three.js (ESM via importmap) — scène 3D hero sismographe -->
 <script type="importmap">
 {
@@ -378,7 +379,9 @@
   .section--ink .eyebrow{color:var(--amber-soft)}
   .section-head{margin-bottom:80px;max-width:840px}
   .section-head .eyebrow{margin-bottom:24px;display:inline-block}
-  .section-head h2{margin-bottom:24px}
+  .section-head h2{margin-bottom:24px;perspective:800px}
+  /* SplitType char : pas de saut visuel sur fallback (avant que SplitType ait wrap) */
+  .section-head h2 .char{display:inline-block;will-change:transform,opacity}
   .section-head p{font-size:19px;line-height:1.6;color:var(--slate-warm)}
   .section--ink .section-head p{color:rgba(245,241,234,0.7)}
   @media(max-width:720px){
@@ -1561,6 +1564,44 @@
   setTimeout(()=>{
     document.querySelector('.hero h1')?.parentElement.classList.add('is-visible');
   }, 1700);
+
+  // ====== TEXT REVEAL LETTRE PAR LETTRE (gros titres) =========================
+  // Split chaque h2 des .section-head en chars (SplitType.js), puis stagger
+  // reveal au scroll : opacity 0→1 + translateY 30→0 + rotateX -30→0.
+  // Effet typographique premium signature lenis.dev / awwwards.com.
+  // ===========================================================================
+  if(!prefersReduced && typeof SplitType !== 'undefined' && typeof ScrollTrigger !== 'undefined'){
+    document.querySelectorAll('.section-head h2').forEach(h2 => {
+      // Split en chars+words. SplitType préserve le HTML interne (em.amber etc.)
+      // et wrap chaque caractère dans un <span class="char">.
+      const split = new SplitType(h2, { types: 'chars,words', tagName: 'span' });
+      if(!split.chars || split.chars.length === 0) return;
+
+      // État initial : invisible, légèrement décalé en Y + perspective 3D
+      gsap.set(split.chars, {
+        opacity: 0,
+        y: 28,
+        rotateX: -28,
+        display: 'inline-block',
+        transformOrigin: '50% 100%'
+      });
+
+      // Reveal stagger au scroll (1 seule fois, pas de replay)
+      gsap.to(split.chars, {
+        opacity: 1,
+        y: 0,
+        rotateX: 0,
+        duration: 0.72,
+        ease: 'power3.out',
+        stagger: 0.020,
+        scrollTrigger: {
+          trigger: h2,
+          start: 'top 82%',
+          once: true
+        }
+      });
+    });
+  }
 
   // ====== HERO PIN + LAYER EFFECT (signature lenis.dev / Darkroom) =======
   // Le hero est "pinné" en haut pendant 1 viewport supplémentaire de scroll.
