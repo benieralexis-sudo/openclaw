@@ -3551,9 +3551,10 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   // --- Scene + camera ---
+  // FOV 38° + position camera plus haute/inclinée pour vue iso 3D évidente
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 1000);
-  camera.position.set(0, -50, 95);
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 1000);
+  camera.position.set(0, -25, 110);
   camera.lookAt(0, 0, 0);
 
   // --- Coords France métropole (lon/lat → x/y projection linéaire centrée 2.5°E 46.5°N) ---
@@ -3569,14 +3570,14 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     return shape;
   }
 
-  // --- Extrude geometry ---
+  // --- Extrude geometry (depth 12 = bloc épais 3D évident, ~15% de la largeur) ---
   const extrudeSettings = {
-    depth: 3.5,
+    depth: 12,
     bevelEnabled: true,
-    bevelSegments: 3,
-    bevelSize: 0.35,
-    bevelThickness: 0.35,
-    curveSegments: 4
+    bevelSegments: 4,
+    bevelSize: 0.6,
+    bevelThickness: 0.6,
+    curveSegments: 5
   };
   const metroGeo = new THREE.ExtrudeGeometry(buildShape(METRO_COORDS), extrudeSettings);
   const corseGeo = new THREE.ExtrudeGeometry(buildShape(CORSE_COORDS), extrudeSettings);
@@ -3601,11 +3602,14 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   const edgesMetro = new THREE.LineSegments(edgeGeoMetro, edgeMat);
   const edgesCorse = new THREE.LineSegments(edgeGeoCorse, edgeMat);
 
-  // --- Group + rotation pour vue 3D inclinée ---
+  // --- Group + rotation pour vraie vue 3D oblique 3/4 ---
+  // rotation.x = -PI*0.22 (~ -40°) : pench moins fort → on voit les COTÉS épais
+  // rotation.y = 0.25 rad (~ +14°) : léger 3/4 → relief visible des deux faces
   const meshGroup = new THREE.Group();
   meshGroup.add(metroMesh, corseMesh, edgesMetro, edgesCorse);
-  meshGroup.rotation.x = -Math.PI * 0.36;  // pench vers viewer (vue iso)
-  meshGroup.position.y = -8;                // recentrer dans viewport
+  meshGroup.rotation.x = -Math.PI * 0.22;
+  meshGroup.rotation.y = 0.25;
+  meshGroup.position.y = -4;
   scene.add(meshGroup);
 
   // --- Lighting (lumière dorée venant du haut, fill amber doux) ---
@@ -3676,8 +3680,12 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     // Auto rotate très doux quand pas en drag
     if(!dragging) rotZTarget += 0.0012;
     rotZ += (rotZTarget - rotZ) * 0.10;
-    meshGroup.rotation.z = rotZ + mouse.x * 0.18;
-    meshGroup.rotation.x = -Math.PI * 0.36 + mouse.y * 0.08;
+    // rotation.x base = -PI*0.22 (~-40°), parallax souris ajoute ±0.10 → vue oblique 3D
+    meshGroup.rotation.x = -Math.PI * 0.22 + mouse.y * 0.10;
+    // rotation.y base 0.25 (~+14°), parallax souris ajoute ±0.10 → vue 3/4 dynamique
+    meshGroup.rotation.y = 0.25 + mouse.x * 0.10;
+    // rotation.z = drag horizontal libre
+    meshGroup.rotation.z = rotZ;
     renderer.render(scene, camera);
   }
   if(!reduced) frame();
