@@ -25,7 +25,12 @@ from pathlib import Path
 
 LOG_PATH = "/var/log/dashboard-v2.log"
 STATE_PATH = "/tmp/anthropic-burn-state.json"
-USAGE_MARKER = "[qualify-trigger.usage]"
+# Fix audit 14/05/2026 — Le refactor V2-only du 10/05 a renommé le marker
+# de "[qualify-trigger.usage]" vers "[qualify-trigger-v2.usage]". Le script
+# cherchait l'ancien marker → burn 24h affichait $0 depuis 4 jours.
+# Maintenant on cherche les 2 markers (V2 actuel + V1 historique pour ne
+# pas casser l'analyse des logs antérieurs au 10/05).
+USAGE_MARKERS = ["[qualify-trigger-v2.usage]", "[qualify-trigger.usage]"]
 
 # Tarifs Anthropic (USD par 1M tokens) — janvier 2026
 PRICING = {
@@ -57,10 +62,18 @@ def total_cost_from_log(log_path: str) -> tuple[float, int]:
     n = 0
     with open(log_path, "r", encoding="utf-8", errors="replace") as f:
         for line in f:
-            idx = line.find(USAGE_MARKER)
-            if idx < 0:
+            # Tente chaque marker (V2 actuel en priorité, V1 fallback)
+            marker_found = None
+            marker_idx = -1
+            for m in USAGE_MARKERS:
+                idx = line.find(m)
+                if idx >= 0:
+                    marker_found = m
+                    marker_idx = idx
+                    break
+            if marker_idx < 0:
                 continue
-            json_part = line[idx + len(USAGE_MARKER):].strip()
+            json_part = line[marker_idx + len(marker_found):].strip()
             try:
                 d = json.loads(json_part)
             except json.JSONDecodeError:
