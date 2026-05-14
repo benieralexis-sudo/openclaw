@@ -254,8 +254,8 @@
     display:block;
     opacity:0;
     transition:opacity 1400ms cubic-bezier(0.22,1,0.36,1) 1100ms;
-    /* Multiply pour fusionner naturellement avec le cream */
-    mix-blend-mode:multiply;
+    /* Blend normal — laisse le bloom UnrealBloomPass produire un vrai halo amber */
+    mix-blend-mode:normal;
   }
   #hero-3d.is-ready{opacity:1}
   /* Sur mobile / pointer coarse, on désactive WebGL pour batterie */
@@ -399,6 +399,34 @@
   /* ============================================================
    * SECTION 2 — METHOD (cards 3D)
    ============================================================ */
+  /* === MÉTHODE PINNED — la section reste visible 2 viewports pendant qu'on scrolle === */
+  .method-pin{position:relative}
+  .method-progress{
+    position:relative;
+    margin-bottom:48px;
+    display:flex;align-items:center;gap:24px;
+    font-family:var(--font-mono);font-size:11px;letter-spacing:var(--tracking-eyebrow);
+    color:var(--slate-soft);
+    user-select:none;
+  }
+  .method-progress-track{
+    position:relative;flex:1;height:1px;background:var(--line);overflow:visible;
+  }
+  .method-progress-bar{
+    position:absolute;left:0;top:0;height:100%;background:var(--amber);
+    width:0%;transition:width 320ms cubic-bezier(0.22,1,0.36,1);
+    box-shadow:0 0 12px var(--amber-glow);
+  }
+  .method-progress-marks{
+    display:flex;gap:8px;font-weight:600;
+  }
+  .method-progress-marks span{
+    color:var(--slate-soft);transition:color 220ms;
+  }
+  .method-progress-marks span.is-active{color:var(--amber)}
+  .method-progress-marks span.is-done{color:var(--ink)}
+  .method-progress-marks .sep{color:var(--line)}
+
   .method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;perspective:1200px}
   .method-card{
     background:var(--cream);
@@ -415,6 +443,18 @@
   .method-card:hover::before{opacity:1}
   .method-card:nth-child(2){margin-top:48px}
   .method-card:nth-child(3){margin-top:96px}
+  /* === États pilotés par le pin scroll === */
+  .method-card.is-active{
+    border-color:var(--amber);
+    box-shadow:0 32px 64px -24px rgba(232,159,44,0.30),0 0 0 1px var(--amber);
+    transform:translateY(-6px) scale(1.015);
+    z-index:2;
+  }
+  .method-card.is-active::before{opacity:1}
+  .method-card.is-dim{
+    opacity:0.42;
+    filter:saturate(0.6);
+  }
   .method-num{font-family:var(--font-mono);font-size:11px;color:var(--amber);letter-spacing:var(--tracking-eyebrow);font-weight:600;margin-bottom:28px;display:flex;align-items:center;gap:10px}
   .method-num::before{content:"";display:inline-block;width:24px;height:1px;background:var(--amber)}
   .method-icon{width:56px;height:56px;margin-bottom:28px;color:var(--ink);transition:transform var(--t-slow)}
@@ -441,7 +481,13 @@
   .map-stats .ok{color:var(--signal-ok)}
 
   .map-container{position:relative;aspect-ratio:1.05;background:var(--cream);border:1px solid var(--line);overflow:hidden}
-  .map-container svg.fr-map{width:100%;height:100%}
+  .map-container svg.fr-map{width:100%;height:100%;position:relative;z-index:1}
+  /* Canvas 3D : réseau de particules ambres dans la silhouette FR */
+  #fr-3d{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;opacity:0;transition:opacity 1200ms cubic-bezier(0.22,1,0.36,1)}
+  #fr-3d.is-ready{opacity:1}
+  /* Pins/labels passent au-dessus du canvas */
+  .map-container .map-pin,.map-container .map-label,.map-container .map-foot{z-index:3}
+  @media (prefers-reduced-motion:reduce){#fr-3d{opacity:0.85;transition:none}}
   .map-container svg.fr-map path.fr-shape{fill:var(--cream-warm);stroke:var(--line);stroke-width:1.2}
   .map-pin{position:absolute;width:14px;height:14px;transform:translate(-50%,-50%)}
   .map-pin .ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--amber);animation:pinRipple 2.4s ease-out infinite}
@@ -843,6 +889,16 @@
       <p>Pipeline volontairement court et lisible. Chaque trigger passe par les trois étages. Chaque étage est auditable.</p>
     </div>
 
+    <div class="method-pin">
+      <div class="method-progress" aria-hidden="true">
+        <span class="method-progress-label">Pipeline</span>
+        <div class="method-progress-track"><div class="method-progress-bar"></div></div>
+        <div class="method-progress-marks">
+          <span class="is-active" data-step="0">01</span><span class="sep">/</span>
+          <span data-step="1">02</span><span class="sep">/</span>
+          <span data-step="2">03</span>
+        </div>
+      </div>
     <div class="method-grid">
       <div class="method-card reveal magnetic-card" data-cursor="hover">
         <span class="method-num">01 · Capter</span>
@@ -879,6 +935,7 @@
         <div class="method-sources">Téléphone <strong>Kaspr</strong> · Email <strong>Resend</strong> · Brief structuré · Export CSV / CRM</div>
       </div>
     </div>
+    </div><!-- /.method-pin -->
   </div>
 </section>
 
@@ -904,6 +961,7 @@
       </div>
 
       <div class="map-container reveal reveal-delay-1" data-cursor="terminal">
+        <canvas id="fr-3d" aria-hidden="true"></canvas>
         <svg class="fr-map" viewBox="0 0 480 500" preserveAspectRatio="xMidYMid meet">
           <!-- Outline approximatif de la France métropolitaine -->
           <path class="fr-shape" d="M180 30 Q220 25 240 50 L280 60 Q310 70 320 90 L350 100 Q380 110 400 140 L420 180 Q430 220 420 260 L410 290 Q400 320 380 340 L360 370 Q340 400 310 420 L280 440 Q250 460 220 460 L190 450 Q160 440 140 420 L110 400 Q80 380 70 350 L60 320 Q50 280 60 250 L70 220 Q80 180 100 150 L120 120 Q140 80 160 60 L180 30 Z"/>
@@ -1442,14 +1500,15 @@
     });
   }
 
-  // ====== MÉTHODE — Cards reveal scrubbé avec offset 3D =======
+  // ====== MÉTHODE — Cards reveal + PIN SCROLL séquencé =======
   const methodSec = document.querySelector('#methode');
   if(methodSec){
     gsap.fromTo(methodSec.querySelector('.section-head'), {y:60, opacity:0}, {
       y:0, opacity:1, duration:1, ease:'power3.out',
       scrollTrigger:{ trigger:methodSec.querySelector('.section-head'), start:'top 80%' }
     });
-    methodSec.querySelectorAll('.method-card').forEach((card, i)=>{
+    const cards = methodSec.querySelectorAll('.method-card');
+    cards.forEach((card, i)=>{
       gsap.fromTo(card,
         { y: 80, opacity: 0, rotateY: -8, rotateX: 6 },
         {
@@ -1462,6 +1521,50 @@
           }
         });
     });
+
+    // Pin scroll : la section méthode reste visible 2 viewports pendant qu'on scrolle
+    // L'étape active progresse 01 → 02 → 03 selon la progression du scroll pinné.
+    // Désactivé sur prefers-reduced-motion (accessibilité) et mobile (UX scroll mobile).
+    const pinEl = methodSec.querySelector('.method-pin');
+    const isMobilePin = matchMedia('(max-width:880px)').matches;
+    if(pinEl && !prefersReduced && !isMobilePin){
+      const bar = methodSec.querySelector('.method-progress-bar');
+      const marks = methodSec.querySelectorAll('.method-progress-marks span[data-step]');
+      const N = cards.length; // 3
+      // Initial : card 0 active, autres dim
+      cards.forEach((c, idx) => {
+        c.classList.toggle('is-active', idx === 0);
+        c.classList.toggle('is-dim',    idx !== 0);
+      });
+
+      ScrollTrigger.create({
+        trigger: pinEl,
+        start: 'top 12%',           // commence quand le pin entre dans le viewport
+        end: '+=180%',              // 1.8 viewport de scroll pinné = 3 segments
+        pin: true,
+        pinSpacing: true,
+        scrub: 0.4,
+        anticipatePin: 1,
+        onUpdate: self => {
+          const p = self.progress; // 0 → 1
+          // Index actif : segments [0, 0.33, 0.67] avec une zone tampon
+          let active = 0;
+          if(p >= 0.66) active = 2;
+          else if(p >= 0.33) active = 1;
+
+          cards.forEach((c, idx) => {
+            c.classList.toggle('is-active', idx === active);
+            c.classList.toggle('is-dim',    idx !== active);
+          });
+          marks.forEach((m, idx) => {
+            m.classList.toggle('is-active', idx === active);
+            m.classList.toggle('is-done',   idx < active);
+          });
+          // Progress bar : 0% → 100% en linéaire
+          if(bar) bar.style.width = (p * 100).toFixed(2) + '%';
+        }
+      });
+    }
   }
 
   // ====== CARTE FRANCE — Pinned avec pins qui pop séquentiellement =======
@@ -1652,6 +1755,10 @@
  * ================================================================== -->
 <script type="module">
 import * as THREE from 'three';
+import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
 
 (function(){
   'use strict';
@@ -1679,12 +1786,31 @@ import * as THREE from 'three';
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x000000, 0);
+  renderer.toneMapping = THREE.NoToneMapping; // pas de tone mapping (préserve l'ambre INPI exact)
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   // --- Scene + camera ---
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
   camera.position.set(0, 5.2, 14);
   camera.lookAt(0, 1.1, -2);
+
+  // --- EffectComposer pipeline (real bloom on the trigger peaks) ---
+  // Render target en RGBA + HalfFloat → bloom HDR sans bander, alpha préservée
+  const renderTarget = new THREE.WebGLRenderTarget(1, 1, {
+    type: THREE.HalfFloatType,
+    format: THREE.RGBAFormat,
+    samples: renderer.capabilities.isWebGL2 ? 4 : 0  // MSAA si WebGL2
+  });
+  const composer = new EffectComposer(renderer, renderTarget);
+  composer.addPass(new RenderPass(scene, camera));
+  // UnrealBloomPass(resolution, strength, radius, threshold)
+  // threshold 0.5 = seuls les pixels ambre saturés bloomeront (pas le slate)
+  // strength 0.55 = halo visible mais pas Vegas
+  // radius 0.45 = halo doux
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.45, 0.50);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
 
   // --- Geometry params ---
   const ROWS  = 64;       // nombre de "lignes sismiques" empilées
@@ -1818,6 +1944,8 @@ import * as THREE from 'three';
     const w = rect.width, h = rect.height;
     if(w < 2 || h < 2) return;
     renderer.setSize(w, h, false);
+    composer.setSize(w, h);
+    bloom.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
@@ -1883,15 +2011,246 @@ import * as THREE from 'three';
     camera.position.y = 5.2 - mouse.y * 0.6;
     camera.lookAt(0, 1.1, -2);
 
-    renderer.render(scene, camera);
+    composer.render();
   }
   frame();
 
   // Reduced-motion : un rendu figé immédiat (timestep visuel agréable)
   if(reduced){
     uniforms.uTime.value = 4.2;
+    composer.render();
+  }
+})();
+
+/* ===================================================================
+ * CARTE FR — Three.js network particles
+ * Sample des points dans la silhouette FR via SVGPathElement.isPointInFill,
+ * dérive lente, lignes de connexion entre voisins proches, blending additive
+ * pour un halo amber. Effet "réseau de données souverain".
+ * ================================================================== */
+(function(){
+  'use strict';
+  const canvas = document.getElementById('fr-3d');
+  if(!canvas) return;
+  if(window.matchMedia('(max-width:720px),(pointer:coarse)').matches) return;
+
+  const probe = document.createElement('canvas');
+  if(!(probe.getContext('webgl2') || probe.getContext('webgl'))) return;
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wrap = canvas.parentElement;
+  const svgPath = document.querySelector('#carte .fr-map .fr-shape');
+  const svg = document.querySelector('#carte .fr-map');
+  if(!svgPath || !svg) return;
+
+  // --- Sample N points dans la silhouette FR via isPointInFill ---
+  const N_PARTICLES = 110;
+  const VIEWBOX_W = 480, VIEWBOX_H = 500;
+  const samples = []; // {x, y} en NDC -1..1
+  try {
+    const bbox = svgPath.getBBox();
+    const pt = svg.createSVGPoint();
+    let attempts = 0;
+    while(samples.length < N_PARTICLES && attempts < 8000){
+      pt.x = bbox.x + Math.random() * bbox.width;
+      pt.y = bbox.y + Math.random() * bbox.height;
+      if(svgPath.isPointInFill(pt)){
+        // SVG → NDC : x/W * 2 - 1, -(y/H * 2 - 1) (Y flip)
+        samples.push({
+          x: (pt.x / VIEWBOX_W) * 2 - 1,
+          y: -((pt.y / VIEWBOX_H) * 2 - 1),
+          vx: (Math.random() - 0.5) * 0.0008,
+          vy: (Math.random() - 0.5) * 0.0008,
+          phase: Math.random() * Math.PI * 2,
+          baseSize: 4 + Math.random() * 6
+        });
+      }
+      attempts++;
+    }
+  } catch(e){
+    // isPointInFill peut throw si SVG pas dans le DOM rendered → fallback bounds
+    for(let i = 0; i < N_PARTICLES; i++){
+      samples.push({
+        x: (Math.random() - 0.5) * 1.6,
+        y: (Math.random() - 0.5) * 1.6,
+        vx: (Math.random() - 0.5) * 0.0008,
+        vy: (Math.random() - 0.5) * 0.0008,
+        phase: Math.random() * Math.PI * 2,
+        baseSize: 4 + Math.random() * 6
+      });
+    }
+  }
+  if(samples.length === 0) return;
+
+  // --- Renderer ---
+  const renderer = new THREE.WebGLRenderer({
+    canvas, alpha: true, antialias: true, premultipliedAlpha: false
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0x000000, 0);
+
+  // --- Scene + ortho camera (NDC -1..1) ---
+  const scene = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
+
+  // --- Particles : THREE.Points avec custom shader (taille + glow par fragment) ---
+  const positions = new Float32Array(samples.length * 3);
+  const sizes = new Float32Array(samples.length);
+  for(let i = 0; i < samples.length; i++){
+    positions[i*3]     = samples[i].x;
+    positions[i*3 + 1] = samples[i].y;
+    positions[i*3 + 2] = 0;
+    sizes[i] = samples[i].baseSize;
+  }
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  pGeo.setAttribute('aSize',    new THREE.BufferAttribute(sizes, 1));
+
+  const pMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uPixelRatio: { value: renderer.getPixelRatio() },
+      uAmber:      { value: new THREE.Color(0xE89F2C) },
+      uTime:       { value: 0 }
+    },
+    vertexShader: `
+      attribute float aSize;
+      uniform float uPixelRatio;
+      uniform float uTime;
+      varying float vDist;
+      void main(){
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        // Twinkle : taille pulsée par sin
+        float twinkle = 0.7 + 0.3 * sin(uTime * 1.4 + position.x * 9.0 + position.y * 7.0);
+        gl_PointSize = aSize * uPixelRatio * twinkle;
+        vDist = length(position.xy);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uAmber;
+      void main(){
+        // Soft circle avec falloff radial (point glow)
+        vec2 c = gl_PointCoord - vec2(0.5);
+        float d = length(c) * 2.0;
+        float alpha = smoothstep(1.0, 0.0, d);
+        alpha = pow(alpha, 1.6);
+        gl_FragColor = vec4(uAmber, alpha * 0.85);
+      }
+    `
+  });
+  scene.add(new THREE.Points(pGeo, pMat));
+
+  // --- Lignes de connexion entre voisins proches (recalculées chaque frame) ---
+  const MAX_LINES = samples.length * 4;
+  const linePositions = new Float32Array(MAX_LINES * 2 * 3);
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+  lineGeo.setDrawRange(0, 0);
+  const lineMat = new THREE.LineBasicMaterial({
+    color: 0xE89F2C,
+    transparent: true,
+    opacity: 0.18,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+  scene.add(new THREE.LineSegments(lineGeo, lineMat));
+
+  const CONNECT_DIST = 0.22;
+  function rebuildLines(){
+    let writeIdx = 0;
+    for(let i = 0; i < samples.length; i++){
+      const a = samples[i];
+      for(let j = i + 1; j < samples.length; j++){
+        const b = samples[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d2 = dx*dx + dy*dy;
+        if(d2 < CONNECT_DIST * CONNECT_DIST){
+          if(writeIdx + 6 > linePositions.length) break;
+          linePositions[writeIdx++] = a.x;
+          linePositions[writeIdx++] = a.y;
+          linePositions[writeIdx++] = 0;
+          linePositions[writeIdx++] = b.x;
+          linePositions[writeIdx++] = b.y;
+          linePositions[writeIdx++] = 0;
+        }
+      }
+    }
+    lineGeo.attributes.position.needsUpdate = true;
+    lineGeo.setDrawRange(0, writeIdx / 3);
+  }
+
+  // --- Resize ---
+  function resize(){
+    const rect = wrap.getBoundingClientRect();
+    if(rect.width < 2 || rect.height < 2) return;
+    renderer.setSize(rect.width, rect.height, false);
+  }
+  resize();
+  if('ResizeObserver' in window) new ResizeObserver(resize).observe(wrap);
+  else window.addEventListener('resize', resize);
+
+  // --- Visibility (pause hors viewport) ---
+  let inView = true, visible = !document.hidden;
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(entries => { inView = entries[0].isIntersecting; },
+                             { threshold: 0 }).observe(wrap);
+  }
+  document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
+
+  // --- Fade-in ---
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(entries => {
+      if(entries[0].isIntersecting){
+        canvas.classList.add('is-ready');
+      }
+    }, { threshold: 0.2 }).observe(wrap);
+  } else {
+    canvas.classList.add('is-ready');
+  }
+
+  // --- Render loop ---
+  const clock = new THREE.Clock();
+  let lineRebuildAccum = 0;
+  function frame(){
+    requestAnimationFrame(frame);
+    if(!inView || !visible) return;
+    const dt = clock.getDelta();
+    const t = clock.getElapsedTime();
+    pMat.uniforms.uTime.value = t;
+
+    if(!reduced){
+      // Drift + wrap aux bords de la box [-1,1]
+      for(let i = 0; i < samples.length; i++){
+        const s = samples[i];
+        s.x += s.vx;
+        s.y += s.vy;
+        if(s.x >  1.0) s.x = -1.0;
+        if(s.x < -1.0) s.x =  1.0;
+        if(s.y >  1.0) s.y = -1.0;
+        if(s.y < -1.0) s.y =  1.0;
+        positions[i*3]     = s.x;
+        positions[i*3 + 1] = s.y;
+      }
+      pGeo.attributes.position.needsUpdate = true;
+
+      // Recalcul lignes 5×/sec (chez n=110, n²/2 ~= 6000 op = peanuts mais on réduit quand même)
+      lineRebuildAccum += dt;
+      if(lineRebuildAccum > 0.2){
+        rebuildLines();
+        lineRebuildAccum = 0;
+      }
+    }
+
     renderer.render(scene, camera);
   }
+
+  // Premier rebuild + render immédiat (frame visible avant fade-in)
+  rebuildLines();
+  renderer.render(scene, camera);
+  if(!reduced) frame();
 })();
 </script>
 
