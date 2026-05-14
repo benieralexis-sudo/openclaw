@@ -569,6 +569,101 @@
   .method-num::before{content:"";display:inline-block;width:24px;height:1px;background:var(--amber)}
   .method-icon{width:56px;height:56px;margin-bottom:28px;color:var(--ink);transition:transform var(--t-slow)}
   .method-card:hover .method-icon{transform:scale(1.08) rotate(-3deg)}
+
+  /* === Illustrations method-illu (SVG signature, viewBox 280×190) === */
+  .method-illu{
+    width:100%;aspect-ratio:280/190;margin-bottom:28px;
+    background:rgba(245,241,234,0.4);
+    border:1px solid rgba(15,13,10,0.06);
+    border-radius:2px;
+    overflow:hidden;position:relative;
+  }
+  .method-illu-svg{width:100%;height:100%;display:block}
+
+  /* Card 01 — Capter : data-flow le long des lignes (stroke-dasharray flow) */
+  .method-illu--capter .illu-lines line{
+    stroke-dasharray:6 14;
+    animation:dataFlow01 2.4s linear infinite;
+  }
+  .method-illu--capter .illu-lines line[data-d="0"]{animation-delay:0s}
+  .method-illu--capter .illu-lines line[data-d="1"]{animation-delay:0.3s}
+  .method-illu--capter .illu-lines line[data-d="2"]{animation-delay:0.6s}
+  .method-illu--capter .illu-lines line[data-d="3"]{animation-delay:0.9s}
+  .method-illu--capter .illu-lines line[data-d="4"]{animation-delay:1.2s}
+  .method-illu--capter .illu-lines line[data-d="5"]{animation-delay:1.5s}
+  .method-illu--capter .illu-lines line[data-d="6"]{animation-delay:1.8s}
+  .method-illu--capter .illu-lines line[data-d="7"]{animation-delay:2.1s}
+  @keyframes dataFlow01{
+    0%   {stroke-dashoffset:60}
+    100% {stroke-dashoffset:0}
+  }
+  /* Hub pulse */
+  .illu-hub-glow{animation:hubPulse 2.4s ease-in-out infinite;transform-origin:center;transform-box:fill-box}
+  @keyframes hubPulse{
+    0%,100%{opacity:0.5;transform:scale(0.92)}
+    50%    {opacity:1;transform:scale(1.08)}
+  }
+  .illu-hub-ring{animation:hubRing 3s ease-in-out infinite;transform-origin:center;transform-box:fill-box}
+  @keyframes hubRing{
+    0%,100%{opacity:0.6;stroke-width:1}
+    50%    {opacity:0.95;stroke-width:1.6}
+  }
+  .illu-hub-dot{animation:hubDot 1.6s ease-in-out infinite alternate}
+  @keyframes hubDot{
+    from{filter:drop-shadow(0 0 2px rgba(232,159,44,0.5))}
+    to  {filter:drop-shadow(0 0 8px rgba(232,159,44,0.9))}
+  }
+
+  /* Card 02 — Qualifier : nodes pattern qui pulsent en stagger */
+  .method-illu--qualifier .pn{
+    animation:patternPulse 2.8s ease-in-out infinite;
+    transform-origin:center;transform-box:fill-box;
+  }
+  .method-illu--qualifier .pn-1{animation-delay:0s}
+  .method-illu--qualifier .pn-2{animation-delay:0.35s}
+  .method-illu--qualifier .pn-3{animation-delay:0.7s}
+  .method-illu--qualifier .pn-4{animation-delay:1.05s}
+  .method-illu--qualifier .pn-5{animation-delay:1.4s}
+  .method-illu--qualifier .pn-6{animation-delay:1.75s}
+  .method-illu--qualifier .pn-7{animation-delay:2.1s}
+  .method-illu--qualifier .pn-8{animation-delay:2.45s}
+  @keyframes patternPulse{
+    0%,80%,100%{transform:scale(1);fill:var(--cream);filter:drop-shadow(0 0 0 transparent)}
+    35%,45%    {transform:scale(1.4);fill:var(--amber);filter:drop-shadow(0 0 6px rgba(232,159,44,0.8))}
+  }
+  .method-illu--qualifier .illu-connections line{
+    stroke-dasharray:3 8;
+    animation:dataFlow02 1.8s linear infinite;
+  }
+  .method-illu--qualifier .illu-connections line:nth-child(odd){animation-direction:reverse;animation-delay:0.4s}
+  @keyframes dataFlow02{
+    0%   {stroke-dashoffset:22}
+    100% {stroke-dashoffset:0}
+  }
+  .illu-score{animation:scoreGlow 1.8s ease-in-out infinite}
+  @keyframes scoreGlow{
+    0%,100%{opacity:0.7}
+    50%    {opacity:1;filter:drop-shadow(0 0 4px rgba(232,159,44,0.6))}
+  }
+
+  /* Card 03 — Delivrer : briefs qui slide-in subtilement au hover */
+  .method-illu--deliver .illu-brief{
+    transition:transform 600ms cubic-bezier(0.22,1,0.36,1);
+  }
+  .method-card:hover .method-illu--deliver .illu-brief-1{transform:translate(20px,18px) translate(-6px,-2px)}
+  .method-card:hover .method-illu--deliver .illu-brief-2{transform:translate(40px,72px) translate(0,-3px) scale(1.02)}
+  .method-card:hover .method-illu--deliver .illu-brief-3{transform:translate(60px,132px) translate(6px,3px)}
+  .method-illu--deliver .illu-brief--hot rect:first-child{
+    animation:pepiteHotBorder 3s ease-in-out infinite;
+  }
+  @keyframes pepiteHotBorder{
+    0%,100%{stroke-width:1.6;stroke:var(--amber)}
+    50%    {stroke-width:2.2;stroke:#FFB44A;filter:drop-shadow(0 0 6px rgba(232,159,44,0.5))}
+  }
+  /* Reduced-motion : on coupe toutes les animations illu */
+  @media(prefers-reduced-motion:reduce){
+    .method-illu *{animation:none !important;transition:none !important}
+  }
   .method-title{margin-bottom:16px;letter-spacing:-0.02em}
   .method-desc{font-size:15px;line-height:1.65;color:var(--slate-warm);margin-bottom:28px}
   .method-sources{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);line-height:1.8;padding-top:24px;border-top:1px dashed var(--line)}
@@ -1040,36 +1135,149 @@
         </div>
       </div>
     <div class="method-grid">
+      <!-- CARD 01 — CAPTER : 9 sources convergent vers hub central (data-flow animé) -->
       <div class="method-card reveal magnetic-card" data-cursor="hover">
         <span class="method-num">01 · Capter</span>
-        <svg class="method-icon" viewBox="0 0 48 48" fill="none">
-          <line x1="6" y1="32" x2="42" y2="32" stroke="#0F0D0A" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M6 32 L12 32 L15 30 L18 34 L22 14 L26 34 L29 26 L32 32 L42 32" stroke="#E89F2C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="22" cy="14" r="3" fill="#E89F2C"/>
-        </svg>
+        <div class="method-illu method-illu--capter">
+          <svg viewBox="0 0 280 190" class="method-illu-svg" aria-hidden="true">
+            <defs>
+              <radialGradient id="hub01" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#E89F2C" stop-opacity="0.55"/>
+                <stop offset="60%" stop-color="#E89F2C" stop-opacity="0.10"/>
+                <stop offset="100%" stop-color="#E89F2C" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <!-- Lignes data-flow (sources → hub) -->
+            <g class="illu-lines" stroke="rgba(232,159,44,0.4)" stroke-width="1" fill="none">
+              <line x1="34"  y1="22"  x2="140" y2="95" data-d="0"/>
+              <line x1="22"  y1="95"  x2="140" y2="95" data-d="1"/>
+              <line x1="34"  y1="168" x2="140" y2="95" data-d="2"/>
+              <line x1="140" y1="14"  x2="140" y2="95" data-d="3"/>
+              <line x1="140" y1="176" x2="140" y2="95" data-d="4"/>
+              <line x1="246" y1="22"  x2="140" y2="95" data-d="5"/>
+              <line x1="258" y1="95"  x2="140" y2="95" data-d="6"/>
+              <line x1="246" y1="168" x2="140" y2="95" data-d="7"/>
+            </g>
+            <!-- Sources tags -->
+            <g class="illu-sources" font-family="ui-monospace,monospace" font-size="9.5" fill="var(--ink)" letter-spacing="0.04em" font-weight="500">
+              <text x="34"  y="14"  text-anchor="middle">INPI</text>
+              <text x="22"  y="105" text-anchor="middle">Pappers</text>
+              <text x="34"  y="184" text-anchor="middle">BODACC</text>
+              <text x="140" y="6"   text-anchor="middle">France Travail</text>
+              <text x="140" y="188" text-anchor="middle">WTTJ</text>
+              <text x="246" y="14"  text-anchor="middle">RSS levées</text>
+              <text x="258" y="105" text-anchor="middle">JOAFE</text>
+              <text x="246" y="184" text-anchor="middle">LinkedIn</text>
+            </g>
+            <!-- Hub central -->
+            <circle cx="140" cy="95" r="46" fill="url(#hub01)" class="illu-hub-glow"/>
+            <circle cx="140" cy="95" r="20" fill="none" stroke="rgba(232,159,44,0.45)" stroke-width="1" class="illu-hub-ring"/>
+            <circle cx="140" cy="95" r="6"  fill="#E89F2C" class="illu-hub-dot"/>
+            <text x="140" y="98" text-anchor="middle" font-family="ui-monospace,monospace" font-size="7" font-weight="600" fill="var(--ink)" letter-spacing="0.1em" class="illu-hub-label">TRIGGER</text>
+          </svg>
+        </div>
         <h3 class="method-title">9 sources publiques FR surveillées 24/7.</h3>
         <p class="method-desc">Chaque source est ingérée par un poller dédié, dédupliquée, normalisée. Aucun scraping illégal. Aucun cookie tiers. Que des sources publiques officielles.</p>
         <div class="method-sources"><strong>INPI</strong> · <strong>Pappers</strong> · <strong>BODACC</strong> · France Travail · WTTJ · RSS levées · JOAFE · LinkedIn public · TheirStack</div>
       </div>
 
+      <!-- CARD 02 — QUALIFIER : neural graph avec Claude Opus au centre + 13 patterns -->
       <div class="method-card reveal reveal-delay-1 magnetic-card" data-cursor="hover">
         <span class="method-num">02 · Qualifier</span>
-        <svg class="method-icon" viewBox="0 0 48 48" fill="none">
-          <circle cx="24" cy="24" r="15" stroke="#0F0D0A" stroke-width="1.5"/>
-          <path d="M16 24 L22 30 L34 18" stroke="#E89F2C" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <div class="method-illu method-illu--qualifier">
+          <svg viewBox="0 0 280 190" class="method-illu-svg" aria-hidden="true">
+            <defs>
+              <radialGradient id="hub02" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#E89F2C" stop-opacity="0.55"/>
+                <stop offset="60%" stop-color="#E89F2C" stop-opacity="0.10"/>
+                <stop offset="100%" stop-color="#E89F2C" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <!-- Outer ring (13 patterns symbolisés par nodes) -->
+            <g class="illu-nodes-outer" fill="none" stroke="rgba(15,13,10,0.18)" stroke-width="1">
+              <circle cx="140" cy="95" r="78"/>
+            </g>
+            <!-- Connexions hub → nodes -->
+            <g class="illu-connections" stroke="rgba(232,159,44,0.35)" stroke-width="1" fill="none">
+              <line x1="140" y1="95" x2="140" y2="17"/>
+              <line x1="140" y1="95" x2="195" y2="40"/>
+              <line x1="140" y1="95" x2="218" y2="95"/>
+              <line x1="140" y1="95" x2="195" y2="150"/>
+              <line x1="140" y1="95" x2="140" y2="173"/>
+              <line x1="140" y1="95" x2="85"  y2="150"/>
+              <line x1="140" y1="95" x2="62"  y2="95"/>
+              <line x1="140" y1="95" x2="85"  y2="40"/>
+            </g>
+            <!-- Nodes pattern (8 visibles, 13 implicites) -->
+            <g class="illu-pattern-nodes" fill="var(--cream)" stroke="var(--amber)" stroke-width="1.4">
+              <circle cx="140" cy="17"  r="4" class="pn pn-1"/>
+              <circle cx="195" cy="40"  r="4" class="pn pn-2"/>
+              <circle cx="218" cy="95"  r="4" class="pn pn-3"/>
+              <circle cx="195" cy="150" r="4" class="pn pn-4"/>
+              <circle cx="140" cy="173" r="4" class="pn pn-5"/>
+              <circle cx="85"  cy="150" r="4" class="pn pn-6"/>
+              <circle cx="62"  cy="95"  r="4" class="pn pn-7"/>
+              <circle cx="85"  cy="40"  r="4" class="pn pn-8"/>
+            </g>
+            <!-- Labels patterns côté -->
+            <g font-family="ui-monospace,monospace" font-size="8" fill="var(--slate-warm)" letter-spacing="0.04em">
+              <text x="140" y="9"   text-anchor="middle">funding</text>
+              <text x="205" y="34"  text-anchor="start">hiring</text>
+              <text x="228" y="98"  text-anchor="start">INPI</text>
+              <text x="205" y="158" text-anchor="start">M&amp;A</text>
+              <text x="140" y="186" text-anchor="middle">BODACC</text>
+              <text x="75"  y="158" text-anchor="end">stack</text>
+              <text x="52"  y="98"  text-anchor="end">RSS</text>
+              <text x="75"  y="34"  text-anchor="end">C-level</text>
+            </g>
+            <!-- Hub Claude central -->
+            <circle cx="140" cy="95" r="38" fill="url(#hub02)" class="illu-hub-glow"/>
+            <circle cx="140" cy="95" r="22" fill="var(--cream)" stroke="var(--ink)" stroke-width="1.4"/>
+            <text x="140" y="91" text-anchor="middle" font-family="ui-monospace,monospace" font-size="7" font-weight="600" fill="var(--ink)" letter-spacing="0.08em">OPUS 4.7</text>
+            <text x="140" y="103" text-anchor="middle" font-family="ui-sans-serif" font-size="11" font-weight="600" fill="var(--amber)" class="illu-score">87</text>
+          </svg>
+        </div>
         <h3 class="method-title">Claude Opus 4.7 + votre ICP propriétaire.</h3>
         <p class="method-desc">Chaque signal est jugé par un cerveau LLM qui connaît votre métier. 13 patterns d'achat propriétaires combinés à votre grille de jugement capturée à l'onboarding.</p>
         <div class="method-sources"><strong>13 patterns</strong> · OUI / NON / ENRICH · score 0-100 · briefing personnalisé par lead</div>
       </div>
 
+      <!-- CARD 03 — DELIVRER : 3 mini-briefs empilés, 1 marqué Pépite -->
       <div class="method-card reveal reveal-delay-2 magnetic-card" data-cursor="hover">
         <span class="method-num">03 · Délivrer</span>
-        <svg class="method-icon" viewBox="0 0 48 48" fill="none">
-          <rect x="6" y="14" width="36" height="26" stroke="#0F0D0A" stroke-width="1.5"/>
-          <path d="M6 14 L24 4 L42 14" stroke="#0F0D0A" stroke-width="1.5" stroke-linejoin="round" fill="none"/>
-          <rect x="19" y="24" width="10" height="16" fill="#E89F2C"/>
-        </svg>
+        <div class="method-illu method-illu--deliver">
+          <svg viewBox="0 0 280 190" class="method-illu-svg" aria-hidden="true">
+            <!-- Mini brief 1 (en arrière, légèrement décalé) -->
+            <g class="illu-brief illu-brief-1" transform="translate(20, 18)">
+              <rect width="200" height="48" rx="2" fill="var(--cream)" stroke="rgba(15,13,10,0.18)" stroke-width="1"/>
+              <text x="12" y="14" font-family="ui-monospace,monospace" font-size="7" fill="var(--slate-warm)" letter-spacing="0.08em">// LEAD 001 · 14:32</text>
+              <text x="12" y="28" font-family="ui-sans-serif" font-size="10" font-weight="500" fill="var(--ink)">Mistral Labs · CTO hiring</text>
+              <text x="12" y="40" font-family="ui-monospace,monospace" font-size="8" fill="var(--slate-warm)">funding série A · 12 M€ · score</text>
+              <rect x="170" y="32" width="20" height="10" rx="1" fill="var(--amber)"/>
+              <text x="180" y="40" font-family="ui-monospace,monospace" font-size="7" font-weight="600" fill="var(--ink)" text-anchor="middle">87</text>
+            </g>
+            <!-- Mini brief 2 (centre, en avant — c'est la Pépite) -->
+            <g class="illu-brief illu-brief-2 illu-brief--hot" transform="translate(40, 72)">
+              <rect width="200" height="52" rx="2" fill="var(--cream)" stroke="var(--amber)" stroke-width="1.6"/>
+              <rect x="-2" y="6" width="4" height="40" rx="1" fill="var(--amber)"/>
+              <text x="12" y="14" font-family="ui-monospace,monospace" font-size="7" fill="var(--amber)" letter-spacing="0.08em" font-weight="600">★ PÉPITE · 14:24</text>
+              <text x="12" y="28" font-family="ui-sans-serif" font-size="10" font-weight="600" fill="var(--ink)">Yousign Pro · funding série B</text>
+              <text x="12" y="40" font-family="ui-monospace,monospace" font-size="8" fill="var(--slate-warm)">18 M€ · CEO · email vérifié</text>
+              <text x="12" y="50" font-family="ui-monospace,monospace" font-size="7" fill="var(--slate-warm)" font-style="italic">"Vu votre levée série B, je..."</text>
+              <rect x="170" y="34" width="22" height="12" rx="1" fill="var(--amber)"/>
+              <text x="181" y="44" font-family="ui-monospace,monospace" font-size="9" font-weight="600" fill="var(--ink)" text-anchor="middle">95</text>
+            </g>
+            <!-- Mini brief 3 (en bas, plus discret) -->
+            <g class="illu-brief illu-brief-3" transform="translate(60, 132)">
+              <rect width="200" height="44" rx="2" fill="var(--cream)" stroke="rgba(15,13,10,0.18)" stroke-width="1"/>
+              <text x="12" y="14" font-family="ui-monospace,monospace" font-size="7" fill="var(--slate-warm)" letter-spacing="0.08em">// LEAD 003 · 14:19</text>
+              <text x="12" y="28" font-family="ui-sans-serif" font-size="10" font-weight="500" fill="var(--ink)">OpsMill · seed 3 M€</text>
+              <text x="12" y="40" font-family="ui-monospace,monospace" font-size="8" fill="var(--slate-warm)">Co-founder · phone Kaspr</text>
+              <rect x="170" y="28" width="20" height="10" rx="1" fill="rgba(232,159,44,0.4)"/>
+              <text x="180" y="36" font-family="ui-monospace,monospace" font-size="7" font-weight="600" fill="var(--ink)" text-anchor="middle">82</text>
+            </g>
+          </svg>
+        </div>
         <h3 class="method-title">60 leads. 6 Pépites garanties.</h3>
         <p class="method-desc">Briefing complet par lead : société, persona décisionnaire, téléphone mobile vérifié, email vérifié, raison du trigger, opener suggéré. Quota garanti — sinon doublé le mois suivant.</p>
         <div class="method-sources">Téléphone <strong>Kaspr</strong> · Email <strong>Resend</strong> · Brief structuré · Export CSV / CRM</div>
