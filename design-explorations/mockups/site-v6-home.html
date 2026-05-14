@@ -2121,13 +2121,22 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
 
   // --- Render loop ---
   const clock = new THREE.Clock();
-  function frame(){
+  let lastFrameT = 0;
+  function frame(now){
     requestAnimationFrame(frame);
     // Skip si on a dépassé le hero ET la section produit (= zone d'intérêt sortie)
     if(!(heroInView || produitInView) || !visible) return;
     // Skip si le wrap est complètement fade-out (perf : pas la peine de rendre l'invisible)
     const op = wrap.style.opacity === '' ? 1 : parseFloat(wrap.style.opacity);
     if(op < 0.02) return;
+    // Throttle à ~40fps dès qu'on a commencé à scroller (perte d'attention sur les détails)
+    // → soulage le GPU sur les machines modestes sans casser la perception fluide.
+    if(uniforms.uMorph.value > 0.02){
+      if(now && (now - lastFrameT) < 24) return;
+      lastFrameT = now || 0;
+    }
+    // Disable bloom dès qu'on scrolle (le bloom UnrealBloom = 5 passes mip → cher)
+    bloom.enabled = uniforms.uMorph.value < 0.15;
     if(!reduced) uniforms.uTime.value = clock.getElapsedTime();
 
     mouse.x += (mouse.tx - mouse.x) * 0.06;
