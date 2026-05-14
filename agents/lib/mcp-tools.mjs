@@ -410,14 +410,24 @@ export function buildIfindMcpServer() {
             // Coherence checks automatiques (ce qui prenait 5-10 turns à l'agent)
             const anomalies = [];
 
-            // Check 1 — Brief persona desync (bug B1)
-            if (r.brief_thesis && r.lead_first_name) {
-              if (!r.brief_thesis.toLowerCase().includes(r.lead_first_name.toLowerCase())) {
-                anomalies.push({
-                  severity: 'high',
-                  type: 'brief_persona_desync',
-                  detail: `Brief thesis does NOT mention firstName "${r.lead_first_name}" — likely from older persona. Lead.fullName="${r.lead_full_name}".`,
-                });
+            // Check 1 — Brief persona desync (bug B1) — fix 14/05 Auditor V0.3
+            // Avant : on cherchait firstName dans brief_thesis (l'analyse business).
+            // Mais la thesis parle souvent du décideur tech détecté par Opus, qui
+            // peut être ≠ Lead.firstName (ex. Sêmeia thesis parle de Mathieu Godart
+            // CTO alors que Lead.firstName=Pierre). Faux positif systématique.
+            // Maintenant : on vérifie l'OPENER (qui DOIT s'adresser au Lead) avec
+            // la même heuristique "Bonjour <Mot>" que check_brief_persona_sync.
+            if (r.brief_opener && r.lead_first_name) {
+              const greet = r.brief_opener.match(/Bonjour\s+([A-ZÀ-Ÿ][a-zà-ÿ\-]{1,30})\s*[,\.]/);
+              if (greet) {
+                const greetedName = greet[1];
+                if (greetedName.toLowerCase() !== r.lead_first_name.toLowerCase()) {
+                  anomalies.push({
+                    severity: 'critical',
+                    type: 'brief_persona_desync',
+                    detail: `Opener s'adresse à "${greetedName}" mais Lead.firstName="${r.lead_first_name}". VRAI B1 — brief généré avant rotation persona.`,
+                  });
+                }
               }
             }
 
@@ -442,10 +452,18 @@ export function buildIfindMcpServer() {
               }
             }
 
-            // Check 4 — Email domain mismatch
+            // Check 4 — Email domain mismatch — fix 14/05 Auditor V0.3
+            // Avant : .replace(/[^a-z]/g, '') sur "sêmeia" donnait "smeia" car le
+            // ê n'est pas dans [a-z]. Le match "semeia.io".includes("smeia") = FALSE
+            // → faux positif. Maintenant : normalisation NFD pour enlever les accents
+            // AVANT le replace ASCII-only.
             if (r.lead_email && r.companyName) {
               const emailDomain = r.lead_email.split('@')[1]?.toLowerCase() ?? '';
-              const companyLower = r.companyName.toLowerCase().replace(/[^a-z]/g, '');
+              const companyLower = r.companyName
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')  // strip diacritics (ê→e, à→a, ç→c)
+                .replace(/[^a-z]/g, '');
               if (emailDomain && companyLower && !emailDomain.includes(companyLower.slice(0, 5))) {
                 anomalies.push({
                   severity: 'medium',
