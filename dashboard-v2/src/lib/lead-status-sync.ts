@@ -55,6 +55,50 @@ export async function archiveLeadOnTriggerIgnored(triggerId: string): Promise<vo
  * On préserve les statuts manuels (CONTACTABLE, CONTACTED, NOT_INTERESTED) :
  * un commercial qui a tagué un lead manuellement > l'auto-judge.
  */
+/**
+ * Fix audit massif 14/05/2026 — Auto-archive sur doNotContact.
+ *
+ * Quand le système flag un Lead `doNotContact=true` (email_domain_mismatch,
+ * persona_mismatch, désabonnement réponse email), on doit aussi archiver
+ * pour ne pas polluer le dashboard avec des leads "ne pas contacter".
+ *
+ * Cas observé en DB : 6 DTL Leads doNotContact=true + status=NEW. Visibles
+ * Fred avec badge "🚫 Ne pas contacter" mais polluent quand même le scan.
+ *
+ * Préserve les statuts manuels (CONTACTED/CONTACTABLE/NOT_INTERESTED) :
+ * si Fred a déjà touché le lead manuellement, son statut prime.
+ */
+const MANUAL_STATUSES = new Set([
+  "CONTACTED",
+  "CONTACTABLE",
+  "NOT_INTERESTED",
+]);
+
+export async function archiveLeadOnDoNotContact(leadId: string): Promise<void> {
+  try {
+    const result = await db.lead.updateMany({
+      where: {
+        id: leadId,
+        deletedAt: null,
+        status: { notIn: ["ARCHIVED", "CONTACTED", "CONTACTABLE", "NOT_INTERESTED"] },
+      },
+      data: { status: "ARCHIVED" },
+    });
+    if (result.count > 0) {
+      console.log(
+        `[lead-status-sync.dnc] lead=${leadId} archived (doNotContact=true)`,
+      );
+    }
+  } catch (e) {
+    console.warn(
+      `[lead-status-sync.dnc] err leadId=${leadId}:`,
+      e instanceof Error ? e.message : e,
+    );
+  }
+}
+
+export { MANUAL_STATUSES };
+
 export async function unarchiveLeadOnTriggerRevived(triggerId: string): Promise<void> {
   try {
     const lead = await db.lead.findFirst({

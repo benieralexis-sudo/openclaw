@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { archiveLeadOnDoNotContact } from "@/lib/lead-status-sync";
 
 // ═══════════════════════════════════════════════════════════════════
 // Audit & Heal — pipeline idempotent qui rattrape les leads incomplets.
@@ -342,6 +343,8 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
           doNotContactAt: new Date(),
         },
       });
+      // Fix audit 14/05 — auto-archive (sauf statuts manuels Fred).
+      await archiveLeadOnDoNotContact(c.id);
       cleaned++;
     }
   }
