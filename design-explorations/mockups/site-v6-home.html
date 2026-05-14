@@ -435,6 +435,66 @@
   .btn--lg{font-size:16px;padding:16px 28px}
   .magnetic{transition:transform var(--t-base) cubic-bezier(0.4,0,0.2,1)}
   .magnetic-soft{transition:transform 380ms cubic-bezier(0.22,1,0.36,1);display:inline-block}
+  /* Magnetic renforcé pour CTA majeurs — Pass 4 */
+  .magnetic--strong{transition:transform var(--t-deliberate) var(--ease-spring-soft);position:relative;will-change:transform}
+  .magnetic--strong::after{
+    content:"";position:absolute;inset:-12px;
+    border-radius:inherit;
+    background:radial-gradient(closest-side, var(--amber-glow), transparent 70%);
+    opacity:0;
+    transition:opacity var(--tt-base);
+    pointer-events:none;z-index:-1;
+    filter:blur(8px);
+  }
+  .magnetic--strong:hover::after{opacity:0.85}
+
+  /* === HOVER SPOTLIGHT — Pass 4 ===========================================
+   * Effet "loupe ambrée" : un radial-gradient qui suit le curseur, donne
+   * une zone d'attention lumineuse sur le bloc. Cheap CSS pur (vs shader
+   * WebGL) mais perceptuellement aussi fort que les sites tier studio.
+   * Variables CSS --mx --my injectées en JS depuis pointermove.
+   * ======================================================================== */
+  .hover-spot{position:relative;isolation:isolate}
+  .hover-spot::before{
+    content:"";position:absolute;inset:0;
+    border-radius:inherit;
+    background:radial-gradient(
+      var(--spot-r, 280px) circle at var(--mx, 50%) var(--my, 50%),
+      var(--spot-color, rgba(232,159,44,0.18)),
+      transparent 65%
+    );
+    opacity:0;
+    transition:opacity 320ms var(--ease-out-quint);
+    pointer-events:none;
+    z-index:1;
+    mix-blend-mode:plus-lighter;
+  }
+  .hover-spot:hover::before{opacity:1}
+  /* Variante "lens" plus dramatique : ajoute une couche de contraste */
+  .hover-spot.hover-spot--lens::before{
+    background:radial-gradient(
+      var(--spot-r, 220px) circle at var(--mx, 50%) var(--my, 50%),
+      rgba(255,255,255,0.10) 0%,
+      rgba(232,159,44,0.16) 28%,
+      transparent 68%
+    );
+  }
+  /* Variante "sombre" pour fonds clairs (section warm) */
+  .section--warm .hover-spot::before,
+  .hover-spot.hover-spot--dark::before{
+    background:radial-gradient(
+      var(--spot-r, 280px) circle at var(--mx, 50%) var(--my, 50%),
+      rgba(15,13,10,0.06),
+      transparent 65%
+    );
+    mix-blend-mode:multiply;
+  }
+  /* Reduced-motion : on garde l'effet hover binaire (opacity), pas de tracking */
+  @media(prefers-reduced-motion:reduce){
+    .hover-spot::before{
+      background:radial-gradient(50% 50% at 50% 50%, var(--spot-color, rgba(232,159,44,0.10)), transparent 70%);
+    }
+  }
 
   /* === BADGES === */
   .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:500;font-size:11px;line-height:1;padding:5px 9px;border-radius:2px;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;background:var(--cream-warm);color:var(--ink);border:1px solid var(--line)}
@@ -2781,17 +2841,46 @@
     if(trail3) trail3.style.display='none';
   }
 
+  // ====== HOVER SPOTLIGHT — Pass 4 ============================================
+  // Auto-tag tous les blocs interactifs majeurs pour l'effet loupe ambrée.
+  // Le JS injecte --mx --my via pointermove, le CSS fait le rendu.
+  if(!isTouch){
+    const spotTargets = [
+      '.method-card', '.feed-item', '.pricing-card', '.faq-item',
+      '.pmb-card', '.compare-col', '.cta-final', '.manifesto-quote',
+      '.pm-frame'  // mockup dashboard
+    ];
+    document.querySelectorAll(spotTargets.join(',')).forEach(el => {
+      el.classList.add('hover-spot');
+      // Mockup dashboard = variante lens dramatique
+      if(el.classList.contains('pm-frame')) el.classList.add('hover-spot--lens');
+      el.addEventListener('pointermove', e => {
+        const r = el.getBoundingClientRect();
+        el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+        el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+      });
+    });
+  }
+
   // ====== MAGNETIC (boutons + liens nav + titres + tous éléments magnetic) =======
   if(!isTouch && !prefersReduced){
     // Étend automatiquement le magnetic aux liens nav (subtil)
     document.querySelectorAll('.nav-links a, .nav-status').forEach(a => a.classList.add('magnetic-soft'));
+    // Auto-promotion : les CTA primaires des sections majeures deviennent magnetic--strong
+    document.querySelectorAll('.hero .btn--primary, .cta-final .btn--amber, .pricing-cta .btn--primary').forEach(el => {
+      el.classList.add('magnetic--strong');
+    });
+
     // Magnetic standard (force 0.18 = signature pour boutons CTA)
     document.querySelectorAll('.magnetic').forEach(el=>{
+      // Force d'attraction renforcée pour les CTA primaires majeurs
+      const isStrong = el.classList.contains('magnetic--strong');
+      const force = isStrong ? 0.35 : 0.20;
       el.addEventListener('mousemove', e=>{
         const r = el.getBoundingClientRect();
         const x = e.clientX - r.left - r.width/2;
         const y = e.clientY - r.top - r.height/2;
-        el.style.transform = 'translate('+(x*0.20)+'px,'+(y*0.20)+'px)';
+        el.style.transform = 'translate('+(x*force)+'px,'+(y*force)+'px)';
       });
       el.addEventListener('mouseleave', ()=>{ el.style.transform = ''; });
     });
@@ -4139,6 +4228,12 @@ const FilmicShader = {
 
     // Hide toast après 2.6s
     setTimeout(() => { toast.classList.remove('show'); }, 2600);
+
+    // Pass 4 — coupling audio/visuel cohérent avec le hero feed.
+    // Chaque pulse de la carte joue un son pépite (si Sound activé) et boost
+    // momentanément la chain filmic du hero (CA + grain + vignette).
+    if(window.Sound?.enabled?.()) window.Sound.pepite();
+    if(typeof window.heroFilmicBoost === 'function') window.heroFilmicBoost(1.25);
   }
 
   // Start quand la carte est visible
