@@ -3250,7 +3250,76 @@ import * as THREE from 'three';
 import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass }       from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader }       from 'three/addons/shaders/FXAAShader.js';
 import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
+
+/* ====================================================================
+ * Pass 3 — FILMIC SHADER : CA + Grain + Vignette en 1 pass (perf)
+ * ──────────────────────────────────────────────────────────────────
+ * Combine 3 effets postprocess que les studios premium chaînent en
+ * général séparément. Les unifier divise le bandwidth GPU par 3.
+ *  • Chromatic Aberration : décale R vers les bords, B vers le centre
+ *  • Film Grain : noise temporel haute fréquence (LUT 16-bit suffirait,
+ *    mais on garde noise procédural pour la masse 0KB asset)
+ *  • Vignette : assombrissement radial doux
+ * ==================================================================== */
+const FilmicShader = {
+  uniforms: {
+    tDiffuse:  { value: null },
+    uTime:     { value: 0.0 },
+    uCA:       { value: 0.0035 },   // amplitude CA (px de décalage normalisé)
+    uGrain:    { value: 0.045 },    // intensité grain
+    uVignette: { value: 0.42 },     // intensité vignette
+    uVigPow:   { value: 1.35 },     // courbe radiale (>1 = plus dur)
+    uIntensity:{ value: 1.0 }       // multiplicateur global (couplé à pépites)
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime, uCA, uGrain, uVignette, uVigPow, uIntensity;
+    varying vec2 vUv;
+
+    // Hash procédural — grain rapide sans texture
+    float hash21(vec2 p){
+      p = fract(p * vec2(123.34, 456.21));
+      p += dot(p, p + 45.32);
+      return fract(p.x * p.y);
+    }
+
+    void main(){
+      vec2 uv = vUv;
+      vec2 c = uv - 0.5;
+      float r2 = dot(c, c);
+
+      // --- Chromatic Aberration : déplacement radial des canaux R/B ---
+      // La force croît avec le carré de la distance au centre (effet lentille)
+      float ca = uCA * uIntensity * (1.0 + r2 * 2.0);
+      vec2 offR = c *  ca;
+      vec2 offB = c * -ca;
+      float colR = texture2D(tDiffuse, uv + offR).r;
+      float colG = texture2D(tDiffuse, uv).g;
+      float colB = texture2D(tDiffuse, uv + offB).b;
+      float colA = texture2D(tDiffuse, uv).a;
+      vec3 col = vec3(colR, colG, colB);
+
+      // --- Film grain animé (cohérent avec uTime, mais sub-pixel) ---
+      float n = hash21(uv * vec2(1920.0, 1080.0) + fract(uTime * 13.7));
+      col += (n - 0.5) * uGrain * uIntensity;
+
+      // --- Vignette radiale douce ---
+      float vig = 1.0 - smoothstep(0.25, 0.95, length(c) * uVigPow);
+      vig = mix(1.0, vig, uVignette);
+      col *= vig;
+
+      gl_FragColor = vec4(col, colA);
+    }`
+};
 
 (function(){
   'use strict';
@@ -3307,6 +3376,16 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   // (entre l'original 0.55/0.45 et la version ultra-allégée 0.35/0.32).
   const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.50, 0.40, 0.50);
   composer.addPass(bloom);
+
+  // Pass 3 — Filmic chain (CA + Grain + Vignette en 1 pass perf-optimisé)
+  const filmicPass = new ShaderPass(FilmicShader);
+  composer.addPass(filmicPass);
+
+  // FXAA — anti-aliasing extra (cheap, fait disparaître les jaggies sur edges
+  // que MSAA off n'attrape pas, et lisse les artefacts du grain)
+  const fxaaPass = new ShaderPass(FXAAShader);
+  composer.addPass(fxaaPass);
+
   composer.addPass(new OutputPass());
 
   // --- Geometry params ---
@@ -3490,6 +3569,11 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     renderer.setSize(w, h, false);
     composer.setSize(w, h);
     bloom.setSize(w, h);
+    // FXAA a besoin de la résolution inverse en pixels physiques pour bien lisser
+    const pr = renderer.getPixelRatio();
+    if(fxaaPass.material.uniforms['resolution']){
+      fxaaPass.material.uniforms['resolution'].value.set(1/(w*pr), 1/(h*pr));
+    }
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
@@ -3601,6 +3685,16 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   // =========================================================================
   const BLOOM_FULL = 0.50;
   let bloomCurrent = BLOOM_FULL;
+
+  // Pass 3 — filmic intensity (boost dynamique sur événements pépite/click)
+  let filmicIntensity = 1.0;
+  let filmicIntensityTarget = 1.0;
+  // Expose API : booster la chain filmic momentanément (CA + grain + vignette
+  // se renforcent ~0.5s puis reviennent au repos). Utilisé par Sound.pepite()
+  // et les transitions hero→produit.
+  window.heroFilmicBoost = function(amount = 1.5){
+    filmicIntensityTarget = Math.max(filmicIntensityTarget, amount);
+  };
   let lastInputT = 0;
   const _markInput = () => { lastInputT = performance.now(); };
   window.addEventListener('wheel',     _markInput, {passive: true});
@@ -3629,6 +3723,14 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     bloom.enabled = bloomCurrent > 0.015;
 
     if(!reduced) uniforms.uTime.value = clock.getElapsedTime();
+
+    // Sync uniforms du filmic pass (grain animé temporel + boost dynamique)
+    filmicPass.material.uniforms.uTime.value = clock.getElapsedTime();
+    // uIntensity : lerp doux vers la cible (boost momentané à 1.6 quand pépite)
+    filmicIntensity += (filmicIntensityTarget - filmicIntensity) * 0.08;
+    filmicPass.material.uniforms.uIntensity.value = filmicIntensity;
+    // Décroissance progressive de la cible vers 1.0 (état repos)
+    filmicIntensityTarget += (1.0 - filmicIntensityTarget) * 0.04;
 
     mouse.x += (mouse.tx - mouse.x) * 0.06;
     mouse.y += (mouse.ty - mouse.y) * 0.06;
@@ -4251,12 +4353,19 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     document.querySelectorAll('.section--warm, .manifesto, .cta-final').forEach(el => io.observe(el));
   }
 
-  // Pépite sound : à chaque nouvelle entrée dans le live trigger feed
+  // Pépite sound + boost visuel hero filmic : à chaque nouvelle entrée du feed
   const feed = document.getElementById('heroFeed');
   if(feed){
     const mo = new MutationObserver(records => {
       records.forEach(r => {
-        if(r.addedNodes.length) Sound.pepite();
+        if(r.addedNodes.length){
+          Sound.pepite();
+          // Boost CA + grain + vignette de la scène 3D pendant ~500ms.
+          // Donne une "pulsation visuelle" couplée à l'événement audio.
+          if(typeof window.heroFilmicBoost === 'function'){
+            window.heroFilmicBoost(1.5);
+          }
+        }
       });
     });
     mo.observe(feed, { childList: true });
