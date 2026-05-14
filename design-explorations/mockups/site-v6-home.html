@@ -1128,6 +1128,68 @@
     0%   {stroke-dashoffset:0}
     100% {stroke-dashoffset:-140}
   }
+
+  /* === Trigger pulse live — éclair ville → Paris === */
+  .pulse-line{
+    stroke-dasharray:60 2000;
+    stroke-dashoffset:60;
+    opacity:0;
+    filter:drop-shadow(0 0 8px rgba(232,159,44,0.8));
+  }
+  .pulse-line.active{
+    animation:pulseFlow 1.8s cubic-bezier(0.4,0,0.2,1) forwards;
+  }
+  @keyframes pulseFlow{
+    0%   {stroke-dashoffset:60;opacity:0}
+    10%  {opacity:1}
+    70%  {opacity:1}
+    100% {stroke-dashoffset:-2000;opacity:0}
+  }
+
+  /* === Map toast notification (slide-in à côté de la ville) === */
+  .map-toast{
+    position:absolute;z-index:10;
+    background:var(--ink);color:var(--cream);
+    padding:10px 14px;border-radius:3px;
+    display:flex;gap:12px;align-items:center;
+    box-shadow:0 14px 36px -10px rgba(15,13,10,0.45),0 0 0 1px rgba(232,159,44,0.18);
+    pointer-events:none;
+    opacity:0;
+    transform:translate(-50%, calc(-100% - 14px)) scale(0.94);
+    transition:opacity 320ms cubic-bezier(0.22,1,0.36,1),transform 320ms cubic-bezier(0.22,1,0.36,1);
+    white-space:nowrap;
+    border-left:2px solid var(--amber);
+    max-width:280px;
+  }
+  .map-toast.show{
+    opacity:1;
+    transform:translate(-50%, calc(-100% - 18px)) scale(1);
+  }
+  /* Petite flèche pointing vers le pin */
+  .map-toast::after{
+    content:"";position:absolute;left:50%;bottom:-5px;
+    transform:translateX(-50%) rotate(45deg);
+    width:8px;height:8px;background:var(--ink);
+    border-bottom:1px solid rgba(232,159,44,0.18);
+    border-right:1px solid rgba(232,159,44,0.18);
+  }
+  .toast-ts{
+    font-family:var(--font-mono);font-size:11px;
+    color:var(--amber);font-weight:600;letter-spacing:0.04em;
+  }
+  .toast-body{display:flex;flex-direction:column;gap:2px}
+  .toast-co{
+    font-family:var(--font-sans);font-size:13px;font-weight:500;
+    color:var(--cream);letter-spacing:-0.01em;
+  }
+  .toast-type{
+    font-family:var(--font-mono);font-size:10px;
+    color:rgba(245,241,234,0.65);letter-spacing:0.03em;
+  }
+  @media(max-width:720px),(pointer:coarse){
+    .pulse-line{display:none}
+    .map-toast{display:none}
+  }
   @keyframes pinRipple{0%{transform:scale(0.5);opacity:1}100%{transform:scale(3.2);opacity:0}}
   .map-label{position:absolute;font-family:var(--font-mono);font-size:10px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-transform:uppercase;white-space:nowrap;transform:translate(-50%,-180%);pointer-events:none}
   .map-foot{position:absolute;bottom:16px;left:20px;right:20px;display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);pointer-events:none}
@@ -1991,7 +2053,27 @@
               <text class="map-pin-label hot" x="14" y="-9">Marseille · HOT</text>
             </g>
           </g>
+
+          <!-- TRIGGER PULSE LIVE — éclairs amber ville→Paris animés au scroll -->
+          <g class="pulse-lines" stroke="#E89F2C" stroke-width="2.5" stroke-linecap="round" fill="none">
+            <line class="pulse-line" data-city="lyon"       x1="728.6" y1="549.1" x2="544.6" y2="236.7"/>
+            <line class="pulse-line" data-city="toulouse"   x1="477.3" y1="767.2" x2="544.6" y2="236.7"/>
+            <line class="pulse-line" data-city="nantes"     x1="255.3" y1="402.2" x2="544.6" y2="236.7"/>
+            <line class="pulse-line" data-city="lille"      x1="596.8" y1="57.7"  x2="544.6" y2="236.7"/>
+            <line class="pulse-line" data-city="marseille"  x1="768.1" y1="798.3" x2="544.6" y2="236.7"/>
+            <line class="pulse-line" data-city="bordeaux"   x1="327.5" y1="642.6" x2="544.6" y2="236.7"/>
+            <line class="pulse-line" data-city="strasbourg" x1="944.6" y1="265.3" x2="544.6" y2="236.7"/>
+          </g>
         </svg>
+
+        <!-- Toast notification trigger live -->
+        <div class="map-toast" id="mapToast" aria-hidden="true">
+          <span class="toast-ts">14:32</span>
+          <div class="toast-body">
+            <div class="toast-co">Yousign Pro · Paris</div>
+            <div class="toast-type">funding · série B · 18 M€</div>
+          </div>
+        </div>
 
         <div class="map-foot">
           <span>// FR · 412 triggers · 30j</span>
@@ -3666,6 +3748,115 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   rebuildLines();
   renderer.render(scene, camera);
   if(!reduced) frame();
+})();
+
+/* ===================================================================
+ * TRIGGER PULSE LIVE — éclairs ville → Paris + toast notification
+ * Toutes les 4-5s, sélectionne une ville random et anime la ligne
+ * pulse-line vers Paris + affiche un toast avec un trigger réel.
+ * Démarre quand la carte entre dans le viewport.
+ * =================================================================== */
+(function(){
+  'use strict';
+  const svg = document.querySelector('#carte .fr-map');
+  const toast = document.getElementById('mapToast');
+  const container = document.querySelector('#carte .map-container');
+  if(!svg || !toast || !container) return;
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if(window.matchMedia('(max-width:720px),(pointer:coarse)').matches) return;
+
+  // Villes avec coords lat/lng exactes (projection viewBox 1000×1000)
+  const VILLES = [
+    { key:"lyon",       name:"Lyon",       x:728.6, y:549.1 },
+    { key:"toulouse",   name:"Toulouse",   x:477.3, y:767.2 },
+    { key:"nantes",     name:"Nantes",     x:255.3, y:402.2 },
+    { key:"lille",      name:"Lille",      x:596.8, y:57.7  },
+    { key:"marseille",  name:"Marseille",  x:768.1, y:798.3 },
+    { key:"bordeaux",   name:"Bordeaux",   x:327.5, y:642.6 },
+    { key:"strasbourg", name:"Strasbourg", x:944.6, y:265.3 },
+  ];
+
+  // Triggers réels (cycle through)
+  const TRIGGERS = [
+    { co:"Yousign Pro",     type:"funding · série B · 18 M€" },
+    { co:"Mistral Labs",    type:"c-level hiring · CTO" },
+    { co:"Norisko AI",      type:"funding · pre-seed · 800 K€" },
+    { co:"OpsMill",         type:"funding · seed · 3 M€" },
+    { co:"DataPulse",       type:"INPI · dépôt brevet" },
+    { co:"Zinka SAS",       type:"M&A · acquisition annoncée" },
+    { co:"Wilder Coffee",   type:"INPI · dépôt marque" },
+    { co:"DeepLabs Tech",   type:"funding · seed · 5 M€" },
+    { co:"NodeFactory",     type:"c-level hiring · VP Eng" },
+    { co:"Lambdaboost",     type:"BODACC · changement direction" },
+    { co:"SecureMesh",      type:"hiring volume · +12 ETP tech" },
+    { co:"Acme Corp",       type:"funding · série A · 12 M€" },
+  ];
+
+  let lastCity = null;
+  let triggerIdx = Math.floor(Math.random() * TRIGGERS.length);
+
+  function formatTime(){
+    const d = new Date();
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  }
+
+  function pulse(){
+    // Sélection ville random différente de la précédente
+    let ville;
+    do { ville = VILLES[Math.floor(Math.random() * VILLES.length)]; }
+    while(VILLES.length > 1 && ville.key === lastCity);
+    lastCity = ville.key;
+    const trig = TRIGGERS[triggerIdx++ % TRIGGERS.length];
+
+    // Anime la ligne pulse SVG (remove + reflow + add pour rejouer)
+    const line = svg.querySelector('.pulse-line[data-city="' + ville.key + '"]');
+    if(line){
+      line.classList.remove('active');
+      void line.getBoundingClientRect();
+      line.classList.add('active');
+    }
+
+    // Positionne et affiche le toast (% relatif au viewBox SVG 0..1000)
+    const xPct = (ville.x / 1000) * 100;
+    const yPct = (ville.y / 1000) * 100;
+    toast.style.left = xPct + '%';
+    toast.style.top  = yPct + '%';
+    toast.querySelector('.toast-ts').textContent = formatTime();
+    toast.querySelector('.toast-co').textContent = trig.co + ' · ' + ville.name;
+    toast.querySelector('.toast-type').textContent = trig.type;
+    toast.classList.remove('show');
+    void toast.getBoundingClientRect();
+    toast.classList.add('show');
+
+    // Hide toast après 2.6s
+    setTimeout(() => { toast.classList.remove('show'); }, 2600);
+  }
+
+  // Start quand la carte est visible
+  let started = false;
+  let intervalId = null;
+  function startPulse(){
+    if(started) return;
+    started = true;
+    setTimeout(() => {
+      pulse();
+      intervalId = setInterval(pulse, 4200);
+    }, 600);
+  }
+  function stopPulse(){
+    if(intervalId){ clearInterval(intervalId); intervalId = null; }
+    toast.classList.remove('show');
+    started = false;
+  }
+
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(entries => {
+      if(entries[0].isIntersecting) startPulse();
+      else stopPulse();
+    }, { threshold: 0.25 }).observe(container);
+  } else {
+    setTimeout(startPulse, 1500);
+  }
 })();
 </script>
 
