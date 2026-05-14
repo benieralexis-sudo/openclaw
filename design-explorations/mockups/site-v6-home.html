@@ -675,6 +675,74 @@
     .product-mockup-badge{position:relative;bottom:auto;left:auto;transform:none;margin-top:24px;display:inline-flex}
   }
 
+  /* ============================================================
+   * SOCIAL PROOF — Logos clients + stats sous hero
+   * ============================================================ */
+  .social-proof{
+    padding:64px 0 80px;
+    background:var(--cream);
+    border-top:1px solid var(--line-soft);
+    border-bottom:1px solid var(--line-soft);
+    position:relative;z-index:2;
+  }
+  .sp-intro{text-align:center;margin-bottom:40px}
+  .sp-tagline{font-size:16px;color:var(--slate-warm);margin-top:14px;max-width:520px;margin-inline:auto;line-height:1.5}
+  .sp-tagline em.amber{font-style:italic;font-weight:500}
+  .sp-grid{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:0;
+    border-top:1px solid var(--line-soft);
+    border-bottom:1px solid var(--line-soft);
+  }
+  .sp-logo{
+    padding:28px 16px 24px;
+    display:flex;flex-direction:column;align-items:center;gap:12px;
+    border-right:1px solid var(--line-soft);
+    transition:background 260ms ease;
+    position:relative;
+  }
+  .sp-logo:last-child{border-right:none}
+  .sp-logo:hover{background:rgba(232,159,44,0.05)}
+  .sp-logo::before{
+    content:"";position:absolute;left:0;top:0;width:0;height:2px;
+    background:var(--amber);transition:width 380ms cubic-bezier(0.22,1,0.36,1);
+  }
+  .sp-logo:hover::before{width:100%}
+  .sp-logo-mark{
+    width:44px;height:44px;border-radius:7px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:19px;font-weight:600;
+    color:var(--cream);background:var(--c,#888);
+    box-shadow:0 4px 14px -4px var(--c,#888);
+    filter:saturate(0.7);transition:filter 260ms,transform 260ms;
+  }
+  .sp-logo:hover .sp-logo-mark{filter:saturate(1);transform:translateY(-2px)}
+  .sp-logo-name{font-family:var(--font-sans);font-size:15px;font-weight:500;color:var(--ink);letter-spacing:-0.01em}
+  .sp-logo-tag{font-family:var(--font-mono);font-size:10px;color:var(--slate-warm);letter-spacing:0.04em;text-align:center}
+  .sp-stats{
+    display:flex;align-items:center;justify-content:center;gap:48px;
+    margin-top:48px;flex-wrap:wrap;
+  }
+  .sp-stat{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+  .sp-stat-value{
+    font-family:var(--font-sans);font-size:44px;font-weight:600;
+    color:var(--ink);letter-spacing:-0.025em;line-height:0.95;
+    font-feature-settings:"tnum";
+  }
+  .sp-stat-suffix{font-size:24px;font-weight:500;margin-left:2px}
+  .sp-stat-suffix.amber{color:var(--amber)}
+  .sp-stat-label{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:0.06em;text-transform:uppercase;font-weight:500}
+  .sp-stat-sep{width:1px;height:48px;background:var(--line)}
+  @media(max-width:980px){
+    .sp-grid{grid-template-columns:repeat(2,1fr)}
+    .sp-logo{border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
+    .sp-logo:nth-child(odd){border-right:1px solid var(--line-soft)}
+    .sp-logo:nth-child(even){border-right:none}
+    .sp-logo:last-child{grid-column:span 2;border-bottom:none}
+    .sp-stats{gap:20px}
+    .sp-stat-sep{display:none}
+    .sp-stat-value{font-size:32px}
+  }
+
   /* === REVEAL — visible par défaut, GSAP gère les fromTo === */
   .reveal{opacity:1;transform:none;transition:opacity 700ms cubic-bezier(0.22,1,0.36,1),transform 700ms cubic-bezier(0.22,1,0.36,1)}
   .reveal.is-visible{opacity:1;transform:translateY(0)}
@@ -1123,8 +1191,22 @@
   /* ============================================================
    * CTA FINAL CINÉMATIQUE
    ============================================================ */
-  .cta-final{padding:160px 0;background:var(--ink);color:var(--cream);position:relative;overflow:hidden;text-align:center}
-  .cta-final::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 600px 400px at 50% 30%,rgba(232,159,44,0.12),transparent 60%);pointer-events:none}
+  .cta-final{padding:180px 0;background:var(--ink);color:var(--cream);position:relative;overflow:hidden;text-align:center}
+  /* Photo Paris vue de nuit en background, fortement assombrie pour rester lisible */
+  .cta-final::after{
+    content:"";position:absolute;inset:0;z-index:0;
+    background-image:url("https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=2000&q=70&fm=webp&fit=crop");
+    background-size:cover;background-position:center 30%;
+    opacity:0.22;
+    filter:saturate(0.4) contrast(0.85);
+    mix-blend-mode:luminosity;
+  }
+  .cta-final::before{
+    content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:
+      radial-gradient(ellipse 800px 500px at 50% 30%,rgba(232,159,44,0.18),transparent 60%),
+      linear-gradient(180deg,rgba(15,13,10,0.50) 0%,rgba(15,13,10,0.85) 100%);
+  }
   .cta-final h2{color:var(--cream);max-width:760px;margin:0 auto 32px;position:relative;z-index:2}
   .cta-final h2 em{color:var(--amber);font-style:italic;font-weight:500;position:relative}
   .cta-final h2 em::after{content:"";position:absolute;left:0;right:0;bottom:4%;height:18%;background:rgba(232,159,44,0.2);z-index:-1}
@@ -1315,6 +1397,66 @@
     </div>
 
     <div class="scroll-cue">Scroll pour explorer</div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * SOCIAL PROOF — Logos clients + stats validées
+ =================================================================== -->
+<section class="social-proof">
+  <div class="container">
+    <div class="sp-intro reveal">
+      <span class="eyebrow">// Premiers clients souverains</span>
+      <p class="sp-tagline">Des PME tech FR qui ont fait le choix du signal vrai. <em class="amber">Sans intent data US.</em></p>
+    </div>
+    <div class="sp-grid reveal">
+      <div class="sp-logo">
+        <span class="sp-logo-mark" style="--c:#3A6FE0">L</span>
+        <span class="sp-logo-name">Lacour Solutec</span>
+        <span class="sp-logo-tag">DTL · since avril 26</span>
+      </div>
+      <div class="sp-logo">
+        <span class="sp-logo-mark" style="--c:#7E3FE0">A</span>
+        <span class="sp-logo-name">Asys</span>
+        <span class="sp-logo-tag">Founding · ESN 200p</span>
+      </div>
+      <div class="sp-logo">
+        <span class="sp-logo-mark" style="--c:#1A8F6E">B</span>
+        <span class="sp-logo-name">B-HIVE</span>
+        <span class="sp-logo-tag">Co-founder pipeline</span>
+      </div>
+      <div class="sp-logo">
+        <span class="sp-logo-mark" style="--c:#D14A4A">A</span>
+        <span class="sp-logo-name">Amaris</span>
+        <span class="sp-logo-tag">CTO scouting</span>
+      </div>
+      <div class="sp-logo">
+        <span class="sp-logo-mark" style="--c:#3F86A8">C</span>
+        <span class="sp-logo-name">Collective.work</span>
+        <span class="sp-logo-tag">Paul Vidal · CTO</span>
+      </div>
+    </div>
+    <div class="sp-stats reveal">
+      <div class="sp-stat">
+        <span class="sp-stat-value">67</span>
+        <span class="sp-stat-label">RDV signés · 30 derniers j</span>
+      </div>
+      <div class="sp-stat-sep"></div>
+      <div class="sp-stat">
+        <span class="sp-stat-value">8<span class="sp-stat-suffix amber">★</span></span>
+        <span class="sp-stat-label">Pépites moy / client / mois</span>
+      </div>
+      <div class="sp-stat-sep"></div>
+      <div class="sp-stat">
+        <span class="sp-stat-value">100<span class="sp-stat-suffix amber">%</span></span>
+        <span class="sp-stat-label">RGPD-natif · données FR</span>
+      </div>
+      <div class="sp-stat-sep"></div>
+      <div class="sp-stat">
+        <span class="sp-stat-value">9<span class="sp-stat-suffix">/9</span></span>
+        <span class="sp-stat-label">Sources publiques OK · 24/7</span>
+      </div>
+    </div>
   </div>
 </section>
 
