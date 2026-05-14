@@ -28,22 +28,46 @@
 
 ---
 
-## 2026-05-14 — Sprint multi-signal iFIND + 6 bug fixes système
+## 2026-05-14 (suite, après-midi) — Sprint Rodz 2.0 + audit DTL multi-signal
+
+**Résumé** : Audit DTL → diagnostic 84% des triggers sont HIRING_KEY (mono-angle). Identifié 7 types Rodz inexploités. Sprint Rodz 2.0 : ajout 4 nouveaux types (republished-job-offers, public-tenders DTL, social-mentions iFIND, competitor-relationships iFIND).
+
+**Commits** :
+- `2a51a3502` Gates WTTJ + INPI alignées cron 08h UTC
+- `6070ad652` npm audit fix kysely
+- `21ef6f3e1` Activation 7 angles multi-signal iFIND (6 Rodz + 3 TheirStack)
+- `10acf837c` Pattern SCALE-UP-SALES + alertes Telegram
+- `d78e424a4` 42 tests vitest regex TECH vs SALES
+- `9f6715263` Création JOURNAL-DE-BORD.md
+- `65a8dc1f5` Sprint Rodz 2.0 — 4 nouveaux types (LOW_VALUE retiré, buildSignals étendu, ICP DTL/iFIND étendus)
+
+**Décisions / apprentissages** :
+- Audit DTL réel : 84% triggers HIRING_KEY, 8.1% FUNDRAISING, le reste anecdotique. Seulement **2 boîtes** ont 2+ angles différents en 90j (Sêmeia SCALE-UP-TECH + Collective.work 3 sources mais même type).
+- Bug critique trouvé : `LOW_VALUE_SIGNAL_TYPES` du webhook bloquait social-mentions et competitor-relationships **à l'entrée** — même si on les provisionnait côté Rodz, on les ignorait.
+- Rodz signal `job-changes` DTL = 0 leads en 18j même avec config active (problème côté Rodz, volume FR faible).
+- 17 signaux Rodz actifs au total (8 DTL + 9 iFIND). Runway estimée ~26j avant épuisement crédits Pack Pro 200€/4mo.
+- **Mine d'or** : 5 autres types Rodz toujours inexploités (public-contract-award, social-reactions, influencer-engagement, etc.) — à explorer si volume montre du potentiel.
+
+**Action user en attente** :
+- 🔴 Plafond Apify $100 → $150 (toujours)
+- 🔴 Appel Fred (toujours)
+- 🟡 Observer 7j le volume des nouveaux signaux Rodz, ajuster dailyLeadLimit si besoin
+
+**Prochain pas** : Observer 24-48h les premiers leads des nouveaux types. Si volume cohérent → ajuster dailyLeadLimit à 3 (vs 2 actuel). Si bruit → désactiver. Étape suivante : explorer les 5 types Rodz toujours inexploités si on en a besoin.
+
+---
+
+## 2026-05-14 (matinée) — Sprint multi-signal iFIND + 6 bug fixes système
 
 **Résumé** : Sprint majeur. Démarré sur audit des rapports Doctor/Auditor (5/8 étaient faux positifs), puis fix de 6 bugs racines persona/cron/gates, puis activation 7 angles iFIND (de 1 à 7+) avec pattern combo `SCALE-UP-SALES` symétrique et alertes Telegram.
 
-**Commits** :
+**Commits (matin uniquement)** :
 - `466523087` Cron multi-tenant (iFIND tourne automatiquement)
 - `0e08c0903` Tech-hire-guard CEO+Co-founder rejected (12 Leads backfill)
 - `07e823007` Opener Opus halluciné bloqué (Salvia/Yoni)
 - `9f964c203` clearStaleBriefs reset scoreReason aussi (ViaXoft/happn)
 - `57d01e14b` Re-qualify trigger principal sur nouveau signal (Sêmeia)
 - `674562094` Auditor V0.3 — 2 faux positifs deep_dive_lead corrigés
-- `2a51a3502` Gates WTTJ + INPI alignées sur cron 08h UTC
-- `6070ad652` npm audit fix kysely CVE
-- `21ef6f3e1` Activation 7 angles multi-signal iFIND (6 Rodz + 3 TheirStack)
-- `10acf837c` Pattern SCALE-UP-SALES + alertes Telegram combos
-- `d78e424a4` 42 tests vitest regex TECH vs SALES
 
 **Décisions / apprentissages** :
 - Doctor est fiable à 7/7. Auditor a tendance à exagérer (5/8 faux positifs aujourd'hui). Toujours vérifier soi-même la source DB+code avant d'agir.
