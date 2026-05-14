@@ -676,6 +676,88 @@
   }
 
   /* ============================================================
+   * MANIFESTE FONDATEUR — Section ink avec trace sismographe géante
+   * ============================================================ */
+  .manifesto{
+    position:relative;overflow:hidden;
+    padding:140px 0;
+    background:var(--ink) !important;
+    color:var(--cream);
+  }
+  .manifesto-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:1}
+  .manifesto-trace{width:100%;height:60%;opacity:0.85}
+  .manifesto-trace-path{stroke-dasharray:5000;stroke-dashoffset:5000;animation:traceManifesto 5s cubic-bezier(0.22,1,0.36,1) 0.4s forwards}
+  @keyframes traceManifesto{to{stroke-dashoffset:0}}
+  .manifesto-peak-hot{animation:peakHotPulse 1.8s ease-in-out infinite}
+  @keyframes peakHotPulse{
+    0%,100%{filter:drop-shadow(0 0 4px var(--amber));r:5}
+    50%    {filter:drop-shadow(0 0 14px var(--amber));r:6.5}
+  }
+  .manifesto-content{position:relative;z-index:2}
+  .manifesto-grid{
+    display:grid;grid-template-columns:1.4fr 1fr;gap:80px;
+    align-items:center;
+  }
+  .manifesto-text .eyebrow.amber{color:var(--amber)}
+  .manifesto-title{
+    font-family:var(--font-sans);font-size:48px;font-weight:600;
+    line-height:1.08;letter-spacing:-0.025em;
+    color:var(--cream);margin:24px 0 28px;
+  }
+  .manifesto-title em.amber{font-style:italic;color:var(--amber);font-weight:500;position:relative}
+  .manifesto-title em.amber::after{
+    content:"";position:absolute;left:-3%;right:-3%;bottom:5%;height:18%;
+    background:rgba(232,159,44,0.20);z-index:-1;
+  }
+  .manifesto-body{
+    font-size:17px;line-height:1.65;color:rgba(245,241,234,0.78);
+    max-width:580px;margin-bottom:32px;
+  }
+  .manifesto-body strong{color:var(--cream);font-weight:500}
+  .manifesto-body em{font-style:italic;color:rgba(245,241,234,0.6)}
+  .manifesto-sig{
+    font-family:var(--font-mono);font-size:13px;
+    color:rgba(245,241,234,0.6);
+    line-height:1.55;padding-top:24px;
+    border-top:1px solid rgba(245,241,234,0.10);
+  }
+  .manifesto-sig-sub{font-size:11px;letter-spacing:0.04em;color:rgba(245,241,234,0.45)}
+
+  .manifesto-stats{display:flex;flex-direction:column;gap:24px}
+  .manifesto-stat{
+    padding:24px 24px;
+    background:rgba(245,241,234,0.04);
+    border:1px solid rgba(245,241,234,0.10);
+    border-radius:3px;
+    transition:background 280ms,border-color 280ms,transform 380ms;
+  }
+  .manifesto-stat:hover{
+    background:rgba(232,159,44,0.06);
+    border-color:rgba(232,159,44,0.30);
+    transform:translateX(6px);
+  }
+  .manifesto-stat-label{
+    font-family:var(--font-mono);font-size:10px;letter-spacing:0.12em;
+    color:var(--amber);font-weight:500;display:block;margin-bottom:10px;
+  }
+  .manifesto-stat-value{
+    font-family:var(--font-sans);font-size:52px;font-weight:600;
+    color:var(--cream);letter-spacing:-0.025em;line-height:1;
+    font-feature-settings:"tnum";margin-bottom:8px;
+  }
+  .manifesto-stat-unit{font-size:26px;color:var(--amber);font-weight:500;margin-left:2px}
+  .manifesto-stat-foot{
+    font-family:var(--font-mono);font-size:11px;
+    color:rgba(245,241,234,0.55);letter-spacing:0.03em;line-height:1.5;
+    display:block;
+  }
+  @media(max-width:980px){
+    .manifesto-grid{grid-template-columns:1fr;gap:48px}
+    .manifesto-title{font-size:32px}
+    .manifesto-stat-value{font-size:42px}
+  }
+
+  /* ============================================================
    * SOCIAL PROOF — Logos clients + stats sous hero
    * ============================================================ */
   .social-proof{
@@ -2000,29 +2082,71 @@
 </section>
 
 <!-- ===================================================================
- * CITATION FRED (qui se trace)
+ * MANIFESTE FONDATEUR — Pourquoi iFIND existe
  =================================================================== -->
-<section class="section section--warm">
-  <div class="container">
-    <div class="quote-section reveal">
-      <div class="quote-wrap">
-        <div style="position:relative">
-          <span class="quote-marks">"</span>
-          <div class="eyebrow" style="margin-bottom:24px;display:inline-block;position:relative;z-index:2">// Témoignage client</div>
-          <p class="quote-text">iFIND est le premier outil qui me donne des signaux que je peux <span class="highlighted">appeler tout de suite</span>. Pas des intents flous américains — des événements vérifiés, datés, sourcés.</p>
-          <span class="quote-underline"><svg viewBox="0 0 120 14"><path d="M2 8 Q30 2 60 6 T118 4"/></svg></span>
-          <div class="quote-author">
-            <div class="quote-avatar">FD</div>
-            <div class="quote-who">
-              <strong>Frédéric Doctolib</strong>
-              <span>Co-fondateur · DigitestLab</span>
-            </div>
-          </div>
+<section class="section section--ink manifesto">
+  <div class="manifesto-bg" aria-hidden="true">
+    <!-- Visualisation sismographe géant pleine largeur, ligne vélin sur fond ink -->
+    <svg class="manifesto-trace" viewBox="0 0 1400 300" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="manTraceGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#F5F1EA" stop-opacity="0"/>
+          <stop offset="20%" stop-color="#F5F1EA" stop-opacity="0.85"/>
+          <stop offset="80%" stop-color="#F5F1EA" stop-opacity="0.85"/>
+          <stop offset="100%" stop-color="#F5F1EA" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- Baseline -->
+      <line x1="0" y1="150" x2="1400" y2="150" stroke="rgba(245,241,234,0.10)" stroke-width="1"/>
+      <!-- Trace sismique avec quelques peaks (= triggers détectés) -->
+      <path class="manifesto-trace-path" fill="none" stroke="url(#manTraceGrad)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="
+        M0 150 L60 152 L100 148 L140 154 L180 145
+        L220 158 L240 88 L260 175 L280 145
+        L320 152 L380 148 L420 156 L460 142
+        L500 158 L540 145 L580 155
+        L620 60 L640 195 L660 130 L680 158
+        L720 148 L760 155 L800 142 L840 158
+        L880 145 L920 155 L960 148
+        L1000 25 L1020 215 L1040 105 L1060 165
+        L1100 148 L1140 155 L1180 145
+        L1220 158 L1260 148 L1300 156 L1340 145 L1400 152"/>
+      <!-- Markers peaks amber sur les triggers principaux -->
+      <circle cx="240" cy="88"  r="3" fill="#E89F2C"/>
+      <circle cx="620" cy="60"  r="4" fill="#E89F2C"/>
+      <circle cx="1000" cy="25" r="5" fill="#E89F2C" class="manifesto-peak-hot"/>
+    </svg>
+  </div>
+  <div class="container manifesto-content">
+    <div class="manifesto-grid">
+      <div class="manifesto-text reveal">
+        <span class="eyebrow amber">// Manifeste · pourquoi iFIND existe</span>
+        <h2 class="manifesto-title">
+          La donnée commerciale française <em class="amber">mérite mieux</em><br>
+          que des cookies tiers américains.
+        </h2>
+        <p class="manifesto-body">
+          Pendant que les outils US prédisent qui <em>pourrait</em> acheter, nous détectons qui <strong>vient juste</strong> de signaler une décision réelle&nbsp;: une levée, un dépôt, un hiring. <strong>Toujours par les sources publiques officielles. Toujours datable à la seconde.</strong>
+        </p>
+        <p class="manifesto-sig">
+          — Construit à Paris &amp; Lyon depuis 2026.<br>
+          <span class="manifesto-sig-sub">9 sources souveraines. 13 patterns propriétaires. Aucune donnée hors UE.</span>
+        </p>
+      </div>
+      <div class="manifesto-stats reveal reveal-delay-1">
+        <div class="manifesto-stat">
+          <span class="manifesto-stat-label">SOURCES OFFICIELLES FR</span>
+          <div class="manifesto-stat-value">9<span class="manifesto-stat-unit">/9</span></div>
+          <span class="manifesto-stat-foot">INPI · Pappers · BODACC · France Travail · WTTJ · RSS levées · JOAFE · LinkedIn · TheirStack</span>
         </div>
-        <div class="quote-aside">
-          <div class="quote-stat">Lead actionnable en<br><strong>24 heures</strong></div>
-          <div class="quote-stat">Triggers qualifiés<br><strong>+340 %</strong></div>
-          <div class="quote-stat">Setup ICP custom<br><strong>2 jours</strong></div>
+        <div class="manifesto-stat">
+          <span class="manifesto-stat-label">PATTERNS D'ACHAT PROPRIÉTAIRES</span>
+          <div class="manifesto-stat-value">13</div>
+          <span class="manifesto-stat-foot">Funding · C-level hiring · INPI · M&amp;A · BODACC · Stack · RSS · Hiring volume… </span>
+        </div>
+        <div class="manifesto-stat">
+          <span class="manifesto-stat-label">LATENCE DÉTECTION → BRIEF</span>
+          <div class="manifesto-stat-value">3,4<span class="manifesto-stat-unit">s</span></div>
+          <span class="manifesto-stat-foot">Du signal capté à la fiche actionable avec persona + opener.</span>
         </div>
       </div>
     </div>
