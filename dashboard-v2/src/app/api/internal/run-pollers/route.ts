@@ -197,9 +197,13 @@ export async function POST(req: NextRequest) {
       }
       // INPI : depots marques (signal "nouveau produit" 6-12 mois avant launch).
       // Auth multi-step (XSRF + login). 1x/jour suffit (indexation INPI hebdo).
-      // Gate : UTC hour % 24 == 4 → 1 fois/jour a 4h UTC.
+      //
+      // Fix gate timing (14/05/2026) — Avant : UTCHours===4 mais aucun cron à
+      // 4h UTC dans le crontab (run-pollers-all tourne à 08:05 + 18:05 UTC).
+      // INPI jamais déclenché en pratique. Maintenant : UTCHours===8 pour
+      // matcher le cron matinal.
       const inpiHour = new Date().getUTCHours();
-      if (!dryRun && (source === "inpi" || (source === "all" && inpiHour === 4))) {
+      if (!dryRun && (source === "inpi" || (source === "all" && inpiHour === 8))) {
         try {
           (entry as { inpi?: unknown }).inpi =
             await pollInpiForClient(c.id, { lookbackDays: 30 });

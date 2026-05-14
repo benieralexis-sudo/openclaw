@@ -698,16 +698,16 @@ export async function pollApifyForClient(
   // Filtre companySize ICP-aware : 50-250p (cible DTL Tech 11-200)
   //
   // Patch A1+B (06/05/2026, audit Apify) :
-  //  - Gate horaire 06h UTC : 1×/jour au lieu de 4×/jour. Mesure empirique
-  //    sur 2 runs WTTJ à 6h d'intervalle = 100% overlap (36/36 jobs identiques),
-  //    0 NEW triggers DTL en 24h sur les 4 runs. Conclusion : WTTJ ne refresh
-  //    pas en 6h, scraper à cette fréquence = gaspillage pur.
-  //  - Multi-keyword : top 3 keywordsHiring au lieu de keywords[0] seul.
-  //    Avant : 1 query "QA Engineer" sur 24 keywords ICP DTL. Après : "QA",
-  //    "Software Tester", "Test Engineer" en parallèle. Gain estimé +10-50%
-  //    triggers WTTJ uniques (mesure DB : 6% boîtes ont 2+ titles distincts).
-  //  - Coût : 3 runs/j × $0.11 = $0.33/j vs $0.44/j avant = -$3/mois net.
-  if (useWttj && new Date().getUTCHours() === 6) {
+  //  - Gate horaire 1×/jour au lieu de 4×/jour. Mesure empirique : 100% overlap
+  //    (36/36 jobs identiques) sur 2 runs à 6h d'intervalle. WTTJ ne refresh
+  //    pas en 6h, scraper plus = gaspillage pur.
+  //  - Multi-keyword + rotation 8 keywords (cycle complet 24 keywords en 3j).
+  //
+  // Fix gate timing (14/05/2026) — Avant : UTCHours===6 mais aucun cron à 6h
+  // UTC dans le crontab (run-pollers-all tourne à 08:05 + 18:05 UTC). Résultat :
+  // WTTJ jamais déclenché depuis 06/05/2026. Maintenant : UTCHours===8 pour
+  // matcher le cron matinal. Coût/jour identique (1×/run/jour).
+  if (useWttj && new Date().getUTCHours() === 8) {
     // Fix Batch 4 (12/05/2026) — Rotation 8 keywords. WTTJ tourne 1×/jour à 6h
     // UTC → cycle complet des 24 keywordsHiring en 3 jours (3 buckets de 8).
     // Coût marginal $0.50/run vs $0.33 avant = +$5/mo, large gain couverture.
