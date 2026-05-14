@@ -248,7 +248,9 @@
    * displacement multi-octave + pics ponctuels (triggers détectés).
    * Fade-in synchro loader. Pause hors viewport. Reduced-motion = static frame.
    * ===================================================================== */
-  .hero-3d-wrap{position:absolute;inset:0;z-index:1;pointer-events:none;will-change:transform}
+  /* Wrap en position:fixed pour que le canvas persiste pendant la transition hero→produit
+   * (le shader morph se voit alors derrière le mask gradient de #produit). */
+  .hero-3d-wrap{position:fixed;inset:0;z-index:0;pointer-events:none;will-change:opacity}
   #hero-3d{
     position:absolute;inset:0;width:100%;height:100%;
     display:block;
@@ -356,6 +358,28 @@
   @media(max-width:720px){
     .section{padding:80px 0}
     .section-head{margin-bottom:48px}
+  }
+
+  /* === Transition WebGL hero→produit ==========================
+   * #produit révèle le canvas en background (qui morphe au scroll)
+   * via un gradient mask : transparent en haut → cream-warm opaque
+   * vers le milieu. Les enfants restent au-dessus du mask via z-index.
+   * ============================================================ */
+  #produit{background:transparent !important}
+  #produit::before{
+    content:"";position:absolute;left:0;right:0;top:0;bottom:0;
+    background:linear-gradient(to bottom,
+      rgba(237,231,218,0.00) 0%,
+      rgba(237,231,218,0.55) 22%,
+      rgba(237,231,218,0.92) 50%,
+      var(--cream-warm) 72%);
+    z-index:0;pointer-events:none;
+  }
+  #produit > .container{position:relative;z-index:1}
+  /* Sur mobile : canvas désactivé, donc on rétablit le fond plein */
+  @media(max-width:720px),(pointer:coarse){
+    #produit{background:var(--cream-warm) !important}
+    #produit::before{display:none}
   }
 
   /* === REVEAL — visible par défaut, GSAP gère les fromTo === */
@@ -1822,6 +1846,7 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   const uniforms = {
     uTime:      { value: 0.0 },
     uScroll:    { value: 0.0 },           // 0 hero pleine vue → 1 hero sorti
+    uMorph:     { value: 0.0 },           // 0 état sismographe → 1 état splitté US/FR (transition hero→produit)
     uIntro:     { value: reduced ? 1.0 : 0.0 }, // fade-in entrance
     uAmber:     { value: new THREE.Color(0xE89F2C) },
     uAmberDeep: { value: new THREE.Color(0xC7841E) },
@@ -1837,10 +1862,12 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     vertexShader: `
       uniform float uTime;
       uniform float uScroll;
+      uniform float uMorph;
       uniform float uIntro;
       varying float vAmp;
       varying float vDepth;
       varying float vX;
+      varying float vMorph;
 
       // Ashima simplex 2D noise (compact, GPU-friendly)
       vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
@@ -1871,28 +1898,48 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
         vec3 pos = position;
         float t = uTime * 0.16;
 
-        // Couches : bruit lent (forme générale) + bruit moyen (texture) + détail rapide
-        float n  = snoise(vec2(pos.x*0.18 + t,        pos.z*0.22 + t*0.4)) * 0.55;
-              n += snoise(vec2(pos.x*0.42 + t*1.4,    pos.z*0.38 + t*0.3)) * 0.28;
-              n += snoise(vec2(pos.x*0.95 + t*2.0,    pos.z*0.85))         * 0.12;
+        // ====== ÉTAT HERO (uMorph = 0) ============================
+        // Sismographe : noise multi-octave + pics rares partout
+        float heroN  = snoise(vec2(pos.x*0.18 + t,        pos.z*0.22 + t*0.4)) * 0.55;
+              heroN += snoise(vec2(pos.x*0.42 + t*1.4,    pos.z*0.38 + t*0.3)) * 0.28;
+              heroN += snoise(vec2(pos.x*0.95 + t*2.0,    pos.z*0.85))         * 0.12;
+        float heroPeakField = snoise(vec2(pos.x*0.55 + t*0.6, pos.z*0.42 + t*0.18));
+        float heroPeak = pow(max(heroPeakField, 0.0), 7.0) * 3.6;
+        heroN += heroPeak;
 
-        // Pics ponctuels = "triggers détectés" (rares, intenses)
-        float peakField = snoise(vec2(pos.x*0.55 + t*0.6, pos.z*0.42 + t*0.18));
-        float peak = pow(max(peakField, 0.0), 7.0) * 3.6;
-        n += peak;
+        // ====== ÉTAT MORPHÉ (uMorph = 1) — SPLIT US/FR ============
+        // Gauche (x<0) : bruit haute fréquence, faible amp = "intent data US probabiliste"
+        // Droite (x>0) : peaks rares mais intenses = "iFIND détecte des vrais triggers"
+        float usNoise  = snoise(vec2(pos.x*1.6 + t*0.9, pos.z*1.2 + t*0.5)) * 0.18;
+              usNoise += snoise(vec2(pos.x*3.4 + t*1.7, pos.z*2.6))         * 0.09;
+        float frPeakField = snoise(vec2(pos.x*0.32 + t*0.4, pos.z*0.30 + t*0.10));
+        float frPeak = pow(max(frPeakField, 0.0), 9.0) * 4.6;
+        float frBase = snoise(vec2(pos.x*0.22 + t*0.5, pos.z*0.26)) * 0.07;
+        // Mask doux autour du centre pour suggérer la "frontière" entre les 2 territoires
+        float gap = smoothstep(0.0, 1.8, abs(pos.x));
+        // Sélection par côté (mix doux sur 0.6 unité autour de x=0 pour éviter une cassure dure)
+        float sideMix = smoothstep(-0.6, 0.6, pos.x);
+        float morphN = mix(usNoise, frBase + frPeak, sideMix);
+        morphN *= gap;
+
+        // ====== MIX hero ↔ morph ==================================
+        float n = mix(heroN, morphN, smoothstep(0.0, 1.0, uMorph));
 
         // Vignette horizontale (les bords s'effacent)
         float edgeFade = smoothstep(0.0, 4.5, 14.0 - abs(pos.x));
         n *= edgeFade;
 
-        // Damping global = entrance + scroll
-        n *= uIntro * (1.0 - uScroll * 0.7);
+        // Damping global = entrance + scroll (s'atténue mais moins fort en mode morph
+        // pour que les peaks FR restent visibles pendant la transition)
+        float scrollDamp = (1.0 - uScroll * 0.7) * (1.0 - uMorph * 0.25);
+        n *= uIntro * scrollDamp;
 
         pos.y += n * 1.15;
 
         vAmp = n;
         vDepth = pos.z;
         vX = pos.x;
+        vMorph = uMorph;
 
         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
       }
@@ -1905,19 +1952,41 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
       varying float vAmp;
       varying float vDepth;
       varying float vX;
+      varying float vMorph;
 
       void main(){
+        // ====== Couleurs HERO ======
         // Slate à plat → ambre dès qu'on monte → ambre profond sur les pics
-        vec3 col = uSlate;
-        col = mix(col, uAmber,     smoothstep(0.05, 0.7, vAmp));
-        col = mix(col, uAmberDeep, smoothstep(1.0,  2.4, vAmp));
+        vec3 heroCol = uSlate;
+        heroCol = mix(heroCol, uAmber,     smoothstep(0.05, 0.7, vAmp));
+        heroCol = mix(heroCol, uAmberDeep, smoothstep(1.0,  2.4, vAmp));
 
-        // Atmospheric perspective : lignes lointaines plus discrètes
+        // ====== Couleurs MORPH ======
+        // Gauche (US) : slate désaturé/grisâtre — le bruit ne mène à rien
+        // Droite (FR) : ambre saturé sur les peaks — les vrais triggers
+        vec3 usCol = mix(uSlate, vec3(0.42, 0.40, 0.38), 0.55);
+        vec3 frCol = uSlate;
+              frCol = mix(frCol, uAmber,     smoothstep(0.05, 0.5, vAmp));
+              frCol = mix(frCol, uAmberDeep, smoothstep(0.8,  2.0, vAmp));
+        float sideMix = smoothstep(-0.6, 0.6, vX);
+        vec3 morphCol = mix(usCol, frCol, sideMix);
+
+        // Mix hero ↔ morph
+        vec3 col = mix(heroCol, morphCol, smoothstep(0.0, 1.0, vMorph));
+
+        // Atmospheric perspective + vignette
         float depthFade = smoothstep(-9.0, 7.0, vDepth);
         float edge      = smoothstep(0.0, 5.0, 14.0 - abs(vX));
-        float alpha = depthFade * edge * (0.35 + smoothstep(0.0, 1.5, vAmp) * 0.55) * uIntro;
 
-        gl_FragColor = vec4(col, alpha);
+        // Alpha hero : standard (plus l'amplitude est grande, plus c'est visible)
+        float heroAlpha = 0.35 + smoothstep(0.0, 1.5, vAmp) * 0.55;
+        // Alpha morph : asymétrique — gauche faible, droite forte sur les peaks
+        float morphAlphaUS = 0.18 + smoothstep(0.0, 0.4, abs(vAmp)) * 0.22;
+        float morphAlphaFR = 0.20 + smoothstep(0.0, 0.6, vAmp) * 0.80;
+        float morphAlpha = mix(morphAlphaUS, morphAlphaFR, sideMix);
+        float alpha = mix(heroAlpha, morphAlpha, vMorph);
+
+        gl_FragColor = vec4(col, depthFade * edge * alpha * uIntro);
       }
     `
   });
@@ -1974,6 +2043,44 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     uniforms.uScroll.value = p;
   }
   window.addEventListener('scroll', onScroll, { passive: true });
+
+  // --- Scroll-driven morph (transition WebGL hero → section produit) ---
+  // Narratif : le sismographe (état hero, signal partout) se splitte en deux
+  // territoires (état morphé) — gauche = bruit US faible, droite = peaks FR intenses —
+  // exactement quand la section "Intent data US prédit. iFIND détecte." arrive.
+  // Le canvas reste en background pendant la 1ère moitié de #produit (via gradient
+  // mask sur la section) puis fade-out avant la section méthode.
+  let stMorph = null, stFade = null;
+  function initMorph(){
+    const produitEl = document.querySelector('#produit');
+    if(!produitEl) return;
+    if(typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+    // 1) Scrub uMorph : 0 (top hero) → 1 (bottom hero = top #produit)
+    stMorph = ScrollTrigger.create({
+      trigger: heroEl,
+      start: 'top top',
+      end: 'bottom top',
+      scrub: 0.6,
+      onUpdate: self => { uniforms.uMorph.value = self.progress; }
+    });
+    // 2) Fade-out opacity du wrap dans la 2e moitié de #produit
+    stFade = ScrollTrigger.create({
+      trigger: produitEl,
+      start: 'top center',
+      end: 'bottom top',
+      scrub: 0.8,
+      onUpdate: self => {
+        const p = self.progress;
+        // Reste à 1 jusqu'à 45% de produit, puis fade jusqu'à 95%
+        const o = p < 0.45 ? 1 : Math.max(0, 1 - (p - 0.45) / 0.50);
+        wrap.style.opacity = String(o);
+      }
+    });
+  }
+  if(typeof ScrollTrigger !== 'undefined'){
+    if(document.readyState === 'complete') initMorph();
+    else window.addEventListener('load', initMorph);
+  }
 
   // --- Visibility (RAF pause hors viewport / onglet caché) ---
   let inView = true, visible = !document.hidden;
