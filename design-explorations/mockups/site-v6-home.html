@@ -209,13 +209,19 @@
    ============================================================ */
   nav.site-nav{
     position:sticky;top:0;z-index:50;
-    background:rgba(245,241,234,0.85);
-    backdrop-filter:saturate(180%) blur(14px);
-    -webkit-backdrop-filter:saturate(180%) blur(14px);
+    /* Fond cream presque opaque pour rester stable peu importe ce qui défile
+     * derrière (canvas Three.js sombre au top, sections cream-warm ensuite).
+     * Évite l'effet "header qui change de couleur en scrollant". */
+    background:rgba(245,241,234,0.96);
+    backdrop-filter:saturate(180%) blur(8px);
+    -webkit-backdrop-filter:saturate(180%) blur(8px);
     border-bottom:1px solid transparent;
     transition:border-color 200ms,background 200ms;
   }
-  nav.site-nav.scrolled{border-bottom-color:var(--line)}
+  nav.site-nav.scrolled{
+    background:rgba(245,241,234,0.98);
+    border-bottom-color:var(--line);
+  }
   .nav-inner{display:flex;align-items:center;justify-content:space-between;padding:18px 0;gap:24px}
   .nav-links{display:flex;align-items:center;gap:32px;font-weight:500;font-size:14px}
   .nav-links a{color:var(--slate-warm);transition:color var(--t-fast);position:relative;padding:6px 2px}
