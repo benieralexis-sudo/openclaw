@@ -202,12 +202,24 @@ export async function clearStaleBriefsOnPersonaChange(
     if (triggerId) {
       const trigger = await tx.trigger.findUnique({
         where: { id: triggerId },
-        select: { briefV2Json: true },
+        select: { briefV2Json: true, scoreReason: true },
       });
       if (trigger?.briefV2Json !== null && trigger?.briefV2Json !== undefined) {
+        // Fix ViaXoft/happn (14/05/2026) — Avant : on clearait briefV2Json mais
+        // pas scoreReason. Le qualifyPendingTriggers re-pickait (briefV2Json
+        // null + status NEW), mais si la persona re-changeait pendant le run
+        // (HarvestAPI → Pappers cascade), boucle : qualify écrit, clear efface,
+        // qualify ré-écrit, clear ré-efface → briefV2Json reste null en fin de
+        // run, MAIS scoreReason garde la trace "[V2 OUI conf=82]" obsolète.
+        // Symptôme observé : 2 triggers ViaXoft + happn avec scoreReason
+        // verdict-tagué mais briefV2Json null. Maintenant : clear les 2
+        // ensemble → re-qualify ré-écrit cohérent au prochain run.
         await tx.trigger.update({
           where: { id: triggerId },
-          data: { briefV2Json: Prisma.JsonNull },
+          data: {
+            briefV2Json: Prisma.JsonNull,
+            scoreReason: null,
+          },
         });
         v2Cleared = true;
       }
