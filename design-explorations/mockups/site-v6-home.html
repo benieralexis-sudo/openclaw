@@ -1808,7 +1808,10 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     premultipliedAlpha: false,
     powerPreference: 'high-performance'
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // Wrap fixed = canvas couvre tout le viewport (vs hero seul auparavant) → plus de
+  // pixels à rendre. On cap à 1.5 au lieu de 2 pour soulager le GPU sur Retina sans
+  // perte visuelle perceptible (le bloom fait déjà le halo lumineux).
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.setClearColor(0x000000, 0);
   renderer.toneMapping = THREE.NoToneMapping; // pas de tone mapping (préserve l'ambre INPI exact)
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -2083,10 +2086,18 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   }
 
   // --- Visibility (RAF pause hors viewport / onglet caché) ---
-  let inView = true, visible = !document.hidden;
+  // Wrap est fixed = TOUJOURS dans le viewport → on ne peut plus l'observer pour pause.
+  // À la place on observe le hero ET la section produit (la zone d'intérêt visuelle).
+  // Quand on a dépassé les deux (= on est dans #methode ou plus bas), on coupe le RAF.
+  let heroInView = true, produitInView = false, visible = !document.hidden;
   if('IntersectionObserver' in window){
-    new IntersectionObserver(entries => { inView = entries[0].isIntersecting; },
-                             { threshold: 0 }).observe(wrap);
+    new IntersectionObserver(e => { heroInView = e[0].isIntersecting; },
+                             { threshold: 0, rootMargin: '100px' }).observe(heroEl);
+    const _produitObserveTarget = document.querySelector('#produit');
+    if(_produitObserveTarget){
+      new IntersectionObserver(e => { produitInView = e[0].isIntersecting; },
+                               { threshold: 0, rootMargin: '100px' }).observe(_produitObserveTarget);
+    }
   }
   document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
 
@@ -2109,7 +2120,11 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   const clock = new THREE.Clock();
   function frame(){
     requestAnimationFrame(frame);
-    if(!inView || !visible) return;
+    // Skip si on a dépassé le hero ET la section produit (= zone d'intérêt sortie)
+    if(!(heroInView || produitInView) || !visible) return;
+    // Skip si le wrap est complètement fade-out (perf : pas la peine de rendre l'invisible)
+    const op = wrap.style.opacity === '' ? 1 : parseFloat(wrap.style.opacity);
+    if(op < 0.02) return;
     if(!reduced) uniforms.uTime.value = clock.getElapsedTime();
 
     mouse.x += (mouse.tx - mouse.x) * 0.06;
