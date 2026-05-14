@@ -365,7 +365,13 @@
    * via un gradient mask : transparent en haut → cream-warm opaque
    * vers le milieu. Les enfants restent au-dessus du mask via z-index.
    * ============================================================ */
-  #produit{background:transparent !important}
+  #produit{
+    background:transparent !important;
+    /* Effet calque qui glisse par-dessus le hero pinné : ombre top + fil amber */
+    box-shadow:
+      0 -28px 60px -18px rgba(15,13,10,0.22),
+      0 -1px 0 rgba(232,159,44,0.18);
+  }
   #produit::before{
     content:"";position:absolute;left:0;right:0;top:0;bottom:0;
     background:linear-gradient(to bottom,
@@ -1473,29 +1479,44 @@
     document.querySelector('.hero h1')?.parentElement.classList.add('is-visible');
   }, 1700);
 
-  // ====== HERO PARALLAX MULTI-COUCHES SCRUBBÉ =======
+  // ====== HERO PIN + LAYER EFFECT (signature lenis.dev / Darkroom) =======
+  // Le hero est "pinné" en haut pendant 1 viewport supplémentaire de scroll.
+  // Pendant ce temps : le canvas Three.js (déjà fixed) continue son morph,
+  // les parallax tournent, et la section produit monte naturellement DEPUIS LE BAS
+  // pour couvrir le hero comme un calque qui glisse. Effet signature Darkroom.
   const heroSec = document.querySelector('.hero');
+  const isMobileNoPin = window.matchMedia('(max-width:720px),(pointer:coarse)').matches;
+  if(heroSec && !isMobileNoPin){
+    // Le pin : hero reste fixe en haut tant qu'on scroll dans sa "zone étendue".
+    ScrollTrigger.create({
+      trigger: heroSec,
+      start: 'top top',
+      end: '+=100%',
+      pin: true,
+      pinSpacing: true,
+      anticipatePin: 1
+    });
+  }
+
+  // Parallax hero — alignés sur la même fenêtre que le pin (+=100% si pin actif)
   if(heroSec){
-    // Background mesh — lent
+    const pinEnd = isMobileNoPin ? 'bottom top' : '+=100%';
     gsap.to('.hero-mesh', {
       yPercent: 35,
       ease: 'none',
-      scrollTrigger: { trigger: heroSec, start:'top top', end:'bottom top', scrub: 0.8 }
+      scrollTrigger: { trigger: heroSec, start:'top top', end: pinEnd, scrub: 0.8 }
     });
-    // Grid lines — moyen
     gsap.to('.hero-grid-lines', {
       yPercent: 50,
       ease: 'none',
-      scrollTrigger: { trigger: heroSec, start:'top top', end:'bottom top', scrub: 0.8 }
+      scrollTrigger: { trigger: heroSec, start:'top top', end: pinEnd, scrub: 0.8 }
     });
-    // Oscilloscope — rapide + scale léger
     gsap.to('.hero-oscillo', {
       yPercent: -25,
       scale: 1.08,
       ease: 'none',
-      scrollTrigger: { trigger: heroSec, start:'top top', end:'bottom top', scrub: 1 }
+      scrollTrigger: { trigger: heroSec, start:'top top', end: pinEnd, scrub: 1 }
     });
-    // (hero text et panel: pas de parallax/fade pour éviter zones blanches)
   }
 
   // ====== WHY iFIND — Cascade simple (pas de pin) =======
@@ -2062,11 +2083,14 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     const produitEl = document.querySelector('#produit');
     if(!produitEl) return;
     if(typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
-    // 1) Scrub uMorph : 0 (top hero) → 1 (bottom hero = top #produit)
+    // 1) Scrub uMorph : 0 (top hero) → 1 (fin du pin = quand la section produit
+    //    a totalement glissé par-dessus). Aligné sur la même fenêtre que le pin
+    //    (+=100% sur desktop) ; sur mobile (pas de pin) → bottom top classique.
+    const isMobile = window.matchMedia('(max-width:720px),(pointer:coarse)').matches;
     stMorph = ScrollTrigger.create({
       trigger: heroEl,
       start: 'top top',
-      end: 'bottom top',
+      end: isMobile ? 'bottom top' : '+=100%',
       scrub: 0.6,
       onUpdate: self => { uniforms.uMorph.value = self.progress; }
     });
