@@ -98,30 +98,49 @@
     transition:width 60ms linear;
   }
 
-  /* === CUSTOM CURSOR === */
+  /* === CUSTOM CURSOR (style lenis.dev / Darkroom) ============================
+   * Ring en mix-blend-mode: difference → couleur inversée selon fond derrière
+   * (noir sur cream, blanc sur ink). Dot amber par-dessus pour repère.
+   * Trail subtile : 3 dots qui suivent les positions passées avec lerp décalé.
+   * ============================================================================ */
   .cursor-dot{
     position:fixed;width:6px;height:6px;border-radius:50%;
     background:var(--amber);
-    pointer-events:none;z-index:9997;
+    pointer-events:none;z-index:9998;
     transform:translate(-50%,-50%);
-    transition:transform 80ms ease-out,opacity 200ms;
-    mix-blend-mode:multiply;
+    transition:opacity 200ms,transform 80ms ease-out;
+    box-shadow:0 0 8px rgba(232,159,44,0.5);
   }
   .cursor-ring{
-    position:fixed;width:36px;height:36px;border-radius:50%;
-    border:1px solid var(--ink);
+    position:fixed;width:38px;height:38px;border-radius:50%;
+    border:1.5px solid #FFFFFF;
     pointer-events:none;z-index:9997;
     transform:translate(-50%,-50%);
-    transition:transform 220ms cubic-bezier(0.4,0,0.2,1),opacity 220ms,width 280ms,height 280ms,border-color 220ms,background 220ms;
-    opacity:0.85;
+    transition:width 320ms cubic-bezier(0.22,1,0.36,1),height 320ms cubic-bezier(0.22,1,0.36,1),border-color 220ms,background 220ms,border-radius 280ms;
+    mix-blend-mode:difference;
+    will-change:transform;
   }
-  .cursor-ring.hover{width:54px;height:54px;border-color:var(--amber);background:rgba(232,159,44,0.08)}
-  .cursor-ring.text-hover{width:12px;height:24px;border-radius:1px;border-color:var(--amber);background:var(--amber);opacity:0.6}
-  .cursor-ring.terminal{width:24px;height:24px;border-radius:0;border-color:var(--amber);border-width:2px;background:transparent}
+  .cursor-ring.hover{width:64px;height:64px;border-width:1px;background:rgba(255,255,255,0.06)}
+  .cursor-ring.text-hover{width:8px;height:28px;border-radius:1px;border-width:2px;background:rgba(255,255,255,0.5)}
+  .cursor-ring.terminal{width:28px;height:28px;border-radius:0;border-width:2px}
+  /* Trail dots subtils (3 positions historiques) */
+  .cursor-trail{
+    position:fixed;width:4px;height:4px;border-radius:50%;
+    background:var(--amber);
+    pointer-events:none;z-index:9996;
+    transform:translate(-50%,-50%);
+    opacity:0;
+    transition:opacity 220ms;
+  }
+  body.cursor-moving .cursor-trail{opacity:0.32}
+  .cursor-trail.t2{opacity:0;width:3px;height:3px}
+  body.cursor-moving .cursor-trail.t2{opacity:0.22}
+  .cursor-trail.t3{opacity:0;width:2px;height:2px}
+  body.cursor-moving .cursor-trail.t3{opacity:0.14}
   @media(max-width:880px),(pointer:coarse){
     body{cursor:auto}
     button,a{cursor:pointer}
-    .cursor-dot,.cursor-ring{display:none}
+    .cursor-dot,.cursor-ring,.cursor-trail{display:none}
   }
 
   /* === LOADER ENTRANCE === */
@@ -191,6 +210,7 @@
   .btn--sm{font-size:13px;padding:9px 14px}
   .btn--lg{font-size:16px;padding:16px 28px}
   .magnetic{transition:transform var(--t-base) cubic-bezier(0.4,0,0.2,1)}
+  .magnetic-soft{transition:transform 380ms cubic-bezier(0.22,1,0.36,1);display:inline-block}
 
   /* === BADGES === */
   .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:500;font-size:11px;line-height:1;padding:5px 9px;border-radius:2px;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;background:var(--cream-warm);color:var(--ink);border:1px solid var(--line)}
@@ -744,6 +764,9 @@
 <!-- CUSTOM CURSOR -->
 <div class="cursor-dot" id="cursorDot"></div>
 <div class="cursor-ring" id="cursorRing"></div>
+<div class="cursor-trail t1" id="cursorTrail1"></div>
+<div class="cursor-trail t2" id="cursorTrail2"></div>
+<div class="cursor-trail t3" id="cursorTrail3"></div>
 
 <!-- ===================================================================
  * NAV
@@ -1369,18 +1392,47 @@
   // ====== CUSTOM CURSOR =======
   const dot = document.getElementById('cursorDot');
   const ring = document.getElementById('cursorRing');
+  const trail1 = document.getElementById('cursorTrail1');
+  const trail2 = document.getElementById('cursorTrail2');
+  const trail3 = document.getElementById('cursorTrail3');
   if(!isTouch && !prefersReduced){
-    let mx=0,my=0,rx=0,ry=0;
+    let mx=0,my=0;
+    // Positions interpolées avec lerp décalé pour effet trail
+    let rx=0,ry=0;       // ring (lent, doux)
+    let t1x=0,t1y=0;     // trail 1 (très lent)
+    let t2x=0,t2y=0;     // trail 2 (encore plus lent)
+    let t3x=0,t3y=0;     // trail 3 (le plus lent)
+    let movingT = 0;     // timestamp dernier mouvement
     document.addEventListener('mousemove', e=>{
       mx=e.clientX;my=e.clientY;
       dot.style.left = mx+'px';
       dot.style.top = my+'px';
+      movingT = performance.now();
+      document.body.classList.add('cursor-moving');
     });
     function loop(){
-      rx += (mx-rx) * 0.18;
-      ry += (my-ry) * 0.18;
+      // Ring : lerp doux (effet "weight feel")
+      rx += (mx-rx) * 0.16;
+      ry += (my-ry) * 0.16;
       ring.style.left = rx+'px';
       ring.style.top = ry+'px';
+      // Trail dots : lerp décalé (chaque dot lag derrière le précédent)
+      t1x += (rx-t1x) * 0.20;
+      t1y += (ry-t1y) * 0.20;
+      trail1.style.left = t1x+'px';
+      trail1.style.top  = t1y+'px';
+      t2x += (t1x-t2x) * 0.18;
+      t2y += (t1y-t2y) * 0.18;
+      trail2.style.left = t2x+'px';
+      trail2.style.top  = t2y+'px';
+      t3x += (t2x-t3x) * 0.16;
+      t3y += (t2y-t3y) * 0.16;
+      trail3.style.left = t3x+'px';
+      trail3.style.top  = t3y+'px';
+      // Detect inactivity (> 90ms sans mouvement → masque trail)
+      if(performance.now() - movingT > 90){
+        document.body.classList.remove('cursor-moving');
+      }
       requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
@@ -1398,16 +1450,32 @@
   } else {
     document.body.classList.add('no-cursor-custom');
     dot.style.display='none';ring.style.display='none';
+    if(trail1) trail1.style.display='none';
+    if(trail2) trail2.style.display='none';
+    if(trail3) trail3.style.display='none';
   }
 
-  // ====== MAGNETIC BUTTONS =======
+  // ====== MAGNETIC (boutons + liens nav + titres + tous éléments magnetic) =======
   if(!isTouch && !prefersReduced){
+    // Étend automatiquement le magnetic aux liens nav (subtil)
+    document.querySelectorAll('.nav-links a, .nav-status').forEach(a => a.classList.add('magnetic-soft'));
+    // Magnetic standard (force 0.18 = signature pour boutons CTA)
     document.querySelectorAll('.magnetic').forEach(el=>{
       el.addEventListener('mousemove', e=>{
         const r = el.getBoundingClientRect();
         const x = e.clientX - r.left - r.width/2;
         const y = e.clientY - r.top - r.height/2;
-        el.style.transform = 'translate('+(x*0.18)+'px,'+(y*0.18)+'px)';
+        el.style.transform = 'translate('+(x*0.20)+'px,'+(y*0.20)+'px)';
+      });
+      el.addEventListener('mouseleave', ()=>{ el.style.transform = ''; });
+    });
+    // Magnetic soft (force 0.30 — plus fort en relatif mais éléments petits)
+    document.querySelectorAll('.magnetic-soft').forEach(el=>{
+      el.addEventListener('mousemove', e=>{
+        const r = el.getBoundingClientRect();
+        const x = e.clientX - r.left - r.width/2;
+        const y = e.clientY - r.top - r.height/2;
+        el.style.transform = 'translate('+(x*0.30)+'px,'+(y*0.30)+'px)';
       });
       el.addEventListener('mouseleave', ()=>{ el.style.transform = ''; });
     });
