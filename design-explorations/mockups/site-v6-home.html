@@ -8,7 +8,8 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Geist Variable + Geist Mono Variable (axe weight 100..900) — qualité OpenType maximale -->
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
 <!-- Lenis (smooth scroll) + GSAP + ScrollTrigger + SplitType (text reveal) -->
 <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
@@ -32,6 +33,7 @@
    * ============================================================ */
 
   :root{
+    /* === COULEUR — Vélin & Ambre INPI ============================ */
     --ink:#0F0D0A; --ink-soft:#1A1614; --ink-deeper:#000000;
     --cream:#F5F1EA; --cream-warm:#EDE7DA; --cream-deep:#E0D8C5;
     --amber:#E89F2C; --amber-deep:#C7841E; --amber-soft:#F4D9A5; --amber-glow:rgba(232,159,44,0.35);
@@ -39,14 +41,133 @@
     --line:#D9D2C2; --line-soft:#E6DFCE;
     --signal-ok:#00B86B; --signal-ok-soft:#D2F0E0;
     --alert-hot:#7A2E2E; --alert-hot-soft:#EBD4D4;
-    --font-sans:'Geist',ui-sans-serif,system-ui,sans-serif;
-    --font-mono:'Geist Mono',ui-monospace,monospace;
-    --tracking-tight:-0.025em; --tracking-display:-0.03em;
-    --tracking-mono:0.04em; --tracking-eyebrow:0.12em;
-    --t-fast:120ms cubic-bezier(0.4,0,0.2,1);
-    --t-base:220ms cubic-bezier(0.4,0,0.2,1);
-    --t-slow:380ms cubic-bezier(0.4,0,0.2,1);
-    --t-spring:580ms cubic-bezier(0.34,1.56,0.64,1);
+
+    /* === TYPO — Geist Variable + fallback chain robuste ========== */
+    --font-sans:'Geist','GeistFallback',-apple-system,BlinkMacSystemFont,'SF Pro Display',ui-sans-serif,system-ui,sans-serif;
+    --font-mono:'Geist Mono','GeistMonoFallback','SF Mono','JetBrains Mono','Roboto Mono',ui-monospace,Menlo,monospace;
+    --font-display:var(--font-sans);
+
+    /* Tracking — granularité fine pour discipline éditoriale */
+    --tracking-display:-0.035em;  /* h1, hero — très tight */
+    --tracking-tight:-0.025em;    /* h2/h3 */
+    --tracking-snug:-0.015em;     /* h4/h5 */
+    --tracking-normal:0;
+    --tracking-mono:0.02em;       /* moins lâche qu'avant */
+    --tracking-wide:0.05em;
+    --tracking-eyebrow:0.14em;    /* labels, eyebrows */
+    --tracking-caps:0.18em;       /* SMALLCAPS éditoriaux */
+
+    /* === FLUID TYPE SCALE — clamp() responsive sans MQ ========== */
+    --txt-xs:clamp(11px, 0.7vw + 0.5rem, 12.5px);
+    --txt-sm:clamp(13px, 0.5vw + 0.7rem, 14.5px);
+    --txt-base:clamp(15px, 0.4vw + 0.8rem, 16.5px);
+    --txt-md:clamp(17px, 0.5vw + 0.9rem, 19px);
+    --txt-lg:clamp(20px, 0.8vw + 1rem, 24px);
+    --txt-xl:clamp(26px, 1.5vw + 1rem, 34px);
+    --txt-2xl:clamp(34px, 2.4vw + 1rem, 48px);
+    --txt-3xl:clamp(44px, 3.5vw + 1rem, 68px);
+    --txt-4xl:clamp(56px, 5vw + 1rem, 92px);
+    --txt-5xl:clamp(72px, 7vw + 1rem, 128px);   /* hero display */
+    --txt-6xl:clamp(96px, 10vw + 1rem, 192px);  /* numérique éditorial */
+
+    /* === LINE-HEIGHT par usage ================================== */
+    --lh-tight:1.05;       /* display */
+    --lh-snug:1.18;        /* h2/h3 */
+    --lh-base:1.45;        /* h4-h6 */
+    --lh-comfort:1.55;     /* corps */
+    --lh-loose:1.75;       /* prose long */
+
+    /* === ESPACEMENT — échelle exponentielle propre ============== */
+    --sp-px:1px;
+    --sp-2xs:2px;
+    --sp-xs:4px;
+    --sp-sm:8px;
+    --sp-md:12px;
+    --sp-base:16px;
+    --sp-lg:24px;
+    --sp-xl:32px;
+    --sp-2xl:48px;
+    --sp-3xl:64px;
+    --sp-4xl:96px;
+    --sp-5xl:128px;
+    --sp-6xl:192px;
+    --sp-7xl:256px;
+
+    /* === BORDER RADIUS ========================================= */
+    --r-xs:2px;
+    --r-sm:4px;
+    --r-md:6px;
+    --r-base:8px;
+    --r-lg:12px;
+    --r-xl:16px;
+    --r-2xl:24px;
+    --r-3xl:32px;
+    --r-pill:9999px;
+    --r-full:50%;
+
+    /* === SHADOW STACK PREMIUM — multi-layer ==================== */
+    --shadow-xs:0 1px 2px rgba(15,13,10,0.04);
+    --shadow-sm:0 1px 3px rgba(15,13,10,0.06), 0 1px 2px rgba(15,13,10,0.04);
+    --shadow-md:0 4px 8px -2px rgba(15,13,10,0.06), 0 2px 4px -2px rgba(15,13,10,0.04);
+    --shadow-lg:0 12px 24px -6px rgba(15,13,10,0.10), 0 4px 8px -2px rgba(15,13,10,0.05);
+    --shadow-xl:0 24px 48px -12px rgba(15,13,10,0.18), 0 8px 16px -4px rgba(15,13,10,0.06);
+    --shadow-2xl:0 40px 80px -20px rgba(15,13,10,0.24), 0 12px 24px -6px rgba(15,13,10,0.08);
+    --shadow-glow-amber:0 0 0 1px rgba(232,159,44,0.18), 0 4px 16px -2px rgba(232,159,44,0.32), 0 0 32px -4px rgba(232,159,44,0.18);
+    --shadow-glow-ink:0 0 0 1px rgba(15,13,10,0.10), 0 8px 24px -4px rgba(15,13,10,0.16);
+    --shadow-inset-line:inset 0 0 0 1px var(--line);
+
+    /* === EASING CURVES PREMIUM (au-delà des classiques) ======== */
+    --ease-linear:linear;
+    --ease-out-quad:cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --ease-out-cubic:cubic-bezier(0.33, 1, 0.68, 1);
+    --ease-out-quart:cubic-bezier(0.25, 1, 0.5, 1);
+    --ease-out-quint:cubic-bezier(0.22, 1, 0.36, 1);   /* lenis.dev signature */
+    --ease-out-expo:cubic-bezier(0.16, 1, 0.3, 1);     /* "filmique" — Apple */
+    --ease-in-out-expo:cubic-bezier(0.87, 0, 0.13, 1); /* dramatic */
+    --ease-spring-soft:cubic-bezier(0.34, 1.34, 0.64, 1);
+    --ease-spring-bounce:cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-anticipate:cubic-bezier(0.68, -0.55, 0.27, 1.55);
+
+    /* === DURATIONS ============================================ */
+    --t-instant:80ms;
+    --t-fast:140ms;
+    --t-base:240ms;
+    --t-slow:420ms;
+    --t-deliberate:680ms;
+    --t-cinematic:1200ms;
+
+    /* Compose : durée + courbe (raccourcis usuels) */
+    --tt-fast:var(--t-fast) var(--ease-out-quart);
+    --tt-base:var(--t-base) var(--ease-out-quint);
+    --tt-slow:var(--t-slow) var(--ease-out-expo);
+    --tt-spring:var(--t-deliberate) var(--ease-spring-bounce);
+
+    /* === Z-INDEX SCALE (escalier propre) ====================== */
+    --z-base:1;
+    --z-elevated:10;
+    --z-sticky:100;
+    --z-grain:9000;
+    --z-nav:9100;
+    --z-cursor:9500;
+    --z-modal:9700;
+    --z-toast:9900;
+    --z-loader:9999;
+
+    /* === LAYOUT TOKENS ======================================== */
+    --container-max:1280px;
+    --container-pad:32px;
+    --container-pad-mobile:20px;
+    --section-pad-y:clamp(80px, 10vw, 160px);
+    --section-pad-y-tight:clamp(48px, 6vw, 96px);
+
+    /* === LEGACY ALIASES (rétro-compat code existant) ========== */
+    --t-spring:var(--tt-spring);
+  }
+  @media(prefers-reduced-motion:reduce){
+    :root{
+      --t-instant:0ms; --t-fast:0ms; --t-base:0ms;
+      --t-slow:0ms; --t-deliberate:0ms; --t-cinematic:0ms;
+    }
   }
 
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -61,10 +182,16 @@
     background:var(--cream);
     color:var(--ink);
     font-family:var(--font-sans);
-    font-size:16px;
-    line-height:1.55;
-    font-feature-settings:"ss01","cv11";
+    font-size:var(--txt-base);
+    line-height:var(--lh-comfort);
+    /* OpenType features Geist : ss01 (alt a/g), cv11 (cv g single-storey),
+       calt (contextual alts), liga (standard ligatures), kern, ss03 */
+    font-feature-settings:"ss01","cv11","calt","liga","kern","ss03";
+    font-optical-sizing:auto;
+    font-variant-numeric:proportional-nums oldstyle-nums;
+    font-synthesis:none;  /* refuse les faux-bold synthétiques du navigateur */
     -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
     text-rendering:optimizeLegibility;
     overflow-x:hidden;
     cursor:none;
@@ -75,8 +202,89 @@
   button{font:inherit;cursor:none}
   img,svg{display:block;max-width:100%}
 
-  .container{max-width:1280px;margin-inline:auto;padding-inline:32px;position:relative;z-index:2}
-  @media(max-width:640px){.container{padding-inline:20px}}
+  /* === TYPO UTILITIES — discipline éditoriale ================ */
+  /* Headings : optical sizing + tracking display */
+  h1,h2,h3,h4,h5,h6{
+    font-family:var(--font-display);
+    font-weight:600;
+    line-height:var(--lh-snug);
+    letter-spacing:var(--tracking-tight);
+    font-feature-settings:"ss01","ss03","cv11","calt","liga","kern";
+    font-optical-sizing:auto;
+    text-wrap:balance;  /* CSS Text 4 — équilibre les retours de ligne */
+  }
+  h1{font-size:var(--txt-5xl);line-height:var(--lh-tight);letter-spacing:var(--tracking-display);font-weight:500}
+  h2{font-size:var(--txt-3xl);line-height:var(--lh-tight);letter-spacing:var(--tracking-display)}
+  h3{font-size:var(--txt-2xl)}
+  h4{font-size:var(--txt-xl);letter-spacing:var(--tracking-snug)}
+  h5{font-size:var(--txt-lg);letter-spacing:var(--tracking-snug)}
+  h6{font-size:var(--txt-md);letter-spacing:var(--tracking-normal)}
+
+  /* Corps de texte long : pretty wrap pour éviter orphans */
+  p{text-wrap:pretty}
+
+  /* Classes utilitaires data — tabular numérique + lining */
+  .num,.data,.tabular,[data-tabular]{
+    font-variant-numeric:tabular-nums lining-nums;
+    font-feature-settings:"tnum","lnum","zero","ss01";
+  }
+  .mono,code,pre,kbd{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums lining-nums;
+    font-feature-settings:"tnum","lnum","zero","calt","ss01";
+    letter-spacing:var(--tracking-mono);
+  }
+  .eyebrow,[data-eyebrow]{
+    font-family:var(--font-mono);
+    font-size:var(--txt-xs);
+    font-weight:500;
+    letter-spacing:var(--tracking-eyebrow);
+    text-transform:uppercase;
+    color:var(--slate-warm);
+    font-feature-settings:"tnum","lnum","zero","calt";
+  }
+  .caps{letter-spacing:var(--tracking-caps);text-transform:uppercase;font-weight:500}
+
+  /* Display utility — chiffres éditoriaux énormes (count-up, KPI) */
+  .display-num{
+    font-family:var(--font-sans);
+    font-size:var(--txt-5xl);
+    font-weight:300;
+    line-height:0.9;
+    letter-spacing:-0.04em;
+    font-variant-numeric:tabular-nums lining-nums;
+    font-feature-settings:"tnum","lnum","zero","ss01";
+  }
+
+  /* Lien éditorial avec underline animée */
+  .link-ed{
+    position:relative;
+    display:inline-block;
+    color:inherit;
+    background-image:linear-gradient(currentColor,currentColor);
+    background-size:0% 1px;
+    background-position:0 100%;
+    background-repeat:no-repeat;
+    transition:background-size var(--tt-base);
+  }
+  .link-ed:hover{background-size:100% 1px}
+
+  /* Focus-visible accessibilité — ring premium */
+  :focus-visible{
+    outline:none;
+    box-shadow:0 0 0 3px var(--cream), 0 0 0 4.5px var(--amber);
+    border-radius:var(--r-sm);
+    transition:box-shadow var(--tt-fast);
+  }
+
+  .container{
+    max-width:var(--container-max);
+    margin-inline:auto;
+    padding-inline:var(--container-pad);
+    position:relative;
+    z-index:var(--z-base);
+  }
+  @media(max-width:640px){.container{padding-inline:var(--container-pad-mobile)}}
 
   /* === GRAIN OVERLAY (filtre subtle) === */
   .grain-overlay{
@@ -168,15 +376,28 @@
   .loader-line path{stroke:var(--amber);stroke-width:2;fill:none;stroke-dasharray:1200;stroke-dashoffset:1200;animation:drawSig 1200ms cubic-bezier(0.4,0,0.2,1) 400ms forwards}
   @keyframes drawSig{to{stroke-dashoffset:0}}
 
-  /* === TYPO === */
-  .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--slate-warm);font-weight:500}
+  /* === TYPO LEGACY OVERRIDES — surcharges spécifiques v6 ============
+   * Les règles de base h1-h6 + .eyebrow vivent dans la section foundations.
+   * Ici on n'override que ce qui est ajusté pour ce site spécifiquement.
+   * ================================================================ */
   .eyebrow .amber{color:var(--amber)}
-  h1,h2,h3,h4{font-weight:500;letter-spacing:var(--tracking-display);line-height:1.05}
-  h1{font-size:clamp(48px,7vw,96px)}
-  h2{font-size:clamp(34px,4.6vw,60px);letter-spacing:var(--tracking-tight);line-height:1.06}
-  h3{font-size:clamp(22px,2.4vw,28px);letter-spacing:var(--tracking-tight);line-height:1.2}
-  h4{font-size:18px;letter-spacing:-0.015em;line-height:1.3}
-  em.amber{color:var(--amber);font-style:italic;font-weight:500}
+  /* H1 hero — un cran plus dramatique que le token par défaut */
+  .hero h1{
+    font-size:var(--txt-5xl);
+    font-weight:300;          /* Geist Variable : weight 300 = display fin éditorial */
+    letter-spacing:var(--tracking-display);
+    line-height:var(--lh-tight);
+  }
+  /* italique amber inline pour mise en valeur */
+  em.amber{color:var(--amber);font-style:italic;font-weight:400}
+  /* Mise en évidence kinetic style : trait dessous amber animé */
+  .accent-amber{
+    color:var(--amber);
+    font-style:italic;
+    font-weight:400;
+    position:relative;
+    display:inline-block;
+  }
 
   /* Split text reveal */
   .split-word{display:inline-block;overflow:hidden;vertical-align:bottom}
