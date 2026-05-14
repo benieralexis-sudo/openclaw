@@ -225,63 +225,27 @@ function splitNameLocal(full: string | undefined): { firstName?: string; lastNam
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
-const TECH_TITLE_RE =
-  /(cto|chief tech|head of (engineering|tech|qa|test|product)|engineering manager|tech lead|vp engineering|vp tech|directeur technique|responsable technique|founder|fondateur|ceo|chief executive|directeur général|président|gérant)/i;
+// Tech-hire guards extraits dans tech-persona-guard.ts (14/05/2026) pour tests.
+// Re-export pour rétro-compat des call sites externes (qualify-trigger.ts, etc.)
+export { isTechHiringTrigger, isTechPersonaTitle } from "@/lib/tech-persona-guard";
+import { isTechPersonaTitle as isTechPersonaTitleLocal } from "@/lib/tech-persona-guard";
 
-// Bug Training Orchestra (11/05/2026) — Détermine si un trigger HIRING_KEY
-// porte sur un recrutement tech (NAF tech OU mots-clés du titre offrent un
-// indice). Si oui, on doit exiger un contact tech (CTO/Head Eng/Tech Lead,
-// pas CEO/Communication/RH/Sales).
-const TECH_NAF_RE = /^(62\.|58\.29|63\.)/;
-const TECH_TITLE_KEYWORDS_RE =
-  /\b(dev|développe|engineer|ingénieur|qa|test|backend|frontend|fullstack|devops|sre|data|cto|tech|lead|architect|ml|ai|software|cloud|sécurité|security)/i;
-
-export function isTechHiringTrigger(
-  type: string | null | undefined,
-  companyNaf: string | null | undefined,
-  title: string | null | undefined,
-): boolean {
-  if (type !== "HIRING_KEY") return false;
-  const nafTech = companyNaf ? TECH_NAF_RE.test(companyNaf) : false;
-  const titleTech = title ? TECH_TITLE_KEYWORDS_RE.test(title) : false;
-  return nafTech || titleTech;
-}
-
-// Bug Training Orchestra (11/05/2026) — Définit si un titre de poste est
-// "tech leader" (= décideur légitime sur un recrutement tech). On accepte
-// CTO, Head of Engineering/QA/Tech, Tech Lead, VP Eng, Engineering Manager,
-// Co-founder/Founder (en PME ils décident souvent du recrutement tech).
-// On REFUSE : CEO/Président/DG/Gérant seul, Communication/Marketing/Sales/RH,
-// Commercial, Finance, COO (sauf si combo "CTO & COO" qui matche déjà CTO).
-const TECH_PERSONA_RE =
-  /\b(cto|chief tech|head of (engineering|tech|qa|test|product|development)|vp (engineering|tech|product)|engineering manager|tech lead|tech manager|software development manager|dev manager|directeur technique|responsable technique|architecte|dsi|cio|chief information officer|directeur (des )?systèmes? d|head of qa|qa manager|qa director|qa lead|test manager|directeur (de la |des )?qualité|founder|fondateur|co.?founder|cofondateur)\b/i;
-const NON_TECH_PERSONA_RE =
-  /\b(communication|marketing|sales|commercial|business development|business developer|hr|rh|ressources humaines|talent|recruitment|recruiter|finance|cfo|chief financial|legal|juridique|operations|coo(?! &|\s*&)|chief operating)\b/i;
-
-export function isTechPersonaTitle(title: string | undefined | null): boolean {
-  if (!title) return false;
-  // CTO/Head Eng/Founder etc. = OK même si combo avec autre chose
-  if (TECH_PERSONA_RE.test(title)) return true;
-  // CEO/Président/DG seul → non-tech (sauf si combo avec CTO matché ci-dessus)
-  if (/\b(ceo|chief executive|directeur général|président|pr[eé]sident|gérant|managing director)\b/i.test(title)) {
-    return false;
-  }
-  // Communication/Sales/HR/Marketing = non-tech
-  if (NON_TECH_PERSONA_RE.test(title)) return false;
-  // Par défaut : on ne sait pas → accepte (évite faux négatifs sur titres
-  // exotiques type "Lead Architecte", "Staff Engineer" déjà couverts plus haut)
-  return true;
-}
-
+// Fix WeWard (14/05/2026) — pickTechDecisionMaker (TheirStack DM picker) utilise
+// désormais le MÊME isTechPersonaTitle que le poster Apify, pour homogénéiser
+// le guard. Avant : regex TECH_TITLE_RE permissive (acceptait CEO/Founder) →
+// trigger TheirStack avec CEO en tête des decision_makers → Lead = CEO.
+// Maintenant : check identique au poster Apify (STRONG_NON_TECH prime).
 function pickTechDecisionMaker(dms: unknown[]): Record<string, unknown> | null {
-  // Prio 1 : titre tech matché
+  // Prio 1 : titre tech matché via isTechPersonaTitle (guard homogène)
   for (const d of dms) {
     if (!d || typeof d !== "object") continue;
     const r = d as Record<string, unknown>;
     const t = asString(r.title) ?? asString(r.job_title) ?? asString(r.position);
-    if (t && TECH_TITLE_RE.test(t)) return r;
+    if (t && isTechPersonaTitleLocal(t)) return r;
   }
-  // Prio 2 : 1er décideur quelconque
+  // Prio 2 : 1er décideur quelconque (fallback si aucun tech identifié — le
+  // tech-hire-guard ensure-leadsForAllTriggers le rejettera de toute façon
+  // si le trigger est HIRING_KEY tech et le titre non-tech).
   for (const d of dms) {
     if (d && typeof d === "object") return d as Record<string, unknown>;
   }
