@@ -31,7 +31,8 @@ export type RodzSignalType =
   | "influencer-engagement"
   | "competitor-relationships"
   | "company-registration"
-  | "public-tenders";
+  | "public-tenders"
+  | "public-contract-award"; // ajout 14/05/2026 — sprint Rodz 2.0
 
 export type RodzStatus = "draft" | "active" | "paused";
 

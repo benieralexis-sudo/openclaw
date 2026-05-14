@@ -27,6 +27,7 @@ const SIGNAL_TYPE_MAP: Record<string, TriggerType> = {
   "competitor-relationships": TriggerType.OTHER,
   "company-registration": TriggerType.EXPANSION,
   "public-tenders": TriggerType.REGULATORY,
+  "public-contract-award": TriggerType.REGULATORY, // ajout 14/05 — sprint Rodz 2.0
 };
 
 // Score par défaut selon le type — peut être affiné plus tard avec Opus
@@ -38,6 +39,7 @@ const DEFAULT_SCORE: Record<string, number> = {
   "republished-job-offers": 6,
   "recruitment-campaign": 8,
   "public-tenders": 8,
+  "public-contract-award": 7, // ajout 14/05 — sprint Rodz 2.0
   "company-registration": 6,
   "company-followers": 4,
   "company-page-engagement": 5,
@@ -49,18 +51,20 @@ const DEFAULT_SCORE: Record<string, number> = {
 
 // Signal types qu'on ignore à l'entrée du webhook pour ne pas polluer la DB.
 // Mesure 30/04 v3.6 incluait company-registration et mergers-acquisitions sur
-// la base de stats faussées par le bug underscore/tiret (v4.7 fix 01/05 :
-// avant fix, tous les Rodz tombaient en TriggerType.OTHER score 5 par défaut,
-// ce qui faussait l'évaluation Opus). 04/05 : ré-ouverture des 2 signaux
-// (qualify-trigger.ts donne déjà un score plancher 8 pour ces sources fiables).
+// la base de stats faussées par le bug underscore/tiret (v4.7 fix 01/05).
 // Restent en LOW_VALUE uniquement les signaux sociaux pur bruit confirmé.
+//
+// Sprint Rodz 2.0 (14/05/2026) — Levée du blocklist pour :
+//   - social-mentions : on captera maintenant les posts LinkedIn mentionnant
+//     les keywords du client (DTL: "test logiciel"/"QA"; iFIND: "SDR"/"BDR").
+//   - competitor-relationships : surveillance pages LinkedIn concurrents.
+// Restent bloqués (vrai bruit) : company-followers, company-page-engagement,
+// social-reactions (engagement post générique), influencer-engagement.
 const LOW_VALUE_SIGNAL_TYPES = new Set<string>([
   "company-followers",
   "company-page-engagement",
-  "social-mentions",
   "social-reactions",
   "influencer-engagement",
-  "competitor-relationships",
 ]);
 
 // ──────────────────────────────────────────────────────────────────────

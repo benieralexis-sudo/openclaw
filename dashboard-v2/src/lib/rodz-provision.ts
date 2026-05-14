@@ -336,6 +336,104 @@ export function buildSignals(client: { name: string; icp: ClientIcpExtended }): 
     },
   });
 
+  // ────────────────────────────────────────────────────────────────────
+  // Sprint Rodz 2.0 (14/05/2026) — 4 nouveaux types pour diversifier
+  // les angles d'achat. Chaque type est activé conditionnellement selon
+  // ce qui est défini dans Client.icp.
+  // ────────────────────────────────────────────────────────────────────
+
+  // ────────────────────────────────────────────────────────────────────
+  // 7. REPUBLISHED-JOB-OFFERS — offres tenaces (republiées plusieurs fois)
+  // = la boîte galère à recruter en interne → candidat outsourcing parfait
+  // ────────────────────────────────────────────────────────────────────
+  if (customHiringTitles.length > 0) {
+    signals.push({
+      type: "republished-job-offers",
+      name: `${client.name} — Offres tenaces (republished)`,
+      dailyLeadLimit: 2,
+      config: {
+        ...baseEnrichment,
+        jobTitleInclude: customHiringTitles,
+        jobTitleIncludeAll: false,
+        locations,
+        companySize: sizes,
+        publishedDate: "30d",
+      },
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // 8. PUBLIC-TENDERS — appels d'offres BOAMP FR matching keywords métier
+  // Activé seulement si client.icp.publicTendersKeywords défini (DTL only).
+  // ────────────────────────────────────────────────────────────────────
+  const publicTendersKeywords =
+    (client.icp as { publicTendersKeywords?: string[] }).publicTendersKeywords;
+  if (publicTendersKeywords && publicTendersKeywords.length > 0) {
+    signals.push({
+      type: "public-tenders",
+      name: `${client.name} — Appels d'offres publics`,
+      dailyLeadLimit: 2,
+      config: {
+        ...baseEnrichment,
+        sources: ["boamp"],
+        noticeTypes: ["APPEL_OFFRE", "MAPA"],
+        marketTypes: ["Services"],
+        keywords: publicTendersKeywords,
+        minDaysUntilDeadline: 7,
+        enablePersonaTargeting: true,
+        targetPersonas: ["CTO", "CIO", "DSI"],
+      },
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // 9. SOCIAL-MENTIONS — Posts LinkedIn mentionnant les keywords ICP
+  // Activé seulement si client.icp.socialMentionsKeywords défini.
+  // ────────────────────────────────────────────────────────────────────
+  const socialMentionsKeywords =
+    (client.icp as { socialMentionsKeywords?: string[] }).socialMentionsKeywords;
+  if (socialMentionsKeywords && socialMentionsKeywords.length > 0) {
+    signals.push({
+      type: "social-mentions",
+      name: `${client.name} — Mentions LinkedIn`,
+      dailyLeadLimit: 2,
+      config: {
+        ...baseEnrichment,
+        keywords: socialMentionsKeywords,
+        postedLimit: "week",
+        minEngagement: 3,
+        engagementTypes: ["likes", "comments"],
+        targetPersonas: personas,
+        companySizeFilters: sizes,
+        locations,
+      },
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // 10. COMPETITOR-RELATIONSHIPS — surveillance LinkedIn pages concurrents
+  // Activé seulement si client.icp.competitorLinkedinUrls défini.
+  // Quand quelqu'un dans l'ICP engage avec un post de ces concurrents,
+  // → opportunité (frustré du concurrent, à approcher).
+  // ────────────────────────────────────────────────────────────────────
+  const competitorUrls =
+    (client.icp as { competitorLinkedinUrls?: string[] }).competitorLinkedinUrls;
+  if (competitorUrls && competitorUrls.length > 0) {
+    signals.push({
+      type: "competitor-relationships",
+      name: `${client.name} — Surveillance concurrents`,
+      dailyLeadLimit: 2,
+      config: {
+        ...baseEnrichment,
+        linkedinCompanyUrls: competitorUrls,
+        targetPersonas: personas,
+        companySizeFilters: sizes,
+        locations,
+        runMode: "daily",
+      },
+    });
+  }
+
   return signals;
 }
 
