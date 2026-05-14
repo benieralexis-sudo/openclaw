@@ -306,6 +306,9 @@ export async function pollRssLeveesForClient(
       const icpCheck = matchesClientIcp(pappersData, companyName, icp);
       if (!icpCheck.ok) {
         result.triggersSkippedIcp += 1;
+        console.log(
+          `[rss-levees-poller.icp-reject] ${clientId}: "${companyName}" (naf=${pappersData?.code_naf ?? "?"} eff=${pappersData?.tranche_effectif ?? "?"}) — ${icpCheck.reason}`,
+        );
         continue;
       }
 

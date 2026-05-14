@@ -249,9 +249,13 @@ function splitNameLocal(full: string | undefined): { firstName?: string; lastNam
 }
 
 // Tech-hire guards extraits dans tech-persona-guard.ts (14/05/2026) pour tests.
-// Re-export pour rétro-compat des call sites externes (qualify-trigger.ts, etc.)
-export { isTechHiringTrigger, isTechPersonaTitle } from "@/lib/tech-persona-guard";
-import { isTechPersonaTitle as isTechPersonaTitleLocal } from "@/lib/tech-persona-guard";
+// Import local + re-export pour rétro-compat des call sites externes
+// (qualify-trigger.ts, etc.) ET pour usage interne (ligne 77).
+import {
+  isTechHiringTrigger,
+  isTechPersonaTitle,
+} from "@/lib/tech-persona-guard";
+export { isTechHiringTrigger, isTechPersonaTitle };
 
 // Fix WeWard (14/05/2026) — pickTechDecisionMaker (TheirStack DM picker) utilise
 // désormais le MÊME isTechPersonaTitle que le poster Apify, pour homogénéiser
@@ -264,7 +268,7 @@ function pickTechDecisionMaker(dms: unknown[]): Record<string, unknown> | null {
     if (!d || typeof d !== "object") continue;
     const r = d as Record<string, unknown>;
     const t = asString(r.title) ?? asString(r.job_title) ?? asString(r.position);
-    if (t && isTechPersonaTitleLocal(t)) return r;
+    if (t && isTechPersonaTitle(t)) return r;
   }
   // Prio 2 : 1er décideur quelconque (fallback si aucun tech identifié — le
   // tech-hire-guard ensure-leadsForAllTriggers le rejettera de toute façon
