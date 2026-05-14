@@ -102,7 +102,30 @@ export async function ensureLeadsForAllTriggers(
         // Lead déjà existant pour ce SIRET — pas de duplicate, juste compté
         // alreadyExisted. Le trigger n'a pas de Lead direct mais son SIRET
         // est déjà couvert par un autre trigger précédent (combo détecté
-        // ailleurs). Pas d'action — la dedup est faite côté table Trigger.
+        // ailleurs). La dedup est faite côté table Trigger.
+        //
+        // Fix Sêmeia (14/05/2026) — On reset scoreReason du trigger principal
+        // (lié au Lead existant) à null pour que qualifyPendingTriggers le
+        // re-pioche au prochain cycle. Le re-qualify aura accès au nouveau
+        // signal via getPriorSignalsForCompany (90j SIRET) → brief V2 mis à
+        // jour avec le contexte fundraising/M&A/etc. capté ici.
+        // Cas concret : Lead Mathieu Godart sur trigger apify.wttj-jobs (QA
+        // hire) → arrive un trigger rss-levees fundraising 12/05. Sans ce
+        // reset, le brief V2 d'origine reste figé sur le seul angle QA. Avec
+        // ce reset, Opus voit "PRIOR SIGNALS : fundraising 12/05" et réécrit
+        // un brief combo "scale-up + hire QA = sweet spot iFIND".
+        if (existingLead.triggerId && existingLead.triggerId !== t.id) {
+          await db.trigger
+            .update({
+              where: { id: existingLead.triggerId },
+              data: { scoreReason: null },
+            })
+            .catch((e: unknown) => {
+              console.warn(
+                `[ensure-lead.requalify-trigger-on-newsignal] ${t.companyName}: échec reset scoreReason trigger principal ${existingLead.triggerId}: ${e instanceof Error ? e.message : String(e)}`,
+              );
+            });
+        }
         stats.alreadyExisted++;
         continue;
       }
