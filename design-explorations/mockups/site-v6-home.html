@@ -15,6 +15,8 @@
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/split-type@0.3.4/umd/index.min.js"></script>
+<!-- Tone.js — sound design synthétisé (~80KB gzip), Pass 2 -->
+<script src="https://cdn.jsdelivr.net/npm/tone@15.0.4/build/Tone.js" defer></script>
 <!-- Three.js (ESM via importmap) — scène 3D hero sismographe -->
 <script type="importmap">
 {
@@ -484,6 +486,36 @@
   .nav-cta{display:flex;align-items:center;gap:14px}
   .nav-status{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase}
   .nav-status .dot{width:6px;height:6px;border-radius:50%;background:var(--signal-ok);animation:pulseDot 2s ease-in-out infinite}
+
+  /* === SOUND TOGGLE — Pass 2 ============================================
+   * Bouton discret en haut à droite. Affiche icône mute/unmute selon
+   * l'état. Persisté via localStorage('ifind:sound').
+   * ====================================================================== */
+  .sound-toggle{
+    appearance:none;background:transparent;border:1px solid var(--line);
+    width:32px;height:32px;border-radius:var(--r-pill);
+    display:inline-flex;align-items:center;justify-content:center;
+    color:var(--slate-warm);
+    transition:color var(--tt-fast),border-color var(--tt-fast),background var(--tt-fast),transform var(--tt-fast);
+    position:relative;overflow:hidden;
+  }
+  .sound-toggle:hover{color:var(--ink);border-color:var(--ink);transform:translateY(-1px)}
+  .sound-toggle .sound-icon{width:16px;height:16px;position:absolute;inset:0;margin:auto;transition:opacity var(--tt-fast),transform var(--tt-fast)}
+  .sound-toggle .sound-icon--on{opacity:0;transform:scale(0.9)}
+  .sound-toggle .sound-icon--off{opacity:1}
+  .sound-toggle[aria-pressed="true"]{color:var(--amber);border-color:var(--amber)}
+  .sound-toggle[aria-pressed="true"] .sound-icon--on{opacity:1;transform:scale(1)}
+  .sound-toggle[aria-pressed="true"] .sound-icon--off{opacity:0;transform:scale(0.9)}
+  /* Ripple subtil quand un son joue (data-pulse posé par JS) */
+  .sound-toggle[data-pulse="1"]::after{
+    content:"";position:absolute;inset:-2px;border-radius:50%;
+    border:1px solid var(--amber);
+    animation:soundPulse 600ms var(--ease-out-quint) forwards;
+  }
+  @keyframes soundPulse{
+    0%{opacity:0.6;transform:scale(1)}
+    100%{opacity:0;transform:scale(1.6)}
+  }
   @media(max-width:880px){.nav-links,.nav-status{display:none}}
 
   /* ============================================================
@@ -1653,6 +1685,17 @@
       </div>
       <div class="nav-cta">
         <span class="nav-status"><span class="dot"></span><span id="navTriggerCount">412</span> triggers · 30j</span>
+        <button id="soundToggle" class="sound-toggle" type="button" aria-label="Activer / couper le son" aria-pressed="false" data-cursor="hover">
+          <svg class="sound-icon sound-icon--off" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 5.5h2.5L9 3v10L5.5 10.5H3z" fill="currentColor" opacity="0.45"/>
+            <path d="M11.5 5.5l3 3M14.5 5.5l-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+          </svg>
+          <svg class="sound-icon sound-icon--on" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 5.5h2.5L9 3v10L5.5 10.5H3z" fill="currentColor"/>
+            <path d="M11.5 5.5c1 .8 1 4.2 0 5M13 4c1.8 1.4 1.8 6.6 0 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <span class="sound-waves" aria-hidden="true"></span>
+          </svg>
+        </button>
         <a href="#tarifs" class="btn btn--primary btn--sm magnetic" data-cursor="hover">Essayer 14 jours →<span class="btn-pic"></span></a>
       </div>
     </div>
@@ -4021,6 +4064,208 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   } else {
     setTimeout(startPulse, 1500);
   }
+})();
+</script>
+
+<!-- ====================================================================
+ * PASS 2 — SOUND ENGINE (Tone.js)
+ * ──────────────────────────────────────────────────────────────────────
+ * 5 sons synthétisés (zéro asset téléchargé) :
+ *  • boot     : arpège 4 notes au load (joué une seule fois)
+ *  • hover    : tick subtil ~1200Hz, decay 60ms
+ *  • click    : confirm 600Hz square, 40ms
+ *  • milestone: drone scroll très subtil (apparition section warm)
+ *  • pepite   : montée FM 220→880Hz, reverb légère (apparition trigger feed)
+ *
+ * Politique d'autoplay : on attend la première interaction utilisateur,
+ * et on ne joue rien tant que ce n'est pas le cas. Toggle persisté en
+ * localStorage('ifind:sound') — par défaut OFF (silence respectueux).
+ * prefers-reduced-motion : volume divisé par 2 si l'utilisateur préfère
+ * peu d'animations.
+ * ==================================================================== */
+<script>
+(function(){
+  'use strict';
+  const STORE_KEY = 'ifind:sound';
+  const btn = document.getElementById('soundToggle');
+  if(!btn) return;
+
+  // État persisté (default OFF — silence respectueux par défaut)
+  let enabled = localStorage.getItem(STORE_KEY) === 'on';
+  btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+
+  // Reduced motion → volume divisé
+  const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const VOL = prefersReduced ? -22 : -16;  // dB
+
+  let synths = null;       // chargé lazy après 1ère interaction
+  let unlocked = false;
+
+  function ensureToneReady(cb){
+    if(typeof Tone === 'undefined'){
+      // Tone est chargé en defer → on attend
+      const i = setInterval(() => {
+        if(typeof Tone !== 'undefined'){ clearInterval(i); cb(); }
+      }, 100);
+      setTimeout(() => clearInterval(i), 5000);
+    } else cb();
+  }
+
+  function buildSynths(){
+    if(synths) return synths;
+    // Master bus : volume global + leger limiter pour éviter clipping
+    const master = new Tone.Volume(VOL).toDestination();
+    const limiter = new Tone.Limiter(-3).connect(master);
+    // Reverb spatiale légère
+    const reverb = new Tone.Reverb({ decay: 1.8, wet: 0.18, preDelay: 0.02 }).connect(limiter);
+
+    // 1) Hover : MetalSynth très court (tick métallique)
+    const hover = new Tone.MetalSynth({
+      frequency: 1200,
+      envelope: { attack: 0.001, decay: 0.06, release: 0.06 },
+      harmonicity: 5.1, modulationIndex: 12, octaves: 1, resonance: 4000
+    });
+    hover.volume.value = -16;
+    hover.connect(limiter);
+
+    // 2) Click : square brève (confirm tactile)
+    const click = new Tone.Synth({
+      oscillator: { type: 'square' },
+      envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.04 }
+    });
+    click.volume.value = -10;
+    click.connect(limiter);
+
+    // 3) Boot arpège : PolySynth FM
+    const boot = new Tone.PolySynth(Tone.FMSynth, {
+      modulationIndex: 8, harmonicity: 3,
+      envelope: { attack: 0.01, decay: 0.4, sustain: 0.05, release: 0.6 },
+      modulationEnvelope: { attack: 0.02, decay: 0.3 }
+    });
+    boot.volume.value = -14;
+    boot.connect(reverb);
+
+    // 4) Pépite (apparition trigger HOT) : montée FM + reverb
+    const pepite = new Tone.FMSynth({
+      modulationIndex: 12, harmonicity: 2,
+      envelope: { attack: 0.04, decay: 0.5, sustain: 0.1, release: 0.6 }
+    });
+    pepite.volume.value = -8;
+    pepite.connect(reverb);
+
+    // 5) Milestone scroll : drone Noise low-pass très discret
+    const noise = new Tone.NoiseSynth({
+      noise: { type: 'pink' },
+      envelope: { attack: 0.4, decay: 0.6, sustain: 0, release: 0.8 }
+    });
+    const noiseFilter = new Tone.Filter({ frequency: 320, type: 'lowpass', Q: 1.2 });
+    noise.connect(noiseFilter);
+    noiseFilter.connect(reverb);
+    noise.volume.value = -22;
+
+    synths = { master, hover, click, boot, pepite, noise };
+    return synths;
+  }
+
+  async function unlockAudio(){
+    if(unlocked) return;
+    if(typeof Tone === 'undefined') return;
+    try {
+      await Tone.start();
+      buildSynths();
+      unlocked = true;
+    } catch(e) { /* utilisateur peut bloquer, on tolère */ }
+  }
+
+  // ── Pulse visuel sur le toggle quand un son joue ──
+  let pulseTimer = null;
+  function visualPulse(){
+    if(!enabled) return;
+    btn.dataset.pulse = '1';
+    clearTimeout(pulseTimer);
+    pulseTimer = setTimeout(() => { delete btn.dataset.pulse; }, 600);
+  }
+
+  // ── API publique ──
+  const Sound = window.Sound = {
+    enabled: () => enabled,
+    hover(){ if(!enabled || !synths) return;
+      try { synths.hover.triggerAttackRelease('C7', 0.04); } catch(e){} visualPulse(); },
+    click(){ if(!enabled || !synths) return;
+      try { synths.click.triggerAttackRelease('E5', 0.03); } catch(e){} visualPulse(); },
+    boot(){ if(!enabled || !synths) return;
+      try {
+        const t = Tone.now();
+        ['F4','A4','C5','E5'].forEach((n,i)=> synths.boot.triggerAttackRelease(n, 0.5, t+i*0.12));
+      } catch(e){} visualPulse(); },
+    pepite(){ if(!enabled || !synths) return;
+      try {
+        const t = Tone.now();
+        synths.pepite.frequency.setValueAtTime(220, t);
+        synths.pepite.frequency.exponentialRampToValueAtTime(880, t+0.25);
+        synths.pepite.triggerAttackRelease(220, 0.4, t);
+      } catch(e){} visualPulse(); },
+    milestone(){ if(!enabled || !synths) return;
+      try { synths.noise.triggerAttackRelease(1.2); } catch(e){} },
+  };
+
+  // ── Toggle ──
+  btn.addEventListener('click', async () => {
+    if(!unlocked) await unlockAudio();
+    enabled = !enabled;
+    localStorage.setItem(STORE_KEY, enabled ? 'on' : 'off');
+    btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    if(enabled) Sound.click();
+  });
+
+  // ── Première interaction = unlock latent (au cas où user clique ailleurs avant) ──
+  ['pointerdown','keydown'].forEach(ev => {
+    document.addEventListener(ev, unlockAudio, { once: true, passive: true });
+  });
+
+  // ── Hook hover/click universels ──
+  // Hover : seulement sur les éléments tagués pour éviter le tinnitus
+  document.addEventListener('pointerenter', e => {
+    const t = e.target;
+    if(!t || !t.matches) return;
+    if(t.matches('[data-cursor="hover"], .btn, .nav-links a, .pricing-card, .feed-item, .map-region')){
+      Sound.hover();
+    }
+  }, { capture: true });
+
+  // Click : boutons + liens
+  document.addEventListener('click', e => {
+    const t = e.target?.closest?.('button, a.btn, .pricing-cta a, .nav-cta .btn');
+    if(t) Sound.click();
+  }, { capture: true });
+
+  // Scroll milestones : sons subtils à l'apparition des sections warm
+  if('IntersectionObserver' in window){
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(en => {
+        if(en.isIntersecting){
+          Sound.milestone();
+        }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('.section--warm, .manifesto, .cta-final').forEach(el => io.observe(el));
+  }
+
+  // Pépite sound : à chaque nouvelle entrée dans le live trigger feed
+  const feed = document.getElementById('heroFeed');
+  if(feed){
+    const mo = new MutationObserver(records => {
+      records.forEach(r => {
+        if(r.addedNodes.length) Sound.pepite();
+      });
+    });
+    mo.observe(feed, { childList: true });
+  }
+
+  // Boot arpège : juste après le loader (si déjà unlocked = re-enable)
+  window.addEventListener('load', () => {
+    setTimeout(() => { if(enabled && unlocked) Sound.boot(); }, 2200);
+  });
 })();
 </script>
 
