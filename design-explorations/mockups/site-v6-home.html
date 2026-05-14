@@ -1336,6 +1336,13 @@
     gsap.registerPlugin(ScrollTrigger);
   }
 
+  // ====== ScrollTrigger config — perf =======
+  // limitCallbacks: ScrollTrigger ne lance qu'1 callback par frame max (vs spam)
+  // syncInterval: désactive le refresh sync agressif (gros gain sur mobiles)
+  if(typeof ScrollTrigger !== 'undefined'){
+    ScrollTrigger.config({ limitCallbacks: true, syncInterval: 100 });
+  }
+
   // ====== SCROLL PROGRESS =======
   const progress = document.getElementById('scrollProgress');
   function updateProgress(){
@@ -2148,9 +2155,23 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   if(document.readyState === 'complete') setTimeout(startIntro, 1400);
   else window.addEventListener('load', () => setTimeout(startIntro, 1400));
 
+  // ====== BLOOM INTELLIGENT — fade pendant inputs actifs ===================
+  // Principe : l'œil ne perçoit pas le bloom pendant un mouvement (scroll,
+  // wheel, touch). On lerp bloom.strength vers 0 dès qu'il y a input récent,
+  // vers BLOOM_FULL quand stable >180ms. Visuellement invisible (sauf à l'arrêt
+  // où on voit le halo plein) ; gros gain GPU pendant tous les moments actifs.
+  // =========================================================================
+  const BLOOM_FULL = 0.50;
+  let bloomCurrent = BLOOM_FULL;
+  let lastInputT = 0;
+  const _markInput = () => { lastInputT = performance.now(); };
+  window.addEventListener('wheel',     _markInput, {passive: true});
+  window.addEventListener('touchmove', _markInput, {passive: true});
+  window.addEventListener('scroll',    _markInput, {passive: true});
+  window.addEventListener('keydown',   _markInput);
+
   // --- Render loop ---
   const clock = new THREE.Clock();
-  let lastFrameT = 0;
   let _isCapturing = false;  // flag : pendant une capture vidéo, la loop normale skip
   function frame(now){
     requestAnimationFrame(frame);
@@ -2160,17 +2181,15 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
     // Skip si le wrap est complètement fade-out (perf : pas la peine de rendre l'invisible)
     const op = wrap.style.opacity === '' ? 1 : parseFloat(wrap.style.opacity);
     if(op < 0.02) return;
-    // Throttle 30fps dès uMorph>0.3 (= début du scroll). Sur le hero pleine vue
-    // (uMorph=0), on garde 60fps + bloom plein pour le wow. Dès qu'on scrolle,
-    // on tolère 30fps car l'attention est sur la transition de structure, pas
-    // sur la fluidité absolue.
-    if(uniforms.uMorph.value > 0.3){
-      if(now && (now - lastFrameT) < 32) return;
-      lastFrameT = now || 0;
-    }
-    // Bloom uniquement quand le hero est pleine vue (uMorph < 0.2) — c'est là
-    // que le halo amber est visible et compte. Pendant le morph et après, OFF.
-    bloom.enabled = uniforms.uMorph.value < 0.2;
+
+    // Bloom strength lerp : 0 pendant scroll/input actif, BLOOM_FULL au repos
+    const nowMs = now || performance.now();
+    const stable = (nowMs - lastInputT) > 180;
+    const target = stable ? BLOOM_FULL : 0;
+    bloomCurrent += (target - bloomCurrent) * 0.20;
+    bloom.strength = bloomCurrent;
+    bloom.enabled = bloomCurrent > 0.015;
+
     if(!reduced) uniforms.uTime.value = clock.getElapsedTime();
 
     mouse.x += (mouse.tx - mouse.x) * 0.06;
