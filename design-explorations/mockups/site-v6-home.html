@@ -1316,6 +1316,8 @@
       touchMultiplier: 2,
       syncTouch: false
     });
+    // Expose globalement pour permettre la pause depuis le module de capture
+    window.lenis = lenis;
 
     // Sync GSAP ScrollTrigger with Lenis
     if(typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined'){
@@ -2149,8 +2151,10 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   // --- Render loop ---
   const clock = new THREE.Clock();
   let lastFrameT = 0;
+  let _isCapturing = false;  // flag : pendant une capture vidéo, la loop normale skip
   function frame(now){
     requestAnimationFrame(frame);
+    if(_isCapturing) return;  // capture pilote elle-même les uniforms + render
     // Skip si on a dépassé le hero ET la section produit (= zone d'intérêt sortie)
     if(!(heroInView || produitInView) || !visible) return;
     // Skip si le wrap est complètement fade-out (perf : pas la peine de rendre l'invisible)
@@ -2183,6 +2187,145 @@ import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
   if(reduced){
     uniforms.uTime.value = 4.2;
     composer.render();
+  }
+
+  // ====== MODULE CAPTURE VIDÉO (dev-only, activé via ?capture=1) ============
+  // Génère une vidéo WEBM frame-par-frame en mode OFFLINE (pas temps réel),
+  // donc 100% propre même si la machine rame. Désactive Lenis/GSAP/scroll
+  // pendant la capture pour libérer toute la ressource au canvas Three.js.
+  // Force qualité max : pixelRatio 2, bloom plein. Anime uMorph 0→1 sur 8s.
+  // =========================================================================
+  if(new URLSearchParams(location.search).get('capture') === '1'){
+    (async function initCapture(){
+      // 1. Charge CCapture.js dynamiquement (1 seul fichier ~50kb)
+      try {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/ccapture.js@1.1.0/build/CCapture.all.min.js';
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      } catch(e){
+        alert('Impossible de charger CCapture.js — vérifie ta connexion'); return;
+      }
+
+      // 2. Crée le bouton flottant + status
+      const btn = document.createElement('button');
+      btn.textContent = '▶ Enregistrer 8s';
+      btn.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:99999;padding:14px 24px;background:#0F0D0A;color:#F5F1EA;border:1px solid #E89F2C;border-radius:2px;font-family:ui-monospace,monospace;font-size:13px;cursor:pointer;letter-spacing:0.05em;box-shadow:0 8px 24px rgba(0,0,0,0.4)';
+      const status = document.createElement('div');
+      status.style.cssText = 'position:fixed;right:20px;bottom:80px;z-index:99999;padding:10px 18px;background:rgba(15,13,10,0.92);color:#F5F1EA;border:1px solid rgba(232,159,44,0.4);font-family:ui-monospace,monospace;font-size:12px;display:none;max-width:380px';
+      document.body.appendChild(btn);
+      document.body.appendChild(status);
+      const setStatus = msg => { status.style.display='block'; status.textContent = msg; };
+
+      // 3. Run capture
+      async function runCapture(){
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        setStatus('Préparation : pause Lenis/GSAP, qualité max...');
+
+        // Désactive tout ce qui peut interférer
+        _isCapturing = true;
+        if(window.lenis && window.lenis.stop) window.lenis.stop();
+        if(stMorph) stMorph.disable();
+        if(stFade)  stFade.disable();
+        document.body.style.overflow = 'hidden';
+        window.scrollTo(0, 0);
+
+        // Force qualité max pour la capture
+        const originalPR = renderer.getPixelRatio();
+        renderer.setPixelRatio(2);
+        resize();
+
+        // Reset uniforms : hero pleine vue, bloom plein
+        uniforms.uIntro.value = 1;
+        uniforms.uScroll.value = 0;
+        uniforms.uMorph.value = 0;
+        bloom.enabled = true;
+        wrap.style.opacity = '1';
+
+        await new Promise(r => setTimeout(r, 400)); // settle
+
+        // Setup CCapture
+        const FPS = 30;
+        const DURATION_S = 8;
+        const TOTAL_FRAMES = FPS * DURATION_S;
+        const HOLD_START_S = 1.5;   // 1.5s hero plein
+        const MORPH_DUR_S  = 5.0;   // 5s de morph eased
+        // = 6.5s, dernier 1.5s = hold morphé
+
+        const capturer = new window.CCapture({
+          format: 'webm',
+          framerate: FPS,
+          quality: 99,
+          verbose: false,
+          display: false
+        });
+        capturer.start();
+        setStatus(`Capture lancée — frame 0/${TOTAL_FRAMES}`);
+
+        let frameIdx = 0;
+        function easeInOutCubic(k){
+          return k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
+        }
+
+        function captureFrame(){
+          if(frameIdx >= TOTAL_FRAMES){
+            // Done — encode + download
+            setStatus('Encodage webm... (peut prendre 30s-1min)');
+            capturer.stop();
+            capturer.save(blob => {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `sismographe-hero-${new Date().toISOString().slice(0,16).replace(/[T:]/g,'-')}.webm`;
+              document.body.appendChild(a); a.click(); a.remove();
+              URL.revokeObjectURL(url);
+              setStatus(`✓ Téléchargé : ${(blob.size/1024/1024).toFixed(1)} MB`);
+            });
+
+            // Restore tout
+            _isCapturing = false;
+            if(window.lenis && window.lenis.start) window.lenis.start();
+            if(stMorph) stMorph.enable();
+            if(stFade)  stFade.enable();
+            document.body.style.overflow = '';
+            renderer.setPixelRatio(originalPR);
+            resize();
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            return;
+          }
+
+          // Calcule les uniforms pour CETTE frame (mode offline = pas temps réel)
+          const tSec = frameIdx / FPS;
+          uniforms.uTime.value = tSec;
+
+          let morph;
+          if(tSec < HOLD_START_S) morph = 0;
+          else if(tSec < HOLD_START_S + MORPH_DUR_S){
+            morph = easeInOutCubic((tSec - HOLD_START_S) / MORPH_DUR_S);
+          } else morph = 1;
+          uniforms.uMorph.value = morph;
+
+          // Render synchrone + capture du canvas
+          composer.render();
+          capturer.capture(canvas);
+
+          if(frameIdx % 6 === 0){
+            setStatus(`Frame ${frameIdx+1}/${TOTAL_FRAMES} — uMorph=${morph.toFixed(2)}`);
+          }
+          frameIdx++;
+          requestAnimationFrame(captureFrame);
+        }
+        requestAnimationFrame(captureFrame);
+      }
+
+      btn.addEventListener('click', runCapture);
+      setStatus('Module capture prêt. Clique pour démarrer.');
+    })();
   }
 })();
 
