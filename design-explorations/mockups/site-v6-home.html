@@ -1378,6 +1378,70 @@
   .method-desc{font-size:15px;line-height:1.65;color:var(--slate-warm);margin-bottom:28px}
   .method-sources{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);line-height:1.8;padding-top:24px;border-top:1px dashed var(--line)}
   .method-sources strong{color:var(--ink)}
+
+  /* === SOURCE CHIPS — Pass 5 micro-interactions =========================== */
+  .source-grid{
+    display:flex;flex-wrap:wrap;gap:8px;
+    line-height:1;
+  }
+  .source-chip{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:6px 12px 6px 6px;
+    background:var(--cream);
+    border:1px solid var(--line);
+    border-radius:var(--r-pill);
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    font-weight:500;
+    letter-spacing:0.01em;
+    color:var(--ink);
+    transition:transform var(--tt-base),background var(--tt-base),border-color var(--tt-base),box-shadow var(--tt-base);
+    position:relative;
+    will-change:transform;
+    --pulse-delay:0s;
+  }
+  .source-chip:hover{
+    background:var(--cream-warm);
+    border-color:var(--amber);
+    transform:translateY(-2px);
+    box-shadow:var(--shadow-glow-amber);
+  }
+  .source-chip:hover .src-icon{
+    background:var(--amber);
+    color:var(--ink);
+    transform:rotate(-6deg) scale(1.08);
+  }
+  .source-chip .src-icon{
+    width:22px;height:22px;
+    flex-shrink:0;
+    border-radius:50%;
+    background:var(--ink);
+    color:var(--amber);
+    font-size:9px;
+    font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center;
+    letter-spacing:-0.02em;
+    transition:transform var(--tt-base),background var(--tt-base),color var(--tt-base);
+  }
+  /* Idle pulse signal (data live) */
+  .source-chip::after{
+    content:"";position:absolute;
+    top:8px;right:10px;width:5px;height:5px;
+    border-radius:50%;
+    background:var(--signal-ok);
+    box-shadow:0 0 0 0 rgba(0,184,107,0.5);
+    animation:srcPulse 3s var(--ease-out-quint) infinite;
+    animation-delay:var(--pulse-delay);
+  }
+  .source-chip:hover::after{background:var(--amber);box-shadow:0 0 0 0 var(--amber-glow)}
+  @keyframes srcPulse{
+    0%,82%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(0,184,107,0)}
+    8%,28%{transform:scale(1.5);box-shadow:0 0 0 6px rgba(0,184,107,0)}
+    14%{box-shadow:0 0 0 0 rgba(0,184,107,0.5)}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .source-chip::after{animation:none}
+  }
   @media(max-width:880px){
     .method-grid{grid-template-columns:1fr;perspective:none}
     .method-card:nth-child(2),.method-card:nth-child(3){margin-top:0}
@@ -1972,7 +2036,18 @@
         </div>
         <h3 class="method-title">9 sources publiques FR surveillées 24/7.</h3>
         <p class="method-desc">Chaque source est ingérée par un poller dédié, dédupliquée, normalisée. Aucun scraping illégal. Aucun cookie tiers. Que des sources publiques officielles.</p>
-        <div class="method-sources"><strong>INPI</strong> · <strong>Pappers</strong> · <strong>BODACC</strong> · France Travail · WTTJ · RSS levées · JOAFE · LinkedIn public · TheirStack</div>
+        <!-- Pass 5 — 9 source chips animés, idle pulse + hover sound coupling -->
+        <div class="method-sources source-grid" data-cursor="hover">
+          <span class="source-chip" data-src="INPI"        style="--pulse-delay:0.0s">  <span class="src-icon">IP</span><span class="src-name">INPI</span></span>
+          <span class="source-chip" data-src="Pappers"     style="--pulse-delay:0.5s">  <span class="src-icon">PP</span><span class="src-name">Pappers</span></span>
+          <span class="source-chip" data-src="BODACC"      style="--pulse-delay:0.9s">  <span class="src-icon">BD</span><span class="src-name">BODACC</span></span>
+          <span class="source-chip" data-src="FT"          style="--pulse-delay:1.3s">  <span class="src-icon">FT</span><span class="src-name">France&nbsp;Travail</span></span>
+          <span class="source-chip" data-src="WTTJ"        style="--pulse-delay:1.7s">  <span class="src-icon">WJ</span><span class="src-name">WTTJ</span></span>
+          <span class="source-chip" data-src="RSS"         style="--pulse-delay:2.1s">  <span class="src-icon">$$</span><span class="src-name">RSS&nbsp;Levées</span></span>
+          <span class="source-chip" data-src="JOAFE"       style="--pulse-delay:2.5s">  <span class="src-icon">JO</span><span class="src-name">JOAFE</span></span>
+          <span class="source-chip" data-src="LinkedIn"    style="--pulse-delay:2.9s">  <span class="src-icon">in</span><span class="src-name">LinkedIn</span></span>
+          <span class="source-chip" data-src="TheirStack"  style="--pulse-delay:3.3s">  <span class="src-icon">TS</span><span class="src-name">TheirStack</span></span>
+        </div>
       </div>
 
       <!-- CARD 02 — QUALIFIER : neural graph avec Claude Opus au centre + 13 patterns -->
@@ -4469,6 +4544,100 @@ const FilmicShader = {
   // Boot arpège : juste après le loader (si déjà unlocked = re-enable)
   window.addEventListener('load', () => {
     setTimeout(() => { if(enabled && unlocked) Sound.boot(); }, 2200);
+  });
+})();
+</script>
+
+<!-- ====================================================================
+ * PASS 5 — EASTER EGG KONAMI → terminal mode
+ * Séquence ↑↑↓↓←→←→BA active une couche "terminal" qui transforme
+ * tout le site en mono amber sur fond ink avec glitch + scanlines.
+ * Re-séquence pour désactiver.
+ * ==================================================================== */
+<style>
+  /* Layer terminal — appliqué quand body.terminal-mode */
+  body.terminal-mode{
+    background:#000;color:var(--amber);
+    font-family:var(--font-mono);
+  }
+  body.terminal-mode::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:9990;
+    background:repeating-linear-gradient(
+      0deg,
+      transparent 0,transparent 2px,
+      rgba(0,0,0,0.18) 2px,rgba(0,0,0,0.18) 3px
+    );
+    mix-blend-mode:multiply;
+  }
+  body.terminal-mode::after{
+    content:"//  iFIND TERMINAL · konami unlocked · ↑↑↓↓←→←→BA pour quitter";
+    position:fixed;left:24px;bottom:18px;z-index:9991;
+    font-family:var(--font-mono);font-size:11px;color:var(--amber);
+    letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;
+    pointer-events:none;
+    opacity:0.85;
+    text-shadow:0 0 8px var(--amber-glow);
+    animation:termBlink 1.4s steps(2) infinite;
+  }
+  @keyframes termBlink{0%,50%{opacity:0.85}51%,100%{opacity:0.45}}
+  body.terminal-mode .grain-overlay{opacity:0.10}
+  body.terminal-mode .site-nav,
+  body.terminal-mode .section,
+  body.terminal-mode .hero,
+  body.terminal-mode .feed,
+  body.terminal-mode .cta-final,
+  body.terminal-mode .manifesto,
+  body.terminal-mode footer{
+    background:#000 !important;color:var(--amber) !important;
+    border-color:rgba(232,159,44,0.25) !important;
+  }
+  body.terminal-mode .btn--primary,
+  body.terminal-mode .btn--amber{
+    background:transparent;color:var(--amber);
+    border:1px solid var(--amber);
+    text-shadow:0 0 6px var(--amber-glow);
+  }
+  body.terminal-mode .btn--ghost{color:var(--amber);border-color:var(--amber)}
+  body.terminal-mode h1,body.terminal-mode h2,body.terminal-mode h3,body.terminal-mode h4{
+    color:var(--amber);text-shadow:0 0 12px var(--amber-glow);
+    font-family:var(--font-mono);font-weight:500;letter-spacing:0;
+  }
+  body.terminal-mode em.amber{color:#FFE6B8}
+  body.terminal-mode .source-chip{
+    background:transparent;border:1px solid var(--amber);
+    color:var(--amber);
+  }
+  body.terminal-mode .source-chip .src-icon{background:var(--amber);color:#000}
+  body.terminal-mode img,body.terminal-mode video{filter:hue-rotate(330deg) saturate(0.4) brightness(0.9)}
+  body.terminal-mode #hero-3d,body.terminal-mode #fr-3d{filter:hue-rotate(330deg) saturate(2.5) brightness(0.9)}
+  /* Glitch léger sur les titres */
+  body.terminal-mode h1::after{
+    content:"_";color:var(--amber);
+    animation:termCursor 0.9s steps(2) infinite;
+    margin-left:0.05em;
+  }
+  @keyframes termCursor{0%,50%{opacity:1}51%,100%{opacity:0}}
+</style>
+<script>
+(function(){
+  'use strict';
+  const SEQ = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown',
+               'ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+  let pos = 0;
+  document.addEventListener('keydown', e => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if(k === SEQ[pos]){
+      pos++;
+      if(pos === SEQ.length){
+        document.body.classList.toggle('terminal-mode');
+        if(window.Sound?.enabled?.()) {
+          window.Sound.boot();  // arpège FM = signal d'activation
+        }
+        pos = 0;
+      }
+    } else {
+      pos = (k === SEQ[0]) ? 1 : 0;
+    }
   });
 })();
 </script>
