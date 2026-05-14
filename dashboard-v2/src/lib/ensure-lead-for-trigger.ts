@@ -32,10 +32,19 @@ export async function ensureLeadsForAllTriggers(
   // Phase 2 recovery 04/05 : on accepte les Triggers SANS SIRET si Opus≥7
   // (Pépites confirmées par scoring contextuel). Pour les autres, on garde
   // la règle stricte SIRET requis (anti-pollution boîtes ambiguës).
+  //
+  // Fix audit massif 14/05/2026 — Ajout filtre status NOT IGNORED.
+  // Avant : un Trigger IGNORED (verdict V2 NON ou ENRICH non-shippable) avec
+  // SIRET tombait dans ensureLead → Lead créé en NEW alors que le judge avait
+  // explicitement dit "pas intéressant". 10 leads polluants détectés en DB
+  // (2 DTL + 8 iFIND). Maintenant : on skip IGNORED systématiquement.
+  // Note : `archiveLeadOnTriggerIgnored` (lead-status-sync) gère déjà les
+  // Leads PRÉ-existants → IGNORED, mais ne couvrait pas la création post-qualify.
   const triggers = await db.trigger.findMany({
     where: {
       clientId,
       deletedAt: null,
+      status: { not: "IGNORED" },
       score: { gte: 4 },
       OR: [
         { companySiret: { not: null } },
