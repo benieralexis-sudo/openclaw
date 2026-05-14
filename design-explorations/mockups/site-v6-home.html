@@ -20,6 +20,8 @@
 <meta name="twitter:title" content="iFIND — Le sismographe de la donnée commerciale française">
 <meta name="twitter:description" content="Détection temps réel des triggers d'achat sur les PME tech FR. 9 sources souveraines, 13 patterns propriétaires.">
 <meta name="theme-color" content="#0F0D0A">
+<!-- Pass 7 — View Transitions API cross-document : transition fade entre pages -->
+<meta name="view-transition" content="same-origin">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Geist Variable + Geist Mono Variable (axe weight 100..900) — qualité OpenType maximale -->
@@ -188,6 +190,48 @@
 
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:auto}
+
+  /* === Pass 7 — View Transitions API cross-document ====================
+   * Active une transition fade-in/out entre toutes les pages same-origin.
+   * Le navigateur snapshot la page sortante puis crossfade vers la nouvelle.
+   * Fallback gracieux : navigation classique si pas de support.
+   * ==================================================================== */
+  @view-transition{ navigation: auto; }
+  ::view-transition-old(root){
+    animation: vtFadeOut 280ms var(--ease-out-expo) both;
+  }
+  ::view-transition-new(root){
+    animation: vtFadeIn 420ms var(--ease-out-expo) both;
+  }
+  @keyframes vtFadeOut{
+    from{opacity:1;filter:blur(0)}
+    to{opacity:0;filter:blur(4px)}
+  }
+  @keyframes vtFadeIn{
+    from{opacity:0;filter:blur(4px) saturate(1.4);transform:translateY(8px)}
+    to  {opacity:1;filter:blur(0)   saturate(1);  transform:translateY(0)}
+  }
+  /* Logo nav persiste à travers les pages (effet morph) */
+  .logo{view-transition-name: ifind-logo}
+  /* Hero canvas persiste (la scène 3D ne re-loade pas) */
+  #hero-3d{view-transition-name: hero-canvas}
+
+  /* === Pass 7 — Skip link accessibility (WCAG 2.4.1) ==================
+   * Lien sauter au contenu principal, visible au focus seulement.
+   * ==================================================================== */
+  .skip-link{
+    position:fixed;top:8px;left:8px;
+    padding:10px 16px;
+    background:var(--ink);color:var(--cream);
+    font-family:var(--font-mono);font-size:13px;font-weight:500;
+    letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;
+    border-radius:var(--r-base);
+    z-index:var(--z-toast);
+    transform:translateY(-200%);
+    transition:transform var(--tt-base);
+    text-decoration:none;
+  }
+  .skip-link:focus-visible{transform:translateY(0)}
   /* Lenis smooth scroll */
   html.lenis,html.lenis body{height:auto}
   .lenis.lenis-smooth{scroll-behavior:auto !important}
@@ -380,6 +424,15 @@
   .loader-pic{position:absolute;left:8px;top:-22px;width:4px;height:0;background:var(--amber);border-radius:1.5px;animation:picGrow 600ms cubic-bezier(0.4,0,0.2,1) 100ms forwards}
   @keyframes picGrow{0%{height:0;opacity:0}40%{opacity:1}100%{height:16px;opacity:1}}
   .loader-text{opacity:0;animation:loaderTextIn 500ms ease-out 600ms forwards}
+  /* Pass 7 — texte loader évolutif 3 phases (~1.4s par phase) */
+  .loader-status{position:relative;display:inline-block;width:280px;text-align:center}
+  .ls-phase{position:absolute;left:50%;top:0;transform:translateX(-50%);white-space:nowrap;opacity:0;transition:opacity 280ms var(--ease-out-expo)}
+  .ls-phase--1{animation:lsP1 4.2s ease-in-out forwards}
+  .ls-phase--2{animation:lsP2 4.2s ease-in-out forwards}
+  .ls-phase--3{animation:lsP3 4.2s ease-in-out forwards}
+  @keyframes lsP1{0%,28%{opacity:1}38%,100%{opacity:0}}
+  @keyframes lsP2{0%,38%{opacity:0}48%,68%{opacity:1}78%,100%{opacity:0}}
+  @keyframes lsP3{0%,78%{opacity:0}88%,100%{opacity:1}}
   .loader-text span{display:inline-block;opacity:0;animation:letterIn 320ms ease-out forwards}
   .loader-text span:nth-child(1){animation-delay:600ms}
   .loader-text span:nth-child(2){animation-delay:680ms}
@@ -1778,12 +1831,20 @@
 <body>
 
 <!-- PAGE LOADER -->
-<div class="page-loader" id="loader" aria-hidden="true">
+<!-- Pass 7 — Skip link accessibility WCAG 2.4.1 -->
+<a href="#main-content" class="skip-link">Aller au contenu</a>
+
+<div class="page-loader" id="loader" aria-hidden="true" role="status" aria-label="Initialisation du sismographe">
   <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:32px">
     <span class="loader-logo">
       <span style="position:relative;display:inline-block">i<span class="loader-pic"></span></span><span class="loader-text"><span>f</span><span>i</span><span>n</span><span>d</span></span>
     </span>
-    <span style="font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase">// Sismographe initialisation...</span>
+    <!-- Pass 7 — Texte loader évolutif 3 phases (animation auto via CSS) -->
+    <span class="loader-status" style="font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;min-height:1em">
+      <span class="ls-phase ls-phase--1">// Sismographe · initialisation</span>
+      <span class="ls-phase ls-phase--2">// Calibration · 9 sources OK</span>
+      <span class="ls-phase ls-phase--3">// Synchronisation · territoire FR</span>
+    </span>
   </div>
   <div class="loader-line">
     <svg viewBox="0 0 1440 40" preserveAspectRatio="none">
@@ -1843,7 +1904,7 @@
 <!-- ===================================================================
  * HERO IMMERSIF
  =================================================================== -->
-<section class="hero">
+<section class="hero" id="main-content" tabindex="-1">
   <!-- Background couches parallax -->
   <div class="hero-bg" aria-hidden="true">
     <div class="hero-mesh" data-parallax="0.3"></div>
