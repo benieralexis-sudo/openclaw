@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma, TriggerType } from "@prisma/client";
 import { invalidateTriggerForRequalify } from "@/lib/requalify-engine";
+import { sendTelegramMessage } from "@/lib/delivery-sender";
 
 /**
  * Combo cross-sources : si une même boîte a 2+ Triggers de sources différentes
@@ -75,8 +76,36 @@ function getComboWindowDays(types: TriggerType[]): number {
 }
 
 const TECH_HIRING_KEYWORDS = /\b(dev|engineer|tech|qa|devops|sre|fullstack|backend|frontend|data|machine learning|ml|ai|software|architect|cto|vp eng|head of eng|lead|product manager|po|product owner)\b/i;
+// Sprint multi-signal 14/05 — symétrique iFIND : hire commercial post-funding
+// = activation team sales = sweet spot iFIND (SDR-as-a-service).
+const SALES_HIRING_KEYWORDS = /\b(sdr|bdr|sales|account executive|\bae\b|business development|business developer|outbound|inside sales|account manager|growth|head of growth|chief revenue|\bcro\b|sales manager|head of sales|vp sales|cmo|chief marketing|sales director|growth manager|growth marketer)\b/i;
 
 const SCALE_UP_TECH_MARKER = "[SCALE-UP-TECH]";
+const SCALE_UP_SALES_MARKER = "[SCALE-UP-SALES]";
+
+// Telegram admin chat — alerte sur nouveaux combos HOT (SCALE-UP-*).
+// Idempotence : on n'alerte qu'à la PREMIÈRE détection (marqueur dans scoreReason).
+const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID ?? "";
+
+async function alertNewScaleUpCombo(opts: {
+  clientSlug: string;
+  marker: string; // "[SCALE-UP-TECH]" ou "[SCALE-UP-SALES]"
+  companyName: string;
+  fundingTitle: string;
+  hireTitles: string[];
+}): Promise<void> {
+  if (!ADMIN_CHAT_ID) return;
+  const variant = opts.marker.includes("TECH") ? "TECH" : "SALES";
+  const emoji = variant === "TECH" ? "🔧" : "💼";
+  const fundingShort = opts.fundingTitle.replace(/^Lev[ée]e de fonds d[ée]tect[ée]e\s*[-—:]?\s*/i, "");
+  const hireShort = opts.hireTitles.slice(0, 2).join(" + ").slice(0, 140);
+  const msg = `${emoji} *Nouveau combo SCALE-UP-${variant}* (\`${opts.clientSlug}\`)\n\n*${opts.companyName}*\nLevée : ${fundingShort}\nHire : ${hireShort}\n\n→ Trigger score 10 isHot, brief invalidé, re-qualify en cours.`;
+  try {
+    await sendTelegramMessage({ chatId: ADMIN_CHAT_ID, text: msg });
+  } catch {
+    // best effort — l'alerte est cosmétique
+  }
+}
 
 export async function detectCombosForClient(
   clientId: string,
@@ -166,6 +195,13 @@ export async function detectCombosForClient(
       (t) => t.type === "HIRING_KEY" && TECH_HIRING_KEYWORDS.test(t.title),
     );
     const isScaleUpTech = hasFunding && techHires.length >= 1;
+    // Sprint multi-signal 14/05 — symétrique iFIND : SCALE-UP-SALES.
+    // (Funding | CapitalIncrease) + hire Sales/SDR/Growth = activation team
+    // commercial post-funding. Sweet spot iFIND (SDR-as-a-service).
+    const salesHires = items.filter(
+      (t) => t.type === "HIRING_KEY" && SALES_HIRING_KEYWORDS.test(t.title),
+    );
+    const isScaleUpSales = hasFunding && salesHires.length >= 1 && !isScaleUpTech;
 
     if (isScaleUpTech) {
       scaleUpTech += 1;
@@ -178,7 +214,8 @@ export async function detectCombosForClient(
       const newReason = `${SCALE_UP_TECH_MARKER} ${fundingTitle} + hire tech (${techTitlesPreview}) sur ${target.companyName} — scale post-funding = besoin QA externe vital pour scaler sans casser`.slice(0, 500);
 
       // Skip si déjà boosté scale-up-tech (idempotence)
-      if (target.scoreReason?.includes(SCALE_UP_TECH_MARKER) && target.score >= 10 && target.isCombo) {
+      const wasAlreadyScaleUp = target.scoreReason?.includes(SCALE_UP_TECH_MARKER) && target.score >= 10 && target.isCombo;
+      if (wasAlreadyScaleUp) {
         // déjà à jour
         for (const other of items) {
           if (other.id !== target.id && !other.isCombo) {
@@ -187,6 +224,19 @@ export async function detectCombosForClient(
         }
         continue;
       }
+
+      // Première détection — alerte Telegram admin
+      const client = await db.client.findUnique({
+        where: { id: clientId },
+        select: { slug: true },
+      });
+      await alertNewScaleUpCombo({
+        clientSlug: client?.slug ?? clientId,
+        marker: SCALE_UP_TECH_MARKER,
+        companyName: target.companyName,
+        fundingTitle,
+        hireTitles: techHires.slice(0, 2).map((t) => t.title),
+      });
 
       await db.trigger.update({
         where: { id: target.id },
@@ -211,6 +261,79 @@ export async function detectCombosForClient(
         }
       }
       // Invalider pitch/brief sur le lead lié (sera régénéré avec contexte scale-up)
+      try {
+        await db.lead.updateMany({
+          where: { triggerId: target.id, deletedAt: null },
+          data: {
+            briefJson: null as unknown as Prisma.InputJsonValue,
+            briefGeneratedAt: null,
+            pitchJson: null as unknown as Prisma.InputJsonValue,
+            pitchGeneratedAt: null,
+          },
+        });
+      } catch {
+        // best effort
+      }
+      updated += 1;
+      continue;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Pattern SCALE-UP-SALES — symétrique pour iFIND (SDR-as-a-service)
+    // (funding ou capital-increase) + hire commercial = team sales en cours
+    // d'activation post-funding. Le combo le plus puissant côté iFIND.
+    // ──────────────────────────────────────────────────────────────────
+    if (isScaleUpSales) {
+      scaleUpTech += 1; // (compte agrégé toutes scale-up)
+      const fundingTrigger = items.find((t) => t.type === "FUNDRAISING" || t.type === "CAPITAL_INCREASE");
+      const fundingTitle = fundingTrigger?.title ?? "Levée";
+      const salesTitlesPreview = salesHires
+        .slice(0, 2)
+        .map((t) => t.title)
+        .join(" + ");
+      const newReason = `${SCALE_UP_SALES_MARKER} ${fundingTitle} + hire commercial (${salesTitlesPreview}) sur ${target.companyName} — scale post-funding = activation team sales = sweet spot iFIND`.slice(0, 500);
+
+      const wasAlreadyScaleUp = target.scoreReason?.includes(SCALE_UP_SALES_MARKER) && target.score >= 10 && target.isCombo;
+      if (wasAlreadyScaleUp) {
+        for (const other of items) {
+          if (other.id !== target.id && !other.isCombo) {
+            await db.trigger.update({ where: { id: other.id }, data: { isCombo: true } });
+          }
+        }
+        continue;
+      }
+
+      const client = await db.client.findUnique({
+        where: { id: clientId },
+        select: { slug: true },
+      });
+      await alertNewScaleUpCombo({
+        clientSlug: client?.slug ?? clientId,
+        marker: SCALE_UP_SALES_MARKER,
+        companyName: target.companyName,
+        fundingTitle,
+        hireTitles: salesHires.slice(0, 2).map((t) => t.title),
+      });
+
+      await db.trigger.update({
+        where: { id: target.id },
+        data: {
+          isCombo: true,
+          score: 10,
+          isHot: true,
+          scoreReason: newReason,
+        },
+      });
+      for (const other of items) {
+        if (other.id === target.id) continue;
+        if (!other.isCombo) {
+          await db.trigger.update({ where: { id: other.id }, data: { isCombo: true } });
+        }
+        if (other.scoreReason) {
+          await invalidateTriggerForRequalify(other.id, "combo-retroactive-scale-up-sales");
+          retroInvalidated += 1;
+        }
+      }
       try {
         await db.lead.updateMany({
           where: { triggerId: target.id, deletedAt: null },
