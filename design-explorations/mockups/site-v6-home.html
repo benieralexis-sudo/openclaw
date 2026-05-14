@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iFIND — Le sismographe de la donnée commerciale française</title>
+<meta name="description" content="Détection temps réel des triggers d'achat sur les PME tech FR. 9 sources souveraines, 13 patterns propriétaires. Aucun intent data américain.">
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Lenis (smooth scroll) + GSAP + ScrollTrigger -->
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<!-- Three.js (ESM via importmap) — scène 3D hero sismographe -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  /* ============================================================
+   * iFIND v6 HOME — IMMERSIF · Phase 4.1
+   * Refonte avec parallax, scroll-orchestré, cards 3D, count-up,
+   * carte FR interactive, curseur custom, magnetic buttons,
+   * citation qui se trace, loader d'entrée.
+   * ============================================================ */
+
+  :root{
+    --ink:#0F0D0A; --ink-soft:#1A1614; --ink-deeper:#000000;
+    --cream:#F5F1EA; --cream-warm:#EDE7DA; --cream-deep:#E0D8C5;
+    --amber:#E89F2C; --amber-deep:#C7841E; --amber-soft:#F4D9A5; --amber-glow:rgba(232,159,44,0.35);
+    --slate-warm:#5C544A; --slate-soft:#8A8278;
+    --line:#D9D2C2; --line-soft:#E6DFCE;
+    --signal-ok:#00B86B; --signal-ok-soft:#D2F0E0;
+    --alert-hot:#7A2E2E; --alert-hot-soft:#EBD4D4;
+    --font-sans:'Geist',ui-sans-serif,system-ui,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,monospace;
+    --tracking-tight:-0.025em; --tracking-display:-0.03em;
+    --tracking-mono:0.04em; --tracking-eyebrow:0.12em;
+    --t-fast:120ms cubic-bezier(0.4,0,0.2,1);
+    --t-base:220ms cubic-bezier(0.4,0,0.2,1);
+    --t-slow:380ms cubic-bezier(0.4,0,0.2,1);
+    --t-spring:580ms cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:auto}
+  /* Lenis smooth scroll */
+  html.lenis,html.lenis body{height:auto}
+  .lenis.lenis-smooth{scroll-behavior:auto !important}
+  .lenis.lenis-smooth [data-lenis-prevent]{overscroll-behavior:contain}
+  .lenis.lenis-stopped{overflow:hidden}
+  .lenis.lenis-scrolling iframe{pointer-events:none}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:var(--font-sans);
+    font-size:16px;
+    line-height:1.55;
+    font-feature-settings:"ss01","cv11";
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+    cursor:none;
+  }
+  body.no-cursor-custom{cursor:auto}
+  ::selection{background:var(--amber);color:var(--ink)}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;cursor:none}
+  img,svg{display:block;max-width:100%}
+
+  .container{max-width:1280px;margin-inline:auto;padding-inline:32px;position:relative;z-index:2}
+  @media(max-width:640px){.container{padding-inline:20px}}
+
+  /* === GRAIN OVERLAY (filtre subtle) === */
+  .grain-overlay{
+    position:fixed;inset:0;
+    pointer-events:none;z-index:9998;
+    opacity:0.04;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.8 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+  }
+
+  /* === SCROLL PROGRESS BAR === */
+  .scroll-progress{
+    position:fixed;top:0;left:0;right:0;height:2px;z-index:9999;
+    background:transparent;pointer-events:none;
+  }
+  .scroll-progress::before{
+    content:"";position:absolute;top:0;left:0;height:100%;
+    background:var(--amber);
+    width:var(--progress,0%);
+    box-shadow:0 0 12px var(--amber-glow);
+    transition:width 60ms linear;
+  }
+
+  /* === CUSTOM CURSOR === */
+  .cursor-dot{
+    position:fixed;width:6px;height:6px;border-radius:50%;
+    background:var(--amber);
+    pointer-events:none;z-index:9997;
+    transform:translate(-50%,-50%);
+    transition:transform 80ms ease-out,opacity 200ms;
+    mix-blend-mode:multiply;
+  }
+  .cursor-ring{
+    position:fixed;width:36px;height:36px;border-radius:50%;
+    border:1px solid var(--ink);
+    pointer-events:none;z-index:9997;
+    transform:translate(-50%,-50%);
+    transition:transform 220ms cubic-bezier(0.4,0,0.2,1),opacity 220ms,width 280ms,height 280ms,border-color 220ms,background 220ms;
+    opacity:0.85;
+  }
+  .cursor-ring.hover{width:54px;height:54px;border-color:var(--amber);background:rgba(232,159,44,0.08)}
+  .cursor-ring.text-hover{width:12px;height:24px;border-radius:1px;border-color:var(--amber);background:var(--amber);opacity:0.6}
+  .cursor-ring.terminal{width:24px;height:24px;border-radius:0;border-color:var(--amber);border-width:2px;background:transparent}
+  @media(max-width:880px),(pointer:coarse){
+    body{cursor:auto}
+    button,a{cursor:pointer}
+    .cursor-dot,.cursor-ring{display:none}
+  }
+
+  /* === LOADER ENTRANCE === */
+  .page-loader{
+    position:fixed;inset:0;z-index:10000;
+    background:var(--cream);
+    display:flex;align-items:center;justify-content:center;
+    transition:opacity 600ms 200ms ease-out,visibility 600ms 200ms;
+  }
+  .page-loader.done{opacity:0;visibility:hidden;pointer-events:none}
+  .loader-logo{display:inline-flex;align-items:baseline;font-weight:600;font-size:48px;letter-spacing:var(--tracking-tight);color:var(--ink);position:relative}
+  .loader-pic{position:absolute;left:8px;top:-22px;width:4px;height:0;background:var(--amber);border-radius:1.5px;animation:picGrow 600ms cubic-bezier(0.4,0,0.2,1) 100ms forwards}
+  @keyframes picGrow{0%{height:0;opacity:0}40%{opacity:1}100%{height:16px;opacity:1}}
+  .loader-text{opacity:0;animation:loaderTextIn 500ms ease-out 600ms forwards}
+  .loader-text span{display:inline-block;opacity:0;animation:letterIn 320ms ease-out forwards}
+  .loader-text span:nth-child(1){animation-delay:600ms}
+  .loader-text span:nth-child(2){animation-delay:680ms}
+  .loader-text span:nth-child(3){animation-delay:760ms}
+  .loader-text span:nth-child(4){animation-delay:840ms}
+  @keyframes letterIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes loaderTextIn{to{opacity:1}}
+  .loader-line{position:absolute;left:0;right:0;bottom:30%;height:1px;overflow:hidden}
+  .loader-line svg{width:100%;height:40px;position:absolute;bottom:0;left:0}
+  .loader-line path{stroke:var(--amber);stroke-width:2;fill:none;stroke-dasharray:1200;stroke-dashoffset:1200;animation:drawSig 1200ms cubic-bezier(0.4,0,0.2,1) 400ms forwards}
+  @keyframes drawSig{to{stroke-dashoffset:0}}
+
+  /* === TYPO === */
+  .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--slate-warm);font-weight:500}
+  .eyebrow .amber{color:var(--amber)}
+  h1,h2,h3,h4{font-weight:500;letter-spacing:var(--tracking-display);line-height:1.05}
+  h1{font-size:clamp(48px,7vw,96px)}
+  h2{font-size:clamp(34px,4.6vw,60px);letter-spacing:var(--tracking-tight);line-height:1.06}
+  h3{font-size:clamp(22px,2.4vw,28px);letter-spacing:var(--tracking-tight);line-height:1.2}
+  h4{font-size:18px;letter-spacing:-0.015em;line-height:1.3}
+  em.amber{color:var(--amber);font-style:italic;font-weight:500}
+
+  /* Split text reveal */
+  .split-word{display:inline-block;overflow:hidden;vertical-align:bottom}
+  .split-word > span{display:inline-block;transform:translateY(105%);transition:transform 700ms cubic-bezier(0.22,1,0.36,1)}
+  .is-visible .split-word > span{transform:translateY(0)}
+  .split-word:nth-child(1) > span{transition-delay:0ms}
+  .split-word:nth-child(2) > span{transition-delay:80ms}
+  .split-word:nth-child(3) > span{transition-delay:160ms}
+  .split-word:nth-child(4) > span{transition-delay:240ms}
+  .split-word:nth-child(5) > span{transition-delay:320ms}
+  .split-word:nth-child(6) > span{transition-delay:400ms}
+  .split-word:nth-child(7) > span{transition-delay:480ms}
+  .split-word:nth-child(8) > span{transition-delay:560ms}
+  .split-word:nth-child(9) > span{transition-delay:640ms}
+  .split-word:nth-child(10) > span{transition-delay:720ms}
+
+  /* === BUTTONS === */
+  .btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:500;font-size:15px;line-height:1;padding:14px 22px;border-radius:4px;border:1px solid transparent;transition:all var(--t-base);letter-spacing:-0.005em;white-space:nowrap;overflow:visible;will-change:transform}
+  .btn::before{content:"";position:absolute;inset:0;border-radius:inherit;transition:transform var(--t-base);transform-origin:left}
+  .btn:hover{transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn--primary{background:var(--ink);color:var(--cream)}
+  .btn--primary:hover{background:var(--ink-soft);box-shadow:0 8px 24px -10px rgba(15,13,10,0.4)}
+  .btn--primary .btn-pic{position:absolute;right:-12px;top:50%;transform:translateY(-50%) scaleY(0);width:3px;height:18px;background:var(--amber);transition:transform var(--t-spring) 80ms;transform-origin:bottom}
+  .btn--primary:hover .btn-pic{transform:translateY(-50%) scaleY(1)}
+  .btn--ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+  .btn--ghost:hover{background:var(--cream-warm);border-color:var(--slate-warm)}
+  .btn--amber{background:var(--amber);color:var(--ink);font-weight:600;overflow:hidden}
+  .btn--amber::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent);transform:translateX(-100%);transition:transform 800ms cubic-bezier(0.4,0,0.2,1)}
+  .btn--amber:hover{background:var(--amber-deep);box-shadow:0 0 0 1px rgba(232,159,44,0.2),0 12px 28px -10px var(--amber-glow)}
+  .btn--amber:hover::after{transform:translateX(100%)}
+  .btn--sm{font-size:13px;padding:9px 14px}
+  .btn--lg{font-size:16px;padding:16px 28px}
+  .magnetic{transition:transform var(--t-base) cubic-bezier(0.4,0,0.2,1)}
+
+  /* === BADGES === */
+  .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:500;font-size:11px;line-height:1;padding:5px 9px;border-radius:2px;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;background:var(--cream-warm);color:var(--ink);border:1px solid var(--line)}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;animation:pulseDot 2s ease-in-out infinite}
+  @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(1.3)}}
+
+  /* === LOGO === */
+  .logo{display:inline-flex;align-items:baseline;font-family:var(--font-sans);font-weight:600;letter-spacing:var(--tracking-tight);color:var(--ink)}
+  .logo .i-wrap{position:relative;display:inline-block}
+  .logo--md{font-size:22px}
+  .logo--md .pic{position:absolute;left:50%;top:-9px;transform:translateX(-50%);width:2.5px;height:8px;background:var(--amber);border-radius:1px;animation:logoPicPulse 2.4s ease-in-out infinite}
+  @keyframes logoPicPulse{0%,100%{opacity:0.9;transform:translateX(-50%) scaleY(1)}50%{opacity:1;transform:translateX(-50%) scaleY(1.15)}}
+
+  /* ============================================================
+   * NAV
+   ============================================================ */
+  nav.site-nav{
+    position:sticky;top:0;z-index:50;
+    background:rgba(245,241,234,0.85);
+    backdrop-filter:saturate(180%) blur(14px);
+    -webkit-backdrop-filter:saturate(180%) blur(14px);
+    border-bottom:1px solid transparent;
+    transition:border-color 200ms,background 200ms;
+  }
+  nav.site-nav.scrolled{border-bottom-color:var(--line)}
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;padding:18px 0;gap:24px}
+  .nav-links{display:flex;align-items:center;gap:32px;font-weight:500;font-size:14px}
+  .nav-links a{color:var(--slate-warm);transition:color var(--t-fast);position:relative;padding:6px 2px}
+  .nav-links a::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--amber);transform:scaleX(0);transform-origin:left;transition:transform var(--t-base)}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-links a:hover::after{transform:scaleX(1)}
+  .nav-cta{display:flex;align-items:center;gap:14px}
+  .nav-status{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase}
+  .nav-status .dot{width:6px;height:6px;border-radius:50%;background:var(--signal-ok);animation:pulseDot 2s ease-in-out infinite}
+  @media(max-width:880px){.nav-links,.nav-status{display:none}}
+
+  /* ============================================================
+   * HERO IMMERSIF
+   ============================================================ */
+  .hero{position:relative;min-height:100vh;padding:120px 0 80px;overflow:hidden;display:flex;align-items:center}
+
+  /* Background grid + mesh */
+  .hero-bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+  .hero-mesh{position:absolute;inset:-50px;background-image:radial-gradient(ellipse 600px 400px at 20% 20%,rgba(232,159,44,0.10),transparent 60%),radial-gradient(ellipse 800px 500px at 80% 60%,rgba(232,159,44,0.07),transparent 65%);will-change:transform}
+  .hero-grid-lines{position:absolute;inset:0;background-image:linear-gradient(to right,var(--line-soft) 1px,transparent 1px);background-size:80px 100%;opacity:0.35;will-change:transform}
+
+  /* Oscilloscope SVG fallback (noscript / no-WebGL) */
+  .hero-oscillo{position:absolute;left:-5%;right:-5%;top:50%;transform:translateY(-50%);height:60%;z-index:1;opacity:0.5;will-change:transform}
+  .hero-oscillo svg{width:100%;height:100%}
+  .hero-oscillo .wave-1{stroke:var(--amber);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 8px var(--amber-glow));stroke-dasharray:8000;animation:waveScroll 24s linear infinite}
+  @keyframes waveScroll{0%{stroke-dashoffset:0}100%{stroke-dashoffset:-8000}}
+
+  /* === SISMOGRAPHE 3D — Three.js canvas hero ============================
+   * Terrain "Joy Division" en lignes empilées, ShaderMaterial GPU,
+   * displacement multi-octave + pics ponctuels (triggers détectés).
+   * Fade-in synchro loader. Pause hors viewport. Reduced-motion = static frame.
+   * ===================================================================== */
+  .hero-3d-wrap{position:absolute;inset:0;z-index:1;pointer-events:none;will-change:transform}
+  #hero-3d{
+    position:absolute;inset:0;width:100%;height:100%;
+    display:block;
+    opacity:0;
+    transition:opacity 1400ms cubic-bezier(0.22,1,0.36,1) 1100ms;
+    /* Multiply pour fusionner naturellement avec le cream */
+    mix-blend-mode:multiply;
+  }
+  #hero-3d.is-ready{opacity:1}
+  /* Sur mobile / pointer coarse, on désactive WebGL pour batterie */
+  @media (max-width:720px),(pointer:coarse){
+    #hero-3d{display:none}
+    .hero-3d-wrap noscript .hero-oscillo,
+    .hero-3d-wrap .hero-oscillo{display:block}
+  }
+  /* Fallback no-WebGL : .no-webgl est ajouté côté JS */
+  body.no-webgl #hero-3d{display:none}
+  body.no-webgl .hero-3d-wrap::before{
+    content:"";position:absolute;left:-5%;right:-5%;top:50%;transform:translateY(-50%);height:60%;
+    background-image:radial-gradient(ellipse 800px 200px at 30% 50%,rgba(232,159,44,0.18),transparent 60%),
+                     radial-gradient(ellipse 600px 160px at 75% 50%,rgba(232,159,44,0.12),transparent 60%);
+  }
+  /* Reduced motion : on garde le rendu mais figé (pas d'animation continue) */
+  @media (prefers-reduced-motion:reduce){
+    #hero-3d{opacity:0.9;transition:none}
+  }
+
+  .hero-content{position:relative;z-index:3;display:grid;grid-template-columns:1.5fr 1fr;gap:64px;align-items:start;width:100%}
+
+  .hero-eyebrow{display:inline-flex;align-items:center;gap:10px;padding:7px 14px;background:rgba(245,241,234,0.7);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:2px;margin-bottom:36px;opacity:0;transform:translateY(8px);animation:heroEyebrowIn 700ms cubic-bezier(0.4,0,0.2,1) 900ms forwards}
+  .hero-eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--amber);animation:pulseDot 2s ease-in-out infinite}
+  @keyframes heroEyebrowIn{to{opacity:1;transform:translateY(0)}}
+
+  .hero h1{margin-bottom:36px;line-height:1.02}
+  .hero h1 .accent-wrap{display:inline-block;position:relative}
+  .hero h1 .accent-wrap::after{content:"";position:absolute;left:-2%;right:-2%;bottom:8%;height:18%;background:rgba(232,159,44,0.25);z-index:-1;transform:scaleX(0);transform-origin:left;animation:hlIn 800ms cubic-bezier(0.22,1,0.36,1) 1600ms forwards}
+  @keyframes hlIn{to{transform:scaleX(1)}}
+
+  .hero-sub{font-size:20px;line-height:1.55;color:var(--slate-warm);max-width:560px;margin-bottom:40px;opacity:0;transform:translateY(8px);animation:heroEyebrowIn 700ms cubic-bezier(0.4,0,0.2,1) 1700ms forwards}
+  .hero-sub strong{color:var(--ink);font-weight:500}
+
+  .hero-ctas{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:48px;opacity:0;transform:translateY(8px);animation:heroEyebrowIn 700ms cubic-bezier(0.4,0,0.2,1) 1850ms forwards}
+
+  .hero-meta{display:flex;align-items:center;gap:24px;font-family:var(--font-mono);font-size:12px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);flex-wrap:wrap;opacity:0;animation:heroEyebrowIn 700ms ease-out 2000ms forwards}
+  .hero-meta span{display:inline-flex;align-items:center;gap:6px}
+  .hero-meta svg{flex-shrink:0;color:var(--amber)}
+
+  /* Live panel — sticky, animé */
+  .hero-panel{
+    position:relative;
+    background:rgba(245,241,234,0.92);
+    backdrop-filter:blur(10px);
+    border:1px solid var(--line);
+    overflow:hidden;
+    box-shadow:0 8px 32px -16px rgba(15,13,10,0.12),0 0 0 1px rgba(232,159,44,0.08);
+    opacity:0;transform:translateY(20px) scale(0.97);
+    animation:heroPanelIn 900ms cubic-bezier(0.22,1,0.36,1) 1400ms forwards;
+  }
+  @keyframes heroPanelIn{to{opacity:1;transform:translateY(0) scale(1)}}
+
+  .hero-panel-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;background:rgba(237,231,218,0.5)}
+  .hero-panel-title{font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase}
+  .hero-panel-live{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--signal-ok);font-weight:500;letter-spacing:0.06em}
+  .hero-panel-live .dot{width:6px;height:6px;border-radius:50%;background:var(--signal-ok);box-shadow:0 0 0 2px rgba(0,184,107,0.18);animation:pulseDot 1.6s ease-in-out infinite}
+
+  .trigger-feed{padding:0;max-height:340px;overflow:hidden}
+  .trigger-row{padding:16px 20px;border-bottom:1px solid var(--line-soft);display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;transition:background var(--t-fast);position:relative}
+  .trigger-row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--amber);transform:scaleY(0);transform-origin:top;transition:transform 280ms ease-out}
+  .trigger-row:hover{background:rgba(237,231,218,0.4)}
+  .trigger-row:hover::before{transform:scaleY(1)}
+  .trigger-row:last-child{border-bottom:none}
+  .trigger-ts{font-family:var(--font-mono);font-size:11px;color:var(--slate-soft);letter-spacing:var(--tracking-mono)}
+  .trigger-company{font-family:var(--font-sans);font-weight:500;font-size:14px;color:var(--ink);margin-top:3px;letter-spacing:-0.01em}
+  .trigger-type{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);margin-top:4px;letter-spacing:0.02em}
+  .trigger-score{font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--amber);text-align:right;font-feature-settings:"tnum"}
+  .trigger-score.dim{color:var(--slate-warm);font-weight:500}
+  .trigger-row.entering{animation:rowSlide 600ms cubic-bezier(0.4,0,0.2,1)}
+  @keyframes rowSlide{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}
+  .hero-panel-foot{padding:14px 20px;background:rgba(237,231,218,0.5);border-top:1px solid var(--line);font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-align:center}
+
+  /* Hero scroll cue */
+  .scroll-cue{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;display:flex;align-items:center;gap:10px;opacity:0;animation:heroEyebrowIn 700ms ease-out 2400ms forwards}
+  .scroll-cue::before{content:"";width:24px;height:1px;background:var(--amber);animation:scrollLine 2s ease-in-out infinite}
+  @keyframes scrollLine{0%,100%{transform:scaleX(0.3);transform-origin:left}50%{transform:scaleX(1);transform-origin:left}}
+
+  @media(max-width:920px){
+    .hero{min-height:auto;padding:80px 0 60px}
+    .hero-content{grid-template-columns:1fr;gap:48px}
+    .scroll-cue{display:none}
+  }
+
+  /* ============================================================
+   * SECTION COMMUNS
+   ============================================================ */
+  .section{padding:140px 0;position:relative}
+  .section--warm{background:var(--cream-warm)}
+  .section--ink{background:var(--ink);color:var(--cream)}
+  .section--ink h2{color:var(--cream)}
+  .section--ink .eyebrow{color:var(--amber-soft)}
+  .section-head{margin-bottom:80px;max-width:840px}
+  .section-head .eyebrow{margin-bottom:24px;display:inline-block}
+  .section-head h2{margin-bottom:24px}
+  .section-head p{font-size:19px;line-height:1.6;color:var(--slate-warm)}
+  .section--ink .section-head p{color:rgba(245,241,234,0.7)}
+  @media(max-width:720px){
+    .section{padding:80px 0}
+    .section-head{margin-bottom:48px}
+  }
+
+  /* === REVEAL — visible par défaut, GSAP gère les fromTo === */
+  .reveal{opacity:1;transform:none;transition:opacity 700ms cubic-bezier(0.22,1,0.36,1),transform 700ms cubic-bezier(0.22,1,0.36,1)}
+  .reveal.is-visible{opacity:1;transform:translateY(0)}
+  .no-gsap .reveal{opacity:0;transform:translateY(24px)}
+  .no-gsap .reveal.is-visible{opacity:1;transform:translateY(0)}
+
+  /* ============================================================
+   * SECTION 1 — WHY iFIND
+   ============================================================ */
+  .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);background:var(--cream);position:relative;overflow:hidden}
+  .compare-col{padding:56px 48px;position:relative;z-index:2}
+  .compare-col--left{border-right:1px solid var(--line);background:var(--cream-warm)}
+  .compare-col--right{background:var(--cream);position:relative}
+  .compare-col--right::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 400px 300px at 80% 50%,rgba(232,159,44,0.06),transparent 60%);pointer-events:none}
+  .compare-head{display:flex;align-items:center;gap:14px;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+  .compare-name{font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:0.06em}
+  .compare-col--left .compare-name{color:var(--slate-warm)}
+  .compare-col--right .compare-name{color:var(--ink)}
+  .compare-tag{font-family:var(--font-mono);font-size:10px;color:var(--slate-soft);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;margin-left:auto}
+  .compare-list{list-style:none;display:flex;flex-direction:column;gap:20px}
+  .compare-list li{display:flex;align-items:flex-start;gap:14px;font-size:15px;line-height:1.55;opacity:0;transform:translateX(-12px);transition:opacity 500ms ease-out,transform 500ms cubic-bezier(0.22,1,0.36,1)}
+  .compare-grid.is-visible .compare-list li{opacity:1;transform:translateX(0)}
+  .compare-grid.is-visible .compare-list li:nth-child(1){transition-delay:120ms}
+  .compare-grid.is-visible .compare-list li:nth-child(2){transition-delay:200ms}
+  .compare-grid.is-visible .compare-list li:nth-child(3){transition-delay:280ms}
+  .compare-grid.is-visible .compare-list li:nth-child(4){transition-delay:360ms}
+  .compare-grid.is-visible .compare-list li:nth-child(5){transition-delay:440ms}
+  .compare-col--left .compare-list li{color:var(--slate-warm)}
+  .compare-col--left .compare-list li{text-decoration:line-through;text-decoration-color:rgba(122,46,46,0.4);text-decoration-thickness:1px}
+  .compare-mark{flex-shrink:0;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-top:2px;font-size:12px;font-weight:600}
+  .mark-x{background:var(--cream);color:var(--alert-hot);border:1px solid var(--alert-hot-soft);font-family:var(--font-mono)}
+  .mark-v{background:var(--amber);color:var(--ink);font-family:var(--font-mono);box-shadow:0 0 0 3px rgba(232,159,44,0.15)}
+  @media(max-width:780px){
+    .compare-grid{grid-template-columns:1fr}
+    .compare-col--left{border-right:none;border-bottom:1px solid var(--line)}
+    .compare-col{padding:32px 24px}
+  }
+
+  /* ============================================================
+   * SECTION 2 — METHOD (cards 3D)
+   ============================================================ */
+  .method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;perspective:1200px}
+  .method-card{
+    background:var(--cream);
+    border:1px solid var(--line);
+    padding:40px 36px;
+    position:relative;
+    overflow:hidden;
+    transition:transform var(--t-slow) cubic-bezier(0.22,1,0.36,1),border-color var(--t-base),box-shadow var(--t-base);
+    transform-style:preserve-3d;
+    will-change:transform;
+  }
+  .method-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle 200px at var(--mx,50%) var(--my,50%),rgba(232,159,44,0.08),transparent 60%);opacity:0;transition:opacity var(--t-base);pointer-events:none}
+  .method-card:hover{border-color:var(--amber);box-shadow:0 24px 48px -20px rgba(15,13,10,0.15)}
+  .method-card:hover::before{opacity:1}
+  .method-card:nth-child(2){margin-top:48px}
+  .method-card:nth-child(3){margin-top:96px}
+  .method-num{font-family:var(--font-mono);font-size:11px;color:var(--amber);letter-spacing:var(--tracking-eyebrow);font-weight:600;margin-bottom:28px;display:flex;align-items:center;gap:10px}
+  .method-num::before{content:"";display:inline-block;width:24px;height:1px;background:var(--amber)}
+  .method-icon{width:56px;height:56px;margin-bottom:28px;color:var(--ink);transition:transform var(--t-slow)}
+  .method-card:hover .method-icon{transform:scale(1.08) rotate(-3deg)}
+  .method-title{margin-bottom:16px;letter-spacing:-0.02em}
+  .method-desc{font-size:15px;line-height:1.65;color:var(--slate-warm);margin-bottom:28px}
+  .method-sources{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);line-height:1.8;padding-top:24px;border-top:1px dashed var(--line)}
+  .method-sources strong{color:var(--ink)}
+  @media(max-width:880px){
+    .method-grid{grid-template-columns:1fr;perspective:none}
+    .method-card:nth-child(2),.method-card:nth-child(3){margin-top:0}
+    .method-card{transform:none !important}
+  }
+
+  /* ============================================================
+   * SECTION 3 — CARTE FRANCE INTERACTIVE
+   ============================================================ */
+  .map-wrap{position:relative;display:grid;grid-template-columns:1fr 1.2fr;gap:48px;align-items:center}
+  .map-info h3{margin-bottom:16px}
+  .map-info p{font-size:16px;line-height:1.65;color:var(--slate-warm);margin-bottom:24px}
+  .map-stats{display:flex;flex-direction:column;gap:14px;padding:20px 24px;background:var(--cream);border:1px solid var(--line);font-family:var(--font-mono);font-size:12px;color:var(--slate-warm);letter-spacing:var(--tracking-mono)}
+  .map-stats div{display:flex;justify-content:space-between;align-items:center;gap:16px}
+  .map-stats strong{color:var(--ink);font-family:var(--font-sans);font-size:16px;font-weight:500;letter-spacing:-0.01em}
+  .map-stats .ok{color:var(--signal-ok)}
+
+  .map-container{position:relative;aspect-ratio:1.05;background:var(--cream);border:1px solid var(--line);overflow:hidden}
+  .map-container svg.fr-map{width:100%;height:100%}
+  .map-container svg.fr-map path.fr-shape{fill:var(--cream-warm);stroke:var(--line);stroke-width:1.2}
+  .map-pin{position:absolute;width:14px;height:14px;transform:translate(-50%,-50%)}
+  .map-pin .ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--amber);animation:pinRipple 2.4s ease-out infinite}
+  .map-pin .dot{position:absolute;inset:3px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber-glow)}
+  .map-pin.hot .ring{border-color:var(--alert-hot)}
+  .map-pin.hot .dot{background:var(--alert-hot);box-shadow:0 0 12px rgba(122,46,46,0.5)}
+  .map-pin:nth-child(2) .ring{animation-delay:0.4s}
+  .map-pin:nth-child(3) .ring{animation-delay:0.8s}
+  .map-pin:nth-child(4) .ring{animation-delay:1.2s}
+  .map-pin:nth-child(5) .ring{animation-delay:1.6s}
+  .map-pin:nth-child(6) .ring{animation-delay:2.0s}
+  @keyframes pinRipple{0%{transform:scale(0.5);opacity:1}100%{transform:scale(3.2);opacity:0}}
+  .map-label{position:absolute;font-family:var(--font-mono);font-size:10px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-transform:uppercase;white-space:nowrap;transform:translate(-50%,-180%);pointer-events:none}
+  .map-foot{position:absolute;bottom:16px;left:20px;right:20px;display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);pointer-events:none}
+  .map-foot .live-pulse{display:inline-flex;align-items:center;gap:8px;color:var(--signal-ok)}
+  .map-foot .live-pulse .dot{width:6px;height:6px;border-radius:50%;background:var(--signal-ok);animation:pulseDot 1.6s ease-in-out infinite}
+  @media(max-width:880px){
+    .map-wrap{grid-template-columns:1fr;gap:32px}
+  }
+
+  /* ============================================================
+   * SECTION 4 — LIVE FEED (cascade animation)
+   ============================================================ */
+  .feed-wrap{background:var(--ink);color:var(--cream);padding:48px;position:relative;overflow:hidden;border-radius:0}
+  .feed-wrap::before{content:"";position:absolute;top:-50%;right:-10%;width:60%;height:200%;background:radial-gradient(ellipse,rgba(232,159,44,0.06),transparent 60%);pointer-events:none}
+  .feed-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid rgba(245,241,234,0.1);gap:24px;flex-wrap:wrap;position:relative;z-index:2}
+  .feed-title{font-family:var(--font-mono);font-size:13px;color:var(--amber);letter-spacing:var(--tracking-eyebrow);font-weight:600}
+  .feed-meta{font-family:var(--font-mono);font-size:11px;color:rgba(245,241,234,0.55);letter-spacing:var(--tracking-mono)}
+  .feed-table{width:100%;border-collapse:separate;border-spacing:0;font-family:var(--font-mono);font-size:13px;color:var(--cream);position:relative;z-index:2}
+  .feed-table th{text-align:left;font-weight:500;font-size:10px;color:rgba(245,241,234,0.45);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;padding:12px 12px;border-bottom:1px solid rgba(245,241,234,0.1)}
+  .feed-table th.right{text-align:right}
+  .feed-table td{padding:16px 12px;border-bottom:1px solid rgba(245,241,234,0.06);font-feature-settings:"tnum"}
+  .feed-table tbody tr{transition:background var(--t-fast),opacity 500ms,transform 500ms cubic-bezier(0.22,1,0.36,1)}
+  .feed-table tbody tr{opacity:0;transform:translateY(8px)}
+  .feed-wrap.is-visible tbody tr{opacity:1;transform:translateY(0)}
+  .feed-wrap.is-visible tbody tr:nth-child(1){transition-delay:0ms}
+  .feed-wrap.is-visible tbody tr:nth-child(2){transition-delay:80ms}
+  .feed-wrap.is-visible tbody tr:nth-child(3){transition-delay:160ms}
+  .feed-wrap.is-visible tbody tr:nth-child(4){transition-delay:240ms}
+  .feed-wrap.is-visible tbody tr:nth-child(5){transition-delay:320ms}
+  .feed-wrap.is-visible tbody tr:nth-child(6){transition-delay:400ms}
+  .feed-wrap.is-visible tbody tr:nth-child(7){transition-delay:480ms}
+  .feed-wrap.is-visible tbody tr:nth-child(8){transition-delay:560ms}
+  .feed-table tbody tr:hover{background:rgba(245,241,234,0.04)}
+  .feed-ts{color:rgba(245,241,234,0.55);font-size:12px}
+  .feed-company{font-family:var(--font-sans);font-weight:500;font-size:14px;color:var(--cream);letter-spacing:-0.01em}
+  .feed-type{color:rgba(245,241,234,0.7)}
+  .feed-source{color:rgba(245,241,234,0.4);font-size:11px}
+  .feed-score{text-align:right;font-weight:600;color:var(--cream)}
+  .feed-score.high{color:var(--amber);text-shadow:0 0 12px rgba(232,159,44,0.4)}
+  .feed-score.hot{color:#F4A5A5}
+  .feed-foot{margin-top:24px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;position:relative;z-index:2}
+  .feed-foot-status{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--signal-ok);letter-spacing:var(--tracking-mono)}
+  .feed-foot-status .dot{width:7px;height:7px;border-radius:50%;background:var(--signal-ok);box-shadow:0 0 0 2px rgba(0,184,107,0.2);animation:pulseDot 1.6s ease-in-out infinite}
+  @media(max-width:720px){.feed-wrap{padding:28px 18px}.feed-table th:nth-child(4),.feed-table td:nth-child(4){display:none}}
+
+  /* ============================================================
+   * SECTION 5 — STATS COUNT-UP
+   ============================================================ */
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .stat-cell{padding:56px 28px;text-align:left;border-right:1px solid var(--line);position:relative;overflow:hidden}
+  .stat-cell:last-child{border-right:none}
+  .stat-cell::before{content:"";position:absolute;top:0;left:0;width:30px;height:2px;background:var(--amber);transform:scaleX(0);transform-origin:left;transition:transform 600ms cubic-bezier(0.4,0,0.2,1)}
+  .stat-cell.is-visible::before{transform:scaleX(1)}
+  .stat-num{font-size:72px;font-weight:500;letter-spacing:var(--tracking-display);line-height:1;color:var(--ink);font-feature-settings:"tnum";margin-bottom:16px}
+  .stat-num .unit{font-size:36px;color:var(--slate-warm);margin-left:4px}
+  .stat-label{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;line-height:1.6}
+  @media(max-width:880px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stat-cell:nth-child(2){border-right:none}.stat-cell:nth-child(1),.stat-cell:nth-child(2){border-bottom:1px solid var(--line)}.stat-num{font-size:52px}}
+  @media(max-width:480px){.stats-grid{grid-template-columns:1fr}.stat-cell{border-right:none;border-bottom:1px solid var(--line)}.stat-cell:last-child{border-bottom:none}}
+
+  /* ============================================================
+   * SECTION 6 — CITATION (qui se trace)
+   ============================================================ */
+  .quote-section{position:relative}
+  .quote-wrap{display:grid;grid-template-columns:1.5fr 1fr;gap:80px;align-items:center;position:relative}
+  .quote-marks{position:absolute;top:-40px;left:-40px;font-family:Georgia,serif;font-size:200px;line-height:1;color:var(--amber);opacity:0.15;font-style:italic;pointer-events:none}
+  .quote-text{font-family:var(--font-sans);font-size:clamp(26px,3.2vw,40px);font-weight:500;line-height:1.3;letter-spacing:var(--tracking-tight);color:var(--ink);position:relative;z-index:2}
+  .quote-text .highlighted{position:relative;color:var(--amber);font-style:italic;display:inline-block}
+  .quote-text .highlighted::after{content:"";position:absolute;left:-2%;right:-2%;bottom:0;height:46%;background:rgba(232,159,44,0.18);z-index:-1;transform:scaleX(0);transform-origin:left;transition:transform 1000ms cubic-bezier(0.22,1,0.36,1) 300ms}
+  .quote-section.is-visible .quote-text .highlighted::after{transform:scaleX(1)}
+  .quote-underline{display:block;width:120px;height:14px;margin-top:24px}
+  .quote-underline svg{width:100%;height:100%;overflow:visible}
+  .quote-underline path{fill:none;stroke:var(--amber);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:200;stroke-dashoffset:200;transition:stroke-dashoffset 1400ms cubic-bezier(0.4,0,0.2,1) 800ms}
+  .quote-section.is-visible .quote-underline path{stroke-dashoffset:0}
+  .quote-author{display:flex;align-items:center;gap:18px;margin-top:48px;opacity:0;transform:translateX(-12px);transition:opacity 600ms 1200ms,transform 600ms 1200ms cubic-bezier(0.22,1,0.36,1)}
+  .quote-section.is-visible .quote-author{opacity:1;transform:translateX(0)}
+  .quote-avatar{width:64px;height:64px;background:var(--amber-soft);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:20px;color:#7A5614;letter-spacing:-0.02em}
+  .quote-who strong{display:block;font-weight:500;font-size:16px;margin-bottom:4px;color:var(--ink);letter-spacing:-0.01em}
+  .quote-who span{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-transform:uppercase}
+  .quote-aside{display:flex;flex-direction:column;gap:32px;padding-left:40px;border-left:1px solid var(--line)}
+  .quote-stat{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-transform:uppercase;line-height:1.5;opacity:0;transform:translateY(12px);transition:opacity 600ms,transform 600ms cubic-bezier(0.22,1,0.36,1)}
+  .quote-section.is-visible .quote-stat{opacity:1;transform:translateY(0)}
+  .quote-section.is-visible .quote-stat:nth-child(1){transition-delay:600ms}
+  .quote-section.is-visible .quote-stat:nth-child(2){transition-delay:800ms}
+  .quote-section.is-visible .quote-stat:nth-child(3){transition-delay:1000ms}
+  .quote-stat strong{display:block;font-family:var(--font-sans);font-size:36px;font-weight:500;color:var(--ink);text-transform:none;letter-spacing:var(--tracking-tight);margin-top:8px;font-feature-settings:"tnum"}
+  @media(max-width:880px){.quote-wrap{grid-template-columns:1fr;gap:48px}.quote-aside{padding-left:0;padding-top:32px;border-left:none;border-top:1px solid var(--line)}}
+
+  /* ============================================================
+   * SECTION 7 — PRICING (respiration)
+   ============================================================ */
+  .pricing-card{
+    background:var(--cream);
+    border:1px solid var(--ink);
+    padding:0;
+    max-width:720px;
+    margin:0 auto;
+    position:relative;
+    overflow:hidden;
+    opacity:0;
+    transform:scale(0.96);
+    transition:opacity 700ms,transform 800ms cubic-bezier(0.22,1,0.36,1);
+    box-shadow:0 32px 64px -32px rgba(15,13,10,0.18);
+  }
+  .pricing-card.is-visible{opacity:1;transform:scale(1)}
+  .pricing-banner{background:var(--ink);color:var(--cream);padding:14px 32px;font-family:var(--font-mono);font-size:12px;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .pricing-banner .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 2px rgba(232,159,44,0.25);animation:pulseDot 2s ease-in-out infinite}
+  .pricing-body{padding:56px 56px 40px;position:relative}
+  .pricing-body::after{content:"";position:absolute;right:-30px;top:30%;width:240px;height:80px;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'><path d='M0 50 L40 50 L48 48 L56 52 L100 50 L120 50 L128 22 L136 50 L180 50 L200 50 L210 30 L220 50 L240 50' stroke='%23E89F2C' stroke-width='1.5' fill='none' opacity='0.16'/></svg>") no-repeat center/contain;pointer-events:none}
+  .pricing-name{font-family:var(--font-mono);font-size:12px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;font-weight:500;margin-bottom:16px}
+  .pricing-price{display:flex;align-items:baseline;gap:12px;margin-bottom:32px}
+  .pricing-amount{font-size:88px;font-weight:500;letter-spacing:var(--tracking-display);line-height:1;color:var(--ink);font-feature-settings:"tnum"}
+  .pricing-currency{font-size:32px;color:var(--slate-warm);font-weight:500}
+  .pricing-period{font-family:var(--font-mono);font-size:13px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-transform:uppercase}
+  .pricing-tagline{font-size:17px;line-height:1.55;color:var(--ink);margin-bottom:40px;max-width:520px}
+  .pricing-features{list-style:none;display:flex;flex-direction:column;gap:16px;margin-bottom:44px;padding-bottom:40px;border-bottom:1px solid var(--line)}
+  .pricing-features li{display:flex;align-items:flex-start;gap:14px;font-size:15px;line-height:1.55}
+  .pricing-features li strong{font-weight:500;color:var(--ink)}
+  .pricing-features li span{color:var(--slate-warm)}
+  .pricing-check{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--amber);color:var(--ink);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12px;font-weight:600;margin-top:1px;box-shadow:0 0 0 3px rgba(232,159,44,0.18)}
+  .pricing-cta{display:flex;gap:14px;flex-wrap:wrap}
+  .pricing-foot{padding:20px 56px;background:var(--cream-warm);border-top:1px solid var(--line);font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+  .pricing-foot-live{display:inline-flex;align-items:center;gap:8px;color:var(--signal-ok);font-weight:500}
+  .pricing-foot-live .dot{width:6px;height:6px;border-radius:50%;background:var(--signal-ok);animation:pulseDot 2s ease-in-out infinite}
+  @media(max-width:720px){.pricing-body{padding:32px 28px}.pricing-amount{font-size:64px}.pricing-foot{padding:16px 28px}}
+
+  /* ============================================================
+   * SECTION 8 — FAQ
+   ============================================================ */
+  .faq-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:96px;align-items:start}
+  .faq-list{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line)}
+  .faq-item{border-bottom:1px solid var(--line);padding:28px 0;cursor:pointer;transition:padding var(--t-base)}
+  .faq-item summary{display:flex;align-items:center;justify-content:space-between;font-size:19px;font-weight:500;letter-spacing:-0.02em;list-style:none;color:var(--ink);outline:none;gap:16px;transition:color var(--t-fast)}
+  .faq-item summary:hover{color:var(--amber)}
+  .faq-item summary::-webkit-details-marker{display:none}
+  .faq-item summary::after{content:"";width:14px;height:14px;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'><line x1='7' y1='1' x2='7' y2='13' stroke='%23E89F2C' stroke-width='1.8' stroke-linecap='round'/><line x1='1' y1='7' x2='13' y2='7' stroke='%23E89F2C' stroke-width='1.8' stroke-linecap='round'/></svg>") no-repeat center/contain;flex-shrink:0;transition:transform var(--t-base)}
+  .faq-item[open] summary::after{transform:rotate(135deg)}
+  .faq-item[open] summary{margin-bottom:18px;color:var(--amber)}
+  .faq-answer{font-size:15px;line-height:1.7;color:var(--slate-warm);padding-right:48px}
+  .faq-answer strong{color:var(--ink);font-weight:500}
+  .faq-answer code{font-family:var(--font-mono);font-size:13px;background:var(--cream);padding:1px 6px;border-radius:2px;color:var(--ink)}
+  @media(max-width:880px){.faq-grid{grid-template-columns:1fr;gap:48px}}
+
+  /* ============================================================
+   * CTA FINAL CINÉMATIQUE
+   ============================================================ */
+  .cta-final{padding:160px 0;background:var(--ink);color:var(--cream);position:relative;overflow:hidden;text-align:center}
+  .cta-final::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 600px 400px at 50% 30%,rgba(232,159,44,0.12),transparent 60%);pointer-events:none}
+  .cta-final h2{color:var(--cream);max-width:760px;margin:0 auto 32px;position:relative;z-index:2}
+  .cta-final h2 em{color:var(--amber);font-style:italic;font-weight:500;position:relative}
+  .cta-final h2 em::after{content:"";position:absolute;left:0;right:0;bottom:4%;height:18%;background:rgba(232,159,44,0.2);z-index:-1}
+  .cta-final p{font-size:19px;line-height:1.55;color:rgba(245,241,234,0.7);max-width:580px;margin:0 auto 48px;position:relative;z-index:2}
+  .cta-final .btn-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2}
+  .cta-final .btn--ghost{color:var(--cream);border-color:rgba(245,241,234,0.25)}
+  .cta-final .btn--ghost:hover{background:rgba(245,241,234,0.05);border-color:var(--cream)}
+  .cta-signature{position:absolute;bottom:0;left:0;right:0;height:180px;pointer-events:none;opacity:0.45}
+  .cta-signature svg{width:100%;height:100%}
+  .cta-signature path{stroke-dasharray:3000;stroke-dashoffset:3000;transition:stroke-dashoffset 2400ms ease-out}
+  .cta-final.is-visible .cta-signature path{stroke-dashoffset:0}
+
+  /* ============================================================
+   * FOOTER
+   ============================================================ */
+  footer.site-footer{padding:80px 0 48px;background:var(--cream);border-top:1px solid var(--line)}
+  .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:56px;margin-bottom:64px}
+  .footer-brand .logo{margin-bottom:20px}
+  .footer-tagline{font-size:14px;line-height:1.65;color:var(--slate-warm);max-width:340px;margin-bottom:24px}
+  .footer-status{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--signal-ok);letter-spacing:var(--tracking-mono);font-weight:500}
+  .footer-status .dot{width:6px;height:6px;border-radius:50%;background:var(--signal-ok);animation:pulseDot 2s ease-in-out infinite}
+  .footer-col-title{font-family:var(--font-mono);font-size:11px;color:var(--ink);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;font-weight:600;margin-bottom:18px}
+  .footer-links{display:flex;flex-direction:column;gap:11px;list-style:none}
+  .footer-links a{font-size:14px;color:var(--slate-warm);transition:color var(--t-fast)}
+  .footer-links a:hover{color:var(--amber)}
+  .footer-bottom{display:flex;align-items:center;justify-content:space-between;padding-top:32px;border-top:1px solid var(--line);font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);flex-wrap:wrap;gap:16px}
+  @media(max-width:880px){.footer-grid{grid-template-columns:1fr 1fr;gap:40px}.footer-brand{grid-column:1/-1}}
+  @media(max-width:480px){.footer-grid{grid-template-columns:1fr}.footer-brand{grid-column:auto}}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important}
+    .reveal,.split-word > span,.compare-list li,.feed-table tbody tr,.stat-cell,.pricing-card,.quote-stat{opacity:1 !important;transform:none !important}
+    .hero-eyebrow,.hero-sub,.hero-ctas,.hero-meta,.scroll-cue,.hero-panel{opacity:1 !important;transform:none !important}
+  }
+</style>
+</head>
+<body>
+
+<!-- PAGE LOADER -->
+<div class="page-loader" id="loader" aria-hidden="true">
+  <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:32px">
+    <span class="loader-logo">
+      <span style="position:relative;display:inline-block">i<span class="loader-pic"></span></span><span class="loader-text"><span>f</span><span>i</span><span>n</span><span>d</span></span>
+    </span>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase">// Sismographe initialisation...</span>
+  </div>
+  <div class="loader-line">
+    <svg viewBox="0 0 1440 40" preserveAspectRatio="none">
+      <path d="M0 20 L300 20 L320 18 L340 22 L600 20 L680 20 L700 4 L720 20 L900 20 L1100 20 L1120 14 L1140 26 L1300 20 L1440 20"/>
+    </svg>
+  </div>
+</div>
+
+<!-- GRAIN -->
+<div class="grain-overlay"></div>
+
+<!-- SCROLL PROGRESS -->
+<div class="scroll-progress" id="scrollProgress"></div>
+
+<!-- CUSTOM CURSOR -->
+<div class="cursor-dot" id="cursorDot"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- ===================================================================
+ * NAV
+ =================================================================== -->
+<nav class="site-nav" id="siteNav">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#" class="logo logo--md" data-cursor="hover" aria-label="iFIND home">
+        <span class="i-wrap">i<span class="pic"></span></span>find
+      </a>
+      <div class="nav-links">
+        <a href="#produit" data-cursor="text">Produit</a>
+        <a href="#methode" data-cursor="text">Méthode</a>
+        <a href="#carte" data-cursor="text">Détection</a>
+        <a href="#tarifs" data-cursor="text">Tarifs</a>
+        <a href="#faq" data-cursor="text">FAQ</a>
+      </div>
+      <div class="nav-cta">
+        <span class="nav-status"><span class="dot"></span><span id="navTriggerCount">412</span> triggers · 30j</span>
+        <a href="#tarifs" class="btn btn--primary btn--sm magnetic" data-cursor="hover">Essayer 14 jours →<span class="btn-pic"></span></a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ===================================================================
+ * HERO IMMERSIF
+ =================================================================== -->
+<section class="hero">
+  <!-- Background couches parallax -->
+  <div class="hero-bg" aria-hidden="true">
+    <div class="hero-mesh" data-parallax="0.3"></div>
+    <div class="hero-grid-lines" data-parallax="0.5"></div>
+  </div>
+
+  <!-- Sismographe 3D — Three.js terrain shader (fallback SVG si WebGL KO) -->
+  <div class="hero-3d-wrap" data-parallax="0.2" aria-hidden="true">
+    <canvas id="hero-3d"></canvas>
+    <noscript>
+      <div class="hero-oscillo">
+        <svg viewBox="0 0 2000 400" preserveAspectRatio="none">
+          <path class="wave-1" d="M0 200 L200 200 L280 100 L300 200 L700 200 L720 60 L740 200 L1140 200 L1160 130 L1180 200 L1560 200 L1580 80 L1600 200 L2000 200"/>
+        </svg>
+      </div>
+    </noscript>
+  </div>
+
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-text">
+        <span class="hero-eyebrow eyebrow"><span class="dot"></span>Souverain · Temps réel · <span class="amber">Made in France</span></span>
+        <h1>
+          <span class="split-word"><span>Le</span></span>
+          <span class="split-word"><span>sismographe</span></span><br>
+          <span class="split-word"><span>de</span></span>
+          <span class="split-word"><span>la</span></span>
+          <span class="split-word"><span>donnée</span></span><br>
+          <span class="split-word"><span>commerciale</span></span>
+          <span class="split-word"><span class="accent-wrap"><em class="amber">française.</em></span></span>
+        </h1>
+        <p class="hero-sub">Détection temps réel des triggers d'achat sur les <strong>PME tech FR</strong>. 9 sources publiques souveraines. 13 patterns d'achat propriétaires. <strong>Aucun intent data américain.</strong></p>
+        <div class="hero-ctas">
+          <a href="#tarifs" class="btn btn--primary btn--lg magnetic" data-cursor="hover">Essayer 14 jours →<span class="btn-pic"></span></a>
+          <a href="#methode" class="btn btn--ghost btn--lg magnetic" data-cursor="hover">Voir comment ça marche</a>
+        </div>
+        <div class="hero-meta">
+          <span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M5 8 L7 10 L11 6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            6 Pépites garanties / mois
+          </span>
+          <span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M5 8 L7 10 L11 6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Sans engagement
+          </span>
+          <span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M5 8 L7 10 L11 6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Données hébergées en France
+          </span>
+        </div>
+      </div>
+
+      <aside class="hero-panel" data-cursor="hover">
+        <div class="hero-panel-head">
+          <span class="hero-panel-title">// Live feed</span>
+          <span class="hero-panel-live"><span class="dot"></span>LIVE</span>
+        </div>
+        <div class="trigger-feed" id="heroFeed">
+          <div class="trigger-row">
+            <div>
+              <div class="trigger-ts">14:32 · il y a 2 min</div>
+              <div class="trigger-company">Acme Corp</div>
+              <div class="trigger-type">funding · série A · 12 M€</div>
+            </div>
+            <div class="trigger-score">94</div>
+          </div>
+          <div class="trigger-row">
+            <div>
+              <div class="trigger-ts">14:28 · il y a 6 min</div>
+              <div class="trigger-company">Zinka SAS</div>
+              <div class="trigger-type">c-level hiring · VP Eng</div>
+            </div>
+            <div class="trigger-score">87</div>
+          </div>
+          <div class="trigger-row">
+            <div>
+              <div class="trigger-ts">14:24 · il y a 10 min</div>
+              <div class="trigger-company">DataPulse</div>
+              <div class="trigger-type">INPI · dépôt brevet</div>
+            </div>
+            <div class="trigger-score dim">76</div>
+          </div>
+          <div class="trigger-row">
+            <div>
+              <div class="trigger-ts">14:19 · il y a 15 min</div>
+              <div class="trigger-company">OpsMill</div>
+              <div class="trigger-type">funding · seed · 3 M€</div>
+            </div>
+            <div class="trigger-score">91</div>
+          </div>
+        </div>
+        <div class="hero-panel-foot">// Mis à jour <span id="heroFeedAge">il y a 3 secondes</span></div>
+      </aside>
+    </div>
+
+    <div class="scroll-cue">Scroll pour explorer</div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * WHY iFIND
+ =================================================================== -->
+<section class="section section--warm" id="produit">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">// Pourquoi iFIND</span>
+      <h2>L'intent data américain prédit. <em class="amber">iFIND détecte.</em></h2>
+      <p>Les outils US (Apollo, Cognism, 6sense) vendent des signaux probabilistes. iFIND capte des événements publics durs, datés, vérifiés. La différence vaut 10× au téléphone.</p>
+    </div>
+
+    <div class="compare-grid reveal">
+      <div class="compare-col compare-col--left">
+        <div class="compare-head">
+          <span class="compare-name">Intent data US</span>
+          <span class="compare-tag">Apollo · 6sense · Cognism</span>
+        </div>
+        <ul class="compare-list">
+          <li><span class="compare-mark mark-x">×</span><span>Signaux probabilistes via cookies tiers. « Cette boîte est <em>peut-être</em> dans le marché. »</span></li>
+          <li><span class="compare-mark mark-x">×</span><span>Aucune date précise. Vous ne savez pas quand le signal s'est produit.</span></li>
+          <li><span class="compare-mark mark-x">×</span><span>Tracking RGPD-tendu. Sanctions CNIL en cours sur Kaspr.</span></li>
+          <li><span class="compare-mark mark-x">×</span><span>0 source publique vérifiable. Tout dans un black-box vendor.</span></li>
+          <li><span class="compare-mark mark-x">×</span><span>Génériquement US. Aucune spécificité PME tech FR.</span></li>
+        </ul>
+      </div>
+      <div class="compare-col compare-col--right">
+        <div class="compare-head">
+          <span class="compare-name">Trigger Engine FR</span>
+          <span class="compare-tag">iFIND</span>
+        </div>
+        <ul class="compare-list">
+          <li><span class="compare-mark mark-v">✓</span><span>Événements <strong>publics, datés, vérifiés</strong>. Levée 12 M€ annoncée à 14:32 aujourd'hui.</span></li>
+          <li><span class="compare-mark mark-v">✓</span><span>Timestamp à la seconde. Vous appelez dans l'heure qui suit.</span></li>
+          <li><span class="compare-mark mark-v">✓</span><span>RGPD-natif. Sources INPI/Pappers/BODACC publiques par construction.</span></li>
+          <li><span class="compare-mark mark-v">✓</span><span><strong>9 sources souveraines</strong> citables. INPI, Pappers, BODACC, France Travail, WTTJ, RSS levées, JOAFE...</span></li>
+          <li><span class="compare-mark mark-v">✓</span><span>Spécifique <strong>PME tech FR 11-200p</strong>. ICP propriétaire capturé via 9 questions onboarding.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * METHOD — Cards 3D gyroscope
+ =================================================================== -->
+<section class="section" id="methode">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">// Méthode</span>
+      <h2>Trois étages. Zéro intent data.</h2>
+      <p>Pipeline volontairement court et lisible. Chaque trigger passe par les trois étages. Chaque étage est auditable.</p>
+    </div>
+
+    <div class="method-grid">
+      <div class="method-card reveal magnetic-card" data-cursor="hover">
+        <span class="method-num">01 · Capter</span>
+        <svg class="method-icon" viewBox="0 0 48 48" fill="none">
+          <line x1="6" y1="32" x2="42" y2="32" stroke="#0F0D0A" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M6 32 L12 32 L15 30 L18 34 L22 14 L26 34 L29 26 L32 32 L42 32" stroke="#E89F2C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="22" cy="14" r="3" fill="#E89F2C"/>
+        </svg>
+        <h3 class="method-title">9 sources publiques FR surveillées 24/7.</h3>
+        <p class="method-desc">Chaque source est ingérée par un poller dédié, dédupliquée, normalisée. Aucun scraping illégal. Aucun cookie tiers. Que des sources publiques officielles.</p>
+        <div class="method-sources"><strong>INPI</strong> · <strong>Pappers</strong> · <strong>BODACC</strong> · France Travail · WTTJ · RSS levées · JOAFE · LinkedIn public · TheirStack</div>
+      </div>
+
+      <div class="method-card reveal reveal-delay-1 magnetic-card" data-cursor="hover">
+        <span class="method-num">02 · Qualifier</span>
+        <svg class="method-icon" viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="15" stroke="#0F0D0A" stroke-width="1.5"/>
+          <path d="M16 24 L22 30 L34 18" stroke="#E89F2C" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h3 class="method-title">Claude Opus 4.7 + votre ICP propriétaire.</h3>
+        <p class="method-desc">Chaque signal est jugé par un cerveau LLM qui connaît votre métier. 13 patterns d'achat propriétaires combinés à votre grille de jugement capturée à l'onboarding.</p>
+        <div class="method-sources"><strong>13 patterns</strong> · OUI / NON / ENRICH · score 0-100 · briefing personnalisé par lead</div>
+      </div>
+
+      <div class="method-card reveal reveal-delay-2 magnetic-card" data-cursor="hover">
+        <span class="method-num">03 · Délivrer</span>
+        <svg class="method-icon" viewBox="0 0 48 48" fill="none">
+          <rect x="6" y="14" width="36" height="26" stroke="#0F0D0A" stroke-width="1.5"/>
+          <path d="M6 14 L24 4 L42 14" stroke="#0F0D0A" stroke-width="1.5" stroke-linejoin="round" fill="none"/>
+          <rect x="19" y="24" width="10" height="16" fill="#E89F2C"/>
+        </svg>
+        <h3 class="method-title">60 leads. 6 Pépites garanties.</h3>
+        <p class="method-desc">Briefing complet par lead : société, persona décisionnaire, téléphone mobile vérifié, email vérifié, raison du trigger, opener suggéré. Quota garanti — sinon doublé le mois suivant.</p>
+        <div class="method-sources">Téléphone <strong>Kaspr</strong> · Email <strong>Resend</strong> · Brief structuré · Export CSV / CRM</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * CARTE FRANCE INTERACTIVE
+ =================================================================== -->
+<section class="section section--warm" id="carte">
+  <div class="container">
+    <div class="map-wrap">
+      <div class="map-info reveal">
+        <span class="eyebrow">// Détection temps réel</span>
+        <h2 style="margin-top:20px;margin-bottom:20px">412 triggers détectés <em class="amber">ce mois</em>, dans toute la France.</h2>
+        <p>Le pipeline iFIND scrute en permanence les 9 sources publiques FR. Chaque trigger est géolocalisé à la commune, daté à la seconde, scoré par Claude Opus 4.7. Voici ce que vous regardez maintenant.</p>
+        <div class="map-stats">
+          <div><span>Paris</span><strong>184</strong></div>
+          <div><span>Lyon</span><strong>62</strong></div>
+          <div><span>Toulouse</span><strong>41</strong></div>
+          <div><span>Nantes</span><strong>38</strong></div>
+          <div><span>Lille</span><strong>29</strong></div>
+          <div><span>Autres</span><strong>58</strong></div>
+          <div style="padding-top:10px;border-top:1px dashed var(--line)"><span>// Status pipeline</span><strong class="ok">9/9 sources OK</strong></div>
+        </div>
+      </div>
+
+      <div class="map-container reveal reveal-delay-1" data-cursor="terminal">
+        <svg class="fr-map" viewBox="0 0 480 500" preserveAspectRatio="xMidYMid meet">
+          <!-- Outline approximatif de la France métropolitaine -->
+          <path class="fr-shape" d="M180 30 Q220 25 240 50 L280 60 Q310 70 320 90 L350 100 Q380 110 400 140 L420 180 Q430 220 420 260 L410 290 Q400 320 380 340 L360 370 Q340 400 310 420 L280 440 Q250 460 220 460 L190 450 Q160 440 140 420 L110 400 Q80 380 70 350 L60 320 Q50 280 60 250 L70 220 Q80 180 100 150 L120 120 Q140 80 160 60 L180 30 Z"/>
+          <!-- Corse approximative -->
+          <path class="fr-shape" d="M380 420 Q390 415 395 425 L398 445 Q395 460 388 458 L380 450 Q377 435 380 420 Z"/>
+        </svg>
+        <!-- Pins (positions approximatives en % du SVG container) -->
+        <div class="map-pin" style="left:48%;top:31%">
+          <div class="ring"></div><div class="dot"></div>
+        </div>
+        <div class="map-label" style="left:48%;top:31%">Paris · 184</div>
+
+        <div class="map-pin" style="left:62%;top:52%">
+          <div class="ring"></div><div class="dot"></div>
+        </div>
+        <div class="map-label" style="left:62%;top:52%">Lyon · 62</div>
+
+        <div class="map-pin" style="left:42%;top:72%">
+          <div class="ring"></div><div class="dot"></div>
+        </div>
+        <div class="map-label" style="left:42%;top:72%">Toulouse · 41</div>
+
+        <div class="map-pin" style="left:22%;top:46%">
+          <div class="ring"></div><div class="dot"></div>
+        </div>
+        <div class="map-label" style="left:22%;top:46%">Nantes · 38</div>
+
+        <div class="map-pin" style="left:50%;top:14%">
+          <div class="ring"></div><div class="dot"></div>
+        </div>
+        <div class="map-label" style="left:50%;top:14%">Lille · 29</div>
+
+        <div class="map-pin hot" style="left:74%;top:80%">
+          <div class="ring"></div><div class="dot"></div>
+        </div>
+        <div class="map-label" style="left:74%;top:80%;color:var(--alert-hot)">Marseille · HOT</div>
+
+        <div class="map-foot">
+          <span>// FR · 412 triggers · 30j</span>
+          <span class="live-pulse"><span class="dot"></span>LIVE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * LIVE FEED TERMINAL (cascade)
+ =================================================================== -->
+<section class="section" id="feed">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">// Live feed terminal</span>
+      <h2>Les triggers réels détectés <em class="amber">aujourd'hui</em>.</h2>
+      <p>Échantillon réel des triggers détectés au cours des dernières heures sur le pipeline iFIND. Mis à jour en temps réel. Auto-refresh toutes les 4 secondes.</p>
+    </div>
+
+    <div class="feed-wrap reveal" data-cursor="terminal">
+      <div class="feed-head">
+        <span class="feed-title">// LIVE TRIGGER FEED · 14.05.2026</span>
+        <span class="feed-meta"><span id="feedCount">412</span> triggers · 30j · 9/9 sources</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="feed-table">
+          <thead>
+            <tr>
+              <th>TIMESTAMP</th>
+              <th>SOCIÉTÉ</th>
+              <th>TRIGGER</th>
+              <th>SOURCE</th>
+              <th class="right">SCORE</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="feed-ts">14:32:08</td><td class="feed-company">Acme Corp</td><td class="feed-type">FUNDING_SERIES_A · 12 M€</td><td class="feed-source">rss-levees</td><td class="feed-score high">94</td></tr>
+            <tr><td class="feed-ts">14:28:51</td><td class="feed-company">Zinka SAS</td><td class="feed-type">C_LEVEL_HIRING · VP Eng</td><td class="feed-source">france-travail</td><td class="feed-score high">87</td></tr>
+            <tr><td class="feed-ts">14:24:33</td><td class="feed-company">DataPulse</td><td class="feed-type">INPI_DEPOT_BREVET</td><td class="feed-source">inpi-fr</td><td class="feed-score">76</td></tr>
+            <tr><td class="feed-ts">14:19:02</td><td class="feed-company">OpsMill</td><td class="feed-type">FUNDING_SEED · 3 M€</td><td class="feed-source">rss-levees</td><td class="feed-score high">91</td></tr>
+            <tr><td class="feed-ts">14:11:47</td><td class="feed-company">Kestra IO</td><td class="feed-type">HIRING_QA_AUTOMATION</td><td class="feed-source">welcome-to-the-jungle</td><td class="feed-score">82</td></tr>
+            <tr><td class="feed-ts">14:05:19</td><td class="feed-company">Via Xoft</td><td class="feed-type">FOUNDER_MOVE · CTO départ</td><td class="feed-source">linkedin-public</td><td class="feed-score hot">88</td></tr>
+            <tr><td class="feed-ts">13:58:42</td><td class="feed-company">Dastra</td><td class="feed-type">FUNDING_SERIES_B · 25 M€</td><td class="feed-source">rss-levees</td><td class="feed-score high">96</td></tr>
+            <tr><td class="feed-ts">13:51:08</td><td class="feed-company">Salvia</td><td class="feed-type">INPI_DEPOT_MARQUE</td><td class="feed-source">inpi-fr</td><td class="feed-score">71</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="feed-foot">
+        <span class="feed-foot-status"><span class="dot"></span>9/9 SOURCES OPERATIONAL · LATENCY 3.4s · UPTIME 99.94%</span>
+        <span style="font-family:var(--font-mono);font-size:11px;color:rgba(245,241,234,0.4);letter-spacing:var(--tracking-mono)">// AUTO-REFRESH 4s</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * STATS COUNT-UP
+ =================================================================== -->
+<section style="padding:0;background:var(--cream)">
+  <div class="container" style="padding-block:120px">
+    <div class="stats-grid">
+      <div class="stat-cell reveal">
+        <div class="stat-num" data-count="9" data-suffix="">0</div>
+        <div class="stat-label">Sources souveraines<br>FR-natives</div>
+      </div>
+      <div class="stat-cell reveal reveal-delay-1">
+        <div class="stat-num" data-count="13" data-suffix="">0</div>
+        <div class="stat-label">Patterns d'achat<br>propriétaires</div>
+      </div>
+      <div class="stat-cell reveal reveal-delay-2">
+        <div class="stat-num" data-count="3.4" data-suffix="s">0<span class="unit">s</span></div>
+        <div class="stat-label">Latence moyenne<br>détection → livraison</div>
+      </div>
+      <div class="stat-cell reveal reveal-delay-3">
+        <div class="stat-num" data-count="412" data-suffix="">0</div>
+        <div class="stat-label">Triggers détectés<br>30 derniers jours</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * CITATION FRED (qui se trace)
+ =================================================================== -->
+<section class="section section--warm">
+  <div class="container">
+    <div class="quote-section reveal">
+      <div class="quote-wrap">
+        <div style="position:relative">
+          <span class="quote-marks">"</span>
+          <div class="eyebrow" style="margin-bottom:24px;display:inline-block;position:relative;z-index:2">// Témoignage client</div>
+          <p class="quote-text">iFIND est le premier outil qui me donne des signaux que je peux <span class="highlighted">appeler tout de suite</span>. Pas des intents flous américains — des événements vérifiés, datés, sourcés.</p>
+          <span class="quote-underline"><svg viewBox="0 0 120 14"><path d="M2 8 Q30 2 60 6 T118 4"/></svg></span>
+          <div class="quote-author">
+            <div class="quote-avatar">FD</div>
+            <div class="quote-who">
+              <strong>Frédéric Doctolib</strong>
+              <span>Co-fondateur · DigitestLab</span>
+            </div>
+          </div>
+        </div>
+        <div class="quote-aside">
+          <div class="quote-stat">Lead actionnable en<br><strong>24 heures</strong></div>
+          <div class="quote-stat">Triggers qualifiés<br><strong>+340 %</strong></div>
+          <div class="quote-stat">Setup ICP custom<br><strong>2 jours</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * PRICING (respirant)
+ =================================================================== -->
+<section class="section" id="tarifs">
+  <div class="container">
+    <div class="section-head reveal" style="text-align:center;margin-inline:auto">
+      <span class="eyebrow">// Tarifs</span>
+      <h2>Un seul tarif. <em class="amber">Tout est inclus.</em></h2>
+      <p>Pas de tier confus, pas de surprises. Une seule offre lisible. Si on ne livre pas vos 6 Pépites, le quota est doublé le mois suivant.</p>
+    </div>
+
+    <div class="pricing-card reveal">
+      <div class="pricing-banner"><span class="dot"></span>// PLAN GROWTH · ENGAGEMENT ANNUEL</div>
+      <div class="pricing-body">
+        <div class="pricing-name">iFIND Growth</div>
+        <div class="pricing-price">
+          <span class="pricing-amount">390</span>
+          <span class="pricing-currency">€</span>
+          <span class="pricing-period">/ mois · HT</span>
+        </div>
+        <p class="pricing-tagline">L'offre complète pour équipes commerciales PME tech FR qui veulent appeler des leads qualifiés tous les jours.</p>
+        <ul class="pricing-features">
+          <li><span class="pricing-check">✓</span><span><strong>60 leads qualifiés / mois</strong> avec briefing complet, téléphone mobile et email vérifiés.</span></li>
+          <li><span class="pricing-check">✓</span><span><strong>6 Pépites minimum garanties.</strong> Si non livrées, le quota est doublé le mois suivant.</span></li>
+          <li><span class="pricing-check">✓</span><span><strong>Rollover des crédits jusqu'à 4 mois</strong> (cap 4×). Aucun lead perdu.</span></li>
+          <li><span class="pricing-check">✓</span><span><strong>Setup gratuit + ICP custom</strong> capturé via 9 questions onboarding (1 h avec un humain).</span></li>
+          <li><span class="pricing-check">✓</span><span>Overage flexible : <strong>8 € / lead supplémentaire</strong> au-delà du quota.</span></li>
+          <li><span class="pricing-check">✓</span><span>Export CSV, intégration CRM (HubSpot, Pipedrive, Salesforce), webhook</span></li>
+          <li><span class="pricing-check">✓</span><span>Support FR · réponse &lt; 24h ouvrées</span></li>
+        </ul>
+        <div class="pricing-cta">
+          <a href="#" class="btn btn--amber btn--lg magnetic" data-cursor="hover">Essayer 14 jours →</a>
+          <a href="#" class="btn btn--ghost btn--lg magnetic" data-cursor="hover">Parler à un humain</a>
+        </div>
+      </div>
+      <div class="pricing-foot">
+        <span>// SANS ENGAGEMENT 14 JOURS · DONNÉES HÉBERGÉES EN FRANCE</span>
+        <span class="pricing-foot-live"><span class="dot"></span>BÊTA OUVERTE · 18 PLACES RESTANTES</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * FAQ
+ =================================================================== -->
+<section class="section section--warm" id="faq">
+  <div class="container">
+    <div class="faq-grid">
+      <div class="reveal">
+        <span class="eyebrow">// FAQ</span>
+        <h2 style="margin-top:20px;margin-bottom:20px">Questions <em class="amber">honnêtes</em>, réponses directes.</h2>
+        <p style="font-size:15px;line-height:1.65;color:var(--slate-warm);margin-bottom:28px">Vous ne trouvez pas votre question ? Écrivez-nous à <a href="mailto:hello@ifind.fr" data-cursor="text" style="color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--amber);text-decoration-thickness:2px">hello@ifind.fr</a>, réponse sous 24h.</p>
+        <a href="#" class="btn btn--ghost btn--sm magnetic" data-cursor="hover">Voir toutes les questions →</a>
+      </div>
+      <div class="faq-list reveal reveal-delay-1">
+        <details class="faq-item" data-cursor="hover">
+          <summary>C'est quoi exactement un « trigger » ?</summary>
+          <div class="faq-answer">Un trigger est un <strong>événement public, daté et vérifiable</strong> qui signale qu'une entreprise est statistiquement plus susceptible d'acheter votre solution dans les semaines à venir. Exemples : une levée de fonds annoncée hier, un dépôt INPI ce matin, un C-level qui change d'entreprise sur LinkedIn. Aucune corrélation cookies, aucune visite tracée. Que du dur.</div>
+        </details>
+        <details class="faq-item" data-cursor="hover">
+          <summary>Et si vous ne livrez pas les 6 Pépites garanties ?</summary>
+          <div class="faq-answer">Vous ne payez rien de plus, et <strong>votre quota du mois suivant est doublé automatiquement</strong>. Soit 120 leads dont 12 Pépites au lieu de 60 / 6. C'est inscrit dans le contrat. C'est la seule garantie chiffrée du marché — Apollo et Cognism ne s'engagent sur aucun volume qualifié.</div>
+        </details>
+        <details class="faq-item" data-cursor="hover">
+          <summary>Pourquoi pas Apollo, Cognism ou Pharow ?</summary>
+          <div class="faq-answer">Apollo / Cognism vendent de <strong>l'intent data américain</strong> basé sur du tracking cookies (RGPD-fragile, sanctions CNIL en cours). Pharow est plus proche mais reste sur de la donnée firmographique statique sans pattern d'achat propriétaire. iFIND est le seul à combiner <code>sources publiques FR</code> + <code>Claude Opus 4.7</code> + <code>ICP custom capturé</code>. Niveau différent.</div>
+        </details>
+        <details class="faq-item" data-cursor="hover">
+          <summary>Combien de temps pour le setup ?</summary>
+          <div class="faq-answer"><strong>2 jours ouvrés.</strong> Jour 1 : onboarding 9 questions (1h avec un humain) qui capture votre jugement commercial. Jour 2 : votre ICP custom est en prod, le pipeline tourne, vous recevez vos premiers leads. Pas de "déploiement IT" ni de "data migration".</div>
+        </details>
+        <details class="faq-item" data-cursor="hover">
+          <summary>Où sont stockées les données ?</summary>
+          <div class="faq-answer">En France, sur des serveurs <strong>OVH (Roubaix) et Hetzner (Nuremberg)</strong>. Aucune donnée ne quitte l'UE. RGPD-native par construction. Les sources que nous surveillons sont publiques par essence (INPI, Pappers, BODACC, France Travail).</div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * CTA FINAL CINÉMATIQUE
+ =================================================================== -->
+<section class="cta-final reveal">
+  <div class="container">
+    <span class="eyebrow" style="color:var(--amber-soft);margin-bottom:28px;display:inline-block">// Prêt à détecter ?</span>
+    <h2>Déployez votre <em>Trigger Engine</em> souverain.</h2>
+    <p>14 jours d'essai gratuits. Pas de carte bancaire. Vos premiers leads détectés en moins de 48 heures.</p>
+    <div class="btn-row">
+      <a href="#" class="btn btn--amber btn--lg magnetic" data-cursor="hover">Essayer 14 jours →</a>
+      <a href="#" class="btn btn--ghost btn--lg magnetic" data-cursor="hover">Réserver une démo</a>
+    </div>
+  </div>
+  <div class="cta-signature" aria-hidden="true">
+    <svg viewBox="0 0 1440 180" preserveAspectRatio="none">
+      <path d="M0 100 L120 100 L130 98 L140 102 L200 100 L240 100 L250 66 L260 100 L340 100 L420 100 L430 99 L440 101 L520 100 L580 100 L620 100 L630 28 L640 100 L720 100 L800 100 L810 99 L820 101 L900 100 L980 100 L1020 100 L1030 56 L1040 100 L1140 100 L1280 100 L1320 100 L1330 80 L1340 100 L1440 100"
+            stroke="#E89F2C" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ===================================================================
+ * FOOTER
+ =================================================================== -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#" class="logo logo--md" data-cursor="hover">
+          <span class="i-wrap">i<span class="pic"></span></span>find
+        </a>
+        <p class="footer-tagline">Le sismographe de la donnée commerciale française. Trigger Engine souverain pour PME tech FR.</p>
+        <span class="footer-status"><span class="dot"></span>9/9 SOURCES · API OPERATIONAL</span>
+      </div>
+      <div>
+        <div class="footer-col-title">// PRODUIT</div>
+        <ul class="footer-links">
+          <li><a href="#methode" data-cursor="text">Méthode</a></li>
+          <li><a href="#tarifs" data-cursor="text">Tarifs</a></li>
+          <li><a href="#produit" data-cursor="text">Pourquoi iFIND</a></li>
+          <li><a href="#faq" data-cursor="text">FAQ</a></li>
+          <li><a href="#" data-cursor="text">Sources</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">// SOCIÉTÉ</div>
+        <ul class="footer-links">
+          <li><a href="#" data-cursor="text">Journal</a></li>
+          <li><a href="#" data-cursor="text">Manifeste</a></li>
+          <li><a href="#" data-cursor="text">Contact</a></li>
+          <li><a href="#" data-cursor="text">Presse</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">// LÉGAL</div>
+        <ul class="footer-links">
+          <li><a href="#" data-cursor="text">CGV / CGU</a></li>
+          <li><a href="#" data-cursor="text">Confidentialité</a></li>
+          <li><a href="#" data-cursor="text">Mentions légales</a></li>
+          <li><a href="#" data-cursor="text">RGPD</a></li>
+          <li><a href="#" data-cursor="text">Sécurité</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 iFIND · Édition souveraine · Paris · SIRET 000 000 000 00000</span>
+      <span>// SOVEREIGN TRIGGER ENGINE · v2.0</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isTouch = matchMedia('(pointer:coarse)').matches;
+
+  // ====== LOADER =======
+  window.addEventListener('load', ()=>{
+    setTimeout(()=>{ document.getElementById('loader')?.classList.add('done'); }, 1600);
+  });
+
+  // ====== LENIS SMOOTH SCROLL =======
+  let lenis = null;
+  if(!prefersReduced && typeof Lenis !== 'undefined'){
+    lenis = new Lenis({
+      duration: 1.2,
+      easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      smoothWheel: true,
+      wheelMultiplier: 1,
+      touchMultiplier: 2,
+      syncTouch: false
+    });
+
+    // Sync GSAP ScrollTrigger with Lenis
+    if(typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined'){
+      gsap.registerPlugin(ScrollTrigger);
+      lenis.on('scroll', ScrollTrigger.update);
+      gsap.ticker.add(t => lenis.raf(t * 1000));
+      gsap.ticker.lagSmoothing(0);
+    }
+
+    function rafLenis(time){
+      lenis.raf(time);
+      requestAnimationFrame(rafLenis);
+    }
+    requestAnimationFrame(rafLenis);
+  } else if(typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined'){
+    gsap.registerPlugin(ScrollTrigger);
+  }
+
+  // ====== SCROLL PROGRESS =======
+  const progress = document.getElementById('scrollProgress');
+  function updateProgress(){
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    const pct = max>0 ? (window.scrollY / max * 100) : 0;
+    progress.style.setProperty('--progress', pct + '%');
+  }
+  window.addEventListener('scroll', updateProgress, {passive:true});
+
+  // ====== NAV SCROLLED STATE =======
+  const nav = document.getElementById('siteNav');
+  window.addEventListener('scroll', ()=>{
+    if(window.scrollY > 40) nav.classList.add('scrolled');
+    else nav.classList.remove('scrolled');
+  }, {passive:true});
+
+  // ====== CUSTOM CURSOR =======
+  const dot = document.getElementById('cursorDot');
+  const ring = document.getElementById('cursorRing');
+  if(!isTouch && !prefersReduced){
+    let mx=0,my=0,rx=0,ry=0;
+    document.addEventListener('mousemove', e=>{
+      mx=e.clientX;my=e.clientY;
+      dot.style.left = mx+'px';
+      dot.style.top = my+'px';
+    });
+    function loop(){
+      rx += (mx-rx) * 0.18;
+      ry += (my-ry) * 0.18;
+      ring.style.left = rx+'px';
+      ring.style.top = ry+'px';
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    document.addEventListener('mouseover', e=>{
+      const el = e.target.closest('[data-cursor]');
+      ring.classList.remove('hover','text-hover','terminal');
+      if(el){
+        const mode = el.dataset.cursor;
+        if(mode === 'hover') ring.classList.add('hover');
+        else if(mode === 'text') ring.classList.add('text-hover');
+        else if(mode === 'terminal') ring.classList.add('terminal');
+      }
+    });
+  } else {
+    document.body.classList.add('no-cursor-custom');
+    dot.style.display='none';ring.style.display='none';
+  }
+
+  // ====== MAGNETIC BUTTONS =======
+  if(!isTouch && !prefersReduced){
+    document.querySelectorAll('.magnetic').forEach(el=>{
+      el.addEventListener('mousemove', e=>{
+        const r = el.getBoundingClientRect();
+        const x = e.clientX - r.left - r.width/2;
+        const y = e.clientY - r.top - r.height/2;
+        el.style.transform = 'translate('+(x*0.18)+'px,'+(y*0.18)+'px)';
+      });
+      el.addEventListener('mouseleave', ()=>{ el.style.transform = ''; });
+    });
+  }
+
+  // ====== METHOD CARDS 3D GYROSCOPE =======
+  if(!isTouch && !prefersReduced){
+    document.querySelectorAll('.method-card').forEach(card=>{
+      card.addEventListener('mousemove', e=>{
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width;
+        const y = (e.clientY - r.top) / r.height;
+        const rx = (y - 0.5) * -8;
+        const ry = (x - 0.5) * 8;
+        card._gyro = 'perspective(1000px) rotateX('+rx+'deg) rotateY('+ry+'deg) translateZ(8px)';
+        card.style.transform = card._gyro;
+        card.style.setProperty('--mx', (x*100)+'%');
+        card.style.setProperty('--my', (y*100)+'%');
+      });
+      card.addEventListener('mouseleave', ()=>{ card.style.transform = ''; card._gyro=null; });
+    });
+  }
+
+  // ====== HERO LIVE FEED + AGE + COUNTERS =======
+  let feedAge = 3;
+  setInterval(()=>{
+    feedAge++;
+    const el = document.getElementById('heroFeedAge');
+    if(el){
+      if(feedAge < 60) el.textContent = 'il y a '+feedAge+' secondes';
+      else el.textContent = 'il y a '+Math.floor(feedAge/60)+' min';
+    }
+  }, 1000);
+
+  if(!prefersReduced){
+    const triggers = [
+      {ts:'Maintenant', ago:'instant', co:'Norisko AI', type:'funding · pre-seed · 800 K€', score:84, dim:false},
+      {ts:'14:35', ago:'1 min', co:'Wilder Coffee', type:'INPI · dépôt marque', score:73, dim:true},
+      {ts:'14:38', ago:'< 1 min', co:'Mistral Labs', type:'c-level hiring · CTO', score:92, dim:false},
+      {ts:'14:41', ago:'instant', co:'Yousign Pro', type:'funding · série B · 18 M€', score:95, dim:false},
+    ];
+    let idx=0;
+    setInterval(()=>{
+      const feed = document.getElementById('heroFeed');
+      if(!feed) return;
+      const t = triggers[idx % triggers.length];
+      const newRow = document.createElement('div');
+      newRow.className = 'trigger-row entering';
+      newRow.innerHTML = `<div><div class="trigger-ts">${t.ts} · ${t.ago}</div><div class="trigger-company">${t.co}</div><div class="trigger-type">${t.type}</div></div><div class="trigger-score${t.dim?' dim':''}">${t.score}</div>`;
+      feed.insertBefore(newRow, feed.firstChild);
+      while(feed.children.length > 4) feed.removeChild(feed.lastChild);
+      idx++;
+      feedAge = 0;
+    }, 8000);
+  }
+
+  let triggerCount = 412;
+  setInterval(()=>{
+    if(Math.random() > 0.5){
+      triggerCount++;
+      const el = document.getElementById('navTriggerCount');
+      if(el) el.textContent = triggerCount;
+      const fc = document.getElementById('feedCount');
+      if(fc) fc.textContent = triggerCount;
+    }
+  }, 6000);
+
+  // ============================================================
+  // GSAP SCROLLTRIGGER — VRAIS EFFETS PARALLAX & SCRUB
+  // ============================================================
+  if(prefersReduced || typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined'){
+    // Fallback : montrer tout sans animations scroll
+    document.querySelectorAll('.reveal,.compare-grid,.feed-wrap,.stat-cell,.quote-section,.cta-final').forEach(el=>el.classList.add('is-visible'));
+    setTimeout(()=>{ document.querySelector('.hero h1')?.parentElement.classList.add('is-visible'); }, 1700);
+    return;
+  }
+
+  // Anti-FOIT : on montre par défaut les .reveal qui ne sont pas explicitement animés
+  // (GSAP gérera l'invisibilité initiale via fromTo pour ceux qu'il anime)
+  gsap.set('.reveal', {opacity: 1, y: 0, x: 0});
+
+  // Hero split-words reveal après loader
+  setTimeout(()=>{
+    document.querySelector('.hero h1')?.parentElement.classList.add('is-visible');
+  }, 1700);
+
+  // ====== HERO PARALLAX MULTI-COUCHES SCRUBBÉ =======
+  const heroSec = document.querySelector('.hero');
+  if(heroSec){
+    // Background mesh — lent
+    gsap.to('.hero-mesh', {
+      yPercent: 35,
+      ease: 'none',
+      scrollTrigger: { trigger: heroSec, start:'top top', end:'bottom top', scrub: 0.8 }
+    });
+    // Grid lines — moyen
+    gsap.to('.hero-grid-lines', {
+      yPercent: 50,
+      ease: 'none',
+      scrollTrigger: { trigger: heroSec, start:'top top', end:'bottom top', scrub: 0.8 }
+    });
+    // Oscilloscope — rapide + scale léger
+    gsap.to('.hero-oscillo', {
+      yPercent: -25,
+      scale: 1.08,
+      ease: 'none',
+      scrollTrigger: { trigger: heroSec, start:'top top', end:'bottom top', scrub: 1 }
+    });
+    // (hero text et panel: pas de parallax/fade pour éviter zones blanches)
+  }
+
+  // ====== WHY iFIND — Cascade simple (pas de pin) =======
+  const whySec = document.querySelector('#produit');
+  if(whySec){
+    const head = whySec.querySelector('.section-head');
+    gsap.fromTo(head, {y:60, opacity:0}, {
+      y:0, opacity:1, duration:1, ease:'power3.out',
+      scrollTrigger:{ trigger:head, start:'top 85%' }
+    });
+    gsap.fromTo(whySec.querySelector('.compare-grid'), {y:60, opacity:0}, {
+      y:0, opacity:1, duration:1, ease:'power3.out',
+      scrollTrigger:{ trigger:whySec.querySelector('.compare-grid'), start:'top 85%' }
+    });
+    whySec.querySelectorAll('.compare-col--left .compare-list li').forEach((li,i)=>{
+      gsap.fromTo(li, {x:-30, opacity:0}, {
+        x:0, opacity:1, duration:0.6, ease:'power2.out', delay: i*0.1,
+        scrollTrigger:{ trigger: li, start:'top 90%' }
+      });
+    });
+    whySec.querySelectorAll('.compare-col--right .compare-list li').forEach((li,i)=>{
+      gsap.fromTo(li, {x:30, opacity:0}, {
+        x:0, opacity:1, duration:0.6, ease:'power2.out', delay: i*0.1,
+        scrollTrigger:{ trigger: li, start:'top 90%' }
+      });
+    });
+  }
+
+  // ====== MÉTHODE — Cards reveal scrubbé avec offset 3D =======
+  const methodSec = document.querySelector('#methode');
+  if(methodSec){
+    gsap.fromTo(methodSec.querySelector('.section-head'), {y:60, opacity:0}, {
+      y:0, opacity:1, duration:1, ease:'power3.out',
+      scrollTrigger:{ trigger:methodSec.querySelector('.section-head'), start:'top 80%' }
+    });
+    methodSec.querySelectorAll('.method-card').forEach((card, i)=>{
+      gsap.fromTo(card,
+        { y: 80, opacity: 0, rotateY: -8, rotateX: 6 },
+        {
+          y:0, opacity:1, rotateY:0, rotateX:0,
+          duration:1.1, ease:'power3.out', delay: i * 0.12,
+          scrollTrigger:{
+            trigger: card,
+            start:'top 85%',
+            toggleActions:'play none none none'
+          }
+        });
+    });
+  }
+
+  // ====== CARTE FRANCE — Pinned avec pins qui pop séquentiellement =======
+  const mapSec = document.querySelector('#carte');
+  if(mapSec){
+    const pins = mapSec.querySelectorAll('.map-pin');
+    const labels = mapSec.querySelectorAll('.map-label');
+    pins.forEach(p=>gsap.set(p,{scale:0,opacity:0}));
+    labels.forEach(l=>gsap.set(l,{opacity:0,y:8}));
+
+    const mapTl = gsap.timeline({
+      scrollTrigger:{
+        trigger: mapSec,
+        start:'top 65%',
+        end:'bottom 30%',
+        scrub: 0.6
+      }
+    });
+    pins.forEach((p,i)=>{
+      mapTl.to(p, {scale:1, opacity:1, duration:0.5, ease:'back.out(2.2)'}, i * 0.2);
+      if(labels[i]) mapTl.to(labels[i], {opacity:1, y:0, duration:0.4, ease:'power2.out'}, '<+0.1');
+    });
+
+    gsap.fromTo(mapSec.querySelector('.map-info'), {x:-40, opacity:0}, {
+      x:0, opacity:1, duration:1, ease:'power3.out',
+      scrollTrigger:{ trigger: mapSec, start:'top 75%' }
+    });
+    gsap.fromTo(mapSec.querySelector('.map-container'), {x:40, opacity:0}, {
+      x:0, opacity:1, duration:1.1, ease:'power3.out',
+      scrollTrigger:{ trigger: mapSec, start:'top 75%' }
+    });
+  }
+
+  // ====== LIVE FEED TERMINAL — lignes cascade scrubbée =======
+  const feedSec = document.querySelector('#feed');
+  if(feedSec){
+    gsap.fromTo(feedSec.querySelector('.section-head'), {y:60, opacity:0}, {
+      y:0, opacity:1, duration:1, ease:'power3.out',
+      scrollTrigger:{ trigger:feedSec.querySelector('.section-head'), start:'top 80%' }
+    });
+    gsap.fromTo(feedSec.querySelector('.feed-wrap'), {y:80, opacity:0, scale:0.97}, {
+      y:0, opacity:1, scale:1, duration:1.2, ease:'power3.out',
+      scrollTrigger:{ trigger:feedSec.querySelector('.feed-wrap'), start:'top 80%' }
+    });
+    const rows = feedSec.querySelectorAll('.feed-table tbody tr');
+    rows.forEach((row,i)=>{
+      gsap.fromTo(row, {x:-20, opacity:0}, {
+        x:0, opacity:1, duration:0.5, ease:'power2.out', delay: i * 0.08,
+        scrollTrigger:{ trigger:row, start:'top 90%' }
+      });
+    });
+  }
+
+  // ====== STATS — Count-up SCRUBBÉ au scroll =======
+  document.querySelectorAll('.stat-cell').forEach(cell=>{
+    const num = cell.querySelector('.stat-num');
+    if(!num) return;
+    const target = parseFloat(num.dataset.count);
+    const suffix = num.dataset.suffix || '';
+    const isDecimal = target % 1 !== 0;
+    const obj = {v: 0};
+
+    gsap.to(obj, {
+      v: target,
+      duration: 1,
+      ease: 'none',
+      scrollTrigger:{
+        trigger: cell,
+        start: 'top 85%',
+        end: 'top 45%',
+        scrub: 0.6,
+        onUpdate: ()=>{
+          const display = isDecimal ? obj.v.toFixed(1).replace('.',',') : Math.round(obj.v);
+          num.innerHTML = display + (suffix ? '<span class="unit">'+suffix+'</span>' : '');
+        }
+      }
+    });
+
+    gsap.fromTo(cell, {y: 40, opacity: 0}, {
+      y:0, opacity:1, duration:0.9, ease:'power3.out',
+      scrollTrigger:{ trigger: cell, start:'top 90%' }
+    });
+  });
+
+  // ====== CITATION FRED — Reveal simple (pas de scrub mots) =======
+  const quoteSec = document.querySelector('.quote-section');
+  if(quoteSec){
+    const quoteText = quoteSec.querySelector('.quote-text');
+    if(quoteText){
+      gsap.fromTo(quoteText, {y: 40, opacity: 0}, {
+        y:0, opacity:1, duration:1.1, ease:'power3.out',
+        scrollTrigger:{ trigger: quoteText, start:'top 80%' }
+      });
+      // Trigger l'animation du highlight + underline (CSS-based via .is-visible)
+      ScrollTrigger.create({
+        trigger: quoteSec,
+        start: 'top 75%',
+        onEnter: ()=>quoteSec.classList.add('is-visible')
+      });
+    }
+    quoteSec.querySelectorAll('.quote-stat').forEach((s,i)=>{
+      gsap.fromTo(s, {y: 24, opacity: 0}, {
+        y:0, opacity:1, duration:0.7, ease:'power3.out', delay: i * 0.15,
+        scrollTrigger:{ trigger: s, start:'top 85%' }
+      });
+    });
+    gsap.fromTo(quoteSec.querySelector('.quote-author'), {y: 30, opacity: 0}, {
+      y:0, opacity:1, duration:0.9, ease:'power3.out', delay: 0.4,
+      scrollTrigger:{ trigger: quoteSec.querySelector('.quote-author'), start:'top 85%' }
+    });
+  }
+
+  // ====== PRICING — Apparition respirante =======
+  const pricingCard = document.querySelector('.pricing-card');
+  if(pricingCard){
+    gsap.fromTo(pricingCard, {y: 80, scale: 0.95, opacity: 0}, {
+      y:0, scale:1, opacity:1, duration:1.3, ease:'power3.out',
+      scrollTrigger:{ trigger: pricingCard, start:'top 80%' }
+    });
+    pricingCard.querySelectorAll('.pricing-features li').forEach((li,i)=>{
+      gsap.fromTo(li, {x: -20, opacity: 0}, {
+        x:0, opacity:1, duration:0.6, ease:'power2.out', delay: 0.3 + i*0.08,
+        scrollTrigger:{ trigger: pricingCard, start:'top 75%' }
+      });
+    });
+  }
+
+  // ====== FAQ — Items cascade =======
+  document.querySelectorAll('.faq-item').forEach((item,i)=>{
+    gsap.fromTo(item, {y: 24, opacity: 0}, {
+      y:0, opacity:1, duration:0.7, ease:'power3.out', delay: i*0.1,
+      scrollTrigger:{ trigger: item, start:'top 88%' }
+    });
+  });
+
+  // ====== CTA FINAL — Asset signature qui se trace au scroll =======
+  const ctaSec = document.querySelector('.cta-final');
+  if(ctaSec){
+    const ctaSig = ctaSec.querySelector('.cta-signature path');
+    if(ctaSig){
+      const len = ctaSig.getTotalLength();
+      gsap.set(ctaSig, {strokeDasharray: len, strokeDashoffset: len});
+      gsap.to(ctaSig, {
+        strokeDashoffset: 0,
+        ease: 'none',
+        scrollTrigger:{
+          trigger: ctaSec,
+          start: 'top 80%',
+          end: 'bottom 40%',
+          scrub: 0.8
+        }
+      });
+    }
+
+    gsap.fromTo(ctaSec.querySelector('h2'), {y: 40, opacity: 0}, {
+      y:0, opacity:1, duration:1.1, ease:'power3.out',
+      scrollTrigger:{ trigger: ctaSec.querySelector('h2'), start:'top 85%' }
+    });
+    gsap.fromTo(ctaSec.querySelector('p'), {y: 30, opacity: 0}, {
+      y:0, opacity:1, duration:1, ease:'power3.out', delay: 0.15,
+      scrollTrigger:{ trigger: ctaSec.querySelector('p'), start:'top 85%' }
+    });
+    gsap.fromTo(ctaSec.querySelector('.btn-row'), {y: 20, opacity: 0}, {
+      y:0, opacity:1, duration:0.9, ease:'power3.out', delay: 0.3,
+      scrollTrigger:{ trigger: ctaSec.querySelector('.btn-row'), start:'top 85%' }
+    });
+  }
+
+  // ====== HERO SIGNATURE — Stroke draw au scroll =======
+  // (l'oscilloscope du hero a déjà son animation infinie CSS — on n'y touche pas)
+
+  // ====== FOOTER REVEAL =======
+  gsap.fromTo('.footer-grid > *', {y: 30, opacity: 0}, {
+    y:0, opacity:1, duration:0.8, ease:'power3.out', stagger: 0.12,
+    scrollTrigger:{ trigger: '.footer-grid', start:'top 88%' }
+  });
+
+  // ====== REFRESH ScrollTrigger après images chargées =======
+  window.addEventListener('load', ()=>setTimeout(()=>ScrollTrigger.refresh(), 200));
+
+})();
+</script>
+
+<!-- ===================================================================
+ * SISMOGRAPHE 3D — Hero Three.js scene (Joy Division terrain shader)
+ * Custom GLSL vertex shader (multi-octave simplex noise + sparse peaks)
+ * Mouse parallax · scroll dampening · visibility-aware · WebGL fallback
+ * ================================================================== -->
+<script type="module">
+import * as THREE from 'three';
+
+(function(){
+  'use strict';
+  const canvas = document.getElementById('hero-3d');
+  if(!canvas) return;
+
+  // Skip si écran trop petit (CSS le masque déjà — on évite d'init WebGL)
+  if(window.matchMedia('(max-width:720px),(pointer:coarse)').matches) return;
+
+  // WebGL availability check (tente WebGL2 puis WebGL1)
+  const probe = document.createElement('canvas');
+  const gl = probe.getContext('webgl2') || probe.getContext('webgl');
+  if(!gl){ document.body.classList.add('no-webgl'); return; }
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wrap = canvas.parentElement;
+
+  // --- Renderer ---
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    alpha: true,
+    antialias: true,
+    premultipliedAlpha: false,
+    powerPreference: 'high-performance'
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0x000000, 0);
+
+  // --- Scene + camera ---
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+  camera.position.set(0, 5.2, 14);
+  camera.lookAt(0, 1.1, -2);
+
+  // --- Geometry params ---
+  const ROWS  = 64;       // nombre de "lignes sismiques" empilées
+  const COLS  = 220;      // résolution horizontale par ligne
+  const WIDTH = 28;       // largeur monde
+  const DEPTH = 18;       // profondeur monde
+
+  // --- Uniforms partagés ---
+  const uniforms = {
+    uTime:      { value: 0.0 },
+    uScroll:    { value: 0.0 },           // 0 hero pleine vue → 1 hero sorti
+    uIntro:     { value: reduced ? 1.0 : 0.0 }, // fade-in entrance
+    uAmber:     { value: new THREE.Color(0xE89F2C) },
+    uAmberDeep: { value: new THREE.Color(0xC7841E) },
+    uSlate:     { value: new THREE.Color(0x5C544A) }
+  };
+
+  // --- ShaderMaterial : displacement multi-octave + pics rares (triggers) ---
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+    vertexShader: `
+      uniform float uTime;
+      uniform float uScroll;
+      uniform float uIntro;
+      varying float vAmp;
+      varying float vDepth;
+      varying float vX;
+
+      // Ashima simplex 2D noise (compact, GPU-friendly)
+      vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
+      vec2 mod289(vec2 x){return x-floor(x*(1./289.))*289.;}
+      vec3 permute(vec3 x){return mod289(((x*34.)+1.)*x);}
+      float snoise(vec2 v){
+        const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
+        vec2 i=floor(v+dot(v,C.yy));
+        vec2 x0=v-i+dot(i,C.xx);
+        vec2 i1=(x0.x>x0.y)?vec2(1.,0.):vec2(0.,1.);
+        vec4 x12=x0.xyxy+C.xxzz; x12.xy-=i1;
+        i=mod289(i);
+        vec3 p=permute(permute(i.y+vec3(0.,i1.y,1.))+i.x+vec3(0.,i1.x,1.));
+        vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);
+        m=m*m; m=m*m;
+        vec3 x=2.*fract(p*C.www)-1.;
+        vec3 h=abs(x)-0.5;
+        vec3 ox=floor(x+0.5);
+        vec3 a0=x-ox;
+        m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);
+        vec3 g;
+        g.x=a0.x*x0.x+h.x*x0.y;
+        g.yz=a0.yz*x12.xz+h.yz*x12.yw;
+        return 130.*dot(m,g);
+      }
+
+      void main(){
+        vec3 pos = position;
+        float t = uTime * 0.16;
+
+        // Couches : bruit lent (forme générale) + bruit moyen (texture) + détail rapide
+        float n  = snoise(vec2(pos.x*0.18 + t,        pos.z*0.22 + t*0.4)) * 0.55;
+              n += snoise(vec2(pos.x*0.42 + t*1.4,    pos.z*0.38 + t*0.3)) * 0.28;
+              n += snoise(vec2(pos.x*0.95 + t*2.0,    pos.z*0.85))         * 0.12;
+
+        // Pics ponctuels = "triggers détectés" (rares, intenses)
+        float peakField = snoise(vec2(pos.x*0.55 + t*0.6, pos.z*0.42 + t*0.18));
+        float peak = pow(max(peakField, 0.0), 7.0) * 3.6;
+        n += peak;
+
+        // Vignette horizontale (les bords s'effacent)
+        float edgeFade = smoothstep(0.0, 4.5, 14.0 - abs(pos.x));
+        n *= edgeFade;
+
+        // Damping global = entrance + scroll
+        n *= uIntro * (1.0 - uScroll * 0.7);
+
+        pos.y += n * 1.15;
+
+        vAmp = n;
+        vDepth = pos.z;
+        vX = pos.x;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uAmber;
+      uniform vec3 uAmberDeep;
+      uniform vec3 uSlate;
+      uniform float uIntro;
+      varying float vAmp;
+      varying float vDepth;
+      varying float vX;
+
+      void main(){
+        // Slate à plat → ambre dès qu'on monte → ambre profond sur les pics
+        vec3 col = uSlate;
+        col = mix(col, uAmber,     smoothstep(0.05, 0.7, vAmp));
+        col = mix(col, uAmberDeep, smoothstep(1.0,  2.4, vAmp));
+
+        // Atmospheric perspective : lignes lointaines plus discrètes
+        float depthFade = smoothstep(-9.0, 7.0, vDepth);
+        float edge      = smoothstep(0.0, 5.0, 14.0 - abs(vX));
+        float alpha = depthFade * edge * (0.35 + smoothstep(0.0, 1.5, vAmp) * 0.55) * uIntro;
+
+        gl_FragColor = vec4(col, alpha);
+      }
+    `
+  });
+
+  // --- Build line group (ROWS lignes horizontales, COLS verts chacune) ---
+  const group = new THREE.Group();
+  for(let r = 0; r < ROWS; r++){
+    const z = -DEPTH * 0.55 + (r / (ROWS - 1)) * DEPTH;
+    const positions = new Float32Array(COLS * 3);
+    for(let c = 0; c < COLS; c++){
+      positions[c*3]     = -WIDTH * 0.5 + (c / (COLS - 1)) * WIDTH;
+      positions[c*3 + 1] = 0;
+      positions[c*3 + 2] = z;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    group.add(new THREE.Line(geo, material));
+  }
+  scene.add(group);
+
+  // --- Resize ---
+  function resize(){
+    const rect = wrap.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    if(w < 2 || h < 2) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  resize();
+  if('ResizeObserver' in window){
+    new ResizeObserver(resize).observe(wrap);
+  } else {
+    window.addEventListener('resize', resize);
+  }
+
+  // --- Mouse parallax (lissé) ---
+  const mouse = { tx: 0, ty: 0, x: 0, y: 0 };
+  if(!reduced){
+    window.addEventListener('mousemove', e => {
+      mouse.tx = (e.clientX / window.innerWidth)  - 0.5;
+      mouse.ty = (e.clientY / window.innerHeight) - 0.5;
+    }, { passive: true });
+  }
+
+  // --- Scroll → damping shader (le hero "se calme" en sortant de vue) ---
+  const heroEl = document.querySelector('.hero');
+  function onScroll(){
+    if(!heroEl) return;
+    const rect = heroEl.getBoundingClientRect();
+    const p = Math.min(1, Math.max(0, -rect.top / Math.max(1, rect.height)));
+    uniforms.uScroll.value = p;
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  // --- Visibility (RAF pause hors viewport / onglet caché) ---
+  let inView = true, visible = !document.hidden;
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(entries => { inView = entries[0].isIntersecting; },
+                             { threshold: 0 }).observe(wrap);
+  }
+  document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
+
+  // --- Fade-in entrance, synchronisé avec le loader (~1.5s après load) ---
+  function startIntro(){
+    canvas.classList.add('is-ready');
+    if(reduced){ uniforms.uIntro.value = 1; return; }
+    const t0 = performance.now();
+    const dur = 1500;
+    (function tick(){
+      const k = Math.min(1, (performance.now() - t0) / dur);
+      uniforms.uIntro.value = 1 - Math.pow(1 - k, 3); // easeOutCubic
+      if(k < 1) requestAnimationFrame(tick);
+    })();
+  }
+  if(document.readyState === 'complete') setTimeout(startIntro, 1400);
+  else window.addEventListener('load', () => setTimeout(startIntro, 1400));
+
+  // --- Render loop ---
+  const clock = new THREE.Clock();
+  function frame(){
+    requestAnimationFrame(frame);
+    if(!inView || !visible) return;
+    if(!reduced) uniforms.uTime.value = clock.getElapsedTime();
+
+    mouse.x += (mouse.tx - mouse.x) * 0.06;
+    mouse.y += (mouse.ty - mouse.y) * 0.06;
+    camera.position.x = mouse.x * 0.9;
+    camera.position.y = 5.2 - mouse.y * 0.6;
+    camera.lookAt(0, 1.1, -2);
+
+    renderer.render(scene, camera);
+  }
+  frame();
+
+  // Reduced-motion : un rendu figé immédiat (timestep visuel agréable)
+  if(reduced){
+    uniforms.uTime.value = 4.2;
+    renderer.render(scene, camera);
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iFIND — Design System · Phase 3a</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+   * iFIND DESIGN SYSTEM — Édition Sismographe Souverain · Ambre INPI
+   * Phase 3a · 14.05.2026
+   * ============================================================ */
+
+  :root{
+    /* --- BRAND --- */
+    --ink:#0F0D0A;
+    --ink-soft:#1A1614;
+    --cream:#F5F1EA;
+    --amber:#E89F2C;
+    --amber-deep:#C7841E;
+    --amber-soft:#F4D9A5;
+
+    /* --- SUPPORT --- */
+    --cream-warm:#EDE7DA;
+    --cream-deep:#E0D8C5;
+    --slate-warm:#5C544A;
+    --slate-soft:#8A8278;
+    --line:#D9D2C2;
+    --line-soft:#E6DFCE;
+
+    /* --- SEMANTICS (UI only) --- */
+    --signal-ok:#00B86B;
+    --signal-ok-soft:#D2F0E0;
+    --alert-hot:#7A2E2E;
+    --alert-hot-soft:#EBD4D4;
+    --error:#C73E3E;
+    --error-soft:#F2D6D6;
+
+    /* --- TYPOGRAPHY --- */
+    --font-sans:'Geist',ui-sans-serif,system-ui,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,monospace;
+    --tracking-tight:-0.025em;
+    --tracking-display:-0.03em;
+    --tracking-mono:0.04em;
+    --tracking-eyebrow:0.12em;
+
+    /* --- SPACING (4px base) --- */
+    --s-0:0;
+    --s-1:4px;
+    --s-2:8px;
+    --s-3:12px;
+    --s-4:16px;
+    --s-5:20px;
+    --s-6:24px;
+    --s-8:32px;
+    --s-10:40px;
+    --s-12:48px;
+    --s-16:64px;
+    --s-20:80px;
+    --s-24:96px;
+    --s-32:128px;
+
+    /* --- RADIUS (minimal — sobriété éditoriale) --- */
+    --r-none:0;
+    --r-xs:2px;
+    --r-sm:3px;
+    --r-md:4px;
+    --r-lg:6px;
+    --r-pill:999px;
+
+    /* --- SHADOWS (subtiles, pas de glassmorphism) --- */
+    --shadow-none:none;
+    --shadow-xs:0 1px 2px rgba(15,13,10,0.04);
+    --shadow-sm:0 1px 3px rgba(15,13,10,0.05),0 1px 2px rgba(15,13,10,0.04);
+    --shadow-md:0 4px 8px -2px rgba(15,13,10,0.06),0 2px 4px -2px rgba(15,13,10,0.04);
+    --shadow-lg:0 12px 24px -8px rgba(15,13,10,0.08),0 4px 8px -4px rgba(15,13,10,0.04);
+    --shadow-amber:0 0 0 1px rgba(232,159,44,0.18),0 6px 18px -6px rgba(232,159,44,0.22);
+
+    /* --- TRANSITIONS --- */
+    --t-fast:120ms cubic-bezier(0.4,0,0.2,1);
+    --t-base:180ms cubic-bezier(0.4,0,0.2,1);
+    --t-slow:280ms cubic-bezier(0.4,0,0.2,1);
+
+    /* --- Z-INDEX --- */
+    --z-base:1;
+    --z-card:10;
+    --z-nav:100;
+    --z-modal:1000;
+    --z-toast:1100;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:var(--font-sans);
+    font-weight:400;
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    font-feature-settings:"ss01","cv11";
+    padding:var(--s-12) var(--s-8) var(--s-32);
+  }
+  .container{max-width:1280px;margin:0 auto}
+
+  /* === HEADER === */
+  .doc-header{padding-bottom:var(--s-12);border-bottom:1px solid var(--line);margin-bottom:var(--s-16)}
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:var(--tracking-eyebrow);
+    text-transform:uppercase;
+    color:var(--slate-warm);
+    margin-bottom:var(--s-5);
+  }
+  h1{
+    font-weight:500;
+    font-size:clamp(40px,5vw,68px);
+    letter-spacing:var(--tracking-display);
+    line-height:1.05;
+    margin-bottom:var(--s-5);
+  }
+  h1 .acc{color:var(--amber);font-style:italic;font-weight:500}
+  .lead{font-size:18px;line-height:1.6;color:var(--slate-warm);max-width:720px}
+  .meta-line{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--slate-warm);
+    margin-top:var(--s-8);
+    letter-spacing:var(--tracking-mono);
+  }
+  .meta-line span{color:var(--amber)}
+
+  /* === SECTION === */
+  section{margin-top:var(--s-24);scroll-margin-top:var(--s-12)}
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border-bottom:1px solid var(--line);
+    padding-bottom:var(--s-4);
+    margin-bottom:var(--s-12);
+    gap:var(--s-6);
+    flex-wrap:wrap;
+  }
+  h2{
+    font-weight:500;
+    font-size:32px;
+    letter-spacing:var(--tracking-tight);
+    line-height:1.15;
+  }
+  .section-meta{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--slate-warm);
+    letter-spacing:var(--tracking-eyebrow);
+    text-transform:uppercase;
+  }
+  h3{
+    font-weight:500;
+    font-size:18px;
+    letter-spacing:var(--tracking-tight);
+    margin-top:var(--s-12);
+    margin-bottom:var(--s-4);
+  }
+  h3:first-of-type{margin-top:0}
+  .section-intro{
+    color:var(--slate-warm);
+    font-size:15px;
+    line-height:1.65;
+    max-width:680px;
+    margin-bottom:var(--s-10);
+  }
+
+  /* === TOKEN GROUP === */
+  .token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:var(--s-10)}
+  .token-card{
+    background:var(--cream);
+    padding:var(--s-5) var(--s-5) var(--s-4);
+    display:flex;
+    flex-direction:column;
+    gap:var(--s-3);
+  }
+  .swatch{
+    height:64px;
+    border:1px solid var(--line-soft);
+  }
+  .token-name{font-family:var(--font-mono);font-size:12px;font-weight:500;letter-spacing:var(--tracking-mono)}
+  .token-value{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono)}
+  .token-role{font-family:var(--font-mono);font-size:10px;color:var(--slate-soft);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;margin-top:2px}
+
+  /* Typography scale */
+  .type-row{display:grid;grid-template-columns:120px 100px 1fr;gap:var(--s-6);align-items:baseline;padding:var(--s-5) 0;border-bottom:1px solid var(--line-soft)}
+  .type-row:last-child{border-bottom:none}
+  .type-name{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-transform:uppercase}
+  .type-spec{font-family:var(--font-mono);font-size:11px;color:var(--slate-soft);letter-spacing:var(--tracking-mono)}
+  .type-sample{line-height:1.1}
+
+  /* Spacing */
+  .space-row{display:grid;grid-template-columns:80px 60px 1fr;gap:var(--s-6);align-items:center;padding:var(--s-3) 0;border-bottom:1px solid var(--line-soft)}
+  .space-bar{height:24px;background:var(--amber);opacity:0.8}
+
+  /* Radius */
+  .radius-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:var(--s-3)}
+  .radius-cell{background:var(--cream-warm);padding:var(--s-5);display:flex;flex-direction:column;align-items:center;gap:var(--s-3)}
+  .radius-box{width:64px;height:64px;background:var(--ink)}
+
+  /* Shadow */
+  .shadow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s-6)}
+  .shadow-cell{background:var(--cream);padding:var(--s-8);display:flex;flex-direction:column;align-items:center;gap:var(--s-4)}
+  .shadow-box{width:80px;height:80px;background:var(--cream);border:1px solid var(--line-soft)}
+
+  /* === COMPONENTS BASE === */
+  .component-block{margin-bottom:var(--s-10)}
+  .component-frame{
+    background:var(--cream);
+    border:1px solid var(--line);
+    padding:var(--s-10) var(--s-8);
+    margin-bottom:var(--s-3);
+  }
+  .component-frame.warm{background:var(--cream-warm)}
+  .component-frame.dark{background:var(--ink);color:var(--cream)}
+  .component-frame.flex{display:flex;flex-wrap:wrap;gap:var(--s-4);align-items:center}
+  .component-caption{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);line-height:1.6;padding-left:var(--s-4);border-left:2px solid var(--line)}
+
+  /* ============================================================
+   * COMPONENT — BUTTONS
+   * ============================================================ */
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:var(--s-2);
+    font-family:var(--font-sans);
+    font-weight:500;
+    font-size:14px;
+    line-height:1;
+    padding:11px 18px;
+    border-radius:var(--r-md);
+    border:1px solid transparent;
+    cursor:pointer;
+    transition:background var(--t-fast),color var(--t-fast),border-color var(--t-fast),transform var(--t-fast),box-shadow var(--t-fast);
+    text-decoration:none;
+    letter-spacing:-0.005em;
+    white-space:nowrap;
+    user-select:none;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+  .btn--primary{background:var(--ink);color:var(--cream)}
+  .btn--primary:hover{background:var(--ink-soft);box-shadow:var(--shadow-sm)}
+
+  .btn--ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+  .btn--ghost:hover{background:var(--cream-warm);border-color:var(--slate-warm)}
+
+  .btn--amber{background:var(--amber);color:var(--ink);font-weight:600}
+  .btn--amber:hover{background:var(--amber-deep);box-shadow:var(--shadow-amber)}
+
+  .btn--danger{background:transparent;color:var(--alert-hot);border-color:var(--alert-hot-soft)}
+  .btn--danger:hover{background:var(--alert-hot-soft);border-color:var(--alert-hot)}
+
+  .btn--sm{font-size:13px;padding:8px 14px}
+  .btn--lg{font-size:15px;padding:14px 22px}
+
+  .btn--icon-only{padding:10px;width:38px;height:38px}
+
+  .btn[disabled]{opacity:0.4;cursor:not-allowed;pointer-events:none}
+
+  /* ============================================================
+   * COMPONENT — BADGES
+   * ============================================================ */
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-family:var(--font-mono);
+    font-weight:500;
+    font-size:11px;
+    line-height:1;
+    padding:5px 9px 5px 9px;
+    border-radius:var(--r-xs);
+    letter-spacing:var(--tracking-eyebrow);
+    text-transform:uppercase;
+    background:var(--cream-warm);
+    color:var(--ink);
+    border:1px solid var(--line);
+  }
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+  .badge--amber{background:var(--amber-soft);color:#7A5614;border-color:#E0BB6D}
+  .badge--ok{background:var(--signal-ok-soft);color:#0A6B40;border-color:#9CD9B5}
+  .badge--hot{background:var(--alert-hot-soft);color:var(--alert-hot);border-color:#D9A8A8}
+  .badge--error{background:var(--error-soft);color:var(--error);border-color:#E3A8A8}
+  .badge--info{background:var(--cream-warm);color:var(--slate-warm)}
+
+  /* ============================================================
+   * COMPONENT — INPUTS
+   * ============================================================ */
+  .input-group{display:flex;flex-direction:column;gap:var(--s-2);max-width:340px}
+  .input-label{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase}
+  .input{
+    appearance:none;
+    background:var(--cream);
+    border:1px solid var(--line);
+    border-radius:var(--r-md);
+    padding:11px 14px;
+    font-family:var(--font-sans);
+    font-size:15px;
+    color:var(--ink);
+    transition:border-color var(--t-fast),box-shadow var(--t-fast);
+    width:100%;
+    line-height:1.4;
+  }
+  .input::placeholder{color:var(--slate-soft)}
+  .input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(232,159,44,0.16)}
+  .input--search{padding-left:38px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%235C544A' stroke-width='1.5'><circle cx='7' cy='7' r='5'/><line x1='11' y1='11' x2='15' y2='15' stroke-linecap='round'/></svg>");background-repeat:no-repeat;background-position:14px center}
+  .input-hint{font-family:var(--font-mono);font-size:11px;color:var(--slate-soft);letter-spacing:var(--tracking-mono)}
+
+  /* ============================================================
+   * COMPONENT — CARDS
+   * ============================================================ */
+  .card{
+    background:var(--cream);
+    border:1px solid var(--line);
+    padding:var(--s-6);
+    transition:border-color var(--t-base),transform var(--t-base),box-shadow var(--t-base);
+  }
+  .card--hover:hover{border-color:var(--amber);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+
+  .card--kpi{display:flex;flex-direction:column;gap:var(--s-3);position:relative;overflow:hidden}
+  .card--kpi .kpi-label{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase}
+  .card--kpi .kpi-value{font-size:44px;font-weight:500;letter-spacing:var(--tracking-tight);line-height:1;font-variant-numeric:tabular-nums}
+  .card--kpi .kpi-trend{font-family:var(--font-mono);font-size:12px;color:var(--amber);letter-spacing:var(--tracking-mono)}
+  .card--kpi .kpi-trend.dim{color:var(--slate-warm)}
+  .card--kpi .kpi-watermark{position:absolute;right:-20px;bottom:-8px;width:200px;height:60px;opacity:0.16;pointer-events:none}
+
+  .card--citation{padding:var(--s-8);background:var(--cream-warm);border-left:3px solid var(--amber)}
+  .card--citation .quote{font-size:20px;font-weight:500;line-height:1.4;letter-spacing:var(--tracking-tight);margin-bottom:var(--s-5)}
+  .card--citation .quote em{color:var(--amber);font-style:italic;background:rgba(232,159,44,0.12);padding:0 4px}
+  .card--citation .attribution{display:flex;align-items:center;gap:var(--s-3)}
+  .card--citation .avatar{width:40px;height:40px;background:var(--amber-soft);display:flex;align-items:center;justify-content:center;font-family:var(--font-sans);font-weight:600;font-size:15px;color:#7A5614}
+  .card--citation .who{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);line-height:1.5}
+  .card--citation .who strong{color:var(--ink);font-weight:500;display:block;font-family:var(--font-sans);font-size:13px;letter-spacing:-0.01em;text-transform:none;margin-bottom:2px}
+
+  .card--feature{display:flex;flex-direction:column;gap:var(--s-4);padding:var(--s-6)}
+  .card--feature .feature-num{font-family:var(--font-mono);font-size:11px;color:var(--amber);letter-spacing:var(--tracking-eyebrow);font-weight:500}
+  .card--feature .feature-title{font-size:18px;font-weight:500;letter-spacing:var(--tracking-tight)}
+  .card--feature .feature-desc{font-size:14px;line-height:1.55;color:var(--slate-warm)}
+
+  /* ============================================================
+   * COMPONENT — TABLE ROW (live data terminal)
+   * ============================================================ */
+  .trigger-table{width:100%;border-collapse:separate;border-spacing:0;font-family:var(--font-mono);font-size:13px}
+  .trigger-table thead th{
+    text-align:left;
+    font-weight:500;
+    font-size:11px;
+    color:var(--slate-warm);
+    letter-spacing:var(--tracking-eyebrow);
+    text-transform:uppercase;
+    padding:var(--s-3) var(--s-4);
+    border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  .trigger-table tbody td{
+    padding:var(--s-4);
+    border-bottom:1px solid var(--line-soft);
+    font-feature-settings:"tnum";
+  }
+  .trigger-table tbody tr{transition:background var(--t-fast)}
+  .trigger-table tbody tr:hover{background:var(--cream-warm)}
+  .trigger-table .ts{color:var(--slate-warm);font-size:12px}
+  .trigger-table .company{font-weight:500;color:var(--ink);font-family:var(--font-sans);font-size:14px}
+  .trigger-table .type{color:var(--slate-warm)}
+  .trigger-table .score{font-weight:500;color:var(--ink);text-align:right}
+  .trigger-table .score.high{color:var(--amber);font-weight:600}
+  .trigger-table .source{color:var(--slate-soft);font-size:11px}
+
+  /* ============================================================
+   * COMPONENT — NAV
+   * ============================================================ */
+  .nav-demo{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 28px;
+    background:var(--cream);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-logo{display:inline-flex;align-items:baseline;font-family:var(--font-sans);font-weight:600;font-size:22px;letter-spacing:var(--tracking-tight);color:var(--ink)}
+  .nav-logo .i-wrap{position:relative;display:inline-block}
+  .nav-logo .pic{position:absolute;left:50%;top:-9px;transform:translateX(-50%);width:2.5px;height:7px;background:var(--amber);border-radius:1px}
+  .nav-links{display:flex;align-items:center;gap:28px;font-family:var(--font-sans);font-size:14px;font-weight:500}
+  .nav-links a{color:var(--slate-warm);text-decoration:none;transition:color var(--t-fast)}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-cta{display:flex;align-items:center;gap:14px}
+  .status-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase}
+  .status-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--signal-ok);animation:pulseDot 2s ease-in-out infinite}
+  @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.3)}}
+
+  /* ============================================================
+   * COMPONENT — HERO BLOCK
+   * ============================================================ */
+  .hero-demo{
+    padding:var(--s-16) var(--s-10) var(--s-20);
+    background:var(--cream);
+    position:relative;
+    overflow:hidden;
+  }
+  .hero-demo h4{font-size:clamp(32px,4vw,52px);font-weight:500;letter-spacing:var(--tracking-display);line-height:1.05;max-width:740px;margin-bottom:var(--s-5)}
+  .hero-demo h4 em{color:var(--amber);font-style:italic;font-weight:500}
+  .hero-demo .hero-sub{font-size:17px;line-height:1.6;color:var(--slate-warm);max-width:600px;margin-bottom:var(--s-8)}
+  .hero-demo .hero-ctas{display:flex;gap:var(--s-3);flex-wrap:wrap}
+  .hero-demo .hero-signature{position:absolute;bottom:0;left:0;right:0;height:60px;overflow:hidden;opacity:0.85}
+
+  /* ============================================================
+   * COMPONENT — MODAL
+   * ============================================================ */
+  .modal-demo{
+    background:var(--cream);
+    border:1px solid var(--line);
+    padding:var(--s-8);
+    max-width:480px;
+    box-shadow:var(--shadow-lg);
+    position:relative;
+  }
+  .modal-demo .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--s-4);margin-bottom:var(--s-4)}
+  .modal-demo h4{font-size:20px;font-weight:500;letter-spacing:var(--tracking-tight);line-height:1.3}
+  .modal-demo .modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--slate-warm);padding:0;line-height:1}
+  .modal-demo .modal-body{font-size:14px;line-height:1.6;color:var(--slate-warm);margin-bottom:var(--s-6)}
+  .modal-demo .modal-actions{display:flex;gap:var(--s-3);justify-content:flex-end}
+
+  /* ============================================================
+   * COMPONENT — TOOLTIP
+   * ============================================================ */
+  .tooltip-wrap{position:relative;display:inline-block}
+  .tooltip-trigger{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:13px;color:var(--ink);padding:6px 10px;border:1px dashed var(--line);cursor:help}
+  .tooltip-trigger:hover + .tooltip{opacity:1;transform:translate(-50%,0)}
+  .tooltip{
+    position:absolute;
+    bottom:calc(100% + 8px);
+    left:50%;
+    transform:translate(-50%,4px);
+    background:var(--ink);
+    color:var(--cream);
+    font-family:var(--font-mono);
+    font-size:11px;
+    padding:6px 10px;
+    border-radius:var(--r-xs);
+    white-space:nowrap;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity var(--t-fast),transform var(--t-fast);
+    letter-spacing:var(--tracking-mono);
+  }
+  .tooltip::after{
+    content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    border:4px solid transparent;border-top-color:var(--ink);
+  }
+
+  /* ============================================================
+   * ICONOGRAPHY
+   * ============================================================ */
+  .icons-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .icon-cell{
+    background:var(--cream);
+    padding:var(--s-6) var(--s-4);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:var(--s-3);
+    transition:background var(--t-fast);
+  }
+  .icon-cell:hover{background:var(--cream-warm)}
+  .icon-display{width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--ink)}
+  .icon-name{font-family:var(--font-mono);font-size:10px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-align:center}
+
+  /* ============================================================
+   * FOOTER
+   * ============================================================ */
+  footer{margin-top:var(--s-24);padding-top:var(--s-8);border-top:1px solid var(--line);font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);display:flex;justify-content:space-between;flex-wrap:wrap;gap:var(--s-4)}
+  footer .live{color:var(--amber);animation:liveBlink 2s ease-in-out infinite}
+  @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:0.4}}
+
+  /* TOC */
+  .toc{display:flex;flex-wrap:wrap;gap:var(--s-2);margin-top:var(--s-8);padding-top:var(--s-5);border-top:1px solid var(--line-soft)}
+  .toc a{font-family:var(--font-mono);font-size:11px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);text-decoration:none;padding:6px 10px;border:1px solid var(--line);transition:all var(--t-fast)}
+  .toc a:hover{color:var(--ink);border-color:var(--slate-warm);background:var(--cream-warm)}
+
+  @media(max-width:720px){
+    body{padding:var(--s-8) var(--s-4) var(--s-16)}
+    .doc-header h1{font-size:36px}
+    .section-head{flex-direction:column;align-items:flex-start;gap:var(--s-2)}
+    .type-row{grid-template-columns:1fr;gap:var(--s-2);padding:var(--s-4) 0}
+    .type-name,.type-spec{font-size:10px}
+    .nav-demo{padding:var(--s-4) var(--s-5);flex-wrap:wrap;gap:var(--s-3)}
+    .nav-links{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header class="doc-header">
+    <div class="eyebrow">// Phase 3a · Design System · 14.05.2026</div>
+    <h1>iFIND <span class="acc">design system</span> — la grammaire complète.</h1>
+    <p class="lead">Le système qui industrialise l'usage de l'identité « Sismographe Souverain ». Tokens, composants, iconographie. Tout est défini comme variables CSS pour pouvoir être appliqué partout — site v6, dashboard, deck, vidéo, email. Cette page sert de référence unique : on s'y reporte à chaque fois qu'on doute d'une valeur.</p>
+    <div class="meta-line">VERSION <span>1.0.0</span> · TOKENS <span>54</span> · COMPONENTS <span>10</span> · ICONS <span>12</span></div>
+    <nav class="toc">
+      <a href="#tokens">// 1 · Tokens</a>
+      <a href="#typography">// 2 · Typographie</a>
+      <a href="#spacing">// 3 · Spacing & layout</a>
+      <a href="#buttons">// 4 · Buttons</a>
+      <a href="#badges">// 5 · Badges</a>
+      <a href="#inputs">// 6 · Inputs</a>
+      <a href="#cards">// 7 · Cards</a>
+      <a href="#data">// 8 · Data display</a>
+      <a href="#nav">// 9 · Navigation</a>
+      <a href="#hero">// 10 · Hero block</a>
+      <a href="#modal">// 11 · Modal & tooltip</a>
+      <a href="#icons">// 12 · Iconographie</a>
+    </nav>
+  </header>
+
+  <!-- ============================================================
+   * SECTION 1 — TOKENS COULEUR
+   ============================================================ -->
+  <section id="tokens">
+    <div class="section-head">
+      <h2>1 · Tokens couleur</h2>
+      <span class="section-meta">3 brand · 6 support · 6 semantics</span>
+    </div>
+    <p class="section-intro">Trois familles distinctes pour ne JAMAIS mélanger les rôles. La famille <strong>BRAND</strong> est utilisée pour communiquer (logo, headlines, CTAs). La famille <strong>SUPPORT</strong> structure les surfaces et la lecture. La famille <strong>SEMANTICS</strong> est réservée à l'UI applicative (dashboard, status). On ne pioche jamais une couleur sémantique pour faire un élément de marque — c'est la règle d'or.</p>
+
+    <h3>Brand (marque, communication, web, social)</h3>
+    <div class="token-grid">
+      <div class="token-card">
+        <div class="swatch" style="background:#0F0D0A"></div>
+        <span class="token-name">--ink</span>
+        <span class="token-value">#0F0D0A</span>
+        <span class="token-role">Texte principal · Brand</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#F5F1EA"></div>
+        <span class="token-name">--cream</span>
+        <span class="token-value">#F5F1EA</span>
+        <span class="token-role">Background dominant · Brand</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#E89F2C"></div>
+        <span class="token-name">--amber</span>
+        <span class="token-value">#E89F2C</span>
+        <span class="token-role">Accent principal · INPI</span>
+      </div>
+    </div>
+
+    <h3>Support (structure de lecture)</h3>
+    <div class="token-grid">
+      <div class="token-card">
+        <div class="swatch" style="background:#1A1614"></div>
+        <span class="token-name">--ink-soft</span>
+        <span class="token-value">#1A1614</span>
+        <span class="token-role">Hover ink</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#C7841E"></div>
+        <span class="token-name">--amber-deep</span>
+        <span class="token-value">#C7841E</span>
+        <span class="token-role">Hover amber</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#F4D9A5"></div>
+        <span class="token-name">--amber-soft</span>
+        <span class="token-value">#F4D9A5</span>
+        <span class="token-role">Background pâle ambre</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#EDE7DA"></div>
+        <span class="token-name">--cream-warm</span>
+        <span class="token-value">#EDE7DA</span>
+        <span class="token-role">Sections alternées</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#5C544A"></div>
+        <span class="token-name">--slate-warm</span>
+        <span class="token-value">#5C544A</span>
+        <span class="token-role">Texte secondaire</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#D9D2C2"></div>
+        <span class="token-name">--line</span>
+        <span class="token-value">#D9D2C2</span>
+        <span class="token-role">Séparateurs</span>
+      </div>
+    </div>
+
+    <h3>Semantics (UI dashboard uniquement — jamais en branding)</h3>
+    <div class="token-grid">
+      <div class="token-card">
+        <div class="swatch" style="background:#00B86B"></div>
+        <span class="token-name">--signal-ok</span>
+        <span class="token-value">#00B86B</span>
+        <span class="token-role">Trigger détecté · Status OK</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#7A2E2E"></div>
+        <span class="token-name">--alert-hot</span>
+        <span class="token-value">#7A2E2E</span>
+        <span class="token-role">Pépite HOT · Deadline</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#C73E3E"></div>
+        <span class="token-name">--error</span>
+        <span class="token-value">#C73E3E</span>
+        <span class="token-role">Erreur API · Bounce</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#D2F0E0"></div>
+        <span class="token-name">--signal-ok-soft</span>
+        <span class="token-value">#D2F0E0</span>
+        <span class="token-role">Background pâle OK</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#EBD4D4"></div>
+        <span class="token-name">--alert-hot-soft</span>
+        <span class="token-value">#EBD4D4</span>
+        <span class="token-role">Background pâle alerte</span>
+      </div>
+      <div class="token-card">
+        <div class="swatch" style="background:#F2D6D6"></div>
+        <span class="token-name">--error-soft</span>
+        <span class="token-value">#F2D6D6</span>
+        <span class="token-role">Background pâle erreur</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 2 — TYPOGRAPHIE
+   ============================================================ -->
+  <section id="typography">
+    <div class="section-head">
+      <h2>2 · Typographie</h2>
+      <span class="section-meta">Geist + Geist Mono · 8 niveaux</span>
+    </div>
+    <p class="section-intro">Une seule famille principale (Geist) déclinée en 8 niveaux. Pas d'Inter, pas de Space Grotesk. Tous les usages data/labels/timestamps passent en Geist Mono pour signaler l'ancrage « instrument scientifique ».</p>
+
+    <div style="background:var(--cream);border:1px solid var(--line);padding:var(--s-6) var(--s-8)">
+      <div class="type-row">
+        <span class="type-name">Display XL</span>
+        <span class="type-spec">68/500/-3em</span>
+        <span class="type-sample" style="font-size:60px;font-weight:500;letter-spacing:var(--tracking-display)">Détecter avant les autres.</span>
+      </div>
+      <div class="type-row">
+        <span class="type-name">Display</span>
+        <span class="type-spec">48/500/-25em</span>
+        <span class="type-sample" style="font-size:42px;font-weight:500;letter-spacing:var(--tracking-tight)">9 sources souveraines.</span>
+      </div>
+      <div class="type-row">
+        <span class="type-name">Heading 1</span>
+        <span class="type-spec">32/500/-25em</span>
+        <span class="type-sample" style="font-size:32px;font-weight:500;letter-spacing:var(--tracking-tight)">Comment ça marche.</span>
+      </div>
+      <div class="type-row">
+        <span class="type-name">Heading 2</span>
+        <span class="type-spec">22/500/-2em</span>
+        <span class="type-sample" style="font-size:22px;font-weight:500;letter-spacing:-0.02em">Trois étages, zéro intent data.</span>
+      </div>
+      <div class="type-row">
+        <span class="type-name">Heading 3</span>
+        <span class="type-spec">17/500/-15em</span>
+        <span class="type-sample" style="font-size:17px;font-weight:500;letter-spacing:-0.015em">Capter le signal.</span>
+      </div>
+      <div class="type-row">
+        <span class="type-name">Body</span>
+        <span class="type-spec">16/400/0em</span>
+        <span class="type-sample" style="font-size:16px;font-weight:400;line-height:1.6">Une nouvelle génération d'outils commerciaux pour les PME françaises.</span>
+      </div>
+      <div class="type-row">
+        <span class="type-name">Body small</span>
+        <span class="type-spec">14/400/0em</span>
+        <span class="type-sample" style="font-size:14px;font-weight:400;color:var(--slate-warm);line-height:1.6">Détection temps réel des triggers d'achat. 9 sources FR-natives.</span>
+      </div>
+      <div class="type-row">
+        <span class="type-name">Mono</span>
+        <span class="type-spec">13/400/+4em</span>
+        <span class="type-sample" style="font-family:var(--font-mono);font-size:13px;letter-spacing:var(--tracking-mono);color:var(--slate-warm)">SOVEREIGN · REAL-TIME · FRANCE</span>
+      </div>
+      <div class="type-row">
+        <span class="type-name">Eyebrow</span>
+        <span class="type-spec">11/500/+12em/U</span>
+        <span class="type-sample" style="font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--amber)">// TRIGGER DÉTECTÉ</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 3 — SPACING
+   ============================================================ -->
+  <section id="spacing">
+    <div class="section-head">
+      <h2>3 · Spacing, radius, shadows</h2>
+      <span class="section-meta">Échelles modulaires</span>
+    </div>
+    <p class="section-intro">Spacing en multiples de 4px. Radius minimaux (max 6px — on est dans l'éditorial papier, pas dans le mou). Shadows subtiles, jamais glassmorphism.</p>
+
+    <h3>Échelle de spacing (4px base)</h3>
+    <div style="background:var(--cream);border:1px solid var(--line);padding:var(--s-6) var(--s-8)">
+      <div class="space-row"><span class="type-name">--s-1</span><span class="type-spec">4px</span><span class="space-bar" style="width:4px"></span></div>
+      <div class="space-row"><span class="type-name">--s-2</span><span class="type-spec">8px</span><span class="space-bar" style="width:8px"></span></div>
+      <div class="space-row"><span class="type-name">--s-3</span><span class="type-spec">12px</span><span class="space-bar" style="width:12px"></span></div>
+      <div class="space-row"><span class="type-name">--s-4</span><span class="type-spec">16px</span><span class="space-bar" style="width:16px"></span></div>
+      <div class="space-row"><span class="type-name">--s-5</span><span class="type-spec">20px</span><span class="space-bar" style="width:20px"></span></div>
+      <div class="space-row"><span class="type-name">--s-6</span><span class="type-spec">24px</span><span class="space-bar" style="width:24px"></span></div>
+      <div class="space-row"><span class="type-name">--s-8</span><span class="type-spec">32px</span><span class="space-bar" style="width:32px"></span></div>
+      <div class="space-row"><span class="type-name">--s-10</span><span class="type-spec">40px</span><span class="space-bar" style="width:40px"></span></div>
+      <div class="space-row"><span class="type-name">--s-12</span><span class="type-spec">48px</span><span class="space-bar" style="width:48px"></span></div>
+      <div class="space-row"><span class="type-name">--s-16</span><span class="type-spec">64px</span><span class="space-bar" style="width:64px"></span></div>
+      <div class="space-row"><span class="type-name">--s-24</span><span class="type-spec">96px</span><span class="space-bar" style="width:96px"></span></div>
+    </div>
+
+    <h3>Border radius</h3>
+    <div class="radius-grid">
+      <div class="radius-cell"><div class="radius-box" style="border-radius:0"></div><span class="type-name">--r-none</span><span class="type-spec">0</span></div>
+      <div class="radius-cell"><div class="radius-box" style="border-radius:2px"></div><span class="type-name">--r-xs</span><span class="type-spec">2px</span></div>
+      <div class="radius-cell"><div class="radius-box" style="border-radius:3px"></div><span class="type-name">--r-sm</span><span class="type-spec">3px</span></div>
+      <div class="radius-cell"><div class="radius-box" style="border-radius:4px"></div><span class="type-name">--r-md</span><span class="type-spec">4px</span></div>
+      <div class="radius-cell"><div class="radius-box" style="border-radius:6px"></div><span class="type-name">--r-lg</span><span class="type-spec">6px</span></div>
+      <div class="radius-cell"><div class="radius-box" style="border-radius:999px"></div><span class="type-name">--r-pill</span><span class="type-spec">9999px</span></div>
+    </div>
+
+    <h3>Shadows</h3>
+    <div class="shadow-grid">
+      <div class="shadow-cell"><div class="shadow-box" style="box-shadow:var(--shadow-xs)"></div><span class="type-name">--shadow-xs</span></div>
+      <div class="shadow-cell"><div class="shadow-box" style="box-shadow:var(--shadow-sm)"></div><span class="type-name">--shadow-sm</span></div>
+      <div class="shadow-cell"><div class="shadow-box" style="box-shadow:var(--shadow-md)"></div><span class="type-name">--shadow-md</span></div>
+      <div class="shadow-cell"><div class="shadow-box" style="box-shadow:var(--shadow-lg)"></div><span class="type-name">--shadow-lg</span></div>
+      <div class="shadow-cell"><div class="shadow-box" style="box-shadow:var(--shadow-amber)"></div><span class="type-name">--shadow-amber</span></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 4 — BUTTONS
+   ============================================================ -->
+  <section id="buttons">
+    <div class="section-head">
+      <h2>4 · Buttons</h2>
+      <span class="section-meta">4 variants · 3 sizes</span>
+    </div>
+    <p class="section-intro">Le bouton primary est <strong>ink</strong>, pas amber. L'ambre est réservé aux actions de valeur (essais gratuits, CTA conversion). Cette hiérarchie évite la sursaturation visuelle et préserve le pouvoir de l'ambre quand on en a vraiment besoin.</p>
+
+    <h3>Variants</h3>
+    <div class="component-frame flex">
+      <button class="btn btn--primary">Essayer 14 jours →</button>
+      <button class="btn btn--ghost">Voir une démo</button>
+      <button class="btn btn--amber">Réserver ma place</button>
+      <button class="btn btn--danger">Supprimer le lead</button>
+    </div>
+    <div class="component-caption">→ primary (ink) pour l'action principale · ghost (bordé) pour secondaire · amber pour conversion uniquement · danger pour destructif.</div>
+
+    <h3>Sizes</h3>
+    <div class="component-frame flex">
+      <button class="btn btn--primary btn--sm">Action small</button>
+      <button class="btn btn--primary">Action medium</button>
+      <button class="btn btn--primary btn--lg">Action large</button>
+    </div>
+
+    <h3>Avec icône & icon-only</h3>
+    <div class="component-frame flex">
+      <button class="btn btn--primary">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Continuer
+      </button>
+      <button class="btn btn--ghost">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><line x1="11" y1="11" x2="14" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Rechercher
+      </button>
+      <button class="btn btn--ghost btn--icon-only" aria-label="Plus d'options">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="4" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12" cy="8" r="1.3" fill="currentColor"/></svg>
+      </button>
+    </div>
+
+    <h3>États</h3>
+    <div class="component-frame flex">
+      <button class="btn btn--primary">Default</button>
+      <button class="btn btn--primary" style="background:var(--ink-soft);box-shadow:var(--shadow-sm)">Hover</button>
+      <button class="btn btn--primary" style="background:var(--ink-soft);transform:translateY(1px)">Active</button>
+      <button class="btn btn--primary" disabled>Disabled</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 5 — BADGES
+   ============================================================ -->
+  <section id="badges">
+    <div class="section-head">
+      <h2>5 · Badges</h2>
+      <span class="section-meta">6 variants · 1 taille</span>
+    </div>
+    <p class="section-intro">Les badges signalent un statut. Toujours en mono uppercase petite taille. Le ⬤ dot est optionnel mais utile pour les status live.</p>
+
+    <div class="component-frame flex">
+      <span class="badge">Default</span>
+      <span class="badge badge--amber">Trigger</span>
+      <span class="badge badge--ok"><span class="dot"></span>Détecté</span>
+      <span class="badge badge--hot"><span class="dot"></span>Pépite HOT</span>
+      <span class="badge badge--error"><span class="dot"></span>Bounce</span>
+      <span class="badge badge--info">Info</span>
+    </div>
+
+    <h3>Usages contextuels</h3>
+    <div class="component-frame" style="display:flex;flex-direction:column;gap:var(--s-4);align-items:flex-start">
+      <div style="display:flex;align-items:center;gap:var(--s-3)">
+        <span style="font-family:var(--font-sans);font-weight:500;font-size:16px">Acme Corp</span>
+        <span class="badge badge--amber">Funding · 12 M€</span>
+        <span class="badge badge--hot"><span class="dot"></span>HOT</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--s-3)">
+        <span style="font-family:var(--font-sans);font-weight:500;font-size:16px">Zinka SAS</span>
+        <span class="badge badge--ok"><span class="dot"></span>Verified · INPI</span>
+        <span class="badge">Score 87</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 6 — INPUTS
+   ============================================================ -->
+  <section id="inputs">
+    <div class="section-head">
+      <h2>6 · Inputs</h2>
+      <span class="section-meta">Text · search · select</span>
+    </div>
+    <p class="section-intro">Focus ring en ambre (3px halo 16%). Le placeholder reste très discret. Les labels au-dessus sont en mono pour signaler le rôle « champ technique ».</p>
+
+    <div class="component-frame" style="display:flex;flex-direction:column;gap:var(--s-6);align-items:flex-start">
+      <div class="input-group">
+        <label class="input-label">Email professionnel</label>
+        <input type="email" class="input" placeholder="alexis@digitestlab.fr">
+        <span class="input-hint">// Vérifié auto via Pappers</span>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Recherche société</label>
+        <input type="text" class="input input--search" placeholder="Acme Corp, Zinka, Dastra...">
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Type de trigger</label>
+        <select class="input">
+          <option>Tous les triggers</option>
+          <option>Levées de fonds</option>
+          <option>Hiring C-level</option>
+          <option>Dépôts INPI</option>
+          <option>Mouvements C-level</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 7 — CARDS
+   ============================================================ -->
+  <section id="cards">
+    <div class="section-head">
+      <h2>7 · Cards</h2>
+      <span class="section-meta">Standard · KPI · Citation · Feature</span>
+    </div>
+    <p class="section-intro">4 types de cards selon le contenu. JAMAIS de border-radius supérieur à 6px (on garde le sentiment éditorial papier).</p>
+
+    <h3>KPI card (avec asset signature en filigrane)</h3>
+    <div class="component-frame" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s-4)">
+      <div class="card card--kpi">
+        <span class="kpi-label">Triggers détectés · 30j</span>
+        <span class="kpi-value">412</span>
+        <span class="kpi-trend">↗ +18 % vs mois précédent</span>
+        <svg class="kpi-watermark" viewBox="0 0 200 60" preserveAspectRatio="none"><path d="M0 40 L40 40 L48 38 L56 42 L100 40 L120 40 L128 12 L136 40 L180 40 L200 40" stroke="#E89F2C" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+      </div>
+      <div class="card card--kpi">
+        <span class="kpi-label">Latence moyenne</span>
+        <span class="kpi-value">3.4<span style="font-size:24px;color:var(--slate-warm)">s</span></span>
+        <span class="kpi-trend dim">↗ stable</span>
+        <svg class="kpi-watermark" viewBox="0 0 200 60" preserveAspectRatio="none"><path d="M0 40 L60 40 L70 38 L80 42 L120 40 L160 40 L170 22 L180 40 L200 40" stroke="#E89F2C" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+      </div>
+      <div class="card card--kpi">
+        <span class="kpi-label">Pépites garanties / mois</span>
+        <span class="kpi-value">6<span style="font-size:24px;color:var(--slate-warm)">+</span></span>
+        <span class="kpi-trend">↗ 8 livrées en mai</span>
+        <svg class="kpi-watermark" viewBox="0 0 200 60" preserveAspectRatio="none"><path d="M0 40 L20 40 L30 38 L40 42 L90 40 L100 18 L110 40 L150 40 L160 28 L170 40 L200 40" stroke="#E89F2C" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+
+    <h3>Citation card</h3>
+    <div class="component-frame">
+      <div class="card card--citation">
+        <p class="quote">« iFIND est le premier outil qui me donne des signaux que je peux <em>appeler tout de suite</em>. Pas des intents flous, des événements vérifiés. »</p>
+        <div class="attribution">
+          <div class="avatar">FD</div>
+          <div class="who">
+            <strong>Frédéric Doctolib</strong>
+            CO-FONDATEUR · DIGITESTLAB
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Feature card (méthode 3 étapes)</h3>
+    <div class="component-frame" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--s-4)">
+      <div class="card card--feature card--hover">
+        <span class="feature-num">// 01 · CAPTER</span>
+        <span class="feature-title">9 sources publiques FR.</span>
+        <span class="feature-desc">INPI, Pappers, BODACC, France Travail, RSS levées, etc. Surveillance continue 24/7. Pas d'intent data américain.</span>
+      </div>
+      <div class="card card--feature card--hover">
+        <span class="feature-num">// 02 · QUALIFIER</span>
+        <span class="feature-title">Claude Opus 4.7 + ICP custom.</span>
+        <span class="feature-desc">13 patterns d'achat propriétaires. Jugement humain capturé via onboarding 9 questions.</span>
+      </div>
+      <div class="card card--feature card--hover">
+        <span class="feature-num">// 03 · DÉLIVRER</span>
+        <span class="feature-title">60 leads. 6 Pépites garanties.</span>
+        <span class="feature-desc">Briefing complet par lead. Téléphone + email vérifiés. Rollover des crédits jusqu'à 4 mois.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 8 — DATA TABLE
+   ============================================================ -->
+  <section id="data">
+    <div class="section-head">
+      <h2>8 · Data display (terminal-style)</h2>
+      <span class="section-meta">Live triggers · monospace tabular</span>
+    </div>
+    <p class="section-intro">Toutes les tables de données dans iFIND utilisent Geist Mono et tabular-nums pour l'alignement des colonnes numériques. Scores ≥ 90 en ambre saturé.</p>
+
+    <div class="component-frame" style="padding:0;background:var(--cream)">
+      <table class="trigger-table">
+        <thead>
+          <tr>
+            <th>TIMESTAMP</th>
+            <th>SOCIÉTÉ</th>
+            <th>TRIGGER</th>
+            <th>SOURCE</th>
+            <th style="text-align:right">SCORE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ts">14:32:08</td>
+            <td class="company">Acme Corp</td>
+            <td class="type">FUNDING_SERIES_A · 12 M€</td>
+            <td class="source">rss-levees</td>
+            <td class="score high">94</td>
+          </tr>
+          <tr>
+            <td class="ts">14:28:51</td>
+            <td class="company">Zinka SAS</td>
+            <td class="type">C_LEVEL_HIRING · VP Eng</td>
+            <td class="source">france-travail</td>
+            <td class="score">87</td>
+          </tr>
+          <tr>
+            <td class="ts">14:24:33</td>
+            <td class="company">DataPulse</td>
+            <td class="type">INPI_DEPOT_BREVET</td>
+            <td class="source">inpi-fr</td>
+            <td class="score">76</td>
+          </tr>
+          <tr>
+            <td class="ts">14:19:02</td>
+            <td class="company">OpsMill</td>
+            <td class="type">FUNDING_SEED · 3 M€</td>
+            <td class="source">rss-levees</td>
+            <td class="score high">91</td>
+          </tr>
+          <tr>
+            <td class="ts">14:11:47</td>
+            <td class="company">Kestra IO</td>
+            <td class="type">HIRING_QA_AUTOMATION</td>
+            <td class="source">welcome-to-the-jungle</td>
+            <td class="score">82</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 9 — NAVIGATION
+   ============================================================ -->
+  <section id="nav">
+    <div class="section-head">
+      <h2>9 · Navigation</h2>
+      <span class="section-meta">Header standard</span>
+    </div>
+    <p class="section-intro">Le logo iFIND V1 à gauche, liens centre/droite en Geist 500, status live en Geist Mono, CTA primary ink à droite.</p>
+
+    <div class="component-frame" style="padding:0">
+      <div class="nav-demo">
+        <span class="nav-logo">
+          <span class="i-wrap">i<span class="pic"></span></span>find
+        </span>
+        <nav class="nav-links">
+          <a href="#">Produit</a>
+          <a href="#">Tarifs</a>
+          <a href="#">Méthode</a>
+          <a href="#">Journal</a>
+        </nav>
+        <div class="nav-cta">
+          <span class="status-pill"><span class="dot"></span>412 triggers détectés</span>
+          <button class="btn btn--primary btn--sm">Essayer 14 jours →</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 10 — HERO
+   ============================================================ -->
+  <section id="hero">
+    <div class="section-head">
+      <h2>10 · Hero block</h2>
+      <span class="section-meta">Avec asset signature intégré</span>
+    </div>
+    <p class="section-intro">Le hero du site. Asset signature V1 en bas comme bandeau de respiration. Composition asymétrique : titre prend la largeur, sub-titre + CTAs en dessous, mini-data en mono.</p>
+
+    <div class="component-frame" style="padding:0">
+      <div class="hero-demo">
+        <span class="eyebrow" style="margin-bottom:var(--s-5);display:inline-block">// SOUVERAIN · TEMPS RÉEL · MADE IN FRANCE</span>
+        <h4>Le <em>sismographe</em> de la donnée commerciale française.</h4>
+        <p class="hero-sub">Détection temps réel des triggers d'achat sur les PME tech FR. 9 sources souveraines, 13 patterns propriétaires. Aucun intent data américain.</p>
+        <div class="hero-ctas">
+          <button class="btn btn--primary btn--lg">Essayer 14 jours →</button>
+          <button class="btn btn--ghost btn--lg">Voir une démo</button>
+        </div>
+        <div class="hero-signature">
+          <svg viewBox="0 0 1280 60" preserveAspectRatio="none" style="width:100%;height:60px">
+            <path d="M0 30 L120 30 L130 28 L140 32 L200 30 L240 30 L250 8 L260 30 L340 30 L420 30 L430 29 L440 31 L520 30 L580 30 L620 30 L630 14 L640 30 L720 30 L800 30 L810 29 L820 31 L900 30 L980 30 L1020 30 L1030 18 L1040 30 L1140 30 L1280 30" stroke="#E89F2C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 11 — MODAL & TOOLTIP
+   ============================================================ -->
+  <section id="modal">
+    <div class="section-head">
+      <h2>11 · Modal & Tooltip</h2>
+      <span class="section-meta">Overlays</span>
+    </div>
+    <p class="section-intro">Modales sans arrondis lourds — l'esthétique reste éditoriale. Tooltip ink + mono, jamais coloré.</p>
+
+    <h3>Modal</h3>
+    <div class="component-frame warm" style="display:flex;justify-content:center">
+      <div class="modal-demo">
+        <div class="modal-head">
+          <h4>Confirmer l'archivage du lead</h4>
+          <button class="modal-close" aria-label="Fermer">×</button>
+        </div>
+        <p class="modal-body">Acme Corp sera archivé. Le trigger associé sera conservé dans l'historique pendant 90 jours. Action réversible jusqu'à expiration.</p>
+        <div class="modal-actions">
+          <button class="btn btn--ghost btn--sm">Annuler</button>
+          <button class="btn btn--primary btn--sm">Archiver</button>
+        </div>
+      </div>
+    </div>
+
+    <h3>Tooltip</h3>
+    <div class="component-frame flex" style="justify-content:center;gap:var(--s-12)">
+      <span class="tooltip-wrap">
+        <span class="tooltip-trigger">Score 94 ?</span>
+        <span class="tooltip">// fitScore via Claude Opus 4.7</span>
+      </span>
+      <span class="tooltip-wrap">
+        <span class="tooltip-trigger">INPI ?</span>
+        <span class="tooltip">// Source publique officielle FR</span>
+      </span>
+    </div>
+  </section>
+
+  <!-- ============================================================
+   * SECTION 12 — ICONOGRAPHY
+   ============================================================ -->
+  <section id="icons">
+    <div class="section-head">
+      <h2>12 · Iconographie signature</h2>
+      <span class="section-meta">12 icônes custom · style mono-line</span>
+    </div>
+    <p class="section-intro">Icônes dessinées au pixel, style mono-line stroke 1.5px, cohérent avec le pic sismographique. PAS de Lucide, PAS de Heroicons — toutes propriétaires.</p>
+
+    <div class="icons-grid">
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <line x1="4" y1="28" x2="36" y2="28" stroke="#0F0D0A" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M4 28 L10 28 L13 26 L16 30 L19 12 L22 30 L25 22 L28 28 L36 28" stroke="#E89F2C" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="19" cy="12" r="2.5" fill="#E89F2C"/>
+          </svg>
+        </div>
+        <span class="icon-name">trigger_detected</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect x="5" y="22" width="4" height="14" stroke="#0F0D0A" stroke-width="1.5"/>
+            <rect x="14" y="14" width="4" height="22" stroke="#0F0D0A" stroke-width="1.5"/>
+            <rect x="23" y="8" width="4" height="28" stroke="#E89F2C" stroke-width="1.5"/>
+            <rect x="32" y="18" width="4" height="18" stroke="#0F0D0A" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <span class="icon-name">live_data</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="17" cy="17" r="10" stroke="#0F0D0A" stroke-width="1.5"/>
+            <line x1="24" y1="24" x2="34" y2="34" stroke="#0F0D0A" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="17" cy="17" r="2.5" fill="#E89F2C"/>
+          </svg>
+        </div>
+        <span class="icon-name">source_check</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <path d="M22 6 L12 22 L20 22 L18 34 L28 18 L20 18 Z" stroke="#E89F2C" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="icon-name">real_time</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect x="8" y="8" width="24" height="24" stroke="#0F0D0A" stroke-width="1.5"/>
+            <line x1="8" y1="16" x2="32" y2="16" stroke="#0F0D0A" stroke-width="1.5"/>
+            <line x1="8" y1="24" x2="32" y2="24" stroke="#0F0D0A" stroke-width="1.5"/>
+            <rect x="8" y="8" width="24" height="8" fill="#E89F2C"/>
+          </svg>
+        </div>
+        <span class="icon-name">sovereign_fr</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="13" stroke="#0F0D0A" stroke-width="1.5"/>
+            <path d="M13 21 L18 26 L28 14" stroke="#E89F2C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="icon-name">verified</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="13" stroke="#0F0D0A" stroke-width="1.5"/>
+            <line x1="20" y1="12" x2="20" y2="20" stroke="#E89F2C" stroke-width="2" stroke-linecap="round"/>
+            <line x1="20" y1="20" x2="26" y2="24" stroke="#E89F2C" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="icon-name">latency</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <line x1="6" y1="32" x2="34" y2="32" stroke="#0F0D0A" stroke-width="1.5"/>
+            <line x1="6" y1="6" x2="6" y2="32" stroke="#0F0D0A" stroke-width="1.5"/>
+            <path d="M6 26 L14 22 L22 14 L34 8" stroke="#E89F2C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="34" cy="8" r="2.5" fill="#E89F2C"/>
+          </svg>
+        </div>
+        <span class="icon-name">pattern</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <path d="M14 6 L26 6 L30 14 L30 26 L24 32 L16 32 L10 26 L10 14 Z" stroke="#0F0D0A" stroke-width="1.5" stroke-linejoin="round"/>
+            <circle cx="20" cy="20" r="3" fill="#E89F2C"/>
+          </svg>
+        </div>
+        <span class="icon-name">alert</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect x="6" y="14" width="28" height="20" stroke="#0F0D0A" stroke-width="1.5"/>
+            <path d="M6 14 L20 6 L34 14" stroke="#0F0D0A" stroke-width="1.5" stroke-linejoin="round" fill="none"/>
+            <rect x="16" y="22" width="8" height="12" fill="#E89F2C"/>
+          </svg>
+        </div>
+        <span class="icon-name">official_inpi</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="14" r="6" stroke="#0F0D0A" stroke-width="1.5"/>
+            <path d="M8 34 C8 28 13 24 20 24 C27 24 32 28 32 34" stroke="#0F0D0A" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <circle cx="29" cy="11" r="3" fill="#E89F2C"/>
+          </svg>
+        </div>
+        <span class="icon-name">lead</span>
+      </div>
+
+      <div class="icon-cell">
+        <div class="icon-display">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect x="6" y="14" width="28" height="20" stroke="#0F0D0A" stroke-width="1.5"/>
+            <path d="M14 14 L14 10 C14 9 14.5 8 16 8 L24 8 C25.5 8 26 9 26 10 L26 14" stroke="#0F0D0A" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+            <line x1="6" y1="22" x2="34" y2="22" stroke="#E89F2C" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <span class="icon-name">company</span>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <span>iFIND · Design System v1.0.0 · Phase 3a · 14.05.2026</span>
+    <span class="live">● live experiment</span>
+  </footer>
+
+</div>
+</body>
+</html>

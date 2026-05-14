@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFIND — Explorations directionnelles · Mai 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E0F12; --bg-up:#16181D; --line:#23262D;
+    --text:#EAEBEE; --text-dim:#8A8E97; --text-faint:#5A5E67;
+    --accent:#9BFFBE;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:'Geist',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+  body{padding:48px 32px 80px;max-width:1400px;margin:0 auto}
+  header{margin-bottom:48px;padding-bottom:32px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:16px}
+  h1{font-family:'Geist',sans-serif;font-weight:500;font-size:clamp(32px,4vw,52px);letter-spacing:-0.025em;line-height:1.1;margin-bottom:20px}
+  h1 em{font-style:italic;color:var(--accent);font-weight:500}
+  .lead{font-size:18px;line-height:1.55;color:var(--text-dim);max-width:680px;margin-bottom:8px}
+  .meta{font-family:'Geist Mono',monospace;font-size:12px;color:var(--text-faint);margin-top:24px;letter-spacing:0.04em}
+  .meta span{color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:24px}
+  @media (max-width:1100px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--bg-up);border:1px solid var(--line);padding:32px;text-decoration:none;color:inherit;display:flex;flex-direction:column;transition:border-color 160ms,transform 160ms}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card-label{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-faint);margin-bottom:16px}
+  .card-title{font-size:28px;font-weight:500;letter-spacing:-0.02em;margin-bottom:8px}
+  .card-tag{font-family:'Geist Mono',monospace;font-size:13px;color:var(--accent);margin-bottom:20px}
+  .card-desc{font-size:15px;line-height:1.55;color:var(--text-dim);flex:1;margin-bottom:28px}
+  .swatches{display:flex;gap:6px;margin-bottom:24px}
+  .sw{width:32px;height:32px;border:1px solid var(--line)}
+  .card-cta{font-family:'Geist Mono',monospace;font-size:13px;color:var(--text);letter-spacing:0.04em;display:inline-flex;align-items:center;gap:8px}
+  .card-cta::after{content:"→";transition:transform 160ms}
+  .card:hover .card-cta::after{transform:translateX(4px)}
+  .reco{margin-top:48px;padding:24px 28px;background:var(--bg-up);border:1px solid var(--line);border-left:3px solid var(--accent);font-size:14px;line-height:1.6;color:var(--text-dim)}
+  .reco strong{color:var(--text);font-weight:500}
+  .footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);font-family:'Geist Mono',monospace;font-size:11px;color:var(--text-faint);letter-spacing:0.08em}
+</style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">// PHASE 1 · DIRECTION & MOODBOARD · 14.05.2026</div>
+    <h1>iFIND — Explorations <em>directionnelles</em></h1>
+    <p class="lead">Trois directions visuelles distinctes pour l'identité de marque iFIND. Toutes alignées sur la synthèse validée — souverain premium FR, métaphore sismographe, bold tranchant — mais avec une tonalité différente.</p>
+    <p class="meta">FILES · <span>3 mockups</span> · Ouvre chaque carte dans un nouvel onglet pour comparer côte à côte.</p>
+  </header>
+
+  <div class="grid">
+
+    <a class="card" href="direction-a-sismographe.html" target="_blank">
+      <div class="card-label">// DIRECTION A</div>
+      <div class="card-title">Le Sismographe Souverain</div>
+      <div class="card-tag">Mercury × Pennylane × Carbon</div>
+      <div class="card-desc">Noblesse FR + précision allemande. Palette crème vélin · encre profonde · vert oscilloscope. Typo Geist. Logo wordmark "ifind" avec pic sismographique vertical sur le "i". Asset signature : ligne sismique animée qui traverse le hero.</div>
+      <div class="swatches">
+        <div class="sw" style="background:#F5F1EA"></div>
+        <div class="sw" style="background:#0A0F1A"></div>
+        <div class="sw" style="background:#00D17C"></div>
+        <div class="sw" style="background:#4A5468"></div>
+      </div>
+      <span class="card-cta">Ouvrir</span>
+    </a>
+
+    <a class="card" href="direction-b-tropical.html" target="_blank">
+      <div class="card-label">// DIRECTION B</div>
+      <div class="card-title">Le Capteur Tropical</div>
+      <div class="card-tag">Mistral × Anthropic × Le Monde print</div>
+      <div class="card-desc">FR chaleureux + intellectuel + organique. Palette vélin chaud · sépia · ambre INPI · bordeaux feutre. Typo Fraunces italic expressive. Logo signature manuscrite d'analyste. Asset signature : tracés sismographiques grain main.</div>
+      <div class="swatches">
+        <div class="sw" style="background:#FBF7F0"></div>
+        <div class="sw" style="background:#1A1614"></div>
+        <div class="sw" style="background:#E89F2C"></div>
+        <div class="sw" style="background:#7A2E2E"></div>
+      </div>
+      <span class="card-cta">Ouvrir</span>
+    </a>
+
+    <a class="card" href="direction-c-terminal.html" target="_blank">
+      <div class="card-label">// DIRECTION C</div>
+      <div class="card-title">Le Terminal Brutaliste</div>
+      <div class="card-tag">Linear × Vercel × Bloomberg Terminal</div>
+      <div class="card-desc">Avant-gardiste tech radical 2026. Palette noir absolu · graphène · cyan signal. Typo Geist Mono dominante, UI terminal. Logo IFIND condensed avec onde signal dans le F. Asset signature : oscilloscope cyan animé full-bleed.</div>
+      <div class="swatches">
+        <div class="sw" style="background:#000000"></div>
+        <div class="sw" style="background:#14151A"></div>
+        <div class="sw" style="background:#00E5FF"></div>
+        <div class="sw" style="background:#A1A4AD"></div>
+      </div>
+      <span class="card-cta">Ouvrir</span>
+    </a>
+
+  </div>
+
+  <div class="reco">
+    <strong>Ma recommandation : Direction A + une touche B</strong> sur l'asset signature (légère imperfection humaine plutôt que 100% algorithmique). Mais ouvre les 3 dans le navigateur — laisse ton instinct parler avant de lire mes arguments.
+  </div>
+
+  <div class="footer">
+    iFIND DESIGN EXPLORATIONS · /opt/moltbot/design-explorations/mockups/ · MAI 2026
+  </div>
+</body>
+</html>

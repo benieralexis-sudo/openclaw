@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IFIND — SOVEREIGN TRIGGER ENGINE · FR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================
+     IFIND — DIRECTION C · TERMINAL BRUTALISTE
+     ============================================ */
+
+  :root {
+    --black:        #000000;
+    --graphene:     #0A0B0F;
+    --graphene-up:  #14151A;
+    --white:        #FFFFFF;
+    --gray-soft:    #A1A4AD;
+    --gray-deep:    #4D525C;
+    --signal:       #00E5FF;
+    --signal-dim:   #008FAD;
+    --border:       #1F2025;
+    --border-soft:  #14151A;
+
+    --mono: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Geist", system-ui, -apple-system, sans-serif;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    background: var(--black);
+    color: var(--white);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.55;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Scanlines global overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.02) 0px,
+      rgba(255, 255, 255, 0.02) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 1000;
+    mix-blend-mode: overlay;
+  }
+
+  /* Subtle grain noise */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(rgba(0, 229, 255, 0.015) 1px, transparent 1px);
+    background-size: 3px 3px;
+    pointer-events: none;
+    z-index: 1001;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  ::selection {
+    background: var(--signal);
+    color: var(--black);
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* ========== NAV ========== */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+  }
+
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 26px;
+  }
+
+  .logo svg {
+    height: 26px;
+    width: auto;
+    display: block;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
+  .nav-links a {
+    color: var(--gray-soft);
+    transition: color 120ms ease;
+  }
+
+  .nav-links a:hover {
+    color: var(--white);
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--signal);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    background: var(--signal);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--signal), 0 0 16px rgba(0, 229, 255, 0.4);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+      box-shadow: 0 0 8px var(--signal), 0 0 16px rgba(0, 229, 255, 0.4);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(0.85);
+      box-shadow: 0 0 4px var(--signal), 0 0 8px rgba(0, 229, 255, 0.2);
+    }
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding: 10px 18px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 100ms ease;
+    border-radius: 0;
+  }
+
+  .btn-primary {
+    background: var(--signal);
+    color: var(--black);
+    border-color: var(--signal);
+  }
+
+  .btn-primary:hover {
+    background: var(--black);
+    color: var(--signal);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--white);
+    border-color: var(--border);
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--signal);
+    color: var(--signal);
+  }
+
+  /* ========== HERO ========== */
+  .hero {
+    position: relative;
+    min-height: 90vh;
+    padding: 100px 0 60px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero-grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(31, 32, 37, 0.4) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(31, 32, 37, 0.4) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 30%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 30%, transparent 80%);
+    pointer-events: none;
+  }
+
+  .oscilloscope {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 320px;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  .oscilloscope svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .oscillo-path {
+    fill: none;
+    stroke: var(--signal);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 4px var(--signal)) drop-shadow(0 0 12px rgba(0, 229, 255, 0.45));
+    stroke-dasharray: 12 6;
+    animation: scroll-dash 4s linear infinite;
+  }
+
+  @keyframes scroll-dash {
+    from { stroke-dashoffset: 0; }
+    to   { stroke-dashoffset: -180; }
+  }
+
+  .oscillo-baseline {
+    stroke: var(--signal-dim);
+    stroke-width: 0.5;
+    opacity: 0.35;
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 11px;
+    color: var(--signal);
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    margin-bottom: 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .eyebrow-bracket {
+    color: var(--gray-deep);
+  }
+
+  h1.hero-title {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: clamp(48px, 7vw, 104px);
+    line-height: 0.92;
+    letter-spacing: -0.045em;
+    text-transform: uppercase;
+    font-stretch: condensed;
+    color: var(--white);
+    margin-bottom: 56px;
+  }
+
+  h1.hero-title .signal {
+    color: var(--signal);
+    filter: drop-shadow(0 0 18px rgba(0, 229, 255, 0.35));
+  }
+
+  h1.hero-title .line {
+    display: block;
+  }
+
+  .data-block {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gray-soft);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 48px;
+    max-width: 760px;
+    border-left: 1px solid var(--signal);
+    padding-left: 16px;
+  }
+
+  .data-block .row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 16px;
+    padding: 6px 0;
+  }
+
+  .data-block .sep {
+    color: var(--gray-deep);
+  }
+
+  .data-block .val {
+    color: var(--white);
+    font-weight: 500;
+  }
+
+  .data-block .lbl {
+    color: var(--gray-deep);
+    margin-right: 8px;
+  }
+
+  .hero-cta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .hero-cta .btn-primary {
+    padding: 14px 24px;
+    font-size: 12px;
+  }
+
+  .hero-cta .btn-ghost {
+    padding: 14px 24px;
+    font-size: 12px;
+  }
+
+  .hero-meta {
+    position: absolute;
+    bottom: 32px;
+    left: 32px;
+    right: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--gray-deep);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    z-index: 2;
+  }
+
+  .hero-meta .crosshair {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ========== LIVE FEED ========== */
+  .live-feed {
+    background: var(--graphene);
+    padding: 120px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: crosshair;
+  }
+
+  .section-head {
+    margin-bottom: 56px;
+  }
+
+  .section-head .eyebrow {
+    margin-bottom: 16px;
+  }
+
+  .section-head h2 {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: clamp(32px, 4vw, 52px);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    color: var(--white);
+    max-width: 800px;
+  }
+
+  .section-head h2 .accent {
+    color: var(--signal);
+  }
+
+  .terminal {
+    border: 1px solid var(--border);
+    background: rgba(10, 11, 15, 0.6);
+    backdrop-filter: blur(6px);
+  }
+
+  .terminal-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--gray-deep);
+  }
+
+  .terminal-bar .dots {
+    display: inline-flex;
+    gap: 6px;
+  }
+
+  .terminal-bar .dots span {
+    width: 8px;
+    height: 8px;
+    background: var(--gray-deep);
+    border-radius: 50%;
+  }
+
+  .terminal-bar .dots span:first-child {
+    background: var(--signal);
+    box-shadow: 0 0 6px rgba(0, 229, 255, 0.6);
+  }
+
+  table.feed {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  table.feed thead th {
+    text-align: left;
+    padding: 14px 18px;
+    font-weight: 500;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--gray-deep);
+    border-bottom: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  table.feed tbody td {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border-soft);
+    color: var(--gray-soft);
+  }
+
+  table.feed tbody tr {
+    transition: background 80ms ease;
+  }
+
+  table.feed tbody tr:hover {
+    background: rgba(0, 229, 255, 0.04);
+  }
+
+  table.feed tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  td.timestamp {
+    color: var(--gray-deep);
+    width: 130px;
+  }
+
+  td.company {
+    color: var(--white);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  td.trigger-type {
+    color: var(--gray-soft);
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+  }
+
+  td.score {
+    width: 90px;
+    font-weight: 500;
+    text-align: right;
+    padding-right: 28px;
+  }
+
+  td.score.high {
+    color: var(--signal);
+    text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+  }
+
+  td.source {
+    width: 180px;
+    color: var(--gray-deep);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: right;
+  }
+
+  td .arrow {
+    color: var(--signal);
+    margin-right: 4px;
+  }
+
+  td .arrow.down {
+    color: var(--gray-deep);
+  }
+
+  .terminal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--gray-deep);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  .terminal-footer .live {
+    color: var(--signal);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ========== PIPELINE ========== */
+  .pipeline {
+    background: var(--black);
+    padding: 140px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pipeline-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    margin-top: 64px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pipe-col {
+    padding: 40px 32px 48px;
+    border-left: 1px solid var(--border);
+    position: relative;
+    min-height: 320px;
+    transition: background 200ms ease;
+  }
+
+  .pipe-col:first-child {
+    border-left: none;
+    padding-left: 0;
+  }
+
+  .pipe-col:hover {
+    background: rgba(0, 229, 255, 0.02);
+  }
+
+  .pipe-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--signal);
+    letter-spacing: 0.18em;
+    margin-bottom: 24px;
+  }
+
+  .pipe-title {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 28px;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 28px;
+  }
+
+  .pipe-list {
+    list-style: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gray-soft);
+    line-height: 1.9;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-left: 1px solid var(--border);
+    padding-left: 14px;
+  }
+
+  .pipe-list li::before {
+    content: "│ ";
+    color: var(--gray-deep);
+    margin-left: -14px;
+    margin-right: 4px;
+  }
+
+  .pipe-arrow {
+    position: absolute;
+    bottom: 24px;
+    left: 32px;
+    color: var(--signal);
+    font-family: var(--mono);
+    font-size: 18px;
+    line-height: 1;
+    opacity: 0.6;
+  }
+
+  .pipe-col:first-child .pipe-arrow {
+    left: 0;
+  }
+
+  /* ========== STATS ========== */
+  .stats {
+    background: var(--graphene);
+    padding: 100px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .stat {
+    background: var(--graphene);
+    padding: 48px 32px;
+    transition: background 200ms ease;
+    position: relative;
+  }
+
+  .stat:hover {
+    background: var(--graphene-up);
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--gray-deep);
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .stat-label .code {
+    color: var(--signal);
+  }
+
+  .stat-num {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: clamp(48px, 6vw, 88px);
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    color: var(--white);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-num .unit {
+    color: var(--signal);
+    font-size: 0.5em;
+    margin-left: 4px;
+  }
+
+  .stat-foot {
+    margin-top: 20px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--gray-deep);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
+
+  /* ========== FINAL CTA ========== */
+  .final-cta {
+    position: relative;
+    background: var(--black);
+    padding: 160px 0;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .final-cta .oscilloscope {
+    opacity: 0.4;
+    height: 240px;
+  }
+
+  .final-cta-inner {
+    position: relative;
+    z-index: 2;
+  }
+
+  .final-cta h2 {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: clamp(40px, 5.5vw, 84px);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 28px;
+    font-stretch: condensed;
+  }
+
+  .final-cta h2 .signal {
+    color: var(--signal);
+    filter: drop-shadow(0 0 18px rgba(0, 229, 255, 0.35));
+  }
+
+  .final-cta .sub {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--gray-soft);
+    letter-spacing: 0.04em;
+    margin-bottom: 48px;
+    text-transform: uppercase;
+  }
+
+  .final-cta .btn-primary {
+    padding: 18px 32px;
+    font-size: 13px;
+  }
+
+  /* ========== FOOTER ========== */
+  .footer {
+    background: var(--black);
+    padding: 60px 0 40px;
+    border-top: 1px solid var(--border);
+  }
+
+  .footer-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 40px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .footer-nav {
+    display: flex;
+    gap: 48px;
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
+  .footer-nav a {
+    color: var(--gray-soft);
+    transition: color 120ms ease;
+  }
+
+  .footer-nav a:hover {
+    color: var(--signal);
+  }
+
+  .footer-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 28px;
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--gray-deep);
+  }
+
+  .footer-status {
+    display: flex;
+    gap: 28px;
+    color: var(--signal);
+    flex-wrap: wrap;
+  }
+
+  .footer-status span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .footer-status .micro-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--signal);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--signal);
+  }
+
+  /* ========== RESPONSIVE ========== */
+  @media (max-width: 900px) {
+    .wrap { padding: 0 20px; }
+    .nav-links { display: none; }
+    .pipeline-grid { grid-template-columns: 1fr; }
+    .pipe-col { border-left: none; border-top: 1px solid var(--border); padding: 32px 0; }
+    .pipe-col:first-child { border-top: none; }
+    .pipe-arrow { left: 0; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .data-block .row { grid-template-columns: 1fr; }
+    .data-block .sep { display: none; }
+    td.source, td.timestamp { display: none; }
+    .hero-meta { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== NAV ========== -->
+<nav class="nav">
+  <div class="wrap nav-inner">
+    <a href="#" class="logo" aria-label="IFIND">
+      <svg viewBox="0 0 160 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- IFIND wordmark, Geist-style condensed -->
+        <text x="0" y="20" fill="#FFFFFF" font-family="Geist, sans-serif"
+              font-weight="600" font-size="22"
+              letter-spacing="-0.04em"
+              style="font-stretch:condensed;text-transform:uppercase;">IFIND</text>
+        <!-- Oscillo signal motif to the right of wordmark -->
+        <g transform="translate(86, 13)">
+          <path d="M0 0 L4 0 L8 -6 L12 5 L16 -4 L20 3 L24 0 L32 0"
+                fill="none" stroke="#00E5FF" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round"
+                style="filter: drop-shadow(0 0 3px #00E5FF);" />
+        </g>
+      </svg>
+    </a>
+
+    <div class="nav-links">
+      <a href="#">Product</a>
+      <a href="#">Pricing</a>
+      <a href="#">Docs</a>
+      <a href="#">Status</a>
+    </div>
+
+    <div class="nav-right">
+      <span class="status-pill">
+        <span class="dot"></span>
+        Detecting
+      </span>
+      <a href="#" class="btn btn-primary">Start Trial →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ========== HERO ========== -->
+<section class="hero">
+  <div class="hero-grid-bg"></div>
+
+  <!-- Oscilloscope background -->
+  <div class="oscilloscope" aria-hidden="true">
+    <svg viewBox="0 0 1600 320" preserveAspectRatio="none">
+      <line class="oscillo-baseline" x1="0" y1="160" x2="1600" y2="160" />
+      <line class="oscillo-baseline" x1="0" y1="80"  x2="1600" y2="80" stroke-dasharray="2 6" />
+      <line class="oscillo-baseline" x1="0" y1="240" x2="1600" y2="240" stroke-dasharray="2 6" />
+      <path class="oscillo-path"
+            d="M0 160
+               Q 40 158, 80 160
+               T 160 160
+               L 200 160 L 210 90 L 220 230 L 230 110 L 240 160
+               Q 280 162, 320 160
+               T 400 160
+               L 440 160 L 448 60  L 456 250 L 464 100 L 472 160
+               Q 520 158, 560 160
+               T 640 160
+               L 680 160 L 690 130 L 700 190 L 710 140 L 720 160
+               Q 760 162, 800 160
+               T 880 160
+               L 920 160 L 928 30  L 936 275 L 944 80  L 952 160
+               Q 1000 158, 1040 160
+               T 1120 160
+               L 1160 160 L 1168 120 L 1176 210 L 1184 130 L 1192 160
+               Q 1240 162, 1280 160
+               T 1360 160
+               L 1400 160 L 1408 70  L 1416 240 L 1424 95  L 1432 160
+               Q 1480 158, 1520 160
+               T 1600 160" />
+    </svg>
+  </div>
+
+  <div class="wrap hero-inner">
+    <div class="eyebrow">
+      <span class="eyebrow-bracket">//</span>
+      Sovereign · Real-time · France
+      <span class="eyebrow-bracket">//</span>
+    </div>
+
+    <h1 class="hero-title">
+      <span class="line">Trigger Detection.</span>
+      <span class="line">Real-time.</span>
+      <span class="line signal">France.</span>
+    </h1>
+
+    <div class="data-block">
+      <div class="row">
+        <span><span class="lbl">[01]</span> <span class="val">09</span> Sources Sovereign</span>
+        <span class="sep">//</span>
+        <span><span class="lbl">[02]</span> <span class="val">13</span> Patterns Proprietary</span>
+      </div>
+      <div class="row">
+        <span><span class="lbl">[03]</span> <span class="val">3.4s</span> Detection Latency</span>
+        <span class="sep">//</span>
+        <span><span class="lbl">[04]</span> <span class="val">412</span> Triggers This Month</span>
+      </div>
+    </div>
+
+    <div class="hero-cta">
+      <a href="#" class="btn btn-primary">Start Free Trial →</a>
+      <a href="#" class="btn btn-ghost">[ View Docs ]</a>
+    </div>
+  </div>
+
+  <div class="hero-meta">
+    <span class="crosshair">＋ N 48.8566° · E 2.3522° · PARIS</span>
+    <span>SYS · v2.0 · BUILD 2026.05.14</span>
+    <span>UPTIME · 99.94%</span>
+  </div>
+</section>
+
+<!-- ========== LIVE FEED ========== -->
+<section class="live-feed">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">
+        <span class="eyebrow-bracket">//</span>
+        Live Trigger Feed
+      </div>
+      <h2>Real triggers detected. <span class="accent">Right now.</span></h2>
+    </div>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="dots">
+          <span></span><span></span><span></span>
+        </span>
+        <span>ifind@trigger-engine: ~ /feed --live --region=FR</span>
+        <span>tty/1</span>
+      </div>
+
+      <table class="feed">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Company</th>
+            <th>Trigger Type</th>
+            <th style="text-align:right; padding-right:28px;">Score</th>
+            <th style="text-align:right;">Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="timestamp">14:32:08</td>
+            <td class="company"><span class="arrow">▲</span>ACME CORP</td>
+            <td class="trigger-type">FUNDING_SERIES_A</td>
+            <td class="score high">94</td>
+            <td class="source">RSS-LEVEES</td>
+          </tr>
+          <tr>
+            <td class="timestamp">14:28:51</td>
+            <td class="company"><span class="arrow">▲</span>ZINKA SAS</td>
+            <td class="trigger-type">C-LEVEL_HIRING_VP_ENG</td>
+            <td class="score high">87</td>
+            <td class="source">FRANCE-TRAVAIL</td>
+          </tr>
+          <tr>
+            <td class="timestamp">14:24:33</td>
+            <td class="company"><span class="arrow down">▼</span>DATAPULSE</td>
+            <td class="trigger-type">INPI_DEPOT_BREVET</td>
+            <td class="score">76</td>
+            <td class="source">INPI-FR</td>
+          </tr>
+          <tr>
+            <td class="timestamp">14:19:02</td>
+            <td class="company"><span class="arrow">▲</span>OPSMILL</td>
+            <td class="trigger-type">FUNDING_SEED_3M</td>
+            <td class="score high">91</td>
+            <td class="source">RSS-LEVEES</td>
+          </tr>
+          <tr>
+            <td class="timestamp">14:11:47</td>
+            <td class="company"><span class="arrow down">▼</span>KESTRA IO</td>
+            <td class="trigger-type">HIRING_QA_AUTOMATION</td>
+            <td class="score">82</td>
+            <td class="source">WTTJ</td>
+          </tr>
+          <tr>
+            <td class="timestamp">14:05:19</td>
+            <td class="company"><span class="arrow">▲</span>VIA XOFT</td>
+            <td class="trigger-type">FOUNDER_MOVE_CTO</td>
+            <td class="score high">88</td>
+            <td class="source">LINKEDIN-PUBLIC</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="terminal-footer">
+        <span>[ Live feed — auto-refresh every 4s ]</span>
+        <span class="live"><span class="dot"></span>Connected · 9/9 sources</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PIPELINE ========== -->
+<section class="pipeline">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">
+        <span class="eyebrow-bracket">//</span>
+        Pipeline · Architecture
+      </div>
+      <h2>From signal to qualified lead. <span class="accent">In 3.4 seconds.</span></h2>
+    </div>
+
+    <div class="pipeline-grid">
+      <div class="pipe-col">
+        <div class="pipe-num">[01] · CAPTURE</div>
+        <div class="pipe-title">Ingest</div>
+        <ul class="pipe-list">
+          <li>INPI · PAPPERS</li>
+          <li>BODACC · JOAFE</li>
+          <li>FRANCE-TRAVAIL</li>
+          <li>RSS-LEVEES · WTTJ</li>
+          <li>LINKEDIN-PUBLIC</li>
+          <li>+ 3 SOVEREIGN FEEDS</li>
+        </ul>
+        <div class="pipe-arrow">▼</div>
+      </div>
+
+      <div class="pipe-col">
+        <div class="pipe-num">[02] · QUALIFY</div>
+        <div class="pipe-title">Reason</div>
+        <ul class="pipe-list">
+          <li>CLAUDE OPUS 4.7</li>
+          <li>13 PATTERNS PROPRIETARY</li>
+          <li>ICP CUSTOM PER CLIENT</li>
+          <li>FIT_SCORE 0 → 100</li>
+          <li>BOOSTERS v1.1</li>
+          <li>LATENCY 3.4s p95</li>
+        </ul>
+        <div class="pipe-arrow">▼</div>
+      </div>
+
+      <div class="pipe-col">
+        <div class="pipe-num">[03] · DELIVER</div>
+        <div class="pipe-title">Output</div>
+        <ul class="pipe-list">
+          <li>60 LEADS / MONTH</li>
+          <li>6+ PÉPITES GUARANTEED</li>
+          <li>HOT TRIGGER ALERTS</li>
+          <li>EMAIL + KASPR + LINKEDIN</li>
+          <li>API + DASHBOARD</li>
+          <li>ROLLOVER UP TO 4×</li>
+        </ul>
+        <div class="pipe-arrow">▼</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== STATS ========== -->
+<section class="stats">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">
+        <span class="eyebrow-bracket">//</span>
+        Engine · Snapshot
+      </div>
+      <h2>Numbers don't lie. <span class="accent">Live readings.</span></h2>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-label"><span>Sources</span><span class="code">[01]</span></div>
+        <div class="stat-num">9</div>
+        <div class="stat-foot">Sovereign · FR-native</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label"><span>Patterns</span><span class="code">[02]</span></div>
+        <div class="stat-num">13</div>
+        <div class="stat-foot">Proprietary · Versioned</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label"><span>Latency</span><span class="code">[03]</span></div>
+        <div class="stat-num">3.4<span class="unit">s</span></div>
+        <div class="stat-foot">p95 · signal → score</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label"><span>Triggers</span><span class="code">[04]</span></div>
+        <div class="stat-num">412</div>
+        <div class="stat-foot">This month · And counting</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FINAL CTA ========== -->
+<section class="final-cta">
+  <div class="hero-grid-bg"></div>
+
+  <div class="oscilloscope" aria-hidden="true">
+    <svg viewBox="0 0 1600 240" preserveAspectRatio="none">
+      <line class="oscillo-baseline" x1="0" y1="120" x2="1600" y2="120" />
+      <path class="oscillo-path"
+            d="M0 120
+               Q 80 118, 160 120
+               T 320 120
+               L 360 120 L 368 50 L 376 200 L 384 80 L 392 120
+               Q 480 122, 560 120
+               T 720 120
+               L 760 120 L 768 20 L 776 220 L 784 60 L 792 120
+               Q 880 118, 960 120
+               T 1120 120
+               L 1160 120 L 1168 90 L 1176 160 L 1184 100 L 1192 120
+               Q 1280 122, 1360 120
+               T 1520 120
+               L 1600 120" />
+    </svg>
+  </div>
+
+  <div class="wrap final-cta-inner">
+    <h2>Deploy your <span class="signal">trigger engine.</span></h2>
+    <p class="sub">14 Days Free · No Credit Card · Real-time Detection from Minute One</p>
+    <a href="#" class="btn btn-primary">Start Free Trial →</a>
+  </div>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <a href="#" class="logo" aria-label="IFIND">
+        <svg viewBox="0 0 160 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <text x="0" y="20" fill="#FFFFFF" font-family="Geist, sans-serif"
+                font-weight="600" font-size="22"
+                letter-spacing="-0.04em"
+                style="font-stretch:condensed;text-transform:uppercase;">IFIND</text>
+          <g transform="translate(86, 13)">
+            <path d="M0 0 L4 0 L8 -6 L12 5 L16 -4 L20 3 L24 0 L32 0"
+                  fill="none" stroke="#00E5FF" stroke-width="1.6"
+                  stroke-linecap="round" stroke-linejoin="round"
+                  style="filter: drop-shadow(0 0 3px #00E5FF);" />
+          </g>
+        </svg>
+      </a>
+
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="#">Product</a>
+        <a href="#">Pricing</a>
+        <a href="#">Docs</a>
+        <a href="#">Changelog</a>
+        <a href="#">Status</a>
+        <a href="#">Legal</a>
+      </nav>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 IFIND · Sovereign Trigger Engine · Paris</span>
+      <div class="footer-status">
+        <span><span class="micro-dot"></span>API : Operational</span>
+        <span><span class="micro-dot"></span>Ingest : 9/9 Sources</span>
+        <span><span class="micro-dot"></span>Uptime : 99.94%</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

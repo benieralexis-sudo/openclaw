@@ -107,3 +107,7 @@ package-lock.json
 skills/trigger-engine/lib/node_modules/
 data/
 scripts/.run-pollers.env
+
+# Design explorations — backups
+design-explorations/**/*.bak*
+design-explorations/**/*.bak-*

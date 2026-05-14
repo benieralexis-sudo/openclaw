@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iFIND — Logo Lab · Phase 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0F0D0A;
+    --ink-soft:#1A1614;
+    --cream:#F5F1EA;
+    --cream-warm:#EDE7DA;
+    --amber:#E89F2C;
+    --amber-deep:#C7841E;
+    --slate:#5C544A;
+    --line:#D9D2C2;
+    --line-soft:#E6DFCE;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Geist',sans-serif;
+    font-weight:400;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    font-feature-settings:"ss01","cv11";
+    padding:64px 32px 120px;
+  }
+  .container{max-width:1280px;margin:0 auto}
+
+  /* === HEADER === */
+  header{padding-bottom:48px;border-bottom:1px solid var(--line);margin-bottom:64px}
+  .eyebrow{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--slate);margin-bottom:20px}
+  h1{font-weight:500;font-size:clamp(40px,5vw,68px);letter-spacing:-0.025em;line-height:1.05;margin-bottom:20px}
+  h1 .accent{color:var(--amber);font-style:italic;font-weight:500;position:relative}
+  .lead{font-size:18px;line-height:1.55;color:var(--slate);max-width:680px}
+  .meta{font-family:'Geist Mono',monospace;font-size:12px;color:var(--slate);margin-top:32px;letter-spacing:0.04em}
+  .meta span{color:var(--amber)}
+
+  /* === SECTION === */
+  section{margin-top:96px}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:48px}
+  h2{font-weight:500;font-size:32px;letter-spacing:-0.02em}
+  .section-meta{font-family:'Geist Mono',monospace;font-size:11px;color:var(--slate);letter-spacing:0.1em;text-transform:uppercase}
+
+  /* === LOGO PRIMITIVES === */
+  /* Tous les logos sont construits comme des SVG inline pour contrôle pixel-perfect */
+
+  /* === GRID variants === */
+  .variants-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .variant{background:var(--cream);padding:48px 32px 28px;display:flex;flex-direction:column;gap:24px;min-height:200px;justify-content:space-between;position:relative;transition:background 200ms}
+  .variant:hover{background:var(--cream-warm)}
+  .variant.dark{background:var(--ink);color:var(--cream)}
+  .variant.dark:hover{background:var(--ink-soft)}
+  .variant.warm{background:var(--cream-warm)}
+  .variant.warm:hover{background:var(--cream)}
+  .variant-label{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--slate)}
+  .variant.dark .variant-label{color:var(--cream-warm);opacity:0.7}
+  .variant-display{flex:1;display:flex;align-items:center;justify-content:flex-start;min-height:80px}
+  .variant-note{font-family:'Geist Mono',monospace;font-size:11px;color:var(--slate);line-height:1.5}
+  .variant.dark .variant-note{color:var(--cream-warm);opacity:0.6}
+
+  /* === Logo wordmark variants === */
+  .wm{display:inline-flex;align-items:baseline;font-family:'Geist',sans-serif;font-weight:600;letter-spacing:-0.025em;line-height:1}
+  .wm-i{position:relative;display:inline-block}
+  .wm-i::before{display:none}
+
+  /* Variant 1 — Pic vertical épuré (baseline) */
+  .v1{font-size:56px;color:var(--ink)}
+  .v1 .wm-i{padding-top:0}
+  .v1 .pic{position:absolute;left:50%;top:-22px;transform:translateX(-50%);width:3px;height:18px;background:var(--amber);border-radius:1px}
+
+  /* Variant 2 — Pic + base élargie (oscilloscope ancré) */
+  .v2{font-size:56px;color:var(--ink)}
+  .v2 .pic{position:absolute;left:50%;top:-20px;transform:translateX(-50%);width:11px;height:14px;background:none}
+  .v2 .pic svg{display:block}
+
+  /* Variant 3 — Double pic stacked */
+  .v3{font-size:56px;color:var(--ink)}
+  .v3 .pic{position:absolute;left:50%;top:-26px;transform:translateX(-50%);width:3px}
+  .v3 .pic .a{display:block;width:3px;height:8px;background:var(--amber);border-radius:1px;margin-bottom:3px}
+  .v3 .pic .b{display:block;width:3px;height:12px;background:var(--amber);border-radius:1px}
+
+  /* Variant 4 — Pic asymétrique éclat */
+  .v4{font-size:56px;color:var(--ink)}
+  .v4 .pic{position:absolute;left:50%;top:-22px;transform:translateX(-50%)}
+  .v4 .pic svg{display:block}
+
+  /* Variant 5 — Pic large avec respiration */
+  .v5{font-size:56px;color:var(--ink)}
+  .v5 .pic{position:absolute;left:50%;top:-24px;transform:translateX(-50%)}
+  .v5 .pic svg{display:block}
+  .v5 .pic .pulse{animation:breathePulse 2.4s ease-in-out infinite}
+
+  /* Variant 6 — Onde mini-sismo */
+  .v6{font-size:56px;color:var(--ink)}
+  .v6 .pic{position:absolute;left:50%;top:-22px;transform:translateX(-50%)}
+  .v6 .pic svg{display:block}
+
+  /* Variant 7 — Mark seul (pic isolé) */
+  .v7-mark{display:inline-flex;align-items:center;gap:6px}
+  .v7-mark svg{display:block}
+
+  /* Variant 8 — Lockup vertical */
+  .v8-lock{display:inline-flex;flex-direction:column;align-items:center;gap:8px}
+  .v8-lock .wm{font-size:38px}
+
+  @keyframes breathePulse{
+    0%,100%{opacity:0.85;transform:scaleY(1)}
+    50%{opacity:1;transform:scaleY(1.15)}
+  }
+  @keyframes liveBlink{
+    0%,100%{opacity:1}
+    50%{opacity:0.4}
+  }
+
+  /* === Scale stress test === */
+  .scale-row{display:flex;align-items:flex-end;gap:48px;flex-wrap:wrap;padding:48px 32px;background:var(--cream);border:1px solid var(--line)}
+  .scale-cell{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+  .scale-cell .lbl{font-family:'Geist Mono',monospace;font-size:10px;color:var(--slate);letter-spacing:0.1em;text-transform:uppercase}
+
+  /* === Background tests === */
+  .bg-tests{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .bg-cell{padding:64px 32px;display:flex;align-items:center;justify-content:center;min-height:180px}
+  .bg-cream{background:var(--cream)}
+  .bg-cream-warm{background:var(--cream-warm)}
+  .bg-ink{background:var(--ink)}
+  .bg-amber{background:var(--amber)}
+  .bg-photo{
+    background:linear-gradient(135deg,#3D3329 0%,#5C4F40 40%,#7A6B58 100%);
+    position:relative;
+  }
+  .bg-photo::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(circle at 30% 40%,rgba(232,159,44,0.18),transparent 50%);
+  }
+  .bg-photo > *{position:relative;z-index:1}
+
+  /* Recommendation card */
+  .reco{margin-top:80px;padding:32px 40px;background:var(--ink);color:var(--cream);border-left:4px solid var(--amber)}
+  .reco-eyebrow{font-family:'Geist Mono',monospace;font-size:11px;color:var(--amber);letter-spacing:0.16em;text-transform:uppercase;margin-bottom:16px}
+  .reco h3{font-weight:500;font-size:28px;letter-spacing:-0.02em;margin-bottom:16px;line-height:1.2}
+  .reco p{font-size:15px;line-height:1.6;color:var(--cream-warm);max-width:720px;margin-bottom:12px}
+  .reco strong{color:var(--cream);font-weight:500;background:rgba(232,159,44,0.18);padding:1px 6px}
+
+  /* Footer */
+  footer{margin-top:96px;padding-top:32px;border-top:1px solid var(--line);font-family:'Geist Mono',monospace;font-size:11px;color:var(--slate);letter-spacing:0.08em;display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px}
+  footer .live{color:var(--amber);animation:liveBlink 2s ease-in-out infinite}
+
+  @media(max-width:720px){
+    body{padding:32px 16px 80px}
+    h1{font-size:36px}
+    .section-head{flex-direction:column;gap:8px;align-items:flex-start}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="eyebrow">// Phase 2 · Logo Lab · 14.05.2026</div>
+    <h1>Le logo <span class="accent">ifind</span> — variantes du pic sismographique.</h1>
+    <p class="lead">Le wordmark est typographique pur : <code style="font-family:'Geist Mono',monospace;background:var(--cream-warm);padding:2px 6px">ifind</code> en Geist 600 lowercase, le point du « i » remplacé par un pic sismographique ambre. Cette page explore 8 variantes du pic, tests de tailles, et applications sur différents fonds. Une fois la variante choisie, on dérive le système (mark seul, lockups, monochrome, animations).</p>
+    <div class="meta">FAMILY <span>Geist 600</span> · ACCENT <span>#E89F2C INPI</span> · INK <span>#0F0D0A</span> · CREAM <span>#F5F1EA</span></div>
+  </header>
+
+  <!-- ============================================== -->
+  <!-- SECTION 1 — 8 variantes du pic                -->
+  <!-- ============================================== -->
+  <section>
+    <div class="section-head">
+      <h2>1 · Huit variantes du pic</h2>
+      <span class="section-meta">8 candidats · choisir 1-2</span>
+    </div>
+
+    <div class="variants-grid">
+
+      <!-- V1 -->
+      <div class="variant">
+        <div class="variant-label">V1 — Trait épuré</div>
+        <div class="variant-display">
+          <span class="wm v1">
+            <span class="wm-i">i<span class="pic"></span></span>find
+          </span>
+        </div>
+        <div class="variant-note">Le minimalisme absolu. Un trait vertical ambre 3×18px. Sobre, durable, indémodable.</div>
+      </div>
+
+      <!-- V2 -->
+      <div class="variant">
+        <div class="variant-label">V2 — Pic ancré (oscilloscope)</div>
+        <div class="variant-display">
+          <span class="wm v2">
+            <span class="wm-i">i<span class="pic">
+              <svg width="11" height="14" viewBox="0 0 11 14">
+                <path d="M0 13 L4 13 L5.5 1 L7 13 L11 13" stroke="#E89F2C" stroke-width="1.8" fill="none" stroke-linejoin="miter"/>
+              </svg>
+            </span></span>find
+          </span>
+        </div>
+        <div class="variant-note">Pic typé oscilloscope avec base. Évoque clairement un instrument de mesure. Plus narratif.</div>
+      </div>
+
+      <!-- V3 -->
+      <div class="variant">
+        <div class="variant-label">V3 — Double-pic stacked</div>
+        <div class="variant-display">
+          <span class="wm v3">
+            <span class="wm-i">i<span class="pic">
+              <span class="a"></span>
+              <span class="b"></span>
+            </span></span>find
+          </span>
+        </div>
+        <div class="variant-note">Deux pics empilés évoquent deux signaux distincts. Risque : peut être lu comme un « : » Unicode.</div>
+      </div>
+
+      <!-- V4 -->
+      <div class="variant">
+        <div class="variant-label">V4 — Pic asymétrique</div>
+        <div class="variant-display">
+          <span class="wm v4">
+            <span class="wm-i">i<span class="pic">
+              <svg width="9" height="18" viewBox="0 0 9 18">
+                <path d="M2 18 L2 6 L7 2 L7 8" stroke="#E89F2C" stroke-width="2" fill="none" stroke-linecap="square"/>
+              </svg>
+            </span></span>find
+          </span>
+        </div>
+        <div class="variant-note">Pic qui se brise vers la droite (éclat). Plus de mouvement, plus de tension. Audacieux.</div>
+      </div>
+
+      <!-- V5 -->
+      <div class="variant">
+        <div class="variant-label">V5 — Pic respirant (animé)</div>
+        <div class="variant-display">
+          <span class="wm v5">
+            <span class="wm-i">i<span class="pic">
+              <svg width="5" height="20" viewBox="0 0 5 20">
+                <rect class="pulse" x="1" y="2" width="3" height="16" rx="1.5" fill="#E89F2C" style="transform-origin: 2.5px 18px"/>
+              </svg>
+            </span></span>find
+          </span>
+        </div>
+        <div class="variant-note">Le pic respire toutes les 2,4s (battement de signal). Vivant, à régler subtil pour pas distraire.</div>
+      </div>
+
+      <!-- V6 -->
+      <div class="variant">
+        <div class="variant-label">V6 — Mini-onde sismique</div>
+        <div class="variant-display">
+          <span class="wm v6">
+            <span class="wm-i">i<span class="pic">
+              <svg width="14" height="14" viewBox="0 0 14 14">
+                <path d="M0 13 L3 13 L4.5 10 L6 13 L7.5 1 L9 13 L10.5 8 L11.5 13 L14 13" stroke="#E89F2C" stroke-width="1.6" fill="none" stroke-linejoin="miter" stroke-linecap="square"/>
+              </svg>
+            </span></span>find
+          </span>
+        </div>
+        <div class="variant-note">Mini-sismogramme complet (3-4 oscillations + pic). Le plus narratif. Risque : trop chargé en petit.</div>
+      </div>
+
+      <!-- V7 — DARK -->
+      <div class="variant dark">
+        <div class="variant-label">V7 — V1 sur fond ink</div>
+        <div class="variant-display">
+          <span class="wm v1" style="color:var(--cream)">
+            <span class="wm-i">i<span class="pic"></span></span>find
+          </span>
+        </div>
+        <div class="variant-note">Test dark mode. Cream texte + ambre signal sur ink profond.</div>
+      </div>
+
+      <!-- V8 — Sur ambre -->
+      <div class="variant" style="background:var(--amber)">
+        <div class="variant-label" style="color:var(--ink-soft)">V8 — V1 sur fond ambre</div>
+        <div class="variant-display">
+          <span class="wm v1" style="color:var(--ink)">
+            <span class="wm-i">i<span class="pic" style="background:var(--ink)"></span></span>find
+          </span>
+        </div>
+        <div class="variant-note" style="color:var(--ink-soft)">Cas d'usage : carte de visite, sticker événement, badge social.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- SECTION 2 — Stress test échelles               -->
+  <!-- ============================================== -->
+  <section>
+    <div class="section-head">
+      <h2>2 · Test d'échelle (V1 baseline)</h2>
+      <span class="section-meta">16px → 256px · est-ce que ça tient ?</span>
+    </div>
+
+    <div class="scale-row">
+      <div class="scale-cell">
+        <span class="wm v1" style="font-size:12px">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-5px;transform:translateX(-50%);width:1.5px;height:4px;background:var(--amber);border-radius:0.5px"></span></span>find
+        </span>
+        <span class="lbl">12 px · favicon</span>
+      </div>
+      <div class="scale-cell">
+        <span class="wm v1" style="font-size:18px">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-7px;transform:translateX(-50%);width:2px;height:6px;background:var(--amber);border-radius:1px"></span></span>find
+        </span>
+        <span class="lbl">18 px · email signature</span>
+      </div>
+      <div class="scale-cell">
+        <span class="wm v1" style="font-size:28px">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-11px;transform:translateX(-50%);width:2.5px;height:9px;background:var(--amber);border-radius:1px"></span></span>find
+        </span>
+        <span class="lbl">28 px · nav site</span>
+      </div>
+      <div class="scale-cell">
+        <span class="wm v1" style="font-size:56px">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-22px;transform:translateX(-50%);width:3px;height:18px;background:var(--amber);border-radius:1px"></span></span>find
+        </span>
+        <span class="lbl">56 px · hero</span>
+      </div>
+      <div class="scale-cell">
+        <span class="wm v1" style="font-size:96px">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-38px;transform:translateX(-50%);width:5px;height:30px;background:var(--amber);border-radius:1.5px"></span></span>find
+        </span>
+        <span class="lbl">96 px · cover deck</span>
+      </div>
+    </div>
+    <p style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--slate);margin-top:16px;letter-spacing:0.04em">// Le pic s'adapte proportionnellement à la taille du texte. À 12px le pic devient un point ambre — exactement le comportement souhaité (le « i » classique réapparait sous condition de lisibilité).</p>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- SECTION 3 — Lockups et mark seul              -->
+  <!-- ============================================== -->
+  <section>
+    <div class="section-head">
+      <h2>3 · Mark seul et lockups</h2>
+      <span class="section-meta">Avatar · Vertical · Horizontal</span>
+    </div>
+
+    <div class="variants-grid">
+
+      <!-- Mark seul -->
+      <div class="variant">
+        <div class="variant-label">Mark seul — avatar social / favicon</div>
+        <div class="variant-display" style="justify-content:center">
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <rect width="64" height="64" fill="#0F0D0A"/>
+            <rect x="30" y="14" width="4" height="20" rx="1.5" fill="#E89F2C"/>
+            <rect x="30" y="38" width="4" height="14" rx="1.5" fill="#F5F1EA"/>
+          </svg>
+        </div>
+        <div class="variant-note">Pic ambre (signal) + corps cream (le « i »). 64×64px. Marche en favicon 16px et avatar Twitter 400px.</div>
+      </div>
+
+      <!-- Lockup horizontal -->
+      <div class="variant">
+        <div class="variant-label">Lockup horizontal — header standard</div>
+        <div class="variant-display">
+          <span class="wm v1">
+            <span class="wm-i">i<span class="pic"></span></span>find
+          </span>
+        </div>
+        <div class="variant-note">Le format par défaut pour toutes les surfaces web/print.</div>
+      </div>
+
+      <!-- Lockup vertical -->
+      <div class="variant">
+        <div class="variant-label">Lockup vertical — cover / poster</div>
+        <div class="variant-display" style="justify-content:center">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+            <svg width="42" height="42" viewBox="0 0 42 42">
+              <rect x="19" y="6" width="4" height="16" rx="1.5" fill="#E89F2C"/>
+              <rect x="19" y="26" width="4" height="10" rx="1.5" fill="#0F0D0A"/>
+            </svg>
+            <span class="wm" style="font-size:32px">ifind</span>
+          </div>
+        </div>
+        <div class="variant-note">Pic + wordmark superposés, signature pour cover de PDF / poster / vidéo intro.</div>
+      </div>
+
+      <!-- Lockup avec baseline -->
+      <div class="variant">
+        <div class="variant-label">Lockup baseline — signature email</div>
+        <div class="variant-display" style="justify-content:flex-start">
+          <div>
+            <span class="wm v1" style="font-size:26px">
+              <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-10px;transform:translateX(-50%);width:2.5px;height:8px;background:var(--amber);border-radius:1px"></span></span>find
+            </span>
+            <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--slate);letter-spacing:0.12em;text-transform:uppercase;margin-top:4px">Trigger Engine · France · 2026</div>
+          </div>
+        </div>
+        <div class="variant-note">Wordmark + baseline mono. À utiliser dans les signatures email et footers print.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- SECTION 4 — Tests fonds                       -->
+  <!-- ============================================== -->
+  <section>
+    <div class="section-head">
+      <h2>4 · Tests sur différents fonds</h2>
+      <span class="section-meta">Lisibilité dans tous les contextes</span>
+    </div>
+
+    <div class="bg-tests">
+
+      <div class="bg-cell bg-cream">
+        <span class="wm v1" style="font-size:42px">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-17px;transform:translateX(-50%);width:2.5px;height:14px;background:var(--amber);border-radius:1px"></span></span>find
+        </span>
+      </div>
+
+      <div class="bg-cell bg-cream-warm">
+        <span class="wm v1" style="font-size:42px">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-17px;transform:translateX(-50%);width:2.5px;height:14px;background:var(--amber);border-radius:1px"></span></span>find
+        </span>
+      </div>
+
+      <div class="bg-cell bg-ink">
+        <span class="wm v1" style="font-size:42px;color:var(--cream)">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-17px;transform:translateX(-50%);width:2.5px;height:14px;background:var(--amber);border-radius:1px"></span></span>find
+        </span>
+      </div>
+
+      <div class="bg-cell bg-amber">
+        <span class="wm v1" style="font-size:42px;color:var(--ink)">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-17px;transform:translateX(-50%);width:2.5px;height:14px;background:var(--ink);border-radius:1px"></span></span>find
+        </span>
+      </div>
+
+      <div class="bg-cell bg-photo">
+        <span class="wm v1" style="font-size:42px;color:#F5F1EA">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-17px;transform:translateX(-50%);width:2.5px;height:14px;background:#E89F2C;border-radius:1px"></span></span>find
+        </span>
+      </div>
+
+      <div class="bg-cell" style="background:#FFFFFF">
+        <span class="wm v1" style="font-size:42px;color:var(--ink)">
+          <span class="wm-i" style="position:relative">i<span style="position:absolute;left:50%;top:-17px;transform:translateX(-50%);width:2.5px;height:14px;background:var(--amber);border-radius:1px"></span></span>find
+        </span>
+      </div>
+
+    </div>
+    <p style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--slate);margin-top:16px;letter-spacing:0.04em">// 6 fonds testés. Le wordmark tient partout. Notable : sur fond ambre saturé, le pic devient ink pour préserver le contraste — règle à intégrer dans le brand guide.</p>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- RECOMMANDATION                                 -->
+  <!-- ============================================== -->
+  <div class="reco">
+    <div class="reco-eyebrow">// Ma recommandation</div>
+    <h3>V1 (trait épuré) en logo principal · V6 (mini-onde) en mark étendu pour les supports premium.</h3>
+    <p><strong>V1</strong> est le bon choix pour 90% des usages — favicon, nav, footer, email, social. Sobre, durable, parfaitement lisible à toutes les tailles, indémodable. C'est la version qui survivra à 5 ans d'usage.</p>
+    <p><strong>V6</strong> (la mini-onde sismique complète) sert pour les supports premium qui acceptent plus de richesse : cover de pitch deck, vidéo intro, posters, packaging cadeau client. Ça raconte plus narratif.</p>
+    <p>V5 (animation respirante) doit être utilisée <strong>uniquement en digital</strong>, jamais en print. Et toujours subtilement — pas en spam.</p>
+    <p>V3 (double-pic) et V4 (asymétrique) sont à abandonner — le premier risque la lecture « : », le second introduit une tension qui contredit le territoire « analyste serein ».</p>
+  </div>
+
+  <footer>
+    <span>iFIND · Logo Lab · Phase 2 · 14.05.2026</span>
+    <span class="live">● live experiment</span>
+  </footer>
+
+</div>
+</body>
+</html>

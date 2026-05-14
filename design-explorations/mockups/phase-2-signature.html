@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iFIND — Asset Signature · Phase 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0F0D0A;
+    --ink-soft:#1A1614;
+    --cream:#F5F1EA;
+    --cream-warm:#EDE7DA;
+    --amber:#E89F2C;
+    --amber-deep:#C7841E;
+    --slate:#5C544A;
+    --line:#D9D2C2;
+    --line-soft:#E6DFCE;
+    --bordeaux:#7A2E2E;
+    --signal-ok:#00B86B;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'Geist',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    font-feature-settings:"ss01","cv11";
+    padding:64px 32px 120px;
+  }
+  .container{max-width:1280px;margin:0 auto}
+
+  /* === HEADER === */
+  header{padding-bottom:48px;border-bottom:1px solid var(--line);margin-bottom:64px}
+  .eyebrow{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--slate);margin-bottom:20px}
+  h1{font-weight:500;font-size:clamp(40px,5vw,68px);letter-spacing:-0.025em;line-height:1.05;margin-bottom:20px}
+  h1 .accent{color:var(--amber);font-style:italic;font-weight:500}
+  .lead{font-size:18px;line-height:1.55;color:var(--slate);max-width:720px}
+  .meta{font-family:'Geist Mono',monospace;font-size:12px;color:var(--slate);margin-top:32px;letter-spacing:0.04em}
+  .meta span{color:var(--amber)}
+
+  section{margin-top:96px}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:48px}
+  h2{font-weight:500;font-size:32px;letter-spacing:-0.02em}
+  .section-meta{font-family:'Geist Mono',monospace;font-size:11px;color:var(--slate);letter-spacing:0.1em;text-transform:uppercase}
+
+  /* === Variant cards === */
+  .signature-card{
+    background:var(--cream);
+    border:1px solid var(--line);
+    margin-bottom:24px;
+    overflow:hidden;
+  }
+  .signature-card.dark{background:var(--ink);color:var(--cream)}
+  .signature-card.warm{background:var(--cream-warm)}
+  .sig-head{
+    padding:24px 32px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border-bottom:1px solid var(--line);
+    gap:24px;
+    flex-wrap:wrap;
+  }
+  .signature-card.dark .sig-head{border-bottom-color:#33302C}
+  .sig-name{font-weight:500;font-size:18px;letter-spacing:-0.015em}
+  .sig-tag{font-family:'Geist Mono',monospace;font-size:11px;color:var(--slate);letter-spacing:0.1em;text-transform:uppercase}
+  .signature-card.dark .sig-tag{color:var(--cream-warm);opacity:0.7}
+  .sig-canvas{padding:32px;display:flex;align-items:center;justify-content:center;min-height:160px}
+  .sig-note{padding:0 32px 24px;font-family:'Geist Mono',monospace;font-size:12px;color:var(--slate);line-height:1.6;letter-spacing:0.02em;max-width:780px}
+  .signature-card.dark .sig-note{color:var(--cream-warm);opacity:0.7}
+
+  /* === SVG defaults === */
+  .sig-canvas svg{display:block;width:100%;max-width:920px;height:auto}
+
+  /* Animation default */
+  @keyframes signalScroll{
+    0%{transform:translateX(0)}
+    100%{transform:translateX(-60px)}
+  }
+  @keyframes spikeReveal{
+    0%{opacity:0;transform:translateY(8px)}
+    60%{opacity:1;transform:translateY(0)}
+    100%{opacity:1}
+  }
+  @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:0.35}}
+  @keyframes pulseDot{0%,100%{transform:scale(1);opacity:0.85}50%{transform:scale(1.4);opacity:1}}
+
+  .scroll-anim{animation:signalScroll 14s linear infinite}
+
+  /* === Application examples === */
+  .apps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .app{background:var(--cream);padding:32px;min-height:280px;display:flex;flex-direction:column;justify-content:space-between;gap:24px;position:relative;overflow:hidden}
+  .app-label{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--slate);position:relative;z-index:2}
+  .app-content{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center}
+  .app-note{font-family:'Geist Mono',monospace;font-size:11px;color:var(--slate);position:relative;z-index:2}
+
+  /* App: hero */
+  .app-hero{padding:0;background:var(--cream)}
+  .app-hero .inner{padding:48px 40px;display:flex;flex-direction:column;justify-content:space-between;height:100%;min-height:340px;position:relative;z-index:2}
+  .app-hero h4{font-size:28px;font-weight:500;letter-spacing:-0.02em;line-height:1.1;max-width:480px}
+  .app-hero .h-sub{font-size:13px;color:var(--slate);margin-top:8px;font-family:'Geist Mono',monospace;letter-spacing:0.06em}
+  .app-hero .sig-bg{position:absolute;bottom:0;left:0;right:0;height:80px;overflow:hidden}
+
+  /* App: card with watermark */
+  .app-card-content{background:var(--cream);border:1px solid var(--line);padding:24px;position:relative;overflow:hidden}
+  .app-card-content::before{
+    content:"";position:absolute;right:-20px;bottom:-10px;width:200px;height:80px;
+    background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80'><path d='M0 60 L40 60 L50 58 L60 60 L70 25 L80 60 L100 60 L110 50 L120 60 L140 60 L150 12 L160 60 L200 60' stroke='%23E89F2C' stroke-width='1.5' fill='none' opacity='0.18'/></svg>") no-repeat center/contain;
+  }
+  .app-card-content .kpi{font-size:42px;font-weight:500;letter-spacing:-0.02em;line-height:1}
+  .app-card-content .kpi-label{font-family:'Geist Mono',monospace;font-size:11px;color:var(--slate);letter-spacing:0.1em;text-transform:uppercase;margin-top:8px}
+  .app-card-content .kpi-trend{font-family:'Geist Mono',monospace;font-size:12px;color:var(--amber);margin-top:12px;letter-spacing:0.04em}
+
+  /* App: email signature */
+  .app-email{background:#FFFFFF;border:1px solid var(--line);padding:20px;font-family:'Geist',sans-serif}
+  .app-email .sender{font-weight:500;font-size:14px;margin-bottom:2px}
+  .app-email .role{font-size:13px;color:var(--slate);margin-bottom:14px}
+  .app-email .sig-line{display:block;margin-top:8px}
+  .app-email .contact{font-family:'Geist Mono',monospace;font-size:11px;color:var(--slate);letter-spacing:0.04em;margin-top:8px;line-height:1.6}
+
+  /* App: social square */
+  .app-social{background:var(--cream);aspect-ratio:1;display:flex;flex-direction:column;justify-content:space-between;padding:32px;position:relative;overflow:hidden}
+  .app-social .quote{font-size:22px;line-height:1.3;font-weight:500;letter-spacing:-0.015em;max-width:280px}
+  .app-social .source{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--slate)}
+  .app-social .sig-line{position:absolute;bottom:0;left:0;right:0;height:48px}
+
+  /* App: terminal email subject */
+  .app-terminal{background:var(--ink);color:var(--cream);padding:24px;font-family:'Geist Mono',monospace;font-size:13px;line-height:1.6}
+  .app-terminal .row{display:flex;gap:12px;margin-bottom:6px}
+  .app-terminal .row .k{color:#888;width:80px;flex-shrink:0;letter-spacing:0.08em}
+  .app-terminal .row .v{color:var(--cream)}
+  .app-terminal .ascii{margin-top:14px;color:var(--amber);font-size:11px;letter-spacing:0;line-height:1}
+  .app-terminal .ascii pre{font-family:'Geist Mono',monospace}
+
+  /* === Tech spec block === */
+  .tech-block{
+    background:var(--ink);
+    color:var(--cream);
+    padding:40px 48px;
+    margin-top:64px;
+    border-left:4px solid var(--amber);
+    font-family:'Geist Mono',monospace;
+    font-size:13px;
+    line-height:1.7;
+    letter-spacing:0.02em;
+    overflow-x:auto;
+  }
+  .tech-block .tag{color:var(--amber);letter-spacing:0.16em;font-size:11px;display:block;margin-bottom:20px}
+  .tech-block h3{font-family:'Geist',sans-serif;font-weight:500;font-size:24px;letter-spacing:-0.02em;margin-bottom:16px;color:var(--cream)}
+  .tech-block p{color:#C7C2B8;margin-bottom:12px;font-family:'Geist',sans-serif;font-size:14px;line-height:1.65;letter-spacing:0}
+  .tech-block .code{color:var(--amber);background:rgba(232,159,44,0.1);padding:1px 6px;border-radius:2px}
+  .tech-block ul{list-style:none;margin:16px 0}
+  .tech-block ul li{padding-left:24px;position:relative;margin-bottom:6px;font-family:'Geist Mono',monospace;color:#C7C2B8}
+  .tech-block ul li::before{content:"→";position:absolute;left:0;color:var(--amber)}
+
+  /* Footer */
+  footer{margin-top:96px;padding-top:32px;border-top:1px solid var(--line);font-family:'Geist Mono',monospace;font-size:11px;color:var(--slate);letter-spacing:0.08em;display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px}
+  footer .live{color:var(--amber);animation:liveBlink 2s ease-in-out infinite}
+
+  @media(max-width:720px){
+    body{padding:32px 16px 80px}
+    h1{font-size:36px}
+    .section-head{flex-direction:column;gap:8px;align-items:flex-start}
+    .tech-block{padding:24px}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="eyebrow">// Phase 2 · Asset Signature · 14.05.2026</div>
+    <h1>L'<span class="accent">asset signature</span> — la forme d'onde de la marque.</h1>
+    <p class="lead">L'asset signature est l'élément graphique le plus puissant de l'identité iFIND. Une forme d'onde sismographique en ambre qui apparaît sur le site, les decks, les vidéos, les signatures email, les posts sociaux. Cette page présente 5 variantes du motif, puis 6 applications concrètes, puis la spec technique pour qu'à terme cet asset soit <strong>généré procéduralement à partir des vrais triggers iFIND du jour</strong> — le killer move inimitable.</p>
+    <div class="meta">PALETTE <span>Ambre INPI #E89F2C</span> · LAYERS <span>5 variantes</span> · USAGES <span>6 applications</span></div>
+  </header>
+
+  <!-- ============================================== -->
+  <!-- SECTION 1 — 5 variantes de l'onde            -->
+  <!-- ============================================== -->
+  <section>
+    <div class="section-head">
+      <h2>1 · Cinq variantes de la forme d'onde</h2>
+      <span class="section-meta">amplitude · densité · ton</span>
+    </div>
+
+    <!-- V1 NOMINALE -->
+    <div class="signature-card">
+      <div class="sig-head">
+        <div>
+          <div class="sig-tag">// VARIANTE V1 — NOMINALE</div>
+          <div class="sig-name">Onde calme avec pics ponctuels</div>
+        </div>
+        <span class="sig-tag">amplitude · 20px · density · faible</span>
+      </div>
+      <div class="sig-canvas">
+        <svg viewBox="0 0 920 100" preserveAspectRatio="none" style="height:100px">
+          <line x1="0" y1="50" x2="920" y2="50" stroke="#D9D2C2" stroke-width="0.5" stroke-dasharray="2 4"/>
+          <path d="M0 50 L60 50 L70 48 L80 52 L90 49 L100 51 L120 50 L130 50 L140 48 L150 52 L170 50
+                   L180 50 L190 22 L200 50 L210 50 L240 50 L250 51 L260 49 L280 50
+                   L290 50 L300 50 L310 49 L320 51 L340 50 L370 50 L380 48 L390 12 L400 48 L410 50 L440 50
+                   L460 50 L470 49 L490 50 L510 51 L530 50 L560 50 L570 49 L580 51 L600 50
+                   L640 50 L660 25 L680 50 L700 50 L730 50 L740 48 L760 52 L780 50 L820 50 L860 50 L920 50"
+                stroke="#E89F2C" stroke-width="1.8" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="sig-note">Baseline cool calme + 3 pics francs sur 920px. Latence respiratoire entre les triggers. C'est la variante par défaut — utilisée en hero du site et fond de cartes.</div>
+    </div>
+
+    <!-- V2 DENSE -->
+    <div class="signature-card warm">
+      <div class="sig-head">
+        <div>
+          <div class="sig-tag">// VARIANTE V2 — DENSE</div>
+          <div class="sig-name">Onde organique multi-pics (journée chargée)</div>
+        </div>
+        <span class="sig-tag">amplitude · 30px · density · forte</span>
+      </div>
+      <div class="sig-canvas">
+        <svg viewBox="0 0 920 100" preserveAspectRatio="none" style="height:100px">
+          <line x1="0" y1="50" x2="920" y2="50" stroke="#D9D2C2" stroke-width="0.5" stroke-dasharray="2 4"/>
+          <path d="M0 50 L20 50 L30 48 L40 52 L50 47 L60 53 L70 50 L80 49 L90 51 L100 30 L110 50 L120 51 L130 49 L140 50 L150 50
+                   L160 48 L170 52 L180 50 L195 50 L210 18 L225 50 L240 50 L250 49 L260 51 L270 50
+                   L280 47 L290 53 L300 50 L320 50 L335 38 L350 50 L370 50 L380 52 L390 48 L400 50
+                   L420 50 L430 49 L440 51 L450 50 L470 50 L480 22 L495 50 L510 50 L520 48 L530 52
+                   L550 50 L570 50 L580 49 L590 51 L600 50 L620 50 L630 35 L640 50 L660 50 L675 50
+                   L690 48 L705 52 L720 50 L740 50 L755 28 L770 50 L790 50 L800 49 L810 51 L830 50
+                   L850 50 L860 48 L880 52 L900 50 L920 50"
+                stroke="#E89F2C" stroke-width="1.6" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="sig-note">Onde plus chargée : ~7 pics + micro-oscillations continues. Évoque une journée à fort volume de triggers. À utiliser pour stats annuelles / KPIs cumulés.</div>
+    </div>
+
+    <!-- V3 SOBRE -->
+    <div class="signature-card">
+      <div class="sig-head">
+        <div>
+          <div class="sig-tag">// VARIANTE V3 — SOBRE</div>
+          <div class="sig-name">Silence éditorial + 2 pics francs</div>
+        </div>
+        <span class="sig-tag">amplitude · 35px · density · minimale</span>
+      </div>
+      <div class="sig-canvas">
+        <svg viewBox="0 0 920 100" preserveAspectRatio="none" style="height:100px">
+          <line x1="0" y1="50" x2="920" y2="50" stroke="#D9D2C2" stroke-width="0.5" stroke-dasharray="2 4"/>
+          <path d="M0 50 L240 50 L260 50 L280 15 L300 50 L320 50 L600 50 L620 50 L640 18 L660 50 L680 50 L920 50"
+                stroke="#E89F2C" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="sig-note">Onde quasi-vide avec 2 pics dramatiques. L'élégance du silence. À utiliser pour les supports premium éditoriaux : pitch deck cover, vidéo intro, page « Méthode ».</div>
+    </div>
+
+    <!-- V4 HOT BORDEAUX -->
+    <div class="signature-card">
+      <div class="sig-head">
+        <div>
+          <div class="sig-tag">// VARIANTE V4 — HOT (PÉPITE URGENTE)</div>
+          <div class="sig-name">Onde nominale + pic bordeaux dominant</div>
+        </div>
+        <span class="sig-tag">amber + bordeaux · pour Pépite HOT uniquement</span>
+      </div>
+      <div class="sig-canvas">
+        <svg viewBox="0 0 920 100" preserveAspectRatio="none" style="height:100px">
+          <line x1="0" y1="50" x2="920" y2="50" stroke="#D9D2C2" stroke-width="0.5" stroke-dasharray="2 4"/>
+          <path d="M0 50 L80 50 L90 48 L100 52 L150 50 L160 50 L170 30 L180 50 L260 50 L290 50 L300 49 L310 51 L380 50 L400 50
+                   L500 50 L510 49 L520 51 L580 50 L660 50 L680 50 L690 48 L700 52 L760 50 L820 50 L920 50"
+                stroke="#E89F2C" stroke-width="1.8" fill="none" stroke-linejoin="round" stroke-linecap="round" opacity="0.55"/>
+          <path d="M430 50 L440 50 L450 4 L460 50 L470 50"
+                stroke="#7A2E2E" stroke-width="2.2" fill="none" stroke-linejoin="miter" stroke-linecap="square"/>
+          <circle cx="450" cy="4" r="3.5" fill="#7A2E2E"/>
+        </svg>
+      </div>
+      <div class="sig-note">Onde de fond en ambre atténué + 1 pic bordeaux dominant (couleur sémantique « alert-hot »). Réservé aux Pépites urgentes / alertes deadline. Communique « URGENCE » sans mot.</div>
+    </div>
+
+    <!-- V5 MULTI-LAYER -->
+    <div class="signature-card dark">
+      <div class="sig-head">
+        <div>
+          <div class="sig-tag">// VARIANTE V5 — MULTI-COUCHES</div>
+          <div class="sig-name">Signal principal + noise floor (sur fond ink)</div>
+        </div>
+        <span class="sig-tag">ambre saturé + cream-warm atténué</span>
+      </div>
+      <div class="sig-canvas">
+        <svg viewBox="0 0 920 100" preserveAspectRatio="none" style="height:100px">
+          <!-- Bruit de fond -->
+          <path d="M0 50 L10 49 L20 51 L30 48 L40 52 L50 47 L60 53 L70 49 L80 51 L90 48 L100 52 L110 50 L120 49 L130 51
+                   L140 48 L150 52 L160 50 L170 49 L180 51 L190 48 L200 52 L210 50 L220 48 L230 52 L240 49 L250 51
+                   L260 50 L270 48 L280 52 L290 49 L300 51 L310 50 L320 48 L330 52 L340 49 L350 51 L360 50 L370 48
+                   L380 52 L390 50 L400 49 L410 51 L420 48 L430 52 L440 50 L450 49 L460 51 L470 48 L480 52 L490 50
+                   L500 48 L510 52 L520 49 L530 51 L540 50 L550 48 L560 52 L570 49 L580 51 L590 50 L600 48 L610 52
+                   L620 49 L630 51 L640 48 L650 52 L660 50 L670 49 L680 51 L690 48 L700 52 L710 50 L720 48 L730 52
+                   L740 49 L750 51 L760 50 L770 48 L780 52 L790 49 L800 51 L810 50 L820 48 L830 52 L840 49 L850 51
+                   L860 50 L870 48 L880 52 L890 49 L900 51 L910 50 L920 50"
+                stroke="#EDE7DA" stroke-width="1" fill="none" stroke-linejoin="round" stroke-linecap="round" opacity="0.25"/>
+          <!-- Signal principal -->
+          <path d="M0 50 L120 50 L130 48 L140 52 L160 50 L200 50 L210 20 L220 50 L260 50 L320 50 L340 50 L350 49 L360 51
+                   L400 50 L460 50 L470 12 L480 50 L520 50 L570 50 L580 49 L590 51 L640 50 L700 50 L720 25 L730 50 L770 50 L820 50 L850 50 L920 50"
+                stroke="#E89F2C" stroke-width="1.8" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="sig-note">Le plus sophistiqué : une couche de bruit de fond (le réel quotidien) + un signal franc qui se distingue. Idéal pour démontrer la valeur « on filtre le bruit pour extraire le signal ». À utiliser sur fond sombre.</div>
+    </div>
+
+  </section>
+
+  <!-- ============================================== -->
+  <!-- SECTION 2 — Applications concrètes           -->
+  <!-- ============================================== -->
+  <section>
+    <div class="section-head">
+      <h2>2 · Six applications concrètes</h2>
+      <span class="section-meta">hero · card · email · social · terminal · animation</span>
+    </div>
+
+    <div class="apps-grid">
+
+      <!-- APP 1: Hero website -->
+      <div class="app app-hero">
+        <div class="inner">
+          <div>
+            <div class="app-label">// HERO WEB</div>
+          </div>
+          <div>
+            <h4>Le sismographe de la donnée commerciale française.</h4>
+            <div class="h-sub">9 SOURCES SOUVERAINES · 13 PATTERNS · TEMPS RÉEL</div>
+          </div>
+          <div class="sig-bg">
+            <svg viewBox="0 0 920 80" preserveAspectRatio="none" style="height:80px;width:100%">
+              <path d="M0 50 L80 50 L90 48 L100 52 L150 50 L170 50 L180 15 L190 50 L250 50 L300 50 L310 49 L320 51 L380 50 L420 50 L440 50 L450 22 L460 50 L520 50 L580 50 L590 49 L600 51 L660 50 L720 50 L740 50 L750 28 L760 50 L820 50 L920 50"
+                    stroke="#E89F2C" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- APP 2: KPI card with watermark -->
+      <div class="app">
+        <div>
+          <div class="app-label">// CARD KPI (filigrane)</div>
+        </div>
+        <div class="app-content">
+          <div class="app-card-content">
+            <div class="kpi">412</div>
+            <div class="kpi-label">Triggers détectés · 30 jours</div>
+            <div class="kpi-trend">↗ +18 % vs mois précédent</div>
+          </div>
+        </div>
+        <div class="app-note">L'asset en filigrane à 18% derrière les chiffres.</div>
+      </div>
+
+      <!-- APP 3: Email signature -->
+      <div class="app">
+        <div>
+          <div class="app-label">// SIGNATURE EMAIL</div>
+        </div>
+        <div class="app-content">
+          <div class="app-email">
+            <div class="sender">Alexis Bénier</div>
+            <div class="role">Fondateur · iFIND</div>
+            <span style="display:inline-flex;align-items:baseline;font-family:'Geist';font-weight:600;font-size:22px;letter-spacing:-0.025em">
+              <span style="position:relative">i<span style="position:absolute;left:50%;top:-8px;transform:translateX(-50%);width:2px;height:7px;background:#E89F2C;border-radius:1px"></span></span>find
+            </span>
+            <svg viewBox="0 0 280 24" style="display:block;width:100%;max-width:280px;margin-top:8px">
+              <path d="M0 12 L40 12 L48 10 L56 14 L100 12 L120 12 L128 5 L136 12 L180 12 L220 12 L228 9 L236 15 L280 12"
+                    stroke="#E89F2C" stroke-width="1.2" fill="none" stroke-linejoin="round" stroke-linecap="round" opacity="0.6"/>
+            </svg>
+            <div class="contact">alexis@ifind.fr<br>+33 6 XX XX XX XX · Paris</div>
+          </div>
+        </div>
+        <div class="app-note">Variante mini de l'onde, 280×24px.</div>
+      </div>
+
+      <!-- APP 4: Social square -->
+      <div class="app" style="padding:0">
+        <div class="app-social">
+          <div>
+            <div class="app-label" style="margin-bottom:24px">// POST LINKEDIN — 1080×1080</div>
+            <div class="quote">« 412 triggers détectés ce mois. <em style="color:var(--amber)">3 Pépites</em> qui valent un appel aujourd'hui. »</div>
+          </div>
+          <div>
+            <div class="source">iFIND · Mai 2026</div>
+          </div>
+          <div class="sig-line">
+            <svg viewBox="0 0 400 48" preserveAspectRatio="none" style="width:100%;height:48px">
+              <path d="M0 30 L40 30 L50 28 L60 32 L80 30 L100 30 L110 10 L120 30 L160 30 L200 30 L210 28 L220 32 L260 30 L320 30 L330 14 L340 30 L400 30"
+                    stroke="#E89F2C" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- APP 5: Terminal email subject -->
+      <div class="app" style="padding:0">
+        <div class="app-terminal" style="min-height:280px;display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div class="app-label" style="color:#888;margin-bottom:16px">// EMAIL TRIGGER ALERT</div>
+            <div class="row"><span class="k">FROM</span><span class="v">alerts@ifind.fr</span></div>
+            <div class="row"><span class="k">TO</span><span class="v">alexis@digitestlab.fr</span></div>
+            <div class="row"><span class="k">SUBJECT</span><span class="v" style="color:#E89F2C">▴ Acme Corp · Levée 12M€ détectée · score 94</span></div>
+          </div>
+          <div class="ascii">
+<pre>     ╲       ╲      ▲      ╲
+   ╲   ╲    ╲   ╲   │ │   ╲  ╲
+─────────────────── ┴ ──────────────
+                  14:32:08 UTC</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- APP 6: Live animation -->
+      <div class="app" style="padding:0">
+        <div style="padding:32px;display:flex;flex-direction:column;gap:24px;min-height:280px;justify-content:space-between">
+          <div>
+            <div class="app-label">// LIVE DASHBOARD — defilement animé</div>
+          </div>
+          <div style="position:relative;height:100px;overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--cream)">
+            <div class="scroll-anim" style="position:absolute;top:0;left:0;width:200%">
+              <svg viewBox="0 0 1840 100" preserveAspectRatio="none" style="height:100px;width:100%">
+                <path d="M0 50 L80 50 L90 48 L100 52 L150 50 L170 50 L180 15 L190 50 L250 50 L300 50 L310 49 L320 51 L380 50 L420 50 L440 50 L450 22 L460 50 L520 50 L580 50 L590 49 L600 51 L660 50 L720 50 L740 50 L750 28 L760 50 L820 50 L920 50
+                         L1000 50 L1010 48 L1020 52 L1070 50 L1090 50 L1100 15 L1110 50 L1170 50 L1220 50 L1230 49 L1240 51 L1300 50 L1340 50 L1360 50 L1370 22 L1380 50 L1440 50 L1500 50 L1510 49 L1520 51 L1580 50 L1640 50 L1660 50 L1670 28 L1680 50 L1740 50 L1840 50"
+                      stroke="#E89F2C" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div style="position:absolute;left:0;top:0;bottom:0;width:60px;background:linear-gradient(to right,var(--cream),transparent)"></div>
+            <div style="position:absolute;right:0;top:0;bottom:0;width:60px;background:linear-gradient(to left,var(--cream),transparent)"></div>
+          </div>
+          <div class="app-note">Boucle CSS 14s. Subtile. Pas distrayante. Defile droite→gauche comme un vrai sismographe.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- SECTION 3 — Spec technique procédural        -->
+  <!-- ============================================== -->
+  <section>
+    <div class="section-head">
+      <h2>3 · Spec technique pour génération procédurale</h2>
+      <span class="section-meta">Phase 4 · branchement DB</span>
+    </div>
+
+    <div class="tech-block">
+      <span class="tag">// ROADMAP PROCÉDURAL — KILLER MOVE</span>
+      <h3>L'asset signature généré depuis les vrais triggers iFIND du jour</h3>
+      <p>À terme (Phase 4 du site v6), cet asset n'est plus statique : il est <span class="code">généré en temps réel</span> à partir de la table <span class="code">Trigger</span> de la base iFIND. Le hero du site change selon les vrais signaux détectés ce jour-là.</p>
+      <p><strong style="color:var(--cream);font-weight:500">Pourquoi c'est inimitable</strong> : aucun concurrent (Pharow, Apollo, Cognism) n'a la donnée propriétaire pour faire ça. Ton identité visuelle <strong style="color:var(--amber)">DEVIENT la preuve de ton produit</strong>.</p>
+      <ul>
+        <li>Endpoint suggéré : <span class="code">GET /api/signature/today.svg?width=920&height=100</span></li>
+        <li>Cache : 5 min (les triggers arrivent en quasi-temps réel mais 5 min suffit pour la fraîcheur perçue)</li>
+        <li>Mapping type → amplitude : <span class="code">funding_recent → 40px, c_level_move → 32px, hiring → 22px, INPI → 18px</span></li>
+        <li>Mapping score → couleur : <span class="code">&gt;=90 amber saturé, 80-89 amber nominal, &lt;80 amber dilué</span></li>
+        <li>Mapping urgence → palette : <span class="code">Pépite HOT → pic bordeaux #7A2E2E (variante V4)</span></li>
+        <li>Format de sortie : SVG inline (web) · PNG 2x (social) · ASCII (email alerte)</li>
+      </ul>
+      <p style="margin-top:24px">Implémentation côté backend : ~80 lignes de TypeScript dans <span class="code">/api/signature</span>. Estimation : 4-6h de dev en Phase 4 quand on construit le site v6.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>iFIND · Asset Signature · Phase 2 · 14.05.2026</span>
+    <span class="live">● live experiment</span>
+  </footer>
+
+</div>
+</body>
+</html>
