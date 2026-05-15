@@ -82,15 +82,18 @@ export async function enrichLeadsViaFullEnrich(
       firstName: { not: null },
       lastName: { not: null },
       companyName: { not: "" },
-      // Critère élargi (15/05) : email manque OU phone manque sur Pépite.
-      // Avant : OR strict email=null seul → FullEnrich = email-finder only.
-      // Après : phone manquant déclenche aussi FullEnrich en mode phone-only.
+      // Critère élargi (15/05 + ajustement gate score>=6) : email manque OU
+      // phone manque (sur tout lead score>=6 — gate global trigger.score>=6
+      // s'applique de toute façon plus bas). Avant : OR strict email=null
+      // seul → FullEnrich = email-finder only. Après : phone manquant déclenche
+      // aussi FullEnrich en mode phone-only sur tout lead qualifié (≥6), pas
+      // seulement Pépites (≥8). Permet de combler le phone gap iFIND (6/7
+      // leads NEW sont score=6, donc invisibles à un gate score>=8).
       OR: [
         { email: null },
         { email: "" },
-        // Phone manquant sur lead avec email OK = recherche phone-only via FE waterfall
-        { AND: [{ phone: null }, { trigger: { score: { gte: 8 } } }] },
-        { AND: [{ phone: "" }, { trigger: { score: { gte: 8 } } }] },
+        { phone: null },
+        { phone: "" },
       ],
       // Précondition élargie 08/05 : soit Kaspr a tenté, soit Kaspr ne pourra
       // jamais tenter (no linkedinUrl). Avant le fix, le filtre strict bloquait
@@ -134,12 +137,16 @@ export async function enrichLeadsViaFullEnrich(
     return result;
   }
 
-  // Stratégie phones différenciée par score (économie crédits Plan Start 500/mo) :
-  //  - Pépite ≥ 8 : email + phone (11 cr max si succès)
-  //  - Qualifié 6-7 : email seulement (1 cr max)
-  //  Conso prévue ~80-140 cr/mois sur 500 = 25% utilisation, marge confortable.
+  // Stratégie phones différenciée par score (économie crédits Plan Pro 1000/mo).
+  // Fix 15/05 (audit phone iFIND 0/7) : gate abaissé de 8 → 6 pour permettre
+  // l'enrichissement phone sur tous les leads NEW visibles dashboard. Avant :
+  // 6/7 iFIND étaient score=6 (ENRICH) donc invisibles au phone-only mode.
+  // Maintenant : tout lead avec phone manquant et trigger.score>=6 a une
+  // chance de phone via FullEnrich waterfall.
+  //  - Lead ≥6 : email + phone (11 cr max si trouvé)
+  //  - Conso prévue ~7 leads/cycle × 10 cr phone (succès 40-50%) = ~30-35 cr/cycle
   // L'option `includePhones: false` côté caller force email-only pour tous.
-  const PHONE_SCORE_GATE = 8;
+  const PHONE_SCORE_GATE = 6;
 
   const datas: FullEnrichInput[] = candidates.map((lead) => {
     const leadScore = lead.trigger?.score ?? 0;
