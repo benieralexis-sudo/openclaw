@@ -34,6 +34,8 @@ export interface AuditResult {
     orphanLeadsArchived: number;
     smtpEmailsVerified: number;
     nonActionableLeadsBlocked: number;
+    /** Fix B2.1 (15/05/2026) — linkedinUrl cleared par HEAL 3z (coherence post-backfill) */
+    coherenceCleared?: number;
   };
   remaining: {
     leadsWithoutLinkedin: number;
@@ -255,6 +257,64 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
   `;
 
   // ─────────────────────────────────────────────
+  // HEAL 3z — Coherence cleanup post-backfill (Fix B2.1, 15/05/2026)
+  //
+  // Les HEAL 3a/3b/3c/3d ci-dessus backfill linkedinUrl/jobTitle/email depuis
+  // rawPayload SANS verifyPersonaCoherence. Risque : 4+ payloads en DB
+  // contiennent des liens d'autres personnes (cas Pitchy lionelchouraqui,
+  // happn karima-ben-abdelmalek). Si un Lead voit son linkedinUrl reset (via
+  // backfill cleanup Rodz par ex.), HEAL 3 le ré-écrit avec un slug d'homonyme.
+  //
+  // Cette phase scanne les Leads touchés dans la dernière minute (~ durée
+  // d'exécution des HEAL 3a-d) et clear linkedinUrl si verifyPersonaCoherence
+  // détecte un mismatch firstName/lastName ↔ slug LinkedIn.
+  //
+  // Email : déjà couvert par HEAL 5 ci-dessous (domainMatchesCompany +
+  // verifyPersonaCoherence) → on ne touche pas ici.
+  // ─────────────────────────────────────────────
+  const { verifyPersonaCoherence } = await import("@/lib/verify-persona-coherence");
+  const since = new Date(Date.now() - 60 * 1000); // dernière minute
+  const recentlyBackfilled = await db.lead.findMany({
+    where: {
+      deletedAt: null,
+      ...(cId ? { clientId: cId } : {}),
+      updatedAt: { gte: since },
+      linkedinUrl: { not: null },
+      firstName: { not: null },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      linkedinUrl: true,
+      companyName: true,
+    },
+  });
+  let coherenceCleared = 0;
+  for (const l of recentlyBackfilled) {
+    if (!l.linkedinUrl) continue;
+    const check = verifyPersonaCoherence({
+      firstName: l.firstName,
+      lastName: l.lastName,
+      linkedinUrl: l.linkedinUrl,
+    });
+    if (!check.ok) {
+      console.warn(
+        `[heal.3z-coherence] reject linkedinUrl lead=${l.id} company="${l.companyName}" firstName=${l.firstName} lastName=${l.lastName} li=${l.linkedinUrl} reason=${check.reason}`,
+      );
+      await db.lead.update({
+        where: { id: l.id },
+        data: { linkedinUrl: null, updatedAt: new Date() },
+      });
+      coherenceCleared++;
+    }
+  }
+  (result.healed as { coherenceCleared?: number }).coherenceCleared = coherenceCleared;
+  if (coherenceCleared > 0) {
+    console.log(`[heal.3z] ${coherenceCleared} linkedinUrl cleared par coherence guard (anti-B2.1)`);
+  }
+
+  // ─────────────────────────────────────────────
   // HEAL 4 — Trim Trigger.companyName
   // ─────────────────────────────────────────────
   result.healed.triggerCompanyTrimmed = await db.$executeRaw`
@@ -279,8 +339,9 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
   // domainMatchesCompany() (helper TS), si mismatch on vide email + flag
   // doNotContact avec raison traçable.
   // ─────────────────────────────────────────────
-  const { domainMatchesCompany, verifyPersonaCoherence } =
+  const { domainMatchesCompany } =
     await import("@/lib/verify-persona-coherence");
+  // verifyPersonaCoherence déjà importé pour HEAL 3z (Fix B2.1, 15/05/2026)
   const candidates = await db.lead.findMany({
     where: {
       deletedAt: null,

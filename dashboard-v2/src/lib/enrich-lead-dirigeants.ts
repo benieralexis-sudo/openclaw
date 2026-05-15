@@ -89,12 +89,19 @@ export async function enrichDirigeantsForClient(
   // Triggers avec SIRET qui n'ont PAS de Lead avec un contact (fullName) renseigné.
   // Filtre dedup : ne re-tente pas Pappers <14j (récursion holdings 3 niveaux
   // = coûteuse en latence même si forfait Pappers illimité couvre le coût €).
+  // Fix B3.1 (15/05/2026) — Skip Triggers status=IGNORED. Avant : 6 Leads NON
+  // sur iFIND étaient créés NEW après que qualifyTrigger ait marqué le Trigger
+  // IGNORED. Le fix `ensure-lead-for-trigger.ts` du 14/05 (commit ff999f985)
+  // bloquait la création via ensureLeads, mais enrichDirigeants tournait ENSUITE
+  // et créait quand même un Lead (ligne 491). Maintenant : alignement complet
+  // sur le filtre IGNORED dans toute la voie de création Lead.
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
   const triggers = await db.trigger.findMany({
     where: {
       clientId,
       companySiret: { not: null },
       deletedAt: null,
+      status: { not: "IGNORED" },
       OR: [
         { pappersDirigeantsAttemptedAt: null },
         { pappersDirigeantsAttemptedAt: { lt: fourteenDaysAgo } },

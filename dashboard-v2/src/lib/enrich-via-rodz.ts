@@ -309,9 +309,34 @@ export async function enrichLeadsViaRodz(
       }
     }
     if (emailFound) {
-      // Q3 — stocke dans `emailRodz` (source-tagged). Le champ `email` final
-      // est calculé par recomputeEmailConfidenceForLead à partir des 3 sources.
-      updates.emailRodz = emailFound;
+      // Fix B1.2 (15/05/2026) — Coherence guard avant écriture emailRodz.
+      // Avant : posé sans check. Rodz findEmail construit l'email à partir
+      // de firstName+lastName+domain, donc structurellement la persona devrait
+      // matcher — MAIS le domain peut venir d'un companyWebsite Rodz faussé
+      // (ex-employeur) ou d'un guessDomainFromCompany incorrect → email arrive
+      // chez la mauvaise boîte. Pareil que Kaspr/FullEnrich : on vérifie
+      // persona + domain avant d'accepter.
+      const { domainMatchesCompany } = await import(
+        "@/lib/verify-persona-coherence"
+      );
+      const personaCheck = verifyPersonaCoherence({
+        firstName: lead.firstName,
+        lastName: lead.lastName,
+        email: emailFound,
+      });
+      const domainCheck = domainMatchesCompany({
+        email: emailFound,
+        companyName: lead.companyName,
+      });
+      if (personaCheck.ok && !(domainCheck.reason === "domain_mismatch")) {
+        // Q3 — stocke dans `emailRodz` (source-tagged). Le champ `email` final
+        // est calculé par recomputeEmailConfidenceForLead à partir des 3 sources.
+        updates.emailRodz = emailFound;
+      } else {
+        console.warn(
+          `[enrich-via-rodz.findEmail.coherence] reject lead=${lead.id} firstName=${lead.firstName} lastName=${lead.lastName} email=${emailFound} persona=${personaCheck.ok} domain=${domainCheck.ok}`,
+        );
+      }
     }
     try {
       await db.lead.update({

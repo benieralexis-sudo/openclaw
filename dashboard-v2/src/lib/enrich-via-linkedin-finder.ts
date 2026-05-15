@@ -189,6 +189,46 @@ export async function enrichLeadsViaLinkedInFinder(
           }
         }
 
+        // Fix B1.1 (15/05/2026) — Coherence guard sur kasprWorkEmail inline.
+        // Avant : on posait kasprWorkEmail + email SANS verifyPersonaCoherence
+        // ni domainMatchesCompany (contrairement à enrich-via-kaspr-direct C9).
+        // Risque : si Kaspr retourne un email d'ex-employeur ou d'homonyme
+        // pour ce profile, on l'écrit en email final → email reçu par la
+        // mauvaise personne. Cas Kestra (Lafont vs Dehon) ou helios (Younited)
+        // historique. Aussi : kasprCreditsUsed n'était JAMAIS incrémenté ici
+        // alors qu'enrich-via-kaspr-direct le tracke. Fix les 2 problèmes.
+        let kasprWorkEmailSafe: string | null = null;
+        if (kasprWorkEmail) {
+          const {
+            verifyPersonaCoherence,
+            domainMatchesCompany,
+          } = await import("@/lib/verify-persona-coherence");
+          const personaCheck = verifyPersonaCoherence({
+            firstName: lead.firstName,
+            lastName: lead.lastName,
+            email: kasprWorkEmail,
+          });
+          const domainCheck = domainMatchesCompany({
+            email: kasprWorkEmail,
+            companyName: lead.companyName,
+          });
+          if (
+            personaCheck.ok &&
+            !(domainCheck.reason === "domain_mismatch")
+          ) {
+            kasprWorkEmailSafe = kasprWorkEmail;
+          } else {
+            console.warn(
+              `[linkedin-finder.kaspr-chain.coherence] reject email lead=${lead.id} firstName=${lead.firstName} lastName=${lead.lastName} email=${kasprWorkEmail} persona=${personaCheck.ok} domain=${domainCheck.ok}`,
+            );
+          }
+        }
+
+        // Compte crédits Kaspr utilisés (alignement avec enrich-via-kaspr-direct).
+        // workEmail = 1 cr, phone = 10 cr (cf. enrich-via-kaspr-direct.ts:301,254).
+        const kasprCreditsThisCall =
+          (kasprWorkEmailSafe ? 1 : 0) + (kasprPhone ? 10 : 0);
+
         await db.lead.update({
           where: { id: lead.id },
           data: {
@@ -198,16 +238,19 @@ export async function enrichLeadsViaLinkedInFinder(
             status: "ENRICHED",
             enrichedAt: new Date(),
             // Persiste les enrichissements Kaspr inline si disponibles
-            ...(kasprWorkEmail
-              ? { kasprWorkEmail, email: kasprWorkEmail }
+            ...(kasprWorkEmailSafe
+              ? { kasprWorkEmail: kasprWorkEmailSafe, email: kasprWorkEmailSafe }
               : {}),
             ...(kasprPhone ? { kasprPhone } : {}),
-            ...(kasprWorkEmail || kasprPhone
+            ...(kasprWorkEmailSafe || kasprPhone
               ? { kasprAttemptedAt: new Date(), kasprEnrichedAt: new Date() }
+              : {}),
+            ...(kasprCreditsThisCall > 0
+              ? { kasprCreditsUsed: { increment: kasprCreditsThisCall } }
               : {}),
           },
         });
-        if (kasprWorkEmail) {
+        if (kasprWorkEmailSafe) {
           // Recompute email confidence avec la nouvelle source
           try {
             await recomputeEmailConfidenceForLead(lead.id);
