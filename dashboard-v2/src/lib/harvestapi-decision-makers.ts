@@ -108,6 +108,7 @@ export type SignalType =
   | "qa-hire"           // priorité Head of QA > CTO > Eng Manager > VP Eng > Founder
   | "fundraising"       // priorité CEO > Founder > CFO
   | "tech-hire"         // priorité CTO > VP Eng > Eng Manager > Founder
+  | "sales-hire"        // Fix B11.2 (15/05) — priorité Head of Sales > CRO > VP Sales > Growth > Founder/CEO (iFIND)
   | "expansion"         // priorité CEO > COO > Founder > VP Sales
   | "default";          // priorité CTO > CEO > Founder > Director
 
@@ -172,6 +173,22 @@ const RULES_TECH_HIRE: TitleRule[] = [
   { pattern: /\b(ceo|chief executive officer|directeur général|président)\b/i, tier: 3, category: "ceo" },
 ];
 
+// Fix B11.2 (15/05/2026) — Règles Sales hire pour iFIND (cible Sales/Growth).
+// Priorité tier 1 : Head of Sales > CRO > VP Sales / Revenue > Head of Growth.
+// Tier 2 : Sales Director / Sales Manager / Growth Manager / CMO.
+// Tier 2 fallback : Founder/CEO (PME 11-50 = founder décide souvent du hire).
+// Pas tier 3 CEO seul : on évite que le CTO de la boîte soit pris à tort.
+const RULES_SALES_HIRE: TitleRule[] = [
+  { pattern: /\b(head of sales|chief revenue officer|cro)\b/i, tier: 1, category: "head-of-sales" },
+  { pattern: /\b(vp sales|vp revenue|vice president sales)\b/i, tier: 1, category: "vp-sales" },
+  { pattern: /\b(head of growth|growth director|director of growth)\b/i, tier: 1, category: "head-of-growth" },
+  { pattern: /\b(sales director|directeur (des )?ventes|directeur commercial)\b/i, tier: 2, category: "sales-director" },
+  { pattern: /\b(sales manager|sales lead|growth manager|growth lead)\b/i, tier: 2, category: "sales-manager" },
+  { pattern: /\b(cmo|chief marketing officer|head of marketing|marketing director|directeur marketing)\b/i, tier: 2, category: "cmo" },
+  { pattern: /\b(co.?founder|cofondateur|fondateur|founder)\b/i, tier: 2, category: "founder" },
+  { pattern: /\b(ceo|chief executive officer|directeur général|président|gérant)\b/i, tier: 2, category: "ceo" },
+];
+
 const RULES_EXPANSION: TitleRule[] = [
   { pattern: /\b(ceo|chief executive officer|directeur général|président)\b/i, tier: 1, category: "ceo" },
   { pattern: /\b(coo|chief operating officer|directeur opérationnel)\b/i, tier: 1, category: "coo" },
@@ -190,11 +207,18 @@ const RULES_BY_SIGNAL: Record<SignalType, TitleRule[]> = {
   "qa-hire": RULES_QA_HIRE,
   "fundraising": RULES_FUNDRAISING,
   "tech-hire": RULES_TECH_HIRE,
+  "sales-hire": RULES_SALES_HIRE,
   "expansion": RULES_EXPANSION,
   "default": RULES_DEFAULT,
 };
 
-// Filtre anti-bruit : ces titres = pas un décideur
+// Filtre anti-bruit : ces titres = pas un décideur.
+// Note (Fix B11.2 15/05) — `sdr` et `account executive` étaient anti-DM pour
+// le mode "tech-hire" car ils sont des junior commerciaux. Pour "sales-hire",
+// ces titres SONT des cibles potentielles si le client cherche un peer. Mais
+// on garde le filtre global ici car le tier 1 sales reste Head of Sales/CRO ;
+// les SDR/AE seuls sont rarement la persona décisionnaire iFIND (qui veut
+// remplacer un SDR, pas vendre à un SDR).
 const NON_DM_RE = /\b(stagiaire|intern|apprentice|alternant|consultant|business analyst|chargé de recrutement|recruiter|talent acquisition|recruitment|business development representative|sdr|account executive|junior|chargée? de mission|assistante?)\b/i;
 
 // ──────────────────────────────────────────────────────────────────────
@@ -258,9 +282,12 @@ export async function findDecisionMakerByCompany(args: {
   // Pour fundraising/expansion/default : passe large directe (CEO/Founder OK).
   const TECH_TITLES_QA = ["Head of QA", "QA Manager", "Test Manager", "QA Lead", "CTO", "Head of Engineering", "VP Engineering", "Chief Technology Officer", "Directeur Technique", "DSI", "Engineering Manager"];
   const TECH_TITLES_HIRE = ["CTO", "Chief Technology Officer", "Head of Engineering", "VP Engineering", "Directeur Technique", "DSI", "Tech Lead", "Engineering Manager"];
+  // Fix B11.2 (15/05/2026) — Titres Sales/Growth pour iFIND.
+  const SALES_TITLES_HIRE = ["Head of Sales", "Sales Director", "Directeur Commercial", "Directeur des Ventes", "CRO", "Chief Revenue Officer", "VP Sales", "Vice President Sales", "Head of Growth", "Growth Director", "CMO", "Chief Marketing Officer", "Head of Marketing"];
   const techJobTitles =
     signalType === "qa-hire" ? TECH_TITLES_QA :
     signalType === "tech-hire" ? TECH_TITLES_HIRE :
+    signalType === "sales-hire" ? SALES_TITLES_HIRE :
     null;
 
   for (const variant of searchVariants) {
@@ -512,12 +539,29 @@ function scoreProfile(
 // Helpers : signal type inference depuis le sourceCode du Trigger
 // ──────────────────────────────────────────────────────────────────────
 
-export function inferSignalType(sourceCode: string, triggerTitle?: string): SignalType {
+export function inferSignalType(
+  sourceCode: string,
+  triggerTitle?: string,
+  /** Fix B11.2 (15/05) — Si "sales", tout hire ambigu est routé vers sales-hire
+   *  (le trigger title peut contenir "QA Engineer" mais on cherche un Sales
+   *  decision-maker de la boîte pour pitch iFIND). */
+  personaDomain: "tech" | "sales" = "tech",
+): SignalType {
   const text = `${sourceCode ?? ""} ${triggerTitle ?? ""}`.toLowerCase();
-  // QA-specific (signal #1 DTL — recrutement testeur/QA Engineer)
-  if (/\b(qa|test\s*engineer|test\s*manager|quality\s*assurance|testeur|recette)\b/i.test(text)) return "qa-hire";
+  // Signaux fundraising/expansion : universels (CEO/Founder valent pour tech & sales)
   if (/fundraising|funding|levée|levee|seed|series\s*[abc]/i.test(text)) return "fundraising";
   if (/merger|acquisition|m&a/i.test(text)) return "expansion";
+  // Sales-hire explicite (mots-clés Sales/Growth/SDR/...) → toujours sales-hire
+  if (/\b(sales|sdr|bdr|account exec|cro|revenue|growth|cmo|gtm|go.to.market|commercial)\b/i.test(text)) return "sales-hire";
+  // Routage selon personaDomain
+  if (personaDomain === "sales") {
+    // iFIND : on cherche un Sales/Growth decision-maker de la boîte. Tout hire
+    // (même QA/tech) → sales-hire car la persona pertinente reste Head of Sales.
+    if (/hire|hiring|job|emploi|qa|test|engineer|developp|dev|tech/i.test(text)) return "sales-hire";
+    return "default";
+  }
+  // DTL tech : QA-specific puis tech-hire générique
+  if (/\b(qa|test\s*engineer|test\s*manager|quality\s*assurance|testeur|recette)\b/i.test(text)) return "qa-hire";
   if (/hire|hiring|job|emploi|tech-hiring/i.test(text)) return "tech-hire";
   return "default";
 }
@@ -561,6 +605,15 @@ export async function enrichDecisionMakersForClient(
   const result: EnrichDecisionMakersResult = {
     scanned: 0, found: 0, skipped: 0, errors: 0, errorDetails: [],
   };
+
+  // Fix B11.2 (15/05/2026) — Lire le domain persona du client pour router
+  // inferSignalType vers tech-hire OU sales-hire selon ICP.
+  const { inferPersonaDomain } = await import("@/lib/tech-persona-guard");
+  const clientConfig = await db.client.findUnique({
+    where: { id: clientId },
+    select: { icp: true },
+  });
+  const personaDomain = inferPersonaDomain(clientConfig?.icp);
 
   const ttlAgo = new Date(Date.now() - HARVESTAPI_TTL_DAYS * 24 * 60 * 60 * 1000);
   const ttlAgoIncomplete = new Date(Date.now() - HARVESTAPI_INCOMPLETE_TTL_DAYS * 24 * 60 * 60 * 1000);
@@ -657,7 +710,7 @@ export async function enrichDecisionMakersForClient(
 
     const sourceCode = lead.trigger?.sourceCode ?? "";
     const triggerTitle = lead.trigger?.title ?? "";
-    const signalType = inferSignalType(sourceCode, triggerTitle);
+    const signalType = inferSignalType(sourceCode, triggerTitle, personaDomain);
 
     // Bug DiXiO (11/05/2026) — Élargir les locations selon le pays HQ
     // détecté dans le payload TheirStack. Cas DiXiO : `company_object.country`

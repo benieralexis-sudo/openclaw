@@ -29,6 +29,15 @@ export async function ensureLeadsForAllTriggers(
 ): Promise<{ created: number; alreadyExisted: number }> {
   const stats = { created: 0, alreadyExisted: 0 };
 
+  // Fix B11.1 (15/05/2026) — Multi-tenant : lire le domain persona depuis
+  // client.icp pour adapter le filtre poster Apify (tech vs sales).
+  // DTL → "tech" (CTO/Head Eng), iFIND → "sales" (Head of Sales/CRO/VP Sales).
+  const clientConfig = await db.client.findUnique({
+    where: { id: clientId },
+    select: { icp: true },
+  });
+  const personaDomain = inferPersonaDomain(clientConfig?.icp);
+
   // Phase 2 recovery 04/05 : on accepte les Triggers SANS SIRET si Opus≥7
   // (Pépites confirmées par scoring contextuel). Pour les autres, on garde
   // la règle stricte SIRET requis (anti-pollution boîtes ambiguës).
@@ -76,17 +85,20 @@ export async function ensureLeadsForAllTriggers(
     // Sinon Pappers prendra le relais sur les pipelines downstream.
     let poster = extractPosterFromPayload(t.rawPayload);
 
-    // Bug Training Orchestra (audit 11/05/2026) — Sur un trigger HIRING_KEY
-    // tech, si le poster Apify de l'annonce est CEO/Président/DG/Communication
-    // ou un rôle non-tech, on REFUSE de le poser comme contact. Le LinkedIn
-    // jobs poster est souvent le CEO d'une PME qui partage son réseau pour
-    // recruter, mais ce n'est pas le décideur QA. Laisser HarvestAPI chercher
-    // un CTO/Head of Eng à la place. Cas observé : Laetitia Nourry CEO
-    // Training Orchestra postée comme contact QA Engineer.
-    if (poster?.title && isTechHiringTrigger(t.type, t.companyNaf, t.title)) {
-      if (!isTechPersonaTitle(poster.title)) {
+    // Bug Training Orchestra (audit 11/05/2026, étendu 15/05 fix B11.1) — Sur
+    // un trigger HIRING_KEY, si le poster Apify de l'annonce n'est pas du bon
+    // domain (tech vs sales selon ICP client), on REFUSE de le poser comme
+    // contact. Cas DTL : Laetitia Nourry CEO Training Orchestra postée comme
+    // contact QA Engineer → reject (non-tech).
+    // Cas iFIND : poster CTO sur HIRING_KEY Sales → reject (non-sales), laisser
+    // HarvestAPI chercher un Head of Sales/CRO.
+    if (
+      poster?.title &&
+      isHiringTriggerForDomain(t.type, t.companyNaf, t.title, personaDomain)
+    ) {
+      if (!isAcceptedPersonaTitle(poster.title, personaDomain)) {
         console.log(
-          `[ensure-lead.poster-filter] ${t.companyName}: poster Apify "${poster.title}" non-tech sur trigger HIRING_KEY tech "${t.title}" → SKIP, on laisse HarvestAPI chercher un CTO/Head Eng.`,
+          `[ensure-lead.poster-filter] ${t.companyName}: poster Apify "${poster.title}" non-${personaDomain} sur trigger HIRING_KEY ${personaDomain} "${t.title}" → SKIP, on laisse HarvestAPI chercher un décideur ${personaDomain}.`,
         );
         poster = null;
       }
@@ -260,9 +272,17 @@ function splitNameLocal(full: string | undefined): { firstName?: string; lastNam
 // Tech-hire guards extraits dans tech-persona-guard.ts (14/05/2026) pour tests.
 // Import local + re-export pour rétro-compat des call sites externes
 // (qualify-trigger.ts, etc.) ET pour usage interne (ligne 77).
+//
+// Fix B11.1 (15/05/2026) — Ajout des wrappers config-driven multi-tenant :
+//   - isAcceptedPersonaTitle(title, domain) : tech OU sales selon client.icp
+//   - isHiringTriggerForDomain(type, naf, title, domain) : idem
+//   - inferPersonaDomain(icp) : déduit "tech" ou "sales" depuis ICP
 import {
   isTechHiringTrigger,
   isTechPersonaTitle,
+  isAcceptedPersonaTitle,
+  isHiringTriggerForDomain,
+  inferPersonaDomain,
 } from "@/lib/tech-persona-guard";
 export { isTechHiringTrigger, isTechPersonaTitle };
 
