@@ -567,6 +567,305 @@
       transform: translate(-50%, -50%);
     }
   }
+
+  /* ===================================================================
+     === SECTION #METHODE — Pin scroll 3 frames (Pudding/Bloomberg) ====
+     ===================================================================
+     Layout : .methode-inner = 100vh, 2-col grid (narratif | frames).
+     ScrollTrigger pin la section pendant +=250% (2.5 viewport).
+     Les 3 .frame sont empilées en absolute ; .is-active déclenche
+     opacity + translateY transition CSS (700ms cubic-bezier).
+     Le script JS toggle ces classes sur self.progress (0 / 0.33 / 0.66).
+     =================================================================== */
+  .methode {
+    position: relative;
+    background: var(--ink);
+    z-index: 2;
+    color: var(--vellum);
+  }
+  .methode-inner {
+    height: 100vh;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 60px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: center;
+  }
+
+  /* --- Colonne gauche : narratif + indicateur 01/02/03 --- */
+  .methode-left { display: flex; flex-direction: column; }
+  .methode-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: rgba(232, 159, 44, 0.55);
+    margin-bottom: 28px;
+  }
+  .methode-title {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(54px, 5.8vw, 72px);
+    line-height: 1.06;
+    letter-spacing: -0.022em;
+    color: var(--vellum);
+  }
+  .methode-title em.amber {
+    font-style: italic;
+    color: var(--amber);
+  }
+  .methode-sub {
+    font-family: var(--font-sans);
+    font-size: clamp(16px, 1.1vw, 17px);
+    line-height: 1.55;
+    color: rgba(245, 241, 234, 0.78);
+    max-width: 440px;
+    margin-top: 16px;
+  }
+  .methode-steps {
+    list-style: none;
+    padding: 0;
+    margin: 56px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .methode-steps .step {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding-block: 6px;
+    transition: opacity 380ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .methode-steps .step-num {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--vellum);
+    opacity: 0.30;
+    padding-bottom: 1px;
+    border-bottom: 1px solid transparent;
+    transition: opacity 380ms ease, border-color 380ms ease;
+  }
+  .methode-steps .step-label {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--vellum);
+    opacity: 0.45;
+    transition: opacity 380ms ease;
+  }
+  .methode-steps .step.is-active .step-num {
+    opacity: 1;
+    border-bottom-color: var(--amber);
+  }
+  .methode-steps .step.is-active .step-label { opacity: 1; }
+
+  /* --- Colonne droite : 3 frames empilées --- */
+  .methode-right {
+    position: relative;
+    min-height: 100vh;
+    height: 100vh;
+  }
+  .methode-right .frame {
+    position: absolute;
+    inset: 0;
+    padding: 40px 0;
+    opacity: 0;
+    transform: translateY(20px);
+    transition:
+      opacity 700ms cubic-bezier(0.4, 0, 0.2, 1),
+      transform 700ms cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .methode-right .frame.is-active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .frame-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: var(--amber);
+  }
+  .frame-title {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(32px, 3.4vw, 44px);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--vellum);
+    margin: 12px 0 18px;
+  }
+  .frame-body {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.55;
+    color: rgba(245, 241, 234, 0.78);
+    max-width: 480px;
+    margin-bottom: 28px;
+  }
+  .frame-sources,
+  .frame-patterns {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+  .frame-sources li,
+  .frame-patterns li {
+    padding-block: 7px;
+    border-bottom: 1px solid rgba(245, 241, 234, 0.06);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.45;
+    color: rgba(245, 241, 234, 0.85);
+  }
+  .frame-sources li strong,
+  .frame-patterns li strong {
+    font-weight: 600;
+    color: var(--amber);
+  }
+  .frame-footer {
+    margin-top: 32px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: var(--slate-warm);
+  }
+
+  /* --- Lead card mockup (Frame 3) --- */
+  .lead-card {
+    background: rgba(245, 241, 234, 0.04);
+    border: 1px solid rgba(245, 241, 234, 0.10);
+    border-radius: 6px;
+    padding: 28px;
+    backdrop-filter: blur(10px) saturate(120%);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
+  }
+  .lead-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+  }
+  .lead-tag { color: var(--amber); }
+  .lead-score {
+    color: var(--amber);
+    font-variant-numeric: tabular-nums;
+  }
+  .lead-company {
+    font-family: var(--font-sans);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.018em;
+    color: var(--vellum);
+    margin-top: 6px;
+  }
+  .lead-meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--slate-warm);
+    margin-top: 4px;
+  }
+  .lead-card hr {
+    border: 0;
+    border-top: 1px solid rgba(245, 241, 234, 0.10);
+    margin: 18px 0;
+  }
+  .lead-trigger {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(245, 241, 234, 0.92);
+    margin-bottom: 8px;
+  }
+  .lead-trigger strong {
+    color: var(--amber);
+    font-weight: 600;
+  }
+  .lead-persona {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(245, 241, 234, 0.92);
+  }
+  .lead-persona strong {
+    font-weight: 600;
+    color: var(--vellum);
+  }
+  .lead-opener {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1.5;
+    color: rgba(245, 241, 234, 0.78);
+    margin-top: 14px;
+    padding-left: 14px;
+    border-left: 2px solid var(--amber);
+  }
+
+  /* --- Responsive : <920px → single col, frames empilées, pas de pin --- */
+  @media (max-width: 920px) {
+    .methode-inner {
+      height: auto;
+      grid-template-columns: 1fr;
+      gap: 48px;
+      padding: 80px 24px;
+    }
+    .methode-right {
+      height: auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 56px;
+    }
+    .methode-right .frame {
+      position: relative;
+      inset: auto;
+      opacity: 1;
+      transform: none;
+      padding: 0;
+      pointer-events: auto;
+      height: auto;
+    }
+    .methode-steps { margin-top: 40px; }
+  }
+
+  /* --- Reduced motion / no-JS fallback : afficher les 3 frames empilées --- */
+  @media (prefers-reduced-motion: reduce) {
+    .methode-inner {
+      height: auto;
+      grid-template-columns: 1fr;
+      gap: 48px;
+      padding: 80px 60px;
+    }
+    .methode-right {
+      height: auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 56px;
+    }
+    .methode-right .frame {
+      position: relative;
+      inset: auto;
+      opacity: 1;
+      transform: none;
+      padding: 0;
+      pointer-events: auto;
+      height: auto;
+    }
+  }
 </style>
 </head>
 <body>
@@ -666,6 +965,121 @@
   </div>
 </section>
 </div><!-- /.hero-wrap -->
+
+<!-- ===================================================================
+     SECTION #METHODE — Pin scroll 3 frames (Pudding.cool / Bloomberg)
+     Fond ink solide (DEHORS du hero-wrap WebGL).
+     Pin length = 2.5 viewport, frames togglées sur 0.33 / 0.66.
+     =================================================================== -->
+<section id="methode" class="methode">
+  <div class="methode-inner">
+
+    <!-- Colonne gauche : narratif fixe + indicateur 01/02/03 -->
+    <div class="methode-left">
+      <span class="methode-eyebrow">— Méthode</span>
+      <h2 class="methode-title">
+        Comment iFIND détecte un <em class="amber">trigger</em>.
+      </h2>
+      <p class="methode-sub">
+        De la source publique au lead actionnable, en trois étapes
+        observables. Chaque trigger est sourcé, daté, signé.
+      </p>
+
+      <ol class="methode-steps" aria-label="Étapes de la méthode iFIND">
+        <li data-step="0" class="step is-active">
+          <span class="step-num">01</span>
+          <span class="step-label">Capteurs</span>
+        </li>
+        <li data-step="1" class="step">
+          <span class="step-num">02</span>
+          <span class="step-label">Détection</span>
+        </li>
+        <li data-step="2" class="step">
+          <span class="step-num">03</span>
+          <span class="step-label">Lead qualifié</span>
+        </li>
+      </ol>
+    </div>
+
+    <!-- Colonne droite : 3 frames superposées -->
+    <div class="methode-right">
+
+      <!-- FRAME 1 — CAPTEURS -->
+      <div class="frame is-active" data-frame="0">
+        <div class="frame-label">01 · CAPTEURS</div>
+        <h3 class="frame-title">9 sources publiques FR écoutent.</h3>
+        <p class="frame-body">
+          Aucune donnée probabiliste. Que des événements réels publiés
+          par les institutions et plateformes françaises.
+        </p>
+        <ul class="frame-sources">
+          <li><strong>Pappers</strong> · levées + BODACC + dirigeants</li>
+          <li><strong>France Travail</strong> · offres emploi C-level</li>
+          <li><strong>WTTJ</strong> · annonces hiring tech</li>
+          <li><strong>INPI</strong> · dépôts brevets / marques</li>
+          <li><strong>TheirStack</strong> · stack tech changes</li>
+          <li><strong>Apify · LinkedIn</strong> · annonces profils</li>
+          <li><strong>RSS levées</strong> · presse spécialisée</li>
+          <li><strong>Bilan +</strong> · enrichissement société</li>
+          <li><strong>Kaspr</strong> · résolution contacts</li>
+        </ul>
+        <div class="frame-footer">Cadence : 4 passes / jour. ~250 événements / 24h.</div>
+      </div>
+
+      <!-- FRAME 2 — DÉTECTION -->
+      <div class="frame" data-frame="1">
+        <div class="frame-label">02 · DÉTECTION</div>
+        <h3 class="frame-title">13 patterns + Opus 4.7 jugent.</h3>
+        <p class="frame-body">
+          Chaque événement passe par un attribute-engine : SIRET FR
+          confirmé, mappé contre l'ICP du client, scoré 0–10.
+        </p>
+        <ul class="frame-patterns">
+          <li>Pattern <strong>P-LEVÉE</strong> · attribution SIRET via dénomination + ville</li>
+          <li>Pattern <strong>P-HIRING</strong> · titre + poste rapproche persona ICP</li>
+          <li>Pattern <strong>P-INPI</strong> · classe Nice + secteur croisent activité</li>
+          <li>Pattern <strong>P-STACK</strong> · changement outil = besoin émergent</li>
+          <li>Pattern <strong>P-DIRIGEANT</strong> · nouveau C-level = re-évaluation budgets</li>
+          <li>… 8 autres patterns spécialisés.</li>
+        </ul>
+        <div class="frame-footer">Verdict Opus : OUI / NON / ENRICH. Pas de score flou.</div>
+      </div>
+
+      <!-- FRAME 3 — LEAD QUALIFIÉ -->
+      <div class="frame" data-frame="2">
+        <div class="frame-label">03 · LEAD QUALIFIÉ</div>
+        <h3 class="frame-title">Brief structuré, livré.</h3>
+        <p class="frame-body">
+          Tu reçois bien plus qu'un nom + email : un dossier qui sait
+          pourquoi maintenant, à qui parler, comment ouvrir.
+        </p>
+
+        <div class="lead-card">
+          <div class="lead-card-header">
+            <span class="lead-tag">TRIGGER</span>
+            <span class="lead-score">Score · 9.2</span>
+          </div>
+          <div class="lead-company">Atomic Seller</div>
+          <div class="lead-meta">SAS · 47 personnes · Lyon · NAF 6201Z</div>
+          <hr>
+          <div class="lead-trigger">
+            <strong>Levée 4,2 M€ Série A</strong> · BODACC 14 mai 2026
+          </div>
+          <div class="lead-persona">
+            <strong>Fred Martin</strong> · Head of Sales · fred@atomicseller.com
+          </div>
+          <div class="lead-opener">
+            « Vu votre Série A annoncée hier — vous allez probablement
+            étoffer l'équipe sales, je vous écris au cas où… »
+          </div>
+        </div>
+
+        <div class="frame-footer">Inclus dans chaque Pépite : trigger + persona + opener.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
 
 <script type="module">
 /* ============================================================
@@ -1072,6 +1486,51 @@ const FilmicShader = {
     // Reduced motion : morph statique posé à 1 (l'utilisateur voit le split fixe)
     uniforms.uMorph.value = 1.0;
   }
+
+  // --- ScrollTrigger : pin #methode + toggle 3 frames -----------------
+  // Pin la section pendant 2.5 viewport (1.8 trop court, 3.0 trop lourd).
+  // scrub:0.5 lisse le passage. Le toggle des classes .is-active sur
+  // frames + steps déclenche la transition CSS (700ms cubic-bezier).
+  // Garde-fous : reduced-motion + mobile (<920px) = pas de pin, frames
+  // empilées (déjà géré côté CSS).
+  (function initMethodePin(){
+    const sec = document.querySelector('#methode');
+    if(!sec || !window.gsap || !window.ScrollTrigger) return;
+    if(reduced) return;
+    if(window.matchMedia('(max-width: 920px)').matches) return;
+
+    const frames = sec.querySelectorAll('.frame');
+    const steps  = sec.querySelectorAll('.step');
+    if(!frames.length || !steps.length) return;
+
+    let currentIdx = 0;
+    function setActive(idx){
+      if(idx === currentIdx) return;
+      currentIdx = idx;
+      frames.forEach((f, i) => f.classList.toggle('is-active', i === idx));
+      steps.forEach((s, i)  => s.classList.toggle('is-active', i === idx));
+    }
+
+    ScrollTrigger.create({
+      trigger: sec,
+      start: 'top top',
+      end: '+=250%',           // 2.5 viewport pin length
+      pin: true,
+      pinSpacing: true,
+      scrub: 0.5,
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
+      onUpdate: (self) => {
+        const p = self.progress;
+        // 3 frames sur le pin : seuils 0.33 / 0.66
+        let idx;
+        if(p < 0.33) idx = 0;
+        else if(p < 0.66) idx = 1;
+        else idx = 2;
+        setActive(idx);
+      }
+    });
+  })();
 
   // --- Visibility (pause RAF when hero offscreen / tab hidden) ---
   let heroInView = true, visible = !document.hidden;
