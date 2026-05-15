@@ -44,6 +44,34 @@ iFIND is a B2B SaaS lead-generation pipeline. It detects buying signals on Frenc
 - Pappers 5000 cr/mo
 - Kaspr / FullEnrich budgets
 
+## Schéma DB — colonnes à connaître AVANT d'écrire du SQL
+
+⚠️ **Tu redécouvres souvent que la colonne `source` n'existe pas** — tu perds des turns. Voici les noms exacts pour éviter le re-discovery :
+
+**Table `Trigger`** :
+- `id` (text, cuid), `clientId` (text), `companyName` (text), `companySiret` (text nullable)
+- `sourceCode` (text) — **PAS `source`** ! Valeurs : `apify.linkedin-jobs`, `theirstack.buying-intent`, `theirstack.job-offer`, `rss-levees`, `bodacc.capital_increase`, `rodz.fundraising`, `francetravail.tech-hire`, etc.
+- `capturedAt`, `publishedAt`, `createdAt`, `updatedAt`, `deletedAt` (timestamps)
+- `status` (enum) : `NEW`, `QUALIFIED`, `IGNORED`, `ENRICHED`
+- `score` (int 0-10), `priorityScore`, `multiSourceBoost`, `isHot`, `isCombo`, `freshnessScore`
+- `briefV2Json` (jsonb) — verdict V2 : `->>'verdict'` (`OUI`/`NON`/`ENRICH`), `->>'confidence'` (0-100), `->>'opener'`, `->>'thesis'`
+- `rawPayload` (jsonb) — données source brutes
+- `ignoredAt`, `ignoredReason` (raison archivage)
+
+**Table `Lead`** :
+- `id`, `clientId`, `triggerId` (FK vers Trigger.id, unique), `companyName`, `companySiret`
+- `firstName`, `lastName`, `fullName`, `jobTitle`, `linkedinUrl`, `email`, `phone`
+- `status` (enum) : `NEW`, `INCOMPLETE`, `ENRICHED`, `ARCHIVED`, `CONTACTED`
+- `personaSource` (text) : `pappers-rcs`, `pappers-holding-fallback`, `harvestapi-search`, `google-cse-tech-search`, `rodz-enrich-contact`
+- `personaTier` (1=CTO, 2=CEO/Founder, 3=autre)
+- `doNotContact` (bool), `doNotContactReason` (text)
+- `dataQuality`, `fitScore` (0-100)
+- `createdAt`, `updatedAt`, `deletedAt`
+
+**Filtres systématiques à appliquer** :
+- `WHERE "deletedAt" IS NULL` sur Trigger ET Lead (sinon tu comptes des soft-deleted)
+- `WHERE l.id IS NOT NULL` après un LEFT JOIN Lead si tu cherches des Triggers qui ONT un Lead
+
 ## Your mission per run
 
 Each run, you have ~5-8 min of autonomy (timeout configurable via env). Follow this method:

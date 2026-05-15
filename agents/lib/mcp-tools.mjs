@@ -255,6 +255,15 @@ export function buildIfindMcpServer() {
           const minDays = minDaysOld ?? 0;
           const lim = limit ?? 20;
           try {
+            // Fix 15/05/2026 — Anti-orphan + anti-ARCHIVED.
+            // Avant : `LEFT JOIN Lead WHERE l."deletedAt" IS NULL` produisait
+            // des faux positifs car NULL passe IS NULL — les Triggers sans
+            // Lead lié remontaient avec firstName vide (cas Sêmeia 12/05
+            // récurrent dans 4+ audits : trigger orphan, mais SIRET déjà
+            // couvert par 2 autres Leads valides via Mathieu Godart CTO +
+            // Pierre HORNUS CEO). Maintenant : on exige `l.id IS NOT NULL`
+            // (vrai INNER JOIN) ET on exclut les Leads ARCHIVED (déjà
+            // filtrés en amont, pas poussés à Fred).
             const sql = `
               SELECT
                 t.id AS trigger_id,
@@ -264,12 +273,13 @@ export function buildIfindMcpServer() {
                 l."fullName" AS lead_full_name,
                 l."firstName" AS lead_first_name
               FROM "Trigger" t
-              LEFT JOIN "Lead" l ON l."triggerId" = t.id
+              JOIN "Lead" l ON l."triggerId" = t.id
               WHERE t."deletedAt" IS NULL
                 AND t."briefV2Json" IS NOT NULL
                 AND t.status = 'NEW'
                 AND t."capturedAt" < NOW() - INTERVAL '${minDays} days'
                 AND l."deletedAt" IS NULL
+                AND l.status != 'ARCHIVED'
                 AND t."briefV2Json"->>'verdict' != 'ENRICH'
               ORDER BY t."capturedAt" DESC
               LIMIT ${lim * 3};

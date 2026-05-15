@@ -580,6 +580,15 @@ export async function pollTheirstackBuyingIntentForClient(
         "food production",
         "shipping",
         "trucking",
+        // 15/05/2026 — cabinets conseil/recrutement/staffing (Auditor EXTERNATIC
+        // NAF 70.22Z). Le signal "utilise outils QA" matche le cabinet IT lui-même
+        // (qui consomme ces outils pour ses missions), pas le client final cible.
+        // Pollue le quota TheirStack pour rien.
+        "staffing",
+        "recruitment",
+        "recruiting",
+        "human resources services",
+        "executive search",
       ];
       if (HARD_ANTI_INDUSTRIES.some((k) => industryLower.includes(k))) {
         result.triggersSkipped += 1;

@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { enrichContact, findEmail, RodzApiError } from "@/lib/rodz";
 import { recomputeEmailConfidenceForLead } from "@/lib/recompute-email-confidence";
+import { verifyPersonaCoherence } from "@/lib/verify-persona-coherence";
 
 /**
  * Enrichissement Rodz — DÉBLOQUE LE LINKEDIN COVERAGE
@@ -33,6 +34,7 @@ export interface EnrichRodzResult {
   scanned: number;
   enrichContactCalled: number;
   linkedinFound: number;
+  linkedinRejectedMismatch: number;
   jobTitleUpdated: number;
   findEmailCalled: number;
   emailFound: number;
@@ -121,6 +123,7 @@ export async function enrichLeadsViaRodz(
     scanned: 0,
     enrichContactCalled: 0,
     linkedinFound: 0,
+    linkedinRejectedMismatch: 0,
     jobTitleUpdated: 0,
     findEmailCalled: 0,
     emailFound: 0,
@@ -276,13 +279,34 @@ export async function enrichLeadsViaRodz(
       rodzAttemptedAt: new Date(),
     };
     if (linkedinUrl) {
-      updates.linkedinUrl = linkedinUrl;
-      result.linkedinFound++;
-    }
-    if (headline && (!lead.jobTitle || lead.jobTitle.length < headline.length)) {
-      // On garde un jobTitle riche : "CTO @ Audion" écrase "Président" si Rodz est plus précis
-      updates.jobTitle = headline;
-      result.jobTitleUpdated++;
+      // Coherence guard (15/05/2026) — empêche Rodz d'écraser persona Pappers
+      // avec un homonyme. Cas Collective 14/05 : Jean Marie François De Rauglaudre
+      // → in/marieouttier (Marie Outtier, autre personne). Bouclier identique à
+      // linkedin-finder C9 (verify-persona-coherence). Si le slug LinkedIn ne
+      // contient AUCUN token significatif (≥3 chars) du firstName ou lastName,
+      // on rejette : Rodz a matché un faux profil → on garde la persona Pappers.
+      const coherence = verifyPersonaCoherence({
+        firstName: lead.firstName,
+        lastName: lead.lastName,
+        linkedinUrl,
+      });
+      if (coherence.ok) {
+        updates.linkedinUrl = linkedinUrl;
+        updates.linkedinSource = "rodz-enrich-contact";
+        result.linkedinFound++;
+        if (headline && (!lead.jobTitle || lead.jobTitle.length < headline.length)) {
+          // On garde un jobTitle riche : "CTO @ Audion" écrase "Président" si Rodz est plus précis
+          updates.jobTitle = headline;
+          result.jobTitleUpdated++;
+        }
+      } else {
+        console.warn(
+          `[enrich-via-rodz.coherence] reject lead=${lead.id} firstName=${lead.firstName} lastName=${lead.lastName} li=${linkedinUrl} reason=${coherence.reason}`,
+        );
+        result.linkedinRejectedMismatch++;
+        // On NE pose ni linkedinUrl ni headline : la headline appartient au
+        // mauvais profil aussi (Rodz a tout matché ensemble).
+      }
     }
     if (emailFound) {
       // Q3 — stocke dans `emailRodz` (source-tagged). Le champ `email` final

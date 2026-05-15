@@ -1,7 +1,8 @@
-import "server-only";
-
 /**
  * verify-persona-coherence — bouclier anti-mismatch contact/persona.
+ *
+ * Pure functions (string comparison only) — pas de `server-only` pour
+ * permettre tests unitaires directs. Aucun secret, aucune DB.
  *
  * Bug source (audit 04/05) : Kestra Lead créé avec firstName/lastName =
  * "Denis Marc Auguste Andre Lafont" (gérant statutaire RCS Pappers).
@@ -96,6 +97,17 @@ export function verifyPersonaCoherence(args: {
     if (slug) {
       liChecked = true;
       liMatch = allNameTokens.some((t) => slug.includes(t));
+      // Garde renforcée (15/05/2026 — bug Collective Rodz) : pour un firstName
+      // multi-token (≥2 prénoms civils), un seul token peut matcher un slug
+      // d'homonyme par chance. Cas observé : "Jean Marie François De Rauglaudre"
+      // → slug "marieouttier" → "marie" match par coïncidence. On exige donc
+      // que le lastName soit AUSSI dans le slug pour confirmer la cohérence.
+      // Garde inactive sur firstName mono-token (Pierre HORNUS / pierre-hornus
+      // OK même si slug ne contient que le prénom).
+      if (liMatch && fnTokens.length >= 2 && lnTokens.length > 0) {
+        const lnInSlug = lnTokens.some((t) => slug.includes(t));
+        if (!lnInSlug) liMatch = false;
+      }
     }
   }
 

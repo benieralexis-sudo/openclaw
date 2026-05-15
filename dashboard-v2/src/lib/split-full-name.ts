@@ -5,6 +5,7 @@
 
 const NAME_PARTICLES = new Set([
   "de", "du", "des", "d'", "da", "do",
+  "di", "dei", "della", "delle", "dello", "degli", // italien (Di Martino, Della Valle)
   "von", "van", "vander", "der", "den",
   "le", "la", "les",
   "el", "al", "ibn", "bin", "ben",
@@ -24,6 +25,17 @@ export function splitFullName(fullName: string): { firstName: string; lastName: 
     if (NAME_PARTICLES.has(prev)) {
       lastIdx -= 1;
       continue;
+    }
+    // Look-ahead pour chaînes nobiliaires composées (15/05/2026 fix Aurélia)
+    // ex: "Di Marcantonio Di Martino" — Marcantonio n'est pas une particule
+    // mais il est ENCAPSULÉ entre 2 particules "Di". On remonte d'un cran de
+    // plus si parts[lastIdx-2] est une particule, pour absorber le nom interne.
+    if (lastIdx >= 2) {
+      const prevPrev = (parts[lastIdx - 2] ?? "").toLowerCase().replace(/[.,]/g, "");
+      if (NAME_PARTICLES.has(prevPrev)) {
+        lastIdx -= 1;
+        continue;
+      }
     }
     break;
   }
