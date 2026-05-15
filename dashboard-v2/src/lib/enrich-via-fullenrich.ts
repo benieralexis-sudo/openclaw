@@ -69,10 +69,12 @@ export async function enrichLeadsViaFullEnrich(
   const ttlAgo = new Date(Date.now() - FULLENRICH_TTL_DAYS * 24 * 60 * 60 * 1000);
 
   // Sélection : Leads avec persona (firstName + lastName + companyName) mais
-  // sans email final. Fix bug 08/05 : on accepte aussi les leads sans LinkedIn
-  // (où Kaspr ne tournera JAMAIS car son filtre exige linkedinUrl). Avant ce
-  // fix, ces leads (DiXiO type, persona OK + no LI) étaient invisibles à
-  // FullEnrich → 0 chance email. Maintenant FullEnrich est leur seul recours.
+  // sans email OU sans phone (Pépite). Fix bug 08/05 : on accepte aussi les
+  // leads sans LinkedIn (où Kaspr ne tournera JAMAIS car son filtre exige
+  // linkedinUrl). Fix 15/05 : élargi pour inclure "phone IS NULL" sur les
+  // Pépites score>=8 (audit phone faible : 50% DTL et 80% iFIND sans mobile FR
+  // alors que Kaspr a déjà tourné sans trouver). FullEnrich devient le fallback
+  // phone pour les Pépites avec email OK mais phone vide.
   const candidates = await db.lead.findMany({
     where: {
       clientId,
@@ -80,10 +82,15 @@ export async function enrichLeadsViaFullEnrich(
       firstName: { not: null },
       lastName: { not: null },
       companyName: { not: "" },
-      // Pas d'email final (= Kaspr/Rodz/Dropcontact n'ont rien trouvé)
+      // Critère élargi (15/05) : email manque OU phone manque sur Pépite.
+      // Avant : OR strict email=null seul → FullEnrich = email-finder only.
+      // Après : phone manquant déclenche aussi FullEnrich en mode phone-only.
       OR: [
         { email: null },
         { email: "" },
+        // Phone manquant sur lead avec email OK = recherche phone-only via FE waterfall
+        { AND: [{ phone: null }, { trigger: { score: { gte: 8 } } }] },
+        { AND: [{ phone: "" }, { trigger: { score: { gte: 8 } } }] },
       ],
       // Précondition élargie 08/05 : soit Kaspr a tenté, soit Kaspr ne pourra
       // jamais tenter (no linkedinUrl). Avant le fix, le filtre strict bloquait
