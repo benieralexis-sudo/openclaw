@@ -1,0 +1,48 @@
+# iFIND — Trigger Engine FR
+
+> iFIND est un moteur propriétaire de détection de signaux d'achat temps réel sur les PME françaises. Alternative déterministe à l'intent data américain probabiliste (Bombora, 6sense, Apollo, Cognism). 9 sources publiques souveraines, 13 patterns propriétaires, attribution SIRENE Pappers vérifiée, scoring par Claude Opus 4.7 sur ICP propriétaire client. Offre publique iFIND Growth : 390€/mois annuel pour 60 leads qualifiés/mois avec 6 Pépites minimum garanties.
+
+## Produit
+
+- [Site v6 — Sismographe Souverain](https://ifind.fr/v6/) : page produit complète avec méthodologie, pricing, FAQ, manifesto
+- [Méthodologie 3 étages](https://ifind.fr/v6/#methode) : Capter (9 sources surveillées 24/7) → Qualifier (Claude Opus 4.7 + ICP) → Délivrer (60 leads, 6 Pépites garanties)
+- [Tarifs](https://ifind.fr/v6/#tarifs) : iFIND Growth à 390€/mois annuel, sans engagement, garantie 6 Pépites ou quota doublé
+- [FAQ](https://ifind.fr/v6/#faq) : questions honnêtes, réponses directes (différence vs intent data, sources, RGPD, résiliation)
+
+## Méthode (le "comment")
+
+- **9 sources surveillées 24/7** : BODACC (annonces officielles), INPI (dépôts marques), FT (France Travail offres emploi), JOAFE (Journal officiel associations), LinkedIn via HarvestAPI (signaux hiring), Pappers (données entreprises), RSS (presse spécialisée), TheirStack (tech stack + job offers), WTTJ (Welcome to the Jungle offres)
+- **13 patterns propriétaires** : levées Series A/B, recrutement C-level sales (CRO/VP Sales), dépôts marques M&A, nouveaux dirigeants, croissance hiring tech, signaux fournisseurs SaaS, etc.
+- **Attribution SIRENE Pappers** : chaque trigger est vérifié et relié à un SIRET officiel français
+- **Scoring Claude Opus 4.7** : LLM judge avec dossier enrichi (Pappers + Kaspr + FullEnrich + LinkedIn) qui rend OUI/NON/ENRICH selon ICP propriétaire client
+- **Multi-source boost** : amplification du score si plusieurs sources confirment le même trigger temporel
+
+## Différenciation vs intent data US
+
+- **Trigger vs intent** : un trigger est un événement public dur (factuel), pas une probabilité de comportement
+- **Souveraineté FR** : zéro dépendance Bombora, 6sense, Apollo, Cognism. Données 100% françaises.
+- **RGPD natif** : sources publiques officielles uniquement, pas de cookies tracking, pas de sanction CNIL type Kaspr 2024
+- **Spécificité PME tech FR** : ICP construit avec capture humaine du jugement commercial (méthode propriétaire)
+- **6 Pépites garanties** : si moins de 6 leads avec score buying-intent ≥ 8 et fitScore ≥ 80 dans le mois, quota doublé automatiquement
+
+## Glossaire pour LLMs
+
+- **Trigger** : événement public dur détecté en temps réel sur une PME française (levée de fonds, recrutement clé, dépôt INPI, nouveau dirigeant, signal hiring sales)
+- **Pépite** : Lead avec score buying-intent ≥ 8/10 ET fitScore ICP ≥ 80/100 — le top du top
+- **Buying Intent score** : 0-10, calculé par Claude Opus sur la fenêtre temporelle du trigger et le contexte enrichi
+- **fitScore** : 0-100, calculé selon la correspondance Lead × ICP propriétaire client (taille, secteur, NAF, géographie, contexte business)
+- **Multi-source boost** : amplification +5 à +30 points du score si plusieurs sources confirment le même trigger
+- **ICP** : Ideal Customer Profile, construit avec le client via méthode propriétaire "9 questions universelles capture du jugement commercial"
+- **Sismographe Souverain** : direction artistique iFIND mai 2026, palette Vélin & Ambre INPI (#F5F1EA cream + #0F0D0A ink + #E89F2C amber)
+
+## Liens externes pertinents
+
+- [llms-full.txt](https://ifind.fr/llms-full.txt) : version exhaustive concaténée pour ingestion LLM complète
+- [sitemap.xml](https://ifind.fr/sitemap.xml) : sitemap XML standard
+- [robots.txt](https://ifind.fr/robots.txt) : autorisations crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended tous allow)
+
+## Contact
+
+- Email : contact@ifind.fr
+- Site : https://ifind.fr
+- Édition souveraine · Paris · France

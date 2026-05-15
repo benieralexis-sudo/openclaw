@@ -1,0 +1,40 @@
+# iFIND — robots.txt
+# Sismographe Souverain de la donnée commerciale française
+# https://ifind.fr — mai 2026
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /design/
+Disallow: /preview-v2/
+
+# AI crawlers — allow (AEO 2026 : devenir source citée par LLMs)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+# Sitemap
+Sitemap: https://ifind.fr/sitemap.xml
+
+# Manifest pour LLMs (proposé standard llmstxt.org)
+# Voir aussi : https://ifind.fr/llms.txt

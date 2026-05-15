@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- Page d'accueil (racine actuelle = v5 Astro, sera swap vers v6 après sprint) -->
+  <url>
+    <loc>https://ifind.fr/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://ifind.fr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ifind.fr/"/>
+  </url>
+
+  <!-- Preview v6 Sismographe Souverain (sprint Awwwards SOTD mai 2026) -->
+  <url>
+    <loc>https://ifind.fr/v6/</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <xhtml:link rel="alternate" hreflang="fr-FR" href="https://ifind.fr/v6/"/>
+  </url>
+
+</urlset>
