@@ -717,6 +717,23 @@
   .hero-meta span{display:inline-flex;align-items:center;gap:6px}
   .hero-meta svg{flex-shrink:0;color:var(--amber)}
 
+  /* === BUG-V1 fix: contraste hero sur fond Three.js noir =================
+   * Sur desktop avec WebGL actif, le canvas hero-3d (Joy Division shader)
+   * remplit le viewport avec un fond sombre. Le H1 + sub en couleurs --ink
+   * deviendraient invisibles sur ce fond. On bascule en cream.
+   * Mobile (#hero-3d display:none via @media) et body.no-webgl restent en
+   * noir-sur-cream comme avant.
+   * ====================================================================== */
+  @media (min-width:721px) and (pointer:fine){
+    body:not(.no-webgl) .hero h1{color:var(--cream)}
+    body:not(.no-webgl) .hero-sub{color:rgba(245,241,234,0.82)}
+    body:not(.no-webgl) .hero-sub strong{color:var(--cream)}
+    body:not(.no-webgl) .hero-meta{color:rgba(245,241,234,0.62)}
+    body:not(.no-webgl) .hero-meta strong{color:var(--cream)}
+    /* Highlight amber sous "française." : assombrir pour rester visible sur fond noir */
+    body:not(.no-webgl) .hero h1 .accent-wrap::after{background:rgba(232,159,44,0.40)}
+  }
+
   /* Live panel — sticky, animé */
   .hero-panel{
     position:relative;
