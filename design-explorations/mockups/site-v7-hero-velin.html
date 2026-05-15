@@ -129,30 +129,27 @@
   .nav-cta:hover { filter: brightness(1.08); transform: translateY(-1px); }
   .nav-cta:hover::after { transform: translateX(2px); }
 
-  /* === HERO BACKGROUND CANVAS === */
-  /* Sticky on top so the WebGL stays visible across BOTH .hero AND #produit.
-     The parent .hero-wrap now contains both sections (~200vh total). */
+  /* === HERO BACKGROUND CANVAS — confined to .hero only === */
   .hero-bg {
-    position: sticky;
-    top: 0;
-    left: 0;
+    position: absolute;
+    inset: 0;
     width: 100%;
-    height: 100vh;
+    height: 100%;
     z-index: 0;
     pointer-events: none;
     display: block;
     opacity: 0;
     transition: opacity 1200ms ease-out;
-    /* Reserve the slot the canvas would have taken in normal flow without
-       pushing content down (sticky needs a non-zero in-flow box). */
-    margin-bottom: -100vh;
   }
   .hero-bg.is-ready { opacity: 1; }
 
-  /* Hero wrapper to contain the sticky canvas. Holds both .hero and #produit. */
+  /* Hero wrapper holds only .hero with its background canvas. */
   .hero-wrap {
     position: relative;
     isolation: isolate;
+    height: 100vh;
+    min-height: 100vh;
+    overflow: hidden;
   }
 
   /* === HERO === */
@@ -376,7 +373,7 @@
     100% { opacity: 0; transform: scale(2.6); }
   }
 
-  /* === SECTION #PRODUIT — Morph US/FR sur sismographe WebGL === */
+  /* === SECTION #PRODUIT — Vellum mode (light, editorial) === */
   .produit {
     position: relative;
     z-index: 1;
@@ -385,8 +382,13 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+    background: var(--vellum);
+    color: var(--ink);
+  }
+  .produit-inner {
     max-width: 1400px;
     margin: 0 auto;
+    width: 100%;
   }
   .produit-header {
     display: flex;
@@ -400,7 +402,7 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
-    color: rgba(232, 159, 44, 0.72);
+    color: var(--amber-deep);
   }
   .produit-title {
     font-family: var(--font-serif);
@@ -408,23 +410,23 @@
     font-size: clamp(40px, 5.4vw, 72px);
     line-height: 1.04;
     letter-spacing: -0.022em;
-    color: var(--vellum);
+    color: var(--ink);
   }
   .produit-title .dim {
-    color: var(--slate-warm);
+    color: var(--slate-soft);
     font-style: italic;
   }
   .produit-title .ifind {
-    color: var(--vellum);
+    color: var(--ink);
   }
   .produit-title .amber {
-    color: var(--amber);
+    color: var(--amber-deep);
     font-style: italic;
   }
   .produit-sub {
     font-size: 17px;
     line-height: 1.55;
-    color: rgba(245, 241, 234, 0.78);
+    color: rgba(15, 13, 10, 0.74);
     max-width: 540px;
   }
 
@@ -444,12 +446,11 @@
     font-family: var(--font-mono);
     font-size: 11px;
     letter-spacing: var(--tracking-eyebrow);
-    color: rgba(245, 241, 234, 0.32);
-    background: rgba(15, 13, 10, 0.78);
+    color: rgba(15, 13, 10, 0.45);
+    background: var(--vellum);
     padding: 6px 10px;
-    border: 1px solid rgba(245, 241, 234, 0.10);
+    border: 1px solid rgba(15, 13, 10, 0.12);
     border-radius: 2px;
-    backdrop-filter: blur(6px);
     z-index: 3;
   }
 
@@ -461,17 +462,15 @@
     flex-direction: column;
     gap: 22px;
     min-height: 320px;
-    backdrop-filter: blur(8px) saturate(120%);
-    -webkit-backdrop-filter: blur(8px) saturate(120%);
   }
   .col-us {
-    background: linear-gradient(135deg, rgba(92, 84, 74, 0.045), rgba(92, 84, 74, 0));
-    border: 1px solid rgba(92, 84, 74, 0.28);
+    background: linear-gradient(135deg, rgba(92, 84, 74, 0.06), rgba(92, 84, 74, 0.01));
+    border: 1px solid rgba(92, 84, 74, 0.22);
   }
   .col-fr {
-    background: linear-gradient(135deg, rgba(232, 159, 44, 0.05), rgba(232, 159, 44, 0));
-    border: 1px solid rgba(232, 159, 44, 0.30);
-    box-shadow: 0 0 50px rgba(232, 159, 44, 0.06);
+    background: linear-gradient(135deg, rgba(232, 159, 44, 0.10), rgba(232, 159, 44, 0.02));
+    border: 1px solid rgba(232, 159, 44, 0.45);
+    box-shadow: 0 0 50px rgba(232, 159, 44, 0.10);
   }
 
   .col-label {
@@ -480,8 +479,8 @@
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
   }
-  .col-us .col-label { color: rgba(138, 130, 120, 0.85); }
-  .col-fr .col-label { color: var(--amber); }
+  .col-us .col-label { color: var(--slate-warm); }
+  .col-fr .col-label { color: var(--amber-deep); }
 
   .col-title {
     font-family: var(--font-sans);
@@ -491,10 +490,10 @@
     line-height: 1.2;
   }
   .col-us .col-title {
-    color: rgba(245, 241, 234, 0.62);
+    color: rgba(15, 13, 10, 0.55);
   }
   .col-fr .col-title {
-    color: var(--vellum);
+    color: var(--ink);
     display: inline-flex;
     align-items: baseline;
     gap: 10px;
@@ -521,7 +520,7 @@
     font-family: var(--font-sans);
     font-size: 15px;
     line-height: 1.55;
-    color: rgba(245, 241, 234, 0.82);
+    color: rgba(15, 13, 10, 0.85);
     padding-left: 18px;
     position: relative;
   }
@@ -534,10 +533,10 @@
     height: 1px;
   }
   .col-us .col-list li {
-    color: rgba(245, 241, 234, 0.62);
+    color: rgba(15, 13, 10, 0.60);
   }
   .col-us .col-list li::before {
-    background: rgba(138, 130, 120, 0.6);
+    background: var(--slate-warm);
   }
   .col-fr .col-list li::before {
     background: var(--amber);
@@ -551,10 +550,10 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
-    border-top: 1px solid rgba(245, 241, 234, 0.08);
+    border-top: 1px solid rgba(15, 13, 10, 0.10);
   }
-  .col-us .col-footer { color: rgba(138, 130, 120, 0.85); }
-  .col-fr .col-footer { color: var(--amber); }
+  .col-us .col-footer { color: var(--slate-warm); }
+  .col-fr .col-footer { color: var(--amber-deep); }
 
   @media (max-width: 860px) {
     .produit { padding: 100px 24px 120px; }
@@ -579,9 +578,9 @@
      =================================================================== */
   .methode {
     position: relative;
-    background: var(--ink);
+    background: var(--vellum);
     z-index: 2;
-    color: var(--vellum);
+    color: var(--ink);
   }
   .methode-inner {
     height: 100vh;
@@ -601,7 +600,7 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
-    color: rgba(232, 159, 44, 0.55);
+    color: var(--amber-deep);
     margin-bottom: 28px;
   }
   .methode-title {
@@ -610,17 +609,17 @@
     font-size: clamp(54px, 5.8vw, 72px);
     line-height: 1.06;
     letter-spacing: -0.022em;
-    color: var(--vellum);
+    color: var(--ink);
   }
   .methode-title em.amber {
     font-style: italic;
-    color: var(--amber);
+    color: var(--amber-deep);
   }
   .methode-sub {
     font-family: var(--font-sans);
     font-size: clamp(16px, 1.1vw, 17px);
     line-height: 1.55;
-    color: rgba(245, 241, 234, 0.78);
+    color: rgba(15, 13, 10, 0.74);
     max-width: 440px;
     margin-top: 16px;
   }
@@ -643,7 +642,7 @@
     font-family: var(--font-mono);
     font-size: 14px;
     font-variant-numeric: tabular-nums;
-    color: var(--vellum);
+    color: var(--ink);
     opacity: 0.30;
     padding-bottom: 1px;
     border-bottom: 1px solid transparent;
@@ -652,13 +651,13 @@
   .methode-steps .step-label {
     font-family: var(--font-sans);
     font-size: 15px;
-    color: var(--vellum);
+    color: var(--ink);
     opacity: 0.45;
     transition: opacity 380ms ease;
   }
   .methode-steps .step.is-active .step-num {
     opacity: 1;
-    border-bottom-color: var(--amber);
+    border-bottom-color: var(--amber-deep);
   }
   .methode-steps .step.is-active .step-label { opacity: 1; }
 
@@ -692,7 +691,7 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
-    color: var(--amber);
+    color: var(--amber-deep);
   }
   .frame-title {
     font-family: var(--font-serif);
@@ -700,14 +699,14 @@
     font-size: clamp(32px, 3.4vw, 44px);
     line-height: 1.1;
     letter-spacing: -0.02em;
-    color: var(--vellum);
+    color: var(--ink);
     margin: 12px 0 18px;
   }
   .frame-body {
     font-family: var(--font-sans);
     font-size: 16px;
     line-height: 1.55;
-    color: rgba(245, 241, 234, 0.78);
+    color: rgba(15, 13, 10, 0.72);
     max-width: 480px;
     margin-bottom: 28px;
   }
@@ -720,16 +719,16 @@
   .frame-sources li,
   .frame-patterns li {
     padding-block: 7px;
-    border-bottom: 1px solid rgba(245, 241, 234, 0.06);
+    border-bottom: 1px solid rgba(15, 13, 10, 0.08);
     font-family: var(--font-sans);
     font-size: 15px;
     line-height: 1.45;
-    color: rgba(245, 241, 234, 0.85);
+    color: rgba(15, 13, 10, 0.85);
   }
   .frame-sources li strong,
   .frame-patterns li strong {
     font-weight: 600;
-    color: var(--amber);
+    color: var(--amber-deep);
   }
   .frame-footer {
     margin-top: 32px;
@@ -742,12 +741,10 @@
 
   /* --- Lead card mockup (Frame 3) --- */
   .lead-card {
-    background: rgba(245, 241, 234, 0.04);
-    border: 1px solid rgba(245, 241, 234, 0.10);
+    background: rgba(15, 13, 10, 0.04);
+    border: 1px solid rgba(15, 13, 10, 0.12);
     border-radius: 6px;
     padding: 28px;
-    backdrop-filter: blur(10px) saturate(120%);
-    -webkit-backdrop-filter: blur(10px) saturate(120%);
   }
   .lead-card-header {
     display: flex;
@@ -758,9 +755,9 @@
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
   }
-  .lead-tag { color: var(--amber); }
+  .lead-tag { color: var(--amber-deep); }
   .lead-score {
-    color: var(--amber);
+    color: var(--amber-deep);
     font-variant-numeric: tabular-nums;
   }
   .lead-company {
@@ -768,7 +765,7 @@
     font-size: 22px;
     font-weight: 600;
     letter-spacing: -0.018em;
-    color: var(--vellum);
+    color: var(--ink);
     margin-top: 6px;
   }
   .lead-meta {
@@ -779,36 +776,36 @@
   }
   .lead-card hr {
     border: 0;
-    border-top: 1px solid rgba(245, 241, 234, 0.10);
+    border-top: 1px solid rgba(15, 13, 10, 0.10);
     margin: 18px 0;
   }
   .lead-trigger {
     font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.5;
-    color: rgba(245, 241, 234, 0.92);
+    color: rgba(15, 13, 10, 0.88);
     margin-bottom: 8px;
   }
   .lead-trigger strong {
-    color: var(--amber);
+    color: var(--amber-deep);
     font-weight: 600;
   }
   .lead-persona {
     font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.5;
-    color: rgba(245, 241, 234, 0.92);
+    color: rgba(15, 13, 10, 0.88);
   }
   .lead-persona strong {
     font-weight: 600;
-    color: var(--vellum);
+    color: var(--ink);
   }
   .lead-opener {
     font-family: var(--font-serif);
     font-style: italic;
     font-size: 15px;
     line-height: 1.5;
-    color: rgba(245, 241, 234, 0.78);
+    color: rgba(15, 13, 10, 0.74);
     margin-top: 14px;
     padding-left: 14px;
     border-left: 2px solid var(--amber);
@@ -1112,8 +1109,10 @@
     </div>
   </div>
 </section>
+</div><!-- /.hero-wrap -->
 
 <section id="produit" class="produit">
+<div class="produit-inner">
   <header class="produit-header">
     <span class="produit-eyebrow">— Le moat iFIND</span>
     <h2 class="produit-title">
@@ -1150,8 +1149,8 @@
       <div class="col-footer">100% événements réels</div>
     </article>
   </div>
+</div>
 </section>
-</div><!-- /.hero-wrap -->
 
 <!-- ===================================================================
      SECTION #METHODE — Pin scroll 3 frames (Pudding.cool / Bloomberg)
@@ -1831,40 +1830,8 @@ const FilmicShader = {
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 
-  // --- ScrollTrigger : uMorph driven by section #produit ---
-  // Hero ↔ Split US/FR morph + fade-out after the section.
-  const produitEl = document.getElementById('produit');
-  if(produitEl && window.gsap && window.ScrollTrigger && !reduced){
-    gsap.registerPlugin(ScrollTrigger);
-
-    // 1) Morph : 0 → 1 sur la première moitié d'entrée dans #produit
-    ScrollTrigger.create({
-      trigger: produitEl,
-      start: 'top center',
-      end: 'center center',
-      scrub: 0.6,
-      onUpdate: self => { uniforms.uMorph.value = self.progress; }
-    });
-
-    // 2) Fade-out du canvas après #produit : à partir du milieu de la section,
-    //    on commence à effacer pour libérer les sections suivantes (méthode/tarifs).
-    ScrollTrigger.create({
-      trigger: produitEl,
-      start: 'center center',
-      end: 'bottom top',
-      scrub: 0.8,
-      onUpdate: self => {
-        // 0 → 0.5 : opacity reste 1
-        // 0.5 → 1 : fade linéaire vers 0
-        const p = self.progress;
-        const opacity = p < 0.5 ? 1 : Math.max(0, 1 - (p - 0.5) * 2);
-        canvas.style.opacity = opacity;
-      }
-    });
-  } else if(produitEl && reduced){
-    // Reduced motion : morph statique posé à 1 (l'utilisateur voit le split fixe)
-    uniforms.uMorph.value = 1.0;
-  }
+  // Canvas confined to .hero only — no morph driven by #produit (section is
+  // now outside .hero-wrap). uMorph stays at 0 (state hero pure).
 
   // --- ScrollTrigger : pin #methode + toggle 3 frames -----------------
   // Pin la section pendant 2.5 viewport (1.8 trop court, 3.0 trop lourd).
