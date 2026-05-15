@@ -92,6 +92,28 @@ fi
 
 DATA_SIZE=$(du -sh "$DATA_ARCHIVE" | cut -f1)
 
+# === 2bis. Backup Postgres ifind (CRITICAL — Fix 15/05/2026) ===
+# Sans ce dump, les Leads/Triggers/briefs V2 (76MB volume PG bind-mounté
+# /opt/moltbot/data/postgres) ne sont PAS backupés par le tar volumes
+# Docker plus haut (qui ne prend que les volumes nommés moltbot_*).
+# Audit du 15/05 a révélé que dernier dump SQL datait de 17j (29/04) →
+# risque perte totale en cas de crash disque ou corruption.
+PG_DUMP_ARCHIVE="$BACKUP_DIR/ifind-postgres-$DATE.sql.gz"
+PG_PWD=$(grep ^DATABASE_URL /opt/moltbot/dashboard-v2/.env 2>/dev/null | sed -E 's|.*ifind:([^@]+)@.*|\1|')
+if [ -z "$PG_PWD" ]; then
+  fail "Postgres password introuvable dans dashboard-v2/.env (DATABASE_URL)"
+fi
+if ! docker exec -e PGPASSWORD="$PG_PWD" ifind-postgres pg_dump -U ifind -d ifind --clean --if-exists --no-owner --no-acl 2>/dev/null | gzip > "$PG_DUMP_ARCHIVE"; then
+  fail "Postgres pg_dump ifind failed"
+fi
+# Vérif intégrité minimale : doit contenir au moins CREATE TABLE Lead et Trigger
+if ! zcat "$PG_DUMP_ARCHIVE" | grep -q 'CREATE TABLE public."Lead"' || \
+   ! zcat "$PG_DUMP_ARCHIVE" | grep -q 'CREATE TABLE public."Trigger"'; then
+  fail "Postgres dump validation failed (tables Lead/Trigger absentes)"
+fi
+PG_DUMP_SIZE=$(du -sh "$PG_DUMP_ARCHIVE" | cut -f1)
+log "Postgres ifind dump OK ($PG_DUMP_SIZE)"
+
 # === 3. Backup clients/ si présent (exclude .env per-client) ===
 CLIENTS_ARCHIVE=""
 if [ -d "/opt/moltbot/clients" ] && [ -n "$(ls -A /opt/moltbot/clients 2>/dev/null)" ]; then
@@ -118,6 +140,8 @@ encrypt_archive() {
 log "Encrypting archives with GPG ($GPG_RECIPIENT)"
 CODE_ARCHIVE_ENC=$(encrypt_archive "$CODE_ARCHIVE") || fail "GPG encrypt code failed"
 DATA_ARCHIVE_ENC=$(encrypt_archive "$DATA_ARCHIVE") || fail "GPG encrypt data failed"
+# Fix 15/05/2026 — Chiffre aussi le dump Postgres ifind
+PG_DUMP_ARCHIVE_ENC=$(encrypt_archive "$PG_DUMP_ARCHIVE") || fail "GPG encrypt pg dump failed"
 CLIENTS_ARCHIVE_ENC=""
 if [ -n "$CLIENTS_ARCHIVE" ]; then
   CLIENTS_ARCHIVE_ENC=$(encrypt_archive "$CLIENTS_ARCHIVE") || fail "GPG encrypt clients failed"
@@ -133,6 +157,10 @@ rclone copy "$CODE_ARCHIVE_ENC" "$B2_PATH/" --transfers 2 --retries 3 2>"$UPLOAD
 rclone copy "$DATA_ARCHIVE_ENC" "$B2_PATH/" --transfers 2 --retries 3 2>"$UPLOAD_LOG" \
   || fail "B2 upload data failed: $(tail -3 "$UPLOAD_LOG")"
 
+# Fix 15/05/2026 — Upload Postgres dump
+rclone copy "$PG_DUMP_ARCHIVE_ENC" "$B2_PATH/" --transfers 2 --retries 3 2>"$UPLOAD_LOG" \
+  || fail "B2 upload postgres failed: $(tail -3 "$UPLOAD_LOG")"
+
 if [ -n "$CLIENTS_ARCHIVE_ENC" ]; then
   rclone copy "$CLIENTS_ARCHIVE_ENC" "$B2_PATH/" --transfers 2 --retries 3 2>"$UPLOAD_LOG" \
     || fail "B2 upload clients failed"
@@ -143,6 +171,9 @@ rm -f "$UPLOAD_LOG"
 find "$BACKUP_DIR" -name "moltbot-*.tar.gz.gpg" -mtime +$LOCAL_RETENTION_DAYS -delete 2>/dev/null
 # Cleanup any leftover plaintext archives from interrupted runs
 find "$BACKUP_DIR" -name "moltbot-*.tar.gz" -mtime +$LOCAL_RETENTION_DAYS -delete 2>/dev/null
+# Fix 15/05/2026 — Retention dumps Postgres ifind
+find "$BACKUP_DIR" -name "ifind-postgres-*.sql.gz.gpg" -mtime +$LOCAL_RETENTION_DAYS -delete 2>/dev/null
+find "$BACKUP_DIR" -name "ifind-postgres-*.sql.gz" -mtime +$LOCAL_RETENTION_DAYS -delete 2>/dev/null
 
 # === 7. Retention B2 (30j) ===
 CUTOFF_DATE=$(date -d "$B2_RETENTION_DAYS days ago" +%Y-%m-%d)
@@ -159,11 +190,12 @@ done
 TOTAL_SIZE=$(du -sh "$BACKUP_DIR"/moltbot-*-$DATE.tar.gz.gpg 2>/dev/null | tail -1 | cut -f1)
 B2_OBJECTS=$(rclone lsf "$B2_PATH" 2>/dev/null | wc -l)
 
-log "✅ Backup OK — code=$CODE_SIZE data=$DATA_SIZE clients=${CLIENTS_SIZE:-N/A} | GPG encrypted | B2=$B2_OBJECTS objects uploaded"
+log "✅ Backup OK — code=$CODE_SIZE data=$DATA_SIZE postgres=$PG_DUMP_SIZE clients=${CLIENTS_SIZE:-N/A} | GPG encrypted | B2=$B2_OBJECTS objects uploaded"
 
 notify_telegram "✅ *Backup iFIND OK* — $TODAY
 📦 Code : $CODE_SIZE
 💾 Data : $DATA_SIZE
+🗄️ Postgres ifind : $PG_DUMP_SIZE
 👥 Clients : ${CLIENTS_SIZE:-N/A}
 🔐 Chiffrement : GPG ($GPG_RECIPIENT)
 ☁️  B2 : $B2_OBJECTS fichiers → \`$TODAY/\`

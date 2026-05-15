@@ -35,6 +35,7 @@ export async function trackLeadInteraction(
 ): Promise<void> {
   if (!leadId) return;
   try {
+    // Fix 15/05/2026 — timeout 5s pour éviter hang UI si serveur lent.
     await fetch(`/api/leads/${leadId}/activities`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -46,6 +47,7 @@ export async function trackLeadInteraction(
           ...extraPayload,
         },
       }),
+      signal: AbortSignal.timeout(5000),
     });
   } catch {
     // Silent fail — le tracking ne doit jamais casser un click utilisateur.
@@ -71,6 +73,7 @@ export async function trackLeadStatusChange(
 ): Promise<{ ok: boolean; error?: string }> {
   if (!leadId) return { ok: false, error: "no leadId" };
   try {
+    // Fix 15/05/2026 — timeout 10s sur action commerciale (changement statut).
     const res = await fetch(`/api/leads/${leadId}/activities`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -83,6 +86,7 @@ export async function trackLeadStatusChange(
           source: "dashboard-1click-button",
         },
       }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
