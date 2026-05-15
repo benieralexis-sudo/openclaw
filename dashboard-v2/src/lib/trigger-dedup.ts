@@ -129,7 +129,12 @@ export async function findOrFuseTriggerBySiret(
 
   // FUSION : nouveau signal sur trigger existant cross-source
   const newScore = Math.max(existing.score, candidate.score);
-  const newMultiSourceBoost = (existing.multiSourceBoost ?? 0) + 1;
+  // Fix B12.1 (15/05/2026) — Cap multiSourceBoost à 30 pour aligner avec la
+  // formule `computeMultiSourceBoost` (0/15/30 selon distinct sources). Avant :
+  // compteur cumulatif sans cap → 15+ observés sur Sêmeia. Cap 30 = max
+  // formule pure. priority-scoring-runner recompute périodiquement à partir
+  // des sourceCodes distincts, donc 30 = ceiling cohérent.
+  const newMultiSourceBoost = Math.min(30, (existing.multiSourceBoost ?? 0) + 1);
   const newSourceAddon = `[+combo from ${candidate.sourceCode}]`;
   const newScoreReason = existing.scoreReason
     ? `${existing.scoreReason} ${newSourceAddon}`.slice(0, 800)
@@ -275,8 +280,11 @@ export async function mergeDuplicateTriggersBySiret(
   const loser = targetWins ? sibling : target;
 
   const newScore = Math.max(target.score, sibling.score);
-  const newMultiSourceBoost =
-    (winner.multiSourceBoost ?? 0) + (loser.multiSourceBoost ?? 0) + 1;
+  // Fix B12.1 (15/05/2026) — Cap multiSourceBoost à 30 (cf. fuse logique).
+  const newMultiSourceBoost = Math.min(
+    30,
+    (winner.multiSourceBoost ?? 0) + (loser.multiSourceBoost ?? 0) + 1,
+  );
   const newSourceAddon = `[+merged from ${loser.sourceCode}]`;
   const newScoreReason = winner.scoreReason
     ? `${winner.scoreReason} ${newSourceAddon}`.slice(0, 800)
