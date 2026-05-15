@@ -130,20 +130,26 @@
   .nav-cta:hover::after { transform: translateX(2px); }
 
   /* === HERO BACKGROUND CANVAS === */
+  /* Sticky on top so the WebGL stays visible across BOTH .hero AND #produit.
+     The parent .hero-wrap now contains both sections (~200vh total). */
   .hero-bg {
-    position: absolute;
-    inset: 0;
+    position: sticky;
+    top: 0;
+    left: 0;
     width: 100%;
-    height: 100%;
+    height: 100vh;
     z-index: 0;
     pointer-events: none;
     display: block;
     opacity: 0;
     transition: opacity 1200ms ease-out;
+    /* Reserve the slot the canvas would have taken in normal flow without
+       pushing content down (sticky needs a non-zero in-flow box). */
+    margin-bottom: -100vh;
   }
   .hero-bg.is-ready { opacity: 1; }
 
-  /* Hero wrapper to contain the absolute canvas */
+  /* Hero wrapper to contain the sticky canvas. Holds both .hero and #produit. */
   .hero-wrap {
     position: relative;
     isolation: isolate;
@@ -369,9 +375,204 @@
     50% { opacity: 0.6; transform: scale(1.6); }
     100% { opacity: 0; transform: scale(2.6); }
   }
+
+  /* === SECTION #PRODUIT — Morph US/FR sur sismographe WebGL === */
+  .produit {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    padding: 140px 40px 160px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .produit-header {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    max-width: 760px;
+    margin-bottom: 96px;
+  }
+  .produit-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: rgba(232, 159, 44, 0.72);
+  }
+  .produit-title {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(40px, 5.4vw, 72px);
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    color: var(--vellum);
+  }
+  .produit-title .dim {
+    color: var(--slate-warm);
+    font-style: italic;
+  }
+  .produit-title .ifind {
+    color: var(--vellum);
+  }
+  .produit-title .amber {
+    color: var(--amber);
+    font-style: italic;
+  }
+  .produit-sub {
+    font-size: 17px;
+    line-height: 1.55;
+    color: rgba(245, 241, 234, 0.78);
+    max-width: 540px;
+  }
+
+  .produit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: stretch;
+    position: relative;
+  }
+  .produit-grid::before {
+    content: 'VS';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: var(--tracking-eyebrow);
+    color: rgba(245, 241, 234, 0.32);
+    background: rgba(15, 13, 10, 0.78);
+    padding: 6px 10px;
+    border: 1px solid rgba(245, 241, 234, 0.10);
+    border-radius: 2px;
+    backdrop-filter: blur(6px);
+    z-index: 3;
+  }
+
+  .produit-col {
+    position: relative;
+    padding: 36px 32px 30px;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-height: 320px;
+    backdrop-filter: blur(8px) saturate(120%);
+    -webkit-backdrop-filter: blur(8px) saturate(120%);
+  }
+  .col-us {
+    background: linear-gradient(135deg, rgba(92, 84, 74, 0.045), rgba(92, 84, 74, 0));
+    border: 1px solid rgba(92, 84, 74, 0.28);
+  }
+  .col-fr {
+    background: linear-gradient(135deg, rgba(232, 159, 44, 0.05), rgba(232, 159, 44, 0));
+    border: 1px solid rgba(232, 159, 44, 0.30);
+    box-shadow: 0 0 50px rgba(232, 159, 44, 0.06);
+  }
+
+  .col-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+  }
+  .col-us .col-label { color: rgba(138, 130, 120, 0.85); }
+  .col-fr .col-label { color: var(--amber); }
+
+  .col-title {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.018em;
+    line-height: 1.2;
+  }
+  .col-us .col-title {
+    color: rgba(245, 241, 234, 0.62);
+  }
+  .col-fr .col-title {
+    color: var(--vellum);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .col-fr .col-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 18px;
+    background: var(--amber);
+    box-shadow: 0 0 10px rgba(232, 159, 44, 0.6);
+    transform: translateY(3px);
+  }
+
+  .col-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .col-list li {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    color: rgba(245, 241, 234, 0.82);
+    padding-left: 18px;
+    position: relative;
+  }
+  .col-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.72em;
+    width: 9px;
+    height: 1px;
+  }
+  .col-us .col-list li {
+    color: rgba(245, 241, 234, 0.62);
+  }
+  .col-us .col-list li::before {
+    background: rgba(138, 130, 120, 0.6);
+  }
+  .col-fr .col-list li::before {
+    background: var(--amber);
+    box-shadow: 0 0 6px rgba(232, 159, 44, 0.5);
+  }
+
+  .col-footer {
+    margin-top: auto;
+    padding-top: 18px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    border-top: 1px solid rgba(245, 241, 234, 0.08);
+  }
+  .col-us .col-footer { color: rgba(138, 130, 120, 0.85); }
+  .col-fr .col-footer { color: var(--amber); }
+
+  @media (max-width: 860px) {
+    .produit { padding: 100px 24px 120px; }
+    .produit-grid {
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
+    .produit-grid::before {
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+  }
 </style>
 </head>
 <body>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 
 <nav class="nav">
   <a href="#" class="nav-logo"><span class="pic"></span>ifind</a>
@@ -423,6 +624,45 @@
       <span class="live-dot"></span>
       <span>Détection active · 19 triggers dernière heure</span>
     </div>
+  </div>
+</section>
+
+<section id="produit" class="produit">
+  <header class="produit-header">
+    <span class="produit-eyebrow">— Le moat iFIND</span>
+    <h2 class="produit-title">
+      Intent data US <span class="dim">prédit.</span><br>
+      <span class="ifind">iFIND <em class="amber">détecte</em>.</span>
+    </h2>
+    <p class="produit-sub">
+      Le bruit probabiliste de l'Atlantique. Les triggers durs de la France.
+    </p>
+  </header>
+
+  <div class="produit-grid">
+    <article class="produit-col col-us">
+      <div class="col-label">INTENT DATA — PROBABILISTE</div>
+      <h3 class="col-title">Apollo · Bombora · 6sense</h3>
+      <ul class="col-list">
+        <li>Score de propension US</li>
+        <li>Datasets anonymes (G2, Bombora)</li>
+        <li>Signal probabiliste 6-12%</li>
+        <li>Pas d'attribution SIRET FR</li>
+      </ul>
+      <div class="col-footer">~ 12% accuracy</div>
+    </article>
+
+    <article class="produit-col col-fr">
+      <div class="col-label">TRIGGERS FR — ÉVÉNEMENTS PUBLICS DURS</div>
+      <h3 class="col-title">iFIND Trigger Engine</h3>
+      <ul class="col-list">
+        <li>Levée Pappers (BODACC)</li>
+        <li>Hiring C-level (France Travail · WTTJ)</li>
+        <li>Dépôt INPI brevet/marque</li>
+        <li>Tout attribué au SIRET</li>
+      </ul>
+      <div class="col-footer">100% événements réels</div>
+    </article>
   </div>
 </section>
 </div><!-- /.hero-wrap -->
@@ -579,11 +819,13 @@ const FilmicShader = {
   const uniforms = {
     uTime:      { value: 0.0 },
     uScroll:    { value: 0.0 },                          // 0 → hero pleine vue, 1 → sismographe aplati
+    uMorph:     { value: reduced ? 1.0 : 0.0 },          // 0 → hero, 1 → split US/FR (section #produit)
     uIntro:     { value: reduced ? 1.0 : 0.0 },
     uVellum:    { value: new THREE.Color(0xF5F1EA) },
     uInk:       { value: new THREE.Color(0x0F0D0A) },
     uAmber:     { value: new THREE.Color(0xE89F2C) },
-    uAmberDeep: { value: new THREE.Color(0xC7841E) }
+    uAmberDeep: { value: new THREE.Color(0xC7841E) },
+    uSlate:     { value: new THREE.Color(0x5C544A) }     // slate-warm — couleur "intent US" désaturé
   };
 
   // --- ShaderMaterial : displacement + ink/amber gradient ---
@@ -595,10 +837,12 @@ const FilmicShader = {
     vertexShader: `
       uniform float uTime;
       uniform float uScroll;
+      uniform float uMorph;
       uniform float uIntro;
       varying float vAmp;
       varying float vDepth;
       varying float vX;
+      varying float vMorph;
 
       // Ashima simplex 2D noise
       vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
@@ -629,20 +873,37 @@ const FilmicShader = {
         vec3 pos = position;
         float t = uTime * 0.16;
 
+        // ====== ÉTAT HERO (uMorph = 0) — Joy Division actuel ======
         // 3 octaves of noise + sparse high peaks (the triggers)
-        float n  = snoise(vec2(pos.x*0.18 + t,        pos.z*0.22 + t*0.4)) * 0.55;
-              n += snoise(vec2(pos.x*0.42 + t*1.4,    pos.z*0.38 + t*0.3)) * 0.28;
-              n += snoise(vec2(pos.x*0.95 + t*2.0,    pos.z*0.85))         * 0.12;
+        float heroN  = snoise(vec2(pos.x*0.18 + t,        pos.z*0.22 + t*0.4)) * 0.55;
+              heroN += snoise(vec2(pos.x*0.42 + t*1.4,    pos.z*0.38 + t*0.3)) * 0.28;
+              heroN += snoise(vec2(pos.x*0.95 + t*2.0,    pos.z*0.85))         * 0.12;
         float peakField = snoise(vec2(pos.x*0.55 + t*0.6, pos.z*0.42 + t*0.18));
         float peak = pow(max(peakField, 0.0), 7.0) * 3.6;
-        n += peak;
+        heroN += peak;
+
+        // ====== ÉTAT MORPHÉ (uMorph = 1) — SPLIT US/FR ============
+        // Gauche (x<0)  : bruit haute fréquence amplitude faible = "intent US"
+        // Droite (x>0)  : peaks rares mais intenses = "iFIND détecte"
+        float usNoise = snoise(vec2(pos.x*2.0 + t*1.2, pos.z*1.5 + t*0.6)) * 0.22;
+        float frPeakField = snoise(vec2(pos.x*0.32 + t*0.4, pos.z*0.30 + t*0.10));
+        float frPeak  = pow(max(frPeakField, 0.0), 9.0) * 4.8;
+        float frBase  = snoise(vec2(pos.x*0.22 + t*0.5, pos.z*0.26)) * 0.07;
+        float gap     = smoothstep(0.0, 1.8, abs(pos.x));
+        float sideMix = smoothstep(-0.6, 0.6, pos.x);
+        float morphN  = mix(usNoise, frBase + frPeak, sideMix);
+        morphN *= gap;
+
+        // MIX hero ↔ morph via uMorph (0 = hero, 1 = split)
+        float n = mix(heroN, morphN, smoothstep(0.0, 1.0, uMorph));
 
         // Horizontal edge fade
         float edgeFade = smoothstep(0.0, 4.5, 14.0 - abs(pos.x));
         n *= edgeFade;
 
         // Scroll damping: at scroll=1 amplitude collapses to 15% (almost flat)
-        float scrollDamp = 1.0 - uScroll * 0.85;
+        // Désactivé pendant le morph pour que les pics FR restent visibles
+        float scrollDamp = mix(1.0 - uScroll * 0.85, 1.0, uMorph);
         n *= uIntro * scrollDamp;
 
         pos.y += n * 1.15;
@@ -650,6 +911,7 @@ const FilmicShader = {
         vAmp = n;
         vDepth = pos.z;
         vX = pos.x;
+        vMorph = uMorph;
 
         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
       }
@@ -659,41 +921,54 @@ const FilmicShader = {
       uniform vec3 uInk;
       uniform vec3 uAmber;
       uniform vec3 uAmberDeep;
+      uniform vec3 uSlate;
       uniform float uIntro;
       varying float vAmp;
       varying float vDepth;
       varying float vX;
+      varying float vMorph;
 
       void main(){
-        // ====== COLOR LADDER for INK background — AMBER lines ======
-        // rest (low vAmp)     → warm ink (subtle background presence)
-        // mid (vAmp 0.3-0.8)  → amber (the signal trace itself)
-        // peaks (vAmp > 1.0)  → bright amber, HDR-boosted for bloom halo
-
-        // Start: amber mixed with ink (warm orange-brown for ambient lines)
+        // ====== COLOR LADDER HERO (vMorph = 0) — AMBER lines on INK ======
         vec3 restCol = mix(uInk, uAmber, 0.55);
+        vec3 heroCol = mix(restCol, uAmber, smoothstep(0.0, 0.6, vAmp));
+        heroCol = mix(heroCol, uAmber * 1.15, smoothstep(0.6, 1.2, vAmp));
+        heroCol = mix(heroCol, vec3(1.0, 0.85, 0.55), smoothstep(1.4, 2.6, vAmp));
+        float heroHdrBoost = smoothstep(0.7, 1.6, vAmp) * 1.20;
+        heroCol *= 1.0 + heroHdrBoost;
+        float heroAlpha = 0.35 + smoothstep(0.0, 1.5, vAmp) * 0.55;
 
-        // Walk toward pure amber as amplitude rises (the trace)
-        vec3 col = mix(restCol, uAmber, smoothstep(0.0, 0.6, vAmp));
+        // ====== COLOR LADDER MORPHÉ (vMorph = 1) — SPLIT US/FR ============
+        // Côté gauche (vX < 0) → slate désaturé gris-brun à plat (bruit US)
+        // Côté droit  (vX > 0) → ambre vif sur pics (triggers FR)
+        vec3 usRestCol = mix(uInk, uSlate, 0.55);
+        vec3 usCol = mix(usRestCol, vec3(0.42, 0.40, 0.38), 0.55);
+        // léger contraste mid-amp pour rendre le bruit US visible mais terne
+        usCol = mix(usCol, vec3(0.50, 0.47, 0.44), smoothstep(0.0, 0.3, vAmp));
 
-        // Brighter amber on real peaks
-        col = mix(col, uAmber * 1.15, smoothstep(0.6, 1.2, vAmp));
+        vec3 frRestCol = mix(uInk, uAmber, 0.45);
+        vec3 frCol = mix(frRestCol, uAmber, smoothstep(0.0, 0.6, vAmp));
+        frCol = mix(frCol, uAmber * 1.20, smoothstep(0.6, 1.4, vAmp));
+        frCol = mix(frCol, vec3(1.0, 0.85, 0.55), smoothstep(1.6, 3.0, vAmp));
+        float frHdrBoost = smoothstep(0.8, 1.8, vAmp) * 1.35;
+        frCol *= 1.0 + frHdrBoost;
 
-        // Push toward white-hot on extreme peaks for the bloom glow
-        col = mix(col, vec3(1.0, 0.85, 0.55), smoothstep(1.4, 2.6, vAmp));
+        // Sélection côté basée sur vX (sismographe symétrique autour de x=0)
+        float sideMix = smoothstep(-0.6, 0.6, vX);
+        vec3 morphCol = mix(usCol, frCol, sideMix);
 
-        // HDR BOOST on peaks: push amber > 1.0 luminance for bloom threshold 1.05
-        float hdrBoost = smoothstep(0.7, 1.6, vAmp) * 1.20;  // 0..1.2
-        col *= 1.0 + hdrBoost;
+        // Alpha morph : US base plus faible (bruit subtil), FR boostée sur pics
+        float usAlpha = 0.28 + smoothstep(0.0, 0.4, vAmp) * 0.20;
+        float frAlpha = 0.30 + smoothstep(0.0, 1.5, vAmp) * 0.62;
+        float morphAlpha = mix(usAlpha, frAlpha, sideMix);
+
+        // MIX final hero ↔ morph via vMorph
+        vec3 col   = mix(heroCol, morphCol, smoothstep(0.0, 1.0, vMorph));
+        float alpha = mix(heroAlpha, morphAlpha, smoothstep(0.0, 1.0, vMorph));
 
         // Atmospheric perspective + horizontal edge fade
         float depthFade = smoothstep(-9.0, 7.0, vDepth);
         float edge      = smoothstep(0.0, 5.0, 14.0 - abs(vX));
-
-        // === ALPHA modulation for dark background ===
-        // Higher base alpha now since lines are AMBER on INK — they don't
-        // wash out the way ink-on-vellum did. Peaks still ramp up.
-        float alpha = 0.35 + smoothstep(0.0, 1.5, vAmp) * 0.55;
 
         gl_FragColor = vec4(col, depthFade * edge * alpha * uIntro);
       }
@@ -717,9 +992,11 @@ const FilmicShader = {
   scene.add(group);
 
   // --- Resize ---
+  // Canvas is now sticky 100vh, so we size from the viewport (not the wrap).
   function resize(){
-    const rect = wrap.getBoundingClientRect();
-    const w = rect.width, h = rect.height;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width || window.innerWidth;
+    const h = rect.height || window.innerHeight;
     if(w < 2 || h < 2) return;
     renderer.setSize(w, h, false);
     composer.setSize(w, h);
@@ -733,7 +1010,7 @@ const FilmicShader = {
   }
   resize();
   if('ResizeObserver' in window){
-    new ResizeObserver(resize).observe(wrap);
+    new ResizeObserver(resize).observe(canvas);
   } else {
     window.addEventListener('resize', resize);
   }
@@ -748,15 +1025,53 @@ const FilmicShader = {
   }
 
   // --- Scroll → damping shader (the killer feature) ---
+  // Note : on borne le calcul sur la première section .hero uniquement (100vh),
+  // pas la totalité de .hero-wrap (qui contient maintenant aussi #produit).
   const heroEl = document.querySelector('.hero-wrap') || document.querySelector('.hero');
+  const heroSectionEl = document.querySelector('.hero');
   function onScroll(){
-    if(!heroEl) return;
-    const rect = heroEl.getBoundingClientRect();
+    if(!heroSectionEl) return;
+    const rect = heroSectionEl.getBoundingClientRect();
     const p = Math.min(1, Math.max(0, -rect.top / Math.max(1, rect.height)));
     uniforms.uScroll.value = p;
   }
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
+
+  // --- ScrollTrigger : uMorph driven by section #produit ---
+  // Hero ↔ Split US/FR morph + fade-out after the section.
+  const produitEl = document.getElementById('produit');
+  if(produitEl && window.gsap && window.ScrollTrigger && !reduced){
+    gsap.registerPlugin(ScrollTrigger);
+
+    // 1) Morph : 0 → 1 sur la première moitié d'entrée dans #produit
+    ScrollTrigger.create({
+      trigger: produitEl,
+      start: 'top center',
+      end: 'center center',
+      scrub: 0.6,
+      onUpdate: self => { uniforms.uMorph.value = self.progress; }
+    });
+
+    // 2) Fade-out du canvas après #produit : à partir du milieu de la section,
+    //    on commence à effacer pour libérer les sections suivantes (méthode/tarifs).
+    ScrollTrigger.create({
+      trigger: produitEl,
+      start: 'center center',
+      end: 'bottom top',
+      scrub: 0.8,
+      onUpdate: self => {
+        // 0 → 0.5 : opacity reste 1
+        // 0.5 → 1 : fade linéaire vers 0
+        const p = self.progress;
+        const opacity = p < 0.5 ? 1 : Math.max(0, 1 - (p - 0.5) * 2);
+        canvas.style.opacity = opacity;
+      }
+    });
+  } else if(produitEl && reduced){
+    // Reduced motion : morph statique posé à 1 (l'utilisateur voit le split fixe)
+    uniforms.uMorph.value = 1.0;
+  }
 
   // --- Visibility (pause RAF when hero offscreen / tab hidden) ---
   let heroInView = true, visible = !document.hidden;
