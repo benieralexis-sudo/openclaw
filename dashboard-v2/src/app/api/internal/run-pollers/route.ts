@@ -139,16 +139,22 @@ export async function POST(req: NextRequest) {
       if (source === "theirstack" || (theirstackJobOfferEnabled && source === "all" && theirstackHour === 18)) {
         entry.theirstack = await pollTheirstackForClient(c.id, { dryRun, jobsLimit: 30, companiesLimit: 15 });
       }
-      // Buying-intent QA (Bougie 2 — 04/05) : 2×/jour (12h + 18h UTC).
+      // Buying-intent QA (Bougie 2 — 04/05, gate aligné cron 15/05).
       // Audit 05/05 : cron run-pollers tourne 24×/j, le commentaire d'origine
       // "cron 6h ~45 cr/j" était faux → 1080 cr/j théorique, conso réelle
       // ~960 cr/j (76% du quota mensuel 5200 atteint en 10j). Gate horaire
-      // 12h+18h ramène à 90 cr/j en gardant une fenêtre de rattrapage si VPS
-      // down sur une exécution. Heures choisies après audit DB : 100% des
-      // Pépites historiques (28/04 + 04/05) ont été captées à 12h ou 18h UTC,
-      // jamais à 06h ou 00h (TheirStack ne réindexe pas la nuit FR).
+      // ramène à ~90 cr/j en gardant une fenêtre de rattrapage si VPS down
+      // sur une exécution.
+      //
+      // Fix B9.1 (15/05/2026) — Le cron run-pollers-all tourne à 8h05 + 18h05
+      // UTC (cf. `scripts/run-pollers-all-cron.sh` crontab). L'ancienne gate
+      // `12 || 18` ne déclenchait QUE 18h (12h n'a jamais de cron) → 1×/j
+      // au lieu de 2×/j. Burn TheirStack effectif 45/j au lieu de 90 attendu.
+      // Maintenant : `8 || 18` aligné sur le cron réel → 2×/j effectif.
+      // Note : 8h05 UTC = 10h Paris (DST), TheirStack a réindexé pendant la
+      // nuit FR, captures matin OK.
       const buyingIntentHour = new Date().getUTCHours();
-      if (!dryRun && source === "all" && (buyingIntentHour === 12 || buyingIntentHour === 18)) {
+      if (!dryRun && source === "all" && (buyingIntentHour === 8 || buyingIntentHour === 18)) {
         try {
           (entry as { theirstackBuyingIntent?: unknown }).theirstackBuyingIntent =
             await pollTheirstackBuyingIntentForClient(c.id, { companiesLimit: 15 });

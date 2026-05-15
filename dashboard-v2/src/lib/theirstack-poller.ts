@@ -703,6 +703,11 @@ export async function enrichRecentTriggersWithSirene(
             size: result.effectif ?? null,
             status: "IGNORED",
             scoreReason: `[NAF-blacklist:${result.code_naf}] Secteur structurellement hors-ICP (immo/holding/recrutement/etc) — auto-skip P16`,
+            // Fix B4.1 (15/05/2026) — Cohérence ignoredReason + ignoredAt
+            // alignée sur les autres voies IGNORED (avant : seul scoreReason
+            // était posé, ignoredReason restait NULL).
+            ignoredAt: new Date(),
+            ignoredReason: `naf-blacklist:${result.code_naf}`,
             deletedAt: new Date(),
           },
         });

@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { unarchiveLeadOnTriggerRevived } from "@/lib/lead-status-sync";
 
 /**
  * Sprint Perfection P3 (08/05/2026) — Dédup intelligent cross-source.
@@ -152,10 +153,21 @@ export async function findOrFuseTriggerBySiret(
       scoreReason: newScoreReason,
       multiSourceBoost: newMultiSourceBoost,
       isCombo: true,
+      // Fix B6.2 (15/05/2026) — Recalculer isHot après changement de score.
+      // Avant : trigger-dedup updatait score sans toucher isHot → 10 Triggers
+      // score=9 isHot=false en DB (verdicts OUI mais pas tagués brûlants).
+      isHot: newScore >= 9,
       capturedAt: newCapturedAt,
       ...(shouldPromote ? { status: "NEW" as const } : {}),
     },
   });
+
+  // Fix B5.4 (15/05/2026) — Si promotion IGNORED→NEW, désarchiver le Lead
+  // lié. Avant : trigger-dedup promote le Trigger mais le Lead restait
+  // ARCHIVED → invisible Fred alors que le Trigger est de nouveau actif.
+  if (shouldPromote) {
+    await unarchiveLeadOnTriggerRevived(existing.id);
+  }
 
   console.log(
     `[trigger-dedup.fuse] ${JSON.stringify({
@@ -287,6 +299,8 @@ export async function mergeDuplicateTriggersBySiret(
         scoreReason: newScoreReason,
         multiSourceBoost: newMultiSourceBoost,
         isCombo: true,
+        // Fix B6.2 (15/05/2026) — Recalculer isHot après merge winner.
+        isHot: newScore >= 9,
         capturedAt: newCapturedAt,
         ...(shouldPromote ? { status: "NEW" as const } : {}),
       },
@@ -337,6 +351,13 @@ export async function mergeDuplicateTriggersBySiret(
     // Si aucun des 2 n'a de Lead du tout : enrichDirigeants en créera un
     // au prochain cycle.
   });
+
+  // Fix B5.4 (15/05/2026) — Désarchiver le Lead lié au winner si promotion
+  // IGNORED→NEW (hors transaction car unarchiveLeadOnTriggerRevived a sa
+  // propre logique de status sync basée sur état actuel post-tx).
+  if (shouldPromote) {
+    await unarchiveLeadOnTriggerRevived(winner.id);
+  }
 
   console.log(
     `[trigger-dedup.merge] ${JSON.stringify({
