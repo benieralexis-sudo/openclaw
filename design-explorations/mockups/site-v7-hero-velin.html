@@ -578,9 +578,9 @@
      =================================================================== */
   .methode {
     position: relative;
-    background: var(--vellum);
+    background: var(--ink);
     z-index: 2;
-    color: var(--ink);
+    color: var(--vellum);
   }
   .methode-inner {
     height: 100vh;
@@ -600,7 +600,7 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
-    color: var(--amber-deep);
+    color: rgba(232, 159, 44, 0.72);
     margin-bottom: 28px;
   }
   .methode-title {
@@ -609,17 +609,17 @@
     font-size: clamp(54px, 5.8vw, 72px);
     line-height: 1.06;
     letter-spacing: -0.022em;
-    color: var(--ink);
+    color: var(--vellum);
   }
   .methode-title em.amber {
     font-style: italic;
-    color: var(--amber-deep);
+    color: var(--amber);
   }
   .methode-sub {
     font-family: var(--font-sans);
     font-size: clamp(16px, 1.1vw, 17px);
     line-height: 1.55;
-    color: rgba(15, 13, 10, 0.74);
+    color: rgba(245, 241, 234, 0.78);
     max-width: 440px;
     margin-top: 16px;
   }
@@ -642,7 +642,7 @@
     font-family: var(--font-mono);
     font-size: 14px;
     font-variant-numeric: tabular-nums;
-    color: var(--ink);
+    color: var(--vellum);
     opacity: 0.30;
     padding-bottom: 1px;
     border-bottom: 1px solid transparent;
@@ -651,13 +651,13 @@
   .methode-steps .step-label {
     font-family: var(--font-sans);
     font-size: 15px;
-    color: var(--ink);
+    color: var(--vellum);
     opacity: 0.45;
     transition: opacity 380ms ease;
   }
   .methode-steps .step.is-active .step-num {
     opacity: 1;
-    border-bottom-color: var(--amber-deep);
+    border-bottom-color: var(--amber);
   }
   .methode-steps .step.is-active .step-label { opacity: 1; }
 
@@ -691,7 +691,7 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
-    color: var(--amber-deep);
+    color: var(--amber);
   }
   .frame-title {
     font-family: var(--font-serif);
@@ -699,14 +699,14 @@
     font-size: clamp(32px, 3.4vw, 44px);
     line-height: 1.1;
     letter-spacing: -0.02em;
-    color: var(--ink);
+    color: var(--vellum);
     margin: 12px 0 18px;
   }
   .frame-body {
     font-family: var(--font-sans);
     font-size: 16px;
     line-height: 1.55;
-    color: rgba(15, 13, 10, 0.72);
+    color: rgba(245, 241, 234, 0.78);
     max-width: 480px;
     margin-bottom: 28px;
   }
@@ -719,16 +719,16 @@
   .frame-sources li,
   .frame-patterns li {
     padding-block: 7px;
-    border-bottom: 1px solid rgba(15, 13, 10, 0.08);
+    border-bottom: 1px solid rgba(245, 241, 234, 0.06);
     font-family: var(--font-sans);
     font-size: 15px;
     line-height: 1.45;
-    color: rgba(15, 13, 10, 0.85);
+    color: rgba(245, 241, 234, 0.85);
   }
   .frame-sources li strong,
   .frame-patterns li strong {
     font-weight: 600;
-    color: var(--amber-deep);
+    color: var(--amber);
   }
   .frame-footer {
     margin-top: 32px;
@@ -741,10 +741,12 @@
 
   /* --- Lead card mockup (Frame 3) --- */
   .lead-card {
-    background: rgba(15, 13, 10, 0.04);
-    border: 1px solid rgba(15, 13, 10, 0.12);
+    background: rgba(245, 241, 234, 0.04);
+    border: 1px solid rgba(245, 241, 234, 0.10);
     border-radius: 6px;
     padding: 28px;
+    backdrop-filter: blur(10px) saturate(120%);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
   }
   .lead-card-header {
     display: flex;
@@ -755,9 +757,9 @@
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
   }
-  .lead-tag { color: var(--amber-deep); }
+  .lead-tag { color: var(--amber); }
   .lead-score {
-    color: var(--amber-deep);
+    color: var(--amber);
     font-variant-numeric: tabular-nums;
   }
   .lead-company {
@@ -765,7 +767,7 @@
     font-size: 22px;
     font-weight: 600;
     letter-spacing: -0.018em;
-    color: var(--ink);
+    color: var(--vellum);
     margin-top: 6px;
   }
   .lead-meta {
@@ -776,36 +778,36 @@
   }
   .lead-card hr {
     border: 0;
-    border-top: 1px solid rgba(15, 13, 10, 0.10);
+    border-top: 1px solid rgba(245, 241, 234, 0.10);
     margin: 18px 0;
   }
   .lead-trigger {
     font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.5;
-    color: rgba(15, 13, 10, 0.88);
+    color: rgba(245, 241, 234, 0.92);
     margin-bottom: 8px;
   }
   .lead-trigger strong {
-    color: var(--amber-deep);
+    color: var(--amber);
     font-weight: 600;
   }
   .lead-persona {
     font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.5;
-    color: rgba(15, 13, 10, 0.88);
+    color: rgba(245, 241, 234, 0.92);
   }
   .lead-persona strong {
     font-weight: 600;
-    color: var(--ink);
+    color: var(--vellum);
   }
   .lead-opener {
     font-family: var(--font-serif);
     font-style: italic;
     font-size: 15px;
     line-height: 1.5;
-    color: rgba(15, 13, 10, 0.74);
+    color: rgba(245, 241, 234, 0.78);
     margin-top: 14px;
     padding-left: 14px;
     border-left: 2px solid var(--amber);
@@ -861,6 +863,195 @@
       padding: 0;
       pointer-events: auto;
       height: auto;
+    }
+  }
+
+  /* ===================================================================
+     === SECTION #REALITE — Scrollytelling timeline                  ====
+     ===================================================================
+     Pin 2.5 viewport pendant lequel : (a) la timeline horizontale se
+     trace de gauche à droite, (b) 8 signaux ambres surgissent un par
+     un, (c) le panel narratif change selon scroll position.
+     À la fin : flash rouge "votre concurrent a signé".
+     =================================================================== */
+  .realite {
+    position: relative;
+    background: var(--ink);
+    z-index: 2;
+    color: var(--vellum);
+  }
+  .realite-pin {
+    height: 100vh;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 100px 60px 60px;
+    display: grid;
+    grid-template-rows: auto 220px 1fr;
+    gap: 40px;
+  }
+  .realite-header { max-width: 760px; }
+  .realite-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: rgba(232, 159, 44, 0.72);
+    margin-bottom: 18px;
+    display: inline-block;
+  }
+  .realite-title {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(40px, 4.8vw, 64px);
+    line-height: 1.06;
+    letter-spacing: -0.022em;
+    color: var(--vellum);
+  }
+  .realite-title em.amber {
+    font-style: italic;
+    color: var(--amber);
+  }
+  .realite-sub {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.55;
+    color: rgba(245, 241, 234, 0.65);
+    max-width: 620px;
+    margin-top: 18px;
+  }
+
+  /* Frise temporelle */
+  .realite-timeline {
+    position: relative;
+    height: 220px;
+    width: 100%;
+  }
+  .timeline-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+  }
+  .signal, .signal-final {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: bottom center;
+    transition:
+      opacity 380ms cubic-bezier(0.4, 0, 0.2, 1),
+      transform 380ms cubic-bezier(0.34, 1.34, 0.64, 1);
+    transform: translateY(8px) scale(0.92);
+  }
+  .signal.is-active,
+  .signal-final.is-active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  .signal-halo {
+    transform-origin: center;
+    animation: signalHalo 2.4s cubic-bezier(0, 0.7, 0.3, 1) infinite;
+    transform-box: fill-box;
+  }
+  .signal:not(.is-active) .signal-halo { animation: none; opacity: 0; }
+  @keyframes signalHalo {
+    0%   { opacity: 0; transform: scale(0.4); }
+    30%  { opacity: 0.8; }
+    100% { opacity: 0; transform: scale(2.4); }
+  }
+  .signal-halo-final {
+    transform-origin: center;
+    transform-box: fill-box;
+    animation: signalHalo 1.8s cubic-bezier(0, 0.7, 0.3, 1) infinite;
+  }
+  .signal-final:not(.is-active) .signal-halo-final { animation: none; opacity: 0; }
+
+  /* Narrative panels */
+  .realite-narrative {
+    position: relative;
+    width: 100%;
+    max-width: 760px;
+  }
+  .narr-panel {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 580ms cubic-bezier(0.4, 0, 0.2, 1),
+      transform 580ms cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+  .narr-panel.is-active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .narr-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: var(--amber);
+    display: inline-block;
+    margin-bottom: 14px;
+  }
+  .narr-headline {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(28px, 2.6vw, 38px);
+    line-height: 1.18;
+    letter-spacing: -0.018em;
+    color: var(--vellum);
+    margin-bottom: 14px;
+  }
+  .narr-body {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    color: rgba(245, 241, 234, 0.82);
+    max-width: 640px;
+  }
+  .narr-body strong.amber {
+    color: var(--amber);
+    font-weight: 600;
+  }
+
+  /* Final panel — rouge alerte */
+  .narr-date-final { color: #FF5252; font-weight: 700; }
+  .narr-headline-final { color: #FF5252; }
+  .narr-body-final strong.alert {
+    color: #FF5252;
+    font-weight: 700;
+  }
+  .narr-foot {
+    margin-top: 22px;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 17px;
+    line-height: 1.55;
+    color: rgba(245, 241, 234, 0.78);
+    padding-left: 16px;
+    border-left: 2px solid var(--amber);
+  }
+
+  /* Responsive */
+  @media (max-width: 980px) {
+    .realite-pin {
+      height: auto;
+      padding: 80px 24px 60px;
+      grid-template-rows: auto auto auto;
+    }
+    .realite-timeline { height: 160px; }
+    .realite-narrative {
+      position: relative;
+      height: auto;
+      max-width: 100%;
+    }
+    .narr-panel {
+      position: relative;
+      inset: auto;
+      opacity: 1;
+      transform: none;
+      margin-bottom: 48px;
     }
   }
 
@@ -1111,45 +1302,192 @@
 </section>
 </div><!-- /.hero-wrap -->
 
-<section id="produit" class="produit">
-<div class="produit-inner">
-  <header class="produit-header">
-    <span class="produit-eyebrow">— Le moat iFIND</span>
-    <h2 class="produit-title">
-      Intent data US <span class="dim">prédit.</span><br>
-      <span class="ifind">iFIND <em class="amber">détecte</em>.</span>
-    </h2>
-    <p class="produit-sub">
-      Le bruit probabiliste de l'Atlantique. Les triggers durs de la France.
-    </p>
-  </header>
+<!-- SECTION #REALITE — placée ici, codée par l'agent suivant -->
+<section id="realite" class="realite">
+  <div class="realite-pin">
 
-  <div class="produit-grid">
-    <article class="produit-col col-us">
-      <div class="col-label">INTENT DATA — PROBABILISTE</div>
-      <h3 class="col-title">Apollo · Bombora · 6sense</h3>
-      <ul class="col-list">
-        <li>Score de propension US</li>
-        <li>Datasets anonymes (G2, Bombora)</li>
-        <li>Signal probabiliste 6-12%</li>
-        <li>Pas d'attribution SIRET FR</li>
-      </ul>
-      <div class="col-footer">~ 12% accuracy</div>
-    </article>
+    <!-- Zone 1 : Header narratif sticky en haut -->
+    <header class="realite-header">
+      <span class="realite-eyebrow">— Une histoire vraie</span>
+      <h2 class="realite-title">
+        8 signaux d'achat publics en 8 mois.<br>
+        <em class="amber">Vous n'en avez vu aucun.</em>
+      </h2>
+      <p class="realite-sub">
+        Société X — cybersécurité, Lyon, 47 personnes. Suivie discrètement
+        de janvier à septembre 2025. Tous ses signaux étaient publics.
+      </p>
+    </header>
 
-    <article class="produit-col col-fr">
-      <div class="col-label">TRIGGERS FR — ÉVÉNEMENTS PUBLICS DURS</div>
-      <h3 class="col-title">iFIND Trigger Engine</h3>
-      <ul class="col-list">
-        <li>Levée Pappers (BODACC)</li>
-        <li>Hiring C-level (France Travail · WTTJ)</li>
-        <li>Dépôt INPI brevet/marque</li>
-        <li>Tout attribué au SIRET</li>
-      </ul>
-      <div class="col-footer">100% événements réels</div>
-    </article>
+    <!-- Zone 2 : Frise temporelle horizontale animée -->
+    <div class="realite-timeline">
+      <svg class="timeline-svg" viewBox="0 0 1400 180" preserveAspectRatio="none">
+        <!-- Trait horizontal qui se trace au scroll -->
+        <line class="timeline-track-bg" x1="40" y1="100" x2="1360" y2="100"
+              stroke="rgba(245,241,234,0.10)" stroke-width="1"/>
+        <line class="timeline-track" x1="40" y1="100" x2="1360" y2="100"
+              stroke="rgba(232,159,44,0.55)" stroke-width="1.5"
+              stroke-dasharray="1320" stroke-dashoffset="1320"/>
+
+        <!-- Graduations mensuelles -->
+        <g class="timeline-ticks" font-family="var(--font-mono)" font-size="10"
+           fill="rgba(245,241,234,0.40)" letter-spacing="0.08em">
+          <text x="60"   y="135">JAN</text>
+          <text x="225"  y="135">FÉV</text>
+          <text x="390"  y="135">MARS</text>
+          <text x="555"  y="135">AVR</text>
+          <text x="720"  y="135">MAI</text>
+          <text x="885"  y="135">JUIN</text>
+          <text x="1050" y="135">JUIL</text>
+          <text x="1215" y="135">AOÛT</text>
+          <text x="1330" y="135" fill="#FF5252">SEPT ⚠</text>
+        </g>
+
+        <!-- 8 pics signaux : ligne verticale + halo + label -->
+        <g class="signal" data-step="1">
+          <line x1="80" y1="100" x2="80" y2="50" stroke="var(--amber)" stroke-width="1.6"/>
+          <circle cx="80" cy="50" r="5" fill="var(--amber)"/>
+          <circle cx="80" cy="50" r="14" fill="none" stroke="var(--amber)"
+                  stroke-width="1" class="signal-halo"/>
+          <text x="80" y="38" text-anchor="middle"
+                font-family="var(--font-mono)" font-size="10"
+                fill="var(--amber)" letter-spacing="0.04em">INPI</text>
+        </g>
+        <g class="signal" data-step="2">
+          <line x1="245" y1="100" x2="245" y2="40" stroke="var(--amber)" stroke-width="1.6"/>
+          <circle cx="245" cy="40" r="6" fill="var(--amber)"/>
+          <circle cx="245" cy="40" r="16" fill="none" stroke="var(--amber)" stroke-width="1" class="signal-halo"/>
+          <text x="245" y="28" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--amber)" letter-spacing="0.04em">LEVÉE 4M€</text>
+        </g>
+        <g class="signal" data-step="3">
+          <line x1="410" y1="100" x2="410" y2="58" stroke="var(--amber)" stroke-width="1.6"/>
+          <circle cx="410" cy="58" r="5" fill="var(--amber)"/>
+          <circle cx="410" cy="58" r="14" fill="none" stroke="var(--amber)" stroke-width="1" class="signal-halo"/>
+          <text x="410" y="46" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--amber)" letter-spacing="0.04em">VP SALES</text>
+        </g>
+        <g class="signal" data-step="4">
+          <line x1="575" y1="100" x2="575" y2="65" stroke="var(--amber)" stroke-width="1.6"/>
+          <circle cx="575" cy="65" r="5" fill="var(--amber)"/>
+          <circle cx="575" cy="65" r="14" fill="none" stroke="var(--amber)" stroke-width="1" class="signal-halo"/>
+          <text x="575" y="53" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--amber)" letter-spacing="0.04em">STACK</text>
+        </g>
+        <g class="signal" data-step="5">
+          <line x1="740" y1="100" x2="740" y2="55" stroke="var(--amber)" stroke-width="1.6"/>
+          <circle cx="740" cy="55" r="5" fill="var(--amber)"/>
+          <circle cx="740" cy="55" r="14" fill="none" stroke="var(--amber)" stroke-width="1" class="signal-halo"/>
+          <text x="740" y="43" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--amber)" letter-spacing="0.04em">BUREAU</text>
+        </g>
+        <g class="signal" data-step="6">
+          <line x1="905" y1="100" x2="905" y2="48" stroke="var(--amber)" stroke-width="1.6"/>
+          <circle cx="905" cy="48" r="6" fill="var(--amber)"/>
+          <circle cx="905" cy="48" r="16" fill="none" stroke="var(--amber)" stroke-width="1" class="signal-halo"/>
+          <text x="905" y="36" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--amber)" letter-spacing="0.04em">3 SDR</text>
+        </g>
+        <g class="signal" data-step="7">
+          <line x1="1070" y1="100" x2="1070" y2="62" stroke="var(--amber)" stroke-width="1.6"/>
+          <circle cx="1070" cy="62" r="5" fill="var(--amber)"/>
+          <circle cx="1070" cy="62" r="14" fill="none" stroke="var(--amber)" stroke-width="1" class="signal-halo"/>
+          <text x="1070" y="50" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--amber)" letter-spacing="0.04em">REFI</text>
+        </g>
+        <g class="signal" data-step="8">
+          <line x1="1235" y1="100" x2="1235" y2="42" stroke="var(--amber)" stroke-width="1.6"/>
+          <circle cx="1235" cy="42" r="6" fill="var(--amber)"/>
+          <circle cx="1235" cy="42" r="16" fill="none" stroke="var(--amber)" stroke-width="1" class="signal-halo"/>
+          <text x="1235" y="30" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--amber)" letter-spacing="0.04em">CRO + RESTRUCT</text>
+        </g>
+
+        <!-- Flash final concurrent -->
+        <g class="signal-final" data-step="9">
+          <line x1="1340" y1="100" x2="1340" y2="160" stroke="#FF5252" stroke-width="2.5"/>
+          <circle cx="1340" cy="160" r="8" fill="#FF5252"/>
+          <circle cx="1340" cy="160" r="22" fill="none" stroke="#FF5252" stroke-width="1.2" class="signal-halo-final"/>
+          <text x="1340" y="178" text-anchor="middle" font-family="var(--font-mono)" font-size="11"
+                fill="#FF5252" font-weight="700" letter-spacing="0.10em">CLOSING ✕</text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Zone 3 : Narratif texte qui change selon scroll -->
+    <div class="realite-narrative">
+      <article class="narr-panel is-active" data-panel="1">
+        <span class="narr-date">— JAN 2025</span>
+        <h3 class="narr-headline">Dépôt brevet INPI</h3>
+        <p class="narr-body">
+          Société X verrouille sa techno cybersec propriétaire — signal d'expansion R&D budgétée.
+          <strong class="amber">Premier signal public émis.</strong> Vous n'en avez pas connaissance.
+        </p>
+      </article>
+      <article class="narr-panel" data-panel="2">
+        <span class="narr-date">— FÉV 2025</span>
+        <h3 class="narr-headline">Levée 4 M€ Série A</h3>
+        <p class="narr-body">
+          Cash entré, budgets opérationnels à débloquer dans 60 jours. <strong class="amber">Moment d'ouverture
+          maximum — 90% des outils B2B se vendent dans les 90 jours post-levée.</strong>
+        </p>
+      </article>
+      <article class="narr-panel" data-panel="3">
+        <span class="narr-date">— MARS 2025</span>
+        <h3 class="narr-headline">Hire VP Sales</h3>
+        <p class="narr-body">
+          Le nouveau VP Sales structure son équipe et outille. <strong class="amber">Il va auditer la stack
+          existante et acheter ce qui manque.</strong> Votre concurrent l'a appelé après l'annonce sur LinkedIn.
+        </p>
+      </article>
+      <article class="narr-panel" data-panel="4">
+        <span class="narr-date">— AVRIL 2025</span>
+        <h3 class="narr-headline">Refonte stack tech</h3>
+        <p class="narr-body">
+          Passe de Salesforce vers HubSpot — change de paradigme CRM, ouvert à des outils complémentaires.
+          <strong class="amber">Moment idéal pour pitcher une solution sales-tech.</strong>
+        </p>
+      </article>
+      <article class="narr-panel" data-panel="5">
+        <span class="narr-date">— MAI 2025</span>
+        <h3 class="narr-headline">Nouveau bureau Lyon Confluence</h3>
+        <p class="narr-body">
+          +800 m² — phase d'expansion commerciale visible. <strong class="amber">Tout le mobilier, équipement,
+          contrats sont signés en mai-juin.</strong>
+        </p>
+      </article>
+      <article class="narr-panel" data-panel="6">
+        <span class="narr-date">— JUIN 2025</span>
+        <h3 class="narr-headline">Hire 3 SDR</h3>
+        <p class="narr-body">
+          Triple la force de prospection. <strong class="amber">Outils sales-tech en achat actif</strong> dans
+          les 30 jours pour outiller les nouveaux SDR.
+        </p>
+      </article>
+      <article class="narr-panel" data-panel="7">
+        <span class="narr-date">— JUILLET 2025</span>
+        <h3 class="narr-headline">Refinancement débit BODACC</h3>
+        <p class="narr-body">
+          Lignes de crédit renouvelées. <strong class="amber">Capacité d'achat confirmée publiquement —
+          aucune raison d'attendre.</strong>
+        </p>
+      </article>
+      <article class="narr-panel" data-panel="8">
+        <span class="narr-date">— AOÛT 2025</span>
+        <h3 class="narr-headline">Hire CRO + restructuration commerciale</h3>
+        <p class="narr-body">
+          Le nouveau CRO arrive avec ses propres outils, ses propres décisions. <strong class="amber">Fenêtre
+          de tir critique — 6 semaines avant que son shortlist soit fermée.</strong>
+        </p>
+      </article>
+      <article class="narr-panel narr-panel-final" data-panel="9">
+        <span class="narr-date narr-date-final">⚠ SEPT 2025</span>
+        <h3 class="narr-headline narr-headline-final">Votre concurrent a signé.</h3>
+        <p class="narr-body narr-body-final">
+          Le concurrent X a contacté Société X en avril, juste après le hiring VP Sales annoncé sur LinkedIn.
+          Closing en septembre. <strong class="alert">480 K€/an sur 3 ans = 1,44 M€ perdus.</strong>
+        </p>
+        <p class="narr-foot">
+          Vous, vous n'avez jamais appelé. Vous n'avez vu aucun des 8 signaux. iFIND vous les aurait remontés
+          tous les 8, datés à la seconde, attribués au SIRET.
+        </p>
+      </article>
+    </div>
+
   </div>
-</div>
 </section>
 
 <!-- ===================================================================
@@ -1876,6 +2214,71 @@ const FilmicShader = {
         setActive(idx);
       }
     });
+  })();
+
+  // --- ScrollTrigger : pin #realite + reveal 8 signaux + flash final ---
+  // Pin 2.5 viewport. Le scrub mappe progress [0,1] sur 9 steps :
+  // - signals 0..idx receive .is-active (cumulatif)
+  // - panel exactement à idx reçoit .is-active (exclusif)
+  // - timeline-track stroke-dashoffset interpolé 1320 → 0
+  // Garde-fous : reduced-motion → tout affiché, pas de pin. Mobile (CSS)
+  // bascule en flow normal sous 980px (panels empilés).
+  (function initRealitePin(){
+    const sec = document.querySelector('#realite');
+    if (!sec || typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+    const reducedRealite = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedRealite) {
+      sec.querySelectorAll('.signal, .signal-final').forEach(s => s.classList.add('is-active'));
+      sec.querySelectorAll('.narr-panel').forEach(p => p.classList.add('is-active'));
+      return;
+    }
+    if (window.matchMedia('(max-width: 980px)').matches) {
+      // CSS gère déjà le mode empilé, on s'assure quand même que tout est visible
+      sec.querySelectorAll('.signal, .signal-final').forEach(s => s.classList.add('is-active'));
+      return;
+    }
+
+    const signals = sec.querySelectorAll('.signal, .signal-final');
+    const panels  = sec.querySelectorAll('.narr-panel');
+    const track   = sec.querySelector('.timeline-track');
+    const total   = signals.length; // 9 (8 signals + final)
+    if (!signals.length || !panels.length) return;
+
+    let lastIdx = -1;
+    function setActive(idx){
+      if (idx === lastIdx) return;
+      lastIdx = idx;
+      // Active signals : 0..idx (cumulatif)
+      signals.forEach((s, i) => s.classList.toggle('is-active', i <= idx));
+      // Active panel : exactement idx (exclusif)
+      panels.forEach((p, i) => p.classList.toggle('is-active', i === idx));
+      // Track dashoffset : 1320 → 0 sur 9 steps
+      if (track) {
+        const progress = (idx + 1) / total;
+        const dashTotal = 1320;
+        track.style.strokeDashoffset = String(dashTotal * (1 - progress));
+      }
+    }
+
+    ScrollTrigger.create({
+      trigger: sec,
+      start: 'top top',
+      end: '+=250%',          // 2.5 viewport pin
+      pin: true,
+      pinSpacing: true,
+      scrub: 0.4,             // smooth lag
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
+      onUpdate: (self) => {
+        const p = self.progress;
+        // Map p [0,1] to idx [0, total-1]
+        const idx = Math.min(total - 1, Math.floor(p * total * 1.001));
+        setActive(idx);
+      }
+    });
+
+    // État initial : premier signal + premier panel actifs
+    setActive(0);
   })();
 
   // --- Visibility (pause RAF when hero offscreen / tab hidden) ---
