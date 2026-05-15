@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iFIND — Trigger Engine FR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  :root {
+    --vellum: #F5F1EA;
+    --vellum-warm: #EDE7DA;
+    --vellum-deep: #E0D8C5;
+    --ink: #0F0D0A;
+    --ink-soft: #1A1614;
+    --amber: #E89F2C;
+    --amber-deep: #C7841E;
+    --slate-warm: #5C544A;
+    --slate-soft: #8A8278;
+    --line: rgba(15, 13, 10, 0.10);
+    --line-strong: rgba(15, 13, 10, 0.18);
+
+    --font-serif: 'Instrument Serif', 'Times New Roman', serif;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: 'Geist Mono', 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+    --tracking-tight: -0.02em;
+    --tracking-eyebrow: 0.12em;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--ink); color: var(--vellum); }
+  body {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  ::selection { background: var(--amber); color: var(--ink); }
+
+  /* === NAV === */
+  .nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 22px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(15, 13, 10, 0.75);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-bottom: 1px solid rgba(245, 241, 234, 0.08);
+  }
+  .nav-logo {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: -0.025em;
+    color: var(--vellum);
+    display: inline-flex;
+    align-items: baseline;
+    text-decoration: none;
+    font-feature-settings: "ss01";
+  }
+  .nav-logo .pic {
+    display: inline-block;
+    width: 2px;
+    height: 16px;
+    background: var(--amber);
+    margin: 0 1px 0 0;
+    transform: translateY(2px);
+    box-shadow: 0 0 6px rgba(232, 159, 44, 0.7);
+    animation: logoPic 2200ms ease-in-out infinite;
+  }
+  @keyframes logoPic {
+    0%, 100% { height: 16px; transform: translateY(2px); }
+    8% { height: 22px; transform: translateY(-2px); }
+    16% { height: 14px; transform: translateY(3px); }
+    24% { height: 18px; transform: translateY(1px); }
+    32% { height: 16px; transform: translateY(2px); }
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  .nav-links a {
+    font-size: 14px;
+    color: var(--vellum);
+    text-decoration: none;
+    font-weight: 400;
+    opacity: 0.78;
+    transition: opacity 200ms ease;
+  }
+  .nav-links a:hover { opacity: 1; }
+  .nav-cta {
+    background: var(--amber);
+    color: var(--ink) !important;
+    padding: 9px 18px;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: filter 200ms ease, transform 200ms ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 1;
+    box-shadow: 0 0 0 1px rgba(232, 159, 44, 0.25), 0 0 18px rgba(232, 159, 44, 0.20);
+  }
+  .nav-cta::after {
+    content: '→';
+    font-family: var(--font-sans);
+    transition: transform 200ms ease;
+  }
+  .nav-cta:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .nav-cta:hover::after { transform: translateX(2px); }
+
+  /* === HERO BACKGROUND CANVAS === */
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    display: block;
+    opacity: 0;
+    transition: opacity 1200ms ease-out;
+  }
+  .hero-bg.is-ready { opacity: 1; }
+
+  /* Hero wrapper to contain the absolute canvas */
+  .hero-wrap {
+    position: relative;
+    isolation: isolate;
+  }
+
+  /* === HERO === */
+  .hero {
+    min-height: 100vh;
+    padding: 140px 40px 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.55fr 0.75fr;
+    gap: 72px;
+    align-items: start;
+    margin-top: 40px;
+  }
+
+  .hero-title {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(50px, 6.2vw, 92px);
+    line-height: 1.02;
+    letter-spacing: -0.022em;
+    color: var(--vellum);
+  }
+  .hero-title .keyword {
+    position: relative;
+    display: inline-block;
+    font-style: italic;
+    color: var(--amber);
+    background-image: none;
+    padding: 0;
+  }
+
+  .hero-sub {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 14px;
+  }
+  .hero-sub p {
+    font-size: 16px;
+    line-height: 1.55;
+    color: rgba(245, 241, 234, 0.82);
+    max-width: 360px;
+  }
+  .hero-sub p strong {
+    font-weight: 600;
+    color: var(--vellum);
+  }
+  .hero-sub .meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: rgba(245, 241, 234, 0.55);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-sub .meta::before {
+    content: '';
+    width: 18px;
+    height: 1px;
+    background: rgba(245, 241, 234, 0.40);
+    display: inline-block;
+  }
+  .hero-cta-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-top: 6px;
+  }
+  .hero-cta-primary {
+    background: var(--amber);
+    color: var(--ink);
+    padding: 13px 24px;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    transition: filter 200ms ease, transform 200ms ease;
+    box-shadow: 0 0 0 1px rgba(232, 159, 44, 0.30), 0 0 24px rgba(232, 159, 44, 0.18);
+  }
+  .hero-cta-primary::after {
+    content: '→';
+    transition: transform 200ms ease;
+  }
+  .hero-cta-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .hero-cta-primary:hover::after { transform: translateX(3px); }
+  .hero-cta-secondary {
+    color: var(--vellum);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(245, 241, 234, 0.4);
+    padding-bottom: 2px;
+    transition: opacity 200ms ease, border-color 200ms ease;
+  }
+  .hero-cta-secondary:hover { opacity: 0.80; border-color: var(--vellum); }
+
+  /* === BOTTOM BAND === */
+  .hero-band {
+    margin-top: auto;
+    padding-top: 60px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-top: 1px solid rgba(245, 241, 234, 0.10);
+    padding-top: 22px;
+  }
+  .hero-band-meta {
+    display: flex;
+    gap: 56px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: rgba(245, 241, 234, 0.50);
+  }
+  .hero-band-meta div {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .hero-band-meta strong {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    color: var(--vellum);
+    font-weight: 500;
+  }
+
+  .hero-band-live {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: rgba(245, 241, 234, 0.50);
+  }
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 0 0 rgba(232, 159, 44, 0.7);
+    animation: livePulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes livePulse {
+    0% { box-shadow: 0 0 0 0 rgba(232, 159, 44, 0.6); }
+    70% { box-shadow: 0 0 0 8px rgba(232, 159, 44, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(232, 159, 44, 0); }
+  }
+
+  /* === SISMOGRAPHE INLINE === */
+  .hero-sismo {
+    display: block;
+    width: 100%;
+    height: 80px;
+    margin-top: 28px;
+    overflow: visible;
+  }
+  .sismo-trace {
+    stroke-dasharray: 3200;
+    stroke-dashoffset: 3200;
+    animation: sismoDraw 2800ms cubic-bezier(0.65, 0, 0.35, 1) 600ms forwards;
+  }
+  .sismo-pulse-1, .sismo-pulse-2 {
+    opacity: 0;
+    filter: drop-shadow(0 0 8px rgba(232, 159, 44, 0.55));
+  }
+  .sismo-pulse-1 {
+    animation: sismoFadeIn 600ms ease-out 3000ms forwards, sismoBeat 2400ms ease-in-out 3600ms infinite;
+  }
+  .sismo-pulse-2 {
+    animation: sismoFadeIn 600ms ease-out 3300ms forwards, sismoBeat 2400ms ease-in-out 4200ms infinite;
+  }
+  .sismo-halo-1, .sismo-halo-2 {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .sismo-halo-1 {
+    animation: sismoHalo 2400ms ease-out 3600ms infinite;
+  }
+  .sismo-halo-2 {
+    animation: sismoHalo 2400ms ease-out 4200ms infinite;
+  }
+  @keyframes sismoFadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes sismoBeat {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  @keyframes sismoHalo {
+    0% { opacity: 0.55; transform: scale(0.4); }
+    70% { opacity: 0; transform: scale(2.2); }
+    100% { opacity: 0; transform: scale(2.2); }
+  }
+  @keyframes sismoDraw {
+    0% { stroke-dashoffset: 3200; }
+    100% { stroke-dashoffset: 0; }
+  }
+  @keyframes sismoPulse {
+    0% { opacity: 0; transform: scale(0.6); }
+    18% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.6); }
+    100% { opacity: 0; transform: scale(2.6); }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="#" class="nav-logo"><span class="pic"></span>ifind</a>
+  <div class="nav-links">
+    <a href="#methode">Méthode</a>
+    <a href="#detection">Détection</a>
+    <a href="#tarifs">Tarifs</a>
+    <a href="#faq">FAQ</a>
+    <a href="#" class="nav-cta">Essayer iFIND</a>
+  </div>
+</nav>
+
+<div class="hero-wrap">
+<canvas id="hero-bg" class="hero-bg" aria-hidden="true"></canvas>
+
+<section class="hero">
+  <div class="hero-grid">
+    <h1 class="hero-title">
+      Les <span class="keyword">signaux&nbsp;d'achat</span> des PME françaises, <span class="keyword">avant&nbsp;tout&nbsp;le&nbsp;monde</span>.
+    </h1>
+    <div class="hero-sub">
+      <span class="meta">Trigger Engine FR — v2.0</span>
+      <p>
+        9 sources publiques françaises et <strong>13 patterns propriétaires</strong> transforment chaque événement public — levée, recrutement C-level, dépôt INPI — en lead qualifié au SIRET, livré en temps réel.
+      </p>
+      <div class="hero-cta-row">
+        <a href="#essai" class="hero-cta-primary">Essayer 14 jours</a>
+        <a href="#methode" class="hero-cta-secondary">Voir la méthode</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-band">
+    <div class="hero-band-meta">
+      <div>
+        <span>Sources captées</span>
+        <strong>9 flux FR-natives</strong>
+      </div>
+      <div>
+        <span>Patterns détection</span>
+        <strong>13 propriétaires</strong>
+      </div>
+      <div>
+        <span>Garantie</span>
+        <strong>6 Pépites / mois</strong>
+      </div>
+    </div>
+    <div class="hero-band-live">
+      <span class="live-dot"></span>
+      <span>Détection active · 19 triggers dernière heure</span>
+    </div>
+  </div>
+</section>
+</div><!-- /.hero-wrap -->
+
+<script type="module">
+/* ============================================================
+   iFIND Hero Background — Joy Division "Unknown Pleasures"
+   Three.js 0.165 — palette Vélin & Ambre INPI
+   ------------------------------------------------------------
+   50 sismograph lines stacked on Z, vertex-displaced via
+   3-octave Ashima simplex + rare gaussian peaks (the triggers).
+   Adapted from site-v6 for VELLUM background:
+     - lines colored ink-on-cream (not slate-on-black)
+     - peaks HDR-boosted in amber so bloom only catches them
+     - base alpha reduced (0.18) so resting noise stays subtle
+     - bloom threshold > vellum luminance (0.95)
+   Guards: WebGL · reduced-motion · mobile · IntersectionObserver
+   ============================================================ */
+import * as THREE from 'three';
+import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass }       from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader }       from 'three/addons/shaders/FXAAShader.js';
+import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
+
+/* ====================================================================
+ * FILMIC SHADER — CA + Grain + Vignette (1 pass)
+ * Vignette reduced to 0.18 (vellum coins must stay clean cream, not gray)
+ * ==================================================================== */
+const FilmicShader = {
+  uniforms: {
+    tDiffuse:  { value: null },
+    uTime:     { value: 0.0 },
+    uCA:       { value: 0.0025 },   // CA slightly reduced on vellum
+    uGrain:    { value: 0.010 },    // very subtle on dark — anti-grésillement
+    uVignette: { value: 0.18 },     // vignette must stay subtle on light bg
+    uVigPow:   { value: 1.20 },
+    uIntensity:{ value: 1.0 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime, uCA, uGrain, uVignette, uVigPow, uIntensity;
+    varying vec2 vUv;
+
+    float hash21(vec2 p){
+      p = fract(p * vec2(123.34, 456.21));
+      p += dot(p, p + 45.32);
+      return fract(p.x * p.y);
+    }
+
+    void main(){
+      vec2 uv = vUv;
+      vec2 c = uv - 0.5;
+      float r2 = dot(c, c);
+
+      float ca = uCA * uIntensity * (1.0 + r2 * 2.0);
+      vec2 offR = c *  ca;
+      vec2 offB = c * -ca;
+      float colR = texture2D(tDiffuse, uv + offR).r;
+      float colG = texture2D(tDiffuse, uv).g;
+      float colB = texture2D(tDiffuse, uv + offB).b;
+      float colA = texture2D(tDiffuse, uv).a;
+      vec3 col = vec3(colR, colG, colB);
+
+      float n = hash21(uv * vec2(1920.0, 1080.0) + fract(uTime * 13.7));
+      col += (n - 0.5) * uGrain * uIntensity;
+
+      float vig = 1.0 - smoothstep(0.25, 0.95, length(c) * uVigPow);
+      vig = mix(1.0, vig, uVignette);
+      col *= vig;
+
+      gl_FragColor = vec4(col, colA);
+    }`
+};
+
+(function(){
+  'use strict';
+  const canvas = document.getElementById('hero-bg');
+  if(!canvas) return;
+
+  // Mobile / coarse pointer skip (CSS doesn't hide on v7 — we still skip WebGL init)
+  if(window.matchMedia('(max-width:720px),(pointer:coarse)').matches) return;
+
+  // WebGL detection (webgl2 → webgl1 fallback)
+  const probe = document.createElement('canvas');
+  const gl = probe.getContext('webgl2') || probe.getContext('webgl');
+  if(!gl){ document.body.classList.add('no-webgl'); return; }
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wrap = canvas.parentElement; // .hero-wrap
+
+  // --- Renderer ---
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    alpha: true,
+    antialias: true,
+    premultipliedAlpha: false,
+    powerPreference: 'high-performance'
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+  renderer.setClearColor(0x000000, 0);         // transparent — vellum body shows through
+  renderer.toneMapping = THREE.NoToneMapping;   // preserve exact ambre INPI hex
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  // --- Scene + camera ---
+  const scene = new THREE.Scene();
+  // Opaque ink background — same color as body. Text reads in vellum on top.
+  scene.background = new THREE.Color(0x0F0D0A);
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+  camera.position.set(0, 5.2, 14);
+  camera.lookAt(0, 1.1, -2);
+
+  // --- EffectComposer pipeline ---
+  // HDR RT half-float so amber peaks > 1.0 luminance can drive bloom
+  const renderTarget = new THREE.WebGLRenderTarget(1, 1, {
+    type: THREE.HalfFloatType,
+    format: THREE.RGBAFormat,
+    samples: 0
+  });
+  const composer = new EffectComposer(renderer, renderTarget);
+  composer.setPixelRatio(1.0);
+  composer.addPass(new RenderPass(scene, camera));
+
+  // UnrealBloomPass(resolution, strength, radius, threshold)
+  // On vellum: threshold MUST be > vellum luminance (~0.94) so only HDR-boosted
+  // amber peaks bloom — never the resting noise lines.
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.95, 1.05);
+  composer.addPass(bloom);
+
+  // Filmic pass (CA + grain + vignette)
+  const filmicPass = new ShaderPass(FilmicShader);
+  composer.addPass(filmicPass);
+
+  // FXAA — edge AA
+  const fxaaPass = new ShaderPass(FXAAShader);
+  composer.addPass(fxaaPass);
+
+  composer.addPass(new OutputPass());
+
+  // --- Geometry params (same density as v6) ---
+  const ROWS  = 50;
+  const COLS  = 170;
+  const WIDTH = 28;
+  const DEPTH = 18;
+
+  // --- Shared uniforms ---
+  const uniforms = {
+    uTime:      { value: 0.0 },
+    uScroll:    { value: 0.0 },                          // 0 → hero pleine vue, 1 → sismographe aplati
+    uIntro:     { value: reduced ? 1.0 : 0.0 },
+    uVellum:    { value: new THREE.Color(0xF5F1EA) },
+    uInk:       { value: new THREE.Color(0x0F0D0A) },
+    uAmber:     { value: new THREE.Color(0xE89F2C) },
+    uAmberDeep: { value: new THREE.Color(0xC7841E) }
+  };
+
+  // --- ShaderMaterial : displacement + ink/amber gradient ---
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+    vertexShader: `
+      uniform float uTime;
+      uniform float uScroll;
+      uniform float uIntro;
+      varying float vAmp;
+      varying float vDepth;
+      varying float vX;
+
+      // Ashima simplex 2D noise
+      vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
+      vec2 mod289(vec2 x){return x-floor(x*(1./289.))*289.;}
+      vec3 permute(vec3 x){return mod289(((x*34.)+1.)*x);}
+      float snoise(vec2 v){
+        const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
+        vec2 i=floor(v+dot(v,C.yy));
+        vec2 x0=v-i+dot(i,C.xx);
+        vec2 i1=(x0.x>x0.y)?vec2(1.,0.):vec2(0.,1.);
+        vec4 x12=x0.xyxy+C.xxzz; x12.xy-=i1;
+        i=mod289(i);
+        vec3 p=permute(permute(i.y+vec3(0.,i1.y,1.))+i.x+vec3(0.,i1.x,1.));
+        vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);
+        m=m*m; m=m*m;
+        vec3 x=2.*fract(p*C.www)-1.;
+        vec3 h=abs(x)-0.5;
+        vec3 ox=floor(x+0.5);
+        vec3 a0=x-ox;
+        m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);
+        vec3 g;
+        g.x=a0.x*x0.x+h.x*x0.y;
+        g.yz=a0.yz*x12.xz+h.yz*x12.yw;
+        return 130.*dot(m,g);
+      }
+
+      void main(){
+        vec3 pos = position;
+        float t = uTime * 0.16;
+
+        // 3 octaves of noise + sparse high peaks (the triggers)
+        float n  = snoise(vec2(pos.x*0.18 + t,        pos.z*0.22 + t*0.4)) * 0.55;
+              n += snoise(vec2(pos.x*0.42 + t*1.4,    pos.z*0.38 + t*0.3)) * 0.28;
+              n += snoise(vec2(pos.x*0.95 + t*2.0,    pos.z*0.85))         * 0.12;
+        float peakField = snoise(vec2(pos.x*0.55 + t*0.6, pos.z*0.42 + t*0.18));
+        float peak = pow(max(peakField, 0.0), 7.0) * 3.6;
+        n += peak;
+
+        // Horizontal edge fade
+        float edgeFade = smoothstep(0.0, 4.5, 14.0 - abs(pos.x));
+        n *= edgeFade;
+
+        // Scroll damping: at scroll=1 amplitude collapses to 15% (almost flat)
+        float scrollDamp = 1.0 - uScroll * 0.85;
+        n *= uIntro * scrollDamp;
+
+        pos.y += n * 1.15;
+
+        vAmp = n;
+        vDepth = pos.z;
+        vX = pos.x;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uVellum;
+      uniform vec3 uInk;
+      uniform vec3 uAmber;
+      uniform vec3 uAmberDeep;
+      uniform float uIntro;
+      varying float vAmp;
+      varying float vDepth;
+      varying float vX;
+
+      void main(){
+        // ====== COLOR LADDER for INK background — AMBER lines ======
+        // rest (low vAmp)     → warm ink (subtle background presence)
+        // mid (vAmp 0.3-0.8)  → amber (the signal trace itself)
+        // peaks (vAmp > 1.0)  → bright amber, HDR-boosted for bloom halo
+
+        // Start: amber mixed with ink (warm orange-brown for ambient lines)
+        vec3 restCol = mix(uInk, uAmber, 0.55);
+
+        // Walk toward pure amber as amplitude rises (the trace)
+        vec3 col = mix(restCol, uAmber, smoothstep(0.0, 0.6, vAmp));
+
+        // Brighter amber on real peaks
+        col = mix(col, uAmber * 1.15, smoothstep(0.6, 1.2, vAmp));
+
+        // Push toward white-hot on extreme peaks for the bloom glow
+        col = mix(col, vec3(1.0, 0.85, 0.55), smoothstep(1.4, 2.6, vAmp));
+
+        // HDR BOOST on peaks: push amber > 1.0 luminance for bloom threshold 1.05
+        float hdrBoost = smoothstep(0.7, 1.6, vAmp) * 1.20;  // 0..1.2
+        col *= 1.0 + hdrBoost;
+
+        // Atmospheric perspective + horizontal edge fade
+        float depthFade = smoothstep(-9.0, 7.0, vDepth);
+        float edge      = smoothstep(0.0, 5.0, 14.0 - abs(vX));
+
+        // === ALPHA modulation for dark background ===
+        // Higher base alpha now since lines are AMBER on INK — they don't
+        // wash out the way ink-on-vellum did. Peaks still ramp up.
+        float alpha = 0.35 + smoothstep(0.0, 1.5, vAmp) * 0.55;
+
+        gl_FragColor = vec4(col, depthFade * edge * alpha * uIntro);
+      }
+    `
+  });
+
+  // --- Build line group ---
+  const group = new THREE.Group();
+  for(let r = 0; r < ROWS; r++){
+    const z = -DEPTH * 0.55 + (r / (ROWS - 1)) * DEPTH;
+    const positions = new Float32Array(COLS * 3);
+    for(let c = 0; c < COLS; c++){
+      positions[c*3]     = -WIDTH * 0.5 + (c / (COLS - 1)) * WIDTH;
+      positions[c*3 + 1] = 0;
+      positions[c*3 + 2] = z;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    group.add(new THREE.Line(geo, material));
+  }
+  scene.add(group);
+
+  // --- Resize ---
+  function resize(){
+    const rect = wrap.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    if(w < 2 || h < 2) return;
+    renderer.setSize(w, h, false);
+    composer.setSize(w, h);
+    bloom.setSize(w, h);
+    const pr = renderer.getPixelRatio();
+    if(fxaaPass.material.uniforms['resolution']){
+      fxaaPass.material.uniforms['resolution'].value.set(1/(w*pr), 1/(h*pr));
+    }
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  resize();
+  if('ResizeObserver' in window){
+    new ResizeObserver(resize).observe(wrap);
+  } else {
+    window.addEventListener('resize', resize);
+  }
+
+  // --- Mouse parallax (smoothed, camera in world-space ±0.15 units) ---
+  const mouse = { tx: 0, ty: 0, x: 0, y: 0 };
+  if(!reduced){
+    window.addEventListener('mousemove', e => {
+      mouse.tx = (e.clientX / window.innerWidth)  - 0.5;
+      mouse.ty = (e.clientY / window.innerHeight) - 0.5;
+    }, { passive: true });
+  }
+
+  // --- Scroll → damping shader (the killer feature) ---
+  const heroEl = document.querySelector('.hero-wrap') || document.querySelector('.hero');
+  function onScroll(){
+    if(!heroEl) return;
+    const rect = heroEl.getBoundingClientRect();
+    const p = Math.min(1, Math.max(0, -rect.top / Math.max(1, rect.height)));
+    uniforms.uScroll.value = p;
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // --- Visibility (pause RAF when hero offscreen / tab hidden) ---
+  let heroInView = true, visible = !document.hidden;
+  if('IntersectionObserver' in window && heroEl){
+    new IntersectionObserver(e => { heroInView = e[0].isIntersecting; },
+                             { threshold: 0, rootMargin: '100px' }).observe(heroEl);
+  }
+  document.addEventListener('visibilitychange', () => { visible = !document.hidden; });
+
+  // --- Fade-in entrance (1500ms easeOutCubic, synced with .is-ready) ---
+  function startIntro(){
+    canvas.classList.add('is-ready');
+    if(reduced){ uniforms.uIntro.value = 1; return; }
+    const t0 = performance.now();
+    const dur = 1500;
+    (function tick(){
+      const k = Math.min(1, (performance.now() - t0) / dur);
+      uniforms.uIntro.value = 1 - Math.pow(1 - k, 3);
+      if(k < 1) requestAnimationFrame(tick);
+    })();
+  }
+  if(document.readyState === 'complete') setTimeout(startIntro, 400);
+  else window.addEventListener('load', () => setTimeout(startIntro, 400));
+
+  // --- Smart bloom : fade during scroll/input bursts (GPU saver, invisible to eye) ---
+  const BLOOM_FULL = 0.85;
+  let bloomCurrent = BLOOM_FULL;
+  let lastInputT = 0;
+  const _markInput = () => { lastInputT = performance.now(); };
+  window.addEventListener('wheel',     _markInput, {passive: true});
+  window.addEventListener('touchmove', _markInput, {passive: true});
+  window.addEventListener('scroll',    _markInput, {passive: true});
+  window.addEventListener('keydown',   _markInput);
+
+  // --- Render loop ---
+  const clock = new THREE.Clock();
+  function frame(now){
+    requestAnimationFrame(frame);
+    if(!heroInView || !visible) return;
+
+    // Bloom strength lerp : 0 during active input, BLOOM_FULL at rest (>180ms)
+    const nowMs = now || performance.now();
+    const stable = (nowMs - lastInputT) > 180;
+    const target = stable ? BLOOM_FULL : 0;
+    bloomCurrent += (target - bloomCurrent) * 0.20;
+    bloom.strength = bloomCurrent;
+    bloom.enabled = bloomCurrent > 0.015;
+
+    if(!reduced) uniforms.uTime.value = clock.getElapsedTime();
+    filmicPass.material.uniforms.uTime.value = clock.getElapsedTime();
+
+    mouse.x += (mouse.tx - mouse.x) * 0.06;
+    mouse.y += (mouse.ty - mouse.y) * 0.06;
+    camera.position.x = mouse.x * 0.15;
+    camera.position.y = 5.2 - mouse.y * 0.10;
+    camera.lookAt(0, 1.1, -2);
+
+    composer.render();
+  }
+  frame();
+
+  if(reduced){
+    uniforms.uTime.value = 4.2;
+    composer.render();
+  }
+})();
+</script>
+
+</body>
+</html>
