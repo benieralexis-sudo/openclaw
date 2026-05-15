@@ -128,17 +128,37 @@ async function readAnthropic(): Promise<ServiceCost> {
   try {
     const raw = await fs.readFile(ANTHROPIC_BURN_STATE, "utf8");
     const data = JSON.parse(raw);
-    const total = data.total_cost_usd ?? 0;
+    const total: number = data.total_cost_usd ?? 0;
+    const epoch: number = data.epoch ?? 0;
+
+    // Fix 15/05/2026 — Avant : projection = total × 30 (faux). Le fichier
+    // burn-state est reset périodiquement (toutes les 24h max via
+    // calc-anthropic-burn-24h.py --update-state) → `total_cost_usd`
+    // représente le cumul depuis epoch (qq heures à 24h max), PAS un
+    // burn mensuel. Multiplier × 30 donnait $694/mo extrapolé alors que
+    // le vrai burn quotidien est ~$3-5/j (= $90-150/mo). Bug détecté
+    // par audit défense profonde 15/05 23h.
+    //
+    // Maintenant : on calcule un VRAI burn/jour basé sur (total / âge
+    // du fichier) puis on extrapole × 30 pour la projection mensuelle.
+    const nowSec = Math.floor(Date.now() / 1000);
+    const daysSinceEpoch = epoch > 0 ? Math.max(0.01, (nowSec - epoch) / 86400) : 0;
+    const burnPerDay = daysSinceEpoch > 0 ? total / daysSinceEpoch : 0;
+    const projectionMo = burnPerDay * 30;
+
     return {
       service: "anthropic",
-      status: total > 30 ? "warn" : "ok",
+      status: burnPerDay > 5 ? "warn" : "ok",
       used: +total.toFixed(2),
       total: "pay-as-you-go",
       pctUsed: null,
       resetAt: null,
-      burnPerDay: null,
-      projection: total > 0.5 ? `~$${(total * 30).toFixed(0)}/mo extrapolation` : "stable",
-      notes: "burn cumulé depuis création du fichier",
+      burnPerDay: +burnPerDay.toFixed(2),
+      projection:
+        burnPerDay > 0.1
+          ? `~$${projectionMo.toFixed(0)}/mo (burn=$${burnPerDay.toFixed(2)}/j sur ${daysSinceEpoch.toFixed(1)}j)`
+          : "stable",
+      notes: `cumul $${total.toFixed(2)} depuis ${daysSinceEpoch.toFixed(1)}j (epoch ${new Date(epoch * 1000).toISOString().slice(0,16)})`,
     };
   } catch {
     return { service: "anthropic", status: "ok", used: "n/a", total: "pay-as-you-go", pctUsed: null, resetAt: null, burnPerDay: null, projection: null, notes: "burn state not initialized" };
