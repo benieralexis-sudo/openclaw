@@ -309,6 +309,16 @@ export async function pollBodaccForClient(
       }
     }
 
+    // Audit 16/05/2026 — bodacc.capital_increase : 186/208 IGNORED (90%) avaient
+    // companyNaf vide = HOLDING/SCI/INVEST/PROPERTIES/HOTEL hors ICP tech.
+    // Sans NAF on ne peut pas scorer l'ICP fit → on refuse au polling plutôt
+    // que de polluer la file et faire qualifier ces triggers à perte (~$0.04
+    // Opus chacun = ~$7/mo économisés rien que sur BODACC).
+    if (!pappersData?.code_naf) {
+      result.triggersSkippedIcp += 1;
+      continue;
+    }
+
     // ICP filter
     const icpCheck = matchesClientIcp(
       pappersData
