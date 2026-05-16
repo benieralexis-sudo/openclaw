@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireApiSession, resolveClientScope } from "@/server/session";
 import { getAnthropic, BRIEF_MODEL } from "@/lib/anthropic";
 import { buildCachedSystem } from "@/lib/anthropic-prompt";
+import { checkLeadCanGenerate } from "@/lib/lead-generation-guard";
 
 export const maxDuration = 60;
 
@@ -175,6 +176,22 @@ export async function POST(
   const scope = resolveClientScope(s.user, lead.clientId);
   if (!scope.ok || (scope.clientId !== null && scope.clientId !== lead.clientId)) {
     return NextResponse.json({ error: "Hors périmètre" }, { status: 403 });
+  }
+
+  // Audit 16/05 — Guard RGPD / bounce / INCOMPLETE / ARCHIVED avant Opus.
+  // (avant le cache check ne sert à rien : si lead bloqué on ne génère rien
+  // mais on peut servir le cache ancien si lead avait été contactable avant).
+  // Strict : on bloque même le cache pour éviter d'envoyer un brief obsolète.
+  const guard = checkLeadCanGenerate({
+    doNotContact: lead.doNotContact,
+    bouncedAt: lead.bouncedAt,
+    status: lead.status,
+  });
+  if (!guard.ok) {
+    return NextResponse.json(
+      { error: guard.message, code: "lead_blocked", reason: guard.reason },
+      { status: 400 },
+    );
   }
 
   if (!force && isCacheFresh(lead.callBriefGeneratedAt) && lead.callBriefJson) {

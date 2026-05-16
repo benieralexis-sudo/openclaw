@@ -64,6 +64,12 @@ export interface LeadDossierTrigger {
   size: string | null;
   rawPayload: unknown;
   fullDescription: string | null;
+  // Audit 16/05 — Signaux internes propriétaires (priorityScore engine + multi-source).
+  // Le multiSourceBoost (combo cross-sources) est le moat iFIND, doit être visible
+  // par Opus pour qu'il en tienne compte explicitement dans thesis/confidence.
+  multiSourceBoost: number;
+  freshnessScore: number | null;
+  priorityScore: number | null;
 }
 
 export interface LeadDossierLead {
@@ -78,6 +84,25 @@ export interface LeadDossierLead {
   companyEtabsCount: number | null;
   companyRevenue: number | null;
   companyResultNet: number | null;
+  // Audit 16/05 — Contexte décisionnel pour Opus.
+  // holdingPath (Fix B4 du 11/05) : chemin de holding si enrichissement Pappers
+  // a remonté via holding pour trouver le dirigeant.
+  // jobMoveDetected + previousCompany/Job : signal d'achat C-level <6m.
+  // emailConfidence/SourceCount + dataQuality : calibre la confidence Opus.
+  // emailStatus : pour info (VALID/RISKY/INVALID/BOUNCED).
+  // status : pour Opus voie si Lead est encore actionnable.
+  holdingPath: string | null;
+  jobMoveDetected: boolean;
+  previousCompany: string | null;
+  previousJob: string | null;
+  emailConfidence: number;
+  emailSourceCount: number;
+  dataQuality: number;
+  emailStatus: string | null;
+  status: string | null;
+  // Audit 16/05 — Guards RGPD (utilisés par checkLeadCanGenerate dans qualifyTriggerV2).
+  doNotContact: boolean;
+  bouncedAt: Date | null;
 }
 
 export interface LeadDossierBlocks {
@@ -139,6 +164,18 @@ export async function buildLeadDossierForJudge(
           companyEtabsCount: true,
           companyRevenue: true,
           companyResultNet: true,
+          // Audit 16/05 — nouveaux champs Lead transmis au dossier Opus
+          holdingPath: true,
+          jobMoveDetected: true,
+          previousCompany: true,
+          previousJob: true,
+          emailConfidence: true,
+          emailSourceCount: true,
+          dataQuality: true,
+          emailStatus: true,
+          status: true,
+          doNotContact: true,
+          bouncedAt: true,
         },
       },
     },
@@ -173,11 +210,40 @@ export async function buildLeadDossierForJudge(
     const healthBlock = healthSignals.length > 0
       ? `\nCOMPANY HEALTH (Pappers) :\n- ${healthSignals.join("\n- ")}`
       : "";
+
+    // Audit 16/05 — bloc holding/job-move/qualité data
+    const contextLines: string[] = [];
+    if (lead.holdingPath) {
+      contextLines.push(`Chemin holding : ${lead.holdingPath} (décideur trouvé via cascade Pappers)`);
+    }
+    if (lead.jobMoveDetected && lead.previousCompany) {
+      contextLines.push(
+        `Job move récent : ${lead.fullName ?? "le décideur"} arrive de ${lead.previousCompany}${lead.previousJob ? ` (ex ${lead.previousJob})` : ""} — signal d'achat C-level <6m`,
+      );
+    }
+    const dataQualityLine: string[] = [];
+    if (lead.dataQuality > 0) dataQualityLine.push(`dataQuality ${lead.dataQuality}/100`);
+    if (lead.emailConfidence > 0 || lead.emailSourceCount > 0) {
+      dataQualityLine.push(`emailConfidence ${lead.emailConfidence}/100 (${lead.emailSourceCount} sources)`);
+    }
+    if (lead.emailStatus && lead.emailStatus !== "UNVERIFIED") {
+      dataQualityLine.push(`emailStatus=${lead.emailStatus}`);
+    }
+    if (dataQualityLine.length > 0) {
+      contextLines.push(`Qualité données : ${dataQualityLine.join(" — ")}`);
+    }
+    if (lead.status && lead.status !== "NEW") {
+      contextLines.push(`statut Lead : ${lead.status}`);
+    }
+    const contextBlock = contextLines.length > 0
+      ? `\nCONTEXTE DATA :\n- ${contextLines.join("\n- ")}`
+      : "";
+
     personaBlock = `\nPERSONA QUAL (calcul interne) :
 - fitScore : ${lead.fitScore ?? "non calculé"} / 100
 - personaTier : ${lead.personaTier ?? "non calculé"} / 4 (1=parfait, 4=fallback)
 - Décideur identifié : ${lead.fullName ?? "non résolu"} (${lead.jobTitle ?? "?"})
-- LinkedIn : ${lead.linkedinUrl ?? "non résolu"}${linkedinSummary ? `\n${linkedinSummary}` : ""}${healthBlock}`;
+- LinkedIn : ${lead.linkedinUrl ?? "non résolu"}${linkedinSummary ? `\n${linkedinSummary}` : ""}${healthBlock}${contextBlock}`;
   } else {
     personaBlock = `\nPERSONA QUAL : non encore calculée (Lead pas créé)`;
   }
@@ -258,6 +324,10 @@ export async function buildLeadDossierForJudge(
       size: trigger.size,
       rawPayload: trigger.rawPayload,
       fullDescription,
+      // Audit 16/05 — signaux internes
+      multiSourceBoost: trigger.multiSourceBoost ?? 0,
+      freshnessScore: trigger.freshnessScore,
+      priorityScore: trigger.priorityScore,
     },
     lead: trigger.lead,
     blocks: {
@@ -394,7 +464,7 @@ SIGNAL :
 - Titre : ${trigger.title}
 - Détail : ${detailToSend}
 - Capté : ${trigger.capturedAt.toISOString()}
-- Publié : ${trigger.publishedAt?.toISOString() ?? "?"}
+- Publié : ${trigger.publishedAt?.toISOString() ?? "?"}${trigger.multiSourceBoost > 0 ? `\n- ⚡ Multi-source boost : ${trigger.multiSourceBoost}/30 (combo cross-sources sur 7j — moat iFIND, augmente fortement la conviction)` : ""}${trigger.freshnessScore != null ? `\n- Freshness : ${trigger.freshnessScore}/100 (décroissance exponentielle demi-vie 14j)` : ""}${trigger.priorityScore != null ? `\n- PriorityScore composite : ${trigger.priorityScore}` : ""}
 
 Évalue ce lead pour ${client.name}.`;
 }

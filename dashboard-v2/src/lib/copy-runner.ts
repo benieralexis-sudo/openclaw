@@ -23,6 +23,7 @@ import {
   validateCopyPayload,
   type CopyPayload,
 } from "@/lib/copy-generator";
+import { checkLeadCanGenerate } from "@/lib/lead-generation-guard";
 
 const CACHE_TTL_DAYS = 7;
 
@@ -82,12 +83,15 @@ export async function generateCopyForLead(args: {
     return { ok: false, error: "Lead introuvable", code: "lead_not_found" };
   }
 
-  // Refus économie + RGPD
-  if (lead.bouncedAt) {
-    return { ok: false, error: "Lead bouncedAt — refus génération", code: "lead_blocked" };
-  }
-  if (lead.doNotContact) {
-    return { ok: false, error: "Lead doNotContact — refus RGPD", code: "lead_blocked" };
+  // Audit 16/05 — Guard partagé (RGPD + bounce + INCOMPLETE + ARCHIVED).
+  // Remplace l'ancien check inline (qui ratait status INCOMPLETE/ARCHIVED).
+  const guard = checkLeadCanGenerate({
+    doNotContact: lead.doNotContact,
+    bouncedAt: lead.bouncedAt,
+    status: lead.status,
+  });
+  if (!guard.ok) {
+    return { ok: false, error: guard.message, code: "lead_blocked" };
   }
 
   if (!lead.trigger) {

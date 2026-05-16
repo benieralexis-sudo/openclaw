@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireApiSession, resolveClientScope } from "@/server/session";
 import { getAnthropic, BRIEF_MODEL } from "@/lib/anthropic";
 import { buildCachedSystem } from "@/lib/anthropic-prompt";
+import { checkLeadCanGenerate } from "@/lib/lead-generation-guard";
 
 export const maxDuration = 60; // Opus peut prendre 15-30s
 
@@ -218,6 +219,19 @@ export async function POST(
       fresh: true,
       cached: true,
     });
+  }
+
+  // Audit 16/05 — Guard RGPD / bounce / INCOMPLETE / ARCHIVED avant Opus.
+  const guard = checkLeadCanGenerate({
+    doNotContact: lead.doNotContact,
+    bouncedAt: lead.bouncedAt,
+    status: lead.status,
+  });
+  if (!guard.ok) {
+    return NextResponse.json(
+      { error: guard.message, code: "lead_blocked", reason: guard.reason },
+      { status: 400 },
+    );
   }
 
   if (!lead.trigger) {

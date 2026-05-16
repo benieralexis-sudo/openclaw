@@ -11,6 +11,7 @@ import { readDynamicFewShotsFromIcp } from "@/lib/dynamic-few-shots";
 import { buildLeadDossierForJudge, formatDossierForOpus } from "@/lib/lead-dossier";
 // Sprint 8 (10/05/2026) — Quota par client + cout reel Anthropic
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
+import { checkLeadCanGenerate } from "@/lib/lead-generation-guard";
 import { computeAnthropicCost } from "@/lib/anthropic-cost";
 // Sprint Saint Graal (10/05/2026) — Mecanique credits + garantie Pepite
 import { debitCreditForQualifiedLead } from "@/lib/credits";
@@ -1132,6 +1133,22 @@ export async function qualifyTriggerV2(
   if (!dossier) {
     console.warn(`[qualify-trigger-v2] ${triggerId}: dossier null (trigger absent ou client sans icp)`);
     return null;
+  }
+
+  // Audit 16/05 — Skip Opus si Lead bloqué (RGPD / bounce / INCOMPLETE / ARCHIVED).
+  // Évite de cramer ~$0.16/call Opus pour un Lead qui ne sera jamais contacté.
+  if (dossier.lead) {
+    const guard = checkLeadCanGenerate({
+      doNotContact: dossier.lead.doNotContact,
+      bouncedAt: dossier.lead.bouncedAt,
+      status: dossier.lead.status,
+    });
+    if (!guard.ok) {
+      console.log(
+        `[qualify-trigger-v2.skip] ${triggerId} reason=${guard.reason} — ${guard.message}`,
+      );
+      return null;
+    }
   }
 
   const userPrompt = formatDossierForOpus(dossier) + QUALIFY_V2_USER_SUFFIX;
