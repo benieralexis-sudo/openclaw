@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>iFIND — Le sismographe de la donnée commerciale française</title>
 <meta name="description" content="Détection temps réel des triggers d'achat sur les PME tech FR. 9 sources souveraines, 13 patterns propriétaires. Aucun intent data américain.">
-<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
-<link rel="canonical" href="https://ifind.fr/v6/">
+<meta name="robots" content="noindex,nofollow">
 
 <!-- Pass 6 — Favicon SVG signature animé (sismographe miniature, cream + amber INPI) -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23F5F1EA'/><path d='M3 16 L8 16 L9 14 L11 18 L12 16 L14 16 L15 8 L17 24 L18 16 L21 16 L22 14 L23 18 L24 16 L29 16' stroke='%230F0D0A' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='17' cy='16' r='2.4' fill='%23E89F2C'/></svg>">
@@ -23,157 +22,6 @@
 <meta name="theme-color" content="#0F0D0A">
 <!-- Pass 7 — View Transitions API cross-document : transition fade entre pages -->
 <meta name="view-transition" content="same-origin">
-
-<!-- ========================================================================
-     SCHEMA.ORG JSON-LD — AEO 2026 (Rich snippets Google + LLM citation source)
-     Organization + SoftwareApplication + Product (Growth 390€) + FAQPage
-     Sprint Awwwards SOTD (mai 2026) — patch P5
-     ======================================================================== -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "iFIND",
-  "alternateName": ["Trigger Engine FR", "Sismographe Souverain"],
-  "url": "https://ifind.fr",
-  "logo": "https://ifind.fr/logo.svg",
-  "description": "Moteur propriétaire de détection de signaux d'achat temps réel sur les PME françaises. 9 sources publiques souveraines, 13 patterns propriétaires, attribution SIRENE Pappers, scoring Claude Opus 4.7. Alternative déterministe à l'intent data américain probabiliste.",
-  "email": "contact@ifind.fr",
-  "foundingDate": "2024",
-  "areaServed": {
-    "@type": "Country",
-    "name": "France"
-  },
-  "knowsAbout": [
-    "Trigger Engine",
-    "Buying intent signals",
-    "B2B lead generation France",
-    "SIRENE attribution",
-    "PME tech française",
-    "Détection signaux d'achat"
-  ],
-  "sameAs": []
-}
-</script>
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "iFIND Growth",
-  "alternateName": "Trigger Engine FR",
-  "applicationCategory": "BusinessApplication",
-  "applicationSubCategory": "Sales intelligence",
-  "operatingSystem": "Web",
-  "description": "Plateforme SaaS de détection de signaux d'achat temps réel sur les PME françaises. 60 leads qualifiés/mois, 6 Pépites garanties, brief IA par lead, sans engagement.",
-  "url": "https://ifind.fr/v6/",
-  "publisher": {
-    "@type": "Organization",
-    "name": "iFIND"
-  },
-  "offers": {
-    "@type": "Offer",
-    "name": "iFIND Growth",
-    "price": "390",
-    "priceCurrency": "EUR",
-    "priceSpecification": {
-      "@type": "UnitPriceSpecification",
-      "price": "390",
-      "priceCurrency": "EUR",
-      "unitText": "MONTH",
-      "billingDuration": "P1M"
-    },
-    "availability": "https://schema.org/InStock",
-    "url": "https://ifind.fr/v6/#tarifs",
-    "validFrom": "2026-05-09"
-  },
-  "featureList": [
-    "60 leads qualifiés / mois",
-    "6 Pépites minimum garanties (sinon quota doublé mois suivant)",
-    "Rollover crédits jusqu'à 4 mois (cap 4×)",
-    "Setup gratuit + ICP custom",
-    "Brief IA Claude Opus 4.7 par lead",
-    "Attribution SIRENE Pappers vérifiée",
-    "9 sources publiques FR surveillées 24/7",
-    "13 patterns propriétaires de détection",
-    "Overage 8€/lead supplémentaire",
-    "API + export CSV/Excel",
-    "Strategy call mensuel inclus"
-  ]
-}
-</script>
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  "name": "iFIND — Le sismographe de la donnée commerciale française",
-  "url": "https://ifind.fr",
-  "inLanguage": "fr-FR",
-  "publisher": {
-    "@type": "Organization",
-    "name": "iFIND"
-  }
-}
-</script>
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "En quoi un trigger est-il différent de l'intent data classique ?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "L'intent data américain (Bombora, 6sense, Apollo) mesure des signaux de recherche web probabilistes via tracking cookies. Un trigger iFIND est un événement public dur (levée de fonds, dépôt INPI, recrutement clé) — un fait daté et vérifié SIRENE Pappers, pas une probabilité. La confiance passe de 20-40% à 80-95%."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Quelles sources iFIND surveille-t-il en temps réel ?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "iFIND surveille 9 sources publiques françaises 24/7 : BODACC (annonces officielles), INPI (marques/brevets), France Travail (offres d'emploi), JOAFE (associations), LinkedIn via HarvestAPI (hiring signals), Pappers (données entreprises), RSS presse spécialisée, TheirStack (tech stack), Welcome to the Jungle (offres startups)."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Combien de leads vais-je recevoir avec iFIND Growth ?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "60 leads qualifiés par mois avec contact direct (mobile FR + email vérifié) + brief IA Claude Opus 4.7 contextuel. Dont 6 Pépites minimum garanties (score buying-intent ≥ 8 ET fitScore ICP ≥ 80). Si moins de 6 Pépites dans le mois, votre quota du mois suivant est automatiquement doublé."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "iFIND est-il conforme RGPD ?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Oui, conformité RGPD native. iFIND utilise exclusivement des sources publiques officielles françaises (BODACC, INPI, France Travail, JOAFE, Pappers, etc.). Pas de cookies tracking comportemental, pas de PII non consentie. Hébergement Europe, isolation multi-tenant."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Puis-je résilier à tout moment ?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Oui. Engagement annuel renouvelable, puis sans engagement avec préavis 30 jours. Pause possible jusqu'à 1 mois/an avec 30 jours notice. Les crédits non utilisés se reportent jusqu'à 4 mois (cap 4× le quota mensuel)."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Quel est le tarif iFIND Growth ?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "390€/mois en facturation annuelle (4 680€/an). Inclut 60 leads qualifiés/mois, 6 Pépites garanties, rollover crédits, setup gratuit + ICP custom, brief IA Claude Opus par lead, strategy call mensuel. Overage à 8€/lead supplémentaire au-delà du quota."
-      }
-    }
-  ]
-}
-</script>
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Geist Variable + Geist Mono Variable (axe weight 100..900) — qualité OpenType maximale -->
@@ -867,23 +715,6 @@
   .hero-meta{display:flex;align-items:center;gap:24px;font-family:var(--font-mono);font-size:12px;color:var(--slate-warm);letter-spacing:var(--tracking-mono);flex-wrap:wrap;opacity:0;animation:heroEyebrowIn 700ms ease-out 2000ms forwards}
   .hero-meta span{display:inline-flex;align-items:center;gap:6px}
   .hero-meta svg{flex-shrink:0;color:var(--amber)}
-
-  /* === BUG-V1 fix: contraste hero sur fond Three.js noir =================
-   * Sur desktop avec WebGL actif, le canvas hero-3d (Joy Division shader)
-   * remplit le viewport avec un fond sombre. Le H1 + sub en couleurs --ink
-   * deviendraient invisibles sur ce fond. On bascule en cream.
-   * Mobile (#hero-3d display:none via @media) et body.no-webgl restent en
-   * noir-sur-cream comme avant.
-   * ====================================================================== */
-  @media (min-width:721px) and (pointer:fine){
-    body:not(.no-webgl) .hero h1{color:var(--cream)}
-    body:not(.no-webgl) .hero-sub{color:rgba(245,241,234,0.82)}
-    body:not(.no-webgl) .hero-sub strong{color:var(--cream)}
-    body:not(.no-webgl) .hero-meta{color:rgba(245,241,234,0.62)}
-    body:not(.no-webgl) .hero-meta strong{color:var(--cream)}
-    /* Highlight amber sous "française." : assombrir pour rester visible sur fond noir */
-    body:not(.no-webgl) .hero h1 .accent-wrap::after{background:rgba(232,159,44,0.40)}
-  }
 
   /* Live panel — sticky, animé */
   .hero-panel{
@@ -2064,7 +1895,7 @@
             <span class="sound-waves" aria-hidden="true"></span>
           </svg>
         </button>
-        <a href="#tarifs" class="btn btn--primary btn--sm magnetic" data-cursor="hover">Activer la détection →<span class="btn-pic"></span></a>
+        <a href="#tarifs" class="btn btn--primary btn--sm magnetic" data-cursor="hover">Essayer 14 jours →<span class="btn-pic"></span></a>
       </div>
     </div>
   </div>
@@ -2107,7 +1938,7 @@
         </h1>
         <p class="hero-sub">Détection temps réel des triggers d'achat sur les <strong>PME tech FR</strong>. 9 sources publiques souveraines. 13 patterns d'achat propriétaires. <strong>Aucun intent data américain.</strong></p>
         <div class="hero-ctas">
-          <a href="#tarifs" class="btn btn--primary btn--lg magnetic" data-cursor="hover">Activer la détection →<span class="btn-pic"></span></a>
+          <a href="#tarifs" class="btn btn--primary btn--lg magnetic" data-cursor="hover">Essayer 14 jours →<span class="btn-pic"></span></a>
           <a href="#methode" class="btn btn--ghost btn--lg magnetic" data-cursor="hover">Voir comment ça marche</a>
         </div>
         <div class="hero-meta">
@@ -2906,7 +2737,7 @@
           <li><span class="pricing-check">✓</span><span>Support FR · réponse &lt; 24h ouvrées</span></li>
         </ul>
         <div class="pricing-cta">
-          <a href="#" class="btn btn--amber btn--lg magnetic" data-cursor="hover">Activer la détection →</a>
+          <a href="#" class="btn btn--amber btn--lg magnetic" data-cursor="hover">Essayer 14 jours →</a>
           <a href="#" class="btn btn--ghost btn--lg magnetic" data-cursor="hover">Parler à un humain</a>
         </div>
       </div>
@@ -2965,8 +2796,8 @@
     <h2>Déployez votre <em>Trigger Engine</em> souverain.</h2>
     <p>14 jours d'essai gratuits. Pas de carte bancaire. Vos premiers leads détectés en moins de 48 heures.</p>
     <div class="btn-row">
-      <a href="#" class="btn btn--amber btn--lg magnetic" data-cursor="hover">Activer la détection →</a>
-      <a href="#" class="btn btn--ghost btn--lg magnetic" data-cursor="hover">Parler à un humain</a>
+      <a href="#" class="btn btn--amber btn--lg magnetic" data-cursor="hover">Essayer 14 jours →</a>
+      <a href="#" class="btn btn--ghost btn--lg magnetic" data-cursor="hover">Réserver une démo</a>
     </div>
   </div>
   <div class="cta-signature" aria-hidden="true">
@@ -3108,20 +2939,14 @@
     let t2x=0,t2y=0;     // trail 2 (encore plus lent)
     let t3x=0,t3y=0;     // trail 3 (le plus lent)
     let movingT = 0;     // timestamp dernier mouvement
-    // BUG-V2 fix: le mousemove handler n'écrit RIEN dans le DOM directement.
-    // Il met juste à jour mx/my (vars JS pure). Le rAF loop ci-dessous écrit
-    // dans le DOM à 60Hz max. Sans ça : 240Hz × 3 style writes = jank massif.
     document.addEventListener('mousemove', e=>{
       mx=e.clientX;my=e.clientY;
-      movingT = performance.now();
-    }, {passive:true});
-    function loop(){
-      // Dot : pas d'interpolation (suit instantanément), mais écrit à 60Hz via rAF
       dot.style.left = mx+'px';
       dot.style.top = my+'px';
-      // cursor-moving class : on bascule selon timestamp (évite class write 240Hz)
-      const isMoving = performance.now() - movingT < 90;
-      if(isMoving && !document.body.classList.contains('cursor-moving')) document.body.classList.add('cursor-moving');
+      movingT = performance.now();
+      document.body.classList.add('cursor-moving');
+    });
+    function loop(){
       // Ring : lerp doux (effet "weight feel")
       rx += (mx-rx) * 0.16;
       ry += (my-ry) * 0.16;
@@ -3141,7 +2966,7 @@
       trail3.style.left = t3x+'px';
       trail3.style.top  = t3y+'px';
       // Detect inactivity (> 90ms sans mouvement → masque trail)
-      if(!isMoving && document.body.classList.contains('cursor-moving')){
+      if(performance.now() - movingT > 90){
         document.body.classList.remove('cursor-moving');
       }
       requestAnimationFrame(loop);
@@ -3167,22 +2992,6 @@
   }
 
   // ====== HOVER SPOTLIGHT — Pass 4 ============================================
-  // === BUG-V2 fix: rAF throttle pour tous les mousemove/pointermove ============
-  // Sans ça : 9 listeners × 60-240Hz × getBoundingClientRect() + style writes =
-  // layout thrashing massif. Avec rAF throttle, max 1 callback / frame (60fps).
-  // ============================================================================
-  function rafThrottle(fn){
-    let rafId = null, lastEvt = null;
-    return function(e){
-      lastEvt = e;
-      if(rafId) return;
-      rafId = requestAnimationFrame(() => {
-        fn.call(this, lastEvt);
-        rafId = null;
-      });
-    };
-  }
-
   // Auto-tag tous les blocs interactifs majeurs pour l'effet loupe ambrée.
   // Le JS injecte --mx --my via pointermove, le CSS fait le rendu.
   if(!isTouch){
@@ -3195,17 +3004,11 @@
       el.classList.add('hover-spot');
       // Mockup dashboard = variante lens dramatique
       if(el.classList.contains('pm-frame')) el.classList.add('hover-spot--lens');
-      // Cache du rect : recalcul seulement au resize, pas à chaque move
-      let cachedRect = null;
-      el.addEventListener('pointerenter', () => { cachedRect = el.getBoundingClientRect(); }, {passive:true});
-      el.addEventListener('pointermove', rafThrottle(e => {
-        if(!cachedRect) cachedRect = el.getBoundingClientRect();
-        el.style.setProperty('--mx', (e.clientX - cachedRect.left) + 'px');
-        el.style.setProperty('--my', (e.clientY - cachedRect.top) + 'px');
-      }), {passive:true});
-      // Invalidation cache rect au resize/scroll
-      window.addEventListener('resize', () => { cachedRect = null; }, {passive:true});
-      window.addEventListener('scroll', () => { cachedRect = null; }, {passive:true});
+      el.addEventListener('pointermove', e => {
+        const r = el.getBoundingClientRect();
+        el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+        el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+      });
     });
   }
 
@@ -3220,49 +3023,44 @@
 
     // Magnetic standard (force 0.18 = signature pour boutons CTA)
     document.querySelectorAll('.magnetic').forEach(el=>{
+      // Force d'attraction renforcée pour les CTA primaires majeurs
       const isStrong = el.classList.contains('magnetic--strong');
       const force = isStrong ? 0.35 : 0.20;
-      let cachedRect = null;
-      el.addEventListener('pointerenter', () => { cachedRect = el.getBoundingClientRect(); }, {passive:true});
-      el.addEventListener('mousemove', rafThrottle(e=>{
-        if(!cachedRect) cachedRect = el.getBoundingClientRect();
-        const x = e.clientX - cachedRect.left - cachedRect.width/2;
-        const y = e.clientY - cachedRect.top - cachedRect.height/2;
+      el.addEventListener('mousemove', e=>{
+        const r = el.getBoundingClientRect();
+        const x = e.clientX - r.left - r.width/2;
+        const y = e.clientY - r.top - r.height/2;
         el.style.transform = 'translate('+(x*force)+'px,'+(y*force)+'px)';
-      }), {passive:true});
-      el.addEventListener('mouseleave', ()=>{ el.style.transform = ''; cachedRect = null; });
+      });
+      el.addEventListener('mouseleave', ()=>{ el.style.transform = ''; });
     });
     // Magnetic soft (force 0.30 — plus fort en relatif mais éléments petits)
     document.querySelectorAll('.magnetic-soft').forEach(el=>{
-      let cachedRect = null;
-      el.addEventListener('pointerenter', () => { cachedRect = el.getBoundingClientRect(); }, {passive:true});
-      el.addEventListener('mousemove', rafThrottle(e=>{
-        if(!cachedRect) cachedRect = el.getBoundingClientRect();
-        const x = e.clientX - cachedRect.left - cachedRect.width/2;
-        const y = e.clientY - cachedRect.top - cachedRect.height/2;
+      el.addEventListener('mousemove', e=>{
+        const r = el.getBoundingClientRect();
+        const x = e.clientX - r.left - r.width/2;
+        const y = e.clientY - r.top - r.height/2;
         el.style.transform = 'translate('+(x*0.30)+'px,'+(y*0.30)+'px)';
-      }), {passive:true});
-      el.addEventListener('mouseleave', ()=>{ el.style.transform = ''; cachedRect = null; });
+      });
+      el.addEventListener('mouseleave', ()=>{ el.style.transform = ''; });
     });
   }
 
-  // ====== METHOD CARDS 3D GYROSCOPE (le plus coûteux : 3D rotateX/Y + translateZ) =======
+  // ====== METHOD CARDS 3D GYROSCOPE =======
   if(!isTouch && !prefersReduced){
     document.querySelectorAll('.method-card').forEach(card=>{
-      let cachedRect = null;
-      card.addEventListener('pointerenter', () => { cachedRect = card.getBoundingClientRect(); }, {passive:true});
-      card.addEventListener('mousemove', rafThrottle(e=>{
-        if(!cachedRect) cachedRect = card.getBoundingClientRect();
-        const x = (e.clientX - cachedRect.left) / cachedRect.width;
-        const y = (e.clientY - cachedRect.top) / cachedRect.height;
-        const rx = (y - 0.5) * -6;  // -8 → -6 : moins de rotation = moins de jank
-        const ry = (x - 0.5) * 6;
-        card._gyro = 'perspective(1000px) rotateX('+rx+'deg) rotateY('+ry+'deg) translateZ(6px)';
+      card.addEventListener('mousemove', e=>{
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width;
+        const y = (e.clientY - r.top) / r.height;
+        const rx = (y - 0.5) * -8;
+        const ry = (x - 0.5) * 8;
+        card._gyro = 'perspective(1000px) rotateX('+rx+'deg) rotateY('+ry+'deg) translateZ(8px)';
         card.style.transform = card._gyro;
         card.style.setProperty('--mx', (x*100)+'%');
         card.style.setProperty('--my', (y*100)+'%');
-      }), {passive:true});
-      card.addEventListener('mouseleave', ()=>{ card.style.transform = ''; card._gyro=null; cachedRect=null; });
+      });
+      card.addEventListener('mouseleave', ()=>{ card.style.transform = ''; card._gyro=null; });
     });
   }
 
