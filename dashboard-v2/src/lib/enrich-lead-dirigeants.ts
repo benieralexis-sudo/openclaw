@@ -8,6 +8,10 @@ import { looksAdministrativeFirstName } from "@/lib/verify-persona-coherence";
 import { clearStaleBriefsOnPersonaChange } from "@/lib/clear-stale-briefs";
 import { detectRecentLeadership } from "@/lib/leadership-change-detector";
 import { isSignalEnabled } from "@/lib/signal-config";
+import {
+  detectHeadcountGrowth,
+  parseTrancheEffectif,
+} from "@/lib/headcount-growth-detector";
 
 /**
  * Enrichissement Pappers dirigeants : pour chaque Trigger ICP qualifié sans Lead
@@ -62,6 +66,108 @@ function genCuid(): string {
   const ts = Date.now().toString(36);
   const rand = Math.random().toString(36).slice(2, 14);
   return `c${ts}${rand}`.slice(0, 25).padEnd(25, "0");
+}
+
+/**
+ * P5 catalogue — Snapshot l'effectif courant + détecte croissance >= seuil
+ * sur la fenêtre 90j. Crée un Trigger EXPANSION (sourceCode pappers.headcount-growth)
+ * si croissance détectée. Dedup : 1 trigger par siret / 180j.
+ *
+ * Stratégie effectif :
+ *   - On utilise tranche_effectif Pappers (INSEE). Imprecise mais déjà
+ *     fetched gratis. effectifMin du range comme baseline.
+ *   - Snapshot UNIQUEMENT si tranche != tranche du dernier snapshot
+ *     (évite la pollution de snapshots identiques quand Pappers ne change
+ *     pas — INSEE update annuelle).
+ */
+async function snapshotAndDetectHeadcountGrowth(
+  clientId: string,
+  companySiret: string,
+  companyName: string,
+  tranche: string | null,
+  companyNaf: string | null,
+): Promise<void> {
+  if (!tranche) return;
+  const range = parseTrancheEffectif(tranche);
+  if (!range) return;
+
+  // Dernier snapshot pour ce siret : si même tranche, on n'insère pas
+  // (économise du bruit en DB, INSEE update annuelle).
+  const lastSnapshot = await db.companyHeadcountSnapshot.findFirst({
+    where: { companySiret },
+    orderBy: { snapshotAt: "desc" },
+    select: { tranche: true, effectifMin: true },
+  });
+  if (!lastSnapshot || lastSnapshot.tranche !== tranche) {
+    await db.companyHeadcountSnapshot.create({
+      data: {
+        companySiret,
+        tranche,
+        effectifMin: range.min,
+        effectifMax: range.max ?? null,
+        source: "pappers",
+      },
+    });
+  }
+
+  // Détecte la croissance sur les 90j (default catalogue P5)
+  const recent = await db.companyHeadcountSnapshot.findMany({
+    where: { companySiret },
+    orderBy: { snapshotAt: "asc" },
+    take: 20,
+  });
+  const result = detectHeadcountGrowth(
+    recent.map((s) => ({
+      effectifMin: s.effectifMin,
+      effectifMax: s.effectifMax,
+      snapshotAt: s.snapshotAt,
+      source: s.source,
+    })),
+    { windowDays: 90, thresholdPct: 10 },
+  );
+
+  if (!result.hasGrowth) return;
+
+  // Dedup Trigger : 1 par siret / 180j
+  const existing = await db.trigger.findFirst({
+    where: {
+      clientId,
+      sourceCode: "pappers.headcount-growth",
+      companySiret,
+      capturedAt: { gte: new Date(Date.now() - 180 * 86_400_000) },
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  // Score : 6 (booster) + 1 si croissance >= 30%, +1 si >= 50%
+  let score = 6;
+  if ((result.growthPct ?? 0) >= 30) score += 1;
+  if ((result.growthPct ?? 0) >= 50) score += 1;
+
+  await db.trigger.create({
+    data: {
+      clientId,
+      sourceCode: "pappers.headcount-growth",
+      sourceUrl: `pappers:headcount:${companySiret}:${result.fromEffectifMin}->${result.toEffectifMin}`,
+      capturedAt: new Date(),
+      publishedAt: result.toSnapshotAt,
+      companyName,
+      companySiret,
+      companyNaf,
+      type: TriggerType.EXPANSION,
+      title: `Croissance effectif ${companyName} +${result.growthPct}% en ${result.daysBetween}j`,
+      detail: `Effectif passé de ~${result.fromEffectifMin}p à ~${result.toEffectifMin}p entre ${result.fromSnapshotAt.toISOString().slice(0, 10)} et ${result.toSnapshotAt.toISOString().slice(0, 10)}. Signal d'achat P5 catalogue : croissance corrélée +38% conversion.`,
+      rawPayload: result as unknown as Prisma.InputJsonValue,
+      score,
+      scoreReason: `P5 headcount-growth — +${result.growthPct}% sur ${result.daysBetween}j (${result.fromEffectifMin}→${result.toEffectifMin})`,
+      status: TriggerStatus.NEW,
+    },
+  });
+  console.log(
+    `[enrich-dirigeants.headcount-growth] CREATED ${companyName} +${result.growthPct}% (${result.fromEffectifMin}→${result.toEffectifMin})`,
+  );
 }
 
 /**
@@ -317,6 +423,26 @@ export async function enrichDirigeantsForClient(
       } catch (e) {
         console.warn(
           `[enrich-dirigeants.leadership-change] ${t.companySiret} failed: ${e instanceof Error ? e.message : e}`,
+        );
+      }
+
+      // ─── P5 catalogue (16/05/2026) — Snapshot effectif + detect growth ───
+      // Stocke un snapshot CompanyHeadcountSnapshot à chaque enrich Pappers.
+      // Premier Trigger P5 produit ~30j après mise en prod (le temps d'avoir
+      // 2 snapshots espacés assez pour détecter une vraie croissance).
+      try {
+        if (await isSignalEnabled(clientId, "P5")) {
+          await snapshotAndDetectHeadcountGrowth(
+            clientId,
+            t.companySiret,
+            t.companyName,
+            data.tranche_effectif ?? null,
+            data.code_naf ?? null,
+          );
+        }
+      } catch (e) {
+        console.warn(
+          `[enrich-dirigeants.headcount-growth] ${t.companySiret} failed: ${e instanceof Error ? e.message : e}`,
         );
       }
 

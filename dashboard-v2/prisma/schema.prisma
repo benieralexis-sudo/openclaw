@@ -732,6 +732,39 @@ enum SignalStatus {
   DEPRECATED
 }
 
+// =====================================================================
+// COMPANY HEADCOUNT SNAPSHOT — historique effectif pour P5 catalogue
+//
+// Snapshot de l'effectif d'une société à un instant T (récupéré via
+// Pappers `tranche_effectif` ou HarvestAPI staffCount). Permet de détecter
+// la croissance +X%/90j (signal P5 du catalogue, prédictivité +38%).
+//
+// Cross-tenant : la donnée d'effectif est publique, pas scopée à un client.
+// Un seul snapshot par (siret, source, date) — dédup logique via index.
+//
+// Premier Trigger P5 produit ~30j après mise en prod (le temps d'avoir
+// suffisamment d'historique pour calculer un delta significatif).
+// =====================================================================
+
+model CompanyHeadcountSnapshot {
+  id           String   @id @default(cuid())
+  companySiret String // SIREN (9 chiffres)
+  // INSEE tranche_effectif Pappers : "00"=0p · "11"=10-19p · "21"=50-99p · etc.
+  // null si source n'a que le count brut (HarvestAPI staffCount).
+  tranche      String?
+  // Effectif minimum estimé (parsé depuis tranche ou count brut).
+  // Permet de comparer rapidement entre 2 snapshots sans re-parser.
+  effectifMin  Int
+  // Effectif maximum estimé (haut de la tranche). null si tranche "53"=10000+
+  effectifMax  Int?
+  // Source du snapshot ("pappers" / "harvestapi-company" / etc.)
+  source       String
+  snapshotAt   DateTime @default(now())
+
+  @@index([companySiret, snapshotAt(sort: Desc)])
+  @@index([snapshotAt])
+}
+
 model ClientSignalConfig {
   id         String        @id @default(cuid())
   clientId   String
