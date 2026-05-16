@@ -13,13 +13,8 @@ const testimonials = [
   },
   {
     quote: "On a closé 4 deals en 6 semaines sur des leads qu'on n'aurait jamais vus avec Cognism.",
-    author: "[Prénom]",
+    author: "Alex",
     role: "Founder · Collective.Work",
-  },
-  {
-    quote: "[Testimonial 3ème client à recruter J5-J11]",
-    author: "[À recruter]",
-    role: "[Rôle · Société]",
   },
 ];
 ---
@@ -152,8 +147,9 @@ const testimonials = [
 
   .testimonials {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: var(--sp-lg);
+    max-width: 880px;
   }
 
   .testimonial {
@@ -184,7 +180,7 @@ const testimonials = [
     color: var(--color-ink-mute);
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 768px) {
     .metrics-row { grid-template-columns: 1fr; }
     .testimonials { grid-template-columns: 1fr; }
   }
