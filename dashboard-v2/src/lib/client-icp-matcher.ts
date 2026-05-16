@@ -14,6 +14,11 @@ export interface ClientIcp {
   regions?: string[];
   cities?: string[];
   antiPersonas?: string[];
+  // Kill-switch par signal (catalogue paramétrable, 16/05/2026).
+  // Exemple : ["theirstack.buying-intent", "apify.indeed-jobs"]
+  // Préfigure le catalogue universel : chaque client peut désactiver
+  // un signal sans toucher au code (config-driven multi-tenant).
+  disabledSources?: string[];
 }
 
 export interface PappersDataLite {

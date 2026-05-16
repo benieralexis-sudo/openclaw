@@ -22,6 +22,7 @@ import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 // Wire-le ici en source=all (pipeline complet 6h) pour que le judge bénéficie
 // du parsing LinkedIn Profile Full sur les leads chauds.
 import { enrichLinkedInProfilesForClient } from "@/lib/enrich-linkedin-profile-runner";
+import { isSourceDisabled } from "@/lib/source-toggle";
 import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
 import { auditAndHeal } from "@/lib/audit-heal";
 import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
@@ -154,13 +155,24 @@ export async function POST(req: NextRequest) {
       // Note : 8h05 UTC = 10h Paris (DST), TheirStack a réindexé pendant la
       // nuit FR, captures matin OK.
       const buyingIntentHour = new Date().getUTCHours();
+      // Kill-switch ICP (16/05/2026) — chaque client peut désactiver le signal
+      // via icp.disabledSources. Pattern config-driven, préfigure le catalogue.
+      const icpDisabled = isSourceDisabled(
+        c.icp as { disabledSources?: string[] } | null,
+        "theirstack.buying-intent",
+      );
       if (!dryRun && source === "all" && (buyingIntentHour === 8 || buyingIntentHour === 18)) {
-        try {
-          (entry as { theirstackBuyingIntent?: unknown }).theirstackBuyingIntent =
-            await pollTheirstackBuyingIntentForClient(c.id, { companiesLimit: 15 });
-        } catch (e) {
-          (entry as { theirstackBuyingIntentError?: string }).theirstackBuyingIntentError =
-            e instanceof Error ? e.message : String(e);
+        if (icpDisabled) {
+          (entry as { theirstackBuyingIntent?: string }).theirstackBuyingIntent =
+            "disabled-by-icp";
+        } else {
+          try {
+            (entry as { theirstackBuyingIntent?: unknown }).theirstackBuyingIntent =
+              await pollTheirstackBuyingIntentForClient(c.id, { companiesLimit: 15 });
+          } catch (e) {
+            (entry as { theirstackBuyingIntentError?: string }).theirstackBuyingIntentError =
+              e instanceof Error ? e.message : String(e);
+          }
         }
       }
       // France Travail (Bougie 5 — 04/05) : poller gratuit (3000 req/jour).
