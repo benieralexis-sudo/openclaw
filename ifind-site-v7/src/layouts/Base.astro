@@ -4,12 +4,16 @@ import '../styles/global.css';
 interface Props {
   title?: string;
   description?: string;
+  ogImage?: string;
 }
 
 const {
-  title = 'iFIND — Vos futurs clients vous cherchent déjà.',
-  description = "Le sismographe iFIND capte en temps réel les signaux d'achat des PME tech FR — levées, recrutements C-level, dépôts INPI, M&A. 9 sources souveraines, 0 intent data américain.",
+  title = "iFIND — Détectez les signaux d'achat des PME françaises",
+  description = "9 sources publiques françaises natives. 60 leads qualifiés et 6 Pépites garanties par mois. La prospection ne se devine pas. Elle se prouve.",
+  ogImage = "https://ifind.fr/og-image.jpg",
 } = Astro.props;
+
+const canonicalUrl = new URL(Astro.url.pathname, "https://ifind.fr").toString();
 ---
 
 <!doctype html>
@@ -19,32 +23,40 @@ const {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{title}</title>
   <meta name="description" content={description} />
+  <link rel="canonical" href={canonicalUrl} />
   <meta name="generator" content={Astro.generator} />
 
-  <!-- Favicon SVG signature sismographe -->
+  <!-- Favicon SVG (à remplacer par version finale J11 polish) -->
   <link
     rel="icon"
     type="image/svg+xml"
-    href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23F5F1EA'/><path d='M3 16 L8 16 L9 14 L11 18 L12 16 L14 16 L15 8 L17 24 L18 16 L21 16 L22 14 L23 18 L24 16 L29 16' stroke='%230F0D0A' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='17' cy='16' r='2.4' fill='%23E89F2C'/></svg>"
+    href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23FAFAF7'/><circle cx='16' cy='16' r='6' fill='%231A1A2E'/><circle cx='16' cy='16' r='2.4' fill='%23C2410C'/></svg>"
   />
-  <meta name="theme-color" content="#0F0D0A" />
+  <meta name="theme-color" content="#FAFAF7" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
-  <meta property="og:url" content="https://ifind.fr" />
+  <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:image" content={ogImage} />
   <meta property="og:locale" content="fr_FR" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta property="og:site_name" content="iFIND" />
 
-  <!-- View Transitions API cross-document -->
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImage} />
+
+  <!-- View Transitions API (natif Astro 5) -->
   <meta name="view-transition" content="same-origin" />
 
-  <!-- Fonts : Geist + Space Grotesk + Geist Mono — Variable axis -->
+  <!-- Fonts : Source Serif 4 + Inter + JetBrains Mono — Variable axis -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Space+Grotesk:wght@300..700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&display=swap"
     rel="stylesheet"
   />
 </head>
@@ -52,8 +64,12 @@ const {
 <body>
   <a href="#main" class="skip-link">Aller au contenu</a>
 
+  <slot name="nav" />
+
   <main id="main">
     <slot />
   </main>
+
+  <slot name="footer" />
 </body>
 </html>

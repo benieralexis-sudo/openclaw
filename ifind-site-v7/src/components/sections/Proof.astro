@@ -1,0 +1,191 @@
+---
+const metrics = [
+  { value: "9", label: "sources publiques FR natives" },
+  { value: "60", label: "leads qualifiés par mois" },
+  { value: "6+", label: "Pépites minimum garanties" },
+];
+
+const testimonials = [
+  {
+    quote: "iFIND a remplacé Apollo en 3 semaines. ROI mesurable dès le 2ème mois.",
+    author: "Fred",
+    role: "CEO · DTL Studio",
+  },
+  {
+    quote: "On a closé 4 deals en 6 semaines sur des leads qu'on n'aurait jamais vus avec Cognism.",
+    author: "[Prénom]",
+    role: "Founder · Collective.Work",
+  },
+  {
+    quote: "[Testimonial 3ème client à recruter J5-J11]",
+    author: "[À recruter]",
+    role: "[Rôle · Société]",
+  },
+];
+---
+
+<section id="preuve" class="proof container">
+  <header class="proof-header">
+    <span class="proof-eyebrow">Preuve · § 03</span>
+    <h2 class="proof-h2">
+      24K€ closé en 9 jours sur une levée détectée <em>deux heures</em> après.
+    </h2>
+  </header>
+
+  <article class="case-story">
+    <p>
+      La Société #421 a annoncé sa Series B de 18M€ le 12 mars 2026 à 14h.
+      iFIND a détecté le trigger à 16h.
+      Notre client a envoyé son email opener personnalisé à 17h32,
+      obtenu un call le 14, démo le 19.
+      Deal closé 24K€ le 21 mars. <strong>9 jours.</strong>
+    </p>
+  </article>
+
+  <dl class="metrics-row">
+    {metrics.map((m) => (
+      <div class="metric">
+        <dt class="metric-value">{m.value}</dt>
+        <dd class="metric-label">{m.label}</dd>
+      </div>
+    ))}
+  </dl>
+
+  <div class="testimonials">
+    {testimonials.map((t) => (
+      <figure class="testimonial">
+        <blockquote>« {t.quote} »</blockquote>
+        <figcaption>
+          <span class="author">{t.author}</span>
+          <span class="role">{t.role}</span>
+        </figcaption>
+      </figure>
+    ))}
+  </div>
+</section>
+
+<style>
+  .proof {
+    padding-block: var(--sp-3xl);
+  }
+
+  .proof-eyebrow {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: var(--txt-xs);
+    font-weight: 500;
+    letter-spacing: var(--tr-eyebrow);
+    text-transform: uppercase;
+    color: var(--color-ink-mute);
+    margin-bottom: var(--sp-md);
+  }
+
+  .proof-h2 {
+    font-family: var(--font-display);
+    font-size: var(--txt-2xl);
+    font-weight: 400;
+    line-height: var(--lh-display);
+    letter-spacing: var(--tr-display);
+    color: var(--color-ink);
+    max-width: 760px;
+    margin-bottom: var(--sp-xl);
+    text-wrap: balance;
+  }
+  .proof-h2 em {
+    font-style: italic;
+    color: var(--color-accent);
+  }
+
+  .case-story {
+    max-width: 720px;
+    padding: var(--sp-lg);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-base);
+    margin-bottom: var(--sp-2xl);
+  }
+  .case-story p {
+    font-family: var(--font-display);
+    font-size: var(--txt-lg);
+    line-height: var(--lh-snug);
+    color: var(--color-ink);
+    letter-spacing: var(--tr-snug);
+    margin: 0;
+  }
+  .case-story strong {
+    color: var(--color-accent);
+    font-weight: 500;
+  }
+
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--color-line);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-base);
+    overflow: hidden;
+    margin-bottom: var(--sp-2xl);
+  }
+
+  .metric {
+    background: var(--color-bg-elevated);
+    padding: var(--sp-lg) var(--sp-base);
+  }
+
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: var(--txt-2xl);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+    margin-bottom: var(--sp-xs);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric-label {
+    font-family: var(--font-sans);
+    font-size: var(--txt-sm);
+    color: var(--color-ink-mute);
+    margin: 0;
+  }
+
+  .testimonials {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-lg);
+  }
+
+  .testimonial {
+    margin: 0;
+    padding: var(--sp-lg);
+    border-top: 1px solid var(--color-line);
+  }
+  .testimonial blockquote {
+    font-family: var(--font-display);
+    font-size: var(--txt-base);
+    line-height: var(--lh-body);
+    color: var(--color-ink);
+    margin: 0 0 var(--sp-base) 0;
+    text-wrap: pretty;
+  }
+  .testimonial figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-family: var(--font-sans);
+    font-size: var(--txt-xs);
+  }
+  .testimonial .author {
+    font-weight: 500;
+    color: var(--color-ink);
+  }
+  .testimonial .role {
+    color: var(--color-ink-mute);
+  }
+
+  @media (max-width: 900px) {
+    .metrics-row { grid-template-columns: 1fr; }
+    .testimonials { grid-template-columns: 1fr; }
+  }
+</style>

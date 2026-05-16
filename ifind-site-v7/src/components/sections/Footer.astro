@@ -1,0 +1,138 @@
+---
+const year = new Date().getFullYear();
+---
+
+<footer class="footer" aria-label="Pied de page">
+  <div class="footer-inner container">
+    <div class="footer-brand">
+      <div class="brand-mark">iFIND</div>
+      <p class="brand-tagline">Trigger Engine pour PME françaises.</p>
+    </div>
+
+    <nav class="footer-cols" aria-label="Liens secondaires">
+      <div class="footer-col">
+        <h6>Produit</h6>
+        <ul>
+          <li><a href="/">Accueil</a></li>
+          <li><a href="#methode">Méthode</a></li>
+          <li><a href="#tarifs">Tarifs</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h6>Ressources</h6>
+        <ul>
+          <li><a href="/journal">Journal</a></li>
+          <li><a href="/methode">Manifeste</a></li>
+          <li><a href="/demo">Réserver une démo</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h6>Légal</h6>
+        <ul>
+          <li><a href="/mentions-legales">Mentions légales</a></li>
+          <li><a href="/cgv">CGV</a></li>
+          <li><a href="/confidentialite">Confidentialité</a></li>
+          <li><a href="/cookies">Cookies</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h6>Contact</h6>
+        <ul>
+          <li><a href="mailto:contact@ifind.fr">contact@ifind.fr</a></li>
+          <li><a href="https://www.linkedin.com/company/ifind" target="_blank" rel="noopener">LinkedIn</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="footer-bottom">
+      <span class="copyright">© {year} iFIND — Détection souveraine de signaux d'achat.</span>
+      <span class="made-in">Made in France 🇫🇷</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background: var(--color-bg-soft);
+    border-top: 1px solid var(--color-line);
+    padding-block: var(--sp-2xl) var(--sp-xl);
+    margin-top: var(--sp-3xl);
+  }
+
+  .footer-inner {
+    display: grid;
+    grid-template-columns: 1fr 2.2fr;
+    gap: var(--sp-2xl);
+  }
+
+  .footer-brand .brand-mark {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: var(--txt-xl);
+    color: var(--color-ink);
+  }
+  .footer-brand .brand-tagline {
+    font-family: var(--font-sans);
+    font-size: var(--txt-sm);
+    color: var(--color-ink-mute);
+    margin-top: var(--sp-sm);
+  }
+
+  .footer-cols {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--sp-lg);
+  }
+
+  .footer-col h6 {
+    font-family: var(--font-sans);
+    font-size: var(--txt-xs);
+    font-weight: 500;
+    letter-spacing: var(--tr-eyebrow);
+    text-transform: uppercase;
+    color: var(--color-ink-mute);
+    margin-bottom: var(--sp-md);
+  }
+
+  .footer-col ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+  }
+
+  .footer-col a {
+    font-family: var(--font-sans);
+    font-size: var(--txt-sm);
+    color: var(--color-ink);
+    text-decoration: none;
+    transition: color var(--t-fast) var(--ease-smooth);
+  }
+  .footer-col a:hover { color: var(--color-accent); }
+
+  .footer-bottom {
+    grid-column: 1 / -1;
+    margin-top: var(--sp-xl);
+    padding-top: var(--sp-base);
+    border-top: 1px solid var(--color-line);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sp-sm);
+    font-family: var(--font-sans);
+    font-size: var(--txt-xs);
+    color: var(--color-ink-mute);
+  }
+
+  @media (max-width: 768px) {
+    .footer-inner { grid-template-columns: 1fr; }
+    .footer-cols { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>

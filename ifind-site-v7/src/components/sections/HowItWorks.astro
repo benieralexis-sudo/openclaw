@@ -1,0 +1,145 @@
+---
+const etapes = [
+  {
+    number: "01",
+    title: "Détecter",
+    sub: "9 sources scannent 24h/24.",
+    body: "INPI, Pappers, France Travail, RNE, Kaspr, TheirStack, FullEnrich, Rodz, Apify. 9 sources publiques françaises natives. Aucune intent data agrégée. Aucune navigation anonyme. Que des événements publics datés.",
+  },
+  {
+    number: "02",
+    title: "Attribuer",
+    sub: "SIRENE + 13 patterns + Claude Opus 4.7.",
+    body: "Chaque signal est attribué au bon SIREN via Pappers. Croisé avec 13 patterns d'achat connus — Series A, hire Sales, M&A, dépôt INPI Class 9. Qualifié par Claude Opus 4.7 selon ton ICP custom.",
+  },
+  {
+    number: "03",
+    title: "Personnaliser",
+    sub: "Brief Pépite + email opener prêt.",
+    body: "Tu reçois 60 leads qualifiés par mois. Dont 6 Pépites minimum garanties — signaux HOT multi-sources. Chacune avec brief structuré, contacts décideurs et email opener prêt à envoyer. Sinon ton quota est doublé le mois suivant.",
+  },
+];
+---
+
+<section id="methode" class="how-it-works container">
+  <header class="hiw-header">
+    <span class="hiw-eyebrow">Méthode · § 02</span>
+    <h2 class="hiw-h2">Trois étapes. <em>Vingt-quatre heures.</em></h2>
+    <p class="hiw-sub">
+      Chaque signal détecté passe par 3 étapes vérifiables, en moins de 24h,
+      du capteur au brief Pépite.
+    </p>
+  </header>
+
+  <ol class="etapes">
+    {etapes.map((etape) => (
+      <li class="etape">
+        <span class="etape-number">{etape.number}</span>
+        <div class="etape-body">
+          <h3 class="etape-title">{etape.title}</h3>
+          <p class="etape-sub">{etape.sub}</p>
+          <p class="etape-text">{etape.body}</p>
+        </div>
+      </li>
+    ))}
+  </ol>
+</section>
+
+<style>
+  .how-it-works {
+    padding-block: var(--sp-3xl);
+  }
+
+  .hiw-header {
+    max-width: 760px;
+    margin-bottom: var(--sp-2xl);
+  }
+
+  .hiw-eyebrow {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: var(--txt-xs);
+    font-weight: 500;
+    letter-spacing: var(--tr-eyebrow);
+    text-transform: uppercase;
+    color: var(--color-ink-mute);
+    margin-bottom: var(--sp-md);
+  }
+
+  .hiw-h2 {
+    font-family: var(--font-display);
+    font-size: var(--txt-2xl);
+    font-weight: 400;
+    line-height: var(--lh-display);
+    letter-spacing: var(--tr-display);
+    color: var(--color-ink);
+    margin-bottom: var(--sp-base);
+    text-wrap: balance;
+  }
+  .hiw-h2 em {
+    font-style: italic;
+    color: var(--color-accent);
+  }
+
+  .hiw-sub {
+    font-family: var(--font-sans);
+    font-size: var(--txt-md);
+    line-height: var(--lh-body);
+    color: var(--color-ink-mute);
+    letter-spacing: var(--tr-body);
+  }
+
+  .etapes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-lg);
+    border-top: 1px solid var(--color-line);
+    padding-top: var(--sp-xl);
+  }
+
+  .etape {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: var(--sp-base);
+  }
+
+  .etape-number {
+    font-family: var(--font-mono);
+    font-size: var(--txt-sm);
+    color: var(--color-accent);
+    font-weight: 500;
+    letter-spacing: var(--tr-eyebrow);
+  }
+
+  .etape-title {
+    font-family: var(--font-display);
+    font-size: var(--txt-xl);
+    font-weight: 400;
+    letter-spacing: var(--tr-tight);
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .etape-sub {
+    font-family: var(--font-sans);
+    font-size: var(--txt-base);
+    font-weight: 500;
+    color: var(--color-ink);
+    margin-block: var(--sp-sm) var(--sp-base);
+  }
+
+  .etape-text {
+    font-family: var(--font-sans);
+    font-size: var(--txt-sm);
+    line-height: var(--lh-body);
+    color: var(--color-ink-mute);
+    letter-spacing: var(--tr-body);
+  }
+
+  @media (max-width: 900px) {
+    .etapes { grid-template-columns: 1fr; gap: var(--sp-xl); }
+  }
+</style>

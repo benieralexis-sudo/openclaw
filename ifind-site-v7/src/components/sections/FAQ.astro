@@ -1,0 +1,148 @@
+---
+const items = [
+  {
+    q: "Qu'est-ce qu'une Pépite exactement ?",
+    a: "Une Pépite est un signal HOT (score ≥ 9 sur 10) confirmé par 2 sources indépendantes ou plus sur 30 jours. Exemple : Series B annoncée + hire Head of Sales la même semaine sur le même SIREN. Multi-source = signal acheteur fort.",
+  },
+  {
+    q: "En quoi iFIND diffère d'Apollo, Cognism ou ZoomInfo ?",
+    a: "Apollo, Cognism, ZoomInfo scorent par <em>probabilité</em> (intent data agrégée, navigation web anonyme). iFIND score par <em>événement public daté</em> (levée annoncée, dépôt INPI, hire LinkedIn). Pas le même jeu. Pas la même fiabilité sur le marché français.",
+  },
+  {
+    q: "Est-ce conforme RGPD ?",
+    a: "Oui. iFIND n'utilise que des sources publiques (INPI, Pappers, RNE, France Travail) ou des fournisseurs déclarés CNIL (Kaspr, FullEnrich). Aucun scraping de données privées. Attribution SIRENE pour chaque trigger. Données stockées en France.",
+  },
+  {
+    q: "Combien de temps pour le setup ?",
+    a: "48 à 72 heures. Tu remplis un brief ICP (codes NAF, taille, géographie, signaux prioritaires). On lance les capteurs. Première Pépite livrée J+3 en moyenne.",
+  },
+  {
+    q: "Engagement et annulation ?",
+    a: "Contrat annuel par défaut. Préavis 30 jours pour annulation à l'échéance. Si moins de 6 Pépites un mois, ton quota est doublé le mois suivant. Si on rate la garantie 3 mois consécutifs, tu peux résilier sans préavis.",
+  },
+];
+---
+
+<section id="faq" class="faq container container--narrow">
+  <header class="faq-header">
+    <span class="faq-eyebrow">Questions · § 05</span>
+    <h2 class="faq-h2">Cinq questions <em>avant la démo</em>.</h2>
+  </header>
+
+  <div class="faq-list">
+    {items.map((item, i) => (
+      <details class="faq-item" name="faq" open={i === 0}>
+        <summary class="faq-q">
+          <span class="q-number">{String(i + 1).padStart(2, '0')}</span>
+          <span class="q-text">{item.q}</span>
+          <span class="q-toggle" aria-hidden="true">+</span>
+        </summary>
+        <div class="faq-a" set:html={item.a}></div>
+      </details>
+    ))}
+  </div>
+</section>
+
+<style>
+  .faq {
+    padding-block: var(--sp-3xl);
+  }
+
+  .faq-header {
+    text-align: center;
+    max-width: 640px;
+    margin: 0 auto var(--sp-2xl);
+  }
+
+  .faq-eyebrow {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: var(--txt-xs);
+    font-weight: 500;
+    letter-spacing: var(--tr-eyebrow);
+    text-transform: uppercase;
+    color: var(--color-ink-mute);
+    margin-bottom: var(--sp-md);
+  }
+
+  .faq-h2 {
+    font-family: var(--font-display);
+    font-size: var(--txt-2xl);
+    font-weight: 400;
+    line-height: var(--lh-display);
+    letter-spacing: var(--tr-display);
+    color: var(--color-ink);
+  }
+  .faq-h2 em {
+    font-style: italic;
+    color: var(--color-accent);
+  }
+
+  .faq-list {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .faq-item {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .faq-q {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--sp-base);
+    padding-block: var(--sp-base);
+    cursor: pointer;
+    list-style: none;
+    transition: color var(--t-fast) var(--ease-smooth);
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q:hover { color: var(--color-accent); }
+
+  .q-number {
+    font-family: var(--font-mono);
+    font-size: var(--txt-xs);
+    color: var(--color-ink-mute);
+    letter-spacing: var(--tr-eyebrow);
+  }
+
+  .q-text {
+    font-family: var(--font-display);
+    font-size: var(--txt-md);
+    font-weight: 400;
+    letter-spacing: var(--tr-tight);
+    color: var(--color-ink);
+    line-height: var(--lh-snug);
+  }
+
+  .q-toggle {
+    font-family: var(--font-mono);
+    font-size: var(--txt-md);
+    color: var(--color-accent);
+    transition: transform var(--t-base) var(--ease-snap);
+    line-height: 1;
+  }
+
+  .faq-item[open] .q-toggle {
+    transform: rotate(45deg);
+  }
+
+  .faq-a {
+    padding-block: 0 var(--sp-base);
+    padding-left: 48px;
+    font-family: var(--font-sans);
+    font-size: var(--txt-base);
+    line-height: var(--lh-body);
+    color: var(--color-ink-mute);
+    max-width: 760px;
+  }
+  .faq-a em {
+    font-style: italic;
+    color: var(--color-accent);
+  }
+
+  @media (max-width: 768px) {
+    .faq-a { padding-left: 0; }
+    .faq-q { grid-template-columns: auto 1fr auto; gap: var(--sp-sm); }
+  }
+</style>

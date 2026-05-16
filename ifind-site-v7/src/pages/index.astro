@@ -1,8 +1,28 @@
 ---
 import Base from '../layouts/Base.astro';
+import Nav from '../components/sections/Nav.astro';
 import Hero from '../components/sections/Hero.astro';
+import TrustStrip from '../components/sections/TrustStrip.astro';
+import Manifeste from '../components/sections/Manifeste.astro';
+import HowItWorks from '../components/sections/HowItWorks.astro';
+import Proof from '../components/sections/Proof.astro';
+import Pricing from '../components/sections/Pricing.astro';
+import FAQ from '../components/sections/FAQ.astro';
+import FinalCTA from '../components/sections/FinalCTA.astro';
+import Footer from '../components/sections/Footer.astro';
 ---
 
 <Base>
+  <Nav slot="nav" />
+
   <Hero />
+  <TrustStrip />
+  <Manifeste />
+  <HowItWorks />
+  <Proof />
+  <Pricing />
+  <FAQ />
+  <FinalCTA />
+
+  <Footer slot="footer" />
 </Base>

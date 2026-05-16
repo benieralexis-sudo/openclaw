@@ -1,16 +1,14 @@
 ---
 interface Props {
   href?: string;
-  variant?: 'primary' | 'ghost' | 'amber';
+  variant?: 'primary' | 'underline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
-  magnetic?: boolean;
   arrow?: boolean;
 }
 const {
   href,
   variant = 'primary',
   size = 'md',
-  magnetic = false,
   arrow = false,
 } = Astro.props;
 
@@ -18,21 +16,18 @@ const classes = [
   'btn',
   `btn--${variant}`,
   `btn--${size}`,
-  magnetic ? 'btn--magnetic' : '',
 ].filter(Boolean).join(' ');
 ---
 
 {href ? (
-  <a class={classes} href={href} data-cursor="hover">
+  <a class={classes} href={href}>
     <span class="btn-label"><slot /></span>
     {arrow && <span class="btn-arrow" aria-hidden="true">→</span>}
-    {magnetic && <span class="btn-halo" aria-hidden="true"></span>}
   </a>
 ) : (
-  <button type="button" class={classes} data-cursor="hover">
+  <button type="button" class={classes}>
     <span class="btn-label"><slot /></span>
     {arrow && <span class="btn-arrow" aria-hidden="true">→</span>}
-    {magnetic && <span class="btn-halo" aria-hidden="true"></span>}
   </button>
 )}
 
@@ -46,68 +41,62 @@ const classes = [
     font-family: var(--font-sans);
     font-weight: 500;
     line-height: 1;
-    letter-spacing: -0.005em;
-    border-radius: var(--r-sm);
+    letter-spacing: var(--tr-body);
     cursor: pointer;
-    transition: transform var(--t-base) var(--ease-spring),
-                background var(--t-base) var(--ease-quint),
-                color var(--t-base) var(--ease-quint),
-                border-color var(--t-base) var(--ease-quint);
-    will-change: transform;
     white-space: nowrap;
     text-decoration: none;
-    border: 1px solid transparent;
+    transition: transform var(--t-base) var(--ease-snap),
+                background var(--t-base) var(--ease-smooth),
+                color var(--t-base) var(--ease-smooth),
+                border-color var(--t-base) var(--ease-smooth);
+    will-change: transform;
     isolation: isolate;
+    border: 1px solid transparent;
   }
 
-  .btn--sm  { font-size: 13px; padding: 9px 14px; }
-  .btn--md  { font-size: 15px; padding: 14px 22px; }
-  .btn--lg  { font-size: 17px; padding: 18px 32px; }
+  .btn--sm  { font-size: 13px; padding: 9px 14px; border-radius: var(--r-md); }
+  .btn--md  { font-size: 15px; padding: 14px 24px; border-radius: var(--r-md); }
+  .btn--lg  { font-size: 17px; padding: 18px 32px; border-radius: var(--r-md); }
 
+  /* Primary — fond ink, hover accent */
   .btn--primary {
     background: var(--color-ink);
-    color: var(--color-cream);
+    color: var(--color-bg);
   }
   .btn--primary:hover {
-    background: var(--color-ink-soft);
+    background: var(--color-accent);
     transform: translateY(-1px);
   }
 
+  /* Underline — texte ink avec underline accent (style éditorial) */
+  .btn--underline {
+    background: transparent;
+    color: var(--color-ink);
+    padding-left: 0;
+    padding-right: 0;
+    border-radius: 0;
+    border-bottom: 1px solid var(--color-ink);
+  }
+  .btn--underline:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  /* Ghost — outline subtle */
   .btn--ghost {
     background: transparent;
     color: var(--color-ink);
-    border-color: var(--color-line);
+    border-color: var(--color-line-strong);
   }
   .btn--ghost:hover {
     border-color: var(--color-ink);
-    background: var(--color-cream-warm);
+    background: var(--color-bg-soft);
   }
 
-  .btn--amber {
-    background: var(--color-amber);
-    color: var(--color-ink);
-  }
-  .btn--amber:hover {
-    background: var(--color-amber-deep);
-  }
-
+  /* Arrow micro-animation */
   .btn-arrow {
     display: inline-block;
-    transition: transform var(--t-base) var(--ease-quint);
+    transition: transform var(--t-base) var(--ease-snap);
   }
   .btn:hover .btn-arrow { transform: translateX(4px); }
-
-  .btn--magnetic { position: relative; }
-  .btn-halo {
-    position: absolute;
-    inset: -12px;
-    border-radius: inherit;
-    background: radial-gradient(closest-side, rgba(232,159,44,0.35), transparent 70%);
-    opacity: 0;
-    transition: opacity var(--t-base) var(--ease-quint);
-    pointer-events: none;
-    z-index: -1;
-    filter: blur(8px);
-  }
-  .btn--magnetic:hover .btn-halo { opacity: 1; }
 </style>

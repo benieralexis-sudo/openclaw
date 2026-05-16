@@ -1,0 +1,86 @@
+---
+const sources = [
+  "INPI",
+  "Pappers",
+  "France Travail",
+  "RNE",
+  "Kaspr",
+  "TheirStack",
+  "FullEnrich",
+  "Rodz",
+  "Apify",
+];
+---
+
+<section class="trust-strip container container--narrow" aria-label="Sources publiques natives">
+  <div class="trust-label">
+    <span class="label-text">Les 9 sources<br>natives FR</span>
+  </div>
+  <ul class="sources-list">
+    {sources.map((source) => (
+      <li class="source-item">
+        <span class="source-dot" aria-hidden="true"></span>
+        <span class="source-name">{source}</span>
+      </li>
+    ))}
+  </ul>
+</section>
+
+<style>
+  .trust-strip {
+    padding-block: var(--sp-xl);
+    border-top: 1px solid var(--color-line);
+    border-bottom: 1px solid var(--color-line);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sp-2xl);
+    align-items: center;
+  }
+
+  .trust-label .label-text {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: var(--txt-xs);
+    font-weight: 500;
+    letter-spacing: var(--tr-eyebrow);
+    text-transform: uppercase;
+    color: var(--color-ink-mute);
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+
+  .sources-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-base) var(--sp-lg);
+  }
+
+  .source-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    font-family: var(--font-mono);
+    font-size: var(--txt-sm);
+    color: var(--color-ink);
+    font-weight: 500;
+    letter-spacing: var(--tr-mono);
+  }
+
+  .source-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    .trust-strip {
+      grid-template-columns: 1fr;
+      gap: var(--sp-md);
+    }
+  }
+</style>

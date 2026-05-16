@@ -1,0 +1,64 @@
+---
+---
+
+<section class="manifeste container container--narrow" aria-label="Manifeste iFIND">
+  <div class="manifeste-label">
+    <span>Manifeste<br>§ 01</span>
+  </div>
+  <blockquote class="manifeste-quote">
+    « Les outils américains scorent par <em>probabilité</em>.
+    iFIND score par <em>événement</em>.
+    Une levée annoncée hier. Un Head of Sales recruté la semaine dernière.
+    Un dépôt INPI hier matin.
+    Des faits publics, datés, attribuables au SIREN.
+    Pas du peut-être. Du <em>vérifiable</em>. »
+  </blockquote>
+</section>
+
+<style>
+  .manifeste {
+    padding-block: var(--sp-3xl);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sp-2xl);
+    align-items: start;
+  }
+
+  .manifeste-label span {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: var(--txt-xs);
+    font-weight: 500;
+    letter-spacing: var(--tr-eyebrow);
+    text-transform: uppercase;
+    color: var(--color-ink-mute);
+    line-height: 1.5;
+    padding-top: 8px;
+    white-space: nowrap;
+  }
+
+  .manifeste-quote {
+    font-family: var(--font-display);
+    font-size: var(--txt-lg);
+    font-weight: 400;
+    line-height: var(--lh-snug);
+    letter-spacing: var(--tr-snug);
+    color: var(--color-ink);
+    max-width: 720px;
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  .manifeste-quote em {
+    font-style: italic;
+    color: var(--color-accent);
+  }
+
+  @media (max-width: 768px) {
+    .manifeste {
+      grid-template-columns: 1fr;
+      gap: var(--sp-md);
+      padding-block: var(--sp-xl);
+    }
+  }
+</style>

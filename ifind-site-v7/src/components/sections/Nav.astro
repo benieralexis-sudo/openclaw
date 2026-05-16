@@ -1,0 +1,71 @@
+---
+import Button from '../ui/Button.astro';
+---
+
+<nav class="nav" aria-label="Navigation principale">
+  <div class="nav-inner container">
+    <a href="/" class="brand" aria-label="iFIND accueil">
+      <span class="brand-text">iFIND</span>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="#methode">Méthode</a></li>
+      <li><a href="#preuve">Preuve</a></li>
+      <li><a href="#tarifs">Tarifs</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+
+    <Button href="/demo" variant="underline" size="sm" arrow>Réserver une démo</Button>
+  </div>
+</nav>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-nav);
+    background: hsl(60 14% 98% / 0.85);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: var(--sp-base);
+    gap: var(--sp-xl);
+  }
+
+  .brand {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: var(--txt-lg);
+    letter-spacing: var(--tr-tight);
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .nav-links {
+    list-style: none;
+    display: flex;
+    gap: var(--sp-xl);
+    margin: 0;
+    padding: 0;
+  }
+
+  .nav-links a {
+    font-family: var(--font-sans);
+    font-size: var(--txt-sm);
+    color: var(--color-ink-mute);
+    text-decoration: none;
+    transition: color var(--t-fast) var(--ease-smooth);
+  }
+  .nav-links a:hover { color: var(--color-ink); }
+
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+  }
+</style>
