@@ -21,38 +21,159 @@ const etapes = [
 ];
 ---
 
-<section id="methode" class="how-it-works container">
-  <header class="hiw-header">
-    <span class="hiw-eyebrow">Méthode · § 02</span>
-    <h2 class="hiw-h2">Trois étapes. <em>Vingt-quatre heures.</em></h2>
-    <p class="hiw-sub">
-      Chaque signal détecté passe par 3 étapes vérifiables, en moins de 24h,
-      du capteur au brief Pépite.
-    </p>
-  </header>
+<section id="methode" class="how-it-works" data-pinned aria-label="Méthode iFIND en 3 étapes">
+  <div class="container hiw-pin-inner">
 
-  <ol class="etapes">
-    {etapes.map((etape) => (
-      <li class="etape">
-        <span class="etape-number">{etape.number}</span>
-        <div class="etape-body">
-          <h3 class="etape-title">{etape.title}</h3>
-          <p class="etape-sub">{etape.sub}</p>
-          <p class="etape-text">{etape.body}</p>
-        </div>
-      </li>
-    ))}
-  </ol>
+    <header class="hiw-header">
+      <span class="hiw-eyebrow">Méthode · § 02</span>
+      <h2 class="hiw-h2" data-split>Trois étapes. <em>Vingt-quatre heures.</em></h2>
+      <ol class="hiw-stepper" aria-hidden="true">
+        <li class="step-indicator step-indicator--active" data-step-indicator>01</li>
+        <li class="step-divider"></li>
+        <li class="step-indicator" data-step-indicator>02</li>
+        <li class="step-divider"></li>
+        <li class="step-indicator" data-step-indicator>03</li>
+      </ol>
+    </header>
+
+    <div class="hiw-pin-grid">
+
+      <!-- Visual side (3 SVG overlayed) -->
+      <div class="hiw-visual-stack" aria-hidden="true">
+        <!-- Étape 01 — 9 sources qui pulsent -->
+        <svg class="hiw-visual" data-step-visual viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="srcGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.4"/>
+              <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          {[
+            [80, 80, "INPI"],
+            [160, 60, "Pappers"],
+            [240, 80, "France Travail"],
+            [60, 160, "RNE"],
+            [160, 160, "Kaspr"],
+            [260, 160, "TheirStack"],
+            [80, 240, "FullEnrich"],
+            [160, 260, "Rodz"],
+            [240, 240, "Apify"],
+          ].map(([x, y, label], i) => (
+            <g class={`src-node src-node--${i}`}>
+              <circle cx={x} cy={y} r="22" fill="url(#srcGlow)" />
+              <circle cx={x} cy={y} r="8" fill="var(--color-accent)" />
+              <circle cx={x} cy={y} r="4" fill="var(--color-bg)" />
+              <text x={x} y={y + 38} text-anchor="middle"
+                fill="var(--color-ink-mute)"
+                style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase;">
+                {label}
+              </text>
+            </g>
+          ))}
+        </svg>
+
+        <!-- Étape 02 — Flow matching SIREN + patterns -->
+        <svg class="hiw-visual" data-step-visual viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+          <!-- Source dot -->
+          <circle cx="40" cy="160" r="8" fill="var(--color-accent)" />
+          <text x="40" y="190" text-anchor="middle" fill="var(--color-ink-mute)"
+            style="font-family: var(--font-mono); font-size: 10px;">SIGNAL</text>
+
+          <!-- Lines to patterns -->
+          {[80, 140, 180, 220].map((y) => (
+            <path d={`M 56 160 Q 100 ${y} 144 ${y}`}
+              stroke="var(--color-line-strong)" stroke-width="1.5" fill="none" />
+          ))}
+
+          <!-- Pattern boxes (13 patterns marqués) -->
+          {[
+            [80, "Series A"],
+            [140, "Hire Sales"],
+            [180, "M&A"],
+            [220, "INPI Class 9"],
+          ].map(([y, label]) => (
+            <g>
+              <rect x="148" y={y - 12} width="80" height="24" rx="2"
+                fill="none" stroke="var(--color-line-strong)" stroke-width="1" />
+              <text x="188" y={y + 4} text-anchor="middle" fill="var(--color-ink)"
+                style="font-family: var(--font-mono); font-size: 10px;">{label}</text>
+            </g>
+          ))}
+
+          <!-- SIREN box (output) -->
+          <line x1="232" y1="160" x2="262" y2="160" stroke="var(--color-accent)" stroke-width="1.5" />
+          <rect x="262" y="140" width="50" height="40" rx="2"
+            fill="var(--color-accent-soft)" stroke="var(--color-accent)" stroke-width="1.5" />
+          <text x="287" y="156" text-anchor="middle" fill="var(--color-accent)"
+            style="font-family: var(--font-mono); font-size: 9px;">SIREN</text>
+          <text x="287" y="170" text-anchor="middle" fill="var(--color-accent)"
+            style="font-family: var(--font-mono); font-size: 11px; font-weight: 600;">421</text>
+        </svg>
+
+        <!-- Étape 03 — Pépite avec brief -->
+        <svg class="hiw-visual" data-step-visual viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+          <!-- Pépite card -->
+          <rect x="40" y="40" width="240" height="240" rx="4"
+            fill="var(--color-bg-elevated)" stroke="var(--color-accent)" stroke-width="2" />
+
+          <!-- Header pépite -->
+          <text x="56" y="68" fill="var(--color-accent)"
+            style="font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;">PÉPITE · HOT</text>
+          <text x="264" y="68" text-anchor="end" fill="var(--color-signal-hot)"
+            style="font-family: var(--font-mono); font-size: 14px; font-weight: 600;">9.2</text>
+
+          <line x1="56" y1="80" x2="264" y2="80" stroke="var(--color-line)" stroke-width="1" />
+
+          <!-- Société -->
+          <text x="56" y="108" fill="var(--color-ink)"
+            style="font-family: var(--font-display); font-size: 18px;">Société #421</text>
+          <text x="56" y="128" fill="var(--color-ink-mute)"
+            style="font-family: var(--font-mono); font-size: 11px;">Levée Series B · 18M€ · Tech B2B</text>
+
+          <!-- Brief lines -->
+          {[160, 180, 200, 220].map((y, i) => (
+            <line x1="56" y1={y} x2={i === 3 ? 200 : 264} y2={y}
+              stroke="var(--color-line-strong)" stroke-width="1" />
+          ))}
+
+          <!-- CTA -->
+          <rect x="56" y="240" width="120" height="28" rx="2" fill="var(--color-ink)" />
+          <text x="116" y="258" text-anchor="middle" fill="var(--color-bg)"
+            style="font-family: var(--font-sans); font-size: 11px; font-weight: 500;">→ Email opener</text>
+        </svg>
+      </div>
+
+      <!-- Text side (3 etapes overlayed) -->
+      <div class="hiw-text-stack">
+        {etapes.map((etape) => (
+          <article class="etape" data-step-text>
+            <div class="etape-number">Étape {etape.number}</div>
+            <h3 class="etape-title">{etape.title}</h3>
+            <p class="etape-sub">{etape.sub}</p>
+            <p class="etape-body">{etape.body}</p>
+          </article>
+        ))}
+      </div>
+
+    </div>
+
+  </div>
 </section>
 
 <style>
   .how-it-works {
     padding-block: var(--sp-3xl);
+    position: relative;
+  }
+
+  .hiw-pin-inner {
+    /* Sur desktop, GSAP pin = sticky-like */
   }
 
   .hiw-header {
     max-width: 760px;
-    margin-bottom: var(--sp-2xl);
+    margin: 0 auto var(--sp-2xl);
+    text-align: center;
   }
 
   .hiw-eyebrow {
@@ -73,7 +194,7 @@ const etapes = [
     line-height: var(--lh-display);
     letter-spacing: var(--tr-display);
     color: var(--color-ink);
-    margin-bottom: var(--sp-base);
+    margin-bottom: var(--sp-lg);
     text-wrap: balance;
   }
   .hiw-h2 em {
@@ -81,65 +202,125 @@ const etapes = [
     color: var(--color-accent);
   }
 
-  .hiw-sub {
-    font-family: var(--font-sans);
-    font-size: var(--txt-md);
-    line-height: var(--lh-body);
-    color: var(--color-ink-mute);
-    letter-spacing: var(--tr-body);
-  }
-
-  .etapes {
+  /* Stepper */
+  .hiw-stepper {
     list-style: none;
     margin: 0;
     padding: 0;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--sp-lg);
-    border-top: 1px solid var(--color-line);
-    padding-top: var(--sp-xl);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-base);
+    font-family: var(--font-mono);
+    font-size: var(--txt-sm);
+    letter-spacing: var(--tr-eyebrow);
   }
 
-  .etape {
+  .step-indicator {
+    color: var(--color-ink-mute);
+    transition: color var(--t-base) var(--ease-smooth);
+    font-variant-numeric: tabular-nums;
+  }
+  .step-indicator--active {
+    color: var(--color-accent);
+  }
+
+  .step-divider {
+    width: 32px;
+    height: 1px;
+    background: var(--color-line-strong);
+  }
+
+  /* Pin grid : visual gauche + text droite */
+  .hiw-pin-grid {
     display: grid;
-    grid-template-rows: auto 1fr;
-    gap: var(--sp-base);
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-3xl);
+    align-items: center;
+    min-height: 60vh;
+  }
+
+  .hiw-visual-stack,
+  .hiw-text-stack {
+    position: relative;
+  }
+
+  .hiw-visual {
+    width: 100%;
+    max-width: 380px;
+    height: auto;
+    aspect-ratio: 1;
+    display: block;
+  }
+
+  /* Overlay : tous les visuals/texts au même endroit, JS gère opacity */
+  .hiw-visual-stack .hiw-visual,
+  .hiw-text-stack .etape {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  .hiw-visual-stack .hiw-visual:first-child,
+  .hiw-text-stack .etape:first-child {
+    position: relative;
+  }
+
+  /* Etape text */
+  .etape {
+    max-width: 480px;
   }
 
   .etape-number {
     font-family: var(--font-mono);
-    font-size: var(--txt-sm);
+    font-size: var(--txt-xs);
     color: var(--color-accent);
     font-weight: 500;
     letter-spacing: var(--tr-eyebrow);
+    text-transform: uppercase;
+    margin-bottom: var(--sp-base);
   }
 
   .etape-title {
     font-family: var(--font-display);
-    font-size: var(--txt-xl);
+    font-size: var(--txt-3xl);
     font-weight: 400;
-    letter-spacing: var(--tr-tight);
+    letter-spacing: var(--tr-display);
     color: var(--color-ink);
-    margin: 0;
+    line-height: var(--lh-display);
+    margin: 0 0 var(--sp-base) 0;
   }
 
   .etape-sub {
     font-family: var(--font-sans);
-    font-size: var(--txt-base);
+    font-size: var(--txt-md);
     font-weight: 500;
     color: var(--color-ink);
     margin-block: var(--sp-sm) var(--sp-base);
   }
 
-  .etape-text {
+  .etape-body {
     font-family: var(--font-sans);
-    font-size: var(--txt-sm);
+    font-size: var(--txt-base);
     line-height: var(--lh-body);
     color: var(--color-ink-mute);
     letter-spacing: var(--tr-body);
   }
 
-  @media (max-width: 900px) {
-    .etapes { grid-template-columns: 1fr; gap: var(--sp-xl); }
+  /* Mobile : fallback non-pinned, stack vertical (le pin scrub fonctionne mal sur mobile) */
+  @media (max-width: 899px) {
+    .hiw-pin-grid {
+      grid-template-columns: 1fr;
+      gap: var(--sp-2xl);
+      min-height: auto;
+    }
+    .hiw-visual-stack .hiw-visual,
+    .hiw-text-stack .etape {
+      position: relative;
+      opacity: 1 !important;
+      margin-bottom: var(--sp-2xl);
+    }
+    .step-indicator {
+      color: var(--color-accent);
+    }
   }
 </style>

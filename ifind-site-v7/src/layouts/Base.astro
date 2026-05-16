@@ -71,5 +71,10 @@ const canonicalUrl = new URL(Astro.url.pathname, "https://ifind.fr").toString();
   </main>
 
   <slot name="footer" />
+
+  <!-- Animations centrales : Lenis + GSAP ScrollTrigger + split-text + pinned + live counter -->
+  <script>
+    import '../scripts/animations';
+  </script>
 </body>
 </html>

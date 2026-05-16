@@ -126,6 +126,38 @@ p {
   transition: box-shadow var(--t-fast) var(--ease-snap);
 }
 
+/* === Split-text reveal animation (Phase 8 J10) =================
+ * Targets : éléments avec [data-split]. Le JS wrap chaque mot dans
+ * un .split-word avec --word-i. Animation au passage in-view.
+ */
+[data-split] {
+  /* Ensure target inherits its own font/color */
+}
+
+[data-split] .split-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.4em);
+  transition: opacity 700ms var(--ease-snap),
+              transform 700ms var(--ease-snap);
+  transition-delay: calc(var(--word-i, 0) * 40ms);
+  will-change: transform, opacity;
+}
+
+[data-split].in-view .split-word {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Reduced motion : show immediately */
+@media (prefers-reduced-motion: reduce) {
+  [data-split] .split-word {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* === Skip link ================================================= */
 .skip-link {
   position: fixed;
