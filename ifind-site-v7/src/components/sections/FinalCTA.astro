@@ -22,8 +22,35 @@ import Button from '../ui/Button.astro';
 
 <style>
   .final-cta {
-    padding-block: var(--sp-3xl) var(--sp-2xl);
+    position: relative;
+    padding-block: var(--sp-4xl) var(--sp-3xl);
     text-align: center;
+    isolation: isolate;
+  }
+
+  .final-cta::before {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    background:
+      radial-gradient(50vw 40vw at 50% 30%, #FFE5C7 0%, transparent 55%),
+      radial-gradient(40vw 35vw at 20% 80%, #FFD9A8 0%, transparent 55%),
+      radial-gradient(45vw 40vw at 80% 70%, #FFEDD5 0%, transparent 55%),
+      radial-gradient(30vw 25vw at 60% 50%, rgba(194, 65, 12, 0.12) 0%, transparent 60%);
+    filter: blur(70px);
+    animation: ctaMeshDrift 20s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  @keyframes ctaMeshDrift {
+    0%   { transform: translate(0, 0) scale(1); }
+    50%  { transform: translate(2%, -3%) scale(1.05); }
+    100% { transform: translate(-3%, 2%) scale(0.98); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .final-cta::before { animation: none; }
   }
 
   .cta-eyebrow {
@@ -39,13 +66,13 @@ import Button from '../ui/Button.astro';
 
   .cta-h2 {
     font-family: var(--font-display);
-    font-size: var(--txt-3xl);
+    font-size: clamp(48px, 6.5vw, 88px);
     font-weight: 400;
-    line-height: var(--lh-display);
+    line-height: 1.05;
     letter-spacing: var(--tr-display);
     color: var(--color-ink);
-    margin-bottom: var(--sp-base);
-    max-width: 760px;
+    margin-bottom: var(--sp-lg);
+    max-width: 880px;
     margin-inline: auto;
     text-wrap: balance;
   }

@@ -125,24 +125,27 @@ const testimonials = [
 
   .metric {
     background: var(--color-bg-elevated);
-    padding: var(--sp-lg) var(--sp-base);
+    padding: var(--sp-xl) var(--sp-lg);
+    text-align: center;
   }
 
   .metric-value {
-    font-family: var(--font-mono);
-    font-size: var(--txt-2xl);
-    font-weight: 500;
-    letter-spacing: -0.02em;
+    font-family: var(--font-display);
+    font-size: clamp(56px, 7vw, 96px);
+    font-weight: 400;
+    letter-spacing: -0.04em;
+    line-height: 1;
     color: var(--color-ink);
-    margin-bottom: var(--sp-xs);
+    margin-bottom: var(--sp-sm);
     font-variant-numeric: tabular-nums;
   }
 
   .metric-label {
     font-family: var(--font-sans);
-    font-size: var(--txt-sm);
+    font-size: var(--txt-base);
     color: var(--color-ink-mute);
     margin: 0;
+    line-height: 1.4;
   }
 
   .testimonials {
