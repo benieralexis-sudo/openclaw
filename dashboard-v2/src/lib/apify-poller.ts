@@ -20,7 +20,8 @@ import { runAndGetItems } from "@/lib/apify";
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
 import { getRotatedKeywords } from "@/lib/keyword-rotation";
 import { buildTitleFilterForClient } from "@/lib/icp-title-filter";
-import { isSignalEnabled } from "@/lib/signal-config";
+import { isSignalEnabled, getSignalConfig } from "@/lib/signal-config";
+import { detectAiKeywords } from "@/lib/ai-tool-detector";
 
 // Sprint 8 (10/05/2026) — Apify pricing approx : 1 CU ≈ $0.40 sur plan Starter.
 // Conservateur (CU réel facturé varie selon RAM allouée). Pour un calcul précis
@@ -574,6 +575,19 @@ async function runActorAndPushTriggers(args: {
           data: jobToTrigger(job, args.clientId, args.sourceCode),
         });
         start.triggersCreated += 1;
+
+        // P4 catalogue (16/05/2026) — Scan AI tool adoption dans la job desc.
+        // Coût marginal 0 : pure regex sur le texte déjà fetched. Crée un
+        // Trigger supplémentaire sourceCode "apify.ai-adoption" pour P4 si
+        // détection. Dedup 90j par companyName (siret pas toujours connu
+        // au stade Apify, on dédup sur le nom).
+        try {
+          await maybeCreateAiAdoptionTrigger(args.clientId, job, args.sourceCode);
+        } catch (e) {
+          console.warn(
+            `[apify-poller.ai-adoption] ${job.companyName} failed: ${e instanceof Error ? e.message : e}`,
+          );
+        }
       } catch (e) {
         start.skipped += 1;
         console.warn(`[apify-poller] trigger create failed: ${e}`);
@@ -584,6 +598,77 @@ async function runActorAndPushTriggers(args: {
   }
 
   return start;
+}
+
+/**
+ * P4 catalogue — Si P4 activé pour ce client et qu'on détecte des keywords
+ * AI dans le job description, crée un Trigger sourceCode "apify.ai-adoption".
+ *
+ * Custom keywords client : lus depuis ClientSignalConfig.parameters.aiKeywords
+ * (paramétrable via wizard onboarding). Defaults built-in si absents.
+ *
+ * Dedup : 1 trigger ai-adoption par companyName / 90j (évite spam quand une
+ * boite poste plusieurs offres AI consécutives).
+ */
+async function maybeCreateAiAdoptionTrigger(
+  clientId: string,
+  job: NormalizedJob,
+  originSourceCode: string,
+): Promise<void> {
+  if (!(await isSignalEnabled(clientId, "P4"))) return;
+
+  // Custom keywords du client (param du catalogue)
+  const cfg = await getSignalConfig(clientId, "P4");
+  const customKeywords = Array.isArray(
+    (cfg.parameters as { aiKeywords?: unknown }).aiKeywords,
+  )
+    ? ((cfg.parameters as { aiKeywords: string[] }).aiKeywords)
+    : undefined;
+
+  const text = `${job.jobTitle} ${job.description ?? ""}`;
+  const detection = detectAiKeywords(text, customKeywords);
+  if (!detection.matched) return;
+
+  // Dedup 90j par companyName + sourceCode
+  const existing = await db.trigger.findFirst({
+    where: {
+      clientId,
+      sourceCode: "apify.ai-adoption",
+      companyName: job.companyName,
+      capturedAt: { gte: new Date(Date.now() - 90 * 86_400_000) },
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  // Score 7 base + 1 si totalWeight >= 10, +1 si >= 20 (cap 9)
+  let score = 7;
+  if (detection.totalWeight >= 10) score += 1;
+  if (detection.totalWeight >= 20) score += 1;
+
+  const labelsStr = detection.labels.slice(0, 5).join(", ");
+  await db.trigger.create({
+    data: {
+      clientId,
+      sourceCode: "apify.ai-adoption",
+      sourceUrl: job.sourceUrl ?? job.url ?? null,
+      capturedAt: new Date(),
+      publishedAt: job.postedAt ? new Date(job.postedAt) : null,
+      companyName: job.companyName,
+      region: job.location ?? null,
+      type: TriggerType.OTHER,
+      title: `AI tool adoption détectée chez ${job.companyName} — ${labelsStr}`,
+      detail: `Job "${job.jobTitle}" mentionne ${detection.labels.length} keyword(s) AI : ${detection.labels.join(", ")}. Signal d'achat P4 catalogue (+46% conversion). Source origine : ${originSourceCode}.`,
+      rawPayload: detection as unknown as Prisma.InputJsonValue,
+      score,
+      scoreReason: `P4 AI tool adoption — ${detection.labels.length} keywords (weight=${detection.totalWeight}) : ${labelsStr}`,
+      status: TriggerStatus.NEW,
+    },
+  });
+  console.log(
+    `[apify-poller.ai-adoption] CREATED ${job.companyName} — ${labelsStr} (weight=${detection.totalWeight})`,
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────────
