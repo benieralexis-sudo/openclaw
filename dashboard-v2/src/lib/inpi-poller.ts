@@ -145,8 +145,14 @@ async function searchMarques(
       // search` retourne HTTP 500 systématique côté SERVEUR INPI (avec auth XSRF
       // correcte ET avec body {} minimal). C'est une panne côté INPI, pas
       // notre code. Notre auth XSRF est conforme à la doc.
-      // Action long-terme : migrer vers le bulk FTP/SFTP INPI (MAJ hebdo
-      // vendredi) si la gateway reste HS. Voir agent investigation 13/05.
+      //
+      // 16/05/2026 maj : panne confirmée toujours active 4 jours plus tard
+      // (test direct curl 22h30 UTC : login=200, search=500). data.gouv.fr
+      // snapshot trop vieux (oct 2024), API publique 403 CloudFlare. Le signal
+      // B5 du catalogue reste à `implemented=false`. Soit attendre que l'API
+      // revienne, soit migrer vers bulk FTP/SFTP INPI (MAJ hebdo vendredi)
+      // pour rendre B5 résilient — ROI faible (+12% prédictif) vs B2/P5
+      // donc reporté.
       console.warn(
         `[inpi-poller] search HTTP ${res.status} | body: ${bodyPreview}`,
       );

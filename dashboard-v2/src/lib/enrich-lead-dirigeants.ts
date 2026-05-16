@@ -1,10 +1,13 @@
 import "server-only";
+import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getEntreprise, findHumanDirigeantRecursive } from "@/lib/pappers";
 import { markLeadEnrichedFromPappers } from "@/lib/lead-enrichment-tagging";
 import { splitFullName } from "@/lib/split-full-name";
 import { looksAdministrativeFirstName } from "@/lib/verify-persona-coherence";
 import { clearStaleBriefsOnPersonaChange } from "@/lib/clear-stale-briefs";
+import { detectRecentLeadership } from "@/lib/leadership-change-detector";
+import { isSignalEnabled } from "@/lib/signal-config";
 
 /**
  * Enrichissement Pappers dirigeants : pour chaque Trigger ICP qualifié sans Lead
@@ -59,6 +62,74 @@ function genCuid(): string {
   const ts = Date.now().toString(36);
   const rand = Math.random().toString(36).slice(2, 14);
   return `c${ts}${rand}`.slice(0, 25).padEnd(25, "0");
+}
+
+/**
+ * B2 catalogue — Crée un Trigger LEADERSHIP_CHANGE pour un dirigeant
+ * récemment nommé. Dedup : skip si un Trigger pappers.leadership-change
+ * existe déjà pour le même siret + label persona dans les 180j (évite de
+ * recréer le trigger à chaque cron tant que la date_prise_de_poste reste
+ * dans la fenêtre 90j).
+ *
+ * Retourne true si trigger créé, false si dedup.
+ */
+async function createLeadershipChangeTriggerIfNew(
+  clientId: string,
+  companySiret: string,
+  companyName: string,
+  leader: {
+    nom_complet: string;
+    qualite: string;
+    daysAgo: number;
+    weight: number;
+    label: string;
+    date_prise_de_poste: string;
+  },
+  companyNaf: string | null,
+): Promise<boolean> {
+  const sourceUrl = `pappers:leadership:${companySiret}:${leader.label.replace(/[^\w-]/g, "_")}:${leader.date_prise_de_poste}`;
+
+  const existing = await db.trigger.findFirst({
+    where: {
+      clientId,
+      sourceCode: "pappers.leadership-change",
+      companySiret,
+      capturedAt: { gte: new Date(Date.now() - 180 * 86_400_000) },
+      deletedAt: null,
+    },
+    select: { id: true, sourceUrl: true },
+  });
+  if (existing) {
+    // Si c'est le même dirigeant (sourceUrl identique), pas de doublon.
+    // Si c'est un autre leader, on saute aussi (1 leadership-change /
+    // société / 180j suffit comme signal — éviter de cumuler 3 nominations
+    // simultanées et polluer).
+    return false;
+  }
+
+  await db.trigger.create({
+    data: {
+      clientId,
+      sourceCode: "pappers.leadership-change",
+      sourceUrl,
+      capturedAt: new Date(),
+      publishedAt: new Date(leader.date_prise_de_poste),
+      companyName,
+      companySiret,
+      companyNaf,
+      type: TriggerType.LEADERSHIP_CHANGE,
+      title: `Nouveau ${leader.label} chez ${companyName}`,
+      detail: `${leader.nom_complet} (${leader.qualite}) a pris ses fonctions il y a ${leader.daysAgo} jours (${leader.date_prise_de_poste}). Signal d'achat B2 catalogue : nouveau dirigeant veut faire ses preuves en 100j.`,
+      rawPayload: { ...leader, source: "pappers.representants" } as unknown as Prisma.InputJsonValue,
+      score: leader.weight, // 6-10 selon priorité
+      scoreReason: `Pappers leadership-change — ${leader.label} pris poste il y a ${leader.daysAgo}j`,
+      status: TriggerStatus.NEW,
+    },
+  });
+  console.log(
+    `[enrich-dirigeants.leadership-change] CREATED ${companyName} — ${leader.label} (${leader.nom_complet}, ${leader.daysAgo}j)`,
+  );
+  return true;
 }
 
 /**
@@ -224,6 +295,31 @@ export async function enrichDirigeantsForClient(
       }
 
       const reps = data.representants ?? [];
+
+      // ─── B2 catalogue (16/05/2026) — Détection leadership-change <90j ───
+      // Pure logique sur reps déjà fetched (coût marginal 0 vs un nouvel
+      // appel Pappers). Crée des Triggers LEADERSHIP_CHANGE en parallèle
+      // du flow normal (booster catalogue, combine avec autre signal pour
+      // conviction renforcée). Source : pappers.leadership-change.
+      try {
+        if (await isSignalEnabled(clientId, "B2")) {
+          const recentLeaders = detectRecentLeadership(reps, { windowDays: 90 });
+          for (const leader of recentLeaders) {
+            await createLeadershipChangeTriggerIfNew(
+              clientId,
+              t.companySiret,
+              t.companyName,
+              leader,
+              data.code_naf ?? null,
+            );
+          }
+        }
+      } catch (e) {
+        console.warn(
+          `[enrich-dirigeants.leadership-change] ${t.companySiret} failed: ${e instanceof Error ? e.message : e}`,
+        );
+      }
+
       if (reps.length === 0) {
         stats.skipped += 1;
         await db.trigger.update({
