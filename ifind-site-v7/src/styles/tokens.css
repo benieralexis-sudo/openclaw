@@ -1,0 +1,185 @@
+/* ============================================================
+ * iFIND v7 — DESIGN TOKENS
+ * Locked J3 16/05/2026 (Direction C · Hybride A+B validée).
+ * Direction lockée sur mockup direction-c-hybrid.html.
+ * Vibe : Éditorial · Vérifiable · Vivant.
+ *
+ * Source unique pour : couleurs / spacing / typo / motion / shadows.
+ * Réfs : mercury.com (socle) × clay.com (hero data) × anthropic.com (austerity).
+ * ============================================================ */
+
+:root {
+  /* === COLORS — palette Éditorial Vérifiable Vivant ======== */
+
+  /* Ink (cool deep · H ~ 240°) */
+  --color-ink:         #1A1A2E;   /* hsl(240 28% 14%) — text primary, nav, btn */
+  --color-ink-soft:    #2A2A40;   /* hsl(240 22% 21%) — body emphasis subdued */
+  --color-ink-mute:    #6B6B7B;   /* hsl(240 7% 45%) — labels, captions */
+  --color-ink-faint:   #94949E;   /* hsl(240 6% 60%) — placeholders */
+
+  /* Ivoire warm (H ~ 46-60°) */
+  --color-bg:          #FAFAF7;   /* hsl(60 14% 98%) — page bg dominant */
+  --color-bg-elevated: #FFFFFF;   /* hsl(0 0% 100%) — cards, data panels */
+  --color-bg-soft:     #F5F2EA;   /* hsl(46 25% 94%) — hover, subtle elevation */
+
+  /* Borders (warm beige) */
+  --color-line:        #E8E5DC;   /* hsl(46 18% 89%) — separations */
+  --color-line-strong: #D4D0C4;   /* hsl(43 14% 80%) — outlines forts */
+
+  /* Accent (orange brûlé chaud · H ~ 20°) */
+  --color-accent:      #C2410C;   /* hsl(20 89% 41%) — italic emphasis, CTAs */
+  --color-accent-hover:#9A340A;   /* hsl(20 89% 32%) — hover state */
+  --color-accent-soft: #FFEDD5;   /* hsl(33 100% 92%) — chips, hot trigger bg */
+
+  /* Signaux (data overlay states) */
+  --color-signal-hot:  #B91C1C;   /* hsl(0 76% 42%) — trigger HOT score */
+  --color-signal-warm: var(--color-accent);
+  --color-signal-cold: var(--color-ink-mute);
+  --color-signal-ok:   #00875A;   /* hsl(157 100% 26%) — succès, validé */
+
+  /* Pulse — utilisé sur LIVE indicators (data panel hero) */
+  --pulse-accent: 0 0 0 0 rgba(194, 65, 12, 0.4);
+  --pulse-hot:    0 0 0 0 rgba(185, 28, 28, 0.4);
+
+  /* Selection */
+  --selection-bg: var(--color-accent-soft);
+  --selection-fg: var(--color-ink);
+
+  /* === SPACING — 8-pt scale Classroom 06 L3 ================ */
+
+  --sp-2xs:  4px;
+  --sp-xs:   8px;
+  --sp-sm:   12px;
+  --sp-md:   16px;
+  --sp-base: 24px;
+  --sp-lg:   32px;
+  --sp-xl:   48px;
+  --sp-2xl:  64px;
+  --sp-3xl:  96px;
+  --sp-4xl:  128px;
+  --sp-5xl:  160px;
+
+  /* Section vertical rhythm */
+  --sp-section-desktop: var(--sp-3xl);   /* 96px top/bottom */
+  --sp-section-mobile:  var(--sp-xl);    /* 48px top/bottom */
+
+  /* === RADIUS — JAMAIS 4px (dated · Classroom 06 L5) ======= */
+
+  --r-sm:   4px;    /* uniquement composants UI ultra-petits */
+  --r-md:   8px;
+  --r-base: 12px;
+  --r-lg:   16px;
+  --r-xl:   24px;
+  --r-pill: 9999px;
+
+  /* === TYPOGRAPHY — Source Serif + Inter + JetBrains Mono == */
+
+  /* Font stacks (Google Fonts dev, self-host .woff2 prod) */
+  --font-display: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+  --font-sans:    'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'Menlo', monospace;
+
+  /* Tracking */
+  --tr-display: -0.025em;   /* Source Serif tighten display */
+  --tr-tight:   -0.02em;
+  --tr-snug:    -0.01em;
+  --tr-normal:  0;
+  --tr-body:    -0.005em;   /* Inter subtle tighten body */
+  --tr-mono:    -0.01em;
+  --tr-eyebrow:  0.14em;    /* uppercase eyebrows */
+
+  /* Fluid type scale clamp() — 1.333 ratio perfect fourth */
+  --txt-xs:    clamp(11px, 0.5vw + 0.6rem, 12px);
+  --txt-sm:    clamp(13px, 0.4vw + 0.7rem, 14px);
+  --txt-base:  clamp(15px, 0.4vw + 0.85rem, 18px);
+  --txt-md:    clamp(17px, 0.5vw + 0.9rem, 20px);
+  --txt-lg:    clamp(20px, 0.8vw + 1rem, 24px);
+  --txt-xl:    clamp(26px, 1.5vw + 1rem, 36px);
+  --txt-2xl:   clamp(32px, 2.5vw + 1rem, 48px);
+  --txt-3xl:   clamp(40px, 4vw + 1rem, 64px);
+  --txt-4xl:   clamp(48px, 5vw + 1rem, 76px);   /* H1 / hero */
+  --txt-5xl:   clamp(56px, 6.5vw + 1rem, 96px); /* display rare hero massif */
+
+  /* Line-heights */
+  --lh-display: 1.04;
+  --lh-tight:   1.05;
+  --lh-snug:    1.18;
+  --lh-base:    1.45;
+  --lh-body:    1.6;
+  --lh-loose:   1.75;
+
+  /* === MOTION — Classroom 03 L0 + Classroom 06 L4 ========== */
+
+  /* Easings (3 max) */
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);    /* out-quint cinematic */
+  --ease-snap:   cubic-bezier(0.32, 0.72, 0, 1);   /* Linear/Vercel/Apple */
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1); /* sparingly */
+
+  /* Durations (4 buckets) */
+  --t-fast:        140ms;   /* hover, micro-interactions */
+  --t-base:        240ms;   /* UI transitions */
+  --t-slow:        420ms;   /* drawers, modals */
+  --t-deliberate:  680ms;   /* hero choreography, section reveals */
+
+  /* === SHADOWS — multi-layer subtle premium ================ */
+  /* HSL-based with proper alpha (Classroom 06 L5 — never #00000033) */
+
+  --sh-sm:  0 1px 2px hsl(240 28% 14% / 0.04),
+            0 1px 0 hsl(240 28% 14% / 0.03);
+
+  --sh-md:  0 2px 4px -1px hsl(240 28% 14% / 0.04),
+            0 4px 8px -2px hsl(240 28% 14% / 0.06);
+
+  --sh-lg:  0 4px 8px -2px hsl(240 28% 14% / 0.05),
+            0 12px 24px -6px hsl(240 28% 14% / 0.10);
+
+  --sh-xl:  0 8px 16px -4px hsl(240 28% 14% / 0.06),
+            0 24px 48px -12px hsl(240 28% 14% / 0.16);
+
+  /* === Z-INDEX scale ======================================= */
+
+  --z-base:    1;
+  --z-sticky:  100;
+  --z-grain:   9000;
+  --z-nav:     9100;
+  --z-cursor:  9500;
+  --z-modal:   9700;
+  --z-toast:   9900;
+  --z-loader:  9999;
+
+  /* === LAYOUT ============================================== */
+
+  --container-max:    1280px;
+  --container-narrow: 1100px;   /* éditorial reading width (manifeste, prose) */
+  --container-pad:    clamp(24px, 4vw, 64px);
+  --grid-cols:        12;
+  --grid-gap:         var(--sp-base);
+}
+
+/* ────────────────────────────────────────────────────────────
+ * Reduced motion (NON-NÉGOCIABLE · Classroom 03 L6)
+ * ──────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0ms;
+    --t-base: 0ms;
+    --t-slow: 0ms;
+    --t-deliberate: 0ms;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+ * Selection (Classroom 06 L5 polish 20-points)
+ * ──────────────────────────────────────────────────────────── */
+
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}

@@ -1,0 +1,188 @@
+---
+import Eyebrow from '../ui/Eyebrow.astro';
+import Button from '../ui/Button.astro';
+import Sismograph from '../effects/Sismograph.astro';
+---
+
+<section class="hero">
+  <!-- NAV -->
+  <nav class="hero-nav" aria-label="Navigation principale">
+    <div class="container nav-inner">
+      <a href="/" class="logo" aria-label="iFIND home">iFIND</a>
+
+      <ul class="nav-links" role="list">
+        <li><a href="#produit">Produit</a></li>
+        <li><a href="#methode">Méthode</a></li>
+        <li><a href="#detection">Détection</a></li>
+        <li><a href="#tarifs">Tarifs</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+
+      <div class="nav-cta">
+        <span class="nav-status">
+          <span class="ns-dot"></span>
+          <span class="num"><span data-trigger-count>412</span> triggers · 30 j</span>
+        </span>
+        <Button href="#tarifs" variant="primary" size="sm" magnetic={true}>
+          Essayer 14 jours
+        </Button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO BODY -->
+  <div class="hero-body container">
+    <Eyebrow
+      label="9/9 SOURCES ACTIVES · 412 TRIGGERS · 30 J"
+      withDot={true}
+      dotColor="signal"
+    />
+
+    <h1 class="hero-h1 reveal-h1">
+      <span class="line">Vos futurs clients</span>
+      <span class="line">vous cherchent <em>déjà</em>.</span>
+    </h1>
+
+    <p class="hero-sub">
+      Pendant que vous épluchez LinkedIn, <strong>iFIND</strong> capte en temps réel
+      les signaux d'achat des PME tech FR — levées, recrutements C-level,
+      dépôts INPI, M&amp;A. <strong>9 sources souveraines, 0 intent data américain.</strong>
+    </p>
+
+    <div class="hero-ctas">
+      <Button variant="primary" size="lg" magnetic={true} arrow={true}>
+        Voir un trigger en direct
+      </Button>
+      <Button variant="ghost" size="lg">
+        Essayer 14 jours
+      </Button>
+    </div>
+  </div>
+
+  <!-- SISMOGRAPHE FULL-WIDTH BOTTOM -->
+  <Sismograph />
+</section>
+
+<style>
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-cream);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* NAV ============================================================ */
+  .hero-nav {
+    width: 100%;
+    padding: var(--sp-lg) 0;
+    border-bottom: 1px solid transparent;
+  }
+  .nav-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--sp-xl);
+  }
+  .logo {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-size: 22px;
+    letter-spacing: -0.04em;
+    color: var(--color-ink);
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xl);
+    list-style: none;
+  }
+  .nav-links a {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-slate-warm);
+    transition: color var(--t-fast) var(--ease-quint);
+  }
+  .nav-links a:hover { color: var(--color-ink); }
+
+  .nav-cta {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-base);
+  }
+  .nav-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-slate-warm);
+    letter-spacing: var(--tr-eyebrow);
+    text-transform: uppercase;
+  }
+  .ns-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--color-signal-ok);
+    animation: navDotPulse 2s var(--ease-quint) infinite;
+  }
+  @keyframes navDotPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  @media (max-width: 880px) {
+    .nav-links, .nav-status { display: none; }
+  }
+
+  /* HERO BODY ====================================================== */
+  .hero-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: var(--sp-4xl);
+    padding-bottom: var(--sp-4xl);
+    gap: var(--sp-xl);
+  }
+
+  .hero-h1 {
+    font-size: clamp(48px, 8vw, 128px);
+    font-weight: 300;
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+    color: var(--color-ink);
+    margin: var(--sp-base) 0 var(--sp-lg);
+    text-wrap: balance;
+  }
+  .hero-h1 .line {
+    display: block;
+    overflow: hidden;
+  }
+  .hero-h1 em {
+    font-style: italic;
+    font-weight: 300;
+    color: var(--color-amber);
+  }
+
+  .hero-sub {
+    font-family: var(--font-sans);
+    font-size: clamp(17px, 1.4vw + 0.3rem, 21px);
+    line-height: 1.55;
+    color: var(--color-slate-warm);
+    max-width: 720px;
+    margin-bottom: var(--sp-base);
+  }
+  .hero-sub strong {
+    color: var(--color-ink);
+    font-weight: 500;
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: var(--sp-base);
+    flex-wrap: wrap;
+    margin-top: var(--sp-base);
+  }
+</style>

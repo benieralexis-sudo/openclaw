@@ -111,3 +111,5 @@ scripts/.run-pollers.env
 # Design explorations — backups
 design-explorations/**/*.bak*
 design-explorations/**/*.bak-*
+ifind-site-v7/.astro/
+ifind-site-v7/dist/

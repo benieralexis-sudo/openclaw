@@ -1,0 +1,292 @@
+---
+/**
+ * Sismograph — bande full-width Three.js
+ *
+ * Trace amber subtile + pic dramatique alert-pulse #FF4D2E qui pulse.
+ * GPU-accelerated. Auto-fallback si pas de WebGL. Reduced-motion safe.
+ * Wireframe Figma → maintenant LIVE animé.
+ */
+---
+
+<section class="sismograph-section" aria-label="Sismographe live des triggers détectés">
+  <div class="sismo-head">
+    <div class="sismo-head-left">
+      <span class="sismo-dot"></span>
+      <span class="sismo-label">LIVE · DERNIÈRES 24H · <span data-trigger-count>47</span> TRIGGERS</span>
+    </div>
+    <span class="sismo-version">Sismographe iFIND v2.4</span>
+  </div>
+
+  <div class="sismo-canvas-wrap">
+    <canvas id="sismo-canvas" aria-hidden="true"></canvas>
+    <noscript>
+      <div class="sismo-noscript">
+        <svg viewBox="0 0 1440 200" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 100 L300 100 L320 90 L340 110 L600 100 L680 100 L700 20 L720 100 L900 100 L1100 100 L1120 80 L1140 120 L1300 100 L1440 100"
+            stroke="#E89F2C" stroke-width="2" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+    </noscript>
+  </div>
+
+  <div class="sismo-caption">
+    <div class="sismo-caption-card">
+      <div class="sc-co">Yousign Pro · Lyon</div>
+      <div class="sc-detail">LEVÉE SÉRIE B · 18 M€ · IL Y A 2 MIN</div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .sismograph-section {
+    width: 100%;
+    background: var(--color-cream-warm);
+    border-top: 1px solid var(--color-line);
+    padding: var(--sp-lg) 0 var(--sp-2xl);
+    position: relative;
+  }
+
+  .sismo-head {
+    max-width: var(--container-max);
+    margin-inline: auto;
+    padding-inline: var(--container-pad);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--sp-base);
+  }
+
+  .sismo-head-left {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-sm);
+  }
+
+  .sismo-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-signal-ok);
+    box-shadow: 0 0 0 0 var(--color-signal-ok);
+    animation: sismoPulse 2s var(--ease-quint) infinite;
+  }
+  @keyframes sismoPulse {
+    0%, 80%, 100% { box-shadow: 0 0 0 0 transparent; }
+    20% { box-shadow: 0 0 0 8px transparent; }
+  }
+
+  .sismo-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: var(--tr-eyebrow);
+    color: var(--color-signal-ok);
+  }
+
+  .sismo-version {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-slate-soft);
+    letter-spacing: 0.04em;
+  }
+
+  .sismo-canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: clamp(140px, 18vw, 220px);
+  }
+
+  #sismo-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .sismo-noscript {
+    position: absolute;
+    inset: 0;
+  }
+  .sismo-noscript svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .sismo-caption {
+    position: absolute;
+    bottom: var(--sp-lg);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .sismo-caption-card {
+    background: var(--color-ink);
+    color: var(--color-cream);
+    padding: 12px 18px;
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-lg);
+    text-align: center;
+    transition: transform var(--t-base) var(--ease-spring);
+  }
+  .sc-co {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .sc-detail {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    opacity: 0.75;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sismo-dot { animation: none; }
+  }
+</style>
+
+<script>
+  /* ============================================================
+   * Sismograph Three.js — bars instanced + pic animé alert-pulse
+   * ============================================================ */
+  import * as THREE from 'three';
+
+  (async function () {
+    const canvas = document.getElementById('sismo-canvas') as HTMLCanvasElement | null;
+    if (!canvas) return;
+
+    // Reduced motion : on rend la scène figée (mais visible)
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Probe WebGL
+    const probe = document.createElement('canvas');
+    if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) {
+      canvas.style.display = 'none';
+      return;
+    }
+
+    const wrap = canvas.parentElement!;
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true,
+      premultipliedAlpha: false,
+      powerPreference: 'high-performance',
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setClearColor(0x000000, 0);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+    camera.position.z = 1;
+
+    // === BARRES instanced ===
+    const BAR_COUNT = 90;
+    const PEAK_IDX = Math.floor(BAR_COUNT / 2);
+
+    const barGeo = new THREE.PlaneGeometry(1, 1);
+    const COLOR_AMBER = new THREE.Color(0xE89F2C);
+    const COLOR_PULSE = new THREE.Color(0xFF4D2E);
+
+    const mesh = new THREE.InstancedMesh(barGeo, new THREE.MeshBasicMaterial({ transparent: true }), BAR_COUNT);
+    scene.add(mesh);
+
+    const dummy = new THREE.Object3D();
+    const seed: number[] = new Array(BAR_COUNT).fill(0).map((_, i) => Math.sin(i * 0.31) * 0.4 + Math.cos(i * 0.7) * 0.2);
+
+    function resize() {
+      const r = wrap.getBoundingClientRect();
+      const w = r.width, h = r.height;
+      if (w < 2 || h < 2) return;
+      renderer.setSize(w, h, false);
+      camera.left = -w / 2;
+      camera.right = w / 2;
+      camera.top = h / 2;
+      camera.bottom = -h / 2;
+      camera.updateProjectionMatrix();
+    }
+    resize();
+    new ResizeObserver(resize).observe(wrap);
+
+    // Animate
+    const clock = new THREE.Clock();
+    let pulseIntensity = 0;
+    let pulseTarget = 1;
+
+    function frame() {
+      if (!reducedMotion) requestAnimationFrame(frame);
+
+      const t = clock.getElapsedTime();
+      const w = renderer.domElement.width / renderer.getPixelRatio();
+      const h = renderer.domElement.height / renderer.getPixelRatio();
+      const barW = Math.max(3, (w - 32) / BAR_COUNT * 0.7);
+      const gap = (w - 32) / BAR_COUNT;
+      const startX = -w / 2 + 16 + gap / 2;
+      const baseY = -h / 2 + 4;
+
+      pulseIntensity += (pulseTarget - pulseIntensity) * 0.06;
+      pulseTarget += (1 - pulseTarget) * 0.04;  // décroit doucement vers 1
+
+      // Trigger spontané toutes les ~6s
+      if (Math.floor(t * 100) % 600 === 0 && pulseTarget < 1.5) {
+        pulseTarget = 1.6;
+      }
+
+      for (let i = 0; i < BAR_COUNT; i++) {
+        const dist = Math.abs(i - PEAK_IDX);
+        let height: number, color: THREE.Color, opacity: number;
+
+        if (dist <= 2) {
+          // Pic dramatique au centre (3 barres + voisines)
+          const peakBase = dist === 0 ? 0.85 : (dist === 1 ? 0.62 : 0.38);
+          height = peakBase * h * pulseIntensity;
+          color = COLOR_PULSE;
+          opacity = 1.0;
+        } else if (dist <= 6) {
+          // Halo amber autour du pic
+          const haloFactor = (6 - dist) / 4;
+          height = (0.10 + haloFactor * 0.18 + Math.abs(Math.sin(t * 0.8 + i * 0.4)) * 0.06) * h;
+          color = COLOR_AMBER;
+          opacity = 0.55 * (0.4 + haloFactor * 0.6);
+        } else {
+          // Trace calme : sin wave + bruit (animée par t)
+          const wave = Math.sin(t * 0.6 + i * 0.32) * 0.08
+                     + Math.cos(t * 0.4 + i * 0.7) * 0.04
+                     + seed[i] * 0.06;
+          height = (0.04 + Math.abs(wave)) * h;
+          color = COLOR_AMBER;
+          opacity = i % 3 === 0 ? 0.45 : 0.28;
+        }
+
+        height = Math.max(2, height);
+        dummy.position.set(startX + i * gap, baseY + height / 2, 0);
+        dummy.scale.set(barW, height, 1);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+        mesh.setColorAt(i, color);
+      }
+
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.material.opacity = 1; // base, par-instance via vertex colors
+
+      renderer.render(scene, camera);
+    }
+
+    if (reducedMotion) frame();
+    else requestAnimationFrame(frame);
+
+    // Expose API : déclencher un pulse manuel
+    (window as any).__sismoPulse = (amount = 1.6) => {
+      pulseTarget = Math.max(pulseTarget, amount);
+    };
+
+    // Pulse coupling : nouveau trigger reçu (ex: depuis un feed)
+    document.addEventListener('ifind:trigger', () => {
+      (window as any).__sismoPulse?.(1.7);
+    });
+  })();
+</script>

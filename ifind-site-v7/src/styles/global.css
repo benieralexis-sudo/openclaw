@@ -1,0 +1,149 @@
+/* ============================================================
+ * iFIND v7 — GLOBAL : reset moderne + base typo
+ * Sync direction lockée J3 (Direction C · Hybride A+B).
+ * ============================================================ */
+
+@import url('./tokens.css');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: auto;  /* Lenis prend le contrôle au runtime */
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--txt-base);
+  line-height: var(--lh-body);
+  font-feature-settings: "ss01", "cv11", "calt", "liga", "kern";
+  font-optical-sizing: auto;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img, svg, video, canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+}
+
+/* === HEADINGS — display Source Serif 4 ============================
+ * Editorial premium serif. Normal weight 400. Italic via <em> pour emphasis.
+ */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: var(--lh-display);
+  letter-spacing: var(--tr-display);
+  text-wrap: balance;
+  color: var(--color-ink);
+}
+
+/* Italic emphasis = accent color (signature direction C) */
+h1 em, h2 em, h3 em {
+  font-style: italic;
+  color: var(--color-accent);
+}
+
+h1 { font-size: var(--txt-4xl); }
+h2 { font-size: var(--txt-3xl); letter-spacing: var(--tr-display); }
+h3 { font-size: var(--txt-2xl); letter-spacing: var(--tr-tight); line-height: var(--lh-snug); }
+h4 { font-size: var(--txt-xl);  letter-spacing: var(--tr-tight); font-weight: 500; line-height: var(--lh-snug); }
+h5 { font-size: var(--txt-lg);  letter-spacing: var(--tr-snug); font-weight: 500; }
+h6 { font-size: var(--txt-md);  letter-spacing: var(--tr-snug); font-weight: 600; }
+
+p {
+  text-wrap: pretty;
+  letter-spacing: var(--tr-body);
+}
+
+/* === Utility classes =========================================== */
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--txt-xs);
+  font-weight: 500;
+  letter-spacing: var(--tr-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-ink-mute);
+}
+
+.eyebrow--accent { color: var(--color-accent); }
+
+.mono, code, pre, kbd {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum", "lnum", "zero";
+  letter-spacing: var(--tr-mono);
+}
+
+.num, [data-tabular] {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum", "lnum", "zero";
+}
+
+.container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--container-pad);
+  position: relative;
+}
+
+.container--narrow {
+  max-width: var(--container-narrow);
+}
+
+/* === Focus ring premium — WCAG 2.4.7 ========================== */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-bg),
+              0 0 0 4.5px var(--color-accent);
+  border-radius: var(--r-sm);
+  transition: box-shadow var(--t-fast) var(--ease-snap);
+}
+
+/* === Skip link ================================================= */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  padding: 10px 16px;
+  background: var(--color-ink);
+  color: var(--color-bg);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: var(--tr-eyebrow);
+  text-transform: uppercase;
+  border-radius: var(--r-md);
+  z-index: var(--z-toast);
+  transform: translateY(-200%);
+  transition: transform var(--t-base) var(--ease-snap);
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
