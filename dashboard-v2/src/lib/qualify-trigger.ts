@@ -996,7 +996,7 @@ export async function qualifyPendingTriggers(
 // Mêmes blocs de contexte (LeadDossier réutilisé), seul le SYSTEM diffère
 // (QUALIFY_V2_SPECIFIC) + parsing différent (Zod LeadBriefV2Schema).
 
-const QUALIFY_V2_SPECIFIC = `
+export const QUALIFY_V2_SPECIFIC = `
 
 ## Mission (Judge V2 — brief raisonné)
 Tu reçois un Trigger fraîchement capté + un dossier de contexte riche (CLIENT ICP, PERSONA, COMPANY HEALTH, PRIOR SIGNALS, NEGATIVE SIGNALS, COMPANY WEBSITE, COMPANY NEWS, CLIENT ENRICHED Fred). Tu produis un brief raisonné JSON pour le commercial du client.
@@ -1155,7 +1155,7 @@ Ordre recommandé des clés : verdict, confidence, thesis, triggers, risks, open
 - Réponses TOUJOURS en français.
 - N'invente JAMAIS un fait ou une source non présente dans le dossier reçu.`;
 
-const QUALIFY_V2_USER_SUFFIX = `
+export const QUALIFY_V2_USER_SUFFIX = `
 
 Produis le brief V2 selon le format JSON LeadBriefV2 spécifié dans le SYSTEM (verdict OUI/NON/ENRICH + confidence + thesis + triggers + risks ≥2 + opener + sources avec citations [src:#X], plus enrichmentNeeded si verdict=ENRICH). JSON strict, pas de markdown.`;
 

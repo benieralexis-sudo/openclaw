@@ -164,13 +164,17 @@ model Client {
   pausedAt                 DateTime?
   deletedAt                DateTime?
 
-  users       User[]       @relation("ClientOwner")
-  triggers    Trigger[]
-  leads       Lead[]
-  leadCredits LeadCredit[]
+  users         User[]               @relation("ClientOwner")
+  triggers      Trigger[]
+  leads         Lead[]
+  leadCredits   LeadCredit[]
   // Sprint 6 (10/05/2026) — opportunities, campaigns, replies, notifications
   // retires (tables droppees post-pivot Data-only)
-  rodzSignals RodzSignal[]
+  rodzSignals   RodzSignal[]
+  // Sprint catalogue (16/05/2026) — configuration par signal du catalogue
+  // universel paramétrable. Chaque ligne = un signal activé/désactivé +
+  // paramètres custom du client. Voir SignalCatalog + ClientSignalConfig.
+  signalConfigs ClientSignalConfig[]
 
   @@index([status])
   @@index([deletedAt])
@@ -644,25 +648,109 @@ model RodzSignal {
 // de notification interne pour onboarding manuel sous 24 h.
 
 model Waitlist {
-  id              String   @id @default(cuid())
-  email           String
-  firstName       String?
-  lastName        String?
-  company         String
-  phone           String?
-  volumeEstimate  String?  // "30-60", "60-120", "120-200", "200+"
-  industry        String?  // ESN, SaaS, Conseil, Industrie, Autre
-  message         String?
-  source          String?  // "/signup", "homepage", "tarifs", ...
-  status          String   @default("PENDING") // PENDING / CONTACTED / CONVERTED / REJECTED
-  contactedAt     DateTime?
-  convertedAt     DateTime?
-  ipAddress       String?
-  userAgent       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String    @id @default(cuid())
+  email          String
+  firstName      String?
+  lastName       String?
+  company        String
+  phone          String?
+  volumeEstimate String? // "30-60", "60-120", "120-200", "200+"
+  industry       String? // ESN, SaaS, Conseil, Industrie, Autre
+  message        String?
+  source         String? // "/signup", "homepage", "tarifs", ...
+  status         String    @default("PENDING") // PENDING / CONTACTED / CONVERTED / REJECTED
+  contactedAt    DateTime?
+  convertedAt    DateTime?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([email])
   @@index([status])
   @@index([createdAt])
+}
+
+// =====================================================================
+// SIGNAL CATALOGUE — Sprint catalogue (16/05/2026)
+//
+// Modèle "Catalogue Universel Paramétrable" : 15-20 signaux universels
+// dans un catalogue commun (un seul code), chaque client choisit ses
+// 3 piliers + reçoit les boosters en background, avec paramètres custom.
+//
+// Décision LOCKED 16/05 — voir mémoire strategie-catalogue-signaux-universels-16mai.
+// SUPERSEDE le modèle ad-hoc actuel (provision-ifind / provision-digitestlab
+// quasi-jumeaux + icp.disabledSources éparpillé).
+//
+// 3 catégories :
+//   - PILLAR (P1-P5)     : signal d'achat fort, le client en choisit 3 max
+//   - BOOSTER (B1-B7)    : tournent en background pour tous les clients
+//   - CONTEXTUAL (C1-C4) : enrichissent chaque Pépite (santé, news, profil)
+// =====================================================================
+
+model SignalCatalog {
+  id              String         @id @default(cuid())
+  code            String         @unique // "P1", "P2", "B1", "C1", ...
+  category        SignalCategory
+  name            String // "Hire role X"
+  description     String // explication courte (1-2 phrases)
+  // Sources techniques qui peuvent produire ce signal (Trigger.sourceCode).
+  // Ex P1 : ["apify.linkedin-jobs", "apify.wttj-jobs", "francetravail.tech"]
+  // Ex B1 : ["rodz.fundraising", "rss-levees", "bodacc.capital_increase"]
+  sourceCodes     String[]
+  // Template des paramètres customisables par client. Format :
+  //   { "keywords": { "type": "stringArray", "label": "...", "default": [] } }
+  // Utilisé par le wizard onboarding pour générer le formulaire dynamique.
+  parameters      Json           @default("{}")
+  // État du signal dans le catalogue (gestion du cycle de vie)
+  status          SignalStatus   @default(ACTIVE)
+  // Prédictivité mesurée (corrélation conversion B2B, source LeadGenius/etc.)
+  // Ex P4 AI tool adoption = 46, P5 Headcount +10%/90j = 38, B1 funding = 22.
+  predictivityPct Int?
+  // Est-ce que ce signal est techniquement implémenté côté code ?
+  // false pour P2 (team scan), P4 (AI tool), P5 (effectif%) à coder en S2-3.
+  implemented     Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  clientConfigs ClientSignalConfig[]
+
+  @@index([category])
+  @@index([status])
+  @@index([implemented])
+}
+
+enum SignalCategory {
+  PILLAR // P1-P5 — le client en choisit 3 max
+  BOOSTER // B1-B7 — tournent en background pour tous
+  CONTEXTUAL // C1-C4 — enrichissent chaque Pépite
+}
+
+enum SignalStatus {
+  ACTIVE
+  BETA
+  DEPRECATED
+}
+
+model ClientSignalConfig {
+  id         String        @id @default(cuid())
+  clientId   String
+  client     Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  signalId   String
+  signal     SignalCatalog @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  // Activation : false = signal désactivé pour ce client (kill-switch).
+  // Remplace progressivement icp.disabledSources.
+  enabled    Boolean       @default(true)
+  // Si category=PILLAR, est-ce dans le top-3 piliers choisis par le client ?
+  // Le wizard onboarding impose la contrainte "3 piliers max".
+  isPillar   Boolean       @default(false)
+  // Paramètres custom du client pour ce signal. Schéma défini par
+  // SignalCatalog.parameters (template). Ex P1 : { "keywords": ["QA", "Test"] }
+  parameters Json          @default("{}")
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([clientId, signalId])
+  @@index([clientId, enabled])
+  @@index([clientId, isPillar])
 }
