@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iFIND — Direction C · Hybride A+B (Editorial socle + Data hero)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FAFAF7;
+      --bg-elevated: #FFFFFF;
+      --ink: #1A1A2E;
+      --ink-mute: #6B6B7B;
+      --border: #E8E5DC;
+      --border-strong: #D4D0C4;
+      --accent: #C2410C;
+      --accent-soft: #FFEDD5;
+      --signal-hot: #B91C1C;
+      --signal-warm: #C2410C;
+      --signal-cold: #6B6B7B;
+      --serif: 'Source Serif 4', Georgia, serif;
+      --sans: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .direction-label {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      background: var(--accent);
+      color: white;
+      padding: 6px 12px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      z-index: 100;
+      font-weight: 500;
+    }
+
+    /* Nav */
+    nav {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 500;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+    .nav-links {
+      display: flex;
+      gap: 36px;
+      font-size: 14px;
+      color: var(--ink-mute);
+    }
+    .nav-links a {
+      color: inherit;
+      text-decoration: none;
+      transition: color 200ms;
+    }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-cta {
+      color: var(--accent);
+      padding: 8px 0;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      border-bottom: 1px solid var(--accent);
+    }
+
+    /* Hero — editorial socle + data panel */
+    .hero {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 100px 40px 80px;
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .hero-eyebrow {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.4); }
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-size: clamp(44px, 5.8vw, 76px);
+      font-weight: 400;
+      letter-spacing: -0.025em;
+      line-height: 1.04;
+      margin-bottom: 28px;
+    }
+    h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .hero-sub {
+      font-family: var(--sans);
+      font-size: 18px;
+      color: var(--ink-mute);
+      max-width: 540px;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+    .hero-sub strong {
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: var(--ink);
+      color: var(--bg);
+      padding: 16px 28px;
+      border-radius: 4px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 200ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .btn-primary:hover { background: var(--accent); }
+    .btn-secondary {
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      border-bottom: 1px solid var(--ink);
+      padding-bottom: 2px;
+    }
+    .btn-secondary:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Data panel — Clay-school discret */
+    .data-panel {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      padding: 28px;
+      position: relative;
+      box-shadow: 0 1px 0 rgba(26,26,46,0.04), 0 24px 48px -24px rgba(26,26,46,0.08);
+    }
+    .data-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-panel-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-mute);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .data-panel-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--signal-hot);
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .data-panel-status::before {
+      content: '●';
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .trigger-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .trigger {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px 12px;
+      border-bottom: 1px solid var(--border);
+      transition: all 200ms cubic-bezier(0.32, 0.72, 0, 1);
+      animation: slideIn 600ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+    }
+    .trigger:last-child { border-bottom: none; }
+    .trigger:nth-child(1) { animation-delay: 0.1s; }
+    .trigger:nth-child(2) { animation-delay: 0.2s; }
+    .trigger:nth-child(3) { animation-delay: 0.3s; }
+    .trigger:nth-child(4) { animation-delay: 0.4s; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .trigger:hover {
+      background: var(--bg);
+      padding-left: 16px;
+    }
+
+    .trigger-icon {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-family: var(--mono);
+      font-weight: 500;
+      border-radius: 2px;
+    }
+    .trigger-icon.hot { background: var(--accent); color: white; }
+    .trigger-icon.warm { background: var(--accent-soft); color: var(--accent); }
+    .trigger-icon.cold { background: var(--border); color: var(--ink-mute); }
+
+    .trigger-body { min-width: 0; }
+    .trigger-company {
+      font-family: var(--serif);
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 2px;
+      letter-spacing: -0.01em;
+    }
+    .trigger-detail {
+      font-size: 12px;
+      color: var(--ink-mute);
+      font-family: var(--mono);
+    }
+    .trigger-score {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+    .trigger-score.hot { color: var(--signal-hot); }
+    .trigger-score.warm { color: var(--signal-warm); }
+    .trigger-score.cold { color: var(--signal-cold); }
+
+    /* Manifeste editorial */
+    .manifeste {
+      max-width: 1100px;
+      margin: 100px auto 0;
+      padding: 0 40px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 60px;
+      align-items: start;
+    }
+    .manifeste-label {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      padding-top: 8px;
+      white-space: nowrap;
+    }
+    .manifeste-content {
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1.5;
+      color: var(--ink);
+      font-weight: 400;
+      max-width: 720px;
+    }
+    .manifeste-content em {
+      color: var(--accent);
+      font-style: italic;
+    }
+
+    /* Sources */
+    .sources-strip {
+      max-width: 1100px;
+      margin: 80px auto 0;
+      padding: 40px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 60px;
+      align-items: center;
+    }
+    .sources-label {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+    .sources-list {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink);
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+    .sources-list span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sources-list span::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    /* Footer note */
+    .footer-note {
+      max-width: 1100px;
+      margin: 60px auto 40px;
+      padding: 0 40px;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink-mute);
+      text-align: center;
+      font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+      .hero { grid-template-columns: 1fr; padding: 60px 24px 40px; gap: 40px; }
+      .nav-links { display: none; }
+      .manifeste { grid-template-columns: 1fr; padding: 0 24px; gap: 20px; }
+      .sources-strip { grid-template-columns: 1fr; padding: 32px 24px; gap: 24px; }
+      .footer-note { padding: 0 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="direction-label">DIRECTION C · HYBRIDE A+B (RECO SENIOR)</div>
+
+  <nav>
+    <div class="logo">iFIND</div>
+    <div class="nav-links">
+      <a href="#">Produit</a>
+      <a href="#">Méthode</a>
+      <a href="#">Tarifs</a>
+      <a href="#">Journal</a>
+    </div>
+    <a href="#" class="nav-cta">Réserver une démo →</a>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-text">
+      <div class="hero-eyebrow">Trigger Engine · Live FR</div>
+      <h1>La prospection ne se devine pas. <em>Elle se prouve.</em></h1>
+      <p class="hero-sub">
+        9 sources publiques françaises natives détectent <strong>en temps réel</strong> les signaux d'achat datés des PME et ETI. Levées, hires Sales, dépôts INPI, ouvertures de filiale — chaque événement est vérifiable, attribuable, livré sous 24h.
+      </p>
+      <div class="hero-ctas">
+        <a href="#" class="btn-primary">Réserver une démo</a>
+        <a href="#" class="btn-secondary">Voir la méthode</a>
+      </div>
+    </div>
+
+    <div class="data-panel">
+      <div class="data-panel-header">
+        <div class="data-panel-title">Signaux · 24h</div>
+        <div class="data-panel-status">Live</div>
+      </div>
+      <div class="trigger-list">
+        <div class="trigger">
+          <div class="trigger-icon hot">€</div>
+          <div class="trigger-body">
+            <div class="trigger-company">Société #421</div>
+            <div class="trigger-detail">Levée Series B · 18M€ · 2h</div>
+          </div>
+          <div class="trigger-score hot">9.2</div>
+        </div>
+        <div class="trigger">
+          <div class="trigger-icon hot">+</div>
+          <div class="trigger-body">
+            <div class="trigger-company">Société #128</div>
+            <div class="trigger-detail">Hire Head of Sales · 4h</div>
+          </div>
+          <div class="trigger-score hot">8.7</div>
+        </div>
+        <div class="trigger">
+          <div class="trigger-icon warm">§</div>
+          <div class="trigger-body">
+            <div class="trigger-company">Société #305</div>
+            <div class="trigger-detail">Dépôt INPI Class 9 · 7h</div>
+          </div>
+          <div class="trigger-score warm">7.4</div>
+        </div>
+        <div class="trigger">
+          <div class="trigger-icon warm">▲</div>
+          <div class="trigger-body">
+            <div class="trigger-company">Société #587</div>
+            <div class="trigger-detail">Ouverture filiale · 11h</div>
+          </div>
+          <div class="trigger-score warm">7.1</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="manifeste">
+    <div class="manifeste-label">Manifeste<br>§ 01</div>
+    <div class="manifeste-content">
+      « Les outils américains scorent par <em>probabilité</em>. iFIND score par <em>événement</em>. Une levée annoncée hier. Un Head of Sales recruté la semaine dernière. Un dépôt INPI hier matin. Des faits publics, datés, attribuables au SIREN. Pas du peut-être. Du vérifiable. »
+    </div>
+  </div>
+
+  <div class="sources-strip">
+    <div class="sources-label">Les 9 sources<br>natives FR</div>
+    <div class="sources-list">
+      <span>INPI</span>
+      <span>Pappers</span>
+      <span>France Travail</span>
+      <span>RNE</span>
+      <span>Kaspr</span>
+      <span>TheirStack</span>
+      <span>FullEnrich</span>
+      <span>Rodz</span>
+      <span>Apify</span>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Direction C · Hybride A+B · Socle éditorial Mercury + Hero data Clay · Vibe : posé, premium, factuel, temps réel
+  </div>
+</body>
+</html>

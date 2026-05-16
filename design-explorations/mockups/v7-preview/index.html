@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iFIND v7 — Comparateur 3 directions visuelles</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #0F172A;
+      color: white;
+      min-height: 100vh;
+      padding: 40px 20px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 1280px; margin: 0 auto; }
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    h1 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .subtitle {
+      color: #94A3B8;
+      font-size: 16px;
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(79, 70, 229, 0.15);
+      color: #818CF8;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      margin-bottom: 24px;
+      letter-spacing: 0.05em;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 32px;
+      transition: all 250ms cubic-bezier(0.32, 0.72, 0, 1);
+      text-decoration: none;
+      color: white;
+      display: block;
+    }
+    .card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(79, 70, 229, 0.5);
+      transform: translateY(-4px);
+    }
+    .card-letter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #818CF8;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+    .card-ref {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #94A3B8;
+      margin-bottom: 24px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: #CBD5E1;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .card-swatches {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .card-traits {
+      list-style: none;
+      font-size: 13px;
+      color: #94A3B8;
+    }
+    .card-traits li {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .card-traits li:last-child { border-bottom: none; }
+    .card-traits strong {
+      color: white;
+      font-weight: 500;
+    }
+    .card-cta {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 500;
+      color: #818CF8;
+    }
+    .card-cta::after {
+      content: '→';
+      transition: transform 200ms;
+    }
+    .card:hover .card-cta::after {
+      transform: translateX(4px);
+    }
+    .reco-badge {
+      position: absolute;
+      top: -10px;
+      right: 16px;
+      background: #C2410C;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .card.recommended {
+      border-color: rgba(194, 65, 12, 0.5);
+      position: relative;
+    }
+    .card.recommended:hover {
+      border-color: #C2410C;
+    }
+    .footer-note {
+      text-align: center;
+      margin-top: 48px;
+      color: #64748B;
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="badge">● PHASE 2 · J2 · DIRECTION VISUELLE</div>
+      <h1>iFIND v7 — Choisis ta direction</h1>
+      <p class="subtitle">3 mockups hero statiques pour trancher la direction visuelle avant de coder. Clique sur celui qui te parle. Ce choix lock le design system Phase 3.</p>
+    </div>
+
+    <div class="grid">
+      <a href="direction-a-data-hero.html" class="card">
+        <div class="card-letter">DIRECTION A</div>
+        <div class="card-title">Data-as-Hero</div>
+        <div class="card-ref">clay-school · supabase</div>
+        <p class="card-desc">La donnée est le héros. Hero avec data live, compteurs, triggers récents anonymisés. Vibe builder-friendly, sniper technique.</p>
+        <div class="card-swatches">
+          <div class="swatch" style="background: #FFFFFF;"></div>
+          <div class="swatch" style="background: #0F172A;"></div>
+          <div class="swatch" style="background: #4F46E5;"></div>
+          <div class="swatch" style="background: #DC2626;"></div>
+        </div>
+        <ul class="card-traits">
+          <li><strong>Background</strong> · White minimal premium</li>
+          <li><strong>Typo</strong> · Sans-serif tech (Inter)</li>
+          <li><strong>Accent</strong> · Indigo electric</li>
+          <li><strong>Vibe</strong> · Honnête, technique, data-first</li>
+        </ul>
+        <div class="card-cta">Voir le mockup</div>
+      </a>
+
+      <a href="direction-b-editorial.html" class="card">
+        <div class="card-letter">DIRECTION B</div>
+        <div class="card-title">Editorial Premium</div>
+        <div class="card-ref">mercury-school · anthropic</div>
+        <p class="card-desc">Magazine sérieux, calme et posé. Hero avec headline serif éditorial italique. Manifeste comme deuxième section. Vibe banquier d'affaires moderne.</p>
+        <div class="card-swatches">
+          <div class="swatch" style="background: #FAFAF7;"></div>
+          <div class="swatch" style="background: #1A1A2E;"></div>
+          <div class="swatch" style="background: #C2410C;"></div>
+          <div class="swatch" style="background: #FFEDD5;"></div>
+        </div>
+        <ul class="card-traits">
+          <li><strong>Background</strong> · Ivoire warm off-white</li>
+          <li><strong>Typo</strong> · Serif éditorial (Source Serif)</li>
+          <li><strong>Accent</strong> · Orange brûlé chaud</li>
+          <li><strong>Vibe</strong> · Posé, premium, magazine</li>
+        </ul>
+        <div class="card-cta">Voir le mockup</div>
+      </a>
+
+      <a href="direction-c-hybrid.html" class="card recommended">
+        <div class="reco-badge">Reco senior</div>
+        <div class="card-letter">DIRECTION C</div>
+        <div class="card-title">Hybride A + B</div>
+        <div class="card-ref">socle mercury + hero clay</div>
+        <p class="card-desc">Le meilleur des deux : socle éditorial premium (confiance FR) + hero data-protagonist (preuve concrète). Vibe : sérieux qui prouve.</p>
+        <div class="card-swatches">
+          <div class="swatch" style="background: #FAFAF7;"></div>
+          <div class="swatch" style="background: #1A1A2E;"></div>
+          <div class="swatch" style="background: #C2410C;"></div>
+          <div class="swatch" style="background: #FFEDD5;"></div>
+        </div>
+        <ul class="card-traits">
+          <li><strong>Background</strong> · Ivoire warm</li>
+          <li><strong>Typo</strong> · Serif éditorial + mono data</li>
+          <li><strong>Accent</strong> · Orange brûlé chaud</li>
+          <li><strong>Vibe</strong> · Posé, prouvé, temps réel</li>
+        </ul>
+        <div class="card-cta">Voir le mockup</div>
+      </a>
+    </div>
+
+    <div class="footer-note">
+      iFIND v7 · Comparateur direction visuelle · 16/05/2026 · Phase 2 méthodologie Weblove
+    </div>
+  </div>
+</body>
+</html>

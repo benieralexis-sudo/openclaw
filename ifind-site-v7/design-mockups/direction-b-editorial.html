@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iFIND — Direction B · Editorial Premium (Mercury-school)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FAFAF7;
+      --bg-elevated: #FFFFFF;
+      --ink: #1A1A2E;
+      --ink-mute: #6B6B7B;
+      --border: #E8E5DC;
+      --accent: #C2410C;
+      --accent-soft: #FED7AA;
+      --serif: 'Source Serif 4', Georgia, serif;
+      --sans: 'Inter', system-ui, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .direction-label {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      background: var(--ink);
+      color: var(--bg);
+      padding: 6px 12px;
+      border-radius: 0;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      z-index: 100;
+      font-weight: 500;
+    }
+
+    /* Nav */
+    nav {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 28px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 500;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+    .nav-links {
+      display: flex;
+      gap: 36px;
+      font-size: 14px;
+      color: var(--ink-mute);
+    }
+    .nav-links a {
+      color: inherit;
+      text-decoration: none;
+      transition: color 200ms;
+    }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-cta {
+      color: var(--accent);
+      padding: 8px 0;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      border-bottom: 1px solid var(--accent);
+      transition: gap 200ms;
+    }
+
+    /* Hero — editorial-style */
+    .hero {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 100px 40px 80px;
+    }
+
+    .hero-eyebrow {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 32px;
+    }
+    .hero-eyebrow::before {
+      content: '— ';
+      color: var(--ink-mute);
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-size: clamp(48px, 6.5vw, 88px);
+      font-weight: 400;
+      letter-spacing: -0.025em;
+      line-height: 1.02;
+      margin-bottom: 36px;
+      max-width: 900px;
+    }
+    h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .hero-sub {
+      font-family: var(--sans);
+      font-size: 18px;
+      color: var(--ink-mute);
+      max-width: 580px;
+      margin-bottom: 48px;
+      line-height: 1.6;
+    }
+    .hero-sub strong {
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: var(--ink);
+      color: var(--bg);
+      padding: 16px 28px;
+      border-radius: 4px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 200ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .btn-primary:hover {
+      background: var(--accent);
+    }
+    .btn-secondary {
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      border-bottom: 1px solid var(--ink);
+      padding-bottom: 2px;
+    }
+    .btn-secondary:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Editorial divider */
+    .editorial-divider {
+      max-width: 1100px;
+      margin: 100px auto 0;
+      padding: 0 40px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 60px;
+      align-items: start;
+    }
+    .divider-label {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      padding-top: 4px;
+      white-space: nowrap;
+    }
+    .divider-content {
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1.5;
+      color: var(--ink);
+      font-weight: 400;
+      max-width: 720px;
+    }
+    .divider-content em {
+      color: var(--accent);
+      font-style: italic;
+    }
+
+    /* Sources strip */
+    .sources-strip {
+      max-width: 1100px;
+      margin: 80px auto 0;
+      padding: 40px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 60px;
+      align-items: center;
+    }
+    .sources-label {
+      font-family: var(--sans);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+    .sources-list {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+      font-family: var(--sans);
+      font-size: 14px;
+      color: var(--ink);
+      font-weight: 500;
+    }
+    .sources-list span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sources-list span::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    /* Footer note */
+    .footer-note {
+      max-width: 1100px;
+      margin: 60px auto 40px;
+      padding: 0 40px;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--ink-mute);
+      text-align: center;
+      font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+      .hero { padding: 60px 24px 40px; }
+      .nav-links { display: none; }
+      .editorial-divider { grid-template-columns: 1fr; padding: 0 24px; gap: 20px; }
+      .sources-strip { grid-template-columns: 1fr; padding: 32px 24px; gap: 24px; }
+      .footer-note { padding: 0 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="direction-label">DIRECTION B · EDITORIAL PREMIUM (MERCURY-SCHOOL)</div>
+
+  <nav>
+    <div class="logo">iFIND</div>
+    <div class="nav-links">
+      <a href="#">Produit</a>
+      <a href="#">Méthode</a>
+      <a href="#">Tarifs</a>
+      <a href="#">Journal</a>
+    </div>
+    <a href="#" class="nav-cta">Réserver une démo →</a>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-eyebrow">Trigger Engine pour PME françaises</div>
+    <h1>La prospection ne se devine pas. <em>Elle se prouve.</em></h1>
+    <p class="hero-sub">
+      iFIND détecte les <strong>signaux d'achat datés et publics</strong> des PME et ETI françaises sur 9 sources natives. Levées, hires, dépôts INPI, ouvertures de filiale — chaque événement est vérifiable, attribuable, et arrive sur votre dashboard sous 24h.
+    </p>
+    <div class="hero-ctas">
+      <a href="#" class="btn-primary">Réserver une démo</a>
+      <a href="#" class="btn-secondary">Lire la méthode</a>
+    </div>
+  </section>
+
+  <div class="editorial-divider">
+    <div class="divider-label">Manifeste<br>§ 01</div>
+    <div class="divider-content">
+      « Les outils américains scorent par <em>probabilité</em>. iFIND score par <em>événement</em>. Une levée annoncée hier. Un Head of Sales recruté la semaine dernière. Un dépôt INPI hier matin. Des faits publics, datés, attribuables au SIREN. Pas du peut-être. Du vérifiable. »
+    </div>
+  </div>
+
+  <div class="sources-strip">
+    <div class="sources-label">Les 9 sources<br>natives FR</div>
+    <div class="sources-list">
+      <span>INPI</span>
+      <span>Pappers</span>
+      <span>France Travail</span>
+      <span>RNE</span>
+      <span>Kaspr</span>
+      <span>TheirStack</span>
+      <span>FullEnrich</span>
+      <span>Rodz</span>
+      <span>Apify</span>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Direction B · Vibe : posé, premium, confiant, éditorial · Référence : mercury.com × anthropic.com
+  </div>
+</body>
+</html>

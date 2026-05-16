@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iFIND — Direction A · Data-as-Hero (Clay-school)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #FFFFFF;
+      --bg-soft: #FAFBFC;
+      --ink: #0F172A;
+      --ink-mute: #475569;
+      --border: #E2E8F0;
+      --accent: #4F46E5;
+      --accent-soft: #EEF2FF;
+      --signal-hot: #DC2626;
+      --signal-warm: #F59E0B;
+      --signal-cold: #64748B;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Direction label (debug overlay) */
+    .direction-label {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      background: var(--ink);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      z-index: 100;
+      letter-spacing: 0.05em;
+    }
+
+    /* Nav */
+    nav {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      font-size: 18px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      font-size: 14px;
+      color: var(--ink-mute);
+    }
+    .nav-links a { color: inherit; text-decoration: none; }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-cta {
+      background: var(--ink);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    /* Hero */
+    .hero {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 80px 40px 120px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 24px;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.02em;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    h1 {
+      font-size: clamp(40px, 5.5vw, 72px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin-bottom: 24px;
+    }
+    h1 .accent {
+      color: var(--accent);
+    }
+
+    .hero-sub {
+      font-size: 20px;
+      color: var(--ink-mute);
+      max-width: 560px;
+      margin-bottom: 40px;
+      line-height: 1.5;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .btn-primary {
+      background: var(--ink);
+      color: white;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .btn-primary:hover { transform: translateY(-1px); }
+    .btn-secondary {
+      color: var(--ink);
+      padding: 14px 20px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Hero visual — Data live overlay */
+    .data-panel {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 1px 0 rgba(15,23,42,0.04), 0 24px 48px -24px rgba(15,23,42,0.12);
+    }
+    .data-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-panel-title {
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--ink-mute);
+      letter-spacing: 0.02em;
+    }
+    .data-panel-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--signal-hot);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .data-panel-status::before {
+      content: '●';
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .trigger-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .trigger {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: all 200ms cubic-bezier(0.32, 0.72, 0, 1);
+      animation: slideIn 600ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+    }
+    .trigger:nth-child(1) { animation-delay: 0.1s; }
+    .trigger:nth-child(2) { animation-delay: 0.2s; }
+    .trigger:nth-child(3) { animation-delay: 0.3s; }
+    .trigger:nth-child(4) { animation-delay: 0.4s; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .trigger:hover { transform: translateX(4px); border-color: var(--accent); }
+
+    .trigger-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .trigger-icon.hot { background: rgba(220, 38, 38, 0.1); color: var(--signal-hot); }
+    .trigger-icon.warm { background: rgba(245, 158, 11, 0.1); color: var(--signal-warm); }
+    .trigger-icon.cold { background: rgba(100, 116, 139, 0.1); color: var(--signal-cold); }
+
+    .trigger-body { min-width: 0; }
+    .trigger-company {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .trigger-detail {
+      font-size: 12px;
+      color: var(--ink-mute);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.01em;
+    }
+    .trigger-score {
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .trigger-score.hot { color: var(--signal-hot); }
+    .trigger-score.warm { color: var(--signal-warm); }
+    .trigger-score.cold { color: var(--signal-cold); }
+
+    /* Metrics row */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 60px;
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .metric {
+      background: white;
+      padding: 32px 24px;
+      text-align: left;
+    }
+    .metric-value {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .metric-label {
+      font-size: 13px;
+      color: var(--ink-mute);
+    }
+
+    /* Footer note */
+    .footer-note {
+      max-width: 1280px;
+      margin: 80px auto 40px;
+      padding: 0 40px;
+      font-size: 13px;
+      color: var(--ink-mute);
+      font-family: 'JetBrains Mono', monospace;
+      text-align: center;
+    }
+
+    @media (max-width: 768px) {
+      .hero { grid-template-columns: 1fr; padding: 40px 20px 60px; gap: 40px; }
+      .nav-links { display: none; }
+      .metrics-row { grid-template-columns: 1fr; }
+      .footer-note { padding: 0 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="direction-label">DIRECTION A · DATA-AS-HERO (CLAY-SCHOOL)</div>
+
+  <nav>
+    <div class="logo">iFIND</div>
+    <div class="nav-links">
+      <a href="#">Produit</a>
+      <a href="#">Méthode</a>
+      <a href="#">Tarifs</a>
+      <a href="#">Clients</a>
+    </div>
+    <a href="#" class="nav-cta">Réserver une démo</a>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-text">
+      <div class="hero-eyebrow">Trigger Engine · Live · FR</div>
+      <h1>Les signaux d'achat des PME françaises, <span class="accent">en temps réel.</span></h1>
+      <p class="hero-sub">9 sources publiques natives (INPI, Pappers, France Travail, RNE…) qui détectent 24h/24 les événements d'achat datés sur les PME et ETI françaises. Pas de probabilités. Des faits.</p>
+      <div class="hero-ctas">
+        <a href="#" class="btn-primary">Réserver une démo →</a>
+        <a href="#" class="btn-secondary">Voir un exemple de Pépite</a>
+      </div>
+    </div>
+
+    <div class="data-panel">
+      <div class="data-panel-header">
+        <div class="data-panel-title">SIGNAUX DÉTECTÉS · 24H</div>
+        <div class="data-panel-status">LIVE</div>
+      </div>
+      <div class="trigger-list">
+        <div class="trigger">
+          <div class="trigger-icon hot">€</div>
+          <div class="trigger-body">
+            <div class="trigger-company">Société #421</div>
+            <div class="trigger-detail">Levée Series B · 18M€ · il y a 2h</div>
+          </div>
+          <div class="trigger-score hot">9.2</div>
+        </div>
+        <div class="trigger">
+          <div class="trigger-icon hot">👤</div>
+          <div class="trigger-body">
+            <div class="trigger-company">Société #128</div>
+            <div class="trigger-detail">Hire Head of Sales · il y a 4h</div>
+          </div>
+          <div class="trigger-score hot">8.7</div>
+        </div>
+        <div class="trigger">
+          <div class="trigger-icon warm">⚖</div>
+          <div class="trigger-body">
+            <div class="trigger-company">Société #305</div>
+            <div class="trigger-detail">Dépôt INPI Class 9 · il y a 7h</div>
+          </div>
+          <div class="trigger-score warm">7.4</div>
+        </div>
+        <div class="trigger">
+          <div class="trigger-icon warm">🏢</div>
+          <div class="trigger-body">
+            <div class="trigger-company">Société #587</div>
+            <div class="trigger-detail">Ouverture filiale · il y a 11h</div>
+          </div>
+          <div class="trigger-score warm">7.1</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="metrics-row">
+    <div class="metric">
+      <div class="metric-value">9</div>
+      <div class="metric-label">sources publiques FR natives</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">60</div>
+      <div class="metric-label">leads qualifiés / mois</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">6+</div>
+      <div class="metric-label">Pépites garanties / mois</div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    DIRECTION A · Vibe : honnête, technique, data-as-protagonist · Référence : clay.com × supabase.com
+  </div>
+</body>
+</html>
