@@ -1,12 +1,9 @@
 // Sprint catalogue (16/05/2026) — Kill-switch par signal pour chaque client.
 //
-// Préfigure le catalogue universel paramétrable : chaque client peut
-// désactiver un signal du catalogue via icp.disabledSources sans toucher
-// au code. Pattern config-driven multi-tenant.
-//
-// Utilisé par les pollers (theirstack-poller, apify-poller, etc.) et le
-// dispatcher (run-pollers/route.ts) pour skip une source avant tout appel
-// payant.
+// @deprecated Remplacé par src/lib/signal-config.ts (isSignalEnabled).
+// Conservé pendant la transition (legacy defense-in-depth) tant que tous
+// les pollers ne sont pas wired sur le helper catalogue. À supprimer
+// avec icp.disabledSources quand la migration est complète.
 //
 // Logique pure, testable trivialement (aucune I/O).
 

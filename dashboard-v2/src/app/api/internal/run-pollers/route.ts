@@ -23,6 +23,7 @@ import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 // du parsing LinkedIn Profile Full sur les leads chauds.
 import { enrichLinkedInProfilesForClient } from "@/lib/enrich-linkedin-profile-runner";
 import { isSourceDisabled } from "@/lib/source-toggle";
+import { isSignalEnabled } from "@/lib/signal-config";
 import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
 import { auditAndHeal } from "@/lib/audit-heal";
 import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
@@ -155,16 +156,26 @@ export async function POST(req: NextRequest) {
       // Note : 8h05 UTC = 10h Paris (DST), TheirStack a réindexé pendant la
       // nuit FR, captures matin OK.
       const buyingIntentHour = new Date().getUTCHours();
-      // Kill-switch ICP (16/05/2026) — chaque client peut désactiver le signal
-      // via icp.disabledSources. Pattern config-driven, préfigure le catalogue.
-      const icpDisabled = isSourceDisabled(
+      // Kill-switch catalogue (16/05/2026) — TheirStack buying-intent = signal P3
+      // du catalogue universel paramétrable. ClientSignalConfig pilote l'activation.
+      //
+      // Double check pendant la transition :
+      //   - ClientSignalConfig.enabled (source de vérité du catalogue)
+      //   - icp.disabledSources (legacy, conservé en defense-in-depth tant que
+      //     tous les pollers ne sont pas wired sur le helper)
+      //
+      // Quand tous les pollers utiliseront isSignalEnabled, on supprimera
+      // icp.disabledSources + le module source-toggle.ts.
+      const catalogEnabled = await isSignalEnabled(c.id, "P3");
+      const legacyDisabled = isSourceDisabled(
         c.icp as { disabledSources?: string[] } | null,
         "theirstack.buying-intent",
       );
+      const buyingIntentDisabled = !catalogEnabled || legacyDisabled;
       if (!dryRun && source === "all" && (buyingIntentHour === 8 || buyingIntentHour === 18)) {
-        if (icpDisabled) {
+        if (buyingIntentDisabled) {
           (entry as { theirstackBuyingIntent?: string }).theirstackBuyingIntent =
-            "disabled-by-icp";
+            !catalogEnabled ? "disabled-by-catalog-P3" : "disabled-by-icp";
         } else {
           try {
             (entry as { theirstackBuyingIntent?: unknown }).theirstackBuyingIntent =
