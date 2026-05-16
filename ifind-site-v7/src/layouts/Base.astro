@@ -52,6 +52,60 @@ const canonicalUrl = new URL(Astro.url.pathname, "https://ifind.fr").toString();
   <!-- View Transitions API (natif Astro 5) -->
   <meta name="view-transition" content="same-origin" />
 
+  <!-- Schema.org JSON-LD (SEO + AEO) -->
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://ifind.fr/#organization",
+        "name": "iFIND",
+        "url": "https://ifind.fr",
+        "logo": "https://ifind.fr/og-image.jpg",
+        "description": "Trigger Engine pour PME et ETI françaises. Détection en temps réel des signaux d'achat publics via 9 sources natives FR.",
+        "foundingDate": "2024",
+        "founder": { "@type": "Person", "name": "Alexis Bénier" },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "contact@ifind.fr",
+          "contactType": "sales",
+          "areaServed": "FR",
+          "availableLanguage": "French"
+        },
+        "sameAs": ["https://www.linkedin.com/company/ifind"]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://ifind.fr/#website",
+        "url": "https://ifind.fr",
+        "name": "iFIND",
+        "inLanguage": "fr-FR",
+        "publisher": { "@id": "https://ifind.fr/#organization" }
+      },
+      {
+        "@type": "Product",
+        "name": "iFIND Growth",
+        "description": "60 leads qualifiés et 6 Pépites minimum garanties par mois sur les PME françaises. 9 sources publiques natives FR.",
+        "brand": { "@id": "https://ifind.fr/#organization" },
+        "offers": {
+          "@type": "Offer",
+          "price": "390",
+          "priceCurrency": "EUR",
+          "url": "https://ifind.fr/#tarifs",
+          "availability": "https://schema.org/InStock",
+          "priceValidUntil": "2026-12-31",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "390",
+            "priceCurrency": "EUR",
+            "billingDuration": "P1M",
+            "billingIncrement": 1
+          }
+        }
+      }
+    ]
+  })} />
+
   <!-- Fonts : Source Serif 4 + Inter + JetBrains Mono — Variable axis -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

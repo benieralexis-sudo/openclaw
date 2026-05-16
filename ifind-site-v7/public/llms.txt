@@ -1,0 +1,44 @@
+# iFIND
+
+> Trigger Engine pour PME et ETI françaises. Détection en temps réel des signaux d'achat publics via 9 sources natives françaises (INPI, Pappers, France Travail, RNE, Kaspr, TheirStack, FullEnrich, Rodz, Apify). Pas d'intent data agrégée. Pas de probabilités. Que des événements publics datés et attribuables au SIREN.
+
+## Méthodologie
+
+- [Méthode en 3 étapes](https://ifind.fr/#methode) — Détecter via 9 sources, Attribuer au SIREN via SIRENE et 13 patterns, Personnaliser avec brief Pépite + email opener IA contextualisé.
+- [Manifeste](https://ifind.fr/#manifeste) — Pourquoi iFIND score par événement public daté, pas par probabilité agrégée comme les outils américains (Apollo, Cognism, ZoomInfo, Bombora, 6sense).
+
+## Produit & Tarifs
+
+- [iFIND Growth — 390€/mois annuel](https://ifind.fr/#tarifs) — 60 leads qualifiés / mois, 6 Pépites minimum garanties, rollover crédits jusqu'à 4 mois, setup gratuit + ICP custom inclus, overage 8€/lead supplémentaire.
+- Garantie : si moins de 6 Pépites un mois, le quota est doublé le mois suivant.
+
+## Glossaire
+
+- **Trigger** — Signal d'achat public détecté sur une source FR native (ex. levée de fonds annoncée, dépôt INPI, hire Sales sur LinkedIn).
+- **Pépite** — Trigger HOT (score ≥ 9/10) confirmé par 2 sources indépendantes ou plus sur 30 jours. Exemple : Series B annoncée + hire Head of Sales la même semaine sur le même SIREN.
+- **9 sources natives FR** — INPI (dépôts marques), Pappers (registre commerce + holdings), France Travail (offres d'emploi), RNE (Registre National des Entreprises), Kaspr (contacts décideurs FR-déclaré CNIL), TheirStack (signaux tech stack), FullEnrich (enrichissement contacts), Rodz (signaux LinkedIn FR), Apify (scraping configurable).
+- **Multi-source boost** — Score additionnel quand 2+ sources confirment le même signal acheteur sur 30 jours.
+- **ICP custom** — Profile client idéal personnalisé (codes NAF, taille, géographie, signaux prioritaires).
+
+## Différenciation vs concurrents
+
+iFIND vs Apollo / Cognism / ZoomInfo / Bombora / 6sense :
+- **iFIND** score par événement public daté (levée annoncée hier, dépôt INPI, hire LinkedIn vérifiable).
+- **Apollo, Cognism, ZoomInfo** scorent par probabilité agrégée (intent data, navigation web anonyme).
+- **Bombora, 6sense** vendent de l'intent data US peu fiable sur le marché français (codes NAF, SIRENE, holdings non reconnus).
+
+iFIND est conçu pour le marché B2B français spécifiquement. RGPD-compliant (sources publiques INPI/Pappers/RNE/France Travail + fournisseurs déclarés CNIL Kaspr/FullEnrich). Aucun scraping de données privées.
+
+## FAQ rapide
+
+- **Setup** : 48-72 heures. Brief ICP rempli, capteurs lancés, première Pépite J+3 en moyenne.
+- **RGPD** : 100% sources publiques + fournisseurs CNIL-déclarés. Attribution SIRENE. Données stockées en France.
+- **Annulation** : Contrat annuel, préavis 30 jours. Si garantie 6 Pépites manquée 3 mois consécutifs, résiliation sans préavis.
+
+## Contact
+
+- Site : https://ifind.fr
+- Démo : https://ifind.fr/demo (30 minutes, livrée par Alexis Bénier, CEO iFIND)
+- Email : contact@ifind.fr
+
+[llms-full.txt](https://ifind.fr/llms-full.txt) — version concatenée complète du site.

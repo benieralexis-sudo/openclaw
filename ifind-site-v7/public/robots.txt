@@ -1,0 +1,32 @@
+# iFIND v7 — robots.txt
+# Allow toutes les bonnes intentions, allow explicitement les AI crawlers (AEO 2026)
+
+User-agent: *
+Allow: /
+
+# AI crawlers explicitement allow (Classroom 11 L3 — AEO)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://ifind.fr/sitemap.xml

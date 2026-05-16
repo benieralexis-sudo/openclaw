@@ -158,6 +158,29 @@ p {
   }
 }
 
+/* === Scrollbar styling (Polish 20-points · Classroom 06 L5) =====
+ * Subtle, branded, mais reste fonctionnel.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 999px;
+  border: 2px solid var(--color-bg);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-mute);
+}
+
 /* === Skip link ================================================= */
 .skip-link {
   position: fixed;

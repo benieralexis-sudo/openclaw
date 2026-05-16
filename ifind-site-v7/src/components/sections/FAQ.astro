@@ -1,5 +1,5 @@
 ---
-const items = [
+const items: Array<{ q: string; a: string }> = [
   {
     q: "Qu'est-ce qu'une Pépite exactement ?",
     a: "Une Pépite est un signal HOT (score ≥ 9 sur 10) confirmé par 2 sources indépendantes ou plus sur 30 jours. Exemple : Series B annoncée + hire Head of Sales la même semaine sur le même SIREN. Multi-source = signal acheteur fort.",
@@ -22,6 +22,20 @@ const items = [
   },
 ];
 ---
+
+<!-- FAQPage schema (AEO + rich snippet Google) -->
+<script type="application/ld+json" set:html={JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": items.map((item) => ({
+    "@type": "Question",
+    "name": item.q,
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": item.a.replace(/<[^>]+>/g, "")
+    }
+  }))
+})} />
 
 <section id="faq" class="faq container container--narrow">
   <header class="faq-header">

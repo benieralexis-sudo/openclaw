@@ -1,0 +1,101 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/sections/Nav.astro';
+import Footer from '../components/sections/Footer.astro';
+import Button from '../components/ui/Button.astro';
+---
+
+<Base
+  title="404 — Page introuvable | iFIND"
+  description="Cette page n'existe pas. Retour à l'accueil iFIND."
+>
+  <Nav slot="nav" />
+
+  <section class="error-page container container--narrow">
+    <span class="error-eyebrow">Erreur · 404</span>
+    <h1 class="error-h1" data-split>
+      Cette page n'existe pas. <em>Mais celle-ci, oui.</em>
+    </h1>
+    <p class="error-sub">
+      Le lien que vous avez suivi est cassé ou la page a été déplacée.
+      Retour à la maison.
+    </p>
+    <div class="error-cta">
+      <Button href="/" variant="primary" size="md" arrow>Retour à l'accueil</Button>
+      <Button href="/demo" variant="underline">Réserver une démo</Button>
+    </div>
+    <div class="error-meta">
+      <span class="meta-line">Si ce lien provient d'une source iFIND, écrivez à</span>
+      <a href="mailto:contact@ifind.fr" class="meta-link">contact@ifind.fr</a>
+    </div>
+  </section>
+
+  <Footer slot="footer" />
+</Base>
+
+<style>
+  .error-page {
+    padding-block: var(--sp-3xl) var(--sp-2xl);
+    text-align: center;
+  }
+
+  .error-eyebrow {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--txt-xs);
+    color: var(--color-accent);
+    letter-spacing: var(--tr-eyebrow);
+    text-transform: uppercase;
+    margin-bottom: var(--sp-base);
+  }
+
+  .error-h1 {
+    font-family: var(--font-display);
+    font-size: var(--txt-3xl);
+    font-weight: 400;
+    line-height: var(--lh-display);
+    letter-spacing: var(--tr-display);
+    color: var(--color-ink);
+    margin-bottom: var(--sp-base);
+    max-width: 720px;
+    margin-inline: auto;
+    text-wrap: balance;
+  }
+  .error-h1 em {
+    font-style: italic;
+    color: var(--color-accent);
+  }
+
+  .error-sub {
+    font-family: var(--font-sans);
+    font-size: var(--txt-md);
+    line-height: var(--lh-body);
+    color: var(--color-ink-mute);
+    max-width: 480px;
+    margin: 0 auto var(--sp-xl);
+  }
+
+  .error-cta {
+    display: flex;
+    gap: var(--sp-base);
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-2xl);
+  }
+
+  .error-meta {
+    padding-top: var(--sp-lg);
+    border-top: 1px solid var(--color-line);
+    font-family: var(--font-mono);
+    font-size: var(--txt-xs);
+    color: var(--color-ink-mute);
+    letter-spacing: var(--tr-mono);
+  }
+
+  .meta-link {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+</style>
