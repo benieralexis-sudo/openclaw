@@ -41,7 +41,7 @@ const etapes = [
       <!-- Visual side (3 SVG overlayed) -->
       <div class="hiw-visual-stack" aria-hidden="true">
         <!-- Étape 01 — 9 sources qui pulsent -->
-        <svg class="hiw-visual" data-step-visual viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+        <svg class="hiw-visual" data-step-visual data-draw-svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <radialGradient id="srcGlow" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.4"/>
@@ -59,7 +59,7 @@ const etapes = [
             [160, 260, "Rodz"],
             [240, 240, "Apify"],
           ].map(([x, y, label], i) => (
-            <g class={`src-node src-node--${i}`}>
+            <g class={`src-node src-node--${i}`} data-draw-fade>
               <circle cx={x} cy={y} r="22" fill="url(#srcGlow)" />
               <circle cx={x} cy={y} r="8" fill="var(--color-accent)" />
               <circle cx={x} cy={y} r="4" fill="var(--color-bg)" />
@@ -73,7 +73,7 @@ const etapes = [
         </svg>
 
         <!-- Étape 02 — Flow matching SIREN + patterns -->
-        <svg class="hiw-visual" data-step-visual viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+        <svg class="hiw-visual" data-step-visual data-draw-svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
           <!-- Source dot -->
           <circle cx="40" cy="160" r="8" fill="var(--color-accent)" />
           <text x="40" y="190" text-anchor="middle" fill="var(--color-ink-mute)"
@@ -111,7 +111,7 @@ const etapes = [
         </svg>
 
         <!-- Étape 03 — Pépite avec brief -->
-        <svg class="hiw-visual" data-step-visual viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+        <svg class="hiw-visual" data-step-visual data-draw-svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
           <!-- Pépite card -->
           <rect x="40" y="40" width="240" height="240" rx="4"
             fill="var(--color-bg-elevated)" stroke="var(--color-accent)" stroke-width="2" />

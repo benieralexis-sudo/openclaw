@@ -5,6 +5,59 @@
 
 @import url('./tokens.css');
 
+/* === Grain texture overlay (Polish 20-points · Classroom 06 L5)
+ * SVG turbulence noise fixé par-dessus tout le site. 4% opacity.
+ * Donne la profondeur "magazine premium" sans pollution visible.
+ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-grain);
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  background-repeat: repeat;
+  mix-blend-mode: multiply;
+}
+
+/* === SVG line draw-on-view (Classroom 03 L5 — SVG signature)
+ * Targets : éléments <path> avec [data-draw]. Animation déclenchée
+ * via .in-view sur le parent SVG.
+ */
+[data-draw-svg] [data-draw] {
+  stroke-dasharray: var(--draw-length, 1000);
+  stroke-dashoffset: var(--draw-length, 1000);
+  transition: stroke-dashoffset 1200ms var(--ease-snap);
+  transition-delay: calc(var(--draw-i, 0) * 100ms);
+}
+[data-draw-svg].in-view [data-draw] {
+  stroke-dashoffset: 0;
+}
+[data-draw-svg] [data-draw-fade] {
+  opacity: 0;
+  transform: scale(0.6);
+  transform-origin: center;
+  transform-box: fill-box;
+  transition: opacity 600ms var(--ease-snap), transform 600ms var(--ease-snap);
+  transition-delay: calc(var(--draw-i, 0) * 80ms);
+}
+[data-draw-svg].in-view [data-draw-fade] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-draw-svg] [data-draw],
+  [data-draw-svg] [data-draw-fade] {
+    transition: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;

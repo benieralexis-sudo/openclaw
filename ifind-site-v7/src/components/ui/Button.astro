@@ -4,12 +4,14 @@ interface Props {
   variant?: 'primary' | 'underline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   arrow?: boolean;
+  magnetic?: boolean;
 }
 const {
   href,
   variant = 'primary',
   size = 'md',
   arrow = false,
+  magnetic = false,
 } = Astro.props;
 
 const classes = [
@@ -20,12 +22,12 @@ const classes = [
 ---
 
 {href ? (
-  <a class={classes} href={href}>
+  <a class={classes} href={href} data-magnetic={magnetic || undefined}>
     <span class="btn-label"><slot /></span>
     {arrow && <span class="btn-arrow" aria-hidden="true">→</span>}
   </a>
 ) : (
-  <button type="button" class={classes}>
+  <button type="button" class={classes} data-magnetic={magnetic || undefined}>
     <span class="btn-label"><slot /></span>
     {arrow && <span class="btn-arrow" aria-hidden="true">→</span>}
   </button>

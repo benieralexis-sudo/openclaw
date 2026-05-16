@@ -214,6 +214,99 @@ function initLiveCounter() {
 }
 
 /* ────────────────────────────────────────────────────────────
+ * 5. SVG DRAW-ON-VIEW (Classroom 03 L5 — signature flourish)
+ * Mesure la longueur de chaque path et trigger l'animation au viewport.
+ * ──────────────────────────────────────────────────────────── */
+
+function initSvgDrawOnView() {
+  const svgs = document.querySelectorAll<SVGSVGElement>('[data-draw-svg]');
+  if (!svgs.length) return;
+
+  // Pré-calcul de la longueur de chaque path data-draw
+  svgs.forEach((svg) => {
+    const paths = svg.querySelectorAll<SVGGeometryElement>('[data-draw]');
+    paths.forEach((p, i) => {
+      try {
+        const len = p.getTotalLength();
+        p.style.setProperty('--draw-length', String(len));
+        p.style.setProperty('--draw-i', String(i));
+      } catch (e) {
+        // Element peut pas avoir de getTotalLength (e.g. circle/rect)
+      }
+    });
+    const fades = svg.querySelectorAll<SVGElement>('[data-draw-fade]');
+    fades.forEach((f, i) => f.style.setProperty('--draw-i', String(i)));
+  });
+
+  if (prefersReducedMotion) {
+    svgs.forEach((svg) => svg.classList.add('in-view'));
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.3 }
+  );
+
+  svgs.forEach((svg) => observer.observe(svg));
+}
+
+/* ────────────────────────────────────────────────────────────
+ * 6. MAGNETIC CTA (Classroom 01 L5 — signature subtle)
+ * Le bouton suit légèrement le curseur dans rayon ~120px.
+ * Damping 0.25, max pull 8px.
+ * ──────────────────────────────────────────────────────────── */
+
+function initMagneticCtas() {
+  if (prefersReducedMotion) return;
+
+  // Test desktop only (pointer fine = mouse, pas touch)
+  if (!window.matchMedia('(pointer: fine)').matches) return;
+
+  const magnets = document.querySelectorAll<HTMLElement>('[data-magnetic]');
+  if (!magnets.length) return;
+
+  magnets.forEach((btn) => {
+    const RADIUS = 120;  // px d'influence
+    const STRENGTH = 0.25;  // damping
+    let raf = 0;
+
+    btn.addEventListener('mousemove', (e) => {
+      const rect = btn.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > RADIUS) return;
+
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        btn.style.transform = `translate(${dx * STRENGTH}px, ${dy * STRENGTH}px)`;
+      });
+    });
+
+    btn.addEventListener('mouseleave', () => {
+      cancelAnimationFrame(raf);
+      btn.style.transition = 'transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1)';
+      btn.style.transform = '';
+      setTimeout(() => { btn.style.transition = ''; }, 400);
+    });
+
+    btn.style.transition = 'transform 200ms cubic-bezier(0.32, 0.72, 0, 1)';
+    btn.style.willChange = 'transform';
+  });
+}
+
+/* ────────────────────────────────────────────────────────────
  * INIT — appelé une fois au DOMContentLoaded
  * ──────────────────────────────────────────────────────────── */
 
@@ -222,6 +315,8 @@ export function initAnimations() {
   splitTextReveal();
   initPinnedScroll();
   initLiveCounter();
+  initSvgDrawOnView();
+  initMagneticCtas();
 }
 
 if (document.readyState === 'loading') {
