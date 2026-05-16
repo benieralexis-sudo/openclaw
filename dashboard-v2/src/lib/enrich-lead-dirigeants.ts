@@ -12,6 +12,8 @@ import {
   detectHeadcountGrowth,
   parseTrancheEffectif,
 } from "@/lib/headcount-growth-detector";
+import { getSignalConfig } from "@/lib/signal-config";
+import { scanTeamGapForCompany } from "@/lib/harvestapi-team-scan";
 
 /**
  * Enrichissement Pappers dirigeants : pour chaque Trigger ICP qualifié sans Lead
@@ -167,6 +169,96 @@ async function snapshotAndDetectHeadcountGrowth(
   });
   console.log(
     `[enrich-dirigeants.headcount-growth] CREATED ${companyName} +${result.growthPct}% (${result.fromEffectifMin}→${result.toEffectifMin})`,
+  );
+}
+
+/**
+ * P2 catalogue — Scan team-gap via HarvestAPI + crée Trigger si gap confirmé.
+ *
+ * Lit les missingRoles depuis ClientSignalConfig.parameters.missingRoles.
+ * Si vide → skip (rien à chercher). Sinon scan HarvestAPI 2 passes.
+ *
+ * Dedup 90j par siret (évite re-scans HarvestAPI = économie). Trigger
+ * sourceCode = "harvestapi.team-gap", type OTHER (pas de type dédié dans
+ * enum, mais sourceCode identifie le signal).
+ *
+ * Sécurité : skip si companyName est < 3 chars ou contient "test" (anti-noise).
+ */
+async function scanAndCreateTeamGapTrigger(
+  clientId: string,
+  companySiret: string,
+  companyName: string,
+  companyNaf: string | null,
+): Promise<void> {
+  if (!companyName || companyName.trim().length < 3) return;
+
+  // Lit les missingRoles depuis ClientSignalConfig P2
+  const cfg = await getSignalConfig(clientId, "P2");
+  const params = cfg.parameters as { missingRoles?: unknown; minTeamSize?: unknown };
+  const missingRoles = Array.isArray(params.missingRoles)
+    ? (params.missingRoles as string[])
+    : [];
+  if (missingRoles.length === 0) {
+    // P2 activé mais pas de missingRoles configurés (oubli/wizard incomplet)
+    return;
+  }
+  const minTeamSize = typeof params.minTeamSize === "number" ? params.minTeamSize : 10;
+
+  // Dedup 90j : si un Trigger team-gap existe déjà pour ce siret, skip
+  // (évite re-appel HarvestAPI à $0.30 le scan).
+  const existing = await db.trigger.findFirst({
+    where: {
+      clientId,
+      sourceCode: "harvestapi.team-gap",
+      companySiret,
+      capturedAt: { gte: new Date(Date.now() - 90 * 86_400_000) },
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  // Scan HarvestAPI (cache 7j intégré dans le helper)
+  const result = await scanTeamGapForCompany({
+    companyName,
+    missingRoles,
+    minTeamSize,
+  });
+  if (!result || !result.hasGap) {
+    // Pas de gap détecté (ou scan échoué) — on log pour debug mais pas de Trigger
+    if (result) {
+      console.log(
+        `[enrich-dirigeants.team-gap] ${companyName} no-gap: ${result.reason ?? "?"} (total=${result.totalEmployees}, matching=${result.matchingCount})`,
+      );
+    }
+    return;
+  }
+
+  // Score 7 base (booster solid) + 1 si totalEmployees >= 50 (boite mid+)
+  let score = 7;
+  if (result.totalEmployees >= 50) score += 1;
+
+  await db.trigger.create({
+    data: {
+      clientId,
+      sourceCode: "harvestapi.team-gap",
+      sourceUrl: `harvestapi:team-gap:${companySiret}:${missingRoles.join("|")}`,
+      capturedAt: new Date(),
+      publishedAt: new Date(),
+      companyName,
+      companySiret,
+      companyNaf,
+      type: TriggerType.OTHER,
+      title: `${companyName} — équipe ${result.totalEmployees}p sans ${missingRoles.join(" / ")}`,
+      detail: `Scan HarvestAPI : ${result.totalEmployees} employés détectés sur LinkedIn mais 0 personne avec un titre ${missingRoles.join(" / ")}. Signal P2 catalogue (douleur cachée +30% conversion estimée).`,
+      rawPayload: result as unknown as Prisma.InputJsonValue,
+      score,
+      scoreReason: `P2 team-gap — ${result.totalEmployees}p / 0 ${missingRoles.join(",")}`,
+      status: TriggerStatus.NEW,
+    },
+  });
+  console.log(
+    `[enrich-dirigeants.team-gap] CREATED ${companyName} (${result.totalEmployees}p / 0 ${missingRoles.join(",")})`,
   );
 }
 
@@ -443,6 +535,28 @@ export async function enrichDirigeantsForClient(
       } catch (e) {
         console.warn(
           `[enrich-dirigeants.headcount-growth] ${t.companySiret} failed: ${e instanceof Error ? e.message : e}`,
+        );
+      }
+
+      // ─── P2 catalogue (16/05/2026) — Détection team-gap via HarvestAPI ───
+      // Scan les employés de la boite via LinkedIn People Search filtré par
+      // les missingRoles configurés dans ClientSignalConfig P2. Si la boite
+      // a >= minTeamSize employés ET 0 sur le rôle cible → P2 confirmé.
+      //
+      // Coût ~$0.30 par scan (2 passes HarvestAPI). Dedup 90j par siret
+      // pour ne pas re-scanner les mêmes boites trop souvent.
+      try {
+        if (await isSignalEnabled(clientId, "P2")) {
+          await scanAndCreateTeamGapTrigger(
+            clientId,
+            t.companySiret,
+            t.companyName,
+            data.code_naf ?? null,
+          );
+        }
+      } catch (e) {
+        console.warn(
+          `[enrich-dirigeants.team-gap] ${t.companySiret} failed: ${e instanceof Error ? e.message : e}`,
         );
       }
 
