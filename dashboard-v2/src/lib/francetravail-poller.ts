@@ -22,6 +22,7 @@ import {
   type FranceTravailOffer,
 } from "@/lib/francetravail";
 import { buildTitleFilterForClient } from "@/lib/icp-title-filter";
+import { isSignalEnabled } from "@/lib/signal-config";
 
 interface ClientIcpExtended {
   industries?: string[];
@@ -173,6 +174,14 @@ export async function pollFranceTravailForClient(
   });
   if (!client) throw new Error(`Client ${clientId} introuvable`);
   if (!client.icp) throw new Error(`Client ${client.name} sans ICP`);
+
+  // Sprint catalogue (16/05/2026) — Kill-switch P1 via ClientSignalConfig.
+  // France Travail produit du signal P1 "Hire role X" (codes ROME tech/sales).
+  // Si P1 désactivé pour ce client, on skip.
+  if (!(await isSignalEnabled(clientId, "P1"))) {
+    console.log(`[francetravail-poller] P1 disabled for client=${clientId}, skip`);
+    return result;
+  }
 
   const icp = client.icp as ClientIcpExtended;
   const antiCompanies = (icp.antiPersonas ?? []).map((a) => a.toLowerCase());

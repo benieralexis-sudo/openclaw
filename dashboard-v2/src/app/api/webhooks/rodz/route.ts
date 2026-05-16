@@ -2,8 +2,27 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Prisma, TriggerType, TriggerStatus, EmailStatus, LeadStatus } from "@prisma/client";
 import { db } from "@/lib/db";
+import { isSignalEnabled } from "@/lib/signal-config";
 
 export const runtime = "nodejs"; // crypto natif Node, pas Edge
+
+// ──────────────────────────────────────────────────────────────────────
+// Sprint catalogue (16/05/2026) — Mapping Rodz signal type → code catalogue
+// ──────────────────────────────────────────────────────────────────────
+// Quand le webhook reçoit un signal, on check si le code catalogue
+// correspondant est activé pour ce client via ClientSignalConfig. Si null,
+// le signal n'est pas dans le catalogue (cas social/public-tenders) → on
+// garde le comportement legacy (déjà filtré via LOW_VALUE).
+const RODZ_TO_CATALOG: Record<string, string> = {
+  fundraising: "B1",
+  "mergers-acquisitions": "B3",
+  "job-changes": "B2",
+  "job-offers": "P1",
+  "recruitment-campaign": "P1",
+  "republished-job-offers": "P1",
+  "company-registration": "B4",
+  expansion: "B7",
+};
 
 // Tolerance pour les replays / décalage horloge (5 min)
 const TIMESTAMP_TOLERANCE_S = 5 * 60;
@@ -304,6 +323,23 @@ export async function POST(req: NextRequest) {
       status: "ignored",
       reason: "low_value_signal_type",
       signalType: payload.signal.type,
+    });
+  }
+
+  // Sprint catalogue (16/05/2026) — Kill-switch via ClientSignalConfig.
+  // Si le signal Rodz correspond à un signal du catalogue désactivé pour ce
+  // client, on skip avant la création du Trigger. Pas d'effet sur les signaux
+  // hors catalogue (cas social-* / public-tenders → comportement legacy).
+  const catalogCode = RODZ_TO_CATALOG[normalizedSignalType];
+  if (catalogCode && !(await isSignalEnabled(dbSignal.clientId, catalogCode))) {
+    console.log(
+      `[rodz-webhook] skip ${catalogCode} disabled in catalog for client=${dbSignal.clientId} (type=${normalizedSignalType})`,
+    );
+    return NextResponse.json({
+      status: "ignored",
+      reason: "catalog_signal_disabled",
+      signalType: payload.signal.type,
+      catalogCode,
     });
   }
 

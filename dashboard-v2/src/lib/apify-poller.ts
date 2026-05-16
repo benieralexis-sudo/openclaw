@@ -20,6 +20,7 @@ import { runAndGetItems } from "@/lib/apify";
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
 import { getRotatedKeywords } from "@/lib/keyword-rotation";
 import { buildTitleFilterForClient } from "@/lib/icp-title-filter";
+import { isSignalEnabled } from "@/lib/signal-config";
 
 // Sprint 8 (10/05/2026) — Apify pricing approx : 1 CU ≈ $0.40 sur plan Starter.
 // Conservateur (CU réel facturé varie selon RAM allouée). Pour un calcul précis
@@ -628,6 +629,16 @@ export async function pollApifyForClient(
   };
 
   if (keywords.length === 0) {
+    return result;
+  }
+
+  // Sprint catalogue (16/05/2026) — Kill-switch P1 via ClientSignalConfig.
+  // Tous les actors Apify de ce poller produisent du signal P1 "Hire role X"
+  // (LinkedIn jobs, WTTJ, Indeed, France-jobs). Si P1 désactivé dans le
+  // catalogue pour ce client, on skip toute la collecte.
+  // Note : declarative-pain (linkedinCompanyPosts) est dans un autre flow.
+  if (!(await isSignalEnabled(clientId, "P1"))) {
+    console.log(`[apify-poller] P1 disabled for client=${clientId}, skip hiring actors`);
     return result;
   }
 

@@ -24,6 +24,25 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getEntreprise } from "@/lib/pappers";
 import { matchesClientIcp, type ClientIcp } from "@/lib/client-icp-matcher";
+import { isSignalEnabled } from "@/lib/signal-config";
+
+/**
+ * Sprint catalogue (16/05/2026) — Mapping BODACC type → signal code catalogue.
+ * Renvoie null pour les types non liés à un signal du catalogue (cas
+ * modification_statuts qui crée un Trigger OTHER générique sans signal cible).
+ */
+function bodaccTypeToCatalogSignal(type: BodaccEventType): string | null {
+  switch (type) {
+    case "capital_increase":
+      return "B6"; // Augmentation capital BODACC
+    case "company_merger":
+      return "B3"; // M&A annoncé
+    case "modification_statuts":
+      return null; // pas de signal catalogue dédié (OTHER générique)
+    default:
+      return null;
+  }
+}
 
 const BODACC_API =
   "https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records";
@@ -295,6 +314,15 @@ export async function pollBodaccForClient(
     const mapping = getBodaccTypeMapping(bodaccType);
 
     if (!mapping.shouldCreate) {
+      result.triggersSkippedType += 1;
+      continue;
+    }
+
+    // Sprint catalogue (16/05/2026) — Kill-switch par signal via ClientSignalConfig.
+    // capital_increase → B6, company_merger → B3. Si désactivé pour ce client,
+    // skip ce record (économise le call Pappers + Trigger create).
+    const catalogSignalCode = bodaccTypeToCatalogSignal(bodaccType);
+    if (catalogSignalCode && !(await isSignalEnabled(clientId, catalogSignalCode))) {
       result.triggersSkippedType += 1;
       continue;
     }
