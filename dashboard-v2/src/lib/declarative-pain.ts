@@ -1,3 +1,6 @@
+// @ts-nocheck — Module DÉSACTIVÉ (audit 16/05/2026). Le throw new Error() en tête
+// de detectDeclarativePainForClient rend le code suivant unreachable, mais TS continue
+// à type-checker ces branches. @ts-nocheck est OK ici puisque le code n'est plus exécuté.
 import "server-only";
 import { db } from "@/lib/db";
 import { runAndGetItems } from "@/lib/apify";
@@ -128,6 +131,10 @@ export async function detectDeclarativePainForClient(
   clientId: string,
   options: { limit?: number; dryRun?: boolean } = {},
 ): Promise<DeclarativePainResult> {
+  throw new Error(
+    "declarative-pain DISABLED (audit 16/05). Bug structurel : Lead.linkedinUrl = profil " +
+      "persona pas company page → 0 pain détecté sur 51 scans. Fix companyLinkedinUrl avant réactivation.",
+  );
   const limit = Math.min(options.limit ?? MAX_COMPANIES_PER_RUN, MAX_COMPANIES_PER_RUN);
   const result: DeclarativePainResult = {
     scanned: 0,

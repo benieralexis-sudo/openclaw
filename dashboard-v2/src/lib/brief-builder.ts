@@ -103,7 +103,7 @@ Produis un brief en français, ton professionnel direct, sans jargon marketing c
 - Email : sujet ≤ 60 caractères, corps ≤ 800 caractères, mention explicite du trigger comme hook, finir par une question fermée (créneau A ou B)
 - LinkedIn connection : ≤ 280 caractères, pas de "salut/bonjour", entrée directe sur le trigger
 - LinkedIn follow-up : à envoyer J+3 si pas de réponse, ≤ 400 caractères
-- Script call : intro 30s max, 3 questions ouvertes seulement, traitement de 3 objections types, close avec proposition créneau Cal.com
+- Script call : intro 30s max, 3 questions ouvertes seulement, traitement de 3 objections types, close avec proposition d'appel discovery 15 min (le commercial gère son propre agenda, ne PAS mentionner Cal.com/Calendly)
 - 3 objections probables MAX dans le summary, chacune avec une réponse en 1 phrase
 - Phrase de close : 1 question, créneau précis (ex. "Mardi 14h ou jeudi 10h ?")
 
@@ -135,7 +135,7 @@ Réponds UNIQUEMENT avec un JSON valide qui matche exactement cette structure (p
     "objectionHandling": [
       { "obj": "string", "response": "string" }
     ],
-    "close": "string — proposition créneau Cal.com"
+    "close": "string — proposition discovery 15 min (PAS de Cal.com/Calendly, le commercial gère)"
   }
 }`;
 }

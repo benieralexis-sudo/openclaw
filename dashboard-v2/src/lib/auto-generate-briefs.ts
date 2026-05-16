@@ -1,3 +1,6 @@
+// @ts-nocheck — Module DÉSACTIVÉ (audit 16/05/2026). Le throw new Error() en tête
+// de autoGenerateBriefsForHotLeads rend le code suivant unreachable, mais TS continue
+// à type-checker ces branches. @ts-nocheck est OK ici puisque le code n'est plus exécuté.
 import "server-only";
 
 /**
@@ -36,6 +39,10 @@ export async function autoGenerateBriefsForHotLeads(
   clientId: string,
   options: { maxPerRun?: number } = {},
 ): Promise<AutoBriefsResult> {
+  throw new Error(
+    "auto-generate-briefs DISABLED (audit 16/05). Fred ne consulte pas le dashboard, " +
+      "génération briefs auto = pure dépense Opus. Re-justifier business case avant réactivation.",
+  );
   const maxPerRun = options.maxPerRun ?? 5;
   const result: AutoBriefsResult = {
     clientId,

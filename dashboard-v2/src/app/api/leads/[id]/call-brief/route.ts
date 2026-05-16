@@ -83,7 +83,7 @@ function buildPrompt(args: {
 - Questions découverte : 3 questions ouvertes MAX (BANT-like : Budget, Authority, Need, Timing)
 - Objections : 3 objections probables avec réponse en 1 phrase chacune
 - Angle concurrentiel : comment se différencier si le contact évoque un concurrent
-- Close : proposition créneau Cal.com avec 2 options précises (mardi 14h ou jeudi 10h type)
+- Close : proposition d'appel discovery 15 min avec 2 options précises (mardi 14h ou jeudi 10h type — PAS de lien Cal.com/Calendly, le commercial gère son agenda)
 - Notes post-call : 3-4 points à logger après l'appel pour qualifier la suite
 
 # FORMAT DE RÉPONSE — JSON STRICT
