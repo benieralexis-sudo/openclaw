@@ -49,6 +49,18 @@ export async function ensureLeadsForAllTriggers(
   // (2 DTL + 8 iFIND). Maintenant : on skip IGNORED systématiquement.
   // Note : `archiveLeadOnTriggerIgnored` (lead-status-sync) gère déjà les
   // Leads PRÉ-existants → IGNORED, mais ne couvrait pas la création post-qualify.
+  //
+  // Audit 16/05 — Fix #2 — Ajout clause verdict=ENRICH dans le OR.
+  // Cas réels mesurés (BBSP Research + Work.Up, 14/05) : Apify linkedin-jobs
+  // sans poster + sans SIRET (Pappers attribution échouée). Score 6, verdict
+  // ENRICH. Filtre OR actuel échoue (siret null ET score<7) → pas de Lead créé
+  // → pas d'enrichissement HarvestAPI search-by-company → trigger condamné à
+  // rester ENRICH ad vitam. 5-7 cas/mois mesurés.
+  // Fix : autoriser création Lead aussi pour verdict=ENRICH (le judge a
+  // explicitement dit "il manque des infos, enrichis-moi"). Le Lead sera créé
+  // en INCOMPLETE (pas de poster), audit-heal le passera en NEW dès que
+  // HarvestAPI résout firstName/lastName. Pour les ENRICH avec SIRET, ils
+  // étaient déjà couverts par companySiret.
   const triggers = await db.trigger.findMany({
     where: {
       clientId,
@@ -60,6 +72,11 @@ export async function ensureLeadsForAllTriggers(
         // Exception Pépite : Opus≥7 = signal contextuel fort, on crée le
         // Lead même sans SIRET (HarvestAPI search-by-company résoudra).
         { score: { gte: 7 } },
+        // Fix #2 (16/05) — verdict ENRICH = signal "j'ai besoin d'infos".
+        // Sans Lead, l'enrichissement HarvestAPI ne se déclenche pas et
+        // le trigger reste ENRICH indéfiniment. Création Lead shell débloque
+        // le cycle invalidateTriggerForRequalify post-résolution persona.
+        { briefV2Json: { path: ["verdict"], equals: "ENRICH" } },
       ],
     },
     select: {

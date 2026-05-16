@@ -506,6 +506,8 @@ export async function qualifyTrigger(
       // client pour appliquer le hard gate antiPersonas avant pre-Opus reject
       // et le gate min freshness après verdict.
       client: { select: { icp: true } },
+      // Audit 16/05 — Charge Lead pour le guard pré-V2 (Fix #1 audit 16/05).
+      lead: { select: { status: true, doNotContact: true, bouncedAt: true } },
     },
   });
   if (!triggerLite) return null;
@@ -515,6 +517,58 @@ export async function qualifyTrigger(
   // le judge V2, laissant briefV2Json à NULL indéfiniment.
   if (triggerLite.scoreReason && triggerLite.briefV2Json && !opts.force) {
     return { opusScore: triggerLite.score, reason: triggerLite.scoreReason, isHot: triggerLite.isHot };
+  }
+
+  // Audit 16/05 — Fix #1 — Guard Lead AVANT V2 + traitement différencié.
+  //
+  // Sans ce guard distinguant les cas, ma protection ajoutée dans
+  // qualifyTriggerV2 (return null si Lead INCOMPLETE/doNotContact/bouncedAt)
+  // cascadait dans le bloc "v2-failed" ligne ~590 qui force status=IGNORED.
+  // Problème pour INCOMPLETE : c'est censé être un état TRANSITOIRE en attente
+  // d'enrichissement (cf. memo cycle INCOMPLETE 12/05). Le Lead doit revenir
+  // en NEW quand l'enrichissement résout la persona — IGNORED définitif tuait
+  // ce cycle.
+  //
+  // Sémantique correcte :
+  //   - INCOMPLETE      → return null sans toucher Trigger (re-qualify
+  //                       au prochain cron quand Lead sera passé en NEW)
+  //   - doNotContact    → IGNORED définitif (Lead opted-out RGPD, ne reviendra
+  //                       jamais en contactable)
+  //   - bouncedAt <30j  → IGNORED définitif (email déjà rebondi)
+  //   - ARCHIVED        → IGNORED définitif (Lead déjà jugé inutilisable)
+  if (triggerLite.lead) {
+    const guard = checkLeadCanGenerate({
+      doNotContact: triggerLite.lead.doNotContact,
+      bouncedAt: triggerLite.lead.bouncedAt,
+      status: triggerLite.lead.status,
+    });
+    if (!guard.ok) {
+      if (guard.reason === "incomplete") {
+        // Skip réversible — Lead reviendra en NEW post-enrichissement
+        console.log(
+          `[qualify-trigger.skip-incomplete] ${triggerId}: Lead INCOMPLETE — qualify reporté (re-tentative au prochain cron post-enrich)`,
+        );
+        return null;
+      }
+      // Skip définitif — doNotContact / bouncedAt / ARCHIVED
+      const rejectReason = `[guard:${guard.reason}] ${guard.message}`;
+      console.log(
+        `[qualify-trigger.guard-blocked] ${triggerId}: IGNORED auto (${guard.reason})`,
+      );
+      await db.trigger.update({
+        where: { id: triggerId },
+        data: {
+          score: 2,
+          scoreReason: rejectReason.slice(0, 500),
+          isHot: false,
+          status: "IGNORED",
+          ignoredAt: new Date(),
+          ignoredReason: rejectReason.slice(0, 500),
+        },
+      });
+      await archiveLeadOnTriggerIgnored(triggerId);
+      return { opusScore: 2, reason: rejectReason, isHot: false };
+    }
   }
 
   // 2-pre. ANTI-PERSONA HARD GATE (12/05/2026, audit Asys 28/04).
