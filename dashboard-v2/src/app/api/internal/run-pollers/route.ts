@@ -582,10 +582,12 @@ export async function POST(req: NextRequest) {
         // ────────────────────────────────────────────────────────────
         if (process.env.FULLENRICH_API_KEY) {
           try {
-            // limit 15 : cohérent avec budget Yearly 1k crédits/mois.
-            // Gate score >= 6 déjà appliquée dans enrich-via-fullenrich.ts.
-            // includePhones: true par défaut → 1 cr email + 10 cr phone.
-            const fe = await enrichLeadsViaFullEnrich(c.id, { limit: 15 });
+            // Sprint Persona Excellence (17/05) — limit 15 → 30 après mesure
+            // FullEnrich = 74% taux email réel sur 46 cas prod (vs 0%
+            // Dropcontact). 72 éligibles non couverts sur 30j → on double la
+            // capacité pour les rattraper en 2-3j au lieu de 5. Coût marginal
+            // ~+8€/mois. Gate score >= 6 maintenue dans enrich-via-fullenrich.
+            const fe = await enrichLeadsViaFullEnrich(c.id, { limit: 30 });
             (entry as { fullEnrich?: unknown }).fullEnrich = fe;
           } catch (e) {
             (entry as { fullEnrichError?: string }).fullEnrichError =
