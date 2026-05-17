@@ -222,7 +222,9 @@ export function OnboardingWizard() {
   const canNext = (() => {
     if (step === 1) return form.name.trim().length > 0;
     if (step === 2) return form.industries.length > 0 && form.regions.length > 0;
-    if (step === 3) return form.pillarCodes.length > 0 && form.pillarCodes.length <= 3;
+    // V1 17/05 — Exactement 3 piliers (discipline produit). Le wizard ne
+    // laisse pas passer en dessous de 3 ni au-dessus.
+    if (step === 3) return form.pillarCodes.length === 3;
     if (step === 4) return ["GROWTH", "LEADS_DATA", "CUSTOM"].includes(form.plan);
     return true;
   })();
@@ -671,8 +673,11 @@ function StepSignals({
     enabled: !!me?.clientId,
   });
 
+  // V1 17/05 — Stratégie "11 signaux égaux" : on affiche TOUS les signaux
+  // ACTIVE (P1-P5 + B1-B7), pas seulement category=PILLAR. Le client choisit
+  // ses 3 préférés parmi les 11.
   const pillars: CatalogPillar[] = (data?.signals ?? [])
-    .filter((s) => s.category === "PILLAR")
+    .filter((s) => s.category !== "CONTEXTUAL") // exclut C1-C4 (enrichissements auto, DEPRECATED)
     .map((s) => ({
       code: s.code,
       name: s.name,
@@ -701,6 +706,20 @@ function StepSignals({
     });
   };
 
+  // V1 17/05 — Suggestion auto des 3 piliers selon l'ICP du client (industries + signals préférés).
+  // Bouton "Suggérer 3 piliers" — l'utilisateur peut accepter ou modifier ensuite.
+  const handleSuggest = React.useCallback(async () => {
+    const { suggestPillars } = await import("@/lib/suggest-pillars");
+    const suggested = suggestPillars({
+      industries: form.industries,
+      personaTitles: form.preferredSignals,
+    });
+    setForm((f) => (f ? { ...f, pillarCodes: suggested } : f));
+    toast.success("3 piliers suggérés selon votre ICP", {
+      description: "Vous pouvez les modifier à votre guise.",
+    });
+  }, [form.industries, form.preferredSignals, setForm]);
+
   return (
     <Card className="border-ink-200 shadow-xs">
       <CardContent className="space-y-5 p-6">
@@ -709,9 +728,10 @@ function StepSignals({
             Choisissez vos 3 piliers
           </h2>
           <p className="text-sm text-ink-600">
-            Les piliers définissent les <strong>signaux d'achat principaux</strong> que nous chercherons
-            pour vous. Les autres signaux (boosters) tournent en arrière-plan pour renforcer la
-            conviction.
+            Les piliers définissent les <strong>3 signaux d'achat</strong> que nous chercherons
+            pour vous. Quand 2 de vos piliers convergent sur une même boîte =
+            <strong className="text-orange-600"> Pépite</strong>. Si 3 convergent =
+            <strong className="text-red-600"> Diamant</strong> (appel immédiat).
           </p>
         </div>
 
@@ -722,8 +742,13 @@ function StepSignals({
           </div>
         ) : (
           <>
-            <div className="text-xs text-ink-500">
-              {form.pillarCodes.length}/3 piliers sélectionnés
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-ink-500">
+                {form.pillarCodes.length}/3 piliers sélectionnés
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={handleSuggest}>
+                ✨ Suggérer 3 piliers
+              </Button>
             </div>
             <div className="grid gap-2">
               {pillars.map((p) => {

@@ -67,10 +67,12 @@ export async function PATCH(
     return NextResponse.json({ error: `signal ${code} not found in catalog` }, { status: 404 });
   }
 
-  // Contrainte : seuls les piliers peuvent être marqués isPillar=true
-  if (isPillar === true && signal.category !== "PILLAR") {
+  // V1 17/05 — Stratégie "11 signaux égaux" : tous les signaux ACTIVE peuvent
+  // être piliers (P1-P5 + B1-B7). Les CONTEXTUAL (C1-C4) sont devenus des
+  // enrichissements automatiques hors catalogue, donc rejetés.
+  if (isPillar === true && signal.category === "CONTEXTUAL") {
     return NextResponse.json(
-      { error: `signal ${code} category=${signal.category} cannot be marked as pillar` },
+      { error: `signal ${code} is a CONTEXTUAL enrichment, not a pillar candidate` },
       { status: 400 },
     );
   }

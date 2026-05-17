@@ -44,6 +44,7 @@ interface Trigger {
   status: "NEW" | "CONTACTED" | "REPLIED" | "BOOKED" | "WON" | "LOST" | "IGNORED";
   capturedAt: string;
   sourceCode?: string | null;          // visible si ADMIN/COMMERCIAL
+  signalCode?: string | null;          // V1 17/05 — signal catalogue (P1-B7)
   comboSources?: string[];             // sources distinctes si combo
   // Refactor V2-only Session 2 (10/05) — verdict natif V2
   briefV2Json?: { verdict?: "OUI" | "ENRICH" | "NON"; confidence?: number; thesis?: string } | null;
@@ -81,6 +82,22 @@ function sourcePrefix(sc: string | null | undefined): string | null {
   return sc.split(".")[0] ?? null;
 }
 
+// V1 17/05 — Mapping signalCode → label visible client (issu de signal-mapping.ts)
+// + couleur badge dans dashboard. Cohérent avec catalogue des 11 signaux.
+const SIGNAL_LABEL: Record<string, { label: string; color: string }> = {
+  P1: { label: "Recrutement", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  P2: { label: "Équipe sans rôle", color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
+  P3: { label: "Intent d'achat", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  P4: { label: "Adoption IA", color: "bg-violet-100 text-violet-700 border-violet-200" },
+  P5: { label: "Croissance", color: "bg-teal-100 text-teal-700 border-teal-200" },
+  B1: { label: "Levée", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  B2: { label: "Nouveau C-Level", color: "bg-amber-100 text-amber-700 border-amber-200" },
+  B3: { label: "M&A", color: "bg-orange-100 text-orange-700 border-orange-200" },
+  B4: { label: "Création récente", color: "bg-rose-100 text-rose-700 border-rose-200" },
+  B5: { label: "INPI marque", color: "bg-pink-100 text-pink-700 border-pink-200" },
+  B7: { label: "Expansion géo", color: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200" },
+};
+
 const FILTER_LABELS: Record<string, { label: string; icon: typeof Target }> = {
   all: { label: "Tous", icon: Target },
   // Renommé 04/05 (anomalie 1) : "Pépites ≥ 9" → "Hot" pour éviter
@@ -115,6 +132,8 @@ export default function TriggersPage() {
   const [quality, setQuality] = React.useState<Quality>("qualified");
   const [search, setSearch] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  // V1 17/05 — Filtre par signal du catalogue (P1-B7). "" = tous signaux.
+  const [signalFilter, setSignalFilter] = React.useState<string>("");
   // Par défaut on n'affiche QUE les Triggers avec un Lead (= contact dirigeant
   // identifié, exploitable commercialement). Toggle pour inclure les triggers
   // en cours d'enrichissement (sans dirigeant Pappers résolu encore).
@@ -126,11 +145,12 @@ export default function TriggersPage() {
   }, [search]);
 
   const { data: triggers = [], isLoading } = useQuery<Trigger[]>({
-    queryKey: ["triggers", activeClientId, activeFilter, quality, debouncedSearch, showOrphans],
+    queryKey: ["triggers", activeClientId, activeFilter, quality, debouncedSearch, showOrphans, signalFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (activeClientId) params.set("clientId", activeClientId);
       if (activeFilter !== "all") params.set("filter", activeFilter);
+      if (signalFilter) params.set("signal", signalFilter);
       params.set("quality", quality);
       params.set("withLead", showOrphans ? "false" : "true");
       if (debouncedSearch) params.set("q", debouncedSearch);
@@ -326,14 +346,19 @@ export default function TriggersPage() {
                 </span>
               )}
               {row.original.isCombo && (
-                <Badge variant="brand" size="sm" className="shrink-0" title={
-                  row.original.comboSources?.length
-                    ? `Combo : ${row.original.comboSources.map((p) => SOURCE_LABEL[p]?.label ?? p).join(" + ")}`
-                    : "Multi-source détecté"
-                }>
-                  <Sparkles className="h-2.5 w-2.5" />
-                  Combo
-                </Badge>
+                // V1 17/05 — Différencie Pépite (combo 2 piliers) et Diamant (3+).
+                // multiSourceBoost inclut le comboBoost : 30 = Pépite, 50+ = Diamant.
+                (row.original.multiSourceBoost ?? 0) >= 50 ? (
+                  <Badge variant="fire" size="sm" className="shrink-0" title="Diamant — 3 piliers convergent sur cette boîte (signal exceptionnel)">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    Diamant
+                  </Badge>
+                ) : (
+                  <Badge variant="brand" size="sm" className="shrink-0" title="Pépite — 2 piliers convergent sur cette boîte">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    Pépite
+                  </Badge>
+                )
               )}
             </div>
           </div>
@@ -341,33 +366,34 @@ export default function TriggersPage() {
       },
     },
     {
-      id: "source",
-      header: "Source",
+      id: "signal",
+      header: "Signal",
       cell: ({ row }) => {
-        const prefix = sourcePrefix(row.original.sourceCode);
-        if (!prefix) return <span className="text-[11px] text-ink-400">—</span>;
-        const cfg = SOURCE_LABEL[prefix];
-        const sources = row.original.comboSources?.length
-          ? row.original.comboSources
-          : [prefix];
+        // V1 17/05 — Affiche le signal catalogue (P1-B7) en label client.
+        // C'est l'angle commercial. Le sourceCode technique reste pour ADMIN.
+        const signalCode = row.original.signalCode;
+        if (!signalCode) {
+          // Legacy : pas de signalCode mappé, fallback sur source technique si ADMIN/COMMERCIAL
+          const prefix = sourcePrefix(row.original.sourceCode);
+          if (!prefix) return <span className="text-[11px] text-ink-400">—</span>;
+          const c = SOURCE_LABEL[prefix];
+          return (
+            <span className={cn("inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium", c?.color ?? "bg-ink-100 text-ink-700 border-ink-200")}>
+              {c?.label ?? prefix}
+            </span>
+          );
+        }
+        const sig = SIGNAL_LABEL[signalCode] ?? { label: signalCode, color: "bg-ink-100 text-ink-700 border-ink-200" };
         return (
-          <div className="flex flex-wrap gap-1">
-            {sources.map((p) => {
-              const c = SOURCE_LABEL[p] ?? { label: p, color: "bg-ink-100 text-ink-700 border-ink-200" };
-              return (
-                <span
-                  key={p}
-                  className={cn(
-                    "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium",
-                    c.color,
-                  )}
-                  title={`Détecté via ${c.label}${row.original.sourceCode && p === prefix ? ` (${row.original.sourceCode})` : ""}`}
-                >
-                  {c.label}
-                </span>
-              );
-            })}
-          </div>
+          <span
+            className={cn(
+              "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium whitespace-nowrap",
+              sig.color,
+            )}
+            title={`Signal ${signalCode} — ${sig.label}${row.original.sourceCode ? ` (source : ${row.original.sourceCode})` : ""}`}
+          >
+            {sig.label}
+          </span>
         );
       },
     },
@@ -492,6 +518,21 @@ export default function TriggersPage() {
               })}
             </TabsList>
           </Tabs>
+
+          {/* V1 17/05 — Filtre par signal du catalogue. "" = tous signaux. */}
+          <select
+            value={signalFilter}
+            onChange={(e) => setSignalFilter(e.target.value)}
+            className="rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-[12px] font-medium text-ink-700 shadow-xs focus:border-brand-400 focus:outline-none"
+            title="Filtrer par signal du catalogue"
+          >
+            <option value="">Tous signaux</option>
+            {Object.entries(SIGNAL_LABEL).map(([code, sig]) => (
+              <option key={code} value={code}>
+                {sig.label} ({code})
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center gap-2">

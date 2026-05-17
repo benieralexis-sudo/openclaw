@@ -272,8 +272,9 @@ export function SignalsEditor({ clientId, canEdit }: { clientId: string; canEdit
                         <div className="text-sm text-ink-600 mt-0.5 truncate">{sig.description}</div>
                       </div>
 
-                      {/* Pillar toggle (seulement si PILLAR + enabled) */}
-                      {sig.category === "PILLAR" && sig.state.enabled && (
+                      {/* V1 17/05 — Pillar toggle pour tous les signaux ACTIVE (P1-P5 + B1-B7).
+                          Les CONTEXTUAL (C1-C4 DEPRECATED) sont des enrichissements, pas des piliers. */}
+                      {sig.category !== "CONTEXTUAL" && sig.state.enabled && (
                         <button
                           type="button"
                           onClick={() =>

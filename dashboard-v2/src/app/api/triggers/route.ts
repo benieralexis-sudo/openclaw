@@ -46,6 +46,13 @@ export async function GET(req: NextRequest) {
   if (filter === "hot") where.isHot = true;
   else if (filter === "combo") where.isCombo = true;
   else if (filter === "new") where.status = "NEW";  // override pour ce filter spécifique
+
+  // V1 17/05 — Filtre par signal (P1-B7). Permet à Fred/Alexis de regarder
+  // par exemple uniquement les leads issus de Signal 1 (Recrutement).
+  const signalFilter = searchParams.get("signal");
+  if (signalFilter) {
+    where.signalCode = signalFilter;
+  }
   // Fix H8 (04/05) — Search ET quality combinés via where.AND.
   // Avant : `where.OR = [...]` (quality) puis `where.OR = [...]` (search)
   // → l'écriture search écrasait le filtre quality. Dès que Fred tapait
@@ -157,6 +164,9 @@ export async function GET(req: NextRequest) {
       status: true,
       capturedAt: true,
       sourceCode: showSource ? true : false,
+      // V1 17/05 — signalCode exposé à tous (P1-B7) pour badge dashboard.
+      // Distinct de sourceCode (technique, ADMIN/COMMERCIAL only).
+      signalCode: true,
       // Refactor V2-only Session 2 (10/05) — verdict + thesis V2 exposés
       // au frontend pour affichage badge "OUI 86%" + thesis hover.
       briefV2Json: true,
