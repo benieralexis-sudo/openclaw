@@ -277,6 +277,24 @@ export async function POST(req: NextRequest) {
         const sirene = await enrichRecentTriggersWithSirene(c.id, { limit: 60 });
         entry.sireneEnriched = sirene.enriched;
       }
+      // B4 (17/05/2026) — Retry attribution SIRENE sur les triggers verdict=ENRICH
+      // bloqués depuis +24h. Consomme la recommandation Opus enrichmentNeeded
+      // "Attribution SIRENE via Pappers" en tentant des variantes du companyName.
+      // Archive automatiquement après 7j sans résolution.
+      // Tourne sur le cron horaire light ET sur les runs all, pour rattraper
+      // continuellement les triggers ENRICH bloqués (cf. session 17/05 audit).
+      if (!dryRun && (source === "cron" || source === "all")) {
+        try {
+          const { retrySirenAttributionForEnrichTriggers } = await import(
+            "@/lib/retry-enrich-attribution"
+          );
+          const retry = await retrySirenAttributionForEnrichTriggers(c.id, { limit: 20 });
+          (entry as { retryEnrichSirene?: unknown }).retryEnrichSirene = retry;
+        } catch (e) {
+          (entry as { retryEnrichSireneError?: string }).retryEnrichSireneError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
       // ────────────────────────────────────────────────────────────
       // Split léger (1h, source=cron) vs lourd (6h, source=all)
       // Audit 03/05 : profile-search brûlait $2.32/jour (16 runs) car

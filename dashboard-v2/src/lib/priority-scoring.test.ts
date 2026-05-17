@@ -163,4 +163,43 @@ describe("computePriorityScore", () => {
   it("score 0 (cas dégradé) reste à 0 même avec boost", () => {
     expect(computePriorityScore({ score: 0, freshnessScore: 100, multiSourceBoost: 30 })).toBe(30);
   });
+
+  // B1 (17/05/2026) — Pillar boost
+  it("ajoute pillarBoost au score final", () => {
+    expect(
+      computePriorityScore({ score: 8, freshnessScore: 100, multiSourceBoost: 0, pillarBoost: 5 }),
+    ).toBe(13);
+  });
+
+  it("pillarBoost=0 par défaut (rétro-compat)", () => {
+    expect(computePriorityScore({ score: 8, freshnessScore: 100, multiSourceBoost: 0 })).toBe(8);
+  });
+});
+
+describe("computePillarBoost", () => {
+  it("retourne 5 si la source est mappée à un pilier actif", async () => {
+    const { computePillarBoost } = await import("./priority-scoring");
+    expect(computePillarBoost("apify.linkedin-jobs", ["P1", "P2"])).toBe(5);
+  });
+
+  it("retourne 0 si la source mappe à un signal non-pilier", async () => {
+    const { computePillarBoost } = await import("./priority-scoring");
+    expect(computePillarBoost("apify.linkedin-jobs", ["P3", "P4"])).toBe(0);
+  });
+
+  it("retourne 0 pour une source inconnue", async () => {
+    const { computePillarBoost } = await import("./priority-scoring");
+    expect(computePillarBoost("unknown.source", ["P1"])).toBe(0);
+  });
+
+  it("retourne 0 si sourceCode null", async () => {
+    const { computePillarBoost } = await import("./priority-scoring");
+    expect(computePillarBoost(null, ["P1"])).toBe(0);
+  });
+
+  it("traite P3 buying-intent → P3 mapping", async () => {
+    const { computePillarBoost } = await import("./priority-scoring");
+    expect(computePillarBoost("theirstack.buying-intent", ["P3"])).toBe(5);
+    expect(computePillarBoost("theirstack.buying-intent", ["P1"])).toBe(0);
+  });
 });

@@ -610,34 +610,52 @@ export async function auditAndHeal(opts: { clientId?: string } = {}): Promise<Au
   // garde sa sémantique d'origine (= ne pas contacter, jamais).
   // ─────────────────────────────────────────────
 
-  // 8A — INCOMPLETE → NEW (persona trouvée)
+  // 8A — INCOMPLETE → NEW (persona trouvée + attribution SIRENE complète)
+  //
+  // B2 (17/05/2026) — Avant : la transition se faisait dès que fullName était
+  // posé. Conséquence observée : Leads avec firstName/lastName Apify-poster
+  // mais SIRET/NAF jamais résolus → passaient en NEW, polluaient le dashboard
+  // sans contact (cas Wesco/Wink/myPOS/KatchMe/Leonar 17/05).
+  //
+  // Maintenant : exige aussi que le Trigger lié ait SIRET ET NAF attribués.
+  // Sans ça, les enrichissements aval (Kaspr/Dropcontact/FullEnrich) n'ont
+  // pas le domaine d'entreprise et retournent 0 → lead inutilisable.
   const recovered = await db.lead.updateMany({
     where: {
       deletedAt: null,
       ...(cId ? { clientId: cId } : {}),
       status: "INCOMPLETE",
       fullName: { not: null },
+      trigger: {
+        companySiret: { not: null },
+        companyNaf: { not: null },
+      },
     },
     data: { status: "NEW", updatedAt: new Date() },
   });
   if (recovered.count > 0) {
-    console.log(`[heal.8A] ${recovered.count} leads INCOMPLETE → NEW (persona enrichie)`);
+    console.log(`[heal.8A] ${recovered.count} leads INCOMPLETE → NEW (persona + SIRENE/NAF complets)`);
   }
 
-  // 8B — NEW sans persona → INCOMPLETE (defensive, normalement déjà géré
-  // par ensure-lead-for-trigger.ts mais filet de sécurité pour les leads
-  // historiques pré-INCOMPLETE)
+  // 8B — NEW sans persona OU sans attribution → INCOMPLETE.
+  // Filet de sécurité élargi B2 : on retire aussi du dashboard les leads
+  // remontés en NEW historiquement mais dont le Trigger n'a jamais récupéré
+  // SIRET/NAF (cas hérités avant le 17/05).
   const hidden = await db.lead.updateMany({
     where: {
       deletedAt: null,
       ...(cId ? { clientId: cId } : {}),
       status: "NEW",
-      fullName: null,
+      OR: [
+        { fullName: null },
+        { trigger: { companySiret: null } },
+        { trigger: { companyNaf: null } },
+      ],
     },
     data: { status: "INCOMPLETE", updatedAt: new Date() },
   });
   if (hidden.count > 0) {
-    console.log(`[heal.8B] ${hidden.count} leads NEW sans persona → INCOMPLETE (caché Fred)`);
+    console.log(`[heal.8B] ${hidden.count} leads NEW incomplets → INCOMPLETE (persona ou SIRENE/NAF manquant)`);
   }
 
   // 8D — Cleanup phones fixes existants (12/05 nuit).

@@ -54,13 +54,33 @@ export async function GET(req: NextRequest) {
   //
   // Maintenant : on construit qualityOR et searchOR séparément, puis on
   // les compose via where.AND (Prisma combine les conditions).
+  // B5 (17/05/2026) — Filtre "actionable" durci après audit massif.
+  //
+  // Avant : la clause `lead.fitScore >= 35` faisait passer une majorité de
+  // leads ENRICH avec DQ<30 et sans contact (cas Wesco/Wink/myPOS, etc.).
+  // L'utilisateur a légitimement protesté contre cette pollution dashboard.
+  //
+  // Nouveau critère : pour passer "actionable" sans contact direct, il faut
+  // au moins un signal de qualité explicite (priorityScore élevé OU score
+  // Opus >= 7 OU dataQuality >= 50 = persona enrichie). Les ENRICH sans
+  // verdict OUI ET sans contact ET sans DQ sont écartés.
   const qualityOR: Prisma.TriggerWhereInput[] | null =
     quality === "actionable"
       ? [
-          { priorityScore: { gte: 10 } },
-          { lead: { fitScore: { gte: 35 } } },
+          // Lead avec contact direct = toujours actionable
           { lead: { email: { not: null } } },
+          // Pépite Opus (verdict OUI confirmé) = priorité absolue
           { score: { gte: 7 } },
+          // Priorité composite très forte (multi-source / fraîcheur)
+          { priorityScore: { gte: 15 } },
+          // Fit élevé MAIS bridé sur dataQuality (évite les Lead "shell" sans
+          // enrichissement). DQ>=50 ≈ Kaspr/Dropcontact a tourné avec succès.
+          {
+            AND: [
+              { lead: { fitScore: { gte: 50 } } },
+              { lead: { dataQuality: { gte: 50 } } },
+            ],
+          },
         ]
       : null;
 

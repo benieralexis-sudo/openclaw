@@ -85,15 +85,37 @@ async function loadClientCache(clientId: string): Promise<Map<string, SignalConf
       enabled: true,
       parameters: true,
       isPillar: true,
-      signal: { select: { code: true } },
+      signal: { select: { code: true, parameters: true } },
     },
   });
 
   const configs = new Map<string, SignalConfig>();
   for (const r of rows) {
+    // B6 (17/05/2026) — Si le client a parameters={} mais le catalogue
+    // déclare des paramètres avec `default`, on injecte les defaults pour
+    // que le poller tourne avec une config raisonnable au lieu de rien.
+    //
+    // Cas observé 17/05 : DTL+iFIND avaient P4 et P5 enabled=true mais
+    // ClientSignalConfig.parameters={} → les pollers cherchaient les params
+    // dans le legacy ICP (absent) et finissaient avec rien. Maintenant on
+    // descend les defaults SignalCatalog.parameters[key].default.
+    const clientParams = (r.parameters as Record<string, unknown>) ?? {};
+    const templateParams = (r.signal.parameters as Record<string, { default?: unknown }>) ?? {};
+    const merged: Record<string, unknown> = {};
+    for (const [key, tmpl] of Object.entries(templateParams)) {
+      if (clientParams[key] !== undefined && clientParams[key] !== null) {
+        merged[key] = clientParams[key];
+      } else if (tmpl?.default !== undefined) {
+        merged[key] = tmpl.default;
+      }
+    }
+    // Préserver d'éventuelles clés custom du client absentes du template
+    for (const [key, val] of Object.entries(clientParams)) {
+      if (!(key in merged)) merged[key] = val;
+    }
     configs.set(r.signal.code, {
       enabled: r.enabled,
-      parameters: (r.parameters as Record<string, unknown>) ?? {},
+      parameters: merged,
       isPillar: r.isPillar,
       isDefault: false,
     });

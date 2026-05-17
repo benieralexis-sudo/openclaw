@@ -511,6 +511,9 @@ export async function qualifyTrigger(
       title: true,
       detail: true,
       companyName: true,
+      companySiret: true,
+      companyNaf: true,
+      sourceCode: true,
       publishedAt: true,
       type: true,
       rawPayload: true,
@@ -584,6 +587,39 @@ export async function qualifyTrigger(
       await archiveLeadOnTriggerIgnored(triggerId);
       return { opusScore: 2, reason: rejectReason, isHot: false };
     }
+  }
+
+  // B3 (17/05/2026) — Gate attribution SIRENE/NAF avant Opus.
+  //
+  // Pourquoi : audit 17/05 a montré que ~60% des qualifs Opus produisaient
+  // verdict ENRICH "SIREN non résolu, NAF inconnu" → $0.13 par qualif gaspillé
+  // sur des Triggers qu'on ne pourra de toute façon pas convertir (pas de
+  // domaine = Kaspr/Dropcontact/FullEnrich retournent 0). Burn observé ~$12/j
+  // sur Anthropic uniquement pour ces ENRICH stériles.
+  //
+  // Sémantique : skip réversible (return null, status reste NEW). Le trigger
+  // sera repris au prochain cycle quand enrichRecentTriggersWithSirene aura
+  // attribué le SIRET, OU archivé par TTL si jamais résolu.
+  //
+  // Exceptions : sources qui n'ont structurellement pas de SIRET dispo upstream
+  // (rss-levees fournit déjà tout via le poller). On ne gate que les sources
+  // qui passent par l'attribution Pappers post-création.
+  const SIREN_REQUIRED_SOURCES = [
+    "apify.linkedin-jobs",
+    "apify.wttj-jobs",
+    "apify.indeed-jobs",
+    "apify.france-jobs",
+    "apify.ai-adoption",
+    "francetravail.tech",
+    "theirstack.buying-intent",
+  ];
+  const sourceCode = triggerLite.sourceCode ?? "";
+  const needsSiren = SIREN_REQUIRED_SOURCES.some((s) => sourceCode.startsWith(s));
+  if (needsSiren && !triggerLite.companySiret) {
+    console.log(
+      `[qualify-trigger.skip-no-siret] ${triggerId} (${sourceCode}): SIRET non résolu — qualify reporté (re-tentative post-attribution Pappers)`,
+    );
+    return null;
   }
 
   // 2-pre. ANTI-PERSONA HARD GATE (12/05/2026, audit Asys 28/04).

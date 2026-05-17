@@ -16,8 +16,10 @@ import { db } from "@/lib/db";
 import {
   computeFreshnessScore,
   computeMultiSourceBoost,
+  computePillarBoost,
   computePriorityScore,
 } from "@/lib/priority-scoring";
+import { getActivePillars } from "@/lib/signal-config";
 
 export interface PriorityScoringRunResult {
   scanned: number;
@@ -60,6 +62,10 @@ export async function recomputePriorityScoresForClient(
     return { scanned: 0, updated: 0, skipped: 0, topPriorityScore: null, multiSourceCompanies: 0 };
   }
 
+  // B1 (17/05/2026) — Récupère les piliers actifs du client pour booster
+  // les triggers issus de signaux prioritaires (+5 priorityScore).
+  const activePillars = await getActivePillars(clientId);
+
   // Construit l'index sources distinctes par société (fenêtre 7j seulement)
   const sourcesByCompany = new Map<string, Set<string>>();
   for (const t of triggers) {
@@ -89,10 +95,12 @@ export async function recomputePriorityScoresForClient(
     const sources = sourcesByCompany.get(key);
     const sourceList = sources ? Array.from(sources) : [t.sourceCode];
     const multiSourceBoost = computeMultiSourceBoost(sourceList);
+    const pillarBoost = computePillarBoost(t.sourceCode, activePillars);
     const priorityScore = computePriorityScore({
       score: t.score,
       freshnessScore,
       multiSourceBoost,
+      pillarBoost,
     });
 
     if (topPriorityScore === null || priorityScore > topPriorityScore) {

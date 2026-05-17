@@ -50,17 +50,21 @@ export async function ensureLeadsForAllTriggers(
   // Note : `archiveLeadOnTriggerIgnored` (lead-status-sync) gère déjà les
   // Leads PRÉ-existants → IGNORED, mais ne couvrait pas la création post-qualify.
   //
-  // Audit 16/05 — Fix #2 — Ajout clause verdict=ENRICH dans le OR.
-  // Cas réels mesurés (BBSP Research + Work.Up, 14/05) : Apify linkedin-jobs
-  // sans poster + sans SIRET (Pappers attribution échouée). Score 6, verdict
-  // ENRICH. Filtre OR actuel échoue (siret null ET score<7) → pas de Lead créé
-  // → pas d'enrichissement HarvestAPI search-by-company → trigger condamné à
-  // rester ENRICH ad vitam. 5-7 cas/mois mesurés.
-  // Fix : autoriser création Lead aussi pour verdict=ENRICH (le judge a
-  // explicitement dit "il manque des infos, enrichis-moi"). Le Lead sera créé
-  // en INCOMPLETE (pas de poster), audit-heal le passera en NEW dès que
-  // HarvestAPI résout firstName/lastName. Pour les ENRICH avec SIRET, ils
-  // étaient déjà couverts par companySiret.
+  // B2 (17/05/2026) — Resserrement après audit massif : la clause verdict=ENRICH
+  // ajoutée le 16/05 était la principale source du déchet "À VÉRIFIER sans
+  // contact" remonté par l'utilisateur. Opus dit verdict=ENRICH précisément
+  // pour les boîtes non-identifiées (SIREN/NAF inconnus, peut-être holding,
+  // peut-être cabinet de recrutement, etc.) → créer un Lead à ce stade le
+  // condamne à rester contact-less.
+  //
+  // Nouveau critère STRICT :
+  //   1. companySiret ET companyNaf attribués → Lead créé en NEW (cas idéal)
+  //   2. score >= 7 (Pépite Opus explicite) → Lead créé en INCOMPLETE (sera
+  //      basculé en NEW par HEAL 8A SI ET SEULEMENT SI SIRET arrive ET persona
+  //      trouvée — voir audit-heal.ts:613)
+  //
+  // Les triggers ENRICH sans SIRET attendent désormais sagement que
+  // enrichRecentTriggersWithSirene résolve Pappers, OU sont archivés par TTL.
   const triggers = await db.trigger.findMany({
     where: {
       clientId,
@@ -68,15 +72,10 @@ export async function ensureLeadsForAllTriggers(
       status: { not: "IGNORED" },
       score: { gte: 4 },
       OR: [
-        { companySiret: { not: null } },
-        // Exception Pépite : Opus≥7 = signal contextuel fort, on crée le
-        // Lead même sans SIRET (HarvestAPI search-by-company résoudra).
+        // Cas 1 : attribution complète (SIRET + NAF)
+        { AND: [{ companySiret: { not: null } }, { companyNaf: { not: null } }] },
+        // Cas 2 : Pépite Opus >=7, on garde mais sera INCOMPLETE si SIRET absent
         { score: { gte: 7 } },
-        // Fix #2 (16/05) — verdict ENRICH = signal "j'ai besoin d'infos".
-        // Sans Lead, l'enrichissement HarvestAPI ne se déclenche pas et
-        // le trigger reste ENRICH indéfiniment. Création Lead shell débloque
-        // le cycle invalidateTriggerForRequalify post-résolution persona.
-        { briefV2Json: { path: ["verdict"], equals: "ENRICH" } },
       ],
     },
     select: {
@@ -175,7 +174,15 @@ export async function ensureLeadsForAllTriggers(
     // les enrichissements (HarvestAPI search-by-company, Pappers dirigeants
     // si SIRET résolu, Kaspr) tentent de remplir. Dès que firstName/lastName
     // arrive, audit-heal le bascule en NEW (visible Fred).
-    const initialStatus = poster?.fullName ? "NEW" : "INCOMPLETE";
+    //
+    // B2 (17/05/2026) — Conditions cumulées pour passer en NEW directement :
+    //   1. Poster Apify a livré la persona (fullName non-null)
+    //   2. Le trigger a SIRET ET NAF attribués (sinon enrichissements
+    //      email/phone aval échoueront — pas de domaine résolu)
+    // Sinon force INCOMPLETE, audit-heal 8A le passera en NEW quand tout
+    // sera résolu (cf. audit-heal.ts:613).
+    const initialStatus =
+      poster?.fullName && t.companySiret && t.companyNaf ? "NEW" : "INCOMPLETE";
     try {
       await db.lead.create({
         data: {

@@ -667,11 +667,16 @@ export async function pollTheirstackBuyingIntentForClient(
 
 export async function enrichRecentTriggersWithSirene(
   clientId: string,
-  options: { limit?: number } = {},
+  options: { limit?: number; lookbackHours?: number } = {},
 ): Promise<{ enriched: number; skipped: number; errors: number; pruned?: number }> {
   const limit = options.limit ?? 20;
+  // B4 (17/05/2026) — Fenêtre paramétrable. Par défaut 24h (cron run-pollers
+  // standard). Job de retry ENRICH passe à 168h = 7j pour re-tenter sur les
+  // triggers verdict=ENRICH où Opus a dit "Attribution Pappers needed" sans
+  // que ça ait abouti au 1er passage.
+  const hoursBack = options.lookbackHours ?? 24;
   const since = new Date();
-  since.setHours(since.getHours() - 24);
+  since.setHours(since.getHours() - hoursBack);
 
   const triggers = await db.trigger.findMany({
     where: {

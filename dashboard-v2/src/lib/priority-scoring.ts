@@ -86,8 +86,48 @@ export function computePriorityScore(args: {
   score: number;
   freshnessScore: number;
   multiSourceBoost: number;
+  /** B1 (17/05/2026) — bonus si le signal source est un pilier du client.
+   * Les piliers sont les 3 signaux jugés prioritaires lors de l'onboarding ;
+   * un trigger issu d'un signal pilier mérite +5 points pour passer devant
+   * un trigger booster équivalent. */
+  pillarBoost?: number;
 }): number {
-  const { score, freshnessScore, multiSourceBoost } = args;
+  const { score, freshnessScore, multiSourceBoost, pillarBoost = 0 } = args;
   const decayed = score * (freshnessScore / 100);
-  return Math.round(decayed + multiSourceBoost);
+  return Math.round(decayed + multiSourceBoost + pillarBoost);
+}
+
+/**
+ * B1 (17/05/2026) — Détermine le bonus pilier d'un trigger en fonction de son
+ * sourceCode et des piliers actifs du client.
+ *
+ * Mapping sourceCode → signal catalogue (extrait SignalCatalog.sourceCodes) :
+ *   - apify.linkedin-jobs / apify.wttj-jobs / francetravail.tech → P1
+ *   - harvestapi.team-gap → P2
+ *   - theirstack.buying-intent → P3
+ *   - apify.ai-adoption → P4
+ *   - pappers.headcount-growth → P5
+ *
+ * Retourne 5 si le trigger provient d'un pilier actif, 0 sinon.
+ */
+const SOURCE_TO_SIGNAL: Record<string, string> = {
+  "apify.linkedin-jobs": "P1",
+  "apify.wttj-jobs": "P1",
+  "apify.indeed-jobs": "P1",
+  "apify.france-jobs": "P1",
+  "francetravail.tech": "P1",
+  "harvestapi.team-gap": "P2",
+  "theirstack.buying-intent": "P3",
+  "apify.ai-adoption": "P4",
+  "pappers.headcount-growth": "P5",
+};
+
+export function computePillarBoost(
+  sourceCode: string | null | undefined,
+  activePillars: string[],
+): number {
+  if (!sourceCode) return 0;
+  const signalCode = SOURCE_TO_SIGNAL[sourceCode];
+  if (!signalCode) return 0;
+  return activePillars.includes(signalCode) ? 5 : 0;
 }
