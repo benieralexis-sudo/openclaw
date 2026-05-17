@@ -820,3 +820,173 @@ export async function enrichDecisionMakersForClient(
 
   return result;
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// Sprint Persona Excellence — Phase 2 (17/05/2026)
+// ══════════════════════════════════════════════════════════════════════
+//
+// findDecisionMakerCandidatesByCompany — retourne TOP-N candidats triés
+// par tier puis confidence, au lieu du single best comme
+// findDecisionMakerByCompany.
+//
+// Pourquoi : la Phase 3 (persona-candidate-scorer) doit pouvoir comparer
+// plusieurs candidats sur d'autres critères (tenure, multi-source, posts
+// récents) pour vraiment choisir LA bonne personne plutôt que la première
+// qui matche les regex de titre.
+//
+// Note : duplication temporaire de la logique de search avec
+// findDecisionMakerByCompany. La refacto pour DRY se fera en Phase 3
+// après validation que multi-candidats marche en prod.
+
+export interface DecisionMakerCandidate extends ResolvedDecisionMaker {
+  /** Position dans le ranking initial (1 = top). Phase 3 le re-scorera. */
+  rank: number;
+}
+
+export async function findDecisionMakerCandidatesByCompany(args: {
+  companyName: string;
+  signalType?: SignalType;
+  locations?: string[];
+  /** Combien de candidats max à retourner (default 8). */
+  topN?: number;
+  /** Plafond de profils à scanner côté HarvestAPI (default 20). */
+  maxItems?: number;
+}): Promise<DecisionMakerCandidate[]> {
+  const companyName = args.companyName?.trim();
+  if (!companyName) return [];
+
+  const signalType: SignalType = args.signalType ?? "default";
+  const topN = args.topN ?? 8;
+  const maxItems = args.maxItems ?? 20;
+  const searchVariants = generateCompanyVariants(companyName);
+
+  // Même stratégie 2 passes (tech-strict puis large) que findDecisionMakerByCompany,
+  // mais on ne s'arrête pas au premier candidat — on récolte tout.
+  const TECH_TITLES_QA = ["Head of QA", "QA Manager", "Test Manager", "QA Lead", "CTO", "Head of Engineering", "VP Engineering", "Chief Technology Officer", "Directeur Technique", "DSI", "Engineering Manager"];
+  const TECH_TITLES_HIRE = ["CTO", "Chief Technology Officer", "Head of Engineering", "VP Engineering", "Directeur Technique", "DSI", "Tech Lead", "Engineering Manager"];
+  const SALES_TITLES_HIRE = ["Head of Sales", "Sales Director", "Directeur Commercial", "Directeur des Ventes", "CRO", "Chief Revenue Officer", "VP Sales", "Vice President Sales", "Head of Growth", "Growth Director", "CMO", "Chief Marketing Officer", "Head of Marketing"];
+  const techJobTitles =
+    signalType === "qa-hire" ? TECH_TITLES_QA :
+    signalType === "tech-hire" ? TECH_TITLES_HIRE :
+    signalType === "sales-hire" ? SALES_TITLES_HIRE :
+    null;
+
+  let items: HarvestProfile[] = [];
+  let usedVariant = companyName;
+  let usedTechFilter = false;
+
+  for (const variant of searchVariants) {
+    if (techJobTitles) {
+      try {
+        const result = await runAndGetItems<HarvestProfile>(
+          ACTOR_ID,
+          {
+            currentCompanies: [variant],
+            currentJobTitles: techJobTitles,
+            locations: args.locations ?? ["France"],
+            maxItems: Math.min(maxItems, 15),
+            profileScraperMode: "Full",
+          },
+          { timeout: 180, memory: 512, itemsLimit: Math.min(maxItems, 15) },
+        );
+        if (result.items.length > 0) {
+          items = result.items;
+          usedVariant = variant;
+          usedTechFilter = true;
+          break;
+        }
+      } catch (e) {
+        console.warn(
+          `[harvestapi-dm.candidates.tech-filter] "${variant}":`,
+          e instanceof Error ? e.message : e,
+        );
+      }
+    }
+    // Passe large
+    try {
+      const result = await runAndGetItems<HarvestProfile>(
+        ACTOR_ID,
+        {
+          currentCompanies: [variant],
+          locations: args.locations ?? ["France"],
+          maxItems,
+          profileScraperMode: "Full",
+        },
+        { timeout: 180, memory: 512, itemsLimit: maxItems },
+      );
+      if (result.items.length > 0) {
+        items = result.items;
+        usedVariant = variant;
+        break;
+      }
+    } catch (e) {
+      console.warn(
+        `[harvestapi-dm.candidates] "${variant}":`,
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
+
+  if (items.length === 0) {
+    console.log(
+      `[harvestapi-dm.candidates] 0 profils pour "${companyName}" (signal=${signalType})`,
+    );
+    return [];
+  }
+
+  const rules = RULES_BY_SIGNAL[signalType];
+
+  // Score chaque profil. Pas de strict mode ici : Phase 3 décide via le scorer
+  // multi-critères. On garde TOUS les candidats matchés (tier 1-4) pour que
+  // Phase 3 puisse écarter elle-même les CEO sur signal tech si besoin.
+  const scored = items
+    .map((p) => scoreProfile(p, rules, usedVariant, usedTechFilter))
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      return b.confidence - a.confidence;
+    });
+
+  // Fallback DEFAULT rules si 0 candidat matche les rules dédiées
+  const finalScored = scored.length > 0 ? scored : items
+    .map((p) => scoreProfile(p, RULES_DEFAULT, usedVariant, usedTechFilter))
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      return b.confidence - a.confidence;
+    });
+
+  // Build ResolvedDecisionMaker[] avec rank
+  return finalScored.slice(0, topN).map((s, idx) => {
+    const url =
+      s.profile.linkedinUrl ??
+      s.profile.url ??
+      s.profile.profileUrl ??
+      (s.profile.publicIdentifier
+        ? `https://www.linkedin.com/in/${s.profile.publicIdentifier}`
+        : "");
+    const normalized = url.startsWith("http") ? url : url ? `https://${url}` : "";
+    const firstName = (s.profile.firstName ?? "").trim();
+    const lastName = (s.profile.lastName ?? "").trim();
+    const fullName = s.profile.fullName?.trim() || `${firstName} ${lastName}`.trim();
+    const currentCo =
+      s.profile.currentPositions?.find((p) => p.current !== false)?.companyName ??
+      s.profile.currentPosition?.companyName;
+
+    return {
+      profileUrl: normalized,
+      firstName,
+      lastName,
+      fullName,
+      jobTitle: s.titleText,
+      headline: s.profile.headline,
+      currentCompany: currentCo,
+      confidence: s.confidence,
+      tier: s.tier,
+      matchedTitle: s.category,
+      fromCache: false,
+      rawProfile: s.profile,
+      rank: idx + 1,
+    };
+  });
+}
