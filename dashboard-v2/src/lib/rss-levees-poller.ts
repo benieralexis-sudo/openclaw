@@ -23,6 +23,7 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { attributeSirene, getEntreprise } from "@/lib/pappers";
 import { markLeadEnrichedFromPappers } from "@/lib/lead-enrichment-tagging";
+import { isSignalEnabled } from "@/lib/signal-config";
 import {
   RSS_FEEDS,
   looksLikeFunding,
@@ -224,6 +225,15 @@ export async function pollRssLeveesForClient(
     return result;
   }
   const icp = (client.icp as ClientIcp | null) ?? {};
+
+  // Sprint catalogue (16/05/2026) — Kill-switch B1 via ClientSignalConfig.
+  // RSS-levees alimente le signal B1 "Levée de fonds Series A/B/C" (avec
+  // rodz.fundraising et bodacc.capital_increase). Si B1 désactivé pour ce
+  // client, on skip.
+  if (!(await isSignalEnabled(clientId, "B1"))) {
+    console.log(`[rss-levees-poller] B1 disabled for client=${clientId}, skip`);
+    return result;
+  }
 
   // Limite FR : si client.icp.country_codes existe et ne contient pas "FR", skip
   if (icp.country_codes && icp.country_codes.length > 0 && !icp.country_codes.includes("FR")) {

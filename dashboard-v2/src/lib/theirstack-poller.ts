@@ -18,6 +18,7 @@ import { attributeSirene, getEntreprise } from "@/lib/pappers";
 import { markLeadEnrichedFromPappers } from "@/lib/lead-enrichment-tagging";
 import { mergeDuplicateTriggersBySiret } from "@/lib/trigger-dedup";
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
+import { getP1Keywords, getP3Industries, getP3Sizes } from "@/lib/signal-config";
 
 // Sprint 8 (10/05/2026) — TheirStack pricing : ~$89/5200 cr ≈ $0.0171/cr.
 // 1 cr/job · 3 cr/company. On record le cout post-call sur creditsEstimateUsed.
@@ -305,10 +306,15 @@ export async function pollTheirstackForClient(
   }
 
   const icp = client.icp as ClientIcpExtended;
-  const sizeRange = rangeForSizes(icp.sizes);
-  const tsIndustries = mapIndustries(icp.industries);
+  // Sprint catalogue P1.3+1.4 (17/05) — params depuis ClientSignalConfig
+  // avec fallback icp (transition douce). TheirStack jobs alimente le signal
+  // P1 Hire role X (job_title_or = keywords) + P3 Stack tech (industries/sizes).
+  const p3Sizes = await getP3Sizes(clientId, icp);
+  const p3Industries = await getP3Industries(clientId, icp);
+  const hiringKeywords = await getP1Keywords(clientId, icp);
+  const sizeRange = rangeForSizes(p3Sizes);
+  const tsIndustries = mapIndustries(p3Industries);
   const antiCompanies = (icp.antiPersonas ?? []).map((a) => a.toLowerCase());
-  const hiringKeywords = icp.keywordsHiring ?? [];
   const limit = options.jobsLimit ?? 30;
 
   // ────────────────────────────────────────────────────────────────────
@@ -486,8 +492,12 @@ export async function pollTheirstackBuyingIntentForClient(
   }
 
   const icp = client.icp as ClientIcpExtended;
-  const sizeRange = rangeForSizes(icp.sizes);
-  const tsIndustries = mapIndustries(icp.industries);
+  // Sprint catalogue P1.4 (17/05) — params depuis ClientSignalConfig.P3
+  // avec fallback icp.industries/sizes (transition).
+  const p3Sizes = await getP3Sizes(clientId, icp);
+  const p3Industries = await getP3Industries(clientId, icp);
+  const sizeRange = rangeForSizes(p3Sizes);
+  const tsIndustries = mapIndustries(p3Industries);
   const antiCompanies = (icp.antiPersonas ?? []).map((a) => a.toLowerCase());
   const techSlugs = options.techSlugs ?? QA_TESTING_TECH_SLUGS;
   const limit = options.companiesLimit ?? 15;

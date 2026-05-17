@@ -24,6 +24,7 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { attributeSirene, getEntreprise } from "@/lib/pappers";
 import { matchesClientIcp, type ClientIcp } from "@/lib/client-icp-matcher";
+import { isSignalEnabled } from "@/lib/signal-config";
 
 const GATEWAY = "https://api-gateway.inpi.fr";
 const SEED_URL = `${GATEWAY}/services/uaa/api/authenticate`;
@@ -219,6 +220,15 @@ export async function pollInpiForClient(
     return result;
   }
   const icp = (client.icp as ClientIcp | null) ?? {};
+
+  // Sprint catalogue (16/05/2026) — Kill-switch B5 via ClientSignalConfig.
+  // INPI marques alimente B5 (signal "Dépôt marque"). Si désactivé OU si
+  // le serveur INPI répond toujours HTTP 500 (panne confirmée 4j 13-17/05),
+  // on skip pour ne pas spammer les logs avec des erreurs.
+  if (!(await isSignalEnabled(clientId, "B5"))) {
+    console.log(`[inpi-poller] B5 disabled for client=${clientId}, skip`);
+    return result;
+  }
 
   const jar = await authenticate();
   if (!jar) {

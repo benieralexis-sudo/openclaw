@@ -22,7 +22,7 @@ import {
   type FranceTravailOffer,
 } from "@/lib/francetravail";
 import { buildTitleFilterForClient } from "@/lib/icp-title-filter";
-import { isSignalEnabled } from "@/lib/signal-config";
+import { isSignalEnabled, getP1Keywords, getP1Regions, getP1RomeCodes } from "@/lib/signal-config";
 
 interface ClientIcpExtended {
   industries?: string[];
@@ -185,13 +185,18 @@ export async function pollFranceTravailForClient(
 
   const icp = client.icp as ClientIcpExtended;
   const antiCompanies = (icp.antiPersonas ?? []).map((a) => a.toLowerCase());
-  const departement = regionsToDepartements(icp.regions);
+  // Sprint catalogue P1.3 (17/05) — regions depuis ClientSignalConfig.P1
+  // avec fallback icp.regions (transition).
+  const p1Regions = await getP1Regions(clientId, icp);
+  const departement = regionsToDepartements(p1Regions);
   const lookbackHours = options.lookbackHours ?? 24;
 
-  // Multi-tenant 13/05 — codes ROME paramétrables via ICP.
-  // Default DTL : informatique (M1805/M1810/M1811).
-  // iFIND/sales : M17xx (commercial/marketing).
-  const romeCodes = icp.francetravailRomeCodes ?? ["M1805", "M1810", "M1811"];
+  // Sprint catalogue P1.3 (17/05) — codes ROME depuis ClientSignalConfig.P1
+  // avec fallback icp.francetravailRomeCodes (default DTL informatique).
+  const romeCodesFromCatalog = await getP1RomeCodes(clientId, icp);
+  const romeCodes = romeCodesFromCatalog.length > 0
+    ? romeCodesFromCatalog
+    : ["M1805", "M1810", "M1811"];
   const requireTechFilter = icp.francetravailRequireTechFilter ?? true;
   // Signal #1 boost (anciennement isFTQaOffer hardcodé) — désormais générique
   // via titleFilterInclude / titleFilterExclude du client.icp.
@@ -214,11 +219,10 @@ export async function pollFranceTravailForClient(
     result.offersFetched = offers.length;
 
     // C15 — Pré-calcul keywordsHiring du client pour filtrage métier strict.
-    // Avant : seul isFTTechOffer (large : dev, devops, data, QA, fullstack)
-    // → laissait passer "Lead Architecte Data" (INFORMATIS), "R&D Énergies"
-    // (EPSYL) qui ne sont PAS QA pour DTL. Maintenant : l'intitulé doit
-    // matcher au moins 1 keywordHiring du client (24 termes pour DTL après C13).
-    const clientKeywords = (icp.keywordsHiring ?? []).map((k) => k.toLowerCase());
+    // Sprint catalogue P1.3 (17/05) — lit depuis ClientSignalConfig.P1.parameters.keywords
+    // avec fallback icp.keywordsHiring (transition). 24 termes pour DTL après C13.
+    const p1Keywords = await getP1Keywords(clientId, icp);
+    const clientKeywords = p1Keywords.map((k) => k.toLowerCase());
 
     for (const offer of offers) {
       // Filtre tech strict (sécurité même si ROME devrait suffire) — DTL only.

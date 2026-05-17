@@ -117,6 +117,122 @@ export function invalidateSignalConfigCache(clientId?: string): void {
 }
 
 /**
+ * Sprint catalogue P1.3 (17/05/2026) — Helpers de lecture paramètres
+ * signal-specific avec fallback icp legacy.
+ *
+ * Pendant la migration progressive, chaque paramètre lu côté poller passe
+ * par ces helpers : on lit d'abord ClientSignalConfig.parameters.X, si
+ * absent on retombe sur Client.icp.legacyKey (lifeline). Quand tous les
+ * clients auront leur ClientSignalConfig backfillé, on supprimera le
+ * fallback.
+ */
+
+interface IcpLegacy {
+  keywordsHiring?: string[];
+  industries?: string[];
+  sizes?: string[];
+  regions?: string[];
+  titleFilterInclude?: string | string[];
+  titleFilterExclude?: string | string[];
+  francetravailRomeCodes?: string[];
+}
+
+/**
+ * Lit les keywords métier (P1.parameters.keywords).
+ * Fallback : icp.keywordsHiring (legacy).
+ */
+export async function getP1Keywords(
+  clientId: string,
+  icp: IcpLegacy | null,
+): Promise<string[]> {
+  const cfg = await getSignalConfig(clientId, "P1");
+  const fromCatalog = (cfg.parameters as { keywords?: unknown }).keywords;
+  if (Array.isArray(fromCatalog) && fromCatalog.length > 0) {
+    return fromCatalog.filter((k): k is string => typeof k === "string");
+  }
+  return icp?.keywordsHiring ?? [];
+}
+
+/**
+ * Lit les regions ciblées (P1.parameters.regions).
+ * Fallback : icp.regions (legacy).
+ */
+export async function getP1Regions(
+  clientId: string,
+  icp: IcpLegacy | null,
+): Promise<string[]> {
+  const cfg = await getSignalConfig(clientId, "P1");
+  const fromCatalog = (cfg.parameters as { regions?: unknown }).regions;
+  if (Array.isArray(fromCatalog) && fromCatalog.length > 0) {
+    return fromCatalog.filter((r): r is string => typeof r === "string");
+  }
+  return icp?.regions ?? [];
+}
+
+/**
+ * Lit le titleFilter (P1.parameters.titleFilterInclude/Exclude).
+ * Fallback : icp.titleFilterInclude/Exclude (legacy).
+ */
+export async function getP1TitleFilter(
+  clientId: string,
+  icp: IcpLegacy | null,
+): Promise<{ include?: string | string[]; exclude?: string | string[] }> {
+  const cfg = await getSignalConfig(clientId, "P1");
+  const params = cfg.parameters as { titleFilterInclude?: unknown; titleFilterExclude?: unknown };
+  const include = (params.titleFilterInclude as string | string[] | undefined) ?? icp?.titleFilterInclude;
+  const exclude = (params.titleFilterExclude as string | string[] | undefined) ?? icp?.titleFilterExclude;
+  return { include, exclude };
+}
+
+/**
+ * Lit les codes ROME France Travail (P1.parameters.romeCodes).
+ * Fallback : icp.francetravailRomeCodes (legacy).
+ */
+export async function getP1RomeCodes(
+  clientId: string,
+  icp: IcpLegacy | null,
+): Promise<string[]> {
+  const cfg = await getSignalConfig(clientId, "P1");
+  const fromCatalog = (cfg.parameters as { romeCodes?: unknown }).romeCodes;
+  if (Array.isArray(fromCatalog) && fromCatalog.length > 0) {
+    return fromCatalog.filter((c): c is string => typeof c === "string");
+  }
+  return icp?.francetravailRomeCodes ?? [];
+}
+
+/**
+ * Lit les industries cibles (P3.parameters.industries).
+ * Fallback : icp.industries (legacy).
+ */
+export async function getP3Industries(
+  clientId: string,
+  icp: IcpLegacy | null,
+): Promise<string[]> {
+  const cfg = await getSignalConfig(clientId, "P3");
+  const fromCatalog = (cfg.parameters as { industries?: unknown }).industries;
+  if (Array.isArray(fromCatalog) && fromCatalog.length > 0) {
+    return fromCatalog.filter((i): i is string => typeof i === "string");
+  }
+  return icp?.industries ?? [];
+}
+
+/**
+ * Lit les tranches taille cibles (P3.parameters.sizes).
+ * Fallback : icp.sizes (legacy).
+ */
+export async function getP3Sizes(
+  clientId: string,
+  icp: IcpLegacy | null,
+): Promise<string[]> {
+  const cfg = await getSignalConfig(clientId, "P3");
+  const fromCatalog = (cfg.parameters as { sizes?: unknown }).sizes;
+  if (Array.isArray(fromCatalog) && fromCatalog.length > 0) {
+    return fromCatalog.filter((s): s is string => typeof s === "string");
+  }
+  return icp?.sizes ?? [];
+}
+
+/**
  * Retourne les signaux désactivés explicitement (utilisé par le digest /
  * audit / dashboard admin). Ne renvoie PAS les defaults (signaux non
  * configurés explicitement).

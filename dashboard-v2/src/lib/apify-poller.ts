@@ -20,7 +20,7 @@ import { runAndGetItems } from "@/lib/apify";
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
 import { getRotatedKeywords } from "@/lib/keyword-rotation";
 import { buildTitleFilterForClient } from "@/lib/icp-title-filter";
-import { isSignalEnabled, getSignalConfig } from "@/lib/signal-config";
+import { isSignalEnabled, getSignalConfig, getP1Keywords } from "@/lib/signal-config";
 import { detectAiKeywords } from "@/lib/ai-tool-detector";
 
 // Sprint 8 (10/05/2026) — Apify pricing approx : 1 CU ≈ $0.40 sur plan Starter.
@@ -702,7 +702,9 @@ export async function pollApifyForClient(
   if (!client.icp) throw new Error(`Client ${client.name} sans ICP`);
 
   const icp = client.icp as ClientIcpExtended;
-  const keywords = icp.keywordsHiring ?? [];
+  // Sprint catalogue P1.3 (17/05) — lit keywords depuis ClientSignalConfig.P1.parameters
+  // avec fallback icp.keywordsHiring (transition douce).
+  const keywords = await getP1Keywords(clientId, icp);
   const antiCompanies = (icp.antiPersonas ?? []).map((a) => a.toLowerCase());
   // Multi-tenant 13/05/2026 : construit le titleFilter depuis l'ICP du client.
   // Si non défini → fallback DTL legacy (QA strict). Pour iFIND : SDR/Sales.
