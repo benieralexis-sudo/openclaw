@@ -30,6 +30,7 @@ import {
   formatV2Badge,
 } from "@/lib/score-display";
 import { QuotaEditor } from "@/components/clients/quota-editor";
+import { SignalsEditor } from "@/components/clients/signals-editor";
 import { toast } from "@/components/ui/sonner";
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatNumberFr, formatRelativeFr } from "@/lib/utils";
@@ -167,6 +168,10 @@ export function ClientProfile({ clientId }: { clientId: string }) {
             <Sparkles className="h-3.5 w-3.5" />
             Profil ICP
           </TabsTrigger>
+          <TabsTrigger value="signals" className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            Signaux
+          </TabsTrigger>
           <TabsTrigger value="activity" className="gap-1.5">
             <Zap className="h-3.5 w-3.5" />
             Activité récente
@@ -196,6 +201,10 @@ export function ClientProfile({ clientId }: { clientId: string }) {
             onSave={(icp) => updateClient.mutate({ icp } as Partial<ClientDetail>)}
             saving={updateClient.isPending}
           />
+        </TabsContent>
+
+        <TabsContent value="signals">
+          <SignalsEditor clientId={client.id} canEdit={canEdit} />
         </TabsContent>
 
         <TabsContent value="activity">
