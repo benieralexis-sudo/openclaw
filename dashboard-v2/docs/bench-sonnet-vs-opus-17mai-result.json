@@ -1,0 +1,2723 @@
+{
+  "summary": {
+    "timestamp": "2026-05-17T16:34:37.774Z",
+    "sampleSize": 50,
+    "validCompared": 46,
+    "concordance": {
+      "count": 39,
+      "pct": "84.8"
+    },
+    "scoreDiffMean": "?",
+    "scoreDiffDistribution": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      ">=3": 0
+    },
+    "sonnetFalsePositives": {
+      "count": 1,
+      "examples": [
+        {
+          "company": "Shizen",
+          "baseline": "ENRICH",
+          "opus": "NON",
+          "sonnet": "OUI",
+          "opusScore": null,
+          "sonnetScore": null
+        }
+      ]
+    },
+    "sonnetFalseNegatives": {
+      "count": 3,
+      "examples": [
+        {
+          "company": "Bioptimus",
+          "baseline": "OUI",
+          "opus": "OUI",
+          "sonnet": "NON",
+          "opusScore": null,
+          "sonnetScore": null
+        },
+        {
+          "company": "Sêmeia",
+          "baseline": "OUI",
+          "opus": "OUI",
+          "sonnet": "NON",
+          "opusScore": null,
+          "sonnetScore": null
+        },
+        {
+          "company": "Stormshield",
+          "baseline": "OUI",
+          "opus": "OUI",
+          "sonnet": "NON",
+          "opusScore": null,
+          "sonnetScore": null
+        }
+      ]
+    },
+    "cost": {
+      "opusTotal": "6.8971",
+      "sonnetTotal": "1.2107",
+      "savingsPct": "82.4",
+      "opusPerCall": "0.1499",
+      "sonnetPerCall": "0.0263"
+    },
+    "latency": {
+      "opusAvgMs": "16832",
+      "sonnetAvgMs": "19114"
+    }
+  },
+  "results": [
+    {
+      "triggerId": "cmp78al5s000xl6r3whmih5ew",
+      "companyName": "Semji",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 21283,
+        "costUsd": 0.16788,
+        "usage": {
+          "input_tokens": 3426,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1385,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2928
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 25777,
+        "costUsd": 0.051093,
+        "usage": {
+          "input_tokens": 2471,
+          "cache_creation_input_tokens": 6192,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 6192,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1364,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3950
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp6n1r41002tl6oabvhyeam2",
+      "companyName": "COSIKA",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 19896,
+        "costUsd": 0.152895,
+        "usage": {
+          "input_tokens": 3307,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1209,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2611
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 27671,
+        "costUsd": 0.031597,
+        "usage": {
+          "input_tokens": 2483,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1486,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": null,
+        "score": null,
+        "parseError": "zod-fail: enrichmentNeeded.3: String must contain at most 200 character(s)",
+        "rawTextLength": 4320
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp5jcoy30022l6hlw1gmhmco",
+      "companyName": "GitGuardian",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 21803,
+        "costUsd": 0.16281,
+        "usage": {
+          "input_tokens": 3478,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1307,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2754
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 19931,
+        "costUsd": 0.023803,
+        "usage": {
+          "input_tokens": 2510,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 961,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2828
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp5jcoxf0020l6hly3kok59n",
+      "companyName": "Wiiisdom",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 20846,
+        "costUsd": 0.167175,
+        "usage": {
+          "input_tokens": 3449,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1371,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2745
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 23595,
+        "costUsd": 0.028831,
+        "usage": {
+          "input_tokens": 2491,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1300,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3530
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp5jcox6001zl6hlmzpbdok6",
+      "companyName": "Skello",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 19659,
+        "costUsd": 0.15978,
+        "usage": {
+          "input_tokens": 3391,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1284,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2606
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 27254,
+        "costUsd": 0.030946,
+        "usage": {
+          "input_tokens": 2476,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1444,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3963
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp5jcowx001yl6hlyd73qsxh",
+      "companyName": "iAdvize",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 20926,
+        "costUsd": 0.157935,
+        "usage": {
+          "input_tokens": 3473,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1243,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2658
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 21842,
+        "costUsd": 0.02686,
+        "usage": {
+          "input_tokens": 2554,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1156,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3298
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp5jcown001xl6hl3lufs770",
+      "companyName": "Doctrine",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 20223,
+        "costUsd": 0.158205,
+        "usage": {
+          "input_tokens": 3426,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1256,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2677
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 23452,
+        "costUsd": 0.024448,
+        "usage": {
+          "input_tokens": 2480,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1010,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2923
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp5ird50000rl6w9fbrkeov7",
+      "companyName": "Decade Energy",
+      "sourceCode": "rodz.fundraising",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 23763,
+        "costUsd": 0.17991,
+        "usage": {
+          "input_tokens": 3303,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1570,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3274
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 28757,
+        "costUsd": 0.033061,
+        "usage": {
+          "input_tokens": 2386,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1603,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": null,
+        "score": null,
+        "parseError": "zod-fail: risks.0.description: String must contain at most 400 character(s)",
+        "rawTextLength": 4570
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": false
+    },
+    {
+      "triggerId": "cmp47gxtr000bl62u54j64f01",
+      "companyName": "Bioptimus",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 21627,
+        "costUsd": 0.158985,
+        "usage": {
+          "input_tokens": 3363,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1279,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2862
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 20121,
+        "costUsd": 0.023761,
+        "usage": {
+          "input_tokens": 2426,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 975,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2990
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp46mydq0017l6i3zmrun1x6",
+      "companyName": "Sêmeia",
+      "sourceCode": "rss-levees",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 18529,
+        "costUsd": 0.154905,
+        "usage": {
+          "input_tokens": 3521,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1193,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2523
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 19607,
+        "costUsd": 0.026224,
+        "usage": {
+          "input_tokens": 2582,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1108,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2927
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp3blm630007l684otpmyqtf",
+      "companyName": "Alteia",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 19591,
+        "costUsd": 0.155565,
+        "usage": {
+          "input_tokens": 3180,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1270,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2705
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 22210,
+        "costUsd": 0.026458,
+        "usage": {
+          "input_tokens": 2375,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1165,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3197
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp2xze7w000el6f5brehwbfm",
+      "companyName": "SoWeSoft",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 19810,
+        "costUsd": 0.15072,
+        "usage": {
+          "input_tokens": 3177,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1206,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2651
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 26144,
+        "costUsd": 0.028822,
+        "usage": {
+          "input_tokens": 2373,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1323,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3797
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp2xze6d0007l6f5rs5wsy2h",
+      "companyName": "Stormshield",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 22213,
+        "costUsd": 0.157875,
+        "usage": {
+          "input_tokens": 3274,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1282,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2870
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 24820,
+        "costUsd": 0.028978,
+        "usage": {
+          "input_tokens": 2480,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1312,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3595
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp2ol3oh0005l6rxhjvodx0n",
+      "companyName": "Sêmeia",
+      "sourceCode": "rss-levees",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 21088,
+        "costUsd": 0.16788,
+        "usage": {
+          "input_tokens": 3191,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1432,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3005
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 25157,
+        "costUsd": 0.030031,
+        "usage": {
+          "input_tokens": 2411,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1396,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3896
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmoiutnd8000cl6g2d4412u65",
+      "companyName": "Training Orchestra",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 25337,
+        "costUsd": 0.19173,
+        "usage": {
+          "input_tokens": 4431,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1502,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3206
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 30819,
+        "costUsd": 0.034711,
+        "usage": {
+          "input_tokens": 3311,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1528,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 4366
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp15a3ic0009l68nka6muafr",
+      "companyName": "ViaXoft",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 19903,
+        "costUsd": 0.14274,
+        "usage": {
+          "input_tokens": 3300,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1075,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2338
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 32305,
+        "costUsd": 0.035197,
+        "usage": {
+          "input_tokens": 2478,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1727,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": null,
+        "score": null,
+        "parseError": "zod-fail: thesis: String must contain at most 800 character(s) | risks.0.description: String must contain at most 400 character(s) | risks.2.description: String must contain at most 400 character(s)",
+        "rawTextLength": 5144
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": false
+    },
+    {
+      "triggerId": "te-digitestlab-845228303-fundi",
+      "companyName": "SQUAREMIND",
+      "sourceCode": "trigger-engine.funding-recent",
+      "baseline": {
+        "verdict": "OUI"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 20099,
+        "costUsd": 0.155415,
+        "usage": {
+          "input_tokens": 3415,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1221,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2604
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 16207,
+        "costUsd": 0.020563,
+        "usage": {
+          "input_tokens": 2555,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 736,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2154
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": false
+    },
+    {
+      "triggerId": "cmp9mwqx9000el61gr4upa8x6",
+      "companyName": "VILLA BEAUVALLON B.V.",
+      "sourceCode": "rodz.company-registration",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 9383,
+        "costUsd": 0.09918,
+        "usage": {
+          "input_tokens": 2811,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 592,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1252
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 17555,
+        "costUsd": 0.021658,
+        "usage": {
+          "input_tokens": 2020,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 916,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2612
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9mwqbt000cl61glqs34cli",
+      "companyName": "FOX FAMILY",
+      "sourceCode": "rodz.company-registration",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 14059,
+        "costUsd": 0.119355,
+        "usage": {
+          "input_tokens": 2636,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 896,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1928
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 11435,
+        "costUsd": 0.01591,
+        "usage": {
+          "input_tokens": 1959,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 545,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1622
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9mwpur000al61gdlw6p7xx",
+      "companyName": "MAZNI FAMILY",
+      "sourceCode": "rodz.company-registration",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 10109,
+        "costUsd": 0.1008,
+        "usage": {
+          "input_tokens": 2634,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 649,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1426
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 11915,
+        "costUsd": 0.015856,
+        "usage": {
+          "input_tokens": 1956,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 542,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1652
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9mwpcs0008l61govga0vm9",
+      "companyName": "ASIE MARKET (ASIE MARKET)",
+      "sourceCode": "rodz.company-registration",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 10003,
+        "costUsd": 0.104865,
+        "usage": {
+          "input_tokens": 2830,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 664,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1431
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 12157,
+        "costUsd": 0.016651,
+        "usage": {
+          "input_tokens": 2036,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 579,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1684
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9ht1hi0005l61gcsomfluj",
+      "companyName": "Extia Ingénierie",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 11335,
+        "costUsd": 0.11118,
+        "usage": {
+          "input_tokens": 2881,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 738,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1612
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 10966,
+        "costUsd": 0.016609,
+        "usage": {
+          "input_tokens": 2167,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 550,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1604
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9ht1ha0004l61gpr67d0wb",
+      "companyName": "otimo",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 9893,
+        "costUsd": 0.10497,
+        "usage": {
+          "input_tokens": 2877,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 656,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1424
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 12696,
+        "costUsd": 0.01897,
+        "usage": {
+          "input_tokens": 2144,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 712,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2027
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9ht1h00003l61gxede550h",
+      "companyName": "BFR SYSTEMS",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 10643,
+        "costUsd": 0.107265,
+        "usage": {
+          "input_tokens": 2845,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 693,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1525
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 13204,
+        "costUsd": 0.017713,
+        "usage": {
+          "input_tokens": 2115,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 634,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1964
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9ht1gs0002l61gtyd8hd6v",
+      "companyName": "agap2",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 12192,
+        "costUsd": 0.11274,
+        "usage": {
+          "input_tokens": 2875,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 760,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1630
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 12621,
+        "costUsd": 0.017734,
+        "usage": {
+          "input_tokens": 2152,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 628,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1808
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9ht1gf0001l61gfsb57a38",
+      "companyName": "Disneyland Paris",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 12018,
+        "costUsd": 0.10854,
+        "usage": {
+          "input_tokens": 2870,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 705,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1523
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 14191,
+        "costUsd": 0.018229,
+        "usage": {
+          "input_tokens": 2142,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 663,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2135
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8o5rk100ifl6y3iqv5dsjt",
+      "companyName": "CAPTEN",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 12853,
+        "costUsd": 0.11409,
+        "usage": {
+          "input_tokens": 2890,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 775,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1794
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 15873,
+        "costUsd": 0.017899,
+        "usage": {
+          "input_tokens": 2157,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 638,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2067
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8o5rjs00iel6y3f021bfzv",
+      "companyName": "Eiffage Génie Civil",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 15153,
+        "costUsd": 0.1236,
+        "usage": {
+          "input_tokens": 2904,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 899,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1927
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 13559,
+        "costUsd": 0.018085,
+        "usage": {
+          "input_tokens": 2169,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 648,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1952
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8o5rjk00idl6y3ul97pths",
+      "companyName": "Rehlko",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 11969,
+        "costUsd": 0.111705,
+        "usage": {
+          "input_tokens": 2826,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 756,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1691
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 12512,
+        "costUsd": 0.016315,
+        "usage": {
+          "input_tokens": 2099,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 544,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1645
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8o5rj900icl6y35fq0zo2h",
+      "companyName": "CNOUS (centre national des oeuvres universitaires et scolaires)",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 11915,
+        "costUsd": 0.107775,
+        "usage": {
+          "input_tokens": 2909,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 687,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1539
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 12754,
+        "costUsd": 0.016468,
+        "usage": {
+          "input_tokens": 2185,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 537,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1654
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8nqdxt00cil6y3318vkn3k",
+      "companyName": "Blue Search Conseil",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 10187,
+        "costUsd": 0.106125,
+        "usage": {
+          "input_tokens": 3024,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 642,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1491
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 21519,
+        "costUsd": 0.025207,
+        "usage": {
+          "input_tokens": 2183,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1120,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3577
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8nqdxg00cgl6y3dw4f7mg5",
+      "companyName": "Trelleborg Sealing Solutions",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 14788,
+        "costUsd": 0.12654,
+        "usage": {
+          "input_tokens": 3025,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 914,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2045
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 14483,
+        "costUsd": 0.018613,
+        "usage": {
+          "input_tokens": 2155,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 686,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2190
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8nqdwv00cel6y34j4lqdtz",
+      "companyName": "Broadridge",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 15591,
+        "costUsd": 0.12387,
+        "usage": {
+          "input_tokens": 2987,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 886,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1911
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 13220,
+        "costUsd": 0.017296,
+        "usage": {
+          "input_tokens": 2146,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 600,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1907
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8nqdwj00cdl6y3ebc8kbfb",
+      "companyName": "The Goodyear Tire & Rubber Company",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "NON"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 12721,
+        "costUsd": 0.1182,
+        "usage": {
+          "input_tokens": 3069,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 794,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1764
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 13159,
+        "costUsd": 0.017467,
+        "usage": {
+          "input_tokens": 2213,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 598,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1885
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9ht1hs0006l61gz3z5rglf",
+      "companyName": "Findr",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 17779,
+        "costUsd": 0.139755,
+        "usage": {
+          "input_tokens": 2936,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1108,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2387
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 22847,
+        "costUsd": 0.02548,
+        "usage": {
+          "input_tokens": 2169,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1141,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3493
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp9hqhsz0000l61gidlae79b",
+      "companyName": "Agorastore",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 18691,
+        "costUsd": 0.1407,
+        "usage": {
+          "input_tokens": 3039,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1100,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2419
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 21359,
+        "costUsd": 0.025081,
+        "usage": {
+          "input_tokens": 2191,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1110,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3423
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8o4x0t00fvl6y3jynuntqv",
+      "companyName": "VELVET",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 16408,
+        "costUsd": 0.133575,
+        "usage": {
+          "input_tokens": 3064,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1000,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2182
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 23469,
+        "costUsd": 0.026536,
+        "usage": {
+          "input_tokens": 2291,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1187,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3483
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8o4wyu00frl6y3aqm2vksz",
+      "companyName": "EKI METRICS",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 17272,
+        "costUsd": 0.1332,
+        "usage": {
+          "input_tokens": 3019,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1004,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2207
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 17507,
+        "costUsd": 0.021304,
+        "usage": {
+          "input_tokens": 2252,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 846,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2709
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8nqdxn00chl6y3nt51ejlr",
+      "companyName": "Wesco",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 19388,
+        "costUsd": 0.12858,
+        "usage": {
+          "input_tokens": 3056,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 935,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2098
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 18080,
+        "costUsd": 0.020296,
+        "usage": {
+          "input_tokens": 2181,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 793,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2561
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8nqdx500cfl6y38s2qkumz",
+      "companyName": "Infopro Digital",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 19088,
+        "costUsd": 0.143925,
+        "usage": {
+          "input_tokens": 3129,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1125,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2453
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 22712,
+        "costUsd": 0.026686,
+        "usage": {
+          "input_tokens": 2271,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1201,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3423
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8npfzg009vl6y36u8k7kma",
+      "companyName": "VELVET",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 16877,
+        "costUsd": 0.13179,
+        "usage": {
+          "input_tokens": 3240,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 941,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2101
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 24305,
+        "costUsd": 0.024073,
+        "usage": {
+          "input_tokens": 2350,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1011,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3058
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8npfoi0099l6y3idyodq5c",
+      "companyName": "BORNE FOR YOU",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 18089,
+        "costUsd": 0.1374,
+        "usage": {
+          "input_tokens": 3114,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1041,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2336
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 21802,
+        "costUsd": 0.024955,
+        "usage": {
+          "input_tokens": 2239,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1092,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3091
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8npfke0093l6y3mzj6uczj",
+      "companyName": "CARS-UP",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 19480,
+        "costUsd": 0.148905,
+        "usage": {
+          "input_tokens": 3206,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1176,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2528
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 20512,
+        "costUsd": 0.024475,
+        "usage": {
+          "input_tokens": 2319,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1044,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3006
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8npfjf0091l6y3bp99rcsd",
+      "companyName": "SPACELOG HOLDING",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 16670,
+        "costUsd": 0.13677,
+        "usage": {
+          "input_tokens": 3212,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1013,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2232
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 20510,
+        "costUsd": 0.024871,
+        "usage": {
+          "input_tokens": 2311,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1072,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3236
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp8npffc008tl6y3ttvd4hqm",
+      "companyName": "GoodMood",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 19007,
+        "costUsd": 0.1407,
+        "usage": {
+          "input_tokens": 3044,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1099,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2344
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 22989,
+        "costUsd": 0.025627,
+        "usage": {
+          "input_tokens": 2198,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1145,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3344
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp78al5h000wl6r313pq9pd5",
+      "companyName": "Bigblue",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 18558,
+        "costUsd": 0.13785,
+        "usage": {
+          "input_tokens": 3034,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1063,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2320
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 13936,
+        "costUsd": 0.01897,
+        "usage": {
+          "input_tokens": 2184,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 704,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2040
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp6mtvag0020l6oaj9xnwt97",
+      "companyName": "Playlounge",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 20556,
+        "costUsd": 0.163035,
+        "usage": {
+          "input_tokens": 3353,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1335,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2858
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 24481,
+        "costUsd": 0.028372,
+        "usage": {
+          "input_tokens": 2433,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1281,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3763
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp6mtudb001yl6oa3ur1mqw3",
+      "companyName": "COSIKA",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 22571,
+        "costUsd": 0.169335,
+        "usage": {
+          "input_tokens": 3483,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1393,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2985
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 21233,
+        "costUsd": 0.024514,
+        "usage": {
+          "input_tokens": 2542,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1002,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "ENRICH",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 2991
+      },
+      "sameVerdict": true,
+      "scoreDiff": null,
+      "sameAsBaseline": true
+    },
+    {
+      "triggerId": "cmp6mtu3h001wl6oaw1fmsf4h",
+      "companyName": "X6 INNOVATIONS",
+      "sourceCode": "bodacc.capital_increase",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 14726,
+        "costUsd": 0.130395,
+        "usage": {
+          "input_tokens": 3347,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 901,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1849
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 26670,
+        "costUsd": 0.031381,
+        "usage": {
+          "input_tokens": 2426,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1483,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": null,
+        "score": null,
+        "parseError": "zod-fail: enrichmentNeeded.3: String must contain at most 200 character(s)",
+        "rawTextLength": 4362
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": false
+    },
+    {
+      "triggerId": "cmp5jneb20035l6hlu1tsd19u",
+      "companyName": "Shizen",
+      "sourceCode": "apify.linkedin-jobs",
+      "baseline": {
+        "verdict": "ENRICH"
+      },
+      "opus": {
+        "model": "claude-opus-4-7",
+        "latencyMs": 15982,
+        "costUsd": 0.13794,
+        "usage": {
+          "input_tokens": 3420,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 8410,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 987,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "NON",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 1994
+      },
+      "sonnet": {
+        "model": "claude-sonnet-4-6",
+        "latencyMs": 22755,
+        "costUsd": 0.026038,
+        "usage": {
+          "input_tokens": 2495,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 6192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1113,
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "verdict": "OUI",
+        "score": null,
+        "parseError": null,
+        "rawTextLength": 3366
+      },
+      "sameVerdict": false,
+      "scoreDiff": null,
+      "sameAsBaseline": false
+    }
+  ]
+}
