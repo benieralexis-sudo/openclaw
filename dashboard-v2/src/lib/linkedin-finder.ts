@@ -25,8 +25,9 @@ import { runAndGetItems } from "@/lib/apify";
 // ──────────────────────────────────────────────────────────────────────
 
 export type LinkedInFinderSource =
-  | "harvestapi-profile-search"
-  | "google-cse";
+  | "harvestapi-profile-search";
+// "google-cse" retiré 17/05 — 0 lead résolu en historique, fallback Google CSE
+// supprimé (cf find-tech-leader-cascade.ts également supprimé).
 
 export interface LinkedInFinderResult {
   linkedinUrl: string;
@@ -238,127 +239,19 @@ async function findViaHarvestAPI(
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Source 2 — Google Custom Search Engine
-// ──────────────────────────────────────────────────────────────────────
-
-interface GoogleCSEItem {
-  link: string;
-  title: string;
-  snippet?: string;
-  pagemap?: Record<string, unknown>;
-}
-
-interface GoogleCSEResponse {
-  items?: GoogleCSEItem[];
-  searchInformation?: { totalResults?: string };
-  error?: { code?: number; message?: string };
-}
-
-async function findViaGoogleCSE(
-  args: FindArgs,
-): Promise<LinkedInFinderResult | null> {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  const cseId = process.env.GOOGLE_CSE_ID;
-  if (!apiKey || !cseId) {
-    return null;
-  }
-
-  // Requête : site:linkedin.com/in/ "Prénom Nom" "Société"
-  // Les guillemets forcent le matching exact (réduit fortement les homonymes)
-  const q = `site:linkedin.com/in/ "${args.firstName} ${args.lastName}" "${args.companyName}"`;
-  const url = new URL("https://www.googleapis.com/customsearch/v1");
-  url.searchParams.set("key", apiKey);
-  url.searchParams.set("cx", cseId);
-  url.searchParams.set("q", q);
-  url.searchParams.set("num", "5");
-  url.searchParams.set("gl", "fr");
-  url.searchParams.set("hl", "fr");
-
-  let json: GoogleCSEResponse;
-  try {
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      signal: AbortSignal.timeout(10_000),
-    });
-    json = (await res.json()) as GoogleCSEResponse;
-  } catch (e) {
-    console.warn(
-      `[linkedin-finder] Google CSE failed for "${args.firstName} ${args.lastName}" @ "${args.companyName}":`,
-      e instanceof Error ? e.message : e,
-    );
-    return null;
-  }
-
-  if (json.error) {
-    console.warn(
-      `[linkedin-finder] Google CSE error ${json.error.code}: ${json.error.message}`,
-    );
-    return null;
-  }
-  if (!json.items || json.items.length === 0) {
-    // Fallback : retry sans guillemets autour du nom (capte les variantes : "Jean-Marc" vs "Jean Marc")
-    const q2 = `site:linkedin.com/in/ ${args.firstName} ${args.lastName} "${args.companyName}"`;
-    url.searchParams.set("q", q2);
-    try {
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        signal: AbortSignal.timeout(10_000),
-      });
-      json = (await res.json()) as GoogleCSEResponse;
-    } catch {
-      return null;
-    }
-    if (!json.items || json.items.length === 0) return null;
-  }
-
-  // Score chaque résultat : title doit contenir le nom + la société (idéalement)
-  const scored = json.items
-    .filter((it) => isLinkedInProfileUrl(it.link))
-    .map((it) => {
-      const titleNorm = normalize(it.title);
-      const snippetNorm = normalize(it.snippet ?? "");
-      const haystack = `${titleNorm} ${snippetNorm}`;
-      const nameScore = scoreNameMatch(
-        args.firstName,
-        args.lastName,
-        haystack,
-      );
-      const coScore = scoreCompanyMatch(args.companyName, haystack);
-      return { item: it, nameScore, coScore, total: nameScore + coScore };
-    })
-    .filter((s) => s.nameScore >= 50)
-    .sort((a, b) => b.total - a.total);
-
-  const best = scored[0];
-  if (!best) return null;
-
-  const confidence = Math.min(100, Math.round((best.total / 120) * 100));
-  if (confidence < 50) return null;
-
-  return {
-    linkedinUrl: normalizeLinkedInUrl(best.item.link),
-    source: "google-cse",
-    confidence,
-    raw: { title: best.item.title, link: best.item.link, snippet: best.item.snippet },
-  };
-}
-
-// ──────────────────────────────────────────────────────────────────────
 // Cascade publique
 // ──────────────────────────────────────────────────────────────────────
+//
+// Note 17/05/2026 — Google CSE fallback retiré (0 lead résolu en historique,
+// confirmé par Alexis). On reste sur HarvestAPI seul. Si HarvestAPI échoue
+// pour un lead avec persona connue mais sans LinkedIn URL, on accepte
+// l'absence — Phase 4 Haiku fallback gère la résolution persona en amont
+// si nécessaire.
 
 export async function findLinkedInUrl(
   args: FindArgs,
 ): Promise<LinkedInFinderResult | null> {
   if (!args.firstName || !args.lastName || !args.companyName) return null;
-
-  // 1. HarvestAPI Profile Search (~70% hit, $0.005/lookup absorbé Apify)
-  const harvest = await findViaHarvestAPI(args);
-  if (harvest) return harvest;
-
-  // 2. Google CSE fallback (gratuit free tier 100/jour)
-  const google = await findViaGoogleCSE(args);
-  if (google) return google;
-
-  return null;
+  // HarvestAPI Profile Search (~70% hit, $0.005/lookup absorbé Apify)
+  return findViaHarvestAPI(args);
 }

@@ -48,7 +48,6 @@ export async function enrichLeadsViaLinkedInFinder(
     found: 0,
     bySource: {
       "harvestapi-profile-search": 0,
-      "google-cse": 0,
       none: 0,
     },
     kasprChained: 0,
