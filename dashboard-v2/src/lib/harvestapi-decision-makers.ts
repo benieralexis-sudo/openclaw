@@ -716,12 +716,16 @@ export async function enrichDecisionMakersForClient(
     const forceRefresh = lead.personaSource === "pappers-rcs" || (isCeoFounder && isTechSignal);
 
     try {
-      const dm = await findDecisionMakerByCompany({
+      // Sprint Persona Excellence (17/05) Phase 3 wired — Multi-candidats
+      // + re-score multi-critères au lieu du top-1 brut HarvestAPI.
+      // Permet à un Founder tier-2 de battre un CTO tier-1 désaligné via
+      // bonus posts récents/multi-source/buyer profile.
+      const candidates = await findDecisionMakerCandidatesByCompany({
         companyName: lead.companyName,
         signalType,
         locations,
+        topN: 8,
         maxItems: forceRefresh ? 20 : 12,
-        bypassCache: forceRefresh,
       });
 
       // Pose toujours `harvestapiAttemptedAt` (TTL 30j) pour éviter retry
@@ -729,23 +733,57 @@ export async function enrichDecisionMakersForClient(
         harvestapiAttemptedAt: new Date(),
       };
 
-      if (dm) {
-        updates.firstName = dm.firstName;
-        updates.lastName = dm.lastName;
-        updates.fullName = dm.fullName;
-        updates.jobTitle = dm.jobTitle;
-        updates.linkedinUrl = dm.profileUrl;
-        updates.personaTier = dm.tier;
-        updates.personaSource = "harvestapi-search";
-        // Patch C (06/05) — stocker le profil LinkedIn complet déjà payé en
-        // mode Full ($0.10 + $0.004/profile). Évite que enrichLinkedInProfilesForClient
-        // refasse $0.10/lead pour la même donnée. TTL 30j sur linkedinProfileEnrichedAt
-        // bloque automatiquement le ré-enrichissement.
-        if (dm.rawProfile) {
-          updates.linkedinProfileJson = dm.rawProfile as unknown as object;
+      if (candidates.length > 0) {
+        const { rankCandidates } = await import("@/lib/persona-candidate-scorer");
+        const ranked = rankCandidates(
+          candidates.map((c) => ({
+            tier: c.tier,
+            confidence: c.confidence,
+            firstName: c.firstName,
+            lastName: c.lastName,
+            headline: c.headline,
+            // Tenure extraction depuis rawProfile pas encore implementée — MVP
+            // utilise valeur par défaut (sub-scorer renvoie 5 pour undefined).
+            currentPositionStartedMonthsAgo: undefined,
+          })),
+          { signalType },
+        );
+        const best = ranked[0]!;
+        // Récupère le DecisionMakerCandidate matching pour avoir rawProfile + linkedinUrl
+        const bestRaw = candidates.find(
+          (c) => c.firstName === best.firstName && c.lastName === best.lastName,
+        ) ?? candidates[0]!;
+
+        updates.firstName = best.firstName;
+        updates.lastName = best.lastName;
+        updates.fullName = bestRaw.fullName;
+        updates.jobTitle = bestRaw.jobTitle;
+        updates.linkedinUrl = bestRaw.profileUrl;
+        updates.personaTier = best.tier;
+        updates.personaSource = "harvestapi-search-rescored";
+        // Phase 3 bonus : stocke le breakdown du score dans fitScoreBreakdown
+        // (JSONB) pour observability + apprentissage Fred feedback futur.
+        updates.fitScoreBreakdown = {
+          personaScoreTotal: best.score.total,
+          breakdown: best.score.breakdown,
+          candidatesEvaluated: candidates.length,
+          rankedTop3: ranked.slice(0, 3).map((c) => ({
+            name: `${c.firstName} ${c.lastName}`,
+            score: c.score.total,
+            tier: c.tier,
+          })),
+          scorerVersion: "phase3-2026-05-17",
+        };
+        if (bestRaw.rawProfile) {
+          updates.linkedinProfileJson = bestRaw.rawProfile as unknown as object;
           updates.linkedinProfileEnrichedAt = new Date();
         }
         result.found += 1;
+        if (ranked.length > 1 && ranked[0]!.score.total - ranked[1]!.score.total < 10) {
+          console.log(
+            `[harvestapi-dm.rescored] ${lead.companyName} (${signalType}) → ${best.firstName} ${best.lastName} (score ${best.score.total}, tier ${best.tier}) — close call vs ${ranked[1]!.firstName} ${ranked[1]!.lastName} (${ranked[1]!.score.total})`,
+          );
+        }
       } else {
         // Sprint Persona Excellence (17/05/2026) — Fallback Haiku UNIVERSEL.
         // Remplace l'ancien cascade Google CSE qui n'a résolu 0 lead en 30j
