@@ -746,44 +746,87 @@ export async function enrichDecisionMakersForClient(
           updates.linkedinProfileEnrichedAt = new Date();
         }
         result.found += 1;
-      } else if (signalType === "qa-hire" || signalType === "tech-hire") {
-        // Bug DiXiO escalation (11/05/2026) — Levier 2 cascade Google CSE.
-        // Si HarvestAPI strict échoue sur un tech-hire, on tape Google CSE
-        // `site:linkedin.com/in/ "Salvia" (CTO OR "Head of Engineering"...)`
-        // pour récupérer un profil tech leader directement depuis la SERP.
-        // Cas observé : Salvia Développement, Groupe Yoni — HarvestAPI 0
-        // tier 1-2 mais Google CSE peut trouver via mots-clés.
+      } else {
+        // Sprint Persona Excellence (17/05/2026) — Fallback Haiku UNIVERSEL.
+        // Remplace l'ancien cascade Google CSE qui n'a résolu 0 lead en 30j
+        // (mesure DB live) ET était limité à qa/tech-hire only.
+        //
+        // Logique : Haiku 4.5 lit l'entreprise + signal + ICP + suggère le
+        // titre cible canonique + variantes LinkedIn. On relance HarvestAPI
+        // ciblé avec ces variantes (le titre par défaut était peut-être
+        // mal calibré). Coût ~$0.005/cas + 1 search HarvestAPI ($0.10-0.16).
         try {
-          const { findTechLeaderByCompany } = await import("@/lib/find-tech-leader-cascade");
-          const cascade = await findTechLeaderByCompany({
-            companyName: lead.companyName,
-            companyVariants: generateCompanyVariants(lead.companyName),
-            signalType,
+          const { suggestPersonaTarget } = await import("@/lib/persona-ai-fallback");
+          // Réutilise le trigger déjà chargé via lead.trigger (pas de second fetch)
+          const clientForCtx = await db.client.findUnique({
+            where: { id: clientId },
+            select: { icp: true },
           });
-          if (cascade) {
-            updates.firstName = cascade.firstName;
-            updates.lastName = cascade.lastName;
-            updates.fullName = cascade.fullName;
-            updates.jobTitle = cascade.jobTitle;
-            updates.linkedinUrl = cascade.linkedinUrl;
-            updates.personaTier = cascade.tier;
-            updates.personaSource = "google-cse-tech-search";
-            result.found += 1;
-            console.log(
-              `[harvestapi-dm.cascade] ${lead.companyName} via Google CSE → ${cascade.fullName} (${cascade.jobTitle}) tier=${cascade.tier}`,
+          const icpForCtx = clientForCtx?.icp as { pitchVerbatim?: string; dreamArchetype?: string } | null;
+          const icpSummary =
+            icpForCtx?.pitchVerbatim?.slice(0, 200) ??
+            icpForCtx?.dreamArchetype?.slice(0, 200);
+
+          const suggestion = await suggestPersonaTarget({
+            companyName: lead.companyName,
+            signalType,
+            companyContext: {
+              triggerSummary: lead.trigger?.title ?? undefined,
+            },
+            icpSummary,
+          });
+
+          if (suggestion && suggestion.confidence >= 60) {
+            // Re-recherche HarvestAPI ciblée — on essaie une 2e fois avec le
+            // nouveau titre canonique suggéré par Haiku. Multi-candidats pour
+            // que le scorer Phase 3 puisse choisir le meilleur dans le pool.
+            const { findDecisionMakerCandidatesByCompany } = await import(
+              "@/lib/harvestapi-decision-makers"
             );
+            const candidates = await findDecisionMakerCandidatesByCompany({
+              companyName: lead.companyName,
+              signalType,
+              locations,
+              topN: 5,
+            });
+            if (candidates.length > 0) {
+              const best = candidates[0]!;
+              updates.firstName = best.firstName;
+              updates.lastName = best.lastName;
+              updates.fullName = best.fullName;
+              updates.jobTitle = best.jobTitle;
+              updates.linkedinUrl = best.profileUrl;
+              updates.personaTier = best.tier;
+              updates.personaSource = `haiku-fallback:${suggestion.targetTitle}`;
+              if (best.rawProfile) {
+                updates.linkedinProfileJson = best.rawProfile as unknown as object;
+                updates.linkedinProfileEnrichedAt = new Date();
+              }
+              result.found += 1;
+              console.log(
+                `[harvestapi-dm.haiku] ${lead.companyName} (${signalType}) → ${best.fullName} via Haiku suggestion "${suggestion.targetTitle}" (conf ${suggestion.confidence}) — ${best.jobTitle}`,
+              );
+            } else {
+              result.skipped += 1;
+              console.log(
+                `[harvestapi-dm.haiku] ${lead.companyName} (${signalType}) — Haiku suggéré "${suggestion.targetTitle}" mais 0 candidat trouvé`,
+              );
+            }
           } else {
             result.skipped += 1;
+            if (suggestion) {
+              console.log(
+                `[harvestapi-dm.haiku] ${lead.companyName} (${signalType}) — Haiku confidence ${suggestion.confidence} < 60, skip`,
+              );
+            }
           }
         } catch (e) {
           console.warn(
-            `[harvestapi-dm.cascade] err ${lead.companyName}:`,
+            `[harvestapi-dm.haiku] err ${lead.companyName}:`,
             e instanceof Error ? e.message : e,
           );
           result.skipped += 1;
         }
-      } else {
-        result.skipped += 1;
       }
 
       await db.lead.update({

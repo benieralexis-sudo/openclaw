@@ -120,6 +120,8 @@ export interface LeadDossierBlocks {
   companyNews: string;
   /** Bloc CLIENT ENRICHED (Sprint B.3 — réponses Fred 9 questions) */
   fredEnriched: string;
+  /** Sprint Persona Excellence (17/05) — POSTS RÉCENTS LinkedIn 90j du décideur */
+  recentPosts: string;
 }
 
 export interface LeadDossier {
@@ -305,6 +307,22 @@ export async function buildLeadDossierForJudge(
   // ── Bloc CLIENT ENRICHED (Sprint B.3 — Fred 9 questions) ──
   const fredEnriched = buildFredEnrichedBlock(icp);
 
+  // ── Bloc RECENT POSTS (Sprint Persona Excellence 17/05) ──
+  // Récupère les posts LinkedIn 90j du décideur si on a son URL. Cache 7j.
+  let recentPostsBlock = "";
+  if (trigger.lead?.linkedinUrl) {
+    try {
+      const { fetchRecentPostsForProfile, formatPostsForDossier } = await import(
+        "@/lib/harvestapi-recent-posts"
+      );
+      const posts = await fetchRecentPostsForProfile(trigger.lead.linkedinUrl);
+      const formatted = formatPostsForDossier(posts);
+      if (formatted) recentPostsBlock = formatted;
+    } catch {
+      // silent fail — un échec scrape posts ne doit pas casser tout le dossier
+    }
+  }
+
   return {
     triggerId,
     client: { id: trigger.client.id, name: trigger.client.name, icp },
@@ -338,6 +356,7 @@ export async function buildLeadDossierForJudge(
       companyWebsite: companyWebsiteBlock,
       companyNews: companyNewsBlock,
       fredEnriched,
+      recentPosts: recentPostsBlock,
     },
   };
 }
@@ -456,7 +475,7 @@ LEAD :
 - Industrie : ${trigger.industry ?? "?"}
 - Région : ${trigger.region ?? "?"}
 - Taille : ${trigger.size ?? "?"}
-${blocks.persona}${blocks.crossTenant}${blocks.priorSignals}${blocks.negativeSignals ? `\n${blocks.negativeSignals.block}` : ""}${blocks.companyWebsite}${blocks.companyNews}
+${blocks.persona}${blocks.crossTenant}${blocks.priorSignals}${blocks.negativeSignals ? `\n${blocks.negativeSignals.block}` : ""}${blocks.companyWebsite}${blocks.companyNews}${blocks.recentPosts}
 
 SIGNAL :
 - Type : ${trigger.type}
@@ -501,6 +520,7 @@ export function formatDossierAsJsonForDebug(dossier: LeadDossier): string {
       companyWebsite: dossier.blocks.companyWebsite.length,
       companyNews: dossier.blocks.companyNews.length,
       fredEnriched: dossier.blocks.fredEnriched.length,
+      recentPosts: dossier.blocks.recentPosts.length,
     },
   };
   return JSON.stringify(cleaned, null, 2);

@@ -1065,6 +1065,7 @@ Si verdict=NON, les risks expliquent POURQUOI on rejette (typiquement 2 high). S
 ### opener (20-2000 chars)
 Message prêt-à-coller pour le commercial (email cold OU LinkedIn DM, le commercial choisira). Règles :
 - Mentionne le signal d'achat détecté (citer 1-2 éléments concrets)
+- **Si le bloc POSTS RÉCENTS LINKEDIN existe** et contient un post pertinent au signal (ex: décideur a posté "on adopte Cypress" et signal = QA-hire), **personnalise l'opener** en citant ce post : ouvre par "J'ai vu votre post du JJ/MM sur X..." → signal d'attention authentique, taux de réponse multiplié par 3-5×. Ne fabrique PAS un post qui n'existe pas (hallucination = killer).
 - Ton iFIND : direct, pro, francophone soutenu mais pas guindé. PAS d'emoji.
 - AUCUNE promesse "doubler le CA / x10 ROI" sans data
 - AUCUN CTA Cal.com / lien réservation : le client gère son propre lien d'agenda. Termine par une question ouverte ou "30 min pour échanger ?"
