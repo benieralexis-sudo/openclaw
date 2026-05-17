@@ -25,6 +25,13 @@ import {
 } from "@/lib/lead-brief-v2-validator";
 import { getMinFreshnessDays } from "@/lib/freshness-min-gate";
 import { detectOpenerPersonaDesync } from "@/lib/opener-substitution";
+// Sprint reprise (17/05/2026) — Circuit breaker Anthropic. Évite de marquer
+// IGNORED 200+ triggers à chaque panne Anthropic (cas 15-17/05).
+import {
+  isAnthropicDown,
+  isTransientAnthropicError,
+  markAnthropicDown,
+} from "@/lib/anthropic-health";
 
 /**
  * Qualifie un Trigger via Claude Opus 4.7 et écrit le score composite
@@ -484,6 +491,14 @@ export async function qualifyTrigger(
   triggerId: string,
   opts: { force?: boolean } = {},
 ): Promise<QualifyResult | null> {
+  // Sprint reprise (17/05) — Circuit breaker : si Anthropic en pause,
+  // skip silencieusement. Trigger reste status=NEW, sera repris au cycle
+  // suivant la guérison.
+  if (await isAnthropicDown()) {
+    console.warn(`[qualify-trigger] ${triggerId}: skip — Anthropic circuit breaker open`);
+    return null;
+  }
+
   // 1. Fetch trigger lite (idempotence + données pre-Opus reject)
   const triggerLite = await db.trigger.findUnique({
     where: { id: triggerId },
@@ -641,8 +656,19 @@ export async function qualifyTrigger(
 
   if (!v2Result.brief) {
     // V2 totalement échoué (Opus error, Zod KO, dossier null, quota exceeded).
-    // Fail-safe : IGNORED pour ne pas polluer le dashboard d'un lead non-jugé.
-    const reason = `[v2-failed] ${v2Result.reason ?? "V2 returned null"}`.slice(0, 500);
+    const failReason = v2Result.reason ?? "V2 returned null";
+
+    // Sprint reprise (17/05) — Distinction erreur transient (Anthropic down,
+    // 429, network) vs logique (Zod, dossier null). Si transient, lève le
+    // circuit breaker et laisse le trigger en status=NEW au lieu de IGNORED.
+    if (isTransientAnthropicError(failReason)) {
+      markAnthropicDown(failReason);
+      console.warn(`[qualify-trigger.transient] ${triggerId}: NOT marked IGNORED, Anthropic seems down (${failReason.slice(0, 80)})`);
+      return null;
+    }
+
+    // Erreur de logique : comportement historique (IGNORED + scoreReason).
+    const reason = `[v2-failed] ${failReason}`.slice(0, 500);
     console.warn(`[qualify-trigger.v2-failed] ${triggerId}: ${reason}`);
     await db.trigger.update({
       where: { id: triggerId },
@@ -933,7 +959,13 @@ async function triggerImmediateEnrichment(clientId: string): Promise<void> {
 export async function qualifyPendingTriggers(
   clientId: string,
   opts: { limit?: number } = {},
-): Promise<{ qualified: number; errors: number }> {
+): Promise<{ qualified: number; errors: number; skipped?: string }> {
+  // Sprint reprise (17/05) — Circuit breaker : skip tout le cycle si
+  // Anthropic indisponible. Évite de boucler 30× sur un service down.
+  if (await isAnthropicDown()) {
+    console.warn(`[qualify-pending] client=${clientId}: skip cycle — Anthropic circuit breaker open`);
+    return { qualified: 0, errors: 0, skipped: "anthropic-down" };
+  }
   const limit = opts.limit ?? 30;
   // Fix B6 (11/05/2026) — Élargir le filtre pour piocher aussi les triggers
   // déjà scorés V1 par leur poller (rss-levees attribue scoreReason inline)
