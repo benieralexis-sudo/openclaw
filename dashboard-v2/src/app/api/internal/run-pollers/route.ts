@@ -11,8 +11,11 @@ import { recomputePersonaTierFromHeadlineForClient } from "@/lib/recompute-perso
 import { enrichDirigeantsForClient } from "@/lib/enrich-lead-dirigeants";
 import { enrichDecisionMakersForClient } from "@/lib/harvestapi-decision-makers";
 import { enrichLeadsViaFullEnrich } from "@/lib/enrich-via-fullenrich";
-// Dropcontact archivé 30/04/2026 (cf _archive/disabled-libs-20260430/)
-// import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
+// Dropcontact RÉACTIVÉ 17/05/2026 (Sprint Persona Excellence) :
+// 64% des leads créés ces 30j sont sans email. Dropcontact RGPD-strict
+// (qualification='valid'/'ok' + filtre domaines perso) couvre une partie
+// de ce trou avant le fallback Kaspr+FullEnrich. 416 crédits dispos.
+import { enrichLeadsViaDropcontact } from "@/lib/enrich-via-dropcontact";
 import { detectDeclarativePainForClient } from "@/lib/declarative-pain";
 import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 // Audit fix B.1.3 (06/05) — enrichLinkedInProfilesForClient n'était appelé
@@ -546,13 +549,20 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           (entry as { crossSourceError?: string }).crossSourceError = e instanceof Error ? e.message : String(e);
         }
-        // Dropcontact COUPÉ 30/04/2026 — 1.66% hit rate sur ICP DTL, compte fermé.
-        // Remplacé par FullEnrich Yearly Start 1k (étage 4-bis). Lib
-        // enrich-via-dropcontact.ts archivée /_archive/disabled-libs-20260430/.
-        // Kaspr direct sur les leads avec LinkedIn jamais enrichis Kaspr.
-        // Cas concret : Rodz enrichContact ramène un LinkedIn → si Dropcontact
-        // ne trouve pas d'email, le chaining Kaspr de enrichLeadsViaDropcontact
-        // est skip → on perd mobile + work email. Ce module rattrape (15/run).
+        // Sprint Persona Excellence (17/05/2026) — Dropcontact RÉACTIVÉ
+        // en primaire AVANT Kaspr. Mode RGPD-strict (qualification valid/ok
+        // + blacklist domaines perso). Cascade le Kaspr en aval pour récupérer
+        // le mobile direct quand Dropcontact n'a fourni que l'email pro.
+        // Plafond 50 leads/run (limite du batch Dropcontact).
+        try {
+          const dropcontact = await enrichLeadsViaDropcontact(c.id, { limit: 50 });
+          (entry as { dropcontact?: unknown }).dropcontact = dropcontact;
+        } catch (e) {
+          (entry as { dropcontactError?: string }).dropcontactError = e instanceof Error ? e.message : String(e);
+        }
+        // Kaspr direct sur les leads avec LinkedIn jamais enrichis Kaspr
+        // (qui n'ont pas transité par Dropcontact — soit déjà email, soit
+        // pas de nom complet pour Dropcontact).
         try {
           const kasprDirect = await enrichLeadsViaKasprDirect(c.id, { limit: 30 });
           (entry as { kasprDirect?: unknown }).kasprDirect = kasprDirect;

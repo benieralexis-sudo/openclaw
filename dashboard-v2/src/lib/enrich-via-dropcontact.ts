@@ -1,0 +1,312 @@
+import "server-only";
+import { db } from "@/lib/db";
+import { submitBatch, pollBatchResult, type DropcontactInput, type DropcontactEnriched } from "@/lib/dropcontact";
+import { enrichLinkedInProfile, isValidLinkedInUrl, pickPhone } from "@/lib/kaspr";
+import { recomputeEmailConfidenceForLead } from "@/lib/recompute-email-confidence";
+import { splitFullName } from "@/lib/split-full-name";
+
+// ═══════════════════════════════════════════════════════════════════
+// Pipeline : enrichir les Leads sans email via Dropcontact
+// Input : Lead avec firstName + lastName + companyName, sans email
+// Output : Lead.email + Lead.linkedinUrl + Lead.phone mis à jour
+// Coût : 1 crédit Dropcontact / lead
+// ═══════════════════════════════════════════════════════════════════
+
+const BATCH_LIMIT = 50;
+
+import { isFrenchMobile, isFrenchPhone } from "@/lib/phone-fr";
+
+type EnrichResult = {
+  picked: number;
+  enrichedWithEmail: number;
+  enrichedWithLinkedin: number;
+  enrichedWithPhone: number;
+  kasprChained: number;
+  kasprMobileFound: number;
+  jobMovesDetected: number;
+  errors: Array<{ leadId: string; reason: string }>;
+  creditsLeft: number;
+};
+
+// Plafond Kaspr par run pour ne jamais brûler les crédits par accident.
+// 197 mobiles dispos / 30 leads/cycle / 6h cycle = on peut en faire jusqu'à 30
+// par run mais on plafonne à 15 pour garder de la marge sur les pépites.
+const KASPR_CHAIN_MAX_PER_RUN = 15;
+
+// Blacklist domaines emails perso (Q6 audit qualité 29/04). Cold email B2B
+// envoyé à gmail/yahoo/hotmail/etc = blacklist sender immédiate par les
+// providers (= réputation Primeforge détruite). On préfère un lead sans email
+// à un lead avec email perso.
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com",
+  "yahoo.fr", "yahoo.com", "ymail.com",
+  "hotmail.fr", "hotmail.com", "outlook.com", "outlook.fr", "live.fr", "live.com",
+  "msn.com", "windowslive.com",
+  "orange.fr", "wanadoo.fr", "free.fr", "sfr.fr", "neuf.fr", "noos.fr",
+  "laposte.net", "club-internet.fr", "bbox.fr", "numericable.fr",
+  "icloud.com", "me.com", "mac.com",
+  "protonmail.com", "proton.me", "tutanota.com", "tuta.io",
+  "aol.com", "aol.fr", "gmx.fr", "gmx.com",
+  "zoho.com", "fastmail.com",
+]);
+
+function isPersonalEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase().trim();
+  if (!domain) return false;
+  return PERSONAL_EMAIL_DOMAINS.has(domain);
+}
+
+function pickFirstEmail(enriched: DropcontactEnriched): string | null {
+  const emails = enriched.email;
+  if (!emails || emails.length === 0) return null;
+  // Mode strict : on ne garde QUE les emails confirmés "valid" / "ok" par
+  // Dropcontact. Les autres qualifications (uncertain, risky, catch_all,
+  // unknown) génèrent 5-10% de bounces qui détériorent la réputation
+  // Primeforge → mails partent en spam.
+  // ET on rejette les domaines perso (gmail/yahoo/...) — cf. PERSONAL_EMAIL_DOMAINS.
+  for (const e of emails) {
+    if (e.qualification !== "valid" && e.qualification !== "ok") continue;
+    if (!e.email) continue;
+    if (isPersonalEmail(e.email)) continue; // skip perso → cold email pro non envoyable
+    return e.email;
+  }
+  return null;
+}
+
+export async function enrichLeadsViaDropcontact(
+  clientId: string,
+  opts: { limit?: number } = {},
+): Promise<EnrichResult> {
+  const limit = Math.min(opts.limit ?? BATCH_LIMIT, BATCH_LIMIT);
+  const result: EnrichResult = {
+    picked: 0,
+    enrichedWithEmail: 0,
+    enrichedWithLinkedin: 0,
+    enrichedWithPhone: 0,
+    kasprChained: 0,
+    kasprMobileFound: 0,
+    jobMovesDetected: 0,
+    errors: [],
+    creditsLeft: -1,
+  };
+
+  // Eligibilité : Lead avec nom + entreprise mais sans email + jamais tenté
+  // Dropcontact (ou tenté >14j → on retente au cas où la base Dropcontact ait
+  // ajouté l'email entre temps). Sans ce flag, les ~25% de leads sans match
+  // étaient re-soumis à chaque cron 6h = ~840 crédits/mois gaspillés.
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  // Élargi 29/04 : accepte (firstName + lastName) OU fullName seul.
+  // Les leads créés via Apify/Rodz n'ont parfois que `fullName` (ex hiring manager
+  // LinkedIn sans split) — splitFullName() les découpe avant l'appel Dropcontact.
+  const candidates = await db.lead.findMany({
+    where: {
+      clientId,
+      deletedAt: null,
+      OR: [{ email: null }, { email: "" }],
+      AND: [
+        {
+          OR: [
+            { AND: [{ firstName: { not: null } }, { lastName: { not: null } }] },
+            { fullName: { not: null } },
+          ],
+        },
+        {
+          OR: [
+            { dropcontactAttemptedAt: null },
+            { dropcontactAttemptedAt: { lt: fourteenDaysAgo } },
+          ],
+        },
+      ],
+      companyName: { not: "" },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      fullName: true,
+      companyName: true,
+      companySiret: true,
+    },
+    take: limit,
+    orderBy: { createdAt: "desc" },
+  });
+
+  result.picked = candidates.length;
+  if (candidates.length === 0) return result;
+
+  const inputs: DropcontactInput[] = candidates.map((l) => {
+    let firstName = l.firstName ?? undefined;
+    let lastName = l.lastName ?? undefined;
+    // Auto-split si pas de firstName/lastName mais fullName disponible
+    if ((!firstName || !lastName) && l.fullName) {
+      const split = splitFullName(l.fullName);
+      firstName = firstName ?? split.firstName ?? undefined;
+      lastName = lastName ?? split.lastName ?? undefined;
+    }
+    return {
+      first_name: firstName,
+      last_name: lastName,
+      company: l.companyName,
+      num_siren: l.companySiret ?? undefined,
+    };
+  });
+
+  let submitted: { requestId: string; creditsLeft: number };
+  try {
+    submitted = await submitBatch(inputs);
+  } catch (e) {
+    result.errors.push({ leadId: "*", reason: e instanceof Error ? e.message : String(e) });
+    return result;
+  }
+  result.creditsLeft = submitted.creditsLeft;
+
+  let enrichedRows: DropcontactEnriched[];
+  try {
+    enrichedRows = await pollBatchResult(submitted.requestId, 300_000);
+  } catch (e) {
+    result.errors.push({ leadId: "*", reason: `poll: ${e instanceof Error ? e.message : String(e)}` });
+    return result;
+  }
+
+  // Mapping par index : Dropcontact garantit l'ordre input == output
+  const attemptedAt = new Date();
+  for (let i = 0; i < candidates.length; i++) {
+    const lead = candidates[i];
+    const en = enrichedRows[i];
+    if (!lead) continue;
+    // Pose le flag `dropcontactAttemptedAt` même pour les leads sans match :
+    // c'est ce qui empêche la re-soumission au prochain cron.
+    if (!en) {
+      try {
+        await db.lead.update({
+          where: { id: lead.id },
+          data: { dropcontactAttemptedAt: attemptedAt },
+        });
+      } catch {
+        // best effort — un échec ici n'empêche pas le batch
+      }
+      continue;
+    }
+    const email = pickFirstEmail(en);
+    const linkedinUrl = en.linkedin || null;
+    let phone: string | null = en.mobile_phone || en.phone || null;
+    // Filtre FR (audit 29/04) : Dropcontact remonte parfois des phones de
+    // sociétés étrangères (UK/US/RO/...). Inutile pour cold call B2B FR.
+    if (phone && !isFrenchPhone(phone)) phone = null;
+
+    // Détection job_move (signal d'achat MAJEUR) : si Dropcontact remonte un
+    // changement de poste <6 mois sur le dirigeant, on log + booste le score.
+    const jobMoveDetected = en.job_changed === true || !!en.previous_company;
+    if (jobMoveDetected) result.jobMovesDetected++;
+
+    // Cas "no result" : on marque tenté pour empêcher re-soumission, puis next.
+    if (!email && !linkedinUrl && !phone && !jobMoveDetected) {
+      try {
+        await db.lead.update({
+          where: { id: lead.id },
+          data: { dropcontactAttemptedAt: attemptedAt },
+        });
+      } catch {
+        // best effort
+      }
+      continue;
+    }
+
+    // Chaining Dropcontact → Kaspr : si on a un LinkedIn URL valide ET pas
+    // de MOBILE direct (06/07 français), on déclenche Kaspr pour le mobile.
+    // Note : un 08/09 (VoIP/standard entreprise) ne compte pas comme mobile —
+    // c'est le standard de la boîte, pas le tel direct du dirigeant.
+    let kasprWorkEmail: string | null = null;
+    let kasprPhone: string | null = null;
+    const hasMobile = phone ? isFrenchMobile(phone) : false;
+    if (
+      linkedinUrl &&
+      !hasMobile &&
+      result.kasprChained < KASPR_CHAIN_MAX_PER_RUN &&
+      isValidLinkedInUrl(linkedinUrl)
+    ) {
+      result.kasprChained++;
+      const fullName =
+        lead.fullName ?? [lead.firstName, lead.lastName].filter(Boolean).join(" ");
+      try {
+        const kr = await enrichLinkedInProfile({
+          id: linkedinUrl,
+          name: fullName,
+          dataToGet: ["phone", "workEmail"],
+        });
+        if (kr.ok && kr.profile) {
+          const kPhone = pickPhone(kr.profile.phones ?? kr.profile.phone ?? null);
+          if (kPhone && isFrenchPhone(kPhone)) {
+            // On stocke le mobile Kaspr SÉPARÉMENT (kasprPhone) pour conserver
+            // le standard entreprise (phone) — le commercial peut vouloir les
+            // deux : standard pour passer par l'accueil, mobile pour direct.
+            // Filtre FR (audit 29/04) — reject phones internationaux.
+            kasprPhone = kPhone;
+            if (isFrenchMobile(kPhone)) result.kasprMobileFound++;
+          }
+          // Fix 28/04 : Kaspr API v2.0 renvoie workEmails (array) et non
+          // workEmail (singleton). On lit les 2 formats pour ne plus rater.
+          const prof = kr.profile as typeof kr.profile & {
+            workEmails?: Array<string | { email?: string }>;
+            emails?: Array<string | { email?: string }>;
+          };
+          const pickFirst = (
+            list: Array<string | { email?: string }> | undefined,
+          ): string | null => {
+            if (!list || list.length === 0) return null;
+            for (const it of list) {
+              if (typeof it === "string" && it) return it;
+              if (it && typeof it === "object" && it.email) return it.email;
+            }
+            return null;
+          };
+          const we = kr.profile.workEmail;
+          kasprWorkEmail =
+            pickFirst(prof.workEmails) ??
+            (typeof we === "string" ? we : we?.email ?? null) ??
+            pickFirst(prof.emails);
+        }
+      } catch (e) {
+        // Kaspr fail = silent. On a déjà Dropcontact, c'est un bonus.
+        result.errors.push({
+          leadId: lead.id,
+          reason: `kaspr_chain: ${e instanceof Error ? e.message : String(e)}`,
+        });
+      }
+    }
+
+    try {
+      await db.lead.update({
+        where: { id: lead.id },
+        data: {
+          // Q3 — email stocké dans emailDropcontact (source-tagged).
+          // Le champ `email` final est calculé par recomputeEmailConfidence.
+          ...(email ? { emailDropcontact: email } : {}),
+          ...(linkedinUrl ? { linkedinUrl } : {}),
+          ...(phone ? { phone } : {}),
+          ...(kasprPhone || kasprWorkEmail
+            ? {
+                ...(kasprPhone ? { kasprPhone } : {}),
+                ...(kasprWorkEmail ? { kasprWorkEmail } : {}),
+                kasprEnrichedAt: new Date(),
+                kasprAttemptedAt: new Date(),
+              }
+            : {}),
+          dropcontactAttemptedAt: attemptedAt,
+          status: "ENRICHED",
+          enrichedAt: new Date(),
+        },
+      });
+      if (email || kasprWorkEmail) {
+        await recomputeEmailConfidenceForLead(lead.id);
+      }
+      if (email) result.enrichedWithEmail++;
+      if (linkedinUrl) result.enrichedWithLinkedin++;
+      if (phone) result.enrichedWithPhone++;
+    } catch (e) {
+      result.errors.push({ leadId: lead.id, reason: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  return result;
+}
