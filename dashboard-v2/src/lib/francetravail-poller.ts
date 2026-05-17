@@ -21,7 +21,7 @@ import {
   isFTQaOffer,
   type FranceTravailOffer,
 } from "@/lib/francetravail";
-import { buildTitleFilterForClient } from "@/lib/icp-title-filter";
+import { buildTitleFilterFromCatalog } from "@/lib/icp-title-filter";
 import { isSignalEnabled, getP1Keywords, getP1Regions, getP1RomeCodes } from "@/lib/signal-config";
 
 interface ClientIcpExtended {
@@ -200,7 +200,8 @@ export async function pollFranceTravailForClient(
   const requireTechFilter = icp.francetravailRequireTechFilter ?? true;
   // Signal #1 boost (anciennement isFTQaOffer hardcodé) — désormais générique
   // via titleFilterInclude / titleFilterExclude du client.icp.
-  const signalBoostFilter = buildTitleFilterForClient(icp);
+  // Sprint catalogue P1bis (17/05) — titleFilter via catalogue P1.parameters
+  const signalBoostFilter = await buildTitleFilterFromCatalog(clientId, icp);
 
   // Fenêtre 24h glissante (API exige min+max)
   const now = new Date();

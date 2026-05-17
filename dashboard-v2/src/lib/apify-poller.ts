@@ -19,7 +19,7 @@ import { db } from "@/lib/db";
 import { runAndGetItems } from "@/lib/apify";
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
 import { getRotatedKeywords } from "@/lib/keyword-rotation";
-import { buildTitleFilterForClient } from "@/lib/icp-title-filter";
+import { buildTitleFilterFromCatalog } from "@/lib/icp-title-filter";
 import { isSignalEnabled, getSignalConfig, getP1Keywords } from "@/lib/signal-config";
 import { detectAiKeywords } from "@/lib/ai-tool-detector";
 
@@ -706,9 +706,9 @@ export async function pollApifyForClient(
   // avec fallback icp.keywordsHiring (transition douce).
   const keywords = await getP1Keywords(clientId, icp);
   const antiCompanies = (icp.antiPersonas ?? []).map((a) => a.toLowerCase());
-  // Multi-tenant 13/05/2026 : construit le titleFilter depuis l'ICP du client.
-  // Si non défini → fallback DTL legacy (QA strict). Pour iFIND : SDR/Sales.
-  const clientTitleFilter = buildTitleFilterForClient(icp);
+  // Sprint catalogue P1bis (17/05) — titleFilter via catalogue P1.parameters
+  // avec fallback icp.titleFilterInclude/Exclude (transition).
+  const clientTitleFilter = await buildTitleFilterFromCatalog(clientId, icp);
   const result: ApifyPollerResult = {
     clientId,
     actorRuns: [],

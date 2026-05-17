@@ -12,6 +12,7 @@ import "server-only";
  */
 
 import { db } from "@/lib/db";
+import { enrichIcpWithCatalog } from "@/lib/signal-config";
 import {
   createSignal,
   type RodzSignalType,
@@ -456,7 +457,11 @@ export async function provisionRodzForClient(
     throw new Error(`Client ${client.name} n'a pas d'ICP configuré`);
   }
 
-  const icp = client.icp as ClientIcpExtended;
+  // Sprint catalogue P1bis (17/05) — enrichit icp avec params catalogue
+  // (P1 keywords/regions/romeCodes/titleFilter, P3 industries/sizes) avant
+  // de construire les signals Rodz. Champs transversaux conservés tels quels.
+  const rawIcp = client.icp as ClientIcpExtended;
+  const icp = await enrichIcpWithCatalog(clientId, rawIcp);
   const signals = buildSignals({ name: client.name, icp });
 
   const result: ProvisionResult = {
@@ -566,7 +571,9 @@ export async function reprovisionRodzForClient(
   if (!client) throw new Error(`Client ${clientId} introuvable`);
   if (!client.icp) throw new Error(`Client ${client.name} sans ICP`);
 
-  const icp = client.icp as ClientIcpExtended;
+  // Sprint catalogue P1bis (17/05) — icp enrichi catalogue
+  const rawIcp = client.icp as ClientIcpExtended;
+  const icp = await enrichIcpWithCatalog(clientId, rawIcp);
   const newSpecs = buildSignals({ name: client.name, icp });
   const specByType = new Map(newSpecs.map((s) => [s.type, s]));
 
@@ -635,7 +642,9 @@ export async function previewRodzProvisioning(clientId: string): Promise<{
   if (!client) throw new Error(`Client ${clientId} introuvable`);
   if (!client.icp) throw new Error(`Client ${client.name} sans ICP`);
 
-  const icp = client.icp as ClientIcpExtended;
+  // Sprint catalogue P1bis (17/05) — icp enrichi catalogue
+  const rawIcp = client.icp as ClientIcpExtended;
+  const icp = await enrichIcpWithCatalog(clientId, rawIcp);
   const signals = buildSignals({ name: client.name, icp });
   return {
     client: { id: client.id, name: client.name },

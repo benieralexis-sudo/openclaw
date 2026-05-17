@@ -40,12 +40,38 @@ function compilePattern(
 /**
  * Construit la fonction de filtre titre pour un client.
  * Renvoie true si le titre matche l'include ET ne matche pas l'exclude.
+ *
+ * @deprecated Sprint catalogue P1bis (17/05/2026) — préférer
+ * buildTitleFilterFromCatalog(clientId, icp) qui lit d'abord
+ * ClientSignalConfig.P1.parameters.titleFilterInclude/Exclude avant le
+ * fallback icp legacy. Conservé pour rétro-compat tant que tous les call
+ * sites ne sont pas migrés.
  */
 export function buildTitleFilterForClient(
   icp: IcpTitleFilterConfig,
 ): (title: string | undefined | null) => boolean {
   const includeRegex = compilePattern(icp.titleFilterInclude, DEFAULT_TITLE_INCLUDE_REGEX);
   const excludeRegex = compilePattern(icp.titleFilterExclude, DEFAULT_TITLE_EXCLUDE_REGEX);
+  return (title) => {
+    if (!title) return false;
+    if (excludeRegex.test(title)) return false;
+    return includeRegex.test(title);
+  };
+}
+
+/**
+ * Version async catalogue — lit ClientSignalConfig.P1.parameters d'abord,
+ * fallback icp legacy. À privilégier dans tout nouveau code.
+ */
+export async function buildTitleFilterFromCatalog(
+  clientId: string,
+  icp: IcpTitleFilterConfig | null,
+): Promise<(title: string | undefined | null) => boolean> {
+  // Import dynamique pour éviter cycle (signal-config → icp-title-filter)
+  const { getP1TitleFilter } = await import("@/lib/signal-config");
+  const resolved = await getP1TitleFilter(clientId, icp ?? null);
+  const includeRegex = compilePattern(resolved.include, DEFAULT_TITLE_INCLUDE_REGEX);
+  const excludeRegex = compilePattern(resolved.exclude, DEFAULT_TITLE_EXCLUDE_REGEX);
   return (title) => {
     if (!title) return false;
     if (excludeRegex.test(title)) return false;

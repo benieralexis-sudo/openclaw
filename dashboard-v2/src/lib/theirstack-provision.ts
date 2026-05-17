@@ -10,6 +10,7 @@ import "server-only";
  */
 
 import { db } from "@/lib/db";
+import { enrichIcpWithCatalog } from "@/lib/signal-config";
 import {
   createSavedSearch,
   listSavedSearches,
@@ -177,7 +178,9 @@ export async function provisionTheirstackForClient(
   if (!client) throw new Error(`Client ${clientId} introuvable`);
   if (!client.icp) throw new Error(`Client ${client.name} sans ICP`);
 
-  const icp = client.icp as ClientIcpExtended;
+  // Sprint catalogue P1bis (17/05) — icp enrichi catalogue
+  const rawIcp = client.icp as ClientIcpExtended;
+  const icp = await enrichIcpWithCatalog(clientId, rawIcp);
   const searches = buildSearches({ name: client.name, icp });
 
   const result: TheirStackProvisionResult = {

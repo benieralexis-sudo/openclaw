@@ -233,6 +233,51 @@ export async function getP3Sizes(
 }
 
 /**
+ * Sprint catalogue P1bis (17/05/2026) — Helper d'enrichissement icp pour les
+ * call sites synchrones (rodz-provision, theirstack-provision). Retourne
+ * un icp "résolu" où chaque champ signal-specific est remplacé par la valeur
+ * du catalogue si disponible.
+ *
+ * Champs résolus depuis catalogue :
+ *   - keywordsHiring ← P1.parameters.keywords
+ *   - regions ← P1.parameters.regions
+ *   - industries ← P3.parameters.industries
+ *   - sizes ← P3.parameters.sizes
+ *   - titleFilterInclude/Exclude ← P1.parameters
+ *   - francetravailRomeCodes ← P1.parameters.romeCodes
+ *
+ * Les champs CLIENT-TRANSVERSAUX (antiPersonas, naf_codes, country_codes,
+ * personaTitles, redFlags*, freshnessByTrigger, signalPrimary/Secondary,
+ * etc.) sont conservés tels quels — ils relèvent du profil client global,
+ * pas d'un signal du catalogue.
+ */
+export async function enrichIcpWithCatalog<T extends IcpLegacy>(
+  clientId: string,
+  icp: T,
+): Promise<T> {
+  const [p1Keywords, p1Regions, p1RomeCodes, p1TitleFilter, p3Industries, p3Sizes] =
+    await Promise.all([
+      getP1Keywords(clientId, icp),
+      getP1Regions(clientId, icp),
+      getP1RomeCodes(clientId, icp),
+      getP1TitleFilter(clientId, icp),
+      getP3Industries(clientId, icp),
+      getP3Sizes(clientId, icp),
+    ]);
+
+  return {
+    ...icp,
+    keywordsHiring: p1Keywords.length > 0 ? p1Keywords : icp.keywordsHiring,
+    regions: p1Regions.length > 0 ? p1Regions : icp.regions,
+    francetravailRomeCodes: p1RomeCodes.length > 0 ? p1RomeCodes : icp.francetravailRomeCodes,
+    titleFilterInclude: p1TitleFilter.include ?? icp.titleFilterInclude,
+    titleFilterExclude: p1TitleFilter.exclude ?? icp.titleFilterExclude,
+    industries: p3Industries.length > 0 ? p3Industries : icp.industries,
+    sizes: p3Sizes.length > 0 ? p3Sizes : icp.sizes,
+  };
+}
+
+/**
  * Retourne les signaux désactivés explicitement (utilisé par le digest /
  * audit / dashboard admin). Ne renvoie PAS les defaults (signaux non
  * configurés explicitement).
