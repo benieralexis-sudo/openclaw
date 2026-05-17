@@ -22,7 +22,7 @@ import {
   type FranceTravailOffer,
 } from "@/lib/francetravail";
 import { buildTitleFilterFromCatalog } from "@/lib/icp-title-filter";
-import { isSignalEnabled, getP1Keywords, getP1Regions, getP1RomeCodes } from "@/lib/signal-config";
+import { isPillarActive, getP1Keywords, getP1Regions, getP1RomeCodes } from "@/lib/signal-config";
 
 interface ClientIcpExtended {
   industries?: string[];
@@ -178,8 +178,9 @@ export async function pollFranceTravailForClient(
   // Sprint catalogue (16/05/2026) — Kill-switch P1 via ClientSignalConfig.
   // France Travail produit du signal P1 "Hire role X" (codes ROME tech/sales).
   // Si P1 désactivé pour ce client, on skip.
-  if (!(await isSignalEnabled(clientId, "P1"))) {
-    console.log(`[francetravail-poller] P1 disabled for client=${clientId}, skip`);
+  // Stratégie V1 (17/05) — Pollers gatés sur piliers actifs du client.
+  if (!(await isPillarActive(clientId, "P1"))) {
+    console.log(`[francetravail-poller] P1 not in active pillars for client=${clientId}, skip`);
     return result;
   }
 

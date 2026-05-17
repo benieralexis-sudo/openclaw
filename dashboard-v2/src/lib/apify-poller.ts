@@ -20,7 +20,7 @@ import { runAndGetItems } from "@/lib/apify";
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
 import { getRotatedKeywords } from "@/lib/keyword-rotation";
 import { buildTitleFilterFromCatalog } from "@/lib/icp-title-filter";
-import { isSignalEnabled, getSignalConfig, getP1Keywords } from "@/lib/signal-config";
+import { isSignalEnabled, isPillarActive, getSignalConfig, getP1Keywords } from "@/lib/signal-config";
 import { detectAiKeywords } from "@/lib/ai-tool-detector";
 
 // Sprint 8 (10/05/2026) — Apify pricing approx : 1 CU ≈ $0.40 sur plan Starter.
@@ -615,7 +615,9 @@ async function maybeCreateAiAdoptionTrigger(
   job: NormalizedJob,
   originSourceCode: string,
 ): Promise<void> {
-  if (!(await isSignalEnabled(clientId, "P4"))) return;
+  // Stratégie V1 (17/05) — Pollers : seuls les 3 piliers du client tournent.
+  // Si P4 n'est pas dans les piliers actifs, skip (économie API).
+  if (!(await isPillarActive(clientId, "P4"))) return;
 
   // Custom keywords du client (param du catalogue)
   const cfg = await getSignalConfig(clientId, "P4");
@@ -724,7 +726,8 @@ export async function pollApifyForClient(
   // (LinkedIn jobs, WTTJ, Indeed, France-jobs). Si P1 désactivé dans le
   // catalogue pour ce client, on skip toute la collecte.
   // Note : declarative-pain (linkedinCompanyPosts) est dans un autre flow.
-  if (!(await isSignalEnabled(clientId, "P1"))) {
+  // Stratégie V1 (17/05) — Pollers gatés sur piliers actifs du client.
+  if (!(await isPillarActive(clientId, "P1"))) {
     console.log(`[apify-poller] P1 disabled for client=${clientId}, skip hiring actors`);
     return result;
   }

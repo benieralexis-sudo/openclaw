@@ -20,6 +20,10 @@ import {
   computePriorityScore,
 } from "@/lib/priority-scoring";
 import { getActivePillars } from "@/lib/signal-config";
+import {
+  getCrossPillarConvergence,
+  getIntraSignalConfidenceBoost,
+} from "@/lib/signal-convergence";
 
 export interface PriorityScoringRunResult {
   scanned: number;
@@ -51,7 +55,10 @@ export async function recomputePriorityScoresForClient(
       id: true,
       score: true,
       isHot: true, // Fix H5 — pour comparer avant/après
+      isCombo: true, // V1 — pour comparer avant/après le combo cross-pillar
       sourceCode: true,
+      signalCode: true, // V1 17/05 — pour combo cross-pillar + confidence boost
+      briefV2Json: true, // V1 17/05 — pour fallback Pépite via Opus ≥85
       capturedAt: true,
       companySiret: true,
       companyName: true,
@@ -96,10 +103,38 @@ export async function recomputePriorityScoresForClient(
     const sourceList = sources ? Array.from(sources) : [t.sourceCode];
     const multiSourceBoost = computeMultiSourceBoost(sourceList);
     const pillarBoost = computePillarBoost(t.sourceCode, activePillars);
+
+    // Stratégie V1 (17/05) — Combo cross-pillar : 2+ piliers du client convergent
+    // sur la même boîte → Pépite (+30) ou Diamant (+50). Différent de
+    // multiSourceBoost qui compte n'importe quelles sources.
+    let comboBoost = 0;
+    if (activePillars.length > 0 && t.signalCode) {
+      const conv = await getCrossPillarConvergence(clientId, {
+        activePillars,
+        siret: t.companySiret,
+        companyName: t.companyName,
+      });
+      if (conv.isDiamant) comboBoost = 50;
+      else if (conv.isPepite) comboBoost = 30;
+    }
+
+    // Stratégie V1 (17/05) — Confidence boost intra-signal : plusieurs sources
+    // techniques INDÉPENDANTES du même signal détectent la même boîte.
+    // Ex S6 Levée détecté par Rodz + RSS + BODACC = +50 confidence.
+    // Réduit les faux positifs.
+    let confidenceBoost = 0;
+    if (t.signalCode) {
+      confidenceBoost = await getIntraSignalConfidenceBoost(clientId, {
+        signalCode: t.signalCode,
+        siret: t.companySiret,
+        companyName: t.companyName,
+      });
+    }
+
     const priorityScore = computePriorityScore({
       score: t.score,
       freshnessScore,
-      multiSourceBoost,
+      multiSourceBoost: multiSourceBoost + comboBoost + confidenceBoost,
       pillarBoost,
     });
 
@@ -121,7 +156,18 @@ export async function recomputePriorityScoresForClient(
     // d'externalisation). On préserve ce cas via le marqueur QA-STUCK
     // dans scoreReason.
     const HOT_FRESHNESS_THRESHOLD = 50;
-    const newIsHot = t.score >= 9 && freshnessScore >= HOT_FRESHNESS_THRESHOLD;
+    // V1 17/05 — Fallback Pépite : score Opus (briefV2.confidence) >= 85 sur
+    // verdict OUI = Pépite même sans combo. Permet à un client aux signaux rares
+    // d'avoir des Pépites quand un seul signal "très convaincant" suffit.
+    const briefV2 = t.briefV2Json as { verdict?: string; confidence?: number } | null;
+    const opusPepite =
+      briefV2?.verdict === "OUI" && (briefV2.confidence ?? 0) >= 85;
+    const newIsHot =
+      (t.score >= 9 && freshnessScore >= HOT_FRESHNESS_THRESHOLD) ||
+      (opusPepite && freshnessScore >= HOT_FRESHNESS_THRESHOLD);
+    // V1 17/05 — isCombo = au moins 2 piliers convergents (Pépite) OU Diamant.
+    // (le fallback Opus alimente isHot, pas isCombo — un combo reste 2+ signaux)
+    const newIsCombo = comboBoost > 0;
 
     try {
       await db.trigger.update({
@@ -132,6 +178,8 @@ export async function recomputePriorityScoresForClient(
           priorityScore,
           // Re-pose isHot uniquement si change ET pas un cas QA-STUCK manuel
           ...(newIsHot !== t.isHot ? { isHot: newIsHot } : {}),
+          // V1 — isCombo aligné sur le combo cross-pillar
+          ...(newIsCombo !== t.isCombo ? { isCombo: newIsCombo } : {}),
         },
       });
       updated += 1;

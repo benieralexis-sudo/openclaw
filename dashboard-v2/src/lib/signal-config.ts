@@ -49,6 +49,37 @@ export async function isSignalEnabled(
 }
 
 /**
+ * Stratégie V1 (17/05/2026) — Retourne true SEULEMENT si le signal est un
+ * pilier ACTIF du client (enabled=true ET isPillar=true).
+ *
+ * À utiliser dans les pollers à la place de `isSignalEnabled` : seuls les
+ * 3 signaux que le client a explicitement choisis comme piliers doivent
+ * tourner. Les autres dorment, on n'utilise pas de budget API dessus.
+ *
+ * Note : pendant la phase de migration, si AUCUN signal n'est pillar pour le
+ * client (cas des clients legacy non-passés au wizard 3 piliers), on retombe
+ * en mode "tous les signaux enabled tournent" pour ne pas casser le pipeline.
+ * Une fois tous les clients migrés au wizard 3 piliers, on supprime ce fallback.
+ */
+export async function isPillarActive(
+  clientId: string,
+  signalCode: string,
+): Promise<boolean> {
+  const clientCache = await loadClientCache(clientId);
+  // Compte les piliers actifs du client (devraient être 3 après onboarding)
+  let pillarCount = 0;
+  for (const cfg of clientCache.values()) {
+    if (cfg.isPillar && cfg.enabled) pillarCount++;
+  }
+  const cfg = await getSignalConfig(clientId, signalCode);
+  if (!cfg.enabled) return false;
+  // Fallback legacy : si client n'a pas encore choisi ses piliers (0 actifs),
+  // on accepte tout signal enabled pour ne pas couper le pipeline existant.
+  if (pillarCount === 0) return cfg.enabled;
+  return cfg.isPillar && cfg.enabled;
+}
+
+/**
  * Retourne la config complète {enabled, parameters, isPillar} pour un
  * signal donné. Si la config n'existe pas en DB, retourne les defaults
  * du catalogue avec enabled=true et isDefault=true.

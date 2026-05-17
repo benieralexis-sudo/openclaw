@@ -23,7 +23,7 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { attributeSirene, getEntreprise } from "@/lib/pappers";
 import { markLeadEnrichedFromPappers } from "@/lib/lead-enrichment-tagging";
-import { isSignalEnabled } from "@/lib/signal-config";
+import { isPillarActive } from "@/lib/signal-config";
 import {
   RSS_FEEDS,
   looksLikeFunding,
@@ -230,8 +230,9 @@ export async function pollRssLeveesForClient(
   // RSS-levees alimente le signal B1 "Levée de fonds Series A/B/C" (avec
   // rodz.fundraising et bodacc.capital_increase). Si B1 désactivé pour ce
   // client, on skip.
-  if (!(await isSignalEnabled(clientId, "B1"))) {
-    console.log(`[rss-levees-poller] B1 disabled for client=${clientId}, skip`);
+  // Stratégie V1 (17/05) — Pollers gatés sur piliers actifs du client.
+  if (!(await isPillarActive(clientId, "B1"))) {
+    console.log(`[rss-levees-poller] B1 not in active pillars for client=${clientId}, skip`);
     return result;
   }
 

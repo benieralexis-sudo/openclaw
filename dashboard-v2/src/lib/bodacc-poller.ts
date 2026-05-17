@@ -24,7 +24,7 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getEntreprise } from "@/lib/pappers";
 import { matchesClientIcp, type ClientIcp } from "@/lib/client-icp-matcher";
-import { isSignalEnabled } from "@/lib/signal-config";
+import { isPillarActive } from "@/lib/signal-config";
 
 /**
  * Sprint catalogue (16/05/2026) — Mapping BODACC type → signal code catalogue.
@@ -34,9 +34,9 @@ import { isSignalEnabled } from "@/lib/signal-config";
 function bodaccTypeToCatalogSignal(type: BodaccEventType): string | null {
   switch (type) {
     case "capital_increase":
-      return "B6"; // Augmentation capital BODACC
+      return "B1"; // Stratégie V1 17/05 — B6 fusionné dans B1 Levée de fonds
     case "company_merger":
-      return "B3"; // M&A annoncé
+      return "B3"; // Fusion / Acquisition
     case "modification_statuts":
       return null; // pas de signal catalogue dédié (OTHER générique)
     default:
@@ -321,8 +321,9 @@ export async function pollBodaccForClient(
     // Sprint catalogue (16/05/2026) — Kill-switch par signal via ClientSignalConfig.
     // capital_increase → B6, company_merger → B3. Si désactivé pour ce client,
     // skip ce record (économise le call Pappers + Trigger create).
+    // Stratégie V1 (17/05) — Pollers gatés sur piliers actifs du client.
     const catalogSignalCode = bodaccTypeToCatalogSignal(bodaccType);
-    if (catalogSignalCode && !(await isSignalEnabled(clientId, catalogSignalCode))) {
+    if (catalogSignalCode && !(await isPillarActive(clientId, catalogSignalCode))) {
       result.triggersSkippedType += 1;
       continue;
     }

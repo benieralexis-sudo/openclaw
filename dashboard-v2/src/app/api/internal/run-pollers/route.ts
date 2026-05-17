@@ -295,6 +295,21 @@ export async function POST(req: NextRequest) {
             e instanceof Error ? e.message : String(e);
         }
       }
+      // Stratégie V1 (17/05/2026) — Backfill signalCode pour les Triggers
+      // créés depuis le dernier passage (mapping sourceCode → P1-B7).
+      // Idempotent, ne touche que signalCode IS NULL. Permet aux mécaniques
+      // pillar/combo/confidence-boost de fonctionner sur les nouveaux Triggers
+      // sans avoir à patcher tous les points de db.trigger.create().
+      if (!dryRun) {
+        try {
+          const { backfillSignalCodes } = await import("@/lib/backfill-signal-code");
+          const bf = await backfillSignalCodes({ clientId: c.id, limit: 200 });
+          (entry as { signalCodeBackfill?: unknown }).signalCodeBackfill = bf;
+        } catch (e) {
+          (entry as { signalCodeBackfillError?: string }).signalCodeBackfillError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
       // ────────────────────────────────────────────────────────────
       // Split léger (1h, source=cron) vs lourd (6h, source=all)
       // Audit 03/05 : profile-search brûlait $2.32/jour (16 runs) car

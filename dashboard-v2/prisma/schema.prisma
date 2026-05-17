@@ -204,6 +204,11 @@ model Trigger {
   client                       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   // Source (BODACC, INPI, France Travail, etc — interne, pas exposé client)
   sourceCode                   String // "bodacc.levee", "francetravail.head_of_sales", "inpi.marque"
+  // Stratégie V1 17/05/2026 — Code du signal du catalogue auquel ce trigger
+  // appartient (P1-P5, B1-B7). Calculé depuis sourceCode via getSignalCodeFromSourceCode.
+  // Permet : filtre dashboard par signal, combo entre piliers du client,
+  // multi-source confidence boost (même signal, sources différentes).
+  signalCode                   String?
   sourceUrl                    String?
   capturedAt                   DateTime      @default(now()) // Quand notre moteur l'a vu
   publishedAt                  DateTime? // Quand l'événement public est sorti
@@ -256,6 +261,8 @@ model Trigger {
   @@index([clientId, score(sort: Desc)])
   @@index([clientId, isHot])
   @@index([sourceCode])
+  @@index([signalCode])
+  @@index([clientId, signalCode, capturedAt(sort: Desc)])
   @@index([companySiret])
   @@index([deletedAt])
   @@index([clientId, priorityScore(sort: Desc)])
