@@ -22,7 +22,6 @@ import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 // Wire-le ici en source=all (pipeline complet 6h) pour que le judge bénéficie
 // du parsing LinkedIn Profile Full sur les leads chauds.
 import { enrichLinkedInProfilesForClient } from "@/lib/enrich-linkedin-profile-runner";
-import { isSourceDisabled } from "@/lib/source-toggle";
 import { isSignalEnabled } from "@/lib/signal-config";
 import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
 import { auditAndHeal } from "@/lib/audit-heal";
@@ -156,26 +155,14 @@ export async function POST(req: NextRequest) {
       // Note : 8h05 UTC = 10h Paris (DST), TheirStack a réindexé pendant la
       // nuit FR, captures matin OK.
       const buyingIntentHour = new Date().getUTCHours();
-      // Kill-switch catalogue (16/05/2026) — TheirStack buying-intent = signal P3
-      // du catalogue universel paramétrable. ClientSignalConfig pilote l'activation.
-      //
-      // Double check pendant la transition :
-      //   - ClientSignalConfig.enabled (source de vérité du catalogue)
-      //   - icp.disabledSources (legacy, conservé en defense-in-depth tant que
-      //     tous les pollers ne sont pas wired sur le helper)
-      //
-      // Quand tous les pollers utiliseront isSignalEnabled, on supprimera
-      // icp.disabledSources + le module source-toggle.ts.
+      // Sprint catalogue P2.1 (17/05/2026) — Catalogue ClientSignalConfig est
+      // la seule source de vérité. Le check legacy icp.disabledSources a été
+      // retiré (source-toggle.ts supprimé) après finalisation du wiring.
       const catalogEnabled = await isSignalEnabled(c.id, "P3");
-      const legacyDisabled = isSourceDisabled(
-        c.icp as { disabledSources?: string[] } | null,
-        "theirstack.buying-intent",
-      );
-      const buyingIntentDisabled = !catalogEnabled || legacyDisabled;
       if (!dryRun && source === "all" && (buyingIntentHour === 8 || buyingIntentHour === 18)) {
-        if (buyingIntentDisabled) {
+        if (!catalogEnabled) {
           (entry as { theirstackBuyingIntent?: string }).theirstackBuyingIntent =
-            !catalogEnabled ? "disabled-by-catalog-P3" : "disabled-by-icp";
+            "disabled-by-catalog-P3";
         } else {
           try {
             (entry as { theirstackBuyingIntent?: unknown }).theirstackBuyingIntent =

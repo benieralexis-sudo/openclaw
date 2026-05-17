@@ -14,15 +14,6 @@ export interface ClientIcp {
   regions?: string[];
   cities?: string[];
   antiPersonas?: string[];
-  /**
-   * @deprecated Sprint catalogue (16/05/2026) — utiliser ClientSignalConfig
-   * via isSignalEnabled(clientId, signalCode) au lieu de ce champ.
-   *
-   * Conservé en defense-in-depth pendant la transition (legacy) — sera
-   * supprimé quand tous les pollers seront wired sur le helper. Cf.
-   * src/lib/signal-config.ts pour le nouveau pattern.
-   */
-  disabledSources?: string[];
 }
 
 export interface PappersDataLite {

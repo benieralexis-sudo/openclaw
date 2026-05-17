@@ -86,8 +86,9 @@ const REGION_PRESETS = [
 const STEPS = [
   { id: 1, title: "Société", icon: Building2, hint: "Identité de votre entreprise" },
   { id: 2, title: "Cible (ICP)", icon: Target, hint: "Qui voulez-vous toucher ?" },
-  { id: 3, title: "Plan", icon: Wallet, hint: "Choix de l'offre" },
-  { id: 4, title: "Activation", icon: PartyPopper, hint: "Lancement du moteur" },
+  { id: 3, title: "Signaux", icon: Sparkles, hint: "Vos 3 piliers de détection" },
+  { id: 4, title: "Plan", icon: Wallet, hint: "Choix de l'offre" },
+  { id: 5, title: "Activation", icon: PartyPopper, hint: "Lancement du moteur" },
 ] as const;
 
 interface FormState {
@@ -104,6 +105,8 @@ interface FormState {
   antiPersonas: string[];
   notes: string;
   plan: Plan;
+  // Sprint catalogue (17/05) — 3 piliers du catalogue choisis par le client
+  pillarCodes: string[]; // ex ["P1", "P3", "P4"]
 }
 
 export function OnboardingWizard() {
@@ -141,6 +144,7 @@ export function OnboardingWizard() {
       antiPersonas: client.icp?.antiPersonas ?? [],
       notes: client.icp?.notes ?? "",
       plan: client.plan ?? "LEADS_DATA",
+      pillarCodes: [],
     });
   }, [client, form]);
 
@@ -172,6 +176,26 @@ export function OnboardingWizard() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Erreur lors de l'activation");
       }
+      // Sprint catalogue (17/05) — Pose les piliers sélectionnés via API signals.
+      // Pour chaque code dans pillarCodes : isPillar=true + enabled=true.
+      // Les piliers non choisis restent activés mais sans étoile (boosters).
+      const pillarErrors: string[] = [];
+      for (const code of f.pillarCodes) {
+        const pillarRes = await fetch(`/api/clients/${me!.clientId}/signals/${code}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isPillar: true, enabled: true }),
+        });
+        if (!pillarRes.ok) {
+          const errBody = await pillarRes.json().catch(() => ({}));
+          pillarErrors.push(`${code}: ${errBody.error ?? pillarRes.status}`);
+        }
+      }
+      if (pillarErrors.length > 0) {
+        console.warn("[onboarding] pillar setup errors:", pillarErrors);
+        // Non bloquant : on continue l'onboarding (le client peut ajuster depuis /clients/[id])
+      }
+
       const onboardRes = await fetch(`/api/me/onboarding-done`, { method: "POST" });
       if (!onboardRes.ok) throw new Error("Erreur fin d'onboarding");
       return res.json();
@@ -198,7 +222,8 @@ export function OnboardingWizard() {
   const canNext = (() => {
     if (step === 1) return form.name.trim().length > 0;
     if (step === 2) return form.industries.length > 0 && form.regions.length > 0;
-    if (step === 3) return ["GROWTH", "LEADS_DATA", "CUSTOM"].includes(form.plan);
+    if (step === 3) return form.pillarCodes.length > 0 && form.pillarCodes.length <= 3;
+    if (step === 4) return ["GROWTH", "LEADS_DATA", "CUSTOM"].includes(form.plan);
     return true;
   })();
 
@@ -246,8 +271,9 @@ export function OnboardingWizard() {
       <div className="mt-8 flex-1">
         {step === 1 && <StepIdentity form={form} setForm={setForm} />}
         {step === 2 && <StepIcp form={form} setForm={setForm} />}
-        {step === 3 && <StepPlan form={form} setForm={setForm} />}
-        {step === 4 && <StepReview form={form} />}
+        {step === 3 && <StepSignals form={form} setForm={setForm} />}
+        {step === 4 && <StepPlan form={form} setForm={setForm} />}
+        {step === 5 && <StepReview form={form} />}
       </div>
 
       {/* Nav */}
@@ -605,6 +631,173 @@ const PLANS: Array<{
     ],
   },
 ];
+
+// ──────────────────────────────────────────────────────────────────────
+// Step Signals — choisir 3 piliers du catalogue (Sprint catalogue 17/05)
+// ──────────────────────────────────────────────────────────────────────
+
+interface CatalogPillar {
+  code: string;
+  name: string;
+  description: string;
+  predictivityPct: number | null;
+  implemented: boolean;
+}
+
+function StepSignals({
+  form,
+  setForm,
+}: {
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState | null>>;
+}) {
+  const { me } = useScope();
+  const { data, isLoading } = useQuery({
+    queryKey: ["onboarding-catalog", me?.clientId],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${me!.clientId}/signals`);
+      if (!res.ok) throw new Error("Erreur catalogue");
+      return res.json() as Promise<{
+        signals: Array<{
+          code: string;
+          name: string;
+          description: string;
+          category: "PILLAR" | "BOOSTER" | "CONTEXTUAL";
+          predictivityPct: number | null;
+          implemented: boolean;
+        }>;
+      }>;
+    },
+    enabled: !!me?.clientId,
+  });
+
+  const pillars: CatalogPillar[] = (data?.signals ?? [])
+    .filter((s) => s.category === "PILLAR")
+    .map((s) => ({
+      code: s.code,
+      name: s.name,
+      description: s.description,
+      predictivityPct: s.predictivityPct,
+      implemented: s.implemented,
+    }));
+
+  const togglePillar = (code: string) => {
+    setForm((f) => {
+      if (!f) return f;
+      const already = f.pillarCodes.includes(code);
+      let next: string[];
+      if (already) {
+        next = f.pillarCodes.filter((c) => c !== code);
+      } else {
+        if (f.pillarCodes.length >= 3) {
+          toast.error("Maximum 3 piliers", {
+            description: "Désélectionnez d'abord un pilier pour en ajouter un autre.",
+          });
+          return f;
+        }
+        next = [...f.pillarCodes, code];
+      }
+      return { ...f, pillarCodes: next };
+    });
+  };
+
+  return (
+    <Card className="border-ink-200 shadow-xs">
+      <CardContent className="space-y-5 p-6">
+        <div className="space-y-1">
+          <h2 className="font-display text-[20px] font-semibold tracking-tight text-ink-900">
+            Choisissez vos 3 piliers
+          </h2>
+          <p className="text-sm text-ink-600">
+            Les piliers définissent les <strong>signaux d'achat principaux</strong> que nous chercherons
+            pour vous. Les autres signaux (boosters) tournent en arrière-plan pour renforcer la
+            conviction.
+          </p>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-ink-500 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Chargement du catalogue…
+          </div>
+        ) : (
+          <>
+            <div className="text-xs text-ink-500">
+              {form.pillarCodes.length}/3 piliers sélectionnés
+            </div>
+            <div className="grid gap-2">
+              {pillars.map((p) => {
+                const selected = form.pillarCodes.includes(p.code);
+                return (
+                  <button
+                    key={p.code}
+                    type="button"
+                    onClick={() => togglePillar(p.code)}
+                    disabled={!p.implemented}
+                    className={cn(
+                      "text-left rounded-lg border p-4 transition-all",
+                      selected
+                        ? "border-orange-400 bg-orange-50 ring-2 ring-orange-100"
+                        : "border-ink-200 bg-white hover:border-ink-300 hover:bg-ink-50",
+                      !p.implemented && "opacity-50 cursor-not-allowed",
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center transition flex-shrink-0",
+                          selected ? "border-orange-500 bg-orange-500" : "border-ink-300 bg-white",
+                        )}
+                      >
+                        {selected && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-ink-100 text-ink-700">
+                            {p.code}
+                          </span>
+                          <span className="font-medium text-ink-900">{p.name}</span>
+                          {p.predictivityPct !== null && (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-xs",
+                                p.predictivityPct >= 40
+                                  ? "border-emerald-300 text-emerald-700"
+                                  : p.predictivityPct >= 25
+                                  ? "border-blue-300 text-blue-700"
+                                  : "border-ink-300 text-ink-600",
+                              )}
+                            >
+                              +{p.predictivityPct}%
+                            </Badge>
+                          )}
+                          {!p.implemented && (
+                            <Badge variant="outline" className="text-xs border-amber-300 text-amber-700">
+                              Bientôt
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-ink-600 mt-1">{p.description}</div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+              <Sparkles className="h-3.5 w-3.5 inline mr-1" />
+              <strong>Vous pourrez tout modifier après l'onboarding</strong> depuis votre fiche
+              client (onglet Signaux). Les paramètres custom (mots-clés, régions, etc.) sont
+              configurables à tout moment.
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function StepPlan({
   form,
