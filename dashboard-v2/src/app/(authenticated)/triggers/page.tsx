@@ -12,6 +12,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { PillarHealthBanner } from "@/components/triggers/pillar-health-banner";
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatRelativeFr, isFrenchMobile } from "@/lib/utils";
 import { truncateDetail } from "@/lib/format-trigger-detail";
@@ -483,6 +484,9 @@ export default function TriggersPage() {
 
   return (
     <div className="space-y-5">
+      {/* V1 17/05 — Bannière santé des 3 piliers du client (visible dashboard, pas de notif externe) */}
+      <PillarHealthBanner clientId={activeClientId} />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as keyof typeof FILTER_LABELS)}>

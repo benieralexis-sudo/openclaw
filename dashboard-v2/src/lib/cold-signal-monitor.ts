@@ -4,11 +4,15 @@ import { getActivePillars } from "@/lib/signal-config";
 import { SIGNAL_NAMES } from "@/lib/signal-mapping";
 
 /**
- * V1 17/05/2026 — Détecte les signaux pilier "froids" d'un client.
+ * V1 17/05/2026 — Santé des 3 piliers actifs d'un client.
  *
- * Un pilier est "froid" si :
- *   - C'est un pilier actif du client (isPillar=true, enabled=true)
- *   - Aucun Trigger n'a été créé pour ce signal sur la fenêtre (default 14j)
+ * Système à 2 niveaux (validé Alexis 17/05 ~minuit) :
+ *   - OK     : dernier lead pilier < 3j (signal vivant)
+ *   - TEPID  : 3-6j sans lead (warning visible dashboard)
+ *   - COLD   : 7j+ sans lead (alerte rouge visible dashboard)
+ *
+ * Pas de notification externe (Telegram, email). Tout est affiché sur le
+ * dashboard pour ne pas spammer l'utilisateur.
  *
  * Use case : alerter le client (et l'admin) quand l'un de ses 3 signaux ne
  * remonte rien. Possible causes :
@@ -20,80 +24,88 @@ import { SIGNAL_NAMES } from "@/lib/signal-mapping";
  * soit pivoter sur un autre pilier.
  */
 
-const DEFAULT_WINDOW_DAYS = 14;
+export type PillarHealthStatus = "ok" | "tepid" | "cold";
 
-export interface ColdPillarReport {
-  clientId: string;
-  pillarsActive: string[];
-  pillarsCold: Array<{
-    code: string;
-    name: string;
-    daysSinceLastTrigger: number | null; // null = jamais aucun trigger
-  }>;
-  windowDays: number;
+export const PILLAR_HEALTH_THRESHOLDS = {
+  tepidDays: 3, // 3-6j sans lead = warning orange
+  coldDays: 7, // 7j+ sans lead = alerte rouge
+} as const;
+
+export interface PillarHealth {
+  code: string;
+  name: string;
+  status: PillarHealthStatus;
+  daysSinceLastTrigger: number | null; // null = jamais aucun trigger
+  leadCountWindow: number; // nb leads sur les 30j (volume info)
 }
 
-export async function detectColdPillars(
-  clientId: string,
-  options: { windowDays?: number } = {},
-): Promise<ColdPillarReport> {
-  const windowDays = options.windowDays ?? DEFAULT_WINDOW_DAYS;
-  const since = new Date(Date.now() - windowDays * 86_400_000);
+export interface PillarHealthReport {
+  clientId: string;
+  pillars: PillarHealth[];
+  hasIssue: boolean; // true si au moins un pilier tepid ou cold
+}
 
+function classifyStatus(daysSince: number | null): PillarHealthStatus {
+  if (daysSince === null) return "cold"; // jamais aucun trigger = cold direct
+  if (daysSince >= PILLAR_HEALTH_THRESHOLDS.coldDays) return "cold";
+  if (daysSince >= PILLAR_HEALTH_THRESHOLDS.tepidDays) return "tepid";
+  return "ok";
+}
+
+/**
+ * Retourne la santé des 3 piliers du client. Pour chaque pilier :
+ *   - le statut (ok / tepid / cold)
+ *   - le nombre de jours depuis le dernier trigger
+ *   - le volume mesuré sur 30j (info)
+ */
+export async function getPillarHealth(clientId: string): Promise<PillarHealthReport> {
   const activePillars = await getActivePillars(clientId);
+  const since30d = new Date(Date.now() - 30 * 86_400_000);
 
-  const cold: ColdPillarReport["pillarsCold"] = [];
+  const pillars: PillarHealth[] = [];
   for (const code of activePillars) {
-    const recent = await db.trigger.count({
+    const latest = await db.trigger.findFirst({
+      where: { clientId, deletedAt: null, signalCode: code },
+      orderBy: { capturedAt: "desc" },
+      select: { capturedAt: true },
+    });
+    const days = latest
+      ? Math.floor((Date.now() - latest.capturedAt.getTime()) / 86_400_000)
+      : null;
+    const leadCount30d = await db.trigger.count({
       where: {
         clientId,
         deletedAt: null,
         signalCode: code,
-        capturedAt: { gte: since },
+        capturedAt: { gte: since30d },
       },
     });
-    if (recent === 0) {
-      const latest = await db.trigger.findFirst({
-        where: { clientId, deletedAt: null, signalCode: code },
-        orderBy: { capturedAt: "desc" },
-        select: { capturedAt: true },
-      });
-      const days = latest
-        ? Math.floor((Date.now() - latest.capturedAt.getTime()) / 86_400_000)
-        : null;
-      cold.push({
-        code,
-        name: SIGNAL_NAMES[code] ?? code,
-        daysSinceLastTrigger: days,
-      });
-    }
+    pillars.push({
+      code,
+      name: SIGNAL_NAMES[code] ?? code,
+      status: classifyStatus(days),
+      daysSinceLastTrigger: days,
+      leadCountWindow: leadCount30d,
+    });
   }
 
-  return {
-    clientId,
-    pillarsActive: activePillars,
-    pillarsCold: cold,
-    windowDays,
-  };
+  const hasIssue = pillars.some((p) => p.status !== "ok");
+  return { clientId, pillars, hasIssue };
 }
 
 /**
- * Variante pour le dashboard admin : balaye tous les clients ACTIVE,
- * retourne uniquement ceux qui ont au moins un pilier froid.
+ * Variante pour le dashboard admin : balaye tous les clients ACTIVE et
+ * retourne ceux qui ont au moins un pilier tepid ou cold.
  */
-export async function detectColdPillarsAllClients(
-  options: { windowDays?: number } = {},
-): Promise<ColdPillarReport[]> {
+export async function getPillarHealthAllClients(): Promise<PillarHealthReport[]> {
   const clients = await db.client.findMany({
     where: { status: "ACTIVE" },
     select: { id: true },
   });
-  const reports: ColdPillarReport[] = [];
+  const reports: PillarHealthReport[] = [];
   for (const c of clients) {
-    const r = await detectColdPillars(c.id, options);
-    if (r.pillarsCold.length > 0) {
-      reports.push(r);
-    }
+    const r = await getPillarHealth(c.id);
+    if (r.hasIssue) reports.push(r);
   }
   return reports;
 }
