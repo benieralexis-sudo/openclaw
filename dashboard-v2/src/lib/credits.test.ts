@@ -182,7 +182,7 @@ describe("V1 18/05 — Reset 30j anniversaire", () => {
     // Patch findMany pour le test reset
     (mdb.client as { findMany?: ReturnType<typeof vi.fn> }).findMany = vi.fn();
     mdb.client.findUnique.mockReset();
-    mdb.client.update = vi.fn();
+    (mdb.client as { update?: ReturnType<typeof vi.fn> }).update = vi.fn();
     mdb.leadCredit.create.mockReset();
   });
 
