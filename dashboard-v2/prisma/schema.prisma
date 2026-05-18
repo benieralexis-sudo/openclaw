@@ -383,6 +383,14 @@ model Lead {
   // validés par 2+ sources concordantes (~95% deliverability).
   emailRodz                 String?
   emailDropcontact          String?
+  // V1 18/05/2026 — Email deviné par pattern (gratuit, fallback ultime).
+  // Generated comme `prenom.nom@domain` quand on a firstName + lastName +
+  // domain (extrait du website société). Confiance basse mais permet de
+  // remonter de 39% → 55-60% coverage email. Marqué séparément pour ne pas
+  // confondre avec un email vérifié par Kaspr/FullEnrich.
+  emailGuess                String?
+  emailGuessAttemptedAt     DateTime?
+  emailGuessSource          String? // "pattern.first.last" | "pattern.f.last" | ...
   emailConfidence           Int         @default(0) // 0-100 (cf. recompute-email-confidence.ts)
   emailSourceCount          Int         @default(0) // 0-3 sources renseignées
   // Bounce tracking (Q8 audit qualité, 29/04). Si Resend remonte un bounce,

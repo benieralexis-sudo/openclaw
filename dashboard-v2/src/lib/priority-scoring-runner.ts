@@ -21,8 +21,9 @@ import {
 } from "@/lib/priority-scoring";
 import { getActivePillars } from "@/lib/signal-config";
 import {
-  getCrossPillarConvergence,
-  getIntraSignalConfidenceBoost,
+  buildClientConvergenceIndex,
+  lookupCrossPillarFromIndex,
+  lookupConfidenceBoostFromIndex,
 } from "@/lib/signal-convergence";
 
 export interface PriorityScoringRunResult {
@@ -73,6 +74,11 @@ export async function recomputePriorityScoresForClient(
   // les triggers issus de signaux prioritaires (+5 priorityScore).
   const activePillars = await getActivePillars(clientId);
 
+  // V1 18/05 — Fix N+1 query : on construit en 1 SEULE query l'index combo +
+  // confidence boost pour tout le client (au lieu de 2 queries DB × 300 triggers
+  // = 600 queries/cycle). Lookup O(1) ensuite.
+  const convIndex = await buildClientConvergenceIndex(clientId, activePillars);
+
   // Construit l'index sources distinctes par société (fenêtre 7j seulement)
   const sourcesByCompany = new Map<string, Set<string>>();
   for (const t of triggers) {
@@ -104,32 +110,21 @@ export async function recomputePriorityScoresForClient(
     const multiSourceBoost = computeMultiSourceBoost(sourceList);
     const pillarBoost = computePillarBoost(t.sourceCode, activePillars);
 
-    // Stratégie V1 (17/05) — Combo cross-pillar : 2+ piliers du client convergent
-    // sur la même boîte → Pépite (+30) ou Diamant (+50). Différent de
-    // multiSourceBoost qui compte n'importe quelles sources.
+    // V1 18/05 — Combo + confidence via index batch (0 query DB par trigger).
+    // Lookup O(1) en mémoire au lieu de 2 queries DB précédemment.
     let comboBoost = 0;
     if (activePillars.length > 0 && t.signalCode) {
-      const conv = await getCrossPillarConvergence(clientId, {
-        activePillars,
-        siret: t.companySiret,
-        companyName: t.companyName,
-      });
+      const conv = lookupCrossPillarFromIndex(convIndex, t.companySiret, t.companyName);
       if (conv.isDiamant) comboBoost = 50;
       else if (conv.isPepite) comboBoost = 30;
     }
 
-    // Stratégie V1 (17/05) — Confidence boost intra-signal : plusieurs sources
-    // techniques INDÉPENDANTES du même signal détectent la même boîte.
-    // Ex S6 Levée détecté par Rodz + RSS + BODACC = +50 confidence.
-    // Réduit les faux positifs.
-    let confidenceBoost = 0;
-    if (t.signalCode) {
-      confidenceBoost = await getIntraSignalConfidenceBoost(clientId, {
-        signalCode: t.signalCode,
-        siret: t.companySiret,
-        companyName: t.companyName,
-      });
-    }
+    const confidenceBoost = lookupConfidenceBoostFromIndex(
+      convIndex,
+      t.signalCode,
+      t.companySiret,
+      t.companyName,
+    );
 
     const priorityScore = computePriorityScore({
       score: t.score,

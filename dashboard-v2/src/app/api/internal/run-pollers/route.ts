@@ -661,9 +661,23 @@ export async function POST(req: NextRequest) {
               e instanceof Error ? e.message : String(e);
           }
         }
-        // Email pattern DIY — DÉSACTIVÉ COMPLÈTEMENT 29/04 (audit waterfall).
-        // Endpoint /api/internal/enrich-email-pattern retourne 410 Gone.
-        // Réactivation post-MillionVerifier (cf README).
+        // V1 18/05/2026 — Email pattern guess RÉACTIVÉ avec validation SMTP.
+        // L'ancien code DIY (29/04) était désactivé car bouncait. La V1 stocke
+        // dans un champ SÉPARÉ (Lead.emailGuess), pas dans Lead.email — donc
+        // n'expose pas le sender reputation au risque, ET valide chaque pattern
+        // via SMTP probe avant stockage. Précision attendue ~75-85%, comme
+        // Hunter/Apollo/Findymail sous le capot. Dernier fallback gratuit après
+        // que toute la cascade payante (Kaspr/FullEnrich/Rodz/Dropcontact) ait
+        // échoué — environ 61% des leads sortent sans email aujourd'hui.
+        try {
+          const { enrichLeadsViaEmailPattern } = await import("@/lib/enrich-via-email-pattern");
+          const ep = await enrichLeadsViaEmailPattern(c.id, { limit: 30 });
+          (entry as { emailPattern?: unknown }).emailPattern = ep;
+        } catch (e) {
+          (entry as { emailPatternError?: string }).emailPatternError =
+            e instanceof Error ? e.message : String(e);
+        }
+        // Note : ancien endpoint /api/internal/enrich-email-pattern retourne 410 Gone.
         // 3e passe cross-source pour propager les emails/mobiles Kaspr
         // direct aux Leads sœurs de la même boîte.
         try {
