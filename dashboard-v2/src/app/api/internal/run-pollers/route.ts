@@ -38,6 +38,7 @@ import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
 // import { pollFranceTravailForClient } from "@/lib/francetravail-poller"; // désactivé 18/05/2026 — voir bloc commenté plus bas
 import { pollRssLeveesForClient } from "@/lib/rss-levees-poller";
 import { pollBodaccForClient } from "@/lib/bodacc-poller";
+import { pollBoampForClient } from "@/lib/boamp-poller";
 import { pollInpiForClient } from "@/lib/inpi-poller";
 import { pollJoafeForClient } from "@/lib/joafe-poller";
 import { autoGenerateBriefsForHotLeads } from "@/lib/auto-generate-briefs";
@@ -231,6 +232,20 @@ export async function POST(req: NextRequest) {
             await pollBodaccForClient(c.id, { lookbackDays: 7, limit: 100 });
         } catch (e) {
           (entry as { bodaccError?: string }).bodaccError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // BOAMP : appels d'offres publics. API DILA gratuite, sans auth, MAJ continue.
+      // Bombora FR pivot 18/05/2026 — Jour 4. Signal P3 (Intent d'achat) :
+      // un acheteur publique publie un AO = il achète littéralement dans 30-90j.
+      // Lookback 14j (AO BOAMP visibles 30-60j avant date limite réponse).
+      // Mots-clés lus depuis ClientSignalConfig.parameters.boampKeywords (signal P3).
+      if (!dryRun && (source === "all" || source === "boamp")) {
+        try {
+          (entry as { boamp?: unknown }).boamp =
+            await pollBoampForClient(c.id, { lookbackDays: 14, limit: 50 });
+        } catch (e) {
+          (entry as { boampError?: string }).boampError =
             e instanceof Error ? e.message : String(e);
         }
       }
