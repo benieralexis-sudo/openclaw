@@ -102,19 +102,9 @@ const PLAN_META: Record<Plan, { label: string; price: number }> = {
   CUSTOM: { label: "Custom", price: 0 },
 };
 
-const SIGNAL_LABELS: Record<string, string> = {
-  FUNDRAISING: "Levée de fonds",
-  HIRING_KEY: "Recrutement clé",
-  LEADERSHIP_CHANGE: "Changement dirigeant",
-  TRADEMARK: "Dépôt INPI",
-  PATENT: "Brevet",
-  AD_CAMPAIGN: "Campagne pub",
-  EXPANSION: "Expansion / ouverture",
-  REGULATORY: "Réglementaire",
-  RFP: "RFP / appel d'offres",
-  DECLARATIVE_PAIN: "Pain déclaré",
-  OTHER: "Autre",
-};
+// V1 17/05 — SIGNAL_LABELS legacy supprimé : les noms des signaux viennent
+// désormais du catalogue universel (SignalCatalog.name côté DB) et sont
+// affichés dans l'onglet "Signaux" (cf. signals-editor.tsx).
 
 export function ClientProfile({ clientId }: { clientId: string }) {
   const { me } = useScope();
@@ -385,15 +375,28 @@ function IcpEditor({
   onSave: (icp: Icp) => void;
   saving: boolean;
 }) {
-  const [draft, setDraft] = React.useState<Icp>(client.icp ?? {});
+  // V1 17/05 — icp.preferredSignals est legacy (les vrais piliers sont dans
+  // ClientSignalConfig, gérés dans l'onglet "Signaux"). Sur iFIND et certains
+  // clients ce champ contient des objets {type, weight, keywords}, ce qui
+  // faisait crasher l'éditeur (React : "Objects are not valid as a React child").
+  // On le strip à l'initialisation pour éviter la crash ET pour ne pas
+  // resender la valeur cassée à l'API (zod IcpSchema strict).
+  const stripLegacy = React.useCallback((icp: Icp | null | undefined): Icp => {
+    if (!icp) return {};
+    const { preferredSignals: _legacy, ...rest } = icp as Icp & { preferredSignals?: unknown };
+    void _legacy;
+    return rest;
+  }, []);
+
+  const [draft, setDraft] = React.useState<Icp>(() => stripLegacy(client.icp));
 
   React.useEffect(() => {
-    setDraft(client.icp ?? {});
-  }, [client.icp]);
+    setDraft(stripLegacy(client.icp));
+  }, [client.icp, stripLegacy]);
 
   const isDirty = React.useMemo(
-    () => JSON.stringify(draft) !== JSON.stringify(client.icp ?? {}),
-    [draft, client.icp],
+    () => JSON.stringify(draft) !== JSON.stringify(stripLegacy(client.icp)),
+    [draft, client.icp, stripLegacy],
   );
 
   return (
@@ -423,16 +426,10 @@ function IcpEditor({
           disabled={!canEdit}
           placeholder="ex. Île-de-France"
         />
-        <ChipListField
-          label="Signaux préférés"
-          hint="Types de triggers à prioriser"
-          values={draft.preferredSignals ?? []}
-          onChange={(preferredSignals) => setDraft({ ...draft, preferredSignals })}
-          disabled={!canEdit}
-          placeholder="ex. FUNDRAISING"
-          options={Object.keys(SIGNAL_LABELS)}
-          renderLabel={(v) => SIGNAL_LABELS[v] ?? v}
-        />
+        {/* V1 17/05 — "Signaux préférés" supprimé : les piliers sont maintenant
+            gérés dans l'onglet "Signaux" (ClientSignalConfig + isPillar).
+            Garder ce champ ici crashait l'éditeur quand la valeur en base était
+            un array d'objets (ancien format iFIND/DTL). */}
         <ChipListField
           label="Anti-personas"
           hint="Profils à exclure"

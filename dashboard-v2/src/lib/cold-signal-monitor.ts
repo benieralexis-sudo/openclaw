@@ -24,12 +24,42 @@ import { SIGNAL_NAMES } from "@/lib/signal-mapping";
  * soit pivoter sur un autre pilier.
  */
 
-export type PillarHealthStatus = "ok" | "tepid" | "cold";
+export type PillarHealthStatus = "ok" | "tepid" | "cold" | "warming-up";
 
 export const PILLAR_HEALTH_THRESHOLDS = {
   tepidDays: 3, // 3-6j sans lead = warning orange
   coldDays: 7, // 7j+ sans lead = alerte rouge
 } as const;
+
+/**
+ * V1 18/05 — Signaux "naturellement lents" : leur détection demande
+ * d'accumuler de la donnée historique avant de produire leur premier lead.
+ *
+ * Pour ces signaux, le statut "Froid" est trompeur les premiers 30-90 jours
+ * — c'est normal qu'il n'y ait pas de lead, pas un dysfonctionnement.
+ * On surface un statut spécifique "warming-up" qui ne déclenche pas d'alerte.
+ *
+ * P5 (Croissance effectif) : nécessite 2 snapshots Pappers avec ≥10% de
+ *   croissance sur 90j → premier lead possible ~30j après onboarding,
+ *   stable à partir de J+90.
+ */
+const NATURALLY_SLOW_SIGNALS: Record<string, { warmingUpDays: number; reason: string }> = {
+  P5: {
+    warmingUpDays: 30,
+    reason: "Signal lent — compare l'effectif entre 2 snapshots espacés de 30-90j",
+  },
+};
+
+/**
+ * Âge en jours de la configuration du pilier (depuis l'activation client OU
+ * depuis la création de la config signal). Utilisé pour savoir si on est
+ * encore dans la fenêtre "warming-up" pour les signaux lents.
+ */
+function isWithinWarmingUp(code: string, clientAgeDays: number): boolean {
+  const slow = NATURALLY_SLOW_SIGNALS[code];
+  if (!slow) return false;
+  return clientAgeDays < slow.warmingUpDays;
+}
 
 export interface PillarHealth {
   code: string;
@@ -37,6 +67,7 @@ export interface PillarHealth {
   status: PillarHealthStatus;
   daysSinceLastTrigger: number | null; // null = jamais aucun trigger
   leadCountWindow: number; // nb leads sur les 30j (volume info)
+  warmingUpReason?: string; // texte explicatif si status = "warming-up"
 }
 
 export interface PillarHealthReport {
@@ -62,6 +93,16 @@ export async function getPillarHealth(clientId: string): Promise<PillarHealthRep
   const activePillars = await getActivePillars(clientId);
   const since30d = new Date(Date.now() - 30 * 86_400_000);
 
+  // V1 18/05 — Calcule l'âge du client (depuis activatedAt, sinon createdAt).
+  // Sert à savoir si on est encore dans la fenêtre "warming-up" des signaux
+  // naturellement lents comme P5 (Croissance effectif).
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { activatedAt: true, createdAt: true },
+  });
+  const refDate = client?.activatedAt ?? client?.createdAt ?? new Date();
+  const clientAgeDays = Math.floor((Date.now() - refDate.getTime()) / 86_400_000);
+
   const pillars: PillarHealth[] = [];
   for (const code of activePillars) {
     const latest = await db.trigger.findFirst({
@@ -80,16 +121,30 @@ export async function getPillarHealth(clientId: string): Promise<PillarHealthRep
         capturedAt: { gte: since30d },
       },
     });
+
+    // V1 18/05 — Si le signal est naturellement lent ET qu'on est dans la
+    // fenêtre warming-up depuis l'activation client : statut spécial.
+    // Le statut "cold" reste utilisé seulement quand le client a eu le temps
+    // d'accumuler la donnée historique nécessaire.
+    let status = classifyStatus(days);
+    let warmingUpReason: string | undefined;
+    if (status === "cold" && isWithinWarmingUp(code, clientAgeDays)) {
+      status = "warming-up";
+      warmingUpReason = NATURALLY_SLOW_SIGNALS[code]?.reason;
+    }
+
     pillars.push({
       code,
       name: SIGNAL_NAMES[code] ?? code,
-      status: classifyStatus(days),
+      status,
       daysSinceLastTrigger: days,
       leadCountWindow: leadCount30d,
+      ...(warmingUpReason ? { warmingUpReason } : {}),
     });
   }
 
-  const hasIssue = pillars.some((p) => p.status !== "ok");
+  // V1 18/05 — hasIssue ignore "warming-up" : pas une alerte.
+  const hasIssue = pillars.some((p) => p.status === "tepid" || p.status === "cold");
   return { clientId, pillars, hasIssue };
 }
 

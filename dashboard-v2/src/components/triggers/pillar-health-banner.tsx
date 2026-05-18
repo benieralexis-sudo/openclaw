@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, AlertTriangle, AlertCircle, Settings } from "lucide-react";
+import { CheckCircle2, AlertTriangle, AlertCircle, Clock, Settings } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -22,9 +22,10 @@ import { cn } from "@/lib/utils";
 interface PillarHealth {
   code: string;
   name: string;
-  status: "ok" | "tepid" | "cold";
+  status: "ok" | "tepid" | "cold" | "warming-up";
   daysSinceLastTrigger: number | null;
   leadCountWindow: number;
+  warmingUpReason?: string;
 }
 
 interface PillarHealthReport {
@@ -54,6 +55,15 @@ const STATUS_STYLE: Record<PillarHealth["status"], { bg: string; border: string;
     text: "text-red-700",
     icon: AlertCircle,
     label: "Froid",
+  },
+  // V1 18/05 — Statut neutre pour signaux naturellement lents (ex P5)
+  // pendant leur fenêtre d'apprentissage. Ne déclenche pas d'alerte.
+  "warming-up": {
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    text: "text-blue-700",
+    icon: Clock,
+    label: "En apprentissage",
   },
 };
 
@@ -95,8 +105,12 @@ export function PillarHealthBanner({ clientId }: { clientId: string | null }) {
           {data.pillars.map((p) => {
             const style = STATUS_STYLE[p.status];
             const Icon = style.icon;
+            // V1 18/05 — Pour les signaux en apprentissage, on affiche l'explication
+            // plutôt qu'un "dernier lead" alarmant ("Aucun lead à ce jour").
             const daysText =
-              p.daysSinceLastTrigger === null
+              p.status === "warming-up"
+                ? (p.warmingUpReason ?? "Signal lent — premiers leads sous quelques semaines")
+                : p.daysSinceLastTrigger === null
                 ? "Aucun lead à ce jour"
                 : p.daysSinceLastTrigger === 0
                 ? "Lead aujourd'hui"
