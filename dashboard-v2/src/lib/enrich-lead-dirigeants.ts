@@ -7,7 +7,7 @@ import { splitFullName } from "@/lib/split-full-name";
 import { looksAdministrativeFirstName } from "@/lib/verify-persona-coherence";
 import { clearStaleBriefsOnPersonaChange } from "@/lib/clear-stale-briefs";
 import { detectRecentLeadership } from "@/lib/leadership-change-detector";
-import { isSignalEnabled } from "@/lib/signal-config";
+import { isPillarActive } from "@/lib/signal-config";
 import {
   detectHeadcountGrowth,
   parseTrancheEffectif,
@@ -500,7 +500,7 @@ export async function enrichDirigeantsForClient(
       // du flow normal (booster catalogue, combine avec autre signal pour
       // conviction renforcée). Source : pappers.leadership-change.
       try {
-        if (await isSignalEnabled(clientId, "B2")) {
+        if (await isPillarActive(clientId, "B2")) {
           const recentLeaders = detectRecentLeadership(reps, { windowDays: 90 });
           for (const leader of recentLeaders) {
             await createLeadershipChangeTriggerIfNew(
@@ -523,7 +523,7 @@ export async function enrichDirigeantsForClient(
       // Premier Trigger P5 produit ~30j après mise en prod (le temps d'avoir
       // 2 snapshots espacés assez pour détecter une vraie croissance).
       try {
-        if (await isSignalEnabled(clientId, "P5")) {
+        if (await isPillarActive(clientId, "P5")) {
           await snapshotAndDetectHeadcountGrowth(
             clientId,
             t.companySiret,
@@ -546,7 +546,7 @@ export async function enrichDirigeantsForClient(
       // Coût ~$0.30 par scan (2 passes HarvestAPI). Dedup 90j par siret
       // pour ne pas re-scanner les mêmes boites trop souvent.
       try {
-        if (await isSignalEnabled(clientId, "P2")) {
+        if (await isPillarActive(clientId, "P2")) {
           await scanAndCreateTeamGapTrigger(
             clientId,
             t.companySiret,

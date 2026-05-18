@@ -446,10 +446,14 @@ export async function GET(req: NextRequest) {
     // V1 18/05 — Crédits + cap (visible uniquement clients GROWTH avec quota fini).
     credits: clientCredits
       ? (() => {
-          // Cap visible quand plan=GROWTH ET quota < 10000 (les dogfooders comme
-          // iFIND à 999999 ne voient pas le compteur).
+          // Cap visible quand : plan=GROWTH ET quota < 10000 ET balance pas
+          // démesurément au-dessus du quota (sinon = dogfood/illimité).
+          // iFIND a quota=60 mais balance=999970 → on le masque comme dogfood
+          // pour pas afficher "0/60" trompeur.
           const isCapApplicable =
-            clientCredits.plan === "GROWTH" && clientCredits.creditsMonthlyQuota < 10000;
+            clientCredits.plan === "GROWTH" &&
+            clientCredits.creditsMonthlyQuota < 10000 &&
+            clientCredits.creditsBalance <= clientCredits.creditsMonthlyQuota * 4;
           if (!isCapApplicable) return null;
           const used = Math.max(0, clientCredits.creditsMonthlyQuota - clientCredits.creditsBalance);
           const refDate =

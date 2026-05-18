@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Prisma, TriggerType, TriggerStatus, EmailStatus, LeadStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { isSignalEnabled } from "@/lib/signal-config";
+import { isPillarActive } from "@/lib/signal-config";
 
 export const runtime = "nodejs"; // crypto natif Node, pas Edge
 
@@ -331,9 +331,13 @@ export async function POST(req: NextRequest) {
   // client, on skip avant la création du Trigger. Pas d'effet sur les signaux
   // hors catalogue (cas social-* / public-tenders → comportement legacy).
   const catalogCode = RODZ_TO_CATALOG[normalizedSignalType];
-  if (catalogCode && !(await isSignalEnabled(dbSignal.clientId, catalogCode))) {
+  // V1 18/05 — isPillarActive (true SEULEMENT si pilier choisi par le client).
+  // Avant : isSignalEnabled acceptait tout signal enabled — incohérent avec la
+  // stratégie 3-piliers. Maintenant : si Rodz nous push un signal qu'on n'a
+  // pas explicitement choisi, on l'ignore. Économise du traitement aval.
+  if (catalogCode && !(await isPillarActive(dbSignal.clientId, catalogCode))) {
     console.log(
-      `[rodz-webhook] skip ${catalogCode} disabled in catalog for client=${dbSignal.clientId} (type=${normalizedSignalType})`,
+      `[rodz-webhook] skip ${catalogCode} not in active pillars for client=${dbSignal.clientId} (type=${normalizedSignalType})`,
     );
     return NextResponse.json({
       status: "ignored",

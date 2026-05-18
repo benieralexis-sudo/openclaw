@@ -25,7 +25,7 @@ import { ensureLeadsForAllTriggers } from "@/lib/ensure-lead-for-trigger";
 // Wire-le ici en source=all (pipeline complet 6h) pour que le judge bénéficie
 // du parsing LinkedIn Profile Full sur les leads chauds.
 import { enrichLinkedInProfilesForClient } from "@/lib/enrich-linkedin-profile-runner";
-import { isSignalEnabled } from "@/lib/signal-config";
+import { isPillarActive } from "@/lib/signal-config";
 import { syncEmailActivitiesToLeadActivity } from "@/lib/lead-activity";
 import { auditAndHeal } from "@/lib/audit-heal";
 import { mergeLeadsBySiret } from "@/lib/lead-cross-source";
@@ -175,7 +175,10 @@ export async function POST(req: NextRequest) {
       // Sprint catalogue P2.1 (17/05/2026) — Catalogue ClientSignalConfig est
       // la seule source de vérité. Le check legacy icp.disabledSources a été
       // retiré (source-toggle.ts supprimé) après finalisation du wiring.
-      const catalogEnabled = await isSignalEnabled(c.id, "P3");
+      // V1 18/05 — isPillarActive (true SEULEMENT si P3 est dans les 3 piliers
+      // du client). isSignalEnabled retournait true dès que enabled=true, même
+      // si pas pilier — incohérent avec la stratégie 3-piliers.
+      const catalogEnabled = await isPillarActive(c.id, "P3");
       if (!isCapped && !dryRun && source === "all" && (buyingIntentHour === 8 || buyingIntentHour === 18)) {
         if (!catalogEnabled) {
           (entry as { theirstackBuyingIntent?: string }).theirstackBuyingIntent =

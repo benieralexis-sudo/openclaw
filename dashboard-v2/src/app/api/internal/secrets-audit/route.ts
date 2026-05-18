@@ -13,9 +13,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Required côté dashboard-v2 (Next.js process). Resend / TelegramBot /
 // Rodz sont côté container telegram-router donc OPTIONAL ici.
+// V1 18/05/2026 — PAPPERS_API_TOKEN retiré : migration vers l'API gouv
+// gratuite recherche-entreprises.api.gouv.fr (cf. gouv-api.ts). Plus aucun
+// appel vers api.pappers.fr dans le code. La variable peut être supprimée
+// du .env quand tu auras annulé l'abonnement Pappers.
 const REQUIRED_SECRETS = [
   "ANTHROPIC_API_KEY",
-  "PAPPERS_API_TOKEN",
   "FULLENRICH_API_KEY",
   "KASPR_API_KEY",
   "APIFY_API_TOKEN",
@@ -32,6 +35,7 @@ const OPTIONAL_SECRETS = [
   "CAL_WEBHOOK_SECRET",
   "RODZ_API_KEY",
   "DROPCONTACT_API_KEY", // archivé 30/04
+  "PAPPERS_API_TOKEN", // V1 18/05 — déprécié, migration vers API gouv (à supprimer post-annulation)
   "TELEGRAM_BOT_TOKEN",
   "ADMIN_CHAT_ID",
 ] as const;

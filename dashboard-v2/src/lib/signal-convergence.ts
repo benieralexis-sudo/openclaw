@@ -20,7 +20,13 @@ import { getSourceCodesForSignal } from "@/lib/signal-mapping";
  *    corrige. C'est de la qualité de détection, pas du combo commercial.
  */
 
-const DEFAULT_WINDOW_DAYS = 14;
+// V1 18/05/2026 — Fenêtre élargie 14j → 30j après audit.
+// Constat : avec 14j, 0 combo cross-pillar détecté sur iFIND (179 boîtes
+// distinctes sur 183 triggers) ni DTL (166/170). Les sources frappent des
+// boîtes presque disjointes (LinkedIn jobs ≠ RSS levées). Pour augmenter
+// les chances qu'une boîte voie 2+ signaux converger, on étend la mémoire à
+// 30j (correspond au cycle billing iFIND Growth de toute façon).
+const DEFAULT_WINDOW_DAYS = 30;
 
 /**
  * Pour une boîte (clé = SIRET ou companyName), retourne la liste des signaux
