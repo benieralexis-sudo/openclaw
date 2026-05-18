@@ -36,11 +36,16 @@ export async function GET(
     return NextResponse.json({ error: "Hors périmètre" }, { status: 403 });
   }
 
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const startOfWeek = new Date();
-  const endOfWeek = new Date();
-  endOfWeek.setDate(endOfWeek.getDate() + 7);
+  // Bombora FR pivot (18/05/2026, Jour 5) — Refonte page client en langage commercial.
+  // KPIs hardcodés à 0 supprimés. Remplacés par 4 vrais indicateurs :
+  //   1. Leads livrés ce mois (vs promesse 60)
+  //   2. Pépites livrées ce mois (vs garantie 6)
+  //   3. Briefs prêts à envoyer (Leads NEW avec briefGeneratedAt)
+  //   4. Date dernier signal détecté
+  const startOfMonth = new Date();
+  startOfMonth.setUTCDate(1);
+  startOfMonth.setUTCHours(0, 0, 0, 0);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000);
 
   const client = await db.client.findUnique({
     where: { id },
@@ -66,10 +71,8 @@ export async function GET(
       _count: {
         select: {
           triggers: { where: { deletedAt: null, capturedAt: { gte: sevenDaysAgo } } },
-          // Sprint 6 (10/05/2026) — opportunities + replies retires (tables droppees)
         },
       },
-      // Sprint 6 (10/05/2026) — opportunities relation retiree (table droppee)
       triggers: {
         where: { deletedAt: null },
         orderBy: { capturedAt: "desc" },
@@ -82,7 +85,6 @@ export async function GET(
           capturedAt: true,
           isHot: true,
           isCombo: true,
-          // Refactor V2-only Session 2 finalisation — verdict V2
           briefV2Json: true,
         },
       },
@@ -91,11 +93,63 @@ export async function GET(
 
   if (!client) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
-  // Sprint 6 (10/05/2026) — Metrics opportunities/conversion/meetings retires
-  // (table Opportunity droppee post-pivot Data-only — le client gere son propre CRM)
-  const conversion = 0;
-  const wonValue = 0;
-  const meetingsThisWeek = 0;
+  // Vrais KPIs commerciaux (Bombora FR Jour 5)
+  // Statuts "livrés" : tout sauf ARCHIVED et INCOMPLETE (qui ne comptent pas
+  // dans le quota commercial).
+  const DELIVERED_STATUSES: Array<"NEW" | "ENRICHED" | "CONTACTABLE" | "CONTACTED" | "NOT_INTERESTED"> = [
+    "NEW",
+    "ENRICHED",
+    "CONTACTABLE",
+    "CONTACTED",
+    "NOT_INTERESTED",
+  ];
+
+  const [
+    leadsThisMonth,
+    pepitesThisMonth,
+    briefsReady,
+    lastSignal,
+  ] = await Promise.all([
+    db.lead.count({
+      where: {
+        clientId: id,
+        deletedAt: null,
+        createdAt: { gte: startOfMonth },
+        status: { in: DELIVERED_STATUSES },
+      },
+    }),
+    db.lead.count({
+      where: {
+        clientId: id,
+        deletedAt: null,
+        createdAt: { gte: startOfMonth },
+        fitScore: { gte: 80 },
+        status: { in: DELIVERED_STATUSES },
+      },
+    }),
+    db.lead.count({
+      where: {
+        clientId: id,
+        deletedAt: null,
+        status: "NEW",
+        briefGeneratedAt: { not: null },
+      },
+    }),
+    db.trigger.findFirst({
+      where: { clientId: id, deletedAt: null },
+      orderBy: { capturedAt: "desc" },
+      select: { capturedAt: true },
+    }),
+  ]);
+
+  // Promesses contractuelles selon le plan
+  const planPromises: Record<string, { monthlyLeads: number; monthlyPepites: number }> = {
+    GROWTH: { monthlyLeads: 60, monthlyPepites: 6 },
+    LEADS_DATA: { monthlyLeads: 30, monthlyPepites: 0 },
+    FULL_SERVICE: { monthlyLeads: 60, monthlyPepites: 6 }, // legacy, garde pour compat
+    CUSTOM: { monthlyLeads: 0, monthlyPepites: 0 },
+  };
+  const promised = planPromises[client.plan] ?? { monthlyLeads: 0, monthlyPepites: 0 };
 
   return NextResponse.json({
     id: client.id,
@@ -117,13 +171,14 @@ export async function GET(
     createdAt: client.createdAt,
     updatedAt: client.updatedAt,
     metrics: {
+      // Vrais KPIs (Bombora FR Jour 5)
+      leadsThisMonth,
+      leadsPromised: promised.monthlyLeads,
+      pepitesThisMonth,
+      pepitesPromised: promised.monthlyPepites,
+      briefsReady,
+      lastSignalAt: lastSignal?.capturedAt ?? null,
       triggersLast7d: client._count.triggers,
-      // Sprint 6 — fields opportunites/replies retires (tables droppees)
-      openOpportunities: 0,
-      unreadReplies: 0,
-      conversionClosePct: Math.round(conversion),
-      wonValueEur: wonValue,
-      meetingsThisWeek,
       mrrEur: client.status === "ACTIVE" ? (PLAN_MRR_EUR[client.plan] ?? 0) : 0,
     },
     recentTriggers: client.triggers,

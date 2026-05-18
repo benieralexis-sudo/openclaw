@@ -11,7 +11,6 @@ import {
   Phone,
   Save,
   Sparkles,
-  TrendingUp,
   Zap,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,7 +32,7 @@ import { QuotaEditor } from "@/components/clients/quota-editor";
 import { SignalsEditor } from "@/components/clients/signals-editor";
 import { toast } from "@/components/ui/sonner";
 import { useScope } from "@/hooks/use-scope";
-import { cn, formatNumberFr, formatRelativeFr } from "@/lib/utils";
+import { cn, formatRelativeFr } from "@/lib/utils";
 
 type Status = "PROSPECT" | "ACTIVE" | "PAUSED" | "CHURNED";
 type Plan = "GROWTH" | "LEADS_DATA" | "CUSTOM";
@@ -67,13 +66,17 @@ interface ClientDetail {
   pausedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Bombora FR Jour 5 (18/05/2026) — KPIs commerciaux réels.
+  // Anciens champs (openOpportunities, unreadReplies, conversionClosePct,
+  // wonValueEur, meetingsThisWeek) supprimés : ils étaient hardcodés à 0.
   metrics: {
+    leadsThisMonth: number;
+    leadsPromised: number;
+    pepitesThisMonth: number;
+    pepitesPromised: number;
+    briefsReady: number;
+    lastSignalAt: string | null;
     triggersLast7d: number;
-    openOpportunities: number;
-    unreadReplies: number;
-    conversionClosePct: number;
-    wonValueEur: number;
-    meetingsThisWeek: number;
     mrrEur: number;
   };
   recentTriggers: Array<{
@@ -84,7 +87,6 @@ interface ClientDetail {
     capturedAt: string;
     isHot: boolean;
     isCombo: boolean;
-    // Refactor V2-only Session 2 finalisation — verdict V2 natif
     briefV2Json?: { verdict?: "OUI" | "ENRICH" | "NON"; confidence?: number } | null;
   }>;
 }
@@ -152,35 +154,39 @@ export function ClientProfile({ clientId }: { clientId: string }) {
     <div className="space-y-5">
       <ClientHeader client={client} />
       <KpiRow metrics={client.metrics} />
-      <Tabs defaultValue="icp" className="space-y-4">
+      {/* Bombora FR Jour 5 — Onglets renommés en langage commercial.
+          Onglets techniques (Livraison, Équipe, Volume) groupés à la fin
+          pour donner la priorité visuelle aux 3 essentiels : Cibles,
+          Déclencheurs, Activité. */}
+      <Tabs defaultValue="activity" className="space-y-4">
         <TabsList className="bg-white border border-ink-200 shadow-xs">
-          <TabsTrigger value="icp" className="gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" />
-            Profil ICP
-          </TabsTrigger>
-          <TabsTrigger value="signals" className="gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" />
-            Signaux
-          </TabsTrigger>
           <TabsTrigger value="activity" className="gap-1.5">
             <Zap className="h-3.5 w-3.5" />
             Activité récente
+          </TabsTrigger>
+          <TabsTrigger value="icp" className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            Cibles
+          </TabsTrigger>
+          <TabsTrigger value="signals" className="gap-1.5">
+            <Flame className="h-3.5 w-3.5" />
+            Déclencheurs
           </TabsTrigger>
           <TabsTrigger value="contact" className="gap-1.5">
             <Mail className="h-3.5 w-3.5" />
             Contact
           </TabsTrigger>
-          <TabsTrigger value="delivery" className="gap-1.5">
+          <TabsTrigger value="delivery" className="gap-1.5 text-ink-500">
             <Mail className="h-3.5 w-3.5" />
-            Delivery
+            Livraison
           </TabsTrigger>
-          <TabsTrigger value="team" className="gap-1.5">
+          <TabsTrigger value="team" className="gap-1.5 text-ink-500">
             <Sparkles className="h-3.5 w-3.5" />
             Équipe
           </TabsTrigger>
-          <TabsTrigger value="quota" className="gap-1.5">
+          <TabsTrigger value="quota" className="gap-1.5 text-ink-500">
             <Sparkles className="h-3.5 w-3.5" />
-            Quotas
+            Volume du mois
           </TabsTrigger>
         </TabsList>
 
@@ -278,38 +284,58 @@ function ClientHeader({ client }: { client: ClientDetail }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// KPI row (4 cards)
+// KPI row — Bombora FR Jour 5 (18/05/2026)
+// 4 vrais KPIs commerciaux remplacent les 4 anciens hardcodés à 0.
 // ──────────────────────────────────────────────────────────────────────
 
 function KpiRow({ metrics }: { metrics: ClientDetail["metrics"] }) {
+  const leadsPct = metrics.leadsPromised
+    ? Math.round((metrics.leadsThisMonth / metrics.leadsPromised) * 100)
+    : null;
+  const pepitesPct = metrics.pepitesPromised
+    ? Math.round((metrics.pepitesThisMonth / metrics.pepitesPromised) * 100)
+    : null;
+
+  const leadsLabel = metrics.leadsPromised
+    ? `${metrics.leadsThisMonth} / ${metrics.leadsPromised}`
+    : String(metrics.leadsThisMonth);
+  const pepitesLabel = metrics.pepitesPromised
+    ? `${metrics.pepitesThisMonth} / ${metrics.pepitesPromised}`
+    : String(metrics.pepitesThisMonth);
+
+  const leadsHint = leadsPct !== null ? `${leadsPct}% du mois` : "Leads ce mois";
+  const pepitesHint = pepitesPct !== null
+    ? `${pepitesPct}% (≥80/100)`
+    : "Pépites ce mois";
+
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <KpiCard
         icon={Zap}
-        label="Triggers 7j"
-        value={String(metrics.triggersLast7d)}
-        hint="Détectés sur la semaine"
-        accent="brand"
-      />
-      <KpiCard
-        icon={TrendingUp}
-        label="Opps ouvertes"
-        value={String(metrics.openOpportunities)}
-        hint="Hors WON/LOST"
-        accent="warning"
-      />
-      <KpiCard
-        icon={CalendarClock}
-        label="RDV semaine"
-        value={String(metrics.meetingsThisWeek)}
-        hint="MEETING_SET ≤ 7 jours"
-        accent="success"
+        label="Leads livrés ce mois"
+        value={leadsLabel}
+        hint={leadsHint}
+        accent={leadsPct !== null && leadsPct >= 100 ? "success" : "brand"}
       />
       <KpiCard
         icon={Flame}
-        label="CA gagné cumul"
-        value={`${formatNumberFr(metrics.wonValueEur)} €`}
-        hint={`Conversion close ${metrics.conversionClosePct}%`}
+        label="Pépites ce mois"
+        value={pepitesLabel}
+        hint={pepitesHint}
+        accent={pepitesPct !== null && pepitesPct >= 100 ? "success" : "warning"}
+      />
+      <KpiCard
+        icon={Sparkles}
+        label="Briefs prêts"
+        value={String(metrics.briefsReady)}
+        hint="À envoyer maintenant"
+        accent="success"
+      />
+      <KpiCard
+        icon={CalendarClock}
+        label="Dernier signal"
+        value={metrics.lastSignalAt ? formatRelativeFr(metrics.lastSignalAt) : "—"}
+        hint={`${metrics.triggersLast7d} signaux sur 7j`}
         accent="fire"
       />
     </div>
@@ -403,8 +429,8 @@ function IcpEditor({
     <Card>
       <CardContent className="space-y-5 p-5">
         <ChipListField
-          label="Industries cibles"
-          hint="Secteurs d'activité que vous priorisez"
+          label="Secteurs visés"
+          hint="Les types d'entreprise que vous voulez toucher"
           values={draft.industries ?? []}
           onChange={(industries) => setDraft({ ...draft, industries })}
           disabled={!canEdit}
@@ -412,7 +438,7 @@ function IcpEditor({
         />
         <ChipListField
           label="Tailles"
-          hint="TPE / PME / ETI / GE"
+          hint="TPE, PME, ETI, grand groupe"
           values={draft.sizes ?? []}
           onChange={(sizes) => setDraft({ ...draft, sizes })}
           disabled={!canEdit}
@@ -420,19 +446,17 @@ function IcpEditor({
         />
         <ChipListField
           label="Régions"
-          hint="Régions FR ou pays"
+          hint="Régions françaises ou pays"
           values={draft.regions ?? []}
           onChange={(regions) => setDraft({ ...draft, regions })}
           disabled={!canEdit}
           placeholder="ex. Île-de-France"
         />
-        {/* V1 17/05 — "Signaux préférés" supprimé : les piliers sont maintenant
-            gérés dans l'onglet "Signaux" (ClientSignalConfig + isPillar).
-            Garder ce champ ici crashait l'éditeur quand la valeur en base était
-            un array d'objets (ancien format iFIND/DTL). */}
+        {/* Bombora FR Jour 5 — "Anti-personas" renommé en "À exclure"
+            (langage commercial). */}
         <ChipListField
-          label="Anti-personas"
-          hint="Profils à exclure"
+          label="À exclure"
+          hint="Profils ou secteurs que vous ne voulez pas voir"
           values={draft.antiPersonas ?? []}
           onChange={(antiPersonas) => setDraft({ ...draft, antiPersonas })}
           disabled={!canEdit}
@@ -441,9 +465,9 @@ function IcpEditor({
 
         <div>
           <Label htmlFor="minScore">
-            Score minimum
+            Qualité minimum
             <span className="ml-2 text-[11px] font-normal text-ink-500">
-              (de 1 à 10 — 7 est le seuil MVP)
+              (1 = tout, 10 = top — on recommande 7)
             </span>
           </Label>
           <div className="mt-1.5 flex items-center gap-3">
@@ -465,14 +489,14 @@ function IcpEditor({
         </div>
 
         <div>
-          <Label htmlFor="notes">Notes ICP</Label>
+          <Label htmlFor="notes">Notes sur la cible</Label>
           <textarea
             id="notes"
             disabled={!canEdit}
             rows={4}
             value={draft.notes ?? ""}
             onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-            placeholder="Précisions sur vos cibles, exclusions, contexte du marché…"
+            placeholder="Précisions sur votre cible, contexte, exclusions…"
             className="mt-1.5 w-full rounded-md border border-ink-200 bg-white px-3 py-2 text-[13px] text-ink-800 shadow-xs transition-colors placeholder:text-ink-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-500"
           />
         </div>
@@ -499,7 +523,7 @@ function IcpEditor({
               ) : (
                 <>
                   <Save className="h-3.5 w-3.5" />
-                  Enregistrer ICP
+                  Enregistrer
                 </>
               )}
             </Button>
@@ -607,10 +631,10 @@ function ActivityPanel({ client }: { client: ClientDetail }) {
     <Card>
       <CardContent className="p-5">
         <div className="mb-3 text-[12.5px] font-medium uppercase tracking-wider text-ink-500">
-          5 derniers triggers détectés
+          5 derniers signaux détectés
         </div>
         {client.recentTriggers.length === 0 ? (
-          <div className="text-[13px] text-ink-400">Aucun trigger récent.</div>
+          <div className="text-[13px] text-ink-400">Aucun signal récent.</div>
         ) : (
           <ul className="space-y-2">
             {client.recentTriggers.map((t) => (
