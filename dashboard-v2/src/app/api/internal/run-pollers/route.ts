@@ -495,15 +495,16 @@ export async function POST(req: NextRequest) {
         // le coût (~5 × 0,02€ = 0,10€/run worst case = 0,40€/jour avec
         // 4 runs/jour si beaucoup de nouveaux). Tourne sur source=all
         // uniquement (cron 6h) car coût Anthropic non-négligeable.
-        // Auto-briefs DÉSACTIVÉ (audit 10/05 19h) — Fred ne se connecte pas
-        // au dashboard (1 seule session 26/04 = test admin). Briefs Opus
-        // auto-générés inutilisés → gaspillage $0.40/jour ($12/mo).
-        // Briefs disponibles à la demande via /api/leads/[id]/brief uniquement.
-        // Réactiver si Fred utilise le dashboard à l'avenir.
-        const AUTO_BRIEFS_ENABLED = false;
+        // Auto-briefs RÉACTIVÉ 18/05/2026 (pivot Bombora FR).
+        // Avant : ciblait "hot" uniquement (score≥8 + isHot OU fitScore≥75),
+        // 5 briefs/run max. Désactivé 16/05 (Fred dashboard inutilisé).
+        // Pour Bombora FR : le brief = valeur ajoutée core (justifie 1490€ vs
+        // Pharow 139€). On élargit : tout Lead NEW avec décideur + email →
+        // brief auto. maxPerRun=15 (~$0.30/run, ~$0.60/jour, ~$18/mo acceptable).
+        const AUTO_BRIEFS_ENABLED = true;
         if (AUTO_BRIEFS_ENABLED && source === "all") {
           try {
-            const autoBriefs = await autoGenerateBriefsForHotLeads(c.id, { maxPerRun: 5 });
+            const autoBriefs = await autoGenerateBriefsForHotLeads(c.id, { maxPerRun: 15 });
             (entry as { autoBriefs?: unknown }).autoBriefs = autoBriefs;
           } catch (e) {
             (entry as { autoBriefsError?: string }).autoBriefsError =

@@ -1,24 +1,29 @@
-// @ts-nocheck — Module DÉSACTIVÉ (audit 16/05/2026). Le throw new Error() en tête
-// de autoGenerateBriefsForHotLeads rend le code suivant unreachable, mais TS continue
-// à type-checker ces branches. @ts-nocheck est OK ici puisque le code n'est plus exécuté.
 import "server-only";
 
 /**
- * Étape C (04/05) — Auto-génération des briefs Opus pour les leads chauds.
+ * Auto-génération des briefs Opus pour les Leads exploitables.
  *
- * Tourne après ensureLeadsForAllTriggers dans le cron run-pollers.
- * Pour chaque lead "chaud" (trigger score >= 8 + isHot, OU fitScore >= 75,
- * OU trigger QA-stuck) qui n'a pas encore de briefJson valide, déclenche
- * la génération Opus et persiste en DB.
+ * Bombora FR pivot (18/05/2026) — Réactivé + élargi.
+ * Précédent design (04/05) ciblait uniquement les "hot" (score≥8+isHot OU fitScore≥75).
+ * Précédent verrou (16/05, throw Error) : Fred ne consultait pas le dashboard.
+ *
+ * Nouveau ciblage : tout Lead status=NEW avec :
+ *   - trigger associé
+ *   - décideur identifié (firstName + lastName)
+ *   - email présent (kasprWorkEmail/personalEmail OU email OU emailRodz OU emailDropcontact)
+ *   - briefJson manquant ou whyNow vide
+ *
+ * Pour Bombora FR le brief est la valeur ajoutée core (justifie 1490€ vs Pharow 139€).
+ * Sans brief le produit ne sert à rien.
+ *
+ * Tourne après ensureLeadsForAllTriggers dans le cron run-pollers (source=all, 6h).
  *
  * Limites de coût :
- * - Max N briefs par run (default 5) → ~5 × 0,02€ = 0,10€/run
- * - Tourne uniquement sur source=all (cron 6h, pas le 1h)
+ * - Max maxPerRun briefs par run (default 15) → ~15 × 0,02€ = 0,30€/run = ~0,60€/jour
+ * - Tourne uniquement sur source=all (cron 8h05/18h05, pas le 1h)
  * - TTL réutilisé : skip implicite si briefJson déjà présent et valide
  *
- * Réutilise buildPrompt + extractJson depuis brief-builder.ts (extraction
- * post Sprint 1 setup fix : Next.js Route Handlers interdisent les exports
- * custom).
+ * Réutilise buildPrompt + extractJson depuis brief-builder.ts.
  */
 
 import { db } from "@/lib/db";
@@ -39,11 +44,7 @@ export async function autoGenerateBriefsForHotLeads(
   clientId: string,
   options: { maxPerRun?: number } = {},
 ): Promise<AutoBriefsResult> {
-  throw new Error(
-    "auto-generate-briefs DISABLED (audit 16/05). Fred ne consulte pas le dashboard, " +
-      "génération briefs auto = pure dépense Opus. Re-justifier business case avant réactivation.",
-  );
-  const maxPerRun = options.maxPerRun ?? 5;
+  const maxPerRun = options.maxPerRun ?? 15;
   const result: AutoBriefsResult = {
     clientId,
     candidates: 0,
@@ -52,17 +53,23 @@ export async function autoGenerateBriefsForHotLeads(
     skipped: 0,
   };
 
-  // Sélection identique au script CLI generate-briefs-digitestlab.ts :
-  // chauds = (trigger.score >= 8 ET isHot) OU fitScore >= 75 OU QA-stuck
-  // ET briefJson manquant ou whyNow vide
+  // Bombora FR pivot 18/05 — Ciblage élargi :
+  // Tout Lead status=NEW avec décideur + email + sans brief valide.
+  // Priorité (orderBy) : fitScore desc, puis createdAt desc → couvre d'abord
+  // les Pépites, puis remplit avec les warm/cold.
   const candidates = await db.lead.findMany({
     where: {
       clientId,
       deletedAt: null,
+      status: "NEW",
+      firstName: { not: null },
+      lastName: { not: null },
       OR: [
-        { fitScore: { gte: 75 } },
-        { trigger: { scoreReason: { contains: "QA-STUCK" } } },
-        { trigger: { score: { gte: 8 }, isHot: true } },
+        { email: { not: null } },
+        { kasprWorkEmail: { not: null } },
+        { kasprPersonalEmail: { not: null } },
+        { emailRodz: { not: null } },
+        { emailDropcontact: { not: null } },
       ],
     },
     include: {
@@ -77,8 +84,8 @@ export async function autoGenerateBriefsForHotLeads(
         select: { id: true, name: true, industry: true, icp: true },
       },
     },
-    // Priorité : nouveaux d'abord (createdAt desc), bouclera sur le reste les runs suivants
-    orderBy: { createdAt: "desc" },
+    // Priorité : Pépites d'abord (fitScore desc), puis nouveaux (createdAt desc)
+    orderBy: [{ fitScore: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
   });
 
   // Filtre côté code : pas déjà un brief valide
