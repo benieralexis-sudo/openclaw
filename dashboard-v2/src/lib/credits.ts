@@ -74,15 +74,25 @@ export async function checkCreditsAvailable(
  * Crée une entrée LeadCredit pour audit.
  *
  * Idempotent : si déjà débité pour ce trigger, no-op.
+ *
+ * V1 18/05 — CAP DUR : si balance ≤ 0, refuse atomiquement le débit (au lieu
+ * de descendre en négatif comme avant). Garantit qu'un client ne reçoit
+ * JAMAIS plus de leads que son quota. Le système se débloque uniquement via :
+ *   - achat d'overage (creditOveragePurchase)
+ *   - reset 30j anniversaire (resetClientIfDueForReset)
  */
+export type DebitResult =
+  | { debited: true; isPepite: boolean; balanceAfter: number; reason?: never }
+  | { debited: false; isPepite: boolean; balanceAfter: number; reason: "score_too_low" | "client_not_found" | "plan_not_growth" | "already_debited" | "cap_reached" };
+
 export async function debitCreditForQualifiedLead(args: {
   clientId: string;
   triggerId: string;
   leadId?: string | null;
   score: number;
-}): Promise<{ debited: boolean; isPepite: boolean; balanceAfter: number }> {
+}): Promise<DebitResult> {
   if (args.score < 6) {
-    return { debited: false, isPepite: false, balanceAfter: -1 };
+    return { debited: false, isPepite: false, balanceAfter: -1, reason: "score_too_low" };
   }
 
   // Bug B11 fix (Session 3, 10/05/2026) — Skip débit si plan != GROWTH.
@@ -98,11 +108,11 @@ export async function debitCreditForQualifiedLead(args: {
     select: { plan: true, creditsBalance: true },
   });
   if (!client) {
-    return { debited: false, isPepite: false, balanceAfter: -1 };
+    return { debited: false, isPepite: false, balanceAfter: -1, reason: "client_not_found" };
   }
   if (client.plan !== "GROWTH") {
     // Pas de débit pour grandfathered. Retourne balance actuelle pour info.
-    return { debited: false, isPepite: false, balanceAfter: client.creditsBalance };
+    return { debited: false, isPepite: false, balanceAfter: client.creditsBalance, reason: "plan_not_growth" };
   }
 
   // Idempotence : check si déjà débité pour ce trigger
@@ -119,20 +129,55 @@ export async function debitCreditForQualifiedLead(args: {
       debited: false,
       isPepite: existing.isPepite,
       balanceAfter: existing.balanceAfter,
+      reason: "already_debited",
     };
   }
 
   const isPepite = args.score >= 8;
   const reason = isPepite ? "debit_pepite" : "debit_qualif";
 
-  // Transaction atomique : update Client + insert LeadCredit
+  // V1 18/05 — Transaction atomique avec CAP DUR.
+  // updateMany filtre par creditsBalance > 0 → si 0 ou moins, 0 ligne mise à
+  // jour, on détecte le cap atteint et on refuse le débit sans modifier le
+  // balance. Évite la race condition entre check et write.
   return db.$transaction(async (tx) => {
-    const client = await tx.client.update({
-      where: { id: args.clientId },
+    const updateResult = await tx.client.updateMany({
+      where: { id: args.clientId, creditsBalance: { gt: 0 } },
       data: {
         creditsBalance: { decrement: 1 },
         ...(isPepite && { pepitesThisMonth: { increment: 1 } }),
       },
+    });
+
+    if (updateResult.count === 0) {
+      // Balance était à 0 — cap atteint. On log un audit row pour traçabilité.
+      const current = await tx.client.findUnique({
+        where: { id: args.clientId },
+        select: { creditsBalance: true },
+      });
+      await tx.leadCredit.create({
+        data: {
+          clientId: args.clientId,
+          amount: 0,
+          reason: "cap_reached_blocked",
+          triggerId: args.triggerId,
+          leadId: args.leadId ?? null,
+          score: args.score,
+          isPepite,
+          balanceAfter: current?.creditsBalance ?? 0,
+          metadata: { wouldHaveBeenPepite: isPepite },
+        },
+      });
+      return {
+        debited: false,
+        isPepite,
+        balanceAfter: current?.creditsBalance ?? 0,
+        reason: "cap_reached" as const,
+      };
+    }
+
+    const after = await tx.client.findUnique({
+      where: { id: args.clientId },
       select: { creditsBalance: true },
     });
     await tx.leadCredit.create({
@@ -144,13 +189,13 @@ export async function debitCreditForQualifiedLead(args: {
         leadId: args.leadId ?? null,
         score: args.score,
         isPepite,
-        balanceAfter: client.creditsBalance,
+        balanceAfter: after?.creditsBalance ?? 0,
       },
     });
     return {
       debited: true,
       isPepite,
-      balanceAfter: client.creditsBalance,
+      balanceAfter: after?.creditsBalance ?? 0,
     };
   });
 }
@@ -252,6 +297,11 @@ export async function resetMonthlyCreditsForClient(
 /**
  * Reset mensuel pour TOUS les clients ACTIVE.
  * Appelé par /api/internal/reset-monthly-credits via cron 1er du mois.
+ *
+ * V1 18/05/2026 — DEPRECATED en faveur de resetClientsDueForAnniversary
+ * qui reset par client à son anniversaire (30j depuis dernière dose), pas
+ * tout le monde le 1er. Garde la fonction pour rétro-compat des scripts qui
+ * l'appellent encore.
  */
 export async function resetMonthlyCreditsAllClients(): Promise<{
   processedCount: number;
@@ -275,6 +325,114 @@ export async function resetMonthlyCreditsAllClients(): Promise<{
   }
   return {
     processedCount: details.length,
+    guaranteeTriggeredCount,
+    details,
+  };
+}
+
+/**
+ * V1 18/05/2026 — Reset 30j anniversaire par client.
+ *
+ * À appeler tous les jours via cron. Pour chaque client ACTIVE :
+ *   - Calcule l'anniversaire = creditsLastResetAt + 30j (ou activatedAt + 30j
+ *     si pas encore reset)
+ *   - Si maintenant >= anniversaire, déclenche le reset (crédit le quota
+ *     mensuel, reset pepitesThisMonth, update creditsLastResetAt)
+ *
+ * Pourquoi 30j et pas calendaire ? Pour qu'un client souscrit le 15 du mois
+ * ait son cycle qui reprend le 15 de chaque mois, pas le 1er. Plus juste pour
+ * les souscriptions fin-de-mois (un client qui souscrit le 28 n'aura pas son
+ * quota grillé en 3 jours).
+ */
+export async function resetClientsDueForAnniversary(): Promise<{
+  scanned: number;
+  resetCount: number;
+  guaranteeTriggeredCount: number;
+  details: Array<{
+    clientId: string;
+    clientName: string;
+    daysSinceLastReset: number;
+    triggered: boolean;
+    result?: Awaited<ReturnType<typeof resetMonthlyCreditsForClient>>;
+  }>;
+}> {
+  const clients = await db.client.findMany({
+    where: { status: "ACTIVE", deletedAt: null },
+    select: {
+      id: true,
+      name: true,
+      activatedAt: true,
+      creditsLastResetAt: true,
+    },
+  });
+
+  const now = Date.now();
+  const THIRTY_DAYS_MS = 30 * 86_400_000;
+  const details: Array<{
+    clientId: string;
+    clientName: string;
+    daysSinceLastReset: number;
+    triggered: boolean;
+    result?: Awaited<ReturnType<typeof resetMonthlyCreditsForClient>>;
+  }> = [];
+  let resetCount = 0;
+  let guaranteeTriggeredCount = 0;
+
+  for (const c of clients) {
+    // Référence = dernier reset, fallback sur activatedAt (premier cycle).
+    // Si ni l'un ni l'autre n'est posé, on skip (client mal configuré).
+    const ref = c.creditsLastResetAt ?? c.activatedAt;
+    if (!ref) {
+      details.push({
+        clientId: c.id,
+        clientName: c.name,
+        daysSinceLastReset: -1,
+        triggered: false,
+      });
+      continue;
+    }
+
+    const elapsed = now - ref.getTime();
+    const daysSinceLastReset = Math.floor(elapsed / 86_400_000);
+
+    if (elapsed < THIRTY_DAYS_MS) {
+      details.push({
+        clientId: c.id,
+        clientName: c.name,
+        daysSinceLastReset,
+        triggered: false,
+      });
+      continue;
+    }
+
+    try {
+      const result = await resetMonthlyCreditsForClient(c.id);
+      resetCount += 1;
+      if (result.guaranteeTriggered) guaranteeTriggeredCount += 1;
+      details.push({
+        clientId: c.id,
+        clientName: c.name,
+        daysSinceLastReset,
+        triggered: true,
+        result,
+      });
+      console.log(
+        `[credits.anniversary] client=${c.name} reset triggered after ${daysSinceLastReset}j, newBalance=${result.newBalance}`,
+      );
+    } catch (e) {
+      console.error(`[credits.anniversary] client=${c.id} failed:`, e);
+      details.push({
+        clientId: c.id,
+        clientName: c.name,
+        daysSinceLastReset,
+        triggered: false,
+      });
+    }
+  }
+
+  return {
+    scanned: clients.length,
+    resetCount,
     guaranteeTriggeredCount,
     details,
   };

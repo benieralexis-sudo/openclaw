@@ -143,13 +143,15 @@ model Client {
   // Voir lib/quota-config.ts pour Zod schema + quota-checker.ts pour usage.
   quotaConfig              Json?
   // Sprint Saint Graal (10/05/2026) — Systeme credits + garantie Pepite.
-  // Plan Growth public = 390eur/mo, 60 credits inclus, 6 Pepites garanties.
-  // Voir lib/credits.ts pour la mecanique.
+  // V1 18/05/2026 — Quota offre publique 60→50 (offre Growth 390€/mo = 50
+  // leads + 5 Pépites garanties, decision Alexis 18/05 pour controle des
+  // couts et coherence avec les unit economics). Reset 30j anniversaire
+  // (cf. resetClientsDueForAnniversary dans lib/credits.ts).
   creditsBalance           Int          @default(0) // solde credits leads qualif courant (incluant rollover non-expires)
-  creditsMonthlyQuota      Int          @default(60) // quota inclus chaque mois (Growth=60)
+  creditsMonthlyQuota      Int          @default(50) // quota inclus chaque mois (Growth=50, decision 18/05)
   pepitesThisMonth         Int          @default(0) // compteur Pepites livrees mois courant
-  pepitesGuaranteed        Int          @default(6) // minimum garanti par mois (Growth=6)
-  creditsLastResetAt       DateTime? // dernier reset mensuel (1er du mois)
+  pepitesGuaranteed        Int          @default(5) // minimum garanti par mois (Growth=5)
+  creditsLastResetAt       DateTime? // dernier reset (cycle 30j anniversaire par client)
   guaranteeBonusActive     Boolean      @default(false) // true si quota courant double (garantie precedente declenchee)
   // Stripe (Sprint Saint Graal)
   stripeCustomerId         String?      @unique

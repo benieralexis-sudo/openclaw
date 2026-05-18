@@ -29,6 +29,7 @@ import { ActivityStatsSection } from "@/components/dashboard/activity-stats-sect
 import { PillarHealthBanner } from "@/components/triggers/pillar-health-banner";
 import { PillarsOverviewSection, type PillarSummaryItem } from "@/components/dashboard/pillars-overview-section";
 import { CombosSection, type ComboItem } from "@/components/dashboard/combos-section";
+import { CreditsCapSection, type CreditsState } from "@/components/dashboard/credits-cap-section";
 import {
   getCombinedScore,
   getCombinedTier,
@@ -80,6 +81,8 @@ interface DashboardData {
   // V1 17/05 — Stratégie catalogue
   pillarsSummary: PillarSummaryItem[];
   combos: ComboItem[];
+  // V1 18/05 — Cap + compteur leads
+  credits: CreditsState | null;
 }
 
 export default function DashboardPage() {
@@ -119,6 +122,11 @@ export default function DashboardPage() {
       {/* V1 17/05 — Bannière santé des 3 piliers : signal vivant / tiède / froid.
           Visible uniquement si un client est sélectionné (admin avec un scope ou client login). */}
       {activeClientId && <PillarHealthBanner clientId={activeClientId} />}
+
+      {/* V1 18/05 — Compteur leads + cap dur. Visible uniquement clients
+          GROWTH avec quota < 10000 (les dogfooders à balance illimitée sont
+          masqués). Inclut bouton overage simulé (8€/lead virtuel). */}
+      <CreditsCapSection credits={data?.credits ?? null} clientId={activeClientId} />
 
       {/* KPI Grid — V1 17/05 : remplacement "Délai signal" (technique) par
           "Diamants" (stratégie catalogue : 3 piliers convergents). */}

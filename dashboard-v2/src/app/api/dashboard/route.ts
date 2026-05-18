@@ -42,6 +42,22 @@ export async function GET(req: NextRequest) {
     ? await getActivePillars(scope.clientId)
     : [];
 
+  // V1 18/05 — Charge le statut crédits + cap du client (compteur dashboard).
+  const clientCredits = scope.clientId
+    ? await db.client.findUnique({
+        where: { id: scope.clientId },
+        select: {
+          plan: true,
+          creditsBalance: true,
+          creditsMonthlyQuota: true,
+          pepitesThisMonth: true,
+          pepitesGuaranteed: true,
+          creditsLastResetAt: true,
+          activatedAt: true,
+        },
+      })
+    : null;
+
   const [
     triggers24h,
     triggersPrev24h,
@@ -427,5 +443,34 @@ export async function GET(req: NextRequest) {
     // V1 17/05 — Stratégie catalogue : 3 piliers + combos.
     pillarsSummary,
     combos,
+    // V1 18/05 — Crédits + cap (visible uniquement clients GROWTH avec quota fini).
+    credits: clientCredits
+      ? (() => {
+          // Cap visible quand plan=GROWTH ET quota < 10000 (les dogfooders comme
+          // iFIND à 999999 ne voient pas le compteur).
+          const isCapApplicable =
+            clientCredits.plan === "GROWTH" && clientCredits.creditsMonthlyQuota < 10000;
+          if (!isCapApplicable) return null;
+          const used = Math.max(0, clientCredits.creditsMonthlyQuota - clientCredits.creditsBalance);
+          const refDate =
+            clientCredits.creditsLastResetAt ?? clientCredits.activatedAt ?? null;
+          const daysSinceReset = refDate
+            ? Math.floor((Date.now() - refDate.getTime()) / 86_400_000)
+            : null;
+          const daysUntilReset =
+            daysSinceReset !== null ? Math.max(0, 30 - daysSinceReset) : null;
+          return {
+            balance: clientCredits.creditsBalance,
+            monthlyQuota: clientCredits.creditsMonthlyQuota,
+            used,
+            pctUsed: Math.round((used / clientCredits.creditsMonthlyQuota) * 100),
+            pepitesThisMonth: clientCredits.pepitesThisMonth,
+            pepitesGuaranteed: clientCredits.pepitesGuaranteed,
+            capReached: clientCredits.creditsBalance <= 0,
+            daysSinceReset,
+            daysUntilReset,
+          };
+        })()
+      : null,
   });
 }

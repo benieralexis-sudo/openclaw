@@ -11,6 +11,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // V1 18/05 — Neutralise "server-only" en env test (le package throw
+      // à l'import dans un module non-RSC). Le marqueur reste actif en prod
+      // via le bundling Next.js qui ne passe pas par vitest.
+      "server-only": path.resolve(__dirname, "./src/test/server-only-stub.ts"),
     },
   },
 });

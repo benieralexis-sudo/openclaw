@@ -118,17 +118,31 @@ export async function POST(req: NextRequest) {
   // Le reste de la fonction est wrappé try/finally pour garantir releaseLock
   try {
   const clients = targetClientId
-    ? await db.client.findMany({ where: { id: targetClientId, deletedAt: null }, select: { id: true, name: true, icp: true } })
-    : await db.client.findMany({ where: { deletedAt: null, status: { in: ["ACTIVE", "PROSPECT"] } }, select: { id: true, name: true, icp: true } });
+    ? await db.client.findMany({ where: { id: targetClientId, deletedAt: null }, select: { id: true, name: true, icp: true, plan: true, creditsBalance: true } })
+    : await db.client.findMany({ where: { deletedAt: null, status: { in: ["ACTIVE", "PROSPECT"] } }, select: { id: true, name: true, icp: true, plan: true, creditsBalance: true } });
 
-  const summary: Array<{ client: string; theirstack?: unknown; apify?: unknown; sireneEnriched?: number; opusQualified?: number; error?: string; skipped?: string }> = [];
+  const summary: Array<{ client: string; theirstack?: unknown; apify?: unknown; sireneEnriched?: number; opusQualified?: number; error?: string; skipped?: string; capReached?: boolean }> = [];
 
   for (const c of clients) {
-    const entry: { client: string; theirstack?: unknown; apify?: unknown; sireneEnriched?: number; opusQualified?: number; error?: string; skipped?: string } = { client: c.name };
+    const entry: { client: string; theirstack?: unknown; apify?: unknown; sireneEnriched?: number; opusQualified?: number; error?: string; skipped?: string; capReached?: boolean } = { client: c.name };
     if (!c.icp) {
       entry.skipped = "no icp";
       summary.push(entry);
       continue;
+    }
+    // V1 18/05 — Cap dur : si client GROWTH a épuisé ses crédits (balance ≤ 0),
+    // skip TOUS les pollers payants ET enrichissements pour ce client. Les
+    // pollers gratuits (BODACC, INPI, RSS-levees, FranceTravail public) ne
+    // sont PAS skippés — ils détectent les signaux publics universels et
+    // alimentent le backlog qui sera traité au prochain reset 30j ou achat
+    // d'overage. Pas de qualif Opus ni d'enrichissement Kaspr/FullEnrich/
+    // HarvestAPI/Pappers tant que cap reached.
+    const isCapped = c.plan === "GROWTH" && c.creditsBalance <= 0;
+    if (isCapped) {
+      console.log(
+        `[run-pollers] client=${c.name} CAP_REACHED (balance=${c.creditsBalance}) — skip pollers payants + enrichissements`,
+      );
+      entry.capReached = true;
     }
     try {
       // TheirStack job-offer DÉSACTIVÉ jusqu'au 26/05 (audit 10/05 19h) —
@@ -140,7 +154,7 @@ export async function POST(req: NextRequest) {
       // Réactiver après reset 26/05 en retirant la condition false.
       const theirstackHour = new Date().getUTCHours();
       const theirstackJobOfferEnabled = false; // ← réactiver après 26/05
-      if (source === "theirstack" || (theirstackJobOfferEnabled && source === "all" && theirstackHour === 18)) {
+      if (!isCapped && (source === "theirstack" || (theirstackJobOfferEnabled && source === "all" && theirstackHour === 18))) {
         entry.theirstack = await pollTheirstackForClient(c.id, { dryRun, jobsLimit: 30, companiesLimit: 15 });
       }
       // Buying-intent QA (Bougie 2 — 04/05, gate aligné cron 15/05).
@@ -162,7 +176,7 @@ export async function POST(req: NextRequest) {
       // la seule source de vérité. Le check legacy icp.disabledSources a été
       // retiré (source-toggle.ts supprimé) après finalisation du wiring.
       const catalogEnabled = await isSignalEnabled(c.id, "P3");
-      if (!dryRun && source === "all" && (buyingIntentHour === 8 || buyingIntentHour === 18)) {
+      if (!isCapped && !dryRun && source === "all" && (buyingIntentHour === 8 || buyingIntentHour === 18)) {
         if (!catalogEnabled) {
           (entry as { theirstackBuyingIntent?: string }).theirstackBuyingIntent =
             "disabled-by-catalog-P3";
@@ -241,7 +255,7 @@ export async function POST(req: NextRequest) {
             e instanceof Error ? e.message : String(e);
         }
       }
-      if (source === "all" || source === "apify") {
+      if (!isCapped && (source === "all" || source === "apify")) {
         // Apify RÉACTIVÉ 28/04 après diagnostic API live :
         //   - LinkedIn : input fixé (urls + count >= 10), actor curious_coder OK
         //   - WTTJ : nouvel actor clearpath (filtre companySize ICP-aware)
@@ -273,7 +287,8 @@ export async function POST(req: NextRequest) {
       // Attribution SIRENE Pappers — APRÈS tous les pollers pour couvrir
       // TheirStack + Apify dans une seule passe (fix 28/04 : Apify n'était
       // jamais attribué, créant des Leads orphelins sans SIRET → unactionnable).
-      if (!dryRun && (source === "all" || source === "theirstack" || source === "apify")) {
+      // V1 18/05 — Cap dur : Pappers est payant, skip si client capé.
+      if (!isCapped && !dryRun && (source === "all" || source === "theirstack" || source === "apify")) {
         const sirene = await enrichRecentTriggersWithSirene(c.id, { limit: 60 });
         entry.sireneEnriched = sirene.enriched;
       }
@@ -283,7 +298,8 @@ export async function POST(req: NextRequest) {
       // Archive automatiquement après 7j sans résolution.
       // Tourne sur le cron horaire light ET sur les runs all, pour rattraper
       // continuellement les triggers ENRICH bloqués (cf. session 17/05 audit).
-      if (!dryRun && (source === "cron" || source === "all")) {
+      // V1 18/05 — Cap dur : retry attribution Pappers payant, skip si client capé.
+      if (!isCapped && !dryRun && (source === "cron" || source === "all")) {
         try {
           const { retrySirenAttributionForEnrichTriggers } = await import(
             "@/lib/retry-enrich-attribution"
@@ -337,8 +353,18 @@ export async function POST(req: NextRequest) {
       }
       // Qualify Opus tous les Triggers du client sans scoreReason (limite 30/run pour budget tokens).
       if (!dryRun) {
-        const q = await qualifyPendingTriggers(c.id, { limit: 30 });
-        entry.opusQualified = q.qualified;
+        // V1 18/05 — Cap dur : skip qualif Opus si client capé (économise
+        // ~$3-5/call Opus). Les triggers récents resteront en pending et
+        // seront qualifiés au reset 30j ou achat overage. Les ops DB
+        // suivantes (ensureLeads, dedup, combo, priority) tournent quand
+        // même pour garder la cohérence des données existantes.
+        if (isCapped) {
+          entry.opusQualified = 0;
+          (entry as { opusSkipReason?: string }).opusSkipReason = "cap_reached";
+        } else {
+          const q = await qualifyPendingTriggers(c.id, { limit: 30 });
+          entry.opusQualified = q.qualified;
+        }
         // Ensure Lead : crée Lead minimal pour chaque Trigger actif sans Lead.
         // Permet à Apify/Rodz/TheirStack d'apparaître dans le dashboard même
         // sans dirigeant Pappers résolu.
@@ -482,8 +508,13 @@ export async function POST(req: NextRequest) {
         // ENRICHISSEMENTS COÛTEUX — gated par isFullPipeline (source=all, 6h)
         // Skippés sur source=cron (crontab horaire) car TTL 30j rend les runs
         // intermédiaires inutiles. Économie majeure profile-search/HarvestAPI.
+        //
+        // V1 18/05 — Cap dur : skip aussi tous les enrichissements payants si
+        // le client est capé (GROWTH + balance ≤ 0). Économise Pappers,
+        // HarvestAPI, Rodz, LinkedIn finder, Kaspr, FullEnrich. Le client
+        // reprendra l'enrichissement au prochain reset 30j ou achat overage.
         // ════════════════════════════════════════════════════════════
-        if (isFullPipeline) {
+        if (isFullPipeline && !isCapped) {
         // ────────────────────────────────────────────────────────────
         // ÉTAGE 3 — Trouver le bon décideur via HarvestAPI search-by-company
         // (Levier 4 anti-pollution, audit 29/04). Priorité sur Pappers récursion

@@ -921,6 +921,12 @@ export async function qualifyTrigger(
   }
 
   // 11. Debit credit (idempotent, score >= 6 = NEW visible dashboard).
+  // V1 18/05 — Cap dur : si le débit refuse pour cause de cap atteint, on
+  // bascule le trigger en IGNORED avec un scoreReason explicite et on
+  // ne déclenche PAS l'enrichissement coûteux. Le trigger reste en DB
+  // pour audit mais Fred ne le voit pas. Au reset 30j ou achat overage,
+  // un job de re-promotion pourra le réveiller (TODO Phase B).
+  let capReachedSkipEnrichment = false;
   if (status === "NEW" && opusScore >= 6) {
     try {
       const debit = await debitCreditForQualifiedLead({
@@ -931,6 +937,18 @@ export async function qualifyTrigger(
       if (debit.debited) {
         console.log(
           `[qualify-trigger.credit] ${triggerId} debit ${debit.isPepite ? "PEPITE" : "qualif"} score=${opusScore} balance=${debit.balanceAfter}`,
+        );
+      } else if (debit.reason === "cap_reached") {
+        capReachedSkipEnrichment = true;
+        await db.trigger.update({
+          where: { id: triggerId },
+          data: {
+            status: "IGNORED",
+            scoreReason: `CAP_REACHED — quota mensuel atteint (50 leads). Trigger conservé pour re-promotion post-overage.`,
+          },
+        });
+        console.log(
+          `[qualify-trigger.credit] ${triggerId} CAP_REACHED — status=IGNORED, no enrichment`,
         );
       }
     } catch (e) {
@@ -950,7 +968,7 @@ export async function qualifyTrigger(
   //
   // Idempotent : les enrichers ont leurs propres TTL (Kaspr 30j, FullEnrich
   // 30j) donc re-qualify d'un lead déjà enrichi ne re-call pas.
-  if (status === "NEW" && opusScore >= 6) {
+  if (status === "NEW" && opusScore >= 6 && !capReachedSkipEnrichment) {
     void triggerImmediateEnrichment(triggerLite.clientId).catch((e) => {
       console.warn(
         `[qualify-trigger.auto-enrich] ${triggerId} err :`,
