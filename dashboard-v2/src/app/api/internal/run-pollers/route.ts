@@ -35,7 +35,7 @@ import { enrichLeadsViaLinkedInFinder } from "@/lib/enrich-via-linkedin-finder";
 import { mergeDuplicatePersonaLeads } from "@/lib/dedup-persona-leads";
 import { detectGrowthAlertsForClient } from "@/lib/growth-detector";
 import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
-import { pollFranceTravailForClient } from "@/lib/francetravail-poller";
+// import { pollFranceTravailForClient } from "@/lib/francetravail-poller"; // désactivé 18/05/2026 — voir bloc commenté plus bas
 import { pollRssLeveesForClient } from "@/lib/rss-levees-poller";
 import { pollBodaccForClient } from "@/lib/bodacc-poller";
 import { pollInpiForClient } from "@/lib/inpi-poller";
@@ -193,19 +193,22 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-      // France Travail (Bougie 5 — 04/05) : poller gratuit (3000 req/jour).
-      // Codes ROME M180* (info) + filtre tech strict + dédup cross-source.
-      // Tourne sur source=all (cron 6h, lookback 24h glissante = pas de
-      // doublons même si tourné 4×/jour théoriquement).
-      if (!dryRun && source === "all") {
-        try {
-          (entry as { francetravail?: unknown }).francetravail =
-            await pollFranceTravailForClient(c.id, { lookbackHours: 24 });
-        } catch (e) {
-          (entry as { francetravailError?: string }).francetravailError =
-            e instanceof Error ? e.message : String(e);
-        }
-      }
+      // France Travail — DÉSACTIVÉ 18/05/2026 (pivot Bombora FR).
+      // Audit : 3 triggers/30j, 100% IGNORED. Cause : 80% sont des cabinets
+      // de recrutement (Page Personnel, Robert Walters, LEA, MBway, Media-Start)
+      // qui postent des offres "pour le compte de" un client PME inconnu.
+      // Filtre NAF blacklist staffing rejette tout. À réactiver plus tard
+      // avec un meilleur filtre source-side (exclude NAF 78.* recrutement).
+      // Code conservé pour réactivation rapide quand le filtre staffing sera prêt :
+      // if (!dryRun && source === "all") {
+      //   try {
+      //     (entry as { francetravail?: unknown }).francetravail =
+      //       await pollFranceTravailForClient(c.id, { lookbackHours: 24 });
+      //   } catch (e) {
+      //     (entry as { francetravailError?: string }).francetravailError =
+      //       e instanceof Error ? e.message : String(e);
+      //   }
+      // }
       // Sprint 1 (10/05) — Sources migrees du bot trigger-engine.
       // Strategie : on shutdown progressivement le bot. Ces pollers reprennent
       // la collecte des sources uniques (BODACC/INPI/RSS-levees/JOAFE).

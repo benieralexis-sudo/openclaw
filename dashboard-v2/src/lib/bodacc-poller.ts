@@ -55,7 +55,51 @@ export interface BodaccPollerResult {
   triggersSkippedDup: number;
   triggersSkippedIcp: number;
   triggersSkippedType: number;
+  triggersSkippedNoise: number;
   errors: string[];
+}
+
+/**
+ * Bombora FR / pivot 18/05/2026 — Filtre anti-bruit capital_increase.
+ *
+ * Audit 18/05 : 84% des triggers bodacc.capital_increase étaient IGNORED
+ * (0 Pépite générée sur 212 triggers en 30j). Cause : BODACC mélange les
+ * vraies levées (émission de parts, apports en numéraire) avec les pures
+ * écritures comptables (incorporation de réserves, élévation valeur nominale).
+ *
+ * Filtre : on garde uniquement les augmentations où le capital POST-augmentation
+ * est >= MIN_CAPITAL_EUR (boîte établie, augmentation potentiellement vraie).
+ * On rejette si le descriptif/contenu contient des motifs purement comptables.
+ */
+const MIN_CAPITAL_EUR = 300_000;
+const COMPTABLE_PATTERNS = [
+  /incorporation\s+de\s+r[eé]serves?/i,
+  /[ée]l[ée]vation\s+(de\s+)?la\s+valeur\s+nominale/i,
+];
+
+/**
+ * Parse le montantCapital depuis listepersonnes (string JSON dans le payload).
+ * Retourne null si introuvable.
+ */
+function extractMontantCapital(record: BodaccRecord): number | null {
+  const lp = record.listepersonnes;
+  if (!lp) return null;
+  try {
+    const parsed = typeof lp === "string" ? JSON.parse(lp) : lp;
+    const montant = parsed?.personne?.capital?.montantCapital;
+    if (!montant) return null;
+    const n = parseInt(String(montant).replace(/\D/g, ""), 10);
+    return isNaN(n) ? null : n;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Détecte les augmentations purement comptables (à ignorer).
+ */
+function isComptableOnly(contenu: string): boolean {
+  return COMPTABLE_PATTERNS.some((p) => p.test(contenu));
 }
 
 type BodaccEventType =
@@ -211,6 +255,7 @@ export async function pollBodaccForClient(
     triggersSkippedDup: 0,
     triggersSkippedIcp: 0,
     triggersSkippedType: 0,
+    triggersSkippedNoise: 0,
     errors: [],
   };
 
@@ -326,6 +371,21 @@ export async function pollBodaccForClient(
     if (catalogSignalCode && !(await isPillarActive(clientId, catalogSignalCode))) {
       result.triggersSkippedType += 1;
       continue;
+    }
+
+    // Bombora FR pivot (18/05/2026) — Filtre anti-bruit capital_increase.
+    // 84% des triggers BODACC capital_increase étaient IGNORED sans Pépite.
+    // On garde uniquement : capital POST >= 300k€ ET pas écriture comptable.
+    if (bodaccType === "capital_increase") {
+      const montant = extractMontantCapital(record);
+      if (montant !== null && montant < MIN_CAPITAL_EUR) {
+        result.triggersSkippedNoise += 1;
+        continue;
+      }
+      if (isComptableOnly(contenuExtra)) {
+        result.triggersSkippedNoise += 1;
+        continue;
+      }
     }
 
     // Resolve Pappers pour ICP filter
