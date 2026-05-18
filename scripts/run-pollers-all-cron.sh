@@ -22,7 +22,9 @@ set -uo pipefail
 source /opt/moltbot/scripts/.run-pollers.env
 
 LOG="/var/log/ifind-pollers-all.log"
-TIMEOUT_S=600   # 10min max — source=all peut prendre 2-5min selon enrich
+TIMEOUT_S=1200  # 20min max — source=all peut prendre 5-15min.
+                # Pivot Bombora FR 18/05 : brief auto réactivé maxPerRun=15
+                # ajoute ~80-120s par client. Garde marge pour backlogs.
 
 # ---- Telegram helper -----------------------------------------------------
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-$(grep ^TELEGRAM_BOT_TOKEN /opt/moltbot/.env 2>/dev/null | cut -d= -f2)}"
