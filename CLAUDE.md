@@ -2,6 +2,33 @@
 
 > Document à jour au 08/05/2026 — post-pivot Data-only (05/05) + Sprints A-D + Vague 1 + Vague 2 perfection 100%.
 
+---
+
+## 🔒 STRATÉGIE LOCKED 18/05/2026 — PIVOT BOMBORA FR
+
+**Décision prise le 18/05/2026.** iFIND v6 actuel passe en mode **maintenance only** (pipeline + DTL + iFIND interne). Aucune nouvelle feature produit ajoutée.
+
+Le nouveau produit en construction = **Bombora FR / Surge Score multi-sources** :
+- Topics génériques mutualisés (3 au démarrage : Signature électronique, Test logiciel/QA, Prospection B2B)
+- 8 sources publiques (7 gratuites : BOAMP, BODACC, gouv-api, France Travail, GitHub, INPI, RSS médias)
+- Surge Score 0-100 (baseline 12 sem vs récent 3 sem)
+- Brief IA auto sur 100% des Pépites
+- Pricing 290-4990€/mois selon volume + exclusivité
+- Cible : 18-30K€ MRR à M6, 80-150K€ MRR à M12
+
+**Pacte 120 jours sans pivot** signé jusqu'au 15/09/2026. Toute proposition de pivot stratégique pendant cette période doit être challengée. Ajustements tactiques OK (bug fix, wording, mots-clés). Pivots interdits (nouveau design, nouvelle marque, nouveau topic non planifié, nouvelle cible client).
+
+**Kill-switches autorisés** :
+- M2 (mi-juillet) : 0 prospect intéressé sur 10 contactés → STOP autorisé
+- M4 (mi-septembre) : 0 deal payant signé → STOP autorisé
+- M6 (mi-novembre) : 0€ MRR additionnel → STOP autorisé
+
+Hors kill-switch atteint : on continue, on ne pivote pas.
+
+**Détail stratégie** : voir mémoire `strategie-bombora-fr-locked-18mai.md` et `feedback-pacte-120j-bombora-fr.md`.
+
+---
+
 ## Identité produit
 
 **iFIND = Trigger Engine FR** : moteur propriétaire de détection de signaux d'achat B2B en temps réel sur les PME françaises. Universel, multi-vertical.
