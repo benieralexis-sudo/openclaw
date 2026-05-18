@@ -130,17 +130,25 @@ export async function GET(
   });
 }
 
+// V1 18/05 — Schéma ICP volontairement permissif.
+// L'icp est un blob JSON freeform consommé par le pipeline (pollers, agents,
+// scoring) : il contient les champs UI (industries, regions, antiPersonas, ...)
+// ET des dizaines de clés métier (naf_codes, pitchVerbatim, signalPrimary,
+// dynamicFewShots, personas, etc.) maintenues par les seeds et les agents.
+// On valide donc seulement les champs édités par l'IcpEditor + on autorise
+// le passthrough des autres clés pour ne pas les écraser à la sauvegarde.
+// Les caps sont relevés pour absorber les listes réelles (iFIND : 50 anti-personas,
+// DTL : > 40 keywords) sans bloquer la sauvegarde.
 const IcpSchema = z
   .object({
-    industries: z.array(z.string()).max(40).optional(),
-    sizes: z.array(z.string()).max(20).optional(),
-    regions: z.array(z.string()).max(40).optional(),
+    industries: z.array(z.string()).max(200).optional(),
+    sizes: z.array(z.string()).max(50).optional(),
+    regions: z.array(z.string()).max(60).optional(),
     minScore: z.number().int().min(1).max(10).optional(),
-    preferredSignals: z.array(z.string()).max(40).optional(),
-    antiPersonas: z.array(z.string()).max(40).optional(),
-    notes: z.string().max(2000).optional(),
+    antiPersonas: z.array(z.string()).max(200).optional(),
+    notes: z.string().max(5000).optional(),
   })
-  .strict();
+  .passthrough();
 
 const PatchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
