@@ -169,17 +169,63 @@ async function smtpProbe(
   });
 }
 
+// V1 18/05/2026 — Cache in-process des résultats SMTP par email.
+// La cascade multi-pattern génère jusqu'à 5 emails par lead, et plusieurs leads
+// peuvent partager le même domaine → sans cache on probe les MX 100+ fois sur
+// les mêmes serveurs en quelques minutes (politesse + perf).
+//
+// TTL 7j : les MX rarement changent leur acceptance pattern. Cache vidé au
+// restart Next.js.
+const cache = new Map<string, { result: EmailVerifyResult; expiresAt: number }>();
+const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;
+const CACHE_MAX_ENTRIES = 1000;
+
+function cacheGet(email: string): EmailVerifyResult | null {
+  const entry = cache.get(email);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(email);
+    return null;
+  }
+  return entry.result;
+}
+
+function cacheSet(email: string, result: EmailVerifyResult): void {
+  if (cache.size >= CACHE_MAX_ENTRIES) {
+    // Eviction LRU naïve : supprime la plus ancienne entrée
+    const firstKey = cache.keys().next().value;
+    if (firstKey !== undefined) cache.delete(firstKey);
+  }
+  cache.set(email, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+export function clearSmtpVerifyCache(): void {
+  cache.clear();
+}
+
 /**
- * Vérifie un email via DNS MX + SMTP RCPT TO.
+ * Vérifie un email via DNS MX + SMTP RCPT TO. Cache 7j en mémoire.
  * Retourne VALID/INVALID/CATCH_ALL/UNKNOWN avec détail textuel.
  */
 export async function verifyEmailSMTP(email: string): Promise<EmailVerifyResult> {
+  // Cache hit avant tout traitement
+  const cached = cacheGet(email);
+  if (cached) {
+    return { ...cached, detail: `${cached.detail} (cached)` };
+  }
+
   const start = Date.now();
-  const fail = (status: EmailVerifyStatus, detail: string): EmailVerifyResult => ({
-    status,
-    detail,
-    durationMs: Date.now() - start,
-  });
+  const fail = (status: EmailVerifyStatus, detail: string): EmailVerifyResult => {
+    const result: EmailVerifyResult = {
+      status,
+      detail,
+      durationMs: Date.now() - start,
+    };
+    // On cache même les INVALID syntaxiques (réflexe défensif : si quelqu'un
+    // passe le même email 100x, on évite 100 ms par appel).
+    cacheSet(email, result);
+    return result;
+  };
 
   if (!email || !email.includes("@")) {
     return fail("INVALID", "syntactically invalid (no @)");

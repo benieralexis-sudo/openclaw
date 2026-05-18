@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Gauge, Sparkles, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
 
@@ -35,9 +36,11 @@ export interface CreditsState {
 export function CreditsCapSection({
   credits,
   clientId,
+  isLoading,
 }: {
   credits: CreditsState | null;
   clientId: string | null;
+  isLoading?: boolean;
 }) {
   const queryClient = useQueryClient();
 
@@ -65,6 +68,28 @@ export function CreditsCapSection({
     },
   });
 
+  // V1 18/05 — Skeleton pendant le 1er chargement (évite le flash visual).
+  if (isLoading && clientId) {
+    return (
+      <section>
+        <Card className="border-ink-200">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <div className="space-y-1">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-5 w-16" />
+                </div>
+              </div>
+              <Skeleton className="h-3 w-40" />
+            </div>
+            <Skeleton className="h-2 w-full rounded-full" />
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
   if (!credits) return null;
 
   const pct = Math.min(100, credits.pctUsed);

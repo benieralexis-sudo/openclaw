@@ -3,6 +3,7 @@ import {
   normalizeForEmail,
   extractDomainFromPayload,
   buildEmailPattern,
+  buildEmailPatternVariants,
 } from "./enrich-via-email-pattern";
 
 describe("enrich-via-email-pattern — normalizeForEmail", () => {
@@ -116,5 +117,36 @@ describe("enrich-via-email-pattern — buildEmailPattern", () => {
 
   it("retourne vide si domain manquant", () => {
     expect(buildEmailPattern("Jean", "Dupont", "")).toBe("");
+  });
+});
+
+describe("enrich-via-email-pattern — buildEmailPatternVariants (Hunter-level cascade)", () => {
+  it("génère 5 variants par ordre de probabilité décroissante", () => {
+    const variants = buildEmailPatternVariants("Jean", "Dupont", "skello.io");
+    expect(variants).toHaveLength(5);
+    expect(variants[0]).toEqual({ email: "jean.dupont@skello.io", label: "first.last" });
+    expect(variants[1]).toEqual({ email: "j.dupont@skello.io", label: "f.last" });
+    expect(variants[2]).toEqual({ email: "jean@skello.io", label: "first" });
+    expect(variants[3]).toEqual({ email: "dupont.jean@skello.io", label: "last.first" });
+    expect(variants[4]).toEqual({ email: "jean-dupont@skello.io", label: "first-last" });
+  });
+
+  it("retourne vide pour input invalide", () => {
+    expect(buildEmailPatternVariants("", "Dupont", "x.fr")).toEqual([]);
+    expect(buildEmailPatternVariants("Jean", "", "x.fr")).toEqual([]);
+    expect(buildEmailPatternVariants("Jean", "Dupont", "")).toEqual([]);
+  });
+
+  it("normalise les accents dans toutes les variantes", () => {
+    const variants = buildEmailPatternVariants("Élise", "Mëtréz", "x.fr");
+    expect(variants[0]?.email).toBe("elise.metrez@x.fr");
+    expect(variants[1]?.email).toBe("e.metrez@x.fr");
+  });
+
+  it("gère les prénoms composés", () => {
+    const variants = buildEmailPatternVariants("Marie-Anne", "Martin", "x.fr");
+    expect(variants[0]?.email).toBe("marie-anne.martin@x.fr");
+    // L'initiale = première lettre normalisée (= "m")
+    expect(variants[1]?.email).toBe("m.martin@x.fr");
   });
 });

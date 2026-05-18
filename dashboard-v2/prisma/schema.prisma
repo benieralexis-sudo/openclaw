@@ -177,6 +177,8 @@ model Client {
   // universel paramétrable. Chaque ligne = un signal activé/désactivé +
   // paramètres custom du client. Voir SignalCatalog + ClientSignalConfig.
   signalConfigs ClientSignalConfig[]
+  // V1 18/05/2026 — Tracking coûts réels par service × jour
+  costsDaily    ServiceCostDaily[]
 
   @@index([status])
   @@index([deletedAt])
@@ -803,4 +805,37 @@ model ClientSignalConfig {
   @@unique([clientId, signalId])
   @@index([clientId, enabled])
   @@index([clientId, isPillar])
+}
+
+// =====================================================================
+// SERVICE COST DAILY — tracking coûts réels par client × service × jour
+// V1 18/05/2026 — Permet de calculer la marge brute réelle par client en
+// temps réel et d'alerter quand un client coûte trop cher (anomalie).
+// Cron quotidien agrège les counts depuis Trigger/Lead vers cette table.
+// =====================================================================
+
+model ServiceCostDaily {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  // Date du jour (00:00 UTC) — granularité 1 jour
+  date            DateTime
+  // Service identifier : "anthropic", "apify", "theirstack", "kaspr",
+  // "fullenrich", "harvestapi", "rodz", "pappers", "gouv-api"
+  service         String
+  // Volume métier (nb opérations) — ex 30 qualifs Opus
+  volume          Int      @default(0)
+  // Coût estimé en USD (calculé depuis volume × tarif unitaire)
+  estimatedUsd    Float    @default(0)
+  // Mesure brute additionnelle (ex tokens Anthropic, crédits FullEnrich)
+  metric          Float    @default(0)
+  metricUnit      String?  // "tokens", "credits", "calls"
+  // Métadonnées libres (ex breakdown par sous-service)
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([clientId, date, service])
+  @@index([clientId, date])
+  @@index([date, service])
 }

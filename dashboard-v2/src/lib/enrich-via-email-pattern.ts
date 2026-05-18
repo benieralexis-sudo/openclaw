@@ -160,6 +160,40 @@ export function buildEmailPattern(
   return `${first}.${last}@${domain}`;
 }
 
+/**
+ * V1 18/05 — Génère 5 patterns email les plus communs en B2B FR, par ordre
+ * de probabilité décroissante. On teste un par un via SMTP et on retourne le
+ * premier VALID.
+ *
+ * Patterns testés (ordre fréquence empirique PME FR) :
+ *   1. prenom.nom@        (60-70%) — le plus courant
+ *   2. p.nom@             (15-20%) — initiale prénom (Bouygues, Capgemini, etc.)
+ *   3. prenom@            (5-10%)  — startups / petites équipes
+ *   4. nom.prenom@        (3-5%)   — variation moins fréquente
+ *   5. prenom-nom@        (1-3%)   — tiret au lieu du point
+ *
+ * Retourne un Array<{pattern, label}> dans l'ordre à tester.
+ */
+export function buildEmailPatternVariants(
+  firstName: string,
+  lastName: string,
+  domain: string,
+): Array<{ email: string; label: string }> {
+  const first = normalizeForEmail(firstName);
+  const last = normalizeForEmail(lastName);
+  if (!first || !last || !domain) return [];
+
+  const firstInitial = first.charAt(0);
+
+  return [
+    { email: `${first}.${last}@${domain}`, label: "first.last" },
+    { email: `${firstInitial}.${last}@${domain}`, label: "f.last" },
+    { email: `${first}@${domain}`, label: "first" },
+    { email: `${last}.${first}@${domain}`, label: "last.first" },
+    { email: `${first}-${last}@${domain}`, label: "first-last" },
+  ];
+}
+
 const TTL_DAYS = 90;
 
 export async function enrichLeadsViaEmailPattern(
@@ -243,8 +277,13 @@ export async function enrichLeadsViaEmailPattern(
     }
     r.domainFound += 1;
 
-    const email = buildEmailPattern(lead.firstName, lead.lastName, domain);
-    if (!email || !email.includes("@")) {
+    // V1 18/05 — Cascade multi-pattern : on teste 5 patterns par ordre de
+    // probabilité décroissante (first.last, f.last, first, last.first,
+    // first-last) et on garde le 1er VALID. Si aucun VALID, on garde le
+    // 1er CATCH_ALL/UNKNOWN comme meilleur candidat. Si tous INVALID,
+    // on ne stocke rien.
+    const variants = buildEmailPatternVariants(lead.firstName, lead.lastName, domain);
+    if (variants.length === 0) {
       await db.lead.update({
         where: { id: lead.id },
         data: { emailGuessAttemptedAt: new Date() },
@@ -253,28 +292,48 @@ export async function enrichLeadsViaEmailPattern(
       continue;
     }
 
-    // V1 18/05 — Validation SMTP avant de stocker. On évite les bounces qui
-    // dégradent la deliverability. INVALID = on stocke pas l'email mais on
-    // marque emailGuessAttemptedAt pour éviter de re-tenter pendant 90j.
-    let smtpResult;
-    try {
-      smtpResult = await verifyEmailSMTP(email);
-    } catch (e) {
-      console.warn(`[enrich-email-pattern] SMTP verify failed for ${email}:`, e instanceof Error ? e.message : e);
-      smtpResult = { status: "UNKNOWN" as const, detail: "verifier threw", durationMs: 0 };
+    type BestMatch = { email: string; label: string; status: string; detail: string };
+    let bestValid: BestMatch | null = null;
+    let bestSoft: BestMatch | null = null; // CATCH_ALL ou UNKNOWN
+    let attempted = 0;
+
+    for (const v of variants) {
+      attempted += 1;
+      let smtpResult;
+      try {
+        smtpResult = await verifyEmailSMTP(v.email);
+      } catch (e) {
+        console.warn(
+          `[enrich-email-pattern] SMTP verify failed for ${v.email}:`,
+          e instanceof Error ? e.message : e,
+        );
+        smtpResult = { status: "UNKNOWN" as const, detail: "verifier threw", durationMs: 0 };
+      }
+
+      const status = smtpResult.status;
+      const match = { email: v.email, label: v.label, status, detail: smtpResult.detail };
+
+      if (status === "VALID") {
+        bestValid = match;
+        break; // précision max trouvée, pas la peine de continuer la cascade
+      }
+      if (!bestSoft && (status === "CATCH_ALL" || status === "UNKNOWN")) {
+        // On garde le 1er soft match (ordre de probabilité décroissante)
+        bestSoft = match;
+        // On continue : peut-être qu'un VALID arrive plus loin
+      }
+      // INVALID → on passe au pattern suivant
     }
 
-    const status = smtpResult.status;
-    const source = `pattern.first.last.smtp.${status.toLowerCase()}`;
-
-    // INVALID = on ne stocke PAS l'email (faux positif clair).
-    // VALID / CATCH_ALL / UNKNOWN = on stocke avec le statut SMTP dans la source.
-    const storeEmail = status !== "INVALID";
+    const best = bestValid ?? bestSoft;
+    const status = best?.status ?? "INVALID";
+    const source = best ? `pattern.${best.label}.smtp.${status.toLowerCase()}` : "pattern.all-invalid";
+    const storeEmail = best !== null;
 
     await db.lead.update({
       where: { id: lead.id },
       data: {
-        emailGuess: storeEmail ? email : null,
+        emailGuess: storeEmail ? best.email : null,
         emailGuessAttemptedAt: new Date(),
         emailGuessSource: source,
       },
@@ -289,8 +348,8 @@ export async function enrichLeadsViaEmailPattern(
     if (r.examples.length < 5) {
       r.examples.push({
         name: `${lead.firstName} ${lead.lastName}`,
-        email,
-        source: domain,
+        email: best?.email ?? variants[0]?.email ?? "",
+        source: `${domain} (${attempted} patterns testés)`,
         status,
       });
     }

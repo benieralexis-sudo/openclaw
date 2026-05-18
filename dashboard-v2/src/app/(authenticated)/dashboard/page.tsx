@@ -126,7 +126,11 @@ export default function DashboardPage() {
       {/* V1 18/05 — Compteur leads + cap dur. Visible uniquement clients
           GROWTH avec quota < 10000 (les dogfooders à balance illimitée sont
           masqués). Inclut bouton overage simulé (8€/lead virtuel). */}
-      <CreditsCapSection credits={data?.credits ?? null} clientId={activeClientId} />
+      <CreditsCapSection
+        credits={data?.credits ?? null}
+        clientId={activeClientId}
+        isLoading={isLoading}
+      />
 
       {/* KPI Grid — V1 17/05 : remplacement "Délai signal" (technique) par
           "Diamants" (stratégie catalogue : 3 piliers convergents). */}

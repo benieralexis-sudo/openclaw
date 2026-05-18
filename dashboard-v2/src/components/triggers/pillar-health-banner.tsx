@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, AlertTriangle, AlertCircle, Clock, Settings } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 /**
@@ -68,7 +69,7 @@ const STATUS_STYLE: Record<PillarHealth["status"], { bg: string; border: string;
 };
 
 export function PillarHealthBanner({ clientId }: { clientId: string | null }) {
-  const { data } = useQuery<PillarHealthReport>({
+  const { data, isLoading } = useQuery<PillarHealthReport>({
     queryKey: ["pillar-health", clientId],
     queryFn: async () => {
       const res = await fetch(`/api/clients/${clientId}/pillar-health`);
@@ -79,6 +80,26 @@ export function PillarHealthBanner({ clientId }: { clientId: string | null }) {
     staleTime: 60_000, // 1 min cache
   });
 
+  // V1 18/05 — Skeleton pendant le 1er chargement (évite le flash visual).
+  // Si pas de clientId scope, on retourne null (admin sans client sélectionné).
+  if (!clientId) return null;
+  if (isLoading) {
+    return (
+      <Card className="border-ink-200 shadow-xs">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-20 rounded-lg" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
   if (!data || data.pillars.length === 0) return null;
 
   return (
