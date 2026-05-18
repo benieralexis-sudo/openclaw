@@ -14,9 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Activity,
   ArrowUpRight,
   Calendar,
+  Diamond,
   Flame,
   Target,
   TrendingDown,
@@ -26,6 +26,9 @@ import {
 import { useScope } from "@/hooks/use-scope";
 import { cn, formatRelativeFr } from "@/lib/utils";
 import { ActivityStatsSection } from "@/components/dashboard/activity-stats-section";
+import { PillarHealthBanner } from "@/components/triggers/pillar-health-banner";
+import { PillarsOverviewSection, type PillarSummaryItem } from "@/components/dashboard/pillars-overview-section";
+import { CombosSection, type ComboItem } from "@/components/dashboard/combos-section";
 import {
   getCombinedScore,
   getCombinedTier,
@@ -45,6 +48,9 @@ interface DashboardData {
     hotPepites: { value: number; delta: number };
     bookedWeek: { value: number; delta: number };
     avgDelayMin: { value: number };
+    // V1 17/05 — KPIs stratégie catalogue
+    pepiteCombo7d: { value: number };
+    diamantCombo7d: { value: number };
   };
   pipeline: Array<{ label: string; value: number; color: string }>;
   todoToday: TodoItem[];
@@ -71,6 +77,9 @@ interface DashboardData {
       status: string;
     } | null;
   }>;
+  // V1 17/05 — Stratégie catalogue
+  pillarsSummary: PillarSummaryItem[];
+  combos: ComboItem[];
 }
 
 export default function DashboardPage() {
@@ -106,7 +115,13 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-      {/* KPI Grid */}
+
+      {/* V1 17/05 — Bannière santé des 3 piliers : signal vivant / tiède / froid.
+          Visible uniquement si un client est sélectionné (admin avec un scope ou client login). */}
+      {activeClientId && <PillarHealthBanner clientId={activeClientId} />}
+
+      {/* KPI Grid — V1 17/05 : remplacement "Délai signal" (technique) par
+          "Diamants" (stratégie catalogue : 3 piliers convergents). */}
       <section>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard
@@ -118,13 +133,20 @@ export default function DashboardPage() {
             isLoading={isLoading}
           />
           <KpiCard
-            label="Pépites ≥ 9/10"
-            value={kpis?.hotPepites.value}
-            delta={kpis?.hotPepites.delta}
+            label="Pépites 7j"
+            value={kpis?.pepiteCombo7d?.value ?? kpis?.hotPepites.value}
             icon={Flame}
             accent="fire"
             isLoading={isLoading}
-            deltaLabel="nouvelles"
+            deltaLabel="2+ piliers convergents"
+          />
+          <KpiCard
+            label="Diamants 7j"
+            value={kpis?.diamantCombo7d?.value ?? 0}
+            icon={Diamond}
+            accent="brand"
+            isLoading={isLoading}
+            deltaLabel="3 piliers convergents"
           />
           <KpiCard
             label="RDV cette semaine"
@@ -135,17 +157,17 @@ export default function DashboardPage() {
             isLoading={isLoading}
             deltaLabel="vs sem -1"
           />
-          <KpiCard
-            label="Délai signal → vous"
-            value={kpis?.avgDelayMin.value}
-            suffix="min"
-            icon={Activity}
-            accent="info"
-            isLoading={isLoading}
-            deltaLabel="moyenne 7j"
-          />
         </div>
       </section>
+
+      {/* V1 17/05 — Tes 3 piliers : nb leads 7j+30j+Pépites par pilier. */}
+      <PillarsOverviewSection
+        pillars={data?.pillarsSummary ?? []}
+        isLoading={isLoading}
+      />
+
+      {/* V1 17/05 — Combos du jour : Pépites (2 piliers) et Diamants (3 piliers). */}
+      <CombosSection combos={data?.combos ?? []} isLoading={isLoading} />
 
       {/* Activité commerciale temps réel */}
       <ActivityStatsSection activeClientId={activeClientId} />
@@ -156,15 +178,17 @@ export default function DashboardPage() {
 
       {/* Pépites + Pipeline */}
       <section className="grid gap-4 lg:grid-cols-3">
-        {/* Pépites */}
+        {/* V1 17/05 — Renommé "Signaux brûlants 24h" : score Opus ≥ 9 ou
+            verdict OUI ≥ 85 %. Inclut les Pépites combo mais aussi les
+            signaux 1-pilier très convaincants (fallback Opus ≥ 85). */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Flame className="h-4 w-4 text-brand-700" />
-                Pépites du jour
+                Signaux brûlants 24h
               </CardTitle>
-              <CardDescription>Les signaux les plus chauds détectés sur les dernières 24h</CardDescription>
+              <CardDescription>Les leads les plus chauds détectés sur les dernières 24h (score élevé, peu importe le nombre de piliers)</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="gap-1.5 text-brand-600" asChild>
               <a href="/triggers?filter=hot">

@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiSession, resolveClientScope } from "@/server/session";
 import { combineScores, dedupTodoByCompany, type TodoItem } from "@/lib/todo-today";
+import { getActivePillars } from "@/lib/signal-config";
+import { SIGNAL_NAMES } from "@/lib/signal-mapping";
 
 export async function GET(req: NextRequest) {
   const s = await requireApiSession(req);
@@ -31,6 +33,14 @@ export async function GET(req: NextRequest) {
   const since24h = new Date(Date.now() - 24 * 60 * 60_000);
   const sinceWeek = new Date(Date.now() - 7 * 24 * 60 * 60_000);
   const since48h = new Date(Date.now() - 48 * 60 * 60_000);
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60_000);
+
+  // Stratégie V1 (17/05) — Charge les 3 piliers actifs du client pour
+  // calculer les stats par pilier et les combos. Ne tourne que si un
+  // client est dans le scope (admin sans client → null = pas de stats).
+  const activePillars = scope.clientId
+    ? await getActivePillars(scope.clientId)
+    : [];
 
   const [
     triggers24h,
@@ -43,6 +53,9 @@ export async function GET(req: NextRequest) {
     recentTriggers,
     delaySamples,
     todoCandidates,
+    pillarTriggers7d,
+    pillarTriggers30d,
+    comboCandidates,
   ] = await Promise.all([
     db.trigger.count({ where: { ...where, capturedAt: { gte: since24h } } }),
     db.trigger.count({
@@ -153,6 +166,87 @@ export async function GET(req: NextRequest) {
         },
       },
     }),
+    // V1 17/05 — Triggers des 7 derniers jours sur les piliers du client.
+    // Permet de calculer (a) leads par pilier 7j (b) combos cross-pillar 7j.
+    activePillars.length > 0
+      ? db.trigger.findMany({
+          where: {
+            ...where,
+            signalCode: { in: activePillars },
+            capturedAt: { gte: sinceWeek },
+          },
+          select: { companySiret: true, companyName: true, signalCode: true },
+        })
+      : Promise.resolve([] as { companySiret: string | null; companyName: string; signalCode: string | null }[]),
+    // V1 17/05 — Idem sur 30j (volume info par pilier).
+    activePillars.length > 0
+      ? db.trigger.findMany({
+          where: {
+            ...where,
+            signalCode: { in: activePillars },
+            capturedAt: { gte: since30d },
+          },
+          select: { signalCode: true },
+        })
+      : Promise.resolve([] as { signalCode: string | null }[]),
+    // V1 17/05 — Triggers combo (isCombo=true) candidats à l'affichage
+    // "Combos du jour". Overshoot 30 pour dédupliquer par société.
+    activePillars.length > 0
+      ? db.trigger.findMany({
+          where: {
+            ...whereVisible,
+            isCombo: true,
+            capturedAt: { gte: sinceWeek },
+            signalCode: { in: activePillars },
+          },
+          orderBy: [
+            { priorityScore: { sort: "desc", nulls: "last" } },
+            { capturedAt: "desc" },
+          ],
+          take: 30,
+          select: {
+            id: true,
+            companyName: true,
+            companySiret: true,
+            industry: true,
+            region: true,
+            title: true,
+            signalCode: true,
+            score: true,
+            priorityScore: true,
+            capturedAt: true,
+            briefV2Json: true,
+            lead: {
+              select: {
+                id: true,
+                email: true,
+                kasprPhone: true,
+                phone: true,
+                status: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([] as Array<{
+          id: string;
+          companyName: string;
+          companySiret: string | null;
+          industry: string | null;
+          region: string | null;
+          title: string;
+          signalCode: string | null;
+          score: number;
+          priorityScore: number | null;
+          capturedAt: Date;
+          briefV2Json: unknown;
+          lead: {
+            id: string;
+            email: string | null;
+            kasprPhone: string | null;
+            phone: string | null;
+            status: string;
+          } | null;
+        }>),
   ]);
 
   // Calcul avgDelayMin : moyenne (capturedAt - publishedAt) en minutes
@@ -186,6 +280,103 @@ export async function GET(req: NextRequest) {
     (pipelineCounts.BOOKED ?? 0);
   const replied = (pipelineCounts.REPLIED ?? 0) + (pipelineCounts.BOOKED ?? 0);
   const booked = pipelineCounts.BOOKED ?? 0;
+
+  // V1 17/05 — Agrégation stats par pilier + combos cross-pillar.
+  // Groupe les triggers 7j par société (SIRET prioritaire, sinon nom).
+  // Une société peut avoir 1, 2 ou 3 signaux du client → combo si >= 2.
+  const companyToPillars = new Map<string, Set<string>>();
+  for (const t of pillarTriggers7d) {
+    if (!t.signalCode) continue;
+    const key = (t.companySiret || t.companyName).trim().toLowerCase();
+    if (!companyToPillars.has(key)) companyToPillars.set(key, new Set());
+    companyToPillars.get(key)!.add(t.signalCode);
+  }
+
+  // Compte global Pépite (2+ piliers) et Diamant (3+ piliers) sur 7j.
+  let pepiteCount7d = 0;
+  let diamantCount7d = 0;
+  for (const set of companyToPillars.values()) {
+    if (set.size >= 3) diamantCount7d += 1;
+    else if (set.size >= 2) pepiteCount7d += 1;
+  }
+
+  // Pour chaque pilier : nb leads 7j, nb leads 30j, nb Pépites où ce pilier participe.
+  // Une "Pépite participée" = société qui a >= 2 piliers ET dont ce pilier fait partie.
+  const pillarStats: Record<string, { leads7d: number; leads30d: number; pepites7d: number }> = {};
+  for (const code of activePillars) {
+    pillarStats[code] = { leads7d: 0, leads30d: 0, pepites7d: 0 };
+  }
+  for (const t of pillarTriggers7d) {
+    const stat = t.signalCode ? pillarStats[t.signalCode] : undefined;
+    if (stat) stat.leads7d += 1;
+  }
+  for (const t of pillarTriggers30d) {
+    const stat = t.signalCode ? pillarStats[t.signalCode] : undefined;
+    if (stat) stat.leads30d += 1;
+  }
+  for (const [, set] of companyToPillars) {
+    if (set.size >= 2) {
+      for (const code of set) {
+        const stat = pillarStats[code];
+        if (stat) stat.pepites7d += 1;
+      }
+    }
+  }
+
+  const pillarsSummary = activePillars.map((code) => ({
+    code,
+    name: SIGNAL_NAMES[code] ?? code,
+    leads7d: pillarStats[code]?.leads7d ?? 0,
+    leads30d: pillarStats[code]?.leads30d ?? 0,
+    pepites7d: pillarStats[code]?.pepites7d ?? 0,
+  }));
+
+  // Combos enrichis : pour chaque trigger combo candidat, on calcule les piliers
+  // convergents (depuis companyToPillars déjà mappé), puis dédup par société,
+  // top 5. Évite N requêtes DB supplémentaires.
+  type ComboItem = {
+    id: string;
+    companyName: string;
+    industry: string | null;
+    region: string | null;
+    title: string;
+    signalCode: string | null;
+    score: number;
+    capturedAt: string;
+    pillarsConverged: string[];
+    pillarNames: string[];
+    tier: "pepite" | "diamant";
+    briefV2Json: unknown;
+    hasContact: boolean;
+    leadId: string | null;
+  };
+  const seenCompanies = new Set<string>();
+  const combos: ComboItem[] = [];
+  for (const t of comboCandidates) {
+    const key = (t.companySiret || t.companyName).trim().toLowerCase();
+    if (seenCompanies.has(key)) continue;
+    const pillarsSet = companyToPillars.get(key);
+    if (!pillarsSet || pillarsSet.size < 2) continue; // safety : doit avoir convergé sur 7j
+    seenCompanies.add(key);
+    const pillarsArr = [...pillarsSet].sort();
+    combos.push({
+      id: t.id,
+      companyName: t.companyName,
+      industry: t.industry,
+      region: t.region,
+      title: t.title,
+      signalCode: t.signalCode,
+      score: t.score,
+      capturedAt: t.capturedAt.toISOString(),
+      pillarsConverged: pillarsArr,
+      pillarNames: pillarsArr.map((c) => SIGNAL_NAMES[c] ?? c),
+      tier: pillarsSet.size >= 3 ? "diamant" : "pepite",
+      briefV2Json: t.briefV2Json,
+      hasContact: !!(t.lead?.email || t.lead?.kasprPhone || t.lead?.phone),
+      leadId: t.lead?.id ?? null,
+    });
+    if (combos.length >= 5) break;
+  }
 
   // Chantier D3 — Construction de la todo du jour : map → tri composite → dédup → top 5
   const todoMapped: TodoItem[] = todoCandidates.map((t) => ({
@@ -221,6 +412,9 @@ export async function GET(req: NextRequest) {
       hotPepites: { value: pepites, delta: pepites - pepitesPrev },
       bookedWeek: { value: bookedThisWeek, delta: bookedThisWeek - bookedPrevWeek },
       avgDelayMin: { value: avgDelayMin },
+      // V1 17/05 — KPIs stratégie catalogue : Pépites (combo 2+) et Diamants (3+) sur 7j.
+      pepiteCombo7d: { value: pepiteCount7d },
+      diamantCombo7d: { value: diamantCount7d },
     },
     pipeline: [
       { label: "Signaux qualifiés", value: totalQualified, color: "bg-brand-500" },
@@ -230,5 +424,8 @@ export async function GET(req: NextRequest) {
     ],
     recentTriggers,
     todoToday,
+    // V1 17/05 — Stratégie catalogue : 3 piliers + combos.
+    pillarsSummary,
+    combos,
   });
 }
