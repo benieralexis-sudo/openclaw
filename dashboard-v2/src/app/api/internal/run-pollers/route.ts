@@ -39,6 +39,7 @@ import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
 import { pollRssLeveesForClient } from "@/lib/rss-levees-poller";
 import { pollBodaccForClient } from "@/lib/bodacc-poller";
 import { pollBoampForClient } from "@/lib/boamp-poller";
+import { pollGithubForClient } from "@/lib/github-poller";
 import { pollInpiForClient } from "@/lib/inpi-poller";
 import { pollJoafeForClient } from "@/lib/joafe-poller";
 import { autoGenerateBriefsForHotLeads } from "@/lib/auto-generate-briefs";
@@ -246,6 +247,21 @@ export async function POST(req: NextRequest) {
             await pollBoampForClient(c.id, { lookbackDays: 14, limit: 50 });
         } catch (e) {
           (entry as { boampError?: string }).boampError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // GitHub : commits publics FR mentionnant les keywords client.
+      // Bombora FR pivot 18/05/2026 — Jour 8. Signal P3 (Intent d'achat) :
+      // un commit "integrate-docusign" = la boîte est en train d'adopter
+      // littéralement la solution maintenant. Signal très fort, très court.
+      // Lookback 30j (les commits anciens ne sont plus actionnables).
+      // Rate limit anonyme 30 req/min — suffit pour 1 client × 5 batches.
+      if (!dryRun && (source === "all" || source === "github")) {
+        try {
+          (entry as { github?: unknown }).github =
+            await pollGithubForClient(c.id, { lookbackDays: 30 });
+        } catch (e) {
+          (entry as { githubError?: string }).githubError =
             e instanceof Error ? e.message : String(e);
         }
       }

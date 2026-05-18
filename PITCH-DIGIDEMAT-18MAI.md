@@ -5,7 +5,7 @@
 - Activité : revendeur **DocuSign + Yousign** auprès des PME et administrations FR
 - Cible idéale : cabinets d'avocats, comptables, notaires, PME tertiaires, collectivités
 - Pain point sales : trouver les boîtes qui **démarrent un projet signature électronique maintenant** (timing critique)
-- Concurrent direct sur la donnée : Pharow (139€/mois, mais sans détection de moment d'achat)
+- Concurrent direct sur la donnée : Pharow (sales intelligence FR, mais sans détection de moment d'achat)
 
 ## Ce qu'on a validé techniquement ce soir
 
@@ -17,7 +17,7 @@ Cas d'usage : dématérialisation contrats, contractualisation électronique, pl
 ### Test BOAMP en live
 - **Sur 12 derniers mois** : **7 AO trouvés**, **100% pertinents** (UCANSS, AMPA Aquitaine, SIDEC Jura ×2, Lycée Meurthe-Sanon ×2, CC Pays de Valois)
 - Sur 90 derniers jours : 1 AO (UCANSS — Sécurité Sociale FR, date limite 15 juin 2026)
-- **Volume BOAMP seul** : 0,6 AO/mois → **trop peu pour vendre 1490€/mois**
+- **Volume BOAMP seul** : 0,6 AO/mois → **trop peu pour vendre seul, à compléter par autres sources**
 
 ### Mais BOAMP n'est qu'1 source sur 8
 
@@ -48,18 +48,18 @@ Croisé avec le filtre Surge Score (pic 3× au-dessus de la baseline), on garde 
 - 5-10 Pépites/mois (Surge Score ≥70 + décideur identifié + email vérifié)
 - Latence : 2-7 jours (vs 15 jours Pharow)
 
-### Tarification proposée
-- **Découverte** 290€/mois (3 mois bêta -50%) : on calibre ensemble les mots-clés
-- **Growth** 990€/mois (prix de lancement) : à partir du mois 4
-- **Scale exclusif** 4990€/mois : zéro autre revendeur signature en FR sur le topic
+### Tarification
+À définir avec Digidemat lors de la démo. Pas d'engagement public tant
+qu'on n'a pas validé le ROI sur 30-60 jours de bêta.
 
-### Garantie
-- < 60% de leads qualifiés sur 100 premiers livrés → mois remboursé
-- Pépite = ICP correct + décideur joignable + intent vérifié par IA
+### Garantie qualité (principe à valider)
+Pépite = ICP correct + décideur joignable + intent vérifié par IA.
+Si <60% des leads livrés respectent ces critères → ajustement à
+discuter avec le client (mots-clés, ICP, ou tarif).
 
 ## Le pitch en 60 secondes (à dire à l'oral)
 
-> Salut Digidemat. On a construit un radar marché qui détecte les boîtes FR qui démarrent un projet signature électronique AVANT que vos concurrents le voient. Concrètement : on surveille en temps réel 30 mots-clés sur 8 sources publiques (appels d'offres, LinkedIn, GitHub, presse, etc.). Quand une boîte montre un pic anormal d'activité sur le sujet, on vous l'envoie avec le décideur, son email, et un brief prêt à envoyer. 5 à 10 Pépites par mois minimum, garanti. Premier mois 290€ pour calibrer, puis 990€/mois en régime de croisière. T'es disponible cette semaine pour 30 min de démo live ?
+> Salut Digidemat. On a construit un radar marché qui détecte les boîtes FR qui démarrent un projet signature électronique AVANT que vos concurrents le voient. Concrètement : on surveille en temps réel 30 mots-clés sur 8 sources publiques (appels d'offres, LinkedIn, GitHub, presse, etc.). Quand une boîte montre un pic anormal d'activité sur le sujet, on vous l'envoie avec le décideur, son email, et un brief prêt à envoyer. T'es disponible cette semaine pour 30 min de démo live ? On parlera du modèle après que tu aies vu ce qu'on trouve.
 
 ## Démo concrète à montrer
 
@@ -67,27 +67,27 @@ Croisé avec le filtre Surge Score (pic 3× au-dessus de la baseline), on garde 
 2. **Montrer les 7 AO pertinents** : UCANSS, AMPA, SIDEC Jura, Lycée Meurthe-Sanon, CC Pays de Valois
 3. **Pointer le premier qu'il PEUT contacter MAINTENANT** : UCANSS, date limite 15 juin 2026 (29 jours)
 4. **Si oui — booker calibration 30 min** : on ajuste les mots-clés à son ICP exact
-5. **Si non — savoir pourquoi** (volume ? prix ? confiance ?)
+5. **Si non — savoir pourquoi** (volume ? confiance ? timing ?)
 
 ## Objections attendues + réponses
 
 | Objection | Réponse |
 |-----------|---------|
-| "C'est cher vs Pharow 139€" | Pharow vous donne 300 boîtes/mois sans intent. Nous on en envoie 15-22 mais 60-80% sont en train d'acheter. Si vous gagnez 1 deal/mois (50-200k€ TCV), l'ROI est instantané. |
-| "Volume trop faible" | C'est volontaire. Volume ≠ valeur. On filtre dur pour vous éviter de perdre du temps. Pharow vous fait perdre 250 leads/mois pour pas grand-chose. |
-| "Comment vous différenciez de Bombora ?" | Bombora US-only, ne fait pas la France. On est natif FR. + on livre un brief IA prêt à envoyer, eux livrent un score. |
-| "Ça marche vraiment ?" | Bêta payante 290€/mois 3 premiers mois. Si <60% qualifié, mois remboursé. Vous risquez rien. |
+| "C'est quoi la différence vs Pharow ?" | Pharow donne du volume de boîtes correspondant à un profil, sans intent. Nous on filtre sur le **moment d'achat** : quand la boîte montre un pic anormal sur le sujet. Volume plus faible, qualité radicalement supérieure. |
+| "Volume trop faible" | C'est volontaire. Volume ≠ valeur. On filtre dur pour vous éviter de perdre du temps sur des leads froids. |
+| "Comment vous différenciez de Bombora ?" | Bombora US-only, ne fait pas la France. On est natif FR. + on livre un brief IA prêt à envoyer, eux livrent juste un score. |
+| "Ça marche vraiment ?" | Bêta de validation à définir ensemble. On démarre sur 30-60 jours pour mesurer le ROI réel sur votre ICP. Engagement minimal. |
 | "Combien de clients vous avez ?" | Vous seriez early adopter, premier acteur signature sur le topic. Avantage : on calibre sur votre ICP, vous récupérez ensuite une plateforme parfaitement réglée pour vous. |
 
 ## Actions immédiates demain
 
 1. **Appel Digidemat** (15 min) : pitch oral + booker démo 30 min
 2. **Préparer démo live** sur leur navigateur : ouvrir BOAMP API live, montrer UCANSS, expliquer le scoring multi-source
-3. **Envoyer mail récap après démo** : tarification + garantie + roadmap calibration mots-clés
+3. **Envoyer mail récap après démo** : roadmap calibration mots-clés + cadre de bêta à définir
 
 ## Métriques de succès Phase A (mois 1-2)
 
 - 5 appels signature/factrue-elec prospects → 2 démos bookées
-- 1-2 deals signés à 290€ bêta
+- 1-2 bêtas signées (modalités à définir avec eux)
 - Validation des 30 mots-clés sur leur ICP réel
 - Volume effectif observé sur 60 jours
