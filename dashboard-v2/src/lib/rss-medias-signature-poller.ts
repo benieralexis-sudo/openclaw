@@ -35,6 +35,7 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { attributeSirene, getEntreprise } from "@/lib/pappers";
 import { isSignalEnabled, getSignalConfig } from "@/lib/signal-config";
+import { hasGenericSignatureSignal } from "@/lib/signature-vendor-names";
 import {
   MEDIAS_FEEDS,
   countSignatureMatchesInText,
@@ -64,6 +65,7 @@ export interface RssMediasSignaturePollerResult {
   sireneResolved: number;
   triggersCreated: number;
   triggersSkippedNoMatch: number;
+  triggersSkippedVendorOnlyMatch: number;
   triggersSkippedNoClient: number;
   triggersSkippedVendor: number;
   triggersSkippedDup: number;
@@ -259,6 +261,7 @@ export async function pollRssMediasSignatureForClient(
     sireneResolved: 0,
     triggersCreated: 0,
     triggersSkippedNoMatch: 0,
+    triggersSkippedVendorOnlyMatch: 0,
     triggersSkippedNoClient: 0,
     triggersSkippedVendor: 0,
     triggersSkippedDup: 0,
@@ -331,6 +334,14 @@ export async function pollRssMediasSignatureForClient(
       const matches = countSignatureMatchesInText(fullText, keywords);
       if (matches.count === 0) {
         result.triggersSkippedNoMatch += 1;
+        continue;
+      }
+      // Jour 14 Sujet 10 — skip si tous les matches sont des vendor names.
+      if (!hasGenericSignatureSignal(matches.labels)) {
+        console.log(
+          `[rss-medias-signature.skip-vendor-only] ${item.title.slice(0, 60)}: matches=[${matches.labels.join(",")}] tous vendors, skip`,
+        );
+        result.triggersSkippedVendorOnlyMatch += 1;
         continue;
       }
 

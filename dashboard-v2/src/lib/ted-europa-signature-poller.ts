@@ -32,6 +32,7 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { attributeSirene } from "@/lib/pappers";
 import { isSignalEnabled, getSignalConfig } from "@/lib/signal-config";
+import { hasGenericSignatureSignal } from "@/lib/signature-vendor-names";
 // Bombora FR Jour 14 — réutilise le helper introduit dans boamp-poller pour
 // nettoyer les noms d'acheteurs publics FR (suffixes administratifs +
 // parenthèses code département) avant attribution SIRENE.
@@ -56,6 +57,7 @@ export interface TedEuropaPollerResult {
   candidatesProcessed: number;
   triggersCreated: number;
   triggersSkippedDup: number;
+  triggersSkippedVendorOnlyMatch: number;
   triggersSkippedNoSiren: number;
   errors: string[];
 }
@@ -157,6 +159,7 @@ export async function pollTedEuropaSignatureForClient(
     candidatesProcessed: 0,
     triggersCreated: 0,
     triggersSkippedDup: 0,
+    triggersSkippedVendorOnlyMatch: 0,
     triggersSkippedNoSiren: 0,
     errors: [],
   };
@@ -215,6 +218,21 @@ export async function pollTedEuropaSignatureForClient(
     });
     if (existing) {
       result.triggersSkippedDup += 1;
+      continue;
+    }
+
+    // Jour 14 Sujet 10 — Filtre vendor-only sur le titre. Recalcule
+    // côté Node quels keywords matchent le titre et skip si tous sont
+    // des vendor names. Défensif : l'API TED matche déjà en titre, mais
+    // dans le cas où la liste de keywords contient des vendors, on évite
+    // de capter un AO européen mentionnant juste un vendor dans son titre.
+    const titleLower = title.toLowerCase();
+    const matchedLabels = keywords.filter((k) => titleLower.includes(k.toLowerCase()));
+    if (matchedLabels.length > 0 && !hasGenericSignatureSignal(matchedLabels)) {
+      console.log(
+        `[ted-europa-poller.skip-vendor-only] ${title.slice(0, 60)}: matches=[${matchedLabels.join(",")}] tous vendors, skip`,
+      );
+      result.triggersSkippedVendorOnlyMatch += 1;
       continue;
     }
 

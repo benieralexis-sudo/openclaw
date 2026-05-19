@@ -39,6 +39,7 @@ import { db } from "@/lib/db";
 import { searchFranceTravailOffers } from "@/lib/francetravail";
 import { getRotatedKeywords } from "@/lib/keyword-rotation";
 import { isSignalEnabled, getSignalConfig } from "@/lib/signal-config";
+import { hasGenericSignatureSignal } from "@/lib/signature-vendor-names";
 import {
   countSignatureMatchesInOffer,
   isBombloraBlacklisted,
@@ -64,6 +65,7 @@ export interface FrancetravailSignaturePollerResult {
   candidatesProcessed: number;
   triggersCreated: number;
   triggersSkippedNoMatch: number;
+  triggersSkippedVendorOnlyMatch: number;
   triggersSkippedBlacklist: number;
   triggersSkippedVendor: number;
   triggersSkippedAntiPersona: number;
@@ -109,6 +111,7 @@ export async function pollFrancetravailSignatureForClient(
     candidatesProcessed: 0,
     triggersCreated: 0,
     triggersSkippedNoMatch: 0,
+    triggersSkippedVendorOnlyMatch: 0,
     triggersSkippedBlacklist: 0,
     triggersSkippedVendor: 0,
     triggersSkippedAntiPersona: 0,
@@ -225,6 +228,14 @@ export async function pollFrancetravailSignatureForClient(
       const matches = countSignatureMatchesInOffer(fullText, keywords);
       if (matches.count === 0) {
         result.triggersSkippedNoMatch += 1;
+        continue;
+      }
+      // Jour 14 Sujet 10 — skip si tous les matches sont des vendor names.
+      if (!hasGenericSignatureSignal(matches.labels)) {
+        console.log(
+          `[francetravail-signature.skip-vendor-only] ${offer.intitule}: matches=[${matches.labels.join(",")}] tous vendors, skip`,
+        );
+        result.triggersSkippedVendorOnlyMatch += 1;
         continue;
       }
 

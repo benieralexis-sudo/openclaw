@@ -161,64 +161,11 @@ export function countSignatureMatchesInDescription(
   return { count: labels.length, labels };
 }
 
-/**
- * Liste des noms de vendors concurrents sur le marché signature électronique
- * FR/UE. Apparaissent dans la liste de keywords Digidemat (Jour 6) pour
- * capter via BOAMP les acheteurs publics qui mentionnent explicitement
- * ces vendors dans un AO (signal de migration possible).
- *
- * Mais sur LinkedIn Jobs, leur mention est ambiguë :
- *   - jobPosterTitle "@SOFTEAM [Groupe La Poste]" : SOFTEAM est filiale
- *     de Docaposte → le job mentionne Docaposte parce que c'est leur
- *     boîte mère, pas une adoption (cas réel Digidemat 19/05/2026).
- *   - "expérience client DocuSign appréciée" : prestation, pas adoption.
- *   - "implémentation Yousign" : peut être adoption OU prestation.
- *
- * Décision Jour 14 Sujet 9 (19/05) : skip les triggers dont le SEUL match
- * est un nom de vendor. Si la description matche aussi un terme générique
- * ("signature électronique", "parapheur", "eIDAS"), on garde — le terme
- * générique est le vrai signal d'adoption. Workshop ICP Christophe pourra
- * activer un opt-in pour recapter les "déjà clients de DocuSign" si jugé
- * pertinent (signal upgrade).
- */
-export const SIGNATURE_VENDOR_NAMES = new Set([
-  "docusign",
-  "yousign",
-  "docaposte",
-  "docage",
-  "universign",
-  "signaturit",
-  "adobe sign",
-  "hellosign",
-  "dropbox sign",
-  "oodrive",
-  "netheos",
-  "pandadoc",
-  "contractbook",
-  "chambersign",
-  "lex persona",
-  "cryptolog",
-  "certilia",
-  "idakto",
-  "incert",
-  "trustsign",
-  "onespan",
-  "backsign",
-]);
-
-/**
- * Détermine si la liste de labels matchés contient au moins un signal
- * générique (= non vendor name). Skip si tous les matches sont des vendors.
- *
- * Cas SOFTEAM/Docaposte (19/05) : labels=["Docaposte"], aucun générique
- * → false → trigger skip.
- *
- * Cas idéal : labels=["signature électronique", "DocuSign"], "signature
- * électronique" est générique → true → trigger keep.
- */
-export function hasGenericSignatureSignal(labels: string[]): boolean {
-  return labels.some((l) => !SIGNATURE_VENDOR_NAMES.has(l.toLowerCase().trim()));
-}
+// Jour 14 Sujet 10 (19/05) — Module partagé pour la liste vendors et le
+// filtre vendor-only. Voir signature-vendor-names.ts pour la doctrine
+// complète (5 pollers signature utilisent maintenant la même heuristique).
+import { SIGNATURE_VENDOR_NAMES, hasGenericSignatureSignal } from "./signature-vendor-names";
+export { SIGNATURE_VENDOR_NAMES, hasGenericSignatureSignal };
 
 export async function pollLinkedinSignatureForClient(
   clientId: string,

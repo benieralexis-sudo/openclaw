@@ -32,11 +32,19 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { attributeSirene } from "@/lib/pappers";
 import { isSignalEnabled, getSignalConfig } from "@/lib/signal-config";
+import { hasGenericSignatureSignal } from "@/lib/signature-vendor-names";
 
 const GITHUB_SEARCH_COMMITS = "https://api.github.com/search/commits";
 
-// Mots-clés par défaut si non configuré (focus tech/signature)
-const DEFAULT_KEYWORDS = ["docusign", "yousign", "universign"];
+// Jour 14 Sujet 10 (19/05) — DEFAULT_KEYWORDS retiré (était 100% vendor names :
+// "docusign", "yousign", "universign"). Audit Digidemat 19/05 : 6/6 GitHub
+// triggers jugés Opus = verdict NON 88-94% (committers @docaposte.fr signés
+// sur projets open-source, éditeurs concurrents implémentant signature, repos
+// perso). Tous matchaient uniquement sur vendor name = pattern Sujet 9 GitHub.
+//
+// Comportement nouveau : si le client n'a pas configuré githubKeywords ni
+// boampKeywords, le poller skip (zéro bruit). Cohérent avec Sujet 7
+// (theirstack tech slugs stricts par client).
 
 // Indicateurs simples de provenance FR dans un commit message ou repo name.
 // On accepte si UN seul match — c'est best effort, le filtre dur viendra
@@ -77,6 +85,7 @@ export interface GithubPollerResult {
   itemsFetched: number;
   candidatesProcessed: number;
   candidatesSkippedNotFrench: number;
+  candidatesSkippedVendorOnly: number;
   triggersCreated: number;
   triggersSkippedDup: number;
   errors: string[];
@@ -128,7 +137,8 @@ async function getKeywordsForClient(clientId: string): Promise<string[]> {
     // les mots-clés sans espace ET sans accent sont OK pour GitHub.
     return fromBoamp.filter((k) => !/\s/.test(k) && !/[éèêàâîôûç]/i.test(k));
   }
-  return DEFAULT_KEYWORDS;
+  // Jour 14 Sujet 10 — Plus de fallback. Sans config explicite, on skip.
+  return [];
 }
 
 /**
@@ -216,6 +226,7 @@ export async function pollGithubForClient(
     itemsFetched: 0,
     candidatesProcessed: 0,
     candidatesSkippedNotFrench: 0,
+    candidatesSkippedVendorOnly: 0,
     triggersCreated: 0,
     triggersSkippedDup: 0,
     errors: [],
@@ -285,6 +296,25 @@ export async function pollGithubForClient(
       const authorEmail = item.commit?.author?.email;
       if (!looksFrench(message, repoFullName, authorEmail)) {
         result.candidatesSkippedNotFrench += 1;
+        continue;
+      }
+
+      // Jour 14 Sujet 10 (19/05) — Filtre vendor-only match. Recalcule
+      // côté Node quels keywords matchent dans message+repoFullName et
+      // skip si tous sont des vendor names (Docaposte, DocuSign, Yousign...).
+      // Cas observés Digidemat 19/05 jugés NON Opus 88-94% : committers
+      // @docaposte.fr signés sur projets open-source, repos d'éditeurs
+      // concurrents (INNOVABUY/LexDoc), repos perso. Tous matchaient
+      // uniquement sur vendor name = bruit structurel.
+      const sample = `${message} ${repoFullName}`.toLowerCase();
+      const matchedLabels = keywords.filter((k) =>
+        sample.includes(k.toLowerCase()),
+      );
+      if (matchedLabels.length > 0 && !hasGenericSignatureSignal(matchedLabels)) {
+        console.log(
+          `[github-poller.skip-vendor-only] ${repoFullName}: matches=[${matchedLabels.join(",")}] tous vendors, skip`,
+        );
+        result.candidatesSkippedVendorOnly += 1;
         continue;
       }
 
@@ -369,7 +399,7 @@ export async function pollGithubForClient(
   }
 
   console.log(
-    `[github-poller] ${clientId}: created=${result.triggersCreated} dup=${result.triggersSkippedDup} notFR=${result.candidatesSkippedNotFrench} errors=${result.errors.length}`,
+    `[github-poller] ${clientId}: created=${result.triggersCreated} dup=${result.triggersSkippedDup} notFR=${result.candidatesSkippedNotFrench} vendor-only=${result.candidatesSkippedVendorOnly} errors=${result.errors.length}`,
   );
 
   return result;
