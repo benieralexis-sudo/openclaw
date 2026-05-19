@@ -208,8 +208,14 @@ export async function pollGithubForClient(
     where: { id: clientId },
     select: { id: true, status: true, deletedAt: true },
   });
-  if (!client || client.deletedAt || client.status !== "ACTIVE") {
-    result.errors.push(`Client ${clientId} not active or deleted`);
+  // Bombora FR 19/05/2026 (Jour 14) — accepter PROSPECT pour aligner sur
+  // les autres pollers signature (RSS, FT, TED, Apify-signature).
+  if (
+    !client ||
+    client.deletedAt ||
+    (client.status !== "ACTIVE" && client.status !== "PROSPECT")
+  ) {
+    result.errors.push(`Client ${clientId} not active/prospect or deleted`);
     return result;
   }
 

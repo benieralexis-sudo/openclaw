@@ -176,8 +176,16 @@ export async function pollBoampForClient(
     where: { id: clientId },
     select: { id: true, status: true, deletedAt: true },
   });
-  if (!client || client.deletedAt || client.status !== "ACTIVE") {
-    result.errors.push(`Client ${clientId} not active or deleted`);
+  // Bombora FR 19/05/2026 (Jour 14) — accepter PROSPECT pour aligner sur
+  // rss-medias-signature-poller / francetravail-signature-poller /
+  // ted-europa-signature-poller. Sinon Digidemat (PROSPECT) ne reçoit
+  // jamais le moindre trigger BOAMP via le cron.
+  if (
+    !client ||
+    client.deletedAt ||
+    (client.status !== "ACTIVE" && client.status !== "PROSPECT")
+  ) {
+    result.errors.push(`Client ${clientId} not active/prospect or deleted`);
     return result;
   }
 
