@@ -44,8 +44,10 @@ import { pollTedEuropaSignatureForClient } from "@/lib/ted-europa-signature-poll
 import { pollBodaccForClient } from "@/lib/bodacc-poller";
 import { pollBoampForClient } from "@/lib/boamp-poller";
 import { pollGithubForClient } from "@/lib/github-poller";
-import { pollInpiForClient } from "@/lib/inpi-poller";
-import { pollJoafeForClient } from "@/lib/joafe-poller";
+// Désactivés 19/05/2026 (Jour 14 Bombora FR) — code conservé dans src/lib/
+// pour ré-activation rapide. Voir bloc commenté plus bas (// INPI/JOAFE).
+// import { pollInpiForClient } from "@/lib/inpi-poller";
+// import { pollJoafeForClient } from "@/lib/joafe-poller";
 import { autoGenerateBriefsForHotLeads } from "@/lib/auto-generate-briefs";
 // Email pattern DIY — endpoint désactivé 29/04 (risque réputation Primeforge).
 // Lib enrich-via-email-pattern conservée pour réactivation post-MillionVerifier.
@@ -348,33 +350,17 @@ export async function POST(req: NextRequest) {
             e instanceof Error ? e.message : String(e);
         }
       }
-      // INPI : depots marques (signal "nouveau produit" 6-12 mois avant launch).
-      // Auth multi-step (XSRF + login). 1x/jour suffit (indexation INPI hebdo).
+      // INPI poller : DÉSACTIVÉ 19/05/2026 (Jour 14 Bombora FR).
+      // L'API gouv INPI `/services/apidiffusion/api/marques/search` renvoie
+      // HTTP 500 systématique depuis ~12/05 (panne durable côté serveur INPI,
+      // 0 trigger en 90j). Le code reste dans src/lib/inpi-poller.ts pour
+      // ré-activation rapide si l'API revient — il suffit de remettre le bloc
+      // ici. Voir reference-gouv-api-remplace-pappers pour le pivot général
+      // vers les API gouv gratuites.
       //
-      // Fix gate timing (14/05/2026) — Avant : UTCHours===4 mais aucun cron à
-      // 4h UTC dans le crontab (run-pollers-all tourne à 08:05 + 18:05 UTC).
-      // INPI jamais déclenché en pratique. Maintenant : UTCHours===8 pour
-      // matcher le cron matinal.
-      const inpiHour = new Date().getUTCHours();
-      if (!dryRun && (source === "inpi" || (source === "all" && inpiHour === 8))) {
-        try {
-          (entry as { inpi?: unknown }).inpi =
-            await pollInpiForClient(c.id, { lookbackDays: 30 });
-        } catch (e) {
-          (entry as { inpiError?: string }).inpiError =
-            e instanceof Error ? e.message : String(e);
-        }
-      }
-      // JOAFE : STUB Sprint 1 (associations/fondations, ROI faible pour ICP DTL).
-      // Voir joafe-poller.ts header pour decision detaillee.
-      if (!dryRun && source === "joafe") {
-        try {
-          (entry as { joafe?: unknown }).joafe = await pollJoafeForClient(c.id);
-        } catch (e) {
-          (entry as { joafeError?: string }).joafeError =
-            e instanceof Error ? e.message : String(e);
-        }
-      }
+      // JOAFE poller : DÉSACTIVÉ 19/05/2026 (Jour 14 Bombora FR).
+      // Stub jamais migré (low ROI pour ICPs actuels). Le fichier reste
+      // dans src/lib/joafe-poller.ts pour référence historique.
       if (!isCapped && (source === "all" || source === "apify")) {
         // Apify RÉACTIVÉ 28/04 après diagnostic API live :
         //   - LinkedIn : input fixé (urls + count >= 10), actor curious_coder OK
