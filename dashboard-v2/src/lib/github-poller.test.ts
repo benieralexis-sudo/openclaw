@@ -8,8 +8,16 @@ const FR_HINTS = [
   /\bfr\b/i,
 ];
 
+const NOT_FR_HINTS = [
+  /[ãõ]/i,
+  /\b(não|são|ção|também|português|brasil|notário|amnésia|inteligência)\b/i,
+  /\b(generador|usuario|según|contratos\s+con|este|este\s+es|fechas|según)\b/i,
+  /[ñ]/,
+];
+
 function looksFrench(commitMessage: string, repoFullName: string): boolean {
   const sample = `${commitMessage} ${repoFullName}`;
+  if (NOT_FR_HINTS.some((re) => re.test(sample))) return false;
   return FR_HINTS.some((re) => re.test(sample));
 }
 
@@ -41,6 +49,24 @@ describe("github-poller: looksFrench", () => {
   it("ne match pas 'integration' sans accent (faux ami EN/FR)", () => {
     expect(looksFrench("Add Stripe integration", "us-user/repo")).toBe(false);
     expect(looksFrench("Initial configuration", "us-user/repo")).toBe(false);
+  });
+
+  it("rejette portugais malgré les accents partagés", () => {
+    expect(looksFrench("Notário valida documento", "user/repo")).toBe(false);
+    expect(looksFrench("Inteligência com amnésia constitucional", "BR/repo")).toBe(false);
+    expect(looksFrench("Tradução em português", "user/repo")).toBe(false);
+    expect(looksFrench("São Paulo também", "user/repo")).toBe(false);
+  });
+
+  it("rejette espagnol malgré les accents partagés", () => {
+    expect(looksFrench("Generador de contratos con watermark", "user/repo")).toBe(false);
+    expect(looksFrench("Mañana es importante", "user/repo")).toBe(false);
+    expect(looksFrench("Según las fechas establecidas", "user/repo")).toBe(false);
+  });
+
+  it("garde vrai FR avec accents typiques après filtres exclusion", () => {
+    expect(looksFrench("Séparer 'Droits num.' en 3 catégories distinctes", "norhaneb17/Legamapex")).toBe(true);
+    expect(looksFrench("Refonte CandidateDetailDrawer aligné", "valouchill/GetPatrimo")).toBe(true);
   });
 
   it("détecte indice via nom de repo (fr)", () => {

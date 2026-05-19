@@ -46,9 +46,22 @@ const DEFAULT_KEYWORDS = ["docusign", "yousign", "universign"];
 // qui généreraient trop de faux positifs sur des repos US. Les mots avec
 // accent sont déjà matchés par la première regex.
 const FR_HINTS = [
-  /[éèêëàâîïôöûüç]/i, // accents français
+  /[éèêëàâîïôöûüç]/i, // accents français (partagé avec PT/ES — filtre exclusion ensuite)
   /\b(ajout|correction|maj|mise\sa\sjour|francais|france)\b/i,
   /\bfr\b/i,
+];
+
+// Exclusion : mots/tournures caractéristiques portugais ou espagnol qui
+// partagent les accents avec le français. Si match → on rejette même si
+// FR_HINTS a matché. Première itération du filtre, à affiner.
+const NOT_FR_HINTS = [
+  // Portugais (markers distinctifs : ã, õ, ção, mots typiques)
+  /[ãõ]/i,
+  /\b(não|são|ção|também|português|brasil|notário|amnésia|inteligência)\b/i,
+  // Espagnol (mots typiques sans accents partagés)
+  /\b(generador|usuario|según|contratos\s+con|este|este\s+es|fechas|según)\b/i,
+  /\b(ñ)\b/i, // bien que rare, ñ est espagnol pur
+  /[ñ]/, // ñ distinctif espagnol
 ];
 
 export interface GithubPollerResult {
@@ -112,9 +125,13 @@ async function getKeywordsForClient(clientId: string): Promise<string[]> {
 
 /**
  * Détecte si un commit message ou un repo name a des indices FR.
+ * Double filtre :
+ *   1. Au moins un FR_HINTS match
+ *   2. Aucun NOT_FR_HINTS match (évite faux positifs portugais/espagnol)
  */
 function looksFrench(commitMessage: string, repoFullName: string): boolean {
   const sample = `${commitMessage} ${repoFullName}`;
+  if (NOT_FR_HINTS.some((re) => re.test(sample))) return false;
   return FR_HINTS.some((re) => re.test(sample));
 }
 
