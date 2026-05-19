@@ -54,14 +54,19 @@ export async function autoGenerateBriefsForHotLeads(
   };
 
   // Bombora FR pivot 18/05 — Ciblage élargi :
-  // Tout Lead status=NEW avec décideur + email + sans brief valide.
+  // Tout Lead status=NEW ou ENRICHED avec décideur + email + sans brief valide.
+  // ENRICHED ajouté Jour 14 Sujet 6 (19/05) : lead-status-sync.ts promeut en
+  // ENRICHED dès qu'on a email+linkedinUrl+fullName — c'est précisément
+  // l'état le plus brief-éligible. L'ancien filtre status="NEW" excluait
+  // les meilleurs candidats (cas Eric PETRE / Département Seine-Maritime
+  // observé sur Digidemat 19/05).
   // Priorité (orderBy) : fitScore desc, puis createdAt desc → couvre d'abord
   // les Pépites, puis remplit avec les warm/cold.
   const candidates = await db.lead.findMany({
     where: {
       clientId,
       deletedAt: null,
-      status: "NEW",
+      status: { in: ["NEW", "ENRICHED"] },
       firstName: { not: null },
       lastName: { not: null },
       OR: [

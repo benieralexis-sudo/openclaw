@@ -814,6 +814,25 @@ export async function POST(req: NextRequest) {
             (entry as { auditHeal2Error?: string }).auditHeal2Error = e instanceof Error ? e.message : String(e);
           }
         }
+        // 2e passe qualifyPendingTriggers — symétrie avec audit-heal 2e passe
+        // (Bombora FR Jour 14 Sujet 6).
+        // Pattern : le 1er qualif (~L472) tourne AVANT HarvestAPI/Kaspr/Pappers.
+        // Les Triggers dont le Lead est INCOMPLETE au moment du 1er qualif
+        // sont skip silencieux par [qualify-trigger.skip-incomplete] et perdus
+        // pour le cycle. Le 2e qualif rattrape ceux dont la persona vient
+        // d'être résolue (transition INCOMPLETE→NEW/ENRICHED par audit-heal
+        // 2e passe). Idempotent : les Triggers encore INCOMPLETE re-skip
+        // instantanément (pas d'appel Opus, coût ~0). Sans ce 2e qualif, ces
+        // Triggers attendaient le prochain cron (12h sur clients PROSPECT
+        // type Digidemat avec cron all 2×/j).
+        if (!dryRun) {
+          try {
+            const q2 = await qualifyPendingTriggers(c.id, { limit: 30 });
+            (entry as { opusQualified2?: number }).opusQualified2 = q2.qualified;
+          } catch (e) {
+            (entry as { opusQualified2Error?: string }).opusQualified2Error = e instanceof Error ? e.message : String(e);
+          }
+        }
         // Sync EmailActivity (écrites par bot IMAP poller hors dashboard)
         // → LeadActivity miroir pour timeline temps réel.
         try {
