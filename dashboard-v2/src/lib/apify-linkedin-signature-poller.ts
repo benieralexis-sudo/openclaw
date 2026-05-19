@@ -71,6 +71,7 @@ export interface LinkedinSignaturePollerResult {
   triggersSkippedNonFrench: number;
   triggersSkippedAntiPersona: number;
   triggersSkippedVendor: number;
+  triggersSkippedVendorOnlyMatch: number;
   triggersSkippedAdapt: number;
   errors: string[];
 }
@@ -160,6 +161,65 @@ export function countSignatureMatchesInDescription(
   return { count: labels.length, labels };
 }
 
+/**
+ * Liste des noms de vendors concurrents sur le marché signature électronique
+ * FR/UE. Apparaissent dans la liste de keywords Digidemat (Jour 6) pour
+ * capter via BOAMP les acheteurs publics qui mentionnent explicitement
+ * ces vendors dans un AO (signal de migration possible).
+ *
+ * Mais sur LinkedIn Jobs, leur mention est ambiguë :
+ *   - jobPosterTitle "@SOFTEAM [Groupe La Poste]" : SOFTEAM est filiale
+ *     de Docaposte → le job mentionne Docaposte parce que c'est leur
+ *     boîte mère, pas une adoption (cas réel Digidemat 19/05/2026).
+ *   - "expérience client DocuSign appréciée" : prestation, pas adoption.
+ *   - "implémentation Yousign" : peut être adoption OU prestation.
+ *
+ * Décision Jour 14 Sujet 9 (19/05) : skip les triggers dont le SEUL match
+ * est un nom de vendor. Si la description matche aussi un terme générique
+ * ("signature électronique", "parapheur", "eIDAS"), on garde — le terme
+ * générique est le vrai signal d'adoption. Workshop ICP Christophe pourra
+ * activer un opt-in pour recapter les "déjà clients de DocuSign" si jugé
+ * pertinent (signal upgrade).
+ */
+export const SIGNATURE_VENDOR_NAMES = new Set([
+  "docusign",
+  "yousign",
+  "docaposte",
+  "docage",
+  "universign",
+  "signaturit",
+  "adobe sign",
+  "hellosign",
+  "dropbox sign",
+  "oodrive",
+  "netheos",
+  "pandadoc",
+  "contractbook",
+  "chambersign",
+  "lex persona",
+  "cryptolog",
+  "certilia",
+  "idakto",
+  "incert",
+  "trustsign",
+  "onespan",
+  "backsign",
+]);
+
+/**
+ * Détermine si la liste de labels matchés contient au moins un signal
+ * générique (= non vendor name). Skip si tous les matches sont des vendors.
+ *
+ * Cas SOFTEAM/Docaposte (19/05) : labels=["Docaposte"], aucun générique
+ * → false → trigger skip.
+ *
+ * Cas idéal : labels=["signature électronique", "DocuSign"], "signature
+ * électronique" est générique → true → trigger keep.
+ */
+export function hasGenericSignatureSignal(labels: string[]): boolean {
+  return labels.some((l) => !SIGNATURE_VENDOR_NAMES.has(l.toLowerCase().trim()));
+}
+
 export async function pollLinkedinSignatureForClient(
   clientId: string,
   opts: { dryRun?: boolean; batchSize?: number; nowMs?: number } = {},
@@ -176,6 +236,7 @@ export async function pollLinkedinSignatureForClient(
     triggersSkippedNonFrench: 0,
     triggersSkippedAntiPersona: 0,
     triggersSkippedVendor: 0,
+    triggersSkippedVendorOnlyMatch: 0,
     triggersSkippedAdapt: 0,
     errors: [],
   };
@@ -301,6 +362,20 @@ export async function pollLinkedinSignatureForClient(
       result.triggersSkippedNoMatch += 1;
       continue;
     }
+    // FILTRE Jour 14 Sujet 9 : skip si TOUS les matches sont des noms de
+    // vendors concurrents (Docaposte, DocuSign, Yousign…). Ambiguïté :
+    // mention vendor = adoption OU prestation OU filiale du vendor. Cas
+    // réel : SOFTEAM (filiale Docaposte/Groupe La Poste) mentionne "Docaposte"
+    // comme boîte mère, pas comme signal d'adoption. Si la description
+    // contient aussi un terme générique ("signature électronique", "parapheur",
+    // "eIDAS"...), on garde — le terme générique fait foi.
+    if (!hasGenericSignatureSignal(matches.labels)) {
+      console.log(
+        `[linkedin-signature-poller.skip-vendor-only] ${job.companyName}: matches=[${matches.labels.join(",")}] tous vendors, skip`,
+      );
+      result.triggersSkippedVendorOnlyMatch += 1;
+      continue;
+    }
 
     // Dedup 90j par companyName + sourceCode (une boîte peut poster plusieurs
     // jobs avec mots-clés → 1 trigger suffit comme signal).
@@ -364,7 +439,7 @@ export async function pollLinkedinSignatureForClient(
   }
 
   console.log(
-    `[linkedin-signature-poller] ${clientId}: items=${result.itemsFetched} created=${result.triggersCreated} no-match=${result.triggersSkippedNoMatch} dup=${result.triggersSkippedDup} non-fr=${result.triggersSkippedNonFrench} anti-persona=${result.triggersSkippedAntiPersona} vendor=${result.triggersSkippedVendor}`,
+    `[linkedin-signature-poller] ${clientId}: items=${result.itemsFetched} created=${result.triggersCreated} no-match=${result.triggersSkippedNoMatch} vendor-only=${result.triggersSkippedVendorOnlyMatch} dup=${result.triggersSkippedDup} non-fr=${result.triggersSkippedNonFrench} anti-persona=${result.triggersSkippedAntiPersona} vendor=${result.triggersSkippedVendor}`,
   );
 
   return result;

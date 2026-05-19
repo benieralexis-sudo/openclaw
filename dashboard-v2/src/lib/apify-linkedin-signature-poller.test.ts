@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   countSignatureMatchesInDescription,
   isVendorCompany,
+  hasGenericSignatureSignal,
+  SIGNATURE_VENDOR_NAMES,
 } from "./apify-linkedin-signature-poller";
 
 describe("countSignatureMatchesInDescription", () => {
@@ -124,5 +126,40 @@ describe("isVendorCompany (anti-faux-positif concurrent)", () => {
 
   it("flag avec accents normalisés (signature électronique avec é)", () => {
     expect(isVendorCompany("Signature Électronique Pro", keywords)).toBe(true);
+  });
+});
+
+describe("hasGenericSignatureSignal (Jour 14 Sujet 9)", () => {
+  it("vrai si au moins un label est générique (non vendor)", () => {
+    expect(hasGenericSignatureSignal(["signature électronique"])).toBe(true);
+    expect(hasGenericSignatureSignal(["parapheur électronique"])).toBe(true);
+    expect(hasGenericSignatureSignal(["eIDAS"])).toBe(true);
+  });
+
+  it("vrai si mix générique + vendor (générique = vrai signal)", () => {
+    expect(hasGenericSignatureSignal(["DocuSign", "signature électronique"])).toBe(true);
+    expect(hasGenericSignatureSignal(["Yousign", "parapheur"])).toBe(true);
+  });
+
+  it("faux si TOUS les labels sont des vendors (cas SOFTEAM/Docaposte)", () => {
+    expect(hasGenericSignatureSignal(["Docaposte"])).toBe(false);
+    expect(hasGenericSignatureSignal(["DocuSign", "Yousign"])).toBe(false);
+    expect(hasGenericSignatureSignal(["Adobe Sign", "HelloSign", "Universign"])).toBe(false);
+  });
+
+  it("faux pour liste vide", () => {
+    expect(hasGenericSignatureSignal([])).toBe(false);
+  });
+
+  it("case-insensitive sur vendor names", () => {
+    expect(hasGenericSignatureSignal(["DOCAPOSTE"])).toBe(false);
+    expect(hasGenericSignatureSignal(["docaposte"])).toBe(false);
+    expect(hasGenericSignatureSignal(["Docusign"])).toBe(false);
+  });
+
+  it("liste SIGNATURE_VENDOR_NAMES contient au moins les majeurs FR/UE", () => {
+    for (const v of ["docusign", "yousign", "docaposte", "universign", "signaturit"]) {
+      expect(SIGNATURE_VENDOR_NAMES.has(v)).toBe(true);
+    }
   });
 });
