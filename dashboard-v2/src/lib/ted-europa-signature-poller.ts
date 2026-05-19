@@ -32,6 +32,10 @@ import { Prisma, TriggerStatus, TriggerType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { attributeSirene } from "@/lib/pappers";
 import { isSignalEnabled, getSignalConfig } from "@/lib/signal-config";
+// Bombora FR Jour 14 — réutilise le helper introduit dans boamp-poller pour
+// nettoyer les noms d'acheteurs publics FR (suffixes administratifs +
+// parenthèses code département) avant attribution SIRENE.
+import { cleanBuyerName } from "@/lib/boamp-poller";
 
 const TED_API = "https://api.ted.europa.eu/v3/notices/search";
 
@@ -219,14 +223,24 @@ export async function pollTedEuropaSignatureForClient(
     let siren: string | null = null;
     let companyNaf: string | null = null;
     try {
-      const sirene = await attributeSirene(buyerName, { ville: city || undefined });
+      // Essai 1 : nom brut (préserve la précision si déjà clean)
+      let sirene = await attributeSirene(buyerName, { ville: city || undefined });
+      // Essai 2 : cleanBuyerName si essai 1 NULL — symétrie avec boamp-poller
+      // (Jour 14 Bombora FR : nettoie suffixes administratifs + parenthèses
+      // code département qui cassent la recherche gouv-api sur acheteurs publics).
+      if (!sirene) {
+        const cleaned = cleanBuyerName(buyerName);
+        if (cleaned && cleaned !== buyerName) {
+          sirene = await attributeSirene(cleaned, { ville: city || undefined });
+        }
+      }
       if (sirene) {
         siren = sirene.siren;
         companyNaf = sirene.code_naf ?? null;
       }
     } catch {
       // SIRET non résolu — beaucoup d'acheteurs sont des entités publiques
-      // (ministères, EPCI) qui n'ont pas de SIRET résolvable par Pappers.
+      // (ministères, EPCI) qui n'ont pas de SIRET résolvable par gouv-api.
     }
 
     if (!siren) result.triggersSkippedNoSiren += 1;
