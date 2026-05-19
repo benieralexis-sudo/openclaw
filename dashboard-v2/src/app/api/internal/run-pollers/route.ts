@@ -40,6 +40,7 @@ import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
 import { pollRssLeveesForClient } from "@/lib/rss-levees-poller";
 import { pollRssMediasSignatureForClient } from "@/lib/rss-medias-signature-poller";
 import { pollFrancetravailSignatureForClient } from "@/lib/francetravail-signature-poller";
+import { pollTedEuropaSignatureForClient } from "@/lib/ted-europa-signature-poller";
 import { pollBodaccForClient } from "@/lib/bodacc-poller";
 import { pollBoampForClient } from "@/lib/boamp-poller";
 import { pollGithubForClient } from "@/lib/github-poller";
@@ -324,6 +325,26 @@ export async function POST(req: NextRequest) {
             await pollFrancetravailSignatureForClient(c.id);
         } catch (e) {
           (entry as { francetravailSignatureError?: string }).francetravailSignatureError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // TED Europa : marchés publics UE à seuil européen, complète BOAMP.
+      // Bombora FR Jour 13 (19/05/2026). Source api.ted.europa.eu/v3 POST,
+      // 100% gratuite. Match TITRE seulement (le full-text génère trop de
+      // bruit via les clauses CGV qui mentionnent "signature électronique"
+      // côté procédure). Volume faible ~3-10/mois mais ultra-qualifié.
+      // Lookback 30j. 1×/jour 8h UTC pour ne pas spam l'API.
+      const tedEuropaHour = new Date().getUTCHours();
+      if (
+        !dryRun &&
+        (source === "ted-europa-signature" ||
+          (source === "all" && tedEuropaHour === 8))
+      ) {
+        try {
+          (entry as { tedEuropaSignature?: unknown }).tedEuropaSignature =
+            await pollTedEuropaSignatureForClient(c.id);
+        } catch (e) {
+          (entry as { tedEuropaSignatureError?: string }).tedEuropaSignatureError =
             e instanceof Error ? e.message : String(e);
         }
       }
