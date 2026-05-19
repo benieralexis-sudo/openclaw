@@ -6,6 +6,7 @@ const FR_HINTS = [
   /[éèêëàâîïôöûüç]/i,
   /\b(ajout|correction|maj|mise\sa\sjour|francais|france)\b/i,
   /\bfr\b/i,
+  /\b(RGPD|SIRET|SIREN|INPI|INSEE|URSSAF|CNIL|FINESS|RNIPP|TVA)\b/i,
 ];
 
 const NOT_FR_HINTS = [
@@ -15,10 +16,16 @@ const NOT_FR_HINTS = [
   /[ñ]/,
 ];
 
-function looksFrench(commitMessage: string, repoFullName: string): boolean {
+function looksFrench(
+  commitMessage: string,
+  repoFullName: string,
+  authorEmail?: string,
+): boolean {
   const sample = `${commitMessage} ${repoFullName}`;
   if (NOT_FR_HINTS.some((re) => re.test(sample))) return false;
-  return FR_HINTS.some((re) => re.test(sample));
+  if (FR_HINTS.some((re) => re.test(sample))) return true;
+  if (authorEmail && /@[A-Za-z0-9.-]+\.fr$/i.test(authorEmail)) return true;
+  return false;
 }
 
 function chunkKeywords(keywords: string[], size = 5): string[][] {
@@ -76,6 +83,24 @@ describe("github-poller: looksFrench", () => {
   it("rejette commit pur anglais et repo US", () => {
     expect(looksFrench("Add DocuSign integration", "PipedreamHQ/pipedream")).toBe(false);
     expect(looksFrench("Fix bug", "facebook/react")).toBe(false);
+  });
+
+  it("détecte via mots réglementaires uniquement-FR (RGPD/CNIL/SIRET)", () => {
+    expect(looksFrench("Phase 6g RGPD compliance implementation", "user/repo")).toBe(true);
+    expect(looksFrench("Add SIRET validation", "user/repo")).toBe(true);
+    expect(looksFrench("CNIL audit report Q1", "user/repo")).toBe(true);
+    expect(looksFrench("URSSAF cron sync", "user/repo")).toBe(true);
+  });
+
+  it("détecte via email committer @*.fr (fallback)", () => {
+    expect(looksFrench("Add DocuSign", "us-user/repo", "alice@company.fr")).toBe(true);
+    expect(looksFrench("Fix bug", "user/repo", "user@gouv.fr")).toBe(true);
+  });
+
+  it("ignore email non-FR malgré l'extension", () => {
+    expect(looksFrench("Add DocuSign", "us-user/repo", "alice@company.com")).toBe(false);
+    expect(looksFrench("Add DocuSign", "us-user/repo", "u@example.io")).toBe(false);
+    expect(looksFrench("Add DocuSign", "us-user/repo")).toBe(false); // pas d'email
   });
 });
 

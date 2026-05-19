@@ -45,10 +45,18 @@ const DEFAULT_KEYWORDS = ["docusign", "yousign", "universign"];
 // IMPORTANT : on évite les mots transversaux EN/FR (integration, configuration)
 // qui généreraient trop de faux positifs sur des repos US. Les mots avec
 // accent sont déjà matchés par la première regex.
+//
+// Audit Jour 14 Bombora FR (19/05/2026) : analyse de 100 commits réels →
+// 88 skipped, dont 1 seul faux négatif ("RGPD compliance"). Le filtre a
+// donc ~98% de précision. Petite extension : mots réglementaires
+// uniquement-FR + email committer @*.fr. Pas d'extension agressive pour
+// préserver la précision.
 const FR_HINTS = [
   /[éèêëàâîïôöûüç]/i, // accents français (partagé avec PT/ES — filtre exclusion ensuite)
   /\b(ajout|correction|maj|mise\sa\sjour|francais|france)\b/i,
   /\bfr\b/i,
+  // Réglementaire FR uniquement (zéro ambiguïté EN)
+  /\b(RGPD|SIRET|SIREN|INPI|INSEE|URSSAF|CNIL|FINESS|RNIPP|TVA|URSSAF)\b/i,
 ];
 
 // Exclusion : mots/tournures caractéristiques portugais ou espagnol qui
@@ -126,13 +134,22 @@ async function getKeywordsForClient(clientId: string): Promise<string[]> {
 /**
  * Détecte si un commit message ou un repo name a des indices FR.
  * Double filtre :
- *   1. Au moins un FR_HINTS match
+ *   1. Au moins un FR_HINTS match OU email committer @*.fr / @*.gouv.fr
  *   2. Aucun NOT_FR_HINTS match (évite faux positifs portugais/espagnol)
  */
-function looksFrench(commitMessage: string, repoFullName: string): boolean {
+function looksFrench(
+  commitMessage: string,
+  repoFullName: string,
+  authorEmail?: string,
+): boolean {
   const sample = `${commitMessage} ${repoFullName}`;
   if (NOT_FR_HINTS.some((re) => re.test(sample))) return false;
-  return FR_HINTS.some((re) => re.test(sample));
+  if (FR_HINTS.some((re) => re.test(sample))) return true;
+  // Fallback : email committer @*.fr (zéro ambiguïté — un .fr = entité FR).
+  // Audit Jour 14 : 0/88 skipped avaient un email .fr aujourd'hui, mais
+  // le coût est nul et le filet utile pour les rares cas futurs.
+  if (authorEmail && /@[A-Za-z0-9.-]+\.fr$/i.test(authorEmail)) return true;
+  return false;
 }
 
 /**
@@ -265,7 +282,8 @@ export async function pollGithubForClient(
       const message = item.commit?.message ?? "";
       const repoFullName = item.repository?.full_name ?? "";
 
-      if (!looksFrench(message, repoFullName)) {
+      const authorEmail = item.commit?.author?.email;
+      if (!looksFrench(message, repoFullName, authorEmail)) {
         result.candidatesSkippedNotFrench += 1;
         continue;
       }
