@@ -86,6 +86,7 @@ export interface GithubPollerResult {
   candidatesProcessed: number;
   candidatesSkippedNotFrench: number;
   candidatesSkippedVendorOnly: number;
+  candidatesSkippedUserOwner: number;
   triggersCreated: number;
   triggersSkippedDup: number;
   errors: string[];
@@ -102,7 +103,10 @@ interface GithubCommitItem {
     name: string;
     full_name: string;
     html_url: string;
-    owner: { login: string; html_url: string };
+    // owner.type = "Organization" (boîte/projet collectif) | "User" (compte
+    // individuel). Sujet 11 Jour 14 (19/05) : skip "User" — un commit dans
+    // un repo perso n'est pas un signal d'achat entreprise.
+    owner: { login: string; html_url: string; type?: "Organization" | "User" };
   };
 }
 
@@ -227,6 +231,7 @@ export async function pollGithubForClient(
     candidatesProcessed: 0,
     candidatesSkippedNotFrench: 0,
     candidatesSkippedVendorOnly: 0,
+    candidatesSkippedUserOwner: 0,
     triggersCreated: 0,
     triggersSkippedDup: 0,
     errors: [],
@@ -318,6 +323,28 @@ export async function pollGithubForClient(
         continue;
       }
 
+      // Jour 14 Sujet 11 (19/05) — Filtre owner.type=User.
+      // GitHub API renvoie owner.type ∈ {"Organization","User"}. Un repo
+      // d'owner type=User est un compte individuel : dev qui apprend
+      // eIDAS, étudiant qui code factur-X, projet perso d'un freelance,
+      // etc. Pas un signal d'achat entreprise.
+      // Audit Digidemat 19/05 : 12/13 GitHub NEW non-jugés = User owner
+      // (Max51527, norhaneb17, valouchill, etc.). Seul "CASYS (CASYS)"
+      // était Organization. 7/12 GitHub IGNORED jugés Opus étaient
+      // aussi User → économie ~$0.04 × 7 = $0.28 de qualif Opus.
+      // Compatibilité : si owner.type absent (anciens snapshots, fork
+      // API), on traite comme "Organization" par défaut (= keep) pour
+      // ne pas casser. Le pattern moderne GitHub Search Commits fournit
+      // ce champ systématiquement.
+      const ownerType = item.repository?.owner?.type;
+      if (ownerType === "User") {
+        console.log(
+          `[github-poller.skip-user-owner] ${repoFullName}: owner.type=User (repo perso), skip`,
+        );
+        result.candidatesSkippedUserOwner += 1;
+        continue;
+      }
+
       const sha = item.sha;
       const owner = item.repository?.owner?.login;
       if (!owner || !sha) continue;
@@ -399,7 +426,7 @@ export async function pollGithubForClient(
   }
 
   console.log(
-    `[github-poller] ${clientId}: created=${result.triggersCreated} dup=${result.triggersSkippedDup} notFR=${result.candidatesSkippedNotFrench} vendor-only=${result.candidatesSkippedVendorOnly} errors=${result.errors.length}`,
+    `[github-poller] ${clientId}: created=${result.triggersCreated} dup=${result.triggersSkippedDup} notFR=${result.candidatesSkippedNotFrench} vendor-only=${result.candidatesSkippedVendorOnly} user-owner=${result.candidatesSkippedUserOwner} errors=${result.errors.length}`,
   );
 
   return result;
