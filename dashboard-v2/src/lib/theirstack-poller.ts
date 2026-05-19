@@ -82,6 +82,11 @@ interface ClientIcpExtended {
   antiPersonas?: string[];
   personaTitles?: string[];
   keywordsHiring?: string[];
+  // Jour 14 Sujet 7 (19/05) — Tech slugs TheirStack pour le signal P3
+  // buying-intent. Strict par client : si absent, le poller buying-intent
+  // skip ce client (évite pollution multi-tenant — cas Kicklox QA arrivant
+  // dans Digidemat signature électronique).
+  buyingIntentTechSlugs?: string[];
 }
 
 export interface PollerResult {
@@ -499,11 +504,26 @@ export async function pollTheirstackBuyingIntentForClient(
   const sizeRange = rangeForSizes(p3Sizes);
   const tsIndustries = mapIndustries(p3Industries);
   const antiCompanies = (icp.antiPersonas ?? []).map((a) => a.toLowerCase());
-  const techSlugs = options.techSlugs ?? QA_TESTING_TECH_SLUGS;
+
+  // Jour 14 Sujet 7 (19/05) — Tech slugs STRICTS par client.
+  // Avant : fallback hardcodé QA_TESTING_TECH_SLUGS pour tout client P3
+  // → pollution multi-tenant. Cas observé : Kicklox (utilise Selenium) capté
+  // sur Digidemat (signature électronique, sujet sans rapport).
+  // Maintenant : on lit icp.buyingIntentTechSlugs strict. Absent → skip.
+  // Migration DTL : icp.buyingIntentTechSlugs = QA_TESTING_TECH_SLUGS via
+  // script. Pour tout futur client P3 sans tech-stack pertinent côté
+  // TheirStack (Digidemat, etc.), pas de config = pas de pollution.
+  const techSlugs = options.techSlugs ?? icp.buyingIntentTechSlugs;
   const limit = options.companiesLimit ?? 15;
 
-  if (techSlugs.length === 0) {
-    result.errors.push({ kind: "config", error: "techSlugs vide" });
+  if (!techSlugs || techSlugs.length === 0) {
+    console.warn(
+      `[theirstack-poller-bi.skip-no-tech-slugs] client=${clientId} (${client.name}) — icp.buyingIntentTechSlugs non configuré, skip pour éviter pollution multi-tenant`,
+    );
+    result.errors.push({
+      kind: "config",
+      error: "icp.buyingIntentTechSlugs absent — poller skip (pas de tech stack pertinent côté TheirStack pour ce client)",
+    });
     return result;
   }
 
