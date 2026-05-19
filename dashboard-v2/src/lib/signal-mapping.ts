@@ -28,6 +28,9 @@ const SOURCE_TO_SIGNAL: Record<string, string> = {
   // Signal 3 — Intent d'achat (P3)
   "theirstack.buying-intent": "P3",
   "theirstack.job-offer": "P3", // legacy job-offer désactivé mais legacy data
+  "boamp.tender": "P3",
+  "github.commit": "P3",
+  "apify.linkedin-jobs-signature": "P3", // Jour 9 Bombora FR — desc match signature keywords
 
   // Signal 4 — Adoption d'outil IA (P4)
   "apify.ai-adoption": "P4",

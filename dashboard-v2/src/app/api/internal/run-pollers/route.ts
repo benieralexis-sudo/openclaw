@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { pollTheirstackForClient, pollTheirstackBuyingIntentForClient, enrichRecentTriggersWithSirene } from "@/lib/theirstack-poller";
 import { pollApifyForClient } from "@/lib/apify-poller";
+import { pollLinkedinSignatureForClient } from "@/lib/apify-linkedin-signature-poller";
 import { qualifyPendingTriggers } from "@/lib/qualify-trigger";
 import { detectCombosForClient } from "@/lib/combo-detector";
 import { recomputePriorityScoresForClient } from "@/lib/priority-scoring-runner";
@@ -262,6 +263,28 @@ export async function POST(req: NextRequest) {
             await pollGithubForClient(c.id, { lookbackDays: 30 });
         } catch (e) {
           (entry as { githubError?: string }).githubError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // LinkedIn Jobs filtré signature : Bombora FR Jour 9 (19/05/2026).
+      // Query LARGE par mot-clé produit + filtre DESCRIPTION (pas titre) sur
+      // mots-clés signature du topic. Signal P3 : la boîte UTILISE déjà ou
+      // CHERCHE à utiliser le produit (ex job "Comptable" qui mentionne
+      // "rédige contrats sur DocuSign" = boîte cliente Yousign/DocuSign).
+      // Gate horaire 8h UTC : 1 run/jour, rotation 6 keywords (30 KW → 5 jours).
+      // Coût ~$1.50/run × 30 jours = ~$45/mois par client P3 actif.
+      const linkedinSigHour = new Date().getUTCHours();
+      if (
+        !isCapped &&
+        !dryRun &&
+        (source === "linkedin-signature" ||
+          (source === "all" && linkedinSigHour === 8))
+      ) {
+        try {
+          (entry as { linkedinSignature?: unknown }).linkedinSignature =
+            await pollLinkedinSignatureForClient(c.id);
+        } catch (e) {
+          (entry as { linkedinSignatureError?: string }).linkedinSignatureError =
             e instanceof Error ? e.message : String(e);
         }
       }

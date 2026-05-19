@@ -99,7 +99,7 @@ const LARGE_FR_CORPS_RE = /\b(Sanofi|Sword\s+Group|Astek|Capgemini|Atos|Sopra(\s
  * grand groupe FR hors ICP (>200p, pharma/retail/industrie lourde).
  * Centralisé pour les 3 adapters Apify — pattern aligné avec theirstack-poller.
  */
-function isFrenchCompany(name: string | undefined): boolean {
+export function isFrenchCompany(name: string | undefined): boolean {
   if (!name) return false;
   if (FOREIGN_LEGAL_RE.test(name)) return false;
   if (FOREIGN_BIG_NAMES_RE.test(name)) return false;
@@ -179,7 +179,7 @@ async function isHiringAlreadyCapturedCrossSource(
 // Mapping résultat actor → Trigger
 // ──────────────────────────────────────────────────────────────────────
 
-interface NormalizedJob {
+export interface NormalizedJob {
   jobTitle: string;
   companyName: string;
   url?: string;
@@ -269,7 +269,7 @@ function adaptFranceJobItem(item: FranceJobItem): NormalizedJob | null {
   };
 }
 
-interface LinkedinJobItem {
+export interface LinkedinJobItem {
   // Schéma actor curious_coder/linkedin-jobs-scraper (28/04/2026)
   title?: string;
   companyName?: string;
@@ -318,7 +318,7 @@ function splitName(full: string | undefined): { firstName?: string; lastName?: s
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
-function adaptLinkedinJobItem(item: LinkedinJobItem): NormalizedJob | null {
+export function adaptLinkedinJobItem(item: LinkedinJobItem): NormalizedJob | null {
   const title = item.title ?? item.jobTitle;
   const company = item.companyName ?? item.company;
   if (!title || !company) return null;

@@ -118,6 +118,9 @@ const SOURCE_TO_SIGNAL: Record<string, string> = {
   "francetravail.tech": "P1",
   "harvestapi.team-gap": "P2",
   "theirstack.buying-intent": "P3",
+  "boamp.tender": "P3",
+  "github.commit": "P3",
+  "apify.linkedin-jobs-signature": "P3",
   "apify.ai-adoption": "P4",
   "pappers.headcount-growth": "P5",
 };
