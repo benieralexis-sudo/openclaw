@@ -800,6 +800,20 @@ export async function POST(req: NextRequest) {
         // via Pappers/HarvestAPI puis re-câbler ici. Estimé 1-2h dev.
         // const pain = await detectDeclarativePainForClient(c.id, { limit: 20 });
         } // end if (isFullPipeline) — fin enrichissements coûteux
+        // 2e passe audit-heal APRÈS les enrichissements (Bombora FR Jour 14).
+        // Pattern : le 1er audit-heal (ligne ~455) tourne AVANT HarvestAPI DM /
+        // Pappers dirigeants / Kaspr. Conséquence : les Leads enrichis pendant
+        // ce run (firstName/lastName/SIRET/NAF nouvellement posés) restent
+        // INCOMPLETE jusqu'au cycle suivant. La 2e passe ici fait la
+        // transition INCOMPLETE→NEW dans le même cycle. Idempotent, gratuit.
+        if (!dryRun) {
+          try {
+            const heal2 = await auditAndHeal({ clientId: c.id });
+            (entry as { auditHeal2?: unknown }).auditHeal2 = heal2;
+          } catch (e) {
+            (entry as { auditHeal2Error?: string }).auditHeal2Error = e instanceof Error ? e.message : String(e);
+          }
+        }
         // Sync EmailActivity (écrites par bot IMAP poller hors dashboard)
         // → LeadActivity miroir pour timeline temps réel.
         try {
