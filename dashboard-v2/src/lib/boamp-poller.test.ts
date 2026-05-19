@@ -96,3 +96,32 @@ describe("boamp-poller: extractDonneesContact", () => {
     });
   });
 });
+
+import { cleanBuyerName } from "./boamp-poller";
+
+describe("boamp-poller: cleanBuyerName", () => {
+  it("strip suffix après tiret (sous-direction ministère)", () => {
+    expect(cleanBuyerName("VILLE DE PARIS - DCPA - SELT -SET")).toBe("VILLE DE PARIS");
+    expect(cleanBuyerName("MINARM - SGA - DCSID - SID ATL")).toBe("MINARM");
+  });
+
+  it("strip parenthèses + leur contenu (code département)", () => {
+    expect(cleanBuyerName("Syndicat Départemental de la Voirie (17)")).toBe(
+      "Syndicat Départemental de la Voirie",
+    );
+    expect(cleanBuyerName("CAP Territoires (60)")).toBe("CAP Territoires");
+  });
+
+  it("garde le nom tel quel si pas de suffixe ni parenthèse", () => {
+    expect(cleanBuyerName("DOCAPOSTE")).toBe("DOCAPOSTE");
+    expect(cleanBuyerName("Ville de Paris")).toBe("Ville de Paris");
+  });
+
+  it("normalise les espaces multiples post-strip", () => {
+    expect(cleanBuyerName("Mairie  de   Paris   (75)")).toBe("Mairie de Paris");
+  });
+
+  it("strip combiné parenthèses + suffixe", () => {
+    expect(cleanBuyerName("Mairie de Lyon (69) - DSI Direction")).toBe("Mairie de Lyon");
+  });
+});

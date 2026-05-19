@@ -73,6 +73,29 @@ interface BoampRecord {
 }
 
 /**
+ * Nettoie le nom d'acheteur BOAMP avant attribution SIRENE.
+ *
+ * Audit Jour 14 Bombora FR (19/05/2026) : 8 triggers BOAMP Digidemat sans SIRET
+ * → analyse révèle que les suffixes administratifs cassent la recherche gouv-api.
+ * Exemples confirmés en live :
+ *   - "VILLE DE PARIS - DCPA - SELT -SET" → 0 résultat, "VILLE DE PARIS" → SIREN OK
+ *   - "Syndicat Départemental de la Voirie (17)" → 0, sans "(17)" → SIREN OK
+ *   - "CAP Territoires (60)" → 0, sans "(60)" → match approximatif
+ * Stratégie :
+ *   1. Strip parenthèses + leur contenu (code département, sigle interne)
+ *   2. Strip tout après " - " (sous-direction de ministère/collectivité)
+ *   3. Normalize whitespace
+ * Exporté pour tests + réutilisation par d'autres pollers d'acheteurs publics.
+ */
+export function cleanBuyerName(raw: string): string {
+  return raw
+    .replace(/\s*\([^)]*\)\s*/g, " ") // parenthèses + contenu
+    .replace(/\s*-\s+.*$/, "") // tout après " - "
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Lit la liste de mots-clés BOAMP configurée pour le client.
  * Priorité : ClientSignalConfig P3 .boampKeywords > defaults.
  */
@@ -245,10 +268,22 @@ export async function pollBoampForClient(
     let siren: string | null = null;
     let companyNaf: string | null = null;
     try {
-      const sirene = await attributeSirene(record.nomacheteur, {
+      // Essai 1 : nom brut
+      let sirene = await attributeSirene(record.nomacheteur, {
         ville: contact.ville,
         code_postal: contact.cp,
       });
+      // Essai 2 : nom nettoyé (suffixes administratifs / parenthèses code dept)
+      // si le brut a échoué. Évite ~50% des "no_siret" sur acheteurs publics.
+      if (!sirene) {
+        const cleaned = cleanBuyerName(record.nomacheteur);
+        if (cleaned && cleaned !== record.nomacheteur) {
+          sirene = await attributeSirene(cleaned, {
+            ville: contact.ville,
+            code_postal: contact.cp,
+          });
+        }
+      }
       if (sirene) {
         siren = sirene.siren;
         companyNaf = sirene.code_naf ?? null;
