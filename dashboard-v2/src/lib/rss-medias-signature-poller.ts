@@ -115,7 +115,10 @@ async function fetchFeed(feed: {
     const parsed = xmlParser.parse(xml) as Record<string, unknown>;
     const rss = parsed.rss as { channel?: { item?: unknown } } | undefined;
     const atomFeed = parsed.feed as { entry?: unknown } | undefined;
-    const itemsRaw = rss?.channel?.item ?? atomFeed?.entry ?? [];
+    // RSS 1.0 / RDF (ex: Le Monde Informatique) : <rdf:RDF><item>…</item></rdf:RDF>
+    const rdf = parsed["rdf:RDF"] as { item?: unknown } | undefined;
+    const itemsRaw =
+      rss?.channel?.item ?? atomFeed?.entry ?? rdf?.item ?? [];
     const items = Array.isArray(itemsRaw) ? itemsRaw : [itemsRaw];
     return items.map((rawItem) => {
       const item = rawItem as Record<string, unknown>;

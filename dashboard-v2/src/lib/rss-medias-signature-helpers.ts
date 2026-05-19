@@ -264,6 +264,13 @@ export const MEDIAS_FEEDS: Array<{ name: string; url: string }> = [
   { name: "maddyness", url: "https://www.maddyness.com/feed/" },
   { name: "frenchweb", url: "https://www.frenchweb.fr/feed" },
   { name: "journaldunet", url: "https://www.journaldunet.com/rss/" },
-  // usine-digitale.fr/rss : testé live 19/05/2026 → HTTP 403 (Cloudflare),
-  // retiré. À ré-essayer plus tard si on trouve un endpoint qui passe.
+  // Jour 12 (19/05/2026) — Ajout 2 feeds sectoriels secteur public + tech B2B
+  // ciblés pour Digidemat. Acteurs Publics teste mais flux vide. Le Moniteur
+  // et Gazette des Communes en 403 Cloudflare.
+  { name: "weka", url: "https://www.weka.fr/actualite/rss/" },
+  {
+    name: "lemondeinformatique",
+    url: "https://www.lemondeinformatique.fr/rss/rss.xml",
+  },
+  // usine-digitale.fr/rss : 403 Cloudflare. acteurspublics.fr/feed/ : flux vide.
 ];
