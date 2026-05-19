@@ -31,6 +31,7 @@ const SOURCE_TO_SIGNAL: Record<string, string> = {
   "boamp.tender": "P3",
   "github.commit": "P3",
   "apify.linkedin-jobs-signature": "P3", // Jour 9 Bombora FR — desc match signature keywords
+  "rss-medias.signature": "P3", // Jour 10 Bombora FR — RSS médias FR adoption-pattern
 
   // Signal 4 — Adoption d'outil IA (P4)
   "apify.ai-adoption": "P4",

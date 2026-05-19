@@ -38,6 +38,7 @@ import { detectGrowthAlertsForClient } from "@/lib/growth-detector";
 import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
 // import { pollFranceTravailForClient } from "@/lib/francetravail-poller"; // désactivé 18/05/2026 — voir bloc commenté plus bas
 import { pollRssLeveesForClient } from "@/lib/rss-levees-poller";
+import { pollRssMediasSignatureForClient } from "@/lib/rss-medias-signature-poller";
 import { pollBodaccForClient } from "@/lib/bodacc-poller";
 import { pollBoampForClient } from "@/lib/boamp-poller";
 import { pollGithubForClient } from "@/lib/github-poller";
@@ -285,6 +286,24 @@ export async function POST(req: NextRequest) {
             await pollLinkedinSignatureForClient(c.id);
         } catch (e) {
           (entry as { linkedinSignatureError?: string }).linkedinSignatureError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // RSS médias FR signature : Bombora FR Jour 10 (19/05/2026).
+      // Fetch Maddyness/Frenchweb/JDN/usine-digitale et filtre articles qui
+      // (a) mentionnent ≥1 mot-clé signature ET (b) ont un sujet client clair
+      // (verbe d'adoption détecté). Signal P3, 100% gratuit, 1×/jour 8h UTC.
+      const rssMediasHour = new Date().getUTCHours();
+      if (
+        !dryRun &&
+        (source === "rss-medias-signature" ||
+          (source === "all" && rssMediasHour === 8))
+      ) {
+        try {
+          (entry as { rssMediasSignature?: unknown }).rssMediasSignature =
+            await pollRssMediasSignatureForClient(c.id);
+        } catch (e) {
+          (entry as { rssMediasSignatureError?: string }).rssMediasSignatureError =
             e instanceof Error ? e.message : String(e);
         }
       }
