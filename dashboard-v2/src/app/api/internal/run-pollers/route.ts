@@ -138,20 +138,21 @@ export async function POST(req: NextRequest) {
       summary.push(entry);
       continue;
     }
-    // V1 18/05 — Cap dur : si client GROWTH a épuisé ses crédits (balance ≤ 0),
-    // skip TOUS les pollers payants ET enrichissements pour ce client. Les
-    // pollers gratuits (BODACC, INPI, RSS-levees, FranceTravail public) ne
-    // sont PAS skippés — ils détectent les signaux publics universels et
-    // alimentent le backlog qui sera traité au prochain reset 30j ou achat
-    // d'overage. Pas de qualif Opus ni d'enrichissement Kaspr/FullEnrich/
-    // HarvestAPI/Pappers tant que cap reached.
-    const isCapped = c.plan === "GROWTH" && c.creditsBalance <= 0;
-    if (isCapped) {
-      console.log(
-        `[run-pollers] client=${c.name} CAP_REACHED (balance=${c.creditsBalance}) — skip pollers payants + enrichissements`,
-      );
-      entry.capReached = true;
-    }
+    // V1 18/05 — Cap dur GROWTH si creditsBalance ≤ 0 → skip pollers payants
+    // + enrichissements. Logique conservée commentée pour réactivation rapide.
+    //
+    // DÉSACTIVÉ 19/05/2026 (Jour 14 Bombora FR, post-pivot Surge Score) :
+    // Sources signaux désormais 100% gratuites (BOAMP/GitHub/FT/TED/RSS/Apify).
+    // Seul coût marginal = brief Opus (~0.05€/lead × 60 leads ≈ 3€/client/mois)
+    // → marge >99% à 390€ revenu. Le coupe-circuit bloquait Digidemat (PROSPECT
+    // jamais initialisé creditsBalance) sans nécessité business. Le quota reste
+    // suivi (creditsBalance, pepitesThisMonth) à des fins de promesse commerciale
+    // — pas comme blocker. Si on revient à un modèle freemium strict plus tard
+    // (ex: tier 99€/mois avec quota 20 leads dur), décommenter les 2 lignes.
+    //
+    // const isCapped = c.plan === "GROWTH" && c.creditsBalance <= 0;
+    // if (isCapped) { entry.capReached = true; console.log(...); }
+    const isCapped = false;
     try {
       // TheirStack job-offer DÉSACTIVÉ jusqu'au 26/05 (audit 10/05 19h) —
       // quota tendu 4701/5200 cr (90%), 16j restants à 31 cr/j budget max.
