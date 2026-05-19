@@ -124,6 +124,38 @@ function buildWhereClause(keywords: string[], sinceDate: string): string {
 }
 
 /**
+ * Filtre déterministe côté Node : ne garde que les records dont l'`objet`
+ * contient effectivement au moins un keyword.
+ *
+ * Jour 14 Sujet 8 (19/05/2026) — Bug racine BOAMP : la requête API
+ * OpenDataSoft `search(objet, "kw")` matche en réalité sur un index
+ * full-text plus large que le champ `objet` lui-même (probablement le
+ * JSON `donnees` qui contient le règlement de consultation complet).
+ *
+ * Conséquence pré-fix : sur 25 BOAMP Digidemat audités, 22 (88%) n'avaient
+ * AUCUN keyword dans `objet` — ils ont matché parce que le règlement
+ * mentionne "offres déposées avec signature électronique" (procédure
+ * standard de tout marché public dématérialisé). Exemples concrets en
+ * verdict Opus NON : déménagement bureaux, HVAC, protections hygiéniques,
+ * conseil achat espaces pub, fournitures alimentaires.
+ *
+ * Filtre côté Node = garde-fou indépendant du comportement OpenDataSoft.
+ * Exporté pour les tests.
+ */
+export function filterRecordsByObjetKeyword(
+  records: BoampRecord[],
+  keywords: string[],
+): { kept: BoampRecord[]; dropped: number } {
+  if (keywords.length === 0) return { kept: records, dropped: 0 };
+  const kwsLower = keywords.map((k) => k.toLowerCase());
+  const kept = records.filter((r) => {
+    const objet = (r.objet ?? "").toLowerCase();
+    return kwsLower.some((k) => objet.includes(k));
+  });
+  return { kept, dropped: records.length - kept.length };
+}
+
+/**
  * Fetch les records BOAMP correspondant à la requête.
  */
 async function fetchBoampRecords(
@@ -155,7 +187,14 @@ async function fetchBoampRecords(
     throw new Error(`BOAMP HTTP ${response.status}`);
   }
   const data = (await response.json()) as { results?: BoampRecord[] };
-  return data.results ?? [];
+  const raw = data.results ?? [];
+  const { kept, dropped } = filterRecordsByObjetKeyword(raw, keywords);
+  if (dropped > 0) {
+    console.log(
+      `[boamp-poller.objet-filter] dropped ${dropped}/${raw.length} records — aucun keyword dans objet (API OpenDataSoft full-text match hors champ objet)`,
+    );
+  }
+  return kept;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { filterRecordsByObjetKeyword, cleanBuyerName } from "./boamp-poller";
 
 // Helpers purs ré-implémentés ici pour test (mêmes fonctions que dans
 // boamp-poller.ts, gardées privées dans le poller pour ne pas exporter
@@ -97,8 +98,6 @@ describe("boamp-poller: extractDonneesContact", () => {
   });
 });
 
-import { cleanBuyerName } from "./boamp-poller";
-
 describe("boamp-poller: cleanBuyerName", () => {
   it("strip suffix après tiret (sous-direction ministère)", () => {
     expect(cleanBuyerName("VILLE DE PARIS - DCPA - SELT -SET")).toBe("VILLE DE PARIS");
@@ -123,5 +122,66 @@ describe("boamp-poller: cleanBuyerName", () => {
 
   it("strip combiné parenthèses + suffixe", () => {
     expect(cleanBuyerName("Mairie de Lyon (69) - DSI Direction")).toBe("Mairie de Lyon");
+  });
+});
+
+describe("boamp-poller: filterRecordsByObjetKeyword (Jour 14 Sujet 8)", () => {
+  it("garde uniquement les records dont l'objet contient un keyword", () => {
+    const records = [
+      { objet: "Marché de signature électronique pour la commune" },
+      { objet: "Fourniture de denrées alimentaires pour la cantine" },
+      { objet: "Acquisition d'une plateforme de signature en ligne" },
+    ];
+    const { kept, dropped } = filterRecordsByObjetKeyword(records, [
+      "signature électronique",
+      "signature en ligne",
+    ]);
+    expect(kept).toHaveLength(2);
+    expect(dropped).toBe(1);
+    expect(kept[0]?.objet).toContain("signature électronique");
+    expect(kept[1]?.objet).toContain("signature en ligne");
+  });
+
+  it("ne garde rien si aucun objet ne contient de keyword (cas réel 22/25 Digidemat 19/05)", () => {
+    const records = [
+      { objet: "Prestations de déménagement physique" },
+      { objet: "Marché d'exploitation génie climatique" },
+      { objet: "Conseil stratégique achat espaces publicitaires" },
+    ];
+    const { kept, dropped } = filterRecordsByObjetKeyword(records, [
+      "signature électronique",
+      "parapheur électronique",
+    ]);
+    expect(kept).toHaveLength(0);
+    expect(dropped).toBe(3);
+  });
+
+  it("matching case-insensitive", () => {
+    const records = [
+      { objet: "Achat d'une plateforme de SIGNATURE Électronique" },
+    ];
+    const { kept } = filterRecordsByObjetKeyword(records, ["signature électronique"]);
+    expect(kept).toHaveLength(1);
+  });
+
+  it("garde tout si keywords vide (no-op safe)", () => {
+    const records = [
+      { objet: "Marché A" },
+      { objet: "Marché B" },
+    ];
+    const { kept, dropped } = filterRecordsByObjetKeyword(records, []);
+    expect(kept).toHaveLength(2);
+    expect(dropped).toBe(0);
+  });
+
+  it("skip les records sans objet", () => {
+    const records = [
+      { objet: "Signature électronique" },
+      { /* pas d'objet */ },
+      { objet: "" },
+    ];
+    const { kept, dropped } = filterRecordsByObjetKeyword(records, ["signature électronique"]);
+    expect(kept).toHaveLength(1);
+    expect(dropped).toBe(2);
   });
 });
