@@ -39,6 +39,7 @@ import { scanQaStuckForClient } from "@/lib/qa-stuck-scanner";
 // import { pollFranceTravailForClient } from "@/lib/francetravail-poller"; // désactivé 18/05/2026 — voir bloc commenté plus bas
 import { pollRssLeveesForClient } from "@/lib/rss-levees-poller";
 import { pollRssMediasSignatureForClient } from "@/lib/rss-medias-signature-poller";
+import { pollFrancetravailSignatureForClient } from "@/lib/francetravail-signature-poller";
 import { pollBodaccForClient } from "@/lib/bodacc-poller";
 import { pollBoampForClient } from "@/lib/boamp-poller";
 import { pollGithubForClient } from "@/lib/github-poller";
@@ -304,6 +305,25 @@ export async function POST(req: NextRequest) {
             await pollRssMediasSignatureForClient(c.id);
         } catch (e) {
           (entry as { rssMediasSignatureError?: string }).rssMediasSignatureError =
+            e instanceof Error ? e.message : String(e);
+        }
+      }
+      // France Travail signature : Bombora FR Jour 11 (19/05/2026).
+      // Symétrique du Jour 9 LinkedIn Jobs mais 100% gratuit via API gouv FT.
+      // Filtre côté API via motsCles (full-text titre+desc). SIRET fourni
+      // inline → pas de gate enrichissement. Blacklist Bombora-spécifique
+      // (PAS les collectivités — cibles Digidemat). 1×/jour 8h UTC.
+      const ftSignatureHour = new Date().getUTCHours();
+      if (
+        !dryRun &&
+        (source === "francetravail-signature" ||
+          (source === "all" && ftSignatureHour === 8))
+      ) {
+        try {
+          (entry as { francetravailSignature?: unknown }).francetravailSignature =
+            await pollFrancetravailSignatureForClient(c.id);
+        } catch (e) {
+          (entry as { francetravailSignatureError?: string }).francetravailSignatureError =
             e instanceof Error ? e.message : String(e);
         }
       }

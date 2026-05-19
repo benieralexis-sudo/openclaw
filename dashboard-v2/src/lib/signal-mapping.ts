@@ -32,6 +32,7 @@ const SOURCE_TO_SIGNAL: Record<string, string> = {
   "github.commit": "P3",
   "apify.linkedin-jobs-signature": "P3", // Jour 9 Bombora FR — desc match signature keywords
   "rss-medias.signature": "P3", // Jour 10 Bombora FR — RSS médias FR adoption-pattern
+  "francetravail.signature": "P3", // Jour 11 Bombora FR — FT API motsCles signature
 
   // Signal 4 — Adoption d'outil IA (P4)
   "apify.ai-adoption": "P4",

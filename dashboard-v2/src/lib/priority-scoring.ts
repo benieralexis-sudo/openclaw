@@ -122,6 +122,7 @@ const SOURCE_TO_SIGNAL: Record<string, string> = {
   "github.commit": "P3",
   "apify.linkedin-jobs-signature": "P3",
   "rss-medias.signature": "P3",
+  "francetravail.signature": "P3",
   "apify.ai-adoption": "P4",
   "pappers.headcount-growth": "P5",
 };
