@@ -36,7 +36,7 @@ import { hasGenericSignatureSignal } from "@/lib/signature-vendor-names";
 // Bombora FR Jour 14 — réutilise le helper introduit dans boamp-poller pour
 // nettoyer les noms d'acheteurs publics FR (suffixes administratifs +
 // parenthèses code département) avant attribution SIRENE.
-import { cleanBuyerName } from "@/lib/boamp-poller";
+import { cleanBuyerName, extractFirstSignificantWord } from "@/lib/boamp-poller";
 
 const TED_API = "https://api.ted.europa.eu/v3/notices/search";
 
@@ -250,6 +250,14 @@ export async function pollTedEuropaSignatureForClient(
         const cleaned = cleanBuyerName(buyerName);
         if (cleaned && cleaned !== buyerName) {
           sirene = await attributeSirene(cleaned, { ville: city || undefined });
+        }
+      }
+      // Essai 3 : 1er mot/sigle significatif (Sujet 12 — 20/05/2026, symétrie boamp).
+      if (!sirene) {
+        const firstWord = extractFirstSignificantWord(buyerName);
+        const cleanedAlready = cleanBuyerName(buyerName);
+        if (firstWord && firstWord !== cleanedAlready && firstWord !== buyerName) {
+          sirene = await attributeSirene(firstWord, { ville: city || undefined });
         }
       }
       if (sirene) {

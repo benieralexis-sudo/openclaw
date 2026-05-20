@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterRecordsByObjetKeyword, cleanBuyerName } from "./boamp-poller";
+import { filterRecordsByObjetKeyword, cleanBuyerName, extractFirstSignificantWord, objetContainsKeyword, normalizeForMatch } from "./boamp-poller";
 
 // Helpers purs ré-implémentés ici pour test (mêmes fonctions que dans
 // boamp-poller.ts, gardées privées dans le poller pour ne pas exporter
@@ -183,5 +183,93 @@ describe("boamp-poller: filterRecordsByObjetKeyword (Jour 14 Sujet 8)", () => {
     const { kept, dropped } = filterRecordsByObjetKeyword(records, ["signature électronique"]);
     expect(kept).toHaveLength(1);
     expect(dropped).toBe(2);
+  });
+});
+
+describe("boamp-poller: extractFirstSignificantWord (Jour 14 Sujet 12)", () => {
+  it("extrait BRL depuis 'BRL DJRSE'", () => {
+    expect(extractFirstSignificantWord("BRL DJRSE")).toBe("BRL");
+  });
+
+  it("extrait PFC depuis 'PFC SO'", () => {
+    expect(extractFirstSignificantWord("PFC SO")).toBe("PFC");
+  });
+
+  it("extrait SID depuis 'SID ATLANTIQUE'", () => {
+    expect(extractFirstSignificantWord("SID ATLANTIQUE")).toBe("SID");
+  });
+
+  it("ignore les mots de liaison (de/des/du/la/le/les/et)", () => {
+    expect(extractFirstSignificantWord("Direction de la Défense Atlantique")).toBe("Direction");
+    expect(extractFirstSignificantWord("le DGFiP")).toBe("DGFiP");
+    expect(extractFirstSignificantWord("Les Services du Premier Ministre")).toBe("Services");
+  });
+
+  it("ignore mots <3 chars", () => {
+    expect(extractFirstSignificantWord("SO DI Préfecture")).toBe("Préfecture");
+  });
+
+  it("nettoie d'abord parenthèses/suffixes (réutilise cleanBuyerName)", () => {
+    expect(extractFirstSignificantWord("Syndicat Départemental de la Voirie (17)")).toBe("Syndicat");
+    expect(extractFirstSignificantWord("VILLE DE PARIS - DCPA - SELT")).toBe("VILLE");
+  });
+
+  it("retourne null si aucun mot significatif", () => {
+    expect(extractFirstSignificantWord("de la et")).toBeNull();
+    expect(extractFirstSignificantWord("")).toBeNull();
+    expect(extractFirstSignificantWord("a")).toBeNull();
+  });
+});
+
+describe("boamp-poller: objetContainsKeyword stemming (Jour 14 Sujet 13)", () => {
+  it("matche le keyword exact case-insensitive", () => {
+    expect(objetContainsKeyword("Acquisition d'un parapheur", "parapheur")).toBe(true);
+    expect(objetContainsKeyword("ACQUISITION D'UN PARAPHEUR", "parapheur")).toBe(true);
+  });
+
+  it("matche malgré perte d'accents (cas réel BOAMP en majuscules sans diacritiques)", () => {
+    expect(objetContainsKeyword("CACHETS ELECTRONIQUES", "cachet électronique")).toBe(true);
+    expect(objetContainsKeyword("SIGNATURE ELECTRONIQUE", "signature électronique")).toBe(true);
+    expect(objetContainsKeyword("DEMATERIALISATION DES DOCUMENTS", "dématérialisation")).toBe(true);
+  });
+
+  it("matche le pluriel 's' final (cas UCANSS 13/05)", () => {
+    const ucanss = "FOURNITURE DE CERTIFICATS DE SIGNATURES ET DE CACHETS ELECTRONIQUES POUR LES ORGANISMES DE SECURITE SOCIALE";
+    expect(objetContainsKeyword(ucanss, "certificat électronique")).toBe(true);
+    expect(objetContainsKeyword(ucanss, "cachet électronique")).toBe(true);
+    expect(objetContainsKeyword(ucanss, "signature électronique")).toBe(true);
+  });
+
+  it("matche les pluriels sur expressions à 2 mots", () => {
+    expect(objetContainsKeyword("acquisition de parapheurs électroniques", "parapheur électronique")).toBe(true);
+    expect(objetContainsKeyword("certificats numériques", "certificat numérique")).toBe(true);
+  });
+
+  it("ne matche PAS si le keyword n'est nulle part dans l'objet", () => {
+    expect(objetContainsKeyword("Marché de déménagement physique", "signature électronique")).toBe(false);
+    expect(objetContainsKeyword("Fourniture de produits alimentaires", "parapheur")).toBe(false);
+  });
+
+  it("acronyme GED reste matchable strict", () => {
+    expect(objetContainsKeyword("solution de GED", "GED")).toBe(true);
+    expect(objetContainsKeyword("GESTION ELECTRONIQUE DES DOCUMENTS", "gestion électronique des documents")).toBe(true);
+  });
+
+  it("normalizeForMatch : lowercase + strip diacritiques", () => {
+    expect(normalizeForMatch("Électronique Été")).toBe("electronique ete");
+    expect(normalizeForMatch("DÉMATÉRIALISATION")).toBe("dematerialisation");
+  });
+});
+
+describe("boamp-poller: filterRecordsByObjetKeyword post-Sujet 13", () => {
+  it("garde UCANSS (vrai cas live 13/05)", () => {
+    const records = [
+      { objet: "FOURNITURE DE CERTIFICATS DE SIGNATURES ET DE CACHETS ELECTRONIQUES POUR LES ORGANISMES DE SECURITE SOCIALE" },
+      { objet: "Acquisition d'un logiciel GED transverse CNFPT" },
+      { objet: "Marché de déménagement physique" },
+    ];
+    const { kept, dropped } = filterRecordsByObjetKeyword(records as any, ["certificat électronique", "GED"]);
+    expect(kept).toHaveLength(2);
+    expect(dropped).toBe(1);
   });
 });

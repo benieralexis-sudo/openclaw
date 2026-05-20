@@ -96,6 +96,37 @@ export function cleanBuyerName(raw: string): string {
 }
 
 /**
+ * Extrait le premier mot/sigle significatif d'un nom d'acheteur public.
+ * Jour 14 Sujet 12 (20/05/2026) — Fallback 3 pour attributeSirene.
+ *
+ * Pattern observé Digidemat 19/05 sur BOAMP sans SIRET résolu :
+ *   - "BRL DJRSE" → "DJRSE" est un département interne, mais "BRL" = SIREN 550200661
+ *   - "PFC SO" → "PFC" peut matcher une entité-mère
+ *   - "SID ATLANTIQUE" → "SID" idem
+ *
+ * Stratégie : prendre le premier mot ≥ 3 caractères, lowercase blacklist
+ * (mots de liaison fr/en : "de", "des", "du", "la", "le", "les", "et", "à",
+ * "of", "the"). Si rien trouvé → retourner null pour skip cette tentative.
+ *
+ * Note : on ne retourne PAS raw si pas de premier mot extractible (déjà
+ * essayé tel quel). Évite la boucle infinie attributeSirene.
+ */
+export function extractFirstSignificantWord(raw: string): string | null {
+  const STOP_WORDS = new Set([
+    "de", "des", "du", "la", "le", "les", "et", "à", "of", "the",
+  ]);
+  const cleaned = cleanBuyerName(raw);
+  const words = cleaned.split(/\s+/).filter((w) => w.length > 0);
+  for (const w of words) {
+    const lower = w.toLowerCase();
+    if (lower.length < 3) continue;
+    if (STOP_WORDS.has(lower)) continue;
+    return w;
+  }
+  return null;
+}
+
+/**
  * Lit la liste de mots-clés BOAMP configurée pour le client.
  * Priorité : ClientSignalConfig P3 .boampKeywords > defaults.
  */
@@ -124,6 +155,74 @@ function buildWhereClause(keywords: string[], sinceDate: string): string {
 }
 
 /**
+ * Normalise pour matching stemming-aware : lowercase + retire diacritiques
+ * (accents). Permet de matcher "certificats electroniques" contre keyword
+ * "certificat électronique".
+ *
+ * Jour 14 Sujet 13 (20/05/2026) — Bug critique audit Alexis :
+ * l'API OpenDataSoft fait du stemming côté serveur (matche pluriels +
+ * accents normalisés via Elasticsearch), mais notre filtre Node faisait
+ * juste `toLowerCase().includes()` qui ratait :
+ *   - "certificats electroniques" vs "certificat électronique" (pluriel + accent)
+ *   - "parapheurs" vs "parapheur" (pluriel)
+ * → ~80% des vrais positifs étaient droppés. Cas réel : UCANSS 13/05
+ * "FOURNITURE DE CERTIFICATS DE SIGNATURES ET DE CACHETS ELECTRONIQUES"
+ * (vraie cible Digidemat) — droppé.
+ *
+ * Exporté pour tests.
+ */
+export function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, ""); // strip combining marks (NFD diacritiques)
+}
+
+/**
+ * Vérifie si `objet` contient `keyword`, en tolérant :
+ *   1. Case insensitive
+ *   2. Diacritiques perdus (titre BOAMP en MAJ sans accents)
+ *   3. Pluriels "s" final
+ *   4. Mots du keyword séparés par d'autres mots dans l'objet
+ *      (cas UCANSS "certificats de signatures ET DE cachets electroniques"
+ *      matche "certificat électronique")
+ *
+ * Algo :
+ *   - Substring complet d'abord (rapide pour le cas commun)
+ *   - Sinon : décompose le keyword en mots significatifs (≥4 chars),
+ *     vérifie que CHAQUE mot apparaît quelque part dans l'objet (avec
+ *     tolérance pluriel s final via prefix match).
+ *
+ * Limite : peut générer faux positifs si keyword 2 mots dont chacun
+ * apparaît mais dans un contexte non-lié. Opus filtre derrière.
+ *
+ * Exporté pour tests.
+ */
+export function objetContainsKeyword(objet: string, keyword: string): boolean {
+  const o = normalizeForMatch(objet);
+  const k = normalizeForMatch(keyword);
+
+  // 1. Substring direct
+  if (o.includes(k)) return true;
+
+  // 2. Si keyword en 1 seul mot court (acronyme type "GED"), strict
+  const kWords = k.split(/\s+/).filter((w) => w.length > 0);
+  if (kWords.length === 1 && k.length <= 4) return false;
+
+  // 3. Décomposition : chaque mot significatif (≥4 chars) du keyword doit
+  //    apparaître dans l'objet (substring, tolérance pluriel inclus dans includes)
+  const oWords = o.split(/\s+/);
+  const allFound = kWords.every((kw) => {
+    if (kw.length < 4) return true; // ignore stop words / particules
+    return oWords.some((ow) => {
+      // ow contient kw (parapheur ↔ parapheurs) ou ow + "s" inclus dans contexte
+      return ow.includes(kw) || ow === kw;
+    });
+  });
+  return allFound;
+}
+
+/**
  * Filtre déterministe côté Node : ne garde que les records dont l'`objet`
  * contient effectivement au moins un keyword.
  *
@@ -132,14 +231,10 @@ function buildWhereClause(keywords: string[], sinceDate: string): string {
  * full-text plus large que le champ `objet` lui-même (probablement le
  * JSON `donnees` qui contient le règlement de consultation complet).
  *
- * Conséquence pré-fix : sur 25 BOAMP Digidemat audités, 22 (88%) n'avaient
- * AUCUN keyword dans `objet` — ils ont matché parce que le règlement
- * mentionne "offres déposées avec signature électronique" (procédure
- * standard de tout marché public dématérialisé). Exemples concrets en
- * verdict Opus NON : déménagement bureaux, HVAC, protections hygiéniques,
- * conseil achat espaces pub, fournitures alimentaires.
+ * Sujet 13 (20/05/2026) — Le filtre utilise maintenant `objetContainsKeyword`
+ * qui tolère accents + pluriel "s" (cas UCANSS "certificats de signatures
+ * et cachets electroniques" matche keyword "certificat électronique").
  *
- * Filtre côté Node = garde-fou indépendant du comportement OpenDataSoft.
  * Exporté pour les tests.
  */
 export function filterRecordsByObjetKeyword(
@@ -147,10 +242,9 @@ export function filterRecordsByObjetKeyword(
   keywords: string[],
 ): { kept: BoampRecord[]; dropped: number } {
   if (keywords.length === 0) return { kept: records, dropped: 0 };
-  const kwsLower = keywords.map((k) => k.toLowerCase());
   const kept = records.filter((r) => {
-    const objet = (r.objet ?? "").toLowerCase();
-    return kwsLower.some((k) => objet.includes(k));
+    const objet = r.objet ?? "";
+    return keywords.some((k) => objetContainsKeyword(objet, k));
   });
   return { kept, dropped: records.length - kept.length };
 }
@@ -318,6 +412,20 @@ export async function pollBoampForClient(
         const cleaned = cleanBuyerName(record.nomacheteur);
         if (cleaned && cleaned !== record.nomacheteur) {
           sirene = await attributeSirene(cleaned, {
+            ville: contact.ville,
+            code_postal: contact.cp,
+          });
+        }
+      }
+      // Essai 3 : premier mot/sigle significatif (Sujet 12 — 20/05/2026).
+      // Pour les sigles internes "BRL DJRSE", "PFC SO", "SID ATLANTIQUE"...
+      // où le 2e mot est un département interne, le 1er mot peut matcher
+      // l'entité-mère (BRL Nîmes SIREN 550200661 confirmé live 19/05).
+      if (!sirene) {
+        const firstWord = extractFirstSignificantWord(record.nomacheteur);
+        const cleanedAlready = cleanBuyerName(record.nomacheteur);
+        if (firstWord && firstWord !== cleanedAlready && firstWord !== record.nomacheteur) {
+          sirene = await attributeSirene(firstWord, {
             ville: contact.ville,
             code_postal: contact.cp,
           });
