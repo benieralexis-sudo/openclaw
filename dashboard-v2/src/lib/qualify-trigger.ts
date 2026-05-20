@@ -810,6 +810,32 @@ export async function qualifyTrigger(
     }
   }
 
+  // 3-ter. PILIER 2 (20/05/2026) — INTENT STRENGTH GATE.
+  //
+  // Calcule la force du signal d'achat (1-5) basée sur sourceCode + âge.
+  // Politique : un verdict OUI sur signal faible (intentStrength < 3, ex :
+  // commit GitHub, dépôt INPI) est downgrade en ENRICH — l'achat n'est pas
+  // assez signalé. Évite de livrer des leads sur prétexte.
+  //
+  // Calibrage basé sur l'analyse prod 30j (20/05/2026) :
+  //   - boamp.tender = 100% leads NEW utiles → strength 5
+  //   - apify.linkedin-jobs = 79% utiles → strength 3
+  //   - github.commit = 0% utile → strength 1 → downgrade
+  const { computeIntentStrength, INTENT_STRENGTH_MIN_THRESHOLD } = await import(
+    "@/lib/intent-strength"
+  );
+  const intentStrength = computeIntentStrength(
+    triggerLite.sourceCode,
+    triggerLite.publishedAt,
+  );
+  if (verdict === "OUI" && intentStrength < INTENT_STRENGTH_MIN_THRESHOLD) {
+    console.log(
+      `[qualify-trigger.intent-strength] ${triggerId}: verdict OUI conf=${conf} mais intentStrength=${intentStrength} (source=${triggerLite.sourceCode} age=${triggerLite.publishedAt ? ((Date.now() - triggerLite.publishedAt.getTime()) / 86_400_000).toFixed(0) : "?"}j) < seuil ${INTENT_STRENGTH_MIN_THRESHOLD} → downgrade ENRICH`,
+    );
+    verdict = "ENRICH";
+    conf = Math.min(conf, 55);
+  }
+
   // 4. Mapping verdict + confidence → score 0-10 (compat UX existante).
   // Le score 0-10 reste utilisé par : tri dashboard, gates enrichissement
   // Kaspr/FullEnrich/HarvestAPI, isHot, alerts, credits, brief builder.
@@ -895,6 +921,9 @@ export async function qualifyTrigger(
       ...(status === "IGNORED"
         ? { ignoredAt: new Date(), ignoredReason: reason.slice(0, 500) }
         : {}),
+      // Pilier 2 (20/05/2026) — persist intentStrength pour audit + filtrage
+      // dashboard. Toujours calculé, même si verdict NON (utile pour analyse).
+      intentStrength,
       // Pilier 3 (20/05/2026) — anti-filter "déjà équipé". Sur verdict OUI,
       // on pose PENDING : le runner async (equipment-detector-runner.ts)
       // dépile et résout en NONE/EQUIPPED/UNKNOWN. EQUIPPED → IGNORED.

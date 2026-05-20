@@ -261,6 +261,14 @@ model Trigger {
   equipmentStatus              EquipmentStatus?
   equipmentDetails             Json? // { competitor, source, url, matchedText, confidence, evidence[] }
   equipmentCheckedAt           DateTime?
+  // Pilier 2 (20/05/2026) — force du signal d'achat (1-5).
+  // 5 = appel d'offres BOAMP/TED récent (engagement budgétaire).
+  // 4 = recrutement décideur signature/projet ou levée fonds.
+  // 3 = recrutement tech large ou augmentation capital.
+  // 2 = mention presse ou signal indirect.
+  // 1 = très faible (commit GitHub, dépôt marque INPI).
+  // Seuil livraison Pilier 2 : intentStrength >= 3.
+  intentStrength               Int?
   // Soft delete
   createdAt                    DateTime      @default(now())
   updatedAt                    DateTime      @updatedAt
