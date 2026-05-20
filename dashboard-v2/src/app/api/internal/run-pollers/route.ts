@@ -806,6 +806,32 @@ export async function POST(req: NextRequest) {
         // via Pappers/HarvestAPI puis re-câbler ici. Estimé 1-2h dev.
         // const pain = await detectDeclarativePainForClient(c.id, { limit: 20 });
         } // end if (isFullPipeline) — fin enrichissements coûteux
+        // ────────────────────────────────────────────────────────────
+        // Pilier 3 (20/05/2026) — anti-filter "déjà équipé d'un concurrent".
+        //
+        // Promesse produit : "On trouve les boîtes FR qui vont acheter, ET
+        // qui ne l'ont pas déjà." Ce runner dépile les Triggers verdict OUI
+        // avec equipmentStatus=PENDING et résout en :
+        //   - NONE     : aucun concurrent détecté → livraison OK
+        //   - EQUIPPED : déjà équipé d'un concurrent → IGNORED + Lead ARCHIVED
+        //   - UNKNOWN  : impossible de vérifier (site inaccessible) → Lead INCOMPLETE
+        //
+        // Tourne sur source=all ET source=cron (gratuit, HTTP scraping
+        // uniquement). Cap 25 checks/run × N clients pour limiter la durée
+        // (~5-10s/check). Cache TTL implicite via equipmentCheckedAt.
+        // ────────────────────────────────────────────────────────────
+        if (!dryRun && (source === "all" || source === "cron")) {
+          try {
+            const { runEquipmentDetectorForClient } = await import(
+              "@/lib/equipment-detector-runner"
+            );
+            const eq = await runEquipmentDetectorForClient(c.id, { limit: 25 });
+            (entry as { equipmentDetector?: unknown }).equipmentDetector = eq;
+          } catch (e) {
+            (entry as { equipmentDetectorError?: string }).equipmentDetectorError =
+              e instanceof Error ? e.message : String(e);
+          }
+        }
         // 2e passe audit-heal APRÈS les enrichissements (Bombora FR Jour 14).
         // Pattern : le 1er audit-heal (ligne ~455) tourne AVANT HarvestAPI DM /
         // Pappers dirigeants / Kaspr. Conséquence : les Leads enrichis pendant

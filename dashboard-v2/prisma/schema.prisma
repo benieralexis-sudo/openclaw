@@ -253,6 +253,14 @@ model Trigger {
   // TTL 14j : on retente après 2 semaines au cas où la boîte poste enfin
   // une nouvelle douleur.
   declarativePainScannedAt     DateTime?
+  // Pilier 3 (20/05/2026) — anti-filter "déjà équipé d'un concurrent".
+  // Status posé à PENDING quand le Trigger devient OUI (qualify-trigger.ts).
+  // Runner async (equipment-detector-runner.ts) dépile et résout en NONE /
+  // EQUIPPED / UNKNOWN via 5 méthodes en cascade (scraping homepage/footer/
+  // mentions légales/page clients, search externe). Cache TTL 30j.
+  equipmentStatus              EquipmentStatus?
+  equipmentDetails             Json? // { competitor, source, url, matchedText, confidence, evidence[] }
+  equipmentCheckedAt           DateTime?
   // Soft delete
   createdAt                    DateTime      @default(now())
   updatedAt                    DateTime      @updatedAt
@@ -295,6 +303,17 @@ enum TriggerStatus {
   WON // Deal signé
   LOST // Perdu
   IGNORED // Pas pertinent
+}
+
+// Pilier 3 (20/05/2026) — anti-filter "déjà équipé d'un concurrent".
+// PENDING : check à faire. NONE : aucun concurrent détecté → ok à livrer.
+// EQUIPPED : concurrent détecté → archiver Lead. UNKNOWN : check failed
+// (timeout, site inaccessible) → livrer avec disclaimer ou re-tenter.
+enum EquipmentStatus {
+  PENDING
+  NONE
+  EQUIPPED
+  UNKNOWN
 }
 
 // =====================================================================

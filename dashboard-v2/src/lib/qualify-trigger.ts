@@ -895,6 +895,14 @@ export async function qualifyTrigger(
       ...(status === "IGNORED"
         ? { ignoredAt: new Date(), ignoredReason: reason.slice(0, 500) }
         : {}),
+      // Pilier 3 (20/05/2026) — anti-filter "déjà équipé". Sur verdict OUI,
+      // on pose PENDING : le runner async (equipment-detector-runner.ts)
+      // dépile et résout en NONE/EQUIPPED/UNKNOWN. EQUIPPED → IGNORED.
+      // UNKNOWN → Lead INCOMPLETE. NONE → Lead reste NEW (livrable).
+      // Skip si déjà checké (cache TTL 30j) ou si Trigger pas OUI.
+      ...(verdict === "OUI" && status === "NEW"
+        ? { equipmentStatus: "PENDING" as const }
+        : {}),
     },
   });
 
