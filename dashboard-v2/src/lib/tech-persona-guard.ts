@@ -83,7 +83,53 @@ export function isTechHiringTrigger(
 // Domain "tech" = DTL (CTO/Head Eng/QA Manager...)
 // Domain "sales" = iFIND (Head of Sales/CRO/VP Sales/Head of Growth...)
 
-export type PersonaDomain = "tech" | "sales";
+export type PersonaDomain = "tech" | "sales" | "public-sector";
+
+// ═══════════════════════════════════════════════════════════════════
+// Phase B (20/05/2026) — Public Sector persona domain (Digidemat)
+// ═══════════════════════════════════════════════════════════════════
+//
+// Avant : ICP Digidemat (DSI/DPO/Directeur Achats Publics/DGS) routée vers
+// "tech" car "DSI" matche TECH_PERSONA_RE. Conséquence : HarvestAPI recevait
+// signalType="default" → cherchait CTO/CEO/Founder dans des collectivités
+// publiques qui n'en ont pas → 0 résultat.
+//
+// Maintenant : si ICP est secteur public (NAF 84/85/86/87/88 OU personas
+// contiennent Directeur Achats/Marchés Publics/DGS) → "public-sector".
+
+/** Titres décisionnaires secteur public — DSI, DPO, Achats Publics, DGS, DAF. */
+export const PUBLIC_SECTOR_PERSONA_RE =
+  /\b(dsi|cio|chief information officer|directeur (des )?syst[eè]mes? d['']?information|rssi|directeur (de la )?s[eé]curit[eé]|dpo|d[eé]l[eé]gu[eé] (?:à la )?protection (?:des )?donn[eé]es|directeur (des )?achats|directeur (des )?march[eé]s publics|responsable march[eé]s publics|acheteur public|dgs|directeur g[eé]n[eé]ral des services|secr[eé]taire g[eé]n[eé]ral|daf|directeur administratif et financier|directeur du num[eé]rique|directeur numerique|chief digital officer|cdo)\b/i;
+
+/** NAF secteur public (admin publique 84, éducation 85, santé 86/87/88). */
+export const PUBLIC_SECTOR_NAF_RE = /^(84\.|85\.|86\.|87\.|88\.)/;
+
+/** Mots-clés ICP qui forcent le routage public-sector (acheteur public, etc.). */
+export const PUBLIC_SECTOR_ICP_TITLE_RE =
+  /\b(acheteur public|march[eé]s publics|d[eé]l[eé]gu[eé].{0,5}protection (?:des )?donn[eé]es|dgs|directeur g[eé]n[eé]ral des services|secr[eé]taire g[eé]n[eé]ral|directeur du num[eé]rique|directeur numerique)\b/i;
+
+/** Vrai si le titre est décideur secteur public. */
+export function isPublicSectorPersonaTitle(title: string | undefined | null): boolean {
+  if (!title) return false;
+  // Priorité 1 : titres secteur public légitimes
+  if (PUBLIC_SECTOR_PERSONA_RE.test(title)) return true;
+  // Priorité 2 : reject non-pertinents (ouvrier, agent technique, etc.)
+  if (/\b(stagiaire|intern|apprentice|alternant|chauffeur|agent (de )?(s[eé]curit|entretien)|gardien)\b/i.test(title)) return false;
+  // Par défaut : accepte (titres exotiques fonction publique gardés)
+  return true;
+}
+
+/** Trigger considéré "secteur public" si NAF 84-88 ou titre marché public. */
+export function isPublicSectorHiringTrigger(
+  _type: string | null | undefined,
+  companyNaf: string | null | undefined,
+  title: string | null | undefined,
+): boolean {
+  // Pour public-sector, on ne filtre pas par TriggerType (BOAMP n'est pas HIRING_KEY).
+  const nafPublic = companyNaf ? PUBLIC_SECTOR_NAF_RE.test(companyNaf) : false;
+  const titlePublic = title ? /\b(boamp|appel d['']?offres|march[eé] public|tender|consultation|cctp)\b/i.test(title) : false;
+  return nafPublic || titlePublic;
+}
 
 /** Personae considérées comme décideurs Sales/Growth/Marketing acceptables.
  *  Le Founder/CEO/Président est aussi accepté car en PME 11-50 ils décident
@@ -139,36 +185,52 @@ export function inferPersonaDomain(
   icp: unknown | null | undefined,
 ): PersonaDomain {
   if (!icp || typeof icp !== "object") return "tech";
-  const personas = (icp as { personas?: Array<{ title?: string }> }).personas;
-  if (!Array.isArray(personas) || personas.length === 0) return "tech";
-  const titles = personas
-    .map((p) => (p?.title ?? "").toLowerCase())
-    .filter(Boolean);
+  const icpObj = icp as { personas?: Array<{ title?: string }>; naf_codes?: string[] };
+  const personas = icpObj.personas;
+  const titles = Array.isArray(personas)
+    ? personas.map((p) => (p?.title ?? "").toLowerCase()).filter(Boolean)
+    : [];
+
+  // Phase B (20/05/2026) — Détection public-sector PRIORITAIRE car les titres
+  // DSI/CIO matchent aussi TECH_PERSONA_RE (et donc hasTechSpecific=true ferait
+  // basculer Digidemat à tort en "tech"). Indicateurs :
+  //   (a) ≥1 persona ICP avec un titre 100% public (acheteur public, marchés
+  //       publics, DGS, secrétaire général, DPO) → forcé public-sector
+  //   (b) ICP.naf_codes contient ≥3 codes secteur public (84.x/85.x/86.x/87.x/88.x)
+  const hasPublicTitle = titles.some((t) => PUBLIC_SECTOR_ICP_TITLE_RE.test(t));
+  const nafCodes = Array.isArray(icpObj.naf_codes) ? icpObj.naf_codes : [];
+  const publicNafCount = nafCodes.filter((n) => PUBLIC_SECTOR_NAF_RE.test(n)).length;
+  if (hasPublicTitle || publicNafCount >= 3) return "public-sector";
+
   const hasSales =
     titles.some((t) => /\b(sales|cro|growth|sdr|bdr|revenue|cmo|marketing)\b/i.test(t));
   const hasTechSpecific =
-    titles.some((t) => /\b(cto|chief tech|head of (engineering|qa|tech|test|product)|vp engineering|engineering manager|tech lead|dsi|directeur technique)\b/i.test(t));
+    titles.some((t) => /\b(cto|chief tech|head of (engineering|qa|tech|test|product)|vp engineering|engineering manager|tech lead|directeur technique)\b/i.test(t));
   // Si Sales explicite ET pas de Tech spécifique → "sales".
   if (hasSales && !hasTechSpecific) return "sales";
   return "tech";
 }
 
-/** Wrapper config-driven pour `isTechPersonaTitle` / `isSalesPersonaTitle`. */
+/** Wrapper config-driven pour `isTechPersonaTitle` / `isSalesPersonaTitle` /
+ *  `isPublicSectorPersonaTitle`. */
 export function isAcceptedPersonaTitle(
   title: string | undefined | null,
   domain: PersonaDomain,
 ): boolean {
-  return domain === "sales" ? isSalesPersonaTitle(title) : isTechPersonaTitle(title);
+  if (domain === "sales") return isSalesPersonaTitle(title);
+  if (domain === "public-sector") return isPublicSectorPersonaTitle(title);
+  return isTechPersonaTitle(title);
 }
 
-/** Wrapper config-driven pour `isTechHiringTrigger` / `isSalesHiringTrigger`. */
+/** Wrapper config-driven pour `isTechHiringTrigger` / `isSalesHiringTrigger` /
+ *  `isPublicSectorHiringTrigger`. */
 export function isHiringTriggerForDomain(
   type: string | null | undefined,
   companyNaf: string | null | undefined,
   title: string | null | undefined,
   domain: PersonaDomain,
 ): boolean {
-  return domain === "sales"
-    ? isSalesHiringTrigger(type, companyNaf, title)
-    : isTechHiringTrigger(type, companyNaf, title);
+  if (domain === "sales") return isSalesHiringTrigger(type, companyNaf, title);
+  if (domain === "public-sector") return isPublicSectorHiringTrigger(type, companyNaf, title);
+  return isTechHiringTrigger(type, companyNaf, title);
 }

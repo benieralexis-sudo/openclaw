@@ -203,12 +203,31 @@ const RULES_DEFAULT: TitleRule[] = [
   { pattern: /\b(head of |vp |director|directeur)\b/i, tier: 3, category: "director" },
 ];
 
+// Phase B (20/05/2026) — Règles secteur public (Digidemat).
+// Décideur appel d'offres dématérialisation/signature dans une collectivité :
+//   tier 1 : DSI, CIO, Directeur Numérique (décide pour SI/dématérialisation)
+//   tier 1 : Directeur des Achats / Marchés Publics (pilote l'AO en cours)
+//   tier 2 : DPO (impacté pour RGPD signature/archivage)
+//   tier 2 : RSSI (sécurité info, parfois co-décideur pour signature)
+//   tier 3 : DGS, Secrétaire Général (top management, fallback)
+//   tier 3 : DAF (validation budget)
+const RULES_PUBLIC_TENDER: TitleRule[] = [
+  { pattern: /\b(dsi|cio|chief information officer|directeur (?:des )?syst[eè]mes? d['']?information|directeur du num[eé]rique|directeur numerique|chief digital officer|cdo)\b/i, tier: 1, category: "dsi" },
+  { pattern: /\b(directeur (?:des )?achats|directeur (?:des )?march[eé]s publics|responsable (?:des )?march[eé]s publics|chef (?:du )?service achats)\b/i, tier: 1, category: "directeur-achats" },
+  { pattern: /\b(dpo|d[eé]l[eé]gu[eé] (?:à la )?protection (?:des )?donn[eé]es)\b/i, tier: 2, category: "dpo" },
+  { pattern: /\b(rssi|responsable s[eé]curit[eé] (?:des )?syst[eè]mes? d['']?information|chief information security officer|ciso)\b/i, tier: 2, category: "rssi" },
+  { pattern: /\b(acheteur public)\b/i, tier: 2, category: "acheteur-public" },
+  { pattern: /\b(dgs|directeur g[eé]n[eé]ral des services|secr[eé]taire g[eé]n[eé]ral)\b/i, tier: 3, category: "dgs" },
+  { pattern: /\b(daf|directeur administratif et financier)\b/i, tier: 3, category: "daf" },
+];
+
 const RULES_BY_SIGNAL: Record<SignalType, TitleRule[]> = {
   "qa-hire": RULES_QA_HIRE,
   "fundraising": RULES_FUNDRAISING,
   "tech-hire": RULES_TECH_HIRE,
   "sales-hire": RULES_SALES_HIRE,
   "expansion": RULES_EXPANSION,
+  "public-tender": RULES_PUBLIC_TENDER,
   "default": RULES_DEFAULT,
 };
 
@@ -284,10 +303,13 @@ export async function findDecisionMakerByCompany(args: {
   const TECH_TITLES_HIRE = ["CTO", "Chief Technology Officer", "Head of Engineering", "VP Engineering", "Directeur Technique", "DSI", "Tech Lead", "Engineering Manager"];
   // Fix B11.2 (15/05/2026) — Titres Sales/Growth pour iFIND.
   const SALES_TITLES_HIRE = ["Head of Sales", "Sales Director", "Directeur Commercial", "Directeur des Ventes", "CRO", "Chief Revenue Officer", "VP Sales", "Vice President Sales", "Head of Growth", "Growth Director", "CMO", "Chief Marketing Officer", "Head of Marketing"];
+  // Phase B (20/05/2026) — Titres décisionnaires secteur public (Digidemat).
+  const PUBLIC_TITLES_TENDER = ["DSI", "Directeur des Systèmes d'Information", "Directeur du Numérique", "CIO", "Chief Information Officer", "Directeur des Achats", "Directeur des Marchés Publics", "Responsable des Marchés Publics", "Acheteur Public", "DPO", "Délégué à la Protection des Données", "RSSI", "Responsable Sécurité des Systèmes d'Information", "DGS", "Directeur Général des Services", "Secrétaire Général"];
   const techJobTitles =
     signalType === "qa-hire" ? TECH_TITLES_QA :
     signalType === "tech-hire" ? TECH_TITLES_HIRE :
     signalType === "sales-hire" ? SALES_TITLES_HIRE :
+    signalType === "public-tender" ? PUBLIC_TITLES_TENDER :
     null;
 
   for (const variant of searchVariants) {
@@ -374,7 +396,7 @@ export async function findDecisionMakerByCompany(args: {
   // Un CEO sur un signal QA-hire = mauvaise personne (Salvia Développement
   // 100-199p, Groupe Yoni DG). Mieux vaut retourner null → Lead reste sans
   // contact → flag manuel pour le commercial.
-  const strict = args.strict ?? (signalType === "qa-hire" || signalType === "tech-hire");
+  const strict = args.strict ?? (signalType === "qa-hire" || signalType === "tech-hire" || signalType === "public-tender");
 
   // Mode strict : on filtre aussi les tier 3 (CEO/Président) qui auraient
   // matché les rules dédiées au signal mais qui sont en réalité un fallback
@@ -960,10 +982,12 @@ export async function findDecisionMakerCandidatesByCompany(args: {
   const TECH_TITLES_QA = ["Head of QA", "QA Manager", "Test Manager", "QA Lead", "CTO", "Head of Engineering", "VP Engineering", "Chief Technology Officer", "Directeur Technique", "DSI", "Engineering Manager"];
   const TECH_TITLES_HIRE = ["CTO", "Chief Technology Officer", "Head of Engineering", "VP Engineering", "Directeur Technique", "DSI", "Tech Lead", "Engineering Manager"];
   const SALES_TITLES_HIRE = ["Head of Sales", "Sales Director", "Directeur Commercial", "Directeur des Ventes", "CRO", "Chief Revenue Officer", "VP Sales", "Vice President Sales", "Head of Growth", "Growth Director", "CMO", "Chief Marketing Officer", "Head of Marketing"];
+  const PUBLIC_TITLES_TENDER = ["DSI", "Directeur des Systèmes d'Information", "Directeur du Numérique", "CIO", "Chief Information Officer", "Directeur des Achats", "Directeur des Marchés Publics", "Responsable des Marchés Publics", "Acheteur Public", "DPO", "Délégué à la Protection des Données", "RSSI", "Responsable Sécurité des Systèmes d'Information", "DGS", "Directeur Général des Services", "Secrétaire Général"];
   const techJobTitles =
     signalType === "qa-hire" ? TECH_TITLES_QA :
     signalType === "tech-hire" ? TECH_TITLES_HIRE :
     signalType === "sales-hire" ? SALES_TITLES_HIRE :
+    signalType === "public-tender" ? PUBLIC_TITLES_TENDER :
     null;
 
   let items: HarvestProfile[] = [];

@@ -12,6 +12,7 @@ export type SignalType =
   | "tech-hire"         // priorité CTO > VP Eng > Eng Manager > Founder
   | "sales-hire"        // Fix B11.2 (15/05) — priorité Head of Sales > CRO > VP Sales > Growth > Founder/CEO (iFIND)
   | "expansion"         // priorité CEO > COO > Founder > VP Sales
+  | "public-tender"     // Phase B (20/05/2026) — priorité DSI > DPO > Directeur Achats > DGS (Digidemat secteur public)
   | "default";          // priorité CTO > CEO > Founder > Director
 
 export function inferSignalType(
@@ -19,10 +20,22 @@ export function inferSignalType(
   triggerTitle?: string,
   /** Fix B11.2 (15/05) — Si "sales", tout hire ambigu est routé vers sales-hire
    *  (le trigger title peut contenir "QA Engineer" mais on cherche un Sales
-   *  decision-maker de la boîte pour pitch iFIND). */
-  personaDomain: "tech" | "sales" = "tech",
+   *  decision-maker de la boîte pour pitch iFIND).
+   *  Phase B (20/05) — "public-sector" route tout BOAMP/TED vers public-tender. */
+  personaDomain: "tech" | "sales" | "public-sector" = "tech",
 ): SignalType {
   const text = `${sourceCode ?? ""} ${triggerTitle ?? ""}`.toLowerCase();
+
+  // Phase B (20/05/2026) — Public-sector PRIORITAIRE : BOAMP/TED-Europa
+  // sont toujours des appels d'offres publics → public-tender, quelle que soit
+  // la mention "hire/job" dans le titre.
+  if (/\b(boamp\.tender|ted-europa\.tender|boamp|ted-europa|appel d['']?offres|march[eé] public|tender|consultation)\b/i.test(text)) {
+    return "public-tender";
+  }
+  if (personaDomain === "public-sector") {
+    return "public-tender"; // tout autre signal Digidemat → on cherche DSI/DPO/Achats
+  }
+
   // Signaux fundraising/expansion : universels (CEO/Founder valent pour tech & sales)
   if (/fundraising|funding|levée|levee|seed|series\s*[abc]/i.test(text)) return "fundraising";
   if (/merger|acquisition|m&a/i.test(text)) return "expansion";
