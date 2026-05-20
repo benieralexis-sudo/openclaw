@@ -181,8 +181,13 @@ export async function ensureLeadsForAllTriggers(
     //      email/phone aval échoueront — pas de domaine résolu)
     // Sinon force INCOMPLETE, audit-heal 8A le passera en NEW quand tout
     // sera résolu (cf. audit-heal.ts:613).
-    const initialStatus =
-      poster?.fullName && t.companySiret && t.companyNaf ? "NEW" : "INCOMPLETE";
+    // Phase A 20/05 — Pour BOAMP, on accepte un alias service (Département
+    // Achat, Service Commande Publique) comme persona livrable : il a un email
+    // pro utilisable, et c'est LE bon contact pour CE marché public en cours.
+    // Donc condition étendue : fullName OU email présent (et SIRET/NAF OK).
+    const hasPersona =
+      Boolean(poster?.fullName || poster?.email) && Boolean(t.companySiret) && Boolean(t.companyNaf);
+    const initialStatus = hasPersona ? "NEW" : "INCOMPLETE";
     try {
       await db.lead.create({
         data: {
@@ -197,6 +202,8 @@ export async function ensureLeadsForAllTriggers(
           fullName: poster?.fullName ?? null,
           jobTitle: poster?.title ?? null,
           linkedinUrl: poster?.linkedinUrl ?? null,
+          email: poster?.email ?? null,
+          phone: poster?.phone ?? null,
         },
       });
       stats.created++;
@@ -225,11 +232,31 @@ interface ExtractedPoster {
   lastName?: string;
   linkedinUrl?: string;
   title?: string;
+  email?: string;
+  phone?: string;
 }
 
 function extractPosterFromPayload(payload: unknown): ExtractedPoster | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
+
+  // 0. BOAMP cac:Contact (Phase A 20/05/2026) — Le poller boamp pose un objet
+  // `_extractedContact` extrait du TED-eForms (nom + jobTitle + email + phone
+  // du responsable marché public). Pour les collectivités publiques c'est
+  // notre SEUL canal persona (RNE ne contient pas les collectivités).
+  const boamp = p._extractedContact as
+    | { fullName?: string; firstName?: string; lastName?: string; jobTitle?: string; email?: string; phone?: string; matchKind?: string }
+    | undefined;
+  if (boamp && boamp.matchKind && boamp.matchKind !== "none" && (boamp.fullName || boamp.email)) {
+    return {
+      fullName: boamp.fullName,
+      firstName: boamp.firstName,
+      lastName: boamp.lastName,
+      title: boamp.jobTitle,
+      email: boamp.email,
+      phone: boamp.phone,
+    };
+  }
 
   // 1. Apify NormalizedJob (poster*) — LinkedIn jobs, WTTJ recruiter
   const fullName =

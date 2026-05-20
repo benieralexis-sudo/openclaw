@@ -159,6 +159,7 @@ function buildWhereClause(keywords: string[], sinceDate: string): string {
 // pour la doctrine complète.
 export { normalizeForMatch, textContainsKeyword as objetContainsKeyword } from "./signature-matching";
 import { textContainsKeyword } from "./signature-matching";
+import { extractBoampContact } from "@/lib/boamp-contact-extractor";
 
 /**
  * Filtre déterministe côté Node : ne garde que les records dont l'`objet`
@@ -401,6 +402,21 @@ export async function pollBoampForClient(
       .filter(Boolean)
       .join("\n");
 
+    // Phase A (20/05/2026) — extraction du cac:Contact TED-eForms vers
+    // rawPayload._extractedContact pour que ensure-lead-for-trigger crée le
+    // Lead avec persona déjà résolue (résout le trou "0 dirigeants RNE pour
+    // les collectivités publiques").
+    let extractedContact: ReturnType<typeof extractBoampContact> | null = null;
+    try {
+      extractedContact = extractBoampContact(record.donnees, record.nomacheteur);
+    } catch {
+      extractedContact = null;
+    }
+    const payloadWithContact = {
+      ...(record as Record<string, unknown>),
+      _extractedContact: extractedContact,
+    };
+
     try {
       await db.trigger.create({
         data: {
@@ -416,7 +432,7 @@ export async function pollBoampForClient(
           type: TriggerType.OTHER,
           title,
           detail,
-          rawPayload: record as unknown as Prisma.InputJsonValue,
+          rawPayload: payloadWithContact as unknown as Prisma.InputJsonValue,
           // Score 8 : signal d'achat dur + récent + ciblé sur mot-clé client.
           // L'IA Claude qualifiera plus finement en aval.
           score: 8,
