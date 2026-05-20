@@ -948,13 +948,20 @@ export async function enrichRecentTriggersWithSirene(
   // CTS Consulting (aérospatial), TechnicAtome, Ekium, Nepsen, Sophia Engineering,
   // SETELIA, Klanik, INGELIANCE etc. = ESN industrielles hors ICP DTL Tech/SaaS.
   // Déclenche uniquement si l'ICP du client a `industries` qui ressemble à tech/SaaS.
+  //
+  // Bug racine 20/05/2026 (Bombora FR) — La regex sans \b matchait "it" dans
+  // "Collectivités territoriales" → ICP Digidemat marquée à tort tech, et 4
+  // Pépites BOAMP collectivités publiques (CNFPT, CD Calvados, CH Lens, SICIO)
+  // étaient soft-deleted à chaque run all. Fix : word boundaries + restriction
+  // du pruning aux triggers theirstack.* uniquement (la source qui peut ramener
+  // du bruit hors-ICP, les autres pollers sont déjà ICP-fittés à la source).
   const client = await db.client.findUnique({
     where: { id: clientId },
     select: { icp: true },
   });
   const icp = (client?.icp ?? {}) as { industries?: string[] };
   const isTechIcp = (icp.industries ?? []).some((i) =>
-    /saas|logiciel|tech|esn|ssii|software|it/i.test(i),
+    /\b(saas|logiciel|tech|esn|ssii|software|it)s?\b/i.test(i),
   );
   if (!isTechIcp) return stats;
 
@@ -977,6 +984,12 @@ export async function enrichRecentTriggersWithSirene(
       companyNaf: { not: null },
       capturedAt: { gte: since },
       deletedAt: null,
+      // 20/05/2026 — Restreindre au seul sourceCode theirstack.*. Les autres
+      // pollers (BOAMP, FT, RSS, GitHub, TED Europa, Apify, BODACC, Rodz)
+      // sont ICP-fittés à la source via leurs propres filtres signal-matching
+      // et keywords-allowlist. Les passer dans ce pruning NAF-tech revient à
+      // jeter les vrais positifs des ICP non-tech (collectivités, santé, etc).
+      sourceCode: { startsWith: "theirstack." },
     },
     select: { id: true, companyName: true, companyNaf: true, sourceCode: true },
   });

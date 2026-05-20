@@ -87,3 +87,42 @@ describe("pollTheirstackBuyingIntentForClient — multi-tenant safety (Jour 14 S
     expect(searchCompaniesMock).toHaveBeenCalledOnce();
   });
 });
+
+describe("isTechIcp regex — Bug racine 20/05/2026 Digidemat", () => {
+  // Garde anti-régression du bug racine Bombora FR 20/05/2026 :
+  // /saas|logiciel|tech|esn|ssii|software|it/i (sans \b) matchait
+  // "Collectivités territoriales" sur la substring "it" → ICP Digidemat
+  // marquée à tort tech → 4 Pépites BOAMP collectivités publiques étaient
+  // soft-deleted à chaque run all (CNFPT, CD Calvados, CH Lens, SICIO).
+  // Fix : word boundaries \b autour de chaque alternative.
+  const regex = /\b(saas|logiciel|tech|esn|ssii|software|it)s?\b/i;
+
+  it("ICP Digidemat (collectivités publiques) → ne matche pas", () => {
+    const industries = [
+      "Cabinets d'avocats",
+      "Cabinets comptables",
+      "Notaires",
+      "PME tertiaires",
+      "Administrations",
+      "Collectivités territoriales",
+      "Établissements publics",
+      "Santé",
+      "Enseignement supérieur",
+    ];
+    expect(industries.some((i) => regex.test(i))).toBe(false);
+  });
+
+  it("ICP tech/SaaS → matche bien", () => {
+    expect(regex.test("SaaS B2B")).toBe(true);
+    expect(regex.test("Editeurs de logiciels")).toBe(true);
+    expect(regex.test("ESN / SSII")).toBe(true);
+    expect(regex.test("Tech / Software")).toBe(true);
+    expect(regex.test("Services IT")).toBe(true);
+  });
+
+  it("substring traps (ne doivent JAMAIS matcher)", () => {
+    expect(regex.test("Collectivités territoriales")).toBe(false);
+    expect(regex.test("Architecture")).toBe(false);
+    expect(regex.test("Designer")).toBe(false);
+  });
+});
