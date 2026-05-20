@@ -112,8 +112,9 @@ export async function enrichLeadsViaFullEnrich(
           ],
         },
       ],
-      // Filtre score (économie credits)
-      trigger: { score: { gte: 6 } },
+      // Filtre score (économie credits) + respect verdict NON Opus
+      // (cf. harvestapi-decision-makers.ts:657 — même rationale 20/05/2026)
+      trigger: { score: { gte: 6 }, status: { not: "IGNORED" } },
     },
     select: {
       id: true,

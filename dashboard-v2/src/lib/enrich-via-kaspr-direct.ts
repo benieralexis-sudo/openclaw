@@ -87,7 +87,9 @@ export async function enrichLeadsViaKasprDirect(
       // Gate score >= 6 (Qualifié+) pour économiser crédits Kaspr.
       // 30/04 : on n'enrichit plus les leads marginaux/faibles que le
       // commercial ne va pas attaquer.
-      trigger: { score: { gte: 6 } },
+      // 20/05/2026 : ajout filtre status NOT IGNORED — respect verdict NON
+      // Opus posé en amont par qualifyTrigger (cf. harvestapi-decision-makers.ts:657).
+      trigger: { score: { gte: 6 }, status: { not: "IGNORED" } },
       // Pas tenté OU dernier essai >30j
       AND: [
         {

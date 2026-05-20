@@ -654,7 +654,21 @@ export async function enrichDecisionMakersForClient(
           ],
         },
       ],
-      trigger: { score: { gte: 5 } }, // skip leads bas-score (économie credits)
+      trigger: {
+        score: { gte: 5 }, // skip leads bas-score (économie credits)
+        // Fix 20/05/2026 — Respect verdict NON d'Opus.
+        // Question Alexis "harvest api tourne sur tout les leads ou seulement
+        // les bon qui rentre dans le dashboard ?" → audit révèle 28 Leads avec
+        // Trigger=IGNORED encore éligibles à chaque cycle TTL (Opus a déjà dit
+        // NON = hard red flag mais HarvestAPI continuait de chercher la persona).
+        // Le verdict OUI/NON est posé par qualifyTrigger AVANT enrichDecisionMakers
+        // dans le cron (run-pollers/route.ts:478 puis :645). Filtrer ici respecte
+        // simplement cette décision déjà prise. Ne PAS bloquer les ARCHIVED Lead
+        // car certains sont des OUI archivés par cycle INCOMPLETE→ARCHIVED J+7
+        // sans persona (Groupe Yoni, Salvia Développement) — il faut justement
+        // continuer à chercher leur persona pour les ressusciter.
+        status: { not: "IGNORED" },
+      },
     },
     select: {
       id: true,
