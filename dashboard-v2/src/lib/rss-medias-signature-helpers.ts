@@ -24,6 +24,8 @@
  * Liste calibrée pour minimiser faux positifs (on évite "lance" qui matche
  * "Yousign lance une nouvelle offre" — Yousign est le vendeur).
  */
+import { countSignatureMatches } from "./signature-matching";
+
 const ADOPTION_VERBS: string[] = [
   "choisit",
   "choisissent",
@@ -139,15 +141,9 @@ export function countSignatureMatchesInText(
   text: string | undefined,
   keywords: string[],
 ): { count: number; labels: string[] } {
-  if (!text) return { count: 0, labels: [] };
-  const lower = text.toLowerCase();
-  const labels: string[] = [];
-  for (const kw of keywords) {
-    const k = kw.toLowerCase().trim();
-    if (k.length === 0) continue;
-    if (lower.includes(k)) labels.push(kw);
-  }
-  return { count: labels.length, labels };
+  // Jour 14 Sujet 14 (20/05) — Délégué à countSignatureMatches du module
+  // signature-matching commun (stemming-aware).
+  return countSignatureMatches(text, keywords);
 }
 
 /**

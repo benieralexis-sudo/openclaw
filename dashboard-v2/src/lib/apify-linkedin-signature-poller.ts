@@ -39,6 +39,7 @@ import { runAndGetItems } from "@/lib/apify";
 import { checkQuota, recordSpend } from "@/lib/quota-checker";
 import { getRotatedKeywords } from "@/lib/keyword-rotation";
 import { isSignalEnabled, getSignalConfig } from "@/lib/signal-config";
+import { countSignatureMatches } from "@/lib/signature-matching";
 import {
   APIFY_ACTORS,
   adaptLinkedinJobItem,
@@ -142,23 +143,18 @@ function buildLinkedinSearchUrl(keyword: string): string {
 
 /**
  * Compte les mots-clés signature présents dans la description du job.
- * Match insensible à la casse, substring simple (pas de boundary regex car
- * les mots-clés sont souvent des noms de produits comme "DocuSign" ou des
- * expressions composées comme "signature électronique").
+ *
+ * Jour 14 Sujet 14 (20/05) — Délègue à countSignatureMatches du module
+ * signature-matching commun (stemming-aware : pluriels + accents + mots
+ * séparés). Cas réel : annonce "Recherche développeur intégration des
+ * certificats électroniques" matche keyword "certificat électronique"
+ * (pluriel + sans/avec accent).
  */
 export function countSignatureMatchesInDescription(
   description: string | undefined,
   keywords: string[],
 ): { count: number; labels: string[] } {
-  if (!description) return { count: 0, labels: [] };
-  const desc = description.toLowerCase();
-  const labels: string[] = [];
-  for (const kw of keywords) {
-    const k = kw.toLowerCase().trim();
-    if (k.length === 0) continue;
-    if (desc.includes(k)) labels.push(kw);
-  }
-  return { count: labels.length, labels };
+  return countSignatureMatches(description, keywords);
 }
 
 // Jour 14 Sujet 10 (19/05) — Module partagé pour la liste vendors et le

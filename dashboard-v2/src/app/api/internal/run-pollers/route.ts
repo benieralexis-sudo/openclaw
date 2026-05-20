@@ -250,8 +250,14 @@ export async function POST(req: NextRequest) {
       // Mots-clés lus depuis ClientSignalConfig.parameters.boampKeywords (signal P3).
       if (!dryRun && (source === "all" || source === "boamp")) {
         try {
+          // Jour 14 Sujet 15 (20/05) — lookback 14 → 30j.
+          // Audit 20/05 a montré que les vrais positifs (UCANSS 13/05,
+          // CNFPT 23/04, CD Calvados 29/04, CH Lens 28/04, Nantes Métropole
+          // 30/04) sont publiés J-7 à J-30 avant la date limite. Lookback
+          // 14j ratait CNFPT/CH Lens/Nantes. 30j capte tout + reste léger
+          // (la requête est filtrée par keywords + idempotente sur sourceUrl).
           (entry as { boamp?: unknown }).boamp =
-            await pollBoampForClient(c.id, { lookbackDays: 14, limit: 50 });
+            await pollBoampForClient(c.id, { lookbackDays: 30, limit: 100 });
         } catch (e) {
           (entry as { boampError?: string }).boampError =
             e instanceof Error ? e.message : String(e);

@@ -154,73 +154,11 @@ function buildWhereClause(keywords: string[], sinceDate: string): string {
   return `(${orClauses}) AND dateparution >= date'${sinceDate}'`;
 }
 
-/**
- * Normalise pour matching stemming-aware : lowercase + retire diacritiques
- * (accents). Permet de matcher "certificats electroniques" contre keyword
- * "certificat électronique".
- *
- * Jour 14 Sujet 13 (20/05/2026) — Bug critique audit Alexis :
- * l'API OpenDataSoft fait du stemming côté serveur (matche pluriels +
- * accents normalisés via Elasticsearch), mais notre filtre Node faisait
- * juste `toLowerCase().includes()` qui ratait :
- *   - "certificats electroniques" vs "certificat électronique" (pluriel + accent)
- *   - "parapheurs" vs "parapheur" (pluriel)
- * → ~80% des vrais positifs étaient droppés. Cas réel : UCANSS 13/05
- * "FOURNITURE DE CERTIFICATS DE SIGNATURES ET DE CACHETS ELECTRONIQUES"
- * (vraie cible Digidemat) — droppé.
- *
- * Exporté pour tests.
- */
-export function normalizeForMatch(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, ""); // strip combining marks (NFD diacritiques)
-}
-
-/**
- * Vérifie si `objet` contient `keyword`, en tolérant :
- *   1. Case insensitive
- *   2. Diacritiques perdus (titre BOAMP en MAJ sans accents)
- *   3. Pluriels "s" final
- *   4. Mots du keyword séparés par d'autres mots dans l'objet
- *      (cas UCANSS "certificats de signatures ET DE cachets electroniques"
- *      matche "certificat électronique")
- *
- * Algo :
- *   - Substring complet d'abord (rapide pour le cas commun)
- *   - Sinon : décompose le keyword en mots significatifs (≥4 chars),
- *     vérifie que CHAQUE mot apparaît quelque part dans l'objet (avec
- *     tolérance pluriel s final via prefix match).
- *
- * Limite : peut générer faux positifs si keyword 2 mots dont chacun
- * apparaît mais dans un contexte non-lié. Opus filtre derrière.
- *
- * Exporté pour tests.
- */
-export function objetContainsKeyword(objet: string, keyword: string): boolean {
-  const o = normalizeForMatch(objet);
-  const k = normalizeForMatch(keyword);
-
-  // 1. Substring direct
-  if (o.includes(k)) return true;
-
-  // 2. Si keyword en 1 seul mot court (acronyme type "GED"), strict
-  const kWords = k.split(/\s+/).filter((w) => w.length > 0);
-  if (kWords.length === 1 && k.length <= 4) return false;
-
-  // 3. Décomposition : chaque mot significatif (≥4 chars) du keyword doit
-  //    apparaître dans l'objet (substring, tolérance pluriel inclus dans includes)
-  const oWords = o.split(/\s+/);
-  const allFound = kWords.every((kw) => {
-    if (kw.length < 4) return true; // ignore stop words / particules
-    return oWords.some((ow) => {
-      // ow contient kw (parapheur ↔ parapheurs) ou ow + "s" inclus dans contexte
-      return ow.includes(kw) || ow === kw;
-    });
-  });
-  return allFound;
-}
+// Jour 14 Sujet 14 (20/05) — Module partagé signature-matching.ts
+// utilisé par tous les pollers signature. Voir signature-matching.ts
+// pour la doctrine complète.
+export { normalizeForMatch, textContainsKeyword as objetContainsKeyword } from "./signature-matching";
+import { textContainsKeyword } from "./signature-matching";
 
 /**
  * Filtre déterministe côté Node : ne garde que les records dont l'`objet`
@@ -244,7 +182,7 @@ export function filterRecordsByObjetKeyword(
   if (keywords.length === 0) return { kept: records, dropped: 0 };
   const kept = records.filter((r) => {
     const objet = r.objet ?? "";
-    return keywords.some((k) => objetContainsKeyword(objet, k));
+    return keywords.some((k) => textContainsKeyword(objet, k));
   });
   return { kept, dropped: records.length - kept.length };
 }

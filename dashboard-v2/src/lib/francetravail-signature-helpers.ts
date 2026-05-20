@@ -18,6 +18,8 @@
  * Agences d'intérim ne sont jamais des prospects (elles publient pour des
  * tiers, donc l'entreprise nominale est l'agence pas la vraie boîte cible).
  */
+import { countSignatureMatches } from "./signature-matching";
+
 const STAFFING_AGENCIES_LIGHT = [
   "adecco",
   "manpower",
@@ -95,15 +97,9 @@ export function countSignatureMatchesInOffer(
   text: string | undefined,
   keywords: string[],
 ): { count: number; labels: string[] } {
-  if (!text) return { count: 0, labels: [] };
-  const lower = text.toLowerCase();
-  const labels: string[] = [];
-  for (const kw of keywords) {
-    const k = kw.toLowerCase().trim();
-    if (k.length === 0) continue;
-    if (lower.includes(k)) labels.push(kw);
-  }
-  return { count: labels.length, labels };
+  // Jour 14 Sujet 14 (20/05) — Délégué à countSignatureMatches du module
+  // signature-matching commun (stemming-aware).
+  return countSignatureMatches(text, keywords);
 }
 
 /**
