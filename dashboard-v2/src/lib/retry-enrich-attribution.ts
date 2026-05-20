@@ -66,13 +66,17 @@ export async function retrySirenAttributionForEnrichTriggers(
 
   const sevenDaysAgo = new Date(Date.now() - MAX_AGE_DAYS * 86_400_000);
 
+  // Pilier 1 (20/05/2026) — étendu aux 3 verdicts (OUI/NON/ENRICH) ET aux
+  // Triggers sans brief V2 (cas legacy). Avant : ENRICH-only laissait 12
+  // Triggers OUI/NON sans SIRET dériver > 7j sans action.
+  // Politique : SIRET attribué sous 7j ou archivé. Garantit "boîte FR
+  // identifiable" du Pilier 1 (1ère partie de la promesse).
   const triggers = await db.trigger.findMany({
     where: {
       clientId,
       deletedAt: null,
       companySiret: null,
       status: { not: "IGNORED" },
-      briefV2Json: { path: ["verdict"], equals: "ENRICH" },
     },
     select: {
       id: true,
@@ -93,7 +97,7 @@ export async function retrySirenAttributionForEnrichTriggers(
         data: {
           status: "IGNORED",
           ignoredAt: new Date(),
-          ignoredReason: `[B4-no-sirene-7d] Attribution SIRENE échouée 7j après création — auto-archive`,
+          ignoredReason: `[Pilier1-no-sirene-7d] Attribution SIRENE échouée 7j après création — boîte non identifiable, auto-archive`,
           deletedAt: new Date(),
         },
       });
