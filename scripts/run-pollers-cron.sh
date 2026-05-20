@@ -38,7 +38,7 @@ else
   PG_PWD=$(grep ^DATABASE_URL /opt/moltbot/dashboard-v2/.env | sed -E 's|.*ifind:([^@]+)@.*|\1|')
   CLIENTS_RAW=$(docker exec -e PGPASSWORD="$PG_PWD" ifind-postgres \
     psql -U ifind -d ifind -t -A -F'|' \
-    -c "SELECT id, slug FROM \"Client\" WHERE status = 'ACTIVE' ORDER BY \"createdAt\";" 2>/dev/null)
+    -c "SELECT id, slug FROM \"Client\" WHERE status IN ('ACTIVE', 'PROSPECT') AND \"deletedAt\" IS NULL ORDER BY \"createdAt\";" 2>/dev/null)
   if [ -z "$CLIENTS_RAW" ]; then
     NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     echo "[$NOW] ERROR — DB query failed, no clients to process" >> "$LOG"
