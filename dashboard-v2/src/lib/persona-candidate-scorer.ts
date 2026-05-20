@@ -34,6 +34,7 @@ export type SignalType =
   | "sales-hire"
   | "fundraising"
   | "expansion"
+  | "public-tender"
   | "default";
 
 export interface ScoringContext {
