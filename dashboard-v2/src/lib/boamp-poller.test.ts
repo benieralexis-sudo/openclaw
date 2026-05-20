@@ -261,6 +261,27 @@ describe("boamp-poller: objetContainsKeyword stemming (Jour 14 Sujet 13)", () =>
   });
 });
 
+describe("textContainsKeyword post-Sujet 16 (formes verbales)", () => {
+  it("matche dématérialisation ↔ dématérialisé (participe)", () => {
+    expect(objetContainsKeyword("envoi dématérialisé d'éléments", "dématérialisation")).toBe(true);
+  });
+  it("matche dématérialisation ↔ dématérialisées (pluriel féminin)", () => {
+    expect(objetContainsKeyword("ressources documentaires dématérialisées", "dématérialisation")).toBe(true);
+  });
+  it("matche dématérialisation ↔ DEMATERIALISEE (majuscule sans accent)", () => {
+    expect(objetContainsKeyword("FOURNITURE D'UNE SOLUTION DE PAIEMENT DEMATERIALISEE", "dématérialisation")).toBe(true);
+  });
+  it("matche signature ↔ signataires", () => {
+    expect(objetContainsKeyword("désignation des signataires", "signature")).toBe(true);
+  });
+  it("ne matche PAS parapheur ↔ parapente (préfixe trop court 5 chars)", () => {
+    expect(objetContainsKeyword("activité parapente extrême", "parapheur")).toBe(false);
+  });
+  it("ne matche PAS signature ↔ signal (préfixe partagé 5 chars seulement)", () => {
+    expect(objetContainsKeyword("traitement du signal", "signature")).toBe(false);
+  });
+});
+
 describe("boamp-poller: filterRecordsByObjetKeyword post-Sujet 13", () => {
   it("garde UCANSS (vrai cas live 13/05)", () => {
     const records = [

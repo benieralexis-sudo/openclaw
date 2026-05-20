@@ -36,6 +36,24 @@ export function normalizeForMatch(s: string): string {
 }
 
 /**
+ * Vrai si les 2 chaînes partagent un préfixe commun d'au moins `min`
+ * caractères normalisés (à partir du début).
+ *
+ * Utilisé pour matcher les variantes morphologiques (dérivations
+ * françaises) :
+ *   - "dematerialisation" ↔ "dematerialise" : préfixe "dematerialise" (13) ≥ 6 ✓
+ *   - "dematerialisation" ↔ "dematerialisees" : préfixe "dematerialis" (12) ≥ 6 ✓
+ *   - "signature" ↔ "signataires" : préfixe "signa" (5) puis "signat" — t vs t → "signat" (6) ≥ 6 ✓
+ *   - "parapheur" ↔ "parapente" : préfixe "parap" (5) < 6 → ✗ (évite faux positif)
+ */
+export function sharePrefix(a: string, b: string, min: number): boolean {
+  let i = 0;
+  const len = Math.min(a.length, b.length);
+  while (i < len && a[i] === b[i]) i++;
+  return i >= min;
+}
+
+/**
  * Vérifie si `text` contient `keyword`, en tolérant :
  *   1. Case insensitive
  *   2. Diacritiques perdus (titre BOAMP en MAJ sans accents)
@@ -43,12 +61,17 @@ export function normalizeForMatch(s: string): string {
  *   4. Mots du keyword séparés par d'autres mots dans le texte
  *      (cas UCANSS "certificats de signatures ET DE cachets electroniques"
  *      matche "certificat électronique")
+ *   5. Formes verbales / dérivations : "dématérialisation" ↔ "dématérialisé"
+ *      via préfixe commun ≥ 6 chars (Sujet 16 — 20/05/2026)
  *
  * Algo :
  *   1. Substring direct normalisé (rapide pour le cas commun)
  *   2. Acronyme court ≤4 chars (GED) : strict, pas de tolérance
- *   3. Décomposition : chaque mot significatif (≥4 chars) du keyword
- *      doit apparaître dans le texte (substring tolérant pluriel)
+ *   3. Décomposition substring : chaque mot significatif (≥4 chars) du
+ *      keyword apparaît en substring dans le texte (gère pluriels)
+ *   4. Décomposition préfixe : si étape 3 échoue, chaque mot significatif
+ *      du keyword partage un préfixe ≥6 chars avec un mot du texte
+ *      (gère formes verbales/dérivations)
  *
  * Limite : peut générer faux positifs si keyword 2 mots dont chacun
  * apparaît mais dans un contexte non-lié. Opus filtre derrière.
@@ -61,17 +84,25 @@ export function textContainsKeyword(text: string, keyword: string): boolean {
   // 1. Substring direct
   if (t.includes(k)) return true;
 
-  // 2. Acronyme court (GED, DPO, eIDAS court...) → strict pas de tolérance
+  // 2. Acronyme court ≤4 chars (GED, DPO, RGS...) → strict pas de tolérance
   const kWords = k.split(/\s+/).filter((w) => w.length > 0);
   if (kWords.length === 1 && k.length <= 4) return false;
 
-  // 3. Décomposition : chaque mot significatif (≥4 chars) doit apparaître
-  //    quelque part dans le texte (substring tolérant pluriel via includes
-  //    inversé : "parapheurs" contient "parapheur")
+  // 3+4. Pour chaque mot significatif (≥4 chars) du keyword, vérifier qu'il
+  //      est trouvé dans le texte via :
+  //        - substring (gère pluriels simples : "parapheur" ⊂ "parapheurs")
+  //        - OU préfixe commun ≥6 chars (gère dérivations FR :
+  //          "dematerialisation" partage "dematerialis" 12 chars avec "dematerialisees")
+  //      Si un mot ≥4 chars n'est trouvé d'aucune façon → no match.
+  //      Mots <4 chars (de, du, la, et) ignorés (stop words).
   const tWords = t.split(/\s+/);
   return kWords.every((kw) => {
-    if (kw.length < 4) return true; // ignore stop words / particules
-    return tWords.some((tw) => tw.includes(kw));
+    if (kw.length < 4) return true; // stop word, ignore
+    return tWords.some((tw) => {
+      if (tw.includes(kw)) return true; // substring (pluriel)
+      if (kw.length >= 6 && sharePrefix(kw, tw, 6)) return true; // dérivation
+      return false;
+    });
   });
 }
 
