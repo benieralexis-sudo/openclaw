@@ -1,13 +1,14 @@
 #!/bin/bash
-# iFIND — Bilan soir + auto-repair
+# iFIND — Bilan soir + auto-repair (post-pivot 05/05/2026)
 # Usage: bash /opt/moltbot/scripts/monitoring-soir.sh
-# Règles: restart containers OK, docker prune OK — jamais de modif code/données/.env
+# Règles: restart containers/service OK, docker prune OK — jamais de modif code/données/.env
 
 set -uo pipefail
 
 TELEGRAM_BOT_TOKEN=$(grep "^TELEGRAM_BOT_TOKEN=" /opt/moltbot/.env 2>/dev/null | head -1 | cut -d= -f2 | tr -d '"')
 TELEGRAM_CHAT_ID="1409505520"
-CONTAINER="moltbot-telegram-router-1"
+CONTAINER_ROUTER="moltbot-telegram-router-1"
+CONTAINER_POSTGRES="ifind-postgres"
 TODAY=$(date '+%d/%m/%Y')
 ACTIONS=""
 
@@ -21,82 +22,73 @@ send_telegram() {
 
 # ─── PHASE 1 : DIAGNOSTIC ────────────────────────────────────────────────────
 
-echo "[1/9] Containers..."
+echo "[1/9] dashboard-v2 systemd..."
 cd /opt/moltbot
 
-BOT_STATUS="❌ down"
+DASH_STATUS="❌ down"
+if systemctl is-active --quiet dashboard-v2 2>/dev/null; then
+  DASH_STATUS="✅ up"
+fi
+
+# Check HTTP dashboard
+DASH_HTTP="❌"
+if curl -sf --max-time 5 http://127.0.0.1:3100/login > /dev/null 2>&1; then
+  DASH_HTTP="✅"
+fi
+
+echo "[2/9] Containers Docker..."
+ROUTER_STATUS="❌ down"
 if docker compose ps 2>&1 | grep -q "telegram-router.*Up\|telegram-router.*running"; then
-  BOT_STATUS="✅ up"
+  ROUTER_STATUS="✅ up"
 fi
 
-CLIENTS_STATUS=""
+POSTGRES_STATUS="❌ down"
+if docker compose ps 2>&1 | grep -q "ifind-postgres.*Up\|ifind-postgres.*running"; then
+  POSTGRES_STATUS="✅ up"
+fi
+
+CLIENTS_INFO=""
 if [ -f /opt/moltbot/clients/docker-compose.clients.yml ]; then
-  CLIENTS_STATUS=$(docker compose -f clients/docker-compose.clients.yml ps 2>&1 | grep -v "^NAME" | awk '{print $1": "$2}' | head -5 | tr '\n' ' ')
+  CLIENTS_INFO=$(docker compose -f clients/docker-compose.clients.yml ps 2>&1 | grep -v "^NAME" | awk '{print $1": "$2}' | head -5 | tr '\n' ', ')
 fi
 
-echo "[2/9] Erreurs 12h..."
-ERRORS_12H=$(docker compose logs --since 12h telegram-router 2>&1 | grep -ic 'error\|CRITICAL\|FATAL' || echo "0")
+echo "[3/9] Erreurs dashboard-v2 12h..."
+ERRORS_DASH=$(journalctl -u dashboard-v2 --since "12 hours ago" 2>/dev/null | grep -ic 'error\|Error\|CRITICAL\|FATAL' || echo "0")
+ERRORS_ROUTER=$(docker compose logs --since 12h telegram-router 2>&1 | grep -ic 'error\|CRITICAL\|FATAL' || echo "0")
+ERRORS_12H=$(( ERRORS_DASH + ERRORS_ROUTER ))
 
-echo "[3/9] Disque..."
+echo "[4/9] Disque + RAM..."
 DISK_PCT=$(df -h / | awk 'NR==2 {print $5}' | tr -d '%')
 DISK_DISPLAY=$(df -h / | awk 'NR==2 {print $5}')
+RAM_USAGE=$(docker stats --no-stream "$CONTAINER_ROUTER" --format '{{.MemUsage}}' 2>/dev/null || echo "N/A")
 
-echo "[4/9] Emails envoyés..."
-EMAILS_TODAY=$(docker exec "$CONTAINER" node -e "
-  const fs=require('fs');
-  try {
-    const d=JSON.parse(fs.readFileSync('/data/automailer/daily-send-count.json','utf8'));
-    const today=new Date().toISOString().split('T')[0];
-    console.log(d.date===today ? d.count : 0);
-  } catch(e) { console.log(0); }
-" 2>/dev/null || echo "0")
+echo "[5/9] Triggers & Leads Postgres..."
+DB_URL=$(grep "^DATABASE_URL=" /opt/moltbot/dashboard-v2/.env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"')
+TRIGGERS_NEW="N/A"
+TRIGGERS_TOTAL="N/A"
+LEADS_TOTAL="N/A"
+LEADS_TODAY="N/A"
+if [ -n "${DB_URL:-}" ]; then
+  TRIGGERS_NEW=$(psql "$DB_URL" -t -c "SELECT COUNT(*) FROM \"Trigger\" WHERE status='NEW' AND \"deletedAt\" IS NULL;" 2>/dev/null | tr -d ' \n' || echo "N/A")
+  TRIGGERS_TOTAL=$(psql "$DB_URL" -t -c "SELECT COUNT(*) FROM \"Trigger\" WHERE \"deletedAt\" IS NULL;" 2>/dev/null | tr -d ' \n' || echo "N/A")
+  LEADS_TOTAL=$(psql "$DB_URL" -t -c "SELECT COUNT(*) FROM \"Lead\" WHERE \"deletedAt\" IS NULL;" 2>/dev/null | tr -d ' \n' || echo "N/A")
+  LEADS_TODAY=$(psql "$DB_URL" -t -c "SELECT COUNT(*) FROM \"Lead\" WHERE \"createdAt\" >= NOW() - INTERVAL '24 hours' AND \"deletedAt\" IS NULL;" 2>/dev/null | tr -d ' \n' || echo "N/A")
+fi
 
-echo "[5/9] Brain cycles..."
-BRAIN_LAST=$(docker exec "$CONTAINER" node -e "
-  const fs=require('fs');
-  try {
-    const ap=JSON.parse(fs.readFileSync('/data/autonomous-pilot/autonomous-pilot.json','utf8'));
-    const ts=ap.stats?.lastBrainCycleAt;
-    if (!ts) { console.log('jamais'); process.exit(0); }
-    const diff=Math.round((Date.now()-new Date(ts).getTime())/60000);
-    console.log(diff+'min ago');
-  } catch(e) { console.log('N/A'); }
-" 2>/dev/null || echo "N/A")
+echo "[6/9] Qualified leads (OUI) 7j..."
+LEADS_OUI="N/A"
+if [ -n "${DB_URL:-}" ]; then
+  LEADS_OUI=$(psql "$DB_URL" -t -c "SELECT COUNT(*) FROM \"Lead\" WHERE verdict='OUI' AND \"createdAt\" >= NOW() - INTERVAL '7 days' AND \"deletedAt\" IS NULL;" 2>/dev/null | tr -d ' \n' || echo "N/A")
+fi
 
-BRAIN_TOTAL=$(docker exec "$CONTAINER" node -e "
-  const fs=require('fs');
-  try {
-    const ap=JSON.parse(fs.readFileSync('/data/autonomous-pilot/autonomous-pilot.json','utf8'));
-    console.log(ap.stats?.totalBrainCycles || 0);
-  } catch(e) { console.log(0); }
-" 2>/dev/null || echo "0")
-
-echo "[6/9] Leads pool..."
-LEADS_POOL=$(docker exec "$CONTAINER" node -e "
-  const fs=require('fs');
-  try {
-    const ap=JSON.parse(fs.readFileSync('/data/autonomous-pilot/autonomous-pilot.json','utf8'));
-    console.log((ap.leads||[]).length);
-  } catch(e) { console.log(0); }
-" 2>/dev/null || echo "0")
-
-echo "[7/9] Replies & bounces..."
+echo "[7/9] Replies & bounces (router logs)..."
 REPLIES=$(docker compose logs --since 12h telegram-router 2>&1 | grep -c 'reply\|Reply\|interested' || echo "0")
 BOUNCES=$(docker compose logs --since 12h telegram-router 2>&1 | grep -ic 'bounce' || echo "0")
 
-echo "[8/9] RAM..."
-RAM_USAGE=$(docker stats --no-stream "$CONTAINER" --format '{{.MemUsage}}' 2>/dev/null || echo "N/A")
+echo "[8/9] Cron pollers santé..."
+POLLERS_LOG=$(tail -5 /var/log/run-pollers-cron.log 2>/dev/null || journalctl -u cron --since "6 hours ago" 2>/dev/null | grep -i poller | tail -3 || echo "log absent")
 
-echo "[9/9] Campagnes..."
-CAMPAIGNS=$(docker exec "$CONTAINER" node -e "
-  const fs=require('fs');
-  try {
-    const am=JSON.parse(fs.readFileSync('/data/automailer/automailer-db.json','utf8'));
-    const c=Object.values(am.campaigns||{});
-    console.log(c.filter(x=>x.status==='active').length+'/'+c.length);
-  } catch(e) { console.log('0/0'); }
-" 2>/dev/null || echo "0/0")
-
+echo "[9/9] Fichiers .tmp orphelins..."
 TMP_ORPHANS=$(find /var/lib/docker/volumes/ -name '*.tmp' -mmin +60 2>/dev/null | wc -l)
 
 # ─── PHASE 2 : AUTO-REPAIR ───────────────────────────────────────────────────
@@ -104,25 +96,52 @@ TMP_ORPHANS=$(find /var/lib/docker/volumes/ -name '*.tmp' -mmin +60 2>/dev/null 
 echo ""
 echo "=== AUTO-REPAIR ==="
 
-# Container down → relance
-if [ "$BOT_STATUS" = "❌ down" ]; then
-  echo "Container down — relance..."
+# dashboard-v2 down → restart systemd
+if [ "$DASH_STATUS" = "❌ down" ]; then
+  echo "dashboard-v2 down — systemctl restart..."
+  systemctl restart dashboard-v2 2>&1
+  sleep 10
+  if systemctl is-active --quiet dashboard-v2 2>/dev/null; then
+    DASH_STATUS="✅ up (relancé)"
+    DASH_HTTP="✅"
+    ACTIONS="${ACTIONS}dashboard-v2 relancé; "
+  else
+    ACTIONS="${ACTIONS}dashboard-v2 restart ÉCHEC; "
+  fi
+fi
+
+# telegram-router down → docker compose up
+if [ "$ROUTER_STATUS" = "❌ down" ]; then
+  echo "telegram-router down — docker compose up..."
   cd /opt/moltbot && docker compose up -d 2>&1
   sleep 10
   if docker compose ps 2>&1 | grep -q "telegram-router.*Up\|telegram-router.*running"; then
-    BOT_STATUS="✅ up (relancé)"
-    ACTIONS="${ACTIONS}container relancé; "
+    ROUTER_STATUS="✅ up (relancé)"
+    ACTIONS="${ACTIONS}telegram-router relancé; "
   else
-    ACTIONS="${ACTIONS}container relancé ÉCHEC; "
+    ACTIONS="${ACTIONS}telegram-router restart ÉCHEC; "
+  fi
+fi
+
+# postgres down → docker compose up
+if [ "$POSTGRES_STATUS" = "❌ down" ]; then
+  echo "ifind-postgres down — docker compose up..."
+  cd /opt/moltbot && docker compose up -d 2>&1
+  sleep 5
+  if docker compose ps 2>&1 | grep -q "ifind-postgres.*Up\|ifind-postgres.*running"; then
+    POSTGRES_STATUS="✅ up (relancé)"
+    ACTIONS="${ACTIONS}postgres relancé; "
+  else
+    ACTIONS="${ACTIONS}postgres restart ÉCHEC; "
   fi
 fi
 
 # Container unhealthy → restart
 UNHEALTHY=$(docker compose ps 2>&1 | grep -c 'unhealthy' || echo "0")
-if [ "$UNHEALTHY" -gt 0 ] && [ "$BOT_STATUS" != "❌ down" ]; then
-  echo "Container unhealthy — restart..."
-  cd /opt/moltbot && docker compose restart telegram-router 2>&1
-  ACTIONS="${ACTIONS}container restart (unhealthy); "
+if [ "${UNHEALTHY:-0}" -gt 0 ]; then
+  echo "Container unhealthy — restart all..."
+  cd /opt/moltbot && docker compose restart 2>&1
+  ACTIONS="${ACTIONS}containers restart (unhealthy); "
 fi
 
 # Disque >85% → prune
@@ -142,11 +161,11 @@ if [ "${TMP_ORPHANS:-0}" -gt 0 ]; then
   ACTIONS="${ACTIONS}${TMP_ORPHANS} .tmp supprimés; "
 fi
 
-# >10 erreurs CRITICAL → alerte uniquement, pas de correction
-CRITICAL_HITS=$(docker compose logs --since 12h telegram-router 2>&1 | grep -ic 'CRITICAL\|FATAL' || echo "0")
+# >10 erreurs CRITICAL → alerte uniquement
+CRITICAL_HITS=$(journalctl -u dashboard-v2 --since "12 hours ago" 2>/dev/null | grep -ic 'CRITICAL\|FATAL' || echo "0")
 CRITICAL_WARN=""
 if [ "${CRITICAL_HITS:-0}" -gt 10 ]; then
-  CRITICAL_WARN="❌ ${CRITICAL_HITS} erreurs CRITICAL — intervention manuelle requise"
+  CRITICAL_WARN="❌ ${CRITICAL_HITS} erreurs CRITICAL dashboard-v2 — intervention manuelle requise"
 fi
 
 [ -z "$ACTIONS" ] && ACTIONS="aucune"
@@ -156,25 +175,26 @@ fi
 echo ""
 echo "=== RAPPORT ==="
 
-# Résumé 1 ligne
-if [ "$BOT_STATUS" = "✅ up" ] && [ "${ERRORS_12H:-0}" -lt 10 ]; then
-  SUMMARY="Tout nominal. Pipeline actif."
-elif [ "$BOT_STATUS" = "❌ down" ]; then
-  SUMMARY="Bot down, intervention nécessaire."
+if [ "$DASH_STATUS" = "✅ up" ] && [ "$DASH_HTTP" = "✅" ] && [ "${ERRORS_12H:-0}" -lt 10 ]; then
+  SUMMARY="Tout nominal. Dashboard opérationnel."
+elif [ "$DASH_STATUS" = "❌ down" ]; then
+  SUMMARY="Dashboard-v2 DOWN — intervention requise."
+elif [ "$POSTGRES_STATUS" = "❌ down" ]; then
+  SUMMARY="Postgres DOWN — leads inaccessibles."
 else
   SUMMARY="${ERRORS_12H} erreurs détectées, surveiller."
 fi
 
 MESSAGE="📊 *Bilan Soir — ${TODAY}*
 
-${BOT_STATUS} Bot: ${BOT_STATUS#* }
+🖥️ Dashboard-v2: ${DASH_STATUS} (HTTP ${DASH_HTTP})
+🐘 Postgres: ${POSTGRES_STATUS}
+🤖 Router: ${ROUTER_STATUS}
 💾 Disque: ${DISK_DISPLAY} | RAM: ${RAM_USAGE}
-📧 Emails: ${EMAILS_TODAY} envoyés
-🧠 Brain: ${BRAIN_LAST} (${BRAIN_TOTAL} cycles total)
-👥 Pool: ${LEADS_POOL} leads
+🎯 Triggers NEW: ${TRIGGERS_NEW} / ${TRIGGERS_TOTAL} total
+👥 Leads: ${LEADS_TODAY} aujourd'hui | ${LEADS_OUI} OUI/7j | ${LEADS_TOTAL} total
 📥 Replies: ${REPLIES} | Bounces: ${BOUNCES}
-📊 Campagnes: ${CAMPAIGNS}
-⚠️ Erreurs 12h: ${ERRORS_12H}
+⚠️ Erreurs 12h: ${ERRORS_12H} (dash: ${ERRORS_DASH} / router: ${ERRORS_ROUTER})
 ${CRITICAL_WARN}
 🔧 Actions: ${ACTIONS}
 
